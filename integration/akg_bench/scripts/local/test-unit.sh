@@ -1,0 +1,101 @@
+#!/bin/bash
+# Copyright (c) 2026 Huawei Technologies Co., Ltd.
+# Licensed under the CANN Open Software License Agreement Version 2.0 (the "License").
+#
+# 单元测试 — 不需要 NPU, 不烧 LLM. 跑两件事:
+#   1. cheat_detector 5 类 fixture (clean / multi_jit / no_pypto / no_jit / suspicious)
+#      每类 verdict 必须与 fixtures/README.md 表格一致.
+#   2. verifier verify 子命令的 cheat-gate: 用 multi_jit 跑 verify, 必须
+#      verdict_machine=failed_cheat 且 correctness.status=skipped (不进 KernelVerifier).
+#
+# 用法 (cwd 任意均可):
+#   bash integration/akg_bench/scripts/local/test-unit.sh
+#
+# 退出 0 表示全过, 任一失败立刻退出非 0.
+
+source "$(dirname "${BASH_SOURCE[0]}")/lib.sh"
+
+section "test-unit: cheat_detector + verify cheat-gate (无 NPU 无 LLM)"
+
+# ---------- 1. AST + import 自检 ----------
+section "1. AST + import 自检"
+python3 -c "
+import ast
+for f in [
+    'integration/akg_bench/verifier/__main__.py',
+    'integration/akg_bench/verifier/cheat_detector.py',
+    'integration/akg_bench/verifier/pypto_adapter.py',
+    'integration/akg_bench/akg_verifier_runner.py',
+    'integration/akg_bench/run_kernelbench.py',
+]:
+    ast.parse(open(f).read(), f)
+print('AST OK')
+from integration.akg_bench.verifier import cheat_detector
+from integration.akg_bench.verifier import __main__ as vmain
+print('import OK')
+"
+pass "AST + import"
+
+# ---------- 2. 5 类 cheat_detector 分类 ----------
+section "2. cheat_detector 5 类 fixture 分类"
+
+EXPECT_CLEAN_VERDICT=pass
+EXPECT_MULTI_JIT_VERDICT=cheat
+EXPECT_NO_PYPTO_VERDICT=cheat
+EXPECT_NO_JIT_VERDICT=cheat
+EXPECT_SUSPICIOUS_VERDICT=suspicious
+
+for case in clean multi_jit no_pypto no_jit suspicious; do
+  fixture="${FIXTURES_DIR}/${case}"
+  if [ ! -f "${fixture}/relu_impl.py" ]; then
+    fail "fixture ${case} 缺 relu_impl.py"
+  fi
+  # cheat-check 对 cheat verdict 故意 exit 1, 用 || true 不杀脚本
+  out=$(python3 -m integration.akg_bench.verifier cheat-check "${fixture}" --op-name relu 2>/dev/null || true)
+  verdict=$(echo "${out}" | python3 -c "import json, sys; print(json.load(sys.stdin)['verdict'])")
+  expect_var="EXPECT_$(echo "${case}" | tr '[:lower:]' '[:upper:]')_VERDICT"
+  expect="${!expect_var}"
+  if [ "${verdict}" = "${expect}" ]; then
+    pass "${case} -> ${verdict}"
+  else
+    echo "${out}" > "${AKG_BENCH_LOG_DIR}/cheat_${case}.json"
+    fail "${case}: 期望 verdict=${expect}, 实际 ${verdict}; 完整输出 ${AKG_BENCH_LOG_DIR}/cheat_${case}.json"
+  fi
+done
+
+# ---------- 3. verify 子命令 cheat-gate ----------
+section "3. verify 子命令 cheat-gate (multi_jit 应被拦, 不进 KernelVerifier)"
+
+GATE_TASK="${AKG_BENCH_LOG_DIR}/gate_task_desc.py"
+cat > "${GATE_TASK}" <<'PY'
+import torch
+import torch.nn as nn
+class Model(nn.Module):
+    def forward(self, x):
+        return torch.relu(x)
+def get_inputs():
+    return [torch.randn(16, 16384)]
+def get_init_inputs():
+    return []
+PY
+
+GATE_REPORT="${AKG_BENCH_LOG_DIR}/gate_verify.json"
+python3 -m integration.akg_bench.verifier verify \
+    "${FIXTURES_DIR}/multi_jit" \
+    --op-name relu \
+    --task-desc "${GATE_TASK}" \
+    --mode correctness \
+    --json-out "${GATE_REPORT}" >/dev/null 2>&1 || true
+
+python3 - <<PY || fail "cheat-gate 行为不符: 见 ${GATE_REPORT}"
+import json
+d = json.load(open("${GATE_REPORT}"))
+assert d["verdict_machine"] == "failed_cheat", f"verdict_machine={d['verdict_machine']}"
+assert d["cheat_check"]["verdict"] == "cheat", f"cheat_check={d['cheat_check']['verdict']}"
+assert d["correctness"]["status"] == "skipped", f"correctness={d['correctness']['status']}"
+print("cheat-gate 行为符合预期")
+PY
+pass "verdict_machine=failed_cheat, correctness=skipped"
+
+section "test-unit ALL PASSED"
+echo "  详细报告: ${AKG_BENCH_LOG_DIR}"

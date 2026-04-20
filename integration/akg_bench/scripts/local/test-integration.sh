@@ -1,0 +1,100 @@
+#!/bin/bash
+# Copyright (c) 2026 Huawei Technologies Co., Ltd.
+# Licensed under the CANN Open Software License Agreement Version 2.0 (the "License").
+#
+# 真集成测试 — KernelBench → pypto 7 阶段 → skill 验证 → batch 报告 全程不跳.
+# 默认跑 19_ReLU 一个正例; 默认 verifier-mode=opencode (走 LLM skill).
+#
+# 两种模式:
+#   FULL=1 (默认)    — 不带 --skip-pypto-gen, 让 pypto-op-orchestrator 真跑
+#                      Stage 1-7 算子开发. 单 case ~50 min (大头是 LLM + Stage 7
+#                      perf-tune 跑 NPU profile). 这是真正的端到端集成.
+#   FULL=0 (cheap)   — 带 --skip-pypto-gen, 复用现成 custom/<op>/ 产物, 只测
+#                      verifier 这一段. 单 case ~3 min. 给开发期回归用.
+#
+# 用法:
+#   bash integration/akg_bench/scripts/local/test-integration.sh             # FULL
+#   FULL=0 bash integration/akg_bench/scripts/local/test-integration.sh      # cheap
+#   CASES=19_ReLU,20_LeakyReLU bash ...                                      # 多 case
+#   VERIFIER_MODE=direct bash ...                                            # 不烧 LLM 验证
+#   AKG_BENCH_LOG_DIR=/path bash ...                                         # 自定义 log
+#
+# 退出 0 表示 1/1 (或 N/N) 通过.
+
+source "$(dirname "${BASH_SOURCE[0]}")/lib.sh"
+
+require_npu
+
+CASES="${CASES:-19_ReLU}"
+FULL="${FULL:-1}"
+VERIFIER_MODE="${VERIFIER_MODE:-opencode}"
+SKILL_TIMEOUT="${SKILL_TIMEOUT:-1500}"
+PYPTO_TIMEOUT="${PYPTO_TIMEOUT:-5400}"
+MODE="${MODE:-correctness}"
+
+if [ "${VERIFIER_MODE}" = "opencode" ]; then
+  require_opencode
+fi
+if [ "${FULL}" = "1" ]; then
+  require_opencode
+fi
+
+REPORT_DIR="${AKG_BENCH_LOG_DIR}/report"
+LOG_DIR="${AKG_BENCH_LOG_DIR}/logs"
+mkdir -p "${REPORT_DIR}" "${LOG_DIR}"
+
+cmd=(
+  python3 -m integration.akg_bench.run_kernelbench
+  --cases "${CASES}"
+  --mode "${MODE}"
+  --devices "${TILE_FWK_DEVICE_ID}"
+  --concurrency 1
+  --verifier-mode "${VERIFIER_MODE}"
+  --skill-timeout "${SKILL_TIMEOUT}"
+  --timeout-sec "${PYPTO_TIMEOUT}"
+  --report-dir "${REPORT_DIR}"
+  --log-dir "${LOG_DIR}"
+  --log-level INFO
+)
+
+if [ "${FULL}" = "0" ]; then
+  cmd+=( --skip-pypto-gen )
+  section "test-integration: ${CASES} (cheap, --skip-pypto-gen, verifier=${VERIFIER_MODE})"
+else
+  section "test-integration: ${CASES} (FULL, pypto 7-stage + verifier=${VERIFIER_MODE})"
+  echo "  WARN: 单 case 约 50 min (含 Stage 7 性能调优 + LLM 调用)" >&2
+fi
+
+echo "  command:"
+printf '    %s\n' "${cmd[@]}"
+
+# 真跑
+"${cmd[@]}" 2>&1 | tee "${AKG_BENCH_LOG_DIR}/batch.log"
+
+# 验报告
+section "解读 summary.json"
+python3 - <<PY || fail "summary 不符 1/1 通过: ${REPORT_DIR}/summary.json"
+import json
+d = json.load(open("${REPORT_DIR}/summary.json"))
+totals = d["totals"]
+meta = d["meta"]
+print(f"  verifier_mode    = {meta.get('verifier_mode')}")
+print(f"  validator_agent  = {meta.get('validator_agent')}")
+print(f"  mode             = {meta.get('mode')}")
+print(f"  total            = {totals['total']}")
+print(f"  success          = {totals['success']} ({totals['success_rate']*100:.0f}%)")
+print(f"  correctness pass = {totals['correctness']['pass']}/{totals['total']}")
+dur = totals["duration_sec"]
+print(f"  pypto_total_sec  = {dur['pypto_total']:.1f}")
+print(f"  verify_total_sec = {dur['verify_total']:.1f}")
+print(f"  wall_total_sec   = {dur['wall_total']:.1f}")
+
+assert totals["success"] == totals["total"], "存在失败 case"
+assert totals["correctness"]["fail"] == 0, "精度失败"
+PY
+pass "summary 1/1 通过"
+
+section "test-integration ALL PASSED"
+echo "  summary    : ${REPORT_DIR}/summary.md"
+echo "  json       : ${REPORT_DIR}/summary.json"
+echo "  batch log  : ${AKG_BENCH_LOG_DIR}/batch.log"

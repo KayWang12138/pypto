@@ -1,0 +1,527 @@
+#!/usr/bin/env python3
+# coding: utf-8
+# Copyright (c) 2026 Huawei Technologies Co., Ltd.
+# Licensed under the CANN Open Software License Agreement Version 2.0 (the "License").
+"""KernelBench × pypto 端到端批处理 CLI.
+
+使用示例:
+
+    # 单 case MVP (默认 --bench-dir 走桥接层 .cache/KernelBench/KernelBench/)
+    python -m integration.akg_bench.run_kernelbench \\
+        --cases 19_relu \\
+        --level level1 \\
+        --devices 0 --arch ascend910b4 --mode correctness
+
+    # 多 case 多卡并发
+    python -m integration.akg_bench.run_kernelbench \\
+        --cases 19_relu,20_leakyrelu,21_sigmoid \\
+        --devices 0,1,2 --concurrency 3 \\
+        --report-dir akg_bench_report
+
+    # 仅复跑验证 (跳过 pypto 生成阶段, 要求产物已就绪)
+    python -m integration.akg_bench.run_kernelbench \\
+        --cases 19_relu --skip-pypto-gen
+"""
+
+from __future__ import annotations
+
+import argparse
+import asyncio
+import datetime as dt
+import json
+import logging
+import sys
+import time
+from dataclasses import dataclass
+from pathlib import Path
+from typing import Any, Dict, List, Optional
+
+import yaml
+
+from . import case_loader, pypto_runner, akg_verifier_runner, report
+from .case_loader import CaseSpec, derive_op_name
+from .pypto_runner import PyptoRunResult, PyptoRunStatus, run_pypto_workflow
+from .akg_verifier_runner import VerifierResult, VerifierStatus, run_verifier
+from .report import CaseRunRecord, derive_overall_status, write_case_result, write_summary
+
+
+logger = logging.getLogger("akg_bench")
+
+
+# ────────────────────────────────────────────────────────────
+# 配置加载
+# ────────────────────────────────────────────────────────────
+
+DEFAULT_CONFIG_PATH = Path(__file__).parent / "configs" / "default.yaml"
+
+
+def load_yaml_config(path: Path) -> Dict[str, Any]:
+    if not path.exists():
+        return {}
+    return yaml.safe_load(path.read_text(encoding="utf-8")) or {}
+
+
+def parse_csv_int_list(text: str) -> List[int]:
+    return [int(x) for x in text.split(",") if x.strip()]
+
+
+def parse_csv_str_list(text: str) -> List[str]:
+    return [x.strip() for x in text.split(",") if x.strip()]
+
+
+# ────────────────────────────────────────────────────────────
+# 用例发现 (上游 KernelBench 扁平布局, 强制)
+# ────────────────────────────────────────────────────────────
+
+def discover_cases(level_dir: Path, requested: Optional[List[str]] = None,
+                   limit: Optional[int] = None) -> List[Path]:
+    """在 ``level_dir`` (即 ``KernelBench/<level>/``) 下查找用例.
+
+    上游 KernelBench (github.com/ScalingIntelligence/KernelBench @ 21fbe5a)
+    布局为扁平 .py 文件, 形如 ``KernelBench/level1/19_relu.py``. 每个 .py
+    即一个用例, ``case_id`` = 文件名 stem (不含 ``.py``).
+
+    Args:
+        level_dir: ``KernelBench/<level>/`` 目录绝对路径.
+        requested: 用户指定的 case_id 子集; ``None`` 表示全选.
+            可写完整 stem (``19_relu``) 或仅序号前缀 (``19``).
+        limit: 截断数量, 仅在 ``requested`` 为空时生效.
+
+    Returns:
+        每个用例对应的 ``.py`` 文件绝对路径列表.
+
+    Raises:
+        FileNotFoundError: ``level_dir`` 不存在.
+        ValueError: ``level_dir`` 下没有任何 .py (布局不对); 或
+            ``requested`` 中有 case 找不到; 或检测到子目录结构
+            (旧 akg-numpy 适配布局, 不再支持).
+    """
+    if not level_dir.exists():
+        raise FileNotFoundError(f"level dir 不存在: {level_dir}")
+    if not level_dir.is_dir():
+        raise ValueError(f"level dir 不是目录: {level_dir}")
+
+    py_files = sorted(p for p in level_dir.iterdir() if p.is_file() and p.suffix == ".py")
+    subdirs_with_py = [
+        p for p in level_dir.iterdir()
+        if p.is_dir() and any(p.glob("*.py"))
+    ]
+
+    if not py_files:
+        if subdirs_with_py:
+            raise ValueError(
+                f"{level_dir} 下没有扁平 .py 文件, 但发现子目录含 .py "
+                f"(子目录数: {len(subdirs_with_py)}). 桥接层只支持上游 KernelBench "
+                f"扁平布局 (KernelBench/<level>/{{N}}_{{name}}.py); 不接受旧的 "
+                f"akg-numpy / mindspore 适配布局. 请运行 "
+                f"`bash pypto/integration/akg_bench/scripts/download_kernelbench.sh` "
+                f"下载上游数据集."
+            )
+        raise ValueError(
+            f"{level_dir} 下找不到任何 .py 用例. 检查路径是否指向 "
+            f"KernelBench/<level>/ (例如 .cache/KernelBench/KernelBench/level1)."
+        )
+
+    by_stem: Dict[str, Path] = {p.stem: p for p in py_files}
+    by_index_prefix: Dict[str, Path] = {}
+    for stem, path in by_stem.items():
+        idx = stem.split("_", 1)[0]
+        if idx.isdigit():
+            by_index_prefix.setdefault(idx, path)
+
+    if requested:
+        resolved: List[Path] = []
+        missing: List[str] = []
+        for r in requested:
+            if r in by_stem:
+                resolved.append(by_stem[r])
+            elif r in by_index_prefix:
+                resolved.append(by_index_prefix[r])
+            else:
+                missing.append(r)
+        if missing:
+            raise ValueError(
+                f"以下 case 在 {level_dir} 中找不到: {missing}. "
+                f"可用 case (前 10 个): {sorted(by_stem)[:10]}"
+            )
+        return resolved
+
+    cases = list(by_stem.values())
+    if limit is not None:
+        cases = cases[:limit]
+    return cases
+
+
+# ────────────────────────────────────────────────────────────
+# 单 case 流水线
+# ────────────────────────────────────────────────────────────
+
+@dataclass
+class _RunCfg:
+    pypto_repo_root: Path
+    workdir_root: str
+    opencode_bin: str
+    pypto_agent: str
+    pypto_timeout: int
+    pypto_output_format: str
+    arch: str
+    backend: str
+    framework: str
+    verify_timeout: int
+    log_dir: Path
+    report_dir: Path
+    mode: str                      # correctness / performance / full
+    skip_pypto_gen: bool
+    force_regen: bool
+    extra_verifier_config: Dict[str, Any]
+    verifier_mode: str             # opencode / direct
+    validator_agent: str           # opencode 模式: agent 名
+    skill_timeout_sec: int         # opencode 模式: skill 子进程硬超时
+
+
+async def run_one_case(case_path: Path, device_id: int, cfg: _RunCfg,
+                       semaphore: asyncio.Semaphore) -> CaseRunRecord:
+    started_at = dt.datetime.now().isoformat(timespec="seconds")
+
+    case = case_loader.load_case(case_path, case_id=case_path.stem)
+    op_name = case.op_name
+    op_workdir = cfg.pypto_repo_root / cfg.workdir_root
+    op_dir = op_workdir / op_name
+    case_report_dir = cfg.report_dir / op_name
+    case_report_dir.mkdir(parents=True, exist_ok=True)
+
+    # 1) 写 SPEC + task_desc
+    case_loader.write_spec(case, op_workdir)
+    case_loader.write_task_desc(case, op_workdir)
+
+    # 2) Pypto 7-stage 工作流 (占设备号槽位)
+    record = CaseRunRecord(
+        op_name=op_name,
+        case_id=case.case_id,
+        source_file=case.source_file,
+        started_at=started_at,
+    )
+
+    async with semaphore:
+        if cfg.skip_pypto_gen:
+            pypto_result = PyptoRunResult(
+                op_name=op_name,
+                status=PyptoRunStatus.SKIPPED,
+                workdir=op_dir,
+                message="--skip-pypto-gen, 跳过 pypto 生成阶段.",
+            )
+        else:
+            pypto_log = case_report_dir / "pypto_run.log"
+            pypto_result = await asyncio.to_thread(
+                run_pypto_workflow,
+                op_name=op_name,
+                pypto_repo_root=cfg.pypto_repo_root,
+                workdir_root=cfg.workdir_root,
+                opencode_bin=cfg.opencode_bin,
+                agent=cfg.pypto_agent,
+                timeout_sec=cfg.pypto_timeout,
+                device_id=device_id,
+                log_file=pypto_log,
+                output_format=cfg.pypto_output_format,
+                skip_if_done=not cfg.force_regen,
+            )
+
+        record.pypto_status = pypto_result.status.value
+        record.pypto_message = pypto_result.message
+        record.pypto_duration_sec = pypto_result.duration_sec
+        record.pypto_log_file = str(pypto_result.log_file) if pypto_result.log_file else None
+        record.pypto_artifacts = {k: str(v) for k, v in pypto_result.artifacts.items()}
+
+        if not pypto_result.ok:
+            record.overall_status = "pypto_failed"
+            record.finished_at = dt.datetime.now().isoformat(timespec="seconds")
+            write_case_result(record, cfg.report_dir)
+            return record
+
+        # 3) KernelVerifier (仍占设备号槽位避免冲突)
+        verifier_log = case_report_dir / "verifier.log"
+        try:
+            verifier_result = await run_verifier(
+                op_name=op_name,
+                op_dir=op_dir,
+                task_desc=case.task_desc,
+                arch=cfg.arch,
+                backend=cfg.backend,
+                framework=cfg.framework,
+                device_id=device_id,
+                log_dir=cfg.log_dir,
+                task_id=f"akgbench_{op_name}_{int(time.time()*1000)}",
+                verify_timeout=cfg.verify_timeout,
+                extra_config=cfg.extra_verifier_config,
+                log_file=verifier_log,
+                mode=cfg.mode,
+                verifier_mode=cfg.verifier_mode,
+                opencode_bin=cfg.opencode_bin,
+                validator_agent=cfg.validator_agent,
+                skill_timeout_sec=cfg.skill_timeout_sec,
+            )
+        except Exception as e:
+            verifier_result = VerifierResult(
+                op_name=op_name,
+                status=VerifierStatus.ERROR,
+                message=f"run_verifier 抛异常: {e}",
+            )
+
+    record.verifier_status = verifier_result.status.value
+    record.verifier_message = verifier_result.message
+    record.verifier_duration_sec = verifier_result.duration_sec
+    record.verifier_log_file = str(verifier_result.log_file) if verifier_result.log_file else None
+    record.correctness = verifier_result.correctness
+    record.perf_gen_time_us = verifier_result.perf_gen_time_us
+    record.perf_base_time_us = verifier_result.perf_base_time_us
+    record.perf_speedup = verifier_result.perf_speedup
+    record.perf_roofline_time_us = verifier_result.perf_roofline_time_us
+    record.perf_roofline_speedup = verifier_result.perf_roofline_speedup
+    record.perf_message = verifier_result.perf_message
+    record.overall_status = derive_overall_status(
+        pypto_ok=pypto_result.ok,
+        verifier_status=verifier_result.status.value,
+        correctness=verifier_result.correctness,
+    )
+    record.finished_at = dt.datetime.now().isoformat(timespec="seconds")
+    write_case_result(record, cfg.report_dir)
+    return record
+
+
+# ────────────────────────────────────────────────────────────
+# 主调度
+# ────────────────────────────────────────────────────────────
+
+async def run_batch(case_paths: List[Path], devices: List[int], concurrency: int,
+                    cfg: _RunCfg) -> List[CaseRunRecord]:
+    if not case_paths:
+        return []
+    if not devices:
+        raise ValueError("devices 列表不能为空.")
+
+    semaphore = asyncio.Semaphore(min(concurrency, len(devices)))
+
+    async def _wrapper(idx: int, path: Path) -> CaseRunRecord:
+        device_id = devices[idx % len(devices)]
+        try:
+            return await run_one_case(path, device_id, cfg, semaphore)
+        except Exception as e:
+            logger.exception(f"[{path.name}] run_one_case 异常: {e}")
+            op_name = derive_op_name(path.parent.name)
+            return CaseRunRecord(
+                op_name=op_name,
+                case_id=path.parent.name,
+                source_file=str(path),
+                pypto_status="exception",
+                pypto_message=str(e),
+                overall_status="pypto_failed",
+                started_at=dt.datetime.now().isoformat(timespec="seconds"),
+                finished_at=dt.datetime.now().isoformat(timespec="seconds"),
+            )
+
+    coros = [_wrapper(i, p) for i, p in enumerate(case_paths)]
+    return await asyncio.gather(*coros)
+
+
+# ────────────────────────────────────────────────────────────
+# CLI
+# ────────────────────────────────────────────────────────────
+
+def _resolve_pypto_repo_root(repo_root: Optional[Path]) -> Path:
+    if repo_root:
+        return repo_root.resolve()
+    here = Path(__file__).resolve().parent.parent.parent
+    if (here / "pyproject.toml").exists():
+        return here
+    return Path.cwd()
+
+
+def _build_cfg(args: argparse.Namespace, yaml_cfg: Dict[str, Any]) -> _RunCfg:
+    pypto_yaml = yaml_cfg.get("pypto", {}) or {}
+    verifier_yaml = yaml_cfg.get("verifier", {}) or {}
+    report_yaml = yaml_cfg.get("report", {}) or {}
+
+    return _RunCfg(
+        pypto_repo_root=_resolve_pypto_repo_root(args.repo_root),
+        workdir_root=args.workdir_root or pypto_yaml.get("workdir_root", "custom"),
+        opencode_bin=args.opencode_bin or pypto_yaml.get("opencode_bin", "") or "",
+        pypto_agent=args.agent or pypto_yaml.get("agent", "pypto-op-orchestrator"),
+        pypto_timeout=args.timeout_sec or pypto_yaml.get("timeout_sec", 1800),
+        pypto_output_format=args.opencode_format or pypto_yaml.get("output_format", "default"),
+        arch=args.arch or verifier_yaml.get("arch", "ascend910b4"),
+        backend=args.backend or verifier_yaml.get("backend", "ascend"),
+        framework=args.framework or verifier_yaml.get("framework", "torch"),
+        verify_timeout=args.verify_timeout or verifier_yaml.get("verify_timeout", 300),
+        log_dir=Path(args.log_dir or verifier_yaml.get("log_dir", "~/pypto_bench_logs")).expanduser(),
+        report_dir=Path(args.report_dir or report_yaml.get("out_dir", "akg_bench_report")).resolve(),
+        mode=args.mode or verifier_yaml.get("mode", "correctness"),
+        skip_pypto_gen=args.skip_pypto_gen,
+        force_regen=args.force_regen,
+        extra_verifier_config={},
+        verifier_mode=args.verifier_mode or verifier_yaml.get("verifier_mode", "opencode"),
+        validator_agent=args.validator_agent or verifier_yaml.get(
+            "validator_agent", "pypto-kernel-validator"
+        ),
+        skill_timeout_sec=args.skill_timeout or verifier_yaml.get("skill_timeout_sec", 1800),
+    )
+
+
+def _build_arg_parser() -> argparse.ArgumentParser:
+    p = argparse.ArgumentParser(
+        description="KernelBench × pypto 端到端批处理",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
+    p.add_argument("--config", type=Path, default=DEFAULT_CONFIG_PATH,
+                   help=f"YAML 配置 (default: {DEFAULT_CONFIG_PATH})")
+    p.add_argument("--bench-dir", type=Path, default=None,
+                   help="上游 KernelBench 根目录 (即 KernelBench/KernelBench/, "
+                        "含 level1/level2/level3 子目录); 默认 .cache/KernelBench/KernelBench")
+    p.add_argument("--level", type=str, default="",
+                   help="KernelBench 难度子目录, 如 level1/level2/level3 (默认 level1)")
+    p.add_argument("--cases", type=str, default="",
+                   help="逗号分隔的 case_id 列表 (如 '19_relu' 或 '19'); "
+                        "空表示按 --limit 跑全部")
+    p.add_argument("--limit", type=int, default=None,
+                   help="未指定 --cases 时, 截取前 N 个用例")
+    p.add_argument("--devices", type=str, default="",
+                   help="逗号分隔的 device_id 列表 (覆盖配置)")
+    p.add_argument("--concurrency", type=int, default=None,
+                   help="并发上限 (默认 = devices 数)")
+    p.add_argument("--repo-root", type=Path, default=None,
+                   help="pypto 仓根 (子进程 cwd)")
+    p.add_argument("--workdir-root", type=str, default="",
+                   help="算子产物根目录, 形成 {root}/{op}/")
+    p.add_argument("--opencode-bin", type=str, default="",
+                   help="opencode 可执行路径")
+    p.add_argument("--agent", type=str, default="",
+                   help="opencode --agent 名")
+    p.add_argument("--timeout-sec", type=int, default=0,
+                   help="单 case opencode 子进程超时 (秒)")
+    p.add_argument("--opencode-format", type=str, default="",
+                   choices=["", "default", "json"],
+                   help="opencode --format")
+    p.add_argument("--arch", type=str, default="",
+                   help="硬件架构 (ascend910b4 等)")
+    p.add_argument("--backend", type=str, default="",
+                   choices=["", "ascend", "cuda", "cpu"])
+    p.add_argument("--framework", type=str, default="",
+                   choices=["", "torch", "mindspore", "numpy"])
+    p.add_argument("--verify-timeout", type=int, default=0,
+                   help="单次 KernelVerifier 超时 (秒)")
+    p.add_argument("--log-dir", type=str, default="",
+                   help="KernelVerifier log 根目录")
+    p.add_argument("--report-dir", type=str, default="",
+                   help="批处理报告输出目录")
+    p.add_argument("--mode", type=str, default="",
+                   choices=["", "correctness", "performance", "full"],
+                   help="验证模式 (correctness=精度; performance/full=精度+性能)")
+    p.add_argument("--verifier-mode", type=str, default="",
+                   choices=["", "opencode", "direct"],
+                   help="opencode=经 skill 走 LLM 语义层反作弊+精度+性能 (默认); "
+                        "direct=直调 KernelVerifier, 跳过 LLM 语义层, 用于离线 dev 调试")
+    p.add_argument("--validator-agent", type=str, default="",
+                   help="opencode 模式 agent 名 (默认 pypto-kernel-validator)")
+    p.add_argument("--skill-timeout", type=int, default=0,
+                   help="opencode 模式 skill 子进程硬超时 (秒, 默认 1800)")
+    p.add_argument("--skip-pypto-gen", action="store_true",
+                   help="跳过 pypto 生成, 仅复跑验证 (要求产物已就绪)")
+    p.add_argument("--force-regen", action="store_true",
+                   help="即使产物齐全也强制重跑 pypto 生成")
+    p.add_argument("--log-level", type=str, default="INFO",
+                   choices=["DEBUG", "INFO", "WARN", "WARNING", "ERROR"])
+    return p
+
+
+def _setup_logging(level: str) -> None:
+    norm = "WARNING" if level == "WARN" else level
+    logging.basicConfig(
+        level=getattr(logging, norm),
+        format="[%(asctime)s] [%(levelname)s] %(name)s: %(message)s",
+        datefmt="%H:%M:%S",
+    )
+
+
+def main(argv: Optional[List[str]] = None) -> int:
+    parser = _build_arg_parser()
+    args = parser.parse_args(argv)
+    _setup_logging(args.log_level)
+
+    yaml_cfg = load_yaml_config(args.config)
+    cfg = _build_cfg(args, yaml_cfg)
+
+    yaml_bench = (yaml_cfg.get("bench_dir") or "").strip()
+    if args.bench_dir is not None:
+        bench_dir = args.bench_dir
+    elif yaml_bench:
+        bench_dir = Path(yaml_bench).expanduser()
+    else:
+        # 默认指向桥接层 .cache/KernelBench/KernelBench (download_kernelbench.sh 落地点)
+        bench_dir = Path(__file__).resolve().parent / ".cache" / "KernelBench" / "KernelBench"
+    if not bench_dir.is_absolute():
+        # 相对路径优先按当前 CWD 解析; 若不存在再回退到 pypto_repo_root.
+        cwd_candidate = (Path.cwd() / bench_dir).resolve()
+        repo_candidate = (cfg.pypto_repo_root / bench_dir).resolve()
+        if cwd_candidate.exists():
+            bench_dir = cwd_candidate
+        elif repo_candidate.exists():
+            bench_dir = repo_candidate
+        else:
+            bench_dir = cwd_candidate  # 报错时给个明确的路径
+
+    level = args.level or yaml_cfg.get("level", "level1")
+    level_dir = bench_dir / level
+    if not level_dir.exists():
+        parser.error(
+            f"level dir 不存在: {level_dir}\n"
+            f"  bench_dir = {bench_dir}\n"
+            f"  level     = {level}\n"
+            f"请先运行: bash pypto/integration/akg_bench/scripts/download_kernelbench.sh"
+        )
+
+    requested = parse_csv_str_list(args.cases) if args.cases else None
+    case_paths = discover_cases(level_dir, requested=requested, limit=args.limit)
+    if not case_paths:
+        parser.error(f"未发现可执行用例 (level_dir={level_dir})")
+
+    devices = parse_csv_int_list(args.devices) if args.devices else (yaml_cfg.get("devices") or [0])
+    concurrency = args.concurrency or yaml_cfg.get("concurrency") or len(devices)
+
+    cfg.report_dir.mkdir(parents=True, exist_ok=True)
+    logger.info(f"pypto_repo_root  = {cfg.pypto_repo_root}")
+    logger.info(f"bench_dir        = {bench_dir}")
+    logger.info(f"level            = {level} (-> {level_dir})")
+    logger.info(f"cases            = {[p.stem for p in case_paths]}")
+    logger.info(f"devices          = {devices}, concurrency = {concurrency}")
+    logger.info(f"arch / backend   = {cfg.arch} / {cfg.backend}")
+    logger.info(f"report_dir       = {cfg.report_dir}")
+
+    records = asyncio.run(run_batch(case_paths, devices, concurrency, cfg))
+
+    summary_paths = write_summary(
+        records, cfg.report_dir,
+        meta={
+            "bench_dir": str(bench_dir),
+            "level": level,
+            "kernelbench_commit": "21fbe5a642898cd60b8f60c7aefb43d475e11f33",
+            "arch": cfg.arch,
+            "backend": cfg.backend,
+            "framework": cfg.framework,
+            "mode": cfg.mode,
+            "verifier_mode": cfg.verifier_mode,
+            "validator_agent": cfg.validator_agent if cfg.verifier_mode == "opencode" else None,
+            "devices": devices,
+            "concurrency": concurrency,
+            "pypto_repo_root": str(cfg.pypto_repo_root),
+        },
+    )
+
+    success_n = sum(1 for r in records if r.succeeded)
+    total = len(records)
+    logger.info(f"完成: {success_n}/{total} 通过")
+    logger.info(f"summary: {summary_paths['md']}")
+
+    return 0 if success_n == total else 1
+
+
+if __name__ == "__main__":
+    sys.exit(main())
