@@ -673,10 +673,10 @@ if __name__ == "__main__":
         ShapeConfig(
             ori_shape=[32, 512, 7168],
             group_list=[256, 256],
-            m_tile_shape=[32, 32],     # mL1=M，消除重复载入
-            k_tile_shape=[256, 256],    # kL1=K_group，使能大包搬运
-            n_tile_shape=[256, 256],  # nL1增大，切分次数从7减到3.5
-            vector_tile_shape=[1, 8, 256, 2048],
+            m_tile_shape=[32, 32],
+            k_tile_shape=[64, 256],
+            n_tile_shape=[512, 2048],
+            vector_tile_shape=[1, 8, 2048, 2],
             group_type=1,
             in_dtype=pypto.DT_FP8E4M3,
             a_trans=True,
