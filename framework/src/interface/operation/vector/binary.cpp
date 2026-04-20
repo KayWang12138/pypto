@@ -187,7 +187,8 @@ void TiledBinaryOperation(
         input2.tileInfo.offset[cur] = i % input2.tensor->GetShape()[cur];
         input2.tileInfo.shape[cur] =
             std::min(input2.tensor->GetShape()[cur] - input2.tileInfo.offset[cur], vecTile[cur]);
-        TiledBinaryOperation<T>(function, tileShape, cur + 1, input1, input2, result, resultTileInfo, withBrc, precisionType);
+        TiledBinaryOperation<T>(
+            function, tileShape, cur + 1, input1, input2, result, resultTileInfo, withBrc, precisionType);
     }
 }
 
@@ -394,10 +395,14 @@ Tensor Div(const Tensor& self, const Tensor& other, DivAlgorithm precisionType)
     return Tensor(result);
 }
 
-Tensor Fmod(const Tensor& self, const Tensor& other)
+Tensor Fmod(const Tensor& self, const Tensor& other, FmodAlgorithm precisionType)
 {
     DECLARE_TRACER();
-    RETURN_CALL(BinaryOperation<BinaryOpType::MOD>, *Program::GetInstance().GetCurrentFunction(), self, other);
+
+    auto [result, op] =
+        TensorBinaryOperationWithOp<BinaryOpType::MOD>(*Program::GetInstance().GetCurrentFunction(), self, other);
+    op->SetAttribute(OpAttributeKey::precisionType, static_cast<int64_t>(precisionType));
+    return Tensor(result);
 }
 
 Tensor Remainder(const Tensor& self, const Tensor& other)
@@ -570,7 +575,8 @@ void TiledBinaryOperationScalar(
     TileInfo tileInfo1(result->shape.size(), result->offset.size());
     TileInfo resultTileInfo(result->shape.size(), result->offset.size());
     auto input1 = LogicalInput{operand1, tileInfo1};
-    TiledBinaryOperationScalar<T>(function, tileShape, 0, input1, value, result, resultTileInfo, reverseOperand, precisionType);
+    TiledBinaryOperationScalar<T>(
+        function, tileShape, 0, input1, value, result, resultTileInfo, reverseOperand, precisionType);
 }
 
 template <BinaryOpType T>
@@ -654,12 +660,13 @@ Tensor Div(const Tensor& self, const Element& other, DivAlgorithm precisionType)
     return Tensor(result);
 }
 
-Tensor Fmod(const Tensor& self, const Element& other)
+Tensor Fmod(const Tensor& self, const Element& other, FmodAlgorithm precisionType)
 {
     DECLARE_TRACER();
-    RETURN_CALL(
-        BinaryOperationScalar<BinaryOpType::MOD>, *Program::GetInstance().GetCurrentFunction(), self.GetStorage(),
-        other);
+    auto [result, op] = TensorBinaryOperationScalarWithOp<BinaryOpType::MOD>(
+        *Program::GetInstance().GetCurrentFunction(), self.GetStorage(), other);
+    op->SetAttribute(OpAttributeKey::precisionType, static_cast<int64_t>(precisionType));
+    return Tensor(result);
 }
 
 Tensor Remainder(const Tensor& self, const Element& other)
@@ -1051,7 +1058,8 @@ void BinaryOperationScalarTileFunc(
         }
     }
     TiledBinaryOperationScalar<T>(
-        function, tileShape, iOperand[0], op.GetElementAttribute(OpAttributeKey::scalar), oOperand[0], false, precisionType);
+        function, tileShape, iOperand[0], op.GetElementAttribute(OpAttributeKey::scalar), oOperand[0], false,
+        precisionType);
 }
 
 template <BinaryOpType T>
