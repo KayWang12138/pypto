@@ -15,6 +15,7 @@ from pathlib import Path
 from typing import Any, Literal, cast
 from urllib.parse import parse_qs, urlparse
 
+from playwright.sync_api import Page, Response, sync_playwright
 
 WaitStrategy = Literal["domcontentloaded", "load", "networkidle", "commit"]
 
@@ -126,8 +127,6 @@ def _save_debug_artifacts(page: object, debug_dir: str, attempt: int, stage: str
     if not debug_dir:
         return
 
-    from playwright.sync_api import Page
-
     debug_page = cast(Page, page)
     debug_path = Path(debug_dir)
     debug_path.mkdir(parents=True, exist_ok=True)
@@ -147,8 +146,6 @@ def _save_debug_artifacts(page: object, debug_dir: str, attempt: int, stage: str
 
 
 def _collect_candidate_texts(page: object) -> list[str]:
-    from playwright.sync_api import Page
-
     candidate_page = cast(Page, page)
     texts: list[str] = []
 
@@ -249,14 +246,10 @@ def _extract_task_seed_from_url(url: str) -> tuple[str, str, str | None]:
 
 
 def _capture_task_api_seed(page: object, url: str, config: FetcherConfig) -> TaskApiSeed | None:
-    from playwright.sync_api import Page
-
     inspect_page = cast(Page, page)
     captured: list[TaskApiSeed] = []
 
     def _on_response(response: object) -> None:
-        from playwright.sync_api import Response
-
         resp = cast(Response, response)
         req = resp.request
         if req.method.upper() != "POST":
@@ -334,8 +327,6 @@ def _capture_task_api_seed(page: object, url: str, config: FetcherConfig) -> Tas
 
 
 def _fetch_all_violations_via_task_api(page: object, seed: TaskApiSeed, config: FetcherConfig) -> list[Violation]:
-    from playwright.sync_api import Page
-
     fetch_page = cast(Page, page)
     all_items: list[Violation] = []
     total_expected = max(0, seed.total)
@@ -387,8 +378,6 @@ def extract_violations_with_playwright(
     config: FetcherConfig,
     attempt: int,
 ) -> list[Violation]:
-    from playwright.sync_api import sync_playwright
-
     with sync_playwright() as playwright:
         browser = playwright.chromium.launch(headless=True)
         try:
