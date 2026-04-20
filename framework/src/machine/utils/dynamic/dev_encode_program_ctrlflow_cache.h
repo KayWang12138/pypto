@@ -34,6 +34,7 @@ constexpr size_t READY_QUEUE_SIZE = 3UL;
 constexpr size_t DIE_READY_QUEUE_SIZE = 2UL;
 inline constexpr size_t MAX_STITCH_FUNC_NUM = 1024;
 inline constexpr size_t MAX_STITCH_FUNC_NUM_LOWER = 128;
+inline constexpr size_t DEFAULT_STITCH_CFGCACHE_SIZE = 100000000;
 
 struct ReadyQueueCache {
     uint32_t coreFunctionCnt;
