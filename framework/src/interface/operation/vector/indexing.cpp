@@ -22,6 +22,7 @@
 #include "interface/program/program.h"
 #include "tensor_transformation.h"
 #include "interface/utils/vector_error.h"
+#include "operation_common.h"
 
 namespace npu::tile_fwk {
 
@@ -259,6 +260,12 @@ Tensor IndexAddUB(const Tensor& self, const Tensor& src, const Tensor& indices, 
     DECLARE_TRACER();
     CheckIndexAddParamsInvalid(self, src, indices, axis, alpha);
     CheckAxisRange(self, axis);
+    CheckTensorDimRange(self.GetStorage(), 1, 4, "INDEXADD_UB");
+    CheckTensorDimRange(src.GetStorage(), 1, 4, "INDEXADD_UB");
+    CheckTensorDimRange(indices.GetStorage(), 1, 1, "INDEXADD_UB");
+    CheckTensorShapeSize(self.GetStorage(), "INDEXADD_UB");
+    CheckTensorShapeSize(src.GetStorage(), "INDEXADD_UB");
+    CheckTensorShapeSize(indices.GetStorage(), "INDEXADD_UB");
     DataType selfDataType = self.GetDataType();
     Element alpha_ = Element(selfDataType, alpha.Cast<float>());
     Tensor result(selfDataType, self.GetShape());
@@ -391,6 +398,12 @@ void IndexAdd_(Tensor& self, const Tensor& src, const Tensor& indices, int axis,
     DECLARE_TRACER();
     CheckIndexAddParamsInvalid(self, src, indices, axis, alpha);
     CheckAxisRange(self, axis);
+    CheckTensorDimRange(self.GetStorage(), 1, 4, "INDEXADD");
+    CheckTensorDimRange(src.GetStorage(), 1, 4, "INDEXADD");
+    CheckTensorDimRange(indices.GetStorage(), 1, 1, "INDEXADD");
+    CheckTensorShapeSize(self.GetStorage(), "INDEXADD");
+    CheckTensorShapeSize(src.GetStorage(), "INDEXADD");
+    CheckTensorShapeSize(indices.GetStorage(), "INDEXADD");
     DataType selfDataType = self.GetDataType();
     Element castedAlpha = Element(selfDataType, alpha.Cast<float>());
     Tensor result(selfDataType, self.GetShape());
@@ -541,7 +554,10 @@ void TensorGatherMask(
 Tensor Gather(const Tensor& params, const Tensor& indices, int axis)
 {
     DECLARE_TRACER();
-
+    CheckTensorDimRange(params.GetStorage(), 1, 5, "GATHER");
+    CheckTensorDimRange(indices.GetStorage(), 1, 2, "GATHER");
+    CheckTensorShapeSize(params.GetStorage(), "GATHER");
+    CheckTensorShapeSize(indices.GetStorage(), "GATHER");
     RETURN_CALL(
         GatherOperation, *Program::GetInstance().GetCurrentFunction(), params.GetStorage(), indices.GetStorage(), axis);
 }
@@ -549,7 +565,10 @@ Tensor Gather(const Tensor& params, const Tensor& indices, int axis)
 Tensor TensorIndex(const Tensor& params, const Tensor& indices)
 {
     DECLARE_TRACER();
-
+    CheckTensorDimRange(params.GetStorage(), 1, 5, "TENSORINDEX");
+    CheckTensorDimRange(indices.GetStorage(), 1, 2, "TENSORINDEX");
+    CheckTensorShapeSize(params.GetStorage(), "TENSORINDEX");
+    CheckTensorShapeSize(indices.GetStorage(), "TENSORINDEX");
     // TensorIndex默认按0轴进行gather
     RETURN_CALL(
         GatherOperation, *Program::GetInstance().GetCurrentFunction(), params.GetStorage(), indices.GetStorage(), 0);
@@ -661,6 +680,10 @@ Tensor GatherElements(const Tensor& params, const Tensor& indices, int axis)
         << "The datatype is not supported";
     ASSERT(VectorErrorCode::ERR_PARAM_INVALID, indices.GetDataType() == DT_INT32 || indices.GetDataType() == DT_INT64)
         << "The datatype of indices is incorrect";
+    CheckTensorDimRange(params.GetStorage(), 1, 4, "GATHERELEMENTS");
+    CheckTensorDimRange(indices.GetStorage(), 1, 4, "GATHERELEMENTS");
+    CheckTensorShapeSize(params.GetStorage(), "GATHERELEMENTS");
+    CheckTensorShapeSize(indices.GetStorage(), "GATHERELEMENTS");
 
     RETURN_CALL(
         GatherElementOperation, *Program::GetInstance().GetCurrentFunction(), params.GetStorage(), indices.GetStorage(),
@@ -807,7 +830,11 @@ Tensor Scatter(const Tensor& self, const Tensor& indices, const Element& src, in
     }
     axis = axis < 0 ? operandCast.GetShape().size() + axis : axis;
     CheckScatterElementSParamsInvalid(operandCast, indices, axis, reduce);
-    Tensor result(operandCast.GetStorage()->tensor->datatype, operandCast.GetShape());
+    CheckTensorDimRange(operandCast.GetStorage(), 1, 4, "SCATTER");
+    CheckTensorDimRange(indices.GetStorage(), 1, 4, "SCATTER");
+    CheckTensorShapeSize(operandCast.GetStorage(), "SCATTER");
+    CheckTensorShapeSize(indices.GetStorage(), "SCATTER");
+    Tensor result(operandCast.GetStorage()->Datatype(), operandCast.GetShape());
     CALL(
         ScatterElementS, *Program::GetInstance().GetCurrentFunction(),
         {result.GetStorage(), operandCast.GetStorage(), indices.GetStorage(), src, axis, static_cast<int>(reduce)});
@@ -984,7 +1011,13 @@ Tensor Scatter(const Tensor& self, const Tensor& indices, const Tensor& src, int
     }
     axis = axis < 0 ? operandSelfCast.GetShape().size() + axis : axis;
     CheckScatterParamsInvalid(operandSelfCast, indices, operandSrcCast, axis, reduce);
-    Tensor result(operandSelfCast.GetStorage()->tensor->datatype, operandSelfCast.GetShape());
+    CheckTensorDimRange(operandSelfCast.GetStorage(), 1, 4, "SCATTER");
+    CheckTensorDimRange(indices.GetStorage(), 1, 4, "SCATTER");
+    CheckTensorDimRange(operandSrcCast.GetStorage(), 1, 4, "SCATTER");
+    CheckTensorShapeSize(operandSelfCast.GetStorage(), "SCATTER");
+    CheckTensorShapeSize(indices.GetStorage(), "SCATTER");
+    CheckTensorShapeSize(operandSrcCast.GetStorage(), "SCATTER");
+    Tensor result(operandSelfCast.GetStorage()->Datatype(), operandSelfCast.GetShape());
     CALL(
         Scatter, *Program::GetInstance().GetCurrentFunction(),
         {result.GetStorage(), operandSelfCast.GetStorage(), indices.GetStorage(), operandSrcCast.GetStorage(), axis,
@@ -1276,11 +1309,17 @@ Tensor ScatterUpdate(
 
     CheckScatterUpdateInvalid(dst, index, src);
     CheckAxisRange(dst, axis);
+    CheckTensorDimRange(dst.GetStorage(), 2, 4, "SCATTERUPDATE");
+    CheckTensorDimRange(index.GetStorage(), 2, 2, "SCATTERUPDATE");
+    CheckTensorDimRange(src.GetStorage(), 2, 4, "SCATTERUPDATE");
+    CheckTensorShapeSize(dst.GetStorage(), "SCATTERUPDATE");
+    CheckTensorShapeSize(index.GetStorage(), "SCATTERUPDATE");
+    CheckTensorShapeSize(src.GetStorage(), "SCATTERUPDATE");
 
-    Tensor result(dst.GetStorage()->tensor->datatype, dst.GetStorage()->GetShape(), "", dst.Format());
+    Tensor result(dst.GetStorage()->Datatype(), dst.GetStorage()->GetShape(), "", dst.Format());
     if (std::find(dst.GetStorage()->GetShape().begin(), dst.GetStorage()->GetShape().end(), -1) !=
         dst.GetStorage()->GetShape().end()) {
-        Tensor resTmp(dst.GetStorage()->tensor->datatype, dst.GetStorage()->GetDynValidShape(), "", dst.Format());
+        Tensor resTmp(dst.GetStorage()->Datatype(), dst.GetStorage()->GetDynValidShape(), "", dst.Format());
         result = resTmp;
     }
 
