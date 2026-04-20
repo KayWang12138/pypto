@@ -411,7 +411,7 @@ void SimulationCommContext::WaitComplete(uint64_t taskId) {
         
         fut = it->second;
     }
-    future.wait();
+    fut.wait();
 }
 
 LogicalTensorDataPtr SimulationCommContext::Get(int srcRank, DataType datatype, const Shape &shape, uint64_t offset) {

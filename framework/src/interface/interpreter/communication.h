@@ -157,7 +157,7 @@ private:
     bool waitWorkerWait_ = false;
     bool waitWorkerStop_ = false;
     std::atomic<uint64_t> nextTaskId_{0};
-    std::unordered_map<Operation*, std::shared_future<void>> waitTaskFutures_;
+    std::unordered_map<uint64_t, std::shared_future<void>> waitTaskFutures_;
 };
 
 class SimulationCommManager {
