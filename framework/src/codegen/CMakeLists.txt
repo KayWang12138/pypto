@@ -28,6 +28,7 @@ target_link_libraries(tile_fwk_codegen
 target_compile_definitions(tile_fwk_codegen
         PRIVATE
             $<BUILD_INTERFACE:$<$<BOOL:${BUILD_WITH_CANN}>:BUILD_WITH_CANN>>
+            $<BUILD_INTERFACE:$<$<BOOL:${KIRIN_BUILD}>:KIRIN_BUILD>>
 )
 
 PTO_Fwk_AnalysisTargetHeaderFiles(TARGET tile_fwk_codegen)

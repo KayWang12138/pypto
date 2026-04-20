@@ -28,6 +28,7 @@ target_compile_definitions(tile_fwk_cann_host_runtime
             $<BUILD_INTERFACE:$<$<BOOL:${BUILD_WITH_CANN}>:ASCEND_CANN_PACKAGE_PATH="${ASCEND_CANN_PACKAGE_PATH}">>
             $<BUILD_INTERFACE:$<$<BOOL:${BUILD_WITH_CANN}>:PROCESSOR_SUBPATH="${CMAKE_SYSTEM_PROCESSOR}-linux">>
             $<BUILD_INTERFACE:$<$<BOOL:${BUILD_WITH_CANN}>:BUILD_WITH_CANN>>
+            $<BUILD_INTERFACE:$<$<BOOL:${KIRIN_BUILD}>:KIRIN_BUILD>>
 )
 
 PTO_Fwk_AnalysisTargetHeaderFiles(TARGET tile_fwk_cann_host_runtime)

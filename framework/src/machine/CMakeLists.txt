@@ -54,7 +54,7 @@ target_link_libraries(tile_fwk_compiler
             dl
             c_sec
 )
-if (BUILD_WITH_CANN)
+if (BUILD_WITH_CANN AND (NOT KIRIN_BUILD))
     add_dependencies(tile_fwk_compiler pypto_ctrl_server)
 endif ()
 

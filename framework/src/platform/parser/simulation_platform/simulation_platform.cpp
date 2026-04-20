@@ -20,7 +20,7 @@
 
 namespace npu {
 namespace tile_fwk {
-const std::string PLATFORM_INFO_RELATIVE_PATH = "/configs/A2A3.ini";
+const std::string PLATFORM_INFO_RELATIVE_PATH = "/configs/Kirin9030.ini";
 const uint32_t PLATFORM_FAILED = 0xFFFFFFFF;
 const uint32_t PLATFORM_SUCCESS = 0;
 
@@ -40,6 +40,7 @@ std::string SimulationPlatform::GetCurrentSharedLibPath()
 
 bool SimulationPlatform::GetCostModelPlatformRealPath(std::string& realPath)
 {
+    PLATFORM_LOGD("GetCurrentSharedLibPath %s", GetCurrentSharedLibPath().c_str());
     realPath = RealPath(GetCurrentSharedLibPath() + PLATFORM_INFO_RELATIVE_PATH);
     if (realPath.empty()) {
         return false;

@@ -55,22 +55,25 @@ def create_add_kernel(shape: tuple, run_mode: str = "npu"):
 
     @pypto.frontend.jit(runtime_options={"run_mode": mode})
     def add_kernel(
-        x: pypto.Tensor([...], pypto.DT_FP32),
-        y: pypto.Tensor([...], pypto.DT_FP32),
+        a: pypto.Tensor([...], pypto.DT_FP32),
+        b: pypto.Tensor([...], pypto.DT_FP32),
         out: pypto.Tensor([...], pypto.DT_FP32),
     ):
         pypto.set_vec_tile_shapes(1, 4, 1, 64)
-        out[:] = x + y
+        out[:] = a + b
 
     return add_kernel
 
 
 def test_add_direct(device_id=None, run_mode: str = "npu") -> None:
-    device = f'npu:{device_id}' if (run_mode == "npu" and device_id is not None) else 'cpu'
+    # device = f'npu:{device_id}' if (run_mode == "npu" and device_id is not None) else 'cpu'
+    device = 'cpu'
     shape = (1, 4, 1, 64)
     #prepare data
     input_data0 = torch.rand(shape, dtype=torch.float, device=device)
     input_data1 = torch.rand(shape, dtype=torch.float, device=device)
+    print("input_data0 :", input_data0.flatten().cpu()[:10].tolist())
+    print("input_data1 :", input_data1.flatten().cpu()[:10].tolist())
 
     output_data = torch.empty(shape, dtype=torch.float32, device=device)
     create_add_kernel(shape, run_mode)(input_data0, input_data1, output_data)
@@ -178,8 +181,8 @@ Examples:
         device_id = get_device_id()
         if device_id is None:
             return
-        import torch_npu
-        torch.npu.set_device(device_id)
+        # import torch_npu
+        # torch.npu.set_device(device_id)
         print("Running examples that require NPU hardware...")
         print("(Make sure CANN environment is configured and NPU is available)\n")
 

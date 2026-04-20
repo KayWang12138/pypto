@@ -85,28 +85,29 @@ namespace npu::tile_fwk {
 
 inline void CheckDeviceId()
 {
-    int32_t devId = 0;
-    int32_t getDeviceResult = rtGetDevice(&devId);
-    if (getDeviceResult != RT_ERROR_NONE) {
-        MACHINE_LOGE(RtErr::RT_DEVICE_FAILED, "fail get device id, check if set device id");
-        return;
-    }
+    // int32_t devId = 0;
+    // rtSetDevice(0);
+    // int32_t getDeviceResult = rtGetDevice(&devId);
+    // if (getDeviceResult != RT_ERROR_NONE) {
+    //     MACHINE_LOGE(RtErr::RT_DEVICE_FAILED, "fail get device id, check if set device id");
+    //     return;
+    // }
 }
 
 inline int32_t GetUserDeviceId()
 {
     int32_t userDeviceId = 0;
-    rtGetDevice(&userDeviceId);
+    // rtGetDevice(&userDeviceId);
     return userDeviceId;
 }
 
 inline int32_t GetLogDeviceId()
 {
     int32_t logicDeviceId = 0;
-    int32_t userDeviceId = GetUserDeviceId();
-    ASSERT(rtGetLogicDevIdByUserDevId(userDeviceId, &logicDeviceId) == RT_ERROR_NONE)
-        << "Trans usrDeviceId: " << userDeviceId << " to logDevId not success";
-    MACHINE_LOGD("Current userDeviceId=%d, logicDeviceId=%d.", userDeviceId, logicDeviceId);
+    // int32_t userDeviceId = GetUserDeviceId();
+    // ASSERT(rtGetLogicDevIdByUserDevId(userDeviceId, &logicDeviceId) == RT_ERROR_NONE)
+    //     << "Trans usrDeviceId: " << userDeviceId << " to logDevId not success";
+    // MACHINE_LOGD("Current userDeviceId=%d, logicDeviceId=%d.", userDeviceId, logicDeviceId);
     return logicDeviceId;
 }
 
@@ -179,9 +180,9 @@ public:
 
     void CreateStream()
     {
-        rtStreamCreate(&raStreamInstance, RT_STREAM_PRIORITY_DEFAULT);
-        rtStreamCreate(&raStreamInstanceSche, RT_STREAM_PRIORITY_DEFAULT);
-        rtStreamCreate(&raStreamInstanceCtrl, RT_STREAM_PRIORITY_DEFAULT);
+        // rtStreamCreate(&raStreamInstance, RT_STREAM_PRIORITY_DEFAULT);
+        // rtStreamCreate(&raStreamInstanceSche, RT_STREAM_PRIORITY_DEFAULT);
+        // rtStreamCreate(&raStreamInstanceCtrl, RT_STREAM_PRIORITY_DEFAULT);
     }
     void DestroyStream()
     {
@@ -215,7 +216,7 @@ protected:
 #ifdef RUN_WITH_ASCEND_CAMODEL
         // don't call aclInit, it will cause camodel running fail
 #else
-        aclInited = aclInit(nullptr) == 0;
+        // aclInited = aclInit(nullptr) == 0;
 #endif
         Init();
     }
@@ -227,9 +228,9 @@ public:
     static uint64_t GetL2Offset()
     {
         uint64_t offset = 0;
-        int32_t userDeviceId = GetUserDeviceId();
-        rtGetL2CacheOffset(userDeviceId, &offset);
-        MACHINE_LOGD("rtGetL2CacheOffset=%lu", offset);
+        // int32_t userDeviceId = GetUserDeviceId();
+        // rtGetL2CacheOffset(userDeviceId, &offset);
+        // MACHINE_LOGD("rtGetL2CacheOffset=%lu", offset);
         return offset;
     }
 
@@ -265,10 +266,10 @@ public:
 private:
     void Init()
     {
-        MACHINE_LOGI("RuntimeAgent: Init acl runtime!");
-        CheckDeviceId();
-        MACHINE_LOGD("RuntimeAgent: Create a default stream!");
-        CreateStream();
+        // MACHINE_LOGI("RuntimeAgent: Init acl runtime!");
+        // CheckDeviceId();
+        // MACHINE_LOGD("RuntimeAgent: Create a default stream!");
+        // CreateStream();
     }
 
 private:

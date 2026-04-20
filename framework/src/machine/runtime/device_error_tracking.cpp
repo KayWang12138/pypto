@@ -53,10 +53,10 @@ void AicpuErrorCallBack(aclrtExceptionInfo* exceptionInfo)
 
 void InitializeErrorCallback()
 {
-    aclError ret = aclrtSetExceptionInfoCallback(&AicpuErrorCallBack);
-    if (ret != ACL_SUCCESS) {
-        printf("Failed to set exception callback: %d\n", ret);
-    }
+    // aclError ret = aclrtSetExceptionInfoCallback(&AicpuErrorCallBack);
+    // if (ret != ACL_SUCCESS) {
+    //     printf("Failed to set exception callback: %d\n", ret);
+    // }
 }
 } // namespace npu::tile_fwk
 #endif

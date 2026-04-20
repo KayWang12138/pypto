@@ -12,23 +12,28 @@
 #include "machine/runtime/eslmodel_launcher.h"
 #include "machine/runtime/device_launcher.h"
 #include "interface/utils/op_info_manager.h"
+#include "tilefwk/platform.h"
 
 extern "C" int DynTileFwkBackendKernelServer(void *targ);
 namespace npu::tile_fwk::dynamic {
 
 int EslModelLauncher::EslModelLaunchAicore(aclrtStream aicoreStream, void *kernel, DeviceKernelArgs *kernelArgs) {
 #ifdef BUILD_WITH_CANN
-    rtArgsEx_t rtArgs;
-    memset_s(&rtArgs, sizeof(rtArgs), 0, sizeof(rtArgs));
-    std::vector<void *> kArgs = {nullptr, nullptr, nullptr, nullptr, nullptr, kernelArgs->cfgdata};
-    rtArgs.args = kArgs.data();
-    rtArgs.argsSize = kArgs.size() * sizeof(int64_t);
-    uint64_t tilingKey = OpInfoManager::GetInstance().GetOpTilingKey();
-    rtTaskCfgInfo_t cfg = {};
-    cfg.schemMode = RT_SCHEM_MODE_BATCH;
-    auto *devProg = (dynamic::DevAscendProgram *)(kernelArgs->cfgdata);
-    auto blockDim = devProg->devArgs.nrValidAic;
-    return rtKernelLaunchWithHandleV2(kernel, tilingKey, blockDim, &rtArgs, nullptr, aicoreStream, &cfg);
+    // rtArgsEx_t rtArgs;
+    // memset_s(&rtArgs, sizeof(rtArgs), 0, sizeof(rtArgs));
+    // std::vector<void *> kArgs = {nullptr, nullptr, nullptr, nullptr, nullptr, kernelArgs->cfgdata};
+    // rtArgs.args = kArgs.data();
+    // rtArgs.argsSize = kArgs.size() * sizeof(int64_t);
+    // uint64_t tilingKey = OpInfoManager::GetInstance().GetOpTilingKey();
+    // rtTaskCfgInfo_t cfg = {};
+    // cfg.schemMode = RT_SCHEM_MODE_BATCH;
+    // auto *devProg = (dynamic::DevAscendProgram *)(kernelArgs->cfgdata);
+    // auto blockDim = devProg->devArgs.nrValidAic;
+    // return rtKernelLaunchWithHandleV2(kernel, tilingKey, blockDim, &rtArgs, nullptr, aicoreStream, &cfg);
+    (void) aicoreStream;
+    (void) kernel;
+    (void) kernelArgs;
+    return 0;
 #else
     (void) aicoreStream;
     (void) kernel;
@@ -101,11 +106,12 @@ int EslModelLauncher::DynamicKernelLaunchEsl(DeviceKernelArgs *kArgs, aclrtStrea
 
 void EslModelLauncher::ExchangeCaputerMode(const bool &isCapture) {
 #ifdef BUILD_WITH_CANN
-    if (isCapture) {
-        aclmdlRICaptureMode mode = ACL_MODEL_RI_CAPTURE_MODE_GLOBAL;
-        aclmdlRICaptureThreadExchangeMode(&mode);
-        MACHINE_LOGI("captureMode is: %d", mode);
-    }
+    (void) isCapture;
+    // if (isCapture) {
+    //     aclmdlRICaptureMode mode = ACL_MODEL_RI_CAPTURE_MODE_GLOBAL;
+    //     aclmdlRICaptureThreadExchangeMode(&mode);
+    //     MACHINE_LOGI("captureMode is: %d", mode);
+    // }
 #else
     (void) isCapture;
 #endif

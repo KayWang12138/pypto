@@ -187,6 +187,7 @@ struct EslModelMemoryUtils {
 class EslModelLauncher {
 public:
     static int EslModelRunOnce(void *kernel, const DeviceLauncherConfig &config = DeviceLauncherConfig());
+    static int LiteEslModelRunOnce(void *kernel, const DeviceLauncherConfig &config = DeviceLauncherConfig());
     static int EslModelLaunchDeviceTensorData(Function *function,
         const std::vector<DeviceTensorData> &inputList, const std::vector<DeviceTensorData> &outputList,
         rtStream_t aicpuStream, rtStream_t aicoreStream, void *kernel, const DeviceLauncherConfig &config);
