@@ -1037,9 +1037,14 @@ static void CompileDyndevFunction(Function* function, FunctionCache& cache, [[ma
     MonitorManager::Instance().SetRootFuncCount(GetRootFuncNum(attr));
 
     std::deque<std::function<void(void)>> tasks;
+    // std::cout<<"@@@@@@@@@@@@@@@@@@@@@@@@@@@@ start cce!"<<std::endl;s
+    MonitorManager::Instance().PrintCurrentTotalElapsed("@@@@@@@@@@@@@@@@@@@@@@@@@@@@ start cce");
     for (auto& devRoot : attr->funcGroup.devRootList) {
         std::function task = [&devRoot, &attr, &leafDict, &leafDictMutex]() {
             Function* devTile = attr->rootTileDict[devRoot];
+            std::cout<<"$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$ SetFuncSumOpSize : "<<devTile->GetOperationSize()<<std::endl;
+            MonitorManager::Instance().SetCurrentFuncOpSize(devTile->GetOperationSize());
+            MonitorManager::Instance().SetFuncSumOpSize(devTile->GetOperationSize());
             bool isDynamicAligned = devTile->paramConfigs_.dynamicAlignedOps;
             npu::tile_fwk::CodeGenCtx codeGenCtx("", GetEmitPath("kernel_aicore"), false, isDynamicAligned);
             npu::tile_fwk::CodeGen codeGen(codeGenCtx);
@@ -1065,6 +1070,8 @@ static void CompileDyndevFunction(Function* function, FunctionCache& cache, [[ma
         tasks.push_back(task);
     }
 
+    // std::cout<<"@@@@@@@@@@@@@@@@@@@@@@@@@@@@ start bisheng!"<<std::endl;
+    MonitorManager::Instance().PrintCurrentTotalElapsed("@@@@@@@@@@@@@@@@@@@@@@@@@@@@ start bisheng");
     unsigned threadNum = GetCGThreadNum();
     ParallelExecuteAndWait(threadNum, tasks);
 
@@ -1147,14 +1154,22 @@ MachineTask* GenCode(MachineTask* task, FunctionCache& cache)
      */
     if (function->GetGraphType() == GraphType::TILE_GRAPH) {
         MonitorManager::Instance().SetRootFuncCount(1);
+        // std::cout<<"^^^^^^^^^^^^^^^^^^ CodeGen ^^^^^^^^^^^^^^^^^^ TILE_GRAPH"<<std::endl;
         MonitorStageScope codeGenScope("CodeGen");
+        MonitorManager::Instance().PrintCurrentTotalElapsed("^^^^^^^^^^^^^^^^^^ CodeGen ^^^^^^^^^^^^^^^^^^ TILE_GRAPH");
+        MonitorManager::Instance().SetCurrentFuncOpSize(0);
+        MonitorManager::Instance().SetFuncSumOpSize(0, true);
         COMPILER_LOGI("Start (TILE_GRAPH) CodeGen stage...");
         std::map<uint64_t, std::list<InvokeParaOffset>> invokeParaOffset;
         codeGen.GenCode(*function, {});
         MainBlockCondBulider::Gencode(function);
     } else {
         if (function->IsFunctionType(FunctionType::DYNAMIC)) {
+            // std::cout<<"^^^^^^^^^^^^^^^^^^ CodeGen ^^^^^^^^^^^^^^^^^^ NO_TILE_GRAPH"<<std::endl;
             MonitorStageScope codeGenScope("CodeGen");
+            MonitorManager::Instance().PrintCurrentTotalElapsed("^^^^^^^^^^^^^^^^^^ CodeGen ^^^^^^^^^^^^^^^^^^ NO_TILE_GRAPH");
+            MonitorManager::Instance().SetCurrentFuncOpSize(0);
+            MonitorManager::Instance().SetFuncSumOpSize(0, true);
             COMPILER_LOGI("Start (DYNAMIC) CodeGen stage...");
             std::string cce_path = RealPath(codeGenCtx.cceDir) + "/";
             CompileDyndevFunction(function, cache, cce_path);

@@ -213,7 +213,7 @@ void MonitorManager::TryEndPrepareStage()
     if (current_stage_ == "Prepare" && enable_) {
         double total_elapsed_prepare =
             std::chrono::duration<double>(std::chrono::steady_clock::now() - total_start_).count();
-        std::string msg = "[Compiler Monitor] Stage: " + current_stage_ +
+        std::string msg = "[zyt] Stage: " + current_stage_ +
                           "(completed) | Stashed function: " + std::to_string(total_function_count_) +
                           " | Stage elapsed: " + FormatElapsed(elapsed) +
                           " | Total elapsed: " + FormatElapsed(total_elapsed_prepare);
@@ -272,7 +272,7 @@ void MonitorManager::PrintCompilationFinished()
         }
 
         std::string compilation_msg =
-            "[Compiler Monitor] Compilation finished " + std::to_string(current_function_index_) + "/" +
+            "[zyt] Compilation finished " + std::to_string(current_function_index_) + "/" +
             std::to_string(total_function_count_ > 0 ? total_function_count_ : 1) +
             " | Total functions: " + std::to_string(total_function_count_ > 0 ? total_function_count_ : 1);
         (void)fprintf(stdout, "%s\n", compilation_msg.c_str());
@@ -290,12 +290,12 @@ void MonitorManager::PrintCompilationFinished()
                           << n << " functions)\n";
             }
         }
-        COMPILER_LOGI("[Compiler Monitor] Stage timing (aggregated by stage):%s", stage_msg.str().c_str());
-        (void)fprintf(stdout, "[Compiler Monitor] Stage timing (aggregated by stage):%s", stage_msg.str().c_str());
+        COMPILER_LOGI("[zyt] Stage timing (aggregated by stage):%s", stage_msg.str().c_str());
+        (void)fprintf(stdout, "[zyt] Stage timing (aggregated by stage):%s", stage_msg.str().c_str());
         (void)fflush(stdout);
 
         std::string final_msg =
-            "[Compiler Monitor] Monitoring stopped | Total elapsed: " + FormatElapsed(total_elapsed);
+            "[zyt] Monitoring stopped | Total elapsed: " + FormatElapsed(total_elapsed);
         COMPILER_LOGI("%s", final_msg.c_str());
         (void)fprintf(stdout, "%s\n", final_msg.c_str());
         (void)fflush(stdout);
@@ -365,6 +365,49 @@ void MonitorManager::SetCurrentFunctionName(const std::string& name)
     current_function_ = name;
 }
 
+int MonitorManager::GetCurrentFuncOpSize() const
+{
+    std::lock_guard<std::mutex> lock(mutex_);
+    return current_func_opsize_;
+}
+
+void MonitorManager::SetCurrentFuncOpSize(size_t op_size)
+{
+    if (!enable_) {
+        return;
+    }
+    std::lock_guard<std::mutex> lock(mutex_);
+    current_func_opsize_ = static_cast<int>(op_size);
+}
+
+void MonitorManager::PrintCurrentTotalElapsed(std::string str_temp)
+{
+    std::lock_guard<std::mutex> lock(mutex_);
+    auto now = std::chrono::steady_clock::now();
+    double total_elapsed = std::chrono::duration<double>(now - total_start_).count();
+    std::string stage_finish_msg = "[zyt] [" + str_temp + "] Current total elapsed: " + FormatElapsed(total_elapsed);
+    (void)fprintf(stdout, "%s\n", stage_finish_msg.c_str());
+    (void)fflush(stdout);
+}
+
+int MonitorManager::GetFuncSumOpSize() const
+{
+    std::lock_guard<std::mutex> lock(mutex_);
+    return func_sum_opsize_;
+}
+
+void MonitorManager::SetFuncSumOpSize(size_t op_size, bool reset)
+{
+    if (!enable_) {
+        return;
+    }
+    std::lock_guard<std::mutex> lock(mutex_);
+    func_sum_opsize_ += static_cast<int>(op_size);
+    if (reset) {
+        func_sum_opsize_ = 0;
+    }
+}
+
 std::chrono::steady_clock::time_point MonitorManager::GetStageStartTime() const
 {
     std::lock_guard<std::mutex> lock(mutex_);
@@ -402,7 +445,9 @@ void MonitorManager::StartStage(const std::string& name, int rootFuncIndex, cons
     if (!initialized_ || !impl_ || !enable_) {
         return;
     }
-    impl_->StartMonitoring();
+    if (rootFuncIndex == -1) {
+        impl_->StartMonitoring();
+    }
     MaybeStartTotalClock();
     current_stage_ = name;
     stage_start_ = std::chrono::steady_clock::now();
@@ -450,12 +495,12 @@ void MonitorManager::EndStage(const std::string& name, int rootFuncIndex, const 
     if (it != active_stages_.rend()) {
         active_stages_.erase(std::prev(it.base()));
     }
-    EndStageInternal(name, actualRootFuncIndex, actualRootFuncName, stageStartTime);
+    EndStageInternal(name, actualRootFuncIndex, actualRootFuncName, stageStartTime, rootFuncIndex);
 }
 
 void MonitorManager::EndStageInternal(
     const std::string& name, int rootFuncIndex, const std::string& rootFuncName,
-    const std::chrono::steady_clock::time_point& startTime)
+    const std::chrono::steady_clock::time_point& startTime, int rootFuncIndexOriginal)
 {
     if (!initialized_ || !impl_ || !enable_) {
         return;
@@ -463,7 +508,9 @@ void MonitorManager::EndStageInternal(
     if (timeout_sec_.load() != 0) {
         stage_timeout_flag_[name] = false;
     }
-    impl_->StopMonitoring();
+    if (rootFuncIndexOriginal == -1) {
+        impl_->StopMonitoring();
+    }
     auto now = std::chrono::steady_clock::now();
     double elapsed = std::chrono::duration<double>(now - startTime).count();
     if (name != STAGE_FUNC_TO_BIN) {
@@ -477,23 +524,24 @@ void MonitorManager::EndStageInternal(
     std::string stage_finish_msg;
     if (name == STAGE_FUNC_TO_BIN) {
         int pw = GetProgressWidth();
-        stage_finish_msg = "[Compiler Monitor] " + PadLabel("Function(parallel): ") +
+        stage_finish_msg = "[zyt] " + PadLabel("Function(parallel): ") +
                            PadRight(std::to_string(rootFuncIndex) + "/" + std::to_string(root_func_count_), pw) +
                            " | Stage: " + PadStageName("CodeGen[" + name + "]") +
                            "(completed) | Stage elapsed: " + PadElapsed(FormatElapsed(elapsed)) +
                            " | Total elapsed: " + PadElapsed(FormatElapsed(total_elapsed)) + " | Func:[" +
                            rootFuncName + "]";
     } else if (name == "CodeGen") {
-        stage_finish_msg = "[Compiler Monitor] Stage: " + name +
+        stage_finish_msg = "[zyt] Stage: " + name +
                            "(completed) | Stage elapsed: " + PadElapsed(FormatElapsed(elapsed)) +
                            " | Total elapsed: " + PadElapsed(FormatElapsed(total_elapsed));
     } else {
         int pw = GetProgressWidth();
         stage_finish_msg =
-            "[Compiler Monitor] " + PadLabel("Function: ") +
+            "[zyt] " + PadLabel("Function: ") +
             PadRight(std::to_string(current_function_index_) + "/" + std::to_string(total_function_count_), pw) +
             " | Stage: " + PadStageName(name) + "(completed) | Stage elapsed: " + PadElapsed(FormatElapsed(elapsed)) +
-            " | Total elapsed: " + PadElapsed(FormatElapsed(total_elapsed)) + " | Func:[" + current_function_ + "]";
+            " | Total elapsed: " + PadElapsed(FormatElapsed(total_elapsed)) + " | Func:[" + current_function_ + "]  OP:" +
+            std::to_string(current_func_opsize_) + " TOP:"+std::to_string(func_sum_opsize_);
     }
 
     (void)fprintf(stdout, "%s\n", stage_finish_msg.c_str());
