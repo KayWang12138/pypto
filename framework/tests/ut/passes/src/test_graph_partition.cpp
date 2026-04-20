@@ -256,10 +256,8 @@ TEST_F(GraphPartitionTest, TestBuildIsomorphismGraph)
     const int cycleLB = 100000;
     const int useNodeHash = false;
     IsoPartitioner partitioner;
-    function->DumpJsonFile("/mnt/workspace/gitCode/cann/pypto1/TestBuildIsomorphismGraphb.json");
     EXPECT_EQ(partitioner.SetParameter(cycleUB, parallelTH, cycleLB, useNodeHash), SUCCESS);
     EXPECT_EQ(partitioner.PartitionGraph(*function), SUCCESS);
-    function->DumpJsonFile("/mnt/workspace/gitCode/cann/pypto1/TestBuildIsomorphismGrapha.json");
     const int subGraphNum = 8;
     EXPECT_EQ(function->GetTotalSubGraphCount(), subGraphNum);
 }
@@ -492,7 +490,7 @@ void GetWideGraph(ComputationalGraphBuilder& G, int brNum)
 TEST_F(GraphPartitionTest, TestLargeWideGraph)
 {
     ComputationalGraphBuilder G;
-    const int brNum = 20;
+    const int brNum = 5000;
     GetWideGraph(G, brNum);
     Function* function = G.GetFunction();
     const int cycleUB = 100000;
@@ -533,7 +531,7 @@ void GetDeepGraph(ComputationalGraphBuilder& G, int brNum)
 TEST_F(GraphPartitionTest, TestLargeDeepGraph)
 {
     ComputationalGraphBuilder G;
-    const int brNum = 20;
+    const int brNum = 5000;
     GetDeepGraph(G, brNum);
     Function* function = G.GetFunction();
     const int cycleUB = 100000;
@@ -612,17 +610,12 @@ void RunScopeTest2(bool paraller, bool crossScopeMerge, int expectedSubGraphNum)
     const int brNum = 1;
     GetMergeableGraph(G, brNum);
     Function* function = G.GetFunction();
-    const int cycleUB = 100000;
-    const int parallelTH = 20;
-    const int cycleLB = 0;
-    const int useNodeHash = false;
-    Operation::ScopeInfo info;
-    info.scopeId = 1;
+    Operation::ScopeInfo info(1);
     info.allowParallelMerge = paraller;
     info.allowCrossScopeMerge = crossScopeMerge,
     SetScopeInfoForOps(G, {"COPY_INt0", "RESHAPE_INt0", "ABSt0", "COPY_INb0", "RESHAPE_INb0", "ABSb0"}, info);
     IsoPartitioner partitioner;
-    EXPECT_EQ(partitioner.SetParameter(cycleUB, parallelTH, cycleLB, useNodeHash), SUCCESS);
+    EXPECT_EQ(partitioner.SetParameter(100000, 20, 0, false), SUCCESS);
     EXPECT_EQ(partitioner.PartitionGraph(*function), SUCCESS);
     EXPECT_EQ(function->GetTotalSubGraphCount(), expectedSubGraphNum);
 }
@@ -771,16 +764,14 @@ TEST_F(GraphPartitionTest, TestScopeCase5)
     ComputationalGraphBuilder G;
     ConstructGLMAttentionCase(G);
 
-    Operation::ScopeInfo scope1;
-    scope1.scopeId = 1;
+    Operation::ScopeInfo scope1(1);
     scope1.allowParallelMerge = true;
     scope1.allowCrossScopeMerge = false;
     std::vector<std::string> scope1Ops = {"MULS_scale", "ROWMAX_mij", "MAX_new",     "SUB_tsub",
                                           "EXP_pij",    "CAST_fp16",  "ROWSUM_local"};
     SetScopeInfoForOps(G, scope1Ops, scope1);
 
-    Operation::ScopeInfo scope2;
-    scope2.scopeId = 2;
+    Operation::ScopeInfo scope2(2);
     scope2.allowParallelMerge = true;
     scope2.allowCrossScopeMerge = false;
     std::vector<std::string> scope2Ops = {"SUB_tsub2", "EXP_update_mul", "MUL_tmp", "ADD_sum_update"};
@@ -1015,5 +1006,6 @@ TEST_F(GraphPartitionTest, TestMatMulViewNonL0C)
     EXPECT_NE(mulOp->GetSubgraphID(), viewDDROp->GetSubgraphID());
     EXPECT_EQ(mulOp->GetSubgraphID(), viewL1Op->GetSubgraphID());
 }
+
 } // namespace tile_fwk
 } // namespace npu

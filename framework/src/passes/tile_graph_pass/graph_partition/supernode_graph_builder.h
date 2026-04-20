@@ -74,24 +74,31 @@ public:
 protected:
     Status BuildOpGraph(const std::vector<Operation*>& opList);
     virtual Status BuildSuperNodeGraph();
+    /*!
+     * \brief 按 scope 对 SuperNode 合并。
+     *
+     * - CVMix 场景：scope 内存在 AIC+AIV 混合时，分配唯一 cvFuseId，供下游融合调度使用；
+     * - 非 CVMix 场景：allowParallelMerge 控制同 scope 下 node 是全量合并还是仅合并
+     *   有直连边的相邻 node。
+     */
     Status ProcessScopeMerge();
 
     struct ScopeCollectResult {
-        std::unordered_map<int32_t, std::unordered_set<OpCoreType>> scopeCoreTypes;
-        std::unordered_map<int32_t, bool> scopeAllowParallel;
-        std::unordered_map<int32_t, std::vector<int32_t>> scope2Nodes;
+        std::map<int32_t, std::unordered_set<OpCoreType>> scopeCoreTypes;
+        std::map<int32_t, bool> scopeAllowParallel;
+        std::map<int32_t, std::vector<int32_t>> scope2Nodes;
     };
     ScopeCollectResult CollectScopeInfo(int32_t numNodes);
     Status ValidateScopeCoreTypes(
         int32_t scopeId, const std::unordered_set<OpCoreType>& coreTypes, bool isCVMix,
-        std::map<int32_t, int32_t>& scopeToMixId);
+        std::map<int32_t, int32_t>& scopeToCvFuseId);
     Status CheckAndMergeScopes(const ScopeCollectResult& scopeInfo,
         std::vector<int32_t>& snParent,
         bool& needRebuild,
-        std::map<int32_t, int32_t>& scopeToMixId);
-    void RebuildSuperNodes(const std::vector<int32_t>& snParent, int32_t numNodes);
-    void ApplyCVMixIds(const std::map<int32_t, int32_t>& scopeToMixId,
-                       const std::unordered_map<int32_t, std::vector<int32_t>>& scope2Nodes);
+        std::map<int32_t, int32_t>& scopeToCvFuseId);
+    void RebuildSuperNodes(std::vector<int32_t>& snParent, int32_t numNodes);
+    void ApplyCvFuseIds(
+        const std::map<int32_t, int32_t>& scopeToCvFuseId, const std::map<int32_t, std::vector<int32_t>>& scope2Nodes);
 
     Status BuildHashValues();
 
@@ -125,7 +132,7 @@ protected:
     // Parameters
     bool useReduceBalanceHash_ = true;
     bool useCVMixPartition_ = false;
-    int nextMixId_ = 0;
+    int nextCvFuseId_ = 0;
 
     // Data
     std::shared_ptr<OperationGraphInfo> operationInfo_;

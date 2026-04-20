@@ -60,7 +60,8 @@ public:
      * @param chain the list of operations in the view chain.
      * @return Status indicating success or failed.
      */
-    Status MergeViewChain(Function& function, Operation& operation, std::vector<Operation*>& chain);
+    Status MergeViewChain(Function& function, Operation& operation, std::vector<Operation*>& chain,
+                          int effectiveScopeId = -1);
 
     void InitOperationChain(Operation& operation, std::vector<Operation*>& chain);
 
@@ -75,7 +76,7 @@ public:
      */
     Status ProcessConsumerChain(
         Function& function, const std::set<Operation*, LogicalTensor::CompareOp>& consumers,
-        std::vector<Operation*>& chain, bool& chainEnd);
+        std::vector<Operation*>& chain, bool& chainEnd, int effectiveScopeId);
 
     Status ProcessChainEnd(Function& function, std::vector<Operation*>& chain);
 
@@ -117,7 +118,8 @@ public:
      * @param chain the list of operations in the assemble chain.
      * @return Status indicating success or failed.
      */
-    Status MergeAssembleChain(Function& function, Operation& operation, std::vector<Operation*>& chain);
+    Status MergeAssembleChain(Function& function, Operation& operation, std::vector<Operation*>& chain,
+                              int effectiveScopeId = -1);
 
     void InitAssembleChain(Operation& operation, std::vector<Operation*>& chain);
 
@@ -133,7 +135,7 @@ public:
      */
     Status ProcessAssembleConsumers(
         Function& function, const std::set<Operation*, LogicalTensor::CompareOp>& consumers,
-        std::vector<Operation*>& chain, bool& chainEnd, bool& hasAssembleConsumer);
+        std::vector<Operation*>& chain, bool& chainEnd, bool& hasAssembleConsumer, int effectiveScopeId);
 
     Status ProcessAssembleChainEnd(Function& function, std::vector<Operation*>& chain, Operation& operation);
 

@@ -71,6 +71,39 @@ void MakeExpandGrpah(std::shared_ptr<Function>& currFunctionPtr, LogicalTensorPt
     currFunctionPtr->SetGraphType(GraphType::TENSOR_GRAPH);
 }
 
+struct ScopeCfg {
+    std::string op;
+    int id;
+    bool parMerge;
+    bool crossMerge;
+};
+
+void RunScopeInfoTest(
+    const std::vector<std::string>& tensors, size_t numInputs, const std::vector<Opcode>& opcodes,
+    const std::vector<std::vector<std::string>>& inputs, const std::vector<std::vector<std::string>>& outputs,
+    const std::vector<std::string>& opNames, const Status status, const std::vector<ScopeCfg>& scopes = {})
+{
+    ComputationalGraphBuilder G;
+    std::vector<int64_t> shape{kNumExpSix, kNumExpSix};
+    EXPECT_EQ(G.AddTensors(DataType::DT_FP32, shape, tensors), true);
+    EXPECT_EQ(G.AddOps(opcodes, inputs, outputs, opNames, true), true);
+    for (const auto& s : scopes) {
+        Operation::ScopeInfo info(s.id);
+        info.allowParallelMerge = s.parMerge;
+        info.allowCrossScopeMerge = s.crossMerge;
+        auto op = G.GetOp(s.op);
+        op->SetScopeInfo(info);
+        if (op->GetCoreType() == CoreType::AIV)
+            op->tileShape_.SetVecTile(kNumExpSix, kNumExpSix);
+    }
+    EXPECT_EQ(G.SetInCast({tensors.begin(), tensors.begin() + numInputs}), true);
+    EXPECT_EQ(G.SetOutCast({tensors.begin() + numInputs, tensors.end()}), true);
+    G.GetFunction()->SetGraphType(GraphType::TENSOR_GRAPH);
+    TileShape::Current().SetVecTile(kNumExpFive, kNumExpFive);
+    ExpandFunction expandfunctionpass;
+    EXPECT_EQ(expandfunctionpass.RunOnFunction(*G.GetFunction()), status);
+}
+
 class TestExpandFunctionPass : public ::testing::Test {
 public:
     static void SetUpTestCase() {}
@@ -85,7 +118,7 @@ public:
         config::SetHostConfig(KEY_STRATEGY, "ExpandFunctionTestStrategy");
         config::SetPlatformConfig(KEY_ENABLE_COST_MODEL, false);
     }
-    void TearDown() override {}
+    void TearDown() override { Platform::Instance().GetSoc().SetNPUArch(NPUArch::DAV_UNKNOWN); }
 };
 
 /*
@@ -603,79 +636,33 @@ TEST_F(TestExpandFunctionPass, DisableCombineAxisOnA5)
 
 TEST_F(TestExpandFunctionPass, TestScopeIdMinusOneWithMergeFlag)
 {
-    ComputationalGraphBuilder G;
-    std::vector<int64_t> shape{kNumExpSix, kNumExpSix};
-    EXPECT_EQ(G.AddTensors(DataType::DT_FP32, shape, {"in1", "in2", "out1"}), true);
-    EXPECT_EQ(G.AddOp(Opcode::OP_ADD, {"in1", "in2"}, {"out1"}, "add1"), true);
-
-    Operation::ScopeInfo scopeInfo(-1);
-    scopeInfo.allowParallelMerge = true;
-    G.GetOp("add1")->SetScopeInfo(scopeInfo);
-
-    EXPECT_EQ(G.SetInCast({"in1", "in2"}), true);
-    EXPECT_EQ(G.SetOutCast({"out1"}), true);
-    G.GetFunction()->SetGraphType(GraphType::TENSOR_GRAPH);
-
-    ExpandFunction expandfunctionpass;
-    EXPECT_EQ(expandfunctionpass.RunOnFunction(*G.GetFunction()), FAILED);
+    RunScopeInfoTest(
+        {"in1", "in2", "out1"}, 2, {Opcode::OP_ADD}, {{"in1", "in2"}}, {{"out1"}}, {"add1"}, FAILED,
+        {{"add1", -1, true, false}});
 }
 
 TEST_F(TestExpandFunctionPass, TestConflictingScopeInfoSettings)
 {
-    ComputationalGraphBuilder G;
-    std::vector<int64_t> shape{kNumExpSix, kNumExpSix};
-    EXPECT_EQ(G.AddTensors(DataType::DT_FP32, shape, {"in1", "in2", "in3", "out1", "out2"}), true);
-    EXPECT_EQ(G.AddOps(
-                  {Opcode::OP_ADD, Opcode::OP_ADD},
-                  {{"in1", "in2"}, {"in2", "in3"}},
-                  {{"out1"}, {"out2"}},
-                  {"add1", "add2"}, true),
-              true);
+    RunScopeInfoTest(
+        {"in1", "in2", "in3", "out1", "out2"}, 3, {Opcode::OP_ADD, Opcode::OP_ADD}, {{"in1", "in2"}, {"in2", "in3"}},
+        {{"out1"}, {"out2"}}, {"add1", "add2"}, FAILED, {{"add1", 1, true, false}, {"add2", 1, false, true}});
+}
 
-    Operation::ScopeInfo scopeInfo1(1);
-    scopeInfo1.allowParallelMerge = true;
-    G.GetOp("add1")->SetScopeInfo(scopeInfo1);
-
-    Operation::ScopeInfo scopeInfo2(1);
-    scopeInfo2.allowCrossScopeMerge = true;
-    G.GetOp("add2")->SetScopeInfo(scopeInfo2);
-
-    EXPECT_EQ(G.SetInCast({"in1", "in2", "in3"}), true);
-    EXPECT_EQ(G.SetOutCast({"out1", "out2"}), true);
-    G.GetFunction()->SetGraphType(GraphType::TENSOR_GRAPH);
-
-    ExpandFunction expandfunctionpass;
-    EXPECT_EQ(expandfunctionpass.RunOnFunction(*G.GetFunction()), FAILED);
+TEST_F(TestExpandFunctionPass, TestPassScopeInfoSettingsVerify)
+{
+    RunScopeInfoTest(
+        {"in1", "in2", "in3", "out1", "out2"}, 3, {Opcode::OP_ADD, Opcode::OP_ADD}, {{"in1", "in2"}, {"in2", "in3"}},
+        {{"out1"}, {"out2"}}, {"add1", "add2"}, SUCCESS, {{"add1", 1, true, false}, {"add2", 1, true, false}});
 }
 
 TEST_F(TestExpandFunctionPass, TestCVMixPlatformMergeFlagMustBeFalse)
 {
     Platform::Instance().GetSoc().SetNPUArch(NPUArch::DAV_3510);
     EXPECT_TRUE(GraphUtils::IsCVMixPlatform());
-
-    ComputationalGraphBuilder G;
-    std::vector<int64_t> shape{kNumExpSix, kNumExpSix};
-    EXPECT_EQ(G.AddTensors(DataType::DT_FP32, shape, {"in1", "in2", "in3", "in4", "out1", "out2"}), true);
-    EXPECT_EQ(G.AddOps(
-                  {Opcode::OP_ADD, Opcode::OP_A_MUL_B},
-                  {{"in1", "in2"}, {"in3", "in4"}},
-                  {{"out1"}, {"out2"}},
-                  {"add1", "matmul1"}, true),
-              true);
-
-    Operation::ScopeInfo scopeInfo(1);
-    scopeInfo.allowParallelMerge = true;
-    G.GetOp("add1")->SetScopeInfo(scopeInfo);
-    G.GetOp("matmul1")->SetScopeInfo(scopeInfo);
-
-    EXPECT_EQ(G.SetInCast({"in1", "in2", "in3", "in4"}), true);
-    EXPECT_EQ(G.SetOutCast({"out1", "out2"}), true);
-    G.GetFunction()->SetGraphType(GraphType::TENSOR_GRAPH);
-
-    ExpandFunction expandfunctionpass;
-    EXPECT_EQ(expandfunctionpass.RunOnFunction(*G.GetFunction()), FAILED);
-
-    Platform::Instance().GetSoc().SetNPUArch(NPUArch::DAV_2201);
+    RunScopeInfoTest(
+        {"in1", "in2", "in3", "in4", "out1", "out2"}, 4, {Opcode::OP_ADD, Opcode::OP_A_MUL_B},
+        {{"in1", "in2"}, {"in3", "in4"}}, {{"out1"}, {"out2"}}, {"add1", "matmul1"}, FAILED,
+        {{"add1", 1, true, false}, {"matmul1", 1, true, false}});
 }
 
 TEST_F(TestExpandFunctionPass, PreCheckForDisorderIndexOutcast)
