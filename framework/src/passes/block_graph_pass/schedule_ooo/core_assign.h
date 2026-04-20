@@ -104,6 +104,7 @@ public:
     void BuildSameLayerConnectionWithBack();
     void BuildSameLayerConnectionWithFront();
     int BuildCluster(std::vector<int>& clusterIds, std::vector<ScheduleCoreType>& clusterCoreTypes);
+    void ReverseDFSFindByOutputMemType(int opIdx, MemoryType targetMemType, std::vector<int>& result, std::vector<bool>& visited);
     std::vector<std::vector<int>> FindMergeableTaskNodes();
     void MergeTask();
     void MergeTaskByTargetCoreType();
