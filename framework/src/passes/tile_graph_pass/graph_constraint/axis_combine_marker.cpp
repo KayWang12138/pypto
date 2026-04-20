@@ -159,7 +159,13 @@ void UpdateReduceStatus(Operation* op, std::unordered_map<LogicalTensorPtr, Axis
     auto inputTensor = op->GetIOperands()[0];
     auto outputTensor = op->GetOOperands()[0];
     auto dimSize = static_cast<int>(inputTensor->GetShape().size());
-    int axis = op->GetIntAttribute(OP_ATTR_PREFIX + "AXIS");
+    int axis = -1;
+    if (op->HasAttr(OP_ATTR_PREFIX + "AXIS")) {
+        axis = op->GetIntAttribute(OP_ATTR_PREFIX + "AXIS");
+    } else {
+        std::cout << op->GetOpMagic() << op->GetOpcodeStr() << " DO NOT HAVE AXIS" << std::endl;
+        axis = dimSize - 1;
+    }
     if (dimSize > 1 && axis < dimSize - 2) {
         tensorStatus[outputTensor] = tensorStatus[inputTensor];
         return;
