@@ -90,7 +90,7 @@ cmpop = Eq | NotEq | Lt | LtE | Gt | GtE | Is | IsNot | In | NotIn
 import ast
 import re
 from collections.abc import Mapping
-from typing import Any, Optional, Union
+from typing import Any, Callable, Optional, Union
 
 PILExpr = Union[str, ast.Constant]
 PILSlice = Union[tuple[Optional[PILExpr], Optional[PILExpr], Optional[PILExpr]], PILExpr]
@@ -172,9 +172,9 @@ class PILBuilder(ast.NodeVisitor):
          node_attr: PILAttr = NOATTR) -> Union[ast.Name, ast.Constant]:
         if isinstance(value, ast.Constant):
             return value
-        else:
-            assert isinstance(value, str)
+        if isinstance(value, str):
             return self.create_pil_name(value, ctx)
+        raise TypeError(f"Expected ast.Constant or str, but got {type(value).__name__}")
 
     def create_pil_maybe_starred(self,
          expr: PILExpr,
@@ -182,10 +182,10 @@ class PILBuilder(ast.NodeVisitor):
          ctx=ast.Load(),
          node_attr: PILAttr = NOATTR) -> ast.expr:
         if starred:
-            assert isinstance(expr, str)
+            if not isinstance(expr, str):
+                raise TypeError(f"Expected str for starred expr, but got {type(expr).__name__}")
             return self.create_pil_starred(expr, ctx)
-        else:
-            return self.create_pil_expr(expr, ctx)
+        return self.create_pil_expr(expr, ctx)
 
     def create_pil_slice(self, slices: list[PILSlice]) -> ast.expr:
         result_slice_tuple = []
@@ -249,7 +249,8 @@ class PILBuilder(ast.NodeVisitor):
         Emit code:
             target_name = source_expr
         """
-        assert isinstance(target_name, str)
+        if not isinstance(target_name, str):
+            raise TypeError(f"Expected str for target_name, but got {type(target_name).__name__}")
         return ast.Assign(
             targets=[ast.Name(id=target_name, ctx=ast.Store())],
             value=self.create_pil_expr(source_expr),
@@ -396,7 +397,8 @@ class PILBuilder(ast.NodeVisitor):
             else:
                 orelse
         """
-        assert isinstance(target_name, str)
+        if not isinstance(target_name, str):
+            raise TypeError(f"Expected str for target_name, but got {type(target_name).__name__}")
         return ast.For(target=ast.Name(id=target_name,
                  ctx=ast.Store()),
              iter=self.create_pil_expr(iter_expr),
@@ -1627,8 +1629,8 @@ class PythonParser(PILBuilder, ast.NodeVisitor):
             _tmp_0 = expr
             target = _tmp_0
         """
-        assert isinstance(target,
-             ast.Name), "Python native ast parser should guarantee that the target of NamedExpr is always ast.Name"
+        if not isinstance(target, ast.Name):
+            raise TypeError('Python native ast parser should guarantee that the target of NamedExpr is always ast.Name')
         value_stmt_list, value_name = self.visit(value)
         assign_stmt = self.create_pil_assign_identifier(target.id, value_name)
         result_stmt_list = value_stmt_list + [assign_stmt]
@@ -2230,7 +2232,8 @@ class PythonParser(PILBuilder, ast.NodeVisitor):
             _tmp_0 = value_expr
             _tmp_1 = _tmp_0.attr
         """
-        assert isinstance(ctx, ast.Load)
+        if not isinstance(ctx, ast.Load):
+            raise TypeError(f"Expected ast.Load for ctx, but got {type(ctx).__name__}")
         value_stmts, value_name = self.visit(value)
         temp_name = self.create_temp_identifier()
         result_expr = self.create_pil_attribute(value_name, attr)
@@ -2251,7 +2254,8 @@ class PythonParser(PILBuilder, ast.NodeVisitor):
             _tmp_1 = slice_expr         # lower/upper/step each resolved
             _tmp_2 = _tmp_0[_tmp_1]
         """
-        assert isinstance(ctx, ast.Load)
+        if not isinstance(ctx, ast.Load):
+            raise TypeError(f"Expected ast.Load for ctx, but got {type(ctx).__name__}")
         value_stmts, value_name = self.visit(value)
 
         # Normalize slice into a list of ast.Slice nodes
@@ -2274,7 +2278,8 @@ class PythonParser(PILBuilder, ast.NodeVisitor):
          ctx: ast.expr_context,
          node_attr: PILAttr = NOATTR) -> tuple[list[ast.stmt],
          PILExprOrNone]:
-        assert isinstance(ctx, ast.Load)
+        if not isinstance(ctx, ast.Load):
+            raise TypeError(f"Expected ast.Load for ctx, but got {type(ctx).__name__}")
         return [], identifier
 
     def visit_list(self,
@@ -2291,7 +2296,8 @@ class PythonParser(PILBuilder, ast.NodeVisitor):
             _tmp_2 = elt2
             _tmp_3 = [_tmp_0, *_tmp_1, _tmp_2]
         """
-        assert isinstance(ctx, ast.Load)
+        if not isinstance(ctx, ast.Load):
+            raise TypeError(f"Expected ast.Load for ctx, but got {type(ctx).__name__}")
 
         return self._visit_sequence_literal(elts, self.create_pil_list)
 
@@ -2309,7 +2315,8 @@ class PythonParser(PILBuilder, ast.NodeVisitor):
             _tmp_2 = elt2
             _tmp_3 = (_tmp_0, *_tmp_1, _tmp_2)
         """
-        assert isinstance(ctx, ast.Load)
+        if not isinstance(ctx, ast.Load):
+            raise TypeError(f"Expected ast.Load for ctx, but got {type(ctx).__name__}")
 
         return self._visit_sequence_literal(elts, self.create_pil_tuple)
 
