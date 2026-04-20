@@ -12,9 +12,9 @@
  * \file device_runner.cpp
  * \brief
  */
-#ifdef BUILD_WITH_CANN
-#include <cstdint>
+
 #include "machine/runtime/device_runner.h"
+#include <cstdint>
 #include <algorithm>
 #include <cstdint>
 #include <cstdlib>
@@ -170,7 +170,7 @@ void DeviceRunner::InitDynamicArgs(DeviceArgs& args)
     }
 
     if (GetEnvVar("DUMP_DEVICE_PERF") == "true") {
-        auto aicpuDevPtr = MachinePerfTraceDevMalloc(MAX_TURN_NUM * sizeof(MetricPerf));
+        auto aicpuDevPtr = MachinePerfTraceDevMalloc(MAX_ROUND_NUM * sizeof(MetricPerf));
         if (aicpuDevPtr == 0) {
             MACHINE_LOGW("Aicpu per addr malloc failed");
             return;
@@ -491,6 +491,9 @@ bool DeviceRunner::GetEnableDumpDevPref() const { return enableDumpMachinePerfTr
 
 void DeviceRunner::ResetMetrics(const uint32_t& coreId)
 {
+    if (perfData_.empty()) {
+        return;
+    }
     if (enableDumpMachinePerfTrace_) {
         if (!g_is_machine_trace_addr_inited) {
             RuntimeMemset(perfData_[coreId], sizeof(Metrics), 0, sizeof(Metrics));
@@ -837,21 +840,5 @@ DeviceRunner::~DeviceRunner()
     }
     perfData_.clear();
 }
-
 } // namespace npu::tile_fwk
 
-#else // stub
-
-#include "machine/runtime/device_runner.h"
-
-namespace npu::tile_fwk {
-DeviceRunner& DeviceRunner::Get()
-{
-    static DeviceRunner runner;
-    return runner;
-}
-void DeviceRunner::InitMetaData(DeviceArgs& devArgs) { (void)devArgs; }
-bool DeviceRunner::GetValidGetPgMask() const { return true; }
-} // namespace npu::tile_fwk
-
-#endif // BUILD_WITH_CANN

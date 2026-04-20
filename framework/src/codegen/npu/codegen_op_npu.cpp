@@ -202,6 +202,8 @@ CodeGenOpNPU::CodeGenOpNPU(const CodeGenOpNPUCtx& ctx)
       compositeOps_({
           // range op
           {Opcode::OP_RANGE, [this]() { return GenRangeOp(); }},
+          // uniform op
+          {Opcode::OP_UNIFORM, [this]() { return GenUniformOp(); }},
 
           // logicalnot
           {Opcode::OP_LOGICALNOT, [this]() { return GenLogicalNotOp(); }},
@@ -521,8 +523,8 @@ void CodeGenOpNPU::UpdateTileTensorShapeAndStride(
 
     tileTensor.rawShape = newRawShape;
 
-    // ---- static ----
-    if (functionType == FunctionType::STATIC) {
+    // ---- static or "main block" ----
+    if (tileTensor.isConstant) {
         for (auto s : newOriginShape) {
             tileTensor.shape.emplace_back(std::to_string(s));
         }

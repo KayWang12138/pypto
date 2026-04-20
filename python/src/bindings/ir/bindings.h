@@ -7,23 +7,24 @@
  * INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
  * See LICENSE in the root of the software repository for the full text of the License.
  */
-
-/*!
- * \file index_outcast_checker.h
- * \brief
- */
-
 #pragma once
+#include <pybind11/pybind11.h>
 
-#include <queue>
-#include "checker.h"
-#include "interface/function/function.h"
+#include "Python.h"
+#include "pybind11/chrono.h"
+#include "pybind11/complex.h"
+#include "pybind11/functional.h"
+#include "pybind11/operators.h"
+#include "pybind11/stl.h"
+#include "pybind11/native_enum.h"
 
-namespace npu {
-namespace tile_fwk {
-class IndexOutcastChecker : Checker {
-public:
-    Status CheckIndexOutcastDisorderedCoverage(Function& function);
-};
-} // namespace tile_fwk
-} // namespace npu
+namespace py = pybind11;
+
+namespace pypto {
+void BindIR(py::module& m);
+void BindCore(py::module& m);
+
+namespace ir {
+void BindIRBuilder(py::module& m);
+}
+} // namespace pypto
