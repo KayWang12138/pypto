@@ -15,7 +15,7 @@ from .. import pypto_impl
 from .._element import Element
 from .._op_wrapper import op_wrapper
 from ..tensor import Tensor
-from ..enum import DataType, DivAlgorithm, ExpAlgorithm, SqrtAlgorithm, RsqrtAlgorithm, LogAlgorithm, RecipAlgorithm
+from ..enum import DataType, DivAlgorithm, ExpAlgorithm, SqrtAlgorithm, RsqrtAlgorithm, LogAlgorithm, RecipAlgorithm, FmodAlgorithm
 from ..symbolic_scalar import SymbolicScalar, SymInt
 
 
@@ -282,7 +282,7 @@ def hypot(self: Tensor, other: Tensor) -> Tensor:
 
 
 @op_wrapper
-def fmod(input: Tensor, other: Union[Tensor, float]) -> Tensor:
+def fmod(input: Tensor, other: Union[Tensor, float], precision_type: FmodAlgorithm = FmodAlgorithm.HIGH_PRECISION) -> Tensor:
     """Computes the element-wise modulus of `input` and `other`.
 
     This function calculates the formula: `out = input % other`.
@@ -294,6 +294,10 @@ def fmod(input: Tensor, other: Union[Tensor, float]) -> Tensor:
         The first input tensor.
     other : Tensor or Number
         The second input tensor or a scalar to modulo operation.
+    precision_type : FmodAlgorithm, optional
+        The precision algorithm for modulo. Default is FmodAlgorithm.HIGH_PRECISION.
+        HIGH_PRECISION uses higher precision calculation to reduce precision loss.
+        Use FmodAlgorithm.INTRINSIC to directly use chip instructions.
 
     Returns
     -------
@@ -319,9 +323,14 @@ def fmod(input: Tensor, other: Union[Tensor, float]) -> Tensor:
     Input a:    [[2.0 5.0 9.0]]
     Input b:    [[2.0 2.0 2.0]]
     Output out: [[0.0 1.0 1.0]]
+
+    # Using high precision mode for FP32
+    a = pypto.tensor([1, 3], pypto.DT_FP32)
+    b = pypto.tensor([1, 3], pypto.DT_FP32)
+    out = pypto.fmod(a, b, pypto.FmodAlgorithm.HIGH_PRECISION)
     """
     if isinstance(other, pypto_impl.Tensor):
-        return pypto_impl.Fmod(input, other)
+        return pypto_impl.Fmod(input, other, precision_type)
     else:
         return pypto_impl.Fmod(input, pypto_impl.Element(input.dtype, other))
 

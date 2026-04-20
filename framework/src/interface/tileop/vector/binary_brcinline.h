@@ -119,18 +119,29 @@ TILEOP BinaryLayoutInfo ExtractLayoutInfo(const T0& dst, const T1& src0, const T
         return;                                                                             \
     }
 
-template <
-    BinaryOp op, pto::DivAlgorithm PrecisionType = pto::DivAlgorithm::DEFAULT, typename LastUse, typename T0,
-    typename T1, typename T2>
+template <BinaryOp op, auto PrecisionType = 0, typename LastUse, typename T0, typename T1, typename T2>
 TILEOP void BinaryRowExpandComputeImpl(T0 dst, T1 src0, T2 src1)
 {
     EXTRACT_LAST_USE_3DIM(LastUse)
     BINARY_EXPAND_DISPATCH(ROWEXPAND, PrecisionType)
+    if constexpr (op == BinaryOp::MOD) {
+        pto::TROWEXPANDDIV<PrecisionType>(dst, src0, src1);
+#ifdef __DAV_V220
+        pipe_barrier(PIPE_V);
+#endif
+        pto::TCVT(dst, dst, pto::RoundMode::CAST_TRUNC);
+#ifdef __DAV_V220
+        pipe_barrier(PIPE_V);
+#endif
+        pto::TROWEXPANDMUL(dst, dst, src1);
+#ifdef __DAV_V220
+        pipe_barrier(PIPE_V);
+#endif
+        pto::TROWEXPANDSUB(dst, src0, dst);
+    }
 }
 
-template <
-    BinaryOp op, pto::DivAlgorithm PrecisionType = pto::DivAlgorithm::DEFAULT, typename LastUse, typename T0,
-    typename T1, typename T2>
+template <BinaryOp op, auto PrecisionType = 0, typename LastUse, typename T0, typename T1, typename T2>
 TILEOP void BinaryColExpandComputeImpl(T0 dst, T1 src0, T2 src1)
 {
     EXTRACT_LAST_USE_3DIM(LastUse)
@@ -153,8 +164,8 @@ TILEOP void BinaryColExpandComputeImpl(T0 dst, T1 src0, T2 src1)
 }
 
 template <
-    BinaryOp op, pto::DivAlgorithm PrecisionType = pto::DivAlgorithm::DEFAULT, TileOp::BroadcastOperand WBrcSide,
-    TileOp::PenuBroadcastOperand HBrcSide, typename Src0TileInfo, typename Src1TileInfo, typename LastUse, typename T0, typename T1, typename T2>
+    BinaryOp op, auto PrecisionType = 0, TileOp::BroadcastOperand WBrcSide, TileOp::PenuBroadcastOperand HBrcSide,
+    typename Src0TileInfo, typename Src1TileInfo, typename LastUse, typename T0, typename T1, typename T2>
 TILEOP void BinaryMixBrcCompute(T0 dst, T1 src0, T2 src1, const BinaryLayoutInfo& info)
 {
     constexpr bool src0IsColMajor = (Src0TileInfo::tileW == 1 && WBrcSide == TileOp::BroadcastOperand::LEFT_OPERAND);
@@ -172,14 +183,16 @@ TILEOP void BinaryMixBrcCompute(T0 dst, T1 src0, T2 src1, const BinaryLayoutInfo
                 for (LoopVar n3Index = 0; n3Index < info.shape3; ++n3Index) {
                     auto dsttileOffsets = n0Index * info.dstStride0 + n1Index * info.dstStride1 +
                                           n2Index * info.dstStride2 + n3Index * info.dstStride3;
-                    auto src0tileOffsets = (Src0TileInfo::tile0 == 1 ? 0 : n0Index) * info.src0Stride0 +
-                                           (Src0TileInfo::tile1 == 1 ? 0 : n1Index) * info.src0Stride1 +
-                                           (Src0TileInfo::tile2 == 1 ? 0 : n2Index) * info.src0Stride2 +
-                                           (HBrcSide == TileOp::PenuBroadcastOperand::LEFT_OPERAND ? 0 : n3Index) * info.src0Stride3;
-                    auto src1tileOffsets = (Src1TileInfo::tile0 == 1 ? 0 : n0Index) * info.src1Stride0 +
-                                           (Src1TileInfo::tile1 == 1 ? 0 : n1Index) * info.src1Stride1 +
-                                           (Src1TileInfo::tile2 == 1 ? 0 : n2Index) * info.src1Stride2 +
-                                           (HBrcSide == TileOp::PenuBroadcastOperand::RIGHT_OPERAND ? 0 : n3Index) * info.src1Stride3;
+                    auto src0tileOffsets =
+                        (Src0TileInfo::tile0 == 1 ? 0 : n0Index) * info.src0Stride0 +
+                        (Src0TileInfo::tile1 == 1 ? 0 : n1Index) * info.src0Stride1 +
+                        (Src0TileInfo::tile2 == 1 ? 0 : n2Index) * info.src0Stride2 +
+                        (HBrcSide == TileOp::PenuBroadcastOperand::LEFT_OPERAND ? 0 : n3Index) * info.src0Stride3;
+                    auto src1tileOffsets =
+                        (Src1TileInfo::tile0 == 1 ? 0 : n0Index) * info.src1Stride0 +
+                        (Src1TileInfo::tile1 == 1 ? 0 : n1Index) * info.src1Stride1 +
+                        (Src1TileInfo::tile2 == 1 ? 0 : n2Index) * info.src1Stride2 +
+                        (HBrcSide == TileOp::PenuBroadcastOperand::RIGHT_OPERAND ? 0 : n3Index) * info.src1Stride3;
                     pto::TASSIGN(dstTile, (uint64_t)(dst.GetAddr() + dsttileOffsets * sizeof(typename T0::Type)));
                     pto::TASSIGN(src0Tile, (uint64_t)(src0.GetAddr() + src0tileOffsets * sizeof(typename T1::Type)));
                     pto::TASSIGN(src1Tile, (uint64_t)(src1.GetAddr() + src1tileOffsets * sizeof(typename T2::Type)));
