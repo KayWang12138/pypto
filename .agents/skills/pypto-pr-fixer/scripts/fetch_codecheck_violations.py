@@ -297,8 +297,8 @@ def _capture_task_api_seed(page: object, url: str, config: FetcherConfig) -> Tas
     finally:
         try:
             inspect_page.remove_listener("response", _on_response)
-        except Exception:
-            pass
+        except Exception as exc:
+            logging.debug("remove response listener failed: %s", exc)
 
     try:
         task_id, uuid, project_id = _extract_task_seed_from_url(url)
