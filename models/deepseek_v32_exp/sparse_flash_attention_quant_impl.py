@@ -126,7 +126,6 @@ def sparse_flash_attention_quant_compute(query_nope, query_rope, key_nope_2d, ke
                         cur_block_table = pypto.view(block_table, [1, max_blocknum_perbatch], [batch_idx, 0])
 
                         kn = pypto.tensor([s2_tile, dn], dtype, "kn")
-                        pypto.set_pass_options(sg_set_scope=20001)
                         if kn_dtype == pypto.DT_INT8:
                             pypto.set_semantic_label("Sa_V0")
                             pypto.set_vec_tile_shapes(16, 1024)
@@ -149,43 +148,63 @@ def sparse_flash_attention_quant_compute(query_nope, query_rope, key_nope_2d, ke
                             cur_kn_fp32 = pypto.view(kn_fp32_reshape, [cur_s2_tile, dn], [0, 0],
                                 valid_shape=[(cur_seq - s2_idx * cur_s2_tile).min(cur_s2_tile), dn])
                             kn = pypto.cast(cur_kn_fp32, dtype)
+                            # C1
+                            pypto.set_semantic_label("Sa_C1")
+                            pypto.set_vec_tile_shapes(gather_vec_tile[0], gather_vec_tile[1])
+                            pypto.set_cube_tile_shapes([c1_tile[0],
+                                c1_tile[1]], [c1_tile[2], c1_tile[3]], [c1_tile[4], c1_tile[5]])
+                            
+                            kr = gather_in_l1(key_rope_2d, cur_topk_indices, cur_block_table, block_size, dr,
+                                            is_b_matrix=True, is_trans=True)
+                            
+                            kj = pypto.tensor([cur_s2_tile, dn + dr], dtype, "kj")
+                            pypto.assemble(kn, [0, 0], kj)
+                            pypto.assemble(kr, [0, dn], kj)
+                            kj_view = pypto.view(kj, [cur_s2_tile, dn + dr], [0, 0],
+                                                valid_shape=[(cur_seq - s2_idx * cur_s2_tile).min(cur_s2_tile), dn + dr])
+
+                            qn = pypto.view(query_nope, [cur_group_tile, dn], [cur_offset, 0],
+                                            valid_shape=[cur_group_tile, dn])
+                            qr = pypto.view(query_rope, [cur_group_tile, dr], [cur_offset, 0],
+                                            valid_shape=[cur_group_tile, dr])
+                            qi = pypto.tensor([cur_group_tile, dn + dr], dtype, "qi")
+                            pypto.assemble(qn, [0, 0], qi)
+                            pypto.assemble(qr, [0, dn], qi)
+
+                            sij = pypto.matmul(qi, kj_view, pypto.DT_FP32, a_trans=False, b_trans=True)
                         else:
+                            pypto.set_pass_options(sg_set_scope=20001)
                             pypto.set_semantic_label("Sa_V0")
                             pypto.set_vec_tile_shapes(gather_vec_tile[0], gather_vec_tile[1])
                             k_nope_2d_view = pypto.view(key_nope_2d, [key_nope_2d.shape[0], dn],
                                 [0, 0], valid_shape=[key_nope_2d.shape[0], dn])
                             kn = gather_in_ub(k_nope_2d_view, cur_topk_indices, cur_block_table, block_size, -2)
-
-                        # C1
-                        pypto.set_semantic_label("Sa_C1")
-                        pypto.set_vec_tile_shapes(gather_vec_tile[0], gather_vec_tile[1])
-                        pypto.set_cube_tile_shapes([c1_tile[0],
-                            c1_tile[1]], [c1_tile[2], c1_tile[3]], [c1_tile[4], c1_tile[5]])
-
-                        if kn_dtype == pypto.DT_INT8:
-                            kr = gather_in_l1(key_rope_2d, cur_topk_indices, cur_block_table, block_size, dr,
-                                            is_b_matrix=True, is_trans=True)
-                        else:
+                            # C1
+                            pypto.set_semantic_label("Sa_C1")
+                            pypto.set_vec_tile_shapes(gather_vec_tile[0], gather_vec_tile[1])
+                            pypto.set_cube_tile_shapes([c1_tile[0],
+                                c1_tile[1]], [c1_tile[2], c1_tile[3]], [c1_tile[4], c1_tile[5]])
+                            
                             key_rope_2d_view = pypto.view(key_rope_2d, [key_rope_2d.shape[0], dr],
                                                             [0, 0], valid_shape=[key_rope_2d.shape[0], dr])
                             kr = gather_in_ub(key_rope_2d_view, cur_topk_indices, cur_block_table, block_size, -2)
 
-                        kj = pypto.tensor([cur_s2_tile, dn + dr], dtype, "kj")
-                        pypto.assemble(kn, [0, 0], kj)
-                        pypto.assemble(kr, [0, dn], kj)
-                        kj_view = pypto.view(kj, [cur_s2_tile, dn + dr], [0, 0],
-                                             valid_shape=[(cur_seq - s2_idx * cur_s2_tile).min(cur_s2_tile), dn + dr])
+                            kj = pypto.tensor([cur_s2_tile, dn + dr], dtype, "kj")
+                            pypto.assemble(kn, [0, 0], kj)
+                            pypto.assemble(kr, [0, dn], kj)
+                            kj_view = pypto.view(kj, [cur_s2_tile, dn + dr], [0, 0],
+                                                valid_shape=[(cur_seq - s2_idx * cur_s2_tile).min(cur_s2_tile), dn + dr])
 
-                        qn = pypto.view(query_nope, [cur_group_tile, dn], [cur_offset, 0],
-                                        valid_shape=[cur_group_tile, dn])
-                        qr = pypto.view(query_rope, [cur_group_tile, dr], [cur_offset, 0],
-                                        valid_shape=[cur_group_tile, dr])
-                        qi = pypto.tensor([cur_group_tile, dn + dr], dtype, "qi")
-                        pypto.assemble(qn, [0, 0], qi)
-                        pypto.assemble(qr, [0, dn], qi)
+                            qn = pypto.view(query_nope, [cur_group_tile, dn], [cur_offset, 0],
+                                            valid_shape=[cur_group_tile, dn])
+                            qr = pypto.view(query_rope, [cur_group_tile, dr], [cur_offset, 0],
+                                            valid_shape=[cur_group_tile, dr])
+                            qi = pypto.tensor([cur_group_tile, dn + dr], dtype, "qi")
+                            pypto.assemble(qn, [0, 0], qi)
+                            pypto.assemble(qr, [0, dn], qi)
 
-                        sij = pypto.matmul(qi, kj_view, pypto.DT_FP32, a_trans=False, b_trans=True)
-                        pypto.set_pass_options(sg_set_scope=-1)
+                            sij = pypto.matmul(qi, kj_view, pypto.DT_FP32, a_trans=False, b_trans=True)
+                            pypto.set_pass_options(sg_set_scope=-1)
 
                         pypto.set_semantic_label("Sa_V1")
                         pypto.set_vec_tile_shapes(v1_tile[0], v1_tile[1])
