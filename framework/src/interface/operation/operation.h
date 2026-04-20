@@ -106,7 +106,11 @@ public:
     static const std::string maxTileNum;
     static const std::string precisionType;
     static const std::string perm;
+<<<<<<< HEAD
     static const std::string gmTensorParamIdxInCall;
+=======
+    static const std::string splitMN;
+>>>>>>> 16fd44e1... feat(codegen): Support L0C->UB Dual Dst
 };
 
 class ConvOpAttributeKey {
