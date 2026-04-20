@@ -335,20 +335,20 @@ def gen_golden(inputs: GmmFRGoldenInputs) -> torch.Tensor:
         intermediate[begin:end, :] = gmm_result
 
     # Step 2: Finalization Routing（使用 combine_func）
-    output_bs = x1.shape[0] // len(group_list)
+    output_bs = batch
     
     if shared_input is not None:
         final_out = combine_func(
-            intermediate, logit, shared_input, shared_input_weight, 
+            intermediate, logit, shared_input, shared_input_weight,
             row_index, output_bs, shared_input_offset
         )
     else:
         final_out = combine_func(
-            intermediate, logit, None, None, 
+            intermediate, logit, None, None,
             row_index, output_bs, shared_input_offset
         )
 
-    return intermediate
+    return final_out
 
 
 # ─────────────────────────────────────────────
@@ -405,6 +405,8 @@ def grouped_matmul_finalize_routing_pypto(m, k, n, e, batch, tile_config, transp
         pertoken_scale: pypto.Tensor(pertoken_scale_shape, pypto.DT_FP8E8M0),
         logits: pypto.Tensor(logit_shape, pypto.DT_FP32),
         intermediate: pypto.Tensor(intermediate_shape, pypto.DT_FP32),
+        routing_out: pypto.Tensor(out_shape, pypto.DT_FP32),
+        shared_out: pypto.Tensor(out_shape, pypto.DT_FP32),
         out: pypto.Tensor(out_shape, pypto.DT_FP32),
         row_index: pypto.Tensor(row_index_shape, pypto.DT_INT64),
         bias: pypto.Tensor(bias_shape, pypto.DT_BF16),
@@ -432,6 +434,8 @@ def grouped_matmul_finalize_routing_pypto(m, k, n, e, batch, tile_config, transp
             pertoken_scale: Token缩放因子 [M, Ceil(K/64), 2], FLOAT8_E8M0
             logit: MoE logit [M], FP32
             intermediate: GMM 输出 [M, N], FP32
+            routing_out: routing聚合输出 [batch, N], FP32
+            shared_out: shared专家分支输出 [batch, N], FP32
             out: 最终输出 [batch, N], FP32
             row_index: 路由索引 [M], INT64
             bias: 专家偏置 [E, N], BF16
@@ -490,26 +494,24 @@ def grouped_matmul_finalize_routing_pypto(m, k, n, e, batch, tile_config, transp
             
             intermediate[begin:end, :] = gmm_result
 
-        # Step 2: logit加权
-        # logit [M] -> unsqueeze -> [M, 1]
-        # intermediate [M, N] * logit [M, 1] -> weighted [M, N]
-        output_bs = intermediate.shape[0] // len(group_list)
-        top_k = intermediate.shape[0] // output_bs
-        remain_logits = logits.shape[0] % top_k
-        logits[:] = logits[:logits.shape[0] - remain_logits]
+        # Step 2: logit加权 + routing combine
+        # 文档公式对应的是按 row_index 做 scatter add，重复索引需要累加。
+        pypto.set_vec_tile_shapes(
+            tile_config.vector_tile_shape[0],
+            tile_config.vector_tile_shape[2]
+        )
+        weighted = pypto.mul(intermediate, logits.unsqueeze(1))
+        pypto.index_add_(routing_out, 0, row_index, weighted)
 
-        out[:] = intermediate * logits.unsqueeze(1)
+        # Step 3: shared_input融合（可选）
+        if has_shared:
+            shared_fp32 = pypto.cast(shared_input, pypto.DT_FP32)
+            shared_scaled = pypto.mul(shared_fp32, shared_input_weight)
+            shared_end = shared_input_offset + shared_input.shape[0]
+            shared_out[shared_input_offset:shared_end, :] = shared_scaled
 
-        remain_sr = row_index.shape % top_k
-        row_index[:] = row_index[:row_index.shape[0] - remain_sr]
-
-        pypto.set_vec_tile_shapes(32)
-        index = pypto.argsort(row_index, -1, True)
-
-        out[:] = pypto.index_select(out, 0, index)
-        pypto.reshape(out, [output_ba, top_k, intermediate.shape[-1]])
-
-        out[:] = pypto.sum(out, 0, True)
+        # Step 4: 合并 routing 分支和 shared 分支
+        out[:] = pypto.add(routing_out, shared_out)
 
 
     return grouped_matmul_finalize_routing_kernel
@@ -585,6 +587,8 @@ def gen_mxfp8(inputs: GmmFRInputs) -> torch.Tensor:
 
     # 初始化输出tensor
     intermediate = torch.zeros((m, n), dtype=torch.float32).npu()
+    routing_out = torch.zeros((batch, n), dtype=torch.float32).npu()
+    shared_out = torch.zeros((batch, n), dtype=torch.float32).npu()
     out = torch.zeros((batch, n), dtype=torch.float32).npu()
 
     # 创建 kernel
@@ -595,7 +599,7 @@ def gen_mxfp8(inputs: GmmFRInputs) -> torch.Tensor:
     # 调用 kernel（全 NPU 实现）
     kernel(
         x1, x2, scale, pertoken_scale, logit, 
-        intermediate, out, row_index,
+        intermediate, routing_out, shared_out, out, row_index,
         bias, shared_input,
         shared_input_weight, shared_input_offset,
         group_list, has_bias, has_shared
