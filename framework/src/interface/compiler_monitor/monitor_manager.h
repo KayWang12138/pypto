@@ -57,6 +57,9 @@ public:
 
     std::string GetCurrentFunctionName() const;
     void SetCurrentFunctionName(const std::string& name);
+    int GetCurrentFuncOpSize() const;
+    void SetCurrentFuncOpSize(size_t op_size);
+    void SetCurrentFuncSumOpSize(size_t op_size);
     double GetTotalElapsed() const;
 
     MonitorManager() = default;
@@ -86,6 +89,7 @@ private:
     std::unordered_map<std::string, double> stage_elapsed_totals_;
     std::map<std::string, bool> stage_timeout_flag_;
 
+    int current_func_opsize_{0};
     int total_function_count_{0};
     int current_function_index_{0};
     int next_function_index_{1};
