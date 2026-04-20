@@ -368,7 +368,7 @@ Status OoOScheduler::ExecuteAllocIssue(uint64_t& commitCnt, MemoryType memType, 
         Operation* op = pipe.Front();
         auto& coreLocation = opCoreLocationMap[op];
         auto& reqMemIds = GetOpMemIds(op);
-        if (!bufferManagerMap[coreLocation][memType].IsFull(localBufferMap_[reqMemIds[0]])) {
+        if (!bufferManagerMap[coreLocation][memType].IsFull(localBufferMap_[reqMemIds[0]], true)) {
             APASS_LOG_DEBUG_F(Elements::Operation, "ALLOCATE: %s.", GetOpInfo(op).c_str());
             if (bufferManagerMap[coreLocation][memType].Allocate(localBufferMap_[reqMemIds[0]]) != SUCCESS) {
                 APASS_LOG_ERROR_F(Elements::Tensor, "Allocate Tensor[%d] failed.", reqMemIds[0]);
@@ -593,7 +593,7 @@ Status OoOScheduler::ExecuteAllocIssue(Operation* op, size_t &pcIdx)
     }
     LocalBufferPtr allocBuffer = localBufferMap_[GetOpMemIds(op)[0]];
     auto coreLocation = opCoreLocationMap[op];
-    if (bufferManagerMap[coreLocation][allocBuffer->memType].IsFull(allocBuffer)) {
+    if (bufferManagerMap[coreLocation][allocBuffer->memType].IsFull(allocBuffer, false)) {
         if (GenSpillOp(pcIdx) != SUCCESS) {
             APASS_LOG_ERROR_F(Elements::Operation, "GenSpillOp failed at ExecuteAllocIssue. %s",
                 GetFormatBacktrace(*orderedOps[pcIdx]).c_str());
