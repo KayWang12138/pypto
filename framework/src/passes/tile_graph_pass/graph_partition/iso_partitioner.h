@@ -20,6 +20,15 @@
 
 namespace npu::tile_fwk {
 
+constexpr int64_t LATENCY_THRESHOLD_LEVEL1 = 10000000;
+constexpr int64_t LATENCY_THRESHOLD_LEVEL2 = 300000;
+constexpr int64_t LATENCY_THRESHOLD_LEVEL3 = 50000;
+
+constexpr int32_t CYCLE_UB_LEVEL1 = 5000000;
+constexpr int32_t CYCLE_UB_LEVEL2 = 150000;
+constexpr int32_t CYCLE_UB_LEVEL3 = 10000;
+constexpr int32_t CYCLE_UB_LEVEL4 = 1536;
+
 enum class GraphExtendResult { EXTEND_SUCCESS, EXTEND_LINK_EXHAUST, EXTEND_NODE_EXHAUST };
 
 class SubGraph {
@@ -95,6 +104,7 @@ private:
     Status IsomorphismGroupMergeStep(bool nonIsoGraphsMerge);
     Status IsomorphismGroupMergeProcess(bool nonIsoGraphsMerge);
     Status UpdatePartitionResult(Function& function);
+    Status EstimateCycleUB(Function& function);
     Status IsomorphismGroupMergePrepare(
         std::vector<std::pair<int32_t, int32_t>>& isoSubIdxs, std::vector<std::set<int32_t>>& isoInGraph,
         std::vector<std::set<int32_t>>& isoOutGraph, std::vector<std::vector<int32_t>>& isoNodeList,
