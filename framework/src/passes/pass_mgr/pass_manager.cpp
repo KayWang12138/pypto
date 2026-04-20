@@ -161,11 +161,11 @@ void PassManager::RegDefaultStrategy()
                         {"MixSubgraphSplit", PassName::MIX_SUBGRAPH_SPLIT},
                         {"GlobalMemoryReuse", PassName::GLOBAL_MEMORY_REUSE},
                         {"CodegenPreproc", PassName::CODEGEN_PREPROC},
+                        {"DynAttrToStatic", PassName::DYN_ATTR_TO_STATIC},
                     });
     RegisterStrategy("FunctionUnroll", {{"LoopUnroll", PassName::LOOP_UNROLL}});
     RegisterStrategy(
         "ExecuteGraph", {
-                            {"DynAttrToStatic", PassName::DYN_ATTR_TO_STATIC},
                             {"LoopaxesProc", PassName::LOOPAXES_PROC},
                         });
 }
