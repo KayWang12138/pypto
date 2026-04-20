@@ -39,8 +39,8 @@ class GmmGoldenInputs:
         y: Output tensor of shape [num_groups, M, N] (初始值)
         group_list: List of group sizes for K-axis splitting
         group_type: Type of group_list interpretation (default: 0)
-            - 0: group_list elements are individual group sizes, sum equals K
-            - 1: group_list elements are cumulative K values, last element equals K
+            - 0: group_list elements are cumulative K values, last element equals K
+            - 1: group_list elements are individual group sizes, sum equals K
         a_trans: Whether input tensor is transposed (default: True)
         b_trans: Whether weight tensor is transposed (default: False)
     
@@ -106,10 +106,10 @@ class ShapeConfig:
         n_tile_shape: Tile shape for N dimension in cube operation
         vector_tile_shape: Tile shapes for vector operations
         group_type: Type of group_list interpretation (default: 0)
-            - 0: group_list elements are individual group sizes, sum equals K
-                  Example: [256, 256] means K=256+256=512
-            - 1: group_list elements are cumulative K values, last element equals K
+            - 0: group_list elements are cumulative K values, last element equals K
                   Example: [256, 512] means first group K=[0,256], second group K=[256,512]
+            - 1: group_list elements are individual group sizes, sum equals K
+                  Example: [256, 256] means K=256+256=512
         in_dtype: Input tensor data type (default: DT_FP8E4M3)
             - DT_FP8E4M3: FP8 E4M3FN format (torch.float8_e4m3fn)
             - DT_FP8E5M2: FP8 E5M2 format (torch.float8_e5m2)
@@ -284,12 +284,12 @@ def gen_golden(inputs: GmmGoldenInputs) -> torch.Tensor:
     golden_result = y.clone()
     
     # 根据 group_type 计算 begin 和 end (K轴切分)
-    # group_type=0: group_list 各元素为单独的 group size，累加得到 K
-    # group_type=1: group_list 各元素为累计值，最后一个元素等于 K
+    # group_type=0: group_list 各元素为累计值，最后一个元素等于 K
+    # group_type=1: group_list 各元素为单独的 group size，累加得到 K
     begin = 0
     end = 0
     for i in range(round_num):
-        if group_type == 0:
+        if group_type == 1:
             # 累加方式: begin 指向当前组起始，end 指向当前组结束
             begin = end
             end = end + group_list[i]
@@ -412,12 +412,12 @@ def scaled_matmul_kernel(
     b_trans = tile_config.b_trans
 
     # 根据 group_type 计算 begin 和 end (K轴切分)
-    # group_type=0: group_list 各元素为单独的 group size，累加得到 K
-    # group_type=1: group_list 各元素为累计值，最后一个元素等于 K
+    # group_type=0: group_list 各元素为累计值，最后一个元素等于 K
+    # group_type=1: group_list 各元素为单独的 group size，累加得到 K
     begin = 0
     end = 0
     for i in range(g):
-        if group_type == 0:
+        if group_type == 1:
             # 累加方式: begin 指向当前组起始，end 指向当前组结束
             begin = end
             end = end + group_list[i]
@@ -659,7 +659,7 @@ if __name__ == "__main__":
             k_tile_shape=[256, 256],
             n_tile_shape=[256, 256],
             vector_tile_shape=[1, 8, 256, 32],
-            group_type=0,
+            group_type=1,
             in_dtype=pypto.DT_FP8E4M3,
             a_trans=True,
             b_trans=False,
@@ -683,7 +683,7 @@ if __name__ == "__main__":
             k_tile_shape=[64, 512],
             n_tile_shape=[256, 512],
             vector_tile_shape=[1, 8, 256, 32],
-            group_type=0,
+            group_type=1,
             in_dtype=pypto.DT_FP8E4M3,
             a_trans=True,
             b_trans=False,
@@ -710,7 +710,7 @@ if __name__ == "__main__":
             k_tile_shape=[256, 256],
             n_tile_shape=[256, 256],
             vector_tile_shape=[1, 8, 256, 32],
-            group_type=0,
+            group_type=1,
             in_dtype=pypto.DT_FP8E4M3,
             a_trans=True,
             b_trans=False,
@@ -721,10 +721,10 @@ if __name__ == "__main__":
         )
     )
     
-    # 测试用例4: group_type=1 (累计值模式) (FP8E4M3)
+    # 测试用例4: group_type=0 (累计值模式) (FP8E4M3)
     # - M=32, K=512, N=1024
     # - group_list=[256, 512] (累计值: 256, 512表示K切分点)
-    # - group_type=1: 表示group_list是累计值
+    # - group_type=0: 表示group_list是累计值
     # - m_tile_shape=[32, 32]
     # - scaled_a shape: ((512/64)+2, 32, 2) = (10, 32, 2)
     # - group 0: K=[0,256], offset=0, length=4, [0:4,:,:]
@@ -737,14 +737,14 @@ if __name__ == "__main__":
             k_tile_shape=[256, 256],
             n_tile_shape=[256, 256],
             vector_tile_shape=[1, 8, 256, 32],
-            group_type=1,
+            group_type=0,
             in_dtype=pypto.DT_FP8E4M3,
             a_trans=True,
             b_trans=False,
             a_format_nz=False,
             b_format_nz=False,
             c_format_nz=False,
-            description="Case4: FP8E4M3, group_type=1, group_list=[256,512] cumulative"
+            description="Case4: FP8E4M3, group_type=0, group_list=[256,512] cumulative"
         )
     )
 
@@ -760,7 +760,7 @@ if __name__ == "__main__":
             k_tile_shape=[256, 256],
             n_tile_shape=[256, 256],
             vector_tile_shape=[1, 8, 256, 32],
-            group_type=0,
+            group_type=1,
             in_dtype=pypto.DT_FP8E5M2,
             a_trans=True,
             b_trans=False,

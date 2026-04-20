@@ -4,21 +4,53 @@
 
 ---
 
+## 产品支持情况
+
+| 产品 | 是否支持 |
+|:-----|:--------:|
+| Ascend 950PR/Ascend 950DT | √ |
+
+---
+
 ## 功能说明
 
 `quant_grouped_matmul_inplace_add_mx` 算子将 GroupedMatMul 和 InplaceAdd 融合，使用 MXFP8 量化方式，支持按 K 轴分组进行矩阵乘法计算并就地累加到输出张量。
 
 该算子的核心特性：
 
-1. **MXFP8 量化**：数据使用 FP8E4M3FN 格式，缩放因子使用 FP8E8M0 格式
-2. **K 轴分组**：支持将 K 轴按不同分组切分，每个分组对应不同的权重矩阵块
-3. **就地加法**：输出张量同时作为输入，执行就地加法操作，减少内存拷贝
-4. **融合计算**：通过 `scaled_mm` 算子实现缩放和矩阵乘法的融合计算
-5. **新前端写法**：使用 PyPTO 新前端 API，支持类型注解和自动类型推导
+1. **MXFP8 量化**：数据支持 FP8E4M3FN 和 FP8E5M2 格式，缩放因子使用 FP8E8M0 格式
+2. **灵活的数据格式**：支持转置（a_trans=True）和非转置（a_trans=False）两种输入矩阵格式
+3. **K 轴分组**：支持将 K 轴按不同分组切分，每个分组对应不同的权重矩阵块，支持累加方式和累计值方式两种分组模式
+4. **就地加法**：输出张量同时作为输入，执行就地加法操作 `y = y + result`，减少内存拷贝
+5. **融合计算**：通过 `scaled_mm` 算子实现缩放和矩阵乘法的融合计算，计算公式为 `(mat_a * scale_a) @ (mat_b * scale_b)`
+6. **新前端写法**：使用 PyPTO 新前端 API，支持类型注解和自动类型推导
 
-**MXFP8 量化说明：**
+### 支持的数据类型
 
-MX 量化（Microscaling Quantization）是一种基于块缩放的量化格式。每 64 个元素（K 轴）共享一个缩放因子，缩放因子仅包含指数部分（FP8E8M0 格式），数据部分为 8 位浮点数（FP8E4M3FN 格式）。
+| 数据类型 | PyPTO DataType | Torch dtype | 格式说明 | 适用场景 |
+|----------|----------------|-------------|----------|----------|
+| 输入数据 | DT_FP8E4M3 | torch.float8_e4m3fn | 4位指数+3位尾数，精度更高 | 训练场景，精度优先 |
+| 输入数据 | DT_FP8E5M2 | torch.float8_e5m2 | 5位指数+2位尾数，动态范围更大 | 推理场景，动态范围优先 |
+| 缩放因子 | DT_FP8E8M0 | torch.float8_e8m0fnu | 8位纯指数格式，仅包含指数部分 | MX 量化专用 |
+| 输出数据 | DT_FP32 | torch.float32 | 标准 FP32 格式 | 累加输出 |
+
+### 支持的矩阵格式
+
+| 参数配置 | 输入矩阵形状 | Scale 形状 | 内轴（需32字节对齐） |
+|----------|-------------|-----------|---------------------|
+| a_trans=True | a=[K, M] | scaled_a=[(K//64)+g, M, 2] | M 维度 |
+| a_trans=False | a=[M, K] | scaled_a=[M, (K//64)+g, 2] | K 维度（自动满足） |
+| b_trans=False | b=[K, N] | scaled_b=[(K//64)+g, N, 2] | N 维度 |
+| b_trans=True | b=[N, K] | scaled_b=[N, (K//64)+g, 2] | K 维度（自动满足） |
+
+### MXFP8 量化说明
+
+MX 量化（Microscaling Quantization）是一种基于块缩放的量化格式：
+
+- **量化块大小**：每 64 个元素（K 轴）共享一个缩放因子
+- **缩放因子格式**：FP8E8M0（8位纯指数），仅包含指数部分，隐含 mantissa=1.0
+- **数据格式**：FP8E4M3FN（4位指数+3位尾数）或 FP8E5M2（5位指数+2位尾数）
+- **Scale 存储格式**：连续存储，所有分组的 scale 存储在同一 tensor 中，分组间有间隔
 
 ---
 
@@ -27,13 +59,18 @@ MX 量化（Microscaling Quantization）是一种基于块缩放的量化格式�
 对于每个分组 i，计算公式为：
 
 $$
-y_i[m,n] = y_i[m,n] + \sum_{k=begin_i}^{end_i} (a[k,m] \times scale_a[k,m]) \times (b[k,n] \times scale_b[k,n])
+y_i = y_i + ((a_i \times scale_{a_i}) @ (b_i \times scale_{b_i}))
 $$
 
 其中：
-- `begin_i` 和 `end_i` 由 `group_list` 和 `group_type` 决定
-- `scale_a` 和 `scale_b` 为 MXFP8 量化缩放因子
+- `a_i` 和 `b_i` 为第 i 个分组的输入和权重矩阵块
+- `scale_{a_i}` 和 `scale_{b_i}` 为对应的 MXFP8 量化缩放因子
+- `@` 表示矩阵乘法
 - 输出 `y` 形状为 `[num_groups, M, N]`，每个分组对应一个输出矩阵
+
+分组切分由 `group_list` 和 `group_type` 决定：
+- `group_type=0`：`group_list` 各元素为累计 K 值，最后一个元素等于 K
+- `group_type=1`：`group_list` 各元素为单独的 group size，累加得到完整 K 轴
 
 ---
 
@@ -65,7 +102,7 @@ def scaled_matmul_kernel(
 | k_tile_shape | list | K 维度的 tile shape [kL0, kL1] | - |
 | n_tile_shape | list | N 维度的 tile shape [nL0, nL1] | - |
 | vector_tile_shape | list | 向量操作的 tile shape | - |
-| group_type | int | group_list 解释方式（0: 累加方式, 1: 累计值方式） | 0 |
+| group_type | int | group_list 解释方式（0: 累计值方式, 1: 累加方式） | 0 |
 | in_dtype | pypto.DataType | 输入数据类型（DT_FP8E4M3 或 DT_FP8E5M2） | DT_FP8E4M3 |
 | a_trans | bool | 输入矩阵是否转置 | True |
 | b_trans | bool | 权重矩阵是否转置 | False |
@@ -85,8 +122,8 @@ def scaled_matmul_kernel(
 
 | group_type | 含义 | 示例 | 说明 |
 |------------|------|------|------|
-| 0 | 累加方式 | `[256, 256]` | 各元素为单独的 group size，累加得到 K=512 |
-| 1 | 累计值方式 | `[256, 512]` | 各元素为累计 K 值，最后一个元素等于 K=512 |
+| 0 | 累计值方式 | `[256, 512]` | 各元素为累计 K 值，最后一个元素等于 K=512 |
+| 1 | 累加方式 | `[256, 256]` | 各元素为单独的 group size，累加得到 K=512 |
 
 ### a_trans 和 b_trans 矩阵格式说明
 
@@ -209,53 +246,7 @@ n_tile_shape=[256, 512]   # L0B需求: 256×64×1=16KB < 64KB
 
 ## 调用示例
 
-### 基本用法
-
-```python
-import pypto
-import torch
-
-# 定义配置
-tile_config = ShapeConfig(
-    ori_shape=[32, 512, 7168],  # [M, K, N]
-    group_list=[256, 256],       # 两个分组，每个 256
-    m_tile_shape=[32, 32],       # M 维度 tile
-    k_tile_shape=[256, 256],     # K 维度 tile
-    n_tile_shape=[256, 256],     # N 维度 tile
-    vector_tile_shape=[1, 8, 256, 32],
-    group_type=0,                # 累加方式
-    in_dtype=pypto.DT_FP8E4M3,   # 使用 FP8E4M3 数据类型
-    a_trans=True,
-    b_trans=False,
-    description="Basic test with 2 groups"
-)
-
-# 创建输入张量（根据 in_dtype 选择 torch dtype）
-K, M, N = 512, 32, 7168
-num_groups = 2
-
-# FP8E4M3: torch.float8_e4m3fn
-# FP8E5M2: torch.float8_e5m2
-torch_dtype = torch.float8_e4m3fn
-
-a = torch.randn((K, M), dtype=torch_dtype, device='npu:0')
-b = torch.randn((K, N), dtype=torch_dtype, device='npu:0')
-scaled_a = torch.randn((K//64 + num_groups, M, 2), dtype=torch.float8_e8m0fnu, device='npu:0')
-scaled_b = torch.randn((K//64 + num_groups, N, 2), dtype=torch.float8_e8m0fnu, device='npu:0')
-y = torch.randn((num_groups, M, N), dtype=torch.float32, device='npu:0')
-
-# 调用 kernel
-scaled_matmul_kernel(a, b, scaled_a, scaled_b, y, tile_config)
-```
-
-### 运行测试
-
-```python
-# 运行测试用例
-python quant_grouped_matmul_inplace_add_mx.py
-```
-
-### 基本用法
+### 基本用法（a_trans=True，转置格式）
 
 ```python
 import pypto
@@ -269,7 +260,7 @@ tile_config = ShapeConfig(
     k_tile_shape=[256, 256],     # K 维度 tile
     n_tile_shape=[256, 256],     # N 维度 tile
     vector_tile_shape=[1, 8, 256, 32],
-    group_type=0,                # 累加方式
+    group_type=1,                # 累加方式
     in_dtype=pypto.DT_FP8E4M3,   # 使用 FP8E4M3 数据类型
     a_trans=True,                # 转置格式
     b_trans=False,
@@ -295,7 +286,7 @@ y = torch.randn((num_groups, M, N), dtype=torch.float32, device='npu:0')
 scaled_matmul_kernel(a, b, scaled_a, scaled_b, y, tile_config)
 ```
 
-### a_trans=False 用法
+### a_trans=False 用法（非转置格式）
 
 ```python
 # 定义配置（a_trans=False，非转置格式）
@@ -306,7 +297,7 @@ tile_config = ShapeConfig(
     k_tile_shape=[256, 256],
     n_tile_shape=[256, 256],
     vector_tile_shape=[1, 8, 256, 32],
-    group_type=0,
+    group_type=1,
     in_dtype=pypto.DT_FP8E4M3,
     a_trans=False,               # 非转置格式
     b_trans=False,
@@ -327,113 +318,114 @@ y = torch.randn((num_groups, M, N), dtype=torch.float32, device='npu:0')
 scaled_matmul_kernel(a, b, scaled_a, scaled_b, y, tile_config)
 ```
 
-- M=32, K=512, N=7168
+### 运行测试
+
+```bash
+# 运行所有测试用例
+python quant_grouped_matmul_inplace_add_mx.py
+```
+
+---
+
+## 测试用例说明
+
+代码包含5个测试用例，覆盖不同场景：
+
+### 用例 1：基础用例（FP8E4M3，a_trans=True）
+
+| 参数 | 值 |
+|------|-----|
+| M, K, N | 32, 512, 7168 |
+| group_list | [256, 256] |
+| m_tile_shape | [32, 32] |
+| k_tile_shape | [256, 256] |
+| n_tile_shape | [256, 256] |
+| in_dtype | DT_FP8E4M3 |
+| a_trans | True |
+| group_type | 1 |
+
+**特点：**
 - 两个分组，每个 K_block=256
-- 使用 FP8E4M3 数据类型
 - L0B需求: 256×256×1 = 64KB（刚好满足）
 
 ### 用例 2：更大 M 维度（FP8E4M3）
 
-```python
-ShapeConfig(
-    ori_shape=[64, 1024, 4096],
-    group_list=[512, 512],
-    m_tile_shape=[64, 64],
-    k_tile_shape=[64, 512],       # kL0=64，避免超出 Buffer
-    n_tile_shape=[256, 512],      # nL0=256
-    vector_tile_shape=[1, 8, 256, 32],
-    group_type=0,
-    in_dtype=pypto.DT_FP8E4M3,
-    ...
-)
-```
+| 参数 | 值 |
+|------|-----|
+| M, K, N | 64, 1024, 4096 |
+| group_list | [512, 512] |
+| k_tile_shape | [64, 512] |
+| n_tile_shape | [256, 512] |
+| group_type | 1 |
 
-- M=64, K=1024, N=4096
-- 使用 FP8E4M3 数据类型
-- kL0=64, nL0=256，L0B需求: 256×64×1 = 16KB ✓
+**特点：**
+- kL0=64, nL0=256
+- L0B需求: 256×64×1 = 16KB ✓（满足 Buffer 约束）
 
 ### 用例 3：3 个分组（FP8E4M3）
 
-```python
-ShapeConfig(
-    ori_shape=[32, 768, 2048],
-    group_list=[256, 256, 256],
-    m_tile_shape=[32, 32],
-    k_tile_shape=[256, 256],
-    n_tile_shape=[256, 256],
-    vector_tile_shape=[1, 8, 256, 32],
-    group_type=0,
-    in_dtype=pypto.DT_FP8E4M3,
-    ...
-)
-```
+| 参数 | 值 |
+|------|-----|
+| M, K, N | 32, 768, 2048 |
+| group_list | [256, 256, 256] |
+| group_type | 1 |
 
+**特点：**
 - K=768，三个分组
 - scale 存储：((768/64)+3, 32, 2) = (15, 32, 2)
-- 使用 FP8E4M3 数据类型
 
-### 用例 4：累计值模式（FP8E4M3）
+### 用例 4：累计值模式（group_type=0）
 
-```python
-ShapeConfig(
-    ori_shape=[32, 512, 1024],
-    group_list=[256, 512],      # 累计值：256 表示 K=[0,256]，512 表示 K=[256,512]
-    m_tile_shape=[32, 32],
-    k_tile_shape=[256, 256],
-    n_tile_shape=[256, 256],
-    vector_tile_shape=[1, 8, 256, 32],
-    group_type=1,               # group_type=1: 累计值模式
-    in_dtype=pypto.DT_FP8E4M3,
-    ...
-)
-```
+| 参数 | 值 |
+|------|-----|
+| M, K, N | 32, 512, 1024 |
+| group_list | [256, 512] |
+| group_type | 0 |
 
-- group_type=1，group_list 使用累计值方式
-- 第一个分组 K=[0,256]，第二个分组 K=[256,512]
+**特点：**
+- `group_type=0`：累计值方式
+- `[256, 512]` 表示第一个分组 K=[0,256]，第二个分组 K=[256,512]
 
 ### 用例 5：FP8E5M2 数据类型
 
-```python
-ShapeConfig(
-    ori_shape=[32, 512, 1024],
-    group_list=[256, 256],
-    m_tile_shape=[32, 32],
-    k_tile_shape=[256, 256],
-    n_tile_shape=[256, 256],
-    vector_tile_shape=[1, 8, 256, 32],
-    group_type=0,
-    in_dtype=pypto.DT_FP8E5M2,  # 使用 FP8E5M2
-    a_trans=True, b_trans=False,
-    a_format_nz=False, b_format_nz=False, c_format_nz=False,
-    description="Case5: FP8E5M2, K=512, g=2"
-)
-```
+| 参数 | 值 |
+|------|-----|
+| M, K, N | 32, 512, 1024 |
+| group_list | [128, 384] |
+| in_dtype | DT_FP8E5M2 |
+| group_type | 1 |
 
+**特点：**
 - 使用 FP8E5M2 数据类型（torch.float8_e5m2）
+- 不均匀分组：[128, 384]
 - E5M2 格式具有更大的动态范围，适合推理场景
 
-### 用例 6：a_trans=False（非转置格式）
+---
+
+## a_trans=False 使用说明
+
+代码已支持 `a_trans=False` 非转置格式的逻辑，但当前测试用例均使用 `a_trans=True`。如需测试非转置格式，可参考以下配置：
 
 ```python
-ShapeConfig(
+# a_trans=False 配置示例
+tile_config = ShapeConfig(
     ori_shape=[32, 512, 1024],
     group_list=[256, 256],
     m_tile_shape=[32, 32],
     k_tile_shape=[256, 256],
     n_tile_shape=[256, 256],
     vector_tile_shape=[1, 8, 256, 32],
-    group_type=0,
+    group_type=1,
     in_dtype=pypto.DT_FP8E4M3,
-    a_trans=False,  # 输入矩阵非转置格式
+    a_trans=False,  # 非转置格式
     b_trans=False,
-    a_format_nz=False, b_format_nz=False, c_format_nz=False,
-    description="Case6: a_trans=False"
+    description="a_trans=False test"
 )
-```
 
-- a_trans=False：输入矩阵使用非转置格式 [M, K]
-- scaled_a 形状：[M, (K//64)+g, 2] = [32, 10, 2]
-- K 轴切分：切分 a 的第二维 a[:, begin:end]
+# 输入数据形状变化：
+# - a: [M, K] = [32, 512]（非转置）
+# - scaled_a: [M, (K//64)+g, 2] = [32, 10, 2]
+```
 
 ---
 
@@ -497,8 +489,8 @@ A: Tile Shape 超出 Buffer 约束时，编译器不会报错，但运行时会�
 ### Q5: group_type=0 和 group_type=1 有什么区别？
 
 A:
-- **group_type=0**：`[256, 256]` 表示两个分组，大小分别为 256 和 256，K=512
-- **group_type=1**：`[256, 512]` 表示累计值，第一个分组 K=[0,256]，第二个分组 K=[256,512]
+- **group_type=0**：`[256, 512]` 表示累计值，第一个分组 K=[0,256]，第二个分组 K=[256,512]
+- **group_type=1**：`[256, 256]` 表示两个分组，大小分别为 256 和 256，K=512
 
 ### Q6: FP8E4M3 和 FP8E5M2 应该选择哪个？
 
