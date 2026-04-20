@@ -81,6 +81,12 @@ enum class RecipAlgorithm : uint8_t
     HIGH_PRECISION
 };
 
+enum class FmodAlgorithm : uint8_t
+{
+    DEFAULT,
+    HIGH_PRECISION
+};
+
 namespace experimental {
 struct PrintHelper {
     SymbolicScalar cond;
