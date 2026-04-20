@@ -122,11 +122,15 @@ template <
 TILEOP void BinaryMixBrcCompute(T0 dst, T1 src0, T2 src1)
 {
     const auto dstLayout = dst.GetLayout();
+    const auto src0Layout = src0.GetLayout();
+    const auto src1Layout = src1.GetLayout();
     auto shape0 = dstLayout.template GetShapeDim<DIM_1ST, MAX_DIMS>();
     auto shape1 = dstLayout.template GetShapeDim<DIM_2ND, MAX_DIMS>();
     auto shape2 = dstLayout.template GetShapeDim<DIM_3RD, MAX_DIMS>();
     auto shape3 = dstLayout.template GetShapeDim<DIM_4TH, MAX_DIMS>();
     auto shape4 = dstLayout.template GetShapeDim<DIM_5TH, MAX_DIMS>();
+    auto src0Shape4 = src0Layout.template GetShapeDim<DIM_5TH, MAX_DIMS>();
+    auto src1Shape4 = src1Layout.template GetShapeDim<DIM_5TH, MAX_DIMS>();
     constexpr bool src0IsColMajor = (Src0TileInfo::tileW == 1 && WBrcSide == TileOp::BroadcastOperand::LEFT_OPERAND);
     constexpr bool src1IsColMajor = (Src1TileInfo::tileW == 1 && WBrcSide == TileOp::BroadcastOperand::RIGHT_OPERAND);
     using Src0PtoTile =
@@ -134,8 +138,8 @@ TILEOP void BinaryMixBrcCompute(T0 dst, T1 src0, T2 src1)
     using Src1PtoTile =
         typename std::conditional<src1IsColMajor, PtoTile<T2, pto::BLayout::ColMajor>, PtoTile<T2>>::type;
     auto dstTile = PtoTile<T0>(1, shape4).Data();
-    auto src0Tile = Src0PtoTile(1, WBrcSide == TileOp::BroadcastOperand::LEFT_OPERAND ? 1 : shape4).Data();
-    auto src1Tile = Src1PtoTile(1, WBrcSide == TileOp::BroadcastOperand::RIGHT_OPERAND ? 1 : shape4).Data();
+    auto src0Tile = Src0PtoTile(1, src0Shape4).Data();
+    auto src1Tile = Src1PtoTile(1, src1Shape4).Data();
     for (LoopVar n0Index = 0; n0Index < shape0; ++n0Index) {
         for (LoopVar n1Index = 0; n1Index < shape1; ++n1Index) {
             for (LoopVar n2Index = 0; n2Index < shape2; ++n2Index) {
