@@ -35,10 +35,11 @@ namespace {
 // Resolve a valid_shape ExprPtr to a string for use in the Tile<> type template.
 // Only ConstInt values are supported (Var → compile-time unknown, skip).
 // Returns "" if the expression cannot be resolved to a constant.
-std::string ResolveValidShapeDim(const ir::ExprPtr& expr, int64_t fallback) {
-  if (!expr) return std::to_string(fallback);
+// ConstInt(-1) means "use full shape at runtime" → emits "-1" in template (dynamic valid_shape).
+std::string ResolveValidShapeDim(const ir::ExprPtr& expr, int64_t /*fallback*/) {
+  if (!expr) return "-1";
   if (auto c = ir::As<ir::ConstInt>(expr)) {
-    return (c->value_ == -1) ? std::to_string(fallback) : std::to_string(c->value_);
+    return (c->value_ == -1) ? "-1" : std::to_string(c->value_);
   }
   // Var or other dynamic expression: cannot embed in template parameter.
   return "";
@@ -74,9 +75,9 @@ std::string TypeConverter::ConvertTileType(const ir::TileTypePtr& tile_type, int
     if (cols == 1) {
       BLayout = "ColMajor";
     }
-    // Always use actual rows/cols as type-template parameters.
-    std::string type_rows = std::to_string(rows);
-    std::string type_cols = std::to_string(cols);
+    // Default valid_shape template params to -1 (dynamic); overridden when user provides explicit values.
+    std::string type_rows = "-1";
+    std::string type_cols = "-1";
     if (tile_type->tile_view_.has_value()) {
       const auto& tv = tile_type->tile_view_.value();
       BLayout = ConvertTileLayout(tv.blayout);
@@ -88,7 +89,7 @@ std::string TypeConverter::ConvertTileType(const ir::TileTypePtr& tile_type, int
       if (tv.blayout == TL::col_major && tv.slayout == TL::row_major) tile_type_str = "TileType::Mat";
       else if (tv.blayout == TL::row_major && tv.slayout == TL::row_major) tile_type_str = "TileType::Left";
       else if (tv.blayout == TL::row_major && tv.slayout == TL::col_major) tile_type_str = "TileType::Right";
-      // Override rows/cols from valid_shape if available.
+      // Override valid_shape template params when user provides explicit (non -1) values.
       if (!tv.valid_shape.empty()) {
         std::string r = tv.valid_shape.size() >= 1 ? ResolveValidShapeDim(tv.valid_shape[0], rows) : "";
         std::string c = tv.valid_shape.size() >= 2 ? ResolveValidShapeDim(tv.valid_shape[1], cols) : "";
@@ -113,9 +114,9 @@ std::string TypeConverter::ConvertTileType(const ir::TileTypePtr& tile_type, int
   std::string SLayout = "NoneBox";
   std::string fractal = "512";
   std::string pad_value;
-  // Always use actual rows/cols as type-template parameters.
-  std::string type_rows = std::to_string(rows);
-  std::string type_cols = std::to_string(cols);
+  // Default valid_shape template params to -1 (dynamic); overridden when user provides explicit values.
+  std::string type_rows = "-1";
+  std::string type_cols = "-1";
 
   if (cols == 1) {
     BLayout = "ColMajor";
@@ -126,7 +127,7 @@ std::string TypeConverter::ConvertTileType(const ir::TileTypePtr& tile_type, int
     fractal = std::to_string(tv.fractal);
     pad_value = ConvertTilePadToPTOValue(tv.pad);
   }
-  // Override rows/cols from valid_shape if available (independent of cols==1 branch).
+  // Override valid_shape template params when user provides explicit (non -1) values.
   if (tile_type->tile_view_.has_value()) {
     const auto& tv = tile_type->tile_view_.value();
     if (!tv.valid_shape.empty()) {
