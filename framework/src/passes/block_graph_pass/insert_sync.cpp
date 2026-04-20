@@ -506,6 +506,9 @@ Status PipeSync::AdjustOpCfg(TileOpCfg& opcfg, const Operation& op)
     if (opcfg.coreType_ == CoreType::AIC) {
         opcfg.aivCore_ = AIVCore::UNSPECIFIED;
     }
+    if (opcfg.coreType_ == CoreType::AIV && opcfg.aivCore_ == AIVCore::UNSPECIFIED) {
+        opcfg.aivCore_ = AIVCore::AIV0;
+    }
     if (op.GetOpcode() == Opcode::OP_COPY_IN) {
         if (AdjustCopyInCfg(opcfg, op) != SUCCESS) {
             APASS_LOG_ERROR_F(Elements::Operation, "AdjustCopyInCfg failed.");
