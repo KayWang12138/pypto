@@ -13,6 +13,7 @@
  * \brief
  */
 
+#include "unary.h"
 #include "binary.h"
 #include "tensor_transformation.h"
 #include "interface/utils/operator_tracer.h"
