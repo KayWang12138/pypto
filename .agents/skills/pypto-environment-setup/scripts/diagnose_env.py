@@ -642,24 +642,6 @@ def _collect_issues(
                        'message': torch_npu_info.get('error', '无法导入 torch_npu'),
                        'fix_hint': '见 troubleshooting.md § "torch_npu 导入失败"'})
 
-    _COMPAT_MATRIX = {
-        '8.5.0': {'torch': '2.6.0', 'torch_npu': '2.6.0.post3'},
-    }
-    if is_npu_env and torch_info.get('ok') and torch_npu_info.get('ok') and cann.get('installed'):
-        cann_ver = cann.get('version', '')
-        if cann_ver in _COMPAT_MATRIX:
-            expected = _COMPAT_MATRIX[cann_ver]
-            torch_ver = torch_info.get('version', '')
-            torch_npu_ver = torch_npu_info.get('version', '')
-            if torch_ver and torch_ver < expected['torch']:
-                issues.append({'component': 'torch', 'severity': 'warning',
-                               'message': f'torch 版本 {torch_ver} 低于 CANN {cann_ver} 推荐版本 {expected["torch"]}',
-                               'fix_hint': f'pip install torch=={expected["torch"]}'})
-            if torch_npu_ver and torch_npu_ver != expected['torch_npu']:
-                issues.append({'component': 'torch_npu', 'severity': 'warning',
-                               'message': f'torch_npu 版本 {torch_npu_ver} 与 CANN {cann_ver} 推荐版本 {expected["torch_npu"]} 不匹配，可能导致 HCCL 符号不兼容',
-                               'fix_hint': f'pip install torch_npu=={expected["torch_npu"]}'})
-
     if not pypto_info.get('ok'):
         pypto_fix_hint = (
             'cd $PYPTO_REPO && python3 build_ci.py -f python3 --clean --disable_auto_execute '
