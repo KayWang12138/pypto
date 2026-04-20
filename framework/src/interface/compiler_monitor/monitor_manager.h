@@ -74,6 +74,9 @@ public:
 
     std::string GetCurrentFunctionName() const;
     void SetCurrentFunctionName(const std::string& name);
+    int GetCurrentFuncOpSize() const;
+    void SetCurrentFuncOpSize(size_t op_size);
+    void SetCurrentFuncSumOpSize(size_t op_size);
     double GetTotalElapsed() const;
 
     std::vector<ActiveStageInfo> GetActiveStages() const;
@@ -114,6 +117,7 @@ private:
 
     std::vector<ActiveStageInfo> active_stages_;
 
+    int current_func_opsize_{0};
     int total_function_count_{0};
     int current_function_index_{0};
     int next_function_index_{1};
