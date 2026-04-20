@@ -566,20 +566,24 @@ static void HandleIndexoutcastOp(Operation &op, std::set<int> inoutCast) {
 
 static void HandleUnusedTensor(Operation &op, std::set<int> inoutCast) {
     for (auto &iOperand : op.GetIOperands()) {
-        std::map<int, SymbolicScalar> paramAddrMap;
-        iOperand->GetAttr<std::map<int, SymbolicScalar>>("paramAddr", paramAddrMap);
-        if (paramAddrMap.count(op.GetOpMagic()) > 0) {
-            continue;
+        if (iOperand->GetMemoryTypeOriginal() == MemoryType::MEM_DEVICE_DDR) {
+            std::map<int, SymbolicScalar> paramAddrMap;
+            iOperand->GetAttr<std::map<int, SymbolicScalar>>("paramAddr", paramAddrMap);
+            if (paramAddrMap.count(op.GetOpMagic()) > 0) {
+                continue;
+            }
+            SetTensorParamAddr(op, iOperand, 1, 1, inoutCast);
         }
-        SetTensorParamAddr(op, iOperand, 1, 1, inoutCast);
     }
     for (auto &oOperand : op.GetOOperands()) {
-        std::map<int, SymbolicScalar> paramAddrMap;
-        oOperand->GetAttr<std::map<int, SymbolicScalar>>("paramAddr", paramAddrMap);
-        if (paramAddrMap.count(op.GetOpMagic()) > 0) {
-            continue;
-        }
-        SetTensorParamAddr(op, oOperand, 1, 1, inoutCast);
+        if (oOperand->GetMemoryTypeOriginal() == MemoryType::MEM_DEVICE_DDR) {
+            std::map<int, SymbolicScalar> paramAddrMap;
+            oOperand->GetAttr<std::map<int, SymbolicScalar>>("paramAddr", paramAddrMap);
+            if (paramAddrMap.count(op.GetOpMagic()) > 0) {
+                continue;
+            }
+            SetTensorParamAddr(op, oOperand, 1, 1, inoutCast);
+        } 
     }
 }
 
