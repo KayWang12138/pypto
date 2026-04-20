@@ -76,7 +76,7 @@ python3 scripts/diagnose_env.py --checklist
 
 | 问题类别 | 修复操作 | 失败回滚 |
 |---------|---------|---------|
-| **NPU 环境 + CANN 缺失** | **按顺序执行以下 5 步**：<br><br>**步骤 3.1：安装编译依赖**<br>`cd $PYPTO_REPO && bash tools/prepare_env.sh --quiet --type=deps --device-type=<a2\|a3>`<br><br>**步骤 3.2：下载安装第三方源码包**<br>`bash tools/prepare_env.sh --quiet --type=third_party`<br><br>**步骤 3.3：下载 CANN 包**<br>`script -q -c "bash tools/prepare_env.sh --quiet --type=cann --only-download --device-type=<a2\|a3> --install-path=$ASCEND_INSTALL_PATH" prepare_env.cann.log`<br><br>**步骤 3.4：安装 CANN**<br>`script -q -c "bash tools/prepare_env.sh --quiet --type=cann --device-type=<a2\|a3> --install-path=$ASCEND_INSTALL_PATH" prepare_env.cann.log`<br><br>**步骤 3.5：验证 CANN 安装**<br>检查 CANN 安装日志，未完成则安装（见下方代码块）<br><br>⚠️ **全部 5 步完成后才能进入步骤 4** | 检查网络连通性和目录写入权限；见 `troubleshooting.md` |
+| **NPU 环境 + CANN 缺失** | **按顺序执行以下 5 步**：<br><br>**步骤 3.1：安装编译依赖**<br>`cd $PYPTO_REPO && bash tools/prepare_env.sh --quiet --type=deps --device-type=<a2\|a3>`<br><br>**步骤 3.2：下载安装第三方源码包**<br>`bash tools/prepare_env.sh --quiet --type=third_party`<br><br>**步骤 3.3：下载 CANN 包**<br>`script -q -c "bash tools/prepare_env.sh --quiet --type=cann --only-download --device-type=<a2\|a3> --install-path=$ASCEND_INSTALL_PATH" prepare_env.cann.download.log`<br><br>**步骤 3.4：安装 CANN**<br>`script -q -c "bash tools/prepare_env.sh --quiet --type=cann --device-type=<a2\|a3> --install-path=$ASCEND_INSTALL_PATH" prepare_env.cann.install.log`<br><br>**步骤 3.5：验证 CANN 安装**<br>检查 CANN 安装日志，未完成则安装（见下方代码块）<br><br>⚠️ **全部 5 步完成后才能进入步骤 4** | 检查网络连通性和目录写入权限；见 `troubleshooting.md` |
 | **编译工具链缺失** (cmake/gcc/make/g++/ninja/pip3) | `cd $PYPTO_REPO && bash tools/prepare_env.sh --quiet --type=deps` | 回退到手动 `apt-get install`；检查 apt 源配置 |
 | **第三方源码包缺失** (json/libboundscheck) | `cd $PYPTO_REPO && bash tools/prepare_env.sh --quiet --type=third_party` | 检查网络对 cann-src-third-party 的可达性 |
 
@@ -84,9 +84,9 @@ python3 scripts/diagnose_env.py --checklist
 ```bash
 cd ${PYPTO_REPO:-$PWD}
 # 检查 CANN 安装日志，未完成则安装
-if ! grep -q "Successfully installed CANN packages." prepare_env.cann.log 2>/dev/null; then
+if ! grep -q "Successfully installed CANN packages." prepare_env.cann.install.log 2>/dev/null; then
     echo "CANN 未安装完成，正在安装..."
-    script -q -c "bash tools/prepare_env.sh --quiet --type=cann --device-type=<a2\|a3> --install-path=$ASCEND_INSTALL_PATH" prepare_env.cann.log
+    script -q -c "bash tools/prepare_env.sh --quiet --type=cann --device-type=<a2\|a3> --install-path=$ASCEND_INSTALL_PATH" prepare_env.cann.install.log
 else
     echo "CANN 已安装完成"
 fi

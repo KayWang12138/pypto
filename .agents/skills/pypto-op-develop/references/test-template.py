@@ -179,11 +179,9 @@ Examples:
         print("\n" + "=" * 60)
         print("All tests passed!")
         print("=" * 60)
-    except AssertionError:
-        sys.exit(1)
     except Exception as e:
-        print(f"[FUNC_FAIL] {e}", file=sys.stderr)
-        sys.exit(2)
+        print(f"\nError: {e}")
+        raise
 
 
 if __name__ == "__main__":
