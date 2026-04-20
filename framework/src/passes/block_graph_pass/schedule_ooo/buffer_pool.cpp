@@ -257,7 +257,7 @@ bool BufferPool::IsFull(const LocalBufferPtr tensor, bool isMainLoop)
      if (tensor->memType == MemoryType::MEM_L0C && tensor->size >= ONE_THIRD * memSize_ && isMainLoop) {
          bool headFree = false;
          bool tailFree = false;
-         SelectHeadAndTail(tensor, headFree, tailFree, freeIntervals);
+         SelectHeadAndTail(tensor, headFree, tailFree, freeSpace);
          return !(headFree || tailFree);
      }
     for (auto inter : freeSpace) {

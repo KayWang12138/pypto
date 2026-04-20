@@ -227,8 +227,8 @@ Status OoOScheduler::FindFirstOrder(std::pair<CoreLocationType, MemoryType> &ord
     std::vector<CoreLocationType> coreVec;
     for (auto& coreLocation : CORE_INIT_CONFIGS) {
         MemoryType spillMemType;
-        if (FindCoreLocationMemoryType(CoreLocation, spillMemType) != SUCCESS) {
-            APASS_LOG_INFO_F(Elements::Operation, "FindCoreLocationMemoryType %s failed.", coreTypeToString(CoreLocation).c_str());
+        if (FindCoreLocationMemoryType(coreLocation, spillMemType) != SUCCESS) {
+            APASS_LOG_INFO_F(Elements::Operation, "FindCoreLocationMemoryType %s failed.", coreTypeToString(coreLocation).c_str());
             continue;
         }
         spillMemTypeMap[coreLocation] = spillMemType;
