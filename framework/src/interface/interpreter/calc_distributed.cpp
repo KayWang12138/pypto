@@ -178,11 +178,11 @@ void ExecuteOpShmemWaitUntil(ExecuteOperationContext *ctx) {
     size_t slotSize =  shm->GetSize() * BytesOf(shm->GetDataType());
 
     std::cout << "Rank " << srcRank << " is waiting for " << expect << " from " << shm->GetStorageOffset() << " to " << shm->GetStorageOffset() + slotSize << " reset: " << reset << std::endl;
-    uint64_t taskId = context->WaitAsync(srcRank, expect, slotSize, shm->GetStorageOffset(), reset);
+    uint64_t taskId = context->Wait(srcRank, expect, slotSize, shm->GetStorageOffset(), reset);
     std::cout << "WaitUntil add task " << taskId << std::endl;
     
     // Register the WaitUntil task with the operation for dependency resolution
-    SimulationCommManager::RegisterWaitTask(ctx->op, context, taskId);
+    // SimulationCommManager::RegisterWaitTask(ctx->op, context, taskId);
 
     std::cout << "=== ExecuteOpShmemWaitUntil exited ..." << std::endl;
 }

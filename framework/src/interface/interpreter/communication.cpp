@@ -90,45 +90,33 @@ void SimulationCommContext::Init(const std::string &groupName, int rank, int wor
     worldSize_ = worldSize;
     round_ = round;
     
-    waitWorkerStop_ = false;
-    waitWorkerThread_ = std::thread([this]() {
-        while (true) {
-            std::unique_lock<std::mutex> lock(waitTaskMutex_);
-            waitTaskCV_.wait(lock, [this]() {
-                return !waitTaskQueue_.empty() || waitWorkerStop_;
-            });
+    // waitWorkerStop_ = false;
+    // waitWorkerThread_ = std::thread([this]() {
+    //     while (true) {
+    //         std::unique_lock<std::mutex> lock(waitTaskMutex_);
+    //         waitTaskCV_.wait(lock, [this]() {
+    //             return !waitTaskQueue_.empty() || waitWorkerStop_;
+    //         });
             
-            if (waitWorkerStop_ && waitTaskQueue_.empty()) {
-                break;
-            }
+    //         if (waitWorkerStop_ && waitTaskQueue_.empty()) {
+    //             break;
+    //         }
             
-            if (!waitTaskQueue_.empty()) {
-                WaitTask task = waitTaskQueue_.front();
-                waitTaskQueue_.pop();
-                lock.unlock();
+    //         if (!waitTaskQueue_.empty()) {
+    //             WaitTask task = std::move(waitTaskQueue_.front());
+    //             waitTaskQueue_.pop();
+    //             lock.unlock();
                 
-                try {
-                    this->Wait(task.srcRank, task.expect, task.slotSize, task.offset, task.reset);
-                    
-                    std::lock_guard<std::mutex> lock2(waitTaskMutex_);
-                    auto it = waitTaskPromises_.find(task.taskId);
-                    if (it != waitTaskPromises_.end()) {
-                        it->second.set_value();
-                        waitTaskPromises_.erase(it);
-                    }
-                } catch (const std::exception &e) {
-                    std::cerr << "Wait worker thread exception: " << e.what() << std::endl;
-                    
-                    std::lock_guard<std::mutex> lock2(waitTaskMutex_);
-                    auto it = waitTaskPromises_.find(task.taskId);
-                    if (it != waitTaskPromises_.end()) {
-                        it->second.set_exception(std::current_exception());
-                        waitTaskPromises_.erase(it);
-                    }
-                }
-            }
-        }
-    });
+    //             try {
+    //                 this->Wait(task.srcRank, task.expect, task.slotSize, task.offset, task.reset);
+    //                 task.promise.set_value();
+    //             } catch (const std::exception &e) {
+    //                 std::cerr << "Wait worker thread exception: " << e.what() << std::endl;
+    //                 task.promise.set_exception(std::current_exception());
+    //             }
+    //         }
+    //     }
+    // });
 }
 
 void SimulationCommContext::PreAlloc(bool isSignal) {
@@ -397,29 +385,34 @@ void SimulationCommContext::Wait(int srcRank, int expect, size_t slotSize, uint6
     }
 }
 
-uint64_t SimulationCommContext::WaitAsync(int srcRank, int expect, size_t slotSize, uint64_t offset, bool reset) {
-    uint64_t taskId = nextTaskId_++;
+// uint64_t SimulationCommContext::WaitAsync(int srcRank, int expect, size_t slotSize, uint64_t offset, bool reset) {
+//     uint64_t taskId = nextTaskId_++;
     
-    std::lock_guard<std::mutex> lock(waitTaskMutex_);
-    waitTaskPromises_[taskId] = std::promise<void>();
-    waitTaskQueue_.push({taskId, srcRank, expect, slotSize, offset, reset});
-    waitTaskCV_.notify_one();
+//     std::promise<void> promise;
+//     std::shared_future<void> fut = promise.get_future().share();
+//     {
+//         std::lock_guard<std::mutex> lock(waitTaskMutex_);
+//         waitTaskFutures_[taskId] = fut;
+//         waitTaskQueue_.push({taskId, srcRank, expect, slotSize, offset, reset, std::move(promise)});
+//         waitTaskCV_.notify_one();
+//     }
     
-    return taskId;
-}
+//     return taskId;
+// }
 
-void SimulationCommContext::WaitComplete(uint64_t taskId) {
-    std::unique_lock<std::mutex> lock(waitTaskMutex_);
-    auto it = waitTaskPromises_.find(taskId);
-    if (it == waitTaskPromises_.end()) {
-        throw std::runtime_error("Task ID not found: " + std::to_string(taskId));
-    }
-    
-    auto future = it->second.get_future();
-    lock.unlock();
-    
-    future.wait();
-}
+// void SimulationCommContext::WaitComplete(uint64_t taskId) {
+//     std::shared_future<void> fut;
+//     {
+//         std::lock_guard<std::mutex> lock(waitTaskMutex_);
+//         auto it = waitTaskFutures_.find(taskId);
+//         if (it == waitTaskFutures_.end()) {
+//             return;
+//         }
+        
+//         fut = it->second;
+//     }
+//     future.wait();
+// }
 
 LogicalTensorDataPtr SimulationCommContext::Get(int srcRank, size_t slotSize, uint64_t offset) {
     uint8_t *base = GetRemoteRank(srcRank, false);
@@ -432,15 +425,15 @@ LogicalTensorDataPtr SimulationCommContext::Get(int srcRank, size_t slotSize, ui
 }
 
 void SimulationCommContext::Destroy() {
-    {
-        std::lock_guard<std::mutex> lock(waitTaskMutex_);
-        waitWorkerStop_ = true;
-        waitTaskCV_.notify_all();
-    }
+    // {
+    //     std::lock_guard<std::mutex> lock(waitTaskMutex_);
+    //     waitWorkerStop_ = true;
+    //     waitTaskCV_.notify_all();
+    // }
     
-    if (waitWorkerThread_.joinable()) {
-        waitWorkerThread_.join();
-    }
+    // if (waitWorkerThread_.joinable()) {
+    //     waitWorkerThread_.join();
+    // }
     
     if (ctrlBase_) {
         munmap(ctrlBase_, WIN_EXP_SIZE);
@@ -517,38 +510,32 @@ std::string SimulationCommManager::GetHandler(const std::string &groupName, int 
     return "round_" + std::to_string(round) + "_" + groupName + "_" + std::to_string(rank) + suffix;
 }
 
-std::unordered_map<Operation*, std::pair<std::shared_ptr<SimulationCommContext>, uint64_t>> SimulationCommManager::waitTaskMap_;
-std::unordered_map<Operation*, std::future<void>> SimulationCommManager::waitTaskFutures_;
-std::mutex SimulationCommManager::waitTaskMutex_;
+// std::unordered_map<Operation*, std::pair<std::shared_ptr<SimulationCommContext>, uint64_t>> SimulationCommManager::waitTaskMap_;
+// std::unordered_map<Operation*, std::future<void>> SimulationCommManager::waitTaskFutures_;
+// std::mutex SimulationCommManager::waitTaskMutex_;
 
-void SimulationCommManager::RegisterWaitTask(Operation* op, std::shared_ptr<SimulationCommContext> context, uint64_t taskId) {
-    std::lock_guard<std::mutex> lock(waitTaskMutex_);
-    waitTaskMap_[op] = {context, taskId};
-}
+// void SimulationCommManager::RegisterWaitTask(Operation* op, std::shared_ptr<SimulationCommContext> context, uint64_t taskId) {
+//     std::lock_guard<std::mutex> lock(waitTaskMutex_);
+//     waitTaskMap_[op] = {context, taskId};
+// }
 
-std::future<void>* SimulationCommManager::GetWaitTaskFuture(Operation* op) {
-    std::lock_guard<std::mutex> lock(waitTaskMutex_);
-    auto it = waitTaskMap_.find(op);
-    if (it == waitTaskMap_.end()) {
-        return nullptr;
-    }
+// std::future<void>* SimulationCommManager::GetWaitTaskFuture(Operation* op) {
+//     std::lock_guard<std::mutex> lock(waitTaskMutex_);
+//     auto it = waitTaskMap_.find(op);
+//     if (it == waitTaskMap_.end()) {
+//         return nullptr;
+//     }
     
-    auto context = it->second.first;
-    auto taskId = it->second.second;
+//     auto context = it->second.first;
+//     auto taskId = it->second.second;
     
-    auto future = std::async(std::launch::deferred, [context, taskId]() {
-        context->WaitComplete(taskId);
-    });
+//     auto future = std::async(std::launch::deferred, [context, taskId]() {
+//         context->WaitComplete(taskId);
+//     });
     
-    waitTaskFutures_[op] = std::move(future);
-    return &waitTaskFutures_[op];
-}
-
-void SimulationCommManager::ClearWaitTasks() {
-    std::lock_guard<std::mutex> lock(waitTaskMutex_);
-    waitTaskMap_.clear();
-    waitTaskFutures_.clear();
-}
+//     waitTaskFutures_[op] = std::move(future);
+//     return &waitTaskFutures_[op];
+// }
 
 /* Alloc a new tensor in WIN area, and record the offset.*/
 RawTensorDataPtr SimulationCommManager::Alloc(const std::string &groupName, DataType dataType, const Shape& shape) {
