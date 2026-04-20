@@ -202,10 +202,10 @@ void ExecuteOpShmemGet(ExecuteOperationContext *ctx) {
     
     std::shared_ptr<SimulationCommContext> context = SimulationCommManager::Instance().GetCommContext(attr.group);
     int srcRank = ctx->opInter->EvaluateSymbolicScalar(attr.ownerRank);
-    size_t slotSize = out->GetSize() * BytesOf(out->GetDataType());
+    size_t slotSize = out->GetSize() * BytesOf();
 
     std::cout << "Get " << srcRank << "'s data from " << srcRank << " from " << shm->GetStorageOffset() << " to " << shm->GetStorageOffset() + slotSize << std::endl;
-    LogicalTensorDataPtr tmp = context->Get(srcRank, slotSize, shm->GetStorageOffset());
+    LogicalTensorDataPtr tmp = context->Get(srcRank, out->GetDataType(), out->GetShape(), shm->GetStorageOffset());
     calc::Copy(out, tmp);
 
     std::cout << "=== ExecuteOpShmemGet exited ..." << std::endl;

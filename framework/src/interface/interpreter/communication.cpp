@@ -414,13 +414,14 @@ void SimulationCommContext::Wait(int srcRank, int expect, size_t slotSize, uint6
 //     future.wait();
 // }
 
-LogicalTensorDataPtr SimulationCommContext::Get(int srcRank, size_t slotSize, uint64_t offset) {
+LogicalTensorDataPtr SimulationCommContext::Get(int srcRank, Datatype datatype, const Shape &shape, uint64_t offset) {
     uint8_t *base = GetRemoteRank(srcRank, false);
+    size_t slotSize = BytesOf(datatype) * std::accumulate(shape.begin(), shape.end(), 1, std::multiplies<size_t>());
     if (offset + slotSize > WIN_IN_SIZE) {
         throw std::runtime_error("Get operation would exceed shared memory bound!");
     }
     std::cout << "round " << round_ << " get " << slotSize << "B data from rank " << srcRank << std::endl;
-    RawTensorDataPtr result = RawTensorData::CreateTensor(DT_UINT8, {1, static_cast<int64_t>(slotSize)}, base + offset);
+    RawTensorDataPtr result = RawTensorData::CreateTensor(datatype, shape, base + offset);
     return std::make_shared<LogicalTensorData>(result);
 }
 
