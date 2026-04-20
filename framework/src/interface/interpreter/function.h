@@ -1127,7 +1127,7 @@ struct FunctionInterpreter {
             for (auto& depend : dependencyOperands) {
                 for (auto& consumer : depend->GetConsumers()) {
                     waitDependencies_[consumer] = &op;
-                    std::cout << consumer.GetOpcodeStr() << consumer.GetOpMagic() << " depends on " << 
+                    std::cout << consumer->GetOpcodeStr() << consumer->GetOpMagic() << " depends on " << 
                         op.GetOpcodeStr() << op.GetOpMagic() << std::endl;
                 }
             }
