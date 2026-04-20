@@ -162,6 +162,7 @@ struct DevControlFlowCacheRuntime {
             DevRelocVector<WsSlotAllocator::BlockHeader> slottedOutcastsBlockList;
         } tensorAllocators[SCH_DEVTASK_MAX_PARALLELISM];
         DevRelocVector<ItemPool<RuntimeOutcastTensor>::ItemBlock> runtimeOutcastTensorPool;
+        ItemPoolMeta itemPoolMeta;
     } workspace;
     struct DeviceSlotContext {
         DevRelocVector<DeviceExecuteSlot> slotList;
@@ -801,17 +802,18 @@ struct DevControlFlowCache {
     }
 
     void RuntimeAddrBackup(
-        DeviceExecuteSlot* runtimeSlotList, const ItemPool<RuntimeOutcastTensor>::ItemBlock* runtimeOutcastTensorPool,
+        DeviceExecuteSlot* runtimeSlotList, ItemPool<RuntimeOutcastTensor>* runtimeOutcastTensorPool,
         uint64_t slotSize, uint64_t runtimeOutcastTensorSize, TensorAllocator* allocator, uint32_t parallelism)
     {
         uint64_t slotDataSize = sizeof(DeviceExecuteSlot) * slotSize;
         uint64_t runtimeOutcastPoolDataSize =
             sizeof(ItemPool<RuntimeOutcastTensor>::ItemBlock) * runtimeOutcastTensorSize;
         (void)memcpy_s(runtimeBackup.slotContext.slotList.Data(), slotDataSize, runtimeSlotList, slotDataSize);
+        auto itemBlockBase = reinterpret_cast<ItemPool<RuntimeOutcastTensor>::ItemBlock*>(&runtimeOutcastTensorPool->At(0));
         (void)memcpy_s(
             runtimeBackup.workspace.runtimeOutcastTensorPool.Data(), runtimeOutcastPoolDataSize,
-            runtimeOutcastTensorPool, runtimeOutcastPoolDataSize);
-
+            itemBlockBase, runtimeOutcastPoolDataSize);
+        runtimeBackup.workspace.itemPoolMeta = runtimeOutcastTensorPool->GetMetaData();
         struct Backup {
             static void BackupBlockHeader(WsSlotAllocator::BlockHeader*& ptr, WsSlotAllocator::BlockHeader* base)
             {
@@ -843,17 +845,18 @@ struct DevControlFlowCache {
     }
 
     void RuntimeAddrRestore(
-        DeviceExecuteSlot* runtimeSlotList, ItemPool<RuntimeOutcastTensor>::ItemBlock* runtimeOutcastTensorPool,
+        DeviceExecuteSlot* runtimeSlotList, ItemPool<RuntimeOutcastTensor>* runtimeOutcastTensorPool,
         uint64_t slotSize, uint64_t runtimeOutcastTensorSize, TensorAllocator* allocator, uint32_t parallelism)
     {
         uint64_t slotDataSize = sizeof(DeviceExecuteSlot) * slotSize;
         uint64_t runtimeOutcastPoolDataSize =
             sizeof(ItemPool<RuntimeOutcastTensor>::ItemBlock) * runtimeOutcastTensorSize;
         (void)memcpy_s(runtimeSlotList, slotDataSize, runtimeBackup.slotContext.slotList.Data(), slotDataSize);
+        auto itemBlockBase = reinterpret_cast<ItemPool<RuntimeOutcastTensor>::ItemBlock*>(&runtimeOutcastTensorPool->At(0));
         (void)memcpy_s(
-            runtimeOutcastTensorPool, runtimeOutcastPoolDataSize,
+            itemBlockBase, runtimeOutcastPoolDataSize,
             runtimeBackup.workspace.runtimeOutcastTensorPool.Data(), runtimeOutcastPoolDataSize);
-
+        runtimeOutcastTensorPool->RestoreMetaData(runtimeBackup.workspace.itemPoolMeta);
         struct Restore {
             static void RestoreBlockHeader(
                 WsSlotAllocator::BlockHeader*& ptr, WsSlotAllocator::BlockHeader* base,
