@@ -15,12 +15,10 @@
 
 #include "pass_manager.h"
 
-#include <cstdlib>
 #include <unistd.h>
 #include "interface/configs/config_manager.h"
 #include "passes/pass_interface/pass.h"
 #include "passes/pass_interface/pass_type.h"
-#include "passes/pass_utils/pass_log_util.h"
 #include "pass_registry.h"
 #include "tilefwk/error.h"
 #include "tilefwk/platform.h"
@@ -34,6 +32,8 @@
 #include "passes/tensor_graph_pass/loop_unroll.h"
 //  tile graph pass
 #include "passes/tile_graph_pass/graph_partition/graph_partition.h"
+#include "passes/tile_graph_pass/graph_partition/l1_copy_reuse.h"
+#include "passes/tile_graph_pass/graph_partition/n_buffer_merge.h"
 #include "passes/tile_graph_pass/graph_optimization/graph_optimization.h"
 #include "passes/tile_graph_pass/graph_constraint/graph_constraint.h"
 #include "passes/tile_graph_pass/data_path/data_path.h"
@@ -60,6 +60,12 @@ PassManager& PassManager::Instance()
 {
     static PassManager instance;
     return instance;
+}
+
+void PassManager::ResetStaticVariables()
+{
+    L1CopyInReuseRunner::ResetGlobalHashOrderCounters();
+    NBufferMerge::ResetGlobalHashOrderCounter();
 }
 
 void RegPass()
@@ -130,9 +136,9 @@ void PassManager::RegDefaultStrategy()
                         {"InsertOpForViewAssemble", PassName::INSERT_OP_FOR_VIEWASSEMBLE},
                         {"SplitK", PassName::SPLIT_K},
                         {"GraphPartition", PassName::GRAPH_PARTITION},
-                        {"ReduceCopyMerge", PassName::REDUCE_COPY_MERGE},
                         {"NBufferMerge", PassName::N_BUFFER_MERGE},
                         {"L1CopyInReuseMerge", PassName::L1_COPY_IN_REUSE_MERGE},
+                        {"ReduceCopyMerge", PassName::REDUCE_COPY_MERGE},
                         {"IntraSubgraphAdapter", PassName::INTRA_SUBGRAPH_ADAPTER},
                         {"GenerateMoveOp", PassName::GENERATE_MOVE_OP},
                         {"CommonOperationEliminate", PassName::COMMON_OPERATION_ELIMINATE},
@@ -154,13 +160,13 @@ void PassManager::RegDefaultStrategy()
                         {"TuneSyncForVF", PassName::TUNE_SYNC_FOR_VF},
                         {"MixSubgraphSplit", PassName::MIX_SUBGRAPH_SPLIT},
                         {"GlobalMemoryReuse", PassName::GLOBAL_MEMORY_REUSE},
-                        {"LoopaxesProc", PassName::LOOPAXES_PROC},
                         {"CodegenPreproc", PassName::CODEGEN_PREPROC},
                     });
     RegisterStrategy("FunctionUnroll", {{"LoopUnroll", PassName::LOOP_UNROLL}});
     RegisterStrategy(
         "ExecuteGraph", {
                             {"DynAttrToStatic", PassName::DYN_ATTR_TO_STATIC},
+                            {"LoopaxesProc", PassName::LOOPAXES_PROC},
                         });
 }
 
@@ -256,20 +262,10 @@ static bool ShouldTerminateAtStage(const std::string& identifier)
     return false;
 }
 
-static void LogPassRuntime(
-    const std::string& identifier, Program& program, Function& function,
-    const std::chrono::time_point<std::chrono::high_resolution_clock>& start)
-{
-    auto end = std::chrono::high_resolution_clock::now();
-    auto duration = std::chrono::duration_cast<std::chrono::microseconds>(end - start);
-    APASS_LOG_INFO_F(
-        Elements::Function, "The Runtime of pass %s for program %s function %s is %ld us.", identifier.c_str(),
-        program.Name().c_str(), function.GetMagicName().c_str(), duration.count());
-}
-
 Status PassManager::RunPass(Program& program, Function& function, const std::string& strategy) const
 {
     auto strategyPasses = GetStrategyPasses(strategy);
+    std::unique_ptr<Pass> pass = nullptr;
     std::vector<std::string> identifiers;
     std::transform(
         strategyPasses.begin(), strategyPasses.end(), std::back_inserter(identifiers),
@@ -281,7 +277,7 @@ Status PassManager::RunPass(Program& program, Function& function, const std::str
             return SUCCESS;
         }
         const auto& passName = strategyPasses[i].passName;
-        auto pass = PassRegistry::GetInstance().CreatePass(PassNameStr(passName));
+        pass = PassRegistry::GetInstance().CreatePass(PassNameStr(passName));
         if (pass == nullptr) {
             APASS_LOG_ERROR_F(Elements::Function, "Pass [%s] does not exist.", PassNameStr(passName));
             return FAILED;
@@ -307,6 +303,9 @@ Status PassManager::RunPass(Program& program, Function& function, const std::str
         if (config::GetVerifyOption<bool>(KEY_ENABLE_PASS_VERIFY)) {
             Program::GetInstance().VerifyPass(&function, i, identifier);
         }
+    }
+    if (config::GetDebugOption<int64_t>(CFG_COMPILE_DBEUG_MODE) == CFG_DEBUG_ALL && pass != nullptr) {
+        ExtractPassLogByFunction(function);
     }
     return SUCCESS;
 }

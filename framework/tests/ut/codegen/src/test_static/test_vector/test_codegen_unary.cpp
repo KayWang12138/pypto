@@ -21,8 +21,8 @@
 #include "codegen/codegen.h"
 #include <vector>
 #include <string>
-#include "codegen/cloudnpu/codegen_cloudnpu.h"
-#include "codegen/cloudnpu/codegen_op_cloudnpu.h"
+#include "codegen/npu/cloudnpu/codegen_cloudnpu.h"
+#include "codegen/npu/cloudnpu/codegen_op_cloudnpu.h"
 #include "test_codegen_utils.h"
 
 namespace npu::tile_fwk {
@@ -233,7 +233,7 @@ TEST_F(TestCodegenUnary, ExpandDim2Axis0TileTensor)
 {
     Function& func = TestExpandBody({1, 22}, {22, 22}, {2, 2}, "ExpandDim2Axis0TileTensor", true);
     std::string res = GetResultFromCpp(func);
-    std::string expect = R"!!!(TExpand<LastUse2Dim<0, 1>, 2>(ubTensor_2, ubTensor_0);
+    std::string expect = R"!!!(TExpand<LastUse2Dim<0, 1>, 3>(ubTensor_2, ubTensor_0);
 )!!!";
     CheckStringExist(expect, res);
 }
@@ -370,13 +370,154 @@ TEST_F(TestCodegenUnary, TestRowMaxLine)
     CodeGenCtx ctx;
     CodeGenCloudNPU cga(ctx);
     cga.GenAllocForLocalBuffer(op, symbolManager);
-    CodeGenOpCloudNPUCtx opCtx(symbolManager, *function, *function->rootFunc_->programs_[0], op);
+    CodeGenOpNPUCtx opCtx(symbolManager, *function, *function->rootFunc_->programs_[0], op);
     CodeGenOpCloudNPU cop(opCtx);
     std::string res = cop.GenOpCode();
     std::string expect =
         R"!!!(TileOp::Trowmaxline_<float, 1, 2, 2, 64, 2, 2, 64, 2, 2, 64, 2>((__ubuf__ float*)UB_S0_E0, (__ubuf__ float*)UB_S0_E0);
 )!!!";
     EXPECT_EQ(res, expect);
+}
+
+TEST_F(TestCodegenUnary, TestExpDefaultPrecision)
+{
+    config::SetBuildStatic(true);
+    config::SetCodeGenConfig(KEY_CODEGEN_SUPPORT_TILE_TENSOR, true);
+    std::vector<int64_t> shape = {2, 2, 64};
+    auto function = GenMockFuncStatic("TestExpDefaultPrecision", shape);
+    auto localTensorSrc = CreateLogicalTensor({*function, DataType::DT_FP32, MemoryType::MEM_UB, shape});
+    auto localTensorDst = CreateLogicalTensor({*function, DataType::DT_FP32, MemoryType::MEM_UB, shape});
+
+    auto& op = function->AddOperation(Opcode::OP_EXP, {localTensorSrc}, {localTensorDst});
+
+    std::shared_ptr<SymbolManager> symbolManager = std::make_shared<SymbolManager>();
+    CodeGenCtx ctx;
+    CodeGenCloudNPU cga(ctx);
+    cga.GenAllocForLocalBuffer(op, symbolManager);
+    CodeGenOpNPUCtx opCtx(symbolManager, *function, *function->rootFunc_->programs_[0], op);
+    CodeGenOpCloudNPU cop(opCtx);
+    std::string res = cop.GenOpCode();
+    std::string expect = R"!!!(TExp<pto::ExpAlgorithm::DEFAULT>(ubTensor_0, ubTensor_0);
+)!!!";
+    CheckStringExist(expect, res);
+}
+
+TEST_F(TestCodegenUnary, TestExpHighPrecision)
+{
+    config::SetBuildStatic(true);
+    config::SetCodeGenConfig(KEY_CODEGEN_SUPPORT_TILE_TENSOR, true);
+    std::vector<int64_t> shape = {2, 2, 64};
+    auto function = GenMockFuncStatic("TestExpHighPrecision", shape);
+    auto localTensorSrc = CreateLogicalTensor({*function, DataType::DT_FP32, MemoryType::MEM_UB, shape});
+    auto localTensorDst = CreateLogicalTensor({*function, DataType::DT_FP32, MemoryType::MEM_UB, shape});
+
+    auto& op = function->AddOperation(Opcode::OP_EXP, {localTensorSrc}, {localTensorDst});
+    op.SetAttribute("precision_type", static_cast<int64_t>(1)); // HIGH_PRECISION
+
+    std::shared_ptr<SymbolManager> symbolManager = std::make_shared<SymbolManager>();
+    CodeGenCtx ctx;
+    CodeGenCloudNPU cga(ctx);
+    cga.GenAllocForLocalBuffer(op, symbolManager);
+    CodeGenOpNPUCtx opCtx(symbolManager, *function, *function->rootFunc_->programs_[0], op);
+    CodeGenOpCloudNPU cop(opCtx);
+    std::string res = cop.GenOpCode();
+    std::string expect = R"!!!(TExp<pto::ExpAlgorithm::HIGH_PRECISION>(ubTensor_0, ubTensor_0);
+)!!!";
+    CheckStringExist(expect, res);
+}
+
+TEST_F(TestCodegenUnary, TestSqrtDefaultPrecision)
+{
+    config::SetBuildStatic(true);
+    config::SetCodeGenConfig(KEY_CODEGEN_SUPPORT_TILE_TENSOR, true);
+    std::vector<int64_t> shape = {2, 2, 64};
+    auto function = GenMockFuncStatic("TestSqrtDefaultPrecision", shape);
+    auto localTensorSrc = CreateLogicalTensor({*function, DataType::DT_FP32, MemoryType::MEM_UB, shape});
+    auto localTensorDst = CreateLogicalTensor({*function, DataType::DT_FP32, MemoryType::MEM_UB, shape});
+
+    auto& op = function->AddOperation(Opcode::OP_SQRT, {localTensorSrc}, {localTensorDst});
+
+    std::shared_ptr<SymbolManager> symbolManager = std::make_shared<SymbolManager>();
+    CodeGenCtx ctx;
+    CodeGenCloudNPU cga(ctx);
+    cga.GenAllocForLocalBuffer(op, symbolManager);
+    CodeGenOpNPUCtx opCtx(symbolManager, *function, *function->rootFunc_->programs_[0], op);
+    CodeGenOpCloudNPU cop(opCtx);
+    std::string res = cop.GenOpCode();
+    std::string expect = R"!!!(TSqrt<pto::SqrtAlgorithm::DEFAULT>(ubTensor_0, ubTensor_0);
+)!!!";
+    CheckStringExist(expect, res);
+}
+
+TEST_F(TestCodegenUnary, TestSqrtHighPrecision)
+{
+    config::SetBuildStatic(true);
+    config::SetCodeGenConfig(KEY_CODEGEN_SUPPORT_TILE_TENSOR, true);
+    std::vector<int64_t> shape = {2, 2, 64};
+    auto function = GenMockFuncStatic("TestSqrtHighPrecision", shape);
+    auto localTensorSrc = CreateLogicalTensor({*function, DataType::DT_FP32, MemoryType::MEM_UB, shape});
+    auto localTensorDst = CreateLogicalTensor({*function, DataType::DT_FP32, MemoryType::MEM_UB, shape});
+
+    auto& op = function->AddOperation(Opcode::OP_SQRT, {localTensorSrc}, {localTensorDst});
+    op.SetAttribute("precision_type", static_cast<int64_t>(1)); // HIGH_PRECISION
+
+    std::shared_ptr<SymbolManager> symbolManager = std::make_shared<SymbolManager>();
+    CodeGenCtx ctx;
+    CodeGenCloudNPU cga(ctx);
+    cga.GenAllocForLocalBuffer(op, symbolManager);
+    CodeGenOpNPUCtx opCtx(symbolManager, *function, *function->rootFunc_->programs_[0], op);
+    CodeGenOpCloudNPU cop(opCtx);
+    std::string res = cop.GenOpCode();
+    std::string expect = R"!!!(TSqrt<pto::SqrtAlgorithm::HIGH_PRECISION>(ubTensor_0, ubTensor_0);
+)!!!";
+    CheckStringExist(expect, res);
+}
+
+TEST_F(TestCodegenUnary, TestLogDefaultPrecision)
+{
+    config::SetBuildStatic(true);
+    config::SetCodeGenConfig(KEY_CODEGEN_SUPPORT_TILE_TENSOR, true);
+    std::vector<int64_t> shape = {2, 2, 64};
+    auto function = GenMockFuncStatic("TestLogDefaultPrecision", shape);
+    auto localTensorSrc = CreateLogicalTensor({*function, DataType::DT_FP32, MemoryType::MEM_UB, shape});
+    auto localTensorDst = CreateLogicalTensor({*function, DataType::DT_FP32, MemoryType::MEM_UB, shape});
+
+    auto& op = function->AddOperation(Opcode::OP_LN, {localTensorSrc}, {localTensorDst});
+
+    std::shared_ptr<SymbolManager> symbolManager = std::make_shared<SymbolManager>();
+    CodeGenCtx ctx;
+    CodeGenCloudNPU cga(ctx);
+    cga.GenAllocForLocalBuffer(op, symbolManager);
+    CodeGenOpNPUCtx opCtx(symbolManager, *function, *function->rootFunc_->programs_[0], op);
+    CodeGenOpCloudNPU cop(opCtx);
+    std::string res = cop.GenOpCode();
+    std::string expect = R"!!!(TLog<pto::LogAlgorithm::DEFAULT>(ubTensor_0, ubTensor_0);
+)!!!";
+    CheckStringExist(expect, res);
+}
+
+TEST_F(TestCodegenUnary, TestLogHighPrecision)
+{
+    config::SetBuildStatic(true);
+    config::SetCodeGenConfig(KEY_CODEGEN_SUPPORT_TILE_TENSOR, true);
+    std::vector<int64_t> shape = {2, 2, 64};
+    auto function = GenMockFuncStatic("TestLogHighPrecision", shape);
+    auto localTensorSrc = CreateLogicalTensor({*function, DataType::DT_FP32, MemoryType::MEM_UB, shape});
+    auto localTensorDst = CreateLogicalTensor({*function, DataType::DT_FP32, MemoryType::MEM_UB, shape});
+
+    auto& op = function->AddOperation(Opcode::OP_LN, {localTensorSrc}, {localTensorDst});
+    op.SetAttribute("precision_type", static_cast<int64_t>(1)); // HIGH_PRECISION
+
+    std::shared_ptr<SymbolManager> symbolManager = std::make_shared<SymbolManager>();
+    CodeGenCtx ctx;
+    CodeGenCloudNPU cga(ctx);
+    cga.GenAllocForLocalBuffer(op, symbolManager);
+    CodeGenOpNPUCtx opCtx(symbolManager, *function, *function->rootFunc_->programs_[0], op);
+    CodeGenOpCloudNPU cop(opCtx);
+    std::string res = cop.GenOpCode();
+    std::string expect = R"!!!(TLog<pto::LogAlgorithm::HIGH_PRECISION>(ubTensor_0, ubTensor_0);
+)!!!";
+    CheckStringExist(expect, res);
 }
 
 } // namespace npu::tile_fwk

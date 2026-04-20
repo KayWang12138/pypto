@@ -18,7 +18,7 @@
 #include "tensor_transformation.h"
 #include "interface/utils/operator_tracer.h"
 #include "passes/pass_utils/graph_utils.h"
-#include "interface/utils/vector_error.h"
+#include "interface/utils/error_code.h"
 
 namespace npu::tile_fwk {
 
@@ -214,7 +214,7 @@ Tensor Neg(const Tensor& self)
     }
 }
 
-Tensor Log(const Tensor& self, LogBaseType base)
+Tensor Log(const Tensor& self, LogBaseType base, LogAlgorithm precisionType)
 {
     DECLARE_TRACER();
     ASSERT(
@@ -238,8 +238,7 @@ Tensor Log(const Tensor& self, LogBaseType base)
     }
 
     auto resTensor = Tensor(DataType::DT_FP32, self.GetShape());
-    resTensor =
-        CALL(UnaryOperation<UnaryOpType::LN>, *Program::GetInstance().GetCurrentFunction(), operandCast.GetStorage());
+    resTensor = Ln(operandCast, precisionType);
 
     auto resTensorBeforeCast = Tensor(DataType::DT_FP32, self.GetShape());
     if (base == LogBaseType::LOG_2) {
@@ -702,7 +701,7 @@ void InnerTiledCumOperation(
             LogicalTensorPtr lastTile =
                 std::make_shared<LogicalTensor>(function, srcTile->Datatype(), srcTile->GetShape());
             auto& eop = function.AddOperation("TILE_EXPAND", {lastAxisTile}, {lastTile});
-            eop.SetAttribute(OP_ATTR_PREFIX + "EXPANDDIM", axis);
+            eop.SetAttribute(OpAttributeKey::expandDims, std::vector<int>{axis});
             if (is_sum) {
                 function.AddOperation(Opcode::OP_ADD, {srcTile, lastTile}, {dstTile});
             } else {
@@ -804,7 +803,7 @@ void CheckCumOperation(const Tensor& input, const int& axis, const bool& is_sum)
     auto shapeSize = input.GetShape().size();
     auto dataType = input.GetDataType();
 
-    ASSERT(VectorErrorCode::ERR_PARAM_INVALID, SHAPE_DIM1 <= shapeSize && shapeSize <= SHAPE_DIM4)
+    ASSERT(VectorErrorCode::ERR_PARAM_SHAPE_DIM_UNSUPPORTED, SHAPE_DIM1 <= shapeSize && shapeSize <= SHAPE_DIM4)
         << "The shape.size() only support 1~4";
     if (is_sum) {
         std::vector<DataType> CUMSUM_SUPPORT_DATATYPES = {
@@ -1166,7 +1165,7 @@ Tensor Var(const Tensor& input, const std::vector<int>& dim, float correction, b
     for (size_t i = 0; i < innerDim.size(); i++) {
         calcN *= static_cast<int>(shape[innerDim[i]]);
     }
-    res = Mul(res, Element(DT_FP32, 1 / static_cast<float>(calcN)));
+    res = Div(res, Element(DT_FP32, static_cast<float>(calcN)));
     for (size_t i = 0; i < innerDim.size(); i++) {
         res = Sum(res, innerDim[i], true);
     }
@@ -1179,8 +1178,8 @@ Tensor Var(const Tensor& input, const std::vector<int>& dim, float correction, b
 
     res = Sub(castInput, res);
     res = Mul(res, res);
-    float count = 1.0f / std::max(0.0f, static_cast<float>(calcN) - correction);
-    res = Mul(res, Element(DT_FP32, count));
+    float count = std::max(0.0f, static_cast<float>(calcN) - correction);
+    res = Div(res, Element(DT_FP32, count));
     for (size_t i = 0; i < innerDim.size(); i++) {
         res = Sum(res, innerDim[i], true);
     }
@@ -1390,12 +1389,13 @@ Tensor Expm1(const Tensor& self)
 
     auto shapeSize = self.GetShape().size();
     auto dataType = self.GetDataType();
-    ASSERT(SHAPE_DIM2 <= shapeSize && shapeSize <= SHAPE_DIM4) << "The shape.size() only support 2~4";
+    ASSERT(VectorErrorCode::ERR_PARAM_SHAPE_DIM_UNSUPPORTED, SHAPE_DIM2 <= shapeSize && shapeSize <= SHAPE_DIM4)
+        << "The shape.size() only support 2~4";
     std::vector<DataType> EXPM1_SUPPORT_DATATYPES = {
         DataType::DT_FP32, DataType::DT_FP16, DataType::DT_BF16, DataType::DT_INT32, DataType::DT_INT16};
-    ASSERT(
-        std::find(EXPM1_SUPPORT_DATATYPES.begin(), EXPM1_SUPPORT_DATATYPES.end(), dataType) !=
-        EXPM1_SUPPORT_DATATYPES.end())
+    ASSERT(VectorErrorCode::ERR_PARAM_DTYPE_UNSUPPORTED,
+           std::find(EXPM1_SUPPORT_DATATYPES.begin(), EXPM1_SUPPORT_DATATYPES.end(), dataType) !=
+               EXPM1_SUPPORT_DATATYPES.end())
         << "The datatype is not supported";
 
     RETURN_CALL(Expm1, *Program::GetInstance().GetCurrentFunction(), self.GetStorage());

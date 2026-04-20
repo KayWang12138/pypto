@@ -35,11 +35,15 @@ struct TensorData {
 struct MatMulParam {
     bool aTrans = false;
     bool bTrans = false;
+    bool aScaleTrans = false;
+    bool bScaleTrans = false;
     int64_t kStep = 0;
     uint64_t scale = 0;
     int relu = 0;
     const TensorData* scalePtr = nullptr;
     const TensorData* biasPtr = nullptr;
+    const TensorData* aScalePtr = nullptr;
+    const TensorData* bScalePtr = nullptr;
 };
 
 enum class CmpOperationType {
@@ -94,6 +98,8 @@ struct CalcOps {
     void (*Hypot)(const TensorData&, const TensorData&, const TensorData&);
     void (*PReLU)(const TensorData&, const TensorData&, const TensorData&);
     void (*LogicalAnd)(const TensorData&, const TensorData&, const TensorData&);
+
+    void (*Uniform)(const TensorData &, const Element &, const Element &, const Element &, const Element &, DataType);
 
     void (*AddS)(const TensorData&, const TensorData&, const Element&, bool);
     void (*SubS)(const TensorData&, const TensorData&, const Element&, bool);

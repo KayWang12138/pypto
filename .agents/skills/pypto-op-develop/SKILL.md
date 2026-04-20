@@ -1,6 +1,6 @@
 ---
 name: pypto-op-develop
-description: "当需要编写 PyPTO 算子实现时使用此 skill。基于需求规格、设计方案和参考实现，生成完整可运行的 PyPTO 算子实现与配套测试、文档。Triggers: 实现算子、写 kernel、编写实现、写 impl、算子编码、开始编码、code the op、写 test、生成测试、写实现代码、op develop、kernel 实现。"
+description: 当需要编写 PyPTO 算子实现时使用此 skill。基于需求规格、设计方案和参考实现，生成完整可运行的 PyPTO 算子实现与配套测试、文档。触发词：实现算子、写 kernel、编写实现、写 impl、算子编码、开始编码、code the op、写 test、生成测试、写实现代码、op develop、kernel 实现。
 ---
 
 # PyPTO 算子实现
@@ -13,7 +13,7 @@ description: "当需要编写 PyPTO 算子实现时使用此 skill。基于需�
 
 ### 需求规格信息
 
-从 `SPEC.md` 中提取：
+需要以下算子规格信息：
 
 | 字段 | 用途 |
 |------|------|
@@ -26,7 +26,7 @@ description: "当需要编写 PyPTO 算子实现时使用此 skill。基于需�
 
 ### 设计方案信息
 
-从 `DESIGN.md` 中提取：
+需要以下设计方案信息：
 
 | 字段 | 用途 |
 |------|------|
@@ -39,7 +39,7 @@ description: "当需要编写 PyPTO 算子实现时使用此 skill。基于需�
 
 ### 参考实现信息
 
-从 `{op}_golden.py` 中提取：
+需要以下 golden 参考实现信息：
 
 | 信息 | 用途 |
 |------|------|
@@ -53,8 +53,8 @@ description: "当需要编写 PyPTO 算子实现时使用此 skill。基于需�
 
 | 文件 | 用途 | 加载时机 |
 |------|------|----------|
-| [references/test-template.py](references/test-template.py) | test 文件固定模板 | 生成 test_{op}.py 时读取 |
-| [references/impl-template.py](references/impl-template.py) | impl 文件固定模板 | 生成 {op}_impl.py 时读取 |
+| [templates/test-template.py](templates/test-template.py) | test 文件固定模板 | 生成 test_{op}.py 时读取 |
+| [templates/impl-template.py](templates/impl-template.py) | impl 文件固定模板 | 生成 {op}_impl.py 时读取 |
 | [references/execution-constraints.md](references/execution-constraints.md) | PyPTO 开发执行约束清单 | 进入实现阶段前必读；编码与自检时反复对照 |
 | [references/error-code-troubleshooting.md](references/error-code-troubleshooting.md) | 错误码排查流程与常见错误码速查 | 验证失败时按流程排查 |
 | [scripts/environment_prepare.sh](scripts/environment_prepare.sh) | 环境初始化脚本 | 环境准备阶段按需执行 |
@@ -102,14 +102,18 @@ export PTO_TILE_LIB_CODE_PATH=./pto_isa/pto-isa/
 
 ### 阶段二：代码生成
 
-**输出目录**：`custom/{op}/`
+**输出目录**：当前算子工作目录（由调用者指定或默认为当前目录）
+
+**准备工作**（并行读取）：
+在进入编码前，**并行读取**以下参考文件（同一条消息中发起所有 Read 调用）：
+- `references/execution-constraints.md` — 框架级约束清单
+- `templates/impl-template.py` — impl 文件模板
+- `templates/test-template.py` — test 文件模板
 
 **生成顺序**：
 1. 根据输入信息，先梳理 API 映射、tiling 策略、loop 结构，确认可行后再进入实现
-2. 进入实现前，读取 `references/execution-constraints.md`，把框架级约束、基础类型约束、控制流约束和高频 operation 约束落实到本次实现
-3. 基于 `references/impl-template.py` 生成 `{op}_impl.py`
-4. 基于 `references/test-template.py` 生成 `test_{op}.py`（前置：`{op}_impl.py` 已生成）
-5. 生成 `README.md`
+2. 基于约束清单和 impl 模板生成 `{op}_impl.py`
+3. `{op}_impl.py` 完成后，**并行生成** `test_{op}.py` 和 `README.md`（两者互不依赖）
 
 ⚠️ 实现代码与测试代码必须分离，禁止混写 golden / impl / test 到同一文件。
 
@@ -117,7 +121,7 @@ export PTO_TILE_LIB_CODE_PATH=./pto_isa/pto-isa/
 
 #### 生成 {op}_impl.py
 
-PyPTO kernel 函数实现，基于固定模板 `references/impl-template.py` 生成。
+PyPTO kernel 函数实现，基于固定模板 `templates/impl-template.py` 生成。
 
 实现前必须逐项核对 `references/execution-constraints.md`，尤其是：输出写回、动态轴标注、Element 使用、TileShape、valid_shape、loop/cond、同图内读写回环。
 
@@ -132,7 +136,7 @@ PyPTO kernel 函数实现，基于固定模板 `references/impl-template.py` 生
 
 #### 生成 test_{op}.py
 
-torch golden 函数精度对比测试，基于固定模板 `references/test-template.py` 生成。
+torch golden 函数精度对比测试，基于固定模板 `templates/test-template.py` 生成。
 
 **结构**：
 
@@ -192,7 +196,7 @@ python3 build_ci.py -f python3 --disable_auto_execute
 2. **执行算子验证**：
 检测到存在 NPU 卡时，直接使用 `run_mode=npu` 执行：
 ```bash
-python3 custom/{op}/test_{op}.py
+python3 test_{op}.py
 ```
 
 3. **验证失败处理**：
@@ -229,7 +233,7 @@ python3 custom/{op}/test_{op}.py
 9. **动态轴必须显式标注**：所有动态 shape 输入和输出都要在 Tensor 注解中标成 `pypto.DYNAMIC` / `pypto.DYN`。
 10. **Element 用于固定标量 dtype**：当标量参与计算且 dtype 不能依赖隐式映射时，显式使用 `pypto.Element(dtype, value)`。
 11. **避免同图内回环读写**：同一 Tensor 不要在同一图里既 `view` 读取又 `assemble` 回写。
-12. 如果设计中已有 tiling / loop 约束，编码时优先遵循 `DESIGN.md`，不要临时拍脑袋改写。
+12. 如果设计方案中已有 tiling / loop 约束，编码时优先遵循设计方案，不要临时拍脑袋改写。
 
 ---
 

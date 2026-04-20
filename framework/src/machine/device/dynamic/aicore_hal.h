@@ -147,7 +147,7 @@ public:
                 auto taskId = (value & 0xFFFFFFFF) - 1;
                 if (value == 0 || taskId == AICORE_TASK_STOP || (taskId & 0xFFFFFFFF) == AICORE_FUNC_STOP)
                     return;
-                CostModelSendTask(coreIdx, taskId & 0xFFFFFFFF, {});
+                CostModelSendTask(coreIdx, taskId & 0xFFFFFFFF);
             }
         }
     }
@@ -293,14 +293,14 @@ public:
         return taskIds[coreIdx].front();
     }
 
-    void CostModelSendTask(int coreIdx, uint64_t taskId, std::map<uint64_t, uint64_t> tensorAddr2SizeMap)
+    void CostModelSendTask(int coreIdx, uint64_t taskId)
     {
         uint64_t time = taskIds[coreIdx].empty() ? GetCycles() : taskTimes[coreIdx].back();
         uint64_t timeCost = getTaskTimeCost == nullptr ? 0 : getTaskTimeCost(coreIdx, taskId, time);
         taskTimes[coreIdx].push_back(time + timeCost);
         taskIds[coreIdx].push_back(taskId);
         if (costModel_) {
-            costModel_->SendTask(coreIdx, taskId, tensorAddr2SizeMap);
+            costModel_->SendTask(coreIdx, taskId);
         }
         DEV_DEBUG(
             "CostModel AICore add task: aicoreIdx=%d, taskId=%#lx, newQueueSize=%lu, finishTime=%lu.", coreIdx, taskId,
@@ -500,6 +500,13 @@ public:
             arg->shakeBuffer[SHAK_BUF_PRINT_BUFFER_INDEX] = buffer;
             __sync_synchronize();
 #endif
+        } else {
+            if (enableEslModel_) {
+                if (args_[coreIdx] == nullptr) {
+                    args_[coreIdx] = reinterpret_cast<KernelArgs*>((static_cast<uint64_t>(sharedBuffer_)) +
+                        SHARED_BUFFER_SIZE * coreIdx);
+                }
+            }
         }
     }
 
@@ -549,6 +556,12 @@ public:
         DEV_IF_DEVICE {
             volatile KernelArgs *arg = args_[coreIdx];
             arg->parallelDevTask.version = version;
+        } else {
+            if (enableEslModel_) {
+                volatile KernelArgs *arg = args_[coreIdx];
+                eslModel_.WriteEslMem(reinterpret_cast<uint64_t>(&arg->parallelDevTask.version), sizeof(version),
+                    &version);
+            }
         }
 
         DEV_VERBOSE_DEBUG("Refresh core %d parall version %u", coreIdx, version);

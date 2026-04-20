@@ -41,6 +41,7 @@ enum class LogModule {
     SIMULATION,
     VERIFY,
     COMPILER_MONITOR,
+    ADAPTER,
     PLATFORM,
     CONV,
     MATMUL,
@@ -136,10 +137,14 @@ private:
     } while (0)
 
 #define PYPTO_HOST_LOGE(module, errCode, fmt, ...) \
-    PYPTO_HOST_LOG(DLOG_ERROR, module, "ErrCode: F%05X! " fmt, static_cast<uint32_t>(errCode) & 0xFFFFF, ##__VA_ARGS__)
+    PYPTO_HOST_LOG( \
+        DLOG_ERROR, module, "ErrCode: F%05X! Enum: %s " fmt, static_cast<uint32_t>(errCode) & 0xFFFFF, #errCode, \
+        ##__VA_ARGS__)
 
 #define PYPTO_SIM_LOGE(module, errCode, fmt, ...) \
-    PYPTO_SIM_LOG(DLOG_ERROR, module, "ErrCode: F%05X! " fmt, static_cast<uint32_t>(errCode) & 0xFFFFF, ##__VA_ARGS__)
+    PYPTO_SIM_LOG( \
+        DLOG_ERROR, module, "ErrCode: F%05X! Enum: %s " fmt, static_cast<uint32_t>(errCode) & 0xFFFFF, #errCode, \
+        ##__VA_ARGS__)
 
 #define FUNCTION_LOGD(...) PYPTO_HOST_LOG(DLOG_DEBUG, FUNCTION, __VA_ARGS__)
 #define FUNCTION_LOGI(...) PYPTO_HOST_LOG(DLOG_INFO, FUNCTION, __VA_ARGS__)
@@ -187,16 +192,17 @@ private:
 #define SIMULATION_LOGW(...) PYPTO_SIM_LOG(DLOG_WARN, SIMULATION, __VA_ARGS__)
 #define SIMULATION_LOGE(...) PYPTO_SIM_LOG(DLOG_ERROR, SIMULATION, __VA_ARGS__)
 #define SIMULATION_LOGE_E(errCode, fmt, ...) PYPTO_SIM_LOGE(SIMULATION, errCode, fmt, ##__VA_ARGS__)
+
 #define VERIFY_LOGD(...) PYPTO_HOST_LOG(DLOG_DEBUG, VERIFY, __VA_ARGS__)
 #define VERIFY_LOGI(...) PYPTO_HOST_LOG(DLOG_INFO, VERIFY, __VA_ARGS__)
 #define VERIFY_LOGW(...) PYPTO_HOST_LOG(DLOG_WARN, VERIFY, __VA_ARGS__)
 #define VERIFY_LOGE(...) PYPTO_HOST_LOG(DLOG_ERROR, VERIFY, __VA_ARGS__)
 #define VERIFY_LOGE_E(errCode, fmt, ...) PYPTO_HOST_LOGE(VERIFY, errCode, fmt, ##__VA_ARGS__)
 #define VERIFY_EVENT(...) PYPTO_HOST_LOG_WITHOUT_LEVEL_CHECK(DLOG_INFO, VERIFY, __VA_ARGS__)
-#define VERIFY_LOGE_FULL(...) PYPTO_HOST_SPLIT_LOG(DLOG_ERROR, VERIFY, __VA_ARGS__)
-#define VERIFY_LOGE_FULL_E(errCode, fmt, ...) \
-    PYPTO_HOST_SPLIT_LOG(                     \
-        DLOG_ERROR, VERIFY, "ErrCode: F%05X! " fmt, static_cast<uint32_t>(errCode) & 0xFFFFF, ##__VA_ARGS__)
+#define VERIFY_LOGE_FULL(errCode, fmt, ...) \
+    PYPTO_HOST_SPLIT_LOG(                   \
+        DLOG_ERROR, VERIFY, "ErrCode: F%05X! Enum: %s " fmt, static_cast<uint32_t>(errCode) & 0xFFFFF, #errCode, \
+        ##__VA_ARGS__)
 
 #define COMPILER_LOGD(...) PYPTO_HOST_LOG(DLOG_DEBUG, COMPILER_MONITOR, __VA_ARGS__)
 #define COMPILER_LOGI(...) PYPTO_HOST_LOG(DLOG_INFO, COMPILER_MONITOR, __VA_ARGS__)
@@ -205,6 +211,12 @@ private:
 #define COMPILER_LOGE_E(errCode, fmt, ...) PYPTO_HOST_LOGE(COMPILER_MONITOR, errCode, fmt, ##__VA_ARGS__)
 #define COMPILER_EVENT(...) PYPTO_HOST_LOG_WITHOUT_LEVEL_CHECK(DLOG_INFO, COMPILER_MONITOR, __VA_ARGS__)
 #define COMPILER_LOGD_FULL(...) PYPTO_HOST_SPLIT_LOG(DLOG_DEBUG, COMPILER_MONITOR, __VA_ARGS__)
+
+#define ADAPTER_LOGD(...) PYPTO_HOST_LOG(DLOG_DEBUG, ADAPTER, __VA_ARGS__)
+#define ADAPTER_LOGI(...) PYPTO_HOST_LOG(DLOG_INFO, ADAPTER, __VA_ARGS__)
+#define ADAPTER_LOGW(...) PYPTO_HOST_LOG(DLOG_WARN, ADAPTER, __VA_ARGS__)
+#define ADAPTER_LOGE(...) PYPTO_HOST_LOG(DLOG_ERROR, ADAPTER, __VA_ARGS__)
+#define ADAPTER_LOGE_E(errCode, fmt, ...) PYPTO_HOST_LOGE(ADAPTER, errCode, fmt, ##__VA_ARGS__)
 
 #define PLATFORM_LOGD(...) PYPTO_HOST_LOG(DLOG_DEBUG, PLATFORM, __VA_ARGS__)
 #define PLATFORM_LOGI(...) PYPTO_HOST_LOG(DLOG_INFO, PLATFORM, __VA_ARGS__)

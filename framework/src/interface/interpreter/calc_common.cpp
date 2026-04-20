@@ -21,7 +21,7 @@
 #include "interface/interpreter/calculator/dtype_utils.h"
 #include "interface/interpreter/operation.h"
 #include "interface/operation/operation_impl.h"
-#include "interface/interpreter/verify_error.h"
+#include "interface/utils/error_code.h"
 
 namespace npu::tile_fwk {
 void ExecuteOpAssemble(ExecuteOperationContext* ctx)
@@ -335,7 +335,7 @@ void ExecutePrint(ExecuteOperationContext* ctx)
             csv << "element_count," << oop->GetData()->GetSize() << "\n";
             csv.close();
         } else {
-            VERIFY_LOGE_FULL_E(OpDumpScene::DUMP_OPEN_FILE_FAILED, "open csv file %s failed!!!!", csvPath.c_str());
+            VERIFY_LOGE_FULL(OpDumpScene::DUMP_OPEN_FILE_FAILED, "open csv file %s failed!!!!", csvPath.c_str());
         }
     }
 

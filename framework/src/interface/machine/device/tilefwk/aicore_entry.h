@@ -194,7 +194,7 @@ INLINE void SendRegAck(uint32_t taskIdx) { set_cond(taskIdx); }
 INLINE void PerfTraceRecord(
     uint32_t devTaskId, __gm__ Metrics* metric, AicorePerfTrace type, __gm__ KernelArgs* args, uint64_t cycle = 0)
 {
-    if (unlikely(npu::tile_fwk::g_is_open_dump_perf_trace_data == 1) && metric->turnNum < MAX_TURN_NUM) {
+    if (unlikely(npu::tile_fwk::g_is_open_dump_perf_trace_data == 1) && metric->turnNum < MAX_ROUND_NUM) {
         uint32_t turn = metric->turnNum;
         uint32_t cnt = metric->perfTraceCnt[turn][type];
         if (cnt < PERF_TRACE_INST_MAX_NUM_EVERY_TYPE) {
@@ -260,7 +260,7 @@ INLINE void DfxProcWhenCoreExit(ExecuteContext* ctx, __gm__ KernelArgs* args, __
     PerfTraceRecord(INVALID_DEV_TASK_ID, metric, PERF_TRACE_CORE_WAIT_EXIT_NOTIFY, args);
     if (ctx->lastTaskFinishCycle > 0) {
         PerfTraceRecord(
-            INVALID_DEV_TASK_ID, metric, PERF_TRACE_CORE_WAIT_ALL_DEV_TASK_CALLOP_EXEC_FINISH, args,
+            INVALID_DEV_TASK_ID, metric, PERF_TRACE_CORE_WAIT_ALL_DEV_TASK_LEAF_TASK_EXEC_FINISH, args,
             ctx->lastTaskFinishCycle);
     }
     if (unlikely(
@@ -274,7 +274,7 @@ INLINE void DfxProcWhenCoreExit(ExecuteContext* ctx, __gm__ KernelArgs* args, __
 INLINE void DfxProcWhenDevTaskStop(ExecuteContext *ctx, __gm__ KernelArgs *args, __gm__ Metrics* metric)
 {
     if (ctx->lastTaskFinishCycle > 0) {
-        PerfTraceRecord(ctx->SeqNo(), metric, PERF_TRACE_CORE_DEV_TASK_CALLOP_TASK_EXEC, args, ctx->lastTaskFinishCycle);
+        PerfTraceRecord(ctx->SeqNo(), metric, PERF_TRACE_CORE_DEV_TASK_LEAF_TASK_EXEC, args, ctx->lastTaskFinishCycle);
     }
 }
 
@@ -600,7 +600,7 @@ INLINE void KernelEntry(
             ctx.curLeafTaskParallelIdx = npu::tile_fwk::ParallelIndex(curTaskIdx);
   
             if (isFirstTask) {
-                PerfTraceRecord(ctx.seqNo, metric, PERF_TRACE_CORE_DEV_TASK_WAIT_RCV_FIRST_CALLOP_TASK, args);
+                PerfTraceRecord(ctx.seqNo, metric, PERF_TRACE_CORE_DEV_TASK_WAIT_RCV_FIRST_LEAF_TASK, args);
                 isFirstTask = false;
             }
 
