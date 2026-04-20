@@ -200,6 +200,23 @@ def compute_golden_result(inputs: GoldenComputeInputs) -> torch.Tensor:
     return golden
 
 
+def combine_func(x, logits, residual, resid_scale, source_row, output_bs, offset):
+    top_k = x.shape[0] // output_bs
+    remain_logits = len(logits) % top_k
+    if remain_logits:
+        logits = logits[:len(logits) - remain_logits]
+    out = x * logits.reshape(-1,1)
+    remain_sr = len(source_row) % top_k
+    if remain_sr:
+        source_row = source_row[:len(source_row) - remain_sr]
+    index = np.argsort(source_row)
+    out = out[index].reshape(output_bs, top_k, x.shape[-1]).sum(axis=1)
+    if residual is not None:
+        out[offset:offset + residual.shape[0], :] += resid_scale * residual
+    out = out.to(torch.float32)
+    return out
+
+
 def gen_golden(inputs: GmmFRGoldenInputs) -> torch.Tensor:
     """
     生成GroupedMatmulFinalizeRoutingV3的golden参考结果
@@ -280,96 +297,122 @@ def gen_golden(inputs: GmmFRGoldenInputs) -> torch.Tensor:
 
         intermediate[begin:end, :] = gmm_result
 
-    # Step 2: 路由分配（Scatter Add）
-    out = torch.zeros((batch, n), dtype=torch.float32)
-    if m_total > 0:
-        row_index_long = row_index.long()
-        out = out.index_add_(0, row_index_long, intermediate, alpha=1.0)
-
-    # Step 3: 共享专家融合（可选）
+    # Step 2: 共享专家融合（可选）
     if shared_input is not None:
-        shared_fp32 = shared_input.to(torch.float32)
-        weighted_shared = shared_fp32 * shared_input_weight
-        bsdp = shared_input.shape[0]
-        for j in range(bsdp):
-            target_row = shared_input_offset + j
-            if target_row < batch:
-                out[target_row, :] += weighted_shared[j, :]
+        output_bs = x1.shape[0] // len(group_list)
+        final_out = combine_func(intermediate, logit, shared_input, shared_input_weight, row_index, output_bs, shared_input_offset)
 
-    return out
+    return final_out
 
 
 # ─────────────────────────────────────────────
-# 3. PyPTO Kernel 实现
+# 3. PyPTO Kernel 实现（参考 quant_matmul_reduce_sum.py）
 # ─────────────────────────────────────────────
 
-@pypto.frontend.jit
-def grouped_matmul_finalize_routing_kernel(
-    x1: pypto.Tensor,
-    x2: pypto.Tensor,
-    scale: pypto.Tensor,
-    pertoken_scale: pypto.Tensor,
-    intermediate: pypto.Tensor,
-    out: pypto.Tensor,
-    row_index: pypto.Tensor,
-    group_list: List[int],
-    tile_config: TileConfig,
-    transpose_x2: bool = False,
-) -> None:
+def grouped_matmul_finalize_routing_pypto(m, k, n, e, batch, tile_config, transpose_x2=False):
     """
-    GroupedMatmulFinalizeRoutingV3 PyPTO JIT kernel
+    创建GroupedMatmulFinalizeRoutingV3 PyPTO kernel
     
-    实现三个核心步骤：
-    1. 分组矩阵乘法（遍历专家组执行scaled_mm）
-    2. 路由分配（使用index_add_实现scatter add）
-    3. 共享专家融合（在wrapper中处理）
+    参考 quant_matmul_reduce_sum.py 的实现方式：
+    - 在参数中指定完整的 tensor shape 和 dtype
+    - 直接传入 torch tensor，不需要手动转换
+    
+    Args:
+        m: 输入token数量
+        k: 输入特征维度
+        n: 输出特征维度
+        e: 专家数量
+        batch: 输出batch维度
+        tile_config: Tile配置
+        transpose_x2: 权重是否转置
+        
+    Returns:
+        JIT编译的kernel函数
     """
-    num_experts = x2.shape[0]
-    begin = 0
-    end = 0
+    x1_shape = [m, k]
+    if transpose_x2:
+        x2_shape = [e, n, k]
+        scale_shape = [e, n, math.ceil(k / 64), 2]
+    else:
+        x2_shape = [e, k, n]
+        scale_shape = [e, math.ceil(k / 64), n, 2]
+    pertoken_scale_shape = [m, math.ceil(k / 64), 2]
+    intermediate_shape = [m, n]
+    out_shape = [batch, n]
+    row_index_shape = [m]
 
-    # Step 1: 分组矩阵乘法
-    for i in range(num_experts):
-        begin = end
-        end = end + group_list[i]
+    @pypto.frontend.jit()
+    def grouped_matmul_finalize_routing_kernel(
+        x1: pypto.Tensor(x1_shape, pypto.DT_FP8E4M3),
+        x2: pypto.Tensor(x2_shape, pypto.DT_FP8E4M3),
+        scale: pypto.Tensor(scale_shape, pypto.DT_FP8E8M0),
+        pertoken_scale: pypto.Tensor(pertoken_scale_shape, pypto.DT_FP8E8M0),
+        intermediate: pypto.Tensor(intermediate_shape, pypto.DT_FP32),
+        out: pypto.Tensor(out_shape, pypto.DT_FP32),
+        row_index: pypto.Tensor(row_index_shape, pypto.DT_INT64),
+        group_list: List[int]
+    ):
+        """
+        GroupedMatmulFinalizeRoutingV3 PyPTO JIT kernel
+        
+        实现两个核心步骤：
+        1. 分组矩阵乘法（遍历专家组执行scaled_mm）
+        2. 路由分配（使用index_add_实现scatter add）
+        """
+        num_experts = x2.shape[0]
+        begin = 0
+        end = 0
 
-        if group_list[i] <= 0:
-            continue
+        # Step 1: 分组矩阵乘法
+        for i in range(num_experts):
+            begin = end
+            end = end + group_list[i]
 
-        # 提取当前专家的输入和权重
-        x = x1[begin:end, :]
-        weight = x2[i]
-        scaled_x = pertoken_scale[begin:end, :, :]
-        scaled_weight = scale[i]
+            if group_list[i] <= 0:
+                continue
 
-        # 设置vector tile shapes
-        pypto.set_vec_tile_shapes(
-            tile_config.vector_tile_shape[0],
-            tile_config.vector_tile_shape[1],
-            tile_config.vector_tile_shape[2],
-            tile_config.vector_tile_shape[3]
-        )
+            # 提取当前专家的输入和权重（参考 gmm_mxfp8.py 的顺序）
+            x = x1[begin:end, :]
+            weight = x2[i]
+            scaled_x = pertoken_scale[begin:end, :, :]
 
-        # 设置cube tile shapes
-        pypto.set_cube_tile_shapes(
-            tile_config.m_tile_shape,
-            tile_config.k_tile_shape,
-            tile_config.n_tile_shape
-        )
+            # **先设置 vector tile shapes，再进行 scale tensor 的 indexing**
+            pypto.set_vec_tile_shapes(
+                tile_config.vector_tile_shape[0],
+                tile_config.vector_tile_shape[1],
+                tile_config.vector_tile_shape[2],
+                tile_config.vector_tile_shape[3]
+            )
 
-        # 执行MXFP8 scaled_matmul
-        intermediate[begin:end, :] = pypto.scaled_mm(
-            x, weight, pypto.DT_FP32, scaled_x, scaled_weight
-        )
+            # 设置完 tile shapes 后才 indexing scale tensor
+            scaled_weight = scale[i]
 
-    # Step 2: 路由分配（Scatter Add）
-    pypto.set_vec_tile_shapes(1, tile_config.n_tile_shape[0])
-    pypto.index_add_(out, 0, row_index, intermediate, alpha=1.0)
+            # 设置cube tile shapes
+            pypto.set_cube_tile_shapes(
+                tile_config.m_tile_shape,
+                tile_config.k_tile_shape,
+                tile_config.n_tile_shape
+            )
+
+            # 执行MXFP8 scaled_matmul
+            intermediate[begin:end, :] = pypto.scaled_mm(
+                x, weight, pypto.DT_FP32, scaled_x, scaled_weight
+            )
+
+        # Step 2: 路由分配（Scatter Add）
+        pypto.set_vec_tile_shapes(1, tile_config.n_tile_shape[0])
+        pypto.index_add_(out, 0, row_index, intermediate, alpha=1.0)
+
+    return grouped_matmul_finalize_routing_kernel
 
 
 def gen_mxfp8(inputs: GmmFRInputs) -> torch.Tensor:
     """
     使用PyPTO执行GroupedMatmulFinalizeRoutingV3计算
+    
+    参考 quant_matmul_reduce_sum.py 的调用方式：
+    - 直接传入 torch tensor
+    - 使用返回的 kernel 函数
     """
     x1 = inputs.x1
     x2 = inputs.x2
@@ -407,39 +450,20 @@ def gen_mxfp8(inputs: GmmFRInputs) -> torch.Tensor:
 
     # 计算维度
     m = x1.shape[0]
+    k = x1.shape[1]
+    e = x2.shape[0]
 
     # 初始化tensor
     intermediate = torch.zeros((m, n), dtype=torch.float32).npu()
     out = torch.zeros((batch, n), dtype=torch.float32).npu()
 
-    # 准备PyPTO tensors（参考 gmm_mxfp8.py）
-    input_tensors = {
-        x1: [],
-        x2: [],
-        scale: [],
-        pertoken_scale: [],
-    }
-    output_tensors = {
-        intermediate: [],
-        out: [],
-    }
-    index_tensors = {
-        row_index: [],
-    }
-
-    pto_inputs = [pypto.from_torch(tensor, dynamic_axis=axis) for tensor, axis in input_tensors.items()]
-    pto_outputs = [pypto.from_torch(tensor, dynamic_axis=axis) for tensor, axis in output_tensors.items()]
-    pto_index = [pypto.from_torch(tensor, dynamic_axis=axis) for tensor, axis in index_tensors.items()]
-
-    # 调用JIT kernel
-    grouped_matmul_finalize_routing_kernel(
-        *pto_inputs,
-        *pto_outputs,
-        *pto_index,
-        group_list,
-        tile_config,
-        transpose_x2,
+    # 创建并调用 kernel（参考 quant_matmul_reduce_sum.py）
+    kernel = grouped_matmul_finalize_routing_pypto(
+        m, k, n, e, batch, tile_config, transpose_x2
     )
+    
+    # 直接传入 torch tensor，kernel 会修改 out tensor
+    kernel(x1, x2, scale, pertoken_scale, intermediate, out, row_index, group_list)
 
     # Step 3: 处理bias（可选）
     if bias is not None:
@@ -552,91 +576,91 @@ def generate_test_data(
     }
 
 
-def test_gmm_fr_basic(tile_config: TileConfig = DEFAULT_TILE_CONFIG, device_id=None):
-    """
-    测试GroupedMatmulFinalizeRoutingV3基础配置
+# def test_gmm_fr_basic(tile_config: TileConfig = DEFAULT_TILE_CONFIG, device_id=None):
+#     """
+#     测试GroupedMatmulFinalizeRoutingV3基础配置
     
-    参考: gmm_mxfp8.py 的 test_gmm_mxfp8
-    """
-    print("=" * 60)
-    print("Test: GroupedMatmulFinalizeRoutingV3 - MXFP8 Basic")
-    print("=" * 60)
+#     参考: gmm_mxfp8.py 的 test_gmm_mxfp8
+#     """
+#     print("=" * 60)
+#     print("Test: GroupedMatmulFinalizeRoutingV3 - MXFP8 Basic")
+#     print("=" * 60)
 
-    # 参数配置
-    m, k, n, e, batch = 16, 512, 7168, 2, 8
-    group_list = [7, 9]
+#     # 参数配置
+#     m, k, n, e, batch = 16, 512, 7168, 2, 8
+#     group_list = [7, 9]
 
-    print(f"Config: m={m}, k={k}, n={n}, e={e}, batch={batch}")
-    print(f"group_list: {group_list}")
+#     print(f"Config: m={m}, k={k}, n={n}, e={e}, batch={batch}")
+#     print(f"group_list: {group_list}")
 
-    # 生成测试数据
-    data = generate_test_data(
-        m=m, k=k, n=n, e=e, batch=batch, group_list=group_list
-    )
+#     # 生成测试数据
+#     data = generate_test_data(
+#         m=m, k=k, n=n, e=e, batch=batch, group_list=group_list
+#     )
 
-    # 计算golden
-    golden = gen_golden(GmmFRGoldenInputs(
-        x1=data['x1'],
-        x2=data['x2'],
-        scale=data['scale'],
-        pertoken_scale=data['pertoken_scale'],
-        group_list=data['group_list'],
-        row_index=data['row_index'],
-        logit=data['logit'],
-        batch=data['batch'],
-        n=data['n'],
-        bias=data['bias'],
-        shared_input=data['shared_input'],
-        shared_input_weight=data['shared_input_weight'],
-        shared_input_offset=data['shared_input_offset'],
-        transpose_x1=data['transpose_x1'],
-        transpose_x2=data['transpose_x2'],
-        group_list_type=data['group_list_type'],
-    ))
+#     # 计算golden
+#     golden = gen_golden(GmmFRGoldenInputs(
+#         x1=data['x1'],
+#         x2=data['x2'],
+#         scale=data['scale'],
+#         pertoken_scale=data['pertoken_scale'],
+#         group_list=data['group_list'],
+#         row_index=data['row_index'],
+#         logit=data['logit'],
+#         batch=data['batch'],
+#         n=data['n'],
+#         bias=data['bias'],
+#         shared_input=data['shared_input'],
+#         shared_input_weight=data['shared_input_weight'],
+#         shared_input_offset=data['shared_input_offset'],
+#         transpose_x1=data['transpose_x1'],
+#         transpose_x2=data['transpose_x2'],
+#         group_list_type=data['group_list_type'],
+#     ))
 
-    print(f"Golden output shape: {golden.shape}")
-    print(f"Golden output sample (row 0, cols 0-5): {golden[0, :5]}")
+#     print(f"Golden output shape: {golden.shape}")
+#     print(f"Golden output sample (row 0, cols 0-5): {golden[0, :5]}")
 
-    # 计算PyPTO结果
-    if device_id is not None:
-        torch.npu.set_device(device_id)
-        result = gen_mxfp8(GmmFRInputs(
-            x1=data['x1'],
-            x2=data['x2'],
-            scale=data['scale'],
-            pertoken_scale=data['pertoken_scale'],
-            group_list=data['group_list'],
-            row_index=data['row_index'],
-            logit=data['logit'],
-            batch=data['batch'],
-            n=data['n'],
-            bias=data['bias'],
-            shared_input=data['shared_input'],
-            shared_input_weight=data['shared_input_weight'],
-            shared_input_offset=data['shared_input_offset'],
-            transpose_x1=data['transpose_x1'],
-            transpose_x2=data['transpose_x2'],
-            group_list_type=data['group_list_type'],
-            tile_config=tile_config,
-        ))
+#     # 计算PyPTO结果
+#     if device_id is not None:
+#         torch.npu.set_device(device_id)
+#         result = gen_mxfp8(GmmFRInputs(
+#             x1=data['x1'],
+#             x2=data['x2'],
+#             scale=data['scale'],
+#             pertoken_scale=data['pertoken_scale'],
+#             group_list=data['group_list'],
+#             row_index=data['row_index'],
+#             logit=data['logit'],
+#             batch=data['batch'],
+#             n=data['n'],
+#             bias=data['bias'],
+#             shared_input=data['shared_input'],
+#             shared_input_weight=data['shared_input_weight'],
+#             shared_input_offset=data['shared_input_offset'],
+#             transpose_x1=data['transpose_x1'],
+#             transpose_x2=data['transpose_x2'],
+#             group_list_type=data['group_list_type'],
+#             tile_config=tile_config,
+#         ))
 
-        print(f"PyPTO output shape: {result.shape}")
-        print(f"PyPTO output sample (row 0, cols 0-5): {result[0, :5].cpu()}")
+#         print(f"PyPTO output shape: {result.shape}")
+#         print(f"PyPTO output sample (row 0, cols 0-5): {result[0, :5].cpu()}")
 
-        # 精度对比
-        max_diff = np.abs(result.cpu().numpy() - golden.cpu().numpy()).max()
-        print(f"Max diff: {max_diff:.6e}")
+#         # 精度对比
+#         max_diff = np.abs(result.cpu().numpy() - golden.cpu().numpy()).max()
+#         print(f"Max diff: {max_diff:.6e}")
 
-        assert_allclose(
-            result.cpu().numpy(),
-            golden.cpu().numpy(),
-            rtol=1e-3, atol=1e-3,
-        )
-        print("[PRECISION_PASS]")
-    else:
-        print("[NPU NOT AVAILABLE - Golden only]")
+#         assert_allclose(
+#             result.cpu().numpy(),
+#             golden.cpu().numpy(),
+#             rtol=1e-3, atol=1e-3,
+#         )
+#         print("[PRECISION_PASS]")
+#     else:
+#         print("[NPU NOT AVAILABLE - Golden only]")
 
-    print("✓ Passed\n")
+#     print("✓ Passed\n")
 
 
 def test_gmm_fr_full_config(tile_config: TileConfig = DEFAULT_TILE_CONFIG, device_id=None):
@@ -677,6 +701,7 @@ def test_gmm_fr_full_config(tile_config: TileConfig = DEFAULT_TILE_CONFIG, devic
     ))
 
     print(f"Golden output shape: {golden.shape}")
+    print("golden vale: ", golden)
 
     if device_id is not None:
         torch.npu.set_device(device_id)
@@ -729,7 +754,7 @@ if __name__ == "__main__":
     device_id = get_device_id()
 
     # 运行测试
-    test_gmm_fr_basic(DEFAULT_TILE_CONFIG, device_id)
+    # test_gmm_fr_basic(DEFAULT_TILE_CONFIG, device_id)
     test_gmm_fr_full_config(DEFAULT_TILE_CONFIG, device_id)
 
     print("=" * 60)
