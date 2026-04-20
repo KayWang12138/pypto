@@ -112,11 +112,13 @@ void MonitorImpl::StopMonitoring()
 void MonitorImpl::PrintTotalTimeOut(double total_elapsed, int total_timeout_sec)
 {
     if ((total_elapsed >= total_timeout_sec) && (manager_->GetStageTimeoutFlag("Total") == false)) {
+        int current_func_opsize = manager_->GetCurrentFuncOpSize();
         manager_->SetStageTimeoutFlag("Total");
         std::string warm_msg;
-        warm_msg = "[Compiler Monitor] | [== WARNING ==] Total elapsed [" + FormatElapsed(total_elapsed) +
+        warm_msg = "[Compiler Monitor] | [WARNING] Total elapsed [" + FormatElapsed(total_elapsed) +
                    "] exceeded the total time threshold [" + FormatElapsed(static_cast<double>(total_timeout_sec)) +
-                   "], you can terminate the process by pressing Ctrl+C !!!";
+                   "] | Number of op: " + std::to_string(current_func_opsize) +
+                   ", you can enter 'Ctrl+C' to terminate!";
         COMPILER_LOGI("%s", warm_msg.c_str());
         (void)fprintf(stdout, "%s\n", warm_msg.c_str());
         (void)fflush(stdout);
@@ -146,6 +148,7 @@ void MonitorImpl::MonitorLoop()
         auto now = std::chrono::steady_clock::now();
         auto total_start = manager_->GetTotalStartTime();
         auto total_elapsed = std::chrono::duration<double>(now - total_start).count();
+        int current_func_opsize = manager_->GetCurrentFuncOpSize();
 
         // 当总时间超过total_timeout_sec
         PrintTotalTimeOut(total_elapsed, total_timeout_sec);
@@ -200,7 +203,8 @@ void MonitorImpl::MonitorLoop()
                         " | Stage CodeGen[" + stage + "], Func:[" + stageInfo.rootFuncName + "] elapsed [" +
                         FormatElapsed(curr_stage_elapsed) + "] exceeded the current stage total time threshold [" +
                         FormatElapsed(static_cast<double>(stage_timeout_sec)) +
-                        "], you can terminate the process by pressing Ctrl+C !!!";
+                        "] | Number of op: " + std::to_string(current_func_opsize) +
+                        " , you can enter 'Ctrl+C' to terminate!";
                     (void)fprintf(stdout, "%s\n", warm_msg.c_str());
                     (void)fflush(stdout);
                     COMPILER_LOGI("%s", warm_msg.c_str());
@@ -221,6 +225,7 @@ void MonitorImpl::MonitorLoop()
                 int current_k = stageInfo.functionIndex;
                 int total_n = manager_->GetTotalFunctionCount();
                 int pw = manager_->GetProgressWidth();
+                // pass & codegen
                 if (total_n > 1 && current_k > 0) {
                     if (curr_stage_elapsed >= static_cast<double>(stage_timeout_sec) &&
                         manager_->GetStageTimeoutFlag(stage) == false) {
@@ -230,7 +235,15 @@ void MonitorImpl::MonitorLoop()
                                    " | Stage [" + stage + "] elapsed [" + FormatElapsed(curr_stage_elapsed) +
                                    "] exceeded the current stage total time threshold [" +
                                    FormatElapsed(static_cast<double>(stage_timeout_sec)) +
-                                   "], you can terminate the process by pressing Ctrl+C !!!";
+                                   "] | Number of op: " + std::to_string(current_func_opsize) +
+                                   " , you can enter 'Ctrl+C' to terminate!";
+                        if (stage == "CodeGen") {
+                            warm_msg = "[Compiler Monitor] | [** WARNING **] | Stage [" + stage + "] elapsed [" +
+                                       FormatElapsed(curr_stage_elapsed) +
+                                       "] exceeded the current stage total time threshold [" +
+                                       FormatElapsed(static_cast<double>(stage_timeout_sec)) + "] | Number of op: " +
+                                       std::to_string(current_func_opsize) + " , you can enter 'Ctrl+C' to terminate!";
+                        }
                         (void)fprintf(stdout, "%s\n", warm_msg.c_str());
                         (void)fflush(stdout);
                         COMPILER_LOGI("%s", warm_msg.c_str());
@@ -261,6 +274,7 @@ void MonitorImpl::MonitorLoop()
                         }
                     }
                 } else {
+                    // prepare
                     if (curr_stage_elapsed >= static_cast<double>(stage_timeout_sec) &&
                         manager_->GetStageTimeoutFlag(stage) == false) {
                         manager_->SetStageTimeoutFlag(stage);
@@ -268,7 +282,8 @@ void MonitorImpl::MonitorLoop()
                                    "] elapsed [" + FormatElapsed(curr_stage_elapsed) +
                                    "] exceeded the current stage total time threshold [" +
                                    FormatElapsed(static_cast<double>(stage_timeout_sec)) +
-                                   "], you can terminate the process by pressing Ctrl+C !!!";
+                                   "] | Number of op: " + std::to_string(current_func_opsize) +
+                                   " , you can enter 'Ctrl+C' to terminate!";
                         (void)fprintf(stdout, "%s\n", warm_msg.c_str());
                         (void)fflush(stdout);
                         COMPILER_LOGI("%s", warm_msg.c_str());
