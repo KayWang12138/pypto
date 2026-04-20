@@ -233,18 +233,24 @@ void MonitorManager::TryEndPrepareStage()
 
 void MonitorManager::NotifyCompilationFinished()
 {
-    std::lock_guard<std::mutex> lock(mutex_);
-    if (!initialized_ || !enable_) {
-        return;
+    MonitorImpl* impl_to_stop = nullptr;
+    {
+        std::lock_guard<std::mutex> lock(mutex_);
+        if (!initialized_ || !enable_) {
+            return;
+        }
+        PrintCompilationFinished();
+        if (impl_) {
+            impl_to_stop = impl_;
+            impl_ = nullptr;
+        }
+        initialized_ = false;
+        stage_doing_ = false;
     }
-    PrintCompilationFinished();
-    if (impl_) {
-        impl_->Stop();
-        delete impl_;
-        impl_ = nullptr;
+    if (impl_to_stop) {
+        impl_to_stop->Stop();
+        delete impl_to_stop;
     }
-    initialized_ = false;
-    stage_doing_ = false;
 }
 
 void MonitorManager::PrintCompilationFinished()
