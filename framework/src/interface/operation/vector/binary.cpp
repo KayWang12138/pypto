@@ -394,9 +394,10 @@ Tensor Div(const Tensor& self, const Tensor& other, DivAlgorithm precisionType)
     return Tensor(result);
 }
 
-Tensor Fmod(const Tensor& self, const Tensor& other)
+Tensor Fmod(const Tensor& self, const Tensor& other, FmodAlgorithm precisionType)
 {
     DECLARE_TRACER();
+    op->SetAttribute(OpAttributeKey::precisionType, static_cast<int64_t>(precisionType));
     RETURN_CALL(BinaryOperation<BinaryOpType::MOD>, *Program::GetInstance().GetCurrentFunction(), self, other);
 }
 
@@ -654,9 +655,10 @@ Tensor Div(const Tensor& self, const Element& other, DivAlgorithm precisionType)
     return Tensor(result);
 }
 
-Tensor Fmod(const Tensor& self, const Element& other)
+Tensor Fmod(const Tensor& self, const Element& other, FmodAlgorithm precisionType)
 {
     DECLARE_TRACER();
+    op->SetAttribute(OpAttributeKey::precisionType, static_cast<int64_t>(precisionType));
     RETURN_CALL(
         BinaryOperationScalar<BinaryOpType::MOD>, *Program::GetInstance().GetCurrentFunction(), self.GetStorage(),
         other);
