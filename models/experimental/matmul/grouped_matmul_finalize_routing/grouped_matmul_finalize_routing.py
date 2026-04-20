@@ -335,20 +335,20 @@ def gen_golden(inputs: GmmFRGoldenInputs) -> torch.Tensor:
         intermediate[begin:end, :] = gmm_result
 
     # Step 2: Finalization Routing（使用 combine_func）
-    output_bs = x1.shape[0] // len(group_list)
+    output_bs = batch
     
     if shared_input is not None:
         final_out = combine_func(
-            intermediate, logit, shared_input, shared_input_weight, 
+            intermediate, logit, shared_input, shared_input_weight,
             row_index, output_bs, shared_input_offset
         )
     else:
         final_out = combine_func(
-            intermediate, logit, None, None, 
+            intermediate, logit, None, None,
             row_index, output_bs, shared_input_offset
         )
 
-    return intermediate
+    return final_out
 
 
 # ─────────────────────────────────────────────
@@ -490,26 +490,24 @@ def grouped_matmul_finalize_routing_pypto(m, k, n, e, batch, tile_config, transp
             
             intermediate[begin:end, :] = gmm_result
 
-        # Step 2: logit加权
-        # logit [M] -> unsqueeze -> [M, 1]
-        # intermediate [M, N] * logit [M, 1] -> weighted [M, N]
-        output_bs = intermediate.shape[0] // len(group_list)
-        top_k = intermediate.shape[0] // output_bs
-        remain_logits = logits.shape[0] % top_k
-        logits[:] = logits[:logits.shape[0] - remain_logits]
+        # Step 2: logit加权 + routing combine
+        # 文档公式对应的是按 row_index 做 scatter add，重复索引需要累加。
+        pypto.set_vec_tile_shapes(
+            tile_config.vector_tile_shape[0],
+            tile_config.vector_tile_shape[2]
+        )
+        weighted = pypto.mul(intermediate, logits.unsqueeze(1))
+        pypto.index_add_(out, 0, row_index, weighted)
 
-        out[:] = intermediate * logits.unsqueeze(1)
-
-        remain_sr = row_index.shape % top_k
-        row_index[:] = row_index[:row_index.shape[0] - remain_sr]
-
-        pypto.set_vec_tile_shapes(32)
-        index = pypto.argsort(row_index, -1, True)
-
-        out[:] = pypto.index_select(out, 0, index)
-        pypto.reshape(out, [output_ba, top_k, intermediate.shape[-1]])
-
-        out[:] = pypto.sum(out, 0, True)
+        # Step 3: shared_input融合（可选）
+        if has_shared:
+            shared_fp32 = pypto.cast(shared_input, pypto.DT_FP32)
+            shared_scaled = pypto.mul(shared_fp32, shared_input_weight)
+            shared_end = shared_input_offset + shared_input.shape[0]
+            out[shared_input_offset:shared_end, :] = pypto.add(
+                out[shared_input_offset:shared_end, :],
+                shared_scaled
+            )
 
 
     return grouped_matmul_finalize_routing_kernel
