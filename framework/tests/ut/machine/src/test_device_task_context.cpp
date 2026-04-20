@@ -362,8 +362,8 @@ TEST_F(TestDeviceTaskContext, test_build_ready_queue_core_function_mix_arch)
     DevAscendFunctionDuppedData duppedData{};
     duppedData.loopDieId_ = 1;
     duppedData.source_ = &devFunc;
-    devFunc.predInfo_.totalZeroPredAIV = 0;
-    devFunc.predInfo_.totalZeroPredAIC = 0;
+    devFunc.predInfo_.totalZeroPredAIV = 20;
+    devFunc.predInfo_.totalZeroPredAIC = 20;
     devFunc.predInfo_.totalZeroPredAicpu = 0;
     dyntask->dynFuncDataCacheList[0].devFunc = &devFunc;
     dyntask->dynFuncDataCacheList[0].duppedData = &duppedData;
