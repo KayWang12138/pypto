@@ -531,14 +531,6 @@ TEST_F(InsertSyncTest, TestHandleEventID)
     ps.HandleEventID(handleOp, issueQ, issuenum, eventIdDeadlock, res);
     issueQ.DumpIssueQueue(ps.oriOpList_);
     ps.DumpLatestPipeDepMap();
-    EXPECT_EQ(ps.PipeSeqName(PipeSeq::AIV0_MTE2), "AIV0_MTE2");
-    EXPECT_EQ(ps.PipeSeqName(PipeSeq::AIV1_MTE2), "AIV1_MTE2");
-    EXPECT_EQ(ps.PipeSeqName(PipeSeq::AIV0_V), "AIV0_V");
-    EXPECT_EQ(ps.PipeSeqName(PipeSeq::AIV1_V), "AIV1_V");
-    EXPECT_EQ(ps.PipeSeqName(PipeSeq::AIV0_MTE3), "AIV0_MTE3");
-    EXPECT_EQ(ps.PipeSeqName(PipeSeq::AIV1_MTE3), "AIV1_MTE3");
-    EXPECT_EQ(ps.PipeSeqName(PipeSeq::AIV0_MTE3), "AIV0_S");
-    EXPECT_EQ(ps.PipeSeqName(PipeSeq::AIV1_MTE3), "AIV1_S");
 
     // After HandleEventID with AdjustOpDep:
     // RemoveOpDep: copyin1's setPipe removes cast, cast's waitPipe removes copyin1
@@ -798,6 +790,14 @@ TEST_F(InsertSyncTest, TestGetDepInfoSizeMismatch)
     auto pipePair = PipeSync::dataDepPair[0];
     PipeSync::DataDepInfo depInfo;
     EXPECT_EQ(ps.GetDepInfo(emptySyncedOpLog, pipePair, depInfo), FAILED);
+    EXPECT_EQ(ps.PipeSeqName(PipeSeq::AIV0_MTE2), "AIV0_MTE2");
+    EXPECT_EQ(ps.PipeSeqName(PipeSeq::AIV1_MTE2), "AIV1_MTE2");
+    EXPECT_EQ(ps.PipeSeqName(PipeSeq::AIV0_V), "AIV0_V");
+    EXPECT_EQ(ps.PipeSeqName(PipeSeq::AIV1_V), "AIV1_V");
+    EXPECT_EQ(ps.PipeSeqName(PipeSeq::AIV0_MTE3), "AIV0_MTE3");
+    EXPECT_EQ(ps.PipeSeqName(PipeSeq::AIV1_MTE3), "AIV1_MTE3");
+    EXPECT_EQ(ps.PipeSeqName(PipeSeq::AIV0_MTE3), "AIV0_S");
+    EXPECT_EQ(ps.PipeSeqName(PipeSeq::AIV1_MTE3), "AIV1_S");
 }
 } // namespace tile_fwk
 } // namespace npu
