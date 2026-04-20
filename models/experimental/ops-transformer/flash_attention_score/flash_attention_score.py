@@ -402,7 +402,9 @@ def test_kernel_with_mask(
     
     logging.info(f"Scale value: {test_scale}")
 
-    flash_attention_score_kernel_with_mask(query, key, value, atten_mask_fp32, output, softmax_max, softmax_sum, test_scale)
+    flash_attention_score_kernel_with_mask(
+        query, key, value, atten_mask_fp32, output, softmax_max, softmax_sum, test_scale
+    )
 
     logging.info(f"Input shape: query={query.shape}, key={key.shape}, value={value.shape}")
     logging.info(f"Output shape: {output.shape}")
