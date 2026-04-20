@@ -883,7 +883,7 @@ class PythonParser(PILBuilder, ast.NodeVisitor):
             else:
                 elt_temps = tuple(elt_temps_data)
 
-            # Step 2: one-layer unpack - (t0, *t1, t2) = source_name
+            # Step 2: emit the first unpack into per-element temporaries.
             unpack_stmts = [self.create_pil_assign_name(elt_temps,
                      self.create_pil_expr(source_expr))] if source_expr is not None else []
             # Step 3: recursively handle each element with its temp
@@ -1500,7 +1500,7 @@ class PythonParser(PILBuilder, ast.NodeVisitor):
                     assert _tmp_0, _tmp_2
         """
         test_stmt_list, test_name = self.visit(test)
-        # not_test = not test_name
+        # use prefix "not_test" to keep "not test_name"
         not_test_name = self.create_temp_identifier()
         not_test_stmt = self.create_pil_assign_name(not_test_name, self.create_pil_unary_op(ast.Not(), test_name))
         # msg is only evaluated when the assertion fails
@@ -2099,7 +2099,7 @@ class PythonParser(PILBuilder, ast.NodeVisitor):
         """
         result_stmts, value_name = self.visit(value)
 
-        # Apply conversion: -1=none, 115='s', 114='r', 97='a'
+        # Apply the formatted-value conversion code when one is present.
         if conversion == ord('s'):
             conv_name = self.create_temp_identifier()
             result_stmts += [self.create_pil_assign_name(conv_name, self.create_pil_call('str', [value_name], []))]
