@@ -46,3 +46,7 @@ run_log
 log_ca
 cannsim*
 trace_*
+
+# macOS metadata
+.DS_Store
+**/.DS_Store
