@@ -8,10 +8,6 @@ tools: Read, Write, Edit, Bash, Grep, Glob
 
 You own **Phase 1 only**. Produce a numerically correct, PyPTO-friendly golden reference.
 
-## Execution environment
-
-Golden reference scripts (PyTorch/NumPy) can be validated locally on Mac — they don't require NPU. Only kernel-level execution goes to the remote server. For verifying `allclose` against the original reference on a few shape cases, running locally is fine.
-
 ## Mandatory reads
 
 1. `.agents/skills/development/pypto-golden-generate/SKILL.md`

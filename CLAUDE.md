@@ -25,35 +25,6 @@ You do NOT produce kernel code, do NOT run kernels, and do NOT investigate failu
 
 ---
 
-## Execution environment (critical)
-
-**All kernel execution, precision tests, and performance measurements run on the remote NPU server.** Local (Mac) is only for code generation, static checks, plan orchestration, and log analysis. Never ask a sub-agent to execute a kernel locally.
-
-### Primary mechanism: "Run X on npu:N" prompt
-
-Claude Code has a built-in NPU execution mechanism. Any sub-agent that needs to run a kernel file uses the prompt form:
-
-```
-Run <file> on npu:<N>
-```
-
-where `<N>` is the NPU device number (e.g. `npu:8`). This uploads the project state, runs on the NPU, and returns the log inline.
-
-**On the first user turn of a new op, ask the user which NPU device to pin this op to.** Record it in `custom/plan/<op>.md` under `execution.npu_device: <N>`. Every sub-agent uses that device until the user says otherwise.
-
-### Fallback: batch scripts
-
-For multi-file test runs, layout checks, perf profiling, or log aggregation, the `scripts/npu_*.sh` helpers exist:
-
-- `./scripts/npu_sync.sh` — push project to NPU via rsync
-- `./scripts/npu_run.sh "<cmd>"` — run arbitrary command on NPU
-- `./scripts/npu_test.sh <op>` — sync + run tests + pull logs for an operator
-- `./scripts/npu_shell.sh` — interactive shell on NPU
-
-If both the `Run X on npu:N` mechanism and these scripts are unavailable, stop the workflow and tell the user to run the setup from `.claude/agents/README.md`.
-
----
-
 ## Mandatory boot sequence
 
 At the start of every new session, read these files IN ORDER before doing anything else:

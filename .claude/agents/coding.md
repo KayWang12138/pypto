@@ -8,31 +8,6 @@ tools: Read, Write, Edit, Bash, Grep, Glob
 
 You own **Phase 3, 4, 5 implementation**. **One staged file per dispatch.** You do NOT debug. You do NOT optimize. You do NOT anticipate the next module.
 
-## Execution environment
-
-You generate and edit source files locally. **You do not execute the kernel yourself** — that is Verification Agent's role. Your local validation is limited to:
-- `validate_kernel_structure(source_code=...)` (MCP, local)
-- `extract_pypto_calls.py` (local static scan)
-
-Never run `python <kernel>.py` locally.
-
-### How kernels get executed (for your awareness)
-
-The Claude Code environment has a built-in "run on NPU" mechanism. When Verification or Debug need to execute a kernel, they use a natural-language prompt of the form:
-
-```
-Run <file> on npu:<N>
-```
-
-where `<N>` is the NPU device number (e.g. `npu:8`). Claude Code handles the upload, remote execution on the NPU server, and log retrieval automatically.
-
-You do NOT invoke this yourself. But when you write code, be aware that:
-- The kernel file will be run standalone on the NPU (no local pre-processing assumed)
-- Paths in the kernel should be relative to the project root (the remote mirror preserves the layout)
-- Any auxiliary files (goldens, test inputs) must already be present in the same relative location — otherwise the remote run will fail with "file not found"
-
-For batch workflows (pytest across a directory, layout checks, perf profiling) there are also `./scripts/npu_*.sh` scripts. Those are fallbacks for complex multi-step runs; for single-file execution, the `Run <file> on npu:<N>` prompt is the primary mechanism.
-
 ## Single-file invariant (strict)
 
 Each time Lead dispatches you in Phase 3, you produce **exactly one** file: the staged file for the currently active module `active_module: M_k` recorded in `custom/plan/<op>.md` — e.g. `custom/<op>/<op>_module1.py` when `M_k = M1`, then next dispatch `_module12.py` when `M_k = M2`, etc.

@@ -15,45 +15,6 @@ In addition to the gate runner, you own two modular-eval artifacts that support 
 
 Both of these are ported from the Joshua evaluator design and adapted to the 9-agent execution model: you still never see @coding's private design, staged files are composed through the runner, and reports are sanitized before they leave the eval workspace.
 
-## Execution environment (critical)
-
-**All kernel execution — `detailed_tensor_compare`, unit tests, layout checks that invoke the kernel, precision tests, perf measurement, prefix-eval runs — runs on the remote NPU server.**
-
-### Primary mechanism: "Run X on npu:N" prompt
-
-The Claude Code environment has a built-in NPU execution mechanism. To run a single kernel file, issue a prompt of the form:
-
-```
-Run <file> on npu:<N>
-```
-
-Examples:
-- `Run custom/relu/relu_module1.py on npu:8`
-- `Run custom/matmul/test_e2e.py on npu:0`
-- `Run custom/gdr_bwd/eval/adversarial_runner.py --up-to-module 1 --impl custom/gdr_bwd/gdr_bwd_module1.py on npu:9`
-
-Claude Code automatically uploads the project state, executes the file on the specified NPU device, and returns the stdout/stderr log inline. **This is your primary way to invoke GATE 3/4 checks when a single entry-point file is involved.**
-
-The NPU device number (`:N`) is typically given by the user or specified in `custom/plan/<op>.md` under the execution config. If unspecified, ask Lead to clarify — do NOT guess a device number.
-
-### Fallback: batch scripts
-
-For multi-file test runs (pytest over a directory), layout checks, log aggregation, or perf profiling that doesn't fit a single-file invocation, use the helper scripts:
-
-- `./scripts/npu_sync.sh` — push the current project state
-- `./scripts/npu_test.sh <op>` — pytest for an operator + layout check + log retrieval
-- `./scripts/npu_run.sh "<cmd>"` — arbitrary remote command
-
-### Local-only checks
-
-Only purely static checks and pure-torch reference code may run locally (Mac):
-- `validate_kernel_structure` (MCP, local)
-- `extract_pypto_calls.py` (local static scan)
-- The **modular torch golden** composition-verification check (Phase A.5 — pure PyTorch, no PyPTO, so it runs on Mac like any golden)
-- The **adversarial runner self-test** (`python adversarial_runner.py --self-test`) — composes the modular golden against the user-provided golden; no PyPTO, so local is fine
-
-If you find yourself wanting to run a PyPTO `<kernel>.py` locally, STOP. Use the "Run X on npu:N" prompt instead.
-
 ## Mandatory reads
 
 1. `.agents/skills/workflow/validation-and-deliverables/SKILL.md` — `detailed_tensor_compare` runner

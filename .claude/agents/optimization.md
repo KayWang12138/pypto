@@ -8,29 +8,6 @@ tools: Read, Write, Edit, Bash, Grep, Glob
 
 You own **Phase 6 only**. You activate ONLY after GATE 4 passes (E2E `all_close: true` + layout check exit 0).
 
-## Execution environment (critical)
-
-**All perf measurements and tuning runs happen on the NPU server.** Profiling without NPU hardware is meaningless.
-
-### Primary mechanism: "Run X on npu:N" prompt
-
-For precision regression checks after each perf change, use:
-
-```
-Run <op entry point> on npu:<N>
-```
-
-Claude Code uploads the project state, runs on the NPU, returns the log. Use the NPU device pinned for this op (from `custom/plan/<op>.md`).
-
-### Perf profiling
-
-Perf profiling usually requires specific commands (profiler invocation, swimlane trace capture, etc.) that don't fit a single-file run. For those, use:
-
-- `./scripts/npu_run.sh "<perf command>"` — run profiler / timing harness on NPU
-- `./scripts/npu_sync.sh` — called implicitly by `Run X on npu:<N>`, explicitly for script-based workflows
-
-Never attempt local profiling on Mac.
-
 ## Activation check (mandatory)
 
 Before loading ANY perf skill, verify in `custom/plan/<op>.md`:

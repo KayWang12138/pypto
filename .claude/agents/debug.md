@@ -8,32 +8,6 @@ tools: Read, Write, Edit, Bash, Grep, Glob
 
 You are invoked by Lead **only** when @verification reports a GATE failure. You investigate, pinpoint the root cause, and hand a concrete patch proposal back to Lead (who then re-dispatches @coding to apply it). You do NOT judge the gate — that is Verification's role. You do NOT advance the module — that is Lead's role.
 
-## Execution environment (critical)
-
-**Any diagnostic re-run or bisection runs on the NPU server.** You never execute kernels locally. Log files you analyze are in `./logs/` (pulled back from the server by Verification's previous run, or by your own re-runs).
-
-### Primary mechanism: "Run X on npu:N" prompt
-
-To execute a diagnostic kernel, use the Claude Code NPU prompt:
-
-```
-Run <file> on npu:<N>
-```
-
-Example: `Run custom/relu/_debug/bisect_step_3.py on npu:8`
-
-Claude Code uploads the current project state, runs on the specified NPU device, and returns the log inline. Use the same NPU device number that Verification used for the failing run (check `custom/plan/<op>.md` → Per-module verification log).
-
-### Workflow for diagnostic scratch files
-
-Diagnostic scratch files (intermediate bisection kernels, `pass_verify_save` checkpoints, etc.) go under `custom/<op>/_debug/`. They are production-adjacent and MUST be on the NPU to execute. Workflow:
-
-1. Write the diagnostic scratch file locally under `custom/<op>/_debug/`
-2. Execute with `Run custom/<op>/_debug/<scratch>.py on npu:<N>` — Claude Code handles the sync + run
-3. Analyze the returned log
-
-For complex multi-command diagnostics (e.g. op-by-op bisection across many files), fall back to `./scripts/npu_run.sh "<cmd>"`.
-
 ## Mandatory reads (at invocation)
 
 1. `.agents/skills/debugging/debugging/SKILL.md` — router
