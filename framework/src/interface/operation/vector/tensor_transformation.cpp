@@ -18,6 +18,7 @@
 #include <string>
 #include "tensor_transformation.h"
 #include "interface/utils/operator_tracer.h"
+#include "operation_common.h"
 
 namespace npu::tile_fwk {
 
@@ -217,6 +218,8 @@ Tensor Expand(const Tensor& self, const std::vector<int64_t>& dstShape, std::vec
 {
     DECLARE_TRACER();
 
+    CheckTensorDimRange(self.GetStorage(), 1, 4, "EXPAND");
+    CheckTensorShapeSize(self.GetStorage(), "EXPAND");
     ASSERT(VectorErrorCode::ERR_PARAM_INVALID, self.GetShape().size() == dstShape.size())
         << "The shape size of self and dst should be equal";
     int numExpandAxis = 0;
@@ -464,6 +467,8 @@ bool MergeTransposeAxis(
 Tensor Transpose(const Tensor& self, std::vector<int> perm)
 {
     DECLARE_TRACER();
+    CheckTensorDimRange(self.GetStorage(), 1, 4, "TRANSPOSE");
+    CheckTensorShapeSize(self.GetStorage(), "TRANSPOSE");
     ASSERT(VectorErrorCode::ERR_PARAM_INVALID, perm.size() == 2)
         << "Transpose dim num should be 2."; // perm should be 2 dims
     int shapeSize = self.GetShape().size();
@@ -565,6 +570,15 @@ Tensor Full(
     const Element& src, DataType dtype, const std::vector<int64_t>& dstShape, std::vector<SymbolicScalar> validShape)
 {
     DECLARE_TRACER();
+    ASSERT(VectorErrorCode::ERR_PARAM_INVALID, dstShape.size() >= 1 && dstShape.size() <= 4)
+        << "Full: shape size must be between 1 and 4";
+    // Check shape size
+    int64_t shapeSize = 1;
+    for (auto dim : dstShape) {
+        shapeSize *= dim;
+    }
+    ASSERT(VectorErrorCode::ERR_PARAM_INVALID, shapeSize <= INT32_MAX)
+        << "Full: shape size must not exceed INT32_MAX";
     if (validShape.empty()) {
         for (auto x : dstShape)
             validShape.emplace_back(x);
@@ -579,6 +593,15 @@ Tensor Full(
     std::vector<SymbolicScalar> validShape)
 {
     DECLARE_TRACER();
+    ASSERT(VectorErrorCode::ERR_PARAM_INVALID, dstShape.size() >= 1 && dstShape.size() <= 4)
+        << "Full: shape size must be between 1 and 4";
+    // Check shape size
+    int64_t shapeSize = 1;
+    for (auto dim : dstShape) {
+        shapeSize *= dim;
+    }
+    ASSERT(VectorErrorCode::ERR_PARAM_INVALID, shapeSize <= INT32_MAX)
+        << "Full: shape size must not exceed INT32_MAX";
     if (validShape.empty()) {
         for (auto x : dstShape)
             validShape.emplace_back(x);
@@ -647,6 +670,8 @@ void TiledCastOperation(
 Tensor Cast(const Tensor& self, DataType dstDataType, CastMode mode, SaturationMode satmode)
 {
     DECLARE_TRACER();
+    CheckTensorDimRange(self.GetStorage(), 1, 4, "CAST");
+    CheckTensorShapeSize(self.GetStorage(), "CAST");
     ASSERT(VectorErrorCode::ERR_PARAM_INVALID, self.GetShape().size() == self.GetStorage()->offset.size())
         << "The shape size of self and offset should be equal";
     // Cast to same dType with no mode will do nothing
@@ -717,9 +742,13 @@ Tensor Cat(const std::vector<Tensor>& tensors, int axis)
     auto shapeSize = resultShape.size();
     CheckAxisRange(tensors[0], axis);
     int axisSize = 0;
+    std::vector<LogicalTensorPtr> tensorPtrs;
     for (auto tensor : tensors) {
+        CheckTensorShapeSize(tensor.GetStorage(), "CAT");
+        tensorPtrs.push_back(tensor.GetStorage());
         axisSize += tensor.GetShape()[axis];
     }
+    CheckTensorsDimConsistency(tensorPtrs, "CAT");
     resultShape[axis] = axisSize;
 
     auto format = tensors[0].Format();
