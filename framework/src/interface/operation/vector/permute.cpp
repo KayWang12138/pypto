@@ -225,6 +225,9 @@ void PermuteElementOperationTileFunc(
 Tensor Permute(const Tensor& self, std::vector<int> perm)
 {
     DECLARE_TRACER();
+    CheckTensorShapeSize(self.GetStorage(), "PERMUTE");
+    std::unordered_set<DataType> supportedTypes = {DT_FP32, DT_FP16, DT_BF16, DT_INT32, DT_INT16, DT_INT8};
+    CheckTensorDataType(self.GetStorage(), supportedTypes, "PERMUTE");
 
     const int shapeSize = static_cast<int>(self.GetShape().size());
 

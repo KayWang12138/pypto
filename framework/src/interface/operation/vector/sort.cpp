@@ -113,6 +113,8 @@ void TensorBitsortOperation(
 Tensor Sort32(const Tensor& self, int idxStart)
 {
     DECLARE_TRACER();
+    CheckTensorDimRange(self.GetStorage(), 1, 4, "SORT32");
+    CheckTensorShapeSize(self.GetStorage(), "SORT32");
     const auto len = static_cast<int>(self.GetShape().size());
     auto outShape = self.GetShape();
     outShape[len - 1] *= NUM_VALUE_2;
@@ -186,6 +188,8 @@ void TensorMrgSortOperation(
 Tensor MrgSort(const Tensor& self, int mergeSize)
 {
     DECLARE_TRACER();
+    CheckTensorDimRange(self.GetStorage(), 1, 4, "MRGSORT");
+    CheckTensorShapeSize(self.GetStorage(), "MRGSORT");
     const auto len = static_cast<int>(self.GetShape().size());
     const auto k = static_cast<int>(self.GetShape()[len - 1]);
     auto outShape = self.GetShape();
@@ -253,6 +257,9 @@ void TensorExtractOperation(
 
 Tensor TopKExtract(const Tensor& self, int k, bool isIndex)
 {
+    DECLARE_TRACER();
+    CheckTensorDimRange(self.GetStorage(), 1, 4, "TOPKEXTRACT");
+    CheckTensorShapeSize(self.GetStorage(), "TOPKEXTRACT");
     DataType dType = isIndex ? DataType::DT_INT32 : self.GetStorage()->tensor->datatype;
     const auto len = static_cast<int>(self.GetShape().size());
     auto outShape = self.GetShape();
@@ -528,6 +535,8 @@ void TensorTopK(
 std::tuple<Tensor, Tensor> TopK(const Tensor& self, int k, int axis, bool isLargest)
 {
     DECLARE_TRACER();
+    CheckTensorDimRange(self.GetStorage(), 1, 4, "TOPK");
+    CheckTensorShapeSize(self.GetStorage(), "TOPK");
     const auto len = static_cast<int>(self.GetShape().size());
     ASSERT(VectorErrorCode::ERR_PARAM_INVALID, axis == (len - 1) || axis == -1) << "TopK only support last axis";
     axis = axis >= 0 ? axis : (axis + len);
@@ -822,6 +831,10 @@ void TensorSort(
 std::tuple<Tensor, Tensor> sort(const Tensor& self, int axis = -1, bool descending = false)
 {
     DECLARE_TRACER();
+    CheckTensorDimRange(self.GetStorage(), 1, 4, "SORT");
+    CheckTensorShapeSize(self.GetStorage(), "SORT");
+    std::unordered_set<DataType> supportedTypes = {DT_FP32, DT_FP16, DT_BF16, DT_INT32, DT_INT16, DT_INT8};
+    CheckTensorDataType(self.GetStorage(), supportedTypes, "SORT");
     auto len = static_cast<int>(self.GetShape().size());
     ASSERT(VectorErrorCode::ERR_PARAM_INVALID, len >= 1 && len <= 4) << "Only support 1 dim to 4 dim.\n";
 
