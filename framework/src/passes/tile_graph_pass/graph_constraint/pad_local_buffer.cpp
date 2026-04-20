@@ -770,12 +770,7 @@ int64_t PadLocalBuffer::AlignedRawTensorIfNeed(LogicalTensorPtr& in, int64_t pos
 void PadLocalBuffer::ProcessReduceForAxisCombine(Operation& op, LogicalTensorPtr& in, size_t paddingValue)
 {
     int64_t shapeSize = static_cast<int64_t>(in->shape.size());
-    int axis = -1;
-    if (op.HasAttr(OP_ATTR_PREFIX + "AXIS")) {
-        axis = op.GetIntAttribute(OP_ATTR_PREFIX + "AXIS");
-    } else {
-        axis = shapeSize - 1;
-    }
+    int axis = op.GetIntAttribute(OP_ATTR_PREFIX + "AXIS");
     int64_t lastIdx = shapeSize - 1;
     if (shapeSize == 1 || axis == shapeSize - 2) {
         AlignedRawTensorIfNeed(in, lastIdx, paddingValue);
