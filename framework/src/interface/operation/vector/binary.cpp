@@ -163,7 +163,7 @@ void TiledBinaryOperation(
                 op->SetAttribute(OpAttributeKey::brcpIdx, brcOperand[shapeSize - NUM2]);
             }
         }
-        if constexpr (T == BinaryOpType::DIV) {
+        if constexpr (T == BinaryOpType::DIV || T == BinaryOpType::MOD) {
             op->SetAttribute(OpAttributeKey::precisionType, precisionType);
         }
         return;
@@ -375,13 +375,25 @@ Tensor Div(const Tensor& self, const Tensor& other, DivAlgorithm precisionType)
     return Tensor(result);
 }
 
-Tensor Fmod(const Tensor& self, const Tensor& other)
+Tensor Fmod(const Tensor& self, const Tensor& other, FmodAlgorithm precisionType)
 {
     DECLARE_TRACER();
     CheckTensorsDataTypeConsistency(self.GetStorage(), other.GetStorage(), "MOD");
     std::unordered_set<DataType> supportedTypes = {DT_FP16, DT_BF16, DT_FP32};
     CheckTensorDataType(self.GetStorage(), supportedTypes, "MOD");
-    RETURN_CALL(BinaryOperation<BinaryOpType::MOD>, *Program::GetInstance().GetCurrentFunction(), self, other);
+    auto selfDtype = self.GetDataType();
+    if (selfDtype == DT_FP16) {
+        Tensor castSelf = Cast(self, DataType::DT_FP32, CastMode::CAST_NONE);
+        Tensor castOther = Cast(other, DataType::DT_FP32, CastMode::CAST_NONE);
+        auto [castResult, op] = TensorBinaryOperationWithOp<BinaryOpType::MOD>(
+            *Program::GetInstance().GetCurrentFunction(), castSelf, castOther);
+        op->SetAttribute(OpAttributeKey::precisionType, static_cast<int64_t>(precisionType));
+        return Cast(Tensor(castResult), selfDtype, CastMode::CAST_NONE);
+    }
+    auto [result, op] =
+        TensorBinaryOperationWithOp<BinaryOpType::MOD>(*Program::GetInstance().GetCurrentFunction(), self, other);
+    op->SetAttribute(OpAttributeKey::precisionType, static_cast<int64_t>(precisionType));
+    return Tensor(result);
 }
 
 Tensor Remainder(const Tensor& self, const Tensor& other)
@@ -512,7 +524,7 @@ void TiledBinaryOperationScalar(
         auto& op = function.AddOperation(opNameCode, {inputTile1}, {resultTile});
         op.SetAttribute(OpAttributeKey::scalar, value);
         op.SetAttribute(OP_ATTR_PREFIX + "reverseOperand", reverseOperand);
-        if constexpr (T == BinaryOpType::DIV) {
+        if constexpr (T == BinaryOpType::DIV || T == BinaryOpType::MOD) {
             op.SetAttribute(OpAttributeKey::precisionType, precisionType);
         }
         return;
@@ -631,14 +643,15 @@ Tensor Div(const Tensor& self, const Element& other, DivAlgorithm precisionType)
     return Tensor(result);
 }
 
-Tensor Fmod(const Tensor& self, const Element& other)
+Tensor Fmod(const Tensor& self, const Element& other, FmodAlgorithm precisionType)
 {
     DECLARE_TRACER();
     std::unordered_set<DataType> supportedTypes = {DT_FP16, DT_BF16, DT_FP32};
     CheckTensorDataType(self.GetStorage(), supportedTypes, "MOD");
-    RETURN_CALL(
-        BinaryOperationScalar<BinaryOpType::MOD>, *Program::GetInstance().GetCurrentFunction(), self.GetStorage(),
-        other);
+    auto [result, op] = TensorBinaryOperationScalarWithOp<BinaryOpType::MOD>(
+        *Program::GetInstance().GetCurrentFunction(), self.GetStorage(), other);
+    op->SetAttribute(OpAttributeKey::precisionType, static_cast<int64_t>(precisionType));
+    return Tensor(result);
 }
 
 Tensor Remainder(const Tensor& self, const Element& other)
@@ -1022,7 +1035,7 @@ void BinaryOperationTileFunc(
 {
     BinaryOperationOperandCheck(iOperand, oOperand);
     int64_t precisionType = static_cast<int64_t>(DivAlgorithm::DEFAULT);
-    if constexpr (T == BinaryOpType::DIV) {
+    if constexpr (T == BinaryOpType::DIV || T == BinaryOpType::MOD) {
         if (op.HasAttr(OpAttributeKey::precisionType)) {
             precisionType = op.GetIntAttribute(OpAttributeKey::precisionType);
         }
@@ -1037,7 +1050,7 @@ void BinaryOperationScalarTileFunc(
     const std::vector<LogicalTensorPtr>& oOperand, [[maybe_unused]] const Operation& op)
 {
     int64_t precisionType = static_cast<int64_t>(DivAlgorithm::DEFAULT);
-    if constexpr (T == BinaryOpType::DIV) {
+    if constexpr (T == BinaryOpType::DIV || T == BinaryOpType::MOD) {
         if (op.HasAttr(OpAttributeKey::precisionType)) {
             precisionType = op.GetIntAttribute(OpAttributeKey::precisionType);
         }
@@ -1053,7 +1066,7 @@ void BinaryOperationScalarResTileFunc(
     const std::vector<LogicalTensorPtr>& oOperand, [[maybe_unused]] const Operation& op)
 {
     int64_t precisionType = static_cast<int64_t>(DivAlgorithm::DEFAULT);
-    if constexpr (T == BinaryOpType::DIV) {
+    if constexpr (T == BinaryOpType::DIV || T == BinaryOpType::MOD) {
         if (op.HasAttr(OpAttributeKey::precisionType)) {
             precisionType = op.GetIntAttribute(OpAttributeKey::precisionType);
         }

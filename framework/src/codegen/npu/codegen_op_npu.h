@@ -205,6 +205,7 @@ protected:
     std::string GenTargetRankStr() const;
 
     void AddDivPrecisionTypeParm(std::vector<std::string>& templateParamList) const;
+    void AddFmodPrecisionTypeParm(std::vector<std::string>& templateParamList) const;
     void UpdateTileTensorInfo();
     void UpdateLoopInfo();
     std::vector<SymbolicScalar> GetLoopAxes();
