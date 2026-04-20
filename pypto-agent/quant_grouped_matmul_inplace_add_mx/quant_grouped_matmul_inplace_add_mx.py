@@ -644,9 +644,17 @@ def test_gmm_mxfp8(tile_config: ShapeConfig):
     print(result)
     print(tile_config.description," PASSED")
 
+# pypto.jit不支持
+# scaled_mm接口k需要64对齐（pypto API限制）
+# tile配置影响精度
+# 代码初始tile配置固化（agent默认）
+
+# MDE审视文档
+
+# 0.147asendc
 
 if __name__ == "__main__":
-    # 测试用例1: 基础用例 (FP8E4M3)
+    # 测试用例1: 基础用例 (FP8E4M3) 8.098 59.21
     # - M=32, K=512, N=7168
     # - group_list=[256, 256], g=2
     # - m_tile_shape=[32, 32]
@@ -670,7 +678,7 @@ if __name__ == "__main__":
         )
     )
     
-    # 测试用例2: 更大M维度 (FP8E4M3)
+    # 测试用例2: 更大M维度 (FP8E4M3) 7.654 47.19
     # - M=64 (满足32字节对齐), K=1024, N=4096
     # - group_list=[512, 512], g=2
     # - m_tile_shape=[64, 64]
@@ -694,7 +702,7 @@ if __name__ == "__main__":
         )
     )
     
-    # 测试用例3: 3个分组 (FP8E4M3)
+    # 测试用例3: 3个分组 (FP8E4M3) 5.284 32.11
     # - M=32, K=768 (3*256), N=2048
     # - group_list=[256, 256, 256], g=3
     # - m_tile_shape=[32, 32]
@@ -721,7 +729,7 @@ if __name__ == "__main__":
         )
     )
     
-    # 测试用例4: group_type=0 (累计值模式) (FP8E4M3)
+    # 测试用例4: group_type=0 (累计值模式) (FP8E4M3) 4.571 50.34
     # - M=32, K=512, N=1024
     # - group_list=[256, 512] (累计值: 256, 512表示K切分点)
     # - group_type=0: 表示group_list是累计值
@@ -748,7 +756,7 @@ if __name__ == "__main__":
         )
     )
 
-    # 测试用例5: FP8E5M2 数据类型
+    # 测试用例5: FP8E5M2 数据类型 5.056 28.88
     # - M=32, K=512, N=1024
     # - group_list=[128, 384], g=2
     # - in_dtype=DT_FP8E5M2 (torch.float8_e5m2)
