@@ -1031,9 +1031,6 @@ def mrgsort(src: Tile, dst: Tile, block_len: int) -> None:
     This operation performs a merge sort on the input tile, merging sorted
     blocks of the specified length.
 
-    Note: Only format1 is supported (single src, single dst).
-    format2 (multi-list variant) is not exposed in the pypto API.
-
     Args:
         src: Input tile with loc=vec, blayout=row_major, rows=1
         dst: Output tile (same dtype as src)
@@ -1041,6 +1038,46 @@ def mrgsort(src: Tile, dst: Tile, block_len: int) -> None:
     """
     dst._expr = _ir_core.create_op_call(
         "manual.mrgsort", [src.unwrap(), dst.unwrap()], {"block_len": block_len}, _span()
+    )
+
+
+def mrgsort2(
+    src0: Tile,
+    src1: Tile,
+    dst: Tile,
+    tmp: Tile,
+    src2: Tile | None = None,
+    src3: Tile | None = None,
+    exhausted: bool = False,
+) -> None:
+    """Perform merge sort on multiple sorted lists (format2).
+
+    Merges 2, 3, or 4 pre-sorted source tiles into a single output tile.
+    Each source tile must contain sorted [val, idx] pairs in descending order.
+
+    Args:
+        src0: First input tile with sorted [val, idx] pairs
+        src1: Second input tile with sorted [val, idx] pairs
+        dst: Output tile (will contain merged sorted results)
+        tmp: Temporary buffer tile (same shape as dst — format2 requires tmp.shape == dst.shape)
+        src2: Optional third input tile (for 3/4 source merge)
+        src3: Optional fourth input tile (for 4 source merge)
+        exhausted: If True, enables exhausted mode for unequal-length lists
+
+    Note:
+        - All tiles must have loc=vec, blayout=row_major, rows=1
+        - tmp size must be >= src0.cols + src1.cols + (src2.cols if src2) + (src3.cols if src3)
+        - Output is sorted in descending order by value
+        - For unequal-length lists, use exhausted=True
+    """
+    args = [src0.unwrap(), dst.unwrap(), tmp.unwrap(), src1.unwrap()]
+    if src2 is not None:
+        args.append(src2.unwrap())
+    if src3 is not None:
+        args.append(src3.unwrap())
+
+    dst._expr = _ir_core.create_op_call(
+        "manual.mrgsort2", args, {"exhausted": exhausted}, _span()
     )
 
 

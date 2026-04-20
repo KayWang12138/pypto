@@ -80,6 +80,7 @@ from .op.manual_ops import (
     mins,
     move,
     mrgsort,
+    mrgsort2,
     mul,
     muls,
     neg,
@@ -172,7 +173,7 @@ __all__ = [
     # Reduction
     "row_max", "row_sum", "row_min", "col_max", "col_sum",
     # Sorting
-    "sort32", "mrgsort",
+    "sort32", "mrgsort", "mrgsort2",
     # Broadcast
     "row_expand", "row_expand_add", "row_expand_sub", "row_expand_mul", "row_expand_div",
     "col_expand", "col_expand_mul", "col_expand_div", "col_expand_sub",

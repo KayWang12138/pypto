@@ -28,10 +28,6 @@ import pypto_block.language.op.manual as plm
 def tile_getval_setval_kernel(
     a: pl.Tensor[[64, 128], pl.FP16],
 ) -> pl.Tensor[[64, 128], pl.FP16]:
-    pl.system.bar_all()
-    tensor_value = pl.tensor.getval(a, 100)
-    pl.tensor.setval(a, 101, tensor_value)
-    pl.system.bar_all()
 
     tile_a = plm.make_tile(plm.TileType(shape=[64, 128], dtype=pl.FP16, target_memory=pl.MemorySpace.Vec),
                               addr=0x0000, size=16384)
@@ -44,12 +40,43 @@ def tile_getval_setval_kernel(
         pl.system.sync_src(set_pipe=pl.PipeType.S, wait_pipe=pl.PipeType.MTE3, event_id=1)
         pl.system.sync_dst(set_pipe=pl.PipeType.S, wait_pipe=pl.PipeType.MTE3, event_id=1)
         plm.store(a, tile_a, [0, 0])
+    pl.system.bar_all()
+    tensor_value = pl.tensor.getval(a, 100)
+    pl.tensor.setval(a, 101, tensor_value)
+    pl.system.bar_all()
     return a
 
 
 # ---------------------------------------------------------------------------
 # Test functions (run with: python test_getval_setval.py)
 # ---------------------------------------------------------------------------
+
+def _verify_outputs(tag, tensor, original_values):
+    """Verify getval/setval modified input correctly.
+    
+    Args:
+        tag: Backend name (CCE/PTO)
+        tensor: Modified tensor after kernel execution
+        original_values: Dict with original values before modification
+    """
+    # block.getval/setval: a[0,1] should equal original a[0,0]
+    block_src = original_values['a[0,0]']
+    block_dst = tensor[0, 1].item()
+    
+    # tensor.getval/setval: a[0,101] should equal original a[0,100]
+    tensor_src = original_values['a[0,100]']
+    tensor_dst = tensor[0, 101].item()
+    
+    print(f"\n[{tag}] block: src a[0,0]={block_src}, dst a[0,1]={block_dst}")
+    print(f"[{tag}] tensor: src a[0,100]={tensor_src}, dst a[0,101]={tensor_dst}")
+    
+    block_diff = abs(block_src - block_dst)
+    tensor_diff = abs(tensor_src - tensor_dst)
+    
+    assert block_diff < 1e-3, f"[{tag}] block getval/setval failed: src={block_src}, dst={block_dst}, diff={block_diff}"
+    assert tensor_diff < 1e-3, f"[{tag}] tensor getval/setval failed: src={tensor_src}, dst={tensor_dst}, diff={tensor_diff}"
+    print(f"[{tag}] PASS (block_diff={block_diff:.6f}, tensor_diff={tensor_diff:.6f})")
+
 
 @fe.jit()
 def test_tile_getval_setval():
@@ -59,45 +86,46 @@ def test_tile_getval_setval():
     shape = [64, 128]
     torch.manual_seed(0)
     dtype = torch.float16
-    a = torch.rand(shape, device=device, dtype=dtype)
     
-    print("Input tensor:")
-    print("a[0,0] =", a[0, 0].item())
-    print("a[0,1] =", a[0, 1].item())
-    print("a[0,100] =", a[0, 100].item())
-    print("a[0,101] =", a[0, 101].item())
+    print("=" * 60)
+    print("Test: pl.block.getval/setval + pl.tensor.getval/setval")
+    print("=" * 60)
 
-    compiled_lib = fe.compile(tile_getval_setval_kernel, arch="a3")
-    print("compiled lib path:", compiled_lib.lib_path)
-    fe.launch(None, 1, compiled_lib, a)
+    # --- CCE backend ---
+    print("\n--- Testing CCE backend ---")
+    torch.manual_seed(0)
+    a_cce = torch.rand(shape, device=device, dtype=dtype)
+    original_cce = {
+        'a[0,0]': a_cce[0, 0].item(),
+        'a[0,100]': a_cce[0, 100].item()
+    }
+    print(f"Original values: a[0,0]={original_cce['a[0,0]']}, a[0,100]={original_cce['a[0,100]']}")
     
+    compiled_cce = fe.compile(tile_getval_setval_kernel, arch="a3", codegen_mode="cce")
+    print(f"CCE compiled lib: {compiled_cce.lib_path}")
+    fe.launch(None, 1, compiled_cce, a_cce)
     torch.npu.synchronize()
-    
-    print("\n***********npu output***********")
-    print("\n***********block output***********")
-    print("a[0,0] =", a[0, 0].item())
-    print("a[0,1] =", a[0, 1].item())
-    print("\n***********tensor output***********")
-    print("a[0,100] =", a[0, 100].item())
-    print("a[0,101] =", a[0, 101].item())
-    
-    block_expected_value = a[0, 0].item()
-    block_actual_value = a[0, 1].item()
-    
-    tensor_expected_value = a[0, 100].item()
-    tensor_actual_value = a[0, 101].item()
+    _verify_outputs("CCE", a_cce, original_cce)
 
-    print(f"\nblock_expected a[0,0] = {block_expected_value}")
-    print(f"block_actual a[0,1] = {block_actual_value}")
+    # --- PTO backend ---
+    print("\n--- Testing PTO backend ---")
+    torch.manual_seed(0)
+    a_pto = torch.rand(shape, device=device, dtype=dtype)
+    original_pto = {
+        'a[0,0]': a_pto[0, 0].item(),
+        'a[0,100]': a_pto[0, 100].item()
+    }
+    print(f"Original values: a[0,0]={original_pto['a[0,0]']}, a[0,100]={original_pto['a[0,100]']}")
     
-    print(f"\ntensor_expected a[0,100] = {tensor_expected_value}")
-    print(f"tensor_actual a[0,101] = {tensor_actual_value}")
-
-    assert abs(block_expected_value - block_actual_value) < 1e-3, f"block getval/setval failed: expected {block_expected_value}, got {block_actual_value}"
-    assert abs(tensor_expected_value - tensor_actual_value) < 1e-3, f"tensor getval/setval failed: expected {tensor_expected_value}, got {tensor_actual_value}"
-    print("result equal!")
+    compiled_pto = fe.compile(tile_getval_setval_kernel, arch="a3", codegen_mode="pto")
+    print(f"PTO compiled lib: {compiled_pto.lib_path}")
+    fe.launch(None, 1, compiled_pto, a_pto)
+    torch.npu.synchronize()
+    _verify_outputs("PTO", a_pto, original_pto)
 
 
 if __name__ == "__main__":
     test_tile_getval_setval()
-    print("\nAll tests passed!")
+    print("\n" + "=" * 60)
+    print("All getval/setval tests passed!")
+    print("=" * 60)
