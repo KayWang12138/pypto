@@ -777,6 +777,7 @@ static void ConstructCodeInfo(
     attr->cceCodeInfo[0].funcHash = 0;
     encodeDevAscendFunctionParam.calleeHashIndexDict[0] = 0;
 
+    bool hasAicpuTask = false;
     int leafIndex = 1;
     for (auto& [hash, leaf] : leafDict) {
         auto leafFuncAttr = leaf->GetLeafFuncAttribute();
@@ -784,9 +785,12 @@ static void ConstructCodeInfo(
         encodeDevAscendFunctionParam.calleeHashIndexDict[hash] = leafIndex;
         attr->devLeafIndex2Hash[leafIndex] = hash;
         MACHINE_LOGI("Dyndev.codegen: [ %d ] hash= %lu binpath= %s", leafIndex, hash, leafFuncAttr->binPath.c_str());
-        attr->cceCodeInfo[leafIndex].coreType = static_cast<uint32_t>(leafFuncAttr->coreType);
+        uint32_t coreType = static_cast<uint32_t>(leafFuncAttr->coreType);
         if (leaf->IsDummyFunction())
-            attr->cceCodeInfo[leafIndex].coreType = static_cast<uint32_t>(CoreType::HUB);
+            coreType = static_cast<uint32_t>(CoreType::HUB);
+        if (coreType == static_cast<uint32_t>(CoreType::AICPU))
+            hasAicpuTask = true;
+        attr->cceCodeInfo[leafIndex].coreType = coreType;
         attr->cceCodeInfo[leafIndex].psgId = leaf->GetProgramId();
         attr->cceCodeInfo[leafIndex].funcHash = hash;
         attr->cceCodeInfo[leafIndex].aicpuLeafCode = leafFuncAttr->aicpuLeafCode;
@@ -794,6 +798,7 @@ static void ConstructCodeInfo(
         attr->cceCodeInfo[leafIndex].mixResourceType = static_cast<uint32_t>(leafFuncAttr->mixResourceType);
         leafIndex++;
     }
+    attr->hasAicpuTask = hasAicpuTask;
     encodeDevAscendFunctionParam.cceCodeInfoList = attr->cceCodeInfo;
     return;
 }

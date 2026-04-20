@@ -1752,6 +1752,7 @@ private:
         aicpuIdx_ = threadIdx;
         schedIdx_ = schedIdx;
         aicValidNum_ = deviceArgs->nrValidAic;
+        hasAicpuTask_ = deviceArgs->hasAicpuTask;
         enableEslModel_ = deviceArgs->enableEslModel;
         aicoreHal_.Init(deviceArgs, &aicoreProf_);
         validGetPgMask_ = deviceArgs->validGetPgMask;
@@ -2109,7 +2110,7 @@ private:
         (void)stat;
     }
 
-    inline bool IsNeedProcAicpuTask() { return aicpuIdx_ == 2; }
+    inline bool IsNeedProcAicpuTask() { return hasAicpuTask_ && aicpuIdx_ == 2; }
 
 private:
     void ReuseUpdateDeviceCtx(SchDeviceTaskContext* devTaskCtx, DeviceTaskCtrl* newDevTask) {
@@ -2264,5 +2265,6 @@ private:
     friend class AiCoreProf;
 
     bool enableEslModel_;
+    bool hasAicpuTask_;
 };
 } // namespace npu::tile_fwk::dynamic
