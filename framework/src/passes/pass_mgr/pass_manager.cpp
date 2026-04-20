@@ -154,12 +154,9 @@ void PassManager::RegDefaultStrategy()
                         {"GlobalMemoryReuse", PassName::GLOBAL_MEMORY_REUSE},
                         {"LoopaxesProc", PassName::LOOPAXES_PROC},
                         {"CodegenPreproc", PassName::CODEGEN_PREPROC},
+                        {"DynAttrToStatic", PassName::DYN_ATTR_TO_STATIC},
                     });
     RegisterStrategy("FunctionUnroll", {{"LoopUnroll", PassName::LOOP_UNROLL}});
-    RegisterStrategy(
-        "ExecuteGraph", {
-                            {"DynAttrToStatic", PassName::DYN_ATTR_TO_STATIC},
-                        });
 }
 
 PassManager::PassManager()
