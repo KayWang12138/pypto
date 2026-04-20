@@ -62,13 +62,13 @@ def get_runtime_env_overrides(
                 "# Monkey-patch pypto.frontend.jit: PyPTO 不读 AIKG_PYPTO_RUNTIME_DEBUG_MODE",
                 "# env var, 真实开关是 jit 装饰器的 debug_options.runtime_debug_mode=1.",
                 "# 必须在 import {op}_impl 之前 rebind, jit 编译时机才能拿到.",
-                "import pypto.frontend as _akg_pf",
-                "_akg_orig_jit = _akg_pf.jit",
-                "def _akg_jit_with_debug(*_a, **_kw):",
+                "import pypto.frontend as _jit_pf",
+                "_jit_orig = _jit_pf.jit",
+                "def _jit_with_debug(*_a, **_kw):",
                 "    _kw.setdefault('debug_options', {})",
                 "    _kw['debug_options'].setdefault('runtime_debug_mode', 1)",
-                "    return _akg_orig_jit(*_a, **_kw)",
-                "_akg_pf.jit = _akg_jit_with_debug",
+                "    return _jit_orig(*_a, **_kw)",
+                "_jit_pf.jit = _jit_with_debug",
                 "print('[INFO] Monkey-patched pypto.frontend.jit with runtime_debug_mode=1 for swimlane')",
             ])
     return "\n".join(lines) + ("\n" if lines else "")

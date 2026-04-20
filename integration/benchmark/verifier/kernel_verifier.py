@@ -129,7 +129,7 @@ class KernelVerifier:
         - ``<op>_torch.py``       — 原 KernelBench task_desc (含 Model / get_inputs /
           get_init_inputs).
         - ``<op>_pypto_impl.py``  — 调用方传入的 coder_code (一般是
-          ``akg_verifier_runner.merge_pypto_artifacts`` 合并后的自包含源码,
+          ``verifier_runner.merge_pypto_artifacts`` 合并后的自包含源码,
           含 ``ModelNew`` 类). 命名 ``{op}_{dsl}_impl.py`` 与
           ``pypto_adapter.get_modelnew_loader`` 中 importlib 的 spec 路径对齐.
         """

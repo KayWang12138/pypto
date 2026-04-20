@@ -3,7 +3,7 @@
 # Licensed under the CANN Open Software License Agreement Version 2.0 (the "License").
 #
 # opencode skill 端到端 (合法 ReLU 算子) — 真烧 LLM, 真跑 NPU. 验证:
-#   1. akg_verifier_runner --verifier-mode opencode 能 spawn pypto-kernel-validator
+#   1. verifier_runner --verifier-mode opencode 能 spawn pypto-kernel-validator
 #      agent + 加载 pypto-kernel-validate skill.
 #   2. SKILL 4 步走完, skill_report.json 落 op_dir/.skill_validate/, final_verdict=PASS.
 #   3. LLM 语义审阅 S1-S9 全 pass (合法 ReLU 没有任何作弊形态).
@@ -11,7 +11,7 @@
 # 单次跑约 3-5 min (大头是 LLM 调用). 需要远端 / 本机配好 opencode + 大模型 token.
 #
 # 用法:
-#   bash integration/akg_bench/scripts/local/test-skill-legit.sh
+#   bash integration/benchmark/scripts/local/test-skill-legit.sh
 #   OP_NAME=Softmax bash ...                  # 跑别的算子 (须有 custom/<op>/)
 #   SKILL_TIMEOUT=900 bash ...                # 调超时 (默认 1500s)
 
@@ -39,23 +39,23 @@ fi
 # 清旧 skill 报告, 让结果可复现
 rm -rf "${OP_DIR}/.skill_validate"
 
-RUNNER_LOG="${AKG_BENCH_LOG_DIR}/${OP_NAME}_skill_runner.log"
+RUNNER_LOG="${BENCHMARK_LOG_DIR}/${OP_NAME}_skill_runner.log"
 section "spawn opencode + pypto-kernel-validator (timeout=${SKILL_TIMEOUT}s)"
-python3 -m integration.akg_bench.akg_verifier_runner "${OP_NAME}" \
+python3 -m integration.benchmark.verifier_runner "${OP_NAME}" \
     --op-dir "${OP_DIR}" \
     --task-desc-file "${TASK_DESC}" \
     --verifier-mode opencode \
     --mode correctness \
     --device "${TILE_FWK_DEVICE_ID}" \
     --log-file "${RUNNER_LOG}" \
-    --skill-timeout "${SKILL_TIMEOUT}" >"${AKG_BENCH_LOG_DIR}/${OP_NAME}_skill_stdout.log" 2>&1 \
+    --skill-timeout "${SKILL_TIMEOUT}" >"${BENCHMARK_LOG_DIR}/${OP_NAME}_skill_stdout.log" 2>&1 \
   || true
 
 REPORT="${OP_DIR}/.skill_validate/skill_report.json"
 if [ ! -f "${REPORT}" ]; then
   echo "[FAIL] skill agent 没产出 ${REPORT}" >&2
   echo "  runner log: ${RUNNER_LOG}" >&2
-  echo "  stdout log: ${AKG_BENCH_LOG_DIR}/${OP_NAME}_skill_stdout.log" >&2
+  echo "  stdout log: ${BENCHMARK_LOG_DIR}/${OP_NAME}_skill_stdout.log" >&2
   exit 1
 fi
 

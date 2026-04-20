@@ -7,19 +7,19 @@
 使用示例:
 
     # 单 case MVP (默认 --bench-dir 走桥接层 .cache/KernelBench/KernelBench/)
-    python -m integration.akg_bench.run_kernelbench \\
+    python -m integration.benchmark.run_kernelbench \\
         --cases 19_relu \\
         --level level1 \\
         --devices 0 --arch ascend910b4 --mode correctness
 
     # 多 case 多卡并发
-    python -m integration.akg_bench.run_kernelbench \\
+    python -m integration.benchmark.run_kernelbench \\
         --cases 19_relu,20_leakyrelu,21_sigmoid \\
         --devices 0,1,2 --concurrency 3 \\
-        --report-dir akg_bench_report
+        --report-dir benchmark_report
 
     # 仅复跑验证 (跳过 pypto 生成阶段, 要求产物已就绪)
-    python -m integration.akg_bench.run_kernelbench \\
+    python -m integration.benchmark.run_kernelbench \\
         --cases 19_relu --skip-pypto-gen
 """
 
@@ -38,14 +38,14 @@ from typing import Any, Dict, List, Optional
 
 import yaml
 
-from . import case_loader, pypto_runner, akg_verifier_runner, report
+from . import case_loader, pypto_runner, verifier_runner, report
 from .case_loader import CaseSpec, derive_op_name
 from .pypto_runner import PyptoRunResult, PyptoRunStatus, run_pypto_workflow
-from .akg_verifier_runner import VerifierResult, VerifierStatus, run_verifier
+from .verifier_runner import VerifierResult, VerifierStatus, run_verifier
 from .report import CaseRunRecord, derive_overall_status, write_case_result, write_summary
 
 
-logger = logging.getLogger("akg_bench")
+logger = logging.getLogger("benchmark")
 
 
 # ────────────────────────────────────────────────────────────
@@ -93,8 +93,8 @@ def discover_cases(level_dir: Path, requested: Optional[List[str]] = None,
     Raises:
         FileNotFoundError: ``level_dir`` 不存在.
         ValueError: ``level_dir`` 下没有任何 .py (布局不对); 或
-            ``requested`` 中有 case 找不到; 或检测到子目录结构
-            (旧 akg-numpy 适配布局, 不再支持).
+            ``requested`` 中有 case 找不到; 或检测到旧版子目录布局
+            (不再支持).
     """
     if not level_dir.exists():
         raise FileNotFoundError(f"level dir 不存在: {level_dir}")
@@ -112,9 +112,9 @@ def discover_cases(level_dir: Path, requested: Optional[List[str]] = None,
             raise ValueError(
                 f"{level_dir} 下没有扁平 .py 文件, 但发现子目录含 .py "
                 f"(子目录数: {len(subdirs_with_py)}). 桥接层只支持上游 KernelBench "
-                f"扁平布局 (KernelBench/<level>/{{N}}_{{name}}.py); 不接受旧的 "
-                f"akg-numpy / mindspore 适配布局. 请运行 "
-                f"`bash pypto/integration/akg_bench/scripts/download_kernelbench.sh` "
+                f"扁平布局 (KernelBench/<level>/{{N}}_{{name}}.py); 不接受旧版 "
+                f"子目录适配布局. 请运行 "
+                f"`bash pypto/integration/benchmark/scripts/download_kernelbench.sh` "
                 f"下载上游数据集."
             )
         raise ValueError(
@@ -250,7 +250,7 @@ async def run_one_case(case_path: Path, device_id: int, cfg: _RunCfg,
                 framework=cfg.framework,
                 device_id=device_id,
                 log_dir=cfg.log_dir,
-                task_id=f"akgbench_{op_name}_{int(time.time()*1000)}",
+                task_id=f"benchmark_{op_name}_{int(time.time()*1000)}",
                 verify_timeout=cfg.verify_timeout,
                 extra_config=cfg.extra_verifier_config,
                 log_file=verifier_log,
@@ -353,7 +353,7 @@ def _build_cfg(args: argparse.Namespace, yaml_cfg: Dict[str, Any]) -> _RunCfg:
         framework=args.framework or verifier_yaml.get("framework", "torch"),
         verify_timeout=args.verify_timeout or verifier_yaml.get("verify_timeout", 300),
         log_dir=Path(args.log_dir or verifier_yaml.get("log_dir", "~/pypto_bench_logs")).expanduser(),
-        report_dir=Path(args.report_dir or report_yaml.get("out_dir", "akg_bench_report")).resolve(),
+        report_dir=Path(args.report_dir or report_yaml.get("out_dir", "benchmark_report")).resolve(),
         mode=args.mode or verifier_yaml.get("mode", "correctness"),
         skip_pypto_gen=args.skip_pypto_gen,
         force_regen=args.force_regen,
@@ -475,7 +475,7 @@ def main(argv: Optional[List[str]] = None) -> int:
             f"level dir 不存在: {level_dir}\n"
             f"  bench_dir = {bench_dir}\n"
             f"  level     = {level}\n"
-            f"请先运行: bash pypto/integration/akg_bench/scripts/download_kernelbench.sh"
+            f"请先运行: bash pypto/integration/benchmark/scripts/download_kernelbench.sh"
         )
 
     requested = parse_csv_str_list(args.cases) if args.cases else None

@@ -4,7 +4,7 @@
 # --- 数据集 (上游 KernelBench, PyTorch 原版) ---
 # 来源: https://github.com/ScalingIntelligence/KernelBench.git
 # 固定 commit: 21fbe5a642898cd60b8f60c7aefb43d475e11f33
-# 下载: bash pypto/integration/akg_bench/scripts/download_kernelbench.sh
+# 下载: bash pypto/integration/benchmark/scripts/download_kernelbench.sh
 # bench_dir 指 KernelBench/KernelBench/ (含 level1 / level2 / level3 子目录).
 # 留空则 CLI 自动 fallback 到桥接层 .cache/KernelBench/KernelBench/.
 bench_dir: ""
@@ -68,4 +68,4 @@ verifier:
 # --- 报告 ---
 report:
   # 报告输出根目录 (相对运行目录).
-  out_dir: "akg_bench_report"
+  out_dir: "benchmark_report"

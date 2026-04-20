@@ -3,10 +3,10 @@
 # Licensed under the CANN Open Software License Agreement Version 2.0 (the "License").
 #
 # 下载上游 KernelBench (PyTorch 原版) 并固定到指定 commit, 落地到
-# pypto/integration/akg_bench/.cache/KernelBench/.
+# pypto/integration/benchmark/.cache/KernelBench/.
 #
 # 用法:
-#   bash pypto/integration/akg_bench/scripts/download_kernelbench.sh
+#   bash pypto/integration/benchmark/scripts/download_kernelbench.sh
 #
 # 自定义下载位置:
 #   KERNELBENCH_DIR=/path/to/elsewhere bash .../download_kernelbench.sh

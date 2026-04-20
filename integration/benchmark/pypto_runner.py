@@ -178,7 +178,7 @@ ModelNew 文件自检 (必须通过):
 - 所有产物落在 `{op_dir_rel}/`, 不要写到其它目录.
 - 走真实 NPU 验证 (有可用 NPU 时), 不要降级到 sim 模式.
 - 完成或阻塞时, 在最后一行打印一条机读标记:
-  `[AKG_BENCH_DONE] op={op_name} state=<SUCCESS|BLOCKED_*> artifacts=impl,golden,test,pypto_impl`
+  `[BENCHMARK_DONE] op={op_name} state=<SUCCESS|BLOCKED_*> artifacts=impl,golden,test,pypto_impl`
   缺失任一产物时, 在 artifacts= 后只列出实际存在的项.
 
 请立即开始, 不要再问我问题.

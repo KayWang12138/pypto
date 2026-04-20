@@ -5,7 +5,7 @@
 """单 case 与汇总报告写入工具.
 
 输入:
-    - ``CaseRunRecord``: 单个用例的两阶段结果 (pypto 生成 + akg 验证).
+    - ``CaseRunRecord``: 单个用例的两阶段结果 (pypto 生成 + verifier 验证).
 
 输出:
     - ``<report-dir>/<op>/result.json``: 单用例结构化结果.
@@ -44,7 +44,7 @@ class CaseRunRecord:
     pypto_log_file: Optional[str] = None
     pypto_artifacts: Dict[str, str] = field(default_factory=dict)
 
-    # akg 验证阶段
+    # verifier 验证阶段
     verifier_status: str = ""        # VerifierStatus.value
     verifier_message: str = ""
     verifier_duration_sec: float = 0.0
@@ -235,7 +235,7 @@ def _render_markdown(payload: Dict[str, Any]) -> str:
     cases = payload["cases"]
 
     lines: List[str] = []
-    lines.append("# pypto × akg KernelBench 批处理报告")
+    lines.append("# pypto KernelBench 批处理报告")
     lines.append("")
     lines.append("## 元数据")
     for k, v in meta.items():

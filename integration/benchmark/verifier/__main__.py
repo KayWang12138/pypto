@@ -103,7 +103,7 @@ def _excerpt(text: str, max_chars: int = 4000) -> str:
 def _merge_pypto_artifacts(op_dir: Path, op_name: str) -> str:
     """把 ``{op}_impl.py`` 与 ``{op}_pypto_impl.py`` 合并成一段自包含源码.
 
-    与 ``akg_verifier_runner.merge_pypto_artifacts`` 行为一致, 在此重复实现
+    与 ``verifier_runner.merge_pypto_artifacts`` 行为一致, 在此重复实现
     是为了让 verifier 子包具备完整的对外 CLI, 不反向依赖桥接层模块.
     """
     impl_file = op_dir / f"{op_name}_impl.py"
@@ -121,7 +121,7 @@ def _merge_pypto_artifacts(op_dir: Path, op_name: str) -> str:
         )
         wrapper_src = pattern.sub("", pypto_impl_file.read_text(encoding="utf-8"))
         return (
-            f"# === merged by pypto.integration.akg_bench.verifier.__main__ ===\n"
+            f"# === merged by integration.benchmark.verifier.__main__ ===\n"
             f"# Source 1: {impl_file}\n"
             f"# Source 2: {pypto_impl_file}\n\n"
             f"{impl_src}\n\n"
@@ -313,7 +313,7 @@ def _cmd_verify(args: argparse.Namespace) -> int:
 
 def _build_arg_parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(
-        prog="python -m pypto.integration.akg_bench.verifier",
+        prog="python -m integration.benchmark.verifier",
         description=__doc__.split("\n", 1)[0] if __doc__ else "",
     )
     sub = p.add_subparsers(dest="cmd", required=True)

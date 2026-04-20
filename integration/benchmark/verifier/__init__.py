@@ -3,7 +3,7 @@
 # Copyright (c) 2026 Huawei Technologies Co., Ltd.
 # Licensed under the CANN Open Software License Agreement Version 2.0 (the "License").
 # See LICENSE for details.
-"""pypto.integration.akg_bench.verifier — KernelBench 桥接层内置 KernelVerifier.
+"""integration.benchmark.verifier — KernelBench 桥接层内置 KernelVerifier.
 
 支持的组合 (其它输入直接 ``ValueError``):
     - dsl       = ``"pypto"``

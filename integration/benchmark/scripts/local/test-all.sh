@@ -17,10 +17,10 @@
 #                              BUDGET=fast (~5 min)  -> SKIP_INTEGRATION=1
 #                              BUDGET=full (~60 min) -> SKIP_INTEGRATION=0 (默认)
 #   BUDGET=fast              一键设 SKIP_INTEGRATION=1.
-#   AKG_BENCH_LOG_DIR=/path  统一 log 根, 各步骤自动落子目录.
+#   BENCHMARK_LOG_DIR=/path  统一 log 根, 各步骤自动落子目录.
 #
 # 用法:
-#   bash integration/akg_bench/scripts/local/test-all.sh             # FULL ~60 min
+#   bash integration/benchmark/scripts/local/test-all.sh             # FULL ~60 min
 #   BUDGET=fast bash ...test-all.sh                                  # ~10 min, 跳 integration
 #   SKIP_NPU=1 bash ...test-all.sh                                   # 只跑 unit (CI 离线)
 #
@@ -30,8 +30,8 @@ set -euo pipefail
 set -o pipefail   # 保证 `bash step.sh | tee` 的 exit code 跟随 bash, 不被 tee 吞
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-export AKG_BENCH_LOG_DIR="${AKG_BENCH_LOG_DIR:-/tmp/akg_bench_test_$(date +%Y%m%d_%H%M%S)}"
-mkdir -p "${AKG_BENCH_LOG_DIR}"
+export BENCHMARK_LOG_DIR="${BENCHMARK_LOG_DIR:-/tmp/benchmark_test_$(date +%Y%m%d_%H%M%S)}"
+mkdir -p "${BENCHMARK_LOG_DIR}"
 
 if [ "${BUDGET:-}" = "fast" ]; then
   SKIP_INTEGRATION="${SKIP_INTEGRATION:-1}"
@@ -61,11 +61,11 @@ run_step() {
   echo
   echo "############################################################"
   echo "##  RUN: ${name}"
-  echo "##  log dir: ${AKG_BENCH_LOG_DIR}"
+  echo "##  log dir: ${BENCHMARK_LOG_DIR}"
   echo "############################################################"
 
-  local step_log="${AKG_BENCH_LOG_DIR}/${name}.log"
-  if AKG_BENCH_LOG_DIR="${AKG_BENCH_LOG_DIR}/${name}" \
+  local step_log="${BENCHMARK_LOG_DIR}/${name}.log"
+  if BENCHMARK_LOG_DIR="${BENCHMARK_LOG_DIR}/${name}" \
      bash "${script}" 2>&1 | tee "${step_log}"; then
     STEPS_OK+=("${name}")
     echo "##  ${name} PASSED"
@@ -86,7 +86,7 @@ print_summary() {
   for s in "${STEPS_SKIP[@]}"; do echo "  [SKIP] ${s}";   done
   for s in "${STEPS_FAIL[@]}"; do echo "  [FAIL] ${s}";   done
   echo
-  echo "  log root: ${AKG_BENCH_LOG_DIR}"
+  echo "  log root: ${BENCHMARK_LOG_DIR}"
 }
 
 # ---------- 走步骤 ----------

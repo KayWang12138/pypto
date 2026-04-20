@@ -11,7 +11,7 @@
 # 使用 fixtures/pypto_op_cheat/ 下预置的 ReLUCheat 算子, 拷贝到 custom/ 并清理.
 # 单次 ~3-5 min.
 #
-# 用法: bash integration/akg_bench/scripts/local/test-skill-cheat.sh
+# 用法: bash integration/benchmark/scripts/local/test-skill-cheat.sh
 
 source "$(dirname "${BASH_SOURCE[0]}")/lib.sh"
 
@@ -35,16 +35,16 @@ ls "${OP_DIR}"
 pass "fixture deployed"
 
 # ---------- 1. 跑 skill ----------
-RUNNER_LOG="${AKG_BENCH_LOG_DIR}/${OP_NAME}_skill_runner.log"
+RUNNER_LOG="${BENCHMARK_LOG_DIR}/${OP_NAME}_skill_runner.log"
 section "1. spawn opencode + pypto-kernel-validator (timeout=${SKILL_TIMEOUT}s)"
-python3 -m integration.akg_bench.akg_verifier_runner "${OP_NAME}" \
+python3 -m integration.benchmark.verifier_runner "${OP_NAME}" \
     --op-dir "${OP_DIR}" \
     --task-desc-file "${TASK_DESC}" \
     --verifier-mode opencode \
     --mode correctness \
     --device "${TILE_FWK_DEVICE_ID}" \
     --log-file "${RUNNER_LOG}" \
-    --skill-timeout "${SKILL_TIMEOUT}" >"${AKG_BENCH_LOG_DIR}/${OP_NAME}_skill_stdout.log" 2>&1 \
+    --skill-timeout "${SKILL_TIMEOUT}" >"${BENCHMARK_LOG_DIR}/${OP_NAME}_skill_stdout.log" 2>&1 \
   || true
 
 REPORT="${OP_DIR}/.skill_validate/skill_report.json"

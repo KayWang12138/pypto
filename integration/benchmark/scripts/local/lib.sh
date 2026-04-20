@@ -7,7 +7,7 @@
 # 提供:
 #   - 路径推断 (PYPTO_ROOT / BRIDGE_ROOT / SCRIPTS_DIR / FIXTURES_DIR)
 #   - conda env 自动激活 (CONDA_ENV 默认 torch2.6, 可被外部覆盖)
-#   - 日志目录 (AKG_BENCH_LOG_DIR, 默认 /tmp/akg_bench_test_<ts>)
+#   - 日志目录 (BENCHMARK_LOG_DIR, 默认 /tmp/benchmark_test_<ts>)
 #   - 错误处理 (set -euo pipefail + ERR trap 打印行号)
 #   - 块标题 (section "...") + PASS/FAIL 标记 (pass / fail)
 
@@ -21,8 +21,8 @@ BRIDGE_ROOT="$(cd "${SCRIPTS_DIR}/.." && pwd)"
 PYPTO_ROOT="$(cd "${BRIDGE_ROOT}/../.." && pwd)"
 
 # ---- 日志目录 ----
-AKG_BENCH_LOG_DIR="${AKG_BENCH_LOG_DIR:-/tmp/akg_bench_test_$(date +%Y%m%d_%H%M%S)}"
-mkdir -p "${AKG_BENCH_LOG_DIR}"
+BENCHMARK_LOG_DIR="${BENCHMARK_LOG_DIR:-/tmp/benchmark_test_$(date +%Y%m%d_%H%M%S)}"
+mkdir -p "${BENCHMARK_LOG_DIR}"
 
 # ---- conda 自动激活 (若 python3 找不到 pypto, 也尝试激活) ----
 _activate_conda() {
@@ -82,5 +82,5 @@ require_opencode() {
 cd "${PYPTO_ROOT}"
 
 echo "[lib.sh] PYPTO_ROOT=${PYPTO_ROOT}"
-echo "[lib.sh] LOG_DIR   =${AKG_BENCH_LOG_DIR}"
+echo "[lib.sh] LOG_DIR   =${BENCHMARK_LOG_DIR}"
 echo "[lib.sh] python3   =$(command -v python3)  ($(python3 --version 2>&1))"

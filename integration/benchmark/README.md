@@ -6,6 +6,9 @@
 
 外层包装层, 把四件事串起来:
 
+> 当前这套 benchmark 验证编排逻辑从 akg agent 仓迁移而来, 现在以
+> `pypto/integration/benchmark/` 的自包含目录继续维护.
+
 1. **输入**: 上游 KernelBench 用例 (`Model(nn.Module) + get_inputs + get_init_inputs`)
 2. **算子生成**: pypto 自带的 7 阶段 agent 工作流 (`pypto-op-orchestrator`)
 3. **反作弊 + 精度 + 性能**: opencode 加载 `pypto-kernel-validate` skill, agent 在 skill 引导下
@@ -24,7 +27,7 @@ KernelBench/<level>/{N}_{name}.py   (上游 PyTorch 扁平布局)
                                        -> custom/<op>/<op>_impl.py
                                        -> custom/<op>/<op>_pypto_impl.py
                                        -> custom/<op>/<op>_golden.py
-  -> akg_verifier_runner.run_verifier  按 verifier_mode 分流:
+  -> verifier_runner.run_verifier      按 verifier_mode 分流:
         opencode 模式 (默认):           子进程 opencode run --agent pypto-kernel-validator
                                        agent 加载 .opencode/skills/pypto-kernel-validate
                                        Step1 cheat_detector (脚本机械层)
@@ -72,14 +75,14 @@ KernelBench/<level>/{N}_{name}.py   (上游 PyTorch 扁平布局)
 下载到桥接层 `.cache/KernelBench/` (gitignored):
 
 ```bash
-bash pypto/integration/akg_bench/scripts/download_kernelbench.sh
+bash pypto/integration/benchmark/scripts/download_kernelbench.sh
 ```
 
 自定义下载位置:
 
 ```bash
 KERNELBENCH_DIR=/data/KernelBench \
-  bash pypto/integration/akg_bench/scripts/download_kernelbench.sh
+  bash pypto/integration/benchmark/scripts/download_kernelbench.sh
 # 然后在 CLI 用 --bench-dir /data/KernelBench/KernelBench
 ```
 
@@ -96,16 +99,77 @@ KERNELBENCH_DIR=/data/KernelBench \
 # 3. 已配置 LLM 用 settings (~/.akg/settings.json), 因为 pypto agent 真跑 LLM
 # 4. 已设置 NPU 环境 (CANN, torch_npu, TILE_FWK_DEVICE_ID 等)
 # 5. 已下载上游 KernelBench (固定在 commit 21fbe5a):
-bash pypto/integration/akg_bench/scripts/download_kernelbench.sh
+bash pypto/integration/benchmark/scripts/download_kernelbench.sh
 ```
 
-> 桥接层及内置 verifier 完全在 `pypto/integration/akg_bench/` 下, 不需要安装任何额外包.
+> 桥接层及内置 verifier 完全在 `pypto/integration/benchmark/` 下, 不需要安装任何额外包.
+
+## 一步步复现单 case
+
+下面这组命令适合直接写进 PR 说明, 也适合你后面自己复现并截图:
+
+### Step 1: 拉数据并跑离线冒烟
+
+```bash
+cd pypto
+bash integration/benchmark/scripts/download_kernelbench.sh
+bash integration/benchmark/scripts/smoke_test.sh
+```
+
+### Step 2: 跑一个最小 direct case
+
+```bash
+cd pypto
+export BENCHMARK_LOG_DIR=/tmp/benchmark_relu_direct
+python -m integration.benchmark.run_kernelbench \
+  --cases 19_relu \
+  --level level1 \
+  --devices 0 \
+  --arch ascend910b4 \
+  --mode correctness \
+  --verifier-mode direct \
+  --report-dir /tmp/benchmark_relu_direct/report
+```
+
+预期你会看到:
+
+- CLI 正常结束, `summary.json` / `summary.md` / `result.json` 被写出.
+- `result.json` 中 `pypto_status`、`verifier_status`、`correctness` 都有明确结果.
+
+### Step 3: 查看报告产物
+
+```bash
+cat /tmp/benchmark_relu_direct/report/summary.md
+cat /tmp/benchmark_relu_direct/report/ReLU/result.json
+```
+
+### Step 4: 如需验证完整 skill 路径, 再跑 opencode 模式
+
+```bash
+cd pypto
+export BENCHMARK_LOG_DIR=/tmp/benchmark_relu_skill
+python -m integration.benchmark.run_kernelbench \
+  --cases 19_relu \
+  --level level1 \
+  --devices 0 \
+  --arch ascend910b4 \
+  --mode correctness \
+  --verifier-mode opencode \
+  --report-dir /tmp/benchmark_relu_skill/report
+```
+
+### PR 截图建议
+
+- 终端里 `run_kernelbench` 跑 `19_relu` 的实时输出.
+- `<report-dir>/summary.md` 的总览段落.
+- `<report-dir>/ReLU/result.json` 里 `correctness` / `perf` / `verifier_status` 字段.
+- 如果走 `opencode` 模式, 再补一张 `skill_report.json` 或 `verifier.log` 的截图.
 
 ### MVP: 单用例端到端 (默认走 opencode skill, 含 LLM 反作弊语义审阅)
 
 ```bash
 cd pypto
-python -m integration.akg_bench.run_kernelbench \
+python -m integration.benchmark.run_kernelbench \
   --cases 19_relu \
   --level level1 \
   --devices 0 \
@@ -119,7 +183,7 @@ python -m integration.akg_bench.run_kernelbench \
 ### CI / 离线 dev: 跳过 LLM 语义层 (--verifier-mode direct)
 
 ```bash
-python -m integration.akg_bench.run_kernelbench \
+python -m integration.benchmark.run_kernelbench \
   --cases 19_relu --verifier-mode direct
 ```
 
@@ -129,20 +193,20 @@ python -m integration.akg_bench.run_kernelbench \
 ### 批处理多用例 (含性能, 多卡)
 
 ```bash
-python -m integration.akg_bench.run_kernelbench \
+python -m integration.benchmark.run_kernelbench \
   --cases 19,20,21 \
   --level level1 \
   --devices 0,1,2 \
   --concurrency 3 \
   --mode performance \
-  --report-dir akg_bench_report
+  --report-dir benchmark_report
 ```
 
 ### 仅手动跑统一 verifier CLI (跳过 pypto 生成阶段)
 
 ```bash
-python -m integration.akg_bench.verifier cheat-check ./custom/relu --op-name relu
-python -m integration.akg_bench.verifier verify ./custom/relu \
+python -m integration.benchmark.verifier cheat-check ./custom/relu --op-name relu
+python -m integration.benchmark.verifier verify ./custom/relu \
   --op-name relu \
   --task-desc ./custom/relu/task_desc.py \
   --mode performance \
@@ -152,7 +216,7 @@ python -m integration.akg_bench.verifier verify ./custom/relu \
 ### 跑前 N 个
 
 ```bash
-python -m integration.akg_bench.run_kernelbench --level level1 --limit 5 ...
+python -m integration.benchmark.run_kernelbench --level level1 --limit 5 ...
 ```
 
 ### 断点续跑
@@ -161,7 +225,7 @@ python -m integration.akg_bench.run_kernelbench --level level1 --limit 5 ...
 
 ```bash
 # 只重跑验证 (不重新生成算子)
-python -m integration.akg_bench.run_kernelbench --cases 19_relu --skip-pypto-gen
+python -m integration.benchmark.run_kernelbench --cases 19_relu --skip-pypto-gen
 ```
 
 ## 测试脚本 (scripts/local)
@@ -189,33 +253,33 @@ python -m integration.akg_bench.run_kernelbench --cases 19_relu --skip-pypto-gen
 cd pypto
 
 # 一键跑全 (4 步, ~60 min, 含 FULL 集成)
-bash integration/akg_bench/scripts/local/test-all.sh
+bash integration/benchmark/scripts/local/test-all.sh
 
 # 快速回归 (跳 50 min 的 test-integration)
-BUDGET=fast bash integration/akg_bench/scripts/local/test-all.sh
+BUDGET=fast bash integration/benchmark/scripts/local/test-all.sh
 
 # CI 离线 (只跑 test-unit, 不需 NPU 不烧 LLM)
-SKIP_NPU=1 bash integration/akg_bench/scripts/local/test-all.sh
+SKIP_NPU=1 bash integration/benchmark/scripts/local/test-all.sh
 
 # 单跑某一步
-bash integration/akg_bench/scripts/local/test-unit.sh
-bash integration/akg_bench/scripts/local/test-direct.sh
-bash integration/akg_bench/scripts/local/test-skill-legit.sh       # 复用 custom/ReLU/
-bash integration/akg_bench/scripts/local/test-skill-cheat.sh       # 自动部署 ReLUCheat fixture
-FULL=0 bash integration/akg_bench/scripts/local/test-integration.sh # cheap 集成
+bash integration/benchmark/scripts/local/test-unit.sh
+bash integration/benchmark/scripts/local/test-direct.sh
+bash integration/benchmark/scripts/local/test-skill-legit.sh       # 复用 custom/ReLU/
+bash integration/benchmark/scripts/local/test-skill-cheat.sh       # 自动部署 ReLUCheat fixture
+FULL=0 bash integration/benchmark/scripts/local/test-integration.sh # cheap 集成
 ```
 
-各步骤的 log 默认落在 `${AKG_BENCH_LOG_DIR:-/tmp/akg_bench_test_<ts>}/`,
-可设 `AKG_BENCH_LOG_DIR=/path` 自定义.
+各步骤的 log 默认落在 `${BENCHMARK_LOG_DIR:-/tmp/benchmark_test_<ts>}/`,
+可设 `BENCHMARK_LOG_DIR=/path` 自定义.
 
 ## 目录结构
 
 ```
-pypto/integration/akg_bench/
+pypto/integration/benchmark/
 ├── __init__.py
 ├── case_loader.py              # KernelBench .py -> SPEC.md + task_desc
 ├── pypto_runner.py             # 子进程跑 opencode run --agent pypto-op-orchestrator
-├── akg_verifier_runner.py      # 双模式调度: opencode skill / direct KernelVerifier
+├── verifier_runner.py      # 双模式调度: opencode skill / direct KernelVerifier
 ├── verifier/                   # 自包含验证子包
 │   ├── kernel_verifier.py      # 精度 + 性能验证 (ascend + torch + pypto)
 │   ├── cheat_detector.py       # 脚本机械层反作弊 (AST + 文件系统 + 字符串)
@@ -237,18 +301,6 @@ pypto/integration/akg_bench/
 │   │   ├── test-skill-cheat.sh # opencode skill 反作弊 ReLUCheat
 │   │   ├── test-integration.sh # batch 端到端 (FULL 7 阶段 / cheap)
 │   │   └── fixtures/           # cheat_detector 5 类 fixture + ReLUCheat 算子
-│   └── dev/                    # 跨机器开发调试套件
-│       ├── lib.sh              # ssh-multiplex + rsync + ssh_remote_script
-│       ├── config.example.sh   # 复制为 config.sh 填远端配置 (gitignored)
-│       ├── ssh-open.sh         # 启 ControlMaster
-│       ├── ssh-close.sh        # 关 ControlMaster
-│       ├── sync.sh             # rsync 本机 -> 远端
-│       ├── test-unit.sh        # 远端跑 local/test-unit.sh
-│       ├── test-direct.sh      # 远端跑 local/test-direct.sh
-│       ├── test-skill.sh       # 远端跑 skill (FLAVOR=legit|cheat)
-│       ├── test-integration.sh # 远端 nohup batch 后台启动
-│       ├── poll.sh             # poll 远端后台 batch 进度
-│       └── clean-remote.sh     # 清远端 __pycache__ + .skill_validate + 测试残留
 ├── .cache/KernelBench/         # gitignored, 下载产物
 ├── .gitignore
 └── README.md
@@ -261,6 +313,9 @@ pypto/.opencode/
     └── pypto-kernel-validate/
         └── SKILL.md                    # 反作弊 + 精度 + 性能验证 skill
 ```
+
+> `scripts/dev/` 不再作为仓内共享内容维护; 如需跨机器联调, 请在本地自行建立
+> 同名目录, `.gitignore` 已默认屏蔽该目录.
 
 ## 产物布局
 

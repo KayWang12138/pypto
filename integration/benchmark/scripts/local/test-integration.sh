@@ -13,11 +13,11 @@
 #                      verifier 这一段. 单 case ~3 min. 给开发期回归用.
 #
 # 用法:
-#   bash integration/akg_bench/scripts/local/test-integration.sh             # FULL
-#   FULL=0 bash integration/akg_bench/scripts/local/test-integration.sh      # cheap
+#   bash integration/benchmark/scripts/local/test-integration.sh             # FULL
+#   FULL=0 bash integration/benchmark/scripts/local/test-integration.sh      # cheap
 #   CASES=19_ReLU,20_LeakyReLU bash ...                                      # 多 case
 #   VERIFIER_MODE=direct bash ...                                            # 不烧 LLM 验证
-#   AKG_BENCH_LOG_DIR=/path bash ...                                         # 自定义 log
+#   BENCHMARK_LOG_DIR=/path bash ...                                         # 自定义 log
 #
 # 退出 0 表示 1/1 (或 N/N) 通过.
 
@@ -39,12 +39,12 @@ if [ "${FULL}" = "1" ]; then
   require_opencode
 fi
 
-REPORT_DIR="${AKG_BENCH_LOG_DIR}/report"
-LOG_DIR="${AKG_BENCH_LOG_DIR}/logs"
+REPORT_DIR="${BENCHMARK_LOG_DIR}/report"
+LOG_DIR="${BENCHMARK_LOG_DIR}/logs"
 mkdir -p "${REPORT_DIR}" "${LOG_DIR}"
 
 cmd=(
-  python3 -m integration.akg_bench.run_kernelbench
+  python3 -m integration.benchmark.run_kernelbench
   --cases "${CASES}"
   --mode "${MODE}"
   --devices "${TILE_FWK_DEVICE_ID}"
@@ -69,7 +69,7 @@ echo "  command:"
 printf '    %s\n' "${cmd[@]}"
 
 # 真跑
-"${cmd[@]}" 2>&1 | tee "${AKG_BENCH_LOG_DIR}/batch.log"
+"${cmd[@]}" 2>&1 | tee "${BENCHMARK_LOG_DIR}/batch.log"
 
 # 验报告
 section "解读 summary.json"
@@ -97,4 +97,4 @@ pass "summary 1/1 通过"
 section "test-integration ALL PASSED"
 echo "  summary    : ${REPORT_DIR}/summary.md"
 echo "  json       : ${REPORT_DIR}/summary.json"
-echo "  batch log  : ${AKG_BENCH_LOG_DIR}/batch.log"
+echo "  batch log  : ${BENCHMARK_LOG_DIR}/batch.log"

@@ -9,7 +9,7 @@
 #      verdict_machine=failed_cheat 且 correctness.status=skipped (不进 KernelVerifier).
 #
 # 用法 (cwd 任意均可):
-#   bash integration/akg_bench/scripts/local/test-unit.sh
+#   bash integration/benchmark/scripts/local/test-unit.sh
 #
 # 退出 0 表示全过, 任一失败立刻退出非 0.
 
@@ -22,16 +22,16 @@ section "1. AST + import 自检"
 python3 -c "
 import ast
 for f in [
-    'integration/akg_bench/verifier/__main__.py',
-    'integration/akg_bench/verifier/cheat_detector.py',
-    'integration/akg_bench/verifier/pypto_adapter.py',
-    'integration/akg_bench/akg_verifier_runner.py',
-    'integration/akg_bench/run_kernelbench.py',
+    'integration/benchmark/verifier/__main__.py',
+    'integration/benchmark/verifier/cheat_detector.py',
+    'integration/benchmark/verifier/pypto_adapter.py',
+    'integration/benchmark/verifier_runner.py',
+    'integration/benchmark/run_kernelbench.py',
 ]:
     ast.parse(open(f).read(), f)
 print('AST OK')
-from integration.akg_bench.verifier import cheat_detector
-from integration.akg_bench.verifier import __main__ as vmain
+from integration.benchmark.verifier import cheat_detector
+from integration.benchmark.verifier import __main__ as vmain
 print('import OK')
 "
 pass "AST + import"
@@ -51,22 +51,22 @@ for case in clean multi_jit no_pypto no_jit suspicious; do
     fail "fixture ${case} 缺 relu_impl.py"
   fi
   # cheat-check 对 cheat verdict 故意 exit 1, 用 || true 不杀脚本
-  out=$(python3 -m integration.akg_bench.verifier cheat-check "${fixture}" --op-name relu 2>/dev/null || true)
+  out=$(python3 -m integration.benchmark.verifier cheat-check "${fixture}" --op-name relu 2>/dev/null || true)
   verdict=$(echo "${out}" | python3 -c "import json, sys; print(json.load(sys.stdin)['verdict'])")
   expect_var="EXPECT_$(echo "${case}" | tr '[:lower:]' '[:upper:]')_VERDICT"
   expect="${!expect_var}"
   if [ "${verdict}" = "${expect}" ]; then
     pass "${case} -> ${verdict}"
   else
-    echo "${out}" > "${AKG_BENCH_LOG_DIR}/cheat_${case}.json"
-    fail "${case}: 期望 verdict=${expect}, 实际 ${verdict}; 完整输出 ${AKG_BENCH_LOG_DIR}/cheat_${case}.json"
+    echo "${out}" > "${BENCHMARK_LOG_DIR}/cheat_${case}.json"
+    fail "${case}: 期望 verdict=${expect}, 实际 ${verdict}; 完整输出 ${BENCHMARK_LOG_DIR}/cheat_${case}.json"
   fi
 done
 
 # ---------- 3. verify 子命令 cheat-gate ----------
 section "3. verify 子命令 cheat-gate (multi_jit 应被拦, 不进 KernelVerifier)"
 
-GATE_TASK="${AKG_BENCH_LOG_DIR}/gate_task_desc.py"
+GATE_TASK="${BENCHMARK_LOG_DIR}/gate_task_desc.py"
 cat > "${GATE_TASK}" <<'PY'
 import torch
 import torch.nn as nn
@@ -79,8 +79,8 @@ def get_init_inputs():
     return []
 PY
 
-GATE_REPORT="${AKG_BENCH_LOG_DIR}/gate_verify.json"
-python3 -m integration.akg_bench.verifier verify \
+GATE_REPORT="${BENCHMARK_LOG_DIR}/gate_verify.json"
+python3 -m integration.benchmark.verifier verify \
     "${FIXTURES_DIR}/multi_jit" \
     --op-name relu \
     --task-desc "${GATE_TASK}" \
@@ -98,4 +98,4 @@ PY
 pass "verdict_machine=failed_cheat, correctness=skipped"
 
 section "test-unit ALL PASSED"
-echo "  详细报告: ${AKG_BENCH_LOG_DIR}"
+echo "  详细报告: ${BENCHMARK_LOG_DIR}"

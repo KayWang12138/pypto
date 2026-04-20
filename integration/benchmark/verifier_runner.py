@@ -29,7 +29,7 @@
   自身 ``from {op}_impl import {op}_wrapper``, 在 verify_dir 中读不到
   ``{op}_impl.py``, 因此本 runner 把两份源码合并为一个自包含字符串
   (去掉那个 import) 再传入. opencode 模式下统一 verifier CLI
-  (``python -m pypto.integration.akg_bench.verifier verify``) 也做同样合并.
+  (``python -m integration.benchmark.verifier verify``) 也做同样合并.
 """
 
 from __future__ import annotations
@@ -153,7 +153,7 @@ def merge_pypto_artifacts(op_dir: Path, op_name: str) -> str:
         pypto_impl_src = _strip_self_import(
             pypto_impl_file.read_text(encoding="utf-8"), op_name)
         merged = (
-            f"# === merged by pypto.integration.akg_bench.akg_verifier_runner ===\n"
+            f"# === merged by integration.benchmark.verifier_runner ===\n"
             f"# Source 1: {impl_file}\n"
             f"# Source 2: {pypto_impl_file}\n\n"
             f"{impl_src}\n\n"
@@ -607,7 +607,7 @@ async def _run_via_opencode_skill(
     if output_dir is None:
         # 默认放 op_dir/.skill_validate, 永在 pypto 仓内, 避免 opencode sandbox
         # 把 external_directory 写操作 auto-reject. 不再 fallback 到 log_file.parent
-        # — 那个路径调用方常给 batch report 根 (例如 cann-bot/akg_bench_report/),
+        # — 那个路径调用方常给 batch report 根 (例如 cann-bot/benchmark_report/),
         # 大概率落在 pypto 仓外, agent 写不了 skill_report.json.
         output_dir = (op_dir / ".skill_validate").resolve()
     else:

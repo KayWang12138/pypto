@@ -7,7 +7,7 @@
 数据集来源: https://github.com/ScalingIntelligence/KernelBench
 固定 commit: 21fbe5a642898cd60b8f60c7aefb43d475e11f33. 由
 ``scripts/download_kernelbench.sh`` 落到
-``pypto/integration/akg_bench/.cache/KernelBench/``, 布局为
+``pypto/integration/benchmark/.cache/KernelBench/``, 布局为
 ``KernelBench/<level>/{N}_{name}.py`` 的扁平结构, 每个 .py 内含一个
 ``class Model(nn.Module)`` + ``get_inputs()`` + ``get_init_inputs()``.
 
@@ -286,7 +286,7 @@ def load_case(case_path: Path, op_name: Optional[str] = None,
 _SPEC_TEMPLATE = """\
 # {op_name} 算子需求规格 (派生自上游 KernelBench)
 
-> 本 SPEC 由 ``pypto.integration.akg_bench.case_loader`` 自动生成, 用于驱动
+> 本 SPEC 由 ``integration.benchmark.case_loader`` 自动生成, 用于驱动
 > ``pypto-op-orchestrator`` 7 阶段工作流.
 >
 > 数据集来源: github.com/ScalingIntelligence/KernelBench @ 21fbe5a
@@ -380,7 +380,7 @@ def write_spec(case: CaseSpec, workdir: Path) -> Path:
 def write_task_desc(case: CaseSpec, workdir: Path) -> Path:
     """把原始 KernelBench task_desc 缓存到 ``workdir/{op}/task_desc.py``.
 
-    给 ``akg_verifier_runner`` 直接读取使用, 避免再次 IO 原 KernelBench 路径.
+    给 ``verifier_runner`` 直接读取使用, 避免再次 IO 原 KernelBench 路径.
     """
     op_dir = workdir / case.op_name
     op_dir.mkdir(parents=True, exist_ok=True)

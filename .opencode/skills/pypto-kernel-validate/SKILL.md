@@ -12,7 +12,7 @@ description: 校验一个声称由 PyPTO 开发的算子产物 — 反作弊 (�
 
 任意 agent 工作流生成 PyPTO 算子之后, 在交付前调用本 skill 做最终把关. 典型调用方:
 
-- KernelBench 桥接层 (`pypto/integration/akg_bench/`) 在 verify 阶段.
+- KernelBench 桥接层 (`pypto/integration/benchmark/`) 在 verify 阶段.
 - 外部团队的算子 agent, 把产物丢给本 skill 做合规校验.
 
 ## 输入约定 (由调用方在 prompt 中传入)
@@ -35,7 +35,7 @@ description: 校验一个声称由 PyPTO 开发的算子产物 — 反作弊 (�
 调用统一 verifier CLI 的 `cheat-check` 子命令:
 
 ```bash
-python -m pypto.integration.akg_bench.verifier cheat-check \
+python -m integration.benchmark.verifier cheat-check \
   "<op_dir>" \
   --op-name "<op_name>" \
   --json-out "<output_dir>/cheat_check_script.json"
@@ -101,7 +101,7 @@ python -m pypto.integration.akg_bench.verifier cheat-check \
 仅在 Step 1 与 Step 2 综合判定不是 `cheat` 时执行. 调:
 
 ```bash
-python -m pypto.integration.akg_bench.verifier verify \
+python -m integration.benchmark.verifier verify \
   "<op_dir>" \
   --op-name "<op_name>" \
   --task-desc "<task_desc_file>" \

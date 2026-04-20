@@ -13,9 +13,9 @@
 # 的事).
 #
 # 用法:
-#   bash integration/akg_bench/scripts/local/test-direct.sh
+#   bash integration/benchmark/scripts/local/test-direct.sh
 #   OP_NAME=Softmax bash ...test-direct.sh        # 跑别的 op (须有 custom/<op>/)
-#   AKG_BENCH_LOG_DIR=/path bash ...              # 自定义 log 目录
+#   BENCHMARK_LOG_DIR=/path bash ...              # 自定义 log 目录
 
 source "$(dirname "${BASH_SOURCE[0]}")/lib.sh"
 
@@ -42,8 +42,8 @@ fi
 if [ ! -f "${TASK_DESC}" ]; then
   echo "[FAIL] ${TASK_DESC} 不存在." >&2
   echo "       用 case_loader 生成: " >&2
-  echo "       python3 -m integration.akg_bench.case_loader \\" >&2
-  echo "         integration/akg_bench/.cache/KernelBench/KernelBench/level1/19_ReLU.py \\" >&2
+  echo "       python3 -m integration.benchmark.case_loader \\" >&2
+  echo "         integration/benchmark/.cache/KernelBench/KernelBench/level1/19_ReLU.py \\" >&2
   echo "         --write custom" >&2
   exit 1
 fi
@@ -51,14 +51,14 @@ pass "前置: ${OP_DIR} 含 _impl.py + _pypto_impl.py + task_desc.py"
 
 # ---------- 1. correctness ----------
 section "1. direct correctness"
-COR_REPORT="${AKG_BENCH_LOG_DIR}/${OP_NAME}_direct_correctness.json"
-python3 -m integration.akg_bench.verifier verify \
+COR_REPORT="${BENCHMARK_LOG_DIR}/${OP_NAME}_direct_correctness.json"
+python3 -m integration.benchmark.verifier verify \
     "${OP_DIR}" \
     --op-name "${OP_NAME}" \
     --task-desc "${TASK_DESC}" \
     --mode correctness \
     --device-id "${TILE_FWK_DEVICE_ID}" \
-    --json-out "${COR_REPORT}" >"${AKG_BENCH_LOG_DIR}/${OP_NAME}_direct_correctness.log" 2>&1 \
+    --json-out "${COR_REPORT}" >"${BENCHMARK_LOG_DIR}/${OP_NAME}_direct_correctness.log" 2>&1 \
   || true
 
 python3 - <<PY || fail "correctness 验证不符: ${COR_REPORT}"
@@ -72,14 +72,14 @@ pass "correctness PASS, verdict_machine=pass"
 
 # ---------- 2. performance ----------
 section "2. direct performance (swimlane 单 kernel 路径)"
-PERF_REPORT="${AKG_BENCH_LOG_DIR}/${OP_NAME}_direct_performance.json"
-python3 -m integration.akg_bench.verifier verify \
+PERF_REPORT="${BENCHMARK_LOG_DIR}/${OP_NAME}_direct_performance.json"
+python3 -m integration.benchmark.verifier verify \
     "${OP_DIR}" \
     --op-name "${OP_NAME}" \
     --task-desc "${TASK_DESC}" \
     --mode performance \
     --device-id "${TILE_FWK_DEVICE_ID}" \
-    --json-out "${PERF_REPORT}" >"${AKG_BENCH_LOG_DIR}/${OP_NAME}_direct_performance.log" 2>&1 \
+    --json-out "${PERF_REPORT}" >"${BENCHMARK_LOG_DIR}/${OP_NAME}_direct_performance.log" 2>&1 \
   || true
 
 python3 - <<PY || fail "performance 验证不符: ${PERF_REPORT}"
@@ -95,4 +95,4 @@ PY
 pass "performance PASS, swimlane 单 kernel 路径生效"
 
 section "test-direct ALL PASSED"
-echo "  详细报告: ${AKG_BENCH_LOG_DIR}"
+echo "  详细报告: ${BENCHMARK_LOG_DIR}"

@@ -27,7 +27,7 @@
     - ``cheat``      —— 触发硬铁证, 直接判作弊.
 
 CLI 用法:
-    python -m pypto.integration.akg_bench.verifier.cheat_detector \\
+    python -m integration.benchmark.verifier.cheat_detector \\
         <op_dir> [--op-name <name>] [--json-out <file>]
 
 输出 JSON schema:
@@ -455,7 +455,7 @@ def detect_cheats(op_dir: Path, op_name: str) -> CheatReport:
 
 def _build_arg_parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(
-        prog="python -m pypto.integration.akg_bench.verifier.cheat_detector",
+        prog="python -m integration.benchmark.verifier.cheat_detector",
         description="PyPTO 算子产物机械层反作弊检测.",
     )
     p.add_argument("op_dir", type=Path,
