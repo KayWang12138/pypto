@@ -1424,35 +1424,16 @@ void PipeSync::UpdateDep(DepOp& currOp, DepOp& prevOp)
 
     auto currSetPipeIter = currPipeDep.setPipes.find(prevPipe);
     if (currSetPipeIter == currPipeDep.setPipes.end() || currSetPipeIter->second < prevOp.idx) {
-        bool updateFlag = true;
-        size_t maxIdx = prevOp.idx;
-        for (auto [setPipe, setIdx] : currPipeDep.setPipes) {
-            (void)setIdx;
-            auto setDepInfo = latestPipeDep_[setPipe];
-            for (auto [setSetPipe, setSetIdx] : setDepInfo.setPipes) {
-                if (setSetPipe == prevPipe && setSetIdx >= prevOp.idx) {
-                    updateFlag = false;
-                    maxIdx = setSetIdx > maxIdx ? setSetIdx : maxIdx;
-                }
-            }
-        }
-        if (updateFlag) {
-            // no indirect dependency exist, save current dependency
-            currOp.waitPipe.emplace_back(prevOp.idx);
-            prevOp.setPipe.emplace_back(currOp.idx);
-            currPipeDep.setPipes[prevPipe] = prevOp.idx;
-        } else {
-            currPipeDep.setPipes[prevPipe] = maxIdx;
-        }
+        // no indirect dependency exist, save current dependency
+        currOp.waitPipe.emplace_back(prevOp.idx);
+        prevOp.setPipe.emplace_back(currOp.idx);
+        currPipeDep.setPipes[prevPipe] = prevOp.idx;
         
         auto prevPipeDepIter = latestPipeDep_.find(prevPipe);
-        auto prevWaitPipeIdx = prevPipeDepIter->second.waitIdx;
-        if (prevPipeDepIter != latestPipeDep_.end() && prevWaitPipeIdx <= prevOp.idx) {
+        if (prevPipeDepIter != latestPipeDep_.end()) {
             // merge dependency
             std::map<PipeCoreRealEx, size_t, PipeCoreRealExCompare> prevSetPipes = prevPipeDepIter->second.setPipes;
-            for (auto ele : prevSetPipes) {
-                PipeCoreRealEx prevSetPipeType = ele.first;
-                size_t prevSetPipeIdx = ele.second;
+            for (auto [prevSetPipeType, prevSetPipeIdx] : prevSetPipes) {
                 auto res = currPipeDep.setPipes.emplace(prevSetPipeType, prevSetPipeIdx);
                 // isExist == isPrevSetPipeTypeExist
                 bool isExist = !res.second;
