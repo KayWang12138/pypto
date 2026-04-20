@@ -165,6 +165,7 @@ enum class Opcode {
     OP_BITWISEXOR,
     OP_FLOORDIV,
     OP_FLOORDIVS,
+    OP_AXPY,
 
     // Cube
     OP_A_MUL_B,
@@ -977,7 +978,7 @@ const std::unordered_set<Opcode> LASTUSE_OPS{
     Opcode::OP_MAXIMUM,       Opcode::OP_MINIMUM,       Opcode::OP_BITWISEAND, Opcode::OP_BITWISEOR,
     Opcode::OP_BITWISEANDS,   Opcode::OP_BITWISEORS,    Opcode::OP_RELU,       Opcode::OP_MODS,
     Opcode::OP_MOD,           Opcode::OP_SIGN,          Opcode::OP_PRELU,      Opcode::OP_ROWPROD_SINGLE,
-    Opcode::OP_SIGNBIT};
+    Opcode::OP_SIGNBIT,       Opcode::OP_AXPY};
 
 inline bool IsAllocOpCode(Opcode opCode) { return (ALLOC_OPCODE.count(opCode) != 0); }
 
