@@ -713,6 +713,7 @@ const std::unordered_set<Opcode> SUPPORT_DYNAMIC_UNALIGNED_OPS{
     Opcode::OP_LOGICALAND,
     Opcode::OP_ONEHOT,
     Opcode::OP_POW,
+    Opcode::OP_POWS,
     Opcode::OP_INDEX_PUT,
     Opcode::OP_L1_TO_L0_BT,
     Opcode::OP_L1_TO_L0B,
