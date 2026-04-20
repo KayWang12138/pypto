@@ -796,8 +796,8 @@ TEST_F(InsertSyncTest, TestGetDepInfoSizeMismatch)
     EXPECT_EQ(ps.PipeSeqName(PipeSeq::AIV1_V), "AIV1_V");
     EXPECT_EQ(ps.PipeSeqName(PipeSeq::AIV0_MTE3), "AIV0_MTE3");
     EXPECT_EQ(ps.PipeSeqName(PipeSeq::AIV1_MTE3), "AIV1_MTE3");
-    EXPECT_EQ(ps.PipeSeqName(PipeSeq::AIV0_MTE3), "AIV0_S");
-    EXPECT_EQ(ps.PipeSeqName(PipeSeq::AIV1_MTE3), "AIV1_S");
+    EXPECT_EQ(ps.PipeSeqName(PipeSeq::AIV0_S), "AIV0_S");
+    EXPECT_EQ(ps.PipeSeqName(PipeSeq::AIV1_S), "AIV1_S");
 }
 } // namespace tile_fwk
 } // namespace npu
