@@ -342,11 +342,6 @@ def test_kernel_with_mask_origin(device_id=None, run_mode: str = "npu", skip_gol
 
         output_fp32 = output.float()
         golden_fp32 = golden.float()
-        max_diff = (output_fp32 - golden_fp32).abs().max().item()
-        mean_diff = (output_fp32 - golden_fp32).abs().mean().item()
-
-        logging.info(f"Output max difference: {max_diff:.6f}")
-        logging.info(f"Output mean difference: {mean_diff:.6f}")
 
         assert_allclose(
             output_fp32.cpu().numpy().flatten(),
@@ -428,12 +423,7 @@ def test_kernel_with_mask(
 
         output_fp32 = output.float()
         golden_fp32 = golden.float()
-        max_diff = (output_fp32 - golden_fp32).abs().max().item()
-        mean_diff = (output_fp32 - golden_fp32).abs().mean().item()
 
-        logging.info(f"Output max difference: {max_diff:.6f}")
-        logging.info(f"Output mean difference: {mean_diff:.6f}")
-        
         rtol = 0.0078125
         atol = 0.0001
 
@@ -538,12 +528,6 @@ def test_kernel_with_pse_and_dropout(
             
             output_fp32 = output.float()
             golden_fp32 = golden.float()
-            
-            max_diff = (output_fp32 - golden_fp32).abs().max().item()
-            mean_diff = (output_fp32 - golden_fp32).abs().mean().item()
-            
-            logging.info(f"Output max difference: {max_diff:.6f}")
-            logging.info(f"Output mean difference: {mean_diff:.6f}")
             
             rtol = 0.0078125
             atol = 0.0001
