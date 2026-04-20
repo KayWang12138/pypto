@@ -48,10 +48,10 @@ from flash_attention_score_impl import (
 logging.basicConfig(level=logging.INFO, format="%(message)s")
 
 
-BATCH_SIZE = 4
-NUM_HEADS = 8
-SEQ_LEN_Q = 128
-SEQ_LEN_KV = 128
+BATCH_SIZE = 2
+NUM_HEADS = 4
+SEQ_LEN_Q = 64
+SEQ_LEN_KV = 64
 HEAD_DIM = 64
 
 

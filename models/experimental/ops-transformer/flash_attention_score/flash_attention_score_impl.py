@@ -32,7 +32,7 @@ import math
 import pypto
 
 
-NUM_HEADS = 8
+NUM_HEADS = 4
 HEAD_DIM = 64
 BLOCK_SIZE_KV = 64
 BLOCK_SIZE_Q = 32
