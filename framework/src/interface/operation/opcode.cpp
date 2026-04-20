@@ -308,6 +308,11 @@ void OpcodeManager::RegisterVectorBinary()
         {MemoryType::MEM_UB, MemoryType::MEM_UB}, {"TileOp::TFloorDivS", PIPE_V, PIPE_V, CoreType::AIV},
         OpCalcType::BROADCAST, {OpAttributeKey::inputCombineAxis, OpAttributeKey::excludeBufferReuse},
         TileShapeVerifier::Verify);
+    RegisterInfo(
+        Opcode::OP_AXPY, OpCoreType::AIV, "AXPY", {MemoryType::MEM_UB, MemoryType::MEM_UB}, {MemoryType::MEM_UB},
+        {"TileOp::TAXPY", PIPE_V, PIPE_V, CoreType::AIV}, OpCalcType::BROADCAST,
+        {OpAttributeKey::scalar, OpAttributeKey::inplaceInfo, OpAttributeKey::inputCombineAxis},
+        TileShapeVerifier::Verify);        
 }
 
 void OpcodeManager::RegisterVectorUnary()
@@ -1202,6 +1207,7 @@ std::unordered_map<Opcode, std::string> SUPPORT_TILETENSOR_OPS{
     {Opcode::OP_INDEX_PUT, "TIndexPut"},
     {Opcode::OP_GCD, "TGcd"},
     {Opcode::OP_ADD, "TAdd"},
+    {Opcode::OP_AXPY, "TAxpy"},    
     {Opcode::OP_CUM_SUM, "TCumOperation"},
     {Opcode::OP_CUM_PROD, "TCumOperation"},
     {Opcode::OP_SUB, "TSub"},
