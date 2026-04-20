@@ -186,6 +186,17 @@ void CodeGenOpNPU::AddDivPrecisionTypeParm(std::vector<std::string>& templatePar
     }
 }
 
+void CodeGenOpNPU::AddFmodPrecisionTypeParm(std::vector<std::string>& templateParamList) const
+{
+    int64_t precisionType = static_cast<int64_t>(FmodAlgorithm::DEFAULT);
+    (void)GetAttr(OpAttributeKey::precisionType, precisionType);
+    if (precisionType == static_cast<int64_t>(FmodAlgorithm::HIGH_PRECISION)) {
+        templateParamList.emplace_back("pto::FmodAlgorithm::HIGH_PRECISION");
+    } else {
+        templateParamList.emplace_back("pto::FmodAlgorithm::DEFAULT");
+    }
+}
+
 std::string CodeGenOpNPU::PrintBinaryTileTensor() const
 {
     std::string dstTensor = QueryTileTensorNameByIdx(ToUnderlying(MISOIdx::DST_IDX));
@@ -201,8 +212,11 @@ std::string CodeGenOpNPU::PrintBinaryTileTensor() const
     if (opCode == Opcode::OP_DIV) {
         AddDivPrecisionTypeParm(templateParamList);
     }
+    if (opCode == Opcode::OP_MOD) {
+        AddFmodPrecisionTypeParm(templateParamList);
+    }
 
-    if (!lastUse.empty()) {
+    if (opCode != Opcode::OP_MOD && !lastUse.empty()) {
         templateParamList.emplace_back(lastUse);
     }
     bool hasBrcb = GetAttr(OpAttributeKey::brcbIdx, brcOperandIdx);
@@ -567,8 +581,11 @@ std::string CodeGenOpNPU::PrintVectorScalarTileTensor(const PrintUnaryParam& par
     if (opCode == Opcode::OP_DIVS) {
         AddDivPrecisionTypeParm(templateParamList);
     }
+    if (opCode == Opcode::OP_MODS) {
+        AddFmodPrecisionTypeParm(templateParamList);
+    }
 
-    if (!lastUse.empty()) {
+    if (opCode != Opcode::OP_MODS && !lastUse.empty()) {
         templateParamList.emplace_back(lastUse);
     }
     templateParamList.emplace_back(dstDtypeStr);
