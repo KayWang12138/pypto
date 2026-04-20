@@ -11,6 +11,7 @@
 
 from test_pil_builder_utils import TestParser, Expr
 
+
 def test_pil_parser_expr():
 
     with TestParser():
@@ -99,6 +100,7 @@ def test_pil_parser_named_expr():
 
         @TestParser.test
         def named_expr_call_kw_arg():
+
             def func(x):
                 Expr.str(x)
             func(x=(var_a := Expr.int(0)))
@@ -205,7 +207,7 @@ def test_pil_parser_assign():
 
         @TestParser.test
         def assign_multi_target():
-            # a = b = expr: both names get the same value
+            # e.g. a = b = expr - both names get the same value
             var_x = var_y = Expr.int(0)
 
         # --- attribute target ---
@@ -222,7 +224,7 @@ def test_pil_parser_assign():
 
         @TestParser.test
         def assign_attr_chain():
-            # obj.val.val = rhs
+            # e.g. obj.val.val += rhs - chain of attribute loads
             var_obj = Expr(0)
             var_obj.val = Expr(1)
             var_obj.val.val = Expr.int(0)
@@ -241,7 +243,7 @@ def test_pil_parser_assign():
 
         @TestParser.test
         def assign_subscript_attr_index():
-            # obj[other.val] = rhs — index is an attribute load
+            # e.g. obj[other.val] = rhs - index is an attribute load
             var_obj = Expr(0)
             var_idx = Expr(1)
             var_idx.val = Expr.int(0)
@@ -249,7 +251,7 @@ def test_pil_parser_assign():
 
         @TestParser.test
         def assign_subscript_subscript_index():
-            # obj[idx[k]] = rhs — index is itself a subscript
+            # e.g. obj[idx[k]] = rhs - index is itself a subscript
             var_obj = Expr(0)
             var_idx = Expr(1)
             var_idx[0] = Expr.int(0)
@@ -257,7 +259,7 @@ def test_pil_parser_assign():
 
         @TestParser.test
         def assign_subscript_binop_index():
-            # obj[a + b] = rhs — index is a binop
+            # e.g. obj[a + b] = rhs - index is a binop
             var_obj = Expr(0)
             var_obj[Expr.int(0) + Expr.int(1)] = Expr.int(2)
 
@@ -279,7 +281,7 @@ def test_pil_parser_assign():
 
         @TestParser.test
         def assign_subscript_attr_slice():
-            # obj[a.val:b.val] = rhs — slice bounds are attribute loads
+            # e.g. obj[a.val:b.val] = rhs - slice bounds are attribute loads
             var_obj = Expr(0)
             var_lo = Expr(1)
             var_lo.val = Expr.int(0)
@@ -289,7 +291,7 @@ def test_pil_parser_assign():
 
         @TestParser.test
         def assign_subscript_subscript_slice():
-            # obj[lo[0]:hi[0]] = rhs — slice bounds are subscripts
+            # e.g. obj[lo[0]:hi[0]] = rhs - slice bounds are subscripts
             var_obj = Expr(0)
             var_lo = Expr(1)
             var_lo[0] = Expr.int(0)
@@ -299,29 +301,29 @@ def test_pil_parser_assign():
 
         @TestParser.test
         def assign_subscript_binop_slice():
-            # obj[a+1 : b*2] = rhs
+            # e.g. obj[a+1 : b*2] = rhs - slice bounds are binops
             var_obj = Expr(0)
-            var_obj[Expr.int(0) + 1 : Expr.int(1) * 2] = Expr.int(2)
+            var_obj[Expr.int(0) + 1: Expr.int(1) * 2] = Expr.int(2)
 
         # --- nested subscript / attr chains ---
 
         @TestParser.test
         def assign_attr_subscript():
-            # obj.val[k] = rhs
+            # e.g. obj.val[k] = rhs - subscript index is an attribute load
             var_obj = Expr(0)
             var_obj.val = Expr(1)
             var_obj.val[0] = Expr.int(1)
 
         @TestParser.test
         def assign_subscript_attr():
-            # obj[k].val = rhs
+            # e.g. obj[k].val = rhs - subscript index is a subscript
             var_obj = Expr(0)
             var_obj[0] = Expr(1)
             var_obj[0].val = Expr.int(1)
 
         @TestParser.test
         def assign_subscript_attr_subscript_attr():
-            # obj[k].val[k].val = rhs — four-level chain
+            # e.g. obj[k].val[k].val = rhs - assignment through a four-level access chain
             var_obj = Expr(0)
             var_obj[0] = Expr(1)
             var_obj[0].val = Expr(2)
@@ -355,30 +357,31 @@ def test_pil_parser_assign():
             var_arr[0] = Expr.int(0)
             var_obj.val, var_arr[0] = Expr.int(1), Expr.int(2)
 
-        # --- chained = ---
+        # --- chained assignment ---
+
 
         @TestParser.test
         def assign_chain_name_name():
-            # x = y = expr: both names bound to same value
+            # e.g. x = y = expr - both names bound to same value
             var_x = var_y = Expr.int(0)
 
         @TestParser.test
         def assign_chain_name_attr():
-            # x = obj.val = expr
+            # e.g. x = obj.val = expr - name bound to attribute load of object
             var_obj = Expr(0)
             var_obj.val = Expr.int(0)
             var_x = var_obj.val = Expr.int(1)
 
         @TestParser.test
         def assign_chain_name_subscript():
-            # x = obj[k] = expr
+            # e.g. x = obj[k] = expr - name bound to subscript of object
             var_obj = Expr(0)
             var_obj[0] = Expr.int(0)
             var_x = var_obj[0] = Expr.int(1)
 
         @TestParser.test
         def assign_chain_attr_subscript():
-            # obj.val = arr[k] = expr
+            # e.g. obj.val = arr[k] = expr - attribute load of object bound to subscript of array target
             var_obj = Expr(0)
             var_obj.val = Expr.int(0)
             var_arr = Expr(1)
@@ -387,7 +390,7 @@ def test_pil_parser_assign():
 
         @TestParser.test
         def assign_chain_three():
-            # x = obj.val = arr[k] = expr
+            # e.g. x = obj.val = arr[k] = expr - three targets bound to same value
             var_obj = Expr(0)
             var_obj.val = Expr.int(0)
             var_arr = Expr(1)
@@ -396,51 +399,51 @@ def test_pil_parser_assign():
 
         @TestParser.test
         def assign_chain_tuple_name():
-            # (a, b) = x = expr
+            # e.g. (a, b) = x = expr - tuple elements bound to names
             var_x = var_a, var_b = Expr.int(0), Expr.int(1)
 
         @TestParser.test
         def assign_chain_tuple_tuple():
-            # (a, b) = (c, d) = expr — two tuple lhs targets
+            # e.g. (a, b) = (c, d) = expr - two tuple lhs targets
             var_a, var_b = var_c, var_d = Expr.int(0), Expr.int(1)
 
         @TestParser.test
         def assign_chain_list_list():
-            # [a, b] = [c, d] = expr
+            # e.g. [a, b] = [c, d] = expr: list elements bound to names
             [var_a, var_b] = [var_c, var_d] = [Expr.int(0), Expr.int(1)]
 
         @TestParser.test
         def assign_chain_tuple_nested_2():
-            # (a, (b, c)) = x = expr — 2-level nested tuple on first target
+            # e.g. (a, (b, c)) = x = expr - 2-level nested tuple on first target
             var_x = var_a, (var_b, var_c) = Expr.int(0), (Expr.int(1), Expr.int(2))
 
         @TestParser.test
         def assign_chain_tuple_nested_3():
-            # x = (a, (b, (c, d))) = expr — 3-level nested tuple
+            # e.g. x = (a, (b, (c, d))) = expr - 3-level nested tuple
             var_x = var_a, (var_b, (var_c, var_d)) = \
                 Expr.int(0), (Expr.int(1), (Expr.int(2), Expr.int(3)))
 
         @TestParser.test
         def assign_chain_list_nested_3():
-            # x = [a, [b, [c, d]]] = expr — 3-level nested list
+            # e.g. x = [a, [b, [c, d]]] = expr - 3-level nested list
             var_x = [var_a, [var_b, [var_c, var_d]]] = \
                 [Expr.int(0), [Expr.int(1), [Expr.int(2), Expr.int(3)]]]
 
         @TestParser.test
         def assign_chain_mixed_nested_3():
-            # x = (a, [b, (c, d)]) = expr — mixed tuple/list 3-level
+            # e.g. x = (a, [b, (c, d)]) = expr - mixed tuple/list 3-level
             var_x = var_a, [var_b, (var_c, var_d)] = \
                 Expr.int(0), [Expr.int(1), (Expr.int(2), Expr.int(3))]
 
         @TestParser.test
         def assign_chain_starred_nested():
-            # (a, *b, c) = x = expr
+            # e.g. (a, *b, c) = x = expr - chained assignment with a starred unpack target
             var_x = [var_a, var_b, var_c, var_d] = [Expr.int(0), Expr.int(1), Expr.int(2), Expr.int(3)]
             var_a, *var_rest, var_z = var_x = [Expr.int(0), Expr.int(1), Expr.int(2), Expr.int(3)]
 
         @TestParser.test
         def assign_chain_three_nested():
-            # (a, b) = [c, d] = x = expr — three targets, two nested
+            # e.g. (a, b) = [c, d] = x = expr - three targets, two of them are nested
             var_x = [var_c, var_d] = var_a, var_b = [Expr.int(0), Expr.int(1)]
 
 
@@ -497,7 +500,7 @@ def test_pil_parser_aug_assign():
 
         @TestParser.test
         def aug_assign_subscript_attr_chain():
-            # obj[k].val += rhs: subscript then attribute
+            # e.g. obj[k].val += rhs - subscript then attribute cases bound
             var_obj = Expr(0)
             var_obj[0] = Expr(1)
             var_obj[0].val = Expr.int(1)
@@ -505,7 +508,7 @@ def test_pil_parser_aug_assign():
 
         @TestParser.test
         def aug_assign_attr_subscript_attr_subscript():
-            # obj.val[k].val[k] += rhs: four-level chain
+            # e.g. obj.val[k].val[k] += rhs - assignment through a four-level access chain
             var_obj = Expr(0)
             var_obj.val = Expr(1)
             var_obj.val[0] = Expr(2)
@@ -515,14 +518,14 @@ def test_pil_parser_aug_assign():
 
         @TestParser.test
         def aug_assign_subscript_slice():
-            # obj[a:b] += rhs
+            # e.g. obj[a:b] += rhs - augmented assignment on a basic slice
             var_obj = Expr(0)
             var_obj[0:1] = Expr.int(1)
             var_obj[0:1] += Expr.int(2)
 
         @TestParser.test
         def aug_assign_subscript_slice_with_step():
-            # obj[a:b:c] += rhs
+            # e.g. obj[a:b:c] += rhs - augmented assignment on a slice with step
             var_obj = Expr(0)
             var_obj[0:4:2] = Expr.int(1)
             var_obj[0:4:2] += Expr.int(2)
@@ -571,6 +574,7 @@ def test_pil_parser_ann_assign():
 
         @TestParser.test
         def ann_assign_subscript_target_obj_from_call():
+
             def make():
                 return Expr(0)
             make()[0]: Expr.str(0) = Expr.int(1)
@@ -586,6 +590,7 @@ def test_pil_parser_ann_assign():
 
         @TestParser.test
         def ann_assign_subscript_target_obj_and_slice_from_calls():
+
             def make():
                 return Expr(0)
             make()[Expr.int(0)]: Expr.str(1) = Expr.int(2)
@@ -601,6 +606,7 @@ def test_pil_parser_ann_assign():
 
         @TestParser.test
         def ann_assign_subscript_target_obj_call_slice_range():
+
             def make():
                 return Expr(0)
             make()[Expr.int(0):Expr.int(1)]: Expr.str(2) = Expr.int(3)
@@ -610,6 +616,7 @@ def test_pil_parser_ann_assign():
         @TestParser.test
         def ann_assign_binop_annotation():
             var_x: Expr.int(0) + Expr.int(1) = Expr.int(2)
+
 
 def test_pil_parser_delete():
 

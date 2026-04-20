@@ -11,14 +11,51 @@
 
 import ast
 import inspect
+import logging
 import textwrap
 
 import pypto.frontend.parser.pil as pil
 
 
+LOGGER = logging.getLogger(__name__)
+
+
 class Expr:
 
     trace = []
+
+    def __init__(self, value):
+        self._item_dict = {}
+        self._attr_dict = {}
+        self._value = value
+        Expr.trace.append(('init', self._value))
+
+    def __getitem__(self, item):
+        Expr.trace.append(('getitem', self._value, item))
+        return self._item_dict[Expr._normalize_item_key(item)]
+
+    def __setitem__(self, item, value):
+        Expr.trace.append(('setitem', self._value, item, value))
+        self._item_dict[Expr._normalize_item_key(item)] = value
+
+    def __delitem__(self, item):
+        Expr.trace.append(('delitem', self._value, item))
+        del self._item_dict[Expr._normalize_item_key(item)]
+
+    def __eq__(self, other):
+        return (
+            self._attr_dict == other._attr_dict
+            and self._item_dict == other._item_dict
+            and self._value == other._value
+        )
+
+    @property
+    def value(self):
+        return self._value
+
+    @property
+    def attr_dict(self):
+        return self._attr_dict
 
     @staticmethod
     def clear():
@@ -44,64 +81,62 @@ class Expr:
         Expr.trace.append(('int', n))
         return n
 
-    def __init__(self, value):
-        self._item_dict = {}
-        self._attr_dict = {}
-        self._value = value
-        Expr.trace.append(('init', self._value))
 
-    def __getitem__(self, item):
-        Expr.trace.append(('getitem', self._value, item))
-        return self._item_dict[item]
-
-    def __setitem__(self, item, value):
-        Expr.trace.append(('setitem', self._value, item, value))
-        self._item_dict[item] = value
-
-    def __delitem__(self, item):
-        Expr.trace.append(('delitem', self._value, item))
-        del self._item_dict[item]
-
-    def __eq__(self, other):
-        return self._attr_dict == other._attr_dict and self._item_dict == other._item_dict and self._value == other._value
-
-    def decorate(self, n):
+    @staticmethod
+    def decorate(n):
         Expr.trace.append(('decorate', n))
+
         def wrapper(func):
             Expr.trace.append(('decorate.wrapper', n))
             return func
         return wrapper
 
+    @staticmethod
     def attr(method_dict, name):
+
         @property
         def field(self):
-            Expr.trace.append(('getattr', self._value, name))
-            return self._attr_dict[name]
+            Expr.trace.append(('getattr', self.value, name))
+            return self.attr_dict[name]
 
         @field.setter
         def field(self, value):
-            Expr.trace.append(('setattr', self._value, name, value))
-            self._attr_dict[name] = value
+            Expr.trace.append(('setattr', self.value, name, value))
+            self.attr_dict[name] = value
 
         @field.deleter
         def field(self):
-            Expr.trace.append(('delattr', self._value, name))
-            del self._attr_dict[name]
+            Expr.trace.append(('delattr', self.value, name))
+            del self.attr_dict[name]
 
         method_dict[name] = field
 
-    attr(locals(), 'val')
+    @staticmethod
+    def _normalize_item_key(item):
+        if isinstance(item, slice):
+            return ('slice',
+                    Expr._normalize_item_key(item.start),
+                    Expr._normalize_item_key(item.stop),
+                    Expr._normalize_item_key(item.step))
+        if isinstance(item, tuple):
+            return tuple(Expr._normalize_item_key(sub_item) for sub_item in item)
+        return item
+
+    attr.__func__(locals(), 'val')
 
     class ContextManager:
+
         def __init__(self, enter_n=None, exit_n=None, init_n=None):
             self._enter_n = enter_n
             self._exit_n = exit_n
             if init_n is not None:
                 Expr.str(init_n)
+
         def __enter__(self):
             if self._enter_n is not None:
                 Expr.str(self._enter_n)
             return self
+
         def __exit__(self, *a):
             if self._exit_n is not None:
                 Expr.str(self._exit_n)
@@ -110,12 +145,19 @@ class Expr:
             return self._enter_n == other._enter_n and self._exit_n == other._exit_n
 
     class ValueError(Exception):
+
         def __init__(self, value):
+            super().__init__(value)
             Expr.trace.append(('error', value))
             self._value = value
 
         def __eq__(self, other):
             return self._value == other._value
+
+        @property
+        def value(self):
+            return self._value
+
 
     class TypeA(ValueError):
         pass
@@ -125,6 +167,7 @@ class Expr:
 
     class TypeC(ValueError):
         pass
+
 
 class TestParser:
 
@@ -136,25 +179,36 @@ class TestParser:
         TestParser.target_list = []
 
     @staticmethod
-    def test(target):
-        TestParser.target_list.append(target)
-
-    def __enter__(self):
+    def __enter__():
         TestParser.target_list.clear()
 
     def __exit__(self, exc_type, exc, tb):
         self.run()
 
-    def run_ast(self, stmt_list):
+    @staticmethod
+    def test(target):
+        TestParser.target_list.append(target)
+
+    @staticmethod
+    def run_test(global_dict):
+        for test_name in global_dict:
+            if test_name.startswith('test_'):
+                global_dict[test_name]()
+
+    @staticmethod
+    def run_ast(stmt_list):
         Expr.clear()
         src = ast.unparse(stmt_list)
         exec_global = {'Expr': Expr}
         try:
-            print('-' * 100)
-            print(src)
+            LOGGER.debug('%s', '-' * 100)
+            LOGGER.debug('%s', src)
             exec(src, exec_global)
-        except:
-            print('\n'.join([f'{lineno + 1:3d} | {line}' for lineno, line in enumerate(src.strip().split('\n'))]))
+        except Exception:
+            LOGGER.exception(
+                "Failed to exec generated source:\n%s",
+                '\n'.join([f'{lineno + 1:3d} | {line}' for lineno, line in enumerate(src.strip().split('\n'))]),
+            )
             raise
         run_trace = Expr.trace[:]
         run_vardict = {name: value for name, value in exec_global.items() if name.startswith('var_')}
@@ -171,9 +225,3 @@ class TestParser:
 
             assert python_trace == pil_trace, f'{target.__name__}: {python_trace=} {pil_trace=}'
             assert python_vardict == pil_vardict, f'{target.__name__}: {python_vardict=} {pil_vardict=}'
-
-    @staticmethod
-    def run_test(global_dict):
-        for test_name in global_dict:
-            if test_name.startswith('test_'):
-                global_dict[test_name]()
