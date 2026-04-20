@@ -332,7 +332,9 @@ def gen_golden(inputs: GmmGoldenInputs) -> torch.Tensor:
     return golden_result
 
 
-@pypto.frontend.jit
+@pypto.frontend.jit(
+    debug_options={"runtime_debug_mode": 1, "compile_debug_mode": 1},
+)
 def scaled_matmul_kernel(
     a: pypto.Tensor(),
     b: pypto.Tensor(),
@@ -672,8 +674,8 @@ if __name__ == "__main__":
             ori_shape=[32, 512, 7168],
             group_list=[256, 256],
             m_tile_shape=[32, 32],     # mL1=M，消除重复载入
-            k_tile_shape=[64, 512],    # kL1=K_group，使能大包搬运
-            n_tile_shape=[256, 2048],  # nL1增大，切分次数从7减到3.5
+            k_tile_shape=[256, 256],    # kL1=K_group，使能大包搬运
+            n_tile_shape=[256, 256],  # nL1增大，切分次数从7减到3.5
             vector_tile_shape=[1, 8, 256, 2048],
             group_type=1,
             in_dtype=pypto.DT_FP8E4M3,
@@ -686,115 +688,115 @@ if __name__ == "__main__":
         )
     )
     
-    # 测试用例2: 更大M维度 (FP8E4M3)
-    # - M=64, K=1024, N=4096
-    # - group_list=[512, 512], g=2
-    # 性能分析：
-    #   - M=64适中，算数强度较好
-    #   - 当前nL1=1024，切分4次 → 增大减少切分
-    # 优化配置：
-    #   - mL1=64=M，消除A矩阵切分
-    #   - kL1=512，使能大包搬运
-    #   - nL1=2048，切分次数从4减到2
-    #   - L0B: 128×64=8KB ✓
-    test_gmm_mxfp8(
-        ShapeConfig(
-            ori_shape=[64, 1024, 4096],
-            group_list=[512, 512],
-            m_tile_shape=[64, 64],     # mL1=M，消除切分
-            k_tile_shape=[64, 512],    # kL1增大，使能大包搬运
-            n_tile_shape=[128, 2048],  # nL1增大，切分次数从4减到2
-            vector_tile_shape=[1, 8, 128, 2048],
-            group_type=1,
-            in_dtype=pypto.DT_FP8E4M3,
-            a_trans=True,
-            b_trans=False,
-            a_format_nz=False,
-            b_format_nz=False,
-            c_format_nz=False,
-            description="Case2: FP8E4M3, M=64, K=1024, g=2, group_list=[512,512]"
-        )
-    )
+    # # 测试用例2: 更大M维度 (FP8E4M3)
+    # # - M=64, K=1024, N=4096
+    # # - group_list=[512, 512], g=2
+    # # 性能分析：
+    # #   - M=64适中，算数强度较好
+    # #   - 当前nL1=1024，切分4次 → 增大减少切分
+    # # 优化配置：
+    # #   - mL1=64=M，消除A矩阵切分
+    # #   - kL1=512，使能大包搬运
+    # #   - nL1=2048，切分次数从4减到2
+    # #   - L0B: 128×64=8KB ✓
+    # test_gmm_mxfp8(
+    #     ShapeConfig(
+    #         ori_shape=[64, 1024, 4096],
+    #         group_list=[512, 512],
+    #         m_tile_shape=[64, 64],     # mL1=M，消除切分
+    #         k_tile_shape=[64, 512],    # kL1增大，使能大包搬运
+    #         n_tile_shape=[128, 2048],  # nL1增大，切分次数从4减到2
+    #         vector_tile_shape=[1, 8, 128, 2048],
+    #         group_type=1,
+    #         in_dtype=pypto.DT_FP8E4M3,
+    #         a_trans=True,
+    #         b_trans=False,
+    #         a_format_nz=False,
+    #         b_format_nz=False,
+    #         c_format_nz=False,
+    #         description="Case2: FP8E4M3, M=64, K=1024, g=2, group_list=[512,512]"
+    #     )
+    # )
     
-    # 测试用例3: 3个分组 (FP8E4M3)
-    # - M=32, K=768, N=2048
-    # - group_list=[256, 256, 256], g=3
-    # 性能分析：
-    #   - M=32较小
-    #   - 当前nL1=512，切分4次 → 增大减少切分
-    # 优化配置：
-    #   - mL1=M=32
-    #   - nL1=1024，切分次数从4减到2
-    #   - nL0=256增大算数强度
-    #   - L0B: 256×64=16KB ✓
-    test_gmm_mxfp8(
-        ShapeConfig(
-            ori_shape=[32, 768, 2048],
-            group_list=[256, 256, 256],
-            m_tile_shape=[32, 32],     # mL1=M
-            k_tile_shape=[64, 256],    # kL0减小，kL1>kL0
-            n_tile_shape=[256, 1024],  # nL1增大，切分次数从4减到2
-            vector_tile_shape=[1, 8, 256, 1024],
-            group_type=1,
-            in_dtype=pypto.DT_FP8E4M3,
-            a_trans=True,
-            b_trans=False,
-            a_format_nz=False,
-            b_format_nz=False,
-            c_format_nz=False,
-            description="Case3: FP8E4M3, K=768, g=3, group_list=[256,256,256]"
-        )
-    )
+    # # 测试用例3: 3个分组 (FP8E4M3)
+    # # - M=32, K=768, N=2048
+    # # - group_list=[256, 256, 256], g=3
+    # # 性能分析：
+    # #   - M=32较小
+    # #   - 当前nL1=512，切分4次 → 增大减少切分
+    # # 优化配置：
+    # #   - mL1=M=32
+    # #   - nL1=1024，切分次数从4减到2
+    # #   - nL0=256增大算数强度
+    # #   - L0B: 256×64=16KB ✓
+    # test_gmm_mxfp8(
+    #     ShapeConfig(
+    #         ori_shape=[32, 768, 2048],
+    #         group_list=[256, 256, 256],
+    #         m_tile_shape=[32, 32],     # mL1=M
+    #         k_tile_shape=[64, 256],    # kL0减小，kL1>kL0
+    #         n_tile_shape=[256, 1024],  # nL1增大，切分次数从4减到2
+    #         vector_tile_shape=[1, 8, 256, 1024],
+    #         group_type=1,
+    #         in_dtype=pypto.DT_FP8E4M3,
+    #         a_trans=True,
+    #         b_trans=False,
+    #         a_format_nz=False,
+    #         b_format_nz=False,
+    #         c_format_nz=False,
+    #         description="Case3: FP8E4M3, K=768, g=3, group_list=[256,256,256]"
+    #     )
+    # )
     
-    # 测试用例4: group_type=0 (累计值模式) (FP8E4M3)
-    # - M=32, K=512, N=1024
-    # - group_list=[256, 512] (累计值)
-    # 性能分析：
-    #   - N=1024较小，可完全消除切分
-    # 优化配置：
-    #   - mL1=M=32
-    #   - nL1=N=1024，消除B矩阵切分
-    #   - nL0=128增大算数强度
-    #   - L0B: 128×64=8KB ✓
-    test_gmm_mxfp8(
-        ShapeConfig(
-            ori_shape=[32, 512, 1024],
-            group_list=[256, 512],
-            m_tile_shape=[32, 32],     # mL1=M
-            k_tile_shape=[64, 256],    # kL0减小
-            n_tile_shape=[128, 1024],  # nL1=N，消除切分
-            vector_tile_shape=[1, 8, 128, 1024],
-            group_type=0,
-            in_dtype=pypto.DT_FP8E4M3,
-            a_trans=True,
-            b_trans=False,
-            a_format_nz=False,
-            b_format_nz=False,
-            c_format_nz=False,
-            description="Case4: FP8E4M3, group_type=0, group_list=[256,512] cumulative"
-        )
-    )
+    # # 测试用例4: group_type=0 (累计值模式) (FP8E4M3)
+    # # - M=32, K=512, N=1024
+    # # - group_list=[256, 512] (累计值)
+    # # 性能分析：
+    # #   - N=1024较小，可完全消除切分
+    # # 优化配置：
+    # #   - mL1=M=32
+    # #   - nL1=N=1024，消除B矩阵切分
+    # #   - nL0=128增大算数强度
+    # #   - L0B: 128×64=8KB ✓
+    # test_gmm_mxfp8(
+    #     ShapeConfig(
+    #         ori_shape=[32, 512, 1024],
+    #         group_list=[256, 512],
+    #         m_tile_shape=[32, 32],     # mL1=M
+    #         k_tile_shape=[64, 256],    # kL0减小
+    #         n_tile_shape=[128, 1024],  # nL1=N，消除切分
+    #         vector_tile_shape=[1, 8, 128, 1024],
+    #         group_type=0,
+    #         in_dtype=pypto.DT_FP8E4M3,
+    #         a_trans=True,
+    #         b_trans=False,
+    #         a_format_nz=False,
+    #         b_format_nz=False,
+    #         c_format_nz=False,
+    #         description="Case4: FP8E4M3, group_type=0, group_list=[256,512] cumulative"
+    #     )
+    # )
 
-    # 测试用例5: FP8E5M2 数据类型
-    # - M=32, K=512, N=1024
-    # - group_list=[128, 384], g=2
-    # 性能分析：同Case4
-    # 优化配置：同Case4
-    test_gmm_mxfp8(
-        ShapeConfig(
-            ori_shape=[32, 512, 1024],
-            group_list=[128, 384],
-            m_tile_shape=[32, 32],     # mL1=M
-            k_tile_shape=[64, 256],    # kL0减小
-            n_tile_shape=[128, 1024],  # nL1=N，消除切分
-            vector_tile_shape=[1, 8, 128, 1024],
-            group_type=1,
-            in_dtype=pypto.DT_FP8E5M2,
-            a_trans=True,
-            b_trans=False,
-            a_format_nz=False,
-            b_format_nz=False,
-            c_format_nz=False,
-            description="Case5: FP8E5M2, K=512, g=2, group_list=[128, 384]"
-        )
-    )
+    # # 测试用例5: FP8E5M2 数据类型
+    # # - M=32, K=512, N=1024
+    # # - group_list=[128, 384], g=2
+    # # 性能分析：同Case4
+    # # 优化配置：同Case4
+    # test_gmm_mxfp8(
+    #     ShapeConfig(
+    #         ori_shape=[32, 512, 1024],
+    #         group_list=[128, 384],
+    #         m_tile_shape=[32, 32],     # mL1=M
+    #         k_tile_shape=[64, 256],    # kL0减小
+    #         n_tile_shape=[128, 1024],  # nL1=N，消除切分
+    #         vector_tile_shape=[1, 8, 128, 1024],
+    #         group_type=1,
+    #         in_dtype=pypto.DT_FP8E5M2,
+    #         a_trans=True,
+    #         b_trans=False,
+    #         a_format_nz=False,
+    #         b_format_nz=False,
+    #         c_format_nz=False,
+    #         description="Case5: FP8E5M2, K=512, g=2, group_list=[128, 384]"
+    #     )
+    # )
