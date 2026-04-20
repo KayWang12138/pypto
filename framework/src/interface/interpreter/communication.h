@@ -140,23 +140,24 @@ private:
     std::mutex allocMutex_;
     std::unordered_map<int, std::unique_ptr<RemoteRank>> remoteRanks_;
     
-    // struct WaitTask {
-    //     uint64_t taskId;
-    //     int srcRank;
-    //     int expect;
-    //     size_t slotSize;
-    //     uint64_t offset;
-    //     bool reset;
-    //     std::promise<void> promise;
-    // };
+    struct WaitTask {
+        uint64_t taskId;
+        int srcRank;
+        int expect;
+        size_t slotSize;
+        uint64_t offset;
+        bool reset;
+        std::promise<void> promise;
+    };
     
-    // std::thread waitWorkerThread_;
-    // std::mutex waitTaskMutex_;
-    // std::condition_variable waitTaskCV_;
-    // std::queue<WaitTask> waitTaskQueue_;
-    // bool waitWorkerWait_ = false;
-    // bool waitWorkerStop_ = false;
-    // std::atomic<uint64_t> nextTaskId_{0};
+    std::thread waitWorkerThread_;
+    std::mutex waitTaskMutex_;
+    std::condition_variable waitTaskCV_;
+    std::queue<WaitTask> waitTaskQueue_;
+    bool waitWorkerWait_ = false;
+    bool waitWorkerStop_ = false;
+    std::atomic<uint64_t> nextTaskId_{0};
+    std::unordered_map<Operation*, std::shared_future<void>> waitTaskFutures_;
 };
 
 class SimulationCommManager {
@@ -172,9 +173,8 @@ public:
     std::shared_ptr<SimulationCommContext> GetCommContext(const std::string &groupName);
     static std::string GetHandler(const std::string &groupName, int rank, bool isSignal, uint32_t round);
     
-    // static void RegisterWaitTask(Operation* op, std::shared_ptr<SimulationCommContext> context, uint64_t taskId);
-    // static std::future<void>* GetWaitTaskFuture(Operation* op);
-    // static void ClearWaitTasks();
+    static void RegisterWaitTask(Operation* op, std::shared_ptr<SimulationCommContext> context, uint64_t taskId);
+    static std::future<void>* GetWaitTaskFuture(Operation* op);
 private:
     SimulationCommManager() = default;
     ~SimulationCommManager() = default;
@@ -183,8 +183,8 @@ private:
     std::unordered_map<std::string, std::shared_ptr<SimulationCommContext>> contexts_;
     std::mutex mutex_;
     
-    // static std::unordered_map<Operation*, std::pair<std::shared_ptr<SimulationCommContext>, uint64_t>> waitTaskMap_;
-    // static std::unordered_map<Operation*, std::future<void>> waitTaskFutures_;
-    // static std::mutex waitTaskMutex_;
+    static std::unordered_map<Operation*, std::pair<std::shared_ptr<SimulationCommContext>, uint64_t>> waitTaskMap_;
+    static std::unordered_map<Operation*, std::future<void>> waitTaskFutures_;
+    static std::mutex waitTaskMutex_;
 };
 }  // namespace npu::tile_fwk
