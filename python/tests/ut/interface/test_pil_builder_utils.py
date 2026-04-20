@@ -11,9 +11,13 @@
 
 import ast
 import inspect
+import logging
 import textwrap
 
 import pypto.frontend.parser.pil as pil
+
+
+LOGGER = logging.getLogger(__name__)
 
 
 class Expr:
@@ -147,12 +151,13 @@ class Expr:
             Expr.trace.append(('error', value))
             self._value = value
 
+        def __eq__(self, other):
+            return self._value == other._value
+
         @property
         def value(self):
             return self._value
 
-        def __eq__(self, other):
-            return self._value == other._value
 
     class TypeA(ValueError):
         pass
@@ -196,11 +201,14 @@ class TestParser:
         src = ast.unparse(stmt_list)
         exec_global = {'Expr': Expr}
         try:
-            print('-' * 100)
-            print(src)
+            LOGGER.debug('%s', '-' * 100)
+            LOGGER.debug('%s', src)
             exec(src, exec_global)
-        except:
-            print('\n'.join([f'{lineno + 1:3d} | {line}' for lineno, line in enumerate(src.strip().split('\n'))]))
+        except Exception:
+            LOGGER.exception(
+                "Failed to exec generated source:\n%s",
+                '\n'.join([f'{lineno + 1:3d} | {line}' for lineno, line in enumerate(src.strip().split('\n'))]),
+            )
             raise
         run_trace = Expr.trace[:]
         run_vardict = {name: value for name, value in exec_global.items() if name.startswith('var_')}
