@@ -13,11 +13,10 @@
  * \brief
  */
 
-#include "schema.h"
-
+#include "interface/schema/schema.h"
 #include <vector>
-
 #include "tilefwk/error.h"
+#include "interface/utils/function_error.h"
 
 namespace npu::tile_fwk::schema {
 
@@ -118,11 +117,11 @@ struct Parser {
                     break;
                 } else {
                     // invalid format
-                    ASSERT(false);
+                    ASSERT(FError::INVALID_VAL, false);
                 }
             }
         } else {
-            ASSERT(Current().Kind() == Token::id);
+            ASSERT(FError::INVALID_VAL, Current().Kind() == Token::id);
             curr = std::make_shared<SchemaNode>(Current().Text());
             MoveNext();
             if (Current().Kind() == '{') {
@@ -137,14 +136,14 @@ struct Parser {
                         break;
                     } else {
                         // invalid format
-                        ASSERT(false);
+                        ASSERT(FError::INVALID_VAL, false);
                     }
                 }
             } else if (Current().Kind() == ',' || Current().Kind() == ']' || Current().Kind() == '}') {
                 // only id
             } else {
                 // invalid format
-                ASSERT(false);
+                ASSERT(FError::INVALID_VAL, false);
             }
         }
         return curr;
@@ -162,7 +161,7 @@ struct Parser {
             if (!Accessible()) {
                 break;
             }
-            ASSERT(Current().Kind() == '#');
+            ASSERT(FError::INVALID_VAL, Current().Kind() == '#');
             MoveNext();
             nodeList.push_back(ParseNode());
         }
