@@ -35,6 +35,7 @@ _device_fini = pypto_impl.DeviceFini
 class RunMode(IntEnum):
     NPU = 0
     SIM = 1
+    Torch = 2
 
 
 class _CachedVerifyData:
