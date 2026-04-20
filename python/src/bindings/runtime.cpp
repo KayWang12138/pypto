@@ -256,7 +256,7 @@ std::string OperatorDeviceRunOnceDataFromDevice(
     if (config::GetDebugOption<int>(CFG_RUNTIME_DBEUG_MODE) == 1) {
         DeviceLauncherConfig config;
         DeviceLauncher::DeviceLauncherConfigFillDeviceInfo(config);
-        if (EmulationLauncher::EmulationLaunchDeviceTensorData(func, inputs, outputs, config) != 0) {
+        if (EmulationLauncher::EmulationLaunchDeviceTensorData(func, inputs, outputs, config, nullptr) != 0) {
             return "emulation run failed";
         }
     }
@@ -755,15 +755,27 @@ public:
         ASSERT(ret == RT_SUCCESS) << "launch aicore failed: " << ret;
     }
 
-    void EmulationLaunch(KernelBinary* kernel, std::vector<DeviceTensorData>& tensors)
+    void EmulationLaunch(KernelBinary* kernel, std::vector<DeviceTensorData>& tensors, uint8_t* devCache)
     {
         if (!isDebugMode) {
             return;
         }
-
         DeviceLauncherConfig config;
         DeviceLauncher::DeviceLauncherConfigFillDeviceInfo(config);
-        int ret = EmulationLauncher::EmulationLaunchDeviceTensorData(kernel->GetFunction(), tensors, {}, config);
+        DevControlFlowCache* ctrlCache = nullptr;
+        std::vector<uint8_t> hostCacheVec;
+        if (devCache != nullptr) {
+            auto devProg =
+                reinterpret_cast<DevAscendProgram*>(kernel->GetFunction()->GetDyndevAttribute()->devProgBinary.data());
+            size_t ctrlCacheSize = devProg->ctrlFlowCacheSize;
+            hostCacheVec.resize(ctrlCacheSize);
+            if (RuntimeMemcpy(hostCacheVec.data(), ctrlCacheSize, devCache, ctrlCacheSize, RtMemcpyKind::DEVICE_TO_HOST) != RT_SUCCESS) {
+                COMPILER_LOGE("RuntimeMemcpy cache failed!");
+                return;
+            }
+            ctrlCache = reinterpret_cast<DevControlFlowCache*>(hostCacheVec.data());
+        }
+        int ret = EmulationLauncher::EmulationLaunchDeviceTensorData(kernel->GetFunction(), tensors, {}, config, ctrlCache);
         ASSERT(ret == RT_SUCCESS) << "emulation run failed: " << ret;
     }
 
@@ -979,7 +991,6 @@ private:
             kmodule->EslModelLaunch(kbinary, tensors);
             return;
         }
-        kmodule->EmulationLaunch(kbinary, tensors);
 
         int64_t* wsAddr = nullptr;
         int64_t wsSize = kmodule->GetWorkspaceSize(kbinary, tensors);
@@ -997,6 +1008,8 @@ private:
 
         uint8_t* ctrlFlowCache = kmodule->FindCtrlFlowCache(kbinary, module, tensors);
         HOST_PERF_TRACE(TracePhase::FindCtrlFlowCache);
+
+        kmodule->EmulationLaunch(kbinary, tensors, ctrlFlowCache);
 
         kmodule->Launch(kbinary, aicoreStream, tensors, ctrlFlowCache, wsAddr);
         HOST_PERF_TRACE(TracePhase::Launch);
