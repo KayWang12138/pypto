@@ -22,20 +22,36 @@ import numpy as np
 import torch
 
 # PyPTO 数据类型映射
+# 参考：tools/verifier/parse_dump_tensors.py 和 docs/api/datatype/DataType.md
 DTYPE_MAP = {
-    1: ('int8', np.int8, 1),
-    2: ('int16', np.int16, 2),
-    3: ('int32', np.int32, 4),
-    4: ('int64', np.int64, 8),
-    5: ('fp8', np.uint8, 1),
-    6: ('fp16', np.float16, 2),
-    7: ('fp32', np.float32, 4),
-    8: ('bf16', np.uint16, 2),
+    0: ('int4', torch.int8, 1),            # DT_INT4: 4位有符号整数，存储为int8
+    1: ('int8', torch.int8, 1),            # DT_INT8: 8位有符号整数
+    2: ('int16', torch.int16, 2),          # DT_INT16: 16位有符号整数
+    3: ('int32', torch.int32, 4),          # DT_INT32: 32位有符号整数
+    4: ('int64', torch.int64, 8),          # DT_INT64: 64位有符号整数
+    5: ('fp8', torch.float8_e4m3fn, 1),    # DT_FP8: 8位浮点数（通用）
+    6: ('fp16', torch.float16, 2),         # DT_FP16: 16位半精度浮点数
+    7: ('fp32', torch.float32, 4),         # DT_FP32: 32位单精度浮点数
+    8: ('bf16', torch.bfloat16, 2),        # DT_BF16: 16位Brain Float格式
+    9: ('hf4', torch.uint8, 1),            # DT_HF4: 4位Half Float格式，原始字节存储
+    10: ('hf8', torch.uint8, 1),           # DT_HF8: 8位Half Float格式，原始字节存储
+    11: ('uint8', torch.uint8, 1),         # DT_UINT8: 8位无符号整数
+    12: ('uint16', torch.uint16, 2),       # DT_UINT16: 16位无符号整数
+    13: ('uint32', torch.uint32, 4),       # DT_UINT32: 32位无符号整数
+    14: ('uint64', torch.uint64, 8),       # DT_UINT64: 64位无符号整数
+    15: ('bool', torch.bool, 1),           # DT_BOOL: 布尔类型
+    16: ('double', torch.float64, 8),      # DT_DOUBLE: 64位双精度浮点数
+    17: ('fp8_e4m3', torch.float8_e4m3fn, 1),  # DT_FP8E4M3: 8位浮点数，4位指数，3位尾数
+    18: ('fp8_e5m2', torch.float8_e5m2, 1),    # DT_FP8E5M2: 8位浮点数，5位指数，2位尾数
+    19: ('fp8_e8m0', torch.uint8, 1),          # DT_FP8E8M0: 8位浮点数，8位指数，0位尾数（scale专用）
+    20: ('fp4_e2m1x2', torch.uint8, 1),        # DT_FP4_E2M1X2: 4位浮点数，2位指数，1位尾数，x2打包
+    21: ('fp4_e1m2x2', torch.uint8, 1),        # DT_FP4_E1M2X2: 4位浮点数，1位指数，2位尾数，x2打包
 }
 
 # 容差标准映射表（基于 PyPTO 代码库实践）
 # 参考：verify.md、examples、models 中的实际使用标准
 TOLERANCE_MAP = {
+    0: (0, 0),         # INT4:  整数类型，严格匹配
     1: (0, 0),         # INT8:  整数类型，严格匹配
     2: (0, 0),         # INT16: 整数类型，严格匹配
     3: (0, 0),         # INT32: 整数类型，严格匹配
@@ -44,6 +60,19 @@ TOLERANCE_MAP = {
     6: (1e-3, 1e-3),   # FP16: 半精度浮点，mantissa=10bits
     7: (1e-3, 1e-4),   # FP32: 单精度浮点，高精度基准
     8: (5e-3, 5e-2),   # BF16: BFloat16，mantissa=7bits，广泛使用于attention
+    9: (1e-1, 1e-2),   # HF4:  4位Half Float，低精度量化
+    10: (1e-1, 1e-2),  # HF8:  8位Half Float，低精度量化
+    11: (0, 0),        # UINT8:  无符号整数，严格匹配
+    12: (0, 0),        # UINT16: 无符号整数，严格匹配
+    13: (0, 0),        # UINT32: 无符号整数，严格匹配
+    14: (0, 0),        # UINT64: 无符号整数，严格匹配
+    15: (0, 0),        # BOOL:   布尔类型，严格匹配
+    16: (1e-6, 1e-6),  # DOUBLE: 64位双精度浮点，高精度
+    17: (1e-1, 1e-2),  # FP8E4M3: 8位浮点(4位指数,3位尾数)，量化场景
+    18: (1e-1, 1e-2),  # FP8E5M2: 8位浮点(5位指数,2位尾数)，量化场景
+    19: (1e-1, 1e-2),  # FP8E8M0: 8位浮点(8位指数,0位尾数)，MXFP8 scale
+    20: (1e-1, 1e-2),  # FP4_E2M1X2: 4位浮点(2位指数,1位尾数)，量化场景
+    21: (1e-1, 1e-2),  # FP4_E1M2X2: 4位浮点(1位指数,2位尾数)，量化场景
 }
 
 # 初始化日志
@@ -121,27 +150,10 @@ def read_jit_data(filename):
         logger.warning(f"  警告: 未知的数据类型 {dtype}")
         return None, None
 
-    type_name, np_dtype, bytes_per_element = DTYPE_MAP[dtype]
+    type_name, torch_dtype, bytes_per_element = DTYPE_MAP[dtype]
 
     data_bytes = np.fromfile(filename, dtype=np.uint8)
-    
-    if type_name == 'bf16':
-        data_tensor = torch.frombuffer(data_bytes.tobytes(), dtype=torch.bfloat16)
-    elif type_name == 'fp16':
-        data_tensor = torch.frombuffer(data_bytes.tobytes(), dtype=torch.float16)
-    elif type_name == 'fp32':
-        data_tensor = torch.frombuffer(data_bytes.tobytes(), dtype=torch.float32)
-    elif type_name == 'int32':
-        data_tensor = torch.frombuffer(data_bytes.tobytes(), dtype=torch.int32)
-    elif type_name == 'int64':
-        data_tensor = torch.frombuffer(data_bytes.tobytes(), dtype=torch.int64)
-    elif type_name == 'int8':
-        data_tensor = torch.frombuffer(data_bytes.tobytes(), dtype=torch.int8)
-    elif type_name == 'int16':
-        data_tensor = torch.frombuffer(data_bytes.tobytes(), dtype=torch.int16)
-    else:
-        logger.warning(f"  警告: 数据类型 {type_name} (dtype={dtype}) 暂不支持")
-        return None, None
+    data_tensor = torch.frombuffer(data_bytes.tobytes(), dtype=torch_dtype)
     
     if shape is not None:
         data_tensor = data_tensor.reshape(shape)
