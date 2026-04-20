@@ -62,6 +62,9 @@ enum class DevCommonErr : uint32_t {
     GET_ENV_FAILED = ToUnderlying(MachineError::DEV_COMMON) + 0x09U,     // 获取环境变量路径失败
     GET_HANDLE_FAILED = ToUnderlying(MachineError::DEV_COMMON) + 0x0AU,  // 获取句柄失败
     FREE_FAILED = ToUnderlying(MachineError::DEV_COMMON) + 0x0BU,        // 释放失败
+    LOAD_LIBRARY_FAILED = ToUnderlying(MachineError::DEV_COMMON) + 0x0CU, //dlopen so 失败
+    INIT_FAILED = ToUnderlying(MachineError::DEV_COMMON) + 0x0DU,         // 初始化失败
+    EXEC_THRID_API_FAILD = ToUnderlying(MachineError::DEV_COMMON) + 0x0EU,         // 初始化失败
 };
 
 enum class HostBackEndErr : uint32_t {

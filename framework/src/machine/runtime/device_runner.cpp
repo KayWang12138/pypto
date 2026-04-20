@@ -146,14 +146,15 @@ void DeviceRunner::GetModuleLogLevel(DeviceArgs& args)
     }
     DevDfxArgs devDfxArg;
     devDfxArg.logLevel = logLevel;
+    devDfxArg.deviceId = GetLogDeviceId();
+    devDfxArg.hostPid = getpid();
     if (enableDumpMachinePerfTrace_) {
         devDfxArg.isOpenPerfTrace = 1;
     }
-    MACHINE_LOGI("Get PYPTO log level is: %d, openSwimLevel: %d", logLevel, devDfxArg.isOpenPerfTrace);
+    MACHINE_LOGI("Get PYPTO dfxAddr: %lu log level is: %d, openPerTrace: %d, deviceId: %u, pid: %lu\n", args_.devDfxArgAddr,
+         logLevel, devDfxArg.isOpenPerfTrace, devDfxArg.deviceId, devDfxArg.hostPid);
     auto size = sizeof(DevDfxArgs);
-    args.devDfxArgAddr = args_.devDfxArgAddr;
-    auto ret = RuntimeMemcpy(reinterpret_cast<void*>(args.devDfxArgAddr), size, &devDfxArg, size,
-                             RtMemcpyKind::HOST_TO_DEVICE);
+    auto ret = RuntimeMemcpy(reinterpret_cast<void*>(args.devDfxArgAddr), size, &devDfxArg, size, RtMemcpyKind::HOST_TO_DEVICE);
     if (ret != 0) {
         MACHINE_LOGW("rtmemcpy failed, so couldn't get device log");
     }
@@ -204,7 +205,7 @@ void DeviceRunner::InitMetaData(DeviceArgs& devArgs)
     devArgs.taskWastTime = args_.taskWastTime;
     devArgs.pmuEventAddr = args_.pmuEventAddr;
     devArgs.aicpuPerfAddr = args_.aicpuPerfAddr;
-    GetModuleLogLevel(devArgs);
+    devArgs.devDfxArgAddr = args_.devDfxArgAddr;
 }
 
 int DeviceRunner::InitDeviceArgsCore(
@@ -252,6 +253,7 @@ int DeviceRunner::InitDeviceArgsCore(
         "aic %u aiv %u  blockDim_ %d sharedBuffer %lx coreRegAddr %lx corePmuRegAddr %lx\n", args.nrAic, args.nrAiv,
         blockDim_, args.sharedBuffer, args.coreRegAddr, args.corePmuRegAddr);
     InitDynamicArgs(args);
+    GetModuleLogLevel(args);
     return 0;
 }
 
