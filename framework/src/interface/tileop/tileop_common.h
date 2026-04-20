@@ -21,7 +21,7 @@
 #endif
 
 #ifndef __aicore__
-#define __aicore__ [aicore]
+#define __aicore__
 #endif
 
 #ifndef __aicore_host__
