@@ -6,7 +6,7 @@
 
 外层包装层, 把四件事串起来:
 
-> 当前这套 benchmark 验证编排逻辑从 akg agent 仓迁移而来, 现在以
+> 当前这套 benchmark 验证编排逻辑以
 > `pypto/integration/benchmark/` 的自包含目录继续维护.
 
 1. **输入**: 上游 KernelBench 用例 (`Model(nn.Module) + get_inputs + get_init_inputs`)
@@ -96,7 +96,7 @@ KERNELBENCH_DIR=/data/KernelBench \
 ```bash
 # 1. 已安装 pypto (可正常 import)
 # 2. 已安装 opencode CLI (which opencode)
-# 3. 已配置 LLM 用 settings (~/.akg/settings.json), 因为 pypto agent 真跑 LLM
+# 3. 已配置可用的 LLM / opencode 运行环境, 因为 pypto agent 真跑 LLM
 # 4. 已设置 NPU 环境 (CANN, torch_npu, TILE_FWK_DEVICE_ID 等)
 # 5. 已下载上游 KernelBench (固定在 commit 21fbe5a):
 bash pypto/integration/benchmark/scripts/download_kernelbench.sh
@@ -365,7 +365,7 @@ pypto/.opencode/
 - **`level_dir 下没有扁平 .py 文件`**: 检查 `--bench-dir` 是否指到了
   `KernelBench/KernelBench/` 这一层 (而不是外层 `KernelBench/` 仓根).
 - **opencode 子进程超时**: 加大 `--timeout-sec` (pypto 生成) 或 `--skill-timeout` (validator);
-  或检查 `~/.akg/settings.json` 的 LLM 配额.
+  或检查当前机器上的 LLM / opencode 配置是否可用.
 - **pypto 产物缺失**: 看 `<report-dir>/<op>/pypto_run.log`, 通常是 SPEC 推导有误或 pypto 编译环境异常.
 - **`opencode 可执行未找到`** (verifier_mode=opencode): 装 opencode CLI, 或临时
   `--verifier-mode direct` 跳过 LLM 语义层.
