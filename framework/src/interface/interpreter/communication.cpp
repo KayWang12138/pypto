@@ -169,13 +169,14 @@ void SimulationCommContext::PreAlloc(bool isSignal) {
     std::cout << "round " << round_ << " prealloc for " << handler << std::endl;
 }
 
-RawTensorDataPtr SimulationCommContext::Alloc(size_t slotSize) {
+RawTensorDataPtr SimulationCommContext::Alloc(DataType dataType, const Shape& shape) {
     std::lock_guard<std::mutex> lock(allocMutex_);
 
     if (!allocatedData_) {
         throw std::runtime_error("data area not pre-allocated!");
     }
 
+    size_t slotSize = BytesOf(dataType) * std::accumulate(shape.begin(), shape.end(), 1, std::multiplies<size_t>());
     size_t beforeSize = dataShmSize_.load();
     size_t shmSize = beforeSize + slotSize;
     if (shmSize > WIN_IN_SIZE) {
@@ -184,14 +185,15 @@ RawTensorDataPtr SimulationCommContext::Alloc(size_t slotSize) {
     dataShmSize_.store(shmSize);
     std::cout << "round " << round_ << " alloc " << slotSize << "B for rank " << rank_ << std::endl;
 
-    return RawTensorData::CreateTensor(DT_UINT8, {1, static_cast<int64_t>(slotSize)}, dataBase_ + slotSize);
+    return RawTensorData::CreateTensor(dataType, shape, dataBase_ + slotSize);
 }
 
-RawTensorDataPtr SimulationCommContext::AllocSignal(size_t slotSize) {
+RawTensorDataPtr SimulationCommContext::AllocSignal(DataType dataType, const Shape& shape) {
     std::lock_guard<std::mutex> lock(allocMutex_);
     if (!allocatedSignal_) {
         throw std::runtime_error("signal area not pre-allocated!");
     }
+    size_t slotSize = BytesOf(dataType) * std::accumulate(shape.begin(), shape.end(), 1, std::multiplies<size_t>());
 
     size_t beforeSize = ctrlShmSize_.load();
     size_t shmSize = beforeSize + slotSize;
@@ -201,7 +203,7 @@ RawTensorDataPtr SimulationCommContext::AllocSignal(size_t slotSize) {
     ctrlShmSize_.store(shmSize);
     std::cout << "round " << round_ << " allocSignal " << slotSize << "B for rank " << rank_ << std::endl;
 
-    return RawTensorData::CreateTensor(DT_UINT8, {1, static_cast<int64_t>(slotSize)}, ctrlBase_ + slotSize);
+    return RawTensorData::CreateTensor(dataType, shape, ctrlBase_ + slotSize);
 }
 
 uint8_t *SimulationCommContext::GetRemoteRank(int dstRank, bool isSignal) {
@@ -549,17 +551,17 @@ void SimulationCommManager::ClearWaitTasks() {
 }
 
 /* Alloc a new tensor in WIN area, and record the offset.*/
-RawTensorDataPtr SimulationCommManager::Alloc(const std::string &groupName, size_t slotSize) {
+RawTensorDataPtr SimulationCommManager::Alloc(const std::string &groupName, DataType dataType, const Shape& shape) {
     std::lock_guard<std::mutex> lock(mutex_);
     auto it = contexts_.find(groupName);
     if (it == contexts_.end()) {
         throw std::runtime_error("SimulationCommContext for group " + groupName + " not found!");
     }
-    auto result = it->second->Alloc(slotSize);
+    auto result = it->second->Alloc(dataType, shape);
     return result;
 }
 
-RawTensorDataPtr SimulationCommManager::AllocSignal(const std::string &groupName, size_t slotSize) {
+RawTensorDataPtr SimulationCommManager::AllocSignal(const std::string &groupName, DataType dataType, const Shape& shape) {
     std::lock_guard<std::mutex> lock(mutex_);
 
     auto it = contexts_.find(groupName);
