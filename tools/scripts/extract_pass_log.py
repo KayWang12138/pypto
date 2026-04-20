@@ -184,7 +184,7 @@ def main():
     
     if not log_files:
         if not silent_mode:
-            print("WARN: No log has been found.")
+            sys.exit("Error, no log has been found.")
         return
     
     log_files.sort()
