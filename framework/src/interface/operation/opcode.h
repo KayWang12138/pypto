@@ -171,6 +171,7 @@ enum class Opcode {
     OP_BITWISEXOR,
     OP_FLOORDIV,
     OP_FLOORDIVS,
+    OP_AXPY,
 
     // Cube
     OP_A_MUL_B,
@@ -927,9 +928,8 @@ const std::unordered_set<Opcode> UNSUPPORT_BF16_OPS{
     Opcode::OP_ROWARGMAXLINE,
     Opcode::OP_ROWPRODLINE,
     Opcode::OP_FLOORDIV,
-    Opcode::OP_FLOORDIVS,
-    Opcode::OP_SINH,
-    Opcode::OP_COSH};
+    Opcode::OP_AXPY,
+    Opcode::OP_FLOORDIVS};
 
 const std::unordered_set<Opcode> UNSUPPORT_BF16_ARCH35_OPS{
     Opcode::OP_INDEX_ADD,
