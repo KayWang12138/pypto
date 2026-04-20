@@ -45,6 +45,14 @@ class Expr:
             and self._value == other._value
         )
 
+    @property
+    def value(self):
+        return self._value
+
+    @property
+    def attr_dict(self):
+        return self._attr_dict
+
     @staticmethod
     def clear():
         Expr.trace.clear()
@@ -84,18 +92,18 @@ class Expr:
 
         @property
         def field(self):
-            Expr.trace.append(('getattr', self._value, name))
-            return self._attr_dict[name]
+            Expr.trace.append(('getattr', self.value, name))
+            return self.attr_dict[name]
 
         @field.setter
         def field(self, value):
-            Expr.trace.append(('setattr', self._value, name, value))
-            self._attr_dict[name] = value
+            Expr.trace.append(('setattr', self.value, name, value))
+            self.attr_dict[name] = value
 
         @field.deleter
         def field(self):
-            Expr.trace.append(('delattr', self._value, name))
-            del self._attr_dict[name]
+            Expr.trace.append(('delattr', self.value, name))
+            del self.attr_dict[name]
 
         method_dict[name] = field
 
@@ -138,6 +146,10 @@ class Expr:
             super().__init__(value)
             Expr.trace.append(('error', value))
             self._value = value
+
+        @property
+        def value(self):
+            return self._value
 
         def __eq__(self, other):
             return self._value == other._value

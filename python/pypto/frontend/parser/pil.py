@@ -106,6 +106,10 @@ class PILContext:
         self._temp_count = 0
         self._prefix = prefix
 
+    @property
+    def continue_stack(self) -> list[Optional[tuple[ast.expr, str]]]:
+        return self._continue_stack
+
     def create_temp_identifier(self, *_args, **_kwargs) -> str:
         name = f"{self._prefix}{self._temp_count}"
         self._temp_count += 1
@@ -145,9 +149,10 @@ class PILBuilder(ast.NodeVisitor):
         if ctx is None:
             ctx = PILContext()
         self._ctx = ctx
+
     @property
     def continue_stack(self) -> list[Optional[tuple[ast.expr, str]]]:
-        return self._ctx._continue_stack
+        return self._ctx.continue_stack
 
     def create_temp_identifier(self) -> str:
         return self._ctx.create_temp_identifier()
