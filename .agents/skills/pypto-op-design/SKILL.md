@@ -1,6 +1,6 @@
 ---
 name: pypto-op-design
-description: "当需要设计 PyPTO 算子实现方案时使用此 skill。基于算子规格与相关上下文，生成 DESIGN.md（含 API 映射、Tiling 策略、Loop 结构）。Triggers: 生成设计方案、生成 design、设计这个算子、写 DESIGN.md、算子设计、API 映射、Tiling 策略、tiling strategy、Loop 结构、数据切分、怎么切分数据、怎么做 tiling、设计文档、实现方案。"
+description: 当需要设计 PyPTO 算子实现方案时使用。通过迭代式约束收敛，生成 DESIGN.md（含 API 映射、精度路由、Tiling 推导、Loop 结构设计）。触发词：生成设计方案、生成 design、设计方案、写 DESIGN.md、算子设计、API 映射、Tiling 策略、tiling 推导、Loop 结构、数据流设计、精度路由。
 ---
 
 # PyPTO 算子设计方案生成
