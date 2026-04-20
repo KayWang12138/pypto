@@ -1123,7 +1123,7 @@ struct FunctionInterpreter {
             if (op.GetOpcode() != Opcode::OP_SHMEM_WAIT_UNTIL) {
                 continue;
             }
-            LogicalTensors dependencyOperands = op.GetDependOperands();
+            LogicalTensors dependencyOperands = op.GetOOperands();
             for (auto& depend : dependencyOperands) {
                 for (auto& consumer : depend->GetConsumers()) {
                     waitDependencies_[consumer] = &op;
