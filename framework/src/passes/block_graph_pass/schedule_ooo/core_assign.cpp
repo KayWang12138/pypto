@@ -763,13 +763,44 @@ inline bool IsFromAIVToAIC(Operation* op)
     return true;
 }
 
+// 反向DFS查找产出指定MemoryType tensor的前驱op
+void TaskSpliter::ReverseDFSFindByOutputMemType(int opIdx, MemoryType targetMemType, std::vector<int>& result, std::vector<bool>& visited)
+{
+    if (visited[opIdx]) {
+        return;
+    }
+    visited[opIdx] = true;
+    for (auto& oop : opList_[opIdx]->GetOOperands()) {
+        if (oop->GetMemoryTypeToBe() == targetMemType) {
+            result.push_back(opIdx);
+            return;
+        }
+    }
+    for (auto& iop : opList_[opIdx]->GetIOperands()) {
+        for (auto& producerOp : iop->GetProducers()) {
+            if (opMagicToIdx_.count(producerOp->GetOpMagic()) == 0) {
+                continue;
+            }
+            int producerIdx = opMagicToIdx_[producerOp->GetOpMagic()];
+            ReverseDFSFindByOutputMemType(producerIdx, targetMemType, result, visited);
+        }
+    }
+}
+
 // 根据op的CoreType构建连通集
 int TaskSpliter::BuildCluster(std::vector<int>& clusterIds, std::vector<ScheduleCoreType>& clusterCoreTypes)
 {
     DSUWithOrder dsu(opList_.size());
     for (size_t idx = 0; idx < opOutGraph_.size(); idx++) {
+        // 判断后接 tensor 为 L1 且存在多个消费者时，不进行 union
+        bool skip = false;
+        if (opList_[idx]->GetOutputOperand(0)->GetMemoryTypeOriginal() == MemoryType::MEM_L1 &&
+            ((opList_[idx]->GetOpcodeStr().find("L1_ALLOC") != std::string::npos && opOutGraph_[idx].size() > 2) ||
+            (opList_[idx]->GetOpcodeStr().find("L1_ALLOC") == std::string::npos && opOutGraph_[idx].size() > 1))) {
+            skip = true;
+        }
         for (int nextOpIdx : opOutGraph_[idx]) {
-            if (opCoreTypes_[idx] == opCoreTypes_[nextOpIdx]) {
+            if (opCoreTypes_[idx] == opCoreTypes_[nextOpIdx] && !skip && opList_[nextOpIdx]->GetOpcodeStr().find("L1_TO_L0") == std::string::npos) {
                 dsu.Union(idx, nextOpIdx);
             }
         }
@@ -781,6 +812,34 @@ int TaskSpliter::BuildCluster(std::vector<int>& clusterIds, std::vector<Schedule
         if (IsFromAICToAIV(opList_[idx]) || IsFromAIVToAIC(opList_[idx])) {
             for (int nextOpIdx : opOutGraph_[idx]) {
                 dsu.Union(nextOpIdx, *opOutGraph_[idx].begin());
+            }
+        }
+    }
+    // 对输入tensor为L0C的非alloc op，反向DFS找L1_COPY_IN，未与L1_TO_L0 union的则union到当前L0C集合
+    for (size_t idx = 0; idx < opList_.size(); idx++) {
+        if (opList_[idx]->GetOpcodeStr().find("ALLOC") == std::string::npos && opList_[idx]->GetInputOperand(0)->GetMemoryTypeOriginal() == MemoryType::MEM_L0C) {
+            continue;
+        }
+        std::vector<int> l1CopyInOps;
+        std::vector<bool> visited(opList_.size(), false);
+        ReverseDFSFindByOutputMemType(idx, MemoryType::MEM_L1, l1CopyInOps, visited);
+        for (auto& l1CopyInOpIdx : l1CopyInOps) {
+            bool alreadyUnionedWithL1ToL0 = false;
+            for (auto& consumer : opList_[l1CopyInOpIdx]->ConsumerOps()) {
+                if (consumer->GetOpcodeStr().find("L1_TO_L0") == std::string::npos) {
+                    continue;
+                }
+                if (opMagicToIdx_.count(consumer->GetOpMagic()) == 0) {
+                    continue;
+                }
+                int consumerIdx = opMagicToIdx_[consumer->GetOpMagic()];
+                if (dsu.Find(l1CopyInOpIdx) == dsu.Find(consumerIdx)) {
+                    alreadyUnionedWithL1ToL0 = true;
+                    break;
+                }
+            }
+            if (!alreadyUnionedWithL1ToL0) {
+                dsu.Union(l1CopyInOpIdx, idx);
             }
         }
     }
