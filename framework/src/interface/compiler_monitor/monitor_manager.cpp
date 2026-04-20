@@ -365,6 +365,30 @@ void MonitorManager::SetCurrentFunctionName(const std::string& name)
     current_function_ = name;
 }
 
+int MonitorManager::GetCurrentFuncOpSize() const
+{
+    std::lock_guard<std::mutex> lock(mutex_);
+    return current_func_opsize_;
+}
+
+void MonitorManager::SetCurrentFuncOpSize(size_t op_size)
+{
+    if (!enable_) {
+        return;
+    }
+    std::lock_guard<std::mutex> lock(mutex_);
+    current_func_opsize_ = static_cast<int>(op_size);
+}
+
+void MonitorManager::SetCurrentFuncSumOpSize(size_t op_size)
+{
+    if (!enable_) {
+        return;
+    }
+    std::lock_guard<std::mutex> lock(mutex_);
+    current_func_opsize_ += static_cast<int>(op_size);
+}
+
 std::chrono::steady_clock::time_point MonitorManager::GetStageStartTime() const
 {
     std::lock_guard<std::mutex> lock(mutex_);
