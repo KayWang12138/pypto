@@ -86,7 +86,7 @@
             ]
         },
         "codegen": {
-            "parallel_compile" : 128,
+            "parallel_compile" : 4,
             "support_dynamic_aligned": false,
             "soc_version": "",
             "fixed_output_path": false,
