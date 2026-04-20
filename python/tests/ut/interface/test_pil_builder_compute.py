@@ -190,25 +190,25 @@ def test_pil_parser_compare():
 
         @TestParser.test
         def cmp_chain_lt_lt_all_true():
-            # 1 < 2 < 3 — both sub-comparisons true, b evaluated once
+            # e.g. 1 < 2 < 3 — both sub-comparisons true, b evaluated once
             var_x = Expr.int(1) < Expr.int(2) < Expr.int(3)
             Expr.str(var_x)
 
         @TestParser.test
         def cmp_chain_lt_lt_first_false():
-            # 3 < 2 < 4 — first false, third operand not evaluated
+            # e.g. 3 < 2 < 4 — first false, third operand not evaluated
             var_x = Expr.int(3) < Expr.int(2) < Expr.int(4)
             Expr.str(var_x)
 
         @TestParser.test
         def cmp_chain_lt_eq():
-            # 1 < 2 == 2
+            # e.g. 1 < 2 == 2
             var_x = Expr.int(1) < Expr.int(2) == Expr.int(2)
             Expr.str(var_x)
 
         @TestParser.test
         def cmp_chain_three_ops():
-            # 1 < 2 <= 3 < 4
+            # e.g. 1 < 2 <= 3 < 4
             var_x = Expr.int(1) < Expr.int(2) <= Expr.int(3) < Expr.int(4)
             Expr.str(var_x)
 
