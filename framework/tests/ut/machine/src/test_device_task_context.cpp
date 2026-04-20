@@ -378,12 +378,11 @@ TEST_F(TestDeviceTaskContext, test_build_ready_queue_dupped_data)
 {
     DeviceTaskContext taskContext;
     DevStartArgsBase startArgs;
-    constexpr size_t kControlFlowCacheSize = 64 * 1024;
+    constexpr size_t kControlFlowCacheSize = 64 * 1024 * 8;
     auto controlFlowCacheBuf = std::make_unique<uint8_t[]>(kControlFlowCacheSize);
 
     DevAscendProgram devProg;
     CreateMockDevAscendProgram(&devProg, ArchInfo::DAV_3510);
-    devProg.stitchFunctionsize = 10;
     devProg.controlFlowCache.cacheData = DevRelocVector<uint8_t>(kControlFlowCacheSize, controlFlowCacheBuf.get());
     devProg.controlFlowCache.isRecording = true;
 
