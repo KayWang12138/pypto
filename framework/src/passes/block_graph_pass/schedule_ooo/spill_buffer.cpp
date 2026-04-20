@@ -1032,10 +1032,8 @@ Status OoOScheduler::UpdateAssembleBuffer(SpillInfo &spillInfo, LocalBufferPtr a
     return SUCCESS;
 }
 
-Status OoOScheduler::SpillAssembleBuffer(SpillInfo &spillInfo, Operation* allocOp, size_t &pcIdx,
-    LocalBufferPtr allocBuffer, bool isGenSpill) {
-    // Pre-check: reject NZ horizontal slice before any graph mutation
-    std::vector<Operation*> assembleOps;
+Status OoOScheduler::RejectIfNZHorizontalSlice(SpillInfo &spillInfo, std::vector<Operation*> &assembleOps)
+{
     if (FindAssembleWithSpillTensor(spillInfo, assembleOps) != SUCCESS) {
         APASS_LOG_ERROR_F(Elements::Operation, "FindAssembleWithSpillTensor failed.");
         return FAILED;
@@ -1046,28 +1044,12 @@ Status OoOScheduler::SpillAssembleBuffer(SpillInfo &spillInfo, Operation* allocO
             spillInfo.spillTensor_->GetMagic());
         return FAILED;
     }
+    return SUCCESS;
+}
 
-    if (SpillOutBuffer(spillInfo, allocOp, pcIdx, isGenSpill) != SUCCESS) {
-        APASS_LOG_ERROR_F(Elements::Operation, "SpillOutBuffer failed.");
-        return FAILED;
-    }
-
-    LogicalTensorPtr assembleTensor = std::make_shared<LogicalTensor>(function_,
-        spillInfo.spillTensor_->Datatype(), spillInfo.spillTensor_->shape, spillInfo.spillTensor_->Format());
-    if (assembleTensor == nullptr) {
-        APASS_LOG_ERROR_F(Elements::Operation, "Create assemble tensor failed!");
-        return FAILED;
-    }
-    if (UpdateTensorAttr(assembleTensor, allocBuffer->memType, spillInfo.spillTensor_, -1) != SUCCESS) {
-        APASS_LOG_ERROR_F(Elements::Operation, "UpdateTensorAttr local tensor failed!");
-        return FAILED;
-    }
-    for (auto &succOp : depManager_.GetSuccessors(spillInfo.spillOp_)) {
-        if (!opIsRetiredMap[succOp] &&
-            (std::count(GetOpMemIds(succOp).begin(), GetOpMemIds(succOp).end(), spillInfo.spillMemId_) > 0)) {
-            UpdateTensorInputFor(succOp, spillInfo.spillOp_, assembleTensor);
-        }
-    }
+Status OoOScheduler::ReplayPartialWriteProducers(SpillInfo &spillInfo, Operation* allocOp,
+    LogicalTensorPtr assembleTensor, const std::vector<Operation*> &assembleOps, bool isGenSpill)
+{
     Operation *memIdAlloc = FindAllocForAssembleProducers(assembleOps);
     bool isAllocHandoffDone = false;
     bool isFirst = true;
@@ -1084,6 +1066,38 @@ Status OoOScheduler::SpillAssembleBuffer(SpillInfo &spillInfo, Operation* allocO
         } else {
             producerOp->ReplaceOutput(assembleTensor, spillInfo.spillTensor_);
         }
+    }
+    return SUCCESS;
+}
+
+Status OoOScheduler::SpillAssembleBuffer(SpillInfo &spillInfo, Operation* allocOp, size_t &pcIdx,
+    LocalBufferPtr allocBuffer, bool isGenSpill) {
+    std::vector<Operation*> assembleOps;
+    if (RejectIfNZHorizontalSlice(spillInfo, assembleOps) != SUCCESS) {
+        return FAILED;
+    }
+    if (SpillOutBuffer(spillInfo, allocOp, pcIdx, isGenSpill) != SUCCESS) {
+        APASS_LOG_ERROR_F(Elements::Operation, "SpillOutBuffer failed.");
+        return FAILED;
+    }
+    LogicalTensorPtr assembleTensor = std::make_shared<LogicalTensor>(function_,
+        spillInfo.spillTensor_->Datatype(), spillInfo.spillTensor_->shape, spillInfo.spillTensor_->Format());
+    if (assembleTensor == nullptr) {
+        APASS_LOG_ERROR_F(Elements::Operation, "Create assemble tensor failed!");
+        return FAILED;
+    }
+    if (UpdateTensorAttr(assembleTensor, allocBuffer->memType, spillInfo.spillTensor_, -1) != SUCCESS) {
+        APASS_LOG_ERROR_F(Elements::Operation, "UpdateTensorAttr local tensor failed!");
+        return FAILED;
+    }
+    for (auto &succOp : depManager_.GetSuccessors(spillInfo.spillOp_)) {
+        if (!opIsRetiredMap[succOp] &&
+            (std::count(GetOpMemIds(succOp).begin(), GetOpMemIds(succOp).end(), spillInfo.spillMemId_) > 0)) {
+            UpdateTensorInputFor(succOp, spillInfo.spillOp_, assembleTensor);
+        }
+    }
+    if (ReplayPartialWriteProducers(spillInfo, allocOp, assembleTensor, assembleOps, isGenSpill) != SUCCESS) {
+        return FAILED;
     }
     if (UpdateAssembleBuffer(spillInfo, allocBuffer, assembleTensor) != SUCCESS) {
         return FAILED;
