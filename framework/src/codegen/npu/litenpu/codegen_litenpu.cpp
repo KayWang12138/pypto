@@ -88,14 +88,15 @@ inline bool CompareStrings(const std::string& s1, const std::string& s2)
     return str1 < str2;
 }
 
-std::map<int, std::string> CodeGenLiteNPU::GenParamsSymbolMap(
+std::unordered_map<int, std::string> CodeGenLiteNPU::GenParamsSymbolMap(
     const SubfuncParam& subFuncParam, std::vector<std::string>& params, std::map<std::string, std::string>& dTypeMap)
 {
     auto& tensorInvokeArgs = subFuncParam.tensorsArgs_;
 
-    std::map<int, std::string> symbolMap;
-    std::set<std::string> paramsSet;
-    auto f = [&paramsSet, &dTypeMap, &symbolMap](size_t offset, auto& invokeArgs) {
+    std::unordered_map<int, std::string> symbolMap;
+    std::vector<std::string> paramsInOrder;
+    std::unordered_set<std::string> seen;
+    auto f = [&paramsInOrder, &seen, &dTypeMap, &symbolMap](size_t offset, auto& invokeArgs) {
         CODEGEN_LOGI("start offset is %zu, arg size is %zu", offset, invokeArgs.size());
         for (size_t i = 0; i < invokeArgs.size(); i++) {
             size_t paramOff = (offset + i);
@@ -106,17 +107,18 @@ std::map<int, std::string> CodeGenLiteNPU::GenParamsSymbolMap(
                 paramLoc, paramOff, invokeArgs[i].symDDRId, invokeArgs[i].symName.c_str(), invokeArgs[i].symbol.c_str(),
                 static_cast<size_t>(invokeArgs[i].dataType));
             symbolMap.insert({paramLoc, invokeArgs[i].symbol});
-            paramsSet.insert(invokeArgs[i].symbol);
+            if (seen.find(invokeArgs[i].symbol) == seen.end()) {
+                paramsInOrder.push_back(invokeArgs[i].symbol);
+                seen.insert(invokeArgs[i].symbol);
+            }
             dTypeMap[invokeArgs[i].symbol] = GetDtype(invokeArgs[i].dataType);
         }
     };
 
     CODEGEN_LOGI("---  start tensorInvokeArgs paramLoc map ---- ");
     f(0, tensorInvokeArgs);
-    for (auto& t : paramsSet) {
-        params.push_back(t);
-    }
-    std::sort(params.begin(), params.end(), CompareStrings);
+    params = paramsInOrder;
+    // std::sort(params.begin(), params.end(), CompareStrings);
     return symbolMap;
 }
 
@@ -136,6 +138,9 @@ void CodeGenLiteNPU::GenCode(
             auto subFunc = subFuncPair.second;
             if (HandleForAICpuSubFunc(*subFunc)) {
                 return;
+            }
+            for(auto arg : subFunc->GetParameter().tensorsArgs_) {
+                CODEGEN_LOGI("##### arg name %s", arg.symName.c_str());
             }
             bool isCube = subFunc->IsCube();
             CompileInfoLiteNPU compileInfo(topFunc, ctx, subFuncPair, isCube, subFunc->IsUnderDynamicFunction());
