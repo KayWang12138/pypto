@@ -244,7 +244,9 @@ private:
         LogicalTensorPtr assembleTensor, bool &isFirst, bool isGenSpill);
     Status FindAssembleWithSpillTensor(SpillInfo &spillInfo, std::vector<Operation*> &assembleOps);
     Status SpillOnBlock() override;
-    Status SpillOnCoreBlock(CoreLocationType targetCore, bool &didSpill);
+    Status SpillOnCoreBlock(std::pair<CoreLocationType, MemoryType> orderFirstPair);
+    Status FindCoreLocationMemoryType(CoreLocationType coreLocation, MemoryType &spillMemType);
+    Status FindFirstOrder(std::pair<CoreLocationType, MemoryType> &orderFirstPair);
     Operation* SkipViewChain(Operation* start, bool followProducers);
 
     // 新增：插入Operation到orderedOps
