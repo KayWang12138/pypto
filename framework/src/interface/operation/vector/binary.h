@@ -118,7 +118,7 @@ std::string GetBinaryOpName()
         case BinaryOpType::GCD:
             return "GCD";
         case BinaryOpType::FLOORDIV:
-            return "FLOORDIV";
+            return "FLOORDIV";        
         default:
             ASSERT(VectorErrorCode::ERR_PARAM_INVALID, false) << "unknown binary op type";
             return "";
