@@ -436,8 +436,6 @@ Algorithm: Flash Attention (Forward)
 
 模板文件位于: [templates/spec-template.md](templates/spec-template.md)
 
-**⚠️ section 编号规则**：生成 SPEC.md 时，必须严格保留模板中的所有 section header 及其编号，不得删除、跳过或重新编号。不适用的 section 保留 header 并填写 "N/A（不适用）"。
-
 使用时需替换以下占位符:
 - `{operator_name}` — 算子名称
 - `{category}` — 算子分类 (element-wise / reduction / matmul / attention / custom)

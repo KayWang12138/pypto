@@ -1,8 +1,6 @@
 ---
 name: pypto-environment-setup
-description: "PyPTO 环境安装与环境问题修复，包括 CANN、torch_npu、编译工具链、第三方依赖和 PyPTO 编译运行等。Triggers: PyPTO environment setup, CANN install, torch_npu, NPU environment, Ascend toolkit, compile PyPTO, build PyPTO, NPU driver, prepare_env, diagnose environment, fix import error, torch_npu import fail, DT_FP8E8M0, pto-isa, ASCEND_HOME_PATH, npu-smi, softmax verify, pip dependency conflict"
-dependencies:
-  - pypto-op-develop (步骤 4.2 引用其 scripts/list_idle_chip_ids.sh)
+description: PyPTO 环境安装与环境问题修复，包括 CANN、torch_npu、编译工具链、第三方依赖和 PyPTO 编译运行等。Triggers: PyPTO environment setup, CANN install, torch_npu, NPU environment, Ascend toolkit, compile PyPTO, build PyPTO, NPU driver, prepare_env, diagnose environment, fix import error, torch_npu import fail, DT_FP8E8M0, pto-isa, ASCEND_HOME_PATH, npu-smi, softmax verify, pip dependency conflict
 ---
 
 # PyPTO Environment Setup
@@ -59,7 +57,7 @@ export PYPTO_REPO="$PWD/pypto"
 **运行环境诊断**：
 ```bash
 # 步骤 1.3：运行诊断脚本
-python3 .agents/skills/pypto-environment-setup/scripts/diagnose_env.py --checklist
+python3 scripts/diagnose_env.py --checklist
 ```
 
 **通过标准**：清单所有项 ✅ OK。⚠️/❌ 项需修复后再继续。
@@ -189,7 +187,7 @@ python3 examples/02_intermediate/operators/softmax/softmax.py --run_mode npu
 **运行诊断**：
 ```bash
 cd ${PYPTO_REPO:-$PWD}
-python3 .agents/skills/pypto-environment-setup/scripts/diagnose_env.py --checklist
+python3 scripts/diagnose_env.py --checklist
 ```
 
 **报告模板**：
