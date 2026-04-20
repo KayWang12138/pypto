@@ -568,7 +568,7 @@ RawTensorDataPtr SimulationCommManager::AllocSignal(const std::string &groupName
     if (it == contexts_.end()) {
         throw std::runtime_error("SimulationCommContext for group " + groupName + " not found!");
     }
-    auto result = it->second->AllocSignal(slotSize);
+    auto result = it->second->AllocSignal(dataType, shape);
     return result;
 }
 
