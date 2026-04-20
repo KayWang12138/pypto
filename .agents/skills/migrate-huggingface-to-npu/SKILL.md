@@ -9,21 +9,30 @@ description: 将大语言模型迁移到NPU环境运行。当用户想要在NPU�
 
 本skill记录将HuggingFace大语言模型迁移到华为Ascend NPU环境的完整步骤。
 
-**关键要求：**
-- 询问用户项目目录位置
-- 在用户目录下创建模型名文件夹，包含models和scripts两个子目录
-- models目录直接存放模型文件（无hub层级）
-- scripts目录存放运行脚本和文档
-- 检查并验证ask脚本能否运行
+**强制要求：** 必须使用真实NPU硬件，最终验证推理脚本成功运行。
 
-## 完整迁移流程（7步）
+**关键要求：**
+- **询问HuggingFace模型链接**（如：https://huggingface.co/Qwen/Qwen2-7B）
+- 询问项目目录位置
+- 强制检查NPU环境可用性
+- 验证ask脚本在NPU上成功运行
+
+## 完整迁移流程（8步）
+
+### 步骤0：获取用户信息
+
+**必须询问：**
+1. HuggingFace模型链接 → 提取 `repo_id`（如：Qwen/Qwen2-7B）和 `model_name`（如：Qwen2-7B）
+2. 项目目录位置（如：/data/llm）
 
 ### 步骤1：检查NPU环境与内存预估
 
-**1. 检查NPU状态和内存容量：**
+**1. 检查NPU状态：**
 ```bash
 npu-smi info
 ```
+
+**验证标准：** 输出显示NPU设备列表，至少一张卡可用。失败则使用 `pypto-environment-setup` skill。
 
 Ascend910 单卡内存：**64GB HBM**
 
@@ -69,61 +78,63 @@ python3 -c "import torch; import torch_npu; print(f'torch: {torch.__version__}')
 
 ### 步骤3：下载模型
 
-**重要：首先询问用户项目目录位置！**
+**使用步骤0获取的参数：**
+- `repo_id`: 组织名/模型名
+- `model_name`: 模型简称
+- `project_dir`: 用户指定目录
 
-询问：项目要放在哪个目录下？（如：`/home/user/projects` 或 `/data/llm`）
-
-**简化的目录结构：**
+**目录结构：**
 ```
-用户指定目录/
-└── 模型名/                    # 以模型名命名的项目文件夹
-    ├── models/                # 模型缓存目录（必须）
-    │   ├── config.json        # 必须
-    │   ├── model.safetensors  # 必须
-    │   ├── tokenizer.json     # 必须
-    │   └── download.log       # 可选
-    │
-    └── scripts/               # 脚本目录
-        ├── ask_模型名.py      # 必须（核心）
-        ├── deploy_模型名.py   # 可选
-        ├── README.md          # 可选
-        └── run.sh             # 可选
+{project_dir}/{model_name}/
+├── models/                # 模型缓存目录（必须）
+│   ├── config.json
+│   ├── model.safetensors
+│   ├── tokenizer.json
+│   └── download.log
+└── scripts/               # 脚本目录
+    ├── ask_{model_name}.py
+    └── ...
 ```
 
-**下载模型到models目录（使用local_dir直接下载）：**
+**下载模型：**
 ```bash
-# 设置镜像（如果网络不通）
 export HF_ENDPOINT=https://hf-mirror.com
 
-# 创建目录
-mkdir -p /用户指定目录/模型名/models
-mkdir -p /用户指定目录/模型名/scripts
+mkdir -p {project_dir}/{model_name}/models
+mkdir -p {project_dir}/{model_name}/scripts
 
-# 后台下载
 nohup python3 -c "
 from huggingface_hub import snapshot_download
 snapshot_download(
-    repo_id='模型ID',
-    local_dir='/用户指定目录/模型名/models',
+    repo_id='{repo_id}',
+    local_dir='{project_dir}/{model_name}/models',
     local_dir_use_symlinks=False
 )
-" > /用户指定目录/模型名/models/download.log 2>&1 &
+" > {project_dir}/{model_name}/models/download.log 2>&1 &
 ```
 
 **检查下载进度：**
 ```bash
 ps aux | grep snapshot_download
-du -sh 项目目录/models/
-ls -la 项目目录/models/
+du -sh {project_dir}/{model_name}/models/
+ls -la {project_dir}/{model_name}/models/
 ```
 
 ### 步骤4：创建ask脚本
 
-**脚本存放在scripts目录：** `scripts/ask_模型名.py`
+**脚本命名：** `scripts/ask_{model_name}.py`
+
+**生成工具：**
+```bash
+python3 scripts/generate_ask_script.py \
+    --model-id "{repo_id}" \
+    --model-name "{model_name}" \
+    --project-dir "{project_dir}/{model_name}"
+```
 
 **核心要点：**
 1. 所有参数有默认值，可直接运行
-2. 默认模型路径：`../models`（脚本所在目录的父目录）
+2. 默认模型路径：`../models`
 3. 使用 `local_files_only=True` 离线加载
 4. 使用 `torch.npu.set_device(device)` 指定NPU
 
@@ -135,19 +146,16 @@ import os
 import torch
 import torch_npu
 
-# 参数定义（都有默认值）
 parser = argparse.ArgumentParser()
 parser.add_argument("--prompt", default="你好，请介绍一下你自己")
 parser.add_argument("--device", default=15, help="NPU卡号")
 parser.add_argument("--model-path", default=None)
 args = parser.parse_args()
 
-# 自动获取模型路径（脚本目录的父目录下的models）
 if not args.model_path:
     script_dir = os.path.dirname(os.path.abspath(__file__))
     args.model_path = os.path.join(os.path.dirname(script_dir), "models")
 
-# 设置NPU并加载模型
 torch.npu.set_device(args.device)
 model = AutoModelForCausalLM.from_pretrained(
     args.model_path,
@@ -157,90 +165,57 @@ model = AutoModelForCausalLM.from_pretrained(
 )
 ```
 
-**可选：使用生成工具**
-```bash
-python3 scripts/generate_ask_script.py --model-id "组织名/模型名" --model-name "模型简称"
-```
-
 ### 步骤5：检查并验证脚本
 
 ```bash
-# 检查scripts目录下是否生成ask脚本
-ls -la scripts/ask_模型名.py
+ls -la scripts/ask_{model_name}.py
+head -20 scripts/ask_{model_name}.py
+python3 scripts/ask_{model_name}.py --help
 
-# 检查脚本内容
-head -20 scripts/ask_模型名.py
-python3 scripts/ask_模型名.py --help
-
-# 验证脚本能否运行
-cd 项目目录/scripts
-python3 ask_模型名.py
+cd {project_dir}/{model_name}/scripts
+python3 ask_{model_name}.py
 ```
 
 **验证通过标准：**
-- 脚本成功加载模型
-- 模型加载到指定NPU卡
+- 脚本成功加载模型到 NPU
+- 输出显示正在使用 NPU 设备
 - 生成回复并输出
 - 无错误退出
 
 ### 步骤6：运行测试
 
 ```bash
-cd 项目目录/scripts
+cd {project_dir}/{model_name}/scripts
 
-# 使用所有默认参数
-python3 ask_模型名.py
-
-# 指定问题
-python3 ask_模型名.py --prompt "1+1等于几？"
-
-# 指定NPU卡号
-python3 ask_模型名.py --device 7
-
-# 指定模型路径
-python3 ask_模型名.py --model-path ../models
-
-# 组合使用
-python3 ask_模型名.py --prompt "你好" --device 15 --model-path /custom/path
+python3 ask_{model_name}.py
+python3 ask_{model_name}.py --prompt "1+1等于几？"
+python3 ask_{model_name}.py --device 7
+python3 ask_{model_name}.py --model-path ../models
+python3 ask_{model_name}.py --prompt "你好" --device 15 --model-path /custom/path
 ```
 
 ### 步骤7：完善项目结构
 
 **最终目录结构：**
 ```
-用户指定目录/
-└── 模型名/
-    ├── models/                    # 模型缓存（必须）
-    │   ├── config.json            # 模型配置（必须）
-    │   ├── model.safetensors      # 模型权重（必须）
-    │   ├── tokenizer.json         # 分词器（必须）
-    │   └── download.log           # 下载日志（可选）
-    │
-    └── scripts/
-        ├── ask_模型名.py          # 单次问答脚本（必须，核心）
-        ├── deploy_模型名.py       # 交互式部署脚本（可选）
-        ├── README.md              # 说明文档（可选）
-        └── run.sh                 # 启动脚本（可选）
+{project_dir}/{model_name}/
+├── models/                    # 必须
+│   ├── config.json
+│   ├── model.safetensors
+│   ├── tokenizer.json
+│   └── download.log           # 可选
+└── scripts/
+    ├── ask_{model_name}.py    # 必须（核心）
+    ├── deploy_{model_name}.py # 可选
+    ├── README.md              # 可选
+    └── run.sh                 # 可选
 ```
-
-**必须文件：**
-- `models/` 目录及其中的模型权重文件
-- `scripts/ask_模型名.py` 单次问答脚本
-
-**可选文件：**
-- `deploy_模型名.py` 交互式部署脚本
-- `README.md` 说明文档
-- `run.sh` 启动脚本
-- `download.log` 下载日志
 
 **路径关系：**
 ```
-项目根目录 = 用户指定目录/模型名
-模型路径 = 项目根目录/models/           # 直接指向models目录（无hub）
+项目根目录 = {project_dir}/{model_name}
+模型路径 = 项目根目录/models/
 脚本路径 = 项目根目录/scripts/
-
-ask脚本位置：scripts/ask_模型名.py
-ask脚本引用：MODEL_PATH = ../models 或 项目根目录/models
 ```
 
 ## 常见问题解决
@@ -266,45 +241,34 @@ export HF_ENDPOINT=https://hf-mirror.com
 
 ### 2. 统一的项目目录结构
 ```
-用户指定目录/
-└── 模型名/
-    ├── models/                # 必须：模型缓存
-    │   ├── config.json        # 必须
-    │   ├── model.safetensors  # 必须
-    │   └── tokenizer.json     # 必须
-    │
-    └── scripts/               
-        ├── ask_模型名.py      # 必须：单次问答脚本
-        ├── deploy_模型名.py   # 可选：交互式部署
-        ├── README.md          # 可选：说明文档
-        └── run.sh             # 可选：启动脚本
+{project_dir}/{model_name}/
+├── models/                # 必须
+│   ├── config.json
+│   ├── model.safetensors
+│   └── tokenizer.json
+└── scripts/
+    ├── ask_{model_name}.py # 必须
+    └── ...
 ```
-
-**必须文件：**
-- `models/` 目录及模型权重文件
-- `scripts/ask_模型名.py` 问答脚本
-
-**可选文件：**
-- `deploy_模型名.py`、`README.md`、`run.sh`
 
 ### 3. 命令行格式标准化
 ```bash
-python3 scripts/ask_模型名.py --prompt "问题" --device 卡号 [--model-path 路径]
+python3 scripts/ask_{model_name}.py --prompt "问题" --device 卡号 [--model-path 路径]
 ```
 
 ### 4. 所有参数有默认值
-脚本可直接运行：`python3 ask_模型名.py`
+脚本可直接运行：`python3 ask_{model_name}.py`
 
 ### 5. 支持NPU卡号指定
-`python3 ask_模型名.py --device 15`
+`python3 ask_{model_name}.py --device 15`
 
 ### 6. 支持模型路径指定
-`python3 ask_模型名.py --model-path ../models`
+`python3 ask_{model_name}.py --model-path ../models`
 
 ### 7. 离线运行能力
 从本地models目录加载，不依赖网络
 
 ### 8. 检查验证脚本运行
-- 检查 `scripts/ask_模型名.py` 是否生成
+- 检查 `scripts/ask_{model_name}.py` 是否生成
 - 验证脚本能否成功运行
 - 确保无错误退出
