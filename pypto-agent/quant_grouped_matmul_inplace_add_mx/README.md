@@ -329,76 +329,105 @@ python quant_grouped_matmul_inplace_add_mx.py
 
 ## 测试用例说明
 
-代码包含5个测试用例，覆盖不同场景：
+代码包含5个测试用例，覆盖不同场景。每个用例都经过性能优化配置。
 
-### 用例 1：基础用例（FP8E4M3，a_trans=True）
+### 用例 1：基础用例（FP8E4M3，N较大）
 
-| 参数 | 值 |
-|------|-----|
-| M, K, N | 32, 512, 7168 |
-| group_list | [256, 256] |
-| m_tile_shape | [32, 32] |
-| k_tile_shape | [256, 256] |
-| n_tile_shape | [256, 256] |
-| in_dtype | DT_FP8E4M3 |
-| a_trans | True |
-| group_type | 1 |
+| 参数 | 值 | 优化说明 |
+|------|-----|---------|
+| M, K, N | 32, 512, 7168 | N=7168 很大 |
+| group_list | [256, 256] | g=2 |
+| m_tile_shape | [32, 32] | mL1=M=32，消除A矩阵重复载入 |
+| k_tile_shape | [64, 256] | kL0减小至64，满足Buffer |
+| n_tile_shape | [128, 1024] | nL1=1024增大，减少切分 |
+| in_dtype | DT_FP8E4M3 | - |
+| group_type | 1 | 累加方式 |
 
-**特点：**
-- 两个分组，每个 K_block=256
-- L0B需求: 256×256×1 = 64KB（刚好满足）
+**性能优化特点：**
+- mL1=M=32，消除A矩阵MTE2重复载入
+- L0B需求: 128×64×1 = 8KB ✓（远小于64KB）
+- nL1增大至1024，减少N轴切分次数
+- kL1>kL0，使能大包搬运和double buffer
 
 ### 用例 2：更大 M 维度（FP8E4M3）
 
-| 参数 | 值 |
-|------|-----|
-| M, K, N | 64, 1024, 4096 |
-| group_list | [512, 512] |
-| k_tile_shape | [64, 512] |
-| n_tile_shape | [256, 512] |
-| group_type | 1 |
+| 参数 | 值 | 优化说明 |
+|------|-----|---------|
+| M, K, N | 64, 1024, 4096 | M和K都较大 |
+| group_list | [512, 512] | g=2 |
+| m_tile_shape | [32, 64] | mL1接近M |
+| k_tile_shape | [64, 1024] | kL1=K_group，使能大包搬运 |
+| n_tile_shape | [128, 1024] | nL1增大 |
+| in_dtype | DT_FP8E4M3 | - |
+| group_type | 1 | 累加方式 |
 
-**特点：**
-- kL0=64, nL0=256
-- L0B需求: 256×64×1 = 16KB ✓（满足 Buffer 约束）
+**性能优化特点：**
+- mL1=64接近M，减少A矩阵切分
+- kL1=1024=K_group，A矩阵可驻留反复使用
+- L0B需求: 128×64×1 = 8KB ✓
 
 ### 用例 3：3 个分组（FP8E4M3）
 
-| 参数 | 值 |
-|------|-----|
-| M, K, N | 32, 768, 2048 |
-| group_list | [256, 256, 256] |
-| group_type | 1 |
+| 参数 | 值 | 优化说明 |
+|------|-----|---------|
+| M, K, N | 32, 768, 2048 | 3个分组 |
+| group_list | [256, 256, 256] | g=3 |
+| m_tile_shape | [32, 32] | mL1=M |
+| k_tile_shape | [64, 256] | kL0减小 |
+| n_tile_shape | [128, 512] | nL1增大 |
+| in_dtype | DT_FP8E4M3 | - |
+| group_type | 1 | 累加方式 |
 
-**特点：**
-- K=768，三个分组
+**性能优化特点：**
+- mL1=M=32，消除A矩阵重复载入
+- L0B需求: 128×64×1 = 8KB ✓
 - scale 存储：((768/64)+3, 32, 2) = (15, 32, 2)
 
 ### 用例 4：累计值模式（group_type=0）
 
-| 参数 | 值 |
-|------|-----|
-| M, K, N | 32, 512, 1024 |
-| group_list | [256, 512] |
-| group_type | 0 |
+| 参数 | 值 | 优化说明 |
+|------|-----|---------|
+| M, K, N | 32, 512, 1024 | 规模较小 |
+| group_list | [256, 512] | 累计值方式 |
+| m_tile_shape | [32, 32] | mL1=M |
+| k_tile_shape | [64, 256] | kL0减小 |
+| n_tile_shape | [64, 1024] | nL1=N，消除切分 |
+| in_dtype | DT_FP8E4M3 | - |
+| group_type | 0 | 累计值方式 |
 
-**特点：**
-- `group_type=0`：累计值方式
+**性能优化特点：**
+- mL1=M=32，消除A矩阵重复载入
+- nL1=N=1024，消除B矩阵切分
+- L0B需求: 64×64×1 = 4KB ✓
 - `[256, 512]` 表示第一个分组 K=[0,256]，第二个分组 K=[256,512]
 
 ### 用例 5：FP8E5M2 数据类型
 
-| 参数 | 值 |
-|------|-----|
-| M, K, N | 32, 512, 1024 |
-| group_list | [128, 384] |
-| in_dtype | DT_FP8E5M2 |
-| group_type | 1 |
+| 参数 | 值 | 优化说明 |
+|------|-----|---------|
+| M, K, N | 32, 512, 1024 | FP8E5M2格式 |
+| group_list | [128, 384] | 不均匀分组 |
+| m_tile_shape | [32, 32] | mL1=M |
+| k_tile_shape | [64, 256] | kL0减小 |
+| n_tile_shape | [64, 1024] | nL1=N |
+| in_dtype | DT_FP8E5M2 | 5位指数+2位尾数 |
+| group_type | 1 | 累加方式 |
 
-**特点：**
-- 使用 FP8E5M2 数据类型（torch.float8_e5m2）
-- 不均匀分组：[128, 384]
-- E5M2 格式具有更大的动态范围，适合推理场景
+**性能优化特点：**
+- 与Case4相同优化策略
+- FP8E5M2格式具有更大的动态范围，适合推理场景
+
+---
+
+## 性能优化配置总结
+
+| 优化策略 | 实现方式 | 效果 |
+|----------|---------|------|
+| 消除A矩阵重复载入 | 设置 mL1 = M | 减少MTE2载入量 |
+| 消除B矩阵切分 | 设置 nL1 ≥ N | 减少切分开销 |
+| 满足Buffer约束 | kL0 ≤ 64，nL0 × kL0 ≤ 64KB | 避免Spill精度问题 |
+| 使能大包搬运 | kL1 > kL0 | 提高MTE2带宽利用率 |
+| 使能Double buffer | L0A/L0B空间 ≤ 32KB | 流水并行 |
 
 ---
 
@@ -407,14 +436,14 @@ python quant_grouped_matmul_inplace_add_mx.py
 代码已支持 `a_trans=False` 非转置格式的逻辑，但当前测试用例均使用 `a_trans=True`。如需测试非转置格式，可参考以下配置：
 
 ```python
-# a_trans=False 配置示例
+# a_trans=False 配置示例（已优化）
 tile_config = ShapeConfig(
     ori_shape=[32, 512, 1024],
     group_list=[256, 256],
-    m_tile_shape=[32, 32],
-    k_tile_shape=[256, 256],
-    n_tile_shape=[256, 256],
-    vector_tile_shape=[1, 8, 256, 32],
+    m_tile_shape=[32, 32],    # mL1=M
+    k_tile_shape=[64, 256],   # kL0减小
+    n_tile_shape=[64, 1024],  # nL1=N
+    vector_tile_shape=[1, 8, 64, 1024],
     group_type=1,
     in_dtype=pypto.DT_FP8E4M3,
     a_trans=False,  # 非转置格式
