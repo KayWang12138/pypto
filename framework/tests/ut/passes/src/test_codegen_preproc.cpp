@@ -235,7 +235,7 @@ TEST_F(CodegenPreprocTest, TestCombineAxisExpand)
     EXPECT_EQ(graph.AddOp(Opcode::OP_COPY_IN, {"in1"}, {"t3"}, "c2", true), true);
     EXPECT_EQ(graph.AddOp(Opcode::OP_SUB, {"t2", "t3"}, {"t4"}, "sub", true), true);
     auto expand = graph.GetOp("expand");
-    expand->SetAttribute(OP_ATTR_PREFIX + "EXPANDDIMS", std::vector<int>{0});
+    expand->SetAttribute(OpAttributeKey::expandDims, std::vector<int>{0});
 
     auto funcPtr = graph.GetFunction();
     funcPtr->paramConfigs_.combineAxis = true;
@@ -257,7 +257,7 @@ TEST_F(CodegenPreprocTest, TestCombineAxisExpand)
     EXPECT_EQ(codegenPreprocPass.RunOnFunction(*rootFuncPtr), SUCCESS);
     // Verify CodegenPreproc
     auto afterExpand = graph.GetOp("expand");
-    std::vector<int64_t> axes = afterExpand->GetVectorIntAttribute(OP_ATTR_PREFIX + "EXPANDDIMS");
+    std::vector<int64_t> axes = afterExpand->GetVectorIntAttribute(OpAttributeKey::expandDims);
     ASSERT_EQ(axes.size(), 1);
     EXPECT_EQ(axes[0], 1);
 }
@@ -324,7 +324,7 @@ TEST_F(CodegenPreprocTest, TestCombineAxisExpand2)
     EXPECT_EQ(graph.AddTensor(DataType::DT_FP32, {128, 1}, MemoryType::MEM_UB, "t4"), true);
     EXPECT_EQ(graph.AddOp(Opcode::OP_EXPAND, {"t3"}, {"t4"}, "expand", true), true);
     auto expand = graph.GetOp("expand");
-    expand->SetAttribute(OP_ATTR_PREFIX + "EXPANDDIMS", std::vector<int64_t>{0});
+    expand->SetAttribute(OpAttributeKey::expandDims, std::vector<int64_t>{0});
     EXPECT_EQ(graph.AddTensor(DataType::DT_FP32, {128, 1}, MemoryType::MEM_DEVICE_DDR, "in2"), true);
     EXPECT_EQ(graph.AddTensor(DataType::DT_FP32, {1, 1}, MemoryType::MEM_UB, "t22"), true);
     EXPECT_EQ(graph.AddOp(Opcode::OP_COPY_IN, {"in2"}, {"t22"}, "copyin12", true), true);
@@ -364,7 +364,7 @@ TEST_F(CodegenPreprocTest, TestCombineAxisExpand2)
     EXPECT_EQ(graph.GetTensor("t3")->GetRawTensor()->GetRawShape(), (Shape{8, 1}));
     // Verify CodegenPreproc
     auto afterExpand = graph.GetOp("expand");
-    std::vector<int64_t> axes = afterExpand->GetVectorIntAttribute(OP_ATTR_PREFIX + "EXPANDDIMS");
+    std::vector<int64_t> axes = afterExpand->GetVectorIntAttribute(OpAttributeKey::expandDims);
     EXPECT_EQ(axes.size(), 1);
     EXPECT_EQ(axes[0], 1);
     std::vector<bool> inputAttr;
@@ -391,7 +391,7 @@ TEST_F(CodegenPreprocTest, TestCombineAxis3510)
     EXPECT_EQ(graph.AddOp(Opcode::OP_COPY_IN, {"in1"}, {"t3"}, "c2", true), true);
     EXPECT_EQ(graph.AddOp(Opcode::OP_SUB, {"t2", "t3"}, {"t4"}, "sub", true), true);
     auto expand = graph.GetOp("expand");
-    expand->SetAttribute(OP_ATTR_PREFIX + "EXPANDDIMS", std::vector<int>{0});
+    expand->SetAttribute(OpAttributeKey::expandDims, std::vector<int>{0});
 
     auto funcPtr = graph.GetFunction();
     funcPtr->paramConfigs_.combineAxis = true;

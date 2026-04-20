@@ -123,7 +123,7 @@ void UpdateExpandStatus(Operation* op, std::unordered_map<LogicalTensorPtr, Axis
     auto outputTensor = op->GetOOperands()[0];
     if (tensorStatus[inputTensor] == AxisReorderStatus::ENABLE) {
         auto dimSize = static_cast<int>(inputTensor->GetShape().size());
-        auto axes = op->GetVectorIntAttribute(OP_ATTR_PREFIX + "EXPANDDIMS");
+        auto axes = op->GetVectorIntAttribute(OpAttributeKey::expandDims);
         // 在尾轴为1的条件下，要求尾轴没有发生broadcast。[n, 1, 1]->expand->[n, 8, 1]??
         bool hasTailExpand = false;
         for (auto axis : axes) {
