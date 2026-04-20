@@ -17,6 +17,7 @@
 #include "interface/configs/config_manager.h"
 #include "interface/utils/operator_tracer.h"
 #include "interface/utils/vector_error.h"
+#include "operation_common.h"
 
 namespace npu::tile_fwk {
 
@@ -344,13 +345,17 @@ static Tensor ProcessResultShape(const Tensor& result, const Tensor& self, int a
 Tensor Amax(const Tensor& self, int axis, bool keepDim)
 {
     DECLARE_TRACER();
+    std::unordered_set<DataType> supportedTypes = {DT_FP16, DT_BF16, DT_INT16, DT_INT32, DT_FP32};
+    CheckTensorDataType(self.GetStorage(), supportedTypes, "AMAX");
+    CheckTensorDimRange(self.GetStorage(), 1, 4, "AMAX");
+    CheckTensorShapeSize(self.GetStorage(), "AMAX");
     axis = axis < 0 ? self.GetShape().size() + axis : axis;
     ValidateReductionAxis(self, axis);
 
     auto resultShape = self.GetShape();
     resultShape[axis] = 1;
 
-    Tensor result(self.GetStorage()->tensor->datatype, resultShape);
+    Tensor result(self.GetStorage()->Datatype(), resultShape);
     int shapeSize = static_cast<int>(resultShape.size());
     if (config::GetOperationOption<bool>(KEY_FORCE_COMBINE_AXIS) && axis == shapeSize - 1 && shapeSize >= NUM2) {
         CALL(ReduceSingle, *Program::GetInstance().GetCurrentFunction(), "MAX_COMBINE_AXIS", self, result, axis);
@@ -364,6 +369,10 @@ Tensor Amax(const Tensor& self, int axis, bool keepDim)
 Tensor ArgMax(const Tensor& self, int axis, bool keepDim)
 {
     DECLARE_TRACER();
+    std::unordered_set<DataType> supportedTypes = {DT_FP16, DT_BF16, DT_FP32};
+    CheckTensorDataType(self.GetStorage(), supportedTypes, "ARGMAX");
+    CheckTensorDimRange(self.GetStorage(), 1, 4, "ARGMAX");
+    CheckTensorShapeSize(self.GetStorage(), "ARGMAX");
     axis = axis < 0 ? self.GetShape().size() + axis : axis;
     ValidateReductionAxis(self, axis);
 
@@ -382,6 +391,10 @@ Tensor ArgMax(const Tensor& self, int axis, bool keepDim)
 Tensor ArgMin(const Tensor& self, int axis, bool keepDim)
 {
     DECLARE_TRACER();
+    std::unordered_set<DataType> supportedTypes = {DT_FP16, DT_BF16, DT_FP32};
+    CheckTensorDataType(self.GetStorage(), supportedTypes, "ARGMIN");
+    CheckTensorDimRange(self.GetStorage(), 1, 4, "ARGMIN");
+    CheckTensorShapeSize(self.GetStorage(), "ARGMIN");
     axis = axis < 0 ? self.GetShape().size() + axis : axis;
     ValidateReductionAxis(self, axis);
 
@@ -400,13 +413,17 @@ Tensor ArgMin(const Tensor& self, int axis, bool keepDim)
 Tensor Amin(const Tensor& self, int axis, bool keepDim)
 {
     DECLARE_TRACER();
+    std::unordered_set<DataType> supportedTypes = {DT_FP16, DT_BF16, DT_INT16, DT_INT32, DT_FP32};
+    CheckTensorDataType(self.GetStorage(), supportedTypes, "AMIN");
+    CheckTensorDimRange(self.GetStorage(), 1, 4, "AMIN");
+    CheckTensorShapeSize(self.GetStorage(), "AMIN");
     axis = axis < 0 ? self.GetShape().size() + axis : axis;
     ValidateReductionAxis(self, axis);
 
     auto resultShape = self.GetShape();
     resultShape[axis] = 1;
 
-    Tensor result(self.GetStorage()->tensor->datatype, resultShape);
+    Tensor result(self.GetStorage()->Datatype(), resultShape);
     int shapeSize = static_cast<int>(resultShape.size());
     if (config::GetOperationOption<bool>(KEY_FORCE_COMBINE_AXIS) && axis == shapeSize - 1 && shapeSize >= NUM2) {
         CALL(ReduceSingle, *Program::GetInstance().GetCurrentFunction(), "MIN_COMBINE_AXIS", self, result, axis);
@@ -420,13 +437,17 @@ Tensor Amin(const Tensor& self, int axis, bool keepDim)
 Tensor Sum(const Tensor& self, int axis, bool keepDim)
 {
     DECLARE_TRACER();
+    std::unordered_set<DataType> supportedTypes = {DT_FP16, DT_BF16, DT_INT16, DT_INT32, DT_FP32};
+    CheckTensorDataType(self.GetStorage(), supportedTypes, "SUM");
+    CheckTensorDimRange(self.GetStorage(), 1, 4, "SUM");
+    CheckTensorShapeSize(self.GetStorage(), "SUM");
     axis = axis < 0 ? self.GetShape().size() + axis : axis;
     ValidateReductionAxis(self, axis);
 
     auto resultShape = self.GetShape();
     resultShape[axis] = 1;
 
-    Tensor result(self.GetStorage()->tensor->datatype, resultShape);
+    Tensor result(self.GetStorage()->Datatype(), resultShape);
     int shapeSize = static_cast<int>(resultShape.size());
     if (config::GetOperationOption<bool>(KEY_FORCE_COMBINE_AXIS) && axis == shapeSize - 1 && shapeSize >= NUM2) {
         CALL(ReduceSingle, *Program::GetInstance().GetCurrentFunction(), "SUM_COMBINE_AXIS", self, result, axis);
@@ -440,6 +461,10 @@ Tensor Sum(const Tensor& self, int axis, bool keepDim)
 Tensor Prod(const Tensor& self, int axis, bool keepDim)
 {
     DECLARE_TRACER();
+    std::unordered_set<DataType> supportedTypes = {DT_FP16, DT_BF16, DT_INT16, DT_INT32, DT_FP32};
+    CheckTensorDataType(self.GetStorage(), supportedTypes, "PROD");
+    CheckTensorDimRange(self.GetStorage(), 1, 4, "PROD");
+    CheckTensorShapeSize(self.GetStorage(), "PROD");
     Tensor castSelf = self;
     if (self.GetDataType() == DataType::DT_FP16 || self.GetDataType() == DataType::DT_BF16) {
         castSelf = Cast(self, DataType::DT_FP32, CastMode::CAST_NONE);
@@ -451,7 +476,7 @@ Tensor Prod(const Tensor& self, int axis, bool keepDim)
     auto resultShape = castSelf.GetShape();
     resultShape[axis] = 1;
 
-    Tensor result(castSelf.GetStorage()->tensor->datatype, resultShape);
+    Tensor result(castSelf.GetStorage()->Datatype(), resultShape);
     CALL(ReduceSingle, *Program::GetInstance().GetCurrentFunction(), "PROD", castSelf, result, axis);
 
     Tensor castResult = result;
@@ -531,7 +556,7 @@ void TiledReduceExpandNew(
 Tensor RowSumExpand(const Tensor& operand)
 {
     DECLARE_TRACER();
-    Tensor result(operand.GetStorage()->tensor->datatype, operand.GetShape());
+    Tensor result(operand.GetStorage()->Datatype(), operand.GetShape());
     CALL(ReduceExpand, *Program::GetInstance().GetCurrentFunction(), "SUM", operand, result);
     return result;
 }
@@ -539,7 +564,7 @@ Tensor RowSumExpand(const Tensor& operand)
 Tensor RowMaxExpand(const Tensor& operand)
 {
     DECLARE_TRACER();
-    Tensor result(operand.GetStorage()->tensor->datatype, operand.GetShape());
+    Tensor result(operand.GetStorage()->Datatype(), operand.GetShape());
     CALL(ReduceExpand, *Program::GetInstance().GetCurrentFunction(), "MAX", operand, result);
     return result;
 }
