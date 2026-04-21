@@ -56,13 +56,13 @@ int GetCfgBlockdim()
 
 int GetMaxBlockdim()
 {
-#ifdef BUILD_WITH_CANN
+#if defined(BUILD_WITH_CANN) && !defined(BUILD_WITH_CANN_MOBILE)
     uint32_t cubeBlockDim = 1;
     uint32_t vectorBlockDim = 1;
     // 若未进行控核，aclrtGetStreamResLimit返回的是满核
-    // auto aicoreStream = machine::GetRA()->GetCurrentStream();
-    // aclrtGetStreamResLimit(aicoreStream, ACL_RT_DEV_RES_CUBE_CORE, &cubeBlockDim);
-    // aclrtGetStreamResLimit(aicoreStream, ACL_RT_DEV_RES_VECTOR_CORE, &vectorBlockDim);
+    auto aicoreStream = machine::GetRA()->GetCurrentStream();
+    aclrtGetStreamResLimit(aicoreStream, ACL_RT_DEV_RES_CUBE_CORE, &cubeBlockDim);
+    aclrtGetStreamResLimit(aicoreStream, ACL_RT_DEV_RES_VECTOR_CORE, &vectorBlockDim);
     // 若不满足AIC和AIV的比例，手动处理成为符合AIC和AIV的比例最大值
     if (vectorBlockDim != cubeBlockDim * AICAIVRATIO) {
         auto rtsMaxBlockDim = std::min(cubeBlockDim, vectorBlockDim / AICAIVRATIO);
@@ -106,10 +106,9 @@ static const std::unordered_map<int, std::function<void(bool&)>> captureStatusHa
 
 int DeviceLauncher::GetStreamCaptureInfo(rtStream_t aicoreStream, aclmdlRI& rtModel, bool& isCapture)
 {
+#if !defined(BUILD_WITH_CANN_MOBILE)
     aclmdlRICaptureStatus captureStatus = aclmdlRICaptureStatus::ACL_MODEL_RI_CAPTURE_STATUS_NONE;
-    // aclError ret = aclmdlRICaptureGetInfo(aicoreStream, &captureStatus, &rtModel);
-    (void)aicoreStream;
-    (void)rtModel;
+    aclError ret = aclmdlRICaptureGetInfo(aicoreStream, &captureStatus, &rtModel);
     aclError ret = ACL_ERROR_RT_FEATURE_NOT_SUPPORT;
     if (ret == ACL_ERROR_RT_FEATURE_NOT_SUPPORT) {
         MACHINE_LOGW("Stream capture not support");
@@ -128,45 +127,59 @@ int DeviceLauncher::GetStreamCaptureInfo(rtStream_t aicoreStream, aclmdlRI& rtMo
     }
     MACHINE_LOGI("capture mode[%d]", isCapture);
     return 0;
+#else
+    (void)aicoreStream;
+    (void)rtModel;
+    (void)isCapture;
+    return 0;
+#endif
 }
 
 void DeviceLauncher::ChangeCaptureModeRelax()
 {
-    // aclmdlRICaptureMode mode =
-    //     ACL_MODEL_RI_CAPTURE_MODE_RELAXED; // aclgraph does not support rtmemcpy / rtmemset, set to relaxed mode
-    // aclmdlRICaptureThreadExchangeMode(&mode);
+#if !defined(BUILD_WITH_CANN_MOBILE)
+    aclmdlRICaptureMode mode =
+        ACL_MODEL_RI_CAPTURE_MODE_RELAXED; // aclgraph does not support rtmemcpy / rtmemset, set to relaxed mode
+    aclmdlRICaptureThreadExchangeMode(&mode);
+#endif
 }
 
 void DeviceLauncher::ChangeCaptureModeGlobal()
 {
-    // aclmdlRICaptureMode mode = ACL_MODEL_RI_CAPTURE_MODE_GLOBAL;
-    // aclmdlRICaptureThreadExchangeMode(&mode);
+#if !defined(BUILD_WITH_CANN_MOBILE)
+    aclmdlRICaptureMode mode = ACL_MODEL_RI_CAPTURE_MODE_GLOBAL;
+    aclmdlRICaptureThreadExchangeMode(&mode);
+#endif
 }
 
 int DeviceLauncher::SetCaptureStream(rtStream_t aicoreStream, rtStream_t aicpuStream, bool& isCapture)
 {
+#if !defined(BUILD_WITH_CANN_MOBILE)
+    aclmdlRI rtModel = nullptr;
+
+    if (GetStreamCaptureInfo(aicoreStream, rtModel, isCapture) < 0) {
+        return -1;
+    }
+
+    if (isCapture) {
+        if (rtModel == nullptr) {
+            MACHINE_LOGE(DevCommonErr::NULLPTR, "rtModel is null!");
+            return -1;
+            ;
+        }
+        rtError_t ret = rtStreamAddToModel(aicpuStream, rtModel);
+        if (ret != 0) {
+            MACHINE_LOGE(RtErr::RT_LAUNCH_FAILED, "rtStreamAddToModel failed, return[%d]", ret);
+            return -1;
+        }
+    }
+    return 0;
+#else
     (void)aicoreStream;
     (void)aicpuStream;
     (void)isCapture;
-    // aclmdlRI rtModel = nullptr;
-
-    // if (GetStreamCaptureInfo(aicoreStream, rtModel, isCapture) < 0) {
-    //     return -1;
-    // }
-
-    // if (isCapture) {
-    //     if (rtModel == nullptr) {
-    //         MACHINE_LOGE(DevCommonErr::NULLPTR, "rtModel is null!");
-    //         return -1;
-    //         ;
-    //     }
-    //     rtError_t ret = rtStreamAddToModel(aicpuStream, rtModel);
-    //     if (ret != 0) {
-    //         MACHINE_LOGE(RtErr::RT_LAUNCH_FAILED, "rtStreamAddToModel failed, return[%d]", ret);
-    //         return -1;
-    //     }
-    // }
     return 0;
+#endif
 }
 
 int DeviceLauncher::RunWithProfile(rtStream_t aicoreStream, rtStream_t aicpuStream, bool isCapture)
@@ -541,11 +554,11 @@ uint8_t* CopyHostToDev(uint8_t* data, uint64_t size)
 
 DeviceGuard::DeviceGuard(int32_t devId) : nDevId(devId)
 {
-#ifdef BUILD_WITH_CANN
-    // (void)rtGetDevice(&oDevId);
-    // if (nDevId != oDevId) {
-    //     rtSetDevice(nDevId);
-    // }
+#if defined(BUILD_WITH_CANN) && !defined(BUILD_WITH_CANN_MOBILE)
+    (void)rtGetDevice(&oDevId);
+    if (nDevId != oDevId) {
+        rtSetDevice(nDevId);
+    }
 #endif
 }
 
@@ -560,16 +573,16 @@ DeviceGuard::~DeviceGuard()
 
 AclModeGuard::AclModeGuard(aclmdlRICaptureMode tmode) : mode(tmode)
 {
-// #ifdef BUILD_WITH_CANN
-//     aclmdlRICaptureThreadExchangeMode(&mode);
-// #endif
+#if defined(BUILD_WITH_CANN) && !defined(BUILD_WITH_CANN_MOBILE)
+    aclmdlRICaptureThreadExchangeMode(&mode);
+#endif
 }
 AclModeGuard::~AclModeGuard()
 {
-// #ifdef BUILD_WITH_CANN
-//     aclmdlRICaptureMode mod = ACL_MODEL_RI_CAPTURE_MODE_GLOBAL;
-//     aclmdlRICaptureThreadExchangeMode(&mod);
-// #endif
+#if defined(BUILD_WITH_CANN) && !defined(BUILD_WITH_CANN_MOBILE)
+    aclmdlRICaptureMode mod = ACL_MODEL_RI_CAPTURE_MODE_GLOBAL;
+    aclmdlRICaptureThreadExchangeMode(&mod);
+#endif
 }
 
 void DeviceLauncher::FillDeviceKernelArgs(
@@ -639,15 +652,14 @@ void DeviceLauncher::FreeControlFlowCache(uint8_t* ctrlCache)
 
 void DeviceLauncher::AddAicpuStream(aclmdlRI& rtModel)
 {
-#ifdef BUILD_WITH_CANN
-    // auto ctrlStream = (aclrtStream)machine::GetRA()->GetCtrlStream();
-    // auto schedtream = (aclrtStream)machine::GetRA()->GetScheStream();
+#if defined(BUILD_WITH_CANN) && !defined(BUILD_WITH_CANN_MOBILE)
+    auto ctrlStream = (aclrtStream)machine::GetRA()->GetCtrlStream();
+    auto schedtream = (aclrtStream)machine::GetRA()->GetScheStream();
 
-    // if (IsCaptureMode()) {
-    //     rtStreamAddToModel(ctrlStream, rtModel);
-    //     rtStreamAddToModel(schedtream, rtModel);
-    // }
-    (void)rtModel;
+    if (IsCaptureMode()) {
+        rtStreamAddToModel(ctrlStream, rtModel);
+        rtStreamAddToModel(schedtream, rtModel);
+    }
 #else
     (void)rtModel;
     return;
@@ -666,13 +678,10 @@ void DeviceLauncher::SaveStream(aclrtStream aicoreStream)
 
 void DeviceLauncher::GetCaptureInfo(aclrtStream aicoreStream, aclmdlRI& rtModel)
 {
-#ifdef BUILD_WITH_CANN
+#if defined(BUILD_WITH_CANN) && !defined(BUILD_WITH_CANN_MOBILE)
     SetCaptureMode(false);
     aclmdlRICaptureStatus status = aclmdlRICaptureStatus::ACL_MODEL_RI_CAPTURE_STATUS_NONE;
-    // auto ret = aclmdlRICaptureGetInfo(aicoreStream, &status, &rtModel);
-    (void)aicoreStream;
-    (void)rtModel;
-    auto ret = ACL_ERROR_RT_FEATURE_NOT_SUPPORT;
+    auto ret = aclmdlRICaptureGetInfo(aicoreStream, &status, &rtModel);
     if (ret == ACL_ERROR_RT_FEATURE_NOT_SUPPORT) {
         return;
     } else if (ret != ACL_SUCCESS) {
@@ -704,9 +713,11 @@ void* DeviceLauncher::RegisterKernelBin(const std::vector<uint8_t>& kernelBinary
         .data = kernelBinary.data(),
         .length = kernelBinary.size(),
     };
-
-    // int ret = rtRegisterAllKernel(&binary, &hdl);
-    int ret = rtDevBinaryRegister(&binary, &hdl);
+#ifdef BUILD_WITH_CANN_MOBILE
+    int ret = rtDevBinaryRegister(&binary, &hdl); 
+#else
+    int ret = rtRegisterAllKernel(&binary, &hdl);
+#endif
     if (ret != RT_ERROR_NONE) {
         MACHINE_LOGE(HostLauncherErr::REGISTER_KERNEL_FAILED, "register kernel failed, ret: %d", ret);
     }
@@ -764,34 +775,31 @@ int DeviceLauncher::LaunchSyncTask(aclrtStream aicoreStream, bool isCaptureMode)
 int DeviceLauncher::LaunchAicpuKernel(
     rtAicpuArgsEx_t& rtArgs, [[maybe_unused]] bool debugEnable, [[maybe_unused]] Function* function)
 {
-#ifdef BUILD_WITH_CANN
-    // auto ctrlStream = (aclrtStream)machine::GetRA()->GetCtrlStream();
-    // auto schedStream = (aclrtStream)machine::GetRA()->GetScheStream();
-    // auto& devRunner = DeviceRunner::Get();
-    // devRunner.GetHostProfInstance().SetProfFunction(function);
-    // int ret = 0;
-    // auto args = (AiCpuArgs*)rtArgs.args;
-    // const int nrAicpu = static_cast<int>(DeviceLauncher::GetDevProg(function)->devArgs.nrAicpu);
-    // auto startTime = MsprofSysCycleTime();
-    // args->kArgs.parameter.runMode = RUN_SPLITTED_STREAM_CTRL;
-    // ret = rtAicpuKernelLaunchExWithArgs(
-    //     rtKernelType_t::KERNEL_TYPE_AICPU_KFC, "AST_DYN_AICPU", 1, &rtArgs, nullptr, ctrlStream,
-    //     RT_KERNEL_USE_SPECIAL_TIMEOUT);
-    // devRunner.ReportHostProfInfo(ctrlStream, startTime, 1, MSPROF_GE_TASK_TYPE_AI_CPU, false);
-    // if (ret != RT_ERROR_NONE) {
-    //     return ret;
-    // }
-    // args->kArgs.parameter.runMode = RUN_SPLITTED_STREAM_SCHE;
-    // startTime = MsprofSysCycleTime();
-    // const int scheCpuNum = static_cast<int>(DeviceLauncher::GetDevProg(function)->devArgs.scheCpuNum);
-    // ret = rtAicpuKernelLaunchExWithArgs(
-    //     rtKernelType_t::KERNEL_TYPE_AICPU_KFC, "AST_DYN_AICPU", nrAicpu, &rtArgs, nullptr, schedStream,
-    //     RT_KERNEL_USE_SPECIAL_TIMEOUT);
-    // devRunner.ReportHostProfInfo(schedStream, startTime, scheCpuNum, MSPROF_GE_TASK_TYPE_AI_CPU, false);
-    // return ret;
-    (void)rtArgs;
-    (void)debugEnable;
-    return 0;
+#if defined(BUILD_WITH_CANN) && !defined(BUILD_WITH_CANN_MOBILE)
+    auto ctrlStream = (aclrtStream)machine::GetRA()->GetCtrlStream();
+    auto schedStream = (aclrtStream)machine::GetRA()->GetScheStream();
+    auto& devRunner = DeviceRunner::Get();
+    devRunner.GetHostProfInstance().SetProfFunction(function);
+    int ret = 0;
+    auto args = (AiCpuArgs*)rtArgs.args;
+    const int nrAicpu = static_cast<int>(DeviceLauncher::GetDevProg(function)->devArgs.nrAicpu);
+    auto startTime = MsprofSysCycleTime();
+    args->kArgs.parameter.runMode = RUN_SPLITTED_STREAM_CTRL;
+    ret = rtAicpuKernelLaunchExWithArgs(
+        rtKernelType_t::KERNEL_TYPE_AICPU_KFC, "AST_DYN_AICPU", 1, &rtArgs, nullptr, ctrlStream,
+        RT_KERNEL_USE_SPECIAL_TIMEOUT);
+    devRunner.ReportHostProfInfo(ctrlStream, startTime, 1, MSPROF_GE_TASK_TYPE_AI_CPU, false);
+    if (ret != RT_ERROR_NONE) {
+        return ret;
+    }
+    args->kArgs.parameter.runMode = RUN_SPLITTED_STREAM_SCHE;
+    startTime = MsprofSysCycleTime();
+    const int scheCpuNum = static_cast<int>(DeviceLauncher::GetDevProg(function)->devArgs.scheCpuNum);
+    ret = rtAicpuKernelLaunchExWithArgs(
+        rtKernelType_t::KERNEL_TYPE_AICPU_KFC, "AST_DYN_AICPU", nrAicpu, &rtArgs, nullptr, schedStream,
+        RT_KERNEL_USE_SPECIAL_TIMEOUT);
+    devRunner.ReportHostProfInfo(schedStream, startTime, scheCpuNum, MSPROF_GE_TASK_TYPE_AI_CPU, false);
+    return ret;
 #else
     (void)rtArgs;
     (void)debugEnable;
@@ -802,44 +810,38 @@ int DeviceLauncher::LaunchAicpuKernel(
 int DeviceLauncher::LaunchAicoreKernel(
     aclrtStream aicoreStream, void* kernel, rtArgsEx_t& rtArgs, rtTaskCfgInfo_t& rtTaskCfg, bool debugEnable)
 {
-#ifdef BUILD_WITH_CANN
-    // auto& devRunner = DeviceRunner::Get();
-    // auto tilingKey = OpInfoManager::GetInstance().GetOpTilingKey();
-    // auto blockDim = dynamic::GetCfgBlockdim();
-    // auto startTime = MsprofSysCycleTime();
-    // auto ret = rtKernelLaunchWithHandleV2(kernel, tilingKey, blockDim, &rtArgs, nullptr, aicoreStream, &rtTaskCfg);
-    // devRunner.ReportHostProfInfo(aicoreStream, startTime, blockDim, MSPROF_GE_TASK_TYPE_MIX_AIC, true);
-    // if (debugEnable) {
-    //     auto scheStream = (aclrtStream)machine::GetRA()->GetScheStream();
-    //     int rc = DeviceRunner::Get().DynamicLaunchSynchronize(scheStream, nullptr, aicoreStream);
-    //     if (rc != 0) {
-    //         MACHINE_LOGE(HostLauncherErr::SYNC_FAILED, "sync failed");
-    //         return rc;
-    //     }
-    //     devRunner.DumpAiCoreExecutionTimeData();
-    //     ASSERT(machine::GetRA()->CheckAllSentinels());
-    // }
-    // if (IsPtoDataDumpEnabled()) {
-    //     auto scheStream = (aclrtStream)machine::GetRA()->GetScheStream();
-    //     int rc = DeviceRunner::Get().DynamicLaunchSynchronize(scheStream, nullptr, aicoreStream);
-    //     if (rc != 0) {
-    //         MACHINE_LOGE(HostLauncherErr::SYNC_FAILED, "sync failed");
-    //         return rc;
-    //     }
-    //     uint32_t hostPid = GetProcessId();
-    //     std::string sourceDir = "output/dump_tensor_" + std::to_string(hostPid);
-    //     std::string targetDir = config::LogTopFolder() + "/dump_tensor_" + std::to_string(hostPid);
-    //     if (IsPathExist(sourceDir)) {
-    //         std::rename(sourceDir.c_str(), targetDir.c_str());
-    //     }
-    // }
-    // return ret;
-    (void)aicoreStream;
-    (void)kernel;
-    (void)rtArgs;
-    (void)rtTaskCfg;
-    (void)debugEnable;
-    return 0;
+#if defined(BUILD_WITH_CANN) && !defined(BUILD_WITH_CANN_MOBILE)
+    auto& devRunner = DeviceRunner::Get();
+    auto tilingKey = OpInfoManager::GetInstance().GetOpTilingKey();
+    auto blockDim = dynamic::GetCfgBlockdim();
+    auto startTime = MsprofSysCycleTime();
+    auto ret = rtKernelLaunchWithHandleV2(kernel, tilingKey, blockDim, &rtArgs, nullptr, aicoreStream, &rtTaskCfg);
+    devRunner.ReportHostProfInfo(aicoreStream, startTime, blockDim, MSPROF_GE_TASK_TYPE_MIX_AIC, true);
+    if (debugEnable) {
+        auto scheStream = (aclrtStream)machine::GetRA()->GetScheStream();
+        int rc = DeviceRunner::Get().DynamicLaunchSynchronize(scheStream, nullptr, aicoreStream);
+        if (rc != 0) {
+            MACHINE_LOGE(HostLauncherErr::SYNC_FAILED, "sync failed");
+            return rc;
+        }
+        devRunner.DumpAiCoreExecutionTimeData();
+        ASSERT(machine::GetRA()->CheckAllSentinels());
+    }
+    if (IsPtoDataDumpEnabled()) {
+        auto scheStream = (aclrtStream)machine::GetRA()->GetScheStream();
+        int rc = DeviceRunner::Get().DynamicLaunchSynchronize(scheStream, nullptr, aicoreStream);
+        if (rc != 0) {
+            MACHINE_LOGE(HostLauncherErr::SYNC_FAILED, "sync failed");
+            return rc;
+        }
+        uint32_t hostPid = GetProcessId();
+        std::string sourceDir = "output/dump_tensor_" + std::to_string(hostPid);
+        std::string targetDir = config::LogTopFolder() + "/dump_tensor_" + std::to_string(hostPid);
+        if (IsPathExist(sourceDir)) {
+            std::rename(sourceDir.c_str(), targetDir.c_str());
+        }
+    }
+    return ret;
 #else
     (void)aicoreStream;
     (void)kernel;

@@ -70,12 +70,15 @@ namespace {
 
 void ExchangeCaputerMode(const bool& isCapture)
 {
+#if !defined(BUILD_WITH_CANN_MOBILE)
+    if (isCapture) {
+        aclmdlRICaptureMode mode = ACL_MODEL_RI_CAPTURE_MODE_GLOBAL;
+        aclmdlRICaptureThreadExchangeMode(&mode);
+        MACHINE_LOGI("captureMode is: %d", mode);
+    }
+#else
     (void)isCapture;
-    // if (isCapture) {
-    //     aclmdlRICaptureMode mode = ACL_MODEL_RI_CAPTURE_MODE_GLOBAL;
-    //     aclmdlRICaptureThreadExchangeMode(&mode);
-    //     MACHINE_LOGI("captureMode is: %d", mode);
-    // }
+#endif
 }
 
 void* MachinePerfTraceDevMalloc(int size)
@@ -91,31 +94,34 @@ void* MachinePerfTraceDevMalloc(int size)
 
 void SyncStreams(rtStream_t aicpuStream, rtStream_t aicoreStream, bool useSyncFlag)
 {
+#if !defined(BUILD_WITH_CANN_MOBILE)
+    aclrtEvent event;
+    int rc;
+
+    if (useSyncFlag) {
+        rc = aclrtCreateEventExWithFlag(&event, ACL_EVENT_SYNC);
+    } else {
+        rc = aclrtCreateEvent(&event);
+    }
+
+    if (rc < 0) {
+        MACHINE_LOGI("CreateEvent failed rc=%d, useSyncFlag=%d", rc, useSyncFlag);
+    }
+
+    rc = aclrtRecordEvent(event, aicpuStream);
+    if (rc < 0) {
+        MACHINE_LOGI("RecordEvent failed rc=%d", rc);
+    }
+
+    rc = aclrtStreamWaitEvent(aicoreStream, event);
+    if (rc < 0) {
+        MACHINE_LOGI("StreamWaitEvent failed rc=%d", rc);
+    }
+#else
     (void)aicpuStream;
     (void)aicoreStream;
     (void)useSyncFlag;
-    // aclrtEvent event;
-    // int rc;
-
-    // if (useSyncFlag) {
-    //     rc = aclrtCreateEventExWithFlag(&event, ACL_EVENT_SYNC);
-    // } else {
-    //     rc = aclrtCreateEvent(&event);
-    // }
-
-    // if (rc < 0) {
-    //     MACHINE_LOGI("CreateEvent failed rc=%d, useSyncFlag=%d", rc, useSyncFlag);
-    // }
-
-    // rc = aclrtRecordEvent(event, aicpuStream);
-    // if (rc < 0) {
-    //     MACHINE_LOGI("RecordEvent failed rc=%d", rc);
-    // }
-
-    // rc = aclrtStreamWaitEvent(aicoreStream, event);
-    // if (rc < 0) {
-    //     MACHINE_LOGI("StreamWaitEvent failed rc=%d", rc);
-    // }
+#endif
 }
 } // namespace
 
@@ -396,18 +402,21 @@ int DeviceRunner::DynamicLaunchSynchronize(rtStream_t aicpuStream, rtStream_t ct
 
 int DeviceRunner::launchDynamicAiCore(rtStream_t aicoreStream, DeviceKernelArgs* kernelArgs)
 {
-    // rtArgsEx_t rtArgs;
-    // memset_s(&rtArgs, sizeof(rtArgs), 0, sizeof(rtArgs));
-    // std::vector<void*> kArgs = {nullptr, nullptr, nullptr, nullptr, nullptr, kernelArgs->cfgdata};
-    // rtArgs.args = kArgs.data();
-    // rtArgs.argsSize = kArgs.size() * sizeof(int64_t);
-    // uint64_t tilingKey = OpInfoManager::GetInstance().GetOpTilingKey();
-    // rtTaskCfgInfo_t cfg = {};
-    // cfg.schemMode = RT_SCHEM_MODE_BATCH;
-    // return rtKernelLaunchWithHandleV2(binHdl_, tilingKey, blockDim_, &rtArgs, nullptr, aicoreStream, &cfg);
+#if !defined(BUILD_WITH_CANN_MOBILE)
+    rtArgsEx_t rtArgs;
+    memset_s(&rtArgs, sizeof(rtArgs), 0, sizeof(rtArgs));
+    std::vector<void*> kArgs = {nullptr, nullptr, nullptr, nullptr, nullptr, kernelArgs->cfgdata};
+    rtArgs.args = kArgs.data();
+    rtArgs.argsSize = kArgs.size() * sizeof(int64_t);
+    uint64_t tilingKey = OpInfoManager::GetInstance().GetOpTilingKey();
+    rtTaskCfgInfo_t cfg = {};
+    cfg.schemMode = RT_SCHEM_MODE_BATCH;
+    return rtKernelLaunchWithHandleV2(binHdl_, tilingKey, blockDim_, &rtArgs, nullptr, aicoreStream, &cfg);
+#else
     (void)aicoreStream;
     (void)kernelArgs;
     return 0;
+#endif
 }
 
 int DeviceRunner::launchDynamicAiCpu(rtStream_t aicpuStream, DeviceKernelArgs* kArgs)
@@ -415,30 +424,33 @@ int DeviceRunner::launchDynamicAiCpu(rtStream_t aicpuStream, DeviceKernelArgs* k
 #ifdef BUILD_WITH_NEW_CANN
     return LoadAicpuOp::GetInstance().LaunchBuiltInOp(aicpuStream, kArgs, aicpuNum_, "PyptoRun");
 #endif
-    // // use inputs/outputs store argsaddr/argsSize(aicpu task info + tensorInfo size)
-    // auto args = reinterpret_cast<dynamic::AiCpuArgs*>(kArgs->inputs);
-    // rtAicpuArgsEx_t rtArgs;
-    // uint64_t argsSize = reinterpret_cast<uint64_t>(kArgs->outputs);
-    // kArgs->inputs = nullptr;
-    // args->kArgs = *kArgs;
-    // memset_s(&rtArgs, sizeof(rtArgs), 0, sizeof(rtArgs));
-    // rtArgs.args = args;
-    // rtArgs.argsSize = argsSize;
-    // rtArgs.kernelNameAddrOffset = offsetof(dynamic::AiCpuArgs, kernelName);
-    // rtArgs.soNameAddrOffset = offsetof(dynamic::AiCpuArgs, soName);
-    // rtArgs.hostInputInfoNum = 1;
-    // rtHostInputInfo_t hostInputInfo;
-    // hostInputInfo.addrOffset = reinterpret_cast<int8_t*>(&args->kArgs.inputs) - reinterpret_cast<int8_t*>(args);
-    // hostInputInfo.dataOffset = sizeof(dynamic::AiCpuArgs);
-    // rtArgs.hostInputInfoPtr = &hostInputInfo;
-    // rtArgs.timeout = dynamic::AICPU_EXECUTE_TIMEOUT;
-    // MACHINE_LOGI("Copy flow addrOffset %u argsSize %u", hostInputInfo.addrOffset, hostInputInfo.dataOffset);
-    // return rtAicpuKernelLaunchExWithArgs(
-    //     rtKernelType_t::KERNEL_TYPE_AICPU_KFC, "AST_DYN_AICPU", aicpuNum_, &rtArgs, nullptr, aicpuStream,
-    //     RT_KERNEL_USE_SPECIAL_TIMEOUT);
+#if defined(BUILD_WITH_CANN) && !defined(BUILD_WITH_CANN_MOBILE)
+    // use inputs/outputs store argsaddr/argsSize(aicpu task info + tensorInfo size)
+    auto args = reinterpret_cast<dynamic::AiCpuArgs*>(kArgs->inputs);
+    rtAicpuArgsEx_t rtArgs;
+    uint64_t argsSize = reinterpret_cast<uint64_t>(kArgs->outputs);
+    kArgs->inputs = nullptr;
+    args->kArgs = *kArgs;
+    memset_s(&rtArgs, sizeof(rtArgs), 0, sizeof(rtArgs));
+    rtArgs.args = args;
+    rtArgs.argsSize = argsSize;
+    rtArgs.kernelNameAddrOffset = offsetof(dynamic::AiCpuArgs, kernelName);
+    rtArgs.soNameAddrOffset = offsetof(dynamic::AiCpuArgs, soName);
+    rtArgs.hostInputInfoNum = 1;
+    rtHostInputInfo_t hostInputInfo;
+    hostInputInfo.addrOffset = reinterpret_cast<int8_t*>(&args->kArgs.inputs) - reinterpret_cast<int8_t*>(args);
+    hostInputInfo.dataOffset = sizeof(dynamic::AiCpuArgs);
+    rtArgs.hostInputInfoPtr = &hostInputInfo;
+    rtArgs.timeout = dynamic::AICPU_EXECUTE_TIMEOUT;
+    MACHINE_LOGI("Copy flow addrOffset %u argsSize %u", hostInputInfo.addrOffset, hostInputInfo.dataOffset);
+    return rtAicpuKernelLaunchExWithArgs(
+        rtKernelType_t::KERNEL_TYPE_AICPU_KFC, "AST_DYN_AICPU", aicpuNum_, &rtArgs, nullptr, aicpuStream,
+        RT_KERNEL_USE_SPECIAL_TIMEOUT);
+#else
     (void)aicpuStream;
     (void)kArgs;
     return 0;
+#endif
 }
 
 void DeviceRunner::InitAiCpuSoBin(DeviceArgs& devArgs)
@@ -463,34 +475,38 @@ void DeviceRunner::InitAiCpuSoBin(DeviceArgs& devArgs)
 
 int DeviceRunner::InitAicpuServer()
 {
-    // auto aicpuStream = machine::GetRA()->GetScheStream();
 #ifdef BUILD_WITH_NEW_CANN
+    auto aicpuStream = machine::GetRA()->GetScheStream();
     return LoadAicpuOp::GetInstance().LaunchBuiltInOp(aicpuStream, kArgs, 1, "PyptoInit");
 #endif
-    // struct Args {
-    //     DeviceKernelArgs kArgs;
-    //     const char kernelName[32] = {"DynTileFwkKernelServerInit"};
-    //     const char soName[32] = {"libaicpu_extend_kernels.so"};
-    //     const char opName[32] = {""};
-    // } args;
+#if defined(BUILD_WITH_CANN) && !defined(BUILD_WITH_CANN_MOBILE)
+    auto aicpuStream = machine::GetRA()->GetScheStream();
+    struct Args {
+        DeviceKernelArgs kArgs;
+        const char kernelName[32] = {"DynTileFwkKernelServerInit"};
+        const char soName[32] = {"libaicpu_extend_kernels.so"};
+        const char opName[32] = {""};
+    } args;
 
-    // args.kArgs.cfgdata = (int64_t*)devArgs_;
+    args.kArgs.cfgdata = (int64_t*)devArgs_;
 
-    // rtAicpuArgsEx_t rtArgs;
-    // memset_s(&rtArgs, sizeof(rtArgs), 0, sizeof(rtArgs));
-    // rtArgs.args = &args;
-    // rtArgs.argsSize = sizeof(args);
-    // rtArgs.kernelNameAddrOffset = offsetof(struct Args, kernelName);
-    // rtArgs.soNameAddrOffset = offsetof(struct Args, soName);
-    // int ret = rtAicpuKernelLaunchExWithArgs(
-    //     rtKernelType_t::KERNEL_TYPE_AICPU_KFC, "AST_DYN_AICPU", 1, &rtArgs, nullptr, aicpuStream, 0);
-    // if (ret != RT_ERROR_NONE) {
-    //     MACHINE_LOGE(RtErr::RT_LAUNCH_FAILED, "Aicpu server init failed %d", ret);
-    //     return ret;
-    // }
-    // // for triple stream schedule, must wait aicpu server init done
-    // return rtStreamSynchronize(aicpuStream);
+    rtAicpuArgsEx_t rtArgs;
+    memset_s(&rtArgs, sizeof(rtArgs), 0, sizeof(rtArgs));
+    rtArgs.args = &args;
+    rtArgs.argsSize = sizeof(args);
+    rtArgs.kernelNameAddrOffset = offsetof(struct Args, kernelName);
+    rtArgs.soNameAddrOffset = offsetof(struct Args, soName);
+    int ret = rtAicpuKernelLaunchExWithArgs(
+        rtKernelType_t::KERNEL_TYPE_AICPU_KFC, "AST_DYN_AICPU", 1, &rtArgs, nullptr, aicpuStream, 0);
+    if (ret != RT_ERROR_NONE) {
+        MACHINE_LOGE(RtErr::RT_LAUNCH_FAILED, "Aicpu server init failed %d", ret);
+        return ret;
+    }
+    // for triple stream schedule, must wait aicpu server init done
+    return rtStreamSynchronize(aicpuStream);
+#else
     return 0;
+#endif
 }
 
 bool DeviceRunner::GetEnableDumpDevPref() const { return enableDumpMachinePerfTrace_; }
@@ -538,25 +554,29 @@ int DeviceRunner::RunPrepare()
 
 int DeviceRunner::RunPreSync(rtStream_t scheStream, rtStream_t ctrlStream, rtStream_t aicoreStream)
 {
+#if !defined(BUILD_WITH_CANN_MOBILE)
+    int rc = aclrtRecordEvent(event_, aicoreStream);
+    if (rc < 0) {
+        MACHINE_LOGE(RtErr::RT_EVENT_FAILED, "aclrtRecordEvent failed %d\n", rc);
+        return rc;
+    }
+    rc = aclrtStreamWaitEvent(scheStream, event_);
+    if (rc < 0) {
+        MACHINE_LOGE(RtErr::RT_EVENT_FAILED, "aclrtStreamWaitEvent failed %d\n", rc);
+        return rc;
+    }
+    rc = aclrtStreamWaitEvent(ctrlStream, event_);
+    if (rc < 0) {
+        MACHINE_LOGE(RtErr::RT_EVENT_FAILED, "aclrtStreamWaitEvent failed %d\n", rc);
+        return rc;
+    }
+    return 0;
+#else
     (void)scheStream;
     (void)ctrlStream;
     (void)aicoreStream;
-    // int rc = aclrtRecordEvent(event_, aicoreStream);
-    // if (rc < 0) {
-    //     MACHINE_LOGE(RtErr::RT_EVENT_FAILED, "aclrtRecordEvent failed %d\n", rc);
-    //     return rc;
-    // }
-    // rc = aclrtStreamWaitEvent(scheStream, event_);
-    // if (rc < 0) {
-    //     MACHINE_LOGE(RtErr::RT_EVENT_FAILED, "aclrtStreamWaitEvent failed %d\n", rc);
-    //     return rc;
-    // }
-    // rc = aclrtStreamWaitEvent(ctrlStream, event_);
-    // if (rc < 0) {
-    //     MACHINE_LOGE(RtErr::RT_EVENT_FAILED, "aclrtStreamWaitEvent failed %d\n", rc);
-    //     return rc;
-    // }
     return 0;
+#endif
 }
 
 int DeviceRunner::RunPost(rtStream_t aicpuStream, rtStream_t aicoreStream)
@@ -594,60 +614,63 @@ int DeviceRunner::DynamicKernelLaunch(
 int DeviceRunner::DynamicTripleStreamLaunch(
     rtStream_t schedStream, rtStream_t ctrlStream, rtStream_t aicoreStream, DeviceKernelArgs* kernelArgs, int blockdim)
 {
+#if !defined(BUILD_WITH_CANN_MOBILE)
+    LoadAicpuOp::GetInstance().CustomAiCpuSoLoad();
+    uint64_t startTime = MsprofSysCycleTime();
+    auto args = reinterpret_cast<dynamic::AiCpuArgs*>(kernelArgs->inputs);
+    rtAicpuArgsEx_t rtArgs;
+    uint64_t argsSize = reinterpret_cast<uint64_t>(kernelArgs->outputs);
+    kernelArgs->inputs = nullptr;
+    args->kArgs = *kernelArgs;
+    memset_s(&rtArgs, sizeof(rtArgs), 0, sizeof(rtArgs));
+    rtArgs.args = args;
+    rtArgs.argsSize = argsSize;
+    rtArgs.hostInputInfoNum = 1;
+    rtArgs.kernelNameAddrOffset = offsetof(dynamic::AiCpuArgs, kernelName);
+    rtArgs.soNameAddrOffset = offsetof(dynamic::AiCpuArgs, soName);
+    rtHostInputInfo_t hostInputInfo;
+    hostInputInfo.addrOffset = reinterpret_cast<int8_t*>(&args->kArgs.inputs) - reinterpret_cast<int8_t*>(args);
+    hostInputInfo.dataOffset = sizeof(dynamic::AiCpuArgs);
+    rtArgs.hostInputInfoPtr = &hostInputInfo;
+    MACHINE_LOGI("Copy flow addrOffset %u argsSize %u", hostInputInfo.addrOffset, hostInputInfo.dataOffset);
+    args->kArgs.parameter.runMode = RUN_SPLITTED_STREAM_CTRL;
+    int rc = rtAicpuKernelLaunchExWithArgs(
+        rtKernelType_t::KERNEL_TYPE_AICPU_KFC, "AST_DYN_AICPU", 1, &rtArgs, nullptr, (aclrtStream)ctrlStream, 0);
+    if (rc < 0) {
+        MACHINE_LOGE(HostLauncherErr::LAUNCH_AICPU_FAILED, "triple stream launch ctrl aicpu failed %d\n", rc);
+        return rc;
+    }
+    ReportHostProfInfo(ctrlStream, startTime, 1, MSPROF_GE_TASK_TYPE_AI_CPU, false);
+
+    startTime = MsprofSysCycleTime();
+    args->kArgs.parameter.runMode = RUN_SPLITTED_STREAM_SCHE;
+    rc = rtAicpuKernelLaunchExWithArgs(
+        rtKernelType_t::KERNEL_TYPE_AICPU_KFC, "AST_DYN_AICPU", aicpuNum_, &rtArgs, nullptr, (aclrtStream)schedStream,
+        0);
+    if (rc < 0) {
+        MACHINE_LOGE(HostLauncherErr::LAUNCH_AICPU_FAILED, "triple stream launch sche aicpu failed %d\n", rc);
+        return rc;
+    }
+    ReportHostProfInfo(schedStream, startTime, aicpuNum_, MSPROF_GE_TASK_TYPE_AI_CPU, false);
+
+    startTime = MsprofSysCycleTime();
+    rc = launchDynamicAiCore(aicoreStream, kernelArgs);
+    if (rc < 0) {
+        MACHINE_LOGE(HostLauncherErr::LAUNCH_AICORE_FAILED, "triple stream launch aicore failed %d\n", rc);
+        return rc;
+    }
+    ReportHostProfInfo(aicoreStream, startTime, blockdim, MSPROF_GE_TASK_TYPE_MIX_AIC, true);
+
+    rc = RunPost(ctrlStream, aicoreStream);
+    return rc;
+#else
     (void)schedStream;
     (void)ctrlStream;
     (void)aicoreStream;
     (void)kernelArgs;
     (void)blockdim;
     return 0;
-    // LoadAicpuOp::GetInstance().CustomAiCpuSoLoad();
-    // uint64_t startTime = MsprofSysCycleTime();
-    // auto args = reinterpret_cast<dynamic::AiCpuArgs*>(kernelArgs->inputs);
-    // rtAicpuArgsEx_t rtArgs;
-    // uint64_t argsSize = reinterpret_cast<uint64_t>(kernelArgs->outputs);
-    // kernelArgs->inputs = nullptr;
-    // args->kArgs = *kernelArgs;
-    // memset_s(&rtArgs, sizeof(rtArgs), 0, sizeof(rtArgs));
-    // rtArgs.args = args;
-    // rtArgs.argsSize = argsSize;
-    // rtArgs.hostInputInfoNum = 1;
-    // rtArgs.kernelNameAddrOffset = offsetof(dynamic::AiCpuArgs, kernelName);
-    // rtArgs.soNameAddrOffset = offsetof(dynamic::AiCpuArgs, soName);
-    // rtHostInputInfo_t hostInputInfo;
-    // hostInputInfo.addrOffset = reinterpret_cast<int8_t*>(&args->kArgs.inputs) - reinterpret_cast<int8_t*>(args);
-    // hostInputInfo.dataOffset = sizeof(dynamic::AiCpuArgs);
-    // rtArgs.hostInputInfoPtr = &hostInputInfo;
-    // MACHINE_LOGI("Copy flow addrOffset %u argsSize %u", hostInputInfo.addrOffset, hostInputInfo.dataOffset);
-    // args->kArgs.parameter.runMode = RUN_SPLITTED_STREAM_CTRL;
-    // int rc = rtAicpuKernelLaunchExWithArgs(
-    //     rtKernelType_t::KERNEL_TYPE_AICPU_KFC, "AST_DYN_AICPU", 1, &rtArgs, nullptr, (aclrtStream)ctrlStream, 0);
-    // if (rc < 0) {
-    //     MACHINE_LOGE(HostLauncherErr::LAUNCH_AICPU_FAILED, "triple stream launch ctrl aicpu failed %d\n", rc);
-    //     return rc;
-    // }
-    // ReportHostProfInfo(ctrlStream, startTime, 1, MSPROF_GE_TASK_TYPE_AI_CPU, false);
-
-    // startTime = MsprofSysCycleTime();
-    // args->kArgs.parameter.runMode = RUN_SPLITTED_STREAM_SCHE;
-    // rc = rtAicpuKernelLaunchExWithArgs(
-    //     rtKernelType_t::KERNEL_TYPE_AICPU_KFC, "AST_DYN_AICPU", aicpuNum_, &rtArgs, nullptr, (aclrtStream)schedStream,
-    //     0);
-    // if (rc < 0) {
-    //     MACHINE_LOGE(HostLauncherErr::LAUNCH_AICPU_FAILED, "triple stream launch sche aicpu failed %d\n", rc);
-    //     return rc;
-    // }
-    // ReportHostProfInfo(schedStream, startTime, aicpuNum_, MSPROF_GE_TASK_TYPE_AI_CPU, false);
-
-    // startTime = MsprofSysCycleTime();
-    // rc = launchDynamicAiCore(aicoreStream, kernelArgs);
-    // if (rc < 0) {
-    //     MACHINE_LOGE(HostLauncherErr::LAUNCH_AICORE_FAILED, "triple stream launch aicore failed %d\n", rc);
-    //     return rc;
-    // }
-    // ReportHostProfInfo(aicoreStream, startTime, blockdim, MSPROF_GE_TASK_TYPE_MIX_AIC, true);
-
-    // rc = RunPost(ctrlStream, aicoreStream);
-    // return rc;
+#endif
 }
 
 int DeviceRunner::DynamicLaunch(
@@ -733,6 +756,7 @@ void DeviceRunner::SetBinData(const std::vector<uint8_t>& binBuf)
 
 int DeviceRunner::RegisterKernelBin(void** hdl, std::vector<uint8_t>* funcBinBuf)
 {
+#if !defined(BUILD_WITH_CANN_MOBILE)
     if (*hdl) {
         binHdl_ = *hdl;
         MACHINE_LOGD("RegisterKernelBin reuse cache.");
@@ -749,19 +773,25 @@ int DeviceRunner::RegisterKernelBin(void** hdl, std::vector<uint8_t>* funcBinBuf
         binSize = binBuf->size();
         MACHINE_LOGD("Reg dynamic bin size %zu.", binSize);
     }
-    // rtDevBinary_t binary{.magic = RT_DEV_BINARY_MAGIC_ELF, .version = 0, .data = bin, .length = binSize};
-    // int rc = rtRegisterAllKernel(&binary, hdl);
-    // if (rc != 0) {
-    //     MACHINE_LOGE(HostLauncherErr::REGISTER_KERNEL_FAILED, "RegisterKernelBin failed\n");
-    // }
+    rtDevBinary_t binary{.magic = RT_DEV_BINARY_MAGIC_ELF, .version = 0, .data = bin, .length = binSize};
+    int rc = rtRegisterAllKernel(&binary, hdl);
+    if (rc != 0) {
+        MACHINE_LOGE(HostLauncherErr::REGISTER_KERNEL_FAILED, "RegisterKernelBin failed\n");
+    }
     int rc = 0;
     binHdl_ = *hdl;
     MACHINE_LOGD("finish RegisterKernelBin.");
     return rc;
+#else
+    (void)hdl;
+    (void)funcBinBuf;
+    return 0;
+#endif
 }
 
 int DeviceRunner::Init(void)
 {
+#if !defined(BUILD_WITH_CANN_MOBILE)
     char path[PATH_LENGTH];
     sprintf_s(path, PATH_LENGTH, "/tmp/aicpu%d.lock", devId_);
     lock_.Init(path);
@@ -775,10 +805,10 @@ int DeviceRunner::Init(void)
 
     InitializeErrorCallback();
 
-    // if (aclrtCreateEventExWithFlag(&event_, ACL_EVENT_SYNC) < 0) {
-    //     MACHINE_LOGE(RtErr::RT_EVENT_FAILED, "aclrtCreateEvent failed.");
-    //     return -1;
-    // }
+    if (aclrtCreateEventExWithFlag(&event_, ACL_EVENT_SYNC) < 0) {
+        MACHINE_LOGE(RtErr::RT_EVENT_FAILED, "aclrtCreateEvent failed.");
+        return -1;
+    }
     if (InitDeviceArgs(args_) != 0) {
         MACHINE_LOGE(HostLauncherErr::PREPARE_ARGS_FAILED, "prepareArgs failed\n");
         return -1;
@@ -791,6 +821,7 @@ int DeviceRunner::Init(void)
         InitAicpuServer();
     }
     StartMachinePerfTraceDumpThread();
+#endif
     return 0;
 }
 

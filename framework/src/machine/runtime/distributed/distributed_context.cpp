@@ -21,7 +21,7 @@
 #include "machine/device/dynamic/device_utils.h"
 #include "tilefwk/pypto_fwk_log.h"
 
-#if defined(BUILD_WITH_CANN) && !defined(KIRIN_BUILD)
+#if defined(BUILD_WITH_CANN) && !defined(BUILD_WITH_CANN_MOBILE)
 #include "hcom.h"
 #include "acl/acl.h"
 extern "C" HcclResult HcclAllocComResourceByTiling(HcclComm comm, void* stream, void* MC2Tiling, void** commContext);
@@ -151,7 +151,7 @@ uint64_t DistributedContext::AllocCommContext(
     return 0;
 }
 
-#if defined(BUILD_WITH_CANN) && !defined(KIRIN_BUILD)
+#if defined(BUILD_WITH_CANN) && !defined(BUILD_WITH_CANN_MOBILE)
 uint64_t AllocateAndSetupCommContext(
     void* paramHost, uint32_t rankNum, const std::string& groupName,
     std::function<void(TileOp::CommContext*, void*)> fillAttrFunc,
@@ -182,7 +182,7 @@ template <>
 uint64_t DistributedContext::AllocCommContext<ResType::MESH_A5>(
     [[maybe_unused]] const uint64_t ctxAddr, [[maybe_unused]] const std::string& groupName)
 {
-#if defined(BUILD_WITH_CANN) && !defined(KIRIN_BUILD)
+#if defined(BUILD_WITH_CANN) && !defined(BUILD_WITH_CANN_MOBILE)
     npu::tile_fwk::HcclCombinOpParamA5* hcclParamDevice = (npu::tile_fwk::HcclCombinOpParamA5*)ctxAddr;
     npu::tile_fwk::HcclCombinOpParamA5* hcclParamhost =
         (npu::tile_fwk::HcclCombinOpParamA5*)AllocHostAddr(sizeof(npu::tile_fwk::HcclCombinOpParamA5));
@@ -211,7 +211,7 @@ template <>
 uint64_t DistributedContext::AllocCommContext<ResType::MESH_A3>(
     [[maybe_unused]] const uint64_t ctxAddr, [[maybe_unused]] const std::string& groupName)
 {
-#if defined(BUILD_WITH_CANN) && !defined(KIRIN_BUILD)
+#if defined(BUILD_WITH_CANN) && !defined(BUILD_WITH_CANN_MOBILE)
     npu::tile_fwk::HcclCombinOpParam* hcclParamDevice = (npu::tile_fwk::HcclCombinOpParam*)ctxAddr;
     npu::tile_fwk::HcclCombinOpParam* hcclParamhost =
         (npu::tile_fwk::HcclCombinOpParam*)AllocHostAddr(sizeof(npu::tile_fwk::HcclCombinOpParam));
@@ -247,7 +247,7 @@ template <>
 uint64_t DistributedContext::AllocCommContext<ResType::RING_A2>(
     [[maybe_unused]] const uint64_t ctxAddr, [[maybe_unused]] const std::string& groupName)
 {
-#if defined(BUILD_WITH_CANN) && !defined(KIRIN_BUILD)
+#if defined(BUILD_WITH_CANN) && !defined(BUILD_WITH_CANN_MOBILE)
     npu::tile_fwk::HcclOpResParam* hcclParam = (npu::tile_fwk::HcclOpResParam*)ctxAddr;
     npu::tile_fwk::HcclOpResParamHead* hcclParamhost =
         (npu::tile_fwk::HcclOpResParamHead*)AllocHostAddr(sizeof(npu::tile_fwk::HcclOpResParamHead));
@@ -303,7 +303,7 @@ uint64_t DistributedContext::AllocCommContext<ResType::RING_A2>(
 
 std::vector<uint64_t> DistributedContext::GetCommContext([[maybe_unused]] const std::vector<std::string>& groupNames)
 {
-#if defined(BUILD_WITH_CANN) && !defined(KIRIN_BUILD)
+#if defined(BUILD_WITH_CANN) && !defined(BUILD_WITH_CANN_MOBILE)
     if (groupNames.size() == 0) {
         return {};
     }
@@ -350,7 +350,7 @@ std::vector<uint64_t> DistributedContext::GetCommContext([[maybe_unused]] const 
 std::vector<uint64_t> DistributedContext::GetCommContextToHost(
     [[maybe_unused]] const std::vector<std::string>& groupNames)
 {
-#if defined(BUILD_WITH_CANN) && !defined(KIRIN_BUILD)
+#if defined(BUILD_WITH_CANN) && !defined(BUILD_WITH_CANN_MOBILE)
     std::vector<uint64_t> devAddrs = GetCommContext(groupNames);
     std::vector<uint64_t> hostContext;
     ASSERT(groupNames.size() <= DIST_COMM_GROUP_NUM) << "Commgroup size is not be supported";

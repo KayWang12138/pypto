@@ -85,30 +85,38 @@ namespace npu::tile_fwk {
 
 inline void CheckDeviceId()
 {
-    // int32_t devId = 0;
-    // rtSetDevice(0);
-    // int32_t getDeviceResult = rtGetDevice(&devId);
-    // if (getDeviceResult != RT_ERROR_NONE) {
-    //     MACHINE_LOGE(RtErr::RT_DEVICE_FAILED, "fail get device id, check if set device id");
-    //     return;
-    // }
+#if !defined(BUILD_WITH_CANN_MOBILE)
+    int32_t devId = 0;
+    rtSetDevice(0);
+    int32_t getDeviceResult = rtGetDevice(&devId);
+    if (getDeviceResult != RT_ERROR_NONE) {
+        MACHINE_LOGE(RtErr::RT_DEVICE_FAILED, "fail get device id, check if set device id");
+        return;
+    }
+#endif
 }
 
 inline int32_t GetUserDeviceId()
 {
+#if !defined(BUILD_WITH_CANN_MOBILE)
     int32_t userDeviceId = 0;
-    // rtGetDevice(&userDeviceId);
+    rtGetDevice(&userDeviceId);
     return userDeviceId;
+#endif
+    return 0;
 }
 
 inline int32_t GetLogDeviceId()
 {
+#if !defined(BUILD_WITH_CANN_MOBILE)
     int32_t logicDeviceId = 0;
-    // int32_t userDeviceId = GetUserDeviceId();
-    // ASSERT(rtGetLogicDevIdByUserDevId(userDeviceId, &logicDeviceId) == RT_ERROR_NONE)
-    //     << "Trans usrDeviceId: " << userDeviceId << " to logDevId not success";
-    // MACHINE_LOGD("Current userDeviceId=%d, logicDeviceId=%d.", userDeviceId, logicDeviceId);
+    int32_t userDeviceId = GetUserDeviceId();
+    ASSERT(rtGetLogicDevIdByUserDevId(userDeviceId, &logicDeviceId) == RT_ERROR_NONE)
+        << "Trans usrDeviceId: " << userDeviceId << " to logDevId not success";
+    MACHINE_LOGD("Current userDeviceId=%d, logicDeviceId=%d.", userDeviceId, logicDeviceId);
     return logicDeviceId;
+#endif
+    return 0;
 }
 
 class RuntimeAgentMemory {
@@ -180,15 +188,19 @@ public:
 
     void CreateStream()
     {
-        // rtStreamCreate(&raStreamInstance, RT_STREAM_PRIORITY_DEFAULT);
-        // rtStreamCreate(&raStreamInstanceSche, RT_STREAM_PRIORITY_DEFAULT);
-        // rtStreamCreate(&raStreamInstanceCtrl, RT_STREAM_PRIORITY_DEFAULT);
+#if !defined(BUILD_WITH_CANN_MOBILE)
+        rtStreamCreate(&raStreamInstance, RT_STREAM_PRIORITY_DEFAULT);
+        rtStreamCreate(&raStreamInstanceSche, RT_STREAM_PRIORITY_DEFAULT);
+        rtStreamCreate(&raStreamInstanceCtrl, RT_STREAM_PRIORITY_DEFAULT);
+#endif
     }
     void DestroyStream()
     {
+#if !defined(BUILD_WITH_CANN_MOBILE)
         rtStreamDestroy(raStreamInstance);
         rtStreamDestroy(raStreamInstanceSche);
         rtStreamDestroy(raStreamInstanceCtrl);
+#endif
     }
 
 private:
@@ -216,7 +228,9 @@ protected:
 #ifdef RUN_WITH_ASCEND_CAMODEL
         // don't call aclInit, it will cause camodel running fail
 #else
-        // aclInited = aclInit(nullptr) == 0;
+#if !defined(BUILD_WITH_CANN_MOBILE)
+        aclInited = aclInit(nullptr) == 0;
+#endif
 #endif
         Init();
     }
@@ -227,11 +241,15 @@ public:
 public:
     static uint64_t GetL2Offset()
     {
+#if !defined(BUILD_WITH_CANN_MOBILE)
         uint64_t offset = 0;
-        // int32_t userDeviceId = GetUserDeviceId();
-        // rtGetL2CacheOffset(userDeviceId, &offset);
-        // MACHINE_LOGD("rtGetL2CacheOffset=%lu", offset);
+        int32_t userDeviceId = GetUserDeviceId();
+        rtGetL2CacheOffset(userDeviceId, &offset);
+        MACHINE_LOGD("rtGetL2CacheOffset=%lu", offset);
         return offset;
+#else
+        return 0;
+#endif
     }
 
     void CopyFromTensor(uint8_t* hostDstAddr, uint8_t* devSrcAddr, uint64_t size)

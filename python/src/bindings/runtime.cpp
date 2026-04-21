@@ -110,7 +110,6 @@ static void InitializeInputOutputData(
     const std::vector<DeviceTensorData>& inputs, const std::vector<DeviceTensorData>& outputs)
 {
     for (size_t i = 0; i < inputs.size(); i++) {
-        COMPILER_LOGI("###### %f", *((float*)inputs[i].GetAddr()));
         auto rawData =
             RawTensorData::CreateTensor(inputs[i].GetDataType(), inputs[i].GetShape(), (uint8_t*)inputs[i].GetAddr());
         ProgramData::GetInstance().AppendInput(rawData);
@@ -357,7 +356,6 @@ public:
     {
         dynAttr = dynFunc->GetDyndevAttribute().get();
         devProg = (DevAscendProgram*)dynAttr->devProgBinary.data();
-        COMPILER_LOGI("##### KernelBinary, Kernel Size[%zu]", dynAttr->kernelBinary.size());
         kernelBin = DeviceLauncher::RegisterKernelBin(dynAttr->kernelBinary);
         workspaceSize = devProg->memBudget.Total();
         InitCachedArgs();
@@ -724,26 +722,8 @@ public:
     void LiteKernelLaunch(KernelBinary* kernel, std::vector<DeviceTensorData>& tensors)
     {
 #ifdef BUILD_WITH_CANN
-        // auto aicoreStream = machine::GetRA()->GetStream();
-        // void* kernelBin = kernel->GetKernelBin();
-
         ProgramData::GetInstance().Reset();
-        // InitializeInputOutputData(tensors, {});
 
-        // EslModelMemoryUtils devMemory(true);
-        // auto &inputDataList = ProgramData::GetInstance().GetInputDataList();
-        // auto &outputDataList = ProgramData::GetInstance().GetOutputDataList();
-
-        // std::vector<void*> devAddrs;
-        // for (auto& data : inputDataList) {
-        //     // devMemory.CopyToDev(*data);
-        //     // devAddrs.push_back(data->GetDevPtr());
-
-        // }
-        // for (auto& data : outputDataList) {
-        //     devMemory.AllocDev(data->size(), nullptr);
-        //     devAddrs.push_back(data->GetDevPtr());
-        // }
         std::vector<uint8_t *> deviceAddrs;
         for (size_t i = 0; i < tensors.size(); i++) {
             uint8_t *deviceAddr;
@@ -770,12 +750,6 @@ public:
         rtArgs.args = deviceAddrs.data();
         rtArgs.argsSize = deviceAddrs.size() * sizeof(void*);
 
-        // rtTaskCfgInfo_t cfg = {};
-        // cfg.schemMode = RT_SCHEM_MODE_BATCH;
-
-        // dynAttr = dynFunc->GetDyndevAttribute().get();
-        // devProg = (DevAscendProgram*)dynAttr->devProgBinary.data();
-        // COMPILER_LOGI("##### KernelBinary, Kernel Size[%zu]", dynAttr->kernelBinary.size());
         MACHINE_LOGI("###### rtDevBinaryRegister start");
         void* hdl = nullptr;
         std::vector<uint8_t>& kernelBinary = kernel->GetFunction()->GetDyndevAttribute().get()->kernelBinary;
@@ -788,19 +762,12 @@ public:
             .length = kernelBinary.size(),
         };
 
-        // int ret = rtRegisterAllKernel(&binary, &hdl);
         int ret = rtDevBinaryRegister(&binary, &hdl);
         if (ret != RT_ERROR_NONE) {
             MACHINE_LOGE(HostLauncherErr::REGISTER_KERNEL_FAILED, "register kernel failed, ret: %d", ret);
         }
         MACHINE_LOGI("###### stubFunc: %p", hdl);
         MACHINE_LOGI("###### rtDevBinaryRegister end");
-        // uint64_t tilingKey = OpInfoManager::GetInstance().GetOpTilingKey();
-        // int ret = rtKernelLaunchWithHandleV2(kernelBin, tilingKey, 1,
-        //                                       &rtArgs, nullptr, aicoreStream, &cfg);
-        // int ret = rtKernelLaunch(kernelBin, 1, rtArgs.args, rtArgs.argsSize, nullptr, aicoreStream);
-        // rtError_t rtFunctionRegister(void* binHandle, const void* stubFunc, const char* stubName, const void* devFunc,
-        //                      uint32_t funcMode)
         int stubFunc = 1;
         std::string kernelName = "TENSOR___main___Unroll1_PATH0_hiddenfunc0_5_main";
         MACHINE_LOGI("###### rtFunctionRegister start");
@@ -815,20 +782,8 @@ public:
         MACHINE_LOGI("###### aclrtSynchronizeStream start");
         ret = aclrtSynchronizeStream(stream);
         MACHINE_LOGI("###### aclrtSynchronizeStream end");
-        // ret = rtStreamSynchronize(aicoreStream);
 
         ASSERT(ret == RT_ERROR_NONE) << "Stream sync failed: " << ret;
-
-        // for (auto& data : outputDataList) {
-        //     devMemory.CopyFromDev(*data);
-        // }
-
-        // for (size_t i = 0; i < tensors.size(); i++) {
-        //     auto input = ProgramData::GetInstance().GetInputData(i);
-        //     if (input) {
-        //         StringUtils::DataCopy(tensors[i].GetAddr(), input->GetDataSize(), input->data(), input->GetDataSize());
-        //     }
-        // }
         for (size_t i = 0; i < tensors.size(); i++) {
             aclrtMemcpy((uint8_t*)tensors[i].GetAddr(), tensors[i].GetDataSize(), deviceAddrs[i], tensors[i].GetDataSize(), ACL_MEMCPY_DEVICE_TO_HOST);
             aclrtFree(deviceAddrs[i]);
@@ -836,8 +791,6 @@ public:
         aclrtDestroyStream(stream);
         aclrtResetDevice(deviceId);
         aclFinalize();
-
-        // EslModelMemoryUtils::UnmapAllMappings();
 #else
         (void) kernel;
         (void) tensors;

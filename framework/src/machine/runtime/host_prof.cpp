@@ -230,22 +230,28 @@ void HostProf::BuildCacheTensorInfo(CacheTaskInfo* taskInfo)
 
 bool HostProf::IsCacheOpInfoEnable(const aclrtStream stream)
 {
+#if !defined(BUILD_WITH_CANN_MOBILE)
     if (stream == nullptr) {
         return false;
     }
     aclrtStreamAttrValue value = {};
     value.cacheOpInfoSwitch = 0;
-    // aclError ret = aclrtGetStreamAttribute(stream, ACL_STREAM_ATTR_CACHE_OP_INFO, &value);
-    // if (ret != ACL_SUCCESS) {
-    //     MACHINE_LOGW("Get stream attribute failed, ret is [%d]", ret);
-    //     return false;
-    // }
+    aclError ret = aclrtGetStreamAttribute(stream, ACL_STREAM_ATTR_CACHE_OP_INFO, &value);
+    if (ret != ACL_SUCCESS) {
+        MACHINE_LOGW("Get stream attribute failed, ret is [%d]", ret);
+        return false;
+    }
     return static_cast<bool>(value.cacheOpInfoSwitch);
+#else
+    (void)stream;
+    return true;
+#endif
 }
 
 void HostProf::HostProfReportCacheTaskInfo(
     const aclrtStream stream, const uint32_t numBlocks, const uint32_t taskType) const
 {
+#if !defined(BUILD_WITH_CANN_MOBILE)
     if (!IsCacheOpInfoEnable(stream)) {
         MACHINE_LOGD("Op cache for AclGraph is disabled.");
         return;
@@ -276,14 +282,19 @@ void HostProf::HostProfReportCacheTaskInfo(
         BuildCacheTensorInfo(taskInfo);
     }
 
-    // if (aclrtCacheLastTaskOpInfo(buffer, bufferSize) != ACL_SUCCESS) {
-    //     MACHINE_LOGW("Report op info cache failed for op[%s, %s].", opName_.c_str(), kOpType.c_str());
-    // } else {
-    //     MACHINE_LOGI(
-    //         "Report op[%s, %s] info cache, task type[%u], numBlocks[%u], attrId[%lu] size[%zu]", opName_.c_str(),
-    //         kOpType.c_str(), taskType, numBlocks, taskInfo->attrId, bufferSize);
-    // }
+    if (aclrtCacheLastTaskOpInfo(buffer, bufferSize) != ACL_SUCCESS) {
+        MACHINE_LOGW("Report op info cache failed for op[%s, %s].", opName_.c_str(), kOpType.c_str());
+    } else {
+        MACHINE_LOGI(
+            "Report op[%s, %s] info cache, task type[%u], numBlocks[%u], attrId[%lu] size[%zu]", opName_.c_str(),
+            kOpType.c_str(), taskType, numBlocks, taskInfo->attrId, bufferSize);
+    }
     free(buffer);
+#else
+    (void)stream;
+    (void)numBlocks;
+    (void)taskType;
+#endif
 }
 
 void HostProf::SetProfFunction(Function* function)

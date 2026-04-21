@@ -725,7 +725,7 @@ static void SetLiteDevBinary(Function* function)
 
     size_t size = sizeof(dynamic::DevAscendProgram);
     dynAttrPtr->devProgBinary.resize(size);
-    memcpy(dynAttrPtr->devProgBinary.data(), &devProg, size);
+    memcpy_s(dynAttrPtr->devProgBinary.data(), size, &devProg, size);
 
     MACHINE_LOGI("Lite dev prog binary size is:%zu\n", dynAttrPtr->devProgBinary.size());
 }
@@ -1132,7 +1132,6 @@ static void CompileDyndevFunction(Function* function, FunctionCache& cache, [[ma
     }
 
     if (Platform::Instance().GetSoc().GetNPUArch() == NPUArch::DAV_3113) {
-        // ->GetDyndevAttribute().get()->kernelBinary;
         SetLiteDevBinary(function);
     } else {
         SetDyndevProgBinary(function);

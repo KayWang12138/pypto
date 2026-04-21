@@ -31,7 +31,7 @@ target_include_directories(tile_fwk_runtime
 target_compile_definitions(tile_fwk_runtime
         PUBLIC
             $<BUILD_INTERFACE:$<$<BOOL:${BUILD_WITH_CANN}>:BUILD_WITH_CANN>>
-            $<BUILD_INTERFACE:$<$<BOOL:${KIRIN_BUILD}>:KIRIN_BUILD>>
+            $<BUILD_INTERFACE:$<$<BOOL:${BUILD_WITH_CANN_MOBILE}>:BUILD_WITH_CANN_MOBILE>>
             $<BUILD_INTERFACE:$<$<BOOL:${ENABLE_STEST_INTERPRETER_CONFIG}>:ENABLE_STEST_INTERPRETER_CONFIG>>
 )
 target_link_directories(tile_fwk_runtime
@@ -56,7 +56,7 @@ target_link_libraries(tile_fwk_runtime
             c_sec
 )
 
-if (BUILD_WITH_CANN AND (NOT KIRIN_BUILD))
+if (BUILD_WITH_CANN AND (NOT BUILD_WITH_CANN_MOBILE))
     add_dependencies(tile_fwk_runtime tile_fwk_server)
 endif ()
 

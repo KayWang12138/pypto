@@ -53,10 +53,12 @@ void AicpuErrorCallBack(aclrtExceptionInfo* exceptionInfo)
 
 void InitializeErrorCallback()
 {
-    // aclError ret = aclrtSetExceptionInfoCallback(&AicpuErrorCallBack);
-    // if (ret != ACL_SUCCESS) {
-    //     printf("Failed to set exception callback: %d\n", ret);
-    // }
+#if !defined(BUILD_WITH_CANN_MOBILE)
+    aclError ret = aclrtSetExceptionInfoCallback(&AicpuErrorCallBack);
+    if (ret != ACL_SUCCESS) {
+        printf("Failed to set exception callback: %d\n", ret);
+    }
+#endif
 }
 } // namespace npu::tile_fwk
 #endif
