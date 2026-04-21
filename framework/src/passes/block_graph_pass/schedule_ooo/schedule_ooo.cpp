@@ -76,6 +76,18 @@ Status OoOSchedule::NonMixSchedule(
 {
     // 直接对oplist进行GenSpill和mainLoop
     APASS_LOG_INFO_F(Elements::Operation, "=============== START NonMixSchedule ===============");
+
+    // DualDst feature: detect and create dual_dst ops before main scheduling
+    OoOScheduler oooScheduleForDualDst(*program.second);
+    if (oooScheduleForDualDst.DetectDualDstMode(opList) != SUCCESS) {
+        APASS_LOG_ERROR_F(Elements::Operation, "DetectDualDstMode failed.");
+        return FAILED;
+    }
+    if (oooScheduleForDualDst.CreateDualDstOpAndGraphUpdate() != SUCCESS) {
+        APASS_LOG_ERROR_F(Elements::Operation, "CreateDualDstOpAndGraphUpdate failed.");
+        return FAILED;
+    }
+
     OoOScheduler oooSchedule(*program.second);
     OoOScheduleStatistic oooHealthCheck;
     if (passDfxconfigs_.healthCheck) {
@@ -162,6 +174,18 @@ Status OoOSchedule::MixSchedule(
         APASS_LOG_ERROR_F(Elements::Operation, "ModifyBoundaryOrder failed.");
         return FAILED;
     }
+
+    // DualDst feature: detect and create dual_dst ops before main scheduling
+    OoOScheduler oooScheduleForDualDst(*program.second);
+    if (oooScheduleForDualDst.DetectDualDstMode(opList) != SUCCESS) {
+        APASS_LOG_ERROR_F(Elements::Operation, "DetectDualDstMode failed.");
+        return FAILED;
+    }
+    if (oooScheduleForDualDst.CreateDualDstOpAndGraphUpdate() != SUCCESS) {
+        APASS_LOG_ERROR_F(Elements::Operation, "CreateDualDstOpAndGraphUpdate failed.");
+        return FAILED;
+    }
+
     OoOScheduler oooSchedule(*program.second);
     OoOScheduleStatistic oooHealthCheck;
     if (passDfxconfigs_.healthCheck) {
