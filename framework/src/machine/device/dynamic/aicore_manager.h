@@ -92,13 +92,24 @@ public:
 
     void InitAicoreParallelDevTask(ParallelSchDeviceTaskContext* parallelCtx)
     {
-        DEV_IF_DEVICE {
+        if constexpr (IsDeviceMode()) {
             ForEachManageAicore([&](int coreIdx) {
                 auto logbuf = logger_ ? logger_[coreIdx].GetBuffer() : nullptr;
-                aicoreHal_.InitKernelArgs(coreIdx,  reinterpret_cast<int64_t>(logbuf));
+                aicoreHal_.InitKernelArgs(coreIdx, reinterpret_cast<int64_t>(logbuf));
                 FillKernelArgsParallexDevTask(parallelCtx, coreIdx);
             });
+            return;
         }
+
+        if (!aicoreHal_.IsHostSimMode()) {
+            return;
+        }
+
+        ForEachManageAicore([&](int coreIdx) {
+            auto logbuf = logger_ ? logger_[coreIdx].GetBuffer() : nullptr;
+            aicoreHal_.InitKernelArgs(coreIdx, reinterpret_cast<int64_t>(logbuf));
+            FillKernelArgsParallexDevTask(parallelCtx, coreIdx);
+        });
     }
 
     void FillKernelArgsParallexDevTask(ParallelSchDeviceTaskContext* parallelCtx, int coreIdx)
@@ -441,6 +452,15 @@ public:
                 return ret;
             }
             aicoreProf_.ProfStart();
+        } else if (aicoreHal_.IsHostSimMode()) {
+            ret = HandShake(devStartArgs);
+            PerfMtTrace(PERF_TRACE_CORE_HAND_SHAKE, threadIdx);
+            if (unlikely(ret != 0)) {
+                while ((taskCtrl = taskQueue_->Dequeue())) {
+                    taskCtrl->Finish(true);
+                }
+                return ret;
+            }
         }
         DEV_DEBUG("Schedule run start succ");
         uint64_t lastDevTaskFinCycle = 0;
