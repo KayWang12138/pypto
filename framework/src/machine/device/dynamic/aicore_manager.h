@@ -2206,29 +2206,32 @@ private:
             if (ret != DEVICE_MACHINE_OK)
                 break;
 
-            if (devTaskCtx->IsRunFinish()) {
-                if (unlikely(devTaskCtx->IsParallel())) {
-                    // continue bind the next parallel devtaskctrl wich have the same forid & iterid to this sch context
-                    DeviceTaskCtrl* curTaskCtrl = devTaskCtx->GetDeviceTaskCtrl();
-                    if (curTaskCtrl->ExistNextSameIterTask()) {
-                        DeviceTaskCtrl* nextTaskCtrl = curTaskCtrl->NextSameIterTaskCtrl();
-                        if (nextTaskCtrl != nullptr) {
-                            // reuse this task ctrl and task context for next same iterid device task
-                            ReuseUpdateDeviceCtx(devTaskCtx, nextTaskCtrl);
-                            curTaskCtrl->Free(); // parallel device taskctrl need free manually
-                            DEV_DEBUG("Sch dev ctx bind next same parallel iter device task(%lu), forid %u, iterid %u",
-                                nextTaskCtrl->taskId, nextTaskCtrl->ParallelForId(), nextTaskCtrl->ParallelIterId());
-                        } else {
-                            DEV_VERBOSE_DEBUG("Wait ctrl build same parallel iter device task, forid %u, iterid %u.",
-                                curTaskCtrl->ParallelForId(), curTaskCtrl->ParallelIterId());
-                        }
+            if (!devTaskCtx->IsRunFinish()) {
+                continue;
+            }
+            if (unlikely(devTaskCtx->IsParallel())) {
+                // continue bind the next parallel devtaskctrl wich have the same forid & iterid to this sch context
+                DeviceTaskCtrl* curTaskCtrl = devTaskCtx->GetDeviceTaskCtrl();
+                if (curTaskCtrl->ExistNextSameIterTask()) {
+                    DeviceTaskCtrl* nextTaskCtrl = curTaskCtrl->NextSameIterTaskCtrl();
+                    if (nextTaskCtrl != nullptr) {
+                        // reuse this task ctrl and task context for next same iterid device task
+                        ReuseUpdateDeviceCtx(devTaskCtx, nextTaskCtrl);
+                        curTaskCtrl->Free(); // parallel device taskctrl need free manually
+                        DEV_DEBUG(
+                            "Sch dev ctx bind next same parallel iter device task(%lu), forid %u, iterid %u",
+                            nextTaskCtrl->taskId, nextTaskCtrl->ParallelForId(), nextTaskCtrl->ParallelIterId());
                     } else {
-                        // parallel devicetaskctrl and device context need set free manually, wait recycle
-                        devTaskCtx->Free();
+                        DEV_VERBOSE_DEBUG(
+                            "Wait ctrl build same parallel iter device task, forid %u, iterid %u.",
+                            curTaskCtrl->ParallelForId(), curTaskCtrl->ParallelIterId());
                     }
                 } else {
-                    parallelDevTaskCtx.PopFront(); // non-parallel tasks can only exist one at a time.
+                    // parallel devicetaskctrl and device context need set free manually, wait recycle
+                    devTaskCtx->Free();
                 }
+            } else {
+                parallelDevTaskCtx.PopFront(); // non-parallel tasks can only exist one at a time.
             }
         }
 
