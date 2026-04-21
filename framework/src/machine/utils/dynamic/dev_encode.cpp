@@ -30,6 +30,7 @@
 #include <algorithm>
 #include <cstddef>
 #include <cstdint>
+#include <fstream>
 #include <unordered_map>
 #include <utility>
 #include <queue>
@@ -2161,14 +2162,25 @@ void DevAscendProgram::InitPartialUpdateSlot(
 
     this->cellMatchRuntimePartialUpdateTableList.HostInitDataSizeOffset(initOffset, 0);
     int totalCellMatchSize = 0;
+
+    // Dump slot_cell_table.csv: one row per partial-update slot, describing
+    // the CellMatchTable layout. Used by the runtime dependency correctness
+    // verification framework to distinguish normal / degenerate cell tables
+    // (e.g. dynamic shape -> single-cell table as in the engram-tmp case).
+    std::ofstream slotCellTableOf;
+    if (fillContent) {
+        std::string cellTablePath = config::LogTopFolder() + "/slot_cell_table.csv";
+        slotCellTableOf.open(cellTablePath);
+        slotCellTableOf << "slotIdx,dim,cellShape,strideShape,cellCount,outcastCount,degenerate\n";
+    }
+
     for (size_t index = 0; index < tPartialUpdateSlotIndexList.size(); index++) {
         std::vector<const DevAscendFunctionOutcast*> outcastList;
         auto slotIndex = tPartialUpdateSlotIndexList[index];
-        ASSERT(DevCommonErr::PARAM_CHECK_FAILED, slotRootOutcastDict.count(slotIndex))
+        ASSERT(slotRootOutcastDict.count(slotIndex))
             << "slotIndex: " << slotIndex << " not found in slotRootOutcastDict";
         for (auto& [root, outcastIndex] : slotRootOutcastDict.find(slotIndex)->second) {
-            ASSERT(DevCommonErr::PARAM_CHECK_FAILED, rootFuncKeyDict.count(root))
-                << "root: " << root << " not found in rootFuncKeyDict";
+            ASSERT(rootFuncKeyDict.count(root)) << "root: " << root << " not found in rootFuncKeyDict";
             int funcKey = rootFuncKeyDict.find(root)->second;
             DevAscendFunction* devFunc =
                 reinterpret_cast<DevAscendFunction*>(const_cast<uint8_t*>(devEncodeListInput[funcKey].data()));
@@ -2189,9 +2201,32 @@ void DevAscendProgram::InitPartialUpdateSlot(
             for (size_t j = 0; j < tableSize; j++) {
                 tableData[j] = AICORE_TASK_INIT;
             }
-        }
+
+            // Dump per-slot CellMatchTable metadata.
+            int dim = partialUpdateCellMatchTableDesc.GetDimensionSize();
+            slotCellTableOf << slotIndex << "," << dim << ",\"[";
+            for (int d = 0; d < dim; ++d) {
+                if (d != 0) {
+                    slotCellTableOf << ",";
+                }
+                slotCellTableOf << partialUpdateCellMatchTableDesc.GetCellShape(d);
+            }
+            slotCellTableOf << "]\",\"[";
+            for (int d = 0; d < dim; ++d) {
+                if (d != 0) {
+                    slotCellTableOf << ",";
+                }
+                slotCellTableOf << partialUpdateCellMatchTableDesc.GetStrideShape(d);
+            }
+            slotCellTableOf << "]\"," << tableSize << "," << outcastList.size() << ","
+                            << ((tableSize == 1 && outcastList.size() > 1) ? 1 : 0) << "\n";
+       slotCellTableOf.close();
+    }  }
         totalCellMatchSize += tableSize;
     }
+    if (fillContent && slotCellTableOf.is_open()) {
+        slotCellTableOf.flush();
+       
     totalCellMatchSize =
         AlignUp(totalCellMatchSize, sizeof(uint64_t) * FRIENDLY_CACHE_ALIGN_U64_SIZE / sizeof(uint64_t));
     this->cellMatchRuntimePartialUpdateTableList.HostInitDataSizeOffset(initOffset, totalCellMatchSize);
