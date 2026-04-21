@@ -544,7 +544,7 @@ TEST_F(TestRemoveUnalignedReshapeOp, TestCopyToReshapeBeforeMultCopyOutOnL1)
 
 // in - COPYIN - RESHAPECOPYOUT - RESHAPE - RESHAPECOPYIN - COPYOUT - out1
 //                                        - RESHAPECOPYIN - COPYOUT - ASSEMBLE - out2
-TEST_F(TestRemoveUnalignedReshapeOp, TestCopyToReshapeConsumerAssembleOnL1)
+TEST_F(TestRemoveUnalignedReshapeOp, TestCopyToReshapeConsumerAssembleOnUB)
 {
     auto currFunctionPtr =
         std::make_shared<Function>(Program::GetInstance(), "TestCopyToReshapeCopy", "TestCopyToReshapeCopy", nullptr);
