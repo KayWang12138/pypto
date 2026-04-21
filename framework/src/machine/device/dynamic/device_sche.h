@@ -52,7 +52,7 @@ public:
     DeviceSchedMachine()
     {
         for (uint32_t i = 0; i < MAX_SCHEDULE_AICPU_NUM; ++i) {
-            aicoreManager_[i] = std::make_unique<AiCoreManager>(schThreadStatus, aicpuTaskManager_);
+            aicoreManager_[i] = std::make_unique<AiCoreManager>(schThreadStatus);
         }
     }
 
@@ -137,7 +137,6 @@ public:
 
 private:
     SchThreadStatus schThreadStatus;
-    AicpuTaskManager aicpuTaskManager_;
     uint32_t schAicpuNum_{MAX_SCHEDULE_AICPU_NUM};
     std::unique_ptr<AiCoreManager> aicoreManager_[MAX_SCHEDULE_AICPU_NUM];
 #if ENABLE_AICORE_PRINT
@@ -317,7 +316,7 @@ struct DynMachineManager {
         return ret;
     }
 
-    void RunSchInit(DeviceArgs *args)
+    void RunSchInit(DeviceArgs* args)
     {
         if (initSch_.load()) {
             return;
@@ -338,14 +337,14 @@ struct DynMachineManager {
 #endif
     }
 
-    void RunSchPost(DevAscendProgram *devProg)
+    void RunSchPost(DevAscendProgram* devProg)
     {
         ReleaseRuntimeDataRingBuffer(devProg);
         DEV_INFO("All schedule exited, destroy the machine.");
     }
 
-	// unified stream
-    void RunUnifiedPost(DevAscendProgram *devProg)
+    // unified stream
+    void RunUnifiedPost(DevAscendProgram* devProg)
     {
         ReleaseRuntimeDataRingBuffer(devProg);
         DEV_INFO("All schedule exited, destroy the machine.");
@@ -446,7 +445,8 @@ struct DynMachineManager {
     }
 
     // UnifiedStream
-    void UnifiedDeInit() {
+    void UnifiedDeInit()
+    {
         threadIdx_ = 0;
         finished_ = 0;
         cpumask_ = 0;
@@ -523,7 +523,7 @@ struct DynMachineManager {
         DEV_INFO("Runtimedata: %lu, %lu", runtimeDataList->GetIndexFinished(), runtimeDataList->GetIndexPending());
     }
 
-	// UnifiedStream
+    // UnifiedStream
     int EntryUnifiedStream(DeviceKernelArgs* kargs, const KernelCtrlEntry& entry)
     {
         auto ret = RunUnifiedCtrlInit(kargs, entry);
@@ -628,7 +628,7 @@ struct DynMachineManager {
 
     int LastFinishThreadIdx_{0};
     std::atomic<int> threadIdx_{0}; // UnifiedStream
-    std::atomic<int> finished_{0}; // UnifiedStream
+    std::atomic<int> finished_{0};  // UnifiedStream
     std::atomic<uint64_t> cpumask_{0};
     std::atomic<uint32_t> schExitNum_{0};
 #ifndef __DEVICE__
@@ -647,7 +647,7 @@ struct DynMachineManager {
     std::atomic<bool> reset_{false};
     std::atomic<bool> init_{false}; // UnifiedStream
     std::atomic<bool> initCtrl_{false};
-	std::atomic<bool> initSch_{false};
+    std::atomic<bool> initSch_{false};
     std::mutex mutex_; // UnifiedStream
     std::atomic<bool> schRunFailed_{false};
 

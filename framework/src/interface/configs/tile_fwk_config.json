@@ -40,7 +40,7 @@
     },
     "debug": {
         "compile_debug_mode": 0,
-        "runtime_debug_mode": 0
+        "runtime_debug_mode": 1
     },
     "operation": {
         "force_combine_axis" : false,
@@ -56,7 +56,7 @@
             "enable_checker": false,
             "device_platform":"ASCEND_910B2",
             "enable_prof_func": false,
-            "enable_prof_aicore_time": false,
+            "enable_prof_aicore_time": true,
             "enable_prof_aicore_pmu": false
         },
         "host": {
