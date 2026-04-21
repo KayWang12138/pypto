@@ -1090,8 +1090,18 @@ struct FunctionInterpreter {
         for (auto& op : func->Operations()) {
             if (op.GetOpcode() == Opcode::OP_PRINT && verifyType != VerifyType::TENSOR_GRAPH)
                 continue;
-            ExecuteHandleOperationBegin(&op);
             // TODO: 判断 op 中是否依赖 WaitUntil，如果依赖则将对应的 waitUntil 执行【此时 waitUntil 必定已经执行，拓扑序优先】
+            if (DependsOnWaitUntil(&op) || DependsOnWaitQueue(&op)) {
+                waitQueue_.push(&op);
+            } else {
+                ExecuteHandleOperationBegin(&op);
+                ExecuteOperation(*frame, &op);
+                ExecuteHandleOperationEnd();
+            }
+        }
+
+        for (auto &op: waitOpQueue_) {
+            ExecuteHandleOperationBegin(&op);
             if (DependsOnWaitUntil(&op)) {
                 std::cout << op.GetOpcodeStr() << op.GetOpMagic() << " depends on waituntil" << std::endl;
                 // GetWaitTask 需要从全局变量中拿，每执行一次 WaitUntil，就应该把相应的执行序下的 waitUntil 记录在全局哈希表中
@@ -1101,8 +1111,11 @@ struct FunctionInterpreter {
                     std::cout << op.GetOpcodeStr() << op.GetOpMagic() << " is waitting for waituntil ..." << std::endl;
                     task->get();
                 }
+                RemoveWaitTask(&op);
+                ExecuteOperation(*frame, &op);
+            } else {
+                ExecuteOperation(*frame, &op);
             }
-            ExecuteOperation(*frame, &op);
             ExecuteHandleOperationEnd();
         }
         ExecuteHandleFunctionEnd();
@@ -1135,6 +1148,15 @@ struct FunctionInterpreter {
         }
         return false;
     }
+
+    bool DependsOnWaitQueue(Operation* op) {
+        for (Operation *wop: waitOpQueue) {
+            if (wop->HasConsumer(op)) {
+                return true;
+            }
+        }
+        return false;
+    }
     
     std::future<void>* GetWaitTask(Operation* op) {
         auto it = waitDependencies_.find(op);
@@ -1142,6 +1164,14 @@ struct FunctionInterpreter {
             return nullptr;
         }
         return SimulationCommManager::GetWaitTaskFuture(it->second);
+    }
+
+    void RemoveWaitTask(Operation* op) {
+        auto it = waitDependencies_.find(op);
+        if (it == waitDependencies_.end()) {
+            return;
+        }
+        waitDependencies.erase(it);
     }
 
     void CopyInplaceOutcastToIncast(Function* func, const std::shared_ptr<FunctionFrame>& frame)
