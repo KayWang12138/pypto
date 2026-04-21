@@ -1105,20 +1105,16 @@ private:
 
     inline int32_t PushReadyQue(ReadyCoreFunctionQueue* readyQue, void* idList, uint32_t idCnt) const
     {
-        ReadyQueueLock(readyQue);
-        memcpy_s(&readyQue->elem[readyQue->tail], idCnt * sizeof(uint32_t), (uint8_t*)idList, idCnt * sizeof(uint32_t));
-        __atomic_fetch_add(&readyQue->tail, idCnt, std::memory_order_release);
+        const bool res = readyQue->try_enqueue(reinterpret_cast<uint32_t*>(idList), idCnt);
         DEV_IF_NONDEVICE
         {
-            if (readyQue->tail > readyQue->capacity()) {
+            if (!res) {
                 DEV_ERROR(
-                    SchedErr::READY_QUEUE_OVERFLOW, "#sche.resolve.enqueue: readyQue tail=%u > readyQue capacity=%u",
-                    readyQue->tail, readyQue->capacity());
+                    SchedErr::READY_QUEUE_OVERFLOW, "#sche.resolve.enqueue: readyQue: %s", readyQue->str().c_str());
                 return DEVICE_MACHINE_ERROR;
             }
-            DEV_ASSERT(SchedErr::READY_QUEUE_OVERFLOW, readyQue->tail <= readyQue->capacity());
+            DEV_ASSERT(SchedErr::READY_QUEUE_OVERFLOW, res);
         }
-        ReadyQueueUnLock(readyQue);
         return DEVICE_MACHINE_OK;
     }
 
