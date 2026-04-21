@@ -23,7 +23,7 @@
 #include "passes/pass_check/generate_move_op_checker.h"
 #include "passes/pass_utils/dead_operation_eliminate.h"
 #include "passes/pass_log/pass_log.h"
-#include "passes/pass_utils/pass_error.h"
+#include "interface/utils/error_code.h"
 
 #define MODULE_NAME "GenerateMoveOp"
 
@@ -326,6 +326,7 @@ void GenerateMoveOp::ProcessUB2L1(Function& function, Operation& op) const
         // 插入UB2UB节点（ND2NZ)
         auto& ub2ub = function.AddRawOperation(Opcode::OP_UB_COPY_ND2NZ, {inputTensor}, {ubNzTensor});
         ub2ub.SetLocation(op.GetLocation());
+        ub2ub.SetScopeInfo(op.GetScopeInfo());
         ub2ub.UpdateSubgraphID(op.GetSubgraphID());
 
         // 图重连

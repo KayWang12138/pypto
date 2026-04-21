@@ -18,7 +18,7 @@
 #include "tensor_transformation.h"
 #include "interface/utils/operator_tracer.h"
 #include "passes/pass_utils/graph_utils.h"
-#include "interface/utils/vector_error.h"
+#include "interface/utils/error_code.h"
 
 namespace npu::tile_fwk {
 
@@ -701,7 +701,7 @@ void InnerTiledCumOperation(
             LogicalTensorPtr lastTile =
                 std::make_shared<LogicalTensor>(function, srcTile->Datatype(), srcTile->GetShape());
             auto& eop = function.AddOperation("TILE_EXPAND", {lastAxisTile}, {lastTile});
-            eop.SetAttribute(OP_ATTR_PREFIX + "EXPANDDIM", axis);
+            eop.SetAttribute(OpAttributeKey::expandDims, std::vector<int>{axis});
             if (is_sum) {
                 function.AddOperation(Opcode::OP_ADD, {srcTile, lastTile}, {dstTile});
             } else {
@@ -1165,7 +1165,7 @@ Tensor Var(const Tensor& input, const std::vector<int>& dim, float correction, b
     for (size_t i = 0; i < innerDim.size(); i++) {
         calcN *= static_cast<int>(shape[innerDim[i]]);
     }
-    res = Mul(res, Element(DT_FP32, 1 / static_cast<float>(calcN)));
+    res = Div(res, Element(DT_FP32, static_cast<float>(calcN)));
     for (size_t i = 0; i < innerDim.size(); i++) {
         res = Sum(res, innerDim[i], true);
     }
@@ -1178,8 +1178,8 @@ Tensor Var(const Tensor& input, const std::vector<int>& dim, float correction, b
 
     res = Sub(castInput, res);
     res = Mul(res, res);
-    float count = 1.0f / std::max(0.0f, static_cast<float>(calcN) - correction);
-    res = Mul(res, Element(DT_FP32, count));
+    float count = std::max(0.0f, static_cast<float>(calcN) - correction);
+    res = Div(res, Element(DT_FP32, count));
     for (size_t i = 0; i < innerDim.size(); i++) {
         res = Sum(res, innerDim[i], true);
     }
