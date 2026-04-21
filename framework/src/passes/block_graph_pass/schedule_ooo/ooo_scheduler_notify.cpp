@@ -65,7 +65,7 @@ void OoOScheduler::NotifySpill(LogicalTensorPtr spillTensor, int spillMemId,
     }
     SpillEvent event{memType, spillMemId,
         localBufferMap_.at(spillMemId)->size,
-        spillAllocOp->GetOutputOperand(0)->tensor->GetRawDataSize(),
+        static_cast<uint64_t>(spillAllocOp->GetOutputOperand(0)->tensor->GetRawDataSize()),
         spillTensor->GetMagic(), allocOccupied, spillCopyoutSize, clock};
     for (auto* obs : observers_) {
         obs->OnSpill(event);

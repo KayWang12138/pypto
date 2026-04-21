@@ -212,7 +212,7 @@ private:
     Status SpillL1BufferFor3510(int spillMemId, Operation* spillOp, LogicalTensorPtr spillTensor, Operation* spillAllocOp, SpillContext &ctx);
     Status SpillGeneralL1BufferFor3510(int memId, Operation* spillOp, LogicalTensorPtr spillTensor, Operation* spillAllocOp, SpillContext &ctx);
     Status SpillReshapeFromDDRFor3510(int spillMemId, Operation* actualSpillOp, Operation* spillOp, LogicalTensorPtr spillTensor, Operation* spillAllocOp, SpillContext &ctx);
-    Status SpillReshapeL1BufferFor3510(int memId, Operation* actualSpillOp, Operation* spillOp, LogicalTensorPtr spillTensor, Operation* spillAllocOp, SpillContext &ctx);
+    Status SpillReshapeL1BufferFor3510(int spillMemId, Operation* actualSpillOp, Operation* spillOp, LogicalTensorPtr spillTensor, Operation* spillAllocOp, SpillContext &ctx);
     Status SpillMultiProducerBuffer(int spillMemid, Operation* spillOp, LogicalTensorPtr spillTensor, Operation* spillAllocOp, SpillContext &ctx);
     Status CreateParticalBuffer(int spillMemid, Operation* producerOp, LogicalTensorPtr assembleOOperand, Operation* copyoutOp, Operation* spillAllocOp);
     LogicalTensorPtr CreateLocalTensor(LogicalTensorPtr spillTensor);

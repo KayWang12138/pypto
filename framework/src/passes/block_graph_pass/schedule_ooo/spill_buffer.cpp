@@ -382,7 +382,7 @@ Status OoOScheduler::SpillReshapeL1BufferFor3510(int spillMemId, Operation* actu
         {reshapeOp, {l1Tensor->memoryrange.memId, l1Tensor->memoryrange.memId}}
     };
 
-    if (UpdateScheduleStatus(opMemidMap, memId, spillAllocOp, reshapeTensor, spillOp) != SUCCESS) {
+    if (UpdateScheduleStatus(opMemidMap, spillMemId, spillAllocOp, reshapeTensor, spillOp) != SUCCESS) {
         return FAILED;
     }
     ctx.newCopyoutOps.push_back(copyoutOp);
@@ -415,7 +415,10 @@ Status OoOScheduler::SpillMultiProducerBuffer(int spillMemid, Operation* spillOp
     }
     Operation* allocOp = CreateAllocOp(assembleOOperand);
     UpdateOpScheduleInfo(allocOp, {assembleOOperand->memoryrange.memId}, spillAllocOp);
-    if (InsertOps({allocOp}, spillAllocOp, spillMemid) != SUCCESS) {
+    std::unordered_map<Operation*, std::vector<int>> opMemidMap = {
+        {allocOp, {assembleOOperand->memoryrange.memId}}
+    };
+    if (InsertOps(opMemidMap, spillAllocOp, spillMemid) != SUCCESS) {
         return FAILED;
     }
 
