@@ -708,6 +708,7 @@ struct FunctionInterpreter {
     int captureIndex{0};
     int passIndex{-1};
     std::unordered_map<Operation*, Operation*> waitDependencies_;
+    std::vector<Operation*> waitOpQueue_;
 
     std::vector<std::shared_ptr<LogicalTensorData>>& GetInputDataViewList()
     {
@@ -1092,7 +1093,7 @@ struct FunctionInterpreter {
                 continue;
             // TODO: 判断 op 中是否依赖 WaitUntil，如果依赖则将对应的 waitUntil 执行【此时 waitUntil 必定已经执行，拓扑序优先】
             if (DependsOnWaitUntil(&op) || DependsOnWaitQueue(&op)) {
-                waitQueue_.push(&op);
+                waitOpQueue_.push(&op);
             } else {
                 ExecuteHandleOperationBegin(&op);
                 ExecuteOperation(*frame, &op);
@@ -1150,9 +1151,11 @@ struct FunctionInterpreter {
     }
 
     bool DependsOnWaitQueue(Operation* op) {
-        for (Operation *wop: waitOpQueue) {
-            if (wop->HasConsumer(op)) {
-                return true;
+        for (Operation *wop: waitOpQueue_) {
+            for (auto ot: wop->GetOOperands()) {
+                if (ot->HasConsumer(op)) {
+                    return true;
+                }
             }
         }
         return false;
@@ -1171,7 +1174,7 @@ struct FunctionInterpreter {
         if (it == waitDependencies_.end()) {
             return;
         }
-        waitDependencies.erase(it);
+        waitDependencies_.erase(it);
     }
 
     void CopyInplaceOutcastToIncast(Function* func, const std::shared_ptr<FunctionFrame>& frame)
