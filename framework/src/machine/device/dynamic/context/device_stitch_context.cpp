@@ -14,8 +14,82 @@
  */
 
 #include "machine/device/dynamic/context/device_stitch_context.h"
+#include <fstream>
+#include <string>
 
+#ifndef __DEVICE__
+#include <vector>
+#include "interface/configs/config_manager.h"
+#include "machine/device/dynamic/context/slot_access_dumper.h"
+#endif
 namespace npu::tile_fwk::dynamic {
+
+static void DumpStitchEdge(
+    const DevAscendFunctionDupped& producerDup, const DevAscendFunctionDupped& consumerDup,
+    size_t producerOperationIdx, size_t consumerIdx, size_t consumerOperationIdx,
+    DeviceStitchContext::StitchKind stitchKind, int slotIdx)
+{
+#ifdef __DEVICE__
+    std::string path = "./output/dyn_stitch_edges.csv";
+#else
+    std::string path = config::LogTopFolder() + "/dyn_stitch_edges.csv";
+#endif
+    static std::string lastPath;
+    static std::ofstream stitchOf;
+    if (path != lastPath) {
+        if (stitchOf.is_open()) {
+            stitchOf.flush();
+            stitchOf.close();
+        }
+        lastPath = path;
+        stitchOf.open(path);
+    }
+    if (stitchOf.tellp() == 0) {
+        stitchOf << "stitchKind,slotIdx,"
+                 << "producerRootHash,producerFuncKey,producerFuncIdx,producerOpIdx,producerOpmagic,"
+                 << "producerTaskId,producerRawName,"
+                 << "consumerRootHash,consumerFuncKey,consumerFuncIdx,consumerOpIdx,consumerOpmagic,"
+                 << "consumerTaskId,consumerRawName,"
+                 << "producerStaticSuccTaskIds,producerStitchSuccTaskIds"
+                 << "\n";
+    }
+
+    auto* prodSrc = producerDup.GetSource();
+    auto* consSrc = consumerDup.GetSource();
+    int producerFuncIdx = prodSrc->GetFuncidx();
+    uint32_t producerTaskId = MakeTaskID(producerFuncIdx, producerOperationIdx);
+    uint32_t consumerTaskId = MakeTaskID(consumerIdx, consumerOperationIdx);
+
+    std::string producerStaticSuccTaskIds;
+    const auto& depSuccList = prodSrc->GetOperationDepGraphSuccList(producerOperationIdx);
+    for (size_t j = 0; j < depSuccList.size(); ++j) {
+        if (j != 0) {
+            producerStaticSuccTaskIds += ';';
+        }
+        producerStaticSuccTaskIds +=
+            std::to_string(MakeTaskID(producerFuncIdx, prodSrc->At(depSuccList, j)));
+    }
+
+    std::string producerStitchSuccTaskIds;
+    const auto& stitchSuccList = producerDup.GetOperationStitch(producerOperationIdx);
+    stitchSuccList.ForEach([&producerStitchSuccTaskIds](uint32_t id) {
+        if (!producerStitchSuccTaskIds.empty()) {
+            producerStitchSuccTaskIds += ';';
+        }
+        producerStitchSuccTaskIds += std::to_string(id);
+    });
+
+    stitchOf << DeviceStitchContext::GetStitchKindName(stitchKind) << "," << slotIdx << ","
+             << prodSrc->rootHash << "," << prodSrc->funcKey << "," << producerFuncIdx << ","
+             << producerOperationIdx << "," << prodSrc->GetOperationDebugOpmagic(producerOperationIdx) << ","
+             << producerTaskId << "," << prodSrc->GetRawName() << ","
+             << consSrc->rootHash << "," << consSrc->funcKey << "," << consumerIdx << ","
+             << consumerOperationIdx << "," << consSrc->GetOperationDebugOpmagic(consumerOperationIdx) << ","
+             << consumerTaskId << "," << consSrc->GetRawName() << "," << producerStaticSuccTaskIds << ","
+             << producerStitchSuccTaskIds
+             << "\n";
+    stitchOf.flush();
+}
 void DeviceStitchContext::Init(DevAscendProgram* devProg, DeviceWorkspaceAllocator& workspace)
 {
     workspace_ = &workspace;
@@ -235,6 +309,10 @@ void DeviceStitchContext::HandleOneStitch(
             "[Stitch] slot:%d kind:%s dupIdx:%d funcKey:%d,op:%d -> funcKey:%d,op:%d\n", debugSlotIdx,
             GetStitchKindName(debugStitchKind).c_str(), (int)consumerIdx, producerDup.GetSource()->GetFuncKey(),
             (int)producerOperationIdx, consumerDup.GetSource()->GetFuncKey(), (int)consumerOperationIdx);
+        
+        DumpStitchEdge(
+            producerDup, consumerDup, producerOperationIdx, consumerIdx, consumerOperationIdx,
+            debugStitchKind, debugSlotIdx);
     }
 }
 
