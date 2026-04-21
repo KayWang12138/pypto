@@ -36,9 +36,9 @@
 #include <cstdio>
 #define MAX_MSG_LEN 112
 
-inline std::string TraceInfo(const char* fmt, ...) {
+inline std::string TraceInfo([[maybe_unused]]const char* fmt, ...) {
     char tempBuf[MAX_MSG_LEN] = {0};
-
+#ifdef __DEVICE__
     va_list args;
     va_start(args, fmt);
     int len = vsnprintf_s(tempBuf, sizeof(tempBuf), sizeof(tempBuf) - 1, fmt, args);
@@ -47,11 +47,11 @@ inline std::string TraceInfo(const char* fmt, ...) {
     if (len < 0) {
         return "[TraceInfo: format error]";
     }
-
+#endif
     return std::string(tempBuf);
 }
 
-#define ATRACE(fmt, ...)                                                                 \
+#define DEV_ATRACE(fmt, ...)                                                             \
     do {                                                                                 \
         std::string info = TraceInfo(fmt, ##__VA_ARGS__);                                \
         npu::tile_fwk::dynamic::DeviceTrace::GetInstance().SubmitTraceMsg(info.c_str()); \
@@ -62,15 +62,6 @@ inline std::string TraceInfo(const char* fmt, ...) {
 #include "trace/atrace_pub.h"
 
 namespace npu::tile_fwk::dynamic {
-
-enum class TraceError : uint32_t {
-    PYPTO_TRACE_SUCCESS = 0,
-    LOAD_LIBRARY_FAILED = 1,
-    SYMBOL_NOT_FOUND = 2,
-    INVALID_HANDLE = 3,
-    SUBMIT_FAILED = 4,
-    SAVE_FAILED = 5,
-};
 
 /**
  * \brief Device trace manager with dynamic library loading
@@ -104,11 +95,11 @@ public:
      *
      * \return SUCCESS if initialization succeeds, error code otherwise
      */
-    TraceError Initialize(void* targ);
+    int32_t Initialize(void* targ);
 
-    TraceError ConnectTraceD2H(void* targ);
+    int32_t ConnectTraceD2H(void* targ);
 
-    TraceError BindHandleToEventHandle(TraHandle handle, uint8_t threadIdx);
+    int32_t BindHandleToEventHandle(TraHandle handle, uint8_t threadIdx);
 
 private:
     /**
@@ -188,20 +179,20 @@ private:
     DeviceTrace(const DeviceTrace&) = delete;
     DeviceTrace& operator=(const DeviceTrace&) = delete;
     DeviceTrace() = default;
-    TraceError UtraceInitialize();
-    TraceError AtraceInitialize();
+    int32_t UtraceInitialize();
+    int32_t AtraceInitialize();
 
     /**
      * \brief Initialize Atrace function pointers
      * \return SUCCESS if successful, error code otherwise
      */
-    TraceError InitializeAtraceFunctions();
+    int32_t InitializeAtraceFunctions();
 
     /**
      * \brief Initialize Utrace function pointers
      * \return SUCCESS if successful, error code otherwise
      */
-    TraceError InitializeUtraceFunctions();
+    int32_t InitializeUtraceFunctions();
 
     /**
      * \brief Load a dynamic library

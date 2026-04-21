@@ -156,12 +156,11 @@ void DeviceRunner::GetModuleLogLevel(DeviceArgs& args)
     }
     MACHINE_LOGI("Current device info: logical devId: %u, phyDevId: %u", logicalDevId, phyDevId);
     devDfxArg.deviceId = phyDevId;
-    devDfxArg.hostPid = getpid();
     if (enableDumpMachinePerfTrace_) {
         devDfxArg.isOpenPerfTrace = 1;
     }
-    MACHINE_LOGI("Get PYPTO dfxAddr: %lu log level is: %d, openPerTrace: %d, deviceId: %u, pid: %lu\n", args_.devDfxArgAddr,
-         logLevel, devDfxArg.isOpenPerfTrace, devDfxArg.deviceId, devDfxArg.hostPid);
+    MACHINE_LOGI("Get PYPTO dfxAddr: %lu log level is: %d, openPerTrace: %d, deviceId: %u\n",
+        args_.devDfxArgAddr, logLevel, devDfxArg.isOpenPerfTrace, devDfxArg.deviceId);
     auto size = sizeof(DevDfxArgs);
     auto ret = RuntimeMemcpy(reinterpret_cast<void*>(args.devDfxArgAddr), size, &devDfxArg, size, RtMemcpyKind::HOST_TO_DEVICE);
     if (ret != 0) {

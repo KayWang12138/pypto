@@ -197,6 +197,7 @@ enum class DevCommonErr : uint32_t {
     LOAD_LIBRARY_FAILED = ToUnderlying(MachineError::DEV_COMMON) + 0x0CU,
     INIT_FAILED = ToUnderlying(MachineError::DEV_COMMON) + 0x0DU,
     EXEC_THRID_API_FAILD = ToUnderlying(MachineError::DEV_COMMON) + 0x0EU,
+    CANN_API_NOT_FOUND = ToUnderlying(MachineError::DEV_COMMON) + 0x0FU,
 };
 
 enum class HostBackEndErr : uint32_t {

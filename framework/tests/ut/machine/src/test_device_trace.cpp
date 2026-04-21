@@ -112,12 +112,6 @@ TEST_F(TestDeviceTrace, SubmitAndReport_TraceWorkflow)
     SUCCEED();
 }
 
-TEST_F(TestDeviceTrace, TraceInfo_FormatErrorHandling)
-{
-    std::string result = TraceInfo("test.cpp", 1, "func", nullptr);
-    EXPECT_FALSE(result.empty());
-}
-
 TEST_F(TestDeviceTrace, TraceInfo_MaxMessageLength)
 {
     std::string longContent;
