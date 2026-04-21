@@ -30,6 +30,7 @@
 #include <algorithm>
 #include <cstddef>
 #include <cstdint>
+#include <fstream>
 #include <unordered_map>
 #include <utility>
 #include <queue>
@@ -2161,14 +2162,56 @@ void DevAscendProgram::InitPartialUpdateSlot(
 
     this->cellMatchRuntimePartialUpdateTableList.HostInitDataSizeOffset(initOffset, 0);
     int totalCellMatchSize = 0;
+
+    // Dump slot_cell_table.csv: one row per (slot, stitch-policy[, root]).
+    //   * partial-update slot: a single aggregated row (across all roots).
+    //   * full-cover slot:     one row per root that writes into this slot.
+    // This file is consumed by the runtime dependency correctness verification
+    // framework (rules 4-alpha/beta/gamma) to resolve a writer event's cell
+    // layout without ambiguity.
+    //
+    // Columns:
+    //   slotIdx, stitchPolicy, rootHash, funcKey,
+    //   dim, cellShape, strideShape, cellCount, outcastCount
+    // For partial rows the aggregated layout is recorded and rootHash/funcKey
+    // are set to 0/-1 as sentinels to mean "aggregated across roots".
+    const bool enableRuntimeDump = config::GetDebugOption<int64_t>(CFG_RUNTIME_DBEUG_MODE) == CFG_DEBUG_ALL;
+    std::ofstream slotCellTableOf;
+    if (fillContent && enableRuntimeDump) {
+        std::string cellTablePath = config::LogTopFolder() + "/slot_cell_table.csv";
+        slotCellTableOf.open(cellTablePath);
+        slotCellTableOf << "slotIdx,stitchPolicy,rootHash,funcKey,dim,cellShape,strideShape,cellCount,outcastCount\n";
+    }
+
+    auto dumpCellMatchDesc = [&slotCellTableOf](const DevCellMatchTableDesc& desc) {
+        int dim = desc.GetDimensionSize();
+        slotCellTableOf << dim << ",\"[";
+        for (int d = 0; d < dim; ++d) {
+            if (d != 0) {
+                slotCellTableOf << ",";
+            }
+            slotCellTableOf << desc.GetCellShape(d);
+        }
+        slotCellTableOf << "]\",\"[";
+        for (int d = 0; d < dim; ++d) {
+            if (d != 0) {
+                slotCellTableOf << ",";
+            }
+            slotCellTableOf << desc.GetStrideShape(d);
+        }
+        slotCellTableOf << "]\"," << desc.GetStride(0);
+    };
+
+    std::unordered_set<int> partialSlotSet(
+        tPartialUpdateSlotIndexList.begin(), tPartialUpdateSlotIndexList.end());
+
     for (size_t index = 0; index < tPartialUpdateSlotIndexList.size(); index++) {
         std::vector<const DevAscendFunctionOutcast*> outcastList;
         auto slotIndex = tPartialUpdateSlotIndexList[index];
-        ASSERT(DevCommonErr::PARAM_CHECK_FAILED, slotRootOutcastDict.count(slotIndex))
+        ASSERT(slotRootOutcastDict.count(slotIndex))
             << "slotIndex: " << slotIndex << " not found in slotRootOutcastDict";
         for (auto& [root, outcastIndex] : slotRootOutcastDict.find(slotIndex)->second) {
-            ASSERT(DevCommonErr::PARAM_CHECK_FAILED, rootFuncKeyDict.count(root))
-                << "root: " << root << " not found in rootFuncKeyDict";
+            ASSERT(rootFuncKeyDict.count(root)) << "root: " << root << " not found in rootFuncKeyDict";
             int funcKey = rootFuncKeyDict.find(root)->second;
             DevAscendFunction* devFunc =
                 reinterpret_cast<DevAscendFunction*>(const_cast<uint8_t*>(devEncodeListInput[funcKey].data()));
@@ -2189,13 +2232,45 @@ void DevAscendProgram::InitPartialUpdateSlot(
             for (size_t j = 0; j < tableSize; j++) {
                 tableData[j] = AICORE_TASK_INIT;
             }
+
+            // Dump one aggregated row for this partial-update slot.
+            slotCellTableOf << slotIndex << ",partial,0,-1,";
+            dumpCellMatchDesc(partialUpdateCellMatchTableDesc);
+            slotCellTableOf << "," << outcastList.size() << "\n";
         }
         totalCellMatchSize += tableSize;
+    }
+
+    // Dump full-cover slot cell tables: every slot in slotRootOutcastDict that
+    // is NOT partial-update is a full-cover slot. For each such slot emit one
+    // row per (root) with the root's own outcast.cellMatchTableDesc.
+    if (fillContent && enableRuntimeDump) {
+        for (const auto& [slotIndex, rootOutcastMap] : slotRootOutcastDict) {
+            if (partialSlotSet.count(slotIndex)) {
+                continue;
+            }
+            for (const auto& [root, outcastIndex] : rootOutcastMap) {
+                ASSERT(rootFuncKeyDict.count(root)) << "root: " << root << " not found in rootFuncKeyDict";
+                int funcKey = rootFuncKeyDict.find(root)->second;
+                DevAscendFunction* devFunc = reinterpret_cast<DevAscendFunction*>(
+                    const_cast<uint8_t*>(devEncodeListInput[funcKey].data()));
+                const DevAscendFunctionOutcast& outcast = devFunc->GetOutcast(outcastIndex);
+                slotCellTableOf << slotIndex << ",fullcover," << devFunc->rootHash << "," << funcKey << ",";
+                dumpCellMatchDesc(outcast.cellMatchTableDesc);
+                slotCellTableOf << ",1\n";
+            }
+        }
+    }
+
+    if (fillContent && enableRuntimeDump && slotCellTableOf.is_open()) {
+        slotCellTableOf.flush();
+        slotCellTableOf.close();
     }
     totalCellMatchSize =
         AlignUp(totalCellMatchSize, sizeof(uint64_t) * FRIENDLY_CACHE_ALIGN_U64_SIZE / sizeof(uint64_t));
     this->cellMatchRuntimePartialUpdateTableList.HostInitDataSizeOffset(initOffset, totalCellMatchSize);
 }
+
 
 struct ControlFlowCacheFactor {
     const std::string name;

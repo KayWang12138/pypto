@@ -14,8 +14,85 @@
  */
 
 #include "machine/device/dynamic/context/device_stitch_context.h"
+#include <fstream>
+#include <string>
 
+#ifndef __DEVICE__
+#include <vector>
+#include "interface/configs/config_manager.h"
+#include "machine/device/dynamic/context/slot_access_dumper.h"
+#endif
 namespace npu::tile_fwk::dynamic {
+
+static void DumpStitchEdge(
+    const DevAscendFunctionDupped& producerDup, const DevAscendFunctionDupped& consumerDup,
+    size_t producerOperationIdx, size_t consumerIdx, size_t consumerOperationIdx,
+    DeviceStitchContext::StitchKind stitchKind, int slotIdx)
+{
+#ifdef __DEVICE__
+    std::string path = "./output/dyn_stitch_edges.csv";
+#else
+    if (config::GetDebugOption<int64_t>(CFG_RUNTIME_DBEUG_MODE) != CFG_DEBUG_ALL) {
+        return;
+    }
+    std::string path = config::LogTopFolder() + "/dyn_stitch_edges.csv";
+#endif
+    static std::string lastPath;
+    static std::ofstream stitchOf;
+    if (path != lastPath) {
+        if (stitchOf.is_open()) {
+            stitchOf.flush();
+            stitchOf.close();
+        }
+        lastPath = path;
+        stitchOf.open(path);
+    }
+    if (stitchOf.tellp() == 0) {
+        stitchOf << "stitchKind,slotIdx,"
+                 << "producerRootHash,producerFuncKey,producerFuncIdx,producerOpIdx,producerOpmagic,"
+                 << "producerTaskId,producerRawName,"
+                 << "consumerRootHash,consumerFuncKey,consumerFuncIdx,consumerOpIdx,consumerOpmagic,"
+                 << "consumerTaskId,consumerRawName,"
+                 << "producerStaticSuccTaskIds,producerStitchSuccTaskIds"
+                 << "\n";
+    }
+
+    auto* prodSrc = producerDup.GetSource();
+    auto* consSrc = consumerDup.GetSource();
+    int producerFuncIdx = prodSrc->GetFuncidx();
+    uint32_t producerTaskId = MakeTaskID(producerFuncIdx, producerOperationIdx);
+    uint32_t consumerTaskId = MakeTaskID(consumerIdx, consumerOperationIdx);
+
+    std::string producerStaticSuccTaskIds;
+    const auto& depSuccList = prodSrc->GetOperationDepGraphSuccList(producerOperationIdx);
+    for (size_t j = 0; j < depSuccList.size(); ++j) {
+        if (j != 0) {
+            producerStaticSuccTaskIds += ';';
+        }
+        producerStaticSuccTaskIds +=
+            std::to_string(MakeTaskID(producerFuncIdx, prodSrc->At(depSuccList, j)));
+    }
+
+    std::string producerStitchSuccTaskIds;
+    const auto& stitchSuccList = producerDup.GetOperationStitch(producerOperationIdx);
+    stitchSuccList.ForEach([&producerStitchSuccTaskIds](uint32_t id) {
+        if (!producerStitchSuccTaskIds.empty()) {
+            producerStitchSuccTaskIds += ';';
+        }
+        producerStitchSuccTaskIds += std::to_string(id);
+    });
+
+    stitchOf << DeviceStitchContext::GetStitchKindName(stitchKind) << "," << slotIdx << ","
+             << prodSrc->rootHash << "," << prodSrc->funcKey << "," << producerFuncIdx << ","
+             << producerOperationIdx << "," << prodSrc->GetOperationDebugOpmagic(producerOperationIdx) << ","
+             << producerTaskId << "," << prodSrc->GetRawName() << ","
+             << consSrc->rootHash << "," << consSrc->funcKey << "," << consumerIdx << ","
+             << consumerOperationIdx << "," << consSrc->GetOperationDebugOpmagic(consumerOperationIdx) << ","
+             << consumerTaskId << "," << consSrc->GetRawName() << "," << producerStaticSuccTaskIds << ","
+             << producerStitchSuccTaskIds
+             << "\n";
+    stitchOf.flush();
+}
 void DeviceStitchContext::Init(DevAscendProgram* devProg, DeviceWorkspaceAllocator& workspace)
 {
     workspace_ = &workspace;
@@ -235,6 +312,10 @@ void DeviceStitchContext::HandleOneStitch(
             "[Stitch] slot:%d kind:%s dupIdx:%d funcKey:%d,op:%d -> funcKey:%d,op:%d\n", debugSlotIdx,
             GetStitchKindName(debugStitchKind).c_str(), (int)consumerIdx, producerDup.GetSource()->GetFuncKey(),
             (int)producerOperationIdx, consumerDup.GetSource()->GetFuncKey(), (int)consumerOperationIdx);
+        
+        DumpStitchEdge(
+            producerDup, consumerDup, producerOperationIdx, consumerIdx, consumerOperationIdx,
+            debugStitchKind, debugSlotIdx);
     }
 }
 
@@ -297,7 +378,18 @@ uint64_t DeviceStitchContext::PartialUpdateStitch(
                     consumer.operationIdx, j, consumerOffset[j], consumerShape[j], cellMatchTableDesc.cellShape.dim[j]);
             }
         }
-
+#ifndef __DEVICE__
+        // Dump per-consumer cell access event (read) to dyn_slot_access.csv.
+        {
+            std::vector<int> cellIdxList;
+            bool allConcrete = CollectCellIdxForUse<false>(
+                nextSrc, consumer, expressionList, true, cellMatchTableDesc, &cellIdxList);
+            DumpSlotAccessEvent(
+                static_cast<uint32_t>(devTaskId), slotIdx, nextSrc->rootHash, nextSrc->funcKey,
+                static_cast<uint32_t>(devNextIdx), static_cast<uint32_t>(consumer.operationIdx), 'R',
+                cellIdxList.data(), cellIdxList.size(), allConcrete);
+        }
+#endif
         CellMatchHandle<HandleCellMatchPartial>(
             consumerOffset, consumerShape, cellMatchTableDesc, partialUpdateTableData, &matchCount,
             stitchedList_.data(), stitchedList_.size(), &nextDup, devTaskId, devNextIdx, consumer.operationIdx,
@@ -307,9 +399,10 @@ uint64_t DeviceStitchContext::PartialUpdateStitch(
 }
 
 uint64_t DeviceStitchContext::FullCoverDefaultUpdateStitch(
-    DevAscendFunctionDupped& nextDup, size_t devNextIdx, DeviceExecuteSlot& slot, int slotIdx,
+    DevAscendFunctionDupped& nextDup, size_t devTaskId, size_t devNextIdx, DeviceExecuteSlot& slot, int slotIdx,
     DevAscendFunctionIncast& incast)
 {
+    (void)devTaskId;
     uint64_t matchCount = 0;
     DevAscendFunctionDupped& prevDup = stitchedList_[slot.stitchDupIdx];
     auto* prevSrc = prevDup.GetSource();
@@ -349,6 +442,17 @@ uint64_t DeviceStitchContext::FullCoverDefaultUpdateStitch(
         GetTensorOffsetAndShape<false>(
             nextSrc, consumerOffset, consumerShape, expressionList, incast.dim, consumer.operationIdx,
             consumer.operandIdx, true);
+#ifndef __DEVICE__
+        {
+            std::vector<int> cellIdxList;
+            bool allConcrete = CollectCellIdxForUse<false>(
+                nextSrc, consumer, expressionList, true, cellMatchTableDesc, &cellIdxList);
+            DumpSlotAccessEvent(
+                static_cast<uint32_t>(devTaskId), slotIdx, nextSrc->rootHash, nextSrc->funcKey,
+                static_cast<uint32_t>(devNextIdx), static_cast<uint32_t>(consumer.operationIdx), 'R',
+                cellIdxList.data(), cellIdxList.size(), allConcrete);
+        }
+#endif
         CellMatchHandle<HandleCellMatchFull>(
             consumerOffset, consumerShape, cellMatchTableDesc, fullUpdateTableData, &matchCount, &prevDup, &nextDup,
             devNextIdx, consumer.operationIdx, workspace_, slotIdx);
@@ -358,7 +462,7 @@ uint64_t DeviceStitchContext::FullCoverDefaultUpdateStitch(
 }
 
 uint64_t DeviceStitchContext::FullCoverUpdateStitch(
-    DevAscendFunctionDupped& nextDup, size_t devNextIdx, DeviceExecuteSlot& slot, int slotIdx,
+    DevAscendFunctionDupped& nextDup, size_t devTaskId, size_t devNextIdx, DeviceExecuteSlot& slot, int slotIdx,
     DevAscendFunctionIncast& incast)
 {
     DevAscendFunctionDupped& prevDup = stitchedList_[slot.stitchDupIdx];
@@ -405,7 +509,7 @@ uint64_t DeviceStitchContext::FullCoverUpdateStitch(
         DeviceStitchContext::CheckStitch(stitchedList_.data(), stitchedList_.size(), &nextDup);
     }
 
-    return FullCoverDefaultUpdateStitch(nextDup, devNextIdx, slot, slotIdx, incast);
+   return FullCoverDefaultUpdateStitch(nextDup, devTaskId, devNextIdx, slot, slotIdx, incast);
 }
 
 void DeviceStitchContext::ReuseStitch(DevAscendFunctionDupped& nextDup, size_t devNextIdx)
@@ -521,7 +625,7 @@ uint64_t DeviceStitchContext::FastStitch(
             DEV_VERBOSE_DEBUG(
                 "incast %zu is %d, cellMatchStaticIncastTable is %s\n", incastIdx, incast.stitchByAllFullMatch,
                 IntVecToStr(nextDup, incast.cellMatchStaticIncastTable).c_str());
-            matchCount = FullCoverUpdateStitch(nextDup, devNextIdx, slot, slotIdx, incast);
+            matchCount = FullCoverUpdateStitch(nextDup, devTaskId, devNextIdx, slot, slotIdx, incast);
         }
     }
 #if !DEBUG_INFINITE_LIFETIME

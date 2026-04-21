@@ -744,10 +744,11 @@ def load_dyn_topo(file_path, func_data):
                 core_type,
                 psg_id_within_root,
                 wrap_id,
-            ) = fields[:10]
+                static_succ_count,
+            ) = fields[:11]
             root_index = get_func_index(root_hash, func_data)
             leaf_index = get_func_index(func_hash, func_data)
-            succs = fields[10:]
+            succs = fields[11:]
             topo.append(
                 {
                     "taskId": seq_no << 32 | task_id,
