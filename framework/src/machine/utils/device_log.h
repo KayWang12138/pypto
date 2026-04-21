@@ -31,6 +31,7 @@
 #include "tilefwk/aikernel_define.h"
 #include "machine/utils/device_switch.h"
 #include "interface/utils/error_code.h"
+#include "machine/device/dynamic/device_trace.h"
 
 #ifndef ERROR_CODE_UNDEFINED
 #define ERROR_CODE_UNDEFINED 0xFFFFFU
@@ -158,6 +159,7 @@ inline void DeviceLogSplitDebug(const char* func, const char* format, Args... ar
         if (IsLogEnableError()) {                                                              \
             dlog_error(LOG_MOD_ID, "%lu %s\nErrCode: F%05X! " #fmt , GET_TID(), __FUNCTION__,  \
                        static_cast<uint32_t>(errCode) & 0xFFFFF, ##__VA_ARGS__);               \
+            ATRACE(fmt, ##__VA_ARGS__);                                                        \
         }                                                                                      \
     } while (false)
 
