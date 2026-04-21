@@ -40,6 +40,8 @@
 
 **适用场景**：用于分析 AI CPU 调度与 AI Core 执行的协同关系，定位首任务启动慢、调度等待等问题。
 
+**限制说明**：该工具最多支持 200 轮数据采集和打屏，超出部分将被截断。
+
 1.  通过环境变量使能：
 
     ```bash
@@ -58,10 +60,11 @@
 
     ![](../figures/machine_perf_summary.png "AI CPU/AI Core数据汇总表")
 
-### 采集结果文件说明
+### 采集结果文件说明和参数含义解释
 
-关于采集结果文件的详细说明，请参阅 Machine 的 Troubleshooting（故障诊断） 手册：
-[output 目录产物说明](../../trouble_shooting/machine.md#output-目录产物说明)。
+关于采集结果文件的详细说明和 IDE 参数含义解释，请参阅 Machine 的 Troubleshooting（故障诊断）手册：
+- [output 目录产物说明及 IDE 参数含义解释](../../trouble_shooting/machine.md#output-目录产物说明)
+
 
 ### 查看泳道图数据
 
@@ -80,6 +83,15 @@
     ![AI CPU/AI Core泳道图](../figures/machine_runtime_operator_trace_0.png)
 
     图中展示了任务的执行顺序和耗时信息，帮助开发者分析性能瓶颈。
+
+### 采集PMU数据
+PMU是现代处理器中一个关键的硬件模块，专门用于监控和分析处理器的运行性能
+
+#### 支持的模式
+
+#### 采集流程
+
+#### 数据解析
 
 ## 开箱性能调优
 
