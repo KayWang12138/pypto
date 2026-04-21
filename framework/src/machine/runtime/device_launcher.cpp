@@ -541,9 +541,11 @@ AclModeGuard::~AclModeGuard()
 }
 
 void DeviceLauncher::FillDeviceKernelArgs(
-    std::vector<uint8_t>& devProgData, DeviceKernelArgs& kargs, const std::vector<std::string>& groupNames)
+    std::vector<uint8_t>& devProgData, DeviceKernelArgs& kargs, const std::vector<std::string>& groupNames,
+    int64_t dynWorkspaceSize)
 {
     DeviceLauncherConfig config;
+    config.dynWorkspaceSize = dynWorkspaceSize;
     CachedOperator cache;
     DeviceLauncherConfigFillDeviceInfo(config);
     DeviceMemoryUtils deviceMemoryUtils;

@@ -183,6 +183,15 @@ static ExportedOperator* GetValidatedOperator(uintptr_t opAddr)
     return reinterpret_cast<ExportedOperator*>(opAddr);
 }
 
+static uint64_t CalcMaxTensorBytes(const std::vector<DeviceTensorData>& tensors)
+{
+    uint64_t maxBytes = 0;
+    for (const auto& t : tensors) {
+        maxBytes = std::max<uint64_t>(maxBytes, t.GetDataSize());
+    }
+    return maxBytes;
+}
+
 static void InitializeInputOutputData(
     const std::vector<DeviceTensorData>& inputs, const std::vector<DeviceTensorData>& outputs)
 {
@@ -500,13 +509,12 @@ public:
 
     int64_t GetWorkspaceSize(const std::vector<DeviceTensorData>& tensors)
     {
-        if (dynAttr->maxDynamicAssembleOutcastMem.IsValid()) {
-            Evaluator eval{dynAttr->inputSymbolDict, tensors, {}};
-            devProg->memBudget.tensor.maxDynamicAssembleOutcastMem =
-                eval.Evaluate(dynAttr->maxDynamicAssembleOutcastMem);
-            workspaceSize = devProg->memBudget.Total();
-            return workspaceSize;
-        }
+        auto [runtimeAssembleMem, runtimeCellMatchMem] = EvaluateRuntimeBudget(tensors);
+        // Keep GetWorkspaceSize side-effect free: estimate from a local copy only.
+        auto runtimeBudget = devProg->memBudget;
+        runtimeBudget.tensor.maxDynamicAssembleOutcastMem = runtimeAssembleMem;
+        runtimeBudget.tensor.maxDynamicCellMatchTableMem = runtimeCellMatchMem;
+        workspaceSize = runtimeBudget.Total();
         return workspaceSize;
     }
 
@@ -567,6 +575,15 @@ public:
     void* GetKernelBin() { return kernelBin; }
     auto& GetArgTypes() { return argTypes; }
     Function* GetFunction() { return dynFunc.get(); }
+    void ApplyRuntimeBudgetForLaunch(const std::vector<DeviceTensorData>& tensors)
+    {
+        auto [runtimeAssembleMem, runtimeCellMatchMem] = EvaluateRuntimeBudget(tensors);
+        devProg->memBudget.tensor.maxDynamicAssembleOutcastMem = runtimeAssembleMem;
+        devProg->memBudget.tensor.maxDynamicCellMatchTableMem = runtimeCellMatchMem;
+        auto aicpuArgs = reinterpret_cast<AiCpuArgs*>(aicpuArgBuf.data());
+        DeviceLauncher::FillDeviceKernelArgs(
+            dynAttr->devProgBinary, aicpuArgs->kArgs, dynAttr->commGroupNames, static_cast<int64_t>(runtimeAssembleMem));
+    }
 
     ~KernelBinary()
     {
@@ -580,6 +597,22 @@ public:
     }
 
 private:
+    std::pair<uint64_t, uint64_t> EvaluateRuntimeBudget(const std::vector<DeviceTensorData>& tensors) const
+    {
+        Evaluator eval{dynAttr->inputSymbolDict, tensors, {}};
+        uint64_t runtimeAssembleMem = devProg->memBudget.tensor.maxDynamicAssembleOutcastMem;
+        uint64_t runtimeCellMatchMem = devProg->memBudget.tensor.maxDynamicCellMatchTableMem;
+        if (dynAttr->maxDynamicAssembleOutcastMem.IsValid()) {
+            runtimeAssembleMem = eval.Evaluate(dynAttr->maxDynamicAssembleOutcastMem);
+        }
+        if (dynAttr->maxDynamicCellMatchTableMem.IsValid()) {
+            runtimeCellMatchMem = eval.Evaluate(dynAttr->maxDynamicCellMatchTableMem);
+        }
+        uint64_t runtimeTensorUpperBound = CalcMaxTensorBytes(tensors);
+        runtimeAssembleMem = std::max<uint64_t>(runtimeAssembleMem, runtimeTensorUpperBound);
+        return {runtimeAssembleMem, runtimeCellMatchMem};
+    }
+
     void InitCachedArgs()
     {
         auto argNum =
@@ -1045,6 +1078,8 @@ private:
             return;
         }
 
+        // Apply runtime budget before workspace sizing/initialization.
+        kbinary->ApplyRuntimeBudgetForLaunch(tensors);
         int64_t* wsAddr = nullptr;
         int64_t wsSize = kmodule->GetWorkspaceSize(kbinary, tensors);
         if (wsSize) {

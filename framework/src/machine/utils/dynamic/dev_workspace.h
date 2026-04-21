@@ -24,6 +24,9 @@
 #include "allocator/allocators.h"
 #include "machine/device/dynamic/device_perf.h"
 #include "machine/utils/dynamic/runtime_outcast_tensor.h"
+#include "machine/utils/dynamic/dev_encode_function_stitch.h"
+#include <algorithm>
+#include <vector>
 
 namespace npu::tile_fwk::dynamic {
 inline constexpr int64_t TENSOR_ADDR_ALIGNMENT = 512;
@@ -282,6 +285,7 @@ private:
     void AssignOutcastAddresses(DevAscendFunctionDupped devRootDup, DeviceExecuteSlot* slotList)
     {
         DevAscendFunction* devRootSrc = devRootDup.GetSource();
+        uint64_t* expressionList = devRootDup.GetExpressionAddr();
         uintdevptr_t outcastBaseAddr = devRootDup.RuntimeOutcastBase();
         for (size_t i = 0; i < devRootSrc->GetOutcastSize(); ++i) {
             int outputSlotIndex = -1;
@@ -310,6 +314,7 @@ private:
                     slotList[assembleSlotIndex].rtOutcastIter = MakeRuntimeOutcastTensor(
                         AllocateSlot(devRootSrc->GetRawName()), RuntimeTensorMemProperty::BOUNDARY_OUTCAST);
                     slotList[assembleSlotIndex].isAssembleSlotNeedAlloc = false;
+                    TryAllocateDynamicCellMatchForAssembleSlot(devRootSrc->GetOutcast(i), slotList[assembleSlotIndex]);
                 } else {
                     DEV_ASSERT_MSG(
                         WsErr::WORKSPACE_ITER_INVALID,
@@ -340,6 +345,22 @@ private:
             DEV_VERBOSE_DEBUG(
                 "get outcast %zu slot %d/%d address %s.", i, outputSlotIndex, assembleSlotIndex,
                 outcastDesc.Dump().c_str());
+
+            if (outcastDesc.IsRtOutcast() && rawTensor != nullptr) {
+                auto iter = outcastDesc.GetRtOutcastIter();
+                if (iter != ITEM_POOL_INVALID_INDEX) {
+                    auto& rt = GetRuntimeOutcastTensor(iter);
+                    if (rt.property == RuntimeTensorMemProperty::BOUNDARY_OUTCAST) {
+                        uint64_t memReq = rawTensor->GetMemoryRequirement(expressionList);
+                        if (!IsValidSlotMemRequirement(memReq)) {
+                            DEV_ASSERT_MSG(
+                                WsErr::WORKSPACE_CAPACITY_INSUFFICIENT, IsValidSlotMemRequirement(memReq),
+                                "Boundary outcast slot bytes are insufficient: need=%lu", memReq);
+                        }
+                    }
+                }
+            }
+
         }
     }
 
@@ -366,6 +387,49 @@ private:
         }
 
         return true;
+    }
+
+    void TryAllocateDynamicCellMatchForAssembleSlot(DevAscendFunctionOutcast& outcast, DeviceExecuteSlot& slot)
+    {
+        if (!slot.isPartialUpdateStitch || slot.partialUpdate == nullptr) {
+            return;
+        }
+        auto* partialUpdate = slot.partialUpdate;
+        auto& desc = partialUpdate->cellMatchTableDesc;
+        int dim = desc.GetDimensionSize();
+        if (dim <= 0) {
+            return;
+        }
+        if (partialUpdate->cellMatchRuntimePartialUpdateTable.Data() != nullptr) {
+            return;
+        }
+        DEV_ASSERT_MSG(
+            ProgEncodeErr::CELL_MATCH_PARAM_INVALID, HasDynamicCellMatchSlots(),
+            "Dynamic partial-update cell match allocator is not initialized");
+        const bool hasProducer = (outcast.producerList.size() != 0) || (outcast.stitchPolicyFullCoverProducerList.size() != 0);
+        if (!hasProducer) {
+            partialUpdate->cellMatchRuntimePartialUpdateTable.HostAssignDataSize(0, 0);
+            return;
+        }
+        uint64_t slotBytes = DynamicCellMatchSlotByteSize();
+        uint64_t cellCapacity = DynamicCellMatchSlotCellCapacity();
+        DEV_ASSERT_MSG(
+            ProgEncodeErr::CELL_MATCH_PARAM_INVALID, cellCapacity > 0,
+            "Dynamic partial-update cell slot has invalid capacity: bytes=%lu", slotBytes);
+
+        WsAllocation dynamicCellMatchAlloc = AllocateDynamicCellMatchSlot();
+        partialUpdate->cellMatchRuntimePartialUpdateTable =
+            DevRelocVector<uint64_t>(0, reinterpret_cast<uint64_t*>(dynamicCellMatchAlloc.ptr));
+
+        // Guard against accidental aliasing between dynamic metadata and tensor payload buffers.
+        auto& runtimeOutcastTensor = GetRuntimeOutcastTensor(slot.rtOutcastIter);
+        uint64_t outcastAddr = runtimeOutcastTensor.Addr();
+        if (dynamicCellMatchAlloc.ptr == outcastAddr) {
+            DEV_ASSERT_MSG(
+                WsErr::WORKSPACE_ALLOCATOR_REGIST_FAILED, dynamicCellMatchAlloc.ptr != outcastAddr,
+                "Dynamic cell-match allocation aliases outcast payload, slot=%d", partialUpdate->slotIndex);
+        }
+        runtimeOutcastTensor.dynamicCellMatchAllocation = dynamicCellMatchAlloc;
     }
 
 public:
@@ -413,6 +477,10 @@ public:
         return tensorAllocators_[curParallelWsId].devTaskBoundaryOutcasts.IsValidSlotMemRequirement(memReq);
     }
 
+    bool HasDynamicCellMatchSlots() const { return metadataAllocators_.dynamicCellMatch.SlotNum() != 0; }
+    uint64_t DynamicCellMatchSlotByteSize() const { return metadataAllocators_.dynamicCellMatch.SlotByteSize(); }
+    uint64_t DynamicCellMatchSlotCellCapacity() const { return DynamicCellMatchSlotByteSize() / sizeof(uint64_t); }
+
     WsAllocation AllocateSlot([[maybe_unused]] const char* rootFuncName = nullptr)
     {
         WsAllocation allocation;
@@ -426,6 +494,13 @@ public:
 #if DEBUG_MEM_DUMP_LEVEL >= DEBUG_MEM_DUMP_FULL
         wsMemDelayedDumper_.LogTensorMalloc(rootFuncName == nullptr ? "unspecified_root" : rootFuncName, allocation);
 #endif // DEBUG_MEM_DUMP_LEVEL >= DEBUG_MEM_DUMP_FULL
+        return allocation;
+    }
+
+    WsAllocation AllocateDynamicCellMatchSlot()
+    {
+        WsAllocation allocation = metadataAllocators_.dynamicCellMatch.Allocate();
+        allocation.parallelWsId = curParallelWsId;
         return allocation;
     }
 
@@ -520,6 +595,9 @@ public:
     {
         for (auto&& outcast : rtBoundaryOutcastToBeFree_) {
             tensorAllocators_[outcast.allocation.parallelWsId].devTaskBoundaryOutcasts.Deallocate(outcast.allocation.ptr);
+            if (outcast.dynamicCellMatchAllocation.ptr != 0) {
+                metadataAllocators_.dynamicCellMatch.Deallocate(outcast.dynamicCellMatchAllocation.ptr);
+            }
         }
         rtBoundaryOutcastToBeFree_.clear();
     }
@@ -836,6 +914,27 @@ private:
             DEV_TRACE_DEBUG(CtrlEvent(
                 none(), WorkspaceCrossDeviceTaskOutcast(Range(baseAddr, baseAddr + devTaskBoundaryOutcastsBudget))));
             baseAddr += devTaskBoundaryOutcastsBudget;
+        }
+
+        uint64_t dynamicCellMatchSlotNum = devProg->memBudget.tensor.dynamicCellMatchSlotNum;
+        if (dynamicCellMatchSlotNum == 0) {
+            for (size_t i = 0; i < devProg->partialUpdateList.size(); ++i) {
+                auto& partial = devProg->At(devProg->partialUpdateList, i);
+                if (partial.cellMatchRuntimePartialUpdateTable.size() == 0 &&
+                    partial.cellMatchTableDesc.GetDimensionSize() > 0) {
+                    dynamicCellMatchSlotNum++;
+                }
+            }
+        }
+        uint64_t dynamicCellMatchSlotBytes = devProg->memBudget.tensor.maxDynamicCellMatchTableMem;
+        if (dynamicCellMatchSlotNum != 0 && dynamicCellMatchSlotBytes == 0) {
+            dynamicCellMatchSlotBytes = std::max<uint64_t>(devProg->memBudget.tensor.MaxOutcastMem(), 1024);
+        }
+        auto dynamicCellMatchBudget = dynamicCellMatchSlotNum * dynamicCellMatchSlotBytes;
+        if (dynamicCellMatchSlotNum != 0) {
+            metadataAllocators_.dynamicCellMatch.InitTensorAllocator(
+                baseAddr, dynamicCellMatchSlotNum, dynamicCellMatchSlotBytes, metadataAllocators_.general);
+            baseAddr += dynamicCellMatchBudget;
         }
 
         // Initialize root function non-outcast tensor memory
