@@ -192,3 +192,51 @@ def test_slice_ellipsis_index():
     assert torch.equal(res_tensor[2].flatten(), res2_copy.flatten())
     assert torch.equal(res_tensor[3].flatten(), res3_copy.flatten())
     pypto.runtime._device_fini()
+
+
+def test_slice_overwrite_in_loop():
+    """
+    Test that when multiple loop iterations write to the same output slice,
+    the last iteration's value overwrites previous ones (sequential semantics).
+    Reproduces the pattern from gdr_origin.py where multiple nv_idx values
+    share the same nqk_idx (nv_idx // group), causing repeated writes
+    to the same output location via slice assignment.
+    """
+    device_id = int(os.environ.get('TILE_FWK_DEVICE_ID', 0))
+    torch.npu.set_device(device_id)
+
+    L, Nqk, Nv, D = 8, 1, 2, 4
+    group = Nv // Nqk
+
+    dtype = pypto.DT_FP32
+    pypto.runtime._device_init()
+    x = pypto.tensor([Nv, L, D], dtype)
+    res = pypto.tensor([L, Nqk, D], dtype)
+    pypto.experimental.set_operation_options(combine_axis=True)
+    with pypto.function("SLICE_OVERWRITE_IN_LOOP", x, res):
+        for nv_idx in pypto.loop(Nv, name="LOOP_NV", idx_name="nv_idx"):
+            pypto.set_vec_tile_shapes(L, D)
+            nqk_idx = nv_idx // group
+            res[:, nqk_idx] = x[nv_idx]
+
+    x_torch = torch.stack([
+        torch.full([L, D], float(i + 1))
+        for i in range(Nv)
+    ])
+    res_torch = torch.zeros([L, Nqk, D], dtype=torch.float32)
+    expected = torch.zeros([L, Nqk, D], dtype=torch.float32)
+    for h in range(Nv):
+        expected[:, h // group, :] = x_torch[h]
+
+    pto_x = pypto.from_torch(x_torch, "x")
+    pto_res = pypto.from_torch(res_torch, "res")
+    pypto.runtime._device_run_once_data_from_host(pto_x, pto_res)
+
+    assert torch.equal(res_torch, expected), (
+        f"Slice overwrite in loop failed: "
+        f"expected all {expected[0, 0, 0].item():.1f} (last iteration wins), "
+        f"got {res_torch[0, 0, 0].item():.1f}"
+    )
+    pypto.runtime._device_fini()
+
+# test_slice_overwrite_in_loop()

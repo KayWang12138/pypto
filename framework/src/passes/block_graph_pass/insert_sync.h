@@ -394,7 +394,7 @@ private:
     Status GenNewOpList(Function* subGraphFunc, std::vector<Operation*>& opListNew);
     Status CheckNewOpListSeq(const std::vector<Operation*>& oriOpList, const std::vector<Operation*>& opListNew);
     Status InsertSyncMainLoop(Function* subGraphFunc);
-    bool enableDebug_{false};
+    bool enableDebug_{true};
 };
 } // namespace tile_fwk
 } // namespace npu

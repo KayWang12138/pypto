@@ -640,10 +640,14 @@ def gated_delta_rule_bwd_kernel(
     db_out: pypto.Tensor([pypto.DYNAMIC, ...], pypto.DT_FP32),
     dg_raw_out: pypto.Tensor([pypto.DYNAMIC, ...], pypto.DT_FP32),
     dh0_out: pypto.Tensor([pypto.DYNAMIC, ...], pypto.DT_FP32),
+    cp_dq_c_m5: pypto.Tensor([pypto.DYNAMIC, ...], pypto.DT_FP32),
+    cp_dk_c_m5: pypto.Tensor([pypto.DYNAMIC, ...], pypto.DT_FP32),
+    cp_dq_raw_m7: pypto.Tensor([pypto.DYNAMIC, ...], pypto.DT_FP32),
+    cp_dk_raw_m7: pypto.Tensor([pypto.DYNAMIC, ...], pypto.DT_FP32),
 ):  
 
     # pypto.set_pass_default_config(pypto.PassConfigKey.KEY_DUMP_GRAPH, True)
-    # pypto.experimental.set_operation_options(combine_axis=True)
+    pypto.experimental.set_operation_options(combine_axis=True)
 
     # -------------------------------------------------------------
     # Calculate the loop parameters
@@ -733,6 +737,13 @@ def gated_delta_rule_bwd_kernel(
                 pypto.set_semantic_label("qkg")
                 dq_c, dg_cum_final, dk_c_tmp, dw_final = pypto_compute_qkg_grads_dw_du(qc, kc, v_new_view_2d, doc, eg_2d, gl_exp_1, s_tok, dS_2d, S_before_view_2d, qk, M_le_in, scale_scalar, dv_total, common_mask_decay)
 
+                # Checkpoint after Module 5
+                cp_idx = b_idx * nv + nv_idx
+                dq_c_cp = pypto.reshape(dq_c, [1, l, dim])
+                dk_c_tmp_cp = pypto.reshape(dk_c_tmp, [1, l, dim])
+                pypto.assemble(dq_c_cp, [cp_idx, 0, 0], cp_dq_c_m5)
+                pypto.assemble(dk_c_tmp_cp, [cp_idx, 0, 0], cp_dk_c_m5)
+
                 # -----------------------------------------
                 # Module 6 pypto_wy_repr_fused_updates
                 # -----------------------------------------
@@ -746,6 +757,13 @@ def gated_delta_rule_bwd_kernel(
                 #[l,1]     [l,d]     [l,d]
                 pypto.set_semantic_label("finalize")
                 dg_raw_c, dq_raw_c, dk_raw_c = pypto_finalize_chunk_grads(C_rcum_in, dg_cum_out, qc, kc, q_rstd_2d, k_rstd_2d, dq_c, dk_c)
+
+                # Checkpoint after Module 7
+                cp_idx2 = b_idx * nv + nv_idx
+                dq_raw_cp = pypto.reshape(dq_raw_c, [1, l, dim])
+                dk_raw_cp = pypto.reshape(dk_raw_c, [1, l, dim])
+                pypto.assemble(dq_raw_cp, [cp_idx2, 0, 0], cp_dq_raw_m7)
+                pypto.assemble(dk_raw_cp, [cp_idx2, 0, 0], cp_dk_raw_m7)
 
                 # Assemble
                 pypto.set_semantic_label("Assemble")
@@ -783,6 +801,11 @@ def pypto_function(
     dg_raw_out = torch.zeros([T, Nv], dtype=torch.float32, device=q.device)
     dh0_out = torch.zeros([B, Nv, D, D], dtype=torch.float32, device=q.device)
 
+    cp_dq_c_m5 = torch.zeros([B * Nv, L, D], dtype=torch.float32, device=q.device)
+    cp_dk_c_m5 = torch.zeros([B * Nv, L, D], dtype=torch.float32, device=q.device)
+    cp_dq_raw_m7 = torch.zeros([B * Nv, L, D], dtype=torch.float32, device=q.device)
+    cp_dk_raw_m7 = torch.zeros([B * Nv, L, D], dtype=torch.float32, device=q.device)
+
     # Cache from forward
     A_cache = cache['A'].to(device)
     w_cache = cache['w'].to(device)
@@ -798,13 +821,14 @@ def pypto_function(
         v, g_raw, beta, do, dht, M_le, M_lt, C_cum, C_rcum,
         A_cache, w_cache, v_new_cache, S_before_cache, 
         q_norm_cache, k_norm_cache, q_rstd_cache, k_rstd_cache, act_seq_len, 
-        dq_out, dk_out, dv_out, db_out, dg_raw_out, dh0_out
+        dq_out, dk_out, dv_out, db_out, dg_raw_out, dh0_out,
+        cp_dq_c_m5, cp_dk_c_m5, cp_dq_raw_m7, cp_dk_raw_m7,
     ]
 
     gated_delta_rule_bwd_kernel(*input_tensors)
     print('>>> pypto done')
 
-    return dq_out, dk_out, dv_out, db_out, dg_raw_out, dh0_out
+    return dq_out, dk_out, dv_out, db_out, dg_raw_out, dh0_out, cp_dq_c_m5, cp_dk_c_m5, cp_dq_raw_m7, cp_dk_raw_m7
 
     
 
@@ -902,7 +926,7 @@ def main():
         "final_state": last_state_data.contiguous(), #(B, Nv, Dk, Dv)
     }
     with torch.no_grad():
-        pto_dq, pto_dk, pto_dv, pto_db, pto_dg_raw, pto_dh0  = pypto_function(
+        pto_dq, pto_dk, pto_dv, pto_db, pto_dg_raw, pto_dh0, cp_dq_c_m5, cp_dk_c_m5, cp_dq_raw_m7, cp_dk_raw_m7 = pypto_function(
             q=q.detach(), k=k.detach(), v=v.detach(),
             g_raw=g_raw.detach(), beta=beta.detach(),
             initial_state=initial_state.detach(),
@@ -912,6 +936,98 @@ def main():
             I=I, M_le=M_le, M_lt=M_lt, C_cum=C_cum, C_rcum=C_rcum,
             run_mode=run_mode, 
         )
+
+    # Compute golden checkpoints
+    golden_dq_c_m5 = torch.zeros([B * Nv, L, D], dtype=torch.float32, device='cpu')
+    golden_dk_c_m5 = torch.zeros([B * Nv, L, D], dtype=torch.float32, device='cpu')
+    golden_dq_raw_m7 = torch.zeros([B * Nv, L, D], dtype=torch.float32, device='cpu')
+    golden_dk_raw_m7 = torch.zeros([B * Nv, L, D], dtype=torch.float32, device='cpu')
+
+    q_used_ref = cache_for_golden['q_norm']
+    k_used_ref = cache_for_golden['k_norm']
+    q_rstd_ref = cache_for_golden['q_rstd']
+    k_rstd_ref = cache_for_golden['k_rstd']
+    v32_ref = v.detach().to(torch.float32)
+    beta32_ref = beta.detach().to(torch.float32)
+    g_raw32_ref = g_raw.detach().to(torch.float32)
+    do32_ref = do_tnd.detach().to(torch.float32)
+
+    scale_ref = 1.0 / math.sqrt(D)
+    NT = S // L
+
+    for b in range(B):
+        b_ofs_g = 0
+        for h in range(Nv):
+            nqk_idx_g = h // (Nv // Nqk)
+            dS_g = dht_tnd[b, h].to(torch.float32).cpu().clone()
+            for i_g in range(NT):
+                c_g = NT - 1 - i_g
+                bs_ofs_g = b_ofs_g + c_g * L
+                qc_g = q_used_ref[bs_ofs_g:bs_ofs_g + L, nqk_idx_g, :]
+                kc_g = k_used_ref[bs_ofs_g:bs_ofs_g + L, nqk_idx_g, :]
+                vc_g = v32_ref[bs_ofs_g:bs_ofs_g + L, h, :]
+                betac_g = beta32_ref[bs_ofs_g:bs_ofs_g + L, h]
+                gc_raw_g = g_raw32_ref[bs_ofs_g:bs_ofs_g + L, h]
+                doc_g = do32_ref[bs_ofs_g:bs_ofs_g + L, h, :].cpu().float()
+                A_g = cache_for_golden['A'][b, h, c_g].cpu().float()
+                w_g = cache_for_golden['w'][b, h, c_g].cpu().float()
+                S_before_g = cache_for_golden['S_before'][b, h, c_g].cpu().float()
+                v_new_g = cache_for_golden['v_new'][b, h, c_g].cpu().float()
+
+                g_cum_g, eg_g, gl_g, decay_g = _compute_g_and_decay(gc_raw_g.cpu().float(), C_cum.cpu().float())
+                qk_g, A_local_g, dv0_g = _local_attn_dv0(qc_g.cpu().float(), kc_g.cpu().float(), doc_g, decay_g, M_le.cpu().float(), scale_ref)
+                dS_next_g, s_tok_g, dv_total_g, dS_g_out, q_eff_g = _recurrence_backprop(
+                    kc_g.cpu().float(), dS_g.cpu().float(), gl_g, g_cum_g, dv0_g, qc_g.cpu().float(), eg_g, doc_g, scale_ref, w_g
+                )
+                dq_c_g, dk_c_g, dg_cum_g = _compute_qkg_grads(
+                    'cpu', L, D,
+                    qc_g.cpu().float(), kc_g.cpu().float(), v_new_g, doc_g,
+                    g_cum_g, eg_g, gl_g, s_tok_g,
+                    dS_next_g, S_before_g,
+                    qk_g, decay_g, M_le.cpu().float(), scale_ref,
+                )
+
+                cp_idx_g = b * Nv + h
+                golden_dq_c_m5[cp_idx_g] = dq_c_g
+                golden_dk_c_m5[cp_idx_g] = dk_c_g
+
+                dw_g = -(dv_total_g @ S_before_g.t())
+                du_g = dv_total_g
+                dv_c_g, db_c_g, dk_c_g2, dg_cum_g2 = _wy_repr_fused_updates(
+                    vc_g.cpu().float(), betac_g.cpu().float(), kc_g.cpu().float(), eg_g, du_g, dw_g,
+                    A_g, M_lt.cpu().float(), decay_g, dk_c_g, dg_cum_g,
+                )
+                dq_raw_c_g, dk_raw_c_g, dg_raw_c_g2 = _finalize_chunk_grads(
+                    C_rcum.cpu().float(), dg_cum_g2,
+                    use_qk_l2norm_in_kernel=use_l2,
+                    q_used_chunk=q_used_ref[bs_ofs_g:bs_ofs_g + L, nqk_idx_g, :].cpu().float(),
+                    k_used_chunk=k_used_ref[bs_ofs_g:bs_ofs_g + L, nqk_idx_g, :].cpu().float(),
+                    q_rstd_chunk=q_rstd_ref[bs_ofs_g:bs_ofs_g + L, nqk_idx_g].cpu().float() if use_l2 else None,
+                    k_rstd_chunk=k_rstd_ref[bs_ofs_g:bs_ofs_g + L, nqk_idx_g].cpu().float() if use_l2 else None,
+                    dq_c=dq_c_g, dk_c=dk_c_g2,
+                )
+
+                golden_dq_raw_m7[cp_idx_g] = dq_raw_c_g
+                golden_dk_raw_m7[cp_idx_g] = dk_raw_c_g
+
+                dS_g = dS_g_out
+
+    print("\n===== Checkpoint Comparison =====")
+    for h_cp in range(B * Nv):
+        print(f"\n--- h={h_cp} ---")
+        diff_dq_m5 = (cp_dq_c_m5[h_cp].cpu() - golden_dq_c_m5[h_cp]).abs().max().item()
+        diff_dk_m5 = (cp_dk_c_m5[h_cp].cpu() - golden_dk_c_m5[h_cp]).abs().max().item()
+        match_dq_m5 = torch.allclose(cp_dq_c_m5[h_cp].cpu(), golden_dq_c_m5[h_cp], rtol=1e-3, atol=1e-3)
+        match_dk_m5 = torch.allclose(cp_dk_c_m5[h_cp].cpu(), golden_dk_c_m5[h_cp], rtol=1e-3, atol=1e-3)
+        print(f"  [{'PASS' if match_dq_m5 else 'FAIL'}] dq_c after Module5: max_diff={diff_dq_m5:.6e}")
+        print(f"  [{'PASS' if match_dk_m5 else 'FAIL'}] dk_c after Module5: max_diff={diff_dk_m5:.6e}")
+
+        diff_dq_m7 = (cp_dq_raw_m7[h_cp].cpu() - golden_dq_raw_m7[h_cp]).abs().max().item()
+        diff_dk_m7 = (cp_dk_raw_m7[h_cp].cpu() - golden_dk_raw_m7[h_cp]).abs().max().item()
+        match_dq_m7 = torch.allclose(cp_dq_raw_m7[h_cp].cpu(), golden_dq_raw_m7[h_cp], rtol=1e-3, atol=1e-3)
+        match_dk_m7 = torch.allclose(cp_dk_raw_m7[h_cp].cpu(), golden_dk_raw_m7[h_cp], rtol=1e-3, atol=1e-3)
+        print(f"  [{'PASS' if match_dq_m7 else 'FAIL'}] dq_raw after Module7: max_diff={diff_dq_m7:.6e}")
+        print(f"  [{'PASS' if match_dk_m7 else 'FAIL'}] dk_raw after Module7: max_diff={diff_dk_m7:.6e}")
     
 
     detailed_tensor_compare(pto_dq, dq, 'dq')

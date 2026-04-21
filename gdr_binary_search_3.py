@@ -643,7 +643,7 @@ def gated_delta_rule_bwd_kernel(
 ):  
 
     # pypto.set_pass_default_config(pypto.PassConfigKey.KEY_DUMP_GRAPH, True)
-    # pypto.experimental.set_operation_options(combine_axis=True)
+    pypto.experimental.set_operation_options(combine_axis=True)
 
     # -------------------------------------------------------------
     # Calculate the loop parameters

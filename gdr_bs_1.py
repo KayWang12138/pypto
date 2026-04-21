@@ -334,6 +334,8 @@ def torch_golden_gated_delta_rule_backward_ref(
     dg_raw.zero_()
     dh0.zero_()
 
+    dq_raw_c_all = torch.zeros(B*Nv*NT, L, Dk, dtype=torch.float32, device=device)
+
     # normalized inputs and rstd (<=4D)
     q_used = cache["q_norm"]
     k_used = cache["k_norm"]
@@ -409,6 +411,9 @@ def torch_golden_gated_delta_rule_backward_ref(
                     dq_c, dk_c,
                 )
 
+                cache_idx_g = (b * Nv + h) * NT + c
+                dq_raw_c_all[cache_idx_g] = dq_raw_c
+
                 # ===== store into global grads =====
                 dq[bs_ofs:bs_ofs + L, nqk_idx, :] = dq_raw_c
                 dk[bs_ofs:bs_ofs + L, nqk_idx, :] = dk_raw_c
@@ -419,7 +424,7 @@ def torch_golden_gated_delta_rule_backward_ref(
             # after all chunks, dS is dh0
             dh0[b, h] = dS
 
-    return dq, dk, dv, db, dg_raw, dh0
+    return dq, dk, dv, db, dg_raw, dh0, dq_raw_c_all
 
 
 
@@ -634,6 +639,7 @@ def gated_delta_rule_bwd_kernel(
     q_rstd_cache: pypto.Tensor([pypto.DYNAMIC, ...], pypto.DT_FP32),
     k_rstd_cache: pypto.Tensor([pypto.DYNAMIC, ...], pypto.DT_FP32),
     act_seq_len: pypto.Tensor([], pypto.DT_INT32),
+    cp_dq_raw_c: pypto.Tensor([pypto.DYNAMIC, ...], pypto.DT_FP32),
     dq_out: pypto.Tensor([pypto.DYNAMIC, ...], pypto.DT_FP32),
     dk_out: pypto.Tensor([pypto.DYNAMIC, ...], pypto.DT_FP32),
     dv_out: pypto.Tensor([pypto.DYNAMIC, ...], pypto.DT_FP32),
@@ -643,7 +649,7 @@ def gated_delta_rule_bwd_kernel(
 ):  
 
     # pypto.set_pass_default_config(pypto.PassConfigKey.KEY_DUMP_GRAPH, True)
-    # pypto.experimental.set_operation_options(combine_axis=True)
+    pypto.experimental.set_operation_options(combine_axis=True)
 
     # -------------------------------------------------------------
     # Calculate the loop parameters
@@ -747,6 +753,8 @@ def gated_delta_rule_bwd_kernel(
                 pypto.set_semantic_label("finalize")
                 dg_raw_c, dq_raw_c, dk_raw_c = pypto_finalize_chunk_grads(C_rcum_in, dg_cum_out, qc, kc, q_rstd_2d, k_rstd_2d, dq_c, dk_c)
 
+                cp_dq_raw_c[cache_idx] = dq_raw_c
+
                 # Assemble
                 pypto.set_semantic_label("Assemble")
                 pypto.set_vec_tile_shapes(128, 128)
@@ -794,17 +802,21 @@ def pypto_function(
     k_rstd_cache = cache['k_rstd'].to(device)
 
 
+    num_chunks = T // L
+    cp_dq_raw_c = torch.zeros([B * Nv * num_chunks, L, D], dtype=torch.float32, device=q.device)
+
     input_tensors = [
         v, g_raw, beta, do, dht, M_le, M_lt, C_cum, C_rcum,
         A_cache, w_cache, v_new_cache, S_before_cache, 
         q_norm_cache, k_norm_cache, q_rstd_cache, k_rstd_cache, act_seq_len, 
+        cp_dq_raw_c,
         dq_out, dk_out, dv_out, db_out, dg_raw_out, dh0_out
     ]
 
     gated_delta_rule_bwd_kernel(*input_tensors)
     print('>>> pypto done')
 
-    return dq_out, dk_out, dv_out, db_out, dg_raw_out, dh0_out
+    return dq_out, dk_out, dv_out, db_out, dg_raw_out, dh0_out, cp_dq_raw_c
 
     
 
@@ -875,7 +887,7 @@ def main():
         "final_state": last_state_data, #(B, Nv, Dk, Dv)
     }
     with torch.no_grad():
-        dq, dk, dv, db, dg_raw, dh0 = torch_golden_gated_delta_rule_backward_ref(
+        dq, dk, dv, db, dg_raw, dh0, dq_raw_c_all = torch_golden_gated_delta_rule_backward_ref(
             q=q.clone().detach(), k=k.clone().detach(), v=v.clone().detach(),
             g_raw=g_raw.clone().detach(), beta=beta.clone().detach(),
             initial_state=initial_state.clone().detach(),
@@ -902,7 +914,7 @@ def main():
         "final_state": last_state_data.contiguous(), #(B, Nv, Dk, Dv)
     }
     with torch.no_grad():
-        pto_dq, pto_dk, pto_dv, pto_db, pto_dg_raw, pto_dh0  = pypto_function(
+        pto_dq, pto_dk, pto_dv, pto_db, pto_dg_raw, pto_dh0, cp_dq_raw_c  = pypto_function(
             q=q.detach(), k=k.detach(), v=v.detach(),
             g_raw=g_raw.detach(), beta=beta.detach(),
             initial_state=initial_state.detach(),
@@ -920,6 +932,19 @@ def main():
     detailed_tensor_compare(pto_db, db, 'db')
     detailed_tensor_compare(pto_dg_raw, dg_raw, 'dg_raw')
     detailed_tensor_compare(pto_dh0, dh0, 'dh0')
+
+    print("\n" + "="*60)
+    print("Checkpoint: dq_raw_c after Module 7")
+    print("="*60)
+    total_iters = B * Nv * C
+    for idx in range(total_iters):
+        pto_val = cp_dq_raw_c[idx].cpu().float()
+        golden_val = dq_raw_c_all[idx].cpu().float()
+        max_diff = (pto_val - golden_val).abs().max().item()
+        match = torch.allclose(pto_val, golden_val, rtol=1e-3, atol=1e-3)
+        print(f"  [idx={idx}] {'PASS' if match else 'FAIL'}: max_diff={max_diff:.6e}")
+    print("="*60)
+
     print("\n✅ All checks passed.")
 
 
