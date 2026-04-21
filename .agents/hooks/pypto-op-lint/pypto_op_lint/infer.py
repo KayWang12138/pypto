@@ -47,20 +47,23 @@ def _infer_op_name_from_filename(filename: str) -> str:
 
 
 def _looks_like_stateless_op_dir(op_dir: str, op_name: str) -> bool:
+    """Decide whether *op_dir* is the workspace for *op_name*.
+
+    Any op-specific artifact (``{op}_impl.py``, ``{op}_golden.py``,
+    ``test_{op}.py``) is enough, because these names embed ``op_name`` and
+    therefore can't false-positive in an unrelated directory.  We also accept
+    any directory containing two or more shared workspace files (SPEC/DESIGN/
+    API_REPORT/README) — that combination is already specific enough.
+    """
     try:
         files = set(os.listdir(op_dir))
     except OSError:
         return False
-    expected = {
-        f"{op_name}_impl.py",
-        f"{op_name}_golden.py",
-        f"test_{op_name}.py",
-        SPEC_FILE,
-        API_REPORT_FILE,
-        DESIGN_FILE,
-        "README.md",
-    }
-    return len(files & expected) >= 2
+    op_specific = {f"{op_name}_impl.py", f"{op_name}_golden.py", f"test_{op_name}.py"}
+    if files & op_specific:
+        return True
+    shared = {SPEC_FILE, API_REPORT_FILE, DESIGN_FILE, "README.md"}
+    return len(files & shared) >= 2
 
 
 def _infer_stage_from_filename(filename: str) -> int:
@@ -116,7 +119,23 @@ def _get_op_name(op_dir: str) -> str:
                     return name
         except ValueError:
             pass
-    return os.path.basename(op_dir)
+
+    # Prefer the directory basename when it matches a local `*_impl.py` file.
+    basename = os.path.basename(op_dir.rstrip("/"))
+    try:
+        entries = os.listdir(op_dir)
+    except OSError:
+        return basename
+    if f"{basename}_impl.py" in entries:
+        return basename
+
+    # Otherwise fall back to a unique `*_impl.py` sibling, which lets
+    # `--op-dir path/to/xxx` still work when the directory name differs
+    # from the operator name.
+    impl_candidates = [f[: -len("_impl.py")] for f in entries if f.endswith("_impl.py")]
+    if len(impl_candidates) == 1:
+        return impl_candidates[0]
+    return basename
 
 
 def _build_context(op_dir: str, stage: Optional[int] = None) -> CheckContext:

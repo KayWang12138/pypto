@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+import os
 
 from . import checks  # noqa: F401
 from .core import (
@@ -25,18 +26,41 @@ def _cmd_run(findings: list[Finding]) -> int:
     return 2 if _has_error_fail(findings) else 0
 
 
+def _missing_artifact_finding(filename: str, hint: str) -> Finding:
+    return Finding(
+        rule_id="OL00",
+        severity="S1",
+        dimension="D0",
+        status="FAIL",
+        message=(
+            f"预期产物 {filename} 不存在于算子目录，无法执行 {hint} 检查。"
+            f" 请确认 --op-dir 指向正确目录，或先创建该产物。"
+        ),
+        file=filename,
+    )
+
+
 def cmd_lint_impl(op_dir: str, stage: int) -> int:
     ctx = _build_context(op_dir, stage)
+    impl_file = f"{ctx.op_name}_impl.py"
+    if not os.path.isfile(os.path.join(ctx.op_dir, impl_file)):
+        return _cmd_run([_missing_artifact_finding(impl_file, "impl")])
     return _cmd_run(_run_checks(ctx, IMPL_RULE_IDS))
 
 
 def cmd_lint_golden(op_dir: str, stage: int) -> int:
     ctx = _build_context(op_dir, stage)
+    golden_file = f"{ctx.op_name}_golden.py"
+    if not os.path.isfile(os.path.join(ctx.op_dir, golden_file)):
+        return _cmd_run([_missing_artifact_finding(golden_file, "golden")])
     return _cmd_run(_run_checks(ctx, GOLDEN_RULE_IDS))
 
 
 def cmd_lint_test(op_dir: str, stage: int) -> int:
     ctx = _build_context(op_dir, stage)
+    test_file = f"test_{ctx.op_name}.py"
+    if not os.path.isfile(os.path.join(ctx.op_dir, test_file)):
+        return _cmd_run([_missing_artifact_finding(test_file, "test")])
     return _cmd_run(_run_checks(ctx, TEST_RULE_IDS))
 
 

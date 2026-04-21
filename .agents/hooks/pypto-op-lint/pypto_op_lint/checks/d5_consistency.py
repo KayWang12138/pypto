@@ -381,13 +381,14 @@ def check_ol40(ctx: CheckContext) -> Finding:
 @register("OL41")
 def check_ol41(ctx: CheckContext) -> Finding:
     """禁止将 lint/门禁输出文本污染到代码工件。"""
+    # 仅保留品牌化且高置信度的标记：前缀 `[pypto-op-lint]` 是 lint 自身输出的
+    # 固定 header，后两条是 lint 报错文案的 hard-coded 短语。之前列表里还有
+    # `fix_hints:` / `blocking_rules:` / `additionalContext:` 等词，但这些
+    # 字符串在正常 markdown / YAML 注释里也会出现，会误伤 SPEC/DESIGN 文档。
     suspicious_tokens = (
         "[pypto-op-lint]",
-        "交付门禁阻断",
+        "交付门禁未通过",
         "以下规则违规",
-        "fix_hints:",
-        "blocking_rules:",
-        "docs_ref:",
     )
     targets = [
         f"{ctx.op_name}_impl.py",

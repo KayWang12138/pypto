@@ -7,15 +7,74 @@ import ast
 from typing import Optional
 
 
+def _is_pypto_frontend_jit_attr(node: ast.AST) -> bool:
+    """匹配 ``pypto.frontend.jit`` 属性链。"""
+    return (
+        isinstance(node, ast.Attribute)
+        and node.attr == "jit"
+        and isinstance(node.value, ast.Attribute)
+        and node.value.attr == "frontend"
+        and isinstance(node.value.value, ast.Name)
+        and node.value.value.id == "pypto"
+    )
+
+
+def _collect_jit_aliases(tree: ast.AST) -> set[str]:
+    """收集模块里指向 ``pypto.frontend.jit`` 的符号。
+
+    覆盖：
+      - ``from pypto.frontend import jit [as X]``
+      - ``jit = pypto.frontend.jit`` 及 ``K = J`` 传递绑定
+    """
+    aliases: set[str] = set()
+    pending: list[tuple[str, str]] = []
+    for node in ast.iter_child_nodes(tree):
+        if isinstance(node, ast.ImportFrom) and node.module == "pypto.frontend":
+            for a in node.names:
+                if a.name == "jit":
+                    aliases.add(a.asname or "jit")
+        elif (
+            isinstance(node, ast.Assign)
+            and len(node.targets) == 1
+            and isinstance(node.targets[0], ast.Name)
+        ):
+            tgt = node.targets[0].id
+            if _is_pypto_frontend_jit_attr(node.value):
+                aliases.add(tgt)
+            elif isinstance(node.value, ast.Name):
+                pending.append((tgt, node.value.id))
+    changed = True
+    while changed:
+        changed = False
+        for tgt, src in pending:
+            if src in aliases and tgt not in aliases:
+                aliases.add(tgt)
+                changed = True
+    return aliases
+
+
+def _decorator_is_jit(dec: ast.AST, aliases: set[str]) -> bool:
+    target = dec.func if isinstance(dec, ast.Call) else dec
+    if _is_pypto_frontend_jit_attr(target):
+        return True
+    return isinstance(target, ast.Name) and target.id in aliases
+
+
 def _get_jit_functions(tree: ast.Module) -> list[ast.FunctionDef]:
-    """找到所有被 @pypto.frontend.jit 装饰的函数"""
-    result = []
+    """返回被 ``pypto.frontend.jit`` 或其本地别名装饰的函数。
+
+    旧实现使用 ``ast.dump`` 的子串匹配（``"pypto" in dump and "jit" in dump``），
+    既放过 ``from pypto.frontend import jit as J`` 这类常见别名，又会把
+    任何名字里同时出现两个关键词的无关装饰器误判成 jit。现在改为基于
+    符号解析的结构化判定。
+    """
+    aliases = _collect_jit_aliases(tree)
+    result: list[ast.FunctionDef] = []
     for node in ast.walk(tree):
         if not isinstance(node, ast.FunctionDef):
             continue
         for dec in node.decorator_list:
-            dec_str = ast.dump(dec)
-            if "pypto" in dec_str and "jit" in dec_str:
+            if _decorator_is_jit(dec, aliases):
                 result.append(node)
                 break
     return result
