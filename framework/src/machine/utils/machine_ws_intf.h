@@ -75,8 +75,7 @@ struct QueueGeneric {
     const T* end() const { return elem + tail; }
 
     typedef T value_type;
-//protected:
-public:
+protected:
     uint32_t head;
     uint32_t tail;
     value_type* elem;
@@ -133,7 +132,7 @@ struct LockableQueueGeneric : public QueueGeneric<T> {
         return true;
     }
 
-    bool try_enqueue(T* x, uint32_t count)
+    bool try_enqueue(const T* x, uint32_t count)
     {
         std::scoped_lock(*this);
         uint32_t t = __atomic_fetch_add(&this->tail, count, std::memory_order_release);
