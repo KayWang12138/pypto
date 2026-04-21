@@ -338,7 +338,11 @@ void RemoveUnalignedReshape::HandleNoCopyInConsumer(Function& function, Operatio
         OpImmediate::Specified(output->tensor->GetDynRawShape()),
         OpImmediate::Specified(output->GetDynValidShape())));
     auto consumers = output->GetConsumers();
+    std::vector<Operation*> reshapeConsumers;
     for (auto& consumer : consumers) {
+        reshapeConsumers.push_back(consumer);
+    }
+    for (auto& consumer : reshapeConsumers) {
         if (consumer->GetOpcode() == Opcode::OP_COPY_IN) {
             continue;
         }
@@ -518,17 +522,17 @@ Operation* RemoveUnalignedReshape::FindAllProducerCopyOuts(
 bool RemoveUnalignedReshape::checkNonCopyInConsumerExists(
     LogicalTensorPtr tensor, std::vector<Operation*>& copyInOps)
 {
-    bool hasNoCopyInConSumer = false;
+    bool hasNoCopyInConsumer = false;
     auto consumers = tensor->GetConsumers();
     for (auto* consumerOp : consumers) {
         auto opcode = consumerOp->GetOpcode();
         if (opcode == Opcode::OP_COPY_IN) {
             copyInOps.push_back(consumerOp);
         } else {
-            hasNoCopyInConSumer = true;
+            hasNoCopyInConsumer = true;
         }
     }
-    return hasNoCopyInConSumer;
+    return hasNoCopyInConsumer;
 }
 
 void RemoveUnalignedReshape::CollectReshapeOps(Function& function)
