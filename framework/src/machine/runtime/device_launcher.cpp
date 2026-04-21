@@ -541,14 +541,20 @@ AclModeGuard::~AclModeGuard()
 }
 
 void DeviceLauncher::FillDeviceKernelArgs(
-    std::vector<uint8_t>& devProgData, DeviceKernelArgs& kargs, const std::vector<std::string>& groupNames)
+    std::vector<uint8_t>& devProgData, DeviceKernelArgs& kargs, const std::vector<std::string>& groupNames,
+    int64_t dynWorkspaceSize)
 {
     DeviceLauncherConfig config;
+    config.dynWorkspaceSize = dynWorkspaceSize;
     CachedOperator cache;
     DeviceLauncherConfigFillDeviceInfo(config);
     DeviceMemoryUtils deviceMemoryUtils;
     DeviceInitTilingData(deviceMemoryUtils, kargs, devProgData, nullptr, config, &cache);
     DeviceInitDistributedContext(deviceMemoryUtils, groupNames, kargs);
+    (void)devProgData;
+    (void)kargs;
+    (void)groupNames;
+    (void)dynWorkspaceSize;
 }
 
 int64_t DeviceLauncher::GetL2Offset()

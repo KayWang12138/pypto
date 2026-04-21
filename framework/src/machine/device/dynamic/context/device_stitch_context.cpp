@@ -14,6 +14,7 @@
  */
 
 #include "machine/device/dynamic/context/device_stitch_context.h"
+#include <cstdio>
 
 namespace npu::tile_fwk::dynamic {
 void DeviceStitchContext::Init(DevAscendProgram* devProg, DeviceWorkspaceAllocator& workspace)
@@ -258,6 +259,15 @@ uint64_t DeviceStitchContext::PartialUpdateStitch(
     auto expressionList = &nextDup.GetExpression(0);
     auto& cellMatchTableDesc = slot.partialUpdate->cellMatchTableDesc;
     auto partialUpdateTableData = &slot.partialUpdate->cellMatchRuntimePartialUpdateTable[0];
+    uint64_t slotAddr = 0;
+    if (slot.rtOutcastIter != ITEM_POOL_INVALID_INDEX) {
+        slotAddr = workspace_->GetRuntimeOutcastTensor(slot.rtOutcastIter).Addr();
+    }
+    std::printf(
+        "[Stitch/PartialCtx] slot=%d dev_task=%zu rt_iter=%lld rt_addr=0x%lx table_ptr=%p table_size=%zu dim=%d\n",
+        slotIdx, devTaskId, static_cast<long long>(slot.rtOutcastIter), slotAddr,
+        static_cast<void*>(partialUpdateTableData), slot.partialUpdate->cellMatchRuntimePartialUpdateTable.size(),
+        cellMatchTableDesc.GetDimensionSize());
     struct HandleCellMatchPartial {
         static inline void Process(
             int index, uint64_t* cellMatchTableData, uint64_t* matchCount, DevAscendFunctionDupped* stitchingList,
@@ -265,6 +275,9 @@ uint64_t DeviceStitchContext::PartialUpdateStitch(
             int consumerOperationIdx, DeviceWorkspaceAllocator* workspace, int debugSlotIdx)
         {
             uint64_t id = cellMatchTableData[index];
+            std::printf(
+                "[Stitch/Partial] cell=%d id=0x%lx curr_dev_task=%zu consumer_op=%d\n", index,
+                static_cast<unsigned long>(id), devTaskId, consumerOperationIdx);
             if (id != AICORE_TASK_INIT && devTaskId == static_cast<uint32_t>(id >> TASKID_SHIFT32)) {
                 auto funcId = FuncID(static_cast<uint32_t>(id));
                 auto producerOperationIdx = TaskID(static_cast<uint32_t>(id));
@@ -325,6 +338,9 @@ uint64_t DeviceStitchContext::FullCoverDefaultUpdateStitch(
             DeviceWorkspaceAllocator* workspace, int debugSlotIdx)
         {
             auto producerOperationIdx = cellMatchTableData[index];
+            std::printf(
+                "[Stitch/Full] cell=%d producer_op=%u consumer_op=%d%s\n", index, producerOperationIdx,
+                consumerOperationIdx, (producerOperationIdx == static_cast<uint32_t>(-1)) ? " miss" : " hit");
             if (producerOperationIdx != static_cast<uint32_t>(-1)) {
                 (*matchCount)++;
                 DEV_TRACE_DEBUG(DEvent(
@@ -491,6 +507,8 @@ uint64_t DeviceStitchContext::FastStitch(
     uint64_t matchCount = 0;
     for (size_t incastIdx = 0; incastIdx < nextSrc->GetIncastSize(); ++incastIdx) {
         auto& incast = nextSrc->GetIncast(incastIdx);
+        auto* incastRawTensor = nextSrc->GetIncastRawTensor(incastIdx);
+        int incastRawMagic = (incastRawTensor == nullptr) ? -1 : incastRawTensor->rawMagic;
 
         for (size_t j = 0; j < incast.fromSlotList.size(); ++j) {
             auto slotIdx = nextSrc->At(incast.fromSlotList, j);
@@ -502,9 +520,36 @@ uint64_t DeviceStitchContext::FastStitch(
             }
 
             auto& slot = slotList[slotIdx];
+            uint64_t incastAddr = 0;
+            uint64_t incastBytes = 0;
+            auto& incastDesc = nextDup.GetIncastAddress(incastIdx);
+            if (incastDesc.IsRtOutcast()) {
+                auto incastIter = incastDesc.GetRtOutcastIter();
+                if (incastIter != ITEM_POOL_INVALID_INDEX) {
+                    incastAddr = workspace_->GetRuntimeOutcastTensor(incastIter).Addr();
+                }
+            } else {
+                incastAddr = incastDesc.GetAddress();
+            }
+            if (incastRawTensor != nullptr) {
+                incastBytes = incastRawTensor->GetMemoryRequirement(nextDup.GetExpressionAddr());
+            }
             DEV_VERBOSE_DEBUG(
                 "FastStitch slot %d, incastindex %zu, ispartial %d, stitchDupIdx %u", slotIdx, incastIdx,
                 slot.isPartialUpdateStitch, slot.stitchDupIdx);
+            if (slot.isPartialUpdateStitch && slot.partialUpdate != nullptr) {
+                auto* partialTablePtr = (slot.partialUpdate->cellMatchRuntimePartialUpdateTable.size() == 0) ?
+                    nullptr :
+                    static_cast<void*>(&slot.partialUpdate->cellMatchRuntimePartialUpdateTable[0]);
+                std::printf(
+                    "[FastStitch/Map] dev_task=%zu incast_idx=%zu incast_raw_magic=%d slot=%d slot_partial=%p "
+                    "incast_addr=0x%lx incast_range=[0x%lx,0x%lx) incast_bytes=%lu partial_slot=%d "
+                    "partial_table_ptr=%p partial_table_size=%zu stitch_dup_idx=%u\n",
+                    devTaskId, incastIdx, incastRawMagic, slotIdx, static_cast<void*>(slot.partialUpdate),
+                    incastAddr, incastAddr, incastAddr + incastBytes, incastBytes, slot.partialUpdate->slotIndex,
+                    partialTablePtr,
+                    slot.partialUpdate->cellMatchRuntimePartialUpdateTable.size(), slot.stitchDupIdx);
+            }
             if (slot.stitchDupIdx == INVALID_STITCH_IDX) {
                 // Slot never output
                 continue;
