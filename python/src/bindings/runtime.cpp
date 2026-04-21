@@ -769,7 +769,7 @@ public:
         MACHINE_LOGI("###### stubFunc: %p", hdl);
         MACHINE_LOGI("###### rtDevBinaryRegister end");
         int stubFunc = 1;
-        std::string kernelName = "TENSOR___main___Unroll1_PATH0_hiddenfunc0_5_main";
+        std::string kernelName = kernel->GetFunction()->GetDyndevAttribute().get()->kernelName;
         MACHINE_LOGI("###### rtFunctionRegister start");
         rtFunctionRegister(hdl, &stubFunc, kernelName.c_str(), kernelName.c_str(), 0);
         MACHINE_LOGI("###### rtFunctionRegister end");

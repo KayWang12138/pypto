@@ -162,6 +162,7 @@ void CodeGenLiteNPU::GenCode(
                 GenConfigJson(
                     compileInfo.GetJsonAbsPath(), compileInfo.GetCCEAbsPath(), compileInfo.GetBinAbsPath(),
                     topFunc.GetMagicName(), jsonWorkspaceSize, inOutParams, blockDim);
+                compileInfo.SetMagicName(topFunc.GetMagicName() + "_main");
             }
 #endif
             UpdateSubFunc(subFuncPair, compileInfo);

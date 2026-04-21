@@ -1066,6 +1066,7 @@ static void CompileDyndevFunction(Function* function, FunctionCache& cache, [[ma
     encodeDevAscendFunctionParam.inoutLink = &attr->inoutLink;
 
     std::string kernelPath;
+    std::string kernelName;
 #ifdef BUILD_WITH_CANN
     if (config::GetRuntimeOption<int64_t>(CFG_RUN_MODE) != CFG_RUN_MODE_SIM &&
         config::GetHostOption<int64_t>(COMPILE_STAGE) != CS_CODEGEN_INSTRUCTION) {
@@ -1074,6 +1075,7 @@ static void CompileDyndevFunction(Function* function, FunctionCache& cache, [[ma
                 auto leafAttr = leaf->GetLeafFuncAttribute();
                 if (leafAttr && !leafAttr->binPath.empty()) {
                     kernelPath = leafAttr->binPath;
+                    kernelName = leafAttr->magicName;
                     break;
                 }
             }
@@ -1092,8 +1094,9 @@ static void CompileDyndevFunction(Function* function, FunctionCache& cache, [[ma
     }
 #endif
 
-    MACHINE_LOGD("###### LoadFile kernelPath[%s].", kernelPath.c_str());
+    MACHINE_LOGD("###### LoadFile kernelPath[%s], kernelName[%s].", kernelPath.c_str(), kernelName.c_str());
     attr->kernelBinary = LoadFile(kernelPath);
+    attr->kernelName = kernelName;
     MACHINE_LOGD("###### KernelBinary data[%p], size[%zu].", attr->kernelBinary.data(), attr->kernelBinary.size());
 
     attr->devEncodeList.resize(attr->funcGroup.devRootList.size());
