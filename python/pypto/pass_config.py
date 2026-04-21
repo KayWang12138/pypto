@@ -101,7 +101,7 @@ def set_pass_default_config(key: PassConfigKey, value: bool):
         If the key is not a valid PassConfigKey enum value.
     """
     if not isinstance(value, bool):
-        raise TypeError(f"Expected boolean type, but received {type(value).__name__}")
+        raise TypeError(f"Expected boolean type, but received {type(value).__name__}"),
     if not isinstance(key, PassConfigKey):
         raise ValueError(f"key must be a member of PassConfigKey, got {key}. ")
     pypto_impl.SetPassDefaultConfig(key.value, value)
