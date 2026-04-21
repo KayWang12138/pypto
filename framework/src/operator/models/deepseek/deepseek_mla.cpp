@@ -1048,9 +1048,9 @@ Tensor DeepseekV2MoE::MoeInfer(Tensor x, Tensor topkIds, Tensor topkWeight, int 
 
     // Tensor((b*s, h))[Tensor(b*s*numExpertsPerTok)] = (b*s*numExpertsPerTok, h)
     Tensor sortedTokens = TensorIndex(
-        x, Div(idxs, Element(
-                         DataType::DT_FP32,
-                         static_cast<double>(expertPerTok)))); // int64除法
+        x, Div(Cast(idxs, DataType::DT_FP32), Element(
+                                                  DataType::DT_FP32,
+                                                  static_cast<double>(expertPerTok)))); // int64除法
     auto& sortedTokensShape = sortedTokens.GetShape();
 
     // tokensPerExpertCpu = tokensPerExpert.cpu().numpy(); 手动设置规避动态图
