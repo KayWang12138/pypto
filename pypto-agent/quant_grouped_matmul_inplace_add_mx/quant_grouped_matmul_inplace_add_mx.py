@@ -412,13 +412,13 @@ def scaled_matmul_kernel(
     a_trans = tile_config.a_trans
     b_trans = tile_config.b_trans
 
-    # 使用 pypto.loop 实现多核并行 + Cube/Vector 流水线
-    # Loop 展开：框架自动分发到多核并行执行
-    # 流水线：每个 iteration 内 Cube(scaled_mm) 和 Vector(add) 紧邻执行
-    #         当前 iteration 执行 Vector(add) 时，下一 iteration 的 Cube(scaled_mm) 可并行启动
+    # 注意: 必须使用 range(g) 而非 pypto.loop
+    # 原因: group_list[i] 需要在编译时确定 tensor slicing 的 begin/end
+    #       pypto.loop 的索引是 SymbolicScalar，无法访问 Python list
+    #       但仍然可以实现 Cube/Vector 流水线：将 add 移入循环内，紧跟 scaled_mm
     begin = 0
     end = 0
-    for i in pypto.loop(0, g, 1, name="LOOP_group", idx_name="group_idx"):
+    for i in range(g):
         # 根据 group_type 计算 begin 和 end (K轴切分)
         # group_type=0: group_list 各元素为累计值，最后一个元素等于 K
         # group_type=1: group_list 各元素为单独的 group size，累加得到 K
@@ -488,7 +488,7 @@ def scaled_matmul_kernel(
         
         # Vector 操作: add (inplace 加法)
         # 紧跟 Cube 操作，形成 Cube → Vector 流水线
-        # 当当前 iteration 执行 add 时，下一 iteration 的 scaled_mm 可并行启动
+        # 框架调度：当前 iteration 的 add 和下一 iteration 的 scaled_mm 可并行执行
         y[i] = pypto.add(y[i], mm_result)
 
 
