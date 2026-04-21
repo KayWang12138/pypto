@@ -18,6 +18,7 @@
 #include <string>
 #include "tensor_transformation.h"
 #include "interface/utils/operator_tracer.h"
+#include "operation_common.h"
 
 namespace npu::tile_fwk {
 
@@ -203,6 +204,12 @@ Tensor Expand(const Tensor& self, const std::vector<int64_t>& dstShape, std::vec
 {
     DECLARE_TRACER();
 
+    std::unordered_set<DataType> supportedTypes = {DT_BF16, DT_FP32, DT_FP16, DT_INT8, DT_INT16, DT_INT32,
+        DT_UINT8, DT_UINT16, DT_UINT32, DT_BOOL};
+    CheckTensorDataType(self.GetStorage(), supportedTypes, "EXPAND");
+    CheckTensorDimRange(self.GetStorage(), 1, 4, "EXPAND");
+    CheckTensorShapeSize(self.GetStorage(), "EXPAND");
+    CheckDstShapeSize(dstShape, "EXPAND");
     ASSERT(VectorErrorCode::ERR_PARAM_INVALID, self.GetShape().size() == dstShape.size())
         << "The shape size of self and dst should be equal";
     if (validShape.empty()) {
@@ -443,6 +450,10 @@ bool MergeTransposeAxis(
 Tensor Transpose(const Tensor& self, std::vector<int> perm)
 {
     DECLARE_TRACER();
+    std::unordered_set<DataType> supportedTypes = {DT_FP16, DT_BF16, DT_INT16, DT_UINT16, DT_FP32, DT_INT32, DT_UINT32};
+    CheckTensorDataType(self.GetStorage(), supportedTypes, "TRANSPOSE");
+    CheckTensorDimRange(self.GetStorage(), 1, 4, "TRANSPOSE");
+    CheckTensorShapeSize(self.GetStorage(), "TRANSPOSE");
     ASSERT(VectorErrorCode::ERR_PARAM_INVALID, perm.size() == 2)
         << "Transpose dim num should be 2."; // perm should be 2 dims
     int shapeSize = self.GetShape().size();
@@ -544,6 +555,11 @@ Tensor Full(
     const Element& src, DataType dtype, const std::vector<int64_t>& dstShape, std::vector<SymbolicScalar> validShape)
 {
     DECLARE_TRACER();
+    std::unordered_set<DataType> supportedTypes = {DT_FP32, DT_FP16, DT_BF16, DT_INT8, DT_INT16, DT_INT32,
+        DT_UINT8, DT_UINT16, DT_UINT32, DT_BOOL};
+    CheckTensorDataType(dtype, supportedTypes, "FULL");
+    CheckDstShapeDimRange(dstShape, 1, 4, "FULL");
+    CheckDstShapeSize(dstShape, "FULL");
     if (validShape.empty()) {
         for (auto x : dstShape)
             validShape.emplace_back(x);
@@ -558,6 +574,11 @@ Tensor Full(
     std::vector<SymbolicScalar> validShape)
 {
     DECLARE_TRACER();
+    std::unordered_set<DataType> supportedTypes = {DT_FP32, DT_FP16, DT_BF16, DT_INT8, DT_INT16, DT_INT32,
+        DT_UINT8, DT_UINT16, DT_UINT32, DT_BOOL};
+    CheckTensorDataType(dtype, supportedTypes, "FULL");
+    CheckDstShapeDimRange(dstShape, 1, 4, "FULL");
+    CheckDstShapeSize(dstShape, "FULL");
     if (validShape.empty()) {
         for (auto x : dstShape)
             validShape.emplace_back(x);
@@ -626,6 +647,14 @@ void TiledCastOperation(
 Tensor Cast(const Tensor& self, DataType dstDataType, CastMode mode, SaturationMode satmode)
 {
     DECLARE_TRACER();
+    std::unordered_set<DataType> supportedSrcTypes = {DT_FP32, DT_FP16, DT_BF16, DT_INT8, DT_UINT8, DT_INT16,
+        DT_INT32, DT_INT64, DT_INT4, DT_FP8E4M3, DT_FP8E5M2, DT_HF8};
+    std::unordered_set<DataType> supportedDstTypes = {DT_FP32, DT_FP16, DT_BF16, DT_INT8, DT_UINT8, DT_INT16,
+        DT_INT32, DT_INT64, DT_INT4, DT_FP8E4M3, DT_FP8E5M2, DT_HF8};
+    CheckTensorDataType(self.GetStorage(), supportedSrcTypes, "CAST");
+    CheckTensorDataType(dstDataType, supportedDstTypes, "CAST");
+    CheckTensorDimRange(self.GetStorage(), 1, 4, "CAST");
+    CheckTensorShapeSize(self.GetStorage(), "CAST");
     ASSERT(VectorErrorCode::ERR_PARAM_INVALID, self.GetShape().size() == self.GetStorage()->offset.size())
         << "The shape size of self and offset should be equal";
     // Cast to same dType with no mode will do nothing
@@ -650,34 +679,21 @@ void InnerConcatNew(Function& function, const LogicalTensorPtr& operand, const L
 
 void CheckCat(const std::vector<Tensor>& tensors, int axis)
 {
-    auto shape = tensors[0].GetShape();
-    auto format = tensors[0].Format();
-    auto shapeSize = shape.size();
-    auto dataType = tensors[0].GetDataType();
-
-    ASSERT(VectorErrorCode::ERR_PARAM_INVALID, SHAPE_DIM2 <= shapeSize && shapeSize <= SHAPE_DIM4)
-        << "The support dimension must be 2 to 4 dimensions";
-    std::vector<DataType> CAT_SUPPORT_DATATYPES = {DataType::DT_FP32,  DataType::DT_FP16, DataType::DT_INT32,
-                                                   DataType::DT_INT16, DataType::DT_INT8, DataType::DT_BF16};
-    ASSERT(
-        VectorErrorCode::ERR_PARAM_DTYPE_UNSUPPORTED,
-        std::find(CAT_SUPPORT_DATATYPES.begin(), CAT_SUPPORT_DATATYPES.end(), dataType) != CAT_SUPPORT_DATATYPES.end())
-        << "The datatype is not within the supported range";
-
+    std::unordered_set<DataType> supportedTypes = {DT_FP32, DT_FP16, DT_INT32, DT_INT16, DT_INT8, DT_BF16};
+    CheckTensorDataType(tensors[0].GetStorage(), supportedTypes, "CAT");
+    CheckTensorDimRange(tensors[0].GetStorage(), 2, 4, "CAT");
     CheckAxisRange(tensors[0], axis);
+    std::vector<LogicalTensorPtr> tensorPtrs;
     for (auto tensor : tensors) {
-        ASSERT(VectorErrorCode::ERR_PARAM_INVALID, tensor.GetShape().size() == shapeSize)
-            << "The shape size of all tensors should be equal";
-        ASSERT(VectorErrorCode::ERR_PARAM_INVALID, tensor.Format() == format)
-            << "The format of all tensors should be equal";
-        ASSERT(VectorErrorCode::ERR_PARAM_INVALID, tensor.GetStorage() != nullptr)
-            << "Each input must not be a null pointer";
-        ASSERT(VectorErrorCode::ERR_PARAM_INVALID, tensor.GetDataType() == dataType)
-            << "The dataType of all tensors should be equal";
+        CheckTensorShapeSize(tensor.GetStorage(), "CAT");
+        tensorPtrs.push_back(tensor.GetStorage());
     }
-
+    CheckTensorsDimConsistency(tensorPtrs, "CAT");
+    CheckTensorsDataTypeConsistency(tensorPtrs, "CAT");
+    CheckTensorsFormatConsistency(tensorPtrs, "CAT");
+    auto shape = tensors[0].GetShape();
     for (auto tensor : tensors) {
-        for (int i = 0; static_cast<size_t>(i) < shapeSize; ++i) {
+        for (size_t i = 0; i < shape.size(); ++i) {
             if (i == axis) {
                 continue;
             }
@@ -693,8 +709,6 @@ Tensor Cat(const std::vector<Tensor>& tensors, int axis)
     CheckCat(tensors, axis);
 
     auto resultShape = tensors[0].GetShape();
-    auto shapeSize = resultShape.size();
-    CheckAxisRange(tensors[0], axis);
     int axisSize = 0;
     for (auto tensor : tensors) {
         axisSize += tensor.GetShape()[axis];
@@ -705,14 +719,14 @@ Tensor Cat(const std::vector<Tensor>& tensors, int axis)
     Tensor result(tensors[0].GetDataType(), resultShape, "", format);
     Tensor tmp(tensors[0].GetDataType(), resultShape, "", format);
     auto& function = *Program::GetInstance().GetCurrentFunction();
-    std::vector<int64_t> offset(shapeSize, 0);
+    std::vector<int64_t> offset(resultShape.size(), 0);
     for (auto tensor : tensors) {
         auto tmpView = tmp.GetStorage()->View(function, tensor.GetShape(), offset);
         InnerConcatNew(*Program::GetInstance().GetCurrentFunction(), tensor.GetStorage(), tmpView);
         offset[axis] += tensor.GetShape()[axis];
     }
     auto& op = function.AddOperation(Opcode::OP_ASSEMBLE, {tmp.GetStorage()}, {result.GetStorage()});
-    op.SetOpAttribute(std::make_shared<AssembleOpAttribute>(std::vector<int64_t>(shapeSize, 0)));
+    op.SetOpAttribute(std::make_shared<AssembleOpAttribute>(std::vector<int64_t>(resultShape.size(), 0)));
 
     return result;
 }

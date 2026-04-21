@@ -18,6 +18,7 @@
 #include "interface/utils/operator_tracer.h"
 #include "interface/utils/error_code.h"
 #include "passes/pass_utils/graph_utils.h"
+#include "operation_common.h"
 
 namespace npu::tile_fwk {
 void TiledPadImpl(
@@ -191,6 +192,10 @@ LogicalTensorPtr TensorPadOperation(
 Tensor Pad(const Tensor& self, const std::vector<int64_t>& padding, std::string mode, float value)
 {
     DECLARE_TRACER();
+    CheckTensorDimRange(self.GetStorage(), 1, 4, "PAD");
+    CheckTensorShapeSize(self.GetStorage(), "PAD");
+    std::unordered_set<DataType> supportedTypes = {DT_FP32, DT_FP16, DT_BF16};
+    CheckTensorDataType(self.GetStorage(), supportedTypes, "PAD");
     RETURN_CALL(PadOperation, *Program::GetInstance().GetCurrentFunction(), self, padding, mode, value);
 }
 
@@ -211,6 +216,10 @@ LogicalTensorPtr TensorFillPadOperation(Function& function, const Tensor& self, 
 Tensor FillPad(const Tensor& self, std::string mode, float value)
 {
     DECLARE_TRACER();
+    CheckTensorDimRange(self.GetStorage(), 1, 2, "FILLPAD");
+    CheckTensorShapeSize(self.GetStorage(), "FILLPAD");
+    std::unordered_set<DataType> supportedTypes = {DT_FP32, DT_FP16, DT_BF16};
+    CheckTensorDataType(self.GetStorage(), supportedTypes, "FILLPAD");
     RETURN_CALL(FillPadOperation, *Program::GetInstance().GetCurrentFunction(), self, mode, value);
 }
 
