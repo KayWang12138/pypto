@@ -21,6 +21,8 @@ from itertools import groupby
 import ml_dtypes
 import numpy as np
 import pandas as pd
+import torch
+from tensor_diff import compare_tensors_result_dict
 
 
 # ===================== 核心配置（需和C/C++端一致）=====================
@@ -100,13 +102,16 @@ class VerifyRes:
                     stop = min(verify_tshape[dim], dump_tshape[dim])
                     slices.append(slice(0, stop))
 
-                tensor_infos[i]["cmp_res"] = np.allclose(
-                    data[tuple(slices)],
-                    verify_tensor_data[tuple(slices)],
-                    1e-3, 1e-3
+                tensor_a = torch.from_numpy(data[tuple(slices)].astype(np.float64)).to(torch.float64)
+                tensor_b = torch.from_numpy(verify_tensor_data[tuple(slices)].astype(np.float64)).to(torch.float64)
+                cmp_result = compare_tensors_result_dict(
+                    tensor_a, tensor_b, rtol=1e-3, atol=1e-3
                 )
+                for key, value in cmp_result.items():
+                    tensor_infos[i][key] = value
             else:
-                tensor_infos[i]["cmp_res"] = "NO_CMP"
+                tensor_infos[i]["AB>RESULT"] = "NO_CMP"
+                tensor_infos[i]["result_reason"] = "verify file not exist or shape mismatch"
 
     def read_verify_result(self, verify_path):
         self.verify_path = verify_path
@@ -322,21 +327,28 @@ class CompactDumpTensorInfoParser:
 
     @staticmethod
     def _verify_merged_tensor(merge_tensor_info, raw_data):
-        # 获取验证张量信息
         verify_tensor_info, verify_tshape = _verify_res.get_verify_tensor_graph_res(merge_tensor_info)
         dump_tshape = merge_tensor_info.get("rawShape")
 
-        # 验证张量存在且形状完全匹配时才进行比较
         if os.path.exists(verify_tensor_info) and len(verify_tshape) == len(dump_tshape) and \
                 all(vdim == ddim for vdim, ddim in zip(verify_tshape, dump_tshape)):
 
             merge_tensor_info["verify_tensor_file"] = verify_tensor_info
             dtype = _get_data_type(merge_tensor_info["dataType"])[1]
 
-            # 读取验证张量并进行比较
             verify_tensor_data = np.fromfile(verify_tensor_info, dtype)
             verify_tensor_data = verify_tensor_data.reshape(verify_tshape)
-            merge_tensor_info["cmp_res"] = np.allclose(raw_data, verify_tensor_data, 1e-3, 1e-3)
+            
+            tensor_a = torch.from_numpy(raw_data.astype(np.float64)).to(torch.float64)
+            tensor_b = torch.from_numpy(verify_tensor_data.astype(np.float64)).to(torch.float64)
+            cmp_result = compare_tensors_result_dict(
+                tensor_a, tensor_b, rtol=1e-3, atol=1e-3
+            )
+            for key, value in cmp_result.items():
+                merge_tensor_info[key] = value
+        else:
+            merge_tensor_info["AB>RESULT"] = "NO_CMP"
+            merge_tensor_info["result_reason"] = "verify file not exist or shape mismatch"
 
         return merge_tensor_info
 
