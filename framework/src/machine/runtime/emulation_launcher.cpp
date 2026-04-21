@@ -163,6 +163,27 @@ int EmulationLauncher::BuildControlFlowCacheWithEmulationTensorData(
     int rc = EmulationBuildControlFlowCache(kArgs);
 
     hostCtrlFlowCache->isRecording = false;
+
+    // 获取实际运行时的 maxC/maxV（从缓存的 DynDeviceTask 中）
+    int actualMaxC = 0;
+    int actualMaxV = 0;
+    printf("===Actual Running maxCV Analysis===\n");
+    printf("deviceTaskCount=%zu\n", hostCtrlFlowCache->deviceTaskCount);
+    for (size_t i = 0; i < hostCtrlFlowCache->deviceTaskCount; i++) {
+        DynDeviceTaskBase* dynTaskBase = hostCtrlFlowCache->deviceTaskCacheList[i].dynTaskBase;
+        if (dynTaskBase != nullptr) {
+            int taskMaxC = dynTaskBase->GetMaxC();
+            int taskMaxV = dynTaskBase->GetMaxV();
+            printf("  DeviceTask[%zu]: maxC=%d, maxV=%d\n", i, taskMaxC, taskMaxV);
+            if (taskMaxC > actualMaxC) {
+                actualMaxC = taskMaxC;
+            }
+            if (taskMaxV > actualMaxV) {
+                actualMaxV = taskMaxV;
+            }
+        }
+    }
+
     hostCtrlFlowCache->CalcUsedCacheSize();
     uint64_t contextWorkspaceAddr = hostCtrlFlowCache->contextWorkspaceAddr;
     hostCtrlFlowCache->IncastOutcastAddrReloc(contextWorkspaceAddr, 0, nullptr);
