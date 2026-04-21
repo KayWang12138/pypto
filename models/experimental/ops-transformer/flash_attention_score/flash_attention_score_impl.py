@@ -80,7 +80,7 @@ def flash_attention_score_kernel_with_mask_origin(
         for n_idx in pypto.loop(0, NUM_HEADS, 1, name="LOOP_N", idx_name="n_idx"):
             for q_block_idx in pypto.loop(0, num_blocks_q, 1, name="LOOP_Q_BLOCK", idx_name="q_block_idx"):
                 q_start = q_block_idx * BLOCK_SIZE_Q
-                cur_q_size = pypto.min(BLOCK_SIZE_Q, seq_len_q - q_start)
+                cur_q_size = min(BLOCK_SIZE_Q, seq_len_q - q_start)
 
                 oi_update = pypto.tensor([BLOCK_SIZE_Q, HEAD_DIM], pypto.DT_FP32, "oi_update")
                 li_update = pypto.tensor([BLOCK_SIZE_Q, 1], pypto.DT_FP32, "li_update")
@@ -99,7 +99,7 @@ def flash_attention_score_kernel_with_mask_origin(
                                                          idx_name="kv_block_idx",
                                                          unroll_list=[4, 2, 1]):
                     kv_start = kv_block_idx * BLOCK_SIZE_KV
-                    cur_block_size = pypto.min(BLOCK_SIZE_KV, seq_len_kv - kv_start)
+                    cur_block_size = min(BLOCK_SIZE_KV, seq_len_kv - kv_start)
 
                     k_block = pypto.view(key, [1, 1, BLOCK_SIZE_KV, HEAD_DIM],
                                         [b_idx, n_idx, kv_start, 0],
@@ -201,11 +201,11 @@ def flash_attention_score_kernel_with_mask(
     """
     Flash Attention Score kernel with online softmax (with mask).
     Dynamic axes: batch (dim 0), seq_len_q (dim 2), seq_len_kv (dim 3 for key/value, dim 1 for mask)
-    
+
     Stage 1 Enhancement: Added intermediate outputs for backward pass
     - softmax_max: Max value for each query position, shape [B, N, Sq, 1]
     - softmax_sum: Sum of exp for each query position, shape [B, N, Sq, 1]
-    
+
     Stage 3 Enhancement: Configurable scale_value
     - scale_value: Scaling factor for attention scores (e.g., 1/sqrt(HEAD_DIM))
     """
@@ -225,7 +225,7 @@ def flash_attention_score_kernel_with_mask(
         for n_idx in pypto.loop(0, NUM_HEADS, 1, name="LOOP_N", idx_name="n_idx"):
             for q_block_idx in pypto.loop(0, num_blocks_q, 1, name="LOOP_Q_BLOCK", idx_name="q_block_idx"):
                 q_start = q_block_idx * BLOCK_SIZE_Q
-                cur_q_size = pypto.min(BLOCK_SIZE_Q, seq_len_q - q_start)
+                cur_q_size = min(BLOCK_SIZE_Q, seq_len_q - q_start)
 
                 oi_update = pypto.tensor([BLOCK_SIZE_Q, HEAD_DIM], pypto.DT_FP32, "oi_update")
                 li_update = pypto.tensor([BLOCK_SIZE_Q, 1], pypto.DT_FP32, "li_update")
@@ -244,7 +244,7 @@ def flash_attention_score_kernel_with_mask(
                                                          idx_name="kv_block_idx",
                                                          unroll_list=[4, 2, 1]):
                     kv_start = kv_block_idx * BLOCK_SIZE_KV
-                    cur_block_size = pypto.min(BLOCK_SIZE_KV, seq_len_kv - kv_start)
+                    cur_block_size = min(BLOCK_SIZE_KV, seq_len_kv - kv_start)
 
                     k_block = pypto.view(key, [1, 1, BLOCK_SIZE_KV, HEAD_DIM],
                                         [b_idx, n_idx, kv_start, 0],
@@ -392,14 +392,14 @@ def flash_attention_score_kernel_with_pse_and_dropout(
     """
     Flash Attention Score kernel with online softmax, PSE and dropout support.
     Stage 3 Enhancement: Combined PSE and Dropout support
-    
+
     PSE application modes (pse_type):
     - 0, 2, 3: scores = scale * Q @ K^T + pse
     - 1: scores = scale * (pse + Q @ K^T)
-    
+
     Dropout is applied after softmax:
     p_dropped = p * drop_mask * (1/keep_prob)
-    
+
     Args:
         query, key, value: Input tensors [B, N, Sq/Skv, D]
         atten_mask: Attention mask [Sq, Skv], 1=masked, 0=valid
@@ -428,7 +428,7 @@ def flash_attention_score_kernel_with_pse_and_dropout(
         for n_idx in pypto.loop(0, NUM_HEADS, 1, name="LOOP_N", idx_name="n_idx"):
             for q_block_idx in pypto.loop(0, num_blocks_q, 1, name="LOOP_Q_BLOCK", idx_name="q_block_idx"):
                 q_start = q_block_idx * BLOCK_SIZE_Q
-                cur_q_size = pypto.min(BLOCK_SIZE_Q, seq_len_q - q_start)
+                cur_q_size = min(BLOCK_SIZE_Q, seq_len_q - q_start)
 
                 oi_update = pypto.tensor([BLOCK_SIZE_Q, HEAD_DIM], pypto.DT_FP32, "oi_update")
                 li_update = pypto.tensor([BLOCK_SIZE_Q, 1], pypto.DT_FP32, "li_update")
@@ -447,7 +447,7 @@ def flash_attention_score_kernel_with_pse_and_dropout(
                                                          idx_name="kv_block_idx",
                                                          unroll_list=[4, 2, 1]):
                     kv_start = kv_block_idx * BLOCK_SIZE_KV
-                    cur_block_size = pypto.min(BLOCK_SIZE_KV, seq_len_kv - kv_start)
+                    cur_block_size = min(BLOCK_SIZE_KV, seq_len_kv - kv_start)
 
                     k_block = pypto.view(key, [1, 1, BLOCK_SIZE_KV, HEAD_DIM],
                                         [b_idx, n_idx, kv_start, 0],
@@ -459,7 +459,7 @@ def flash_attention_score_kernel_with_pse_and_dropout(
 
                     scores = pypto.matmul(q_block_2d_valid, k_block_2d_valid, pypto.DT_FP32,
                                          a_trans=False, b_trans=True)
-                    
+
                     pse_block = pypto.view(pse, [1, 1, BLOCK_SIZE_Q, BLOCK_SIZE_KV],
                                           [b_idx, n_idx, q_start, kv_start],
                                           valid_shape=[1, 1, cur_q_size, cur_block_size])
@@ -468,7 +468,7 @@ def flash_attention_score_kernel_with_pse_and_dropout(
                                                     [0, 0],
                                                     valid_shape=[cur_q_size, cur_block_size])
                     pse_fp32 = pypto.cast(pse_block_2d_valid, pypto.DT_FP32)
-                    
+
                     if pse_type == 1:
                         scores = pypto.add(pse_fp32, scores)
                         scores_scaled = pypto.mul(scores, scale)
@@ -487,16 +487,16 @@ def flash_attention_score_kernel_with_pse_and_dropout(
                     s_ij_sub_m = pypto.sub(scores_scaled, m_ij)
                     p_ij = pypto.exp(s_ij_sub_m)
                     p_ij = pypto.mul(p_ij, valid_mask)
-                    
+
                     drop_mask_block = pypto.view(drop_mask, [BLOCK_SIZE_Q, BLOCK_SIZE_KV],
                                                 [q_start, kv_start],
                                                 valid_shape=[cur_q_size, cur_block_size])
                     p_ij = pypto.mul(p_ij, drop_mask_block)
-                    
+
                     if keep_prob < 1.0:
                         scale_dropout = 1.0 / keep_prob
                         p_ij = pypto.mul(p_ij, scale_dropout)
-                    
+
                     l_ij = pypto.sum(p_ij, dim=-1, keepdim=True)
 
                     v_block = pypto.view(value, [1, 1, BLOCK_SIZE_KV, HEAD_DIM],
@@ -620,7 +620,7 @@ def flash_attention_score_kernel_with_mask_fp32(
     """
     Flash Attention Score kernel with mask (FP32 version).
     Stage 3: FP32 input -> FP32 compute -> FP32 output (no casting needed)
-    
+
     Args:
         scale_value: Scaling factor for attention scores (e.g., 1/sqrt(HEAD_DIM))
     """
@@ -640,7 +640,7 @@ def flash_attention_score_kernel_with_mask_fp32(
         for n_idx in pypto.loop(0, NUM_HEADS, 1, name="LOOP_N_FP32", idx_name="n_idx"):
             for q_block_idx in pypto.loop(0, num_blocks_q, 1, name="LOOP_Q_BLOCK_FP32", idx_name="q_block_idx"):
                 q_start = q_block_idx * BLOCK_SIZE_Q
-                cur_q_size = pypto.min(BLOCK_SIZE_Q, seq_len_q - q_start)
+                cur_q_size = min(BLOCK_SIZE_Q, seq_len_q - q_start)
 
                 oi_update = pypto.tensor([BLOCK_SIZE_Q, HEAD_DIM], pypto.DT_FP32, "oi_update")
                 li_update = pypto.tensor([BLOCK_SIZE_Q, 1], pypto.DT_FP32, "li_update")
@@ -659,7 +659,7 @@ def flash_attention_score_kernel_with_mask_fp32(
                                                          idx_name="kv_block_idx",
                                                          unroll_list=[4, 2, 1]):
                     kv_start = kv_block_idx * BLOCK_SIZE_KV
-                    cur_block_size = pypto.min(BLOCK_SIZE_KV, seq_len_kv - kv_start)
+                    cur_block_size = min(BLOCK_SIZE_KV, seq_len_kv - kv_start)
 
                     k_block = pypto.view(key, [1, 1, BLOCK_SIZE_KV, HEAD_DIM],
                                         [b_idx, n_idx, kv_start, 0],
@@ -804,7 +804,7 @@ def flash_attention_score_kernel_with_pse_and_dropout_fp32(
     """
     Flash Attention Score kernel with PSE and dropout (FP32 version).
     Stage 3: FP32 input -> FP32 compute -> FP32 output (no casting needed)
-    
+
     Args:
         pse_type: PSE application mode (0, 1, 2, 3)
         keep_prob: Dropout keep probability (1.0 = no dropout)
@@ -826,7 +826,7 @@ def flash_attention_score_kernel_with_pse_and_dropout_fp32(
         for n_idx in pypto.loop(0, NUM_HEADS, 1, name="LOOP_N_FP32_PSE", idx_name="n_idx"):
             for q_block_idx in pypto.loop(0, num_blocks_q, 1, name="LOOP_Q_BLOCK_FP32_PSE", idx_name="q_block_idx"):
                 q_start = q_block_idx * BLOCK_SIZE_Q
-                cur_q_size = pypto.min(BLOCK_SIZE_Q, seq_len_q - q_start)
+                cur_q_size = min(BLOCK_SIZE_Q, seq_len_q - q_start)
 
                 oi_update = pypto.tensor([BLOCK_SIZE_Q, HEAD_DIM], pypto.DT_FP32, "oi_update")
                 li_update = pypto.tensor([BLOCK_SIZE_Q, 1], pypto.DT_FP32, "li_update")
@@ -845,7 +845,7 @@ def flash_attention_score_kernel_with_pse_and_dropout_fp32(
                                                          idx_name="kv_block_idx",
                                                          unroll_list=[4, 2, 1]):
                     kv_start = kv_block_idx * BLOCK_SIZE_KV
-                    cur_block_size = pypto.min(BLOCK_SIZE_KV, seq_len_kv - kv_start)
+                    cur_block_size = min(BLOCK_SIZE_KV, seq_len_kv - kv_start)
 
                     k_block = pypto.view(key, [1, 1, BLOCK_SIZE_KV, HEAD_DIM],
                                         [b_idx, n_idx, kv_start, 0],
@@ -857,7 +857,7 @@ def flash_attention_score_kernel_with_pse_and_dropout_fp32(
 
                     scores = pypto.matmul(q_block_2d_valid, k_block_2d_valid, pypto.DT_FP32,
                                          a_trans=False, b_trans=True)
-                    
+
                     pse_block = pypto.view(pse, [1, 1, BLOCK_SIZE_Q, BLOCK_SIZE_KV],
                                           [b_idx, n_idx, q_start, kv_start],
                                           valid_shape=[1, 1, cur_q_size, cur_block_size])
@@ -865,7 +865,7 @@ def flash_attention_score_kernel_with_pse_and_dropout_fp32(
                     pse_block_2d_valid = pypto.view(pse_block_2d, [BLOCK_SIZE_Q, BLOCK_SIZE_KV],
                                                     [0, 0],
                                                     valid_shape=[cur_q_size, cur_block_size])
-                    
+
                     if pse_type == 1:
                         scores = pypto.add(pse_block_2d_valid, scores)
                         scores_scaled = pypto.mul(scores, scale)
@@ -884,16 +884,16 @@ def flash_attention_score_kernel_with_pse_and_dropout_fp32(
                     s_ij_sub_m = pypto.sub(scores_scaled, m_ij)
                     p_ij = pypto.exp(s_ij_sub_m)
                     p_ij = pypto.mul(p_ij, valid_mask)
-                    
+
                     drop_mask_block = pypto.view(drop_mask, [BLOCK_SIZE_Q, BLOCK_SIZE_KV],
                                                 [q_start, kv_start],
                                                 valid_shape=[cur_q_size, cur_block_size])
                     p_ij = pypto.mul(p_ij, drop_mask_block)
-                    
+
                     if keep_prob < 1.0:
                         scale_dropout = 1.0 / keep_prob
                         p_ij = pypto.mul(p_ij, scale_dropout)
-                    
+
                     l_ij = pypto.sum(p_ij, dim=-1, keepdim=True)
 
                     v_block = pypto.view(value, [1, 1, BLOCK_SIZE_KV, HEAD_DIM],
