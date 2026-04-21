@@ -9,7 +9,7 @@
 # See LICENSE in the root of the software repository for the full text of the License.
 # -----------------------------------------------------------------------------------------------------------
 """ """
-from typing import Optional, Union, List, overload, Sequence, Tuple
+from typing import Optional, Union, List, overload, Sequence, Tuple, Iterable, Any
 
 from . import pypto_impl
 from .enum import DataType
@@ -111,16 +111,174 @@ def assemble(*args, parallel: bool = False) -> None:
         pypto_impl.Assemble(src.base(), to_syms(offsets), dst.base())
 
 
-def min(a: "SymbolicScalar | int", b: "SymbolicScalar | int") -> "SymbolicScalar":
-    if isinstance(a, int):
-        a = SymbolicScalar(a)
-    return a.min(b)
+@overload
+def min(iterable: Iterable[Union[SymbolicScalar, int]]) -> SymbolicScalar:
+    """Return the minimum value from an iterable of SymbolicScalar or int values."""
+    ...
+
+@overload
+def min(a: Union[SymbolicScalar, int], b: Union[SymbolicScalar, int]) -> SymbolicScalar:
+    """Return the minimum of two SymbolicScalar or int values."""
+    ...
+
+@overload
+def min(
+    a: Union[SymbolicScalar, int],
+    b: Union[SymbolicScalar, int],
+    *args: Union[SymbolicScalar, int],
+) -> SymbolicScalar:
+    """Return the minimum of multiple SymbolicScalar or int values."""
+    ...
+
+def min(*args, **kwargs):
+    """
+    Return the minimum value among the arguments.
+    
+    Supports multiple calling patterns for SymbolicScalar and integer values:
+    
+    1. Single iterable argument: min([a, b, c]) or min(iterable)
+    2. Two arguments: min(a, b) - backward compatible with original implementation
+    3. Multiple arguments: min(a, b, c, d, ...)
+    4. Single value: min(a) - returns the value itself
+    
+    Parameters
+    ----------
+    args : Union[SymbolicScalar, int] or Iterable[Union[SymbolicScalar, int]]
+        - If a single iterable is provided, returns the minimum of its elements
+        - If two or more values are provided, returns the minimum of those values
+        - If a single SymbolicScalar or int is provided, returns it wrapped as SymbolicScalar
+    
+    Returns
+    -------
+    SymbolicScalar
+        The minimum value among the inputs.
+    
+    Examples
+    --------
+    >>> import pypto
+    >>> a = pypto.symbolic_scalar(10)
+    >>> b = pypto.symbolic_scalar(20)
+    >>> pypto.min(a, b)  # Two arguments
+    SymbolicScalar(10)
+    
+    >>> pypto.min(30, 10, 20, 5)  # Multiple arguments
+    SymbolicScalar(5)
+    
+    >>> pypto.min([a, b, pypto.symbolic_scalar(5)])  # Iterable
+    SymbolicScalar(5)
+    """
+    if not args:
+        raise TypeError("min expected at least 1 argument, got 0")
+
+    if len(args) == 1:
+        iterable = args[0]
+        if isinstance(iterable, (SymbolicScalar, int)):
+            if isinstance(iterable, int):
+                return SymbolicScalar(iterable)
+            return iterable
+        try:
+            items = list(iterable)
+        except TypeError:
+            raise TypeError("'{}' object is not iterable".format(type(iterable).__name__))
+        if not items:
+            raise ValueError("min() arg is an empty sequence")
+        return _min_impl(items)
+
+    return _min_impl(list(args))
 
 
-def max(a: "SymbolicScalar | int", b: "SymbolicScalar | int") -> "SymbolicScalar":
-    if isinstance(a, int):
-        a = SymbolicScalar(a)
-    return a.max(b)
+def _min_impl(items: List[Union[SymbolicScalar, int]]) -> SymbolicScalar:
+    result = items[0]
+    if isinstance(result, int):
+        result = SymbolicScalar(result)
+    for item in items[1:]:
+        result = result.min(item)
+    return result
+
+
+@overload
+def max(iterable: Iterable[Union[SymbolicScalar, int]]) -> SymbolicScalar:
+    """Return the maximum value from an iterable of SymbolicScalar or int values."""
+    ...
+
+@overload
+def max(a: Union[SymbolicScalar, int], b: Union[SymbolicScalar, int]) -> SymbolicScalar:
+    """Return the maximum of two SymbolicScalar or int values."""
+    ...
+
+@overload
+def max(
+    a: Union[SymbolicScalar, int],
+    b: Union[SymbolicScalar, int],
+    *args: Union[SymbolicScalar, int],
+) -> SymbolicScalar:
+    """Return the maximum of multiple SymbolicScalar or int values."""
+    ...
+
+def max(*args, **kwargs):
+    """
+    Return the maximum value among the arguments.
+    
+    Supports multiple calling patterns for SymbolicScalar and integer values:
+    
+    1. Single iterable argument: max([a, b, c]) or max(iterable)
+    2. Two arguments: max(a, b) - backward compatible with original implementation
+    3. Multiple arguments: max(a, b, c, d, ...)
+    4. Single value: max(a) - returns the value itself
+    
+    Parameters
+    ----------
+    args : Union[SymbolicScalar, int] or Iterable[Union[SymbolicScalar, int]]
+        - If a single iterable is provided, returns the maximum of its elements
+        - If two or more values are provided, returns the maximum of those values
+        - If a single SymbolicScalar or int is provided, returns it wrapped as SymbolicScalar
+    
+    Returns
+    -------
+    SymbolicScalar
+        The maximum value among the inputs.
+    
+    Examples
+    --------
+    >>> import pypto
+    >>> a = pypto.symbolic_scalar(10)
+    >>> b = pypto.symbolic_scalar(20)
+    >>> pypto.max(a, b)  # Two arguments
+    SymbolicScalar(20)
+    
+    >>> pypto.max(10, 30, 5, 20)  # Multiple arguments
+    SymbolicScalar(30)
+    
+    >>> pypto.max([a, b, pypto.symbolic_scalar(30)])  # Iterable
+    SymbolicScalar(30)
+    """
+    if not args:
+        raise TypeError("max expected at least 1 argument, got 0")
+
+    if len(args) == 1:
+        iterable = args[0]
+        if isinstance(iterable, (SymbolicScalar, int)):
+            if isinstance(iterable, int):
+                return SymbolicScalar(iterable)
+            return iterable
+        try:
+            items = list(iterable)
+        except TypeError:
+            raise TypeError("'{}' object is not iterable".format(type(iterable).__name__))
+        if not items:
+            raise ValueError("max() arg is an empty sequence")
+        return _max_impl(items)
+
+    return _max_impl(list(args))
+
+
+def _max_impl(items: List[Union[SymbolicScalar, int]]) -> SymbolicScalar:
+    result = items[0]
+    if isinstance(result, int):
+        result = SymbolicScalar(result)
+    for item in items[1:]:
+        result = result.max(item)
+    return result
 
 
 @op_wrapper
