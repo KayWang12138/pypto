@@ -14,6 +14,7 @@
  */
 
 #include "axis_combine_marker.h"
+
 namespace npu {
 namespace tile_fwk {
 const std::unordered_set<Opcode> whiteList{Opcode::OP_RESHAPE, Opcode::OP_VEC_DUP, Opcode::OP_COPY_OUT};
@@ -21,6 +22,7 @@ const std::unordered_set<OpCalcType> propagationCalcType{OpCalcType::ELMWISE, Op
 
 void AxisCombineMarker::Run(Function& function)
 {
+    std::cout << "+++++++++++++++++++++++begin+++++++++++++" << std::endl;
     Init(function);
     ForwardVisit();
     BackwardVisit();
@@ -48,10 +50,10 @@ void AxisCombineMarker::Init(Function& function)
     for (size_t opIdx = 0; opIdx < opList_.size(); opIdx++) {
         const auto& op = opList_[opIdx];
         for (const auto producer : op->ProducerOpsOrdered()) {
-            opInGraph_[opMagic2Idx[op->GetOpMagic()]].push_back(opMagic2Idx[producer->GetOpMagic()]);
+            opInGraph_[opMagic2Idx[op->GetOpMagic()]].insert(opMagic2Idx[producer->GetOpMagic()]);
         }
         for (const auto consumer : op->ConsumerOpsOrdered()) {
-            opOutGraph_[opMagic2Idx[op->GetOpMagic()]].push_back(opMagic2Idx[consumer->GetOpMagic()]);
+            opOutGraph_[opMagic2Idx[op->GetOpMagic()]].insert(opMagic2Idx[consumer->GetOpMagic()]);
         }
     }
 }
@@ -212,7 +214,7 @@ void AxisCombineMarker::DisableNoneWhiteListTensor(Operation* op)
     }
 }
 
-void AxisCombineMarker::UpdateOpACEnableForward(uint16_t opIdx)
+void AxisCombineMarker::UpdateOpACEnableForward(size_t opIdx)
 {
     auto op = opList_[opIdx];
     auto outputTensor = op->GetOOperands()[0];
@@ -251,7 +253,7 @@ void AxisCombineMarker::UpdateOpACEnableForward(uint16_t opIdx)
     tensorStatus_[outputTensor] = AxisReorderStatus::UNKNOWN;
 }
 
-void AxisCombineMarker::UpdateOpACEnableBackward(uint16_t opIdx)
+void AxisCombineMarker::UpdateOpACEnableBackward(size_t opIdx)
 {
     auto op = opList_[opIdx];
     auto outputTensor = op->GetOOperands()[0];
@@ -286,23 +288,77 @@ void AxisCombineMarker::UpdateOpACEnableBackward(uint16_t opIdx)
 
 void AxisCombineMarker::ForwardVisit()
 {
+    const int TARGET_OP_MAGIC = 16034;
     std::queue<size_t> procOpQueue;
     std::vector<size_t> inDegree(opList_.size(), 0);
+    std::vector<bool> visited(opList_.size(), false);
+
+    size_t targetOpIdx = opList_.size();
+    std::unordered_set<size_t> targetExpandConsumers;
+    for (size_t j = 0; j < opList_.size(); ++j) {
+        if (opList_[j]->GetOpMagic() == TARGET_OP_MAGIC) {
+            targetOpIdx = j;
+            std::cout << "[ACMarker] Target op opMagic=" << TARGET_OP_MAGIC
+                      << " idx=" << j
+                      << " opcode=" << opList_[j]->GetOpcodeStr() << std::endl;
+            for (auto consumerIdx : opOutGraph_[j]) {
+                std::cout << "[ACMarker]   consumer idx=" << consumerIdx
+                          << " opMagic=" << opList_[consumerIdx]->GetOpMagic()
+                          << " opcode=" << opList_[consumerIdx]->GetOpcodeStr()
+                          << " inDegree=" << opInGraph_[consumerIdx].size() << std::endl;
+                for (auto prodIdx : opInGraph_[consumerIdx]) {
+                    std::cout << "[ACMarker]     <- producer idx=" << prodIdx
+                              << " opMagic=" << opList_[prodIdx]->GetOpMagic() << std::endl;
+                }
+                if (opList_[consumerIdx]->GetOpcode() == Opcode::OP_EXPAND) {
+                    targetExpandConsumers.insert(consumerIdx);
+                }
+            }
+            break;
+        }
+    }
+    if (targetOpIdx == opList_.size()) {
+        std::cout << "[ACMarker] Target op opMagic=" << TARGET_OP_MAGIC << " NOT found" << std::endl;
+    }
+
     for (size_t j = 0; j < opInGraph_.size(); ++j) {
         if (opInGraph_[j].empty()) {
             procOpQueue.push(j);
+            visited[j] = true;
             UpdateOpACEnableForward(j);
         }
         inDegree[j] = opInGraph_[j].size();
     }
+
     while (!procOpQueue.empty()) {
         auto opIdx = procOpQueue.front();
         procOpQueue.pop();
         for (auto outIdx : opOutGraph_[opIdx]) {
             inDegree[outIdx]--;
+            if (targetExpandConsumers.count(outIdx) > 0) {
+                std::cout << "[ACMarker] outIdx=" << outIdx << " opMagic=" << opList_[outIdx]->GetOpMagic()
+                          << " inDegree after decrement=" << inDegree[outIdx]
+                          << " (from producer idx=" << opIdx << " opMagic=" << opList_[opIdx]->GetOpMagic()
+                          << ")" << std::endl;
+            }
             if (inDegree[outIdx] == 0) {
                 procOpQueue.push(outIdx);
+                visited[outIdx] = true;
                 UpdateOpACEnableForward(outIdx);
+                if (targetExpandConsumers.count(outIdx) > 0) {
+                    std::cout << "[ACMarker] Expand consumer idx=" << outIdx << " VISITED" << std::endl;
+                }
+            }
+        }
+    }
+
+    for (auto idx : targetExpandConsumers) {
+        if (!visited[idx]) {
+            std::cout << "[ACMarker] Expand consumer idx=" << idx << " opMagic=" << opList_[idx]->GetOpMagic()
+                      << " NOT VISITED, remaining inDegree=" << inDegree[idx] << std::endl;
+            for (auto prodIdx : opInGraph_[idx]) {
+                std::cout << "[ACMarker]   producer idx=" << prodIdx << " visited=" << visited[prodIdx]
+                          << " opMagic=" << opList_[prodIdx]->GetOpMagic() << std::endl;
             }
         }
     }
