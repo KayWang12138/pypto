@@ -22,7 +22,7 @@
 #include <unordered_set>
 #include <unordered_map>
 #include "interface/utils/common.h"
-#include "interface/utils/vector_error.h"
+#include "interface/utils/error_code.h"
 #include "tilefwk/data_type.h"
 #include "tilefwk/error.h"
 #include "verifier.h"
@@ -316,6 +316,7 @@ enum class Opcode {
     // End: aicpu-aicore communication
     OP_MAX_POOL,
     OP_RANGE,
+    OP_UNIFORM,
     // Begin: parallel sort
     OP_SORT,
     OP_COMPARE_SWAP,

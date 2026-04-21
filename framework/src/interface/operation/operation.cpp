@@ -23,7 +23,7 @@
 #include "tilefwk/tilefwk.h"
 #include "interface/inner/tilefwk.h"
 #include "interface/inner/tile_shape.h"
-#include "interface/utils/function_error.h"
+#include "interface/utils/error.h"
 #include "interface/program/program.h"
 #include "interface/operation/cycles.h"
 #include "interface/function/function.h"
@@ -52,6 +52,7 @@ const std::string OpAttributeKey::dontTouch = "DONT_TOUCH";
 const std::string OpAttributeKey::tag = "TAG";
 const std::string OpAttributeKey::distTilingInfo = "DIST_TILING_INFO";
 const std::string OpAttributeKey::sameInOut = "SAME_IN_OUT";
+const std::string OpAttributeKey::expandDims = "op_attr_expand_dims";
 const std::string OpAttributeKey::inputCombineAxis = "op_attr_input_combine_axis";
 const std::string OpAttributeKey::outputCombineAxis = "op_attr_output_combine_axis";
 const std::string OpAttributeKey::inplaceIdx = "INPLACE_IDX";
@@ -882,6 +883,7 @@ Operation& Operation::CloneOperation(
     Function& func, const LogicalTensors& iOperandList, const LogicalTensors& oOperandList) const
 {
     Operation& op = func.AddRawOperation(opcode_, iOperandList, oOperandList);
+    op.SetScopeInfo(scopeInfo_);
     if (opAttribute_) {
         op.opAttribute_ = opAttribute_->Clone();
     }
