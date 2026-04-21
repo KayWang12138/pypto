@@ -49,8 +49,8 @@ fused_swiglu_fwd_kernel(
     x,      # [M, K]    BF16  — 输入张量（动态 batch 维度）
     w_g,    # [K, N]    BF16  — Gate 权重
     w_fc,   # [K, N]    BF16  — FC 权重
-    b_g,    # [N]       BF16  — Gate 偏置
-    b_fc,   # [N]       BF16  — FC 偏置
+    b_g,    # [1, N]    BF16  — Gate 偏置
+    b_fc,   # [1, N]    BF16  — FC 偏置
     y       # [M, N]    BF16  — 输出张量
 )
 ```
@@ -75,7 +75,7 @@ fused_swiglu_fwd_kernel(
 | 参数 | 值 | 说明 |
 |------|-----|------|
 | tile_m | 1024 | Batch 维度分块大小 |
-| matmul tile (MNK) | [128, 128], [128, 256], [128, 128] | Matmul 分块配置 |
+| matmul tile | [128, 128], [128, 256], [128, 128] | Matmul 分块配置 |
 | vec tile | [128, 128] | 向量运算分块配置 |
 
 ## 运行测试
@@ -85,7 +85,7 @@ fused_swiglu_fwd_kernel(
 export TILE_FWK_DEVICE_ID=0
 
 # 运行测试
-python test_fused_swiglu.py
+python3 test_fused_swiglu.py
 ```
 
 ### 测试用例
