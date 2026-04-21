@@ -175,11 +175,18 @@ public:
     inline int32_t RunCoreTask(SchDeviceTaskContext* devTaskCtx) {
         int32_t ret = DEVICE_MACHINE_OK;
         devTaskCtx->GetWrapManager().DispatchMixCoreTask();
-        ret = DispatchAiCoreTask(devTaskCtx, CoreType::AIC, devTaskCtx->readyAicCoreFunctionQue, aicStart_, aicEnd_);
+
+        auto taskCtrl = devTaskCtx->GetDeviceTaskCtrl();
+        int maxC = taskCtrl->GetMaxC();
+        int maxV = taskCtrl->GetMaxV();
+        int adjAicEnd = aicStart_ + std::min(maxC, aicEnd_ - aicStart_);
+        int adjAivEnd = aivStart_ + std::min(maxV, aivEnd_ - aivStart_);
+
+        ret = DispatchAiCoreTask(devTaskCtx, CoreType::AIC, devTaskCtx->readyAicCoreFunctionQue, aicStart_, adjAicEnd);
         if (unlikely(ret != DEVICE_MACHINE_OK)) {
             return ret;
         }
-        ret = DispatchAiCoreTask(devTaskCtx, CoreType::AIV, devTaskCtx->readyAivCoreFunctionQue, aivStart_, aivEnd_);
+        ret = DispatchAiCoreTask(devTaskCtx, CoreType::AIV, devTaskCtx->readyAivCoreFunctionQue, aivStart_, adjAivEnd);
         if (unlikely(ret != DEVICE_MACHINE_OK)) {
             return ret;
         }
@@ -737,6 +744,12 @@ private:
 
     inline int SyncTaskFinish(SchDeviceTaskContext* devTaskCtx, bool& isFinish, bool forceStop = false)
     {
+        auto taskCtrl = devTaskCtx->GetDeviceTaskCtrl();
+        int maxC = taskCtrl->GetMaxC();
+        int maxV = taskCtrl->GetMaxV();
+        int adjAicEnd = aicStart_ + std::min(maxC, aicEnd_ - aicStart_);
+        int adjAivEnd = aivStart_ + std::min(maxV, aivEnd_ - aivStart_);
+
         int aicNum = aicEnd_ - aicStart_;
         int aivNum = aivEnd_ - aivStart_;
         uint32_t mngCoreNum = static_cast<uint32_t>(aicNum + aivNum);
@@ -764,7 +777,17 @@ private:
                     continue;
                 }
 
-                AicoreDevTaskFinishProc(devTaskCtx, i, isSendStop, resloveParallelIdx);
+                if (i < adjAicEnd) {
+                    AicoreDevTaskFinishProc(devTaskCtx, i, isSendStop, resloveParallelIdx);
+                } else if (isSendStop) {
+                    DEV_IF_DEVICE {
+                        NormalStopSingleCore(i);
+                    }
+                    devTaskCtx->coreTaskFinished[i] = 1;
+                    devTaskCtx->coreFinishedNum++;
+                    DEV_VERBOSE_DEBUG("Core %d (exceeds adjAicEnd) sent STOP.", i);
+                }
+
                 if (!devTaskCtx->coreTaskFinished[i]) {
                     curIterAicAllStop = false;
                 }
@@ -775,7 +798,17 @@ private:
                 if (devTaskCtx->coreTaskFinished[i]) {
                     continue;
                 }
-                AicoreDevTaskFinishProc(devTaskCtx, i, isSendStop, resloveParallelIdx);
+
+                if (i < adjAivEnd) {
+                    AicoreDevTaskFinishProc(devTaskCtx, i, isSendStop, resloveParallelIdx);
+                } else if (isSendStop) {
+                    DEV_IF_DEVICE {
+                        NormalStopSingleCore(i);
+                    }
+                    devTaskCtx->coreTaskFinished[i] = 1;
+                    devTaskCtx->coreFinishedNum++;
+                    DEV_VERBOSE_DEBUG("Core %d (exceeds adjAivEnd) sent STOP.", i);
+                }
                 if (!devTaskCtx->coreTaskFinished[i]) {
                     curIterAivAllStop = false;
                 }
