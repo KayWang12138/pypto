@@ -1965,12 +1965,12 @@ TEST_F(TorchAdaptorTest, DequantizeAsymmetric)
 {
     // Dequantize with zero_points: INT8 -> FP32
     // Formula: output = input * scale - zero_points
-    // Input: [130, 131], scale: 0.5, zero_points: 128
-    // Expected: [130 * 0.5 - 128, 131 * 0.5 - 128] = [65 - 128, 65.5 - 128] = [-63.0, -62.5]
-    std::vector<int8_t> inputData = {130, 131};
+    // Input: [30, 31], scale: 0.5, zero_points: 128
+    // Expected: [30 * 0.5 - 128, 31 * 0.5 - 128] = [15 - 128, 15.5 - 128] = [-113.0, -112.5]
+    std::vector<int8_t> inputData = {30, 31};
     std::vector<float> scaleData = {0.5f};
     std::vector<int32_t> zeroPointsData = {128};
-    std::vector<float> goldenData = {-63.0f, -62.5f};
+    std::vector<float> goldenData = {-113.0f, -112.5f};
 
     auto input = makeTensorData(DT_INT8, {1, 2}, inputData);
     auto scale = makeTensorData(DT_FP32, {1}, scaleData);
