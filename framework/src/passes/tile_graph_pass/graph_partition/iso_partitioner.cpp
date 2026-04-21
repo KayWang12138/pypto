@@ -32,8 +32,8 @@ Status GraphPartition::RunOnFunction(Function& function)
     APASS_LOG_INFO_F(Elements::Function, "===> Start GraphPartition.");
     IsoPartitioner partitioner;
     if (partitioner.SetParameter(
-            function.paramConfigs_.sgParallelNum,
-            function.paramConfigs_.sgPgLowerBound, true, function.paramConfigs_.pgSkipPartition) != SUCCESS) {
+            function.paramConfigs_.sgParallelNum, function.paramConfigs_.sgPgLowerBound, true,
+            function.paramConfigs_.pgSkipPartition) != SUCCESS) {
         APASS_LOG_ERROR_F(Elements::Config, "Set parameters of GraphPartition failed.");
         return FAILED;
     }
@@ -774,7 +774,8 @@ Status IsoPartitioner::EstimateCycleUB(Function& function)
     for (const auto& op : function.Operations()) {
         int32_t latency = op.GetLatency();
         if (latency < 0) {
-            APASS_LOG_WARN_F(Elements::Config, "Detected op: %d negative latency: %d, ignoring.", op.GetOpMagic(), latency);
+            APASS_LOG_WARN_F(
+                Elements::Config, "Detected op: %d negative latency: %d, ignoring.", op.GetOpMagic(), latency);
             continue;
         }
         totalLatency += latency;
@@ -794,8 +795,7 @@ Status IsoPartitioner::EstimateCycleUB(Function& function)
 
     // 更新成员变量并记录日志
     cycleUB_ = estimatedCycleUB;
-    APASS_LOG_INFO_F(
-        Elements::Config, "Estimated cycleUB_: %d based on total latency: %ld", cycleUB_, totalLatency);
+    APASS_LOG_INFO_F(Elements::Config, "Estimated cycleUB_: %d based on total latency: %ld", cycleUB_, totalLatency);
 
     return SUCCESS;
 }
