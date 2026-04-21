@@ -1,0 +1,1 @@
+@gdr_back.py 比较db结果存在问题，参考现有的db比较方法(即将tensor 搬出)，检查vc, betac, kc, eg_2d, dv_total, dw_final, A_view_2d, M_lt_in, decay_2d, dk_c_tmp, dg_cum_final，是否和golden的预期结果一致
