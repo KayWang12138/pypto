@@ -19,7 +19,7 @@
 #include <variant>
 
 #include "tilefwk/data_type.h"
-#include "tilefwk/error.h"
+#include "interface/utils/function_error.h"
 
 namespace npu::tile_fwk {
 class Element {
@@ -47,7 +47,7 @@ public:
         } else if (IsFloat()) {
             return static_cast<double>(data_.fData);
         }
-        ASSERT(false);
+        ASSERT(FError::EINTERNAL, false);
         return int64_t(0);
     }
 
