@@ -33,6 +33,17 @@ inline int BytesPerElement(DataType dataType) { return BytesOf(dataType); }
 
 enum class CoreLocationType { AIC = 0, AIV0 = 1, AIV1 = 2, UNKNOWN = 3 };
 
+// DualDst feature: mode selection for splitting tensors across AIV0/AIV1
+enum class DualDstMode { NONE = 0, SPLIT_M = 1, SPLIT_N = 2 };
+
+// DualDst pair: two L0C_COPY_UB ops that can be merged into one DUAL_DST op
+struct DualDstPair {
+    Operation* copyUbOp1 = nullptr;  // First OP_L0C_COPY_UB (lower offset, assigned to AIV0)
+    Operation* copyUbOp2 = nullptr;  // Second OP_L0C_COPY_UB (higher offset, assigned to AIV1)
+    LogicalTensorPtr l0cTensor;      // Source L0C tensor
+    DualDstMode mode = DualDstMode::NONE;  // Split mode: SPLIT_M or SPLIT_N
+};
+
 const std::unordered_set<Opcode> USE_LESS_OPS = {
     Opcode::OP_NOP,         Opcode::OP_RESHAPE,   Opcode::OP_VIEW, Opcode::OP_ASSEMBLE, Opcode::OP_SHMEM_WAIT_UNTIL,
     Opcode::OP_BIND_TENSOR, Opcode::OP_VIEW_TYPE, Opcode::OP_HUB};
@@ -148,6 +159,12 @@ private:
     std::vector<Operation*> newOperations_;
     std::vector<Operation*> operations_;
     std::vector<ScheduleObserver*> observers_;
+
+    // DualDst feature members
+    bool enableDualDst_{false};                          // DualDst feature switch
+    std::vector<DualDstPair> dualDstPairs_;              // Detected dual_dst pairs
+    std::unordered_map<Operation*, DualDstPair*> dualDstOps_;  // Map from original ops to their dual_dst pair
+    std::unordered_map<int, bool> dualDstMemIds_;        // memId marked as dual_dst allocation
 
     // Notification helpers — event construction lives in ooo_scheduler_notify.cpp
     // to keep scheduler main flows focused on scheduling logic.
@@ -310,6 +327,33 @@ private:
     bool IsOpInSchedule(Operation* op) const { return opExecOrderMap.find(op) != opExecOrderMap.end(); }
 
     void UpdateL0MXMap(const std::vector<Operation*> &opList);
+
+    // ============ DualDst feature methods ============
+    // Detection phase
+    Status DetectDualDstMode(const std::vector<Operation*>& opList);
+    Status CheckL0CTensorForDualDst(LogicalTensorPtr l0cTensor);
+    Status CheckSplitMPair(Operation* op1, Operation* op2, LogicalTensorPtr l0cTensor);
+    Status CheckSplitNPair(Operation* op1, Operation* op2, LogicalTensorPtr l0cTensor);
+
+    // Graph transformation phase
+    Status CreateDualDstOpAndGraphUpdate();
+    Status SetL0C2UBDualDstCopyAttr(Operation &op, const std::vector<SymbolicScalar> &validShape,
+        const std::vector<std::vector<OpImmediate>> &fromOffsets,
+        const std::vector<std::vector<OpImmediate>> &toOffsets,
+        const std::vector<std::vector<OpImmediate>> &srcValidShapes,
+        const std::vector<std::vector<OpImmediate>> &dstValidShapes,
+        bool isSplitM);
+
+    // Allocation phase
+    bool CanAllocateDualDst(std::vector<LocalBufferPtr> tensors, MemoryType memType);
+    Status AllocateDualDst(Operation* allocOp, MemoryType memType);
+
+    // Spill phase
+    Status SelectSpillBuffersDualDst(LocalBufferPtr allocBuffer, Operation* allocOp,
+        std::vector<int> &spillGroup, bool isGenSpill);
+    Status ExecuteDualDstSpill(Operation* allocOp, int memId);
+    Status ExecuteDualDstReload(Operation* allocOp, int memId);
+    Status UpdateDualDstRefCount(Operation* op, int memId);
 };
 } // namespace npu::tile_fwk
 #endif // PASS_SCHEDULER_H
