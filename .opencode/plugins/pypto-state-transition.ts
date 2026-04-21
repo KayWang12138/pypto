@@ -2,7 +2,14 @@ import { type Plugin, tool } from "@opencode-ai/plugin";
 import crypto from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
-import { applyTransition, type OrchestratorState, type TransitionAction } from "./lib/state-transition-core";
+import {
+  applyTransition,
+  type ArtifactFingerprint,
+  type GateSummary,
+  type OrchestratorState,
+  type StageErrorRecord,
+  type TransitionAction,
+} from "./lib/state-transition-core";
 
 type GateFinding = {
   rule_id: string;
@@ -12,7 +19,7 @@ type GateFinding = {
   file: string;
 };
 
-type GateSummary = {
+type LintGateSummary = {
   warnCount: number;
   infoCount: number;
   /** FAIL findings included when gate blocks — gives the agent actionable detail. */
@@ -39,7 +46,7 @@ function parseState(content: string): OrchestratorState {
   return parsed as OrchestratorState;
 }
 
-function parseGateSummary(raw: string): GateSummary {
+function parseGateSummary(raw: string): LintGateSummary {
   try {
     const parsed = JSON.parse(raw) as Record<string, unknown>;
     const summary = parsed.summary;
@@ -124,6 +131,39 @@ function writeStateAtomically(statePath: string, state: OrchestratorState): void
 /** Stage 1 完成时记录 SPEC.md 内容 hash，后续阶段用于冻结校验。 */
 const SPEC_HASH_KEY = "spec_md_hash";
 
+/**
+ * Map of stage → artifacts whose completion is asserted by that stage.
+ * Stage 1 produces SPEC.md; 2: API_REPORT.md; 3: <op>_golden.py; 4: DESIGN.md;
+ * 5: <op>_impl.py + test_<op>.py; 6: (precision) no new artifact; 7: README.md (perf notes).
+ * `{op}` is expanded to the op directory basename when the file is hashed.
+ */
+const STAGE_ARTIFACTS: Record<number, readonly string[]> = {
+  1: ["SPEC.md"],
+  2: ["API_REPORT.md"],
+  3: ["{op}_golden.py"],
+  4: ["DESIGN.md"],
+  5: ["{op}_impl.py", "test_{op}.py"],
+  6: [],
+  7: ["README.md"],
+};
+
+function captureStageArtifacts(opDir: string, stage: number): Record<string, ArtifactFingerprint> {
+  const names = STAGE_ARTIFACTS[stage] ?? [];
+  if (names.length === 0) return {};
+  const opName = path.basename(opDir);
+  const out: Record<string, ArtifactFingerprint> = {};
+  const now = new Date().toISOString();
+  for (const template of names) {
+    const relName = template.replace(/\{op\}/g, opName);
+    const absPath = path.join(opDir, relName);
+    const sha = computeFileHash(absPath);
+    if (sha) {
+      out[relName] = { sha256: sha, stage, recorded_at: now };
+    }
+  }
+  return out;
+}
+
 function computeFileHash(filePath: string): string | null {
   if (!fs.existsSync(filePath)) return null;
   const content = fs.readFileSync(filePath, "utf8");
@@ -139,7 +179,7 @@ export const PyptoStateTransitionPlugin: Plugin = async (input) => {
     import.meta.url,
   ).pathname;
 
-  async function runGateIfNeeded(opDir: string, action: TransitionAction, stage: number): Promise<GateSummary> {
+  async function runGateIfNeeded(opDir: string, action: TransitionAction, stage: number): Promise<LintGateSummary> {
     if (action !== "complete_stage") return { warnCount: 0, infoCount: 0, failFindings: [] };
 
     // Use nothrow() so stdout is available even when exit code is non-zero.
@@ -173,6 +213,8 @@ export const PyptoStateTransitionPlugin: Plugin = async (input) => {
           action: tool.schema.string(),
           stage: tool.schema.number(),
           reason: tool.schema.string().optional(),
+          errorKind: tool.schema.string().optional(),
+          errorMessage: tool.schema.string().optional(),
         },
         execute: async (args, context) => {
           // ── Agent 权限校验：仅 pypto-op-orchestrator 可调用 ──
@@ -196,7 +238,7 @@ export const PyptoStateTransitionPlugin: Plugin = async (input) => {
           const statePath = path.join(opDir, ".orchestrator_state.json");
           const prevState = readStateOrInit(statePath);
 
-          let gateSummary: GateSummary = { warnCount: 0, infoCount: 0, failFindings: [] };
+          let gateSummary: LintGateSummary = { warnCount: 0, infoCount: 0, failFindings: [] };
           try {
             gateSummary = await runGateIfNeeded(opDir, action, args.stage);
           } catch (error) {
@@ -230,10 +272,35 @@ export const PyptoStateTransitionPlugin: Plugin = async (input) => {
             }
           }
 
+          const transitionGate: GateSummary | undefined =
+            action === "complete_stage"
+              ? {
+                  warnCount: gateSummary.warnCount,
+                  failCount: 0,
+                  ruleIds: gateSummary.failFindings.map((f) => f.rule_id),
+                }
+              : undefined;
+          const transitionError: StageErrorRecord | undefined =
+            action === "fail_stage"
+              ? {
+                  message: args.errorMessage ?? args.reason ?? "stage failed",
+                  kind: args.errorKind,
+                }
+              : undefined;
+
           const nextState = applyTransition(prevState, {
             action,
             stage: args.stage,
+            reason: args.reason,
+            gate: transitionGate,
+            error: transitionError,
           });
+
+          // On successful complete_stage, capture/refresh artifact fingerprints for this stage
+          if (action === "complete_stage") {
+            const artifacts = captureStageArtifacts(opDir, args.stage);
+            nextState.artifacts = { ...(nextState.artifacts ?? {}), ...artifacts };
+          }
 
           // 将 SPEC hash 持久化到 state（init/complete_stage(1) 时写入）
           if (prevState[SPEC_HASH_KEY]) {
