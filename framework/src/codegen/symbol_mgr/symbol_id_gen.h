@@ -18,6 +18,7 @@
 #include <array>
 #include <cstdint>
 
+#include "interface/utils/common.h"
 #include "interface/utils/error_code.h"
 
 namespace npu::tile_fwk {
