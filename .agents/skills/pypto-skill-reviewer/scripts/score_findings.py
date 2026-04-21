@@ -170,7 +170,7 @@ def score(rules_data, findings, skill_path):
     grade = pick_grade(total, s0_veto)
 
     expected = len(rules)
-    evaluated = counts["PASS"] + counts["FAIL"] + counts["WARN"] + counts["SKIP"]
+    evaluated = counts["PASS"] + counts["FAIL"] + counts["WARN"]
     coverage = round((evaluated / expected) * 100, 2) if expected else 0.0
 
     return {

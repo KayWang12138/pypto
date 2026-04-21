@@ -277,8 +277,6 @@ description: PyPTO 算子需求意图理解。将用户的自然语言算子描�
 
 **特性确认交互**：
 - 使用 `AskUserQuestion` 让用户确认特性清单
-- 提供选项：全部确认 / 修改特性 / 添加新特性 / 我不确定，帮我解释
-- 若用户不确定，提供每个特性的简要说明和典型使用场景
 
 #### 1. ASCII 数据流图
 
@@ -320,8 +318,6 @@ description: PyPTO 算子需求意图理解。将用户的自然语言算子描�
              └──────────┘
 ```
 
-**其他算子**：参考上述模板，按实际数据流绘制。组合算子展示子算子的分解与合并关系。
-
 #### 2. 规格确认清单
 
 对于简单算子（公式足以描述）：
@@ -360,9 +356,7 @@ description: PyPTO 算子需求意图理解。将用户的自然语言算子描�
   [✓] 输出: ...
 ```
 
-**何时需要算法描述**：当计算涉及分块、循环、在线更新、状态维护等流程性逻辑时，公式只能描述数学语义但无法描述实现策略。此时需要算法描述来说明"怎么算"。典型例子：Flash Attention 的分块计算 + Online Softmax、Scan 类算子的递推过程。
-
-**算法描述格式**：使用带编号的伪代码步骤，清晰展示循环结构、分块策略、状态更新等流程。示例：
+**何时需要算法描述**：当计算涉及分块、循环、在线更新、状态维护等流程性逻辑时，公式只能描述数学语义但无法描述实现策略。此时需要算法描述来说明"怎么算"。典型例子：Flash Attention 的分块计算 + Online Softmax、Scan 类算子的递推过程。示例：
 
 ```
 Algorithm: Flash Attention (Forward)
@@ -444,7 +438,6 @@ Algorithm: Flash Attention (Forward)
 - front matter 结构化字段：
   - `{axes_list}` / `{axes_ranges}` / `{shape_constraints}`
   - `{performance_target}`
-  - `{atol}` / `{rtol}`
   - 约定：`axes_list` 必须是 YAML 可解析列表（例如 `['N']` 或 `['N','M']`）
 - `{feature_name}`, `{need_or_not}`, `{confidence}`, `{impl_note}`, `{priority}` — 关键特性表格行（复杂算子必须）
 - `{algorithm_name}` / `{带编号的伪代码步骤}` — 算法描述（可选，复杂算子需要）
@@ -578,7 +571,6 @@ Algorithm: Flash Attention (Forward)
   [✓] 数学公式: Attention(Q,K,V) = softmax(QK^T/√d) @ V
   [✓] 输入: Q, K, V [b, h, s, d] float32 (P0)
   [✓] 可选参数:
-      - attn_mask: 注意力掩码 (P2)
       - dropout_p: dropout 概率 (P3)
       - is_causal: 因果注意力 (P1)
       - scale: 缩放因子 (P1)

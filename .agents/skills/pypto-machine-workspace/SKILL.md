@@ -66,15 +66,13 @@ Workspace 内存分配由以下阶段组成：
 
 ```
 workspaceSize = memBudget.Total()
-             = tensor.Total() + aicoreSpilled + debug.dumpTensor + debug.leafDump + metadata.Total()
+             = tensor.Total() + aicoreSpilled + debug.dumpTensor + debug.leafDump
 
-tensor.Total() = rootInner                              -- Root Function Inner Tensor 内存
-               + devTaskInnerExclusiveOutcasts           -- DeviceTask 内部 Exclusive Outcast 内存
-               + MaxOutcastMem() * devTaskBoundaryOutcastNum  -- Boundary Outcast 总内存
+tensor.Total() = rootInner                              -- Root Function Inner Tensor 内存（含 AlignUp(32KB) 对齐）
+              + devTaskInnerExclusiveOutcasts           -- DeviceTask 内部 Exclusive Outcast 内存
+              + MaxOutcastMem() * devTaskBoundaryOutcastNum * parallelism  -- Boundary Outcast 总内存（含并行度系数）
 
 MaxOutcastMem() = max(maxStaticOutcastMem, maxDynamicAssembleOutcastMem)
-
-metadata.Total() = general + stitchPool
 ```
 
 ### 关键日志标签
@@ -100,9 +98,9 @@ metadata.Total() = general + stitchPool
 
 ### 步骤 1：收集必要信息（必须执行）
 
-**⚠️ 重要：第一步必须使用 `question` 工具向用户收集信息，严禁猜测或使用默认值。**
+**⚠️ 重要：第一步必须通过交互式文本提问向用户收集信息，严禁猜测或使用默认值。**
 
-使用 `question` 工具收集以下信息：
+通过交互式文本提问收集以下信息：
 
 - **pypto_path**：PyPTO 项目的根目录路径（绝对路径）
 - **test_cmd**：触发内存异常的完整测试命令
@@ -149,7 +147,7 @@ cd <run_path> && <test_cmd>
 **验证检查点**：
 - [ ] 问题成功复现（出现 OOM 或 rtMalloc 报错）
 - [ ] `<run_path>/ws_diag_logs/debug/` 目录下生成了日志文件
-- [ ] `<run_path>./output/pass/` 目录下生成了计算图文件
+- [ ] `<run_path>/output/pass/` 目录下生成了计算图文件
 
 ---
 
@@ -174,7 +172,7 @@ grep -r "\[workspaceSize\]" <log_path>/debug/ | grep -E "workspaceSize=|Tensor:r
 |------|------|------|
 | TOTAL | workspace 总大小 | `memBudget.Total()` |
 | T | Tensor workspace 总大小 | `memBudget.tensor.Total()` |
-| M | 元数据总大小 | `memBudget.metadata.Total()` |
+| M | 元数据总大小 | `memBudget.metadata.Total()`（不计入 workspaceSize） |
 | S | AICore 栈溢出内存 | `memBudget.aicoreSpilled` |
 | A | rootInner | `memBudget.tensor.rootInner` |
 | B | devTaskInnerExclusiveOutcasts | `memBudget.tensor.devTaskInnerExclusiveOutcasts` |
@@ -309,7 +307,7 @@ grep -r "\[workspaceSize\].*staticMemReq=\|staticMemReq=.*too larger" <log_path>
 
 ### 步骤 7：结合计算图确认问题位置
 
-若步骤 2 中已打开 `dump_graph`，则 `build/output/pass/` 目录下会有各 pass 阶段的计算图文件。
+若步骤 2 中已打开 `dump_graph`，则 `<run_path>/output/pass/` 目录下会有各 pass 阶段的计算图文件（实际输出路径取决于 PyPTO 配置）。
 
 1. **在计算图中搜索目标 Tensor**：
    根据步骤 6 获取的 `ROOT_FUNC_NAME` 找到对应计算图文件，使用 `RAWMAGIC` 值搜索该 Tensor 节点
@@ -444,7 +442,7 @@ if (0) {
 
 1. **日志版本**：`[workspaceSize]` 前缀的日志为统一新增，需确保使用包含该日志的 whl 包版本；若日志中不存在此前缀，可搜索不带前缀的等价日志
 2. **动态 shape**：动态 shape 场景下 `maxStaticMemReq` 为 0，超大 Tensor 告警不适用，需结合其他手段
-3. **信息收集**：第一步必须通过 `question` 工具收集信息，严禁猜测
+3. **信息收集**：第一步必须通过交互式文本提问收集信息，严禁猜测
 4. **停止条件**：若在步骤 3 中无法提取到任何 workspace 相关日志，说明日志未正确生成，需回到步骤 2 重新配置
 5. **路径规范**：所有路径必须使用绝对路径
 
