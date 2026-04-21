@@ -304,7 +304,7 @@ if __name__ == "__main__":
 
 ---
 
-## Checklist
+## 检查清单
 
 1. 3 个文件（`test_{op}.py` + `{op}_impl.py` + `README.md`）全部存在
 2. `test_{op}.py` 可执行（无语法错误）

@@ -1,90 +1,70 @@
 ---
 name: lead-orchestrator
-description: Lead Agent entry point. Bundles the 5 control documents (principles, phase plan, team roster, mandatory rules, routing catalog) as one skill with progressive-disclosure references. Read this file first, then load the references on demand.
+description: Lead Agent 入口。将 5 个控制文档（原则、阶段计划、团队名册、强制规则、路由目录）打包为一个 skill，采用渐进式披露引用。先阅读本文件，再按需加载引用。
 ---
 
-# Lead Orchestrator — PyPTO Kernel Development
+# Lead Orchestrator — PyPTO Kernel 开发
 
-This skill is the **entry point for the Lead Agent** in the multi-agent
-PyPTO kernel-development team. It contains the full operating manual for
-the team as a set of progressive-disclosure references.
+本 skill 是多 agent PyPTO kernel 开发团队中 **Lead Agent 的入口**。它包含团队完整操作手册，以一组渐进式披露引用的形式呈现。
 
-> **Reading order:** Read this SKILL.md first. Then load references in the
-> order `principles.md` → `agents.md` → `agent-plan.md` → `rules.md`
-> → `catalog.yaml`. Load each reference only when the current phase or
-> dispatch directs you to.
+> **阅读顺序：** 先阅读本 SKILL.md。然后按 `principles.md` → `agents.md` → `agent-plan.md` → `rules.md` → `catalog.yaml` 的顺序加载引用。仅在当前阶段或调度指示时才加载各引用。
 
 ---
 
-## References (Tier 3 — load on demand)
+## 引用（第三层 — 按需加载）
 
-| # | Reference | Purpose | Load when |
-|--:|-----------|---------|-----------|
-| 1 | `references/principles.md` | 4 behavioral guidelines (Think, Simplify, Surgical, Goal-Driven) | Always load before the first dispatch of any session |
-| 2 | `references/agents.md` | Team roster, per-agent active skills (2–5 each), router-skill policy, anti-patterns | Load before the first sub-agent dispatch; keep it at hand across the whole session |
-| 3 | `references/agent-plan.md` | Phase 0–6 checklist with gates (⛔) and the debug escalation protocol | Load before starting Phase 0 and keep it loaded through Phase 5; unloadable during Phase 6 optimization regressions |
-| 4 | `references/rules.md` | 23 mandatory rules, module-at-a-time enforcement, 3 prohibitions. Every sub-agent output must pass these | Load before the first gate check; consult on every GATE review |
-| 5 | `references/catalog.yaml` | Tier-1 skill routing index (7 categories including `orchestration`) | Load on demand when deciding which sub-agent's skill to dispatch |
+| # | 引用 | 用途 | 加载时机 |
+|--:|------|------|----------|
+| 1 | `references/principles.md` | 4 条行为准则（思考、简化、精准、目标驱动） | 每次会话首次调度前始终加载 |
+| 2 | `references/agents.md` | 团队名册、每个 agent 的活跃 skill（各 2–5 个）、路由 skill 策略、反模式 | 首次 sub-agent 调度前加载；整个会话期间保持可用 |
+| 3 | `references/agent-plan.md` | Phase 0–6 检查清单及门禁（⛔）和调试升级协议 | Phase 0 开始前加载并持续到 Phase 5；Phase 6 优化回归期间可卸载 |
+| 4 | `references/rules.md` | 23 条强制规则、逐模块强制执行、3 个禁止项。所有 sub-agent 输出必须通过这些规则 | 首次门禁检查前加载；每次 GATE 评审时查阅 |
+| 5 | `references/catalog.yaml` | 第一层 skill 路由索引（7 个类别，包括 `orchestration`） | 决定调度哪个 sub-agent 的 skill 时按需加载 |
 
-All five references were previously top-level files under `.agents/`. They
-have been relocated here to enforce the skill-library structure: the Lead
-Agent loads SKILL.md, then pulls in references only as needed.
+这五个引用以前是 `.agents/` 下的顶级文件。现已移至此处以强制执行 skill 库结构：Lead Agent 加载 SKILL.md，然后仅在需要时引入引用。
 
 ---
 
-## Lead Agent's core loop
+## Lead Agent 核心循环
 
-1. **Start of session** — Load `principles.md` and `agents.md`. Acknowledge
-   the 4 principles and the 8-agent roster.
-2. **Enter Phase N** — Load `agent-plan.md`, advance to the Phase N section,
-   dispatch the owning agent (see `agents.md` table).
-3. **Gate arrives** — Load `rules.md`, check the gate's evidence against the
-   relevant rules, record pass/fail in `custom/plan/<op>.md`.
-4. **Unknown dispatch target** — Load `catalog.yaml`, route by category
-   → `_category.yaml` → `metadata.yaml` → skill.
-5. **Post-dev mode** — After GATE 4, swap `catalog.yaml` out of the active
-   set and load exactly one post-dev skill (see `agents.md` §1 swap policy).
+1. **会话开始** —— 加载 `principles.md` 和 `agents.md`。确认 4 条原则和 8 个 agent 名册。
+2. **进入 Phase N** —— 加载 `agent-plan.md`，推进到 Phase N 部分，调度负责的 agent（参见 `agents.md` 表格）。
+3. **门禁到达** —— 加载 `rules.md`，根据相关规则检查门禁证据，在 `custom/plan/<op>.md` 中记录通过/失败。
+4. **未知调度目标** —— 加载 `catalog.yaml`，按类别路由 → `_category.yaml` → `metadata.yaml` → skill。
+5. **开发后模式** —— GATE 4 之后，将 `catalog.yaml` 从活跃集合中换出，精确加载一个开发后 skill（参见 `agents.md` §1 换入换出策略）。
 
 ---
 
-## Sub-agent dispatch
+## Sub-agent 调度
 
-The Lead Agent never executes domain work directly. It dispatches to one of
-the 7 sub-agents listed in `references/agents.md`:
+Lead Agent 从不直接执行领域工作。它调度 `references/agents.md` 中列出的 7 个 sub-agent 之一：
 
-| Sub-agent | Phase | Primary active skill |
-|-----------|-------|----------------------|
+| Sub-agent | Phase | 主要活跃 skill |
+|-----------|-------|----------------|
 | Planning | 0 | `pypto-intent-understand` |
 | Algorithm | 1 | `pypto-golden-generate` |
-| Architecture | 1–2 boundary | `pypto-op-design` |
+| Architecture | 1–2 边界 | `pypto-op-design` |
 | Design | 2 | `phase2-phase3-construction` |
 | Coding | 3–5 | `pypto-op-develop` |
-| Verification | 3–5 gates + Phase 6 | `validation-and-deliverables` |
+| Verification | 3–5 门禁 + Phase 6 | `validation-and-deliverables` |
 | Optimization | 6 | `pypto-op-perf-tune` |
 
-See `references/agents.md` for the full active / dormant / router policy per
-sub-agent.
+参见 `references/agents.md` 了解每个 sub-agent 的完整活跃/休眠/路由策略。
 
 ---
 
-## Shared state
+## 共享状态
 
-All sub-agents read and write one shared file: `custom/plan/<op>.md`. This
-plan file is the single source of truth for phase status, gate evidence,
-debug log, and module contracts. Every handoff between agents is a plan
-update, not a direct message. Template:
-`skills/plan-template/plan.template.md`.
+所有 sub-agent 读写同一个共享文件：`custom/plan/<op>.md`。此计划文件是阶段状态、门禁证据、调试日志和模块契约的唯一事实来源。agent 之间的每次交接都是计划更新，而非直接消息。模板：`skills/plan-template/plan.template.md`。
 
 ---
 
-## Anti-patterns (Lead must enforce)
+## 反模式（Lead 必须强制执行）
 
-See `references/agents.md` → "Anti-patterns". Summary:
+参见 `references/agents.md` → "反模式"。摘要：
 
-1. Do not hand debug sub-skills directly to the Coding Agent — route through
-   Verification.
-2. Do not load `tune-*` skills before GATE 4.
-3. Do not expand any agent past 5 active skills. Add a router or split.
-4. Do not pre-load all post-dev `ci-and-pr/*` skills — use the Lead swap
-   policy.
-5. Do not skip the shared plan file — every handoff is a plan update.
+1. 不要将调试子 skill 直接交给 Coding Agent —— 通过 Verification 路由。
+2. 不要在 GATE 4 之前加载 `tune-*` skill。
+3. 不要将任何 agent 扩展到超过 5 个活跃 skill。添加路由器或拆分。
+4. 不要预加载所有开发后 `ci-and-pr/*` skill —— 使用 Lead 换入换出策略。
+5. 不要跳过共享计划文件 —— 每次交接都是计划更新。

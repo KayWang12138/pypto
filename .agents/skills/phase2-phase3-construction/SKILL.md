@@ -1,177 +1,177 @@
 ---
 name: pypto-kernel-phase2-phase3
-description: Phase 2 (semantic module decomposition — split by meaning, define contracts, freeze) and Phase 3 (module construction — one module at a time, validate, cross-check golden inventory).
+description: Phase 2（语义模块分解 — 按含义拆分、定义契约、冻结）和 Phase 3（模块构建 — 逐模块实现、验证、交叉检查 golden inventory）。
 ---
 
-# PyPTO Complex Kernel — Phase 2–3: Decomposition and Construction
+# PyPTO 复杂 Kernel — Phase 2–3：分解与构建
 
-## Phase 2: Semantic Module Decomposition
+## Phase 2：语义模块分解
 
-Goal: split the kernel into semantically meaningful, verifiable blocks.
+目标：将 kernel 拆分为有语义含义、可验证的代码块。
 
-### Write decomposition into the plan (mandatory)
+### 将分解写入计划（必须）
 
-As soon as the module split is known, write Module decomposition in `custom/plan/<operator_name>.md`: named modules, boundary tensors, and rationale. See `skills/plan-template/plan.template.md` for log format.
+一旦确定模块拆分，在 `custom/plan/<算子名称>.md` 中写入模块分解：命名模块、边界 tensor 和理由。参见 `skills/plan-template/plan.template.md` 了解日志格式。
 
-### Rule: split by meaning, not by equal complexity
+### 规则：按语义拆分，不按等复杂度拆分
 
-Prefer boundaries such as:
-- matmul block,
-- normalization / softmax block,
-- recurrent state update block,
-- reduction block,
-- writeback / assemble block,
-- layout conversion block,
-- decay / gating block,
-- per-step recurrence block.
+优先选择如下边界：
+- matmul 块，
+- 归一化 / softmax 块，
+- 递归状态更新块，
+- 归约块，
+- 写回 / 组装块，
+- layout 转换块，
+- 衰减 / 门控块，
+- 逐步递归块。
 
-Avoid:
-- arbitrary equal-sized chunks,
-- splitting a single semantic operation across modules,
-- combining unrelated layout and compute transforms into one module,
-- modules that cannot be verified independently.
+避免：
+- 任意等大小分块，
+- 将单一语义操作拆分到多个模块，
+- 将无关的 layout 和计算变换合并到一个模块，
+- 无法独立验证的模块。
 
-### For each module, define a contract
+### 为每个模块定义契约
 
-Before writing any code for a module, look up the exact PyPTO API signatures:
+在为模块编写任何代码之前，查阅确切的 PyPTO API 签名：
 
 ```
 query_op(names=["<op1>", "<op2>"])
 ```
 
-CLI fallback:
+CLI 回退方案：
 ```bash
 python3 .agents/skills/pypto-api-explorer/scripts/query_op_index.py --op <op1> --op <op2>
 ```
 
-For constraint details not captured in the index:
+对于索引中未捕获的约束详情：
 ```
-retrieve_docs(query="<op name> constraints dtype tile shape", chunk_type="api_doc")
+retrieve_docs(query="<操作名称> constraints dtype tile shape", chunk_type="api_doc")
 ```
 
-Every module must specify:
-- name, purpose,
-- inputs, outputs, shapes, dtypes,
-- invariants,
-- semantic predecessor and successor,
-- whether it contains loop-carried state,
-- whether it contains reduction,
-- whether it contains alignment-sensitive tensors,
-- PyPTO APIs used (with exact signatures from op_index).
+每个模块必须指定：
+- 名称、用途，
+- 输入、输出、shape、dtype，
+- 不变量，
+- 语义前驱和后继，
+- 是否包含循环携带状态，
+- 是否包含归约，
+- 是否包含对齐敏感的 tensor，
+- 使用的 PyPTO API（含 op_index 中的确切签名）。
 
-### Module freeze rule
+### 模块冻结规则
 
-Once a module is verified, mark it frozen. Do not edit frozen modules because a later stage fails. First inspect the earliest unfrozen failing boundary.
+模块验证通过后，标记为已冻结。不要因为后续阶段失败而编辑已冻结模块。首先检查最早的未冻结失败边界。
 
-### Subskill delegation: DESIGN.md generation (optional)
+### 子技能委托：DESIGN.md 生成（可选）
 
-To produce a standalone design document with API mapping, tiling strategy, loop structure, and verification plan, read `skills/pypto-op-design/SKILL.md` and generate `DESIGN.md`. The design document supplements (does not replace) the plan file's module decomposition and contracts.
+要产出包含 API 映射、tiling 策略、循环结构和验证计划的独立设计文档，阅读 `skills/pypto-op-design/SKILL.md` 并生成 `DESIGN.md`。设计文档补充（而非替代）计划文件中的模块分解和契约。
 
 ---
 
-## Phase 3: Module Construction
+## Phase 3：模块构建
 
-Goal: build each module in isolation before integration.
+目标：在集成之前独立构建每个模块。
 
-**Hard rule:** In each iteration, extend the production kernel by at most one new semantic module's real PyPTO logic. Everything downstream remains stubbed or fed from golden boundary tensors (see `skills/lead-orchestrator/references/rules.md` → Module-at-a-time enforcement).
+**硬性规则：** 每次迭代最多扩展一个新语义模块的真实 PyPTO 逻辑到生产 kernel。下游部分保持桩化或从 golden 边界 tensor 获取数据（见 `skills/lead-orchestrator/references/rules.md` → 逐模块执行规则）。
 
-### Before writing PyPTO code — consult `skills/debugging/DEBUG.md` §9
+### 编写 PyPTO 代码之前 — 查阅 `skills/debugging/DEBUG.md` §9
 
-Read the relevant subsections before writing each module's PyPTO code:
+在编写每个模块的 PyPTO 代码之前阅读相关子节：
 
-| What you are about to write | Read first |
-|------------------------------|------------|
-| Any `@pypto.frontend.jit` function | §9.1 (`from __future__ import annotations` breaks JIT) |
-| `pypto.view` / `pypto.assemble` | §9.4 (golden rule: `len(shape)==len(offsets)`, padding, reshape) |
-| `pypto.matmul` | §9.19 (transpose flags `a_trans`/`b_trans`, NOT `.T`; cube+vec tiles required) |
-| `.sum()` / reduction ops | §9.19 (32-byte alignment; matmul-based workaround) |
-| Dynamic shapes / `pypto.loop` | §9.2 (concrete loop bounds, symbolic offsets) |
-| Tensor type hints in JIT signature | §9.13 (use `pypto.Tensor([], dtype)`, not explicit `DYNAMIC` dims) |
-| Element-wise ops inside JIT | §9.14 (Python `*`, `+`, `.exp()` work; prefer over verbose `pypto.mul`) |
-| Tile shape configuration | §9.15 + §9.19 (vec+cube both needed for matmul; ≥4 vec args) |
-| Any error during development | §9.11 (common error → cause → solution quick table) |
+| 即将编写的内容 | 先阅读 |
+|----------|----------|
+| 任何 `@pypto.frontend.jit` 函数 | §9.1（`from __future__ import annotations` 会破坏 JIT） |
+| `pypto.view` / `pypto.assemble` | §9.4（黄金法则：`len(shape)==len(offsets)`、填充、reshape） |
+| `pypto.matmul` | §9.19（转置标志 `a_trans`/`b_trans`，不是 `.T`；需要 cube+vec tile） |
+| `.sum()` / 归约操作 | §9.19（32 字节对齐；基于 matmul 的替代方案） |
+| 动态 shape / `pypto.loop` | §9.2（具体循环边界、符号偏移） |
+| JIT 签名中的 Tensor 类型提示 | §9.13（使用 `pypto.Tensor([], dtype)`，不使用显式 `DYNAMIC` 维度） |
+| JIT 内的逐元素操作 | §9.14（Python `*`、`+`、`.exp()` 可用；优于冗长的 `pypto.mul`） |
+| Tile shape 配置 | §9.15 + §9.19（matmul 需要 vec+cube；≥4 个 vec 参数） |
+| 开发过程中的任何错误 | §9.11（常见错误 → 原因 → 解决方案速查表） |
 
-### Subskill reference: implementation templates and execution constraints
+### 子技能参考：实现模板与执行约束
 
-When writing module code, consult `skills/pypto-op-develop/SKILL.md` for additional implementation constraints and templates (`references/execution-constraints.md`, `references/impl-template.py`, `references/test-template.py`). **Kernel-complex overrides apply:** Layer A–L template (`skills/kernel-code-format/pypto_kernel_template.py`), staged file chain, and module-at-a-time enforcement take precedence over the subskill's single-file approach.
+编写模块代码时，查阅 `skills/pypto-op-develop/SKILL.md` 获取额外的实现约束和模板（`references/execution-constraints.md`、`references/impl-template.py`、`references/test-template.py`）。**复杂 kernel 覆盖规则适用：** Layer A–L 模板（`skills/kernel-code-format/pypto_kernel_template.py`）、分阶段文件链和逐模块执行规则优先于子技能的单文件方式。
 
-### Staged module files (mandatory — do this in code)
+### 分阶段模块文件（必须 — 在代码中执行）
 
-Materialize each step as `custom/<op>/<op>_module1.py` → `…_module12.py` → … → `…_module1…N.py` (see `skills/lead-orchestrator/references/rules.md` rule 14). Each file is the artifact for that milestone: golden + PyPTO + runnable compare. Suffix = concatenated module indices (`1`, `12`, `123`, …).
+将每个步骤实现为 `custom/<op>/<op>_module1.py` → `…_module12.py` → … → `…_module1…N.py`（见 `skills/lead-orchestrator/references/rules.md` 规则 14）。每个文件是该里程碑的制品：golden + PyPTO + 可运行比较。后缀 = 拼接的模块索引（`1`、`12`、`123`、…）。
 
-### Step 1. Express the module as kernel semantics
+### 步骤 1. 将模块表达为 kernel 语义
 
-Design the module to fit into the final production kernel.
+设计模块以适配最终的生产 kernel。
 
-Before writing, retrieve the exact signature for every API:
+编写之前，检索每个 API 的确切签名：
 ```
 query_op(names=["<op_name>"])
 ```
 
-If alignment or tiling constraints are unclear:
+如果对齐或 tiling 约束不明确：
 ```
 retrieve_docs(query="<op_name> tile shape alignment constraint", chunk_type="api_doc")
 ```
 
-Allowed forms: semantic pseudocode, helper functions, temporary checkpoint logic, optional temporary validation kernels.
+允许的形式：语义伪代码、辅助函数、临时检查点逻辑、可选的临时验证 kernel。
 
-Disallowed as default: separate production `@jit` kernel per semantic module.
+默认不允许的形式：每个语义模块使用单独的生产 `@jit` kernel。
 
-### Step 2. Build a module-level validation path
+### 步骤 2. 构建模块级验证路径
 
-Every module must be verifiable before the next module begins.
+每个模块必须在下一个模块开始之前可验证。
 
-Validation may use temporary checkpoint outputs, temporary progressive kernels, or host golden extraction for the module boundary. But the validation path must clearly map back to the intended final integrated kernel.
+验证可以使用临时检查点输出、临时渐进式 kernel 或模块边界的 host golden 提取。但验证路径必须清晰地映射回预期的最终集成 kernel。
 
-Use `detailed_tensor_compare` (bundled) at module boundaries. After each boundary run, append a row to the Per-module verification log in the plan.
+在模块边界使用 `detailed_tensor_compare`（内置）。每次边界运行后，在计划中的每模块验证日志追加一行。
 
-### Step 2b. Cross-check Golden function inventory (mandatory before running)
+### 步骤 2b. 交叉检查 Golden function inventory（运行前必须）
 
-Before executing the module for the first time, open `custom/plan/<operator_name>.md` → Golden function inventory and cross-check every operation in this module's scope:
+在首次执行模块之前，打开 `custom/plan/<算子名称>.md` → Golden function inventory 并交叉检查此模块范围内的每个操作：
 
-- For each golden operation belonging to the current module, mark ✅ with the PyPTO call and line number, or ❌ if not yet implemented.
-- **If any ❌ remains, do not run the test.** Implement the missing operation first.
+- 对属于当前模块的每个 golden 操作，标记 ✅ 并注明 PyPTO 调用和行号，或标记 ❌ 如果尚未实现。
+- **如果仍有任何 ❌，不要运行测试。** 先实现遗漏的操作。
 
-This step is the primary defense against precision errors caused by forgotten operations.
+此步骤是防止因遗漏操作导致精度错误的主要防线。
 
-### Step 3. Validate module correctness
+### 步骤 3. 验证模块正确性
 
-**Run AST lint first — before compiling or executing:**
+**先运行 AST 检查 — 在编译或执行之前：**
 ```
-validate_kernel_structure(source_code=<full module source>)
+validate_kernel_structure(source_code=<完整模块源代码>)
 ```
 
-Fix all `error`-severity findings before proceeding.
+修复所有 `error` 级别的问题后再继续。
 
-Then validate: compile/structural, shape, dtype, and boundary tensor comparison against golden (using `detailed_tensor_compare`).
+然后验证：编译/结构、shape、dtype 以及边界 tensor 与 golden 的比较（使用 `detailed_tensor_compare`）。
 
-### Step 4. Freeze and log
+### 步骤 4. 冻结与记录
 
-If the module passes:
-- freeze it,
-- log the passing boundary in Per-module verification log,
-- move to the next module.
+如果模块通过：
+- 冻结它，
+- 在每模块验证日志中记录通过的边界，
+- 进入下一个模块。
 
-If the module fails:
+如果模块失败：
 
-1. Check for known error patterns first:
+1. 先检查已知错误模式：
    ```
-   diagnose_error(error_log=<full error output>, kernel_code=<module source>)
+   diagnose_error(error_log=<完整错误输出>, kernel_code=<模块源代码>)
    ```
-   If a match is found, apply the fix and re-run.
+   如果找到匹配，应用修复并重新运行。
 
-2. If no pattern matched:
-   - inspect shape/dtype/interface,
-   - inspect internal intermediate checkpoints,
-   - switch to binary-search-style debugging.
+2. 如果没有匹配的模式：
+   - 检查 shape/dtype/接口，
+   - 检查内部中间检查点，
+   - 切换到二分查找式调试。
 
-### Subskill delegation: debugging escalation
+### 子技能委托：调试升级
 
-When `skills/debugging/DEBUG.md` strategies and `diagnose_error` do not resolve the issue, escalate to the following subskills in order:
+当 `skills/debugging/DEBUG.md` 策略和 `diagnose_error` 无法解决问题时，按顺序升级到以下子技能：
 
-1. **Precision workarounds**: Read `skills/pypto-precision-debug/SKILL.md` — try the workaround checklist (frontend switch, avoid inplace, unroll_list=[1], submit_before_loop, +0.0, shape adjustment).
-2. **Precision bisection**: Read `skills/pypto-precision-compare/SKILL.md` — use `pass_verify_save` or checkpoint tensors to pinpoint the diverging operation.
-3. **Memory overlap**: If precision failure is suspected to be caused by workspace issues, read `skills/pypto-memory-overlap-detector/SKILL.md`.
-4. **AICore error**: If the error log contains `aicore error`, read `skills/pypto-aicore-error-locator/SKILL.md` to locate the CCE file and problem line.
-5. **Host crash**: If the process crashes with a stack trace, read `skills/pypto-host-stacktrace-analyzer/SKILL.md` to resolve addresses to source lines.
-6. **MACHINE workspace**: For workspace-related analysis, read `skills/pypto-machine-workspace/SKILL.md`.
+1. **精度变通方案**：阅读 `skills/pypto-precision-debug/SKILL.md` — 尝试变通方案检查清单（前端切换、避免 inplace、unroll_list=[1]、submit_before_loop、+0.0、shape 调整）。
+2. **精度二分定位**：阅读 `skills/pypto-precision-compare/SKILL.md` — 使用 `pass_verify_save` 或检查点 tensor 精确定位发散的操作。
+3. **内存重叠**：如果精度失败疑似由 workspace 问题引起，阅读 `skills/pypto-memory-overlap-detector/SKILL.md`。
+4. **AICore 错误**：如果错误日志包含 `aicore error`，阅读 `skills/pypto-aicore-error-locator/SKILL.md` 定位 CCE 文件和问题代码行。
+5. **Host 崩溃**：如果进程崩溃并输出堆栈信息，阅读 `skills/pypto-host-stacktrace-analyzer/SKILL.md` 将地址解析到源代码行。
+6. **MACHINE workspace**：对于 workspace 相关分析，阅读 `skills/pypto-machine-workspace/SKILL.md`。

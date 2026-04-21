@@ -1,60 +1,60 @@
 ---
 name: pypto-kernel-phase6-optimization
-description: Phase 6 config-level and algorithm-level optimization. Starts only after the final production design is numerically correct.
+description: Phase 6 配置级与算法级优化。仅在最终生产设计数值正确后方可开始。
 ---
 
-# PyPTO Complex Kernel — Phase 6: Optimization
+# PyPTO 复杂 Kernel — Phase 6：优化
 
-Optimization starts only after the final production design is numerically correct.
+优化仅在最终生产设计数值正确后方可开始。
 
-## Phase 6A: Config-level optimization
+## Phase 6A：配置级优化
 
-Before searching blindly, retrieve tiling patterns from existing production kernels:
+在盲目搜索之前，从现有生产 kernel 中检索 tiling 模式：
 ```
 retrieve_docs(query="<kernel type> set_vec_tile_shapes set_cube_tile_shapes tiling config", chunk_type="source_code")
 retrieve_docs(query="<kernel type> tiling strategy loop_unroll stitch", chunk_type="example")
 ```
 
-Search space may include: vector tile shape, cube tile shape, runtime options, stitch settings, loop unroll options, device scheduling options, reuse settings.
+搜索空间可能包括：vector TileShape、cube TileShape、运行时选项、stitch 设置、loop unroll 选项、设备调度选项、reuse 设置。
 
-Use constrained search:
-1. evaluate 10 initial candidates,
-2. keep top candidates,
-3. mutate locally,
-4. stop when improvement stalls.
+使用约束搜索：
+1. 评估 10 个初始候选，
+2. 保留最优候选，
+3. 局部变异，
+4. 当改进停滞时停止。
 
-Reject any candidate that breaks correctness, times out, exceeds memory limits, or fails to compile.
+拒绝任何破坏正确性、超时、超出内存限制或编译失败的候选。
 
-## Phase 6B: Algorithm-level optimization
+## Phase 6B：算法级优化
 
-Only after config-level tuning stabilizes.
+仅在配置级调优稳定后进行。
 
-Check systematically:
-- can intermediate tensors be reduced?
-- can data movement be reduced?
-- can cast count be reduced?
-- can reuse be increased?
-- can loop order be improved?
-- can memory-bound stages be simplified?
-- can view/reshape/assemble count be reduced?
+系统性检查：
+- 中间 tensor 能否减少？
+- 数据搬运能否减少？
+- 类型转换次数能否减少？
+- reuse 能否增加？
+- loop 顺序能否优化？
+- memory-bound 阶段能否简化？
+- view/reshape/assemble 次数能否减少？
 
-Change one algorithmic idea at a time.
+每次只改变一个算法思路。
 
-## Subskill delegation: systematic performance tuning
+## 子技能委派：系统性性能调优
 
-For a more systematic, multi-stage performance analysis and tuning workflow, read `skills/pypto-op-perf-tune/SKILL.md`. It provides a 3-stage approach:
+如需更系统化的多阶段性能分析与调优工作流，请阅读 `skills/pypto-op-perf-tune/SKILL.md`。它提供了 3 阶段方法：
 
-1. **Frontend tuning** (`skills/tune-frontend/SKILL.md`): loop write patterns, TileShape settings, data operation optimization.
-2. **Swimlane tuning** (`skills/tune-swimlane/SKILL.md`): stitch tuning, deep TileShape tuning, graph fusion, scheduling strategy optimization via swimlane diagram analysis.
-3. **Incore tuning** (`skills/tune-incore/SKILL.md`): single-task instruction-level optimization, incore pipeline, operation implementation optimization.
+1. **前端调优**（`skills/tune-frontend/SKILL.md`）：loop 写法模式、TileShape 设置、数据操作优化。
+2. **泳道调优**（`skills/tune-swimlane/SKILL.md`）：通过泳道图分析进行 stitch 调优、深度 TileShape 调优、图融合、调度策略优化。
+3. **核内调优**（`skills/tune-incore/SKILL.md`）：单 task 指令级优化、核内流水、Operation 实现优化。
 
-Additionally, `skills/pypto-operator-auto-tuner/SKILL.md` provides automated tuning scripts for swimlane data extraction and AIV dependency chain analysis.
+此外，`skills/pypto-operator-auto-tuner/SKILL.md` 提供了泳道数据提取和 AIV 依赖链分析的自动化调优脚本。
 
-**Kernel-complex override:** The correctness guard below still applies. Every tuning change must be validated with `detailed_tensor_compare` on all outputs before proceeding.
+**复杂 kernel 覆盖：** 下方的正确性守卫仍然适用。每个调优变更在继续之前，必须对所有输出使用 `detailed_tensor_compare` 进行验证。
 
-## Correctness guard
+## 正确性守卫
 
-After every optimization change:
-1. Re-run `test_<operator_name>.py` — all outputs must still pass `detailed_tensor_compare`.
-2. If correctness regresses, **roll back immediately** and log the failed attempt in the plan.
-3. Do not accumulate multiple optimization changes before re-testing.
+每次优化变更后：
+1. 重新运行 `test_<operator_name>.py` — 所有输出必须仍然通过 `detailed_tensor_compare`。
+2. 如果正确性退化，**立即回滚**并在计划中记录失败的尝试。
+3. 不要在重新测试之前累积多个优化变更。

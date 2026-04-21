@@ -1,87 +1,87 @@
-# Behavioral Principles
+# 行为原则
 
-Foundational guidelines for all skill execution in this library.
-Derived from [Karpathy-inspired coding guidelines](https://github.com/forrestchang/andrej-karpathy-skills).
+本 skill 库中所有 skill 执行的基础准则。
+源自 [Karpathy 风格编码准则](https://github.com/forrestchang/andrej-karpathy-skills)。
 
-**These principles apply to every skill. rules.md adds PyPTO-specific enforcement on top.**
-
----
-
-## 1. Think Before Coding
-
-**Do not assume. Do not hide confusion. Surface tradeoffs.**
-
-Before implementing:
-
-- State your assumptions explicitly. If uncertain about an API, tiling strategy, or op semantic, stop and ask.
-- If multiple interpretations exist (e.g., transpose convention, reduction axis, broadcast shape), present them. Do not pick silently.
-- If a simpler approach exists, say so. Push back on unnecessary complexity.
-- If something is unclear, stop. Name what is confusing. Ask for clarification.
-
-**PyPTO application:** Before writing any kernel code, verify API signatures via `query_op`. If the op index does not cover a constraint, state the gap. Do not guess dtype or alignment rules.
+**这些原则适用于每个 skill。rules.md 在此基础上增加了 PyPTO 特定的强制规则。**
 
 ---
 
-## 2. Simplicity First
+## 1. 先思考再编码
 
-**Minimum code that solves the problem. Nothing speculative.**
+**不要假设。不要隐藏困惑。明确权衡。**
 
-- No features beyond what was asked.
-- No abstractions for single-use code.
-- No "flexibility" or "configurability" that was not requested.
-- No error handling for impossible scenarios.
-- If you write 200 lines and it could be 50, rewrite it.
+实现之前：
 
-**The test:** Would a senior engineer say this is overcomplicated? If yes, simplify.
+- 明确陈述你的假设。如果对 API、tiling 策略或算子语义不确定，停下来提问。
+- 如果存在多种解释（例如转置约定、reduction 轴、broadcast shape），列出它们。不要默默选择。
+- 如果存在更简单的方法，说出来。拒绝不必要的复杂性。
+- 如果有不清楚的地方，停下来。说出困惑之处。请求澄清。
 
-**PyPTO application:** Every module should be the minimum viable implementation that passes `detailed_tensor_compare`. Do not add speculative optimization, extra loop unrolling, or unused tile configurations.
-
----
-
-## 3. Surgical Changes
-
-**Touch only what you must. Clean up only your own mess.**
-
-When editing existing code:
-
-- Do not "improve" adjacent code, comments, or formatting.
-- Do not refactor things that are not broken.
-- Match existing style, even if you would do it differently.
-- If you notice unrelated dead code, mention it — do not delete it.
-
-When your changes create orphans:
-
-- Remove imports/variables/functions that YOUR changes made unused.
-- Do not remove pre-existing dead code unless asked.
-
-**The test:** Every changed line should trace directly to the current task.
-
-**PyPTO application:** Do not "improve" frozen modules. Do not refactor working golden code. Do not edit upstream staged files when a downstream module fails — inspect the failing boundary first.
+**PyPTO 应用：** 在编写任何 kernel 代码之前，通过 `query_op` 验证 API 签名。如果算子索引未覆盖某个约束，指出差距。不要猜测 dtype 或对齐规则。
 
 ---
 
-## 4. Goal-Driven Execution
+## 2. 简洁优先
 
-**Define success criteria. Loop until verified.**
+**解决问题的最少代码。不含投机性内容。**
 
-Transform tasks into verifiable goals:
+- 不添加超出要求的功能。
+- 不为一次性代码创建抽象。
+- 不添加未被请求的"灵活性"或"可配置性"。
+- 不为不可能出现的场景添加错误处理。
+- 如果你写了 200 行但可以精简到 50 行，重写它。
 
-| Instead of... | Transform to... |
-|---------------|-----------------|
-| "Implement module M1" | "M1 passes `detailed_tensor_compare` with `all_close: true` on all outputs" |
-| "Fix precision" | "Identify diverging checkpoint via bisection, apply fix, re-run compare" |
-| "Optimize performance" | "Reduce kernel time by N% while layout check exits 0 and all outputs pass compare" |
+**检验标准：** 资深工程师会认为这过于复杂吗？如果是，简化它。
 
-For multi-step tasks, state a brief plan:
+**PyPTO 应用：** 每个模块都应是通过 `detailed_tensor_compare` 的最小可行实现。不要添加投机性优化、额外循环展开或未使用的 tile 配置。
+
+---
+
+## 3. 精准变更
+
+**只修改必须修改的内容。只清理自己造成的混乱。**
+
+编辑现有代码时：
+
+- 不要"改进"相邻的代码、注释或格式。
+- 不要重构没有问题的内容。
+- 匹配现有风格，即使你会用不同的方式。
+- 如果注意到无关的死代码，提及它 —— 但不要删除它。
+
+当你的变更产生孤立代码时：
+
+- 删除**你的**变更导致不再使用的导入/变量/函数。
+- 不要删除预先存在的死代码，除非被要求。
+
+**检验标准：** 每个变更行都应直接追溯到当前任务。
+
+**PyPTO 应用：** 不要"改进"已冻结的模块。不要重构正常工作的 golden 代码。当下游模块失败时，不要编辑上游分阶段文件 —— 先检查失败的边界。
+
+---
+
+## 4. 目标驱动执行
+
+**定义成功标准。循环直到验证通过。**
+
+将任务转化为可验证的目标：
+
+| 而非... | 转化为... |
+|--------|----------|
+| "实现模块 M1" | "M1 在所有输出上通过 `detailed_tensor_compare`，`all_close: true`" |
+| "修复精度" | "通过二分法定位偏差检查点，应用修复，重新运行对比" |
+| "优化性能" | "在布局检查 exit 0 且所有输出通过对比的前提下，将 kernel 时间降低 N%" |
+
+对于多步骤任务，陈述简要计划：
 
 ```
-1. [Step] → verify: [check]
-2. [Step] → verify: [check]
-3. [Step] → verify: [check]
+1. [步骤] → 验证：[检查]
+2. [步骤] → 验证：[检查]
+3. [步骤] → 验证：[检查]
 ```
 
-Strong success criteria let you loop independently. Weak criteria ("make it work") require constant clarification.
+强有力的成功标准让你可以独立循环。弱标准（"让它能用"）需要不断澄清。
 
 ---
 
-**These principles are working if:** fewer unnecessary changes in diffs, fewer rewrites due to overcomplication, clarifying questions come before implementation rather than after mistakes, and every module passes on fewer attempts.
+**这些原则生效的标志是：** diff 中不必要的变更更少，因过度复杂导致的重写更少，澄清问题出现在实现之前而非出错之后，每个模块通过所需的尝试次数更少。

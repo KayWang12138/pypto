@@ -1,114 +1,114 @@
-# PyPTO kernel — mandatory rules
+# PyPTO kernel — 强制规则
 
-> **Navigation:** You were directed here by `agent-plan.md`. After reading this file, return to `agent-plan.md` and follow it phase by phase — it tells you which skills to read at each step.
+> **导航：** 你被 `agent-plan.md` 引导至此。阅读完本文件后，返回 `agent-plan.md` 并按阶段逐步执行——它会告诉你每一步需要阅读哪个 skill。
 
-## Zero tolerance — do not skip, do not shortcut (read first)
+## 零容忍 — 不得跳过，不得走捷径（请先阅读全文）
 
-**These are not "best effort."** Violating them to save time, tokens, or context is **forbidden**. Claiming a step is done without the artifacts and commands it requires is **non-compliant**.
+**这些不是"尽力而为"。** 为节省时间、token 或上下文而违反这些规则是**被禁止的**。在缺少所需工件和命令的情况下声称某个步骤已完成是**不合规的**。
 
-| Forbidden | Required instead |
-|-----------|------------------|
-| **Skipping** sections of this bundle you judge "optional" | Follow **`rules.md`**, **`skills/debugging/DEBUG.md`** when debugging, **`skills/plan-template/plan.template.md`** fields, and the staged files / validation / per-module log rules end-to-end for the current task. |
-| **Shortcutting** the staged chain (`_module1.py` → `_module12.py` → …) | Create and **pass** each staged file **before** the next; no jumping to "full kernel only." |
-| **Omitting** `detailed_tensor_compare` or comparing **one** output only | Use the bundled helper; compare **every** leaf output at each stage and in **`test_<op>.py`**. |
-| **Skipping** plan updates (`custom/plan/<op>.md`) after runs | Update **every turn** per **Plan file (every turn)** below. |
-| **Replacing** real runs with verbal "should pass" / "aligned" | Run the commands; paste evidence into the plan or logs. |
-| **Skipping** the **layout check** after changing `custom/` | Run **`bash .agents/skills/ci-and-layout-check/run_validate_layout.sh`** from repo root (or **`skills/ci-and-layout-check/CI.md`**); fix **exit 1** before claiming the layout is done. |
-| **`set_vec_tile_shapes` with valid dimensions** | Pass positive tile sizes (use **`1`** as needed); dimensions per **`docs/api/config/pypto-set_vec_tile_shapes.md`** for your version. |
-| **Saving tokens** by not reading docs/skills that apply | Read the relevant skill under **`skills/`**. Token cost is **not** an excuse to omit steps. |
-| **Ad-hoc kernel file layout** (no layers A–L, random function names) | Use **`skills/kernel-code-format/pypto_kernel_template.py`** as the **mandatory skeleton** for **each** staged file **and** the full kernel — see **`skills/kernel-code-format/pypto-kernel-design-format.md`**. Document any deliberate deviation in **`custom/plan/<op>.md`**. |
-| **`for ... in range(...)` inside `pypto_function`** (host Python loop over tiles/batch/seq) | Express algorithmic iteration in **`_your_op_kernel_impl`** / **`your_op_kernel_npu`** with **`pypto.loop`** (+ `pypto.view`). `pypto_function` is for I/O pack/unpack only — see **Prohibition B** below. CI: **`skills/ci-and-layout-check/scripts/validate_custom_kernel_layout.py`** flags this pattern. |
+| 禁止行为 | 应当执行的操作 |
+|-----------|----------------|
+| **跳过**你判断为"可选"的本文档集章节 | 对当前任务端到端遵循 **`rules.md`**、调试时遵循 **`skills/debugging/DEBUG.md`**、遵循 **`skills/plan-template/plan.template.md`** 的字段要求，以及分阶段文件/验证/逐模块日志规则。 |
+| **跳过**分阶段链（`_module1.py` → `_module12.py` → …） | 在进入下一阶段**之前**，创建并通过每个分阶段文件；不得直接跳到"仅完整 kernel"。 |
+| **省略** `detailed_tensor_compare` 或仅比较**一个**输出 | 使用随附的辅助工具；在每个阶段和 **`test_<op>.py`** 中比较**每个**叶子输出。 |
+| **跳过**运行后的计划更新（`custom/plan/<op>.md`） | 按照下方 **计划文件（每轮）** 的要求**每轮**更新。 |
+| **用**口头"应该通过"/"对齐"**替代**真实运行 | 运行命令；将证据粘贴到计划或日志中。 |
+| 修改 `custom/` 后**跳过****布局检查** | 从仓库根目录运行 **`bash .agents/skills/ci-and-layout-check/run_validate_layout.sh`**（或参见 **`skills/ci-and-layout-check/CI.md`**）；在声称布局完成前修复 **exit 1**。 |
+| `set_vec_tile_shapes` **传入无效维度** | 传入正数的 tile 大小（必要时使用 **`1`**）；维度要求参见对应版本的 **`docs/api/config/pypto-set_vec_tile_shapes.md`**。 |
+| 以**节省 token**为由不阅读适用的文档/skill | 阅读 **`skills/`** 下的相关 skill。token 消耗**不是**省略步骤的理由。 |
+| **临时性的 kernel 文件布局**（无 A–L 层级、随意命名函数） | 使用 **`skills/kernel-code-format/pypto_kernel_template.py`** 作为**每个**分阶段文件**和**完整 kernel 的**强制骨架** —— 参见 **`skills/kernel-code-format/pypto-kernel-design-format.md`**。在 **`custom/plan/<op>.md`** 中记录任何有意的偏差。 |
+| `pypto_function` 内使用 **`for ... in range(...)`**（宿主 Python 循环遍历 tile/batch/seq） | 在 **`_your_op_kernel_impl`** / **`your_op_kernel_npu`** 中使用 **`pypto.loop`**（+ `pypto.view`）表达算法迭代。`pypto_function` 仅用于 I/O 打包/解包 —— 参见下方**禁止项 B**。CI：**`skills/ci-and-layout-check/scripts/validate_custom_kernel_layout.py`** 会检测此模式。 |
 
-If you cannot complete a step, **document the blocker** in the plan — do not silently skip.
+如果无法完成某个步骤，**在计划中记录阻塞原因** —— 不得静默跳过。
 
-## Non-negotiable
+## 不可协商
 
-1. **One module at a time in PyPTO** — Only one semantic module's real `pypto` logic may be unfrozen at a time; later stages **stub** or use **golden boundary tensors** until the current module passes.
-2. **No full fused `@jit` in one shot** before per-module boundary checks pass.
-3. **Host Python `for` is not the kernel tile loop** — algorithmic tiling lives in `pypto.loop` + `view` + `assemble` (when required).
-4. **Single production `@jit`** — not one JIT per module unless documented staged fallback.
-5. **Golden frozen** before PyPTO implementation; **do not** change it without evidence and plan log.
-6. **Shape comments** on tensor lines in kernel code (see **Shape Annotation Convention** in `skills/kernel-code-format/pypto-kernel-design-format.md`).
-7. **Stuck on PyPTO errors** — read **`skills/debugging/DEBUG.md`**, then run `skills/ci-and-layout-check/scripts/extract_pypto_calls.py`, then **op-by-op protocol** in **`skills/debugging/SKILL.md`**.
-7b. **Before writing PyPTO code** — consult **`skills/debugging/DEBUG.md` §9** for the subsection matching what you are about to write (JIT signatures §9.1, `pypto.view` §9.4, `matmul` §9.19, reductions §9.19, dynamic shapes §9.2, tensor type hints §9.13, Python ops inside JIT §9.14, tile config §9.15). See the full lookup table in **`skills/phase2-phase3-construction/SKILL.md`** → **Phase 3 → Before writing PyPTO code**. Skipping this is non-compliant.
-8. **End-to-end validation runner** — **`custom/<operator_name>/test_<operator_name>.py`** (not `pytest` as the default driver). From repo root: **`PYTHONPATH=.agents/skills/validation-and-deliverables python custom/<operator_name>/test_<operator_name>.py`** (see **`skills/validation-and-deliverables/SKILL.md`**).
-9. **Golden vs PyPTO comparison** — use **`detailed_tensor_compare`** from **`.agents/skills/validation-and-deliverables/detailed_tensor_compare.py`** (`from detailed_tensor_compare import detailed_tensor_compare`); do not substitute a different implementation for the primary report.
-10. **Every output** — **`test_<operator_name>.py`** must compare **all** kernel outputs (tuple/list/dict/nested → every leaf tensor). **Forbidden:** validating only one output when the kernel returns several. Exceptions only in **`custom/plan/<operator_name>.md`** → **blockers** with justification.
-11. **Module decomposition in plan** — **`custom/plan/<operator_name>.md`** must record **how** semantic modules are split and **why** (rationale: boundaries, checkpointability, ordering — not "balanced complexity"). See **`skills/plan-template/plan.template.md`** → **Module decomposition**.
-12. **Per-module verification log** — for **each** module boundary check (golden vs PyPTO), append a row to the plan's **Per-module verification log** using **`detailed_tensor_compare`** results (`all_close` and key fields from the returned dict). End-to-end and per-module checks use the **same** bundled helper.
-13. **Do not stop on cryptic errors alone** — `FFFFF`, `UNKNOWN`, `0x3FFFF`, or other opaque **`Errcode: F…!`** lines are **not** a reason to abandon the task. Follow **`skills/debugging/DEBUG.md`**, gather logs, apply **`skills/ci-and-layout-check/scripts/extract_pypto_calls.py`** + op-by-op protocol, and iterate. Token/turn cost is not a limiting factor. Stop only when true blockers apply (see **Stop Conditions** below).
-14. **Staged module Python files** — Under **`custom/<operator_name>/`**, create **`<operator_name>_module1.py`**, then **`<operator_name>_module12.py`**, **`…_module123.py`**, …, **`…_module1…N.py`** (suffix = digits **1**, **12**, **123**, … = cumulative M1..Mk). Each file: **golden + one `@jit`** for that scope; **`detailed_tensor_compare`** on **all** outputs must pass **before** the next staged file. Final **`…_module1…N.py`** = full end-to-end kernel.
-15. **Automated layout check** — After meaningful edits under **`custom/`**, run **`bash .agents/skills/ci-and-layout-check/run_validate_layout.sh`** from the **repository root** (see **`skills/ci-and-layout-check/CI.md`**). **Do not** claim completion while this exits **1**. Same logic as CI/pre-commit.
-16. **`set_vec_tile_shapes` — valid tile dimensions** — When coding or debugging, pass positive tile arguments as required by **`docs/api/config/pypto-set_vec_tile_shapes.md`** for your PyPTO version. See **`skills/phase4-phase5-integration/SKILL.md`** → **5.4b**.
-17. **`skills/kernel-code-format/pypto_kernel_template.py` — mandatory code skeleton** — Structure **every** deliverable (`<op>_module1.py` … `<op>_module1…N.py` and the integrated kernel) using layers **A–L** from **`skills/kernel-code-format/pypto_kernel_template.py`**. **Do not** drop the template because debugging is hard. See **`skills/kernel-code-format/pypto-kernel-design-format.md`**.
-18. **No `for ... in range(...)` inside `pypto_function`** — The host wrapper **`pypto_function`** must **not** implement kernel tile/batch/sequence loops with Python `for` + `range`. Put those loops in **`_your_op_kernel_impl`** / JIT entry using **`pypto.loop`**. **`validate_custom_kernel_layout.py`** rejects this pattern under **`custom/<op>/`**.
-19. **No `.T` / `.t()` in golden** — PyPTO-friendly golden must use `torch.transpose(t, dim0, dim1)` instead of `.T`/`.t()`. PyPTO tensors do not support `.T` (`skills/debugging/DEBUG.md §9.19`). For matmul `a @ b.T`, write `torch.matmul(a, b.transpose(-2, -1))` and comment the transpose intent.
-20. **Golden function inventory** — After writing the PyPTO-friendly golden, list every mathematical operation (one per line) in **`custom/plan/<op>.md` → Golden function inventory**. In Phase 3/4, cross-check each line against the PyPTO implementation: mark ✅ with pypto call + line number, or ❌ if missing. **Do not run tests or advance modules while any ❌ remains in scope.** Precision errors are most often caused by operations that were never implemented.
+1. **PyPTO 中一次一个模块** —— 一次只能有一个语义模块的真实 `pypto` 逻辑处于未冻结状态；后续阶段必须**存根化**或使用 **golden 边界张量**，直到当前模块通过验证。
+2. 在逐模块边界检查通过之前，**不得**一次性完成完整融合的 `@jit`。
+3. **宿主 Python `for` 不是 kernel tile 循环** —— 算法 tiling 应在 `pypto.loop` + `view` + `assemble`（需要时）中实现。
+4. **单一生产 `@jit`** —— 除非文档记录了分阶段回退方案，否则每个模块不应有独立的 JIT。
+5. Golden 在 PyPTO 实现之前**冻结**；**不得**在没有证据和计划日志的情况下修改它。
+6. kernel 代码中张量行需要**形状注释**（参见 `skills/kernel-code-format/pypto-kernel-design-format.md` 中的**形状注释规范**）。
+7. **遇到 PyPTO 错误卡住时** —— 阅读 **`skills/debugging/DEBUG.md`**，然后运行 `skills/ci-and-layout-check/scripts/extract_pypto_calls.py`，然后按 **`skills/debugging/SKILL.md`** 中的**逐算子协议**操作。
+7b. **在编写 PyPTO 代码之前** —— 查阅 **`skills/debugging/DEBUG.md` §9** 中与你要编写的内容匹配的小节（JIT 签名 §9.1、`pypto.view` §9.4、`matmul` §9.19、reduction §9.19、动态 Shape §9.2、张量类型提示 §9.13、JIT 内的 Python 操作 §9.14、tile 配置 §9.15）。完整查找表见 **`skills/phase2-phase3-construction/SKILL.md`** → **Phase 3 → 编写 PyPTO 代码之前**。跳过此步骤是不合规的。
+8. **端到端验证运行器** —— **`custom/<operator_name>/test_<operator_name>.py`**（不是以 `pytest` 作为默认驱动）。从仓库根目录：**`PYTHONPATH=.agents/skills/validation-and-deliverables python custom/<operator_name>/test_<operator_name>.py`**（参见 **`skills/validation-and-deliverables/SKILL.md`**）。
+9. **Golden 与 PyPTO 对比** —— 使用 **`.agents/skills/validation-and-deliverables/detailed_tensor_compare.py`** 中的 **`detailed_tensor_compare`**（`from detailed_tensor_compare import detailed_tensor_compare`）；不得用不同实现替代主要报告。
+10. **每个输出** —— **`test_<operator_name>.py`** 必须比较**所有** kernel 输出（tuple/list/dict/nested → 每个叶子张量）。**禁止：** kernel 返回多个输出时仅验证其中一个。例外情况仅在 **`custom/plan/<operator_name>.md`** → **blockers** 中注明并附理由。
+11. **计划中的模块分解** —— **`custom/plan/<operator_name>.md`** 必须记录语义模块**如何**拆分以及**为什么**这样拆分（理由：边界、可检查性、顺序 —— 而非"平衡复杂度"）。参见 **`skills/plan-template/plan.template.md`** → **Module decomposition**。
+12. **逐模块验证日志** —— 对于**每个**模块边界检查（golden vs PyPTO），使用 **`detailed_tensor_compare`** 结果（`all_close` 和返回字典中的关键字段）在计划的**逐模块验证日志**中追加一行。端到端和逐模块检查使用**同一个**随附辅助工具。
+13. **不要仅因晦涩错误就停止** —— `FFFFF`、`UNKNOWN`、`0x3FFFF` 或其他不透明的 **`Errcode: F…!`** 行**不是**放弃任务的理由。遵循 **`skills/debugging/DEBUG.md`**，收集日志，应用 **`skills/ci-and-layout-check/scripts/extract_pypto_calls.py`** + 逐算子协议，然后迭代。token/轮次消耗不是限制因素。仅当出现真正的阻塞原因时才停止（参见下方**停止条件**）。
+14. **分阶段模块 Python 文件** —— 在 **`custom/<operator_name>/`** 下，创建 **`<operator_name>_module1.py`**，然后 **`<operator_name>_module12.py`**、**`…_module123.py`**、…、**`…_module1…N.py`**（后缀 = 数字 **1**、**12**、**123**、… = 累计 M1..Mk）。每个文件：**golden + 一个 `@jit`** 用于该范围；**所有**输出的 **`detailed_tensor_compare`** 必须**在**下一个分阶段文件存在**之前**通过。最终的 **`…_module1…N.py`** = 完整的端到端 kernel。
+15. **自动化布局检查** —— 在 **`custom/`** 下进行有意义的编辑后，从**仓库根目录**运行 **`bash .agents/skills/ci-and-layout-check/run_validate_layout.sh`**（参见 **`skills/ci-and-layout-check/CI.md`**）。当此命令返回 **1** 时，**不得**声称完成。逻辑与 CI/pre-commit 一致。
+16. **`set_vec_tile_shapes` — 有效的 tile 维度** —— 编码或调试时，按照你的 PyPTO 版本对应的 **`docs/api/config/pypto-set_vec_tile_shapes.md`** 要求传入正数 tile 参数。参见 **`skills/phase4-phase5-integration/SKILL.md`** → **5.4b**。
+17. **`skills/kernel-code-format/pypto_kernel_template.py` — 强制代码骨架** —— 使用 **`skills/kernel-code-format/pypto_kernel_template.py`** 中的 **A–L** 层级结构来组织**每个**交付物（`<op>_module1.py` … `<op>_module1…N.py` 和集成 kernel）。**不得**因为调试困难而丢弃模板。参见 **`skills/kernel-code-format/pypto-kernel-design-format.md`**。
+18. **`pypto_function` 内禁止 `for ... in range(...)`** —— 宿主包装器 **`pypto_function`** **不得**使用 Python `for` + `range` 实现 kernel tile/batch/sequence 循环。将这些循环放在 **`_your_op_kernel_impl`** / JIT 入口中使用 **`pypto.loop`**。**`validate_custom_kernel_layout.py`** 会拒绝 **`custom/<op>/`** 下的此模式。
+19. **Golden 中禁止 `.T` / `.t()`** —— PyPTO 友好的 golden 必须使用 `torch.transpose(t, dim0, dim1)` 代替 `.T`/`.t()`。PyPTO 张量不支持 `.T`（`skills/debugging/DEBUG.md §9.19`）。对于 `matmul a @ b.T`，应写为 `torch.matmul(a, b.transpose(-2, -1))` 并注释转置意图。
+20. **Golden 函数清单** —— 编写 PyPTO 友好的 golden 后，在 **`custom/plan/<op>.md` → Golden function inventory** 中列出每个数学操作（每行一个）。在 Phase 3/4 中，逐行与 PyPTO 实现交叉检查：用 ✅ 标记并附 pypto 调用 + 行号，或用 ❌ 标记缺失项。**当范围内存在任何 ❌ 时，不得运行测试或推进模块。** 精度错误最常由从未实现的操作引起。
 
 ---
 
-## Module-at-a-time enforcement
+## 逐模块强制执行
 
-**Problem:** A single large `@jit` that combines every semantic stage triggers compound failures (tiling, `view`/`assemble`, write-back, dtype, graph limits). If the agent implements all modules at once, errors become unlocalizable.
+**问题：** 一个将所有语义阶段组合在一起的大型 `@jit` 会触发复合失败（tiling、`view`/`assemble`、写回、dtype、图限制）。如果 agent 一次实现所有模块，错误将无法定位。
 
-| Rule | Requirement |
+| 规则 | 要求 |
 | --- | --- |
-| **One active module** | At most one semantic module's PyPTO logic may be new or unfrozen at a time. Later stages must be stubbed (identity, zeros, or pass-through tensors from the golden). |
-| **Boundary before next** | Do not add the next module's real ops inside `kernel_impl` until the current module's outputs match the golden. |
-| **Plan file** | Keep `active_module: Mk` and `modules_pypto_verified: [M1, …]` in `custom/plan/<operator_name>.md`. Change `active_module` only after logging `detailed_tensor_compare` evidence. |
-| **User prompt default** | "Implement the kernel" = implement the next unverified module only, unless the user explicitly requests full integration. |
-| **Stubs must be explicit** | Comment every stub: `# STUB: until M2 verified; golden-fed tensor`. |
+| **一个活跃模块** | 一次最多只能有一个语义模块的 PyPTO 逻辑是新的或未冻结的。后续阶段必须被存根化（恒等、零或来自 golden 的透传张量）。 |
+| **先通过边界再进入下一步** | 在当前模块的输出与 golden 匹配之前，不要在 `kernel_impl` 中添加下一个模块的真实操作。 |
+| **计划文件** | 在 `custom/plan/<operator_name>.md` 中保持 `active_module: Mk` 和 `modules_pypto_verified: [M1, …]`。仅在记录 `detailed_tensor_compare` 证据后才更改 `active_module`。 |
+| **用户提示的默认含义** | "实现 kernel" = 仅实现下一个未验证的模块，除非用户明确要求完整集成。 |
+| **存根必须显式** | 每个存根都加注释：`# STUB: until M2 verified; golden-fed tensor`。 |
 
-**Compliant pattern:** Implement M1 only → validate → freeze → set `active_module: M2` → repeat.
-
----
-
-## The Three Architectural Prohibitions
-
-### Prohibition A: No one-shot implementation
-
-Do not jump from reference code to one integrated PyPTO kernel. Normalize the golden → split by semantic boundaries → validate each boundary → integrate progressively.
-
-### Prohibition B: No Python host loops for kernel tiling logic
-
-Do not use Python `for` loops to simulate the kernel's algorithmic tiled execution. Algorithmic loops must use `pypto.loop` or explicit semantic staging. Allowed host loops: iterating over test cases, candidate configs, modules for bookkeeping, or host-side validation inputs.
-
-### Prohibition C: No one-JIT-per-module production architecture
-
-Modules are semantic blocks, not separate production JIT entrypoints. Assemble into one production `@pypto.frontend.jit` kernel. Staged multi-kernel fallback is allowed only when fusion is blocked by framework limitations — label it clearly as fallback.
+**合规模式：** 仅实现 M1 → 验证 → 冻结 → 设置 `active_module: M2` → 重复。
 
 ---
 
-## Stop Conditions
+## 三大架构禁止项
 
-Pause only if one of these is true:
-- the reference code is missing,
-- the normalized golden cannot be made equivalent,
-- the framework fundamentally blocks the required integrated form,
-- required user runtime logs are missing,
-- further progress would be blind speculation.
+### 禁止项 A：不得一次性实现
 
-**Not** valid pause reasons: a single cryptic error code, fear of using more tokens, or unwillingness to try another documented strategy — use `skills/debugging/DEBUG.md` and keep iterating.
+不要从参考代码直接跳到一个集成的 PyPTO kernel。先标准化 golden → 按语义边界拆分 → 验证每个边界 → 渐进集成。
+
+### 禁止项 B：不得使用 Python 宿主循环实现 kernel tiling 逻辑
+
+不要使用 Python `for` 循环模拟 kernel 的算法化 tile 执行。算法循环必须使用 `pypto.loop` 或显式的语义分阶段。允许的宿主循环：遍历测试用例、候选配置、用于记录的模块，或宿主侧验证输入。
+
+### 禁止项 C：不得采用每模块一个 JIT 的生产架构
+
+模块是语义块，不是独立的生产 JIT 入口。组装为一个生产 `@pypto.frontend.jit` kernel。分阶段多 kernel 回退方案仅在被框架限制阻塞融合时允许 —— 必须明确标记为回退方案。
 
 ---
 
-## Plan file (every turn)
+## 停止条件
 
-Update `custom/plan/<operator_name>.md`:
+仅在以下情况之一为真时暂停：
+- 参考代码缺失，
+- 标准化后的 golden 无法与原始版本等价，
+- 框架从根本上阻止了所需的集成形式，
+- 缺少必要的用户运行时日志，
+- 继续推进将是盲目猜测。
 
-- `active_module`, `modules_pypto_verified`, **`current_staged_file`** (e.g. `custom/<op>/<op>_module12.py`)
-- **Module decomposition** (overview + rationale) when the split is known or changes
-- **Golden function inventory** — update ✅/❌ status after each module implementation (rule 20)
-- **Staged module files** table — checkmarks / filenames as stages complete
-- **Per-module verification log** after each boundary run (with **`detailed_tensor_compare`** evidence)
+**以下不是**有效的暂停理由：单个晦涩错误码、害怕使用更多 token、或不愿意尝试另一个文档记录的策略 —— 使用 `skills/debugging/DEBUG.md` 并继续迭代。
+
+---
+
+## 计划文件（每轮）
+
+更新 `custom/plan/<operator_name>.md`：
+
+- `active_module`、`modules_pypto_verified`、**`current_staged_file`**（例如 `custom/<op>/<op>_module12.py`）
+- **模块分解**（概览 + 理由），当拆分方案已知或变更时
+- **Golden 函数清单** —— 每个模块实现后更新 ✅/❌ 状态（规则 20）
+- **分阶段模块文件**表 —— 完成阶段时打勾/填写文件名
+- **逐模块验证日志**，每次边界运行后（附 **`detailed_tensor_compare`** 证据）
 - `next_mandatory_step`
-- **Development & debug log** entry after each run or edit
-- After **`custom/`** changes: run **`skills/ci-and-layout-check/run_validate_layout.sh`** (or fix until exit 0)
+- **开发与调试日志**条目，每次运行或编辑后
+- **`custom/`** 变更后：运行 **`skills/ci-and-layout-check/run_validate_layout.sh`**（或修复直到 exit 0）
 
 ---
 
-## Skill library rules
+## Skill 库规则
 
-21. **Skill priority** — When a category skill's instructions conflict with these rules, this rules.md takes precedence. In particular: module-at-a-time enforcement, staged file chain, `detailed_tensor_compare` mandatory for all outputs, Golden function inventory cross-check, and Layer A-L template structure.
-22. **Skill read timing** — Read a skill's SKILL.md only when `agent-plan.md` or a Phase SKILL.md explicitly directs you to. Use `catalog.yaml` → `_category.yaml` to locate skills. Do not pre-read all skills. Token cost is not an excuse to skip reading a skill when directed.
-23. **Skill files are read-only** — Do not edit files under `skills/`. If a skill needs adaptation, add the override in the calling Phase SKILL.md or in `custom/plan/<operator_name>.md`.
+21. **Skill 优先级** —— 当类别 skill 的指令与这些规则冲突时，以本 rules.md 为准。特别是：逐模块强制执行、分阶段文件链、`detailed_tensor_compare` 对所有输出强制使用、Golden 函数清单交叉检查、以及 A-L 层级模板结构。
+22. **Skill 读取时机** —— 仅当 `agent-plan.md` 或 Phase SKILL.md 明确指示时才读取某个 skill 的 SKILL.md。使用 `catalog.yaml` → `_category.yaml` 定位 skill。不要预读所有 skill。token 消耗不是跳过被指示读取 skill 的理由。
+23. **Skill 文件只读** —— 不要编辑 `skills/` 下的文件。如果某个 skill 需要适配，在调用的 Phase SKILL.md 或 `custom/plan/<operator_name>.md` 中添加覆盖。

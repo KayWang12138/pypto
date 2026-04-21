@@ -1,155 +1,155 @@
 ---
 name: pypto-kernel-phase0-phase1
-description: Phase 0 (triage, API availability, planning file) and Phase 1 (golden preparation — audit, normalize, freeze). Covers everything before PyPTO code is written.
+description: Phase 0（分诊、API 可用性、计划文件）和 Phase 1（golden 准备 — 审计、规范化、冻结）。涵盖编写 PyPTO 代码之前的所有工作。
 ---
 
-# PyPTO Complex Kernel — Phase 0–1: Planning and Golden Preparation
+# PyPTO 复杂 Kernel — Phase 0–1：规划与 Golden 准备
 
-## Contents
+## 目录
 
-| File | Purpose |
-|------|---------|
-| **This file (SKILL.md)** | Phase 0-1 workflow guide |
-| **`op_index.json`** | Optional local op index snapshot — offline fallback for `query_op` / `list_ops` (see `pypto-api-explorer` for live query) |
+| 文件 | 用途 |
+|------|------|
+| **本文件（SKILL.md）** | Phase 0-1 工作流指南 |
+| **`op_index.json`** | 可选的本地算子索引快照 — `query_op` / `list_ops` 的离线回退方案（实时查询见 `pypto-api-explorer`） |
 
-## Phase 0: Triage and Planning
+## Phase 0：分诊与规划
 
-Before any code generation, decide whether the complex kernel workflow applies.
+在生成任何代码之前，确定是否适用复杂 kernel 工作流。
 
-Use this workflow if any of the following are true:
-- backward kernel,
-- recurrent or stateful kernel,
-- scan-like kernel,
-- multiple dependent math stages,
-- multiple layout transitions,
-- multiple reductions,
-- nested loop structure,
-- previous failed attempts,
-- temptation to "just implement the whole thing now".
+以下任一条件为真时使用本工作流：
+- backward kernel，
+- 递归或有状态 kernel，
+- 类 scan kernel，
+- 多个依赖的数学阶段，
+- 多次 layout 转换，
+- 多次归约，
+- 嵌套循环结构，
+- 之前尝试失败，
+- 想要"直接实现整个东西"的冲动。
 
-### Step 0.1: API availability check
+### 步骤 0.1：API 可用性检查
 
-Decompose the formula into atomic operations and verify each one exists in PyPTO:
+将公式分解为原子操作，逐一验证其在 PyPTO 中是否存在：
 
 ```
-# MCP preferred
+# 优先使用 MCP
 list_ops(category="")
 query_op(names=["<op1>", "<op2>"])
 ```
 
-CLI fallback:
+CLI 回退方案：
 ```bash
 python3 .agents/skills/pypto-api-explorer/scripts/query_op_index.py --list-categories
 python3 .agents/skills/pypto-api-explorer/scripts/query_op_index.py --op <op1> --op <op2> --compact
 ```
 
-For any operation not found by name, search by category or semantically:
+对于按名称未找到的操作，按类别或语义搜索：
 ```
-list_ops(category="<relevant_category>")
-retrieve_docs(query="<formula step> PyPTO API", chunk_type="api_doc")
-```
-
-Mark each formula step as **supported**, **needs substitute**, or **unsupported** before proceeding. Do not begin implementation for unsupported operations without a confirmed substitute.
-
-### Subskill delegation: requirements and environment (optional)
-
-**If requirements are unstructured:** Read `skills/pypto-intent-understand/SKILL.md` and follow its workflow to produce a `SPEC.md`. Use the SPEC.md output to populate the plan file's task summary and API map.
-
-**If environment issues arise:** Read `skills/pypto-environment-setup/SKILL.md` and follow its workflow to diagnose and fix CANN, torch_npu, or build-chain problems.
-
-### Subskill delegation: enhanced API exploration
-
-After completing Step 0.1, if deeper constraint verification is needed (3-layer validation, reference implementation search across `models/` and `examples/`), read `skills/pypto-api-explore/SKILL.md` and produce an `API_REPORT.md`. Merge the API_REPORT.md findings into the plan's API map section.
-
-### Step 0.2: Find structurally similar examples
-
-Search for existing kernels with similar structure:
-```
-retrieve_docs(query="<kernel type> example loop structure tiling", chunk_type="example")
+list_ops(category="<相关类别>")
+retrieve_docs(query="<公式步骤> PyPTO API", chunk_type="api_doc")
 ```
 
-Record the most relevant example path in the plan file.
+在继续之前，将每个公式步骤标记为 **已支持**、**需要替代** 或 **不支持**。对于不支持的操作，在确认替代方案之前不得开始实现。
 
-### Mandatory planning file
+### 子技能委托：需求与环境（可选）
 
-Create `custom/plan/<operator_name>.md` first, then continue implementation immediately.
+**如果需求非结构化：** 阅读 `skills/pypto-intent-understand/SKILL.md` 并按其工作流产出 `SPEC.md`。使用 SPEC.md 输出来填充计划文件的任务摘要和 API 映射。
 
-The plan must contain:
-- task summary,
-- reference locations (including example paths from Step 0.2),
-- API availability map (from Step 0.1),
-- normalized golden status,
-- module list,
-- module contracts,
-- frozen items,
-- attempt history,
-- integration status,
-- optimization status,
-- blocker list,
-- **design format compliance:** which layers from `skills/kernel-code-format/pypto-kernel-design-format.md` (A–L) apply, which are omitted and why,
-- **`active_module`** and **`modules_pypto_verified`** (see `skills/lead-orchestrator/references/rules.md` → Module-at-a-time enforcement).
+**如果出现环境问题：** 阅读 `skills/pypto-environment-setup/SKILL.md` 并按其工作流诊断和修复 CANN、torch_npu 或构建链问题。
+
+### 子技能委托：增强 API 探索
+
+完成步骤 0.1 后，如果需要更深入的约束验证（3 层验证、跨 `models/` 和 `examples/` 的参考实现搜索），阅读 `skills/pypto-api-explore/SKILL.md` 并产出 `API_REPORT.md`。将 API_REPORT.md 的发现合并到计划的 API 映射部分。
+
+### 步骤 0.2：查找结构相似的示例
+
+搜索具有类似结构的现有 kernel：
+```
+retrieve_docs(query="<kernel 类型> example loop structure tiling", chunk_type="example")
+```
+
+在计划文件中记录最相关的示例路径。
+
+### 计划文件（必须）
+
+首先创建 `custom/plan/<算子名称>.md`，然后立即继续实现。
+
+计划必须包含：
+- 任务摘要，
+- 参考位置（包括步骤 0.2 的示例路径），
+- API 可用性映射（来自步骤 0.1），
+- 规范化 golden 状态，
+- 模块列表，
+- 模块契约，
+- 已冻结项，
+- 尝试历史，
+- 集成状态，
+- 优化状态，
+- 阻塞列表，
+- **设计格式合规性：** `skills/kernel-code-format/pypto-kernel-design-format.md`（A–L）中哪些层适用，哪些省略及原因，
+- **`active_module`** 和 **`modules_pypto_verified`**（见 `skills/lead-orchestrator/references/rules.md` → 逐模块执行规则）。
 
 ---
 
-## Phase 1: Golden Preparation
+## Phase 1：Golden 准备
 
-Goal: define one trusted reference that is mathematically correct and structurally mappable to PyPTO.
+目标：定义一个数学正确且在结构上可映射到 PyPTO 的可信参考。
 
-### Step 1. Start from the strongest available reference
+### 步骤 1：从最强可用的参考开始
 
-Preferred order:
-1. PyTorch forward/backward reference
-2. NumPy reference
-3. New mathematical reference only if no existing reference exists
+优先级顺序：
+1. PyTorch forward/backward 参考
+2. NumPy 参考
+3. 仅当没有现有参考时才编写新的数学参考
 
-Before writing a new reference:
+在编写新参考之前：
 ```
-retrieve_docs(query="<operator name> golden reference implementation", chunk_type="example")
+retrieve_docs(query="<算子名称> golden reference implementation", chunk_type="example")
 ```
 
-### Step 2. Audit the reference for PyPTO-unfriendly patterns
+### 步骤 2：审计参考中不兼容 PyPTO 的模式
 
-Actively search for:
-- implicit multi-axis broadcasting,
-- opaque library operations,
-- difficult composite calls,
-- hidden layout changes,
-- control flow that must become explicit,
-- 4D/5D manipulations that may be fragile in PyPTO,
-- host-side conveniences that do not map cleanly to tile_fwk IR.
+主动搜索：
+- 隐式多轴广播，
+- 不透明的库操作，
+- 复杂的组合调用，
+- 隐藏的 layout 变更，
+- 必须显式化的控制流，
+- 在 PyPTO 中可能脆弱的 4D/5D 操作，
+- 不能干净映射到 tile_fwk IR 的 host 侧便利操作。
 
-For each suspicious pattern, query the op_index:
+对每个可疑模式，查询 op_index：
 ```
 query_op(names=["<op>"])
 ```
 
-### Step 3. Normalize the golden
+### 步骤 3：规范化 golden
 
-Rewrite the golden into a PyPTO-friendly reference.
+将 golden 重写为 PyPTO 友好的参考。
 
-Rules:
-- preserve semantics, not source syntax,
-- make shapes explicit,
-- make dtype transitions explicit,
-- expose intermediate tensors with meaningful names,
-- expose semantic module boundaries (mark with `# --- Module M1: <role> ---` comments),
-- rewrite hidden broadcast chains into one-axis-at-a-time forms if needed,
-- rewrite narrow vectors or awkward layouts into alignment-friendly representations,
-- **Do not use `.T` / `.t()`:** replace with `torch.transpose(t, dim0, dim1)`. For matmul `a @ b.T`, write `torch.matmul(a, b.transpose(-2, -1))` and comment `# a @ b^T → pypto: b_trans=True`,
-- annotate every intermediate tensor with a shape comment `# [B, H, T, K]`.
+规则：
+- 保留语义，不保留源代码语法，
+- 显式化 shape，
+- 显式化 dtype 转换，
+- 用有意义的名称暴露中间 tensor，
+- 暴露语义模块边界（用 `# --- Module M1: <角色> ---` 注释标记），
+- 必要时将隐藏的广播链重写为逐轴形式，
+- 将窄向量或别扭的 layout 重写为对齐友好的表示，
+- **不使用 `.T` / `.t()`：** 替换为 `torch.transpose(t, dim0, dim1)`。对于 matmul `a @ b.T`，写 `torch.matmul(a, b.transpose(-2, -1))` 并注释 `# a @ b^T → pypto: b_trans=True`，
+- 为每个中间 tensor 添加 shape 注释 `# [B, H, T, K]`。
 
-### Subskill delegation: golden generation (optional)
+### 子技能委托：golden 生成（可选）
 
-To leverage automated golden generation with confidence scoring and auto-repair, read `skills/pypto-golden-generate/SKILL.md`. The subskill produces `{op}_golden.py` with a validation suite.
+要使用带置信度评分和自动修复的自动化 golden 生成，阅读 `skills/pypto-golden-generate/SKILL.md`。该子技能产出带验证套件的 `{op}_golden.py`。
 
-**Kernel-complex overrides apply:** regardless of the subskill's output, the golden must comply with all Phase 1 rules above (no `.T`/`.t()`, shape comments on every intermediate, `# --- Module M1 ---` boundary markers). Apply these manually after subskill execution if needed.
+**复杂 kernel 覆盖规则适用：** 无论子技能的输出如何，golden 必须符合上述所有 Phase 1 规则（不使用 `.T`/`.t()`、每个中间结果有 shape 注释、`# --- Module M1 ---` 边界标记）。如有需要，在子技能执行后手动应用这些规则。
 
-### Step 3a. Golden implementation strategy: full vs. tiled
+### 步骤 3a. Golden 实现策略：完整计算 vs. 分块计算
 
-The normalized golden can adopt **two equivalent strategies**:
+规范化的 golden 可以采用**两种等价策略**：
 
-#### Strategy 1: Full computation (default)
-Process the entire input tensor at once. Simplest and most straightforward.
+#### 策略 1：完整计算（默认）
+一次性处理整个输入 tensor。最简单直接。
 ```python
 def attention_golden(q, k, v):
     scores = torch.matmul(q, k.transpose(-2, -1))
@@ -157,17 +157,17 @@ def attention_golden(q, k, v):
     return torch.matmul(probs, v)
 ```
 
-#### Strategy 2: Tiled computation (optional, recommended for complex kernels)
-Split input into small tiles, compute each tile independently, and concatenate or accumulate results. This implementation pattern:
-- Mirrors how PyPTO kernels actually execute (tile-by-tile)
-- Allows early verification of boundary handling, padding, and accumulation logic
-- Can expose tile-size effects on numerical precision before full PyPTO implementation
-- Is essential for kernels with inherent tiling structure (attention with window size, blockwise matmul, FlashAttention patterns)
+#### 策略 2：分块计算（可选，推荐用于复杂 kernel）
+将输入拆分为小块，独立计算每块，然后拼接或累加结果。这种实现模式：
+- 模拟 PyPTO kernel 的实际执行方式（逐块计算）
+- 允许在完整 PyPTO 实现之前提前验证边界处理、填充和累加逻辑
+- 可以在完整 PyPTO 实现之前暴露 tile 大小对数值精度的影响
+- 对于具有内在分块结构的 kernel（带窗口大小的 attention、分块 matmul、FlashAttention 模式）至关重要
 
-Example (batched tiling):
+示例（批量分块）：
 ```python
 def attention_golden_tiled(q, k, v, window_size=None):
-    """Tiled attention golden (matches PyPTO kernel tile-by-tile execution)."""
+    """分块 attention golden（匹配 PyPTO kernel 逐块执行）。"""
     outputs = []
     for b in range(q.shape[0]):
         q_tile = q[b:b+1, ...]  # [1, h, t, d]
@@ -180,42 +180,42 @@ def attention_golden_tiled(q, k, v, window_size=None):
     return torch.cat(outputs, dim=0)
 ```
 
-**When to choose tiled implementation:**
-- Kernel spec explicitly describes tiling or loop-based computation
-- Algorithm involves splitting, partial results, or state accumulation
-- Need to verify tile-boundary edge cases before full PyPTO implementation
+**何时选择分块实现：**
+- Kernel 规格明确描述了分块或基于循环的计算
+- 算法涉及拆分、部分结果或状态累加
+- 需要在完整 PyPTO 实现之前验证 tile 边界边缘情况
 
-**Both strategies must produce identical numerical results** (within floating-point tolerance). If implementing both, include both in `{op}_golden.py` and verify equivalence in the validation suite.
+**两种策略必须产生相同的数值结果**（在浮点容差范围内）。如果同时实现两种，都包含在 `{op}_golden.py` 中并在验证套件中验证等价性。
 
-### Step 3b. Build Golden function inventory (mandatory)
+### 步骤 3b. 构建 Golden function inventory（必须）
 
-After the normalized golden is written, list every mathematical operation in `custom/plan/<operator_name>.md` → Golden function inventory:
+规范化 golden 编写完成后，在 `custom/plan/<算子名称>.md` → Golden function inventory 中列出每个数学操作：
 
 ```
-| # | Golden operation          | Shape transformation              | PyPTO implementation | Line | Status |
-|---|---------------------------|-----------------------------------|---------------------|------|--------|
-| 1 | matmul(q, k^T)            | [B,H,T,K]@[B,H,K,T]->[B,H,T,T]  | pypto.matmul(...)   | L.42 | ✅     |
-| 2 | softmax(scores, dim=-1)   | [B,H,T,T]->[B,H,T,T]             |                     |      | ❌     |
+| # | Golden 操作               | Shape 变换                         | PyPTO 实现          | 行号 | 状态 |
+|---|---------------------------|-----------------------------------|---------------------|------|------|
+| 1 | matmul(q, k^T)            | [B,H,T,K]@[B,H,K,T]->[B,H,T,T]  | pypto.matmul(...)   | L.42 | ✅    |
+| 2 | softmax(scores, dim=-1)   | [B,H,T,T]->[B,H,T,T]             |                     |      | ❌    |
 ```
 
-**Gate:** Do not proceed to Phase 2 until the inventory exists and the golden contains zero `.T`/`.t()` calls.
+**Gate：** 在 inventory 存在且 golden 包含零个 `.T`/`.t()` 调用之前，不得进入 Phase 2。
 
-### Step 4. Validate normalized golden against original golden
+### 步骤 4：验证规范化 golden 与原始 golden
 
-Always validate with:
-- same random seed,
-- small shape,
-- representative shape,
-- boundary/edge shape,
-- dtype-aware comparison,
-- NaN/Inf checks,
-- `assert_allclose` with the required tolerance policy.
+始终使用以下方式验证：
+- 相同随机种子，
+- 小 shape，
+- 典型 shape，
+- 边界/极端 shape，
+- dtype 感知比较，
+- NaN/Inf 检查，
+- 带有所需容差策略的 `assert_allclose`。
 
-If the normalized golden does not match, stop and fix. Do not begin PyPTO implementation.
+如果规范化 golden 不匹配，停止并修复。不要开始 PyPTO 实现。
 
-### Step 5. Freeze the normalized golden
+### 步骤 5：冻结规范化 golden
 
-After the normalized golden matches:
-- mark it frozen in the plan,
-- use it as the single reference going forward,
-- do not change it unless there is evidence the normalization itself is wrong.
+规范化 golden 匹配后：
+- 在计划中标记为已冻结，
+- 作为后续的唯一参考，
+- 除非有证据表明规范化本身有误，否则不要更改。

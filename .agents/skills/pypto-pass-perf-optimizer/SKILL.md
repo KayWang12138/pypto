@@ -329,11 +329,11 @@ perf report
 
 ---
 
-## Detailed Procedures and Script Reference
+## 详细流程与脚本参考
 
-Read `references/optimization-procedures.md` for:
-- Performance analysis recording templates
-- Python script usage (parse_pass_perf.py, flamegraph scripts)
-- Timeout configuration
-- Functional correctness safeguards
-- Common commands reference
+阅读 `references/optimization-procedures.md` 了解：
+- 性能分析记录模板
+- Python 脚本用法（parse_pass_perf.py、火焰图脚本）
+- 超时配置
+- 功能正确性保障
+- 常用命令参考

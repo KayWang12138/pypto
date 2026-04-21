@@ -1,144 +1,133 @@
 ---
 name: pypto-tile-shape-debug
-description: Diagnose and fix set_cube_tile_shapes / set_vec_tile_shapes failures. Reverse-engineer concrete [L0, L1] values from the error message. Use this skill when the error mentions "L0 size exceeded", "L1 size exceeded", "tile align", "tile shape not set", "enable_split_k", or when matmul crashes immediately after a tile-config change.
+description: 诊断并修复 set_cube_tile_shapes / set_vec_tile_shapes 失败。从错误消息反向推导具体的 [L0, L1] 值。当错误消息提及 "L0 size exceeded"、"L1 size exceeded"、"tile align"、"tile shape not set"、"enable_split_k"，或 matmul 在 tile-config 变更后立即崩溃时，使用此技能。
 license: Internal
 ---
 
-# Tile Shape Debug
+# Tile Shape 调试
 
-When `pypto.matmul` or a cube op fails at tile-config or compile time, the root cause is
-almost always a violation of one of the `set_cube_tile_shapes` constraints in
-`docs/api/config/pypto-set_cube_tile_shapes.md`. This skill maps the failure symptom to a
-concrete **patch proposal** (new `[L0, L1]` values) — it does NOT modify production code.
+当 `pypto.matmul` 或 Cube 算子在 tile-config 或编译阶段失败时，根本原因几乎总是违反了 `docs/api/config/pypto-set_cube_tile_shapes.md` 中 `set_cube_tile_shapes` 的某项约束。本技能将失败症状映射到具体的**补丁提案**（新的 `[L0, L1]` 值）——它不会修改生产代码。
 
-The Debug Agent owns patch proposals; the Coding Agent applies them per
-`.opencode/agents/coding.md`.
+Debug Agent 负责补丁提案；Coding Agent 按照 `.opencode/agents/coding.md` 应用补丁。
 
 ---
 
-## 0. API contract recap (must read first)
+## 0. API 约定回顾（必须首先阅读）
 
 ```python
 pypto.set_cube_tile_shapes(
-    m: List[int],          # [mL0, mL1]  — exactly 2 elements
+    m: List[int],          # [mL0, mL1]  — 恰好 2 个元素
     k: List[int],          # [kL0, kL1]
     n: List[int],          # [nL0, nL1]
     enable_split_k: bool = False,
 )
 ```
 
-Hard invariants (per axis X ∈ {m, k, n}):
+硬性约束（对每个轴 X ∈ {m, k, n}）：
 
-- **Shape of the argument itself**: `len(X) == 2`. A 1-element list (`[16]`) or a 3+ list is a bug.
-- **Ordering**: `0 < XL0 <= XL1`.
-- **Divisibility**: `XL1 % XL0 == 0`.
-- **Alignment** (non-FP32):
-  - `kL0, kL1, nL0, nL1` must be **32-byte aligned**, i.e.
-    `XLi * sizeof(dtype) % 32 == 0`.
-  - FP16 / BF16: multiples of **16 elements**.
-  - INT8: multiples of **32 elements**.
-- **Alignment (FP32)**: replace "32-byte" with "**16-element**" for kL0/kL1/nL0/nL1.
-- **A matrix ND-transposed**: mL0 must be 32-byte aligned too.
-- **NZ format**: outer axis 16-element aligned, inner axis 32-byte aligned.
-- **L0 buffer budget** (dtype FP16/BF16/FP32, cDtype = FP32):
+- **参数本身的形状**：`len(X) == 2`。1 元素列表（`[16]`）或 3+ 元素列表是 bug。
+- **顺序约束**：`0 < XL0 <= XL1`。
+- **整除约束**：`XL1 % XL0 == 0`。
+- **对齐约束**（非 FP32）：
+  - `kL0, kL1, nL0, nL1` 必须**32 字节对齐**，即 `XLi * sizeof(dtype) % 32 == 0`。
+  - FP16 / BF16：**16 元素**的倍数。
+  - INT8：**32 元素**的倍数。
+- **对齐约束（FP32）**：将 kL0/kL1/nL0/nL1 的 "32 字节" 替换为 "**16 元素**"。
+- **A 矩阵 ND 转置**：mL0 也必须 32 字节对齐。
+- **NZ 格式**：外轴 16 元素对齐，内轴 32 字节对齐。
+- **L0 缓存预算**（dtype FP16/BF16/FP32，cDtype = FP32）：
   - `CeilAlign(mL0,16) * CeilAlign(kL0,16) * sizeof(aDtype) <= L0A_size`
   - `CeilAlign(nL0,16) * CeilAlign(kL0,16) * sizeof(bDtype) <= L0B_size`
   - `CeilAlign(mL0,16) * CeilAlign(nL0,16) * sizeof(FP32)  <= L0C_size`
-- **L0 buffer budget** (dtype INT8, cDtype = INT32): same shape, align=32, sizeof per dtype.
-- **L1 buffer budget**:
+- **L0 缓存预算**（dtype INT8，cDtype = INT32）：同样的 shape，align=32，各 dtype 对应 sizeof。
+- **L1 缓存预算**：
   - `CeilAlign(mL1,16) * CeilAlign(kL1,16) * sizeof(aDtype)`
     `+ CeilAlign(nL1,16) * CeilAlign(kL1,16) * sizeof(bDtype)`
     `<= L1_size`
-  - Replace 16 with 32 for INT8.
-- **Bias (BTBuffer = 1 KB, upcast to fp32)**: `nL0 * 4 <= 1024`  →  `nL0 <= 256`.
-- **FixPipe (FixBuffer = 2 KB, scale uint64)**: `nL0 * 8 <= 2048`  →  `nL0 <= 256`.
-- **`enable_split_k=True`**: only valid for **2D** inputs. 3D/4D must use `enable_split_k=False`.
+  - INT8 时将 16 替换为 32。
+- **Bias（BTBuffer = 1 KB，上转型为 FP32）**：`nL0 * 4 <= 1024` → `nL0 <= 256`。
+- **FixPipe（FixBuffer = 2 KB，scale 为 uint64）**：`nL0 * 8 <= 2048` → `nL0 <= 256`。
+- **`enable_split_k=True`**：仅对**2D** 输入有效。3D/4D 必须使用 `enable_split_k=False`。
 
-`CeilAlign(v, a) = ((v + a - 1) // a) * a`.
+`CeilAlign(v, a) = ((v + a - 1) // a) * a`。
 
-Typical device budgets on Atlas A2/A3 (confirm per product in `docs/`):
+Atlas A2/A3 上的典型设备预算（请在 `docs/` 中按产品确认）：
 
-| Buffer | Typical size |
+| 缓存 | 典型大小 |
 |--------|--------------|
 | L0A    | 64 KB        |
 | L0B    | 64 KB        |
 | L0C    | 128 KB       |
 | L1     | 512 KB       |
 
-Always verify the current device's exact budgets if the error message quotes a limit.
+如果错误消息引用了某个限制值，请始终验证当前设备的实际预算。
 
 ---
 
-## 1. Symptom → Root cause routing table
+## 1. 症状 → 根因路由表
 
-Before proposing anything, route the failure by matching the error message or `validate_custom_kernel_layout.py` output.
+在提出任何建议之前，通过匹配错误消息或 `validate_custom_kernel_layout.py` 的输出进行路由。
 
-| Symptom (in error / CI output) | Category | Jump to |
+| 症状（在错误/CI 输出中） | 类别 | 跳转到 |
 |---|---|---|
-| `must be a 2-element list` (from `validate_custom_kernel_layout.py`) | Arity  | §2 |
-| `mL1 % mL0 == 0` / `requires XL0 <= XL1` (from validator) | Divisibility / ordering | §3 |
-| `tile shape not set` | Missing call | §4 |
-| `L0A size exceeded` / `L0B size exceeded` / `L0C size exceeded` / "L0 ... overflow" | L0 budget | §5 |
-| `L1 size exceeded` / "L1 buffer out of range" | L1 budget | §6 |
-| `alignment` / `% 32 != 0` / `% 16 != 0` / "not aligned" | Alignment | §7 |
-| `enable_split_k` with 3D/4D inputs | split_k misuse | §8 |
-| `BTBuffer` / `FixBuffer` overflow | Bias / FixPipe | §9 |
-| Runtime wrong result but no crash; matmul then vec op | Missing `set_vec_tile_shapes` | §10 |
+| `must be a 2-element list`（来自 `validate_custom_kernel_layout.py`） | 元素数量  | §2 |
+| `mL1 % mL0 == 0` / `requires XL0 <= XL1`（来自验证器） | 整除性/顺序 | §3 |
+| `tile shape not set` | 缺少调用 | §4 |
+| `L0A size exceeded` / `L0B size exceeded` / `L0C size exceeded` / "L0 ... overflow" | L0 预算 | §5 |
+| `L1 size exceeded` / "L1 buffer out of range" | L1 预算 | §6 |
+| `alignment` / `% 32 != 0` / `% 16 != 0` / "not aligned" | 对齐 | §7 |
+| `enable_split_k` 搭配 3D/4D 输入 | split_k 误用 | §8 |
+| `BTBuffer` / `FixBuffer` 溢出 | Bias / FixPipe | §9 |
+| 运行时结果错误但未崩溃；matmul 后接 vec 算子 | 缺少 `set_vec_tile_shapes` | §10 |
 
-If the error doesn't match any row, fall back to the systematic procedure in §11.
+如果错误不匹配任何行，则回退到 §11 中的系统化流程。
 
 ---
 
-## 2. Arity fix — lists must be `[L0, L1]`
+## 2. 元素数量修复 — 列表必须是 `[L0, L1]`
 
-**Symptom**: `validate_custom_kernel_layout.py` says
-`\`m\` must be a 2-element list \`[mL0, mL1]\`, got 1-element list`.
+**症状**：`validate_custom_kernel_layout.py` 报告 `\`m\` must be a 2-element list \`[mL0, mL1]\`, got 1-element list`。
 
-**Cause**: A code block like:
+**原因**：类似以下代码：
 
 ```python
-pypto.set_cube_tile_shapes([16], [32], [64])      # BUG — L1 missing
+pypto.set_cube_tile_shapes([16], [32], [64])      # BUG — 缺少 L1
 ```
 
-**Patch proposal**: pick `L1 = L0 * k` for a small integer `k ≥ 1` that still fits L0/L1 budgets.
-Safe default when you have no other constraint:
+**补丁提案**：选择 `L1 = L0 * k`，其中 `k ≥ 1` 为小整数，且仍满足 L0/L1 预算。
+在没有其他约束时的安全默认值：
 
 ```python
 pypto.set_cube_tile_shapes([16, 32], [32, 64], [64, 128])
 ```
 
-If shape is known: target `mL1 ≈ M`, `nL1 ≈ N`, `kL1 ≈ K`, then pick `L0` as a clean divisor
-(e.g. 64 or 128), confirming §5 and §6 still hold.
+如果 shape 已知：目标 `mL1 ≈ M`，`nL1 ≈ N`，`kL1 ≈ K`，然后选择 `L0` 为一个干净的除数（如 64 或 128），并确认 §5 和 §6 仍然满足。
 
 ---
 
-## 3. Divisibility / ordering fix
+## 3. 整除性 / 顺序修复
 
-**Symptom**: validator flags `XL0 > XL1` or `XL1 % XL0 != 0`.
+**症状**：验证器标记 `XL0 > XL1` 或 `XL1 % XL0 != 0`。
 
-**Patch proposal**: round `L1` up to the nearest multiple of `L0`; if that blows the L1 budget,
-shrink `L0` to a power-of-two divisor of `L1`.
+**补丁提案**：将 `L1` 向上取整到 `L0` 的最近倍数；如果超出 L1 预算，则缩小 `L0` 为 `L1` 的 2 的幂除数。
 
 ```
-# Given [L0, L1] = [96, 128]  (128 % 96 = 32, fails)
-# Fix option A:  [64, 128]     (128 % 64 == 0)  ✅
-# Fix option B:  [96, 192]     (192 % 96 == 0)  ✅ if L1 budget permits
+# 给定 [L0, L1] = [96, 128]  (128 % 96 = 32，失败)
+# 修复方案 A:  [64, 128]     (128 % 64 == 0)  ✅
+# 修复方案 B:  [96, 192]     (192 % 96 == 0)  ✅（如果 L1 预算允许）
 ```
 
 ---
 
 ## 4. "tile shape not set"
 
-**Symptom**: `tile shape not set` at the first matmul.
+**症状**：在第一个 matmul 处出现 `tile shape not set`。
 
-**Cause**: `set_cube_tile_shapes` is never called, or is called after matmul, or is set in a
-different function scope than the matmul call.
+**原因**：从未调用 `set_cube_tile_shapes`，或在 matmul 之后调用，或在不同于 matmul 调用的函数作用域中设置。
 
-**Patch proposal**: add the call at the **top of the `@pypto.frontend.jit` function body**,
-before any matmul, and re-set after any nested-scope change if the API requires it (see
-`skills/debugging/DEBUG.md §8`).
+**补丁提案**：在 **`@pypto.frontend.jit` 函数体的顶部**、任何 matmul 之前添加调用；如果 API 要求，在任何嵌套作用域变更后重新设置（参见 `skills/debugging/DEBUG.md §8`）。
 
-If mixing cube and vec ops, also call `set_vec_tile_shapes(...)`:
+如果混合使用 Cube 和 Vec 算子，还需调用 `set_vec_tile_shapes(...)`：
 
 ```python
 @pypto.frontend.jit(runtime_options={"run_mode": pypto.RunMode.NPU})
@@ -150,49 +139,48 @@ def kernel(...):
 
 ---
 
-## 5. L0 buffer exceeded
+## 5. L0 缓存超限
 
-**Symptom (examples)**:
+**症状（示例）**：
 
-- `L0A size exceeded`, `L0A buffer overflow`, or error quoting "L0A = 65536"
-- Similarly for `L0B`, `L0C`
+- `L0A size exceeded`、`L0A buffer overflow`，或错误引用 "L0A = 65536"
+- `L0B`、`L0C` 同理
 
-**Step 1 — identify which buffer**:
+**步骤 1 — 确定哪个缓存**：
 
-| Buffer | Formula that must hold                                                  |
+| 缓存 | 必须满足的公式                                                  |
 |--------|-------------------------------------------------------------------------|
 | L0A    | `CeilAlign(mL0, A_align) * CeilAlign(kL0, A_align) * sizeof(aDtype) <= L0A_size` |
 | L0B    | `CeilAlign(nL0, A_align) * CeilAlign(kL0, A_align) * sizeof(bDtype) <= L0B_size` |
 | L0C    | `CeilAlign(mL0, A_align) * CeilAlign(nL0, A_align) * sizeof(cDtype) <= L0C_size` |
 
-`A_align = 16` for FP16/BF16/FP32, `32` for INT8. `cDtype = FP32` (or INT32 for INT8 path).
+`A_align = 16`（FP16/BF16/FP32），`32`（INT8）。`cDtype = FP32`（INT8 路径为 INT32）。
 
-**Step 2 — shrink the offending `L0`**:
+**步骤 2 — 缩小违规的 `L0`**：
 
-- `L0A` exceeded → halve `mL0` or `kL0`, whichever is larger.
-- `L0B` exceeded → halve `nL0` or `kL0`.
-- `L0C` exceeded → halve `mL0` or `nL0`.
+- `L0A` 超限 → 将较大的 `mL0` 或 `kL0` 减半。
+- `L0B` 超限 → 将较大的 `nL0` 或 `kL0` 减半。
+- `L0C` 超限 → 将较大的 `mL0` 或 `nL0` 减半。
 
-Always preserve §3 after the change: after shrinking `XL0`, also shrink `XL1` if needed so
-that `XL1 % XL0 == 0` still holds.
+变更后始终检查 §3：缩小 `XL0` 后，如有需要也缩小 `XL1`，使 `XL1 % XL0 == 0` 仍然成立。
 
-**Step 3 — sanity-check L1** (§6) because reducing `L0` may allow a larger `L1` safely.
+**步骤 3 — 健全性检查 L1**（§6），因为减小 `L0` 可能允许更大的 `L1`。
 
-### Worked example (FP16, L0A = 64 KB)
+### 示例演练（FP16，L0A = 64 KB）
 
 ```
-Fail:   mL0=256, kL0=256, sizeof(FP16)=2 → 256*256*2 = 131072 > 65536 ❌
-Fix:    mL0=128, kL0=256                  → 128*256*2 = 65536  ≤ 65536 ✅
-Or:     mL0=256, kL0=128                  → 256*128*2 = 65536  ≤ 65536 ✅
+失败:   mL0=256, kL0=256, sizeof(FP16)=2 → 256*256*2 = 131072 > 65536 ❌
+修复:   mL0=128, kL0=256                  → 128*256*2 = 65536  ≤ 65536 ✅
+或:     mL0=256, kL0=128                  → 256*128*2 = 65536  ≤ 65536 ✅
 ```
 
 ---
 
-## 6. L1 buffer exceeded
+## 6. L1 缓存超限
 
-**Symptom**: `L1 size exceeded`, or error quoting "L1 = 524288".
+**症状**：`L1 size exceeded`，或错误引用 "L1 = 524288"。
 
-**Formula**:
+**公式**：
 
 ```
 CeilAlign(mL1, align) * CeilAlign(kL1, align) * sizeof(aDtype)
@@ -200,96 +188,88 @@ CeilAlign(mL1, align) * CeilAlign(kL1, align) * sizeof(aDtype)
 <= L1_size
 ```
 
-`align = 16` for FP16/BF16/FP32, `32` for INT8.
+`align = 16`（FP16/BF16/FP32），`32`（INT8）。
 
-**Patch strategy** — in priority order:
+**补丁策略** — 按优先级排序：
 
-1. **Halve `kL1`** first: it multiplies both A-term and B-term, so it gives ~2× the relief.
-2. If not enough, halve whichever of `mL1` / `nL1` is largest.
-3. Keep `L0 <= L1` and `L1 % L0 == 0` (§3).
-4. If workload shape can't support reducing `L1`, consider enabling `enable_split_k=True`
-   (only for 2D inputs — see §8) to distribute K across cores.
+1. **先将 `kL1` 减半**：它同时影响 A 项和 B 项，因此能提供约 2 倍的缓解。
+2. 如果不够，将 `mL1` / `nL1` 中较大的减半。
+3. 保持 `L0 <= L1` 和 `L1 % L0 == 0`（§3）。
+4. 如果工作负载 shape 不支持减小 `L1`，考虑启用 `enable_split_k=True`（仅限 2D 输入——见 §8）以在核心间分配 K。
 
-### Worked example (FP32, L1 = 512 KB)
+### 示例演练（FP32，L1 = 512 KB）
 
 ```
-Fail:   mL1=512, kL1=256, nL1=512, sizeof(FP32)=4
+失败:   mL1=512, kL1=256, nL1=512, sizeof(FP32)=4
          A = 512*256*4 = 524288
          B = 512*256*4 = 524288
          total = 1048576 > 524288 ❌
-Fix A:  halve kL1 → kL1=128
+修复 A:  kL1 减半 → kL1=128
          A = 512*128*4 = 262144
          B = 512*128*4 = 262144
-         total = 524288 ≤ 524288 ✅  (exactly at the limit)
-Fix B:  halve nL1 → nL1=256, kL1=256
+         total = 524288 ≤ 524288 ✅  (恰好达到上限)
+修复 B:  nL1 减半 → nL1=256, kL1=256
          A = 512*256*4 = 524288
          B = 256*256*4 = 262144
-         total = 786432 > 524288 ❌  (not enough — halve kL1 as in A)
+         total = 786432 > 524288 ❌  (不够——按方案 A 减半 kL1)
 ```
 
 ---
 
-## 7. Alignment errors
+## 7. 对齐错误
 
-**Symptom (examples)**: `not aligned`, `% 32 != 0`, `% 16 != 0`, "tile align".
+**症状（示例）**：`not aligned`、`% 32 != 0`、`% 16 != 0`、"tile align"。
 
-**Rule recap**:
+**规则回顾**：
 
-- FP16 / BF16 / FP32: `kL0, kL1, nL0, nL1` → **16-element aligned**
-- INT8: 32-element aligned
-- A transposed (ND, shape `[K, M]`): `mL0` 32-byte aligned
-- NZ format: outer 16-element, inner 32-byte
+- FP16 / BF16 / FP32：`kL0, kL1, nL0, nL1` → **16 元素对齐**
+- INT8：32 元素对齐
+- A 转置（ND，shape `[K, M]`）：`mL0` 32 字节对齐
+- NZ 格式：外轴 16 元素对齐，内轴 32 字节对齐
 
-**Patch**: round the offending value UP to the nearest multiple of the required alignment
-unit. If that breaks §5 / §6 / §3, shrink a different axis to compensate.
+**补丁**：将违规值向上取整到所需对齐单位的最近倍数。如果这导致 §5 / §6 / §3 不满足，则缩小其他轴来补偿。
 
 ```
-Fail (FP32): kL0=12  → 12 not multiple of 16 ❌
-Fix:         kL0=16                               ✅
+失败 (FP32): kL0=12  → 12 不是 16 的倍数 ❌
+修复:         kL0=16                               ✅
 ```
 
 ---
 
-## 8. `enable_split_k` misuse
+## 8. `enable_split_k` 误用
 
-**Symptom**: error mentions `enable_split_k` or "split k not supported for 3D/4D".
+**症状**：错误消息提及 `enable_split_k` 或 "split k not supported for 3D/4D"。
 
-**Rule**: `enable_split_k=True` is only valid when inputs are **2D**. For 3D/4D inputs
-(attention, 3D matmul), **must be False** (the default).
+**规则**：`enable_split_k=True` 仅在输入为**2D** 时有效。对于 3D/4D 输入（attention、3D matmul），**必须为 False**（默认值）。
 
-**Patch**: either reshape inputs to 2D in the host wrapper and issue matmul as 2D, or set
-`enable_split_k=False`.
+**补丁**：在 host wrapper 中将输入 reshape 为 2D 并以 2D 方式执行 matmul，或设置 `enable_split_k=False`。
 
 ```python
-# 3D/4D input
-pypto.set_cube_tile_shapes([128, 128], [64, 128], [128, 256])  # no split_k
+# 3D/4D 输入
+pypto.set_cube_tile_shapes([128, 128], [64, 128], [128, 256])  # 不使用 split_k
 
-# 2D input, need more parallelism
+# 2D 输入，需要更多并行度
 pypto.set_cube_tile_shapes([128, 128], [64, 256], [256, 256], enable_split_k=True)
 ```
 
 ---
 
-## 9. Bias / FixPipe buffer overflow
+## 9. Bias / FixPipe 缓存溢出
 
-- **BTBuffer (1 KB, bias upcast to FP32)**: `nL0 * 4 <= 1024` → `nL0 <= 256`.
-- **FixBuffer (2 KB, scale uint64)**: `nL0 * 8 <= 2048` → `nL0 <= 256`.
+- **BTBuffer（1 KB，bias 上转型为 FP32）**：`nL0 * 4 <= 1024` → `nL0 <= 256`。
+- **FixBuffer（2 KB，scale 为 uint64）**：`nL0 * 8 <= 2048` → `nL0 <= 256`。
 
-**Patch**: cap `nL0` at 256 whenever bias or FixPipe is active; if more parallelism is
-needed, raise `nL1` instead (subject to L1 budget, §6).
+**补丁**：当 bias 或 FixPipe 激活时，将 `nL0` 上限设为 256；如果需要更多并行度，则增大 `nL1`（受 L1 预算限制，§6）。
 
 ---
 
-## 10. Wrong result (not a crash): matmul + vec without `set_vec_tile_shapes`
+## 10. 结果错误（非崩溃）：matmul + vec 但未设置 `set_vec_tile_shapes`
 
-**Symptom**: numerical wrong answer from a kernel that mixes `matmul` with vector ops
-(`mul`, `add`, element-wise). No explicit tile-config error, but precision check fails.
+**症状**：混合使用 `matmul` 和向量算子（`mul`、`add`、逐元素操作）的 kernel 产生数值错误。没有明确的 tile-config 错误，但精度检查失败。
 
-**Cause**: `set_cube_tile_shapes` alone is **not** enough — AIV ops (including compiler-
-inserted `REGISTER_COPY`) still require `set_vec_tile_shapes`. See
-`skills/debugging/DEBUG.md §8` bullet "Do not rely only on `set_cube_tile_shapes`".
+**原因**：仅使用 `set_cube_tile_shapes` **不够** —— AIV 算子（包括编译器插入的 `REGISTER_COPY`）仍然需要 `set_vec_tile_shapes`。参见 `skills/debugging/DEBUG.md §8` 的要点 "Do not rely only on `set_cube_tile_shapes`"。
 
-**Patch proposal**: call **both**:
+**补丁提案**：**两者都调用**：
 
 ```python
 pypto.set_vec_tile_shapes(1, 1, 128, 128)
@@ -298,52 +278,47 @@ pypto.set_cube_tile_shapes([128, 128], [64, 128], [128, 256])
 
 ---
 
-## 11. Systematic fallback procedure
+## 11. 系统化回退流程
 
-If the symptom didn't match §2–§10:
+如果症状不匹配 §2–§10：
 
-1. **Find the call**: `grep -n "set_cube_tile_shapes\|set_vec_tile_shapes" custom/<op>/`.
-2. **Dump the argument values** (even symbolic): is each a 2-element list? do literal ints
-   satisfy §3?
-3. **Recompute each L0 / L1 formula** (§5, §6) by hand with the current dtype and device
-   budgets from `docs/`.
-4. **Identify the first invariant violated**; propose the minimum change that restores it.
-5. **Re-derive §3** (divisibility, ordering) after any change.
-6. **Re-check §5 / §6 / §9** — changes can cascade.
-7. **Write the proposal** to the plan file `custom/plan/<op>.md` under
-   `## tile-shape patch proposal`. Do NOT modify `_moduleN.py` yourself; Coding Agent
-   applies it per `.opencode/agents/coding.md`.
+1. **查找调用**：`grep -n "set_cube_tile_shapes\|set_vec_tile_shapes" custom/<op>/`。
+2. **导出参数值**（即使是符号值）：每个是否为 2 元素列表？字面量整数是否满足 §3？
+3. **手动重新计算每个 L0 / L1 公式**（§5, §6），使用当前 dtype 和 `docs/` 中的设备预算。
+4. **识别第一个被违反的约束**；提出恢复该约束的最小变更。
+5. 在任何变更后**重新推导 §3**（整除性、顺序）。
+6. **重新检查 §5 / §6 / §9** —— 变更可能级联。
+7. **将提案写入**计划文件 `custom/plan/<op>.md` 的 `## tile-shape patch proposal` 节下。不要自行修改 `_moduleN.py`；Coding Agent 按 `.opencode/agents/coding.md` 应用补丁。
 
 ---
 
-## 12. Output format — patch proposal
+## 12. 输出格式 — 补丁提案
 
-Write the proposal to `custom/plan/<op>.md`:
+将提案写入 `custom/plan/<op>.md`：
 
 ```markdown
 ## tile-shape patch proposal (cycle N)
 
 - File:   custom/<op>/<op>_module<suffix>.py
-- Line:   <lineno of the failing set_cube_tile_shapes call>
+- Line:   <失败的 set_cube_tile_shapes 调用的行号>
 - Before:
     pypto.set_cube_tile_shapes([256, 256], [256, 256], [256, 256])
 - After:
     pypto.set_cube_tile_shapes([128, 256], [64, 128], [128, 256])
-- Root cause: L1 budget exceeded (see §6). With FP32 and L1=512 KB,
-    (256*256*4) + (256*256*4) = 524288 is at the limit but combined with
-    kL1=256 halving needed ⇒ kL1=128.
-- Verification step: Coding Agent re-runs verification; if still failing,
-    return with the new error message for the next cycle.
+- Root cause: L1 预算超限（见 §6）。在 FP32 和 L1=512 KB 时，
+    (256*256*4) + (256*256*4) = 524288 已达到上限但结合
+    kL1=256 需要减半 ⇒ kL1=128。
+- Verification step: Coding Agent 重新运行验证；如果仍然失败，
+    返回新的错误消息以便下一轮处理。
 ```
 
-Include the reference `docs/api/config/pypto-set_cube_tile_shapes.md` in every proposal so
-the Coding Agent has a single source of truth.
+在每个提案中包含参考 `docs/api/config/pypto-set_cube_tile_shapes.md`，以便 Coding Agent 有唯一的权威来源。
 
 ---
 
-## 13. Budget constants cheat-sheet
+## 13. 预算常量速查表
 
-| Symbol      | Typical value (A2/A3) | Override source            |
+| 符号      | 典型值（A2/A3） | 覆盖来源            |
 |-------------|----------------------|-----------------------------|
 | `L0A_size`  | 65536 (64 KB)        | `docs/api/config/...`       |
 | `L0B_size`  | 65536 (64 KB)        | `docs/api/config/...`       |
@@ -352,17 +327,16 @@ the Coding Agent has a single source of truth.
 | `BTBuffer`  | 1024 (1 KB)          | `docs/api/config/...`       |
 | `FixBuffer` | 2048 (2 KB)          | `docs/api/config/...`       |
 
-If the device's actual error text quotes a different number (e.g. `L1 = 786432`), trust the
-error message and update your math accordingly.
+如果设备的实际错误文本引用了不同的数字（如 `L1 = 786432`），请信任错误消息并相应更新你的计算。
 
 ---
 
-## 14. Scope boundary (anti-pattern check)
+## 14. 职责边界（反模式检查）
 
-This skill produces **patch proposals**, not commits. The Debug Agent:
+本技能产出**补丁提案**，而非提交。Debug Agent：
 
-- MUST NOT open or modify `custom/<op>/<op>_module*.py`.
-- MUST write the proposal to `custom/plan/<op>.md`.
-- MUST cap at 3 cycles per `.opencode/agents/debug.md`; if still failing, escalate to Lead.
+- 不得打开或修改 `custom/<op>/<op>_module*.py`。
+- 必须将提案写入 `custom/plan/<op>.md`。
+- 每个 `.opencode/agents/debug.md` 最多 3 轮循环；如果仍然失败，上报给 Lead。
 
-The Coding Agent applies the patch, then Verification Agent re-judges.
+Coding Agent 应用补丁，然后 Verification Agent 重新判定。

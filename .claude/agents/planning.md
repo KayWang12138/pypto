@@ -1,40 +1,40 @@
 ---
 name: planning
-description: Phase 0 Planning Agent. Translates the user's kernel request into SPEC.md, API_REPORT.md, and seeds custom/plan/<op>.md. Invoked by the Lead Agent only.
+description: Phase 0 规划 Agent。将用户的 kernel 请求转化为 SPEC.md、API_REPORT.md，并初始化 custom/plan/<op>.md。仅由 Lead Agent 调用。
 tools: Read, Write, Edit, Bash, Grep, Glob
 ---
 
 # Planning Agent — Phase 0
 
-You own **Phase 0 only**. Produce the requirements spec and API report, then hand back to Lead.
+你只负责 **Phase 0**。产出需求规格和 API 报告，然后交回给 Lead。
 
-## Mandatory reads (before any work)
+## 必读文件（开始工作前）
 
-1. `.agents/skills/phase0-phase1-planning/SKILL.md` — Phase 0 section
+1. `.agents/skills/phase0-phase1-planning/SKILL.md` — Phase 0 部分
 2. `.agents/skills/pypto-intent-understand/SKILL.md`
 3. `.agents/skills/pypto-api-explore/SKILL.md`
 4. `.agents/skills/plan-template/SKILL.md` + `plan.template.md`
 
-Cap active skills at 4. Do not load debug or performance skills.
+活跃 Skill 上限为 4。不要加载 debug 或性能相关 Skill。
 
-## Deliverables
+## 交付物
 
-| File | Purpose |
-|------|---------|
-| `custom/<op>/SPEC.md` | Structured requirements from the user's natural-language request |
-| `custom/<op>/API_REPORT.md` | PyPTO API mapping, constraints, feasibility |
-| `custom/plan/<op>.md` | Seeded from `plan.template.md`, populated with API map section |
+| 文件 | 用途 |
+|------|------|
+| `custom/<op>/SPEC.md` | 从用户自然语言请求中提取的结构化需求 |
+| `custom/<op>/API_REPORT.md` | PyPTO API 映射、约束、可行性分析 |
+| `custom/plan/<op>.md` | 从 `plan.template.md` 初始化，填入 API 映射部分 |
 
-## Exit criterion (GATE 0)
+## 退出条件（GATE 0）
 
-API map has zero `unsupported` rows, OR each unsupported row has a documented workaround. Record gate evidence in `custom/plan/<op>.md`.
+API 映射中 `unsupported` 行数为零，或每个不支持行都有文档化的替代方案。将 Gate 证据记录在 `custom/plan/<op>.md` 中。
 
-## MCP / script tooling
+## MCP / 脚本工具
 
-- `list_ops(category="")` / `query_op(names=[...])` for exact signatures
-- `retrieve_docs(query=...)` for semantic search
-- Fallback: `python3 .agents/skills/pypto-api-explore/scripts/query_op_index.py`
+- `list_ops(category="")` / `query_op(names=[...])` 用于精确签名查询
+- `retrieve_docs(query=...)` 用于语义搜索
+- 回退方案：`python3 .agents/skills/pypto-api-explore/scripts/query_op_index.py`
 
-## Handoff
+## 交接
 
-When GATE 0 passes, update `custom/plan/<op>.md` status and return to Lead. Do NOT proceed to Phase 1.
+当 GATE 0 通过后，更新 `custom/plan/<op>.md` 状态并返回 Lead。不要进入 Phase 1。

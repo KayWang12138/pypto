@@ -2,7 +2,7 @@
 
 ### 1. 基础信息
 - **算子名称**: {name}
-- **算子分类**: {category}  <!-- element-wise / reduction / matmul / attention / custom -->
+- **算子分类**: {category}  <!-- 逐元素 / 归约 / 矩阵乘 / 注意力 / 自定义 -->
 - **数学公式**: ${formula}$
 - **功能描述**: {description}
 

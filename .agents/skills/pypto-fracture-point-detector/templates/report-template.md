@@ -14,9 +14,9 @@
   - 框架: {framework_count} 个
   - 两者: {both_count} 个
 - **按 Issue 类型分布**:
-  - Bug Report: {bug_count} 个
-  - Documentation: {doc_issue_count} 个
-  - Feature Request: {feature_count} 个
+  - 缺陷报告: {bug_count} 个
+  - 文档问题: {doc_issue_count} 个
+  - 功能请求: {feature_count} 个
 
 ## 2. 环境信息
 

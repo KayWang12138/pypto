@@ -473,12 +473,12 @@ def attention_golden(q, k, v, window_size=None):
 
 ---
 
-## Output Generation and Field Reference
+## 输出生成与字段参考
 
-Read `references/spec-examples.md` for:
-- Output file generation rules
-- File conflict handling
-- Field definitions and default values
-- Optional parameter deep analysis
-- Feature priority system
-- Requirements understanding checklist
+读取 `references/spec-examples.md` 了解：
+- 输出文件生成规则
+- 文件冲突处理
+- 字段定义与默认值
+- 可选参数深度分析
+- 特性优先级系统
+- 需求理解检查清单

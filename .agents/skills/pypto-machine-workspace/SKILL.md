@@ -1,6 +1,6 @@
 ---
 name: pypto-machine-workspace
-description: "Diagnose abnormally large workspace memory in PyPTO runtime. Analyze memory budget layers, locate oversized tensors, provide tuning recommendations."
+description: "诊断 PyPTO 运行时 workspace 内存异常偏大的问题。分析内存预算层级，定位超大 Tensor，提供调优建议。"
 triggers: ["workspace memory", "out of memory", "rtMalloc failed", "OOM"]
 ---
 

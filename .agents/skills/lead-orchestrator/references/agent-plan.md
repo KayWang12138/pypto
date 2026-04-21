@@ -1,248 +1,248 @@
-# Agent Execution Plan — PyPTO Kernel Development
+# Agent 执行计划 — PyPTO Kernel 开发
 
-**Reading order:** `principles.md` → this file → `rules.md` → then follow this checklist phase by phase. Use `catalog.yaml` to locate skill categories.
+**阅读顺序：** `principles.md` → 本文件 → `rules.md` → 然后按阶段逐项执行本检查清单。使用 `catalog.yaml` 定位 skill 分类。
 
-**Do not pre-read all skills.** Read each skill when this checklist directs you to — not before.
+**不要提前阅读所有 skill。** 仅在本检查清单指示时才阅读对应的 skill — 不要提前阅读。
 
-Replace `<op>` with the operator name everywhere.
-
----
-
-## Skill Catalog
-
-Skills are organized into 6 categories under `skills/`. Read `catalog.yaml` for the full index. Read a category's `_category.yaml` to find the right skill. Read a skill only when directed.
-
-| Category | Path | Skills | When used |
-|----------|------|--------|-----------|
-| **workflow** | `skills/` | Phase 0-6 skills, templates, validation | Every phase |
-| **development** | `skills/` | Intent, API, golden, design, impl, env | Phase 0-3, post |
-| **debugging** | `skills/` | Precision, aicore, crash, memory | Phase 3+ (on failure) |
-| **performance** | `skills/` | 3-stage tuning, swimlane, auto-tuner | Phase 6 |
-| **ci-and-pr** | `skills/` | Layout check, PR, Issue, review | Phase 3+, post |
-| **pass** | `skills/` | Pass analysis, errors, UT, perf | Reference |
+将所有 `<op>` 替换为实际算子名称。
 
 ---
 
-## Forbidden (violations require restarting from the failed gate)
+## Skill 目录
 
-1. **Do not advance before tests pass.** Do not write the next module or full integration until the current module's `detailed_tensor_compare` returns `all_close: true` for all outputs.
-2. **Do not start kernel implementation without a PyPTO-friendly golden.** Do not enter Phase 3 before Phase 1 is complete.
-3. **Do not leave `.T` / `.t()` or implicit transpose forms in the golden.** PyPTO cannot use `.T` (`skills/debugging/DEBUG.md §9.19`). Normalize the golden to `torch.transpose(t, dim0, dim1)` and document transpose intent for matmul (e.g. comment `# a @ b^T` → `pypto.matmul(a, b, dtype, a_trans=False, b_trans=True)`).
-4. **Do not claim done without cross-checking the golden operation list against the PyPTO kernel.** Precision errors are often missing operations.
-5. **Do not implement all modules in one shot.** One module at a time.
+Skills 按 6 个类别组织在 `skills/` 下。阅读 `catalog.yaml` 获取完整索引。阅读某个类别的 `_category.yaml` 以找到合适的 skill。仅在指示时才阅读 skill。
+
+| 类别 | 路径 | Skills | 使用时机 |
+|------|------|--------|----------|
+| **workflow** | `skills/` | Phase 0-6 skills、模板、验证 | 每个阶段 |
+| **development** | `skills/` | 意图理解、API、golden、设计、实现、环境 | Phase 0-3、后续 |
+| **debugging** | `skills/` | 精度、aicore、崩溃、内存 | Phase 3+（出错时） |
+| **performance** | `skills/` | 3 阶段调优、泳道图、自动调优 | Phase 6 |
+| **ci-and-pr** | `skills/` | 布局检查、PR、Issue、评审 | Phase 3+、后续 |
+| **pass** | `skills/` | Pass 分析、错误、UT、性能 | 参考 |
 
 ---
 
-## Checklist
+## 禁止事项（违反需从失败的 Gate 重新开始）
 
-You may not proceed past any **⛔ GATE** until it passes. Record evidence in `custom/plan/<op>.md`.
+1. **测试未通过不得推进。** 在当前模块的 `detailed_tensor_compare` 对所有输出返回 `all_close: true` 之前，不得编写下一个模块或进行完整集成。
+2. **没有 PyPTO 友好的 golden 不得开始 kernel 实现。** 在 Phase 1 完成之前不得进入 Phase 3。
+3. **golden 中不得遗留 `.T` / `.t()` 或隐式转置形式。** PyPTO 不支持 `.T`（`skills/debugging/DEBUG.md §9.19`）。将 golden 规范化为 `torch.transpose(t, dim0, dim1)` 并记录转置意图，用于 matmul（例如注释 `# a @ b^T` → `pypto.matmul(a, b, dtype, a_trans=False, b_trans=True)`）。
+4. **不得在未交叉检查 golden 操作列表与 PyPTO kernel 的情况下声称完成。** 精度错误通常是遗漏了操作。
+5. **不得一次性实现所有模块。** 每次只实现一个模块。
 
 ---
 
-### Phase 0: Preparation
+## 检查清单
 
-**Read now:** `skills/phase0-phase1-planning/SKILL.md`, `skills/plan-template/SKILL.md`, `skills/kernel-code-format/SKILL.md`
+在 **⛔ GATE** 通过之前，不得继续推进。在 `custom/plan/<op>.md` 中记录证据。
 
-- [ ] **0.1** Create `custom/plan/<op>.md` by copying `skills/plan-template/plan.template.md`
-- [ ] **0.2** List every operation in the target formula (add, matmul, softmax, transpose, etc.)
-- [ ] **0.3** Confirm each operation exists in PyPTO → record in plan **API map** (`skills/phase0-phase1-planning/SKILL.md` Phase 0)
+---
+
+### Phase 0：准备
+
+**现在阅读：** `skills/phase0-phase1-planning/SKILL.md`、`skills/plan-template/SKILL.md`、`skills/kernel-code-format/SKILL.md`
+
+- [ ] **0.1** 通过复制 `skills/plan-template/plan.template.md` 创建 `custom/plan/<op>.md`
+- [ ] **0.2** 列出目标公式中的所有操作（add、matmul、softmax、transpose 等）
+- [ ] **0.3** 确认每个操作在 PyPTO 中存在 → 在计划中记录 **API 映射**（`skills/phase0-phase1-planning/SKILL.md` Phase 0）
   ```
   query_op(names=["matmul", "softmax", "exp", ...])
   ```
-- [ ] **0.4** Search for similar kernel examples → record in plan
+- [ ] **0.4** 搜索类似的 kernel 示例 → 在计划中记录
   ```
-  retrieve_docs(query="<kernel type> example", chunk_type="example")
+  retrieve_docs(query="<kernel 类型> example", chunk_type="example")
   ```
 
-⛔ **GATE 0:** API map exists in plan; zero `unsupported` rows (or each has a documented workaround).
+⛔ **GATE 0：** 计划中存在 API 映射；零个 `unsupported` 行（或每个都有文档化的替代方案）。
 
 ---
 
-### Phase 1: Build a PyPTO-friendly golden
+### Phase 1：构建 PyPTO 友好的 golden
 
-**Read now (if not already):** `skills/phase0-phase1-planning/SKILL.md` (Phase 1 section), `skills/kernel-code-format/pypto-kernel-design-format.md` §11 (shape annotation)
+**现在阅读（如尚未阅读）：** `skills/phase0-phase1-planning/SKILL.md`（Phase 1 部分）、`skills/kernel-code-format/pypto-kernel-design-format.md` §11（shape 注解）
 
-- [ ] **1.1** Identify the primary reference implementation
-- [ ] **1.2** Write the **PyPTO-friendly golden** and apply **all** rules below:
+- [ ] **1.1** 确定主要参考实现
+- [ ] **1.2** 编写 **PyPTO 友好的 golden** 并应用以下**所有**规则：
 
-| Rule | Rationale |
-|------|-----------|
-| Replace `.T` / `.t()` → `torch.transpose(t, dim0, dim1)` | PyPTO has no `.T` (`skills/debugging/DEBUG.md §9.19`) |
-| `.sum(dim)` may stay; be aware of 32-byte alignment issues in PyPTO | `skills/debugging/DEBUG.md §9.19` |
-| No implicit broadcast → explicit `reshape` then op | `skills/phase4-phase5-integration/SKILL.md` Phase 5.3 |
-| Name every intermediate (`scores`, `weights`, …) | Debugging |
-| Shape comment on every intermediate `# [B, H, T, K]` | `rules.md` rule 6; `skills/kernel-code-format/pypto-kernel-design-format.md` §11 |
-| Mark semantic boundaries with `# --- Module M1: ... ---` | Prepares Phase 2 split |
+| 规则 | 理由 |
+|------|------|
+| 替换 `.T` / `.t()` → `torch.transpose(t, dim0, dim1)` | PyPTO 不支持 `.T`（`skills/debugging/DEBUG.md §9.19`） |
+| `.sum(dim)` 可以保留；注意 PyPTO 中的 32 字节对齐问题 | `skills/debugging/DEBUG.md §9.19` |
+| 不允许隐式广播 → 显式 `reshape` 后操作 | `skills/phase4-phase5-integration/SKILL.md` Phase 5.3 |
+| 为每个中间结果命名（`scores`、`weights`、…） | 便于调试 |
+| 每个中间结果添加 shape 注释 `# [B, H, T, K]` | `rules.md` 规则 6；`skills/kernel-code-format/pypto-kernel-design-format.md` §11 |
+| 用 `# --- Module M1: ... ---` 标记语义边界 | 为 Phase 2 拆分做准备 |
 
-- [ ] **1.3** Build the **golden operation inventory**:
+- [ ] **1.3** 构建 **golden 操作清单**：
 
 ```
-List every operation in the golden (one op per line):
+列出 golden 中的每个操作（每行一个操作）：
   1. torch.matmul(q, k^T)     # scores  [B,H,T,T]
   2. torch.softmax(scores, -1) # weights [B,H,T,T]
   3. torch.matmul(weights, v)  # out     [B,H,T,V]
   ...
 ```
 
-→ Record this list in `custom/plan/<op>.md` under **Golden function inventory**.
+→ 在 `custom/plan/<op>.md` 的 **Golden function inventory** 部分记录此列表。
 
-- [ ] **1.4** Compare normalized golden vs original golden
+- [ ] **1.4** 比较规范化 golden 与原始 golden
   ```python
   assert torch.allclose(original_out, normalized_out, rtol=1e-5, atol=1e-5)
   ```
-- [ ] **1.5** Freeze golden → set `correctness: golden_ok` in plan
+- [ ] **1.5** 冻结 golden → 在计划中设置 `correctness: golden_ok`
 
-⛔ **GATE 1:** (a) zero `.T`/`.t()` in golden (b) shape comments on all intermediates (c) Golden function inventory exists in plan (d) original-vs-normalized test passes. **Do not enter Phase 2 until all hold.**
+⛔ **GATE 1：** (a) golden 中零个 `.T`/`.t()` (b) 所有中间结果有 shape 注释 (c) 计划中存在 Golden function inventory (d) 原始与规范化 golden 对比通过。**所有条件满足之前不得进入 Phase 2。**
 
 ---
 
-### Phase 2: Module decomposition
+### Phase 2：模块分解
 
-**Read now:** `skills/phase2-phase3-construction/SKILL.md` (Phase 2 section), `skills/debugging/DEBUG.md §9` (pre-write checklist — consult §9 subsections matching your kernel's operations)
+**现在阅读：** `skills/phase2-phase3-construction/SKILL.md`（Phase 2 部分）、`skills/debugging/DEBUG.md §9`（编写前检查清单 — 查阅与你的 kernel 操作匹配的 §9 子节）
 
-- [ ] **2.1** Define modules along the `# --- Module M1 ---` boundaries from Phase 1
-  - Split by **semantic** boundaries (matmul / norm / recurrence, …). Equal-size splits are forbidden.
-  - Define each module's input/output tensor names, shapes, dtypes
-  - → Record in plan **Module decomposition** + **Module contracts** (`skills/phase2-phase3-construction/SKILL.md` Phase 2)
+- [ ] **2.1** 沿 Phase 1 中的 `# --- Module M1 ---` 边界定义模块
+  - 按**语义**边界拆分（matmul / norm / 递归，…）。禁止等大小拆分。
+  - 定义每个模块的输入/输出 tensor 名称、shape、dtype
+  - → 在计划中记录 **模块分解** + **模块契约**（`skills/phase2-phase3-construction/SKILL.md` Phase 2）
 
-- [ ] **2.2** Fix staged file sequence → fill **Staged module files** table in plan
+- [ ] **2.2** 确定分阶段文件序列 → 在计划中填写 **分阶段模块文件** 表
   ```
-  <op>_module1.py     → M1 only
+  <op>_module1.py     → 仅 M1
   <op>_module12.py    → M1 + M2
   ...
-  <op>_module1…N.py   → all modules = complete kernel
+  <op>_module1…N.py   → 所有模块 = 完整 kernel
   ```
 
-- [ ] **2.3** Complete `skills/debugging/DEBUG.md §9` pre-write checklist in plan (`skills/plan-template/plan.template.md` section)
+- [ ] **2.3** 在计划中完成 `skills/debugging/DEBUG.md §9` 编写前检查清单（`skills/plan-template/plan.template.md` 对应部分）
 
-⛔ **GATE 2:** Module decomposition + contracts + staged file table exist in plan.
+⛔ **GATE 2：** 计划中存在模块分解 + 契约 + 分阶段文件表。
 
 ---
 
-### Phase 3: Implement modules (repeat for each M_k)
+### Phase 3：实现模块（对每个 M_k 重复）
 
-**Read now:** `skills/phase2-phase3-construction/SKILL.md` (Phase 3 section + DEBUG §9 lookup table), `skills/validation-and-deliverables/SKILL.md`
+**现在阅读：** `skills/phase2-phase3-construction/SKILL.md`（Phase 3 部分 + DEBUG §9 查找表）、`skills/validation-and-deliverables/SKILL.md`
 
-**One module at a time. Do not advance until the current module passes.**
+**每次只实现一个模块。当前模块通过之前不得推进。**
 
-- [ ] **3.1** Read the relevant `skills/debugging/DEBUG.md §9` subsections (`skills/phase2-phase3-construction/SKILL.md` Phase 3 table)
-- [ ] **3.2** From `skills/kernel-code-format/pypto_kernel_template.py`, create `custom/<op>/<op>_module<suffix>.py`
-  - Golden for this cumulative scope
-  - PyPTO: **one** `@pypto.frontend.jit`; stub later modules with golden-fed tensors
-  - Runner: `if __name__ == "__main__":` + `detailed_tensor_compare`
-- [ ] **3.3** Run AST lint
+- [ ] **3.1** 阅读相关的 `skills/debugging/DEBUG.md §9` 子节（`skills/phase2-phase3-construction/SKILL.md` Phase 3 表格）
+- [ ] **3.2** 从 `skills/kernel-code-format/pypto_kernel_template.py` 创建 `custom/<op>/<op>_module<suffix>.py`
+  - 此累计范围的 golden
+  - PyPTO：**一个** `@pypto.frontend.jit`；后续模块使用 golden 提供的 tensor 作为桩
+  - Runner：`if __name__ == "__main__":` + `detailed_tensor_compare`
+- [ ] **3.3** 运行 AST 检查
   ```
-  validate_kernel_structure(source_code=<full source>)
+  validate_kernel_structure(source_code=<完整源代码>)
   ```
-  → Fix until zero errors
-- [ ] **3.4** **Cross-check Golden function inventory vs PyPTO**
+  → 修复直到零错误
+- [ ] **3.4** **交叉检查 Golden function inventory 与 PyPTO**
 
   ```
-  Golden function inventory (from Phase 1.3):
+  Golden function inventory（来自 Phase 1.3）：
     1. matmul(q, k^T)        → ✅ pypto.matmul(q, k, dtype, b_trans=True)  L.42
     2. softmax(scores, -1)    → ✅ pypto.softmax(scores, dim=-1)           L.45
-    3. matmul(weights, v)     → ❌ not implemented — skipping causes precision error
+    3. matmul(weights, v)     → ❌ 未实现 — 跳过会导致精度错误
   ```
 
-  **Do not run tests until every operation in M_k's scope has ✅.**
+  **在 M_k 范围内的每个操作都有 ✅ 之前，不要运行测试。**
 
-- [ ] **3.5** Run tests
+- [ ] **3.5** 运行测试
   ```bash
   PYTHONPATH=.agents/skills/validation-and-deliverables python custom/<op>/<op>_module<suffix>.py
   ```
-- [ ] **3.6** Layout check
+- [ ] **3.6** 布局检查
   ```bash
   bash .agents/skills/ci-and-layout-check/run_validate_layout.sh
   ```
 
-⛔ **GATE 3 (M_k):** (a) `detailed_tensor_compare` → `all_close: true` on **all** outputs (b) Golden inventory: all ops in M_k scope ✅ (c) layout check exit 0 (d) Per-module verification log updated. **Do not start M_{k+1} until all hold.**
+⛔ **GATE 3 (M_k)：** (a) `detailed_tensor_compare` 对**所有**输出返回 `all_close: true` (b) Golden inventory：M_k 范围内所有操作 ✅ (c) 布局检查 exit 0 (d) 每模块验证日志已更新。**所有条件满足之前不得开始 M_{k+1}。**
 
-- [ ] **3.7** Freeze M_k → update plan: append to `modules_pypto_verified`, set `active_module: M_{k+1}`
+- [ ] **3.7** 冻结 M_k → 更新计划：追加到 `modules_pypto_verified`，设置 `active_module: M_{k+1}`
 
-**After GATE 3:** return to 3.1 for the next module, or go to Phase 4 when all modules are done.
+**GATE 3 之后：** 返回 3.1 处理下一个模块，或在所有模块完成后进入 Phase 4。
 
 ---
 
-### Phase 4: Integration and E2E
+### Phase 4：集成与端到端验证
 
-**Read now:** `skills/phase4-phase5-integration/SKILL.md` (Phase 4 section), `skills/validation-and-deliverables/SKILL.md`
+**现在阅读：** `skills/phase4-phase5-integration/SKILL.md`（Phase 4 部分）、`skills/validation-and-deliverables/SKILL.md`
 
-- [ ] **4.1** Confirm the last staged file (`<op>_module1…N.py`) integrates all modules
-- [ ] **4.2** Create `test_<op>.py` (`skills/validation-and-deliverables/SKILL.md` — Validation runner)
-  - Compare **every** output tensor with `detailed_tensor_compare` (single-output-only compare is forbidden)
-- [ ] **4.3** **Final Golden function inventory cross-check**
+- [ ] **4.1** 确认最后一个分阶段文件（`<op>_module1…N.py`）集成了所有模块
+- [ ] **4.2** 创建 `test_<op>.py`（`skills/validation-and-deliverables/SKILL.md` — 验证运行器）
+  - 使用 `detailed_tensor_compare` 比较**每个**输出 tensor（禁止仅比较单一输出）
+- [ ] **4.3** **最终 Golden function inventory 交叉检查**
 
-  Line-by-line: golden operation list vs final PyPTO kernel.  
-  **If any ❌ remains, do not run E2E — implement first.**
+  逐行对比：golden 操作列表与最终 PyPTO kernel。  
+  **如果仍有任何 ❌，不要运行端到端测试 — 先实现。**
 
-- [ ] **4.4** Run E2E
+- [ ] **4.4** 运行端到端测试
   ```bash
   PYTHONPATH=.agents/skills/validation-and-deliverables python custom/<op>/test_<op>.py
   ```
-- [ ] **4.5** Layout check
+- [ ] **4.5** 布局检查
   ```bash
   bash .agents/skills/ci-and-layout-check/run_validate_layout.sh
   ```
 
-⛔ **GATE 4:** (a) E2E `all_close: true` on all outputs (b) Golden inventory 100% ✅ (c) layout check exit 0.
+⛔ **GATE 4：** (a) 端到端测试所有输出 `all_close: true` (b) Golden inventory 100% ✅ (c) 布局检查 exit 0。
 
 ---
 
-### Phase 5: Final structural rules
+### Phase 5：最终结构规则
 
-**Read now:** `skills/phase4-phase5-integration/SKILL.md` (Phase 5 section), `skills/debugging/DEBUG.md §9`
+**现在阅读：** `skills/phase4-phase5-integration/SKILL.md`（Phase 5 部分）、`skills/debugging/DEBUG.md §9`
 
-- [ ] `validate_kernel_structure` → zero errors
-- [ ] No `for ... in range(...)` inside `pypto_function` (layout check)
-- [ ] `set_vec_tile_shapes` with valid tile dimensions per doc
-- [ ] `set_cube_tile_shapes` before matmul
-- [ ] Write-back via `output[:] = expr` or `pypto.assemble(...)`
+- [ ] `validate_kernel_structure` → 零错误
+- [ ] `pypto_function` 内部无 `for ... in range(...)`（布局检查）
+- [ ] `set_vec_tile_shapes` 配置了符合文档的有效 tile 维度
+- [ ] matmul 前设置了 `set_cube_tile_shapes`
+- [ ] 通过 `output[:] = expr` 或 `pypto.assemble(...)` 写回
 
-(Details: `skills/phase4-phase5-integration/SKILL.md` Phase 5 + `skills/debugging/DEBUG.md §9`)
-
----
-
-### Phase 6: Optimization (only after correctness)
-
-**Read now:** `skills/phase6-optimization/SKILL.md`
-
-Follow the skill. Roll back immediately if correctness regresses.
+（详情：`skills/phase4-phase5-integration/SKILL.md` Phase 5 + `skills/debugging/DEBUG.md §9`）
 
 ---
 
-## When precision errors appear (required order)
+### Phase 6：优化（仅在正确性确认后）
 
-**Read now:** `skills/debugging/SKILL.md` (op-by-op protocol), `skills/debugging/DEBUG.md §9.11` (error table)
+**现在阅读：** `skills/phase6-optimization/SKILL.md`
 
-1. Open **Golden function inventory**
-2. Line-by-line vs PyPTO kernel → find missing or wrong ops
-3. Run `extract_pypto_calls.py` on the kernel and reconcile with golden
-4. If still unclear → `skills/debugging/DEBUG.md` §9.11 error table → op-by-op protocol (`skills/debugging/SKILL.md`)
+按照该 skill 执行。如果正确性回退，立即回滚。
 
 ---
 
-## Required plan sections (`skills/plan-template/plan.template.md`)
+## 精度错误出现时的处理顺序（必须按序执行）
 
-| Section | When to update |
-|---------|----------------|
-| API map | Phase 0 |
-| **Golden function inventory** | Phase 1 (create); Phase 3/4 (append cross-check results) |
-| Module decomposition + rationale | Phase 2 |
-| Module contracts | Phase 2 |
-| Staged module files table | Phase 2 (create) → Phase 3 (check each milestone) |
-| Per-module verification log | Each GATE 3 pass in Phase 3 |
-| `skills/debugging/DEBUG.md §9` pre-write checklist | Before Phase 3 |
-| Development & debug log | Every error and fix |
+**现在阅读：** `skills/debugging/SKILL.md`（逐操作协议）、`skills/debugging/DEBUG.md §9.11`（错误表）
+
+1. 打开 **Golden function inventory**
+2. 逐行对比 PyPTO kernel → 找出遗漏或错误的操作
+3. 对 kernel 运行 `extract_pypto_calls.py` 并与 golden 对照
+4. 如果仍不清楚 → `skills/debugging/DEBUG.md` §9.11 错误表 → 逐操作协议（`skills/debugging/SKILL.md`）
+
+---
+
+## 计划必要章节（`skills/plan-template/plan.template.md`）
+
+| 章节 | 更新时机 |
+|------|----------|
+| API 映射 | Phase 0 |
+| **Golden function inventory** | Phase 1（创建）；Phase 3/4（追加交叉检查结果） |
+| 模块分解 + 理由 | Phase 2 |
+| 模块契约 | Phase 2 |
+| 分阶段模块文件表 | Phase 2（创建）→ Phase 3（每个里程碑检查） |
+| 每模块验证日志 | Phase 3 中每次 GATE 3 通过时 |
+| `skills/debugging/DEBUG.md §9` 编写前检查清单 | Phase 3 之前 |
+| 开发与调试日志 | 每个错误和修复 |
 
 
 ---
 
-## Post-development (after correctness confirmed)
+## 开发后（正确性确认后）
 
-After Phase 6 is complete (or skipped), execute the following subskills as needed:
+Phase 6 完成（或跳过）后，按需执行以下子技能：
 
-- **Model integration**: Read `skills/pypto-fused-op-integration/SKILL.md` to integrate the fused operator into a model, replacing small-op combinations.
-- **PR creation**: Read `skills/pypto-pr-creator/SKILL.md` to create a PR to the cann/pypto repository with proper commit conventions.
-- **PR CI fix**: Read `skills/pypto-pr-fixer/SKILL.md` to fix CodeCheck CI failures or address reviewer comments on an existing PR.
-- **Issue creation**: Read `skills/pypto-issue-creator/SKILL.md` to create a GitCode Issue for bugs, features, or tasks discovered during development.
-- **Fracture point detection**: Read `skills/pypto-fracture-point-detector/SKILL.md` to identify framework or documentation gaps encountered during this session.
+- **模型集成**：阅读 `skills/pypto-fused-op-integration/SKILL.md` 将融合算子集成到模型中，替代小算子组合。
+- **PR 创建**：阅读 `skills/pypto-pr-creator/SKILL.md` 创建符合规范的 PR 到 cann/pypto 仓库。
+- **PR CI 修复**：阅读 `skills/pypto-pr-fixer/SKILL.md` 修复 CodeCheck CI 失败或处理已有 PR 的评审意见。
+- **Issue 创建**：阅读 `skills/pypto-issue-creator/SKILL.md` 为开发过程中发现的 bug、功能或任务创建 GitCode Issue。
+- **断裂点检测**：阅读 `skills/pypto-fracture-point-detector/SKILL.md` 识别本次 session 中遇到的框架或文档缺口。

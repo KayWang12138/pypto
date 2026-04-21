@@ -1,141 +1,141 @@
-# Plan: `<operator_name>`
+# 计划：`<operator_name>`
 
-Copy to: `custom/plan/<operator_name>.md` and keep **machine-readable** fields current every turn.
+拷贝到：`custom/plan/<operator_name>.md`，每轮保持**机器可读**字段为最新状态。
 
-**Agent:** Do **not** skip **`skills/lead-orchestrator/references/rules.md`** or sub-skill obligations (staged files, all-output compare, plan logs). See **`.agents/skills/lead-orchestrator/references/rules.md`** — *Zero tolerance*. **Code layout:** every staged file and the full kernel **must** follow **`.agents/skills/kernel-code-format/pypto_kernel_template.py`** (layers A–L); document exceptions here. After **`custom/`** changes, run **`bash .agents/skills/ci-and-layout-check/run_validate_layout.sh`** (see **`skills/ci-and-layout-check/CI.md`**).
+**Agent：** **不得**跳过 **`skills/lead-orchestrator/references/rules.md`** 或 sub-skill 义务（暂存文件、全输出对比、计划日志）。参见 **`.agents/skills/lead-orchestrator/references/rules.md`** — *零容忍*。**代码布局：**每个暂存文件和完整 kernel **必须**遵循 **`.agents/skills/kernel-code-format/pypto_kernel_template.py`**（A–L 层）；在此处记录例外情况。在 **`custom/`** 变更后，运行 **`bash .agents/skills/ci-and-layout-check/run_validate_layout.sh`**（参见 **`skills/ci-and-layout-check/CI.md`**）。
 
-## Agent status (minimal)
+## Agent 状态（精简版）
 
 ```yaml
 phase: 0|1|2|3|4|5|6
-active_module: M1   # or M2, …, none
-current_staged_file: custom/<operator_name>/<operator_name>_module1.py   # update each milestone
+active_module: M1   # 或 M2, …, none
+current_staged_file: custom/<operator_name>/<operator_name>_module1.py   # 每个里程碑更新
 modules_pypto_verified:
   - id: M1
-    evidence: "<command or pointer to Per-module verification log row>"
-    detailed_tensor_compare_ok: true   # false until boundary passes
-next_mandatory_step: "<one concrete step>"
+    evidence: "<命令或模块验证日志行的指针>"
+    detailed_tensor_compare_ok: true   # 在边界通过之前为 false
+next_mandatory_step: "<一个具体步骤>"
 correctness: not_started | golden_ok | sim_ok | npu_ok
 optimization: not_started | … | complete | skipped_user_request
 blockers: []
 ```
 
-## Task summary
+## 任务摘要
 
-- **Operator:**
-- **I/O shapes (symbolic):**
-- **Reference / golden path:**
+- **算子：**
+- **I/O 形状（符号化）：**
+- **参考 / golden 路径：**
 
-## Validation (mandatory)
+## 验证（必填）
 
-- **Runner:** `custom/<operator_name>/test_<operator_name>.py`
-- **Command (repo root):** `PYTHONPATH=.agents/skills/validation-and-deliverables python custom/<operator_name>/test_<operator_name>.py`
-- **Comparison:** `from detailed_tensor_compare import detailed_tensor_compare` (bundled: `.agents/skills/validation-and-deliverables/detailed_tensor_compare.py`). **Do not** use `pytest` as the default for this golden vs PyPTO check unless documented under **blockers** as an exception.
-- **All outputs:** the runner must call **`detailed_tensor_compare`** on **every** leaf output tensor (tuple/list/dict/nested structures — **not** only `outputs[0]`). If any output is intentionally skipped, document under **blockers** with justification.
+- **运行器：** `custom/<operator_name>/test_<operator_name>.py`
+- **命令（仓库根目录）：** `PYTHONPATH=.agents/skills/validation-and-deliverables python custom/<operator_name>/test_<operator_name>.py`
+- **对比工具：** `from detailed_tensor_compare import detailed_tensor_compare`（内置：`.agents/skills/validation-and-deliverables/detailed_tensor_compare.py`）。**不要**将 `pytest` 作为 golden 与 PyPTO 对比的默认工具，除非在 **blockers** 中记录为例外情况。
+- **全部输出：**运行器必须对**每一个**叶子输出 Tensor（tuple/list/dict/nested 结构 — **不仅**是 `outputs[0]`）调用 **`detailed_tensor_compare`**。如果任何输出被有意跳过，须在 **blockers** 中记录并说明理由。
 
-## Module decomposition (mandatory)
+## 模块分解（必填）
 
-Document **how** the kernel is split into semantic modules and **why** (not “equal-sized chunks”). Keep this aligned with **Module contracts** below.
+记录 kernel **如何**按语义拆分为模块以及**为什么**（而非"等大小的分块"）。保持与下方 **模块契约** 对齐。
 
-### Modules (overview)
+### 模块（概览）
 
-| ID | One-line role | Boundary tensors (golden checkpoint names) | Depends on |
-|----|---------------|---------------------------------------------|------------|
+| ID | 一句话职责 | 边界 Tensor（golden 检查点名称） | 依赖 |
+|----|-----------|----------------------------------|------|
 | M1 | … | … | — |
 | M2 | … | … | M1 |
 
-### Rationale
+### 理由
 
-- **Semantic boundaries:** (e.g. matmul vs norm vs recurrence — what meaning each block carries)
-- **Why this order:** (dependency / debuggability)
-- **Alternatives considered and rejected:** (optional; e.g. “single fused block rejected until boundaries stable”)
+- **语义边界：**（例如 matmul vs norm vs recurrence — 每个块承载的含义）
+- **为什么是这个顺序：**（依赖关系 / 可调试性）
+- **考虑过但拒绝的替代方案：**（可选；例如"单融合块方案在边界稳定之前暂不采纳"）
 
-## Staged module files (mandatory)
+## 暂存模块文件（必填）
 
-Development progress is **materialized as Python files** under **`custom/<operator_name>/`**. Suffix after `_module` is **concatenated module indices** (`1` → M1 only, `12` → M1+M2 in one JIT, `1234` → M1–M4 for N=4). Each file contains **golden + PyPTO** for that cumulative scope in **one** `@jit`, and must pass **`detailed_tensor_compare`** on **all** outputs before creating the next file. The **last** row’s file is the **full** end-to-end PyPTO kernel.
+开发进度以 **Python 文件**形式**物化**于 **`custom/<operator_name>/`** 下。`_module` 后缀为**拼接的模块索引**（`1` → 仅 M1，`12` → M1+M2 在一个 JIT 中，`1234` → M1–M4 对应 N=4）。每个文件在**一个** `@jit` 中包含该累积范围的 **golden + PyPTO**，且必须在创建下一个文件之前通过**所有**输出的 **`detailed_tensor_compare`**。**最后一行**的文件即为**完整**端到端 PyPTO kernel。
 
-| Staged file | Modules in one `@jit` | Golden + PyPTO verified (all outputs) |
-|-------------|------------------------|--------------------------------------|
+| 暂存文件 | 一个 `@jit` 中的模块 | Golden + PyPTO 已验证（全部输出） |
+|----------|----------------------|----------------------------------|
 | `<operator_name>_module1.py` | M1 | ☐ |
 | `<operator_name>_module12.py` | M1, M2 | ☐ |
 | `<operator_name>_module123.py` | M1, M2, M3 | ☐ |
-| `<operator_name>_module1234.py` | M1–M4 (example N=4) | ☐ — **full kernel** |
+| `<operator_name>_module1234.py` | M1–M4（示例 N=4） | ☐ — **完整 kernel** |
 
-*Add or remove rows to match **N** modules. Command example for a stage:*  
+*根据 **N** 个模块增减行数。某阶段的命令示例：*
 `PYTHONPATH=.agents/skills/validation-and-deliverables python custom/<operator_name>/<operator_name>_module12.py`
 
-## Per-module verification log (mandatory)
+## 模块验证日志（必填）
 
-Every time a **module boundary** is validated (Phase 3: golden vs PyPTO at that checkpoint), **append** a row. Comparisons **must** use **`detailed_tensor_compare`** (same helper as E2E). Record enough that a reviewer can see **pass/fail** without re-running.
+每次**模块边界**验证通过时（Phase 3：该检查点的 golden vs PyPTO），**追加**一行。对比**必须**使用 **`detailed_tensor_compare`**（与端到端相同的辅助函数）。记录足够信息使审阅者无需重新运行即可看到 **pass/fail**。
 
-| When | Module | Staged file (e.g. `<op>_module12.py`) | Tensors compared (name / role) | rtol | atol | `all_close` | Key stats (e.g. `out_of_tolerance_ratio`, `max_diff` from return dict) | Command or script |
-|------|--------|----------------------------------------|-------------------------------|------|------|-------------|------------------------------------------------------------------------|-------------------|
+| 时间 | 模块 | 暂存文件（如 `<op>_module12.py`） | 对比的 Tensor（名称/角色） | rtol | atol | `all_close` | 关键统计（如返回字典中的 `out_of_tolerance_ratio`、`max_diff`） | 命令或脚本 |
+|------|------|-------------------------------------|---------------------------|------|------|-------------|----------------------------------------------------------------|-----------|
 | | M1 | `<operator_name>_module1.py` | | 1e-3 | 1e-3 | | | |
 
-*On failure:* add a **Development & debug log** entry and keep the failed row or add a follow-up row after fix.
+*失败时：*添加 **开发与调试日志** 条目，保留失败的行或在修复后添加后续行。
 
-## Vector tile config
+## Vector tile 配置
 
-- **`pypto.set_vec_tile_shapes`:** use tile dimensions as required by **`docs/api/config/pypto-set_vec_tile_shapes.md`** — see **`skills/phase4-phase5-integration/SKILL.md`** **5.4b**.
+- **`pypto.set_vec_tile_shapes`：**按 **`docs/api/config/pypto-set_vec_tile_shapes.md`** 要求使用 tile 尺寸 — 参见 **`skills/phase4-phase5-integration/SKILL.md`** **5.4b**。
 
-## API map (Phase 0)
+## API 映射（Phase 0）
 
-| Formula step | PyPTO | supported / substitute / unsupported |
+| 公式步骤 | PyPTO | 支持 / 替代 / 不支持 |
 
-## Golden function inventory (Phase 1 — cross-check)
+## Golden 函数清单（Phase 1 — 交叉检查）
 
-List **every operation** in the PyPTO-friendly golden. In Phase 3/4, cross-check line-by-line against the PyPTO implementation and mark ✅/❌. **Do not run tests or advance modules while any ❌ remains.**
+列出 PyPTO 友好 golden 中的**每一项操作**。在 Phase 3/4 中逐行与 PyPTO 实现交叉检查并标记 ✅/❌。**任何 ❌ 存在时不得运行测试或推进模块。**
 
-| # | Golden operation | Shape transformation | PyPTO implementation | Line | Status |
-|---|------------------|----------------------|------------------------|------|--------|
+| # | Golden 操作 | 形状变换 | PyPTO 实现 | 行号 | 状态 |
+|---|------------|---------|-----------|------|------|
 | 1 | `torch.matmul(q, k^T)` | `[B,H,T,K]@[B,H,K,T]->[B,H,T,T]` | `pypto.matmul(q, k, dtype, b_trans=True)` | L.42 | ✅ |
 | 2 | `torch.softmax(scores, -1)` | `[B,H,T,T]->[B,H,T,T]` | | | ❌ |
 | … | | | | | |
 
-**When to cross-check:**
-- Phase 3 (GATE 3): every row in the current module’s scope must be ✅
-- Phase 4 (GATE 4): every row must be ✅
+**何时交叉检查：**
+- Phase 3（GATE 3）：当前模块范围内的每一行必须为 ✅
+- Phase 4（GATE 4）：每一行必须为 ✅
 
-## Module contracts (Phase 2)
+## 模块契约（Phase 2）
 
-| Module | Inputs | Outputs | PyPTO APIs | Verified? |
+| 模块 | 输入 | 输出 | PyPTO API | 已验证？ |
 
-## Design format compliance
+## 设计格式合规性
 
-- **Template:** `.agents/skills/kernel-code-format/pypto_kernel_template.py` — **mandatory** skeleton for each `*_module*.py` and the integrated kernel (same layers; trim unused sections only with justification below).
-- Layers A–L from `docs/pypto-kernel-design-format.md` (copy in this bundle: `.agents/skills/kernel-code-format/pypto-kernel-design-format.md`): which apply, which omitted, why.
+- **模板：** `.agents/skills/kernel-code-format/pypto_kernel_template.py` — 每个 `*_module*.py` 和集成 kernel 的**必填**骨架（相同层级；仅在有充分理由时裁剪未使用的章节）。
+- 来自 `docs/pypto-kernel-design-format.md` 的 A–L 层（本 bundle 中的副本：`.agents/skills/kernel-code-format/pypto-kernel-design-format.md`）：哪些适用、哪些省略、原因。
 
-## PyPTO call-site checklist (when debugging)
+## PyPTO 调用点检查清单（调试时使用）
 
-Paste output of:
+粘贴以下命令的输出：
 
-`python3 .agents/skills/ci-and-layout-check/scripts/extract_pypto_calls.py custom/<operator_name>/<operator_name>_module1234.py` *(or current staged / final kernel file)*
+`python3 .agents/skills/ci-and-layout-check/scripts/extract_pypto_calls.py custom/<operator_name>/<operator_name>_module1234.py` *（或当前暂存/最终 kernel 文件）*
 
-| # | Line | Call | doc OK? | notes |
+| # | 行号 | 调用 | 文档合规？ | 备注 |
 
-## `skills/debugging/DEBUG.md` §9 — pre-write checklist
+## `skills/debugging/DEBUG.md` §9 — 编写前检查清单
 
-Before writing each module's PyPTO code, review the matching subsections from **`.agents/skills/debugging/DEBUG.md` §9**. Check off after reading. See full lookup table in **`skills/phase2-phase3-construction/SKILL.md`** → **Phase 3 → Before writing PyPTO code**.
+在编写每个模块的 PyPTO 代码之前，查阅 **`.agents/skills/debugging/DEBUG.md` §9** 中的对应小节。阅读后勾选。完整查找表参见 **`skills/phase2-phase3-construction/SKILL.md`** → **Phase 3 → 编写 PyPTO 代码之前**。
 
-| Subsection | Applies to this kernel? | Reviewed? |
-|------------|------------------------|-----------|
-| §9.1 JIT signature (`from __future__` ban) | ☐ yes / ☐ no | ☐ |
-| §9.2 Dynamic shapes, symbolic loop bounds | ☐ yes / ☐ no | ☐ |
-| §9.4 `pypto.view` / `pypto.assemble` guide | ☐ yes / ☐ no | ☐ |
-| §9.13 Tensor shape specs (`[]` vs `DYNAMIC`) | ☐ yes / ☐ no | ☐ |
-| §9.14 Python operators inside JIT | ☐ yes / ☐ no | ☐ |
-| §9.15 Tile shape configuration | ☐ yes / ☐ no | ☐ |
-| §9.19 matmul API / reduction / assemble | ☐ yes / ☐ no | ☐ |
-| §9.11 Common error quick table | ☐ yes / ☐ no | ☐ |
+| 小节 | 适用于此 kernel？ | 已查阅？ |
+|------|-------------------|---------|
+| §9.1 JIT 签名（`from __future__` 禁令） | ☐ 是 / ☐ 否 | ☐ |
+| §9.2 动态形状、符号化循环边界 | ☐ 是 / ☐ 否 | ☐ |
+| §9.4 `pypto.view` / `pypto.assemble` 指南 | ☐ 是 / ☐ 否 | ☐ |
+| §9.13 Tensor 形状规格（`[]` vs `DYNAMIC`） | ☐ 是 / ☐ 否 | ☐ |
+| §9.14 JIT 内的 Python 运算符 | ☐ 是 / ☐ 否 | ☐ |
+| §9.15 TileShape 配置 | ☐ 是 / ☐ 否 | ☐ |
+| §9.19 matmul API / reduction / assemble | ☐ 是 / ☐ 否 | ☐ |
+| §9.11 常见错误速查表 | ☐ 是 / ☐ 否 | ☐ |
 
-## Opaque error codes (FFFFF, UNKNOWN, Errcode: F…!)
+## 不透明错误码（FFFFF, UNKNOWN, Errcode: F…！）
 
-**Do not** abandon the run on these alone. Follow **`.agents/skills/debugging/DEBUG.md`** §1–§8, capture full logs, and iterate (token budget is not a limit). When debugging, also consult **§9.11** (common error → cause → solution quick table). Log each attempt below.
+**不要**仅因此类错误就放弃运行。遵循 **`.agents/skills/debugging/DEBUG.md`** §1–§8，捕获完整日志并迭代（token 预算不是限制）。调试时同时参阅 **§9.11**（常见错误 → 原因 → 修复方案速查表）。在下方记录每次尝试。
 
-## Development & debug log
+## 开发与调试日志
 
-| When | Action | Result | Next |
+| 时间 | 操作 | 结果 | 下一步 |
 
-## Human review milestones (optional)
+## 人工审阅里程碑（可选）
 
-MS1 … MS7 as in full workflow — or link to milestones in the relevant sub-skill under `skills/`.
+MS1 … MS7 如完整工作流中定义 — 或链接到 `skills/` 下相关 sub-skill 中的里程碑。

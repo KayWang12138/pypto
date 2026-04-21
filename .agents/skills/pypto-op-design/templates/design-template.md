@@ -71,7 +71,7 @@ Algorithm: {algorithm_name}
 
 ## 3. 数据规格设计
 
-### 3.1 OperatorInput dataclass
+### 3.1 OperatorInput 数据类
 
 ```python
 @dataclass
@@ -80,7 +80,7 @@ class {OperatorName}Input:
     {input_field_2}: Tensor  # {input_desc_2}, shape: {input_shape_2}, dtype: {input_dtype_2}
 ```
 
-### 3.2 OperatorOutput dataclass
+### 3.2 OperatorOutput 数据类
 
 ```python
 @dataclass

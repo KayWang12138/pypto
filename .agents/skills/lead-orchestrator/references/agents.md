@@ -1,227 +1,175 @@
-# Agent Team — Active Skill Allocation
+# Agent 团队 —— 活跃 Skill 分配
 
-This file defines the multi-agent team that executes PyPTO kernel development
-on top of this skill library. It enforces two hard constraints:
+本文件定义了在本 skill 库之上执行 PyPTO kernel 开发的多 Agent 团队。它强制执行两个硬性约束：
 
-1. **Each agent loads 2–5 active skills at a time.** Going beyond 5 causes the
-   "35-skill cliff" effect where routing accuracy drops sharply.
-2. **Dormant skills are only loaded on-demand via router skills.** Router
-   skills know *which* sub-skill to pull in for a given failure or stage, and
-   never load all of them eagerly.
+1. **每个 Agent 同时加载 2–5 个活跃 skill。** 超过 5 个会导致"35-skill cliff"效应，路由准确率急剧下降。
+2. **休眠 skill 仅通过路由 skill 按需加载。** 路由 skill 知道针对特定失败或阶段应拉取**哪个**子 skill，且从不急切地加载全部。
 
-> **Reading order for new agents:** `principles.md` → this file →
-> `agent-plan.md` → `rules.md`. Then follow the phase checklist and read
-> skills only when `agent-plan.md` directs you to.
+> **新 Agent 阅读顺序：** `principles.md` → 本文件 → `agent-plan.md` → `rules.md`。然后遵循 Phase 检查清单，仅在 `agent-plan.md` 指示时读取 skill。
 
 ---
 
-## What counts as a "skill" in this library
+## 在本库中什么算作"skill"
 
-Two kinds of documents are treated as skills and count toward the 2–5
-active budget:
+两种类型的文档被视为 skill 并计入 2–5 的活跃预算：
 
-- **Root control documents** — every file under `.agents/` outside
-  `skills/` except `README.md`. These are the Lead Agent's operating
-  manual.
-- **Skills under `skills/<category>/<skill-id>/`** — the 39 procedural /
-  domain skills catalogued in `catalog.yaml`.
+- **根控制文档** —— `.agents/` 下除 `skills/` 和 `README.md` 之外的每个文件。这些是 Lead Agent 的操作手册。
+- **`skills/<category>/<skill-id>/` 下的 skill** —— 在 `catalog.yaml` 中编目的 39 个程序/领域 skill。
 
-The root control documents are **exclusively active for the Lead Agent**.
-Other agents do not load them into their active set; instead, Lead Agent
-hands down the relevant constraints (rules, gates, routing decisions) as
-part of each task dispatch.
+根控制文档**仅对 Lead Agent 活跃**。其他 Agent 不会将其加载到活跃集中；Lead Agent 将相关约束（规则、Gate、路由决策）作为每次任务分发的组成部分传递下去。
 
-## Team roster
+## 团队名册
 
-| # | Agent | Phase owned | Active skills | Router / pivot skill |
-|---|-------|-------------|--------------:|----------------------|
-| 1 | **Lead** (Orchestrator) | All phases — gate enforcement | 5 | `agent-plan.md` + `agents.md` |
+| # | Agent | 负责阶段 | 活跃 skill 数 | 路由 / 枢纽 skill |
+|---|-------|---------|-------------:|-------------------|
+| 1 | **Lead**（编排者） | 所有阶段 —— Gate 强制执行 | 5 | `agent-plan.md` + `agents.md` |
 | 2 | **Planning** | Phase 0 | 4 | `phase0-phase1-planning` |
-| 3 | **Algorithm** (Mathematician) | Phase 1 | 3 | — |
-| 4 | **Architecture** | Phase 1–2 boundary | 3 | — |
+| 3 | **Algorithm**（数学家） | Phase 1 | 3 | — |
+| 4 | **Architecture** | Phase 1–2 边界 | 3 | — |
 | 5 | **Design** | Phase 2 | 4 | `phase2-phase3-construction` |
 | 6 | **Coding** | Phase 3–5 | 4 | `phase2-phase3-construction` |
-| 7 | **Verification** | Phase 3–5 gate judge + Phase 6 regression | 2 | — (judge-only, never loads `debugging/*`) |
-| 8 | **Debug** (Specialist) | Phase 3–5 failure investigation | 3 | `debugging` |
-| 9 | **Optimization** | Phase 6 (correctness-first) | 3 | `pypto-op-perf-tune` |
+| 7 | **Verification** | Phase 3–5 Gate 判定 + Phase 6 回归 | 2 | —（仅判定，从不加载 `debugging/*`）|
+| 8 | **Debug**（专家） | Phase 3–5 失败调查 | 3 | `debugging` |
+| 9 | **Optimization** | Phase 6（正确性优先）| 3 | `pypto-op-perf-tune` |
 
-**Active skill footprint:** Lead loads 5 root control docs; the 8 sub-agents
-together load 26 slots across 13 unique skills in `skills/`. The remaining
-skills stay dormant and load on-demand via the router skills listed above.
+**活跃 skill 占用：** Lead 加载 5 个根控制文档；8 个子 Agent 共在 `skills/` 中的 13 个独立 skill 上占用 26 个槽位。剩余 skill 保持休眠，通过上述路由 skill 按需加载。
 
-**Separation of concerns in Phase 3 gate failures:** Verification = judge
-(passes or returns a `failure_category`); Debug = specialist investigator
-(loads the matching `debugging/*` sub-skill, proposes a patch); Coding =
-the only agent that writes production kernel code. Lead drives the loop
-`verification → debug → coding → verification`. See `agent-plan.md` Phase 3
-inner loop and §8 of this document.
+**Phase 3 Gate 失败中的关注点分离：** Verification = 判定者（通过或返回 `failure_category`）；Debug = 专家调查者（加载匹配的 `debugging/*` 子 skill，提出补丁方案）；Coding = 唯一编写生产 kernel 代码的 Agent。Lead 驱动循环 `verification → debug → coding → verification`。参见 `agent-plan.md` Phase 3 内循环和本文档 §8。
 
 ---
 
-## 1. Lead Agent (Orchestrator)
+## 1. Lead Agent（编排者）
 
-**Responsibility:** Drive `agent-plan.md` phase by phase. Enforce gates.
-Dispatch sub-agents. Do *not* execute domain work directly.
+**职责：** 逐阶段驱动 `agent-plan.md`。强制执行 Gate。分发子 Agent。**不**直接执行领域工作。
 
-**Active skills (the 5 root control documents):**
+**活跃 skill（5 个根控制文档）：**
 
-| # | File | Role |
+| # | 文件 | 角色 |
 |--:|------|------|
-| 1 | `principles.md` | 4 behavioral guidelines (Think, Simplify, Surgical, Goal-Driven). The ethical / quality contract Lead enforces on every sub-agent dispatch. |
-| 2 | `agent-plan.md` | Phase 0–6 checklist, gates, debug protocol, completion criteria. The primary orchestration script. |
-| 3 | `agents.md` | Team roster, per-agent active-skill allocation, router policy, sub-agent dispatch rules. |
-| 4 | `rules.md` | 23 mandatory rules, module-at-a-time enforcement, 3 prohibitions. Every sub-agent output is audited against this. |
-| 5 | `catalog.yaml` | Always-loaded skill routing index (6 categories). The Tier-1 discovery layer Lead uses to locate the right skill for a dispatch. |
+| 1 | `principles.md` | 4 条行为准则（Think、Simplify、Surgical、Goal-Driven）。Lead 在每次子 Agent 分发时强制执行的质量/伦理契约。 |
+| 2 | `agent-plan.md` | Phase 0–6 检查清单、Gate、调试协议、完成标准。主编排脚本。 |
+| 3 | `agents.md` | 团队名册、每个 Agent 的活跃 skill 分配、路由策略、子 Agent 分发规则。 |
+| 4 | `rules.md` | 23 条强制规则、逐模块强制执行、3 条禁令。每个子 Agent 的输出都据此审计。 |
+| 5 | `catalog.yaml` | 始终加载的 skill 路由索引（6 个类别）。Lead 用于定位分发目标 skill 的 Tier-1 发现层。 |
 
-These 5 files are Lead-exclusive — other agents receive the relevant
-constraints as part of the dispatch payload rather than loading these
-documents themselves.
+这 5 个文件是 Lead 独占的——其他 Agent 作为分发载荷的一部分接收相关约束，而不是自己加载这些文档。
 
-**Dispatched skills (Lead routes these to sub-agents, does not run them):**
-`plan-template` (Planning/Design/Verification), `workflow/
-validation-and-deliverables` (Verification), `pypto-op-workflow`
-(reference), plus every skill in `skills/` via the router policy below.
+**已分发 skill（Lead 将这些路由给子 Agent，不自己运行）：**
+`plan-template`（Planning/Design/Verification）、`workflow/validation-and-deliverables`（Verification）、`pypto-op-workflow`（参考），以及通过以下路由策略分发 `skills/` 中的每个 skill。
 
-**Dormant skills Lead loads directly (only when a post-dev condition fires):**
+**Lead 直接加载的休眠 skill（仅在开发后条件触发时）：**
 
-| Condition | Skill Lead loads |
-|-----------|------------------|
-| Environment / build failure before Phase 0 | `pypto-environment-setup` |
-| GATE 4 passed, PR requested | `pypto-pr-creator` |
-| PR CI failure or reviewer comment | `pypto-pr-fixer` |
-| Bug / feature / doc gap discovered | `pypto-issue-creator` |
-| Framework or doc gap in this session | `pypto-fracture-point-detector` |
-| Skill audit requested | `pypto-skill-reviewer` |
-| Post-correctness model integration | `pypto-fused-op-integration` |
+| 条件 | Lead 加载的 skill |
+|------|------------------|
+| Phase 0 之前的环境/构建失败 | `pypto-environment-setup` |
+| GATE 4 通过，请求创建 PR | `pypto-pr-creator` |
+| PR CI 失败或评审评论 | `pypto-pr-fixer` |
+| 发现 Bug / 功能 / 文档缺口 | `pypto-issue-creator` |
+| 本 session 中的框架或文档缺口 | `pypto-fracture-point-detector` |
+| 请求 skill 审计 | `pypto-skill-reviewer` |
+| 正确性验证后的模型集成 | `pypto-fused-op-integration` |
 
-Post-dev skills are tagged `scope: post-dev` in
-`skills/_category.yaml`; only `ci-and-layout-check` (tagged
-`scope: in-phase`) is visible in-phase, and it is owned by the Verification
-Agent, not by Lead.
+开发后 skill 在 `skills/_category.yaml` 中标记为 `scope: post-dev`；只有 `ci-and-layout-check`（标记为 `scope: in-phase`）在阶段内可见，且归 Verification Agent 所有，而非 Lead。
 
-**Swap policy to stay at 5.** When Lead enters post-dev mode, it swaps
-`catalog.yaml` out of the active set (the remaining dispatch target is the
-single post-dev skill, so the Tier-1 routing index is no longer needed) and
-loads exactly one post-dev skill in its place. The swap keeps Lead's active
-count at **5** under all conditions. Only one post-dev skill is active at a
-time.
+**保持 5 个的交换策略。** 当 Lead 进入开发后模式时，它将 `catalog.yaml` 从活跃集中换出（剩余的分发目标是单个开发后 skill，因此不再需要 Tier-1 路由索引），并加载恰好一个开发后 skill 替代。交换使 Lead 的活跃计数在所有条件下保持 **5**。同一时间只有一个开发后 skill 活跃。
 
 ---
 
 ## 2. Planning Agent
 
-**Responsibility:** Produce `SPEC.md`, `API_REPORT.md`, and seed
-`custom/plan/<op>.md` with the API map. Owns Phase 0 only.
+**职责：** 产出 `SPEC.md`、`API_REPORT.md`，并用 API 映射填充 `custom/plan/<op>.md`。仅负责 Phase 0。
 
-| Role | Skill | Output |
-|------|-------|--------|
-| Router | `phase0-phase1-planning` | Phase 0 section |
-| Active | `pypto-intent-understand` | `SPEC.md` |
-| Active | `pypto-api-explore` | `API_REPORT.md` |
-| Active | `plan-template` | Plan skeleton + API map section |
+| 角色 | Skill | 输出 |
+|------|-------|------|
+| 路由 | `phase0-phase1-planning` | Phase 0 部分 |
+| 活跃 | `pypto-intent-understand` | `SPEC.md` |
+| 活跃 | `pypto-api-explore` | `API_REPORT.md` |
+| 活跃 | `plan-template` | 计划骨架 + API 映射部分 |
 
-**Exit criterion:** GATE 0 in `agent-plan.md` — API map has zero
-`unsupported` rows (or each has a documented workaround).
+**退出标准：** `agent-plan.md` 中的 GATE 0 —— API 映射中零个 `unsupported` 行（或每个都有文档化的变通方案）。
 
 ---
 
-## 3. Algorithm Agent (Mathematician)
+## 3. Algorithm Agent（数学家）
 
-**Responsibility:** Produce the PyPTO-friendly `golden.py` and the
-**Golden function inventory** in the plan. Owns Phase 1 only.
+**职责：** 产出 PyPTO 友好的 `golden.py` 和计划中的 **Golden 函数清单**。仅负责 Phase 1。
 
-| Role | Skill | Notes |
-|------|-------|-------|
-| Active | `pypto-golden-generate` | Primary — PyTorch/NumPy golden with confidence score |
-| Active | `phase0-phase1-planning` | Phase 1 normalization rules (no `.T`, explicit `reshape`, shape comments) |
-| Active | `kernel-code-format` | §11 shape annotation conventions |
+| 角色 | Skill | 备注 |
+|------|-------|------|
+| 活跃 | `pypto-golden-generate` | 主要 —— 带置信度分数的 PyTorch/NumPy golden |
+| 活跃 | `phase0-phase1-planning` | Phase 1 归一化规则（无 `.T`、显式 `reshape`、shape 注释）|
+| 活跃 | `kernel-code-format` | §11 shape 注解约定 |
 
-**Exit criterion:** GATE 1 — zero `.T`/`.t()` in golden, shape comments on all
-intermediates, inventory recorded, `allclose` passes against the original
-reference.
+**退出标准：** GATE 1 —— golden 中零个 `.T`/`.t()`、所有中间变量有 shape 注释、清单已记录、`allclose` 通过与原始参考的对比。
 
-**Dormant escalation:** `debugging` (for `DEBUG.md` §9.19
-reduction-alignment and matmul caveats — load only if the golden triggers
-PyPTO constraints during pre-check).
+**休眠升级：** `debugging`（用于 `DEBUG.md` §9.19 归约对齐和 matmul 注意事项 —— 仅在 golden 在预检中触发 PyPTO 约束时加载）。
 
 ---
 
 ## 4. Architecture Agent
 
-**Responsibility:** Produce `DESIGN.md` and the performance target sheet.
-Does *not* perform optimization.
+**职责：** 产出 `DESIGN.md` 和性能目标表。**不**执行优化。
 
-| Role | Skill | Notes |
-|------|-------|-------|
-| Active | `pypto-op-design` | `DESIGN.md`: API mapping, tiling strategy, loop structure |
-| Active | `kernel-code-format` | Layers A–L design format, naming conventions |
-| Reference-only | `pypto-op-perf-tune` | **Read the target-metric structure only.** Do NOT load `tune-frontend`/`tune-swimlane`/`tune-incore` — those belong to Optimization Agent. |
+| 角色 | Skill | 备注 |
+|------|-------|------|
+| 活跃 | `pypto-op-design` | `DESIGN.md`：API 映射、tiling 策略、loop 结构 |
+| 活跃 | `kernel-code-format` | Layers A–L 设计格式、命名约定 |
+| 仅参考 | `pypto-op-perf-tune` | **仅读取目标指标结构。** 不要加载 `tune-frontend`/`tune-swimlane`/`tune-incore`——那些属于 Optimization Agent。 |
 
-**Exit criterion:** `DESIGN.md` exists, Layers A–L populated, perf target
-expressed as concrete numbers (baseline, target time, required speedup).
+**退出标准：** `DESIGN.md` 存在、Layers A–L 已填充、性能目标表示为具体数字（基线、目标时间、所需加速比）。
 
 ---
 
 ## 5. Design Agent
 
-**Responsibility:** Split the kernel into semantic modules, define module
-contracts, lay out staged files. Owns Phase 2.
+**职责：** 将 kernel 拆分为语义模块，定义模块契约，规划 staged 文件。负责 Phase 2。
 
-| Role | Skill | Notes |
-|------|-------|-------|
-| Router | `phase2-phase3-construction` | Phase 2 module-decomposition section |
-| Active | `pypto-op-design` | Carry `DESIGN.md` tiling/loop decisions down to per-module level |
-| Active | `kernel-code-format` | `pypto_kernel_template.py` skeleton |
-| Active | `plan-template` | Fill in **Module decomposition**, **Module contracts**, **Staged module files** |
+| 角色 | Skill | 备注 |
+|------|-------|------|
+| 路由 | `phase2-phase3-construction` | Phase 2 模块分解部分 |
+| 活跃 | `pypto-op-design` | 将 `DESIGN.md` 的 tiling/loop 决策下放到逐模块级别 |
+| 活跃 | `kernel-code-format` | `pypto_kernel_template.py` 骨架 |
+| 活跃 | `plan-template` | 填写**模块分解**、**模块契约**、**Staged 模块文件** |
 
-**Exit criterion:** GATE 2 — module decomposition, contracts, and staged
-file table all present in the plan.
+**退出标准：** GATE 2 —— 模块分解、契约和 staged 文件表都在计划中存在。
 
 ---
 
 ## 6. Coding Agent
 
-**Responsibility:** Implement `custom/<op>/<op>_module<suffix>.py` one module
-at a time. Owns Phase 3–5 implementation.
+**职责：** 逐模块实现 `custom/<op>/<op>_module<suffix>.py`。负责 Phase 3–5 实现。
 
-| Role | Skill | Notes |
-|------|-------|-------|
-| Active | `pypto-op-develop` | Generate `impl.py`, `test.py`, `README` |
-| Router | `phase2-phase3-construction` | Phase 3 section + DEBUG §9 lookup table |
-| Active | `phase4-phase5-integration` | Phase 4 integration, Phase 5 structural rules |
-| Active | `kernel-code-format` | Template, write-back patterns, tile config rules |
+| 角色 | Skill | 备注 |
+|------|-------|------|
+| 活跃 | `pypto-op-develop` | 生成 `impl.py`、`test.py`、`README` |
+| 路由 | `phase2-phase3-construction` | Phase 3 部分 + DEBUG §9 查找表 |
+| 活跃 | `phase4-phase5-integration` | Phase 4 集成、Phase 5 结构规则 |
+| 活跃 | `kernel-code-format` | 模板、回写模式、tile 配置规则 |
 
-**Tooling used directly (not skills):** MCP `query_op`, `list_ops`,
-`retrieve_docs`, `validate_kernel_structure`.
+**直接使用的工具（非 skill）：** MCP `query_op`、`list_ops`、`retrieve_docs`、`validate_kernel_structure`。
 
-**Handoff on failure:** On any test/layout failure, hand the failing module
-and logs to Verification Agent. Do **not** load debug sub-skills yourself.
+**失败时的交接：** 在任何测试/layout 失败时，将失败的模块和日志交接给 Verification Agent。**不要**自己加载调试子 skill。
 
 ---
 
-## 7. Verification Agent (Judge-only)
+## 7. Verification Agent（仅判定）
 
-**Responsibility:** Run `detailed_tensor_compare` and layout checks. Produce
-a pass/fail verdict for every gate. On fail, classify the failure into a
-`failure_category` so Lead can dispatch the Debug Agent. Does **not**
-investigate, bisect, or fix — that is the Debug Agent's job.
+**职责：** 运行 `detailed_tensor_compare` 和 layout 检查。为每个 Gate 产出通过/失败的裁定。失败时，将失败分类为 `failure_category` 以便 Lead 分发 Debug Agent。**不**调查、二分或修复——那是 Debug Agent 的工作。
 
-| Role | Skill | Notes |
-|------|-------|-------|
-| Active | `validation-and-deliverables` | `detailed_tensor_compare` runner, success criteria |
-| Active | `ci-and-layout-check` | `extract_pypto_calls.py`, `run_validate_layout.sh` |
+| 角色 | Skill | 备注 |
+|------|-------|------|
+| 活跃 | `validation-and-deliverables` | `detailed_tensor_compare` 运行器、成功标准 |
+| 活跃 | `ci-and-layout-check` | `extract_pypto_calls.py`、`run_validate_layout.sh` |
 
-Active-skill count: **2**. Verification must stay lean because it is
-re-invoked on every module patch cycle and must re-run the full GATE 3
-checklist from scratch each time.
+活跃 skill 数：**2**。Verification 必须保持精简，因为它在每个模块补丁周期中被重新调用，且每次必须从头重新运行完整的 GATE 3 检查清单。
 
-**Verdict format — always one of:**
+**裁定格式——始终为以下之一：**
 
 ```
 GATE N passed for <scope>. Evidence: <plan-file row pointer>.
 ```
 
-or
+或
 
 ```
 GATE N FAILED for <scope>. failure_category: <cat>.
@@ -229,165 +177,131 @@ Failing file: <path>. Evidence: <plan-file row + log excerpt>.
 Dispatch @debug.
 ```
 
-`failure_category` values: `precision`, `aicore`, `host_crash`,
-`workspace_overlap`, `oom`, `structure`, `layout`, `other`.
+`failure_category` 值：`precision`、`aicore`、`host_crash`、`workspace_overlap`、`oom`、`structure`、`layout`、`other`。
 
-**Forbidden:** loading `debugging/*` skills, editing kernel code, bisecting,
-retrying checks without a prior @debug→@coding cycle.
+**禁止：** 加载 `debugging/*` skill、编辑 kernel 代码、二分查找、在未经先前 @debug→@coding 循环的情况下重试检查。
 
 ---
 
-## 8. Debug Agent (Specialist investigator)
+## 8. Debug Agent（专家调查者）
 
-**Responsibility:** Investigate the root cause of a specific GATE failure
-on one staged file, propose a concrete patch, and hand the proposal back to
-Lead so @coding can apply it. Loads exactly one `debugging/*` sub-skill per
-invocation, matched to the `failure_category` reported by Verification.
+**职责：** 调查特定 staged 文件上某个 GATE 失败的根本原因，提出具体补丁方案，并将方案交回给 Lead 以便 @coding 应用。每次调用恰好加载一个 `debugging/*` 子 skill，匹配 Verification 报告的 `failure_category`。
 
-| Role | Skill | Notes |
-|------|-------|-------|
-| Router | `debugging` | Decision tree → loads exactly ONE sub-skill |
-| Active | `debugging/DEBUG.md` § lookup | §9 quick table for common PyPTO pitfalls |
-| Active (on demand) | one `debugging/<sub>` | loaded per `failure_category`, unloaded before switching |
+| 角色 | Skill | 备注 |
+|------|-------|------|
+| 路由 | `debugging` | 决策树 → 恰好加载一个子 skill |
+| 活跃 | `debugging/DEBUG.md` § 查找 | §9 常见 PyPTO 陷阱速查表 |
+| 活跃（按需）| 一个 `debugging/<sub>` | 按 `failure_category` 加载，切换前卸载 |
 
-**Router dispatch table** (keyed off Verification's `failure_category`):
+**路由分发表**（以 Verification 的 `failure_category` 为键）：
 
-| `failure_category` | Sub-skill loaded on demand |
+| `failure_category` | 按需加载的子 skill |
 |---|---|
-| `precision` | `pypto-precision-debug` → escalate to `pypto-precision-compare` for bisection |
+| `precision` | `pypto-precision-debug` → 升级到 `pypto-precision-compare` 进行二分 |
 | `aicore` | `pypto-aicore-error-locator` |
 | `host_crash` | `pypto-host-stacktrace-analyzer` |
 | `workspace_overlap` | `pypto-memory-overlap-detector` |
 | `oom` | `pypto-machine-workspace` |
-| `tile_shape` | `pypto-tile-shape-debug` (L0/L1 exceeded, tile align, `set_cube_tile_shapes` misuse, `enable_split_k`) |
-| `structure` / `layout` | `debugging` + `DEBUG.md` §9 alone |
-| `other` | `debugging` → escalate per `SKILL.md` decision tree |
+| `tile_shape` | `pypto-tile-shape-debug`（L0/L1 超限、tile 对齐、`set_cube_tile_shapes` 误用、`enable_split_k`）|
+| `structure` / `layout` | `debugging` + 仅 `DEBUG.md` §9 |
+| `other` | `debugging` → 按 `SKILL.md` 决策树升级 |
 
-Only one sub-skill is loaded per failure; it is unloaded before moving on.
-Worst case active-skill count: **3**.
+每次失败只加载一个子 skill；在继续之前卸载。最坏情况活跃 skill 数：**3**。
 
-**Deliverable per invocation:** a patch proposal logged to
-`custom/plan/<op>.md` → Development & debug log with (a) file + line range,
-(b) current snippet, (c) proposed snippet, (d) expected effect on the
-failing Verification check. Debug Agent does **not** modify production
-kernel code directly; it may create diagnostic scratch files under
-`custom/<op>/_debug/`.
+**每次调用的交付物：** 一个补丁方案记录到 `custom/plan/<op>.md` → Development & debug log，包含 (a) 文件 + 行范围，(b) 当前代码片段，(c) 建议代码片段，(d) 对失败 Verification 检查的预期效果。Debug Agent **不**直接修改生产 kernel 代码；它可以在 `custom/<op>/_debug/` 下创建诊断 scratch 文件。
 
-**Iteration cap:** 3 full fix/re-verify cycles per module. If the same
-module fails a 4th time, stop and surface the blocker to Lead with all
-evidence.
+**迭代上限：** 每个模块 3 次完整修复/重新验证循环。如果同一模块第 4 次失败，停止并将阻塞项连同所有证据提交给 Lead。
 
 ---
 
 ## 9. Optimization Agent
 
-**Responsibility:** Run Phase 6 optimization after correctness is frozen.
-Coordinate tightly with Verification Agent for regression safety.
+**职责：** 在正确性冻结后运行 Phase 6 优化。与 Verification Agent 紧密协调以确保回归安全。
 
-| Role | Skill | Notes |
-|------|-------|-------|
-| Active | `phase6-optimization` | Phase 6 procedure, rollback rules |
-| Router | `pypto-op-perf-tune` | 3-stage orchestrator with stage gating |
-| Active | `perf-analyzer` | Metrics extraction, bottleneck identification |
+| 角色 | Skill | 备注 |
+|------|-------|------|
+| 活跃 | `phase6-optimization` | Phase 6 流程、回滚规则 |
+| 路由 | `pypto-op-perf-tune` | 3 阶段编排器，带阶段 Gate |
+| 活跃 | `perf-analyzer` | 指标提取、瓶颈识别 |
 
-**Router dispatch table** (see `performance/pypto-op-perf-tune/SKILL.md`
-"Stage Gating (Router Policy)"):
+**路由分发表**（参见 `performance/pypto-op-perf-tune/SKILL.md`"Stage Gating (Router Policy)"）：
 
-| Stage entered | Sub-skill loaded on demand | Unload when |
-|---------------|----------------------------|-------------|
-| Stage 1 (frontend) | `tune-frontend` | Stage 1 exits |
-| Stage 2 (swimlane) | `tune-swimlane` | Stage 2 exits |
-| Stage 3 (incore) | `tune-incore` | Stage 3 exits |
-| Any stage needing automation | `pypto-operator-auto-tuner` | Automation task done |
+| 进入的阶段 | 按需加载的子 skill | 卸载时机 |
+|-----------|-------------------|---------|
+| Stage 1（frontend）| `tune-frontend` | Stage 1 退出 |
+| Stage 2（swimlane）| `tune-swimlane` | Stage 2 退出 |
+| Stage 3（incore）| `tune-incore` | Stage 3 退出 |
+| 任何需要自动化的阶段 | `pypto-operator-auto-tuner` | 自动化任务完成 |
 
-Stage N+1 must not be entered before stage N exits cleanly. Worst case
-active-skill count: **4** (only one `tune-*` sub-skill active at a time).
+Stage N+1 必须在 Stage N 干净退出后才能进入。最坏情况活跃 skill 数：**4**（同一时间只有一个 `tune-*` 子 skill 活跃）。
 
-**Activation precondition:** GATE 4 passed (E2E `all_close: true`, layout
-check exit 0). Optimization Agent is dormant until then.
+**激活前置条件：** GATE 4 通过（E2E `all_close: true`，layout 检查 exit 0）。在此之前 Optimization Agent 处于休眠状态。
 
-**Regression loop with Verification Agent:**
+**与 Verification Agent 的回归循环：**
 
 ```
-Optimization Agent: apply change N
+Optimization Agent: 应用变更 N
   ↓
 Verification Agent:
   (1) detailed_tensor_compare → all_close?
   (2) layout check            → exit 0?
-  (3) perf-analyzer           → delta vs baseline
-  → write to Verification Report
+  (3) perf-analyzer           → 与基线的 delta
+  → 写入验证报告
   ↓
 Optimization Agent:
-  - regression       → rollback, log in plan, try next idea
-  - no gain          → log, try next idea
-  - gain + no regression → adopt, move on
-  - target reached   → stop, hand back to Lead
+  - 回归       → 回滚，记录到计划中，尝试下一个方案
+  - 无收益     → 记录，尝试下一个方案
+  - 有收益且无回归 → 采纳，继续
+  - 达到目标   → 停止，交回给 Lead
 ```
 
 ---
 
-## Skill-to-agent inverted index
+## Skill 到 Agent 的反向索引
 
-Use this to check the "2–5 active" invariant at a glance.
+用于快速检查"2–5 活跃"不变量。
 
-**Root control documents (Lead Agent only):**
+**根控制文档（仅 Lead Agent）：**
 
-| Document | Purpose |
-|----------|---------|
-| `principles.md` | Behavioral guidelines |
-| `agent-plan.md` | Phase checklist / gates |
-| `agents.md` | Team roster / dispatch |
-| `rules.md` | Mandatory rules |
-| `catalog.yaml` | Tier-1 routing index |
+| 文档 | 用途 |
+|------|------|
+| `principles.md` | 行为准则 |
+| `agent-plan.md` | Phase 检查清单 / Gate |
+| `agents.md` | 团队名册 / 分发 |
+| `rules.md` | 强制规则 |
+| `catalog.yaml` | Tier-1 路由索引 |
 
-**Skills under `skills/` and their active assignments:**
+**`skills/` 下的 skill 及其活跃分配：**
 
-| Skill | Active for agents |
-|-------|-------------------|
-| `plan-template` | Planning, Design |
-| `kernel-code-format` | Algorithm, Architecture, Design, Coding |
+| Skill | 活跃 Agent |
+|-------|-----------|
+| `plan-template` | Planning、Design |
+| `kernel-code-format` | Algorithm、Architecture、Design、Coding |
 | `validation-and-deliverables` | Verification |
-| `phase0-phase1-planning` | Planning, Algorithm |
-| `phase2-phase3-construction` | Design, Coding |
+| `phase0-phase1-planning` | Planning、Algorithm |
+| `phase2-phase3-construction` | Design、Coding |
 | `phase4-phase5-integration` | Coding |
 | `phase6-optimization` | Optimization |
 | `pypto-intent-understand` | Planning |
 | `pypto-api-explore` | Planning |
 | `pypto-golden-generate` | Algorithm |
-| `pypto-op-design` | Architecture, Design |
+| `pypto-op-design` | Architecture、Design |
 | `pypto-op-develop` | Coding |
-| `debugging` | Debug (router) |
-| `pypto-op-perf-tune` | Architecture (reference-only), Optimization (router) |
+| `debugging` | Debug（路由）|
+| `pypto-op-perf-tune` | Architecture（仅参考）、Optimization（路由）|
 | `perf-analyzer` | Optimization |
 | `ci-and-layout-check` | Verification |
 
-`pypto-op-workflow` is referenced by Lead as a dispatch guide
-but is **not** loaded into Lead's active set; it lives under `skills/` and
-is consulted on-demand. Every other skill in the library is **dormant by
-default** and loaded only through the router skills above or by the
-explicit conditions in each agent's table.
+`pypto-op-workflow` 被 Lead 作为分发指南引用，但**不**加载到 Lead 的活跃集中；它位于 `skills/` 下，按需查阅。库中所有其他 skill 默认**休眠**，仅通过上述路由 skill 或每个 Agent 表中的显式条件加载。
 
 ---
 
-## Anti-patterns
+## 反模式
 
-1. **Do not hand a debug sub-skill directly to the Coding Agent.** Route
-   through Verification (judge) → Debug (investigate) → Coding (apply).
-   Coding Agent's job is to write code, not diagnose failures.
-2. **Do not let Verification investigate or fix.** Verification is a judge.
-   The moment a `debugging/*` skill is needed, Lead must dispatch the Debug
-   Agent instead.
-3. **Do not let Debug modify production kernel code.** Debug writes patch
-   proposals into the plan file; Coding applies them. This preserves the
-   audit trail and stops Debug from accidentally advancing the module.
-4. **Do not load Optimization skills before GATE 4.** Phase 6 is gated on
-   correctness; pre-loading `tune-*` skills causes premature optimization
-   and silent correctness regressions.
-5. **Do not expand any agent past 5 active skills.** If a new workflow needs
-   more, introduce a new router skill or split into two agents.
-6. **Do not pre-load all post-dev `ci-and-pr/*` skills on the Lead Agent.**
-   Use the dormant dispatch table above — each post-dev skill activates on a
-   specific condition (PR requested, CI failed, etc.).
-7. **Do not skip the shared plan file.** `custom/plan/<op>.md` is the single
-   source of truth between agents; every handoff is a plan update, not a
-   direct message.
+1. **不要将调试子 skill 直接交给 Coding Agent。** 通过 Verification（判定者）→ Debug（调查者）→ Coding（应用者）路由。Coding Agent 的工作是编写代码，不是诊断失败。
+2. **不要让 Verification 调查或修复。** Verification 是判定者。一旦需要 `debugging/*` skill，Lead 必须分发 Debug Agent。
+3. **不要让 Debug 修改生产 kernel 代码。** Debug 将补丁方案写入计划文件；Coding 应用它们。这保留了审计轨迹，并防止 Debug 意外推进模块。
+4. **不要在 GATE 4 之前加载 Optimization skill。** Phase 6 以正确性为门控；预加载 `tune-*` skill 会导致过早优化和静默的正确性回归。
+5. **不要将任何 Agent 扩展到超过 5 个活跃 skill。** 如果新工作流需要更多，引入新的路由 skill 或拆分为两个 Agent。
+6. **不要在 Lead Agent 上预加载所有开发后 `ci-and-pr/*` skill。** 使用上面的休眠分发表——每个开发后 skill 在特定条件（请求 PR、CI 失败等）下激活。
+7. **不要跳过共享计划文件。** `custom/plan/<op>.md` 是 Agent 之间的唯一事实来源；每次交接是计划更新，不是直接消息。

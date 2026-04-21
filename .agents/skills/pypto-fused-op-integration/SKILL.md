@@ -1,6 +1,6 @@
 ---
 name: pypto-fused-op-integration
-description: 将 PyPTO 融合算子集成到整网中，替代多个小算子组合的完整工作流程。包含理解验证、算子开发、模型集成、精度验证与性能调优。Whenever users mention "fused op"、"model integration"、"算子融合"、"整网集成"、"replace small ops" or any operator optimization in neural networks (GLM, LLaMA, MoE, Attention), use this skill even if they don't explicitly ask for 'fused operator' or 'integration'.
+description: 将 PyPTO 融合算子集成到整网中，替代多个小算子组合的完整工作流程。包含理解验证、算子开发、模型集成、精度验证与性能调优。当用户提到 "fused op"、"model integration"、"算子融合"、"整网集成"、"replace small ops" 或神经网络中的任何算子优化（GLM, LLaMA, MoE, Attention）时，即使未明确要求"融合算子"或"整网集成"，也应使用此技能。
 ---
 
 # PyPTO 融合算子整网集成 Skill
