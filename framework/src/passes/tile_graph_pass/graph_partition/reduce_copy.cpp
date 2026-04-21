@@ -24,6 +24,7 @@
 #include <map>
 #include <set>
 #include <unordered_map>
+#include <unordered_set>
 #include <queue>
 #include <tuple>
 #include <sstream>
@@ -39,8 +40,8 @@ Status ReduceCopyMerge::RunOnFunction(Function &function)
         return SUCCESS;
     }
     MergeInput mergeInput;
-    mergeInput.maxLatency = 1000;
-    mergeInput.aivRatio = {0.5, 2.0};
+    mergeInput.maxLatency = 10000000;
+    mergeInput.aivRatio = {0.00005, 20000.0};
     APASS_LOG_DEBUG_F(Elements::Operation, "Subgraph Info before ReduceCopy Pass:");
     BuildGraph(function, mergeInput);
     MarkNoMergeSubgraph(function);
@@ -108,6 +109,8 @@ Status ReduceCopyMerge::BuildGraph(Function &function, MergeInput& mergeInput)
     mergeInput.subgraphAIVLatency.resize(subgraphNum, 0);
     mergeInput.subGraphOutGraph.clear();
     mergeInput.subGraphOutGraph.resize(subgraphNum);
+    mergeInput.subGraphInGraph.clear();
+    mergeInput.subGraphInGraph.resize(subgraphNum);
     for (auto &op : function.Operations()) {
         int src = op.GetSubgraphID();
         int opLatency = op.GetLatency();
@@ -120,6 +123,7 @@ Status ReduceCopyMerge::BuildGraph(Function &function, MergeInput& mergeInput)
             int dst = consumer->GetSubgraphID();
             if (src != dst) {
                 mergeInput.subGraphOutGraph[src].insert(dst);
+                mergeInput.subGraphInGraph[dst].insert(src);
             }
         }
     }
@@ -134,20 +138,20 @@ bool ReduceCopyMerge::IsEnforceMergeBoundary(LogicalTensorPtr &tensor)
 {
     std::unordered_set<int> boundaryScopeIds;
     for (auto &op : tensor->GetProducers()) {
-        APASS_LOG_DEBUG_F(Elements::Operation, "Boundary tensor %d has produce %d with scopeInfoCvFuseId %d.",
-                          tensor->GetMagic(), op->GetOpMagic(), op->GetCvFuseId());
-        if (op->GetCvFuseId() == -1) {
+        APASS_LOG_DEBUG_F(Elements::Operation, "Boundary tensor %d has produce %d with scopeIdUpper %d.",
+                          tensor->GetMagic(), op->GetOpMagic(), op->GetScopeIdUpper());
+        if (op->GetScopeIdUpper() == -1) {
             return false;
         }
-        boundaryScopeIds.insert(op->GetCvFuseId());
+        boundaryScopeIds.insert(op->GetScopeIdUpper());
     }
     for (auto &op : tensor->GetConsumers()) {
-        APASS_LOG_DEBUG_F(Elements::Operation, "Boundary tensor %d has consumer %d with scopeInfoCvFuseId %d.",
-                          tensor->GetMagic(), op->GetOpMagic(), op->GetCvFuseId());
-        if (op->GetCvFuseId() == -1) {
+        APASS_LOG_DEBUG_F(Elements::Operation, "Boundary tensor %d has consumer %d with scopeIdUpper %d.",
+                          tensor->GetMagic(), op->GetOpMagic(), op->GetScopeIdUpper());
+        if (op->GetScopeIdUpper() == -1) {
             return false;
         }
-        boundaryScopeIds.insert(op->GetCvFuseId());
+        boundaryScopeIds.insert(op->GetScopeIdUpper());
     }
     if (boundaryScopeIds.size() == 1) {
         return true;
@@ -205,7 +209,7 @@ Status ReduceCopyMerge::BuildMergeGroup(Function &function, MergeInput& mergeInp
         mergeGroupToPriority[mergeGroup] += tensor->MemorySize();
         if (IsEnforceMergeBoundary(tensor)) {
             APASS_LOG_DEBUG_F(Elements::Operation, "----boundary tensor %d is marked as enforced.", tensor->GetMagic());
-            enforceMergeGroup.insert(mergeGroup);
+            // enforceMergeGroup.insert(mergeGroup);
         }
     }
     std::multimap<int, std::vector<int>> sortedMergeGroup;
@@ -281,6 +285,15 @@ void MixGraphMerger::Initialize(const MergeInput& input)
     mOutput.subgraphIdUpdated.resize(input.numSubgraph);
     for (int i = 0; i < input.numSubgraph; ++i) {
         mOutput.subgraphIdUpdated[i] = i;
+    }
+    estimateInput.execTime.resize(input.numSubgraph);
+    estimateInput.isCube.resize(input.numSubgraph);
+    estimateInput.outGraph = input.subGraphOutGraph;
+    estimateInput.inGraph = input.subGraphInGraph;
+    estimateInput.betweenSubgraphScheduleTime = 500;
+    for (int i = 0; i < input.numSubgraph; ++i) {
+        estimateInput.execTime[i] = input.subgraphAICLatency[i] + input.subgraphAIVLatency[i];
+        estimateInput.isCube[i] = (input.subgraphAICLatency[i] > 0 ? true : false);
     }
 }
 
@@ -435,6 +448,41 @@ bool MixGraphMerger::CheckLatencyConstraint(const std::vector<int>& actualGroup)
     return true;
 }
 
+bool MixGraphMerger::CheckMergeBenefit(const std::vector<int>& actualGroup)
+{
+    std::unordered_set<int> mergedRoot(actualGroup.begin(), actualGroup.end());
+    std::vector<std::set<int>> originalGroup;
+    std::vector<std::set<int>> mergedGroup;
+    std::unordered_map<int, std::set<int>> rootToNodes;
+    for (size_t i = 0; i < mParent.size(); i++) {
+        int root = FindParent(i);
+        rootToNodes[root].insert(i);
+    }
+    mergedGroup.push_back({});
+    for (auto& pr : rootToNodes) {
+        originalGroup.push_back(pr.second);
+        if (mergedRoot.count(pr.first) > 0) {
+            mergedGroup[0].insert(pr.second.begin(), pr.second.end());
+        } else {
+            mergedGroup.push_back(pr.second);
+        }
+    }
+    EstimateExecTime originalTimeEstimator;
+    int originalTime = originalTimeEstimator.Estimate(estimateInput, originalGroup);
+    EstimateExecTime mergedTimeEstimator;
+    int mergedTime = mergedTimeEstimator.Estimate(estimateInput, mergedGroup);
+
+    APASS_LOG_INFO_F(Elements::Operation,
+        "Estimate exec time before merge: %d, after merge: %d.", originalTime, mergedTime);
+
+    if (mergedTime > originalTime) {
+        APASS_LOG_INFO_F(Elements::Operation,
+            "Merge failed: estimate merged exec time > original exec time.");
+        return false;
+    }
+    return true;
+}
+
 bool MixGraphMerger::CanMergeWithConstraints(const std::vector<int>& actualGroup)
 {
     if (actualGroup.size() <= 1) {
@@ -445,6 +493,9 @@ bool MixGraphMerger::CanMergeWithConstraints(const std::vector<int>& actualGroup
         return false;
     }
     if (!CheckLatencyConstraint(actualGroup)) {
+        return false;
+    }
+    if (!CheckMergeBenefit(actualGroup)) {
         return false;
     }
     return true;
@@ -533,6 +584,190 @@ MergeOutput MixGraphMerger::Merge(const MergeInput& input)
         APASS_LOG_INFO_F(Elements::Operation, "Invalid output detected");
     }
     return mOutput;
+}
+
+void EstimateExecTime::InitMixData(MixScheduleContext& ctx, const std::vector<std::set<int>>& estimateCandidate)
+{
+    ctx.numMix = static_cast<int>(estimateCandidate.size());
+    ctx.numSubgraph = static_cast<int>(ctx.subgraphToMix.size());
+    
+    for (int mixId = 0; mixId < ctx.numMix; ++mixId) {
+        for (int idx : estimateCandidate[mixId]) {
+            ctx.candidateSet.insert(idx);
+            ctx.subgraphToMix[idx] = mixId;
+        }
+    }
+}
+
+void EstimateExecTime::BuildMixDeps(MixScheduleContext& ctx, const EstimateInput& input)
+{
+    for (int idx : ctx.candidateSet) {
+        int mixId = ctx.subgraphToMix[idx];
+        for (int pred : input.inGraph[idx]) {
+            if (ctx.candidateSet.count(pred) > 0) {
+                int predMixId = ctx.subgraphToMix[pred];
+                if (predMixId != mixId) {
+                    ctx.mixDeps[mixId].insert(predMixId);
+                }
+            }
+        }
+    }
+}
+
+void EstimateExecTime::InitMixTopology(MixScheduleContext& ctx)
+{
+    for (int mixId = 0; mixId < ctx.numMix; ++mixId) {
+        ctx.mixInDegree[mixId] = static_cast<int>(ctx.mixDeps[mixId].size());
+        if (ctx.mixInDegree[mixId] == 0) {
+            ctx.mixReadyQueue.push(mixId);
+        }
+    }
+}
+
+int EstimateExecTime::CalcMixStartTime(int mixId, const MixScheduleContext& ctx, int scheduleTime)
+{
+    int startTime = 0;
+    for (int predMixId : ctx.mixDeps[mixId]) {
+        int predFinish = ctx.mixFinishTime[predMixId] + scheduleTime;
+        startTime = std::max(startTime, predFinish);
+    }
+    return startTime;
+}
+
+void EstimateExecTime::InitSubgraphContext(SubgraphScheduleContext& subCtx, const MixScheduleContext& ctx, const EstimateInput& input)
+{
+    subCtx.numSubgraph = ctx.numSubgraph;
+    subCtx.finishTime.resize(ctx.numSubgraph, 0);
+    subCtx.inDegree.resize(ctx.numSubgraph, 0);
+    subCtx.coreState = {subCtx.mixStartTime, subCtx.mixStartTime, subCtx.mixStartTime};
+    
+    for (int idx : ctx.candidateSet) {
+        if (ctx.subgraphToMix[idx] != subCtx.mixId) {
+            continue;
+        }
+        int degree = 0;
+        for (int pred : input.inGraph[idx]) {
+            if (ctx.candidateSet.count(pred) > 0 && ctx.subgraphToMix[pred] == subCtx.mixId) {
+                degree++;
+            }
+        }
+        subCtx.inDegree[idx] = degree;
+        if (degree == 0) {
+            subCtx.readyQueue.push(idx);
+        }
+    }
+}
+
+void EstimateExecTime::ScheduleOneSubgraph(int current, SubgraphScheduleContext& subCtx, const MixScheduleContext& ctx, const EstimateInput& input)
+{
+    int earliestStart = subCtx.mixStartTime;
+    for (int pred : input.inGraph[current]) {
+        if (ctx.candidateSet.count(pred) > 0 && ctx.subgraphToMix[pred] == subCtx.mixId) {
+            earliestStart = std::max(earliestStart, subCtx.finishTime[pred]);
+        }
+    }
+    
+    bool isAic = input.isCube[current];
+    int startTime = isAic ? 
+        std::max(earliestStart, subCtx.coreState.aic) :
+        std::max(earliestStart, std::min(subCtx.coreState.aiv0, subCtx.coreState.aiv1));
+    
+    subCtx.finishTime[current] = startTime + input.execTime[current];
+    
+    if (isAic) {
+        subCtx.coreState.aic = subCtx.finishTime[current];
+    } else if (subCtx.coreState.aiv0 <= subCtx.coreState.aiv1) {
+        subCtx.coreState.aiv0 = subCtx.finishTime[current];
+    } else {
+        subCtx.coreState.aiv1 = subCtx.finishTime[current];
+    }
+}
+
+void EstimateExecTime::ProcessSubgraphConsumers(int current, SubgraphScheduleContext& subCtx, const MixScheduleContext& ctx, const EstimateInput& input)
+{
+    for (int consumer : input.outGraph[current]) {
+        if (ctx.candidateSet.count(consumer) > 0 && ctx.subgraphToMix[consumer] == subCtx.mixId) {
+            subCtx.inDegree[consumer]--;
+            if (subCtx.inDegree[consumer] == 0) {
+                subCtx.readyQueue.push(consumer);
+            }
+        }
+    }
+}
+
+int EstimateExecTime::GetMixFinishTime(const SubgraphScheduleContext& subCtx, const MixScheduleContext& ctx)
+{
+    int mixFinish = 0;
+    for (int idx : ctx.candidateSet) {
+        if (ctx.subgraphToMix[idx] == subCtx.mixId) {
+            mixFinish = std::max(mixFinish, subCtx.finishTime[idx]);
+        }
+    }
+    return mixFinish;
+}
+
+void EstimateExecTime::ProcessMixConsumers(int mixId, MixScheduleContext& ctx)
+{
+    for (int consumerMix = 0; consumerMix < ctx.numMix; ++consumerMix) {
+        if (ctx.mixDeps[consumerMix].count(mixId) > 0) {
+            ctx.mixInDegree[consumerMix]--;
+            if (ctx.mixInDegree[consumerMix] == 0) {
+                ctx.mixReadyQueue.push(consumerMix);
+            }
+        }
+    }
+}
+
+int EstimateExecTime::Estimate(const EstimateInput& input, const std::vector<std::set<int>>& estimateCandidate)
+{
+    if (estimateCandidate.empty()) {
+        return 0;
+    }
+    
+    MixScheduleContext ctx;
+    ctx.subgraphToMix.resize(input.outGraph.size(), -1);
+    ctx.mixDeps.resize(estimateCandidate.size());
+    ctx.mixStartTime.resize(estimateCandidate.size(), 0);
+    ctx.mixFinishTime.resize(estimateCandidate.size(), 0);
+    ctx.mixInDegree.resize(estimateCandidate.size(), 0);
+    
+    InitMixData(ctx, estimateCandidate);
+    if (ctx.candidateSet.empty()) {
+        return 0;
+    }
+    
+    BuildMixDeps(ctx, input);
+    InitMixTopology(ctx);
+    
+    while (!ctx.mixReadyQueue.empty()) {
+        int mixId = ctx.mixReadyQueue.front();
+        ctx.mixReadyQueue.pop();
+        
+        ctx.mixStartTime[mixId] = CalcMixStartTime(mixId, ctx, input.betweenSubgraphScheduleTime);
+        
+        SubgraphScheduleContext subCtx;
+        subCtx.mixId = mixId;
+        subCtx.mixStartTime = ctx.mixStartTime[mixId];
+        
+        InitSubgraphContext(subCtx, ctx, input);
+        
+        while (!subCtx.readyQueue.empty()) {
+            int current = subCtx.readyQueue.front();
+            subCtx.readyQueue.pop();
+            
+            ScheduleOneSubgraph(current, subCtx, ctx, input);
+            ProcessSubgraphConsumers(current, subCtx, ctx, input);
+        }
+        
+        ctx.mixFinishTime[mixId] = GetMixFinishTime(subCtx, ctx);
+        ProcessMixConsumers(mixId, ctx);
+    }
+    
+    int result = 0;
+    for (int mixId = 0; mixId < ctx.numMix; ++mixId) {
+        result = std::max(result, ctx.mixFinishTime[mixId]);
+    }
+    return result;
 }
 
 }
