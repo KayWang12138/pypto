@@ -257,7 +257,10 @@ def gen_gather_select_attention_golden_aq(dtype, bn1n2s1, is_kn_fp8_quant, actua
     kr = kr.reshape(block_num * block_size, qk_rope_dim)
 
     # nope_cache: kv尾轴512 fp8， kr尾轴64 bf16/fp16，kv scale尾轴4 fp32，共656
-    nope_cache_2d = torch.zeros([block_num * block_size, kv_lora_rank + qk_rope_dim * 2 + 4 * 4], dtype=torch.float8_e4m3fn)
+    nope_cache_2d = torch.zeros(
+        [block_num * block_size, kv_lora_rank + qk_rope_dim * 2 + 4 * 4], 
+        dtype=torch.float8_e4m3fn
+    )
 
     # [:, 0:512]
     nope_cache_2d[:, :kv_lora_rank] = kn_quant

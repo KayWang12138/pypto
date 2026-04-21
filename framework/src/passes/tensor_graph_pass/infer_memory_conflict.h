@@ -62,7 +62,7 @@ private:
     std::set<Operation*> preregcopys;
     std::set<Operation*> postregcopys;
     std::unordered_map<LogicalTensorPtr, LogicalTensorPtr> memoryInfo;
-    std::unordered_map<DataType, int> viewTypeTable = {{DT_INT8, 1}, {DT_BF16, 2}, {DT_FP16, 2}, {DT_FP32, 4}};
+    std::unordered_map<DataType, int> viewTypeTable = {{DT_INT8, 1}, {DT_BF16, 2}, {DT_FP16, 2}, {DT_FP32, 4}, {DT_FP8E4M3, 1}};
 };
 } // namespace tile_fwk
 } // namespace npu
