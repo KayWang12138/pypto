@@ -779,7 +779,6 @@ Status IsoPartitioner::EstimateCycleUB(Function& function)
     int64_t totalLatency = 0;
     for (const auto& op : function.Operations()) {
         int32_t latency = op.GetLatency();
-
         if (latency < 0) {
             APASS_LOG_WARN_F(Elements::Config, "Detected op: %d negative latency: %d, ignoring.", op.GetOpMagic(), latency);
             continue;
@@ -787,9 +786,8 @@ Status IsoPartitioner::EstimateCycleUB(Function& function)
         totalLatency += latency;
     }
 
-    int32_t estimatedCycleUB = CYCLE_UB_LEVEL3;
-
     // 根据阈值推导cycleUB_
+    int32_t estimatedCycleUB = CYCLE_UB_LEVEL3;
     if (totalLatency >= LATENCY_THRESHOLD_LEVEL1) {
         estimatedCycleUB = CYCLE_UB_LEVEL1;
     } else if (totalLatency >= LATENCY_THRESHOLD_LEVEL2) {
@@ -802,9 +800,8 @@ Status IsoPartitioner::EstimateCycleUB(Function& function)
 
     // 更新成员变量并记录日志
     cycleUB_ = estimatedCycleUB;
-
     APASS_LOG_ERROR_F(
-        Elements::Config, "Estimated and refreshed cycleUB_: %d based on total latency: %ld", cycleUB_, totalLatency);
+        Elements::Config, "Estimated cycleUB_: %d based on total latency: %ld", cycleUB_, totalLatency);
 
     return SUCCESS;
 }
