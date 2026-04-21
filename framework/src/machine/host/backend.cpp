@@ -39,6 +39,7 @@
 #include <dlfcn.h>
 #include "tilefwk/pypto_fwk_log.h"
 #include "machine/utils/machine_error.h"
+#include "tilefwk/platform.h"
 
 using namespace npu::tile_fwk::dynamic;
 namespace npu::tile_fwk {
@@ -158,7 +159,8 @@ static void FindAllExpression(FunctionCache& cache, Linker& linker, Function* fu
             }
         }
     } else {
-        ASSERT(false) << "Impossible function type: " << GetFunctionTypeNameDict().Find(func->GetFunctionType());
+        ASSERT(DevCommonErr::PARAM_INVALID, false)
+            << "Impossible function type: " << GetFunctionTypeNameDict().Find(func->GetFunctionType());
     }
 }
 
@@ -222,7 +224,7 @@ static void ReplaceSlotIndex(
     for (Function* devRoot : attr->funcGroup.devRootList) {
         Function* devTile = attr->rootTileDict[devRoot];
 
-        ASSERT(inoutLink.ioslotDict.count(devTile))
+        ASSERT(DevCommonErr::PARAM_CHECK_FAILED, inoutLink.ioslotDict.count(devTile))
             << "Function pointer " << devTile->GetMagicName() << " not found in ioslotDict";
         IncastOutcastSlot& ioslot = inoutLink.ioslotDict[devTile];
 
@@ -284,7 +286,7 @@ static void SimplifySlots(DyndevFunctionAttribute* attr, std::unordered_map<int,
     for (Function* devRoot : attr->funcGroup.devRootList) {
         Function* devTile = attr->rootTileDict[devRoot];
 
-        ASSERT(inoutLink.ioslotDict.count(devTile))
+        ASSERT(DevCommonErr::PARAM_CHECK_FAILED, inoutLink.ioslotDict.count(devTile))
             << "Function pointer " << devTile->GetMagicName() << " not found in ioslotDict";
         IncastOutcastSlot& ioslot = inoutLink.ioslotDict[devTile];
 
@@ -311,11 +313,11 @@ static void SimplifySlots(DyndevFunctionAttribute* attr, std::unordered_map<int,
     for (Function* devRoot : attr->funcGroup.devRootList) {
         Function* devTile = attr->rootTileDict[devRoot];
 
-        ASSERT(inoutLink.ioslotDict.count(devTile))
+        ASSERT(DevCommonErr::PARAM_CHECK_FAILED, inoutLink.ioslotDict.count(devTile))
             << "Function pointer " << devTile->GetMagicName() << " not found in ioslotDict";
         IncastOutcastSlot& ioslot = inoutLink.ioslotDict[devTile];
         for (auto& outcastSlots : ioslot.outcastSlot) {
-            ASSERT(!outcastSlots.empty()) << "devTile: " << devTile->GetMagicName();
+            ASSERT(DevCommonErr::PARAM_CHECK_FAILED, !outcastSlots.empty()) << "devTile: " << devTile->GetMagicName();
             bool outcastSlotFound = false;
             for (auto& outcastSlot : outcastSlots) {
                 outcastSlotFound = outcastSlotFound || slotUsed.count(outcastSlot);
@@ -336,7 +338,7 @@ static void BuildSlotRootIncastOutcastDict(DyndevFunctionAttribute* attr)
         Function* devRoot = attr->funcGroup.devRootList[idx];
         Function* devTile = attr->rootTileDict[devRoot];
 
-        ASSERT(inoutLink.ioslotDict.count(devTile))
+        ASSERT(DevCommonErr::PARAM_CHECK_FAILED, inoutLink.ioslotDict.count(devTile))
             << "Function pointer " << devTile->GetMagicName() << " not found in ioslotDict";
         IncastOutcastSlot& ioslot = inoutLink.ioslotDict[devTile];
         for (size_t incastIndex = 0; incastIndex < ioslot.incastSlot.size(); incastIndex++) {
@@ -432,8 +434,8 @@ void GetReadyOnHostTensorsSet(std::unordered_set<int>& readyOnHostTensorsSet)
                 break;
             }
         }
-        ASSERT(i < inputSize) << "Tensor " << tensorStr
-                              << " not found in input list, please check [ready_on_host_tensors] config.";
+        ASSERT(DevCommonErr::PARAM_CHECK_FAILED, i < inputSize)
+            << "Tensor " << tensorStr << " not found in input list, please check [ready_on_host_tensors] config.";
     }
 }
 static bool NeedCrossDie(Function* func, bool isLoop = false)
@@ -536,14 +538,14 @@ static void BuildControlFlow(
                         if (node->branchNodeList[0] != nullptr) {
                             condBuilder(node->branchNodeList[0], condIndent);
                         } else {
-                            ASSERT(false) << "Both conds is nullptr!";
+                            ASSERT(DevCommonErr::PARAM_CHECK_FAILED, false) << "Both conds is nullptr!";
                         }
                     }
                 }
             };
         controlFlowOss << std::setw(indent * TABSIZE) << ' ' << "// hash=" << func->GetFunctionHash() << "\n";
         auto attr = func->GetDynloopAttribute();
-        ASSERT(attr != nullptr) << "attr is nullptr!";
+        ASSERT(DevCommonErr::PARAM_CHECK_FAILED, attr != nullptr) << "attr is nullptr!";
         if (attr->submitBeforeLoop) {
             controlFlowOss << std::setw(indent * TABSIZE) << ' '
                            << "RUNTIME_RootStitch(RUNTIME_FUNCKEY_LOOP_BARRIER); // force submit before LOOP \n";
@@ -586,7 +588,7 @@ static void BuildControlFlow(
             pathRootList.push_back(attr->pathList[i].root);
         }
         std::sort(pathRootList.begin(), pathRootList.end());
-        ASSERT(calleeList == pathRootList)
+        ASSERT(DevCommonErr::PARAM_CHECK_FAILED, calleeList == pathRootList)
             << "calleeList size:" << calleeList.size() << " pathRootList size:" << pathRootList.size();
         condBuilder(pathNode, indent + 1);
         if (NeedCrossDie(func, true)) {
@@ -626,7 +628,7 @@ static void BuildControlFlow(
         }
 
         auto currDynFuncAttr = Program::GetInstance().GetCurrentDynamicFunction()->GetDyndevAttribute();
-        ASSERT(rootTileDict.count(func)) << "Function not found in rootTileDict";
+        ASSERT(DevCommonErr::PARAM_CHECK_FAILED, rootTileDict.count(func)) << "Function not found in rootTileDict";
         Function* tile = rootTileDict[func];
         if (currDynFuncAttr->valueDependDescDict.count(tile)) {
             auto valueDependDesc = currDynFuncAttr->valueDependDescDict[tile];
@@ -652,7 +654,8 @@ static void BuildControlFlow(
         }
         controlFlowOss << std::setw(indent * TABSIZE) << ' ' << "RUNTIME_RootStitch(" << devRootKey << "ULL);\n";
     } else {
-        ASSERT(false) << "Impossible function type: " << GetFunctionTypeNameDict().Find(funcType);
+        ASSERT(DevCommonErr::PARAM_CHECK_FAILED, false)
+            << "Impossible function type: " << GetFunctionTypeNameDict().Find(funcType);
     }
 }
 
@@ -704,6 +707,29 @@ static void FillL2PrefetchInfo(std::shared_ptr<DyndevFunctionAttribute> attr)
     }
     MACHINE_LOGI("Need prefetch tensor size is:%zu\n", attr->l2InfoList.size());
     return;
+}
+
+static void SetLiteDevBinary(Function* function)
+{
+    if (function == nullptr || function->GetDyndevAttribute() == nullptr) {
+        return;
+    }
+    auto dynAttrPtr = function->GetDyndevAttribute();
+
+    dynamic::DevAscendProgram devProg = {};
+    devProg.devArgs.nrAic = 1;
+    devProg.devArgs.nrAiv = 1;
+    devProg.devArgs.nrValidAic = 1;
+    devProg.devArgs.nrAicpu = 0;
+    devProg.devArgs.enableCtrl = 0;
+    devProg.devArgs.enableEslModel = false;
+    devProg.devArgs.scheCpuNum = 0;
+
+    size_t size = sizeof(dynamic::DevAscendProgram);
+    dynAttrPtr->devProgBinary.resize(size);
+    memcpy(dynAttrPtr->devProgBinary.data(), &devProg, size);
+
+    MACHINE_LOGI("Lite dev prog binary size is:%zu\n", dynAttrPtr->devProgBinary.size());
 }
 
 static void SetDyndevProgBinary(Function* function)
@@ -778,7 +804,7 @@ static void ConstructCodeInfo(
     int leafIndex = 1;
     for (auto& [hash, leaf] : leafDict) {
         auto leafFuncAttr = leaf->GetLeafFuncAttribute();
-        ASSERT(leafFuncAttr != nullptr) << "leafFuncAttr is null\n";
+        ASSERT(DevCommonErr::PARAM_CHECK_FAILED, leafFuncAttr != nullptr) << "leafFuncAttr is null\n";
         encodeDevAscendFunctionParam.calleeHashIndexDict[hash] = leafIndex;
         attr->devLeafIndex2Hash[leafIndex] = hash;
         MACHINE_LOGI("Dyndev.codegen: [ %d ] hash= %lu binpath= %s", leafIndex, hash, leafFuncAttr->binPath.c_str());
@@ -871,13 +897,17 @@ static void OverCallOpMaxNum(Function* devRoot, DevAscendFunction* funcBin)
         DevCommonErr::PARAM_CHECK_FAILED,
         "the loop function operation: %s size is %u hitting the maxinum single-loop-operation limit:%u.\n",
         funcMagicName.c_str(), CallOpSize, CallOpmaxSize);
-    ASSERT(CallOpSize <= CallOpmaxSize) << " loopFunction: " << funcMagicName << " CallOpSize: " << CallOpSize
-                                        << " CallOpmaxSize: " << CallOpmaxSize;
+    ASSERT(DevCommonErr::PARAM_CHECK_FAILED, CallOpSize <= CallOpmaxSize)
+        << " loopFunction: " << funcMagicName << " CallOpSize: " << CallOpSize << " CallOpmaxSize: " << CallOpmaxSize;
 }
 
 static void CompileControlFlow(
     const std::string& aicpuDirPath, const std::string& funcName, const std::string& constrolFlow, std::string express)
 {
+    if (config::GetRuntimeOption<int64_t>(CFG_RUN_MODE) == CFG_RUN_MODE_SIM &&
+        (config::GetSimConfig(KEY_ACCURACY_LEVEL, 2) == 1)) {
+        return;
+    }
     if (std::getenv("ENABLE_CTRLFLOW_COMPILE") == nullptr) {
         return;
     }
@@ -896,20 +926,21 @@ static void CompileControlFlow(
         return;
     }
 #ifdef BUILD_WITH_CANN
-    if (config::GetRuntimeOption<int64_t>(CFG_RUN_MODE) != CFG_RUN_MODE_SIM) {
-        if (std::getenv("ASCEND_HOME_PATH") != nullptr) {
-            ASSERT(TileFwkAiCpuCompile(funcName, aicpuDirPath)) << ": PyPto Control Flow compile failed";
-        }
+    if (std::getenv("ASCEND_HOME_PATH") != nullptr) {
+        ASSERT(HostBackEndErr::GEN_DYNAMIC_OP_FAILED, TileFwkAiCpuCompile(funcName, aicpuDirPath))
+            << ": PyPto Control Flow compile failed";
     }
 #endif
 }
 
 static void CompileDyndevFunction(Function* function, FunctionCache& cache, [[maybe_unused]] const std::string& ccePath)
 {
-    ASSERT((PassManager::Instance().RunPass(Program::GetInstance(), *function, "ExecuteGraph") == SUCCESS));
+    ASSERT(
+        HostBackEndErr::RUN_PASS_FAILED,
+        (PassManager::Instance().RunPass(Program::GetInstance(), *function, "ExecuteGraph") == SUCCESS));
 
     std::shared_ptr<DyndevFunctionAttribute> attr = function->GetDyndevAttribute();
-    ASSERT(attr != nullptr) << "DyndevFunctionAttribute is nullptr\n";
+    ASSERT(DevCommonErr::PARAM_CHECK_FAILED, attr != nullptr) << "DyndevFunctionAttribute is nullptr\n";
     Linker linker(attr->symbolTable, attr->funcGroup, attr->exprTableDictGroup);
     FindAllExpression(cache, linker, function);
 
@@ -974,28 +1005,34 @@ static void CompileDyndevFunction(Function* function, FunctionCache& cache, [[ma
     }
 
     std::string funcHash = function->GetFunctionHash().Data();
-    std::string controlFlowHostFilePath = aicpuDirPath + "/controlFlow_host_" + funcHash + ".cpp";
-    attr->hostControlFlowBinary = CompileAndLoadSection(
-        controlFlowSource, controlFlowHostFilePath, aicpuDirPath, exprSrcFiles, "g++", "ld", "objcopy", ".pypto",
-        IsNeedDumpAicpuKernel(controlFlowHostFilePath), cflags);
-    AlignUpTo(attr->hostControlFlowBinary, 0x8, 0);
-    std::string funcName = function->GetMagicName() + function->GetFunctionHash().Data();
-    CompileControlFlow(aicpuDirPath, funcName, controlFlowSource, expressionSource);
-    std::string arm64TargetToolPath = Arm64TargetTool("g++");
-    if (FileExist(arm64TargetToolPath)) {
-        static const std::string BISHENG_LD_CMD = "ld.lld";
-        std::string controlFlowDevFilePath = aicpuDirPath + "/controlFlow_dev_" + funcHash + ".cpp";
-        MACHINE_LOGI(
-            "Compile control flow src file[%s] with arm64 target tool[%s].", controlFlowDevFilePath.c_str(),
-            arm64TargetToolPath.c_str());
-        attr->devControlFlowBinary = CompileAndLoadSection(
-            controlFlowSource, controlFlowDevFilePath, aicpuDirPath, exprSrcFiles, arm64TargetToolPath, BISHENG_LD_CMD,
-            Arm64TargetTool("objcopy"), ".pypto", IsNeedDumpAicpuKernel(controlFlowDevFilePath));
+    if (Platform::Instance().GetSoc().GetNPUArch() == NPUArch::DAV_3113) {
+        attr->hostControlFlowBinary = {};
+        attr->devControlFlowBinary = {0xd4, 0x20, 0x00, 0x00};
     } else {
-        // brk #0
-        MACHINE_LOGW("Arm64 target tool is not found.");
-        attr->devControlFlowBinary = std::vector<uint8_t>{0xd4, 0x20, 0x00, 0x00};
+        std::string controlFlowHostFilePath = aicpuDirPath + "/controlFlow_host_" + funcHash + ".cpp";
+        attr->hostControlFlowBinary = CompileAndLoadSection(
+            controlFlowSource, controlFlowHostFilePath, aicpuDirPath, exprSrcFiles, "g++", "ld", "objcopy", ".pypto",
+            IsNeedDumpAicpuKernel(controlFlowHostFilePath), cflags);
+        AlignUpTo(attr->hostControlFlowBinary, 0x8, 0);
+        std::string funcName = function->GetMagicName() + function->GetFunctionHash().Data();
+        CompileControlFlow(aicpuDirPath, funcName, controlFlowSource, expressionSource);
+        std::string arm64TargetToolPath = Arm64TargetTool("g++");
+        if (FileExist(arm64TargetToolPath)) {
+            static const std::string BISHENG_LD_CMD = "ld.lld";
+            std::string controlFlowDevFilePath = aicpuDirPath + "/controlFlow_dev_" + funcHash + ".cpp";
+            MACHINE_LOGI(
+                "Compile control flow src file[%s] with arm64 target tool[%s].", controlFlowDevFilePath.c_str(),
+                arm64TargetToolPath.c_str());
+            attr->devControlFlowBinary = CompileAndLoadSection(
+                controlFlowSource, controlFlowDevFilePath, aicpuDirPath, exprSrcFiles, arm64TargetToolPath,
+                BISHENG_LD_CMD, Arm64TargetTool("objcopy"), ".pypto", IsNeedDumpAicpuKernel(controlFlowDevFilePath));
+        } else {
+            // brk #0
+            MACHINE_LOGW("Arm64 target tool is not found.");
+            attr->devControlFlowBinary = std::vector<uint8_t>{0xd4, 0x20, 0x00, 0x00};
+        }
     }
+
     AlignUpTo(attr->devControlFlowBinary, 0x8, 0);
     std::map<uint64_t, Function*> leafDict;
     std::mutex leafDictMutex;
@@ -1038,28 +1075,50 @@ static void CompileDyndevFunction(Function* function, FunctionCache& cache, [[ma
     encodeDevAscendFunctionParam.inoutLink = &attr->inoutLink;
 
     std::string kernelPath;
+    std::string kernelName;
 #ifdef BUILD_WITH_CANN
-    if (config::GetRuntimeOption<int64_t>(CFG_RUN_MODE) != CFG_RUN_MODE_SIM &&
-        config::GetHostOption<int64_t>(COMPILE_STAGE) != CS_CODEGEN_INSTRUCTION) {
-        int ret = CompileAICoreKernel(
-            leafDict, encodeDevAscendFunctionParam, ccePath, function->GetFunctionHash().Data(), kernelPath);
-        if (ret != 0) {
-            MACHINE_LOGE(HostBackEndErr::COMPILE_AICORE_FAILED, "Compile dynamic aicore.o failed.");
-            return;
+    bool enableCompile = config::GetRuntimeOption<int64_t>(CFG_RUN_MODE) == CFG_RUN_MODE_NPU ||
+                         ((config::GetSimConfig(KEY_ACCURACY_LEVEL, 2) == 2) &&
+                          config::GetRuntimeOption<int64_t>(CFG_RUN_MODE) == CFG_RUN_MODE_SIM);
+    if (enableCompile && config::GetHostOption<int64_t>(COMPILE_STAGE) != CS_CODEGEN_INSTRUCTION) {
+        if (Platform::Instance().GetSoc().GetNPUArch() == NPUArch::DAV_3113) {
+            for (auto& [hash, leaf] : leafDict) {
+                auto leafAttr = leaf->GetLeafFuncAttribute();
+                if (leafAttr && !leafAttr->binPath.empty()) {
+                    kernelPath = leafAttr->binPath;
+                    kernelName = leafAttr->magicName;
+                    break;
+                }
+            }
+            if (kernelPath.empty()) {
+                MACHINE_LOGE(HostBackEndErr::COMPILE_AICORE_FAILED, "No leaf binary found for lite npu.");
+                return;
+            }
+        } else {
+            int ret = CompileAICoreKernel(
+                leafDict, encodeDevAscendFunctionParam, ccePath, function->GetFunctionHash().Data(), kernelPath);
+            if (ret != 0) {
+                MACHINE_LOGE(HostBackEndErr::COMPILE_AICORE_FAILED, "Compile dynamic aicore.o failed.");
+                return;
+            }
         }
     }
 #endif
 
+    MACHINE_LOGD("LoadFile kernelPath[%s], kernelName[%s].", kernelPath.c_str(), kernelName.c_str());
     attr->kernelBinary = LoadFile(kernelPath);
+    attr->kernelName = kernelName;
     MACHINE_LOGD("KernelBinary size[%zu].", attr->kernelBinary.size());
 
     attr->devEncodeList.resize(attr->funcGroup.devRootList.size());
     for (auto& devRoot : attr->funcGroup.devRootList) {
         int devRootKey = attr->funcGroup.devRootList.GetIndex(devRoot);
         MACHINE_LOGI("Dyndev.encode: %s", devRoot->GetRawName().c_str());
-        ASSERT(attr->rootTileDict.count(devRoot)) << "devRoot not found in rootTileDict";
+        ASSERT(DevCommonErr::PARAM_CHECK_FAILED, attr->rootTileDict.count(devRoot))
+            << "devRoot not found in rootTileDict";
         Function* devTile = attr->rootTileDict[devRoot];
-        ASSERT(attr->inoutLink.ioslotDict.count(devTile)) << "devTile not found in rootTileDict";
+        ASSERT(DevCommonErr::PARAM_CHECK_FAILED, attr->inoutLink.ioslotDict.count(devTile))
+            << "devTile not found in rootTileDict";
         IncastOutcastSlot* slot = &attr->inoutLink.ioslotDict[devTile];
         encodeDevAscendFunctionParam.symbolTable = linker.GetSymbolTable();
         if (linker.GetExpressionTableDictGroup().devRootCoaDict.count(devRoot) != 0) {
@@ -1081,7 +1140,7 @@ static void CompileDyndevFunction(Function* function, FunctionCache& cache, [[ma
         EncodeDevAscendFunction(function, encodeDevAscendFunctionParam, size, funcBin);
         funcBin->Reloc(-reinterpret_cast<int64_t>(funcBin), true);
         uint32_t CallOpmaxSize = config::GetRuntimeOption<uint32_t>(STITCH_FUNCTION_SIZE);
-        ASSERT(CallOpmaxSize <= STITCH_FUNCTION_MAX_SIZE)
+        ASSERT(DevCommonErr::PARAM_CHECK_FAILED, CallOpmaxSize <= STITCH_FUNCTION_MAX_SIZE)
             << " CallOpmaxSize set: " << CallOpmaxSize << "exceeds the maximum allowed value of 65535.";
         if (funcBin->GetOperationSize() > CallOpmaxSize) {
             OverCallOpMaxNum(devRoot, funcBin);
@@ -1089,7 +1148,11 @@ static void CompileDyndevFunction(Function* function, FunctionCache& cache, [[ma
     }
 
     // save dev prog binary
-    SetDyndevProgBinary(function);
+    if (Platform::Instance().GetSoc().GetNPUArch() == NPUArch::DAV_3113) {
+        SetLiteDevBinary(function);
+    } else {
+        SetDyndevProgBinary(function);
+    }
 }
 
 MachineTask* GenCode(MachineTask* task, FunctionCache& cache)

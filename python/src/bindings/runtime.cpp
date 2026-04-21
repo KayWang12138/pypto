@@ -23,8 +23,13 @@
 #include <utility>
 #include <vector>
 #include "tilefwk/pypto_fwk_log.h"
+#include "adapter/api/acl_define.h"
+#include "adapter/api/runtime_define.h"
 #include "interface/interpreter/raw_tensor_data.h"
+#include "interface/interpreter/verify_error.h"
 #include "interface/utils/op_info_manager.h"
+#include "interface/compiler_monitor/monitor_manager.h"
+#include "interface/compiler_monitor/monitor_stage_scope.h"
 #include "machine/runtime/device_launcher_binding.h"
 #include "machine/runtime/emulation_launcher.h"
 #include "machine/runtime/eslmodel_launcher.h"
@@ -32,13 +37,37 @@
 #include "machine/utils/dynamic/dev_start_args.h"
 #include "machine/host/perf_analysis.h"
 #include "bindings/torch_tensor_converter.h"
-#include "interface/compiler_monitor/monitor_manager.h"
-#include "interface/compiler_monitor/monitor_stage_scope.h"
 
 using namespace npu::tile_fwk;
 using namespace npu::tile_fwk::dynamic;
 
 namespace pypto {
+
+static void ValidateVerifyOutputAndGolden(
+    const std::vector<DeviceTensorData>& inOutTensors, const std::vector<DeviceTensorData>& goldens)
+{
+    if (inOutTensors.size() != goldens.size()) {
+        return;
+    }
+
+    for (size_t i = 0; i < inOutTensors.size(); i++) {
+        bool outputIsNone = inOutTensors[i].GetAddr() == nullptr;
+        bool goldenIsNone = goldens[i].GetAddr() == nullptr;
+        if (outputIsNone || goldenIsNone) {
+            continue;
+        }
+
+        ASSERT(VerifyResultScene::VERIFY_RESULT_DTYPE_DIFF, inOutTensors[i].GetDataType() == goldens[i].GetDataType())
+            << "dtype mismatch at index " << i;
+
+        auto& outputShape = inOutTensors[i].GetShape();
+        auto& goldenShape = goldens[i].GetShape();
+        ASSERT(VerifyResultScene::VERIFY_RESULT_SHAPE_DIFF, outputShape.size() == goldenShape.size());
+        for (size_t dim = 0; dim < outputShape.size(); dim++) {
+            ASSERT(VerifyResultScene::VERIFY_RESULT_SHAPE_DIFF, outputShape[dim] == goldenShape[dim]);
+        }
+    }
+}
 
 void CopyToHost(const DeviceTensorData& devTensor, DeviceTensorData& hostTensor)
 {
@@ -61,6 +90,12 @@ void SetVerifyData(
         }
         return logical;
     };
+
+    std::vector<DeviceTensorData> inOutTensors;
+    inOutTensors.reserve(inputs.size() + outputs.size());
+    inOutTensors.insert(inOutTensors.end(), inputs.begin(), inputs.end());
+    inOutTensors.insert(inOutTensors.end(), outputs.begin(), outputs.end());
+    ValidateVerifyOutputAndGolden(inOutTensors, goldens);
 
     ProgramData::GetInstance().Reset();
     for (size_t i = 0; i < inputs.size(); i++) {
@@ -359,8 +394,10 @@ public:
         kernelBin = DeviceLauncher::RegisterKernelBin(dynAttr->kernelBinary);
         workspaceSize = devProg->memBudget.Total();
         InitCachedArgs();
-        auto aicpuArgs = (AiCpuArgs*)aicpuArgBuf.data();
-        DeviceLauncher::FillDeviceKernelArgs(dynAttr->devProgBinary, aicpuArgs->kArgs, dynAttr->commGroupNames);
+        if (Platform::Instance().GetSoc().GetNPUArch() != NPUArch::DAV_3113) {
+            auto aicpuArgs = (AiCpuArgs*)aicpuArgBuf.data();
+            DeviceLauncher::FillDeviceKernelArgs(dynAttr->devProgBinary, aicpuArgs->kArgs, dynAttr->commGroupNames);
+        }
     }
 
     uint8_t* FindCtrlFlowCache(std::vector<std::vector<int64_t>>& inputs, bool isOriginShape)
@@ -579,12 +616,12 @@ public:
         if (devCache == nullptr) {
             std::vector<std::vector<int64_t>> shape;
             if (DeviceLauncher::IsCaptureMode()) {
-                AclModeGuard guard(ACL_MODEL_RI_CAPTURE_MODE_RELAXED);
+                AclModeGuard guard(AclMdlRICaptureMode::RELAXED);
                 devCache = kernel->BuildControlFlowCache(tensors, stitchCfgCacheSize, true);
             } else if (InferCacheShape(module, tensors, shape)) {
                 devCache = kernel->FindCtrlFlowCache(shape, false);
             } else {
-                AclModeGuard guard(ACL_MODEL_RI_CAPTURE_MODE_RELAXED);
+                AclModeGuard guard(AclMdlRICaptureMode::RELAXED);
                 devCache = kernel->BuildControlFlowCache(tensors, stitchCfgCacheSize, true);
             }
         }
@@ -662,7 +699,7 @@ public:
     }
 
     void Launch(
-        KernelBinary* kernel, aclrtStream aicoreStream, std::vector<DeviceTensorData>& tensors, uint8_t* ctrlFlowCache,
+        KernelBinary* kernel, AclRtStream aicoreStream, std::vector<DeviceTensorData>& tensors, uint8_t* ctrlFlowCache,
         int64_t* workspace)
     {
         SetTensorData(tensors);
@@ -680,16 +717,16 @@ public:
         COMPILER_LOGE("Sequence %ld workspace %p cfgcache %p", sequence.load(), workspace, ctrlFlowCache);
 #endif
         int ret = DeviceLauncher::LaunchSyncTask(aicoreStream, isCaptureMode);
-        ASSERT(ret == RT_ERROR_NONE) << "launch pre sync failed: " << ret;
+        ASSERT(ret == RT_SUCCESS) << "launch pre sync failed: " << ret;
 
         DeviceLauncher::SetDevPerfAddr(debugEnable, isCaptureMode);
         ret = DeviceLauncher::LaunchAicpuKernel(rtAicpuArgs, debugEnable, kernel->GetFunction());
-        ASSERT(ret == RT_ERROR_NONE) << "launch aicpu failed: " << ret;
+        ASSERT(ret == RT_SUCCESS) << "launch aicpu failed: " << ret;
 
         kernelArgs[5] = args->kArgs.cfgdata; // 5 is cfgdata
         ret = DeviceLauncher::LaunchAicoreKernel(
             aicoreStream, kernel->GetKernelBin(), rtAicoreArgs, rtTaskCfg, debugEnable);
-        ASSERT(ret == RT_ERROR_NONE) << "launch aicore failed: " << ret;
+        ASSERT(ret == RT_SUCCESS) << "launch aicore failed: " << ret;
     }
 
     void EmulationLaunch(KernelBinary* kernel, std::vector<DeviceTensorData>& tensors)
@@ -701,7 +738,7 @@ public:
         DeviceLauncherConfig config;
         DeviceLauncher::DeviceLauncherConfigFillDeviceInfo(config);
         int ret = EmulationLauncher::EmulationLaunchDeviceTensorData(kernel->GetFunction(), tensors, {}, config);
-        ASSERT(ret == RT_ERROR_NONE) << "emulation run failed: " << ret;
+        ASSERT(ret == RT_SUCCESS) << "emulation run failed: " << ret;
     }
 
     void EslModelLaunch(KernelBinary* kernel, std::vector<DeviceTensorData>& tensors)
@@ -714,13 +751,99 @@ public:
             auto input = ProgramData::GetInstance().GetInputData(i);
             StringUtils::DataCopy(tensors[i].GetAddr(), input->GetDataSize(), input->data(), input->GetDataSize());
         }
-        ASSERT(ret == RT_ERROR_NONE) << "EslModelLaunch run failed: " << ret;
+        ASSERT(ret == RT_SUCCESS) << "EslModelLaunch run failed: " << ret;
+    }
+
+    void LiteKernelLaunch(KernelBinary* kernel, std::vector<DeviceTensorData>& tensors)
+    {
+#ifdef BUILD_WITH_CANN
+        ProgramData::GetInstance().Reset();
+
+        std::vector<uint8_t*> deviceAddrs;
+        for (size_t i = 0; i < tensors.size(); i++) {
+            uint8_t* deviceAddr;
+            aclrtMalloc((void**)&deviceAddr, tensors[i].GetDataSize(), ACL_MEM_MALLOC_HUGE_FIRST);
+            aclrtMemcpy(
+                deviceAddr, tensors[i].GetDataSize(), (uint8_t*)tensors[i].GetAddr(), tensors[i].GetDataSize(),
+                ACL_MEMCPY_HOST_TO_DEVICE);
+            deviceAddrs.push_back(deviceAddr);
+        }
+
+        MACHINE_LOGI("###### aclInit start");
+        aclInit(nullptr);
+        MACHINE_LOGI("###### aclInit end");
+
+        MACHINE_LOGI("###### aclrtSetDevice start");
+        int32_t deviceId = 0;
+        aclrtSetDevice(deviceId);
+        MACHINE_LOGI("###### aclrtSetDevice end");
+
+        aclrtStream stream = nullptr;
+        MACHINE_LOGI("###### aclrtCreateStream start");
+        aclrtCreateStream(&stream);
+        MACHINE_LOGI("###### aclrtCreateStream end");
+
+        rtArgsEx_t rtArgs = {};
+        rtArgs.args = deviceAddrs.data();
+        rtArgs.argsSize = deviceAddrs.size() * sizeof(void*);
+
+        MACHINE_LOGI("###### rtDevBinaryRegister start");
+        void* hdl = nullptr;
+        std::vector<uint8_t>& kernelBinary = kernel->GetFunction()->GetDyndevAttribute().get()->kernelBinary;
+        MACHINE_LOGI(
+            "###### kernelBinary, data[%p], size[%zu]",
+            kernel->GetFunction()->GetDyndevAttribute().get()->kernelBinary.data(),
+            kernel->GetFunction()->GetDyndevAttribute().get()->kernelBinary.size());
+        MACHINE_LOGI("###### kernelBinary, data[%p], size[%zu]", kernelBinary.data(), kernelBinary.size());
+        rtDevBinary_t binary = {
+            .magic = RT_DEV_BINARY_MAGIC_ELF,
+            .version = 0,
+            .data = kernelBinary.data(),
+            .length = kernelBinary.size(),
+        };
+
+        int ret = rtDevBinaryRegister(&binary, &hdl);
+        if (ret != RT_ERROR_NONE) {
+            MACHINE_LOGE(HostLauncherErr::REGISTER_KERNEL_FAILED, "register kernel failed, ret: %d", ret);
+        }
+        MACHINE_LOGI("###### stubFunc: %p", hdl);
+        MACHINE_LOGI("###### rtDevBinaryRegister end");
+        int stubFunc = 1;
+        std::string kernelName = kernel->GetFunction()->GetDyndevAttribute().get()->kernelName;
+        MACHINE_LOGI("###### rtFunctionRegister start");
+        rtFunctionRegister(hdl, &stubFunc, kernelName.c_str(), kernelName.c_str(), 0);
+        MACHINE_LOGI("###### rtFunctionRegister end");
+
+        MACHINE_LOGI("###### rtKernelLaunch start");
+        ret = rtKernelLaunch(&stubFunc, 1, rtArgs.args, rtArgs.argsSize, nullptr, stream);
+        MACHINE_LOGI("###### rtKernelLaunch end");
+
+        ASSERT(ret == RT_ERROR_NONE) << "LiteKernelLaunch failed: " << ret;
+        MACHINE_LOGI("###### aclrtSynchronizeStream start");
+        ret = aclrtSynchronizeStream(stream);
+        MACHINE_LOGI("###### aclrtSynchronizeStream end");
+
+        ASSERT(ret == RT_ERROR_NONE) << "Stream sync failed: " << ret;
+
+        for (size_t i = 0; i < tensors.size(); i++) {
+            aclrtMemcpy(
+                (uint8_t*)tensors[i].GetAddr(), tensors[i].GetDataSize(), deviceAddrs[i], tensors[i].GetDataSize(),
+                ACL_MEMCPY_DEVICE_TO_HOST);
+            aclrtFree(deviceAddrs[i]);
+        }
+        aclrtDestroyStream(stream);
+        aclrtResetDevice(deviceId);
+        aclFinalize();
+#else
+        (void)kernel;
+        (void)tensors;
+#endif
     }
 
 private:
     void InitCachedArgs()
     {
-        memset_s(&rtAicpuArgs, sizeof(rtAicpuArgsEx_t), 0, sizeof(rtAicpuArgsEx_t));
+        memset_s(&rtAicpuArgs, sizeof(RtAicpuArgsEx), 0, sizeof(RtAicpuArgsEx));
         rtAicpuArgs.kernelNameAddrOffset = offsetof(dynamic::AiCpuArgs, kernelName);
         rtAicpuArgs.soNameAddrOffset = offsetof(dynamic::AiCpuArgs, soName);
         rtAicpuArgs.hostInputInfoNum = 1;
@@ -728,13 +851,13 @@ private:
         hostInfo.dataOffset = sizeof(dynamic::AiCpuArgs);
         rtAicpuArgs.hostInputInfoPtr = &hostInfo;
         rtAicpuArgs.timeout = AICPU_EXECUTE_TIMEOUT;
-        memset_s(&rtAicoreArgs, sizeof(rtArgsEx_t), 0, sizeof(rtArgsEx_t));
+        memset_s(&rtAicoreArgs, sizeof(RtArgsEx), 0, sizeof(RtArgsEx));
         kernelArgs.resize(7, nullptr); // see aicore.ascpp
         rtAicoreArgs.args = kernelArgs.data();
         rtAicoreArgs.argsSize = kernelArgs.size() * sizeof(void*);
 
-        memset_s(&rtTaskCfg, sizeof(rtTaskCfgInfo_t), 0, sizeof(rtTaskCfgInfo_t));
-        rtTaskCfg.schemMode = RT_SCHEM_MODE_BATCH;
+        memset_s(&rtTaskCfg, sizeof(RtTaskCfgInfo), 0, sizeof(RtTaskCfgInfo));
+        rtTaskCfg.schemMode = static_cast<uint8_t>(RtSchemModeType::BATCH);
     }
 
     void InitConfigOptions(py::object& module)
@@ -833,11 +956,11 @@ private:
     int timeoutSec{-1};
     int totalTimeoutSec{600};
 
-    rtHostInputInfo_t hostInfo;
-    rtAicpuArgsEx_t rtAicpuArgs;
+    RtHostInputInfo hostInfo;
+    RtAicpuArgsEx rtAicpuArgs;
 
-    rtArgsEx_t rtAicoreArgs;
-    rtTaskCfgInfo_t rtTaskCfg;
+    RtArgsEx rtAicoreArgs;
+    RtTaskCfgInfo rtTaskCfg;
     std::vector<void*> kernelArgs;
     std::vector<KernelBinary*> kernels;
 
@@ -852,10 +975,10 @@ private:
     py::object& module;
     py::sequence& torchTensors;
     py::sequence& tensorDefs;
-    aclrtStream aicoreStream;
+    AclRtStream aicoreStream;
     std::vector<DeviceTensorData>& tensors;
     KernelModulePtr kmodule;
-    aclmdlRI rtModel;
+    AclMdlRI rtModel;
 
     DeviceGuard devGuard;
     std::optional<ConfigManagerNg::JitScopeGuard> jitScopeGuard;
@@ -867,7 +990,7 @@ public:
         : module(m),
           torchTensors(torch_tensors),
           tensorDefs(tensor_defs),
-          aicoreStream((aclrtStream)stream),
+          aicoreStream((AclRtStream)stream),
           tensors(tensors_ref),
           devGuard(devId)
     {
@@ -902,7 +1025,7 @@ private:
 
         jitScopeGuard.emplace("jit_scope", std::map<std::string, Any>{});
         Program::GetInstance().Reset();
-        AclModeGuard guard(ACL_MODEL_RI_CAPTURE_MODE_RELAXED);
+        AclModeGuard guard(AclMdlRICaptureMode::RELAXED);
 #if ENABALE_VERBOSE_LOG
         COMPILER_LOGE("compile kernel");
 #endif
@@ -912,6 +1035,10 @@ private:
 
     void DoLaunch(KernelBinary* kbinary)
     {
+        if (Platform::Instance().GetSoc().GetNPUArch() == NPUArch::DAV_3113) {
+            kmodule->LiteKernelLaunch(kbinary, tensors);
+            return;
+        }
         if (config::GetSimConfig(KEY_ACCURACY_LEVEL, 2) == 2) {
             kmodule->EslModelLaunch(kbinary, tensors);
             return;
@@ -937,6 +1064,7 @@ private:
 
         kmodule->Launch(kbinary, aicoreStream, tensors, ctrlFlowCache, wsAddr);
         HOST_PERF_TRACE(TracePhase::Launch);
+        DumpIOTensorsWithCann(aicoreStream, tensors, kbinary->GetFunction()->GetRawName());
     }
 };
 
@@ -946,7 +1074,6 @@ void LaunchKernelTorch(py::object& module, int64_t stream, py::sequence& torchTe
 
     std::vector<DeviceTensorData> tensors;
     int devId = TorchTensorConverter::Convert(torchTensors, tensorDefs, tensors);
-
     KernelLauncher(module, stream, torchTensors, tensorDefs, tensors, devId).Execute();
 }
 #else

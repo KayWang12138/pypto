@@ -353,10 +353,7 @@ public:
     void SetCCECVersion(const std::unordered_map<std::string, std::string>& ver);
 
     Die& GetDies() { return die_; }
-    NPUArch GetNPUArch() const { 
-        //return version_;
-        return NPUArch::DAV_3113;
-    }
+    NPUArch GetNPUArch() const { return version_; }
     size_t GetDiesNum() const { return dies_cnt_; }
     std::string GetShortSocVersion() const { return short_soc_ver_; }
     std::string GetCCECVersion(std::string CoreType);
@@ -423,6 +420,27 @@ public:
 };
 
 class Host {};
+
+class CodeGenSocVersionManager {
+private:
+    CodeGenSocVersionManager() = default;
+    ~CodeGenSocVersionManager() = default;
+
+    std::string codeGenSocVersion_;
+
+public:
+    static CodeGenSocVersionManager& Instance()
+    {
+        static CodeGenSocVersionManager instance;
+        return instance;
+    }
+
+    CodeGenSocVersionManager(const CodeGenSocVersionManager&) = delete;
+    CodeGenSocVersionManager& operator=(const CodeGenSocVersionManager&) = delete;
+
+    std::string GetCodeGenSocVersion() const { return codeGenSocVersion_; }
+    void SetCodeGenSocVersion(const std::string& version) { codeGenSocVersion_ = version; }
+};
 
 class Platform {
 private:

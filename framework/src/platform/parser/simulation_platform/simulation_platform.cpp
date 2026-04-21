@@ -17,10 +17,12 @@
 #include <string>
 #include <dlfcn.h>
 #include "simulation_platform.h"
+#include "tilefwk/platform.h"
 
 namespace npu {
 namespace tile_fwk {
-const std::string PLATFORM_INFO_RELATIVE_PATH = "/configs/A2A3.ini";
+const std::string PLATFORM_INFO_RELATIVE_PATH = "/configs/";
+const std::string INI_EXTENSION = ".ini";
 const uint32_t PLATFORM_FAILED = 0xFFFFFFFF;
 const uint32_t PLATFORM_SUCCESS = 0;
 
@@ -40,7 +42,8 @@ std::string SimulationPlatform::GetCurrentSharedLibPath()
 
 bool SimulationPlatform::GetCostModelPlatformRealPath(std::string& realPath)
 {
-    realPath = RealPath(GetCurrentSharedLibPath() + PLATFORM_INFO_RELATIVE_PATH);
+    std::string socVersion = CodeGenSocVersionManager::Instance().GetCodeGenSocVersion();
+    realPath = RealPath(GetCurrentSharedLibPath() + PLATFORM_INFO_RELATIVE_PATH + socVersion + INI_EXTENSION);
     if (realPath.empty()) {
         return false;
     }

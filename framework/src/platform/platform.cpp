@@ -43,6 +43,7 @@ constexpr size_t kDefaultL0mxSize = 2 * 1024;
 const std::unordered_map<std::string, NPUArch> npuArchMap = {
     {"1001", NPUArch::DAV_1001},
     {"2201", NPUArch::DAV_2201},
+    {"3113", NPUArch::DAV_3113},
     {"3510", NPUArch::DAV_3510},
 };
 
@@ -291,9 +292,14 @@ void Platform::ObtainPlatformInfo()
         return;
     }
     std::string socVersion;
+    std::string codeGenSocVersion;
     std::unique_ptr<PlatformParser> parser;
     PLATFORM_LOGD("Start obtaining platform info.");
-    if (CannHostRuntime::Instance().GetSocVersion(socVersion)) {
+    codeGenSocVersion = CodeGenSocVersionManager::Instance().GetCodeGenSocVersion();
+    if (!codeGenSocVersion.empty()) {
+        PLATFORM_LOGD("Cannot obtain platform through cann package, use simulation info.");
+        parser = std::make_unique<INIParser>();
+    } else if (CannHostRuntime::Instance().GetSocVersion(socVersion)) {
         PLATFORM_LOGD("Obtain platform through cann package(socVersion:%s), use runtime function.", socVersion.c_str());
         parser = std::make_unique<CmdParser>();
     } else {

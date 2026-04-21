@@ -1,6 +1,6 @@
 ---
 name: pypto-intent-understand
-description: "PyPTO 算子需求意图理解。将用户的自然语言算子描述转化为结构化需求文档。当用户描述要开发、实现、创建某个算子时触发，例如：'开发一个 sinh 算子'、'实现 GELU'、'参考 PyTorch 的 F.scaled_dot_product_attention'、'根据论文实现算子'、'创建自定义算子'"
+description: PyPTO 算子需求意图理解。将用户的自然语言算子描述转化为结构化需求文档。当用户描述要开发、实现、创建某个算子时触发，例如：'开发一个 sinh 算子'、'实现 GELU'、'参考 PyTorch 的 F.scaled_dot_product_attention'、'根据论文实现算子'、'创建自定义算子'
 ---
 
 # PyPTO 算子需求意图理解
@@ -174,6 +174,12 @@ description: "PyPTO 算子需求意图理解。将用户的自然语言算子描
 3. 统一标记为 ⚠ 中置信度
 4. **必须**让用户确认提取结果是否正确
 
+**降级策略**（WebFetch 不可用时）：
+1. 基于 AI 自身知识库中的标准定义生成规格信息
+2. 置信度降为 ⚠ 中（来源：AI 知识库推断，非原始材料）
+3. 在 SPEC.md 中标注"⚠ 原始材料无法获取，基于标准参考生成，建议人工确认"
+4. 向用户说明降级原因并展示推断依据
+
 **交互示例**：
 ```text
 用户: 参考 PyTorch 的 F.scaled_dot_product_attention
@@ -321,7 +327,7 @@ description: "PyPTO 算子需求意图理解。将用户的自然语言算子描
 对于简单算子（公式足以描述）：
 ```
 ✅ 必须信息:
-  [✓] 算子名称: {name}
+  [✓] 算子名称: {operator_name}
   [✓] 数学公式: {formula}
   [✓] 输入: {input_name}[{shape}] {dtype}, 动态轴: {dynamic_axes}
   [✓] 输出: {output_name}[{shape}] {dtype}, 动态轴: {dynamic_axes}
@@ -335,7 +341,7 @@ description: "PyPTO 算子需求意图理解。将用户的自然语言算子描
 对于复杂算子（公式无法完整表述计算流程），增加算法部分和关键特性部分：
 ```
 ✅ 必须信息:
-  [✓] 算子名称: {name}
+  [✓] 算子名称: {operator_name}
   [✓] 数学公式: {formula}
   [✓] 关键特性:
       ┌─────────────────────┬────────┬──────────────────────────┐
@@ -431,10 +437,15 @@ Algorithm: Flash Attention (Forward)
 模板文件位于: [templates/spec-template.md](templates/spec-template.md)
 
 使用时需替换以下占位符:
-- `{name}` — 算子名称
+- `{operator_name}` — 算子名称
 - `{category}` — 算子分类 (element-wise / reduction / matmul / attention / custom)
 - `{formula}` — 数学公式
 - `{description}` — 功能描述
+- front matter 结构化字段：
+  - `{axes_list}` / `{axes_ranges}` / `{shape_constraints}`
+  - `{performance_target}`
+  - `{atol}` / `{rtol}`
+  - 约定：`axes_list` 必须是 YAML 可解析列表（例如 `['N']` 或 `['N','M']`）
 - `{feature_name}`, `{need_or_not}`, `{confidence}`, `{impl_note}`, `{priority}` — 关键特性表格行（复杂算子必须）
 - `{algorithm_name}` / `{带编号的伪代码步骤}` — 算法描述（可选，复杂算子需要）
 - `{ASCII数据流图}` — 数据流图

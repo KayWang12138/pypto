@@ -30,6 +30,7 @@ message(STATUS "PTO_FWK_BIN_ROOT=${PTO_FWK_BIN_ROOT}")
 
 # 公开编译开关(build)
 option(BUILD_WITH_CANN "Build with CANN." ON)  # Need to install CANN package and set corresponding environment variables.
+option(BUILD_WITH_CANN_MOBILE "Build with CANN Mobile" OFF) # pure x86 compile
 option(ENABLE_ASAN "Enable AddressSanitizer" OFF)
 option(ENABLE_UBSAN "Enable UndefinedBehaviorSanitizer" OFF)
 option(ENABLE_GCOV "Enable GNU Coverage Instrumentation Tool" OFF)
@@ -88,6 +89,7 @@ if (ENABLE_FEATURE_PYTHON_FRONT_END)
     set(InstallExport ${PROJECT_NAME}Targets)
     set(InstallTargets
             tile_fwk_utils
+            tile_fwk_adapter
             tile_fwk_cann_host_runtime
             tile_fwk_platform
             tile_fwk_interface
@@ -123,6 +125,7 @@ if (ENABLE_FEATURE_PYTHON_FRONT_END)
                 framework/src/interface/configs/tile_fwk_config_schema.json
                 framework/src/platform/parser/platforminfo.ini
                 framework/src/platform/parser/simulation_platform/platform_config/A2A3.ini
+                framework/src/platform/parser/simulation_platform/platform_config/Kirin9030.ini
             DESTINATION ${PyPTO_WhlName}/lib/configs
     )
 
@@ -135,6 +138,7 @@ if (ENABLE_FEATURE_PYTHON_FRONT_END)
                 tools/profiling/function_json_convert.py
                 tools/profiling/parse_pipe_time_trace.py
                 tools/scripts/machine_perf_trace.py
+                tools/scripts/extract_pass_log.py
             DESTINATION ${PyPTO_WhlName}/lib/scripts
     )
 

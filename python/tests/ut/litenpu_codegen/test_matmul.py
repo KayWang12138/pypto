@@ -3,24 +3,14 @@ import torch
 import numpy as np
 import unittest
 
-def matmul_op_fp16(run_mode: str = "npu") -> torch.Tensor:
-    if run_mode == "npu":
-        mode = pypto.RunMode.NPU
-    elif run_mode == "sim":
-        mode = pypto.RunMode.SIM
-    else:
-        raise ValueError(f"Invalid run_mode: {run_mode}. Must be 'npu' or 'sim'")
-
-    @pypto.frontend.jit(runtime_options={"run_mode": mode})
-    def matmul_kernel(
-        a: pypto.Tensor([...], pypto.DT_FP16),
-        b: pypto.Tensor([...], pypto.DT_FP16),
-        out: pypto.Tensor([...], pypto.DT_FP16),
-    ):
-        pypto.set_cube_tile_shapes([16, 16], [16, 16], [16, 16])
-        out[:] = pypto.matmul(a, b, a.dtype)
-
-    return matmul_kernel
+@pypto.frontend.jit(codegen_options={"soc_version": "Kirin9030"}, runtime_options={"run_mode": pypto.RunMode.SIM})
+def matmul_kernel(
+    a: pypto.Tensor([...], pypto.DT_FP16),
+    b: pypto.Tensor([...], pypto.DT_FP16),
+    out: pypto.Tensor([...], pypto.DT_FP16),
+):
+    pypto.set_cube_tile_shapes([16, 16], [16, 16], [16, 16])
+    out[:] = pypto.matmul(a, b, a.dtype)
 
 class TestLiteNPUMatmul(unittest.TestCase):
     def test_matmul_001(self):
@@ -34,8 +24,7 @@ class TestLiteNPUMatmul(unittest.TestCase):
         b = torch.rand(shape_b, dtype=dtype, device=device)
         out = torch.rand(shape_out, dtype=dtype, device=device)
 
-        run_mode = "sim"
-        matmul_op_fp16(run_mode)(a, b, out)
+        matmul_kernel(a, b, out)
 
         self.assertEqual(1, 1)
 

@@ -4,7 +4,7 @@ cd /mnt/workspace/gitCode/GBowen666/pypto/
 
 pip3 uninstall pypto
 
-python3 -m pip install . --verbose
+PYPTO_BUILD_EXT_ARGS='--cmake-options="-DBUILD_WITH_CANN_MOBILE=ON"' python3 -m pip install -e . --verbose
 
 cd /mnt/workspace/gitCode/GBowen666/pypto/python/tests/ut/litenpu_codegen/
 
