@@ -119,6 +119,7 @@ public:
     }
 
     size_t AvailableSlots() const { return availableSlots_; }
+    size_t SlotNum() const { return slotNum_; }
 
     uint64_t SlotByteSize() const { return slotStandardMemReq_; }
 

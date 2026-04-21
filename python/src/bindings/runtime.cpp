@@ -35,6 +35,8 @@
 #include "machine/runtime/eslmodel_launcher.h"
 #include "machine/runtime/device_launcher.h"
 #include "machine/utils/dynamic/dev_start_args.h"
+#include "machine/utils/dynamic/dev_encode_program_ctrlflow_cache.h"
+#include "machine/utils/dynamic/dev_encode_function_stitch.h"
 #include "machine/host/perf_analysis.h"
 #include "bindings/torch_tensor_converter.h"
 
@@ -180,6 +182,15 @@ static ExportedOperator* GetValidatedOperator(uintptr_t opAddr)
         return nullptr;
     }
     return reinterpret_cast<ExportedOperator*>(opAddr);
+}
+
+static uint64_t CalcMaxTensorBytes(const std::vector<DeviceTensorData>& tensors)
+{
+    uint64_t maxBytes = 0;
+    for (const auto& t : tensors) {
+        maxBytes = std::max<uint64_t>(maxBytes, t.GetDataSize());
+    }
+    return maxBytes;
 }
 
 static void InitializeInputOutputData(
@@ -395,8 +406,10 @@ struct ControlFlowCache {
     int64_t hash;
     std::vector<DeviceTensorData> inputs;
     uint8_t* devCache{nullptr};
+    DevControlFlowCache* hostCache{nullptr};
 
-    ControlFlowCache(std::vector<DeviceTensorData>& datas, uint8_t* tcache) : inputs(datas), devCache(tcache)
+    ControlFlowCache(std::vector<DeviceTensorData>& datas, uint8_t* tcache, DevControlFlowCache* hcache = nullptr)
+        : inputs(datas), devCache(tcache), hostCache(hcache)
     {
         hash = Hash(inputs);
     }
@@ -447,9 +460,11 @@ public:
         auto& caches = isOriginShape ? originShapeCaches : inferShapeCaches;
         for (auto& cache : caches) {
             if (cache.hash == inHash) {
+                activeHostCtrlCache = cache.hostCache;
                 return cache.devCache;
             }
         }
+        activeHostCtrlCache = nullptr;
         return nullptr;
     }
 
@@ -459,9 +474,11 @@ public:
         auto& caches = isOriginShape ? originShapeCaches : inferShapeCaches;
         for (auto& cache : caches) {
             if (cache.hash == inHash) {
+                activeHostCtrlCache = cache.hostCache;
                 return cache.devCache;
             }
         }
+        activeHostCtrlCache = nullptr;
         return nullptr;
     }
 
@@ -478,7 +495,6 @@ public:
             COMPILER_LOGE("control flow cache failed %d", ret);
             return nullptr;
         }
-
         uint8_t* devCache = DeviceLauncher::CopyControlFlowCache(ctrlCache);
 #if ENABALE_VERBOSE_LOG
         std::stringstream ss;
@@ -490,22 +506,31 @@ public:
         COMPILER_LOGE("control flow cache: %p shape %s", devCache, ss.str().c_str());
 #endif
         if (isOriginShape) {
-            originShapeCaches.emplace_back(inputs, devCache);
+            originShapeCaches.emplace_back(inputs, devCache, ctrlCache);
         } else {
-            inferShapeCaches.emplace_back(inputs, devCache);
+            inferShapeCaches.emplace_back(inputs, devCache, ctrlCache);
         }
+        activeHostCtrlCache = ctrlCache;
         return devCache;
     }
 
     int64_t GetWorkspaceSize(const std::vector<DeviceTensorData>& tensors)
     {
-        if (dynAttr->maxDynamicAssembleOutcastMem.IsValid()) {
-            Evaluator eval{dynAttr->inputSymbolDict, tensors, {}};
-            devProg->memBudget.tensor.maxDynamicAssembleOutcastMem =
-                eval.Evaluate(dynAttr->maxDynamicAssembleOutcastMem);
-            workspaceSize = devProg->memBudget.Total();
-            return workspaceSize;
-        }
+        PrecomputeDynamicPartialMetaOnHost(activeHostCtrlCache);
+        auto [runtimeAssembleMem, runtimeCellMatchMem, runtimeTensorUpperBound] = EvaluateRuntimeBudget(tensors);
+        devProg->memBudget.tensor.maxDynamicAssembleOutcastMem = runtimeAssembleMem;
+        devProg->memBudget.tensor.maxDynamicCellMatchTableMem = runtimeCellMatchMem;
+        auto aicpuArgs = reinterpret_cast<AiCpuArgs*>(aicpuArgBuf.data());
+        DeviceLauncher::FillDeviceKernelArgs(
+            dynAttr->devProgBinary, aicpuArgs->kArgs, dynAttr->commGroupNames, static_cast<int64_t>(runtimeAssembleMem));
+        aicpuArgs->kArgs.runtimeDynamicAssembleMem = runtimeAssembleMem;
+        aicpuArgs->kArgs.runtimeDynamicCellMatchMem = runtimeCellMatchMem;
+        aicpuArgs->kArgs.dynamicPartialMetaReady = hostDynamicPartialMetaReady ? 1UL : 0UL;
+        std::printf(
+            "[Workspace/LaunchStage] runtime_tensor_upper_bound=%lu maxDynamicAssembleOutcastMem=%lu "
+            "maxDynamicCellMatchTableMem=%lu host_dynamic_partial_ready=%lu\n",
+            runtimeTensorUpperBound, runtimeAssembleMem, runtimeCellMatchMem, aicpuArgs->kArgs.dynamicPartialMetaReady);
+        workspaceSize = devProg->memBudget.Total();
         return workspaceSize;
     }
 
@@ -566,7 +591,6 @@ public:
     void* GetKernelBin() { return kernelBin; }
     auto& GetArgTypes() { return argTypes; }
     Function* GetFunction() { return dynFunc.get(); }
-
     ~KernelBinary()
     {
         DeviceLauncher::UnregisterKernelBin(kernelBin);
@@ -579,6 +603,112 @@ public:
     }
 
 private:
+    void PrecomputeDynamicPartialMetaOnHost(DevControlFlowCache* ctrlCache)
+    {
+        hostDynamicPartialMetaReady = false;
+        if (ctrlCache == nullptr || devProg == nullptr) {
+            std::printf("[DynamicCellMatch/HostLaunch] skip_precompute ctrl_cache_null=%d\n", ctrlCache == nullptr);
+            return;
+        }
+        if (devProg->partialUpdateList.size() == 0) {
+            return;
+        }
+        std::vector<uint8_t> partialPrepared(devProg->partialUpdateList.size(), 0);
+        size_t preparedCount = 0;
+        size_t dynamicSlotCount = 0;
+        auto findPartialBySlot = [this](int slotIndex) -> std::pair<DevAscendProgramPartialUpdate*, size_t> {
+            for (size_t idx = 0; idx < devProg->partialUpdateList.size(); ++idx) {
+                auto& partial = devProg->At(devProg->partialUpdateList, idx);
+                if (partial.slotIndex == slotIndex) {
+                    return {&partial, idx};
+                }
+            }
+            return {nullptr, static_cast<size_t>(-1)};
+        };
+        for (size_t taskIdx = 0; taskIdx < ctrlCache->deviceTaskCount; ++taskIdx) {
+            auto* dynTaskBase = ctrlCache->deviceTaskCacheList[taskIdx].dynTaskBase;
+            if (dynTaskBase == nullptr) {
+                continue;
+            }
+            auto* dynFuncDataList = dynTaskBase->GetDynFuncDataList();
+            auto* dynFuncDataCacheList = dynTaskBase->GetDynFuncDataCacheList();
+            for (size_t dupIdx = 0; dupIdx < dynFuncDataList->Size(); ++dupIdx) {
+                auto* duppedData = dynFuncDataCacheList->At(dupIdx).duppedData;
+                if (duppedData == nullptr || duppedData->GetSource() == nullptr) {
+                    continue;
+                }
+                auto* devRootSrc = duppedData->GetSource();
+                uint64_t* expressionList = duppedData->GetExpressionAddr();
+                for (size_t outcastIdx = 0; outcastIdx < devRootSrc->GetOutcastSize(); ++outcastIdx) {
+                    auto& outcast = devRootSrc->GetOutcast(outcastIdx);
+                    for (size_t i = 0; i < outcast.toSlotList.size(); ++i) {
+                        int slotIndex = devRootSrc->At(outcast.toSlotList, i);
+                        if (slotIndex < 0) {
+                            continue;
+                        }
+                        auto [partialPtr, partialIdx] = findPartialBySlot(slotIndex);
+                        if (partialPtr == nullptr || partialIdx == static_cast<size_t>(-1) || partialPtr->Empty()) {
+                            continue;
+                        }
+                        if (partialPrepared[partialIdx] != 0) {
+                            continue;
+                        }
+                        partialPrepared[partialIdx] = 1;
+                        auto& desc = partialPtr->cellMatchTableDesc;
+                        if (desc.GetDimensionSize() <= 0) {
+                            continue;
+                        }
+                        dynamicSlotCount++;
+                        if (IsCellMatchDescConcrete(desc)) {
+                            preparedCount++;
+                            std::printf(
+                                "[DynamicCellMatch/HostLaunch] slot=%d already_concrete=1 table_size=%lu\n", slotIndex,
+                                GetCellMatchTableSizeFromDesc(desc));
+                            continue;
+                        }
+                        DynamicCellMatchRuntimeMeta meta;
+                        if (BuildRuntimeDynamicCellMatchMeta(
+                                devRootSrc, outcast, expressionList, desc, slotIndex, meta) &&
+                            meta.tableSize > 0) {
+                            preparedCount++;
+                            std::printf(
+                                "[DynamicCellMatch/HostLaunch] slot=%d already_concrete=0 table_size=%lu dim=%d\n",
+                                slotIndex, meta.tableSize, desc.GetDimensionSize());
+                        } else {
+                            std::printf(
+                                "[DynamicCellMatch/HostLaunch] slot=%d precompute_failed dim=%d\n", slotIndex,
+                                desc.GetDimensionSize());
+                        }
+                    }
+                }
+            }
+        }
+        std::printf(
+            "[DynamicCellMatch/HostLaunch] prepared_slots=%zu dynamic_slots=%zu task_count=%lu\n", preparedCount,
+            dynamicSlotCount, ctrlCache->deviceTaskCount);
+        hostDynamicPartialMetaReady = (dynamicSlotCount == 0) || (preparedCount == dynamicSlotCount);
+    }
+
+    std::tuple<uint64_t, uint64_t, uint64_t> EvaluateRuntimeBudget(const std::vector<DeviceTensorData>& tensors) const
+    {
+        Evaluator eval{dynAttr->inputSymbolDict, tensors, {}};
+        constexpr uint64_t kMinDynamicCellMatchSlotBytes = 4096;
+        uint64_t runtimeAssembleMem = devProg->memBudget.tensor.maxDynamicAssembleOutcastMem;
+        uint64_t runtimeCellMatchMem = devProg->memBudget.tensor.maxDynamicCellMatchTableMem;
+        if (dynAttr->maxDynamicAssembleOutcastMem.IsValid()) {
+            runtimeAssembleMem = eval.Evaluate(dynAttr->maxDynamicAssembleOutcastMem);
+        }
+        if (dynAttr->maxDynamicCellMatchTableMem.IsValid()) {
+            runtimeCellMatchMem = eval.Evaluate(dynAttr->maxDynamicCellMatchTableMem);
+        }
+        uint64_t runtimeTensorUpperBound = CalcMaxTensorBytes(tensors);
+        runtimeAssembleMem = std::max<uint64_t>(runtimeAssembleMem, runtimeTensorUpperBound);
+        if (devProg->memBudget.tensor.dynamicCellMatchSlotNum != 0 || devProg->partialUpdateList.size() != 0) {
+            runtimeCellMatchMem = std::max<uint64_t>(runtimeCellMatchMem, kMinDynamicCellMatchSlotBytes);
+        }
+        return {runtimeAssembleMem, runtimeCellMatchMem, runtimeTensorUpperBound};
+    }
+
     void InitCachedArgs()
     {
         auto argNum =
@@ -617,6 +747,8 @@ private:
     std::vector<int64_t> aicpuArgBuf;
     uint64_t l2Offset{0};
     std::vector<DeviceTensorData> argTypes;
+    bool hostDynamicPartialMetaReady{false};
+    DevControlFlowCache* activeHostCtrlCache{nullptr};
 };
 
 class KernelModule {
@@ -648,6 +780,12 @@ public:
 
     uint8_t* FindCtrlFlowCache(KernelBinary* kernel, py::object& module, std::vector<DeviceTensorData>& tensors)
     {
+        if (!IsCacheEnabled()) {
+            AclModeGuard guard(AclMdlRICaptureMode::RELAXED);
+            (void)kernel->BuildControlFlowCache(tensors, stitchCfgCacheSize, true);
+            return nullptr;
+        }
+
         auto devCache = kernel->FindCtrlFlowCache(tensors, true);
         if (devCache == nullptr) {
             std::vector<std::vector<int64_t>> shape;
@@ -1034,6 +1172,9 @@ private:
             return;
         }
 
+        uint8_t* ctrlFlowCache = kmodule->FindCtrlFlowCache(kbinary, module, tensors);
+        HOST_PERF_TRACE(TracePhase::FindCtrlFlowCache);
+
         int64_t* wsAddr = nullptr;
         int64_t wsSize = kmodule->GetWorkspaceSize(kbinary, tensors);
         if (wsSize) {
@@ -1048,11 +1189,14 @@ private:
         DeviceLauncher::AddAicpuStream(rtModel);
         HOST_PERF_TRACE(TracePhase::LaunchAttachStream);
 
+<<<<<<< HEAD
         uint8_t* ctrlFlowCache = kmodule->FindCtrlFlowCache(kbinary, module, tensors);
         HOST_PERF_TRACE(TracePhase::FindCtrlFlowCache);
 
         kmodule->EmulationLaunch(kbinary, tensors, ctrlFlowCache);
 
+=======
+>>>>>>> 056d5911 (fix(machine): Fix dynamic partial-update cell match lifecycle)
         kmodule->Launch(kbinary, aicoreStream, tensors, ctrlFlowCache, wsAddr);
         HOST_PERF_TRACE(TracePhase::Launch);
         DumpIOTensorsWithCann(aicoreStream, tensors, kbinary->GetFunction()->GetRawName());
