@@ -107,15 +107,21 @@ TILEOP void TCast(T0 dst, T1 src)
     constexpr auto n2 = Std::tuple_element<DIM_2ND, LastUse>::type::value;
     using SrcDtype = std::conditional_t<std::is_same_v<typename T1::Type, bool>, uint8_t, typename T1::Type>;
     using DstDtype = std::conditional_t<std::is_same_v<typename T0::Type, bool>, uint8_t, typename T0::Type>;
+    constexpr auto dstValidH = GetValidHeight<T0, false>();
+    constexpr auto dstValidW = GetValidWidth<T0>();
+    constexpr auto srcValidH = GetValidHeight<T1, false>();
+    constexpr auto srcValidW = GetValidWidth<T1>();
     for (LoopVar n0Index = 0; n0Index < shape0; ++n0Index) {
         for (LoopVar n1Index = 0; n1Index < shape1; ++n1Index) {
             for (LoopVar n2Index = 0; n2Index < shape2; ++n2Index) {
-                using TileDefineDst =
-                    pto::Tile<pto::TileType::Vec, DstDtype, dstTileH, dstTileW, pto::BLayout::RowMajor, -1, -1>;
-                using TileDefineSrc =
-                    pto::Tile<pto::TileType::Vec, SrcDtype, srcTileH, srcTileW, pto::BLayout::RowMajor, -1, -1>;
-                TileDefineDst dstTile(shape3, shape4);
-                TileDefineSrc srcTile(shape3, shape4);
+                using TileDefineDst = pto::Tile<
+                    pto::TileType::Vec, DstDtype, dstTileH, dstTileW, pto::BLayout::RowMajor, dstValidH, dstValidW>;
+                using TileDefineSrc = pto::Tile<
+                    pto::TileType::Vec, SrcDtype, srcTileH, srcTileW, pto::BLayout::RowMajor, srcValidH, srcValidW>;
+                TileDefineDst dstTile;
+                TileDefineSrc srcTile;
+                if constexpr(dstValidH == -1 || dstValidW == -1) dstTile = TileDefineSrc(shape3, shape4);
+                if constexpr(srcValidH == -1 || srcValidW == -1) srcTile = TileDefineSrc(shape3, shape4);
                 auto dstOffset = n0Index * dstStride0 + n1Index * dstStride1 + n2Index * dstStride2;
                 auto srcOffset = n0Index * srcStride0 + n1Index * srcStride1 + n2Index * srcStride2;
                 pto::TASSIGN(dstTile, (uint64_t)(dst.GetAddr() + dstOffset * dstTypeSize));
