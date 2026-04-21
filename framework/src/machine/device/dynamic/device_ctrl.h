@@ -26,6 +26,7 @@
 #include "machine/utils/device_log.h"
 #include "machine/utils/barrier.h"
 #include "machine/device/dynamic/aicore_prof.h"
+#include <algorithm>
 #ifdef __DEVICE__
 #include "log_types.h"
 #endif
@@ -231,6 +232,14 @@ public:
         DEV_INFO("AscendCppDyInitTask begin");
 
         DevAscendProgram* devProg = PtrToPtr<int64_t, DevAscendProgram>(kargs->cfgdata);
+        std::printf(
+            "[DynamicCellMatch/ArgsRecv] runtime_dynamic_assemble=%lu runtime_dynamic_cell=%lu host_meta_ready=%lu\n",
+            kargs->runtimeDynamicAssembleMem, kargs->runtimeDynamicCellMatchMem, kargs->dynamicPartialMetaReady);
+        devProg->memBudget.tensor.maxDynamicAssembleOutcastMem = std::max<uint64_t>(
+            devProg->memBudget.tensor.maxDynamicAssembleOutcastMem, kargs->runtimeDynamicAssembleMem);
+        devProg->memBudget.tensor.maxDynamicCellMatchTableMem = std::max<uint64_t>(
+            devProg->memBudget.tensor.maxDynamicCellMatchTableMem, kargs->runtimeDynamicCellMatchMem);
+        devProg->workspaceSize = devProg->memBudget.Total();
         PerfBegin(PERF_EVT_INIT);
         bool firstInit = InitDevProgram(devProg);
         PerfEnd(PERF_EVT_INIT);

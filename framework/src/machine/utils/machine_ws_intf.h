@@ -116,6 +116,9 @@ struct DeviceKernelArgs {
     uint8_t machineConfig;
     ToSubMachineConfig toSubMachineConfig;
     DeviceKernelArgsParameter parameter;
+    uint64_t runtimeDynamicAssembleMem{0};
+    uint64_t runtimeDynamicCellMatchMem{0};
+    uint64_t dynamicPartialMetaReady{0};
 };
 
 struct LogHead {
