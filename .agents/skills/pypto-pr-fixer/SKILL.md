@@ -1,6 +1,6 @@
 ---
 name: pypto-pr-fixer
-description: 修复 PyPTO PR 的 CodeCheck CI 失败和 review 评论。自动获取 CodeCheck 违规详情、匹配规则、应用修复。触发词：修复codecheck、codecheck问题、codecheck报错、codecheck失败、codecheck不通过、CI失败、CI报错、PR评论修复、review意见修复、修复PR、PR review fixer。
+description: "修复 PyPTO PR 的 CodeCheck CI 失败和 review 评论。自动获取 CodeCheck 违规详情、匹配规则、应用修复。触发词：修复codecheck、codecheck问题、codecheck报错、codecheck失败、codecheck不通过、CI失败、CI报错、PR评论修复、review意见修复、修复PR、PR review fixer。"
 ---
 
 # PyPTO PR Fixer
@@ -175,7 +175,9 @@ def is_robot_comment(comment):
 
 **不预设固定分类**。LLM 直接理解评论语义，动态判断修复方案。
 
-### 通用修复处理流程
+### 处理流程
+
+对每条人工评论：
 
 1. **理解意图** — 阅读评论全文，理解 reviewer 要求什么
 2. **判断可行性** — 该修改是否可以自动执行？
@@ -227,7 +229,9 @@ cann-robot 评论中包含 codecheck 失败的 HTML 表格：
 </tr>
 ```
 
-### CodeCheck 修复处理流程
+### 处理流程
+
+#### 步骤 1：提取报告 URL
 
 使用 `scripts/extract_latest_codecheck_url.py` 先判定最新 CI 是否由 codecheck 导致失败，再决定输出：
 
