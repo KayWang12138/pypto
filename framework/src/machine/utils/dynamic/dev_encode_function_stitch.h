@@ -15,6 +15,8 @@
 
 #pragma once
 
+#include <cstdio>
+
 #include "machine/utils/dynamic/dev_encode_types.h"
 #include "machine/utils/dynamic/dev_encode_function.h"
 #include "tilefwk/aicpu_common.h"
@@ -200,6 +202,14 @@ static void CellMatchHandle(
             DEV_ASSERT(ProgEncodeErr::CELL_MATCH_DIM_ZERO, 0);
         }
     }
+    std::printf("[CellMatchRange] dim=%d", cellMatchTableDesc.GetDimensionSize());
+    for (int i = 0; i < cellMatchTableDesc.GetDimensionSize(); ++i) {
+        std::printf(
+            " d%d(offset=%lu shape=%lu cell=%d begin=%lu end=%lu)", i, static_cast<unsigned long>(offset[i]),
+            static_cast<unsigned long>(shape[i]), cellMatchTableDesc.GetCellShape(i),
+            static_cast<unsigned long>(rangeBegin[i]), static_cast<unsigned long>(rangeEnd[i]));
+    }
+    std::printf("\n");
     switch (cellMatchTableDesc.cellShape.dimSize) {
         case 1: {
             int s0 = 1;
@@ -248,7 +258,11 @@ static void CellMatchFill(
         struct HandleFill {
             static inline void Process(int index, uint32_t* cellMatchTableData, uint32_t operationIdx)
             {
+                uint32_t old = cellMatchTableData[index];
                 cellMatchTableData[index] = operationIdx;
+                std::printf(
+                    "[CellMatchFill/U32] cell=%d old=%u new=%u%s\n", index, old, operationIdx,
+                    (old != static_cast<uint32_t>(-1) && old != operationIdx) ? " overwrite" : "");
                 DEV_VERBOSE_DEBUG(
                     "cell match fill, operation %u , cellindex[%d] = operationindex(%u)", operationIdx, index,
                     operationIdx);
@@ -265,8 +279,15 @@ static void CellMatchFill(
             static inline void Process(
                 int index, uint64_t* cellMatchTableData, uint32_t devTaskId, uint32_t funcIdx, uint32_t operationIdx)
             {
+                uint64_t old = cellMatchTableData[index];
                 cellMatchTableData[index] =
                     (static_cast<uint64_t>(devTaskId) << TASKID_SHIFT32) | MakeTaskID(funcIdx, operationIdx);
+                std::printf(
+                    "[CellMatchFill/U64] cell=%d old=0x%lx new=0x%lx%s\n", index, static_cast<unsigned long>(old),
+                    static_cast<unsigned long>(cellMatchTableData[index]),
+                    (old != static_cast<uint64_t>(AICORE_TASK_INIT) && old != cellMatchTableData[index]) ?
+                        " overwrite" :
+                        "");
                 DEV_VERBOSE_DEBUG(
                     "cell match fill, devtaskid:%u funcIdx %u operation %u , cellindex[%d] = taskid(%lx)", devTaskId,
                     funcIdx, operationIdx, index, cellMatchTableData[index]);
@@ -374,8 +395,18 @@ static bool CellMatchFillIncastOutcast(
         bool paramConcrete = GetTensorOffsetAndShape<skipExpression>(
             devFunc, offset, shape, runtimeExpressionList, cellMatchTableDesc.GetDimensionSize(), use.operationIdx,
             use.operandIdx, isIOperand);
+        std::printf(
+            "[CellMatchUse] op=%d operand=%d is_in=%d concrete=%d", use.operationIdx, use.operandIdx,
+            static_cast<int>(isIOperand), static_cast<int>(paramConcrete));
+        for (int d = 0; d < cellMatchTableDesc.GetDimensionSize(); ++d) {
+            std::printf(
+                " d%d(offset=%lu shape=%lu)", d, static_cast<unsigned long>(offset[d]),
+                static_cast<unsigned long>(shape[d]));
+        }
+        std::printf("\n");
         if (paramConcrete) {
             if (!validateAndRefreshOffsetShape(offset, shape, use.operationIdx, use.operandIdx)) {
+                std::printf("[CellMatchUse] skip op=%d due to invalid offset/shape after refresh\n", use.operationIdx);
                 continue; // dassemble offset of outoperand maybe exceed the rawshape dimension
             }
             CellMatchFill(offset, shape, use.operationIdx, cellMatchTableDesc, args...);

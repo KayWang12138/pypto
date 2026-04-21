@@ -50,8 +50,10 @@ struct DevAscendProgram {
             // root func outcasts & non-dassemble-dst & DeviceTask boundary outcasts: MaxOutcastMem() *
             // devTaskBoundaryOutcastNum
             uint64_t maxStaticOutcastMem;
-            uint64_t maxDynamicAssembleOutcastMem;
-            uint64_t devTaskBoundaryOutcastNum;
+            uint64_t maxDynamicAssembleOutcastMem{0};
+            uint64_t maxDynamicCellMatchTableMem{0};
+            uint64_t devTaskBoundaryOutcastNum{0};
+            uint64_t dynamicCellMatchSlotNum{0};
             uint32_t parallelism{1};
 
             uint64_t MaxOutcastMem() const { return std::max(maxStaticOutcastMem, maxDynamicAssembleOutcastMem); }
@@ -61,8 +63,9 @@ struct DevAscendProgram {
                 uint64_t total =
                     rootInner +                     // root func inner tensors
                     devTaskInnerExclusiveOutcasts + // root func outcasts & non-dassemble-dst & DeviceTask inner tensors
-                    MaxOutcastMem() * devTaskBoundaryOutcastNum; // root func outcasts & non-dassemble-dst & DeviceTask
-                                                                 // boundary outcasts
+                    MaxOutcastMem() * devTaskBoundaryOutcastNum + // root func outcasts & non-dassemble-dst & DeviceTask
+                                                                   // boundary outcasts
+                    maxDynamicCellMatchTableMem * dynamicCellMatchSlotNum; // runtime dynamic cell match tables
                 static constexpr uint64_t ALIGNMENT_32K = 32 * 1024;
                 return AlignUp(total, ALIGNMENT_32K) * parallelism;
             }

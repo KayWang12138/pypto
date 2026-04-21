@@ -14,8 +14,132 @@
  */
 
 #include "machine/device/dynamic/context/device_slot_context.h"
+#include <cstdio>
+#include <algorithm>
+#include <vector>
+#include <array>
+#include <unordered_map>
 
 namespace npu::tile_fwk::dynamic {
+namespace {
+struct DynamicCellMatchRuntimeCache {
+    bool valid{false};
+    int dim{0};
+    uint64_t tableSize{0};
+    std::array<uint64_t, DEV_SHAPE_DIM_MAX> rawShape{};
+    std::array<int, DEV_SHAPE_DIM_MAX> baseCellShape{};
+    std::vector<int> runtimeCellShape;
+    std::vector<int> strideShape;
+};
+
+static std::unordered_map<DevAscendProgramPartialUpdate*, DynamicCellMatchRuntimeCache> g_dynamicCellMatchRuntimeCaches;
+static uint64_t g_dynamicCellMatchLaunchGeneration = 0;
+
+static void PrepareRuntimeDynamicPartialUpdateTable(
+    DeviceWorkspaceAllocator* workspace, DevAscendFunction* devRootSrc, DevAscendFunctionOutcast& outcast,
+    DevAscendProgramPartialUpdate* partialUpdate, DeviceExecuteSlot& slot, const uint64_t* expressionList)
+{
+    if (!workspace->HasDynamicCellMatchSlots()) {
+        std::printf("[DynamicCellMatch] allocator is not initialized, skip runtime rebuild\n");
+        return;
+    }
+    auto& desc = partialUpdate->cellMatchTableDesc;
+    int dim = desc.GetDimensionSize();
+    DevAscendFunctionCallOperandUse* useList = nullptr;
+    if (outcast.producerList.size() != 0) {
+        useList = &devRootSrc->At(outcast.producerList, 0);
+    } else if (outcast.stitchPolicyFullCoverProducerList.size() != 0) {
+        useList = &devRootSrc->At(outcast.stitchPolicyFullCoverProducerList, 0);
+    }
+    if (useList == nullptr) {
+        std::vector<int> runtimeCellShape(dim, 1);
+        desc.SetCellShape(runtimeCellShape);
+        desc.SetStrideShape(runtimeCellShape);
+        partialUpdate->cellMatchRuntimePartialUpdateTable.HostAssignDataSize(0, 0);
+        g_dynamicCellMatchRuntimeCaches.erase(partialUpdate);
+        return;
+    }
+    const auto& representativeUse = useList[0];
+    uint64_t rawShape[DEV_SHAPE_DIM_MAX]{0};
+    bool concrete = GetTensorRawShape<false>(
+        devRootSrc, rawShape, expressionList, dim, representativeUse.operationIdx, representativeUse.operandIdx, false);
+    DEV_ASSERT_MSG(
+        ProgEncodeErr::CELL_MATCH_PARAM_INVALID, concrete,
+        "Dynamic cell match requires concrete raw shape, op=%d operand=%d",
+        representativeUse.operationIdx, representativeUse.operandIdx);
+
+    std::vector<int> normalizedCellShape(dim);
+    for (int d = 0; d < dim; ++d) {
+        int originalCell = desc.GetCellShape(d);
+        normalizedCellShape[d] = originalCell > 0 ? originalCell : 1;
+    }
+    std::vector<int> runtimeCellShape(dim);
+    std::vector<int> strideShape(dim);
+    uint64_t tableSize = 1;
+    auto& cache = g_dynamicCellMatchRuntimeCaches[partialUpdate];
+    bool cacheHit = cache.valid && cache.dim == dim;
+    if (cacheHit) {
+        for (int d = 0; d < dim; ++d) {
+            if (cache.rawShape[d] != rawShape[d] || cache.baseCellShape[d] != normalizedCellShape[d]) {
+                cacheHit = false;
+                break;
+            }
+        }
+    }
+
+    if (cacheHit) {
+        runtimeCellShape = cache.runtimeCellShape;
+        strideShape = cache.strideShape;
+        tableSize = cache.tableSize;
+    } else {
+        std::printf(
+            "[DynamicCellMatch/CacheMiss] slot=%d partial_ptr=%p dim=%d reason=shape_or_cell_changed "
+            "launch_gen=%lu\n",
+            partialUpdate->slotIndex, static_cast<void*>(partialUpdate), dim, g_dynamicCellMatchLaunchGeneration);
+        for (int d = dim - 1; d >= 0; --d) {
+            runtimeCellShape[d] = normalizedCellShape[d];
+            int tile = (static_cast<int>(rawShape[d]) + runtimeCellShape[d] - 1) / runtimeCellShape[d];
+            strideShape[d] = tile;
+            tableSize *= tile;
+        }
+        cache.valid = true;
+        cache.dim = dim;
+        cache.tableSize = tableSize;
+        cache.runtimeCellShape = runtimeCellShape;
+        cache.strideShape = strideShape;
+        for (int d = 0; d < dim; ++d) {
+            cache.rawShape[d] = rawShape[d];
+            cache.baseCellShape[d] = normalizedCellShape[d];
+        }
+    }
+    desc.SetCellShape(runtimeCellShape);
+    desc.SetStrideShape(strideShape);
+
+    uint64_t slotCellCapacity = workspace->DynamicCellMatchSlotCellCapacity();
+    DEV_ASSERT_MSG(
+        ProgEncodeErr::CELL_MATCH_PARAM_INVALID, tableSize <= slotCellCapacity,
+        "Dynamic partial-update cell table exceeds slot capacity: required_cells=%lu capacity=%lu",
+        tableSize, slotCellCapacity);
+    DEV_ASSERT_MSG(
+        ProgEncodeErr::CELL_MATCH_PARAM_INVALID, tableSize > 0,
+        "Dynamic partial-update cell table must be non-zero");
+
+    if (partialUpdate->cellMatchRuntimePartialUpdateTable.Data() == nullptr) {
+        std::printf(
+            "[DynamicCellMatch] table not allocated in slot update path, slot=%d outcast_slot_iter=%lld "
+            "required_bytes=%lu capacity=%lu; allocation must be done by assemble path\n",
+            partialUpdate->slotIndex, static_cast<long long>(slot.rtOutcastIter), tableSize * sizeof(uint64_t),
+            slotCellCapacity);
+        return;
+    }
+    partialUpdate->cellMatchRuntimePartialUpdateTable.HostAssignDataSize(
+        reinterpret_cast<uintdevptr_t>(partialUpdate->cellMatchRuntimePartialUpdateTable.Data()), tableSize);
+    auto tableData = partialUpdate->cellMatchRuntimePartialUpdateTable.Data();
+    for (size_t i = 0; i < tableSize; ++i) {
+        tableData[i] = AICORE_TASK_INIT;
+    }
+}
+} // namespace
 
 void DeviceSlotContext::InitAllocator(DeviceWorkspaceAllocator& workspace, uint64_t slotSize)
 {
@@ -26,19 +150,46 @@ void DeviceSlotContext::InitAllocator(DeviceWorkspaceAllocator& workspace, uint6
 
 void DeviceSlotContext::FillInputOutputSlot(DevAscendProgram* devProg, DevStartArgs* args)
 {
+    ++g_dynamicCellMatchLaunchGeneration;
+    g_dynamicCellMatchRuntimeCaches.clear();
+    uint64_t progBegin = reinterpret_cast<uint64_t>(devProg);
+    uint64_t progEnd = progBegin + devProg->GetSize();
+    for (size_t i = 0, ie = devProg->partialUpdateList.size(); i < ie; ++i) {
+        auto& partialUpdate = devProg->At(devProg->partialUpdateList, i);
+        uint64_t tablePtr = reinterpret_cast<uint64_t>(partialUpdate.cellMatchRuntimePartialUpdateTable.Data());
+        if (tablePtr == 0) {
+            continue;
+        }
+        bool tableInProgramImage = (tablePtr >= progBegin) && (tablePtr < progEnd);
+        if (!tableInProgramImage) {
+            // Dynamic cell-match tables live in workspace and must be rebound each launch.
+            partialUpdate.cellMatchRuntimePartialUpdateTable.HostAssignDataSize(0, 0);
+        }
+    }
+    std::printf("[DynamicCellMatch/LaunchBegin] launch_gen=%lu clear_runtime_cache=1\n", g_dynamicCellMatchLaunchGeneration);
     FillInputOutputSlot(slotList_.data(), slotList_.size(), devProg, args);
 }
 
 static void UpdateSlotsForStitch(
-    int slotIdx, DeviceExecuteSlot& slot, DevAscendFunction* devRootSrc, DevAscendFunctionOutcast& outcast,
-    uint32_t devTaskId, uint32_t devNextIdx, uint32_t outcastIndex, uint64_t* expressionList)
+    DeviceWorkspaceAllocator* workspace, int slotIdx, DeviceExecuteSlot& slot, DevAscendFunction* devRootSrc,
+    DevAscendFunctionOutcast& outcast, uint32_t devTaskId, uint32_t devNextIdx, uint32_t outcastIndex,
+    uint64_t* expressionList)
 {
     slot.stitchDupIdx = devNextIdx;
     slot.stitchOutcastIdx = outcastIndex;
     UNUSED(slotIdx);
-
     auto producerList = &devRootSrc->At(outcast.producerList, 0);
     if (slot.isPartialUpdateStitch) {
+        bool runtimeDynamicCellMatch =
+            slot.partialUpdate->cellMatchRuntimePartialUpdateTable.size() == 0 &&
+            slot.partialUpdate->cellMatchTableDesc.GetDimensionSize() > 0;
+        if (runtimeDynamicCellMatch) {
+            PrepareRuntimeDynamicPartialUpdateTable(
+                workspace, devRootSrc, outcast, slot.partialUpdate, slot, expressionList);
+        }
+        if (slot.partialUpdate->cellMatchRuntimePartialUpdateTable.size() == 0) {
+            return;
+        }
         auto& cellMatchTableDesc = slot.partialUpdate->cellMatchTableDesc;
         auto tableData = &slot.partialUpdate->cellMatchRuntimePartialUpdateTable[0];
         auto producerSize = outcast.producerList.size();
@@ -89,7 +240,7 @@ static void UpdateSlotsImpl(
         for (size_t j = 0; j < outcast.toSlotList.size(); ++j) {
             int slotIdx = devRootSrc->At(outcast.toSlotList, j);
             auto& slot = slotList[slotIdx];
-            UpdateSlotsForStitch(slotIdx, slot, devRootSrc, outcast, devTaskId, devNextIdx, i, expressionList);
+            UpdateSlotsForStitch(workspace, slotIdx, slot, devRootSrc, outcast, devTaskId, devNextIdx, i, expressionList);
             workspace->RuntimeOutcastTensorAssign(slot.rtOutcastIter, outcastDesc.GetRtOutcastIter());
             DEV_VERBOSE_DEBUG(
                 "[UpdateSlots]   Outcast [%3zu] to slot [%3d], address %s.", i, slotIdx, outcastDesc.Dump().c_str());
@@ -158,11 +309,15 @@ void DeviceSlotContext::FillInputOutputSlot(
     }
     for (size_t index = 0, ie = devProg->partialUpdateList.size(); index < ie; index++) {
         auto& partialUpdate = devProg->At(devProg->partialUpdateList, index);
-        int slotIndex = index;
+        int slotIndex = partialUpdate.slotIndex;
         DEV_ASSERT_MSG(
             ProgEncodeErr::STITCH_HANDLE_INDEX_OUT_OF_RANGE, slotIndex >= 0 && slotIndex < static_cast<int>(slotSize),
             "Invalid slot index %d", slotIndex);
-        if (!partialUpdate.Empty()) {
+        bool hasPartialUpdateTable = !partialUpdate.Empty();
+        bool isRuntimeDynamicPartialUpdate =
+            partialUpdate.cellMatchRuntimePartialUpdateTable.size() == 0 &&
+            partialUpdate.cellMatchTableDesc.GetDimensionSize() > 0;
+        if (hasPartialUpdateTable || isRuntimeDynamicPartialUpdate) {
             slotList[slotIndex].isPartialUpdateStitch = true;
             slotList[slotIndex].partialUpdate = &partialUpdate;
             DEV_VERBOSE_DEBUG("Partial Update Slot %d.\n", slotIndex);
