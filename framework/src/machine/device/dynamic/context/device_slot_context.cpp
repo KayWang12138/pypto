@@ -15,6 +15,11 @@
 
 #include "machine/device/dynamic/context/device_slot_context.h"
 
+#ifndef __DEVICE__
+#include <vector>
+#include "machine/device/dynamic/context/slot_access_dumper.h"
+#endif
+
 namespace npu::tile_fwk::dynamic {
 
 void DeviceSlotContext::InitAllocator(DeviceWorkspaceAllocator& workspace, uint64_t slotSize)
@@ -36,6 +41,35 @@ static void UpdateSlotsForStitch(
     slot.stitchDupIdx = devNextIdx;
     slot.stitchOutcastIdx = outcastIndex;
     UNUSED(slotIdx);
+    
+#ifndef __DEVICE__
+    // Dump per-producer cell access events to dyn_slot_access.csv. This mirrors
+    // exactly the fill path below but only collects cell indices without
+    // mutating any table, so adding/removing this dump never affects runtime
+    // correctness.
+    {
+        const DevCellMatchTableDesc* desc = slot.isPartialUpdateStitch ? &slot.partialUpdate->cellMatchTableDesc
+                                                                       : &outcast.cellMatchTableDesc;
+        const DevAscendFunctionCallOperandUse* useList = nullptr;
+        size_t useSize = 0;
+        if (slot.isPartialUpdateStitch && outcast.producerList.size() == 0) {
+            useList = &devRootSrc->At(outcast.stitchPolicyFullCoverProducerList, 0);
+            useSize = outcast.stitchPolicyFullCoverProducerList.size();
+        } else {
+            useList = &devRootSrc->At(outcast.producerList, 0);
+            useSize = outcast.producerList.size();
+        }
+        for (size_t i = 0; i < useSize; ++i) {
+            std::vector<int> cellIdxList;
+            bool allConcrete =
+                CollectCellIdxForUse<false>(devRootSrc, useList[i], expressionList, false, *desc, &cellIdxList);
+            DumpSlotAccessEvent(
+                devTaskId, slotIdx, devRootSrc->rootHash, devRootSrc->funcKey, devNextIdx,
+                static_cast<uint32_t>(useList[i].operationIdx), 'W', cellIdxList.data(), cellIdxList.size(),
+                allConcrete);
+        }
+    }
+#endif
 
     auto producerList = &devRootSrc->At(outcast.producerList, 0);
     if (slot.isPartialUpdateStitch) {
