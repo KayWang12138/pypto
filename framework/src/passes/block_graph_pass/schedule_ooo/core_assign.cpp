@@ -794,10 +794,10 @@ int TaskSpliter::BuildCluster(std::vector<int>& clusterIds, std::vector<Schedule
     for (size_t idx = 0; idx < opOutGraph_.size(); idx++) {
         // 判断后接 tensor 为 L1 且存在多个消费者时，不进行 union
         bool skip = false;
-        if (opList_[idx]->GetOutputOperand(0)->GetMemoryTypeOriginal() == MemoryType::MEM_L1 &&
-            ((opList_[idx]->GetOpcodeStr().find("L1_ALLOC") != std::string::npos && opOutGraph_[idx].size() > 2) ||
-            (opList_[idx]->GetOpcodeStr().find("L1_ALLOC") == std::string::npos && opOutGraph_[idx].size() > 1))) {
+        if (opList_[idx]->GetOutputOperand(0)->GetMemoryTypeOriginal() == MemoryType::MEM_L1 && opOutGraph_[idx].size() > 1) {
             skip = true;
+            APASS_LOG_DEBUG_F(
+                Elements::Operation, "Skip union op: %s[%d]", opList_[idx]->GetOpcodeStr().c_str(), opList_[idx]->GetOpMagic());
         }
         for (int nextOpIdx : opOutGraph_[idx]) {
             if (opCoreTypes_[idx] == opCoreTypes_[nextOpIdx] && !skip && opList_[nextOpIdx]->GetOpcodeStr().find("L1_TO_L0") == std::string::npos) {
@@ -806,10 +806,12 @@ int TaskSpliter::BuildCluster(std::vector<int>& clusterIds, std::vector<Schedule
         }
     }
     for (auto pr : sameLayerConnection_) {
-        dsu.Union(pr.first, pr.second);
+        if (opCoreTypes_[pr.first] == opCoreTypes_[pr.second]) {
+            dsu.Union(pr.first, pr.second);
+        }
     }
     for (size_t idx = 0; idx < opOutGraph_.size(); idx++) {
-        if (IsFromAICToAIV(opList_[idx]) || IsFromAIVToAIC(opList_[idx])) {
+        if (IsFromAICToAIV(opList_[idx])) {
             for (int nextOpIdx : opOutGraph_[idx]) {
                 dsu.Union(nextOpIdx, *opOutGraph_[idx].begin());
             }
@@ -817,7 +819,7 @@ int TaskSpliter::BuildCluster(std::vector<int>& clusterIds, std::vector<Schedule
     }
     // 对输入tensor为L0C的非alloc op，反向DFS找L1_COPY_IN，未与L1_TO_L0 union的则union到当前L0C集合
     for (size_t idx = 0; idx < opList_.size(); idx++) {
-        if (opList_[idx]->GetOpcodeStr().find("ALLOC") == std::string::npos && opList_[idx]->GetInputOperand(0)->GetMemoryTypeOriginal() == MemoryType::MEM_L0C) {
+        if (opList_[idx]->GetIOperands().size() == 0 || opList_[idx]->GetInputOperand(0)->GetMemoryTypeOriginal() != MemoryType::MEM_L0C) {
             continue;
         }
         std::vector<int> l1CopyInOps;
@@ -838,7 +840,7 @@ int TaskSpliter::BuildCluster(std::vector<int>& clusterIds, std::vector<Schedule
                     break;
                 }
             }
-            if (!alreadyUnionedWithL1ToL0) {
+            if (!alreadyUnionedWithL1ToL0 && opCoreTypes_[idx] == opCoreTypes_[l1CopyInOpIdx]) {
                 dsu.Union(l1CopyInOpIdx, idx);
             }
         }
