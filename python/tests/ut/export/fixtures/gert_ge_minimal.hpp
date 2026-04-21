@@ -36,7 +36,7 @@ enum DataType {
     DT_RESOURCE = 23,       // resource type
     DT_STRING_REF = 24,     // string ref type
     DT_DUAL = 25,           // dual output type
-    DT_BFLOAT16 = 27,       // bf16 type
+    DT_BF16 = 27,           // bf16 type
     DT_UNDEFINED = 28,      // Used to indicate a DataType field has not been set.
     DT_INT4 = 29,           // int4 type
     DT_UINT1 = 30,          // uint1 type
@@ -46,7 +46,8 @@ enum DataType {
     DT_HIFLOAT8 = 34,       // hifloat8 type
 };
 
-using graphStatus = int;
+// Matches real Ascend ``graph/ge_error_codes.h``: ``using graphStatus = uint32_t;``.
+using graphStatus = uint32_t;
 inline constexpr graphStatus GRAPH_SUCCESS = 0;
 inline constexpr graphStatus GRAPH_FAILED = 1;
 

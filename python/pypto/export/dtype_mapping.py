@@ -23,6 +23,7 @@ _SUPPORTED_TORCH_BASES_GE: frozenset[str] = frozenset(
 _TORCH_BASE_TO_GE_DT_NAME_EXCEPTIONS: dict[str, str] = {
     "float32": "FLOAT",
     "float64": "DOUBLE",
+    "bfloat16": "BF16",
 }
 
 # Numeric ``ge::DataType`` values from ``gert_ge_minimal.hpp`` → torch dtype basename.
@@ -47,7 +48,7 @@ _GE_DATA_TYPE_VALUE_TO_TORCH_BASE: dict[int, str] = {
     20: "qint32",  # DT_QINT32
     21: "quint8",  # DT_QUINT8
     22: "quint16",  # DT_QUINT16
-    27: "bfloat16",  # DT_BFLOAT16
+    27: "bfloat16",  # DT_BF16
     33: "complex32",  # DT_COMPLEX32
 }
 
@@ -90,7 +91,7 @@ _GE_DATA_TYPE_VALUE_TO_ELEMENT_SIZE: dict[str, int] = {
     "DT_QINT32": 4,
     "DT_QUINT8": 1,
     "DT_QUINT16": 2,
-    "DT_BFLOAT16": 2,
+    "DT_BF16": 2,
     "DT_COMPLEX32": 4,
 }
 

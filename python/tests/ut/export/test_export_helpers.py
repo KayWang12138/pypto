@@ -121,7 +121,7 @@ def test_torch_dtype_to_ge_dtype_mappings():
     assert _torch_dtype_to_ge_dtype("torch.float16") == "ge::DT_FLOAT16"
     assert _torch_dtype_to_ge_dtype("torch.float32") == "ge::DT_FLOAT"
     assert _torch_dtype_to_ge_dtype("torch.float64") == "ge::DT_DOUBLE"
-    assert _torch_dtype_to_ge_dtype("torch.bfloat16") == "ge::DT_BFLOAT16"
+    assert _torch_dtype_to_ge_dtype("torch.bfloat16") == "ge::DT_BF16"
     # Signed ints
     assert _torch_dtype_to_ge_dtype("torch.int8") == "ge::DT_INT8"
     assert _torch_dtype_to_ge_dtype("torch.int16") == "ge::DT_INT16"
