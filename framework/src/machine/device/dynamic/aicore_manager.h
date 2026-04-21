@@ -2216,12 +2216,10 @@ private:
                             // reuse this task ctrl and task context for next same iterid device task
                             ReuseUpdateDeviceCtx(devTaskCtx, nextTaskCtrl);
                             curTaskCtrl->Free(); // parallel device taskctrl need free manually
-                            DEV_DEBUG(
-                                "Sch dev ctx bind next same parallel iter device task(%lu), forid %u, iterid %u",
+                            DEV_DEBUG("Sch dev ctx bind next same parallel iter device task(%lu), forid %u, iterid %u",
                                 nextTaskCtrl->taskId, nextTaskCtrl->ParallelForId(), nextTaskCtrl->ParallelIterId());
                         } else {
-                            DEV_VERBOSE_DEBUG(
-                                "Wait ctrl build same parallel iter device task, forid %u, iterid %u.",
+                            DEV_VERBOSE_DEBUG("Wait ctrl build same parallel iter device task, forid %u, iterid %u.",
                                 curTaskCtrl->ParallelForId(), curTaskCtrl->ParallelIterId());
                         }
                     } else {
