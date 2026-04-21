@@ -16,7 +16,7 @@ export PTO_TILE_LIB_CODE_PATH=/opt/pto-isa/
 export PYPTO_THIRD_PARTY_PATH=/workspace/third_party_path/
 source /opt/cann_mobile/ascend-toolkit/latest/set_env.sh
 export LD_LIBRARY_PATH=/opt/cann_mobile/ascend-toolkit/latest/x86_64-linux/simulator/Kirin9030/lib/:$LD_LIBRARY_PATH
-PYPTO_BUILD_EXT_ARGS='--cmake-build-type Release --cmake-options "-DCMAKE_INTERPROCEDURAL_OPTIMIZATION=OFF"' python3 -m pip install -e . --verbose
+PYPTO_BUILD_EXT_ARGS='--cmake-build-type Release --cmake-options "-DCMAKE_INTERPROCEDURAL_OPTIMIZATION=OFF -DBUILD_WITH_CANN_MOBILE=ON"' python3 -m pip install -e . --verbose
 ```
 
 ## 遇到的问题及修复
@@ -70,7 +70,7 @@ OSError: libtile_fwk_runtime.so: undefined symbol: HcommGetCommHandleByGroup
 
 | 文件 | 修改类型 | 说明 |
 |------|---------|------|
-| `CMakeLists.txt` | 新增编译开关 | 添加 `BUILD_WITH_CANN_MOBILE` option（ON） |
+| `CMakeLists.txt` | 新增编译开关 | 添加 `BUILD_WITH_CANN_MOBILE` option（默认 OFF，端侧编译时显式传入 ON） |
 | `framework/src/adapter/api/hcomm_api.cpp` | 源码修改 | HCCL 代码用 `BUILD_WITH_CANN_MOBILE` 条件排除，走 stub 路径 |
 | `framework/src/adapter/CMakeLists.txt` | 构建修改 | 添加 `BUILD_WITH_CANN_MOBILE` 编译定义传递 |
 
