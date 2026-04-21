@@ -334,6 +334,23 @@ Status IntraSubgraphAdapter::AdapteTensorProducers(Function& function, LogicalTe
     return SUCCESS;
 }
 
+static bool IsIndirectView(Operation* op) {
+    if (op->GetOpcode() != Opcode::OP_VIEW) {
+        return false;
+    }
+    if (op->GetOOperands().size() == 0) {
+        return false;
+    }
+    MemoryType toType = op->GetOOperands()[0]->GetMemoryTypeOriginal();
+    std::vector<MemoryType> paths;
+    Platform::Instance().GetDie().FindNearestPath(MemoryType::MEM_DEVICE_DDR, toType, paths);
+    const size_t pathLength = 2;
+    if (paths.size() > pathLength) {
+        return true;
+    }
+    return false;
+}
+
 Status IntraSubgraphAdapter::AdapteTensorConsumers(Function& function, LogicalTensorPtr tensor)
 {
     std::unordered_map<int, std::vector<Operation*>> consumerColor2OpsMap;
@@ -349,7 +366,8 @@ Status IntraSubgraphAdapter::AdapteTensorConsumers(Function& function, LogicalTe
                 consumer->GetOpcodeStr().c_str(), consumer->GetOpMagic());
             return FAILED;
         }
-        if (consumer->GetOpcode() != Opcode::OP_VIEW && consumer->GetOpcode() != Opcode::OP_COPY_IN) {
+        if ((consumer->GetOpcode() != Opcode::OP_VIEW && consumer->GetOpcode() != Opcode::OP_COPY_IN) ||
+            IsIndirectView(consumer)) {
             consumerColor2OpsMap[consumer->GetSubgraphID()].push_back(consumer);
         }
     }
