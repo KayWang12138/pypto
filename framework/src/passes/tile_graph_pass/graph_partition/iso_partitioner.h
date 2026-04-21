@@ -24,10 +24,10 @@ constexpr int64_t LATENCY_THRESHOLD_LEVEL1 = 10000000;
 constexpr int64_t LATENCY_THRESHOLD_LEVEL2 = 300000;
 constexpr int64_t LATENCY_THRESHOLD_LEVEL3 = 50000;
 
-constexpr int32_t CYCLE_UB_LEVEL1 = 5000000;
-constexpr int32_t CYCLE_UB_LEVEL2 = 150000;
-constexpr int32_t CYCLE_UB_LEVEL3 = 10000;
-constexpr int32_t CYCLE_UB_LEVEL4 = 1536;
+constexpr int32_t CYCLE_UB_LEVEL1 = 5000000; // 超大型计算场景
+constexpr int32_t CYCLE_UB_LEVEL2 = 150000;  // 大型计算场景
+constexpr int32_t CYCLE_UB_LEVEL3 = 10000;   // 中型计算场景（默认值）
+constexpr int32_t CYCLE_UB_LEVEL4 = 1536;    // 小型计算场景
 
 enum class GraphExtendResult { EXTEND_SUCCESS, EXTEND_LINK_EXHAUST, EXTEND_NODE_EXHAUST };
 
