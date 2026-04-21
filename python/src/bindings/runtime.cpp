@@ -394,8 +394,10 @@ public:
         kernelBin = DeviceLauncher::RegisterKernelBin(dynAttr->kernelBinary);
         workspaceSize = devProg->memBudget.Total();
         InitCachedArgs();
-        auto aicpuArgs = (AiCpuArgs*)aicpuArgBuf.data();
-        DeviceLauncher::FillDeviceKernelArgs(dynAttr->devProgBinary, aicpuArgs->kArgs, dynAttr->commGroupNames);
+        if (Platform::Instance().GetSoc().GetNPUArch() != NPUArch::DAV_3113) {
+            auto aicpuArgs = (AiCpuArgs*)aicpuArgBuf.data();
+            DeviceLauncher::FillDeviceKernelArgs(dynAttr->devProgBinary, aicpuArgs->kArgs, dynAttr->commGroupNames);
+        }
     }
 
     uint8_t* FindCtrlFlowCache(std::vector<std::vector<int64_t>>& inputs, bool isOriginShape)
@@ -752,6 +754,92 @@ public:
         ASSERT(ret == RT_SUCCESS) << "EslModelLaunch run failed: " << ret;
     }
 
+    void LiteKernelLaunch(KernelBinary* kernel, std::vector<DeviceTensorData>& tensors)
+    {
+#ifdef BUILD_WITH_CANN
+        ProgramData::GetInstance().Reset();
+
+        std::vector<uint8_t*> deviceAddrs;
+        for (size_t i = 0; i < tensors.size(); i++) {
+            uint8_t* deviceAddr;
+            aclrtMalloc((void**)&deviceAddr, tensors[i].GetDataSize(), ACL_MEM_MALLOC_HUGE_FIRST);
+            aclrtMemcpy(
+                deviceAddr, tensors[i].GetDataSize(), (uint8_t*)tensors[i].GetAddr(), tensors[i].GetDataSize(),
+                ACL_MEMCPY_HOST_TO_DEVICE);
+            deviceAddrs.push_back(deviceAddr);
+        }
+
+        MACHINE_LOGI("###### aclInit start");
+        aclInit(nullptr);
+        MACHINE_LOGI("###### aclInit end");
+
+        MACHINE_LOGI("###### aclrtSetDevice start");
+        int32_t deviceId = 0;
+        aclrtSetDevice(deviceId);
+        MACHINE_LOGI("###### aclrtSetDevice end");
+
+        aclrtStream stream = nullptr;
+        MACHINE_LOGI("###### aclrtCreateStream start");
+        aclrtCreateStream(&stream);
+        MACHINE_LOGI("###### aclrtCreateStream end");
+
+        rtArgsEx_t rtArgs = {};
+        rtArgs.args = deviceAddrs.data();
+        rtArgs.argsSize = deviceAddrs.size() * sizeof(void*);
+
+        MACHINE_LOGI("###### rtDevBinaryRegister start");
+        void* hdl = nullptr;
+        std::vector<uint8_t>& kernelBinary = kernel->GetFunction()->GetDyndevAttribute().get()->kernelBinary;
+        MACHINE_LOGI(
+            "###### kernelBinary, data[%p], size[%zu]",
+            kernel->GetFunction()->GetDyndevAttribute().get()->kernelBinary.data(),
+            kernel->GetFunction()->GetDyndevAttribute().get()->kernelBinary.size());
+        MACHINE_LOGI("###### kernelBinary, data[%p], size[%zu]", kernelBinary.data(), kernelBinary.size());
+        rtDevBinary_t binary = {
+            .magic = RT_DEV_BINARY_MAGIC_ELF,
+            .version = 0,
+            .data = kernelBinary.data(),
+            .length = kernelBinary.size(),
+        };
+
+        int ret = rtDevBinaryRegister(&binary, &hdl);
+        if (ret != RT_ERROR_NONE) {
+            MACHINE_LOGE(HostLauncherErr::REGISTER_KERNEL_FAILED, "register kernel failed, ret: %d", ret);
+        }
+        MACHINE_LOGI("###### stubFunc: %p", hdl);
+        MACHINE_LOGI("###### rtDevBinaryRegister end");
+        int stubFunc = 1;
+        std::string kernelName = kernel->GetFunction()->GetDyndevAttribute().get()->kernelName;
+        MACHINE_LOGI("###### rtFunctionRegister start");
+        rtFunctionRegister(hdl, &stubFunc, kernelName.c_str(), kernelName.c_str(), 0);
+        MACHINE_LOGI("###### rtFunctionRegister end");
+
+        MACHINE_LOGI("###### rtKernelLaunch start");
+        ret = rtKernelLaunch(&stubFunc, 1, rtArgs.args, rtArgs.argsSize, nullptr, stream);
+        MACHINE_LOGI("###### rtKernelLaunch end");
+
+        ASSERT(ret == RT_ERROR_NONE) << "LiteKernelLaunch failed: " << ret;
+        MACHINE_LOGI("###### aclrtSynchronizeStream start");
+        ret = aclrtSynchronizeStream(stream);
+        MACHINE_LOGI("###### aclrtSynchronizeStream end");
+
+        ASSERT(ret == RT_ERROR_NONE) << "Stream sync failed: " << ret;
+
+        for (size_t i = 0; i < tensors.size(); i++) {
+            aclrtMemcpy(
+                (uint8_t*)tensors[i].GetAddr(), tensors[i].GetDataSize(), deviceAddrs[i], tensors[i].GetDataSize(),
+                ACL_MEMCPY_DEVICE_TO_HOST);
+            aclrtFree(deviceAddrs[i]);
+        }
+        aclrtDestroyStream(stream);
+        aclrtResetDevice(deviceId);
+        aclFinalize();
+#else
+        (void)kernel;
+        (void)tensors;
+#endif
+    }
+
 private:
     void InitCachedArgs()
     {
@@ -947,6 +1035,10 @@ private:
 
     void DoLaunch(KernelBinary* kbinary)
     {
+        if (Platform::Instance().GetSoc().GetNPUArch() == NPUArch::DAV_3113) {
+            kmodule->LiteKernelLaunch(kbinary, tensors);
+            return;
+        }
         if (config::GetSimConfig(KEY_ACCURACY_LEVEL, 2) == 2) {
             kmodule->EslModelLaunch(kbinary, tensors);
             return;

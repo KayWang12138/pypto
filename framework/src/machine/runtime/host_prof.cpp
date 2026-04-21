@@ -229,6 +229,7 @@ void HostProf::BuildCacheTensorInfo(CacheTaskInfo* taskInfo)
 
 bool HostProf::IsCacheOpInfoEnable(const AclRtStream stream)
 {
+#if !defined(BUILD_WITH_CANN_MOBILE)
     if (stream == nullptr) {
         return false;
     }
@@ -240,11 +241,16 @@ bool HostProf::IsCacheOpInfoEnable(const AclRtStream stream)
         return false;
     }
     return static_cast<bool>(value.cacheOpInfoSwitch);
+#else
+    (void)stream;
+    return true;
+#endif
 }
 
 void HostProf::HostProfReportCacheTaskInfo(
     const AclRtStream stream, const uint32_t numBlocks, const uint32_t taskType) const
 {
+#if !defined(BUILD_WITH_CANN_MOBILE)
     if (!IsCacheOpInfoEnable(stream)) {
         MACHINE_LOGD("Op cache for AclGraph is disabled.");
         return;
@@ -283,6 +289,11 @@ void HostProf::HostProfReportCacheTaskInfo(
             kOpType.c_str(), taskType, numBlocks, taskInfo->attrId, bufferSize);
     }
     free(buffer);
+#else
+    (void)stream;
+    (void)numBlocks;
+    (void)taskType;
+#endif
 }
 
 void HostProf::SetProfFunction(Function* function)

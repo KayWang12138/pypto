@@ -11,7 +11,7 @@ cd /mnt/workspace/gitCode/GBowen666/pypto/
 rm -r build
 mkdir build
 cd build
-cmake ../ -DENABLE_UTEST=ON -DENABLE_FEATURE_PYTHON_FRONT_END=OFF
+cmake ../ -DENABLE_UTEST=ON -DENABLE_FEATURE_PYTHON_FRONT_END=OFF -DBUILD_WITH_CANN_MOBILE=OFF
 make -j16
 
 cd output/bin

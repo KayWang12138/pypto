@@ -74,7 +74,7 @@ TEST_F(LiteNPUCodeGenIndexPut, test_index_put_002)
         Tensor values(DataType::DT_FP32, {2, 3}, "values");
         Tensor indice(DataType::DT_INT64, {2}, "indice");
         std::vector<Tensor> indices = {indice};
-        bool accumulate = false;
+        bool accumulate = true;
 
         FUNCTION("INDEX_PUT_002")
         {
@@ -123,7 +123,7 @@ TEST_F(LiteNPUCodeGenIndexPut, test_index_put_004)
         Tensor values(DataType::DT_INT16, {32, 128}, "values");
         Tensor indice(DataType::DT_UINT8, {32}, "indice");
         std::vector<Tensor> indices = {indice};
-        bool accumulate = false;
+        bool accumulate = true;
 
         FUNCTION("INDEX_PUT_004")
         {
@@ -195,7 +195,7 @@ TEST_F(LiteNPUCodeGenIndexPut, test_index_put_007)
         Tensor indice1(DataType::DT_UINT32, {8}, "indice1");
         indices.push_back(indice0);
         indices.push_back(indice1);
-        bool accumulate = false;
+        bool accumulate = true;
 
         FUNCTION("INDEX_PUT_007")
         {
@@ -246,7 +246,7 @@ TEST_F(LiteNPUCodeGenIndexPut, test_index_put_009)
         Tensor values(DataType::DT_FP16, {2, 20, 16, 112}, "values");
         Tensor indice(DataType::DT_INT32, {2}, "indice");
         std::vector<Tensor> indices = {indice};
-        bool accumulate = false;
+        bool accumulate = true;
 
         FUNCTION("INDEX_PUT_009")
         {
@@ -300,7 +300,7 @@ TEST_F(LiteNPUCodeGenIndexPut, test_index_put_011)
         indices.push_back(indice0);
         indices.push_back(indice1);
         indices.push_back(indice2);
-        bool accumulate = false;
+        bool accumulate = true;
 
         FUNCTION("INDEX_PUT_011")
         {

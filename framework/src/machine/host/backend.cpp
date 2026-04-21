@@ -39,6 +39,7 @@
 #include <dlfcn.h>
 #include "tilefwk/pypto_fwk_log.h"
 #include "machine/utils/machine_error.h"
+#include "tilefwk/platform.h"
 
 using namespace npu::tile_fwk::dynamic;
 namespace npu::tile_fwk {
@@ -433,8 +434,8 @@ void GetReadyOnHostTensorsSet(std::unordered_set<int>& readyOnHostTensorsSet)
                 break;
             }
         }
-        ASSERT(DevCommonErr::PARAM_CHECK_FAILED, i < inputSize) << "Tensor " << tensorStr
-            << " not found in input list, please check [ready_on_host_tensors] config.";
+        ASSERT(DevCommonErr::PARAM_CHECK_FAILED, i < inputSize)
+            << "Tensor " << tensorStr << " not found in input list, please check [ready_on_host_tensors] config.";
     }
 }
 static bool NeedCrossDie(Function* func, bool isLoop = false)
@@ -708,6 +709,29 @@ static void FillL2PrefetchInfo(std::shared_ptr<DyndevFunctionAttribute> attr)
     return;
 }
 
+static void SetLiteDevBinary(Function* function)
+{
+    if (function == nullptr || function->GetDyndevAttribute() == nullptr) {
+        return;
+    }
+    auto dynAttrPtr = function->GetDyndevAttribute();
+
+    dynamic::DevAscendProgram devProg = {};
+    devProg.devArgs.nrAic = 1;
+    devProg.devArgs.nrAiv = 1;
+    devProg.devArgs.nrValidAic = 1;
+    devProg.devArgs.nrAicpu = 0;
+    devProg.devArgs.enableCtrl = 0;
+    devProg.devArgs.enableEslModel = false;
+    devProg.devArgs.scheCpuNum = 0;
+
+    size_t size = sizeof(dynamic::DevAscendProgram);
+    dynAttrPtr->devProgBinary.resize(size);
+    memcpy(dynAttrPtr->devProgBinary.data(), &devProg, size);
+
+    MACHINE_LOGI("Lite dev prog binary size is:%zu\n", dynAttrPtr->devProgBinary.size());
+}
+
 static void SetDyndevProgBinary(Function* function)
 {
     if (function == nullptr || function->GetDyndevAttribute() == nullptr) {
@@ -902,16 +926,17 @@ static void CompileControlFlow(
         return;
     }
 #ifdef BUILD_WITH_CANN
-        if (std::getenv("ASCEND_HOME_PATH") != nullptr) {
-            ASSERT(HostBackEndErr::GEN_DYNAMIC_OP_FAILED, TileFwkAiCpuCompile(funcName, aicpuDirPath))
-                << ": PyPto Control Flow compile failed";
-        }
+    if (std::getenv("ASCEND_HOME_PATH") != nullptr) {
+        ASSERT(HostBackEndErr::GEN_DYNAMIC_OP_FAILED, TileFwkAiCpuCompile(funcName, aicpuDirPath))
+            << ": PyPto Control Flow compile failed";
+    }
 #endif
 }
 
 static void CompileDyndevFunction(Function* function, FunctionCache& cache, [[maybe_unused]] const std::string& ccePath)
 {
-    ASSERT(HostBackEndErr::RUN_PASS_FAILED,
+    ASSERT(
+        HostBackEndErr::RUN_PASS_FAILED,
         (PassManager::Instance().RunPass(Program::GetInstance(), *function, "ExecuteGraph") == SUCCESS));
 
     std::shared_ptr<DyndevFunctionAttribute> attr = function->GetDyndevAttribute();
@@ -980,28 +1005,34 @@ static void CompileDyndevFunction(Function* function, FunctionCache& cache, [[ma
     }
 
     std::string funcHash = function->GetFunctionHash().Data();
-    std::string controlFlowHostFilePath = aicpuDirPath + "/controlFlow_host_" + funcHash + ".cpp";
-    attr->hostControlFlowBinary = CompileAndLoadSection(
-        controlFlowSource, controlFlowHostFilePath, aicpuDirPath, exprSrcFiles, "g++", "ld", "objcopy", ".pypto",
-        IsNeedDumpAicpuKernel(controlFlowHostFilePath), cflags);
-    AlignUpTo(attr->hostControlFlowBinary, 0x8, 0);
-    std::string funcName = function->GetMagicName() + function->GetFunctionHash().Data();
-    CompileControlFlow(aicpuDirPath, funcName, controlFlowSource, expressionSource);
-    std::string arm64TargetToolPath = Arm64TargetTool("g++");
-    if (FileExist(arm64TargetToolPath)) {
-        static const std::string BISHENG_LD_CMD = "ld.lld";
-        std::string controlFlowDevFilePath = aicpuDirPath + "/controlFlow_dev_" + funcHash + ".cpp";
-        MACHINE_LOGI(
-            "Compile control flow src file[%s] with arm64 target tool[%s].", controlFlowDevFilePath.c_str(),
-            arm64TargetToolPath.c_str());
-        attr->devControlFlowBinary = CompileAndLoadSection(
-            controlFlowSource, controlFlowDevFilePath, aicpuDirPath, exprSrcFiles, arm64TargetToolPath, BISHENG_LD_CMD,
-            Arm64TargetTool("objcopy"), ".pypto", IsNeedDumpAicpuKernel(controlFlowDevFilePath));
+    if (Platform::Instance().GetSoc().GetNPUArch() == NPUArch::DAV_3113) {
+        attr->hostControlFlowBinary = {};
+        attr->devControlFlowBinary = {0xd4, 0x20, 0x00, 0x00};
     } else {
-        // brk #0
-        MACHINE_LOGW("Arm64 target tool is not found.");
-        attr->devControlFlowBinary = std::vector<uint8_t>{0xd4, 0x20, 0x00, 0x00};
+        std::string controlFlowHostFilePath = aicpuDirPath + "/controlFlow_host_" + funcHash + ".cpp";
+        attr->hostControlFlowBinary = CompileAndLoadSection(
+            controlFlowSource, controlFlowHostFilePath, aicpuDirPath, exprSrcFiles, "g++", "ld", "objcopy", ".pypto",
+            IsNeedDumpAicpuKernel(controlFlowHostFilePath), cflags);
+        AlignUpTo(attr->hostControlFlowBinary, 0x8, 0);
+        std::string funcName = function->GetMagicName() + function->GetFunctionHash().Data();
+        CompileControlFlow(aicpuDirPath, funcName, controlFlowSource, expressionSource);
+        std::string arm64TargetToolPath = Arm64TargetTool("g++");
+        if (FileExist(arm64TargetToolPath)) {
+            static const std::string BISHENG_LD_CMD = "ld.lld";
+            std::string controlFlowDevFilePath = aicpuDirPath + "/controlFlow_dev_" + funcHash + ".cpp";
+            MACHINE_LOGI(
+                "Compile control flow src file[%s] with arm64 target tool[%s].", controlFlowDevFilePath.c_str(),
+                arm64TargetToolPath.c_str());
+            attr->devControlFlowBinary = CompileAndLoadSection(
+                controlFlowSource, controlFlowDevFilePath, aicpuDirPath, exprSrcFiles, arm64TargetToolPath,
+                BISHENG_LD_CMD, Arm64TargetTool("objcopy"), ".pypto", IsNeedDumpAicpuKernel(controlFlowDevFilePath));
+        } else {
+            // brk #0
+            MACHINE_LOGW("Arm64 target tool is not found.");
+            attr->devControlFlowBinary = std::vector<uint8_t>{0xd4, 0x20, 0x00, 0x00};
+        }
     }
+
     AlignUpTo(attr->devControlFlowBinary, 0x8, 0);
     std::map<uint64_t, Function*> leafDict;
     std::mutex leafDictMutex;
@@ -1044,21 +1075,39 @@ static void CompileDyndevFunction(Function* function, FunctionCache& cache, [[ma
     encodeDevAscendFunctionParam.inoutLink = &attr->inoutLink;
 
     std::string kernelPath;
+    std::string kernelName;
 #ifdef BUILD_WITH_CANN
     bool enableCompile = config::GetRuntimeOption<int64_t>(CFG_RUN_MODE) == CFG_RUN_MODE_NPU ||
-        ((config::GetSimConfig(KEY_ACCURACY_LEVEL, 2) == 2) &&
-        config::GetRuntimeOption<int64_t>(CFG_RUN_MODE) == CFG_RUN_MODE_SIM);
+                         ((config::GetSimConfig(KEY_ACCURACY_LEVEL, 2) == 2) &&
+                          config::GetRuntimeOption<int64_t>(CFG_RUN_MODE) == CFG_RUN_MODE_SIM);
     if (enableCompile && config::GetHostOption<int64_t>(COMPILE_STAGE) != CS_CODEGEN_INSTRUCTION) {
-        int ret = CompileAICoreKernel(
-            leafDict, encodeDevAscendFunctionParam, ccePath, function->GetFunctionHash().Data(), kernelPath);
-        if (ret != 0) {
-            MACHINE_LOGE(HostBackEndErr::COMPILE_AICORE_FAILED, "Compile dynamic aicore.o failed.");
-            return;
+        if (Platform::Instance().GetSoc().GetNPUArch() == NPUArch::DAV_3113) {
+            for (auto& [hash, leaf] : leafDict) {
+                auto leafAttr = leaf->GetLeafFuncAttribute();
+                if (leafAttr && !leafAttr->binPath.empty()) {
+                    kernelPath = leafAttr->binPath;
+                    kernelName = leafAttr->magicName;
+                    break;
+                }
+            }
+            if (kernelPath.empty()) {
+                MACHINE_LOGE(HostBackEndErr::COMPILE_AICORE_FAILED, "No leaf binary found for lite npu.");
+                return;
+            }
+        } else {
+            int ret = CompileAICoreKernel(
+                leafDict, encodeDevAscendFunctionParam, ccePath, function->GetFunctionHash().Data(), kernelPath);
+            if (ret != 0) {
+                MACHINE_LOGE(HostBackEndErr::COMPILE_AICORE_FAILED, "Compile dynamic aicore.o failed.");
+                return;
+            }
         }
     }
 #endif
 
+    MACHINE_LOGD("LoadFile kernelPath[%s], kernelName[%s].", kernelPath.c_str(), kernelName.c_str());
     attr->kernelBinary = LoadFile(kernelPath);
+    attr->kernelName = kernelName;
     MACHINE_LOGD("KernelBinary size[%zu].", attr->kernelBinary.size());
 
     attr->devEncodeList.resize(attr->funcGroup.devRootList.size());
@@ -1099,7 +1148,11 @@ static void CompileDyndevFunction(Function* function, FunctionCache& cache, [[ma
     }
 
     // save dev prog binary
-    SetDyndevProgBinary(function);
+    if (Platform::Instance().GetSoc().GetNPUArch() == NPUArch::DAV_3113) {
+        SetLiteDevBinary(function);
+    } else {
+        SetDyndevProgBinary(function);
+    }
 }
 
 MachineTask* GenCode(MachineTask* task, FunctionCache& cache)

@@ -32,6 +32,7 @@ target_include_directories(pypto_impl
 target_compile_definitions(pypto_impl
         PRIVATE
             $<BUILD_INTERFACE:$<$<BOOL:${BUILD_WITH_CANN}>:BUILD_WITH_CANN>>
+            $<BUILD_INTERFACE:$<$<BOOL:${BUILD_WITH_CANN_MOBILE}>:BUILD_WITH_CANN_MOBILE>>
 )
 
 # 所依赖的本项目 so 均在 pypto 包 __init__.py 中加载, 此处不再 link

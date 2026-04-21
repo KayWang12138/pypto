@@ -66,29 +66,37 @@ namespace npu::tile_fwk {
 
 inline void CheckDeviceId()
 {
+#if !defined(BUILD_WITH_CANN_MOBILE)
     int32_t devId = 0;
     int32_t getDeviceResult = RuntimeGetDevice(&devId);
     if (getDeviceResult != RT_SUCCESS) {
         MACHINE_LOGE(RtErr::RT_DEVICE_FAILED, "fail get device id, check if set device id");
         return;
     }
+#endif
 }
 
 inline int32_t GetUserDeviceId()
 {
+#if !defined(BUILD_WITH_CANN_MOBILE)
     int32_t userDeviceId = 0;
     RuntimeGetDevice(&userDeviceId);
     return userDeviceId;
+#endif
+    return 0;
 }
 
 inline int32_t GetLogDeviceId()
 {
+#if !defined(BUILD_WITH_CANN_MOBILE)
     int32_t logicDeviceId = 0;
     int32_t userDeviceId = GetUserDeviceId();
     ASSERT(RtErr::RT_DEVICE_FAILED, RuntimeGetLogicDevIdByUserDevId(userDeviceId, &logicDeviceId) == RT_SUCCESS)
         << "Trans usrDeviceId: " << userDeviceId << " to logDevId not success";
     MACHINE_LOGD("Current userDeviceId=%d, logicDeviceId=%d.", userDeviceId, logicDeviceId);
     return logicDeviceId;
+#endif
+    return 0;
 }
 
 class RuntimeAgentMemory {
@@ -160,15 +168,19 @@ public:
 
     void CreateStream()
     {
+#if !defined(BUILD_WITH_CANN_MOBILE)
         RuntimeStreamCreate(&raStreamInstance, RT_STREAM_PRIORITY_DEFAULT);
         RuntimeStreamCreate(&raStreamInstanceSche, RT_STREAM_PRIORITY_DEFAULT);
         RuntimeStreamCreate(&raStreamInstanceCtrl, RT_STREAM_PRIORITY_DEFAULT);
+#endif
     }
     void DestroyStream()
     {
+#if !defined(BUILD_WITH_CANN_MOBILE)
         RuntimeStreamDestroy(raStreamInstance);
         RuntimeStreamDestroy(raStreamInstanceSche);
         RuntimeStreamDestroy(raStreamInstanceCtrl);
+#endif
     }
 
 private:
@@ -196,7 +208,9 @@ protected:
 #ifdef RUN_WITH_ASCEND_CAMODEL
         // don't call AclInit, it will cause camodel running fail
 #else
+#if !defined(BUILD_WITH_CANN_MOBILE)
         AclInited = AclInit(nullptr) == 0;
+#endif
 #endif
         Init();
     }
@@ -207,11 +221,15 @@ public:
 public:
     static uint64_t GetL2Offset()
     {
+#if !defined(BUILD_WITH_CANN_MOBILE)
         uint64_t offset = 0;
         int32_t userDeviceId = GetUserDeviceId();
         RuntimeGetL2CacheOffset(userDeviceId, &offset);
         MACHINE_LOGD("RuntimeGetL2CacheOffset=%lu", offset);
         return offset;
+#else
+        return 0;
+#endif
     }
 
     void CopyFromTensor(uint8_t* hostDstAddr, uint8_t* devSrcAddr, uint64_t size)

@@ -37,7 +37,7 @@ void* CannHostRuntime::GetSymbol(const std::string& sym)
 
 CannHostRuntime::CannHostRuntime()
 {
-#ifdef BUILD_WITH_CANN
+#if defined(BUILD_WITH_CANN) && !defined(BUILD_WITH_CANN_MOBILE)
     std::string LibPathDir = std::string(ASCEND_CANN_PACKAGE_PATH) + "/lib64/";
     std::string soDepPath = RealPath(LibPathDir + "libprofapi.so");
     FUNCTION_LOGW("soDepPath = %s", soDepPath.c_str());

@@ -70,11 +70,15 @@ namespace {
 
 void ExchangeCaputerMode(const bool& isCapture)
 {
+#if !defined(BUILD_WITH_CANN_MOBILE)
     if (isCapture) {
         AclMdlRICaptureMode mode = AclMdlRICaptureMode::GLOBAL;
         AclMdlRICaptureThreadExchangeMode(&mode);
         MACHINE_LOGI("captureMode is: %d", static_cast<int>(mode));
     }
+#else
+    (void)isCapture;
+#endif
 }
 
 void* MachinePerfTraceDevMalloc(int size)
@@ -90,6 +94,7 @@ void* MachinePerfTraceDevMalloc(int size)
 
 void SyncStreams(RtStream aicpuStream, RtStream aicoreStream, bool useSyncFlag)
 {
+#if !defined(BUILD_WITH_CANN_MOBILE)
     AclRtEvent event;
     int rc;
 
@@ -112,6 +117,11 @@ void SyncStreams(RtStream aicpuStream, RtStream aicoreStream, bool useSyncFlag)
     if (rc < 0) {
         MACHINE_LOGI("StreamWaitEvent failed rc=%d", rc);
     }
+#else
+    (void)aicpuStream;
+    (void)aicoreStream;
+    (void)useSyncFlag;
+#endif
 }
 } // namespace
 
@@ -152,8 +162,8 @@ void DeviceRunner::GetModuleLogLevel(DeviceArgs& args)
     MACHINE_LOGI("Get PYPTO log level is: %d, openSwimLevel: %d", logLevel, devDfxArg.isOpenPerfTrace);
     auto size = sizeof(DevDfxArgs);
     args.devDfxArgAddr = args_.devDfxArgAddr;
-    auto ret = RuntimeMemcpy(reinterpret_cast<void*>(args.devDfxArgAddr), size, &devDfxArg, size,
-                             RtMemcpyKind::HOST_TO_DEVICE);
+    auto ret = RuntimeMemcpy(
+        reinterpret_cast<void*>(args.devDfxArgAddr), size, &devDfxArg, size, RtMemcpyKind::HOST_TO_DEVICE);
     if (ret != 0) {
         MACHINE_LOGW("rtmemcpy failed, so couldn't get device log");
     }
@@ -243,11 +253,11 @@ int DeviceRunner::InitDeviceArgsCore(
     }
     size_t size = nrCore * sizeof(uint64_t);
     RuntimeMemcpy(reinterpret_cast<void*>(args.coreRegAddr), size, regs.data(), size, RtMemcpyKind::HOST_TO_DEVICE);
-    RuntimeMemcpy(reinterpret_cast<void*>(args.corePmuRegAddr), size, regsPmu.data(), size,
-                  RtMemcpyKind::HOST_TO_DEVICE);
+    RuntimeMemcpy(
+        reinterpret_cast<void*>(args.corePmuRegAddr), size, regsPmu.data(), size, RtMemcpyKind::HOST_TO_DEVICE);
     size = pmuEvtType_.size() * sizeof(int64_t);
-    RuntimeMemcpy(reinterpret_cast<void*>(args.pmuEventAddr), size, pmuEvtType_.data(), size,
-                  RtMemcpyKind::HOST_TO_DEVICE);
+    RuntimeMemcpy(
+        reinterpret_cast<void*>(args.pmuEventAddr), size, pmuEvtType_.data(), size, RtMemcpyKind::HOST_TO_DEVICE);
     MACHINE_LOGI(
         "aic %u aiv %u  blockDim_ %d sharedBuffer %lx coreRegAddr %lx corePmuRegAddr %lx\n", args.nrAic, args.nrAiv,
         blockDim_, args.sharedBuffer, args.coreRegAddr, args.corePmuRegAddr);
@@ -336,8 +346,8 @@ void DeviceRunner::Dump()
     int coreNum = args_.nrAic + args_.nrAiv + AICPU_NUM_OF_RUN_AICPU_TASKS;
     uint64_t size = coreNum * SHARED_BUFFER_SIZE;
     std::vector<uint64_t> buffer(size / sizeof(uint64_t));
-    int rc = RuntimeMemcpy(buffer.data(), size, reinterpret_cast<void*>(args_.sharedBuffer), size,
-                           RtMemcpyKind::DEVICE_TO_HOST);
+    int rc = RuntimeMemcpy(
+        buffer.data(), size, reinterpret_cast<void*>(args_.sharedBuffer), size, RtMemcpyKind::DEVICE_TO_HOST);
     if (rc != 0) {
         MACHINE_LOGI("rtmemcpy failed");
         return;
@@ -396,6 +406,7 @@ int DeviceRunner::DynamicLaunchSynchronize(RtStream aicpuStream, RtStream ctrlSt
 
 int DeviceRunner::launchDynamicAiCore(RtStream aicoreStream, DeviceKernelArgs* kernelArgs)
 {
+#if !defined(BUILD_WITH_CANN_MOBILE)
     RtArgsEx rtArgs;
     memset_s(&rtArgs, sizeof(rtArgs), 0, sizeof(rtArgs));
     std::vector<void*> kArgs = {nullptr, nullptr, nullptr, nullptr, nullptr, kernelArgs->cfgdata};
@@ -405,6 +416,11 @@ int DeviceRunner::launchDynamicAiCore(RtStream aicoreStream, DeviceKernelArgs* k
     RtTaskCfgInfo cfg = {};
     cfg.schemMode = static_cast<uint8_t>(npu::tile_fwk::RtSchemModeType::BATCH);
     return RuntimeKernelLaunchWithHandleV2(binHdl_, tilingKey, blockDim_, &rtArgs, nullptr, aicoreStream, &cfg);
+#else
+    (void)aicoreStream;
+    (void)kernelArgs;
+    return 0;
+#endif
 }
 
 int DeviceRunner::launchDynamicAiCpu(RtStream aicpuStream, DeviceKernelArgs* kArgs)
@@ -412,6 +428,8 @@ int DeviceRunner::launchDynamicAiCpu(RtStream aicpuStream, DeviceKernelArgs* kAr
 #ifdef BUILD_WITH_NEW_CANN
     return LoadAicpuOp::GetInstance().LaunchBuiltInOp(aicpuStream, kArgs, aicpuNum_, "PyptoRun");
 #endif
+
+#if defined(BUILD_WITH_CANN) && !defined(BUILD_WITH_CANN_MOBILE)
     // use inputs/outputs store argsaddr/argsSize(aicpu task info + tensorInfo size)
     auto args = reinterpret_cast<dynamic::AiCpuArgs*>(kArgs->inputs);
     RtAicpuArgsEx rtArgs;
@@ -433,6 +451,11 @@ int DeviceRunner::launchDynamicAiCpu(RtStream aicpuStream, DeviceKernelArgs* kAr
     return RuntimeAicpuKernelLaunchExWithArgs(
         static_cast<uint32_t>(npu::tile_fwk::RtKernelType::AICPU_KFC), "AST_DYN_AICPU", aicpuNum_, &rtArgs, nullptr,
         aicpuStream, RT_KERNEL_USE_SPECIAL_TIMEOUT);
+#else
+    (void)aicpuStream;
+    (void)kArgs;
+    return 0;
+#endif
 }
 
 void DeviceRunner::InitAiCpuSoBin(DeviceArgs& devArgs)
@@ -447,8 +470,9 @@ void DeviceRunner::InitAiCpuSoBin(DeviceArgs& devArgs)
     }
     size_t aicpuDataLength = buffer.size();
     auto dAicpuData = DevAlloc(aicpuDataLength);
-    RuntimeMemcpy(dAicpuData, aicpuDataLength, reinterpret_cast<void*>(buffer.data()), aicpuDataLength,
-                  RtMemcpyKind::HOST_TO_DEVICE);
+    RuntimeMemcpy(
+        dAicpuData, aicpuDataLength, reinterpret_cast<void*>(buffer.data()), aicpuDataLength,
+        RtMemcpyKind::HOST_TO_DEVICE);
     devArgs.aicpuSoBin = reinterpret_cast<uint64_t>(dAicpuData);
     devArgs.aicpuSoLen = buffer.size();
     devArgs.deviceId = GetLogDeviceId();
@@ -457,10 +481,13 @@ void DeviceRunner::InitAiCpuSoBin(DeviceArgs& devArgs)
 
 int DeviceRunner::InitAicpuServer()
 {
-    auto aicpuStream = machine::GetRA()->GetScheStream();
 #ifdef BUILD_WITH_NEW_CANN
+    auto aicpuStream = machine::GetRA()->GetScheStream();
     return LoadAicpuOp::GetInstance().LaunchBuiltInOp(aicpuStream, kArgs, 1, "PyptoInit");
 #endif
+
+#if defined(BUILD_WITH_CANN) && !defined(BUILD_WITH_CANN_MOBILE)
+    auto aicpuStream = machine::GetRA()->GetScheStream();
     struct Args {
         DeviceKernelArgs kArgs;
         const char kernelName[32] = {"DynTileFwkKernelServerInit"};
@@ -485,6 +512,9 @@ int DeviceRunner::InitAicpuServer()
     }
     // for triple stream schedule, must wait aicpu server init done
     return RuntimeStreamSynchronize(aicpuStream);
+#else
+    return 0;
+#endif
 }
 
 bool DeviceRunner::GetEnableDumpDevPref() const { return enableDumpMachinePerfTrace_; }
@@ -533,6 +563,7 @@ int DeviceRunner::RunPrepare()
 
 int DeviceRunner::RunPreSync(RtStream scheStream, RtStream ctrlStream, RtStream aicoreStream)
 {
+#if !defined(BUILD_WITH_CANN_MOBILE)
     int rc = AclRtRecordEvent(event_, aicoreStream);
     if (rc < 0) {
         MACHINE_LOGE(RtErr::RT_EVENT_FAILED, "AclRtRecordEvent failed %d\n", rc);
@@ -549,6 +580,12 @@ int DeviceRunner::RunPreSync(RtStream scheStream, RtStream ctrlStream, RtStream 
         return rc;
     }
     return 0;
+#else
+    (void)scheStream;
+    (void)ctrlStream;
+    (void)aicoreStream;
+    return 0;
+#endif
 }
 
 int DeviceRunner::RunPost(RtStream aicpuStream, RtStream aicoreStream)
@@ -586,6 +623,7 @@ int DeviceRunner::DynamicKernelLaunch(
 int DeviceRunner::DynamicTripleStreamLaunch(
     RtStream schedStream, RtStream ctrlStream, RtStream aicoreStream, DeviceKernelArgs* kernelArgs, int blockdim)
 {
+#if !defined(BUILD_WITH_CANN_MOBILE)
     LoadAicpuOp::GetInstance().CustomAiCpuSoLoad();
     uint64_t startTime = MspfSysCycleTime();
     auto args = reinterpret_cast<dynamic::AiCpuArgs*>(kernelArgs->inputs);
@@ -635,6 +673,14 @@ int DeviceRunner::DynamicTripleStreamLaunch(
 
     rc = RunPost(ctrlStream, aicoreStream);
     return rc;
+#else
+    (void)schedStream;
+    (void)ctrlStream;
+    (void)aicoreStream;
+    (void)kernelArgs;
+    (void)blockdim;
+    return 0;
+#endif
 }
 
 int DeviceRunner::DynamicLaunch(
@@ -695,8 +741,8 @@ void DeviceRunner::ReportHostProfInfo(
 }
 
 int DeviceRunner::DynamicRun(
-    RtStream aicpuStream, RtStream ctrlStream, RtStream aicoreStream, int64_t taskId,
-    DeviceKernelArgs* kernelArgs, int blockdim, int launchAicpuNum)
+    RtStream aicpuStream, RtStream ctrlStream, RtStream aicoreStream, int64_t taskId, DeviceKernelArgs* kernelArgs,
+    int blockdim, int launchAicpuNum)
 {
     int rc = DynamicLaunch(aicpuStream, ctrlStream, aicoreStream, taskId, kernelArgs, blockdim, launchAicpuNum);
     if (rc < 0) {
@@ -720,6 +766,7 @@ void DeviceRunner::SetBinData(const std::vector<uint8_t>& binBuf)
 
 int DeviceRunner::RegisterKernelBin(void** hdl, std::vector<uint8_t>* funcBinBuf)
 {
+#if !defined(BUILD_WITH_CANN_MOBILE)
     if (*hdl) {
         binHdl_ = *hdl;
         MACHINE_LOGD("RegisterKernelBin reuse cache.");
@@ -744,10 +791,16 @@ int DeviceRunner::RegisterKernelBin(void** hdl, std::vector<uint8_t>* funcBinBuf
     binHdl_ = *hdl;
     MACHINE_LOGD("finish RegisterKernelBin.");
     return rc;
+#else
+    (void)hdl;
+    (void)funcBinBuf;
+    return 0;
+#endif
 }
 
 int DeviceRunner::Init(void)
 {
+#if !defined(BUILD_WITH_CANN_MOBILE)
     char path[PATH_LENGTH];
     sprintf_s(path, PATH_LENGTH, "/tmp/aicpu%d.lock", devId_);
     lock_.Init(path);
@@ -773,11 +826,12 @@ int DeviceRunner::Init(void)
         MACHINE_LOGE(HostLauncherErr::REGISTER_KERNEL_FAILED, "RegisterKernelBin failed\n");
         return -1;
     }
-    if (!(config::GetRuntimeOption<int64_t>(CFG_RUN_MODE) == CFG_RUN_MODE_SIM
-            && config::GetSimConfig(KEY_ACCURACY_LEVEL, 2) == 2)) {
+    if (!(config::GetRuntimeOption<int64_t>(CFG_RUN_MODE) == CFG_RUN_MODE_SIM &&
+          config::GetSimConfig(KEY_ACCURACY_LEVEL, 2) == 2)) {
         InitAicpuServer();
     }
     StartMachinePerfTraceDumpThread();
+#endif
     return 0;
 }
 

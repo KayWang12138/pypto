@@ -15,6 +15,8 @@
 
 #include "passes/tile_graph_pass/subgraph_to_function.h"
 #include <fstream>
+#include <numeric>
+#include <algorithm>
 #include "interface/function/function.h"
 #include "interface/tensor/logical_tensor.h"
 #include "tilefwk/tilefwk.h"
@@ -448,6 +450,48 @@ void SubgraphToFunction::SymbolizeEachFunction(
         ProcessSymbolOfReshape(rootFunc, tileOp);
         ProcessInputOperands(rootFunc, tileOp, pSgParamInfo, tParamLoc, iParamLoc);
         ProcessOutputOperands(rootFunc, tileOp, pSgParamInfo, tParamLoc, oParamLoc);
+    }
+
+    // Reorder tensorsArgs_ to match Python function parameter order
+    auto& tensorArgs = pSgParamInfo.tensorsArgs_;
+    std::unordered_map<std::string, int> symbolToPythonIdx;
+    for (auto& incast : rootFunc.GetIncast()) {
+        symbolToPythonIdx[incast->GetRawTensor()->GetSymbol()] = static_cast<int>(symbolToPythonIdx.size());
+    }
+    for (auto& outcast : rootFunc.GetOutcast()) {
+        symbolToPythonIdx[outcast->GetRawTensor()->GetSymbol()] = static_cast<int>(symbolToPythonIdx.size());
+    }
+    const int fallbackIdx = static_cast<int>(tensorArgs.size());
+    std::unordered_map<int, int> oldParamLocToNew;
+    std::vector<size_t> indices(tensorArgs.size());
+    std::iota(indices.begin(), indices.end(), 0);
+    std::stable_sort(indices.begin(), indices.end(), [&](size_t a, size_t b) {
+        int idxA =
+            symbolToPythonIdx.count(tensorArgs[a].symbol) ? symbolToPythonIdx[tensorArgs[a].symbol] : fallbackIdx;
+        int idxB =
+            symbolToPythonIdx.count(tensorArgs[b].symbol) ? symbolToPythonIdx[tensorArgs[b].symbol] : fallbackIdx;
+        return idxA < idxB;
+    });
+    auto reorderedArgs = tensorArgs;
+    for (size_t newIdx = 0; newIdx < indices.size(); newIdx++) {
+        reorderedArgs[newIdx] = tensorArgs[indices[newIdx]];
+        oldParamLocToNew[reorderedArgs[newIdx].paramLoc] = static_cast<int>(newIdx);
+        reorderedArgs[newIdx].paramLoc = static_cast<int>(newIdx);
+    }
+    tensorArgs = std::move(reorderedArgs);
+    for (auto& tileOp : leafFunc->Operations()) {
+        for (auto& loc : tileOp.inParamLocation_) {
+            auto it = oldParamLocToNew.find(loc);
+            if (it != oldParamLocToNew.end()) {
+                loc = it->second;
+            }
+        }
+        for (auto& loc : tileOp.outParamLocation_) {
+            auto it = oldParamLocToNew.find(loc);
+            if (it != oldParamLocToNew.end()) {
+                loc = it->second;
+            }
+        }
     }
 
     pSgParamInfo.Finalize();

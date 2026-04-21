@@ -59,7 +59,7 @@ int GetCfgBlockdim()
 
 int GetMaxBlockdim()
 {
-#ifdef BUILD_WITH_CANN
+#if defined(BUILD_WITH_CANN) && !defined(BUILD_WITH_CANN_MOBILE)
     uint32_t cubeBlockDim = 0;
     uint32_t vectorBlockDim = 0;
     // 若未进行控核，AclRtGetStreamResLimit返回的是满核
@@ -109,6 +109,7 @@ static const std::unordered_map<AclMdlRICaptureStatus, std::function<void(bool&)
 
 int DeviceLauncher::GetStreamCaptureInfo(RtStream aicoreStream, AclMdlRI& rtModel, bool& isCapture)
 {
+#if !defined(BUILD_WITH_CANN_MOBILE)
     AclMdlRICaptureStatus captureStatus = AclMdlRICaptureStatus::NONE;
     AclError ret = AclMdlRICaptureGetInfo(aicoreStream, &captureStatus, &rtModel);
     if (ret == ACL_ERROR_RT_FEATURE_NOT_SUPPORT) {
@@ -128,23 +129,34 @@ int DeviceLauncher::GetStreamCaptureInfo(RtStream aicoreStream, AclMdlRI& rtMode
     }
     MACHINE_LOGI("capture mode[%d]", isCapture);
     return 0;
+#else
+    (void)aicoreStream;
+    (void)rtModel;
+    (void)isCapture;
+    return 0;
+#endif
 }
 
 void DeviceLauncher::ChangeCaptureModeRelax()
 {
+#if !defined(BUILD_WITH_CANN_MOBILE)
     AclMdlRICaptureMode mode =
         AclMdlRICaptureMode::RELAXED; // aclgraph does not support rtmemcpy / rtmemset, set to relaxed mode
     AclMdlRICaptureThreadExchangeMode(&mode);
+#endif
 }
 
 void DeviceLauncher::ChangeCaptureModeGlobal()
 {
+#if !defined(BUILD_WITH_CANN_MOBILE)
     AclMdlRICaptureMode mode = AclMdlRICaptureMode::GLOBAL;
     AclMdlRICaptureThreadExchangeMode(&mode);
+#endif
 }
 
 int DeviceLauncher::SetCaptureStream(RtStream aicoreStream, RtStream aicpuStream, bool& isCapture)
 {
+#if !defined(BUILD_WITH_CANN_MOBILE)
     AclMdlRI rtModel = nullptr;
 
     if (GetStreamCaptureInfo(aicoreStream, rtModel, isCapture) < 0) {
@@ -164,6 +176,12 @@ int DeviceLauncher::SetCaptureStream(RtStream aicoreStream, RtStream aicpuStream
         }
     }
     return 0;
+#else
+    (void)aicoreStream;
+    (void)aicpuStream;
+    (void)isCapture;
+    return 0;
+#endif
 }
 
 int DeviceLauncher::RunWithProfile(RtStream aicoreStream, RtStream aicpuStream, bool isCapture)
@@ -496,9 +514,7 @@ int32_t DataFormat2CannFormat(const TileOpFormat format)
 }
 #endif
 
-void DumpIOTensorsWithCann(
-    AclRtStream stream, std::vector<DeviceTensorData>& tensors,
-    const std::string& funcName)
+void DumpIOTensorsWithCann(AclRtStream stream, std::vector<DeviceTensorData>& tensors, const std::string& funcName)
 {
 #ifdef BUILD_WITH_CANN
     if (AdxDumpGetDumpSwitch(AdxDumpType::OPERATOR) != 0) {
@@ -510,7 +526,7 @@ void DumpIOTensorsWithCann(
             info.tensorSize = static_cast<size_t>(tensor.GetDataSize());
             info.format = DataFormat2CannFormat(tensor.Format());
             info.dataType = DataType2CannType(tensor.GetDataType());
-            info.tensorAddr = static_cast<int64_t *>(tensor.GetAddr());
+            info.tensorAddr = static_cast<int64_t*>(tensor.GetAddr());
             info.placement = static_cast<int32_t>(AdxTensorPlacement::kOnDeviceHbm);
             info.shape = tensor.GetShape();
             info.originShape = tensor.GetShape();
@@ -583,7 +599,7 @@ uint8_t* CopyHostToDev(uint8_t* data, uint64_t size)
 
 DeviceGuard::DeviceGuard(int32_t devId) : nDevId(devId)
 {
-#ifdef BUILD_WITH_CANN
+#if defined(BUILD_WITH_CANN) && !defined(BUILD_WITH_CANN_MOBILE)
     (void)RuntimeGetDevice(&oDevId);
     if (nDevId != oDevId) {
         RuntimeSetDevice(nDevId);
@@ -602,13 +618,13 @@ DeviceGuard::~DeviceGuard()
 
 AclModeGuard::AclModeGuard(AclMdlRICaptureMode tmode) : mode(tmode)
 {
-#ifdef BUILD_WITH_CANN
+#if defined(BUILD_WITH_CANN) && !defined(BUILD_WITH_CANN_MOBILE)
     AclMdlRICaptureThreadExchangeMode(&mode);
 #endif
 }
 AclModeGuard::~AclModeGuard()
 {
-#ifdef BUILD_WITH_CANN
+#if defined(BUILD_WITH_CANN) && !defined(BUILD_WITH_CANN_MOBILE)
     AclMdlRICaptureMode mod = AclMdlRICaptureMode::GLOBAL;
     AclMdlRICaptureThreadExchangeMode(&mod);
 #endif
@@ -681,7 +697,7 @@ void DeviceLauncher::FreeControlFlowCache(uint8_t* ctrlCache)
 
 void DeviceLauncher::AddAicpuStream(AclMdlRI& rtModel)
 {
-#ifdef BUILD_WITH_CANN
+#if defined(BUILD_WITH_CANN) && !defined(BUILD_WITH_CANN_MOBILE)
     auto ctrlStream = (AclRtStream)machine::GetRA()->GetCtrlStream();
     auto schedtream = (AclRtStream)machine::GetRA()->GetScheStream();
 
@@ -707,7 +723,7 @@ void DeviceLauncher::SaveStream(AclRtStream aicoreStream)
 
 void DeviceLauncher::GetCaptureInfo(AclRtStream aicoreStream, AclMdlRI& rtModel)
 {
-#ifdef BUILD_WITH_CANN
+#if defined(BUILD_WITH_CANN) && !defined(BUILD_WITH_CANN_MOBILE)
     SetCaptureMode(false);
     AclMdlRICaptureStatus status = AclMdlRICaptureStatus::NONE;
     auto ret = AclMdlRICaptureGetInfo(aicoreStream, &status, &rtModel);
@@ -743,7 +759,12 @@ void* DeviceLauncher::RegisterKernelBin(const std::vector<uint8_t>& kernelBinary
         .length = kernelBinary.size(),
     };
 
+#ifdef BUILD_WITH_CANN_MOBILE
+    (void)binary;
+    int ret = 0;
+#else
     int ret = RuntimeRegisterAllKernel(&binary, &hdl);
+#endif
     if (ret != RT_SUCCESS) {
         MACHINE_LOGE(HostLauncherErr::REGISTER_KERNEL_FAILED, "register kernel failed, ret: %d", ret);
     }
@@ -801,7 +822,7 @@ int DeviceLauncher::LaunchSyncTask(AclRtStream aicoreStream, bool isCaptureMode)
 int DeviceLauncher::LaunchAicpuKernel(
     RtAicpuArgsEx& rtArgs, [[maybe_unused]] bool debugEnable, [[maybe_unused]] Function* function)
 {
-#ifdef BUILD_WITH_CANN
+#if defined(BUILD_WITH_CANN) && !defined(BUILD_WITH_CANN_MOBILE)
     auto ctrlStream = (AclRtStream)machine::GetRA()->GetCtrlStream();
     auto schedStream = (AclRtStream)machine::GetRA()->GetScheStream();
     auto& devRunner = DeviceRunner::Get();
@@ -836,7 +857,7 @@ int DeviceLauncher::LaunchAicpuKernel(
 int DeviceLauncher::LaunchAicoreKernel(
     AclRtStream aicoreStream, void* kernel, RtArgsEx& rtArgs, RtTaskCfgInfo& rtTaskCfg, bool debugEnable)
 {
-#ifdef BUILD_WITH_CANN
+#if defined(BUILD_WITH_CANN) && !defined(BUILD_WITH_CANN_MOBILE)
     auto& devRunner = DeviceRunner::Get();
     auto tilingKey = OpInfoManager::GetInstance().GetOpTilingKey();
     auto blockDim = dynamic::GetCfgBlockdim();
