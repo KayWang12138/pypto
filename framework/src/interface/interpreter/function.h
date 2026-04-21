@@ -847,6 +847,103 @@ struct FunctionInterpreter {
         ExecuteFunctionFrame(callee, ctx->op, inoutDataPair);
     }
 
+    int32_t GetCallOpWrapId(const Operation* op) const
+    {
+        if (op == nullptr || op->GetOpcode() != Opcode::OP_CALL) {
+            return -1;
+        }
+        auto callopAttr = std::dynamic_pointer_cast<CallOpAttribute>(op->GetOpAttribute());
+        if (callopAttr == nullptr) {
+            return -1;
+        }
+        return callopAttr->wrapId;
+    }
+
+    int32_t GetCallOpMixId(const Operation* op)
+    {
+        if (op == nullptr || op->GetOpcode() != Opcode::OP_CALL) {
+            return LeafFuncAttribute::INVALID_MIX_ID;
+        }
+        Function* callee = GetCallee(op);
+        if (callee == nullptr || callee->GetLeafFuncAttribute() == nullptr) {
+            return LeafFuncAttribute::INVALID_MIX_ID;
+        }
+        return callee->GetLeafFuncAttribute()->mixId;
+    }
+
+    bool IsMixSplitCallOp(const Operation* op)
+    {
+        return GetCallOpWrapId(op) != -1 && GetCallOpMixId(op) != LeafFuncAttribute::INVALID_MIX_ID;
+    }
+
+    struct MixSplitCallTask {
+        FunctionInterpreter* interpreter{nullptr};
+        Function* callee{nullptr};
+        Operation* callop{nullptr};
+        std::shared_ptr<FunctionIODataPair> inoutDataPair{nullptr};
+        static void Entry(void* ctx)
+        {
+            auto* task = static_cast<MixSplitCallTask*>(ctx);
+            if (task == nullptr || task->interpreter == nullptr || task->callee == nullptr || task->callop == nullptr ||
+                task->inoutDataPair == nullptr) {
+                return;
+            }
+            task->interpreter->ExecuteFunctionFrame(task->callee, task->callop, task->inoutDataPair);
+        }
+    };
+
+    std::shared_ptr<FunctionIODataPair> BuildCallInOutDataPair(FunctionFrame& frame, Operation* callop)
+    {
+        auto iOpDataList = frame.GetDataViewList(callop->GetIOperands());
+        for (size_t index = 0; index < iOpDataList.size(); index++) {
+            if (iOpDataList[index] == nullptr) {
+                auto iop = callop->GetIOperands()[index];
+                if (frame.callop != nullptr) {
+                    VERIFY_LOGI("BuildCallInOutDataPair: iop %zu is null, try to find in mixGlobalTensorDict.", index);
+                    auto callopAttr = std::static_pointer_cast<CallOpAttribute>(frame.callop->GetOpAttribute());
+                    iOpDataList[index] = mixGlobalTensorDict[{iop, callopAttr->wrapId}];
+                    if (iOpDataList[index] != nullptr) {
+                        continue;
+                    }
+                }
+                iOpDataList[index] = AllocateDataView(frame, iop);
+            }
+        }
+
+        std::vector<std::shared_ptr<LogicalTensorData>> oOpDataList;
+        for (size_t i = 0; i < callop->GetOOperands().size(); i++) {
+            auto oop = callop->GetOOperands()[i];
+            if (auto index = GetInplaceIndex(callop, i); index != -1) {
+                ExecuteInplaceOperation(frame, *callop, i, iOpDataList, oOpDataList);
+            } else {
+                oOpDataList.push_back(AllocateDataView(frame, oop));
+            }
+        }
+        return std::make_shared<FunctionIODataPair>(iOpDataList, oOpDataList);
+    }
+
+    void ExecuteMixSplitCallOpGroupParallel(FunctionFrame& frame, const std::vector<Operation*>& groupedCallOps)
+    {
+        std::vector<MixSplitCallTask> taskList;
+        taskList.reserve(groupedCallOps.size());
+        for (auto* groupedCallOp : groupedCallOps) {
+            auto inoutDataPair = BuildCallInOutDataPair(frame, groupedCallOp);
+            MixSplitCallTask task;
+            task.interpreter = this;
+            task.callee = GetCallee(groupedCallOp);
+            task.callop = groupedCallOp;
+            task.inoutDataPair = inoutDataPair;
+            taskList.push_back(task);
+        }
+
+        auto& pool = operationInterpreter->GetPool();
+        for (size_t i = 0; i < taskList.size(); i++) {
+            pool.SubmitTask(&taskList[i], MixSplitCallTask::Entry);
+        }
+        pool.NotifyAll();
+        pool.WaitForAll();
+    }
+
     int GetInplaceIndex(Operation* op, int pos)
     {
         struct {
@@ -1005,6 +1102,38 @@ struct FunctionInterpreter {
     }
     void ExecuteHandleOperationEnd() {}
 
+    bool TryExecuteMixSplitCallOps(
+        FunctionFrame& frame, const OperationsViewer& operations, size_t& opIdx, Operation& op)
+    {
+        if (!IsMixSplitCallOp(&op)) {
+            return false;
+        }
+        const int32_t wrapId = GetCallOpWrapId(&op);
+        std::vector<Operation*> groupedCallOps;
+        groupedCallOps.push_back(&op);
+        size_t nextIdx = opIdx + 1;
+        while (nextIdx < operations.size()) {
+            auto& nextOp = operations.at(nextIdx);
+            if (nextOp.GetOpcode() != Opcode::OP_CALL) {
+                break;
+            }
+            if (GetCallOpWrapId(&nextOp) != wrapId || !IsMixSplitCallOp(&nextOp)) {
+                break;
+            }
+            groupedCallOps.push_back(&nextOp);
+            nextIdx++;
+        }
+        if (groupedCallOps.size() > 1) {
+            ExecuteMixSplitCallOpGroupParallel(frame, groupedCallOps);
+        } else {
+            ExecuteHandleOperationBegin(&op);
+            ExecuteOperation(frame, &op);
+            ExecuteHandleOperationEnd();
+        }
+        opIdx = nextIdx;
+        return true;
+    }
+
     std::shared_ptr<FunctionFrame> ExecuteFunctionFrame(
         Function* func, Operation* callop, std::shared_ptr<FunctionIODataPair>& inoutDataPair)
     {
@@ -1034,12 +1163,22 @@ struct FunctionInterpreter {
         EvaluateDynParam(dynParamTable, linearArgList);
 
         ExecuteHandleFunctionBegin(func, frame);
-        for (auto& op : func->Operations()) {
-            if (op.GetOpcode() == Opcode::OP_PRINT && verifyType != VerifyType::TENSOR_GRAPH)
+        auto operations = func->Operations();
+        for (size_t opIdx = 0; opIdx < operations.size();) {
+            auto& op = operations.at(opIdx);
+            if (op.GetOpcode() == Opcode::OP_PRINT && verifyType != VerifyType::TENSOR_GRAPH) {
+                opIdx++;
                 continue;
+            }
+
+            if (TryExecuteMixSplitCallOps(*frame, operations, opIdx, op)) {
+                continue;
+            }
+
             ExecuteHandleOperationBegin(&op);
             ExecuteOperation(*frame, &op);
             ExecuteHandleOperationEnd();
+            opIdx++;
         }
         ExecuteHandleFunctionEnd();
 
