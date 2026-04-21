@@ -25,6 +25,19 @@ from sparse_attention_antiquant_fp8_impl \
 from utils.compare import compare
 
 
+@dataclass
+class TestShapeConfig:
+    bn1n2s1: tuple
+    actual_seq: list
+
+
+@dataclass
+class TestDataBundle:
+    input_params: list
+    input_data: list
+    atten_out: 'torch.Tensor'
+
+
 def gen_uniform_data(data_shape, min_value, max_value, dtype):
     """
     PyTorch版本的均匀分布数据生成，与NumPy版本行为完全一致
@@ -291,8 +304,12 @@ def gen_gather_select_attention_golden_aq(dtype, bn1n2s1, is_kn_fp8_quant, actua
     return input_params, input_data_map, atten_out
 
 
-def do_test_sparse_attention_func_aq(bn1n2s1, actual_seq, input_params, input_data, atten_out, is_p):
-    b, n1, n2, s1 = bn1n2s1
+def do_test_sparse_attention_func_aq(test_config, data_bundle, is_p):
+    b, n1, n2, s1 = test_config.bn1n2s1
+    actual_seq = test_config.actual_seq
+    input_params = data_bundle.input_params
+    input_data = data_bundle.input_data
+    atten_out = data_bundle.atten_out
 
     device_id = int(os.environ.get('TILE_FWK_DEVICE_ID', 0))
     torch.npu.set_device(device_id)
@@ -374,9 +391,9 @@ def do_test_sfa_entry(case_name: str, is_p: bool):
     input_params, input_data, atten_out = gen_gather_select_attention_golden_aq(
         torch.bfloat16, bn1n2s1, is_kn_fp8_quant, actual_seq
     )
-    do_test_sparse_attention_func_aq(
-        bn1n2s1, actual_seq, input_params, input_data, atten_out, is_p
-    )
+    test_config = TestShapeConfig(bn1n2s1=bn1n2s1, actual_seq=actual_seq)
+    data_bundle = TestDataBundle(input_params=input_params, input_data=input_data, atten_out=atten_out)
+    do_test_sparse_attention_func_aq(test_config, data_bundle, is_p)
     return True
 
 

@@ -42,10 +42,28 @@ class SaTileShapeConfig:
     v2_tile_shape: list
 
 
-def sparse_attention_antiquant_compute(query_nope, query_rope, nope_cache, topk_indices,
-                                            block_table, kv_act_seqs, attention_out,
-                                            nq, n_kv, softmax_scale, topk, block_size,
-                                            max_blocknum_perbatch, tile_config):
+@dataclass
+class SaTensorInputs:
+    query_nope: 'pypto.Tensor'
+    query_rope: 'pypto.Tensor'
+    nope_cache: 'pypto.Tensor'
+    topk_indices: 'pypto.Tensor'
+    block_table: 'pypto.Tensor'
+    kv_act_seqs: 'pypto.Tensor'
+    attention_out: 'pypto.Tensor'
+
+
+@dataclass
+class SaConfig:
+    nq: int
+    n_kv: int
+    softmax_scale: float
+    topk: int
+    block_size: int
+    max_blocknum_perbatch: int
+
+
+def sparse_attention_antiquant_compute(tensors, config, tile_config):
     """Compute sparse flash attention with quantization support.
 
     Performs attention computation on top-k selected key-value pairs from cache.
@@ -53,22 +71,22 @@ def sparse_attention_antiquant_compute(query_nope, query_rope, nope_cache, topk_
     and aggregating values. Supports both quantized (FP8) and non-quantized keys.
 
     Args:
-        query_nope: Query tensor without RoPE, shape (t * n_q, kv_lora_rank), dtype BF16
-        query_rope: Query tensor with RoPE, shape (t * n_q, rope_dim), dtype BF16
-        nope_cache: Key tensor without RoPE, Key tensor with RoPE, Dequantization scales for quantized keys,
-                    shape (block_num * block_size, kv_lora_rank + rope_dim*2 + 4*4),
-                    dtype FP8
-        topk_indices: Top-k indices for each query token, shape (t, n_kv * topk), dtype INT32
-        block_table: Block mapping table for PagedAttention, shape (b, max_blocknum_perbatch),
-                     dtype INT32
-        kv_act_seqs: Actual sequence lengths for each batch, shape (b,), dtype INT32
-        attention_out: Output attention tensor, shape (b, s, n_q, kv_lora_rank), dtype BF16
-        nq: Number of query heads
-        n_kv: Number of key-value heads
-        softmax_scale: Scaling factor for attention scores, typically 1/sqrt(head_dim)
-        topk: Number of top-k keys to attend to
-        block_size: Size of each block in PagedAttention
-        max_blocknum_perbatch: Maximum number of blocks per batch
+        tensors: SaTensorInputs object containing:
+            - query_nope: Query tensor without RoPE, shape (t * n_q, kv_lora_rank), dtype BF16
+            - query_rope: Query tensor with RoPE, shape (t * n_q, rope_dim), dtype BF16
+            - nope_cache: Key tensor without RoPE, Key tensor with RoPE, Dequantization scales,
+                         shape (block_num * block_size, kv_lora_rank + rope_dim*2 + 4*4), dtype FP8
+            - topk_indices: Top-k indices for each query token, shape (t, n_kv * topk), dtype INT32
+            - block_table: Block mapping table, shape (b, max_blocknum_perbatch), dtype INT32
+            - kv_act_seqs: Actual sequence lengths for each batch, shape (b,), dtype INT32
+            - attention_out: Output attention tensor, shape (b, s, n_q, kv_lora_rank), dtype BF16
+        config: SaConfig object containing:
+            - nq: Number of query heads
+            - n_kv: Number of key-value heads
+            - softmax_scale: Scaling factor for attention scores, typically 1/sqrt(head_dim)
+            - topk: Number of top-k keys to attend to
+            - block_size: Size of each block in PagedAttention
+            - max_blocknum_perbatch: Maximum number of blocks per batch
         tile_config: SaTileShapeConfig object containing tiling parameters:
             - g_tile: Group tile size
             - s_kv_tile: Key-value sequence tile size
@@ -81,6 +99,19 @@ def sparse_attention_antiquant_compute(query_nope, query_rope, nope_cache, topk_
         For quantized keys, it performs dequantization before attention computation.
         The attention computation uses standard softmax normalization.
     """
+    query_nope = tensors.query_nope
+    query_rope = tensors.query_rope
+    nope_cache = tensors.nope_cache
+    topk_indices = tensors.topk_indices
+    block_table = tensors.block_table
+    kv_act_seqs = tensors.kv_act_seqs
+    attention_out = tensors.attention_out
+    nq = config.nq
+    n_kv = config.n_kv
+    softmax_scale = config.softmax_scale
+    topk = config.topk
+    block_size = config.block_size
+    max_blocknum_perbatch = config.max_blocknum_perbatch
     dtype = query_nope.dtype
     dn = query_nope.shape[1]
     dr = query_rope.shape[1]
@@ -297,10 +328,24 @@ def sparse_attention_antiquant_d(
     """
     pypto.experimental.set_operation_options(combine_axis=True)
 
-    sparse_attention_antiquant_compute(query_nope, query_rope, nope_cache, topk_indices,
-                                            block_table, kv_act_seqs, attention_out,
-                                            nq, n_kv, softmax_scale, topk, block_size,
-                                            max_blocknum_perbatch, tile_config)
+    tensors = SaTensorInputs(
+        query_nope=query_nope,
+        query_rope=query_rope,
+        nope_cache=nope_cache,
+        topk_indices=topk_indices,
+        block_table=block_table,
+        kv_act_seqs=kv_act_seqs,
+        attention_out=attention_out
+    )
+    config = SaConfig(
+        nq=nq,
+        n_kv=n_kv,
+        softmax_scale=softmax_scale,
+        topk=topk,
+        block_size=block_size,
+        max_blocknum_perbatch=max_blocknum_perbatch
+    )
+    sparse_attention_antiquant_compute(tensors, config, tile_config)
 
 
 @pypto.frontend.jit(
@@ -359,7 +404,21 @@ def sparse_attention_antiquant_p(
     """
     pypto.experimental.set_operation_options(combine_axis=True)
 
-    sparse_attention_antiquant_compute(query_nope, query_rope, nope_cache, topk_indices,
-                                            block_table, kv_act_seqs, attention_out,
-                                            nq, n_kv, softmax_scale, topk, block_size,
-                                            max_blocknum_perbatch, tile_config)
+    tensors = SaTensorInputs(
+        query_nope=query_nope,
+        query_rope=query_rope,
+        nope_cache=nope_cache,
+        topk_indices=topk_indices,
+        block_table=block_table,
+        kv_act_seqs=kv_act_seqs,
+        attention_out=attention_out
+    )
+    config = SaConfig(
+        nq=nq,
+        n_kv=n_kv,
+        softmax_scale=softmax_scale,
+        topk=topk,
+        block_size=block_size,
+        max_blocknum_perbatch=max_blocknum_perbatch
+    )
+    sparse_attention_antiquant_compute(tensors, config, tile_config)
