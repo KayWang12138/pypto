@@ -46,12 +46,12 @@ extern "C" __attribute__((visibility("default"))) int DynTileFwkBackendKernelSer
     (void)targ;
 #ifdef __DEVICE__
     InitLogSwitch();
-    if (DeviceTrace::GetInstance().Initialize(targ) != TraceError::PYPTO_TRACE_SUCCESS) {
+    if (DeviceTrace::GetInstance().Initialize(targ) != 0) {
         DEV_ERROR(DevCommonErr::INIT_FAILED, "Pypto Trace init failed");
         return -1;
     }
 #endif
-    ATRACE("Start to Reg signal");
+    DEV_ATRACE("Start to Reg signal");
     g_machine_mgr.SignalReg(SigAct);
     return 0;
 }
