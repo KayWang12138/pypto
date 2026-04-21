@@ -69,7 +69,7 @@ struct TypeInfo {
     void LoadConf(const std::string& path)
     {
         std::ifstream infile(path);
-        FUNCTION_ASSERT(FError::BAD_FD, infile.is_open()) << "Open file " << path << " failed";
+        ASSERT(FError::BAD_FD, infile.is_open()) << "Open file " << path << " failed";
         nlohmann::json jData;
         infile >> jData;
 
@@ -278,7 +278,7 @@ void ValidateConfigValueType(const std::string& key, const Any& value)
     std::stringstream os;
     os << "Option '" << key << "' has invalid type. Expected " << GetReadableTypeName(expectedType) << ", but got "
        << GetReadableTypeName(value.Type());
-    FUNCTION_ASSERT(FError::INVALID_TYPE, false) << os.str();
+    ASSERT(FError::INVALID_TYPE, false) << os.str();
 }
 
 std::string ConfigScope::ToString() const
@@ -323,7 +323,7 @@ void ConfigScope::UpdateValueWithAny(const std::string& key, Any value)
         os << ", its value doesn't within the value range.";
         DumpRange(os, value.Type(), key, ConfigManagerNg::GetInstance().Range());
         os << "\n";
-        FUNCTION_ASSERT(FError::INVALID_VAL, false) << os.str();
+        ASSERT(FError::INVALID_VAL, false) << os.str();
     }
     std::stringstream oss;
     DumpValue(oss, key, value, "");
@@ -353,7 +353,7 @@ struct ConfigManagerImpl {
     void PushScope(ConfigScopePtr scope)
     {
         // Ensure the provided scope is not null
-        FUNCTION_ASSERT(scope != nullptr) << "Cannot push a null scope.";
+        ASSERT(FError::EINTERNAL, scope != nullptr) << "Cannot push a null scope.";
         scopes.push(scope);
     }
 
@@ -393,7 +393,7 @@ struct ConfigManagerImpl {
     void EndScope(const char* file, int lino)
     {
         /* at least default and global two levels */
-        FUNCTION_ASSERT(scopes.size() >= 0x2) << "No scope to pop.";
+        ASSERT(FError::EINTERNAL, scopes.size() >= 0x2) << "No scope to pop.";
         auto& scope = scopes.top();
         scope->end_file_ = file;
         scope->end_lino_ = lino;
@@ -411,7 +411,7 @@ struct ConfigManagerImpl {
             scope = scopes.top();
         }
         for (auto& it : values) {
-            FUNCTION_ASSERT(FError::INVALID_VAL, scope->HasConfig(it.first))
+            ASSERT(FError::INVALID_VAL, scope->HasConfig(it.first))
                 << "key: " << it.first.c_str() << " does not exist.";
             scope->UpdateValueWithAny(it.first, it.second);
         }
@@ -507,7 +507,7 @@ private:
             confPath = GetConfDir() + "tile_fwk_config.json";
         }
         std::ifstream ifs(confPath);
-        CHECK(ifs.is_open()) << "Open file: " << confPath << " failed";
+        CHECK(FError::BAD_FD, ifs.is_open()) << "Open file: " << confPath << " failed";
         nlohmann::json jData;
         ifs >> jData;
         LoadConf(jData, "");
