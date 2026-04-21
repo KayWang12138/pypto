@@ -334,6 +334,21 @@ Status IntraSubgraphAdapter::AdapteTensorProducers(Function& function, LogicalTe
     return SUCCESS;
 }
 
+static bool IsToL0View(Operation* op) {
+    if (op->GetOpcode() != Opcode::OP_VIEW) {
+        return false;
+    }
+    if (op->GetOOperands().size() == 0) {
+        return false;
+    }
+    LogicalTensorPtr oop = op->GetOOperands()[0];
+    if (oop->GetMemoryTypeOriginal() == MemoryType::MEM_L0A ||
+        oop->GetMemoryTypeOriginal() == MemoryType::MEM_L0B) {
+        return true;
+    }
+    return false;
+}
+
 Status IntraSubgraphAdapter::AdapteTensorConsumers(Function& function, LogicalTensorPtr tensor)
 {
     std::unordered_map<int, std::vector<Operation*>> consumerColor2OpsMap;
@@ -349,7 +364,8 @@ Status IntraSubgraphAdapter::AdapteTensorConsumers(Function& function, LogicalTe
                 consumer->GetOpcodeStr().c_str(), consumer->GetOpMagic());
             return FAILED;
         }
-        if (consumer->GetOpcode() != Opcode::OP_VIEW && consumer->GetOpcode() != Opcode::OP_COPY_IN) {
+        if ((consumer->GetOpcode() != Opcode::OP_VIEW && consumer->GetOpcode() != Opcode::OP_COPY_IN) ||
+            IsToL0View(consumer)) {
             consumerColor2OpsMap[consumer->GetSubgraphID()].push_back(consumer);
         }
     }
