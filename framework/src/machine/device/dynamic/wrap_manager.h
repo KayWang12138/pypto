@@ -104,11 +104,11 @@ public:
 
     WrapInfoQueue* readyWrapCoreFunctionQue_{nullptr};
     // Queue managed by each thread, elem is wrapInfo's addr
-    StaticReadyCoreFunctionQueue wrapQueueForThread_{0, 0, nullptr, 0};
-    uint32_t* wrapTasklist_{nullptr};
+    StaticReadyCoreFunctionQueue* wrapQueueForThread_;
     SendTaskToAiCoreFunc SendTaskToAiCore;
     bool isOpenMixSche{false};
     ArchInfo archInfo;
+    int schedIdx_;
 
     // for die-to-die shchedule
     ReadyCoreFunctionQueue* readyDieAicFunctionQue_[DIE_NUM] = {nullptr};
@@ -121,6 +121,7 @@ public:
         archInfo = deviceArgs->archInfo;
         InitDieMaxCpuId(static_cast<int>(deviceArgs->scheCpuNum));
         InitDieId(schedIdx);
+        schedIdx_ = schedIdx;
     }
 
     inline void InitDieMaxCpuId(int scheCpuNum)
@@ -191,28 +192,15 @@ public:
         SendTaskToAiCore = func;
         AddReadyCoreIdx = addReadyCoreIdxFunc;
         readyWrapCoreFunctionQue_ = reinterpret_cast<WrapInfoQueue*>(curDevTask_->mixTaskData.readyWrapCoreFunctionQue);
+        wrapQueueForThread_ =
+            reinterpret_cast<StaticReadyCoreFunctionQueue*>(curDevTask_->mixTaskData.wrapQueueForThread[schedIdx_]);
 
-        wrapQueueForThread_.head = 0;
-        wrapQueueForThread_.tail = 0;
-        wrapQueueForThread_.elem =
-            curDevTask_->mixTaskData.wrapIdNum == 0 ?
-                nullptr :
-                static_cast<uint64_t*>(malloc(curDevTask_->mixTaskData.wrapIdNum * sizeof(uint64_t)));
         SetDieReadyQueue(curDevTask->dieReadyFunctionQue);
 
         selectReadyDieAicFunctionQue_ = GetDieReadyQueue(
             CoreType::AIC, reinterpret_cast<ReadyCoreFunctionQueue*>(curDevTask->readyAicCoreFunctionQue));
         selectReadyDieAivFunctionQue_ = GetDieReadyQueue(
             CoreType::AIV, reinterpret_cast<ReadyCoreFunctionQueue*>(curDevTask->readyAivCoreFunctionQue));
-    }
-
-    inline void Deinit()
-    {
-        RETURN_NULL_IF_NOT(isOpenMixSche);
-        if (wrapQueueForThread_.elem != nullptr) {
-            free(wrapQueueForThread_.elem);
-            wrapQueueForThread_.elem = nullptr;
-        }
     }
 
     inline bool GetIsMixarch() { return archInfo == ArchInfo::DAV_3510; }
@@ -252,7 +240,7 @@ public:
         uint32_t idx = 0;
         for (uint32_t taskIdx = 0; taskIdx < task1c2vCnt; taskIdx++) {
             WrapInfo* wrapInfo = wrap1c2vTasks[taskIdx];
-            wrapQueueForThread_.elem[wrapQueueForThread_.tail++] = reinterpret_cast<uint64_t>(wrapInfo);
+            wrapQueueForThread_->elem[wrapQueueForThread_->tail++] = reinterpret_cast<uint64_t>(wrapInfo);
             uint32_t* aicoreIdxList = wrapInfo->aicoreIdxList;
             while (idx < coreRunReadyCnt_[CORE_IDX_AIC]) {
                 uint32_t aicIdx = runReadyCoreIdx_[CORE_IDX_AIC][idx];
@@ -274,7 +262,7 @@ public:
         idx = 0;
         for (uint32_t taskIdx = 0; taskIdx < task1c1vCnt; taskIdx++) {
             WrapInfo* wrapInfo = wrap1c1vTasks[taskIdx];
-            wrapQueueForThread_.elem[wrapQueueForThread_.tail++] = reinterpret_cast<uint64_t>(wrapInfo);
+            wrapQueueForThread_->elem[wrapQueueForThread_->tail++] = reinterpret_cast<uint64_t>(wrapInfo);
             uint32_t* aicoreIdxList = wrapInfo->aicoreIdxList;
             while (idx < coreRunReadyCnt_[CORE_IDX_AIC]) {
                 uint32_t aicIdx = runReadyCoreIdx_[CORE_IDX_AIC][idx];
@@ -389,8 +377,8 @@ public:
     {
         RETURN_NULL_IF_NOT(isOpenMixSche);
         UpdateWrapQueueForThread();
-        for (uint32_t idx = wrapQueueForThread_.head; idx < wrapQueueForThread_.tail; idx++) {
-            WrapInfo* wrapInfo = reinterpret_cast<WrapInfo*>(wrapQueueForThread_.elem[idx]);
+        for (uint32_t idx = wrapQueueForThread_->head; idx < wrapQueueForThread_->tail; idx++) {
+            WrapInfo* wrapInfo = reinterpret_cast<WrapInfo*>(wrapQueueForThread_->elem[idx]);
             uint32_t taskNum = GetTaskNumByMixResType(wrapInfo->mixResourceType);
             for (uint32_t wrapAicoreIdx = 0; wrapAicoreIdx < taskNum; wrapAicoreIdx++) {
                 uint32_t taskId = wrapInfo->tasklist[wrapAicoreIdx];
@@ -538,8 +526,8 @@ public:
         return;
 #endif
         WrapInfo* wrapInfo = nullptr;
-        for (uint32_t idx = wrapQueueForThread_.head; idx < wrapQueueForThread_.tail; idx++) {
-            auto info = reinterpret_cast<WrapInfo*>(wrapQueueForThread_.elem[idx]);
+        for (uint32_t idx = wrapQueueForThread_->head; idx < wrapQueueForThread_->tail; idx++) {
+            auto info = reinterpret_cast<WrapInfo*>(wrapQueueForThread_->elem[idx]);
             if (info->wrapId == wrapId) {
                 wrapInfo = info;
                 break;
@@ -567,8 +555,8 @@ public:
         uint32_t wrapId = id;
         WrapInfo* wrapInfo = nullptr;
         uint32_t wrapIdx = 0;
-        for (uint32_t idx = wrapQueueForThread_.head; idx < wrapQueueForThread_.tail; idx++) {
-            auto tmpInfo = reinterpret_cast<WrapInfo*>(wrapQueueForThread_.elem[idx]);
+        for (uint32_t idx = wrapQueueForThread_->head; idx < wrapQueueForThread_->tail; idx++) {
+            auto tmpInfo = reinterpret_cast<WrapInfo*>(wrapQueueForThread_->elem[idx]);
             if (tmpInfo->wrapId == wrapId) {
                 wrapInfo = tmpInfo;
                 wrapIdx = idx;
@@ -592,7 +580,7 @@ public:
 
         if (IsMixTaskFinish(wrapInfo)) { // all tasks for this wrap finish
             DEV_VERBOSE_DEBUG("wrapId %u 's all tasks finish, release wrapcore", wrapId);
-            std::swap(wrapQueueForThread_.elem[wrapIdx], wrapQueueForThread_.elem[--wrapQueueForThread_.tail]);
+            std::swap(wrapQueueForThread_->elem[wrapIdx], wrapQueueForThread_->elem[--wrapQueueForThread_->tail]);
         }
     }
 
