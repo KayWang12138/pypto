@@ -863,7 +863,7 @@ LogicalTensorPtr LinkTensorA(
         }
         aL1TensorPtr = AddOpView<int64_t>(
             function, tensorGraphNodes.aTensorPtr, aL1TensorInfo,
-            {{COPY_IN_L1_PADDING_MODE, paddingMode}, {REMAIN_REDUNDANT_OP_FLAG, 1}});
+            {{COPY_IN_L1_PADDING_MODE, paddingMode}});
     }
     std::vector<int64_t> aL0Shape = (attrParam.transA) ? std::vector<int64_t>{iterInfo.kL0Size, iterInfo.mL0Size} :
                                                          std::vector<int64_t>{iterInfo.mL0Size, iterInfo.kL0Size};
@@ -909,7 +909,7 @@ LogicalTensorPtr LinkTensorB(
         }
         bL1TensorPtr = AddOpView<int64_t>(
             function, tensorGraphNodes.bTensorPtr, bL1TensorInfo,
-            {{COPY_IN_L1_PADDING_MODE, paddingMode}, {REMAIN_REDUNDANT_OP_FLAG, 1}});
+            {{COPY_IN_L1_PADDING_MODE, paddingMode}});
     }
     std::vector<int64_t> bL0Shape = (attrParam.transB) ? std::vector<int64_t>{iterInfo.nL0Size, iterInfo.kL0Size} :
                                                          std::vector<int64_t>{iterInfo.kL0Size, iterInfo.nL0Size};
