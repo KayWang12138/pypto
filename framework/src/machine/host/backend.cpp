@@ -15,6 +15,7 @@
 
 #include "machine/host/backend.h"
 #include "machine/host/expr_generator.h"
+#include "machine/host/dump_host_topo.h"
 #include "tilefwk/tilefwk.h"
 #include "codegen/codegen.h"
 #include "codegen/utils/parallel_execute.h"
@@ -965,6 +966,7 @@ static void CompileDyndevFunction(Function* function, FunctionCache& cache, [[ma
     for (auto slot : slotIdxMapping) {
         MACHINE_LOGD("slotIdx: %d, runtime slotIdx: %d", slot.first, slot.second);
     }
+    dump::DumpSlotMapping(*slotManager, slotIdxMapping, attr->inoutLink);
     BuildSlotRootIncastOutcastDict(attr.get());
     BuildRootFuncKeyDict(attr.get());
 
@@ -1064,6 +1066,7 @@ static void CompileDyndevFunction(Function* function, FunctionCache& cache, [[ma
     MACHINE_LOGD("KernelBinary size[%zu].", attr->kernelBinary.size());
 
     attr->devEncodeList.resize(attr->funcGroup.devRootList.size());
+    dump::StaticTopoCsvWriter staticTopo;
     for (auto& devRoot : attr->funcGroup.devRootList) {
         int devRootKey = attr->funcGroup.devRootList.GetIndex(devRoot);
         MACHINE_LOGI("Dyndev.encode: %s", devRoot->GetRawName().c_str());
@@ -1091,6 +1094,7 @@ static void CompileDyndevFunction(Function* function, FunctionCache& cache, [[ma
         funcBin->getInputDataCount = 0;
         funcBin->getTensorDataCount = 0;
         EncodeDevAscendFunction(function, encodeDevAscendFunctionParam, size, funcBin);
+        staticTopo.WriteFunction(devRootKey, *funcBin, encodeDevAscendFunctionParam.cceCodeInfoList);
         funcBin->Reloc(-reinterpret_cast<int64_t>(funcBin), true);
         uint32_t CallOpmaxSize = config::GetRuntimeOption<uint32_t>(STITCH_FUNCTION_SIZE);
         ASSERT(DevCommonErr::PARAM_CHECK_FAILED, CallOpmaxSize <= STITCH_FUNCTION_MAX_SIZE)
@@ -1099,7 +1103,6 @@ static void CompileDyndevFunction(Function* function, FunctionCache& cache, [[ma
             OverCallOpMaxNum(devRoot, funcBin);
         }
     }
-
     // save dev prog binary
     SetDyndevProgBinary(function);
 }
