@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2025 Huawei Technologies Co., Ltd.
+ * Copyright (c) 2026 Huawei Technologies Co., Ltd.
  * This program is free software, you can redistribute it and/or modify it under the terms and conditions of
  * CANN Open Software License Agreement Version 2.0 (the "License").
  * Please refer to the License for details. You may not use this file except in compliance with the License.
@@ -9,22 +9,24 @@
  */
 
 /*!
- * \file infer_dyn_shape.h
- * \brief
+ * \file infer_shape.h
+ * \brief 公共的 InferShape 方法，支持全量推断和指定 op 推断
  */
 
-#ifndef INFER_DYN_SHAPE_PASS_H_
-#define INFER_DYN_SHAPE_PASS_H_
-#include "passes/pass_interface/pass.h"
+#pragma once
+#ifndef INFER_SHAPE_H
+#define INFER_SHAPE_H
+
+#include <vector>
+#include <set>
+#include "interface/operation/op_infer_shape_impl.h"
 #include "interface/function/function.h"
+
 namespace npu {
 namespace tile_fwk {
-class InferDynShape : public Pass {
+class InferShapeUtils {
 public:
-    InferDynShape() : Pass("InferDynShape") {}
-    ~InferDynShape() override {}
-    Status RunOnFunction(Function& function) override;
-    Status PostCheck(Function& function) override;
+    static Status InferShape(Function& function, const std::vector<Operation*>& targetOps = {});
 };
 } // namespace tile_fwk
 } // namespace npu
