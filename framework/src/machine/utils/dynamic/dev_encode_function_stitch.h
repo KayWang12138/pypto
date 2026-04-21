@@ -19,6 +19,10 @@
 #include "machine/utils/dynamic/dev_encode_function.h"
 #include "tilefwk/aicpu_common.h"
 
+#ifndef __DEVICE__
+#include <vector>
+#endif
+
 namespace npu::tile_fwk::dynamic {
 constexpr uint32_t DUPPED_STITCH_SIZE = 0x10 - (sizeof(void*) / sizeof(uint32_t)) - 0x1;
 struct DevAscendFunctionDuppedStitch {
@@ -384,4 +388,33 @@ static bool CellMatchFillIncastOutcast(
     }
     return allConcrete;
 }
+#ifndef __DEVICE__
+// Collect the cell indices an op would touch in a given CellMatchTable,
+// without mutating the table. Used only by the slot-access dumper under
+// non-device builds. Returns allConcrete (same semantics as
+// CellMatchFillIncastOutcast).
+struct CellMatchHandleCollect {
+    static inline void Process(int index, std::vector<int>* cellIdxListOut)
+    {
+        cellIdxListOut->push_back(index);
+    }
+};
+
+template <bool skipExpression>
+static bool CollectCellIdxForUse(
+    DevAscendFunction* devFunc, const DevAscendFunctionCallOperandUse& use, const uint64_t* runtimeExpressionList,
+    bool isIOperand, const DevCellMatchTableDesc& cellMatchTableDesc, std::vector<int>* cellIdxListOut)
+{
+    uint64_t offset[DEV_SHAPE_DIM_MAX];
+    uint64_t shape[DEV_SHAPE_DIM_MAX];
+    bool paramConcrete = GetTensorOffsetAndShape<skipExpression>(
+        devFunc, offset, shape, runtimeExpressionList, cellMatchTableDesc.GetDimensionSize(), use.operationIdx,
+        use.operandIdx, isIOperand);
+    if (paramConcrete) {
+        CellMatchHandle<CellMatchHandleCollect>(offset, shape, cellMatchTableDesc, cellIdxListOut);
+    }
+    return paramConcrete;
+}
+#endif
+
 } // namespace npu::tile_fwk::dynamic

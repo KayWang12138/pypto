@@ -15,6 +15,7 @@
 
 #include "machine/host/backend.h"
 #include "machine/host/expr_generator.h"
+#include <fstream>
 #include "tilefwk/tilefwk.h"
 #include "codegen/codegen.h"
 #include "codegen/utils/parallel_execute.h"
@@ -965,6 +966,101 @@ static void CompileDyndevFunction(Function* function, FunctionCache& cache, [[ma
     for (auto slot : slotIdxMapping) {
         MACHINE_LOGD("slotIdx: %d, runtime slotIdx: %d", slot.first, slot.second);
     }
+    const bool enableRuntimeDump = config::GetDebugOption<int64_t>(CFG_RUNTIME_DBEUG_MODE) == CFG_DEBUG_ALL;
+    if (enableRuntimeDump) {
+        std::string slotMappingPath = config::LogTopFolder() + "/slot_mapping.csv";
+        std::ofstream slotMappingOf(slotMappingPath);
+        if (slotMappingOf.is_open()) {
+            const IncastOutcastLink& inoutLink = attr->inoutLink;
+            std::set<int> inputRuntimeSlots(
+                inoutLink.inputSlotIndexList.begin(), inoutLink.inputSlotIndexList.end());
+            std::set<int> outputRuntimeSlots(
+                inoutLink.outputSlotIndexList.begin(), inoutLink.outputSlotIndexList.end());
+
+            std::unordered_map<int, std::string> feSlotToTensorName;
+            std::unordered_map<int, std::string> feSlotToFuncName;
+            auto appendUniqueToken = [](std::string& acc, const std::string& tok) {
+                if (tok.empty()) {
+                    return;
+                }
+                size_t pos = 0;
+                while (pos <= acc.size()) {
+                    size_t sep = acc.find(';', pos);
+                    size_t end = (sep == std::string::npos) ? acc.size() : sep;
+                    if (acc.compare(pos, end - pos, tok) == 0) {
+                        return;  // 已存在，去重
+                    }
+                    if (sep == std::string::npos) {
+                        break;
+                    }
+                    pos = sep + 1;
+                }
+                if (!acc.empty()) {
+                    acc.push_back(';');
+                }
+                acc.append(tok);
+            };
+            for (const auto& kv : slotManager->slotIndexDict) {
+                int feIdx = kv.second;
+                auto nameIt = slotManager->slotNameDict.find(kv.first);
+                if (nameIt != slotManager->slotNameDict.end() && !nameIt->second.empty()) {
+                    appendUniqueToken(feSlotToTensorName[feIdx], nameIt->second);
+                }
+                auto funcIt = slotManager->slotFuncNameDict.find(kv.first);
+                if (funcIt != slotManager->slotFuncNameDict.end() && !funcIt->second.empty()) {
+                    // slotFuncNameDict 内部已是 ';' 拼接的多值，逐个加入 feSlotToFuncName 去重
+                    const std::string& joined = funcIt->second;
+                    size_t start = 0;
+                    while (start <= joined.size()) {
+                        size_t sep = joined.find(';', start);
+                        size_t end = (sep == std::string::npos) ? joined.size() : sep;
+                        if (end > start) {
+                            appendUniqueToken(feSlotToFuncName[feIdx], joined.substr(start, end - start));
+                        }
+                        if (sep == std::string::npos) {
+                            break;
+                        }
+                        start = sep + 1;
+                    }
+                }
+            }
+
+            // CSV 转义：用双引号包裹，并把内部的双引号翻倍（RFC4180）。
+            auto csvQuote = [](const std::string& s) {
+                std::string out;
+                out.reserve(s.size() + 2);
+                out.push_back('"');
+                for (char c : s) {
+                    if (c == '"') {
+                        out.push_back('"');
+                    }
+                    out.push_back(c);
+                }
+                out.push_back('"');
+                return out;
+            };
+
+            slotMappingOf << "frontendSlotIdx,runtimeSlotIdx,slotRole,tensorName,funcRawName\n";
+            for (auto& slot : slotIdxMapping) {
+                const char* role = "INTERNAL";
+                bool isInput = inputRuntimeSlots.count(slot.second) != 0;
+                bool isOutput = outputRuntimeSlots.count(slot.second) != 0;
+                if (isInput && isOutput) {
+                    role = "INOUT";
+                } else if (isInput) {
+                    role = "INPUT";
+                } else if (isOutput) {
+                    role = "OUTPUT";
+                }
+                const std::string& tensorName = feSlotToTensorName[slot.first];
+                const std::string& funcName = feSlotToFuncName[slot.first];
+                slotMappingOf << slot.first << "," << slot.second << "," << role << ","
+                              << csvQuote(tensorName) << "," << csvQuote(funcName) << "\n";
+            }
+            slotMappingOf.close();
+            MACHINE_LOGD("SlotMapping dumped to %s, total %zu entries", slotMappingPath.c_str(), slotIdxMapping.size());
+        }
+    }
     BuildSlotRootIncastOutcastDict(attr.get());
     BuildRootFuncKeyDict(attr.get());
 
@@ -1064,6 +1160,16 @@ static void CompileDyndevFunction(Function* function, FunctionCache& cache, [[ma
     MACHINE_LOGD("KernelBinary size[%zu].", attr->kernelBinary.size());
 
     attr->devEncodeList.resize(attr->funcGroup.devRootList.size());
+    std::string staticTopoPath;
+    std::ofstream staticTopoOf;
+    if (enableRuntimeDump) {
+        staticTopoPath = config::LogTopFolder() + "/static_topo.csv";
+        staticTopoOf.open(staticTopoPath);
+        if (staticTopoOf.is_open()) {
+            staticTopoOf << "funcKey,rootHash,rawName,opIdx,opmagic,leafHash,coreType,psgId,"
+                         << "incastSlots,outcastSlots,staticSuccessors\n";
+        }
+    }
     for (auto& devRoot : attr->funcGroup.devRootList) {
         int devRootKey = attr->funcGroup.devRootList.GetIndex(devRoot);
         MACHINE_LOGI("Dyndev.encode: %s", devRoot->GetRawName().c_str());
@@ -1091,6 +1197,55 @@ static void CompileDyndevFunction(Function* function, FunctionCache& cache, [[ma
         funcBin->getInputDataCount = 0;
         funcBin->getTensorDataCount = 0;
         EncodeDevAscendFunction(function, encodeDevAscendFunctionParam, size, funcBin);
+        
+        if (staticTopoOf.is_open()) {
+            auto& cceCodeInfoList = encodeDevAscendFunctionParam.cceCodeInfoList;
+            for (size_t opIdx = 0; opIdx < funcBin->GetOperationSize(); opIdx++) {
+                int cceIndex = funcBin->GetOperationAttrCalleeIndex(opIdx);
+                uint64_t leafHash = (cceIndex >= 0 && cceIndex < (int)cceCodeInfoList.size())
+                    ? cceCodeInfoList[cceIndex].funcHash : 0;
+                uint32_t coreType = (cceIndex >= 0 && cceIndex < (int)cceCodeInfoList.size())
+                    ? cceCodeInfoList[cceIndex].coreType : 0;
+                uint32_t psgId = (cceIndex >= 0 && cceIndex < (int)cceCodeInfoList.size())
+                    ? cceCodeInfoList[cceIndex].psgId : 0;
+
+                staticTopoOf << devRootKey << "," << funcBin->rootHash << ","
+                             << funcBin->GetRawName() << "," << opIdx << ","
+                             << funcBin->GetOperationDebugOpmagic(opIdx) << ","
+                             << leafHash << "," << coreType << "," << psgId << ",";
+
+                // incast slots for this function
+                staticTopoOf << "[";
+                for (size_t i = 0; i < funcBin->GetIncastSize(); i++) {
+                    auto& incast = funcBin->GetIncast(i);
+                    if (i > 0) staticTopoOf << ";";
+                    for (size_t j = 0; j < incast.fromSlotList.size(); j++) {
+                        if (j > 0) staticTopoOf << "/";
+                        staticTopoOf << funcBin->At(incast.fromSlotList, j);
+                    }
+                }
+                staticTopoOf << "],[";
+
+                // outcast slots for this function
+                for (size_t i = 0; i < funcBin->GetOutcastSize(); i++) {
+                    auto& outcast = funcBin->GetOutcast(i);
+                    if (i > 0) staticTopoOf << ";";
+                    for (size_t j = 0; j < outcast.toSlotList.size(); j++) {
+                        if (j > 0) staticTopoOf << "/";
+                        staticTopoOf << funcBin->At(outcast.toSlotList, j);
+                    }
+                }
+                staticTopoOf << "]";
+
+                // static successors (opIdx within same function)
+                auto& succList = funcBin->GetOperationDepGraphSuccList(opIdx);
+                for (size_t j = 0; j < succList.size(); j++) {
+                    staticTopoOf << "," << funcBin->At(succList, j);
+                }
+                staticTopoOf << "\n";
+            }
+        }
+
         funcBin->Reloc(-reinterpret_cast<int64_t>(funcBin), true);
         uint32_t CallOpmaxSize = config::GetRuntimeOption<uint32_t>(STITCH_FUNCTION_SIZE);
         ASSERT(DevCommonErr::PARAM_CHECK_FAILED, CallOpmaxSize <= STITCH_FUNCTION_MAX_SIZE)
@@ -1099,7 +1254,10 @@ static void CompileDyndevFunction(Function* function, FunctionCache& cache, [[ma
             OverCallOpMaxNum(devRoot, funcBin);
         }
     }
-
+    if (enableRuntimeDump && staticTopoOf.is_open()) {
+        staticTopoOf.close();
+        MACHINE_LOGD("StaticTopo dumped to %s", staticTopoPath.c_str());
+    }
     // save dev prog binary
     SetDyndevProgBinary(function);
 }
