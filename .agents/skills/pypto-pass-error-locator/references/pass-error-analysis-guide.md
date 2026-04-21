@@ -112,6 +112,136 @@ python3 scripts/computation_graph_analyzer.py \
 
 ---
 
+## 公共参考：`After` 计算图缺失时补打异常前计算图
+
+当出现以下任一情况时，应先参考本节补打异常前最近一份计算图，再进入对应异常类型的专项分析：
+
+- 日志显示 pass 在 `RunOnFunction` / 核心处理逻辑中抛异常或提前返回
+- pass 输出目录里只有 `Before` 图，没有对应 `After` 图
+- 需要分析的是“执行中断前最后一版图”，而默认 dump 机制拿不到
+
+适用范围：
+
+- 计算图成环
+- 拓扑排序失败
+- 属性检查失败
+- Pass 中途修改依赖、替换 tensor、重建 op 后立即触发异常
+- 其他所有“异常发生在 pass 内部，导致 after 阶段文件未生成”的场景
+
+### 步骤 1：确认默认 dump 在哪里中断
+
+1. 先根据日志判断异常发生在 pass 的哪个函数、哪个代码分支。
+2. 确认当前 `Before` 文件已生成但 `After` 文件缺失。
+3. 不要把“缺失 After 文件”直接当作 pass 未修改图；它更常见的含义是“图已被部分修改，但尚未来得及统一落盘”。
+
+仓内可核实依据：
+
+- `framework/src/passes/pass_interface/pass.cpp`
+- `Pass::DumpFunctionJson(...)`
+- `framework/src/interface/function/function.cpp`
+- `Function::DumpJsonFile(...)`
+
+可以据此判断：默认 `After` 计算图通常在 pass 正常执行到统一 dump 流程后才会落盘；一旦 pass 中途异常，往往需要人工在异常前最近位置追加临时 dump。
+
+### 步骤 2：选择最近的插桩点
+
+插桩位置必须满足“尽量靠近异常点，同时保证 dump 调用本身有机会执行”。优先级如下：
+
+1. 异常日志对应代码行之前最近一次图结构修改完成处
+2. 即将执行拓扑检查、成环检查、属性校验、依赖校验的调用前
+3. `return FAILED`、`CHECK`、`throw`、`PYPTO_ASSERT`、`GELOGE(...); return ...;` 之前
+4. 遍历中可疑分支内部，在关键修改后立即 dump
+
+禁止做法：
+
+- 只在 pass 入口处 dump 一份 `Before` 图，然后声称已经拿到“异常前图”
+- 为了避免插桩而跳过问题分支、注释掉异常逻辑或简化代码路径
+- 未重新编译执行就声称“已确认中断前图状态”
+
+### 步骤 3：插入临时 `DumpJsonFile` 代码
+
+优先对当前正在被 pass 修改的 `Function` 对象调用：
+
+```cpp
+function.DumpJsonFile("/tmp/pass_debug/<pass_name>_before_abort.json");
+```
+
+若当前上下文持有的是 `Function*` / `std::shared_ptr<Function>`，使用等价写法：
+
+```cpp
+currFunctionPtr->DumpJsonFile("./config/pass/json/<pass_name>_before_abort.json");
+```
+
+文件路径要求：
+
+- 使用明确、不覆盖原始 dump 的文件名
+- 建议包含 `pass 名称 + 阶段 + before_abort / pre_check / pre_return` 等语义
+- 路径父目录必须真实存在，否则 `Function::DumpJsonFile` 打开文件会失败
+
+命名示例：
+
+- `./config/pass/json/cycle_detect_before_abort.json`
+- `./config/pass/json/pass_x_pre_topology_check.json`
+- `./config/pass/json/pass_x_before_return_failed.json`
+
+插桩示例 1：在校验前补打
+
+```cpp
+// Dump the latest graph state before topology validation aborts execution.
+function.DumpJsonFile("./config/pass/json/pass_x_pre_topology_check.json");
+auto ret = OperationLoopCheck(function);
+if (ret != SUCCESS) {
+    GELOGE(INTERNAL_ERROR, "loop check failed");
+    return ret;
+}
+```
+
+插桩示例 2：在错误返回前补打
+
+```cpp
+if (!IsEdgeValid(producer, consumer)) {
+    function.DumpJsonFile("./config/pass/json/pass_x_before_return_failed.json");
+    GELOGE(INTERNAL_ERROR, "invalid producer-consumer edge");
+    return INTERNAL_ERROR;
+}
+```
+
+### 步骤 4：重新编译并复现
+
+1. 重新编译受影响模块或按用户原命令重新构建。
+2. 在同一会话中保留日志环境变量，重新执行复现命令。
+3. 确认临时 dump 文件实际生成。
+4. 若仍未生成，继续把插桩点向异常前收缩，直到拿到“中断前最后一版图”。
+
+本步骤必须输出以下事实：
+
+- 是否已重新编译
+- 是否已重新执行原复现命令
+- 临时 dump 文件路径
+- 临时 dump 文件是否实际生成
+
+### 步骤 5：基于补打图继续分析
+
+获得补打图后，继续按原异常类型流程分析：
+
+1. 若是成环 / 拓扑失败：
+   - 对补打图执行 `--detect-op-cycle` / `--detect-subgraph-cycle`
+   - 与当前 pass 的 `Before` 图、上游 pass 输出图对比
+2. 若是属性、shape、依赖异常：
+   - 将补打图视为“异常前最新状态图”
+   - 对比异常前后关键 op、tensor、subgraph 的变化
+3. 在最终结论中明确标注该图来源于“临时异常前 dump”，不要误写成框架自动导出的标准 `After` 图
+
+### 步骤 6：调试结束后清理临时插桩
+
+若本轮任务包含代码修复或准备提交变更：
+
+1. 在确认根因后移除临时 `DumpJsonFile` 调试代码
+2. 除非用户明确要求保留诊断代码，否则不要把临时 dump 插桩作为正式修复提交
+3. 最终报告中保留：插桩位置、dump 文件名、分析结论；不要保留无必要的临时调试改动
+
+---
+
 ## 一、参数配置异常
 
 ### 日志特征
@@ -284,6 +414,7 @@ ls -lt pypto/output/pass/Pass_*/*.json
    - 相关 `op_magic`、`tensor_magic`
 2. 在 pass 输出目录中定位当前报错 pass 的图文件
 3. 同时收集上一个 pass 的输出图，作为回溯起点
+4. 如果当前 pass 缺失 `After` 图，必须先参考“公共参考：`After` 计算图缺失时补打异常前计算图”一节，拿到异常前最近一份图后，再继续成环分析
 
 #### 步骤 2：对当前图执行 op 级成环检测
 
@@ -366,6 +497,7 @@ python3 scripts/computation_graph_analyzer.py \
 - 当前图 JSON 中未直接导出 `dependOperand`
 - 因此脚本第一阶段只能稳定分析“显式 tensor 数据流”上的成环问题
 - 若日志来自拓扑排序或调度阶段，则可能存在 JSON 未表达的隐式依赖，需要回到源码侧确认
+- 若当前 pass 的标准 `After` 图缺失，但临时补打图已经生成，则应以该临时补打图作为“异常前最后状态图”继续本步骤，不得因为缺少标准 `After` 图而中止分析
 
 #### 步骤 5：沿 pass 链向前回溯，定位首次引入环的 pass
 
@@ -374,10 +506,11 @@ python3 scripts/computation_graph_analyzer.py \
 回溯方法：
 
 1. 对当前报错 pass 的输入图执行成环检测
-2. 对上一个 pass 的输出图执行成环检测
-3. 按 pass 顺序持续向前回溯
-4. 找到“前一阶段无环、当前阶段有环”的边界
-5. 将该 pass 标记为“首次引入环的根因候选 pass”
+2. 若当前 pass 存在临时补打图，优先对该图执行成环检测
+3. 对上一个 pass 的输出图执行成环检测
+4. 按 pass 顺序持续向前回溯
+5. 找到“前一阶段无环、当前阶段有环”的边界
+6. 将该 pass 标记为“首次引入环的根因候选 pass”
 
 建议执行：
 
