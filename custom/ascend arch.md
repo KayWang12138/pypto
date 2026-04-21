@@ -1,7 +1,8 @@
 # 昇腾架构简介
 备注：材料来源 https://zhuanlan.zhihu.com/p/16458886121
+参考资料：https://www.hiascend.com/document/detail/zh/CANNCommunityEdition/850alpha001/opdevg/Ascendcopdevg/atlas_ascendc_10_00027.html
 
-这里简单介绍一个华为昇腾架构，可以看图![华为昇腾架构](image.png)，以加深仿真的理解。
+这里简单介绍一个华为昇腾架构，可以看图![华为昇腾架构](https://www.hiascend.com/doc_center/source/zh/CANNCommunityEdition/850alpha001/opdevg/Ascendcopdevg/figure/zh-cn_image_0000002507193111.png)，以加深仿真的理解。
 ```
 异构计算单元与达芬奇架构
 Ascend NPU的设计采用了达芬奇架构（DaVinci Architecture）。达芬奇架构集成了标量计算单元（Scalar unit）、矢量计算单元（Vector unit）和立方体计算单元（Cube unit）等多种计算单元，这些计算单元的设计旨在最大化DNN任务的计算吞吐量，并克服传统计算架构在处理深度学习任务时的瓶颈。
