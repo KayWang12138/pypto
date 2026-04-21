@@ -34,16 +34,15 @@ import pypto
 
 NUM_HEADS = 4
 HEAD_DIM = 64
-BLOCK_SIZE_KV = 64
-BLOCK_SIZE_Q = 32
+BLOCK_SIZE_KV = 128
+BLOCK_SIZE_Q = 128
 
 
 @pypto.frontend.jit(
     pass_options={
-        "pg_upper_bound": 5000000,
-        "cube_l1_reuse_setting": {0: 8},
-        "cube_nbuffer_setting": {0: 4},
-        "vec_nbuffer_setting": {0: 4},
+        "cube_l1_reuse_setting": {-1: 8},
+        "cube_nbuffer_setting": {-1: 4},
+        "vec_nbuffer_setting": {-1: 4}
     },
     runtime_options={
         "stitch_function_max_num": 128,
@@ -64,17 +63,20 @@ def flash_attention_score_kernel_with_mask_origin(
     Flash Attention Score kernel with online softmax (with mask).
     Dynamic axes: batch (dim 0), seq_len_q (dim 2), seq_len_kv (dim 3 for key/value, dim 1 for mask)
     """
+    pypto.experimental.set_operation_options(combine_axis=True)
+
     batch_size = query.shape[0]
     seq_len_q = query.shape[2]
     seq_len_kv = key.shape[2]
 
     scale = 1.0 / math.sqrt(HEAD_DIM)
 
-    pypto.set_cube_tile_shapes([128, 128], [128, 512], [128, 128])
-    pypto.set_vec_tile_shapes(32, 512)
-
     num_blocks_kv = (seq_len_kv + BLOCK_SIZE_KV - 1) // BLOCK_SIZE_KV
     num_blocks_q = (seq_len_q + BLOCK_SIZE_Q - 1) // BLOCK_SIZE_Q
+
+    q_2d = pypto.reshape(query, [batch_size * NUM_HEADS * seq_len_q, HEAD_DIM], inplace=True)
+    k_2d = pypto.reshape(key, [batch_size * NUM_HEADS * seq_len_kv, HEAD_DIM], inplace=True)
+    v_2d = pypto.reshape(value, [batch_size * NUM_HEADS * seq_len_kv, HEAD_DIM], inplace=True)
 
     for b_idx in pypto.loop(0, batch_size, 1, name="LOOP_B", idx_name="b_idx"):
         for n_idx in pypto.loop(0, NUM_HEADS, 1, name="LOOP_N", idx_name="n_idx"):
@@ -86,31 +88,38 @@ def flash_attention_score_kernel_with_mask_origin(
                 li_update = pypto.tensor([BLOCK_SIZE_Q, 1], pypto.DT_FP32, "li_update")
                 mi_update = pypto.tensor([BLOCK_SIZE_Q, 1], pypto.DT_FP32, "mi_update")
 
-                q_block = pypto.view(query, [1, 1, BLOCK_SIZE_Q, HEAD_DIM],
-                                    [b_idx, n_idx, q_start, 0],
-                                    valid_shape=[1, 1, cur_q_size, HEAD_DIM])
-                q_block_2d = pypto.reshape(q_block, [BLOCK_SIZE_Q, HEAD_DIM])
-                q_block_2d_valid = pypto.view(q_block_2d, [BLOCK_SIZE_Q, HEAD_DIM],
-                                              [0, 0],
-                                              valid_shape=[cur_q_size, HEAD_DIM])
+                q_row_ofs = (b_idx * NUM_HEADS + n_idx) * seq_len_q + q_start
 
-                for kv_block_idx, _ in pypto.loop_unroll(0, num_blocks_kv, 1,
-                                                         name="LOOP_KV_BLOCK",
-                                                         idx_name="kv_block_idx",
-                                                         unroll_list=[4, 2, 1]):
+                for kv_block_idx in pypto.loop(
+                        num_blocks_kv,
+                        name="LOOP_KV_BLOCK",
+                        idx_name="kv_block_idx",
+                        unroll_list=[4, 2, 1],
+                    ):
                     kv_start = kv_block_idx * BLOCK_SIZE_KV
                     cur_block_size = pypto.min(BLOCK_SIZE_KV, seq_len_kv - kv_start)
 
-                    k_block = pypto.view(key, [1, 1, BLOCK_SIZE_KV, HEAD_DIM],
-                                        [b_idx, n_idx, kv_start, 0],
-                                        valid_shape=[1, 1, cur_block_size, HEAD_DIM])
-                    k_block_2d = pypto.reshape(k_block, [BLOCK_SIZE_KV, HEAD_DIM])
-                    k_block_2d_valid = pypto.view(k_block_2d, [BLOCK_SIZE_KV, HEAD_DIM],
-                                                  [0, 0],
-                                                  valid_shape=[cur_block_size, HEAD_DIM])
+                    kv_row_ofs = (b_idx * NUM_HEADS + n_idx) * seq_len_kv + kv_start
 
+                    pypto.set_vec_tile_shapes(32, 512)
+                    q_block_2d_valid = pypto.view(
+                        q_2d,
+                        [BLOCK_SIZE_Q, HEAD_DIM],
+                        [q_row_ofs, 0],
+                        valid_shape=[cur_q_size, HEAD_DIM],
+                    )
+                    k_block_2d_valid = pypto.view(
+                        k_2d,
+                        [BLOCK_SIZE_KV, HEAD_DIM],
+                        [kv_row_ofs, 0],
+                        valid_shape=[cur_block_size, HEAD_DIM],
+                    )
+
+                    pypto.set_cube_tile_shapes([128, 128], [128, 128], [256, 256])
                     scores = pypto.matmul(q_block_2d_valid, k_block_2d_valid, pypto.DT_FP32,
                                          a_trans=False, b_trans=True)
+
+                    pypto.set_vec_tile_shapes(32, 512)
                     scores_scaled = pypto.mul(scores, scale)
 
                     mask_block = pypto.view(atten_mask, [BLOCK_SIZE_Q, BLOCK_SIZE_KV],
@@ -126,25 +135,20 @@ def flash_attention_score_kernel_with_mask_origin(
                     p_ij = pypto.mul(p_ij, valid_mask)
                     l_ij = pypto.sum(p_ij, dim=-1, keepdim=True)
 
-                    v_block = pypto.view(value, [1, 1, BLOCK_SIZE_KV, HEAD_DIM],
-                                        [b_idx, n_idx, kv_start, 0],
-                                        valid_shape=[1, 1, cur_block_size, HEAD_DIM])
-                    v_block_2d = pypto.reshape(v_block, [BLOCK_SIZE_KV, HEAD_DIM])
-                    v_block_2d_valid = pypto.view(v_block_2d, [BLOCK_SIZE_KV, HEAD_DIM],
-                                                  [0, 0],
-                                                  valid_shape=[cur_block_size, HEAD_DIM])
+                    v_block_2d_valid = pypto.view(
+                        v_2d,
+                        [BLOCK_SIZE_KV, HEAD_DIM],
+                        [kv_row_ofs, 0],
+                        valid_shape=[cur_block_size, HEAD_DIM],
+                    )
                     v_block_fp32 = pypto.cast(v_block_2d_valid, pypto.DT_FP32)
 
+                    pypto.set_cube_tile_shapes([128, 128], [128, 128], [128, 128])
                     o_ij = pypto.matmul(p_ij, v_block_fp32, pypto.DT_FP32)
 
                     if pypto.is_loop_begin(kv_block_idx):
-                        if pypto.is_loop_end(kv_block_idx):
-                            o_final = pypto.div(o_ij, l_ij)
-                            o_final_bf16 = pypto.cast(o_final, pypto.DT_BF16)
-                            o_final_4d = pypto.reshape(o_final_bf16, [1, 1, BLOCK_SIZE_Q, HEAD_DIM])
-                            output[b_idx: b_idx + 1, n_idx: n_idx + 1, q_start: q_start + BLOCK_SIZE_Q, :] = o_final_4d
-                        else:
-                            oi_update[:] = o_ij
+                        pypto.set_vec_tile_shapes(32, 128)
+                        oi_update[:] = o_ij
                         li_update[:] = l_ij
                         mi_update[:] = m_ij
                     else:
@@ -158,27 +162,28 @@ def flash_attention_score_kernel_with_mask_origin(
                             pypto.mul(beta, l_ij)
                         )
 
+                        pypto.set_vec_tile_shapes(32, 128)
                         oi_scaled = pypto.mul(oi_update, alpha)
                         o_ij_scaled = pypto.mul(o_ij, beta)
                         oi_new = pypto.add(oi_scaled, o_ij_scaled)
 
-                        if pypto.is_loop_end(kv_block_idx):
-                            o_final = pypto.div(oi_new, li_new)
-                            o_final_bf16 = pypto.cast(o_final, pypto.DT_BF16)
-                            o_final_4d = pypto.reshape(o_final_bf16, [1, 1, BLOCK_SIZE_Q, HEAD_DIM])
-                            output[b_idx: b_idx + 1, n_idx: n_idx + 1, q_start: q_start + BLOCK_SIZE_Q, :] = o_final_4d
-                        else:
-                            oi_update[:] = oi_new
+                        oi_update[:] = oi_new
                         li_update[:] = li_new
                         mi_update[:] = mi_new
+
+                    if pypto.is_loop_end(kv_block_idx):
+                        pypto.set_vec_tile_shapes(32, 128)
+                        o_final = pypto.div(oi_update, li_update)
+                        pypto.set_vec_tile_shapes(1, 1, 32, 128)
+                        o_final_4d = pypto.cast(pypto.reshape(o_final, [1, 1, BLOCK_SIZE_Q, HEAD_DIM]), pypto.DT_BF16)
+                        pypto.assemble(o_final_4d, [b_idx, n_idx, q_start, 0], output)
 
 
 @pypto.frontend.jit(
     pass_options={
-        "pg_upper_bound": 5000000,
-        "cube_l1_reuse_setting": {0: 8},
-        "cube_nbuffer_setting": {0: 4},
-        "vec_nbuffer_setting": {0: 4},
+        "cube_l1_reuse_setting": {-1: 8},
+        "cube_nbuffer_setting": {-1: 4},
+        "vec_nbuffer_setting": {-1: 4},
     },
     runtime_options={
         "stitch_function_max_num": 128,
@@ -209,6 +214,8 @@ def flash_attention_score_kernel_with_mask(
     Stage 3 Enhancement: Configurable scale_value
     - scale_value: Scaling factor for attention scores (e.g., 1/sqrt(HEAD_DIM))
     """
+    pypto.experimental.set_operation_options(combine_axis=True)
+    
     batch_size = query.shape[0]
     seq_len_q = query.shape[2]
     seq_len_kv = key.shape[2]
@@ -221,6 +228,10 @@ def flash_attention_score_kernel_with_mask(
     num_blocks_kv = (seq_len_kv + BLOCK_SIZE_KV - 1) // BLOCK_SIZE_KV
     num_blocks_q = (seq_len_q + BLOCK_SIZE_Q - 1) // BLOCK_SIZE_Q
 
+    q_2d = pypto.reshape(query, [batch_size * NUM_HEADS * seq_len_q, HEAD_DIM], inplace=True)
+    k_2d = pypto.reshape(key, [batch_size * NUM_HEADS * seq_len_kv, HEAD_DIM], inplace=True)
+    v_2d = pypto.reshape(value, [batch_size * NUM_HEADS * seq_len_kv, HEAD_DIM], inplace=True)
+
     for b_idx in pypto.loop(0, batch_size, 1, name="LOOP_B", idx_name="b_idx"):
         for n_idx in pypto.loop(0, NUM_HEADS, 1, name="LOOP_N", idx_name="n_idx"):
             for q_block_idx in pypto.loop(0, num_blocks_q, 1, name="LOOP_Q_BLOCK", idx_name="q_block_idx"):
@@ -231,36 +242,34 @@ def flash_attention_score_kernel_with_mask(
                 li_update = pypto.tensor([BLOCK_SIZE_Q, 1], pypto.DT_FP32, "li_update")
                 mi_update = pypto.tensor([BLOCK_SIZE_Q, 1], pypto.DT_FP32, "mi_update")
 
-                q_block = pypto.view(query, [1, 1, BLOCK_SIZE_Q, HEAD_DIM],
-                                    [b_idx, n_idx, q_start, 0],
-                                    valid_shape=[1, 1, cur_q_size, HEAD_DIM])
-                q_block_2d = pypto.reshape(q_block, [BLOCK_SIZE_Q, HEAD_DIM])
-                q_block_2d_valid = pypto.view(q_block_2d, [BLOCK_SIZE_Q, HEAD_DIM],
-                                              [0, 0],
-                                              valid_shape=[cur_q_size, HEAD_DIM])
+                q_row_ofs = (b_idx * NUM_HEADS + n_idx) * seq_len_q + q_start
 
-                for kv_block_idx, _ in pypto.loop_unroll(0, num_blocks_kv, 1,
-                                                         name="LOOP_KV_BLOCK",
-                                                         idx_name="kv_block_idx",
-                                                         unroll_list=[4, 2, 1]):
+                for kv_block_idx in pypto.loop(
+                    num_blocks_kv,
+                    name="LOOP_KV_BLOCK",
+                    idx_name="kv_block_idx",
+                    unroll_list=[4, 2, 1],
+                ):
                     kv_start = kv_block_idx * BLOCK_SIZE_KV
                     cur_block_size = pypto.min(BLOCK_SIZE_KV, seq_len_kv - kv_start)
+                    kv_row_ofs = (b_idx * NUM_HEADS + n_idx) * seq_len_kv + kv_start
 
-                    k_block = pypto.view(key, [1, 1, BLOCK_SIZE_KV, HEAD_DIM],
-                                        [b_idx, n_idx, kv_start, 0],
-                                        valid_shape=[1, 1, cur_block_size, HEAD_DIM])
-                    k_block_2d = pypto.reshape(k_block, [BLOCK_SIZE_KV, HEAD_DIM])
-                    k_block_2d_valid = pypto.view(k_block_2d, [BLOCK_SIZE_KV, HEAD_DIM],
-                                                  [0, 0],
-                                                  valid_shape=[cur_block_size, HEAD_DIM])
+                    q_block_2d_valid = pypto.view(
+                        q_2d, [BLOCK_SIZE_Q, HEAD_DIM], [q_row_ofs, 0],
+                        valid_shape=[cur_q_size, HEAD_DIM],
+                    )
+                    k_block_2d_valid = pypto.view(
+                        k_2d, [BLOCK_SIZE_KV, HEAD_DIM], [kv_row_ofs, 0],
+                        valid_shape=[cur_block_size, HEAD_DIM],
+                    )
 
                     scores = pypto.matmul(q_block_2d_valid, k_block_2d_valid, pypto.DT_FP32,
                                          a_trans=False, b_trans=True)
                     scores_scaled = pypto.mul(scores, scale)
 
                     mask_block = pypto.view(atten_mask, [BLOCK_SIZE_Q, BLOCK_SIZE_KV],
-                                           [q_start, kv_start],
-                                           valid_shape=[cur_q_size, cur_block_size])
+                                            [q_start, kv_start],
+                                            valid_shape=[cur_q_size, cur_block_size])
                     valid_mask = pypto.add(mask_block, -1.0)
                     valid_mask = pypto.mul(valid_mask, -1.0)
 
@@ -271,13 +280,10 @@ def flash_attention_score_kernel_with_mask(
                     p_ij = pypto.mul(p_ij, valid_mask)
                     l_ij = pypto.sum(p_ij, dim=-1, keepdim=True)
 
-                    v_block = pypto.view(value, [1, 1, BLOCK_SIZE_KV, HEAD_DIM],
-                                        [b_idx, n_idx, kv_start, 0],
-                                        valid_shape=[1, 1, cur_block_size, HEAD_DIM])
-                    v_block_2d = pypto.reshape(v_block, [BLOCK_SIZE_KV, HEAD_DIM])
-                    v_block_2d_valid = pypto.view(v_block_2d, [BLOCK_SIZE_KV, HEAD_DIM],
-                                                  [0, 0],
-                                                  valid_shape=[cur_block_size, HEAD_DIM])
+                    v_block_2d_valid = pypto.view(
+                        v_2d, [BLOCK_SIZE_KV, HEAD_DIM], [kv_row_ofs, 0],
+                        valid_shape=[cur_block_size, HEAD_DIM],
+                    )
                     v_block_fp32 = pypto.cast(v_block_2d_valid, pypto.DT_FP32)
 
                     o_ij = pypto.matmul(p_ij, v_block_fp32, pypto.DT_FP32)
@@ -362,10 +368,9 @@ def flash_attention_score_kernel_with_mask(
 
 @pypto.frontend.jit(
     pass_options={
-        "pg_upper_bound": 5000000,
-        "cube_l1_reuse_setting": {0: 8},
-        "cube_nbuffer_setting": {0: 4},
-        "vec_nbuffer_setting": {0: 4},
+        "cube_l1_reuse_setting": {-1: 8},
+        "cube_nbuffer_setting": {-1: 4},
+        "vec_nbuffer_setting": {-1: 4}
     },
     runtime_options={
         "stitch_function_max_num": 128,
@@ -412,6 +417,8 @@ def flash_attention_score_kernel_with_pse_and_dropout(
         keep_prob: Dropout keep probability (1.0 = no dropout)
         scale_value: Scaling factor for attention scores (Stage 3)
     """
+    pypto.experimental.set_operation_options(combine_axis=True)
+
     batch_size = query.shape[0]
     seq_len_q = query.shape[2]
     seq_len_kv = key.shape[2]
@@ -424,6 +431,10 @@ def flash_attention_score_kernel_with_pse_and_dropout(
     num_blocks_kv = (seq_len_kv + BLOCK_SIZE_KV - 1) // BLOCK_SIZE_KV
     num_blocks_q = (seq_len_q + BLOCK_SIZE_Q - 1) // BLOCK_SIZE_Q
 
+    q_2d = pypto.reshape(query, [batch_size * NUM_HEADS * seq_len_q, HEAD_DIM], inplace=True)
+    k_2d = pypto.reshape(key, [batch_size * NUM_HEADS * seq_len_kv, HEAD_DIM], inplace=True)
+    v_2d = pypto.reshape(value, [batch_size * NUM_HEADS * seq_len_kv, HEAD_DIM], inplace=True)
+
     for b_idx in pypto.loop(0, batch_size, 1, name="LOOP_B", idx_name="b_idx"):
         for n_idx in pypto.loop(0, NUM_HEADS, 1, name="LOOP_N", idx_name="n_idx"):
             for q_block_idx in pypto.loop(0, num_blocks_q, 1, name="LOOP_Q_BLOCK", idx_name="q_block_idx"):
@@ -434,41 +445,39 @@ def flash_attention_score_kernel_with_pse_and_dropout(
                 li_update = pypto.tensor([BLOCK_SIZE_Q, 1], pypto.DT_FP32, "li_update")
                 mi_update = pypto.tensor([BLOCK_SIZE_Q, 1], pypto.DT_FP32, "mi_update")
 
-                q_block = pypto.view(query, [1, 1, BLOCK_SIZE_Q, HEAD_DIM],
-                                    [b_idx, n_idx, q_start, 0],
-                                    valid_shape=[1, 1, cur_q_size, HEAD_DIM])
-                q_block_2d = pypto.reshape(q_block, [BLOCK_SIZE_Q, HEAD_DIM])
-                q_block_2d_valid = pypto.view(q_block_2d, [BLOCK_SIZE_Q, HEAD_DIM],
-                                              [0, 0],
-                                              valid_shape=[cur_q_size, HEAD_DIM])
+                q_row_ofs = (b_idx * NUM_HEADS + n_idx) * seq_len_q + q_start
 
-                for kv_block_idx, _ in pypto.loop_unroll(0, num_blocks_kv, 1,
-                                                         name="LOOP_KV_BLOCK",
-                                                         idx_name="kv_block_idx",
-                                                         unroll_list=[4, 2, 1]):
+                for kv_block_idx in pypto.loop(
+                    num_blocks_kv,
+                    name="LOOP_KV_BLOCK",
+                    idx_name="kv_block_idx",
+                    unroll_list=[4, 2, 1],
+                ):
                     kv_start = kv_block_idx * BLOCK_SIZE_KV
                     cur_block_size = pypto.min(BLOCK_SIZE_KV, seq_len_kv - kv_start)
+                    kv_row_ofs = (b_idx * NUM_HEADS + n_idx) * seq_len_kv + kv_start
 
-                    k_block = pypto.view(key, [1, 1, BLOCK_SIZE_KV, HEAD_DIM],
-                                        [b_idx, n_idx, kv_start, 0],
-                                        valid_shape=[1, 1, cur_block_size, HEAD_DIM])
-                    k_block_2d = pypto.reshape(k_block, [BLOCK_SIZE_KV, HEAD_DIM])
-                    k_block_2d_valid = pypto.view(k_block_2d, [BLOCK_SIZE_KV, HEAD_DIM],
-                                                  [0, 0],
-                                                  valid_shape=[cur_block_size, HEAD_DIM])
+                    q_block_2d_valid = pypto.view(
+                        q_2d, [BLOCK_SIZE_Q, HEAD_DIM], [q_row_ofs, 0],
+                        valid_shape=[cur_q_size, HEAD_DIM],
+                    )
+                    k_block_2d_valid = pypto.view(
+                        k_2d, [BLOCK_SIZE_KV, HEAD_DIM], [kv_row_ofs, 0],
+                        valid_shape=[cur_block_size, HEAD_DIM],
+                    )
 
                     scores = pypto.matmul(q_block_2d_valid, k_block_2d_valid, pypto.DT_FP32,
                                          a_trans=False, b_trans=True)
-                    
+
                     pse_block = pypto.view(pse, [1, 1, BLOCK_SIZE_Q, BLOCK_SIZE_KV],
-                                          [b_idx, n_idx, q_start, kv_start],
-                                          valid_shape=[1, 1, cur_q_size, cur_block_size])
+                                            [b_idx, n_idx, q_start, kv_start],
+                                            valid_shape=[1, 1, cur_q_size, cur_block_size])
                     pse_block_2d = pypto.reshape(pse_block, [BLOCK_SIZE_Q, BLOCK_SIZE_KV])
-                    pse_block_2d_valid = pypto.view(pse_block_2d, [BLOCK_SIZE_Q, BLOCK_SIZE_KV],
-                                                    [0, 0],
-                                                    valid_shape=[cur_q_size, cur_block_size])
-                    pse_fp32 = pypto.cast(pse_block_2d_valid, pypto.DT_FP32)
-                    
+                    pse_block_valid = pypto.view(pse_block_2d, [BLOCK_SIZE_Q, BLOCK_SIZE_KV],
+                                                [0, 0],
+                                                valid_shape=[cur_q_size, cur_block_size])
+                    pse_fp32 = pypto.cast(pse_block_valid, pypto.DT_FP32)
+
                     if pse_type == 1:
                         scores = pypto.add(pse_fp32, scores)
                         scores_scaled = pypto.mul(scores, scale)
@@ -477,8 +486,8 @@ def flash_attention_score_kernel_with_pse_and_dropout(
                         scores_scaled = pypto.add(scores_scaled, pse_fp32)
 
                     mask_block = pypto.view(atten_mask, [BLOCK_SIZE_Q, BLOCK_SIZE_KV],
-                                           [q_start, kv_start],
-                                           valid_shape=[cur_q_size, cur_block_size])
+                                            [q_start, kv_start],
+                                            valid_shape=[cur_q_size, cur_block_size])
                     valid_mask = pypto.add(mask_block, -1.0)
                     valid_mask = pypto.mul(valid_mask, -1.0)
 
@@ -487,25 +496,22 @@ def flash_attention_score_kernel_with_pse_and_dropout(
                     s_ij_sub_m = pypto.sub(scores_scaled, m_ij)
                     p_ij = pypto.exp(s_ij_sub_m)
                     p_ij = pypto.mul(p_ij, valid_mask)
-                    
+
                     drop_mask_block = pypto.view(drop_mask, [BLOCK_SIZE_Q, BLOCK_SIZE_KV],
-                                                [q_start, kv_start],
-                                                valid_shape=[cur_q_size, cur_block_size])
+                                                 [q_start, kv_start],
+                                                 valid_shape=[cur_q_size, cur_block_size])
                     p_ij = pypto.mul(p_ij, drop_mask_block)
-                    
+
                     if keep_prob < 1.0:
                         scale_dropout = 1.0 / keep_prob
                         p_ij = pypto.mul(p_ij, scale_dropout)
-                    
+
                     l_ij = pypto.sum(p_ij, dim=-1, keepdim=True)
 
-                    v_block = pypto.view(value, [1, 1, BLOCK_SIZE_KV, HEAD_DIM],
-                                        [b_idx, n_idx, kv_start, 0],
-                                        valid_shape=[1, 1, cur_block_size, HEAD_DIM])
-                    v_block_2d = pypto.reshape(v_block, [BLOCK_SIZE_KV, HEAD_DIM])
-                    v_block_2d_valid = pypto.view(v_block_2d, [BLOCK_SIZE_KV, HEAD_DIM],
-                                                  [0, 0],
-                                                  valid_shape=[cur_block_size, HEAD_DIM])
+                    v_block_2d_valid = pypto.view(
+                        v_2d, [BLOCK_SIZE_KV, HEAD_DIM], [kv_row_ofs, 0],
+                        valid_shape=[cur_block_size, HEAD_DIM],
+                    )
                     v_block_fp32 = pypto.cast(v_block_2d_valid, pypto.DT_FP32)
 
                     o_ij = pypto.matmul(p_ij, v_block_fp32, pypto.DT_FP32)
