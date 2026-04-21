@@ -311,7 +311,27 @@ public:
         if (devProg == nullptr) {
             return 0;
         }
-        devProg->memBudget.tensor.maxDynamicAssembleOutcastMem = eval.Evaluate(dynAttr->maxDynamicAssembleOutcastMem);
+        if (dynAttr->maxDynamicAssembleOutcastMem.IsValid()) {
+            devProg->memBudget.tensor.maxDynamicAssembleOutcastMem = eval.Evaluate(dynAttr->maxDynamicAssembleOutcastMem);
+        }
+        if (dynAttr->maxDynamicCellMatchTableMem.IsValid()) {
+            devProg->memBudget.tensor.maxDynamicCellMatchTableMem =
+                eval.Evaluate(dynAttr->maxDynamicCellMatchTableMem);
+        }
+        uint64_t runtimeTensorUpperBound = 0;
+        for (const auto& t : inputs) {
+            runtimeTensorUpperBound = std::max<uint64_t>(runtimeTensorUpperBound, t.GetDataSize());
+        }
+        for (const auto& t : outputs) {
+            runtimeTensorUpperBound = std::max<uint64_t>(runtimeTensorUpperBound, t.GetDataSize());
+        }
+        devProg->memBudget.tensor.maxDynamicAssembleOutcastMem = std::max<uint64_t>(
+            devProg->memBudget.tensor.maxDynamicAssembleOutcastMem, runtimeTensorUpperBound);
+        std::printf(
+            "[Workspace/Fallback] runtime_tensor_upper_bound=%lu maxDynamicAssembleOutcastMem=%lu "
+            "maxDynamicCellMatchTableMem=%lu\n",
+            runtimeTensorUpperBound, devProg->memBudget.tensor.maxDynamicAssembleOutcastMem,
+            devProg->memBudget.tensor.maxDynamicCellMatchTableMem);
         return devProg->memBudget.Total();
     }
 
