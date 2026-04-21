@@ -135,6 +135,13 @@ private:
     // tensor和其初始化时对应的alloc的core类型 memId-core类型
     std::unordered_map<int, CoreLocationType> tensorAllocCoreMap;
 
+    // DualDst buffer tracking: memId -> 是否dual_dst alloc
+    std::unordered_map<int, bool> isDualDstAlloc_;
+    // DualDst pair tracking: memId -> 对应的另一半memId
+    std::unordered_map<int, int> dualDstPairMemId_;
+    // DualDst operation tracking: Operation* -> 是否dual_dst alloc
+    std::unordered_map<Operation*, bool> isDualDstOpMap_;
+
     std::unordered_map<CoreLocationType, std::map<MemoryType, IssueQueue>> allocIssueQueue;
 
     std::unordered_map<CoreLocationType, std::map<PipeType, IssueQueue>> issueQueues;

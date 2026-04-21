@@ -34,6 +34,15 @@ const std::unordered_map<TargetCoreType, CoreLocationType> targetCoreTypeMap{
 const std::unordered_set<CoreLocationType> CORE_INIT_CONFIGS_HARDWARE_TWO_AIV = {
     CoreLocationType::AIC, CoreLocationType::AIV0, CoreLocationType::AIV1};
 
+// DualDst pair structure for tracking pairs of OP_L0C_COPY_UB operations
+struct DualDstPair {
+    Operation* copyOp1 = nullptr;       // 第一个OP_L0C_COPY_UB
+    Operation* copyOp2 = nullptr;       // 第二个OP_L0C_COPY_UB
+    LogicalTensorPtr l0cTensor = nullptr; // 共享的L0C输入tensor
+    bool isSplitM = true;               // true=SplitM, false=SplitN
+    int firstOpIdx = -1;                // 第一个操作在opList中的位置
+};
+
 class OoOSchedule : public Pass {
 public:
     OoOSchedule() : Pass("OoOSchedule") {}
@@ -64,10 +73,26 @@ private:
     bool IsBoundary(Operation* op);
     Status UpdateOpCoreMap(
         const TaskNode& taskNode, std::unordered_map<Operation*, CoreLocationType>& opCoreMap);
+
+    // DualDst related methods
+    bool CheckDualDstEnabled();
+    Status DetectDualDstPairs(std::vector<Operation*>& opList);
+    void DetectSplitPairs(LogicalTensorPtr l0cTensor, std::vector<Operation*>& copyOps);
+    Status CreateDualDstOps(std::vector<Operation*>& opList, Function& function);
+    void SetDualDstOpAttribute(Operation& dualDstOp, const DualDstPair& pair,
+        LogicalTensorPtr ubTensor1, LogicalTensorPtr ubTensor2);
+    Operation* GetAllocOpForTensor(LogicalTensorPtr tensor, std::vector<Operation*>& opList);
+    void MarkDualDstAlloc(Operation* allocOp1, Operation* allocOp2);
+    Status UpdateDualDstDependencies(Operation& dualDstOp, Operation* copyOp1, Operation* copyOp2);
+
     std::vector<Function*> oriFunctions;
     std::map<uint64_t, OoOScheduleStatistic> statisticMap_;
     std::unordered_map<LogicalTensorPtr, Operation*> lastUseMap_;
     OoOScheduleChecker checker;
+
+    // DualDst configuration and tracking
+    bool enableDualDst_ = false;        // DualDst开关
+    std::vector<DualDstPair> dualDstPairs_; // 记录所有检测到的dual_dst pairs
 };
 } // namespace npu::tile_fwk
 #endif // PASS_SCHEDULE_OOO_H

@@ -1258,6 +1258,33 @@ Status OoOScheduler::SelectSpillBuffers(LocalBufferPtr allocBuffer, Operation* a
         APASS_LOG_WARN_F(Elements::Tensor, "Cannot find tensor to spill.");
         return FAILED;
     }
+
+    // Handle dual_dst: ensure paired buffers are spilled together
+    for (auto& group : canSpillGroups) {
+        std::vector<int> addedMemIds;
+        for (auto memId : group) {
+            // Check if this is a dual_dst alloc
+            if (isDualDstAlloc_.count(memId) && isDualDstAlloc_[memId]) {
+                int pairedMemId = dualDstPairMemId_[memId];
+                // Ensure paired buffer is in the group or add it
+                if (std::find(group.begin(), group.end(), pairedMemId) == group.end() &&
+                    std::find(addedMemIds.begin(), addedMemIds.end(), pairedMemId) == addedMemIds.end()) {
+                    // Check if paired buffer is currently allocated
+                    if (bufferManagerMap[coreLocation][memType].isAllocate(pairedMemId)) {
+                        addedMemIds.push_back(pairedMemId);
+                        APASS_LOG_DEBUG_F(Elements::Tensor,
+                            "DualDst: adding paired Tensor[%d] to spill group with Tensor[%d].",
+                            pairedMemId, memId);
+                    }
+                }
+            }
+        }
+        // Add paired memIds to the group
+        for (auto pairedMemId : addedMemIds) {
+            group.push_back(pairedMemId);
+        }
+    }
+
     std::unordered_map<int, size_t> nextUseTimeCache;
     std::vector<int> groupNextUseTime;
     for (auto &group : canSpillGroups) {

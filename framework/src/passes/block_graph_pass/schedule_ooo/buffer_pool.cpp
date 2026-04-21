@@ -402,4 +402,74 @@ void BufferPool::PrintStatus()
             Elements::Tensor, "      |--- Space : [%lu, %lu], Size : %lu", lastEnd, memSize_, memSize_ - lastEnd);
     }
 }
+
+// ========== DualDst Implementation ==========
+
+bool BufferPool::IsFullForDualDst(const LocalBufferPtr tensor1, const LocalBufferPtr tensor2)
+{
+    // DualDst要求两个tensor有相同大小的空闲空间（取较大的size）
+    size_t requiredSize = std::max(tensor1->size, tensor2->size);
+
+    auto freeIntervals = FindFreeIntervals();
+    for (auto& interval : freeIntervals) {
+        if (interval.first >= requiredSize) {
+            // 有足够大小的空闲空间
+            return false;
+        }
+    }
+    return true;
+}
+
+Status BufferPool::AllocateDualDst(LocalBufferPtr tensor1, LocalBufferPtr tensor2)
+{
+    // DualDst要求两个tensor分配在相同地址
+    // 取较大的size作为分配大小
+    size_t requiredSize = std::max(tensor1->size, tensor2->size);
+
+    auto freeIntervals = FindFreeIntervals();
+    uint64_t targetAddr = 0;
+
+    // 找到第一个足够大的空闲空间
+    bool found = false;
+    for (auto& interval : freeIntervals) {
+        if (interval.first >= requiredSize) {
+            for (auto& freeSpace : interval.second) {
+                targetAddr = freeSpace.first;
+                found = true;
+                break;
+            }
+            if (found) break;
+        }
+    }
+
+    if (!found) {
+        APASS_LOG_ERROR_F(Elements::Tensor,
+            "Buffer does not have enough memory for DualDst allocation (size=%zu).", requiredSize);
+        return FAILED;
+    }
+
+    // 在相同地址分配两个buffer
+    BufferSlice slice1;
+    slice1.offset = targetAddr;
+    slice1.size = tensor1->size;
+    if (MakeBufferSlice(tensor1, slice1) != SUCCESS) {
+        return FAILED;
+    }
+
+    BufferSlice slice2;
+    slice2.offset = targetAddr;
+    slice2.size = tensor2->size;
+    if (MakeBufferSlice(tensor2, slice2) != SUCCESS) {
+        // 如果第二个分配失败，需要释放第一个
+        bufferSlices.erase(tensor1->id);
+        return FAILED;
+    }
+
+    APASS_LOG_DEBUG_F(Elements::Tensor,
+        "DualDst allocated: Tensor[%d] and Tensor[%d] at address %lu.",
+        tensor1->id, tensor2->id, targetAddr);
+
+    return SUCCESS;
+}
+
 } // namespace npu::tile_fwk
