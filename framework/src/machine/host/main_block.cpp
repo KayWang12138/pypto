@@ -151,8 +151,17 @@ SymbolicScalar MainBlockCondBulider::BuildMainBlockExpression()
         return runtimeSelect(cond, 1, 0);
     }
 
+    if (mainBlockCondGroup_.size() > MAX_RUNTIME_AND_NESTING_DEPTH) {
+        MACHINE_LOGW("runtimeAnd nesting depth too large (%zu), disable mainblock", mainBlockCondGroup_.size());
+        return runtimeSelect(false, 1, 0);
+    }
+
     cond = true;
     for (const auto& iter : mainBlockCondGroup_) {
+        std::string exprStr = iter.Dump();
+        if (exprStr.find("RUNTIME_GetTensorDataInt32") != std::string::npos) {
+            return runtimeSelect(false, 1, 0);
+        }
         cond = runtimeAnd(cond, iter);
     }
 
