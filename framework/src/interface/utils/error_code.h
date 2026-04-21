@@ -194,6 +194,9 @@ enum class DevCommonErr : uint32_t {
     GET_ENV_FAILED = ToUnderlying(MachineError::DEV_COMMON) + 0x09U,
     GET_HANDLE_FAILED = ToUnderlying(MachineError::DEV_COMMON) + 0x0AU,
     FREE_FAILED = ToUnderlying(MachineError::DEV_COMMON) + 0x0BU,
+    LOAD_LIBRARY_FAILED = ToUnderlying(MachineError::DEV_COMMON) + 0x0CU,
+    INIT_FAILED = ToUnderlying(MachineError::DEV_COMMON) + 0x0DU,
+    EXEC_THRID_API_FAILD = ToUnderlying(MachineError::DEV_COMMON) + 0x0EU,
 };
 
 enum class HostBackEndErr : uint32_t {
