@@ -15,6 +15,11 @@
 
 #pragma once
 
+#include <cstdio>
+#include <algorithm>
+#include <numeric>
+#include <vector>
+
 #include "machine/utils/dynamic/dev_encode_types.h"
 #include "machine/utils/dynamic/dev_encode_function.h"
 #include "tilefwk/aicpu_common.h"
@@ -200,6 +205,14 @@ static void CellMatchHandle(
             DEV_ASSERT(ProgEncodeErr::CELL_MATCH_DIM_ZERO, 0);
         }
     }
+    std::printf("[CellMatchRange] dim=%d", cellMatchTableDesc.GetDimensionSize());
+    for (int i = 0; i < cellMatchTableDesc.GetDimensionSize(); ++i) {
+        std::printf(
+            " d%d(offset=%lu shape=%lu cell=%d begin=%lu end=%lu)", i, static_cast<unsigned long>(offset[i]),
+            static_cast<unsigned long>(shape[i]), cellMatchTableDesc.GetCellShape(i),
+            static_cast<unsigned long>(rangeBegin[i]), static_cast<unsigned long>(rangeEnd[i]));
+    }
+    std::printf("\n");
     switch (cellMatchTableDesc.cellShape.dimSize) {
         case 1: {
             int s0 = 1;
@@ -248,7 +261,11 @@ static void CellMatchFill(
         struct HandleFill {
             static inline void Process(int index, uint32_t* cellMatchTableData, uint32_t operationIdx)
             {
+                uint32_t old = cellMatchTableData[index];
                 cellMatchTableData[index] = operationIdx;
+                std::printf(
+                    "[CellMatchFill/U32] cell=%d old=%u new=%u%s\n", index, old, operationIdx,
+                    (old != static_cast<uint32_t>(-1) && old != operationIdx) ? " overwrite" : "");
                 DEV_VERBOSE_DEBUG(
                     "cell match fill, operation %u , cellindex[%d] = operationindex(%u)", operationIdx, index,
                     operationIdx);
@@ -265,8 +282,15 @@ static void CellMatchFill(
             static inline void Process(
                 int index, uint64_t* cellMatchTableData, uint32_t devTaskId, uint32_t funcIdx, uint32_t operationIdx)
             {
+                uint64_t old = cellMatchTableData[index];
                 cellMatchTableData[index] =
                     (static_cast<uint64_t>(devTaskId) << TASKID_SHIFT32) | MakeTaskID(funcIdx, operationIdx);
+                std::printf(
+                    "[CellMatchFill/U64] cell=%d old=0x%lx new=0x%lx%s\n", index, static_cast<unsigned long>(old),
+                    static_cast<unsigned long>(cellMatchTableData[index]),
+                    (old != static_cast<uint64_t>(AICORE_TASK_INIT) && old != cellMatchTableData[index]) ?
+                        " overwrite" :
+                        "");
                 DEV_VERBOSE_DEBUG(
                     "cell match fill, devtaskid:%u funcIdx %u operation %u , cellindex[%d] = taskid(%lx)", devTaskId,
                     funcIdx, operationIdx, index, cellMatchTableData[index]);
@@ -336,6 +360,120 @@ static bool GetTensorRawShape(
     return paramConcrete;
 }
 
+struct DynamicCellMatchRuntimeMeta {
+    std::vector<int> tensorShape;
+    std::vector<int> runtimeCellShape;
+    std::vector<int> strideShape;
+    uint64_t tableSize{0};
+    size_t useSize{0};
+};
+
+inline bool IsCellMatchDescConcrete(const DevCellMatchTableDesc& desc)
+{
+    const int dim = desc.GetDimensionSize();
+    if (dim <= 0) {
+        return false;
+    }
+    for (int d = 0; d < dim; ++d) {
+        if (desc.GetCellShape(d) <= 0 || desc.GetStrideShape(d) <= 0) {
+            return false;
+        }
+    }
+    return true;
+}
+
+inline uint64_t GetCellMatchTableSizeFromDesc(const DevCellMatchTableDesc& desc)
+{
+    if (!IsCellMatchDescConcrete(desc)) {
+        return 0;
+    }
+    uint64_t tableSize = 1;
+    for (int d = 0; d < desc.GetDimensionSize(); ++d) {
+        int stride = desc.GetStrideShape(d);
+        if (stride <= 0) {
+            return 0;
+        }
+        tableSize *= static_cast<uint64_t>(stride);
+    }
+    return tableSize;
+}
+
+inline bool BuildRuntimeDynamicCellMatchMeta(
+    DevAscendFunction* devFunc, DevAscendFunctionOutcast& outcast, const uint64_t* runtimeExpressionList,
+    DevCellMatchTableDesc& desc, int slotIndex, DynamicCellMatchRuntimeMeta& meta)
+{
+    const int dim = desc.GetDimensionSize();
+    if (dim <= 0) {
+        meta.tableSize = 0;
+        meta.useSize = 0;
+        return false;
+    }
+    DevAscendFunctionCallOperandUse* useList = nullptr;
+    size_t useSize = 0;
+    if (outcast.producerList.size() != 0) {
+        useList = &devFunc->At(outcast.producerList, 0);
+        useSize = outcast.producerList.size();
+    } else if (outcast.stitchPolicyFullCoverProducerList.size() != 0) {
+        useList = &devFunc->At(outcast.stitchPolicyFullCoverProducerList, 0);
+        useSize = outcast.stitchPolicyFullCoverProducerList.size();
+    }
+    if (useSize == 0 || useList == nullptr) {
+        meta.tensorShape.assign(dim, 1);
+        meta.runtimeCellShape.assign(dim, 1);
+        meta.strideShape.assign(dim, 1);
+        meta.tableSize = 0;
+        meta.useSize = 0;
+        return false;
+    }
+
+    meta.tensorShape.assign(dim, 1);
+    meta.runtimeCellShape.assign(dim, 1);
+    meta.strideShape.assign(dim, 1);
+    meta.tableSize = 1;
+    meta.useSize = useSize;
+
+    std::vector<std::vector<int>> useShapes(useSize, std::vector<int>(dim, 1));
+    for (size_t i = 0; i < useSize; ++i) {
+        const auto& use = useList[i];
+        uint64_t rawShape[DEV_SHAPE_DIM_MAX]{0};
+        bool concrete = GetTensorRawShape<false>(
+            devFunc, rawShape, runtimeExpressionList, dim, use.operationIdx, use.operandIdx, false);
+        DEV_ASSERT_MSG(
+            ProgEncodeErr::CELL_MATCH_PARAM_INVALID, concrete,
+            "Dynamic cell match requires concrete raw shape, op=%d operand=%d", use.operationIdx, use.operandIdx);
+        for (int d = 0; d < dim; ++d) {
+            int shapeVal = static_cast<int>(rawShape[d]);
+            useShapes[i][d] = shapeVal;
+            meta.tensorShape[d] = std::max(meta.tensorShape[d], shapeVal);
+        }
+    }
+
+    for (int d = dim - 1; d >= 0; --d) {
+        int originalCell = desc.GetCellShape(d);
+        if (originalCell > 0) {
+            meta.runtimeCellShape[d] = originalCell;
+        } else {
+            int gcdCell = 0;
+            for (size_t i = 0; i < useSize; ++i) {
+                int shapeVal = useShapes[i][d];
+                if (shapeVal > 0) {
+                    gcdCell = (gcdCell == 0) ? shapeVal : std::gcd(gcdCell, shapeVal);
+                }
+            }
+            meta.runtimeCellShape[d] = (gcdCell > 0) ? gcdCell : 1;
+            std::printf(
+                "[DynamicCellMatch/CellInfer] slot=%d dim=%d original_cell=%d inferred_cell=%d\n", slotIndex, d,
+                originalCell, meta.runtimeCellShape[d]);
+        }
+        int tile = (meta.tensorShape[d] + meta.runtimeCellShape[d] - 1) / meta.runtimeCellShape[d];
+        meta.strideShape[d] = tile;
+        meta.tableSize *= tile;
+    }
+    desc.SetCellShape(meta.runtimeCellShape);
+    desc.SetStrideShape(meta.strideShape);
+    return true;
+}
+
 template <bool skipExpression, typename... TyArgs>
 static bool CellMatchFillIncastOutcast(
     DevAscendFunction* devFunc, DevAscendFunctionCallOperandUse* operandUseList, size_t useSize,
@@ -374,8 +512,18 @@ static bool CellMatchFillIncastOutcast(
         bool paramConcrete = GetTensorOffsetAndShape<skipExpression>(
             devFunc, offset, shape, runtimeExpressionList, cellMatchTableDesc.GetDimensionSize(), use.operationIdx,
             use.operandIdx, isIOperand);
+        std::printf(
+            "[CellMatchUse] op=%d operand=%d is_in=%d concrete=%d", use.operationIdx, use.operandIdx,
+            static_cast<int>(isIOperand), static_cast<int>(paramConcrete));
+        for (int d = 0; d < cellMatchTableDesc.GetDimensionSize(); ++d) {
+            std::printf(
+                " d%d(offset=%lu shape=%lu)", d, static_cast<unsigned long>(offset[d]),
+                static_cast<unsigned long>(shape[d]));
+        }
+        std::printf("\n");
         if (paramConcrete) {
             if (!validateAndRefreshOffsetShape(offset, shape, use.operationIdx, use.operandIdx)) {
+                std::printf("[CellMatchUse] skip op=%d due to invalid offset/shape after refresh\n", use.operationIdx);
                 continue; // dassemble offset of outoperand maybe exceed the rawshape dimension
             }
             CellMatchFill(offset, shape, use.operationIdx, cellMatchTableDesc, args...);

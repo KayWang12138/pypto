@@ -289,6 +289,9 @@ int DeviceExecuteContext::SubmitToAicoreAndRecycleMemory(bool withoutTail, bool 
 {
     int ret = DEVICE_MACHINE_OK;
     DEV_VERBOSE_DEBUG("Submit stitch task");
+    std::printf(
+        "[SubmitBegin] task_id=%llu stitched_size=%zu without_tail=%d\n", static_cast<unsigned long long>(taskId),
+        stitchContext.Size(), static_cast<int>(withoutTail));
     DEV_TRACE_DEBUG(DEvent(taskId, DActSubmit(stitchContext.Size())));
     AutoScopedPerf asp(PERF_EVT_SUBMIT_AICORE);
     if (stitchContext.Empty()) {

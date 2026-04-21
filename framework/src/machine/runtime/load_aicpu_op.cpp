@@ -16,6 +16,7 @@
 #include "load_aicpu_op.h"
 
 #include <nlohmann/json.hpp>
+#include <cstddef>
 #include <fstream>
 #include <limits.h>
 #include "tilefwk/pypto_fwk_log.h"
@@ -41,6 +42,11 @@ std::string BuiltInFunName[BuiltInOpNum] = {"PyptoInit", "PyptoRun", "PyptoNull"
 } // namespace
 
 namespace npu::tile_fwk {
+#ifdef BUILD_WITH_NEW_CANN
+namespace {
+constexpr uint32_t kCompatDeviceKernelArgsSize = static_cast<uint32_t>(offsetof(DeviceKernelArgs, runtimeDynamicAssembleMem));
+}
+#endif
 
 constexpr int DUMP_LEVEL_FOUR = 4;
 
@@ -108,7 +114,8 @@ int LoadAicpuOp::AicpuKernelLaunch([[maybe_unused]] void* funcHandle, [[maybe_un
     RtAicpuArgsEx rtArgs;
     memset_s(&rtArgs, sizeof(rtArgs), 0, sizeof(rtArgs));
     rtArgs.args = kArgs;
-    rtArgs.argsSize = sizeof(DeviceKernelArgs);
+    rtArgs.argsSize = kCompatDeviceKernelArgsSize;
+    MACHINE_LOGI("AicpuKernelLaunch argsSize=%u compatSize=%u", rtArgs.argsSize, kCompatDeviceKernelArgsSize);
 
     RtCpuKernelArgs argInfo;
     memset_s(&argInfo, sizeof(argInfo), 0, sizeof(argInfo));

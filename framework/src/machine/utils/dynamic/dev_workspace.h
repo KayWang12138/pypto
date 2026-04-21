@@ -24,6 +24,11 @@
 #include "allocator/allocators.h"
 #include "machine/device/dynamic/device_perf.h"
 #include "machine/utils/dynamic/runtime_outcast_tensor.h"
+#include "machine/utils/dynamic/dev_encode_function_stitch.h"
+#include <cstdio>
+#include <algorithm>
+#include <numeric>
+#include <vector>
 
 namespace npu::tile_fwk::dynamic {
 inline constexpr int64_t TENSOR_ADDR_ALIGNMENT = 512;
@@ -282,19 +287,35 @@ private:
     void AssignOutcastAddresses(DevAscendFunctionDupped devRootDup, DeviceExecuteSlot* slotList)
     {
         DevAscendFunction* devRootSrc = devRootDup.GetSource();
+        uint64_t* expressionList = devRootDup.GetExpressionAddr();
         uintdevptr_t outcastBaseAddr = devRootDup.RuntimeOutcastBase();
         for (size_t i = 0; i < devRootSrc->GetOutcastSize(); ++i) {
             int outputSlotIndex = -1;
             int assembleSlotIndex = -1;
             auto& toSlotList = devRootSrc->GetOutcast(i).toSlotList;
+            std::printf(
+                "[APath/OutcastScan] root=%s outcast=%zu to_slot_size=%zu\n", devRootSrc->GetRawName(), i,
+                toSlotList.size());
             for (size_t k = 0; k < toSlotList.size(); ++k) {
                 auto idx = devRootSrc->At(toSlotList, k);
+                bool isPartial = slotList[idx].isPartialUpdateStitch && slotList[idx].partialUpdate != nullptr;
+                int partialSlot = isPartial ? slotList[idx].partialUpdate->slotIndex : -1;
+                std::printf(
+                    "[APath/OutcastToSlot] root=%s outcast=%zu slot=%d is_output=%d is_assemble=%d "
+                    "is_partial=%d partial_slot=%d need_alloc=%d rt_iter=%lld\n",
+                    devRootSrc->GetRawName(), i, idx, static_cast<int>(slotList[idx].IsOutputAddress()),
+                    static_cast<int>(slotList[idx].IsAssembleAddress()), static_cast<int>(isPartial), partialSlot,
+                    static_cast<int>(slotList[idx].isAssembleSlotNeedAlloc),
+                    static_cast<long long>(slotList[idx].rtOutcastIter));
                 if (slotList[idx].IsOutputAddress()) {
                     outputSlotIndex = idx;
                 } else if (slotList[idx].IsAssembleAddress()) {
                     assembleSlotIndex = idx;
                 }
             }
+            std::printf(
+                "[APath/OutcastDecision] root=%s outcast=%zu output_slot=%d assemble_slot=%d\n",
+                devRootSrc->GetRawName(), i, outputSlotIndex, assembleSlotIndex);
 
             AddressDescriptor& outcastDesc = devRootDup.GetOutcastAddress(i);
             auto rawTensor = devRootSrc->GetOutcastRawTensor(i);
@@ -306,15 +327,33 @@ private:
             } else if (assembleSlotIndex != -1) {
                 /* assemble outcast tensor */
                 if (slotList[assembleSlotIndex].isAssembleSlotNeedAlloc) {
+                    auto oldIter = slotList[assembleSlotIndex].rtOutcastIter;
+                    uint64_t oldAddr = 0;
+                    if (oldIter != ITEM_POOL_INVALID_INDEX) {
+                        oldAddr = GetRuntimeOutcastTensor(oldIter).Addr();
+                    }
                     RuntimeOutcastTensorDerefSafe(slotList[assembleSlotIndex].rtOutcastIter);
                     slotList[assembleSlotIndex].rtOutcastIter = MakeRuntimeOutcastTensor(
                         AllocateSlot(devRootSrc->GetRawName()), RuntimeTensorMemProperty::BOUNDARY_OUTCAST);
                     slotList[assembleSlotIndex].isAssembleSlotNeedAlloc = false;
+                    auto newIter = slotList[assembleSlotIndex].rtOutcastIter;
+                    auto newAddr = GetRuntimeOutcastTensor(newIter).Addr();
+                    std::printf(
+                        "[AssembleAlloc] root=%s slot=%d old_iter=%lld old_addr=0x%lx new_iter=%lld new_addr=0x%lx\n",
+                        devRootSrc->GetRawName(), assembleSlotIndex, static_cast<long long>(oldIter), oldAddr,
+                        static_cast<long long>(newIter), newAddr);
+                    TryAllocateDynamicCellMatchForAssembleSlot(
+                        devRootSrc, devRootSrc->GetOutcast(i), expressionList, slotList[assembleSlotIndex]);
                 } else {
                     DEV_ASSERT_MSG(
                         WsErr::WORKSPACE_ITER_INVALID,
                         slotList[assembleSlotIndex].rtOutcastIter != ITEM_POOL_INVALID_INDEX,
                         "Missing RUNTIME_SlotMarkNeedAlloc for assemble slot %d.", assembleSlotIndex);
+                    auto iter = slotList[assembleSlotIndex].rtOutcastIter;
+                    auto addr = GetRuntimeOutcastTensor(iter).Addr();
+                    std::printf(
+                        "[AssembleReuse] root=%s slot=%d iter=%lld addr=0x%lx\n",
+                        devRootSrc->GetRawName(), assembleSlotIndex, static_cast<long long>(iter), addr);
                 }
                 outcastDesc = AddressDescriptor::MakeFromRtOutcast(slotList[assembleSlotIndex].rtOutcastIter);
                 RuntimeOutcastTensorRef(outcastDesc.GetRtOutcastIter());
@@ -340,6 +379,29 @@ private:
             DEV_VERBOSE_DEBUG(
                 "get outcast %zu slot %d/%d address %s.", i, outputSlotIndex, assembleSlotIndex,
                 outcastDesc.Dump().c_str());
+
+            if (outcastDesc.IsRtOutcast() && rawTensor != nullptr) {
+                auto iter = outcastDesc.GetRtOutcastIter();
+                if (iter != ITEM_POOL_INVALID_INDEX) {
+                    auto& rt = GetRuntimeOutcastTensor(iter);
+                    if (rt.property == RuntimeTensorMemProperty::BOUNDARY_OUTCAST) {
+                        uint64_t memReq = rawTensor->GetMemoryRequirement(expressionList);
+                        if (!IsValidSlotMemRequirement(memReq)) {
+                            std::printf(
+                                "[SlotMemGuard] root=%s outcast=%zu slot_bytes=%lu required=%lu rt_iter=%lld "
+                                "rt_addr=0x%lx raw_magic=%d output_slot=%d assemble_slot=%d\n",
+                                devRootSrc->GetRawName(), i,
+                                tensorAllocators_[curParallelWsId].devTaskBoundaryOutcasts.SlotByteSize(), memReq,
+                                static_cast<long long>(iter), rt.Addr(), rawTensor->rawMagic, outputSlotIndex,
+                                assembleSlotIndex);
+                            DEV_ASSERT_MSG(
+                                WsErr::WORKSPACE_CAPACITY_INSUFFICIENT, IsValidSlotMemRequirement(memReq),
+                                "Boundary outcast slot bytes are insufficient: need=%lu", memReq);
+                        }
+                    }
+                }
+            }
+
         }
     }
 
@@ -366,6 +428,103 @@ private:
         }
 
         return true;
+    }
+
+    void TryAllocateDynamicCellMatchForAssembleSlot(
+        DevAscendFunction* devRootSrc, DevAscendFunctionOutcast& outcast, const uint64_t* expressionList,
+        DeviceExecuteSlot& slot)
+    {
+        UNUSED(devRootSrc);
+        UNUSED(outcast);
+        UNUSED(expressionList);
+        if (!slot.isPartialUpdateStitch || slot.partialUpdate == nullptr) {
+            return;
+        }
+        auto* partialUpdate = slot.partialUpdate;
+        auto& desc = partialUpdate->cellMatchTableDesc;
+        int dim = desc.GetDimensionSize();
+        if (dim <= 0) {
+            return;
+        }
+        if (partialUpdate->cellMatchRuntimePartialUpdateTable.Data() != nullptr &&
+            partialUpdate->cellMatchRuntimePartialUpdateTable.size() != 0) {
+            return;
+        }
+        DEV_ASSERT_MSG(
+            ProgEncodeErr::CELL_MATCH_PARAM_INVALID, HasDynamicCellMatchSlots(),
+            "Dynamic partial-update cell match allocator is not initialized");
+
+        uint64_t hostPreparedTableSize = GetCellMatchTableSizeFromDesc(desc);
+        bool hostPreparedMeta = hostPreparedTableSize > 0;
+        DynamicCellMatchRuntimeMeta meta;
+        if (!hostPreparedMeta &&
+            !BuildRuntimeDynamicCellMatchMeta(
+                devRootSrc, outcast, expressionList, desc, partialUpdate->slotIndex, meta)) {
+            std::printf(
+                "[DynamicCellMatch/HostPrepareMissing] slot=%d dim=%d; host metadata is required before allocation\n",
+                partialUpdate->slotIndex, dim);
+            partialUpdate->cellMatchRuntimePartialUpdateTable.HostAssignDataSize(0, 0);
+            return;
+        }
+        if (!hostPreparedMeta) {
+            std::printf(
+                "[DynamicCellMatch/HostPrepareCalc] slot=%d dim=%d table_size=%lu\n", partialUpdate->slotIndex, dim,
+                meta.tableSize);
+        }
+        uint64_t tableSize = hostPreparedMeta ? hostPreparedTableSize : meta.tableSize;
+        std::printf(
+            "[DynamicCellMatch/HostPrepare] slot=%d host_prepared=%d table_size=%lu dim=%d\n",
+            partialUpdate->slotIndex, static_cast<int>(hostPreparedMeta), tableSize, dim);
+        DEV_ASSERT_MSG(
+            ProgEncodeErr::CELL_MATCH_PARAM_INVALID, tableSize > 0,
+            "Dynamic partial-update cell table must be non-zero");
+
+        uint64_t requiredBytes = tableSize * sizeof(uint64_t);
+        std::printf(
+            "[DynamicCellMatch/Calc] slot=%d dim=%d use_size=%zu host_prepared=%d ", partialUpdate->slotIndex, dim,
+            hostPreparedMeta ? 0UL : meta.useSize, static_cast<int>(hostPreparedMeta));
+        std::printf("tensor_shape=[");
+        for (int d = 0; d < dim; ++d) {
+            int shapeVal = hostPreparedMeta ? 0 : meta.tensorShape[d];
+            std::printf("%s%d", d == 0 ? "" : ",", shapeVal);
+        }
+        std::printf("] cell_shape=[");
+        for (int d = 0; d < dim; ++d) {
+            std::printf("%s%d", d == 0 ? "" : ",", desc.GetCellShape(d));
+        }
+        std::printf("] stride_shape=[");
+        for (int d = 0; d < dim; ++d) {
+            std::printf("%s%d", d == 0 ? "" : ",", desc.GetStrideShape(d));
+        }
+        std::printf("] table_size=%lu required_bytes=%lu\n", tableSize, requiredBytes);
+        DEV_ASSERT_MSG(
+            ProgEncodeErr::CELL_MATCH_PARAM_INVALID, IsValidDynamicCellMatchMemRequirement(requiredBytes),
+            "Dynamic partial-update cell table too large: bytes=%lu cells=%lu", requiredBytes, tableSize);
+
+        WsAllocation dynamicCellMatchAlloc = AllocateDynamicCellMatchSlot();
+        partialUpdate->cellMatchRuntimePartialUpdateTable =
+            DevRelocVector<uint64_t>(tableSize, reinterpret_cast<uint64_t*>(dynamicCellMatchAlloc.ptr));
+        auto tableData = partialUpdate->cellMatchRuntimePartialUpdateTable.Data();
+        for (size_t i = 0; i < tableSize; ++i) {
+            tableData[i] = AICORE_TASK_INIT;
+        }
+        std::printf(
+            "[DynamicCellMatch/Alloc] slot=%d outcast_iter=%" PRId64 " table_size=%lu addr=0x%lx\n",
+            partialUpdate->slotIndex, slot.rtOutcastIter, tableSize, dynamicCellMatchAlloc.ptr);
+
+        // Guard against accidental aliasing between dynamic metadata and tensor payload buffers.
+        auto& runtimeOutcastTensor = GetRuntimeOutcastTensor(slot.rtOutcastIter);
+        uint64_t outcastAddr = runtimeOutcastTensor.Addr();
+        if (dynamicCellMatchAlloc.ptr == outcastAddr) {
+            std::printf(
+                "[DynamicCellMatch/Alias] slot=%d table_addr=0x%lx collides_with_outcast_addr=0x%lx iter=%" PRId64
+                "\n",
+                partialUpdate->slotIndex, dynamicCellMatchAlloc.ptr, outcastAddr, slot.rtOutcastIter);
+            DEV_ASSERT_MSG(
+                WsErr::WORKSPACE_ALLOCATOR_REGIST_FAILED, dynamicCellMatchAlloc.ptr != outcastAddr,
+                "Dynamic cell-match allocation aliases outcast payload, slot=%d", partialUpdate->slotIndex);
+        }
+        runtimeOutcastTensor.dynamicCellMatchAllocation = dynamicCellMatchAlloc;
     }
 
 public:
@@ -413,6 +572,12 @@ public:
         return tensorAllocators_[curParallelWsId].devTaskBoundaryOutcasts.IsValidSlotMemRequirement(memReq);
     }
 
+    bool IsValidDynamicCellMatchMemRequirement(uint64_t memReq) const
+    {
+        return metadataAllocators_.dynamicCellMatch.IsValidSlotMemRequirement(memReq);
+    }
+    bool HasDynamicCellMatchSlots() const { return metadataAllocators_.dynamicCellMatch.SlotNum() != 0; }
+
     WsAllocation AllocateSlot([[maybe_unused]] const char* rootFuncName = nullptr)
     {
         WsAllocation allocation;
@@ -426,6 +591,21 @@ public:
 #if DEBUG_MEM_DUMP_LEVEL >= DEBUG_MEM_DUMP_FULL
         wsMemDelayedDumper_.LogTensorMalloc(rootFuncName == nullptr ? "unspecified_root" : rootFuncName, allocation);
 #endif // DEBUG_MEM_DUMP_LEVEL >= DEBUG_MEM_DUMP_FULL
+        return allocation;
+    }
+
+    WsAllocation AllocateDynamicCellMatchSlot()
+    {
+        std::printf(
+            "[DynamicCellMatch/PoolBefore] available=%zu total=%zu slot_bytes=%lu\n",
+            metadataAllocators_.dynamicCellMatch.AvailableSlots(), metadataAllocators_.dynamicCellMatch.SlotNum(),
+            metadataAllocators_.dynamicCellMatch.SlotByteSize());
+        WsAllocation allocation = metadataAllocators_.dynamicCellMatch.Allocate();
+        allocation.parallelWsId = curParallelWsId;
+        std::printf(
+            "[DynamicCellMatch/PoolAfter] addr=0x%lx available=%zu total=%zu slot_bytes=%lu\n", allocation.ptr,
+            metadataAllocators_.dynamicCellMatch.AvailableSlots(), metadataAllocators_.dynamicCellMatch.SlotNum(),
+            metadataAllocators_.dynamicCellMatch.SlotByteSize());
         return allocation;
     }
 
@@ -490,6 +670,19 @@ public:
         if (dst == src) {
             return;
         }
+        uint64_t oldAddr = 0;
+        uint64_t newAddr = 0;
+        auto oldIter = dst;
+        auto newIter = src;
+        if (oldIter != ITEM_POOL_INVALID_INDEX) {
+            oldAddr = runtimeOutcastTensorPool_.At(oldIter).Addr();
+        }
+        if (newIter != ITEM_POOL_INVALID_INDEX) {
+            newAddr = runtimeOutcastTensorPool_.At(newIter).Addr();
+        }
+        std::printf(
+            "[RtAssign] old_iter=%lld old_addr=0x%lx -> new_iter=%lld new_addr=0x%lx\n",
+            static_cast<long long>(oldIter), oldAddr, static_cast<long long>(newIter), newAddr);
         RuntimeOutcastTensorDerefSafe(dst);
         dst = src;
         RuntimeOutcastTensorRefSafe(src);
@@ -500,6 +693,10 @@ public:
     {
         DEV_ASSERT(WsErr::WORKSPACE_ITER_INVALID, iter != ITEM_POOL_INVALID_INDEX);
         auto& outcast = runtimeOutcastTensorPool_.At(iter);
+        std::printf(
+            "[RtReplaceAddr] iter=%lld old_addr=0x%lx old_prop=%u -> new_addr=0x%lx new_prop=%u\n",
+            static_cast<long long>(iter), outcast.allocation.ptr, static_cast<unsigned>(outcast.property),
+            allocation.ptr, static_cast<unsigned>(property));
         outcast.allocation = allocation;
         outcast.property = property;
     }
@@ -519,7 +716,16 @@ public:
     void TriggerDelayedRecycle()
     {
         for (auto&& outcast : rtBoundaryOutcastToBeFree_) {
+            std::printf(
+                "[RtRecycle] addr=0x%lx prop=%u ref=%u dyn_cell_addr=0x%lx\n", outcast.allocation.ptr,
+                static_cast<unsigned>(outcast.property), outcast.refCnt, outcast.dynamicCellMatchAllocation.ptr);
             tensorAllocators_[outcast.allocation.parallelWsId].devTaskBoundaryOutcasts.Deallocate(outcast.allocation.ptr);
+            if (outcast.dynamicCellMatchAllocation.ptr != 0) {
+                std::printf(
+                    "[DynamicCellMatch/Recycle] outcast_addr=0x%lx table_addr=0x%lx\n", outcast.allocation.ptr,
+                    outcast.dynamicCellMatchAllocation.ptr);
+                metadataAllocators_.dynamicCellMatch.Deallocate(outcast.dynamicCellMatchAllocation.ptr);
+            }
         }
         rtBoundaryOutcastToBeFree_.clear();
     }
@@ -819,6 +1025,9 @@ private:
     void InitTensorAllocators(uintdevptr_t workspaceAddr, uint64_t tensorWorkspaceSize, DevAscendProgram* devProg)
     {
         uint64_t baseAddr = workspaceAddr;
+        std::printf(
+            "[Allocator/Layout] tensor_workspace=[0x%lx,0x%lx) size=%lu parallelism=%u\n", workspaceAddr,
+            workspaceAddr + tensorWorkspaceSize, tensorWorkspaceSize, devProg->GetParallelism());
 
         // Initialize tensor workspace memory verifier
         tensorWsVerifier_.Init(baseAddr, tensorWorkspaceSize);
@@ -830,19 +1039,63 @@ private:
             devProg->memBudget.tensor.devTaskBoundaryOutcastNum * devProg->memBudget.tensor.MaxOutcastMem();
         slotVerifier_.Init(baseAddr, paallelism * devTaskBoundaryOutcastsBudget);
         for (uint32_t parallelIdx = 0; parallelIdx < paallelism; parallelIdx++) {
+            uint64_t rangeBegin = baseAddr;
+            uint64_t rangeEnd = baseAddr + devTaskBoundaryOutcastsBudget;
             tensorAllocators_[parallelIdx].devTaskBoundaryOutcasts.InitTensorAllocator(
                 baseAddr, devProg->memBudget.tensor.devTaskBoundaryOutcastNum, devProg->memBudget.tensor.MaxOutcastMem(),
                 metadataAllocators_.general);
+            std::printf(
+                "[Allocator/BoundaryOutcast] parallel=%u range=[0x%lx,0x%lx) slot_num=%lu slot_bytes=%lu\n",
+                parallelIdx, rangeBegin, rangeEnd, devProg->memBudget.tensor.devTaskBoundaryOutcastNum,
+                devProg->memBudget.tensor.MaxOutcastMem());
             DEV_TRACE_DEBUG(CtrlEvent(
                 none(), WorkspaceCrossDeviceTaskOutcast(Range(baseAddr, baseAddr + devTaskBoundaryOutcastsBudget))));
             baseAddr += devTaskBoundaryOutcastsBudget;
+        }
+
+        uint64_t dynamicCellMatchSlotNum = devProg->memBudget.tensor.dynamicCellMatchSlotNum;
+        uint64_t calculatedDynamicCellMatchSlotNum = 0;
+        for (size_t i = 0; i < devProg->partialUpdateList.size(); ++i) {
+            auto& partial = devProg->At(devProg->partialUpdateList, i);
+            if (partial.cellMatchRuntimePartialUpdateTable.size() == 0 &&
+                partial.cellMatchTableDesc.GetDimensionSize() > 0) {
+                calculatedDynamicCellMatchSlotNum++;
+            }
+        }
+        dynamicCellMatchSlotNum = std::max<uint64_t>(dynamicCellMatchSlotNum, calculatedDynamicCellMatchSlotNum);
+        uint64_t dynamicCellMatchSlotBytes = devProg->memBudget.tensor.maxDynamicCellMatchTableMem;
+        constexpr uint64_t kMinDynamicCellMatchSlotBytes = 4096;
+        if (dynamicCellMatchSlotNum != 0 && dynamicCellMatchSlotBytes == 0) {
+            dynamicCellMatchSlotBytes = kMinDynamicCellMatchSlotBytes;
+        }
+        dynamicCellMatchSlotBytes = std::max<uint64_t>(dynamicCellMatchSlotBytes, kMinDynamicCellMatchSlotBytes);
+        auto dynamicCellMatchBudget = dynamicCellMatchSlotNum * dynamicCellMatchSlotBytes;
+        std::printf(
+            "[DynamicCellMatch/Budget] maxDynamicCellMatchTableMem=%lu slot_num=%lu calculated_slot_num=%lu "
+            "slot_bytes=%lu min_slot_bytes=%lu parallelism=%u total_budget=%lu\n",
+            devProg->memBudget.tensor.maxDynamicCellMatchTableMem, dynamicCellMatchSlotNum, calculatedDynamicCellMatchSlotNum,
+            dynamicCellMatchSlotBytes, kMinDynamicCellMatchSlotBytes, paallelism, dynamicCellMatchBudget * paallelism);
+        if (dynamicCellMatchSlotNum != 0) {
+            uint64_t rangeBegin = baseAddr;
+            uint64_t rangeEnd = baseAddr + dynamicCellMatchBudget * paallelism;
+            metadataAllocators_.dynamicCellMatch.InitTensorAllocator(
+                baseAddr, dynamicCellMatchSlotNum * paallelism, dynamicCellMatchSlotBytes, metadataAllocators_.general);
+            std::printf(
+                "[Allocator/DynamicCellMatch] range=[0x%lx,0x%lx) slot_num=%lu slot_bytes=%lu\n", rangeBegin, rangeEnd,
+                dynamicCellMatchSlotNum * paallelism, dynamicCellMatchSlotBytes);
+            baseAddr += dynamicCellMatchBudget * paallelism;
         }
 
         // Initialize root function non-outcast tensor memory
         auto rootInnerBudget = devProg->memBudget.tensor.rootInner;
         rootInnerWsVerifier_.Init(baseAddr, paallelism * rootInnerBudget);
         for (uint32_t parallelIdx = 0; parallelIdx < paallelism; parallelIdx++) {
+            uint64_t rangeBegin = baseAddr;
+            uint64_t rangeEnd = baseAddr + rootInnerBudget;
             tensorAllocators_[parallelIdx].rootInner.InitTensorAllocator(baseAddr, rootInnerBudget);
+            std::printf(
+                "[Allocator/RootInner] parallel=%u range=[0x%lx,0x%lx) bytes=%lu\n", parallelIdx, rangeBegin, rangeEnd,
+                rootInnerBudget);
             DEV_TRACE_DEBUG(CtrlEvent(none(), WorkspaceInnerTensor(Range(baseAddr, baseAddr + rootInnerBudget))));
             baseAddr += rootInnerBudget;
         }
@@ -851,7 +1104,12 @@ private:
         auto devTaskInnerOutcastBudget = devProg->memBudget.tensor.devTaskInnerExclusiveOutcasts;
         devTaskInnerExclusiveOutcastsWsVerifier_.Init(baseAddr, paallelism * devTaskInnerOutcastBudget);
         for (uint32_t parallelIdx = 0; parallelIdx < paallelism; parallelIdx++) {
+            uint64_t rangeBegin = baseAddr;
+            uint64_t rangeEnd = baseAddr + devTaskInnerOutcastBudget;
             tensorAllocators_[parallelIdx].devTaskInnerExclusiveOutcasts.InitTensorAllocator(baseAddr, devTaskInnerOutcastBudget);
+            std::printf(
+                "[Allocator/TaskInnerOutcast] parallel=%u range=[0x%lx,0x%lx) bytes=%lu\n", parallelIdx, rangeBegin,
+                rangeEnd, devTaskInnerOutcastBudget);
             DEV_TRACE_DEBUG(
                 CtrlEvent(none(), WorkspaceInDeviceTaskOutcast(Range(baseAddr, baseAddr + devTaskInnerOutcastBudget))));
             baseAddr += devTaskInnerOutcastBudget;
