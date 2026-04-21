@@ -1113,8 +1113,8 @@ private:
                     SchedErr::READY_QUEUE_OVERFLOW, "#sche.resolve.enqueue: readyQue: %s", readyQue->str().c_str());
                 return DEVICE_MACHINE_ERROR;
             }
-            DEV_ASSERT(SchedErr::READY_QUEUE_OVERFLOW, res);
         }
+        DEV_ASSERT(SchedErr::READY_QUEUE_OVERFLOW, res);
         return DEVICE_MACHINE_OK;
     }
 
