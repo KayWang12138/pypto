@@ -75,7 +75,7 @@ struct QueueGeneric {
     const T* end() const { return elem + tail; }
 
     typedef T value_type;
-    // protected:
+//protected:
 public:
     uint32_t head;
     uint32_t tail;
@@ -91,6 +91,9 @@ private:
 
 template <class T>
 struct LockableQueueGeneric : public QueueGeneric<T> {
+
+    using datarange = std::pair<const T*, const T*>;
+
     LockableQueueGeneric(uint32_t capacity = 0, T* _elem = nullptr) : QueueGeneric<T>(capacity, _elem), lockFlag(0) {}
 
     using QueueGeneric<T>::operator=;
@@ -150,26 +153,31 @@ struct LockableQueueGeneric : public QueueGeneric<T> {
         return std::make_pair(this->elem + h, this->elem + t);
     }
 
-    std::pair<const T*, const T*> dequeue(uint32_t max_count)
-    {
-        lock();
-        uint32_t t = __atomic_load_n(&this->tail, __ATOMIC_RELAXED);
-        uint32_t h = __atomic_load_n(&this->head, __ATOMIC_RELAXED);
-        uint32_t cnt = std::min(t - h, max_count);
-        __atomic_store_n(&this->head, h + cnt, __ATOMIC_RELAXED);
-        unlock();
-        return std::make_pair(this->elem + h, this->elem + h + cnt);
-    }
-
-    uint32_t dequeue_tail(uint32_t max_count, T* out)
+    datarange dequeue(uint32_t max_count)
     {
         std::scoped_lock(*this);
         uint32_t t = __atomic_load_n(&this->tail, __ATOMIC_RELAXED);
         uint32_t h = __atomic_load_n(&this->head, __ATOMIC_RELAXED);
         uint32_t cnt = std::min(t - h, max_count);
+        if (cnt == 0) {
+            return datarange(nullptr, nullptr);
+        }
+        __atomic_store_n(&this->head, h + cnt, __ATOMIC_RELAXED);
+        return datarange(this->elem + h, this->elem + h + cnt);
+    }
+
+    datarange dequeue_tail(uint32_t max_count, T* out)
+    {
+        std::scoped_lock(*this);
+        uint32_t t = __atomic_load_n(&this->tail, __ATOMIC_RELAXED);
+        uint32_t h = __atomic_load_n(&this->head, __ATOMIC_RELAXED);
+        uint32_t cnt = std::min(t - h, max_count);
+        if (cnt == 0) {
+            return datarange(nullptr, nullptr);
+        }
         __atomic_store_n(&this->tail, t - cnt, __ATOMIC_RELAXED);
         std::copy(this->elem + t - cnt, this->elem + t, out);
-        return cnt;
+        return datarange(out, out + cnt);
     }
 
 private:
