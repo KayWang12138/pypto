@@ -82,8 +82,8 @@ fused_swiglu_bwd_b_kernel(
     fc,     # [M, N]    BF16  — FC 中间值（前向传播输出）
     dg,     # [M, N]    BF16  — Gate 梯度输出
     dfc,    # [M, N]    BF16  — FC 梯度输出
-    db_g,   # [1, N]       BF16  — Gate 偏置梯度输出（需初始化为 0）
-    db_fc   # [1, N]       BF16  — FC 偏置梯度输出（需初始化为 0）
+    db_g,   # [1, N]    BF16  — Gate 偏置梯度输出（需初始化为 0）
+    db_fc   # [1, N]    BF16  — FC 偏置梯度输出（需初始化为 0）
 )
 ```
 
@@ -122,8 +122,8 @@ fused_swiglu_bwd_x_kernel(
 | fc | 输入 | [M, N] | BF16 | FC 中间值（前向传播保存） |
 | dg | 输出 | [M, N] | BF16 | Gate 梯度 |
 | dfc | 输出 | [M, N] | BF16 | FC 梯度 |
-| db_g | 输出 | [N] | BF16 | Gate 偏置梯度（需初始化为 0） |
-| db_fc | 输出 | [N] | BF16 | FC 偏置梯度（需初始化为 0） |
+| db_g | 输出 | [1, N] | BF16 | Gate 偏置梯度（需初始化为 0） |
+| db_fc | 输出 | [1, N] | BF16 | FC 偏置梯度（需初始化为 0） |
 
 ### Kernel 2: w_kernel
 
