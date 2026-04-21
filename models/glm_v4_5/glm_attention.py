@@ -281,7 +281,7 @@ def softmax(x, is_fp16=False):
 @pypto.frontend.jit(
     runtime_options={"stitch_function_max_num": 128},
     # Q常驻，0代表第一组mmad，4代表4次matmul合并
-    "cube_l1_reuse_setting": {0: 4}},
+    pass_options={"cube_l1_reuse_setting": {0: 4}},
     host_options={"compile_monitor_enable": True},
     debug_options={"runtime_debug_mode": 0, "compile_debug_mode": 0}
 )
