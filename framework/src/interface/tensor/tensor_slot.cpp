@@ -219,6 +219,7 @@ void TensorSlotManager::TensorSlotRecycle(const TensorSlot& slot)
         symbolNameDict.erase(name->second);
         slotNameDict.erase(slot);
     }
+    slotFuncNameDict.erase(slot);
 }
 
 void TensorSlotManager::SetRecording(bool isRecording)
@@ -392,6 +393,36 @@ void TensorSlotManager::TensorSymbol(const Tensor& tensor, const std::string& sy
     TensorSlot slot = TensorSlot::CreateTensor(tensor);
     symbolNameDict[symbolName] = slot;
     slotNameDict[slot] = symbolName;
+
+    Function* currFunc = Program::GetInstance().GetCurrentFunction();
+    if (currFunc != nullptr) {
+        const std::string& funcName = currFunc->GetRawName();
+        if (!funcName.empty()) {
+            std::string& acc = slotFuncNameDict[slot];
+            if (acc.empty()) {
+                acc = funcName;
+            } else {
+                bool exists = false;
+                size_t pos = 0;
+                while (pos <= acc.size()) {
+                    size_t sep = acc.find(';', pos);
+                    size_t end = (sep == std::string::npos) ? acc.size() : sep;
+                    if (acc.compare(pos, end - pos, funcName) == 0) {
+                        exists = true;
+                        break;
+                    }
+                    if (sep == std::string::npos) {
+                        break;
+                    }
+                    pos = sep + 1;
+                }
+                if (!exists) {
+                    acc.push_back(';');
+                    acc.append(funcName);
+                }
+            }
+        }
+    }
 }
 
 std::vector<int> TensorSlotManager::LookupSlotIndex(const std::vector<std::reference_wrapper<Tensor>>& tensorList)
