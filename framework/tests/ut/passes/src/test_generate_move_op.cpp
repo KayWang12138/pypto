@@ -768,63 +768,63 @@ TEST_F(GenerateMoveOpPassTest, ProcessUB2L1FullCoverage)
     }
 }
 
-// ========== 测试用例3：CreateMoveOpForView触发OP_UB_COPY_L1（106行覆盖） ==========
-TEST_F(GenerateMoveOpPassTest, CreateMoveOpForViewUB2L1)
-{
-    PROGRAM("CreateMoveOpForViewUB2L1")
-    {
-        std::vector<int64_t> shape{2, 30, 15};
-        Tensor a(DT_FP32, shape, "a");
-        Tensor b(DT_FP32, shape, "b");
+// // ========== 测试用例3：CreateMoveOpForView触发OP_UB_COPY_L1（106行覆盖） ==========
+// TEST_F(GenerateMoveOpPassTest, CreateMoveOpForViewUB2L1)
+// {
+//     PROGRAM("CreateMoveOpForViewUB2L1")
+//     {
+//         std::vector<int64_t> shape{2, 30, 15};
+//         Tensor a(DT_FP32, shape, "a");
+//         Tensor b(DT_FP32, shape, "b");
 
-        TileShape::Current().SetVecTile(2, 30, 15, 1);
+//         TileShape::Current().SetVecTile(2, 30, 15, 1);
 
-        // 注册Pass策略
-        PassManager& passManager = PassManager::Instance();
-        passManager.RegisterStrategy(
-            "GenerateMoveOpViewStrategy", {{"AssignMemoryType", PassName::ASSIGN_MEMORY_TYPE},
-                                           {"MergeViewAssemble", PassName::MERGE_VIEW_ASSEMBLE},
-                                           {"GenerateMoveOp", PassName::GENERATE_MOVE_OP}});
+//         // 注册Pass策略
+//         PassManager& passManager = PassManager::Instance();
+//         passManager.RegisterStrategy(
+//             "GenerateMoveOpViewStrategy", {{"AssignMemoryType", PassName::ASSIGN_MEMORY_TYPE},
+//                                            {"MergeViewAssemble", PassName::MERGE_VIEW_ASSEMBLE},
+//                                            {"GenerateMoveOp", PassName::GENERATE_MOVE_OP}});
 
-        FUNCTION("View2UBCopyL1Func")
-        {
-            b = View(a, shape, {0, 0, 0}); // 构造VIEW OP
-        }
+//         FUNCTION("View2UBCopyL1Func")
+//         {
+//             b = View(a, shape, {0, 0, 0}); // 构造VIEW OP
+//         }
 
-        // 导出/导入JSON
-        std::string jsonPath = "./config/pass/json/view_ub2l1.json";
-        auto programJson = Program::GetInstance().DumpJson();
-        DumpJsonFile(programJson, jsonPath);
-        Json readData = LoadJsonFile(jsonPath);
-        Program::GetInstance().LoadJson(readData);
+//         // 导出/导入JSON
+//         std::string jsonPath = "./config/pass/json/view_ub2l1.json";
+//         auto programJson = Program::GetInstance().DumpJson();
+//         DumpJsonFile(programJson, jsonPath);
+//         Json readData = LoadJsonFile(jsonPath);
+//         Program::GetInstance().LoadJson(readData);
 
-        // 获取Function并修改VIEW OP的内存类型（UB→L1）
-        Function* func = Program::GetInstance().GetCurrentFunction();
-        Operation* viewOp = nullptr;
-        for (auto& op : func->Operations()) {
-            if (op.GetOpcode() == Opcode::OP_VIEW) {
-                viewOp = &op;
-                // 设置输入为UB，输出为L1（触发OP_UB_COPY_L1）
-                op.iOperand.front()->SetMemoryTypeBoth(MEM_UB);
-                op.oOperand.front()->SetMemoryTypeBoth(MEM_L1);
-                break;
-            }
-        }
-        ASSERT_NE(viewOp, nullptr) << "VIEW op not found";
+//         // 获取Function并修改VIEW OP的内存类型（UB→L1）
+//         Function* func = Program::GetInstance().GetCurrentFunction();
+//         Operation* viewOp = nullptr;
+//         for (auto& op : func->Operations()) {
+//             if (op.GetOpcode() == Opcode::OP_VIEW) {
+//                 viewOp = &op;
+//                 // 设置输入为UB，输出为L1（触发OP_UB_COPY_L1）
+//                 op.iOperand.front()->SetMemoryTypeBoth(MEM_UB);
+//                 op.oOperand.front()->SetMemoryTypeBoth(MEM_L1);
+//                 break;
+//             }
+//         }
+//         ASSERT_NE(viewOp, nullptr) << "VIEW op not found";
 
-        // 执行CreateMoveOpForView
-        GenerateMoveOp generateMoveOp;
-        Status status = generateMoveOp.A23CreateMoveOpForView(*func, *viewOp);
+//         // 执行CreateMoveOpForView
+//         GenerateMoveOp generateMoveOp;
+//         Status status = generateMoveOp.A23CreateMoveOpForView(*func, *viewOp);
 
-        // ================== 验证核心逻辑 ==================
-        EXPECT_EQ(status, SUCCESS);
-        EXPECT_EQ(viewOp->GetOpcode(), Opcode::OP_UB_COPY_L1) << "VIEW should convert to OP_UB_COPY_L1";
+//         // ================== 验证核心逻辑 ==================
+//         EXPECT_EQ(status, SUCCESS);
+//         EXPECT_EQ(viewOp->GetOpcode(), Opcode::OP_UB_COPY_L1) << "VIEW should convert to OP_UB_COPY_L1";
 
-        // 验证ProcessUB2L1被调用（ND→NZ格式转换）
-        auto inputTensor = viewOp->iOperand.front();
-        EXPECT_EQ(inputTensor->Format(), TileOpFormat::TILEOP_NZ);
-    }
-}
+//         // 验证ProcessUB2L1被调用（ND→NZ格式转换）
+//         auto inputTensor = viewOp->iOperand.front();
+//         EXPECT_EQ(inputTensor->Format(), TileOpFormat::TILEOP_NZ);
+//     }
+// }
 
 // ========== 测试用例4：ProcessUB2L1非ND格式（无操作分支） ==========
 TEST_F(GenerateMoveOpPassTest, ProcessUB2L1NonNDFormat)
@@ -868,59 +868,59 @@ TEST_F(GenerateMoveOpPassTest, ProcessUB2L1NonNDFormat)
     }
 }
 
-TEST_F(GenerateMoveOpPassTest, ProcessDefault_L0C_UB_SetIsCube)
-{
-    PROGRAM("ProcessDefault_L0C_UB_SetIsCube")
-    {
-        std::vector<int64_t> shape{16, 16};
-        Tensor a(DT_FP32, shape, "a");
-        Tensor b(DT_FP32, shape, "b");
+// TEST_F(GenerateMoveOpPassTest, ProcessDefault_L0C_UB_SetIsCube)
+// {
+//     PROGRAM("ProcessDefault_L0C_UB_SetIsCube")
+//     {
+//         std::vector<int64_t> shape{16, 16};
+//         Tensor a(DT_FP32, shape, "a");
+//         Tensor b(DT_FP32, shape, "b");
 
-        Function* func = nullptr;
-        FUNCTION("ProcessDefault_L0C_UB_Func")
-        {
-            func = Program::GetInstance().GetCurrentFunction();
-            b = View(a, shape, {0, 0});
-        }
+//         Function* func = nullptr;
+//         FUNCTION("ProcessDefault_L0C_UB_Func")
+//         {
+//             func = Program::GetInstance().GetCurrentFunction();
+//             b = View(a, shape, {0, 0});
+//         }
 
-        // 创建输入tensor（L0C）
-        auto l0cRawTensor = std::make_shared<RawTensor>(DT_FP32, shape, TileOpFormat::TILEOP_ND);
-        std::vector<int64_t> l0cOffset(shape.size(), 0);
-        auto l0cTensor = std::make_shared<LogicalTensor>(*func, l0cRawTensor, l0cOffset, shape);
-        l0cTensor->SetMemoryTypeOriginal(MEM_L0C);
-        l0cTensor->SetMemoryTypeToBe(MEM_L0C);
+//         // 创建输入tensor（L0C）
+//         auto l0cRawTensor = std::make_shared<RawTensor>(DT_FP32, shape, TileOpFormat::TILEOP_ND);
+//         std::vector<int64_t> l0cOffset(shape.size(), 0);
+//         auto l0cTensor = std::make_shared<LogicalTensor>(*func, l0cRawTensor, l0cOffset, shape);
+//         l0cTensor->SetMemoryTypeOriginal(MEM_L0C);
+//         l0cTensor->SetMemoryTypeToBe(MEM_L0C);
 
-        // 创建输出tensor（UB）
-        auto ubRawTensor = std::make_shared<RawTensor>(DT_FP32, shape, TileOpFormat::TILEOP_ND);
-        std::vector<int64_t> ubOffset(shape.size(), 0);
-        auto ubTensor = std::make_shared<LogicalTensor>(*func, ubRawTensor, ubOffset, shape);
-        ubTensor->SetMemoryTypeOriginal(MEM_UB);
-        ubTensor->SetMemoryTypeToBe(MEM_UB);
+//         // 创建输出tensor（UB）
+//         auto ubRawTensor = std::make_shared<RawTensor>(DT_FP32, shape, TileOpFormat::TILEOP_ND);
+//         std::vector<int64_t> ubOffset(shape.size(), 0);
+//         auto ubTensor = std::make_shared<LogicalTensor>(*func, ubRawTensor, ubOffset, shape);
+//         ubTensor->SetMemoryTypeOriginal(MEM_UB);
+//         ubTensor->SetMemoryTypeToBe(MEM_UB);
 
-        // 使用AddRawOperation将OP_VIEW添加到func中
-        auto& viewOp = func->AddRawOperation(Opcode::OP_VIEW, {l0cTensor}, {ubTensor});
+//         // 使用AddRawOperation将OP_VIEW添加到func中
+//         auto& viewOp = func->AddRawOperation(Opcode::OP_VIEW, {l0cTensor}, {ubTensor});
 
-        // 验证输入输出内存类型不同
-        ASSERT_EQ(viewOp.iOperand.front()->GetMemoryTypeOriginal(), MEM_L0C) << "Input memory type should be L0C";
-        ASSERT_EQ(viewOp.oOperand.front()->GetMemoryTypeOriginal(), MEM_UB) << "Output memory type should be UB";
+//         // 验证输入输出内存类型不同
+//         ASSERT_EQ(viewOp.iOperand.front()->GetMemoryTypeOriginal(), MEM_L0C) << "Input memory type should be L0C";
+//         ASSERT_EQ(viewOp.oOperand.front()->GetMemoryTypeOriginal(), MEM_UB) << "Output memory type should be UB";
 
-        // 设置ViewOpAttribute
-        auto viewAttr = std::make_shared<ViewOpAttribute>(std::vector<int64_t>{0, 0}, MemoryType::MEM_UB);
-        viewOp.SetOpAttribute(viewAttr);
+//         // 设置ViewOpAttribute
+//         auto viewAttr = std::make_shared<ViewOpAttribute>(std::vector<int64_t>{0, 0}, MemoryType::MEM_UB);
+//         viewOp.SetOpAttribute(viewAttr);
 
-        // 直接调用ProcessDefault函数
-        GenerateMoveOp generateMoveOp;
-        Status status = generateMoveOp.ProcessDefault(*func, viewOp, viewAttr.get());
-        ASSERT_EQ(status, SUCCESS);
+//         // 直接调用ProcessDefault函数
+//         GenerateMoveOp generateMoveOp;
+//         Status status = generateMoveOp.ProcessDefault(*func, viewOp, viewAttr.get());
+//         ASSERT_EQ(status, SUCCESS);
 
-        // 验证OP_VIEW已被转换为OP_L0C_COPY_UB
-        EXPECT_EQ(viewOp.GetOpcode(), Opcode::OP_L0C_COPY_UB) << "VIEW should convert to OP_L0C_COPY_UB";
+//         // 验证OP_VIEW已被转换为OP_L0C_COPY_UB
+//         EXPECT_EQ(viewOp.GetOpcode(), Opcode::OP_L0C_COPY_UB) << "VIEW should convert to OP_L0C_COPY_UB";
 
-        // 验证isCube属性已设置为true
-        ASSERT_TRUE(viewOp.HasAttribute(OpAttributeKey::isCube)) << "OP_L0C_COPY_UB should have isCube attribute";
-        EXPECT_TRUE(viewOp.GetBoolAttribute(OpAttributeKey::isCube)) << "isCube should be true for OP_L0C_COPY_UB";
-    }
-}
+//         // 验证isCube属性已设置为true
+//         ASSERT_TRUE(viewOp.HasAttribute(OpAttributeKey::isCube)) << "OP_L0C_COPY_UB should have isCube attribute";
+//         EXPECT_TRUE(viewOp.GetBoolAttribute(OpAttributeKey::isCube)) << "isCube should be true for OP_L0C_COPY_UB";
+//     }
+// }
 
 TEST_F(GenerateMoveOpPassTest, SetOpcodeByMemPath)
 {

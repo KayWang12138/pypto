@@ -130,12 +130,15 @@ INLINE int64_t CalLoadOffsetNCDHW(const ShapeInfo& shapeInfo, const OffsetInfo& 
  * offset3: dst_h_offset
  * offset4: dst_w_offset
  */
-INLINE int64_t CalStoreOffsetNCHW(const ShapeInfo& shapeInfo, const OffsetInfo& offsetInfo)
+INLINE int64_t CalStoreOffsetNCHW(const ShapeInfo& shapeInfo, const OffsetInfo& offsetInfo//)
+                                  , const int64_t& loopH)
 {
     int64_t outputOneBatchSize = shapeInfo.shape0 * shapeInfo.shape1 * shapeInfo.shape2;
     int64_t coutOffset = offsetInfo.offset1 * shapeInfo.shape1 * shapeInfo.shape2;
-    return offsetInfo.offset0 * outputOneBatchSize + coutOffset + offsetInfo.offset3 * shapeInfo.shape2 +
+    return offsetInfo.offset0 * outputOneBatchSize + coutOffset + (offsetInfo.offset3 + loopH) * shapeInfo.shape2 +
            offsetInfo.offset4;
+    // return offsetInfo.offset0 * outputOneBatchSize + coutOffset + offsetInfo.offset3 * shapeInfo.shape2 +
+    //        offsetInfo.offset4;
 }
 
 /**
@@ -335,20 +338,39 @@ INLINE void TStoreConv2DNZ2DN(T& dst, U& src, const OffsetInfo& offsetInfo, cons
     int64_t dstStrideH = GetConvStride<CONV_IDX_2>(dst);
     int64_t dstStrideW = GetConvStride<CONV_IDX_3>(dst);
 
+    int64_t cutW = 16;
     ShapeInfo shapeInfo{dstC, dstH, dstW};
-    int64_t gmOffset = CalStoreOffsetNCHW(shapeInfo, offsetInfo);
     using shapeDim4 = pto::Shape<1, -1, -1, -1, -1>;
     using strideDim4 = pto::Stride<1, -1, -1, -1, -1>;
-    using globalData = pto::GlobalTensor<typename T::Type, shapeDim4, strideDim4, pto::Layout::NCHW>;
-    globalData dstGlobal(
-        (__gm__ typename T::Type*)(dst.GetAddr() + gmOffset), shapeDim4(dstN, dstC, dstH, dstW),
-        strideDim4(dstStrideN, dstStrideC, dstStrideH, dstStrideW));
     using tileData = pto::Tile<
         pto::TileType::Acc, typename U::Type, srcM, srcN, pto::BLayout::ColMajor, -1, -1, pto::SLayout::RowMajor,
-        pto::TileConfig::fractalCSize, pto::PadValue::Null, pto::CompactMode::Normal>;
-    tileData srcL0C(realM, realN);
-    pto::TASSIGN(srcL0C, (uint64_t)src.GetAddr());
-    pto::TSTORE(dstGlobal, srcL0C);
+        pto::TileConfig::fractalCSize, pto::PadValue::Null, pto::CompactMode::Null>;
+    using globalData = pto::GlobalTensor<typename T::Type, shapeDim4, strideDim4, pto::Layout::NCHW>;
+    for (int64_t loopH = 0; loopH < (realM / cutW); loopH++) {
+        int64_t gmOffset = CalStoreOffsetNCHW(shapeInfo, offsetInfo, loopH);
+        globalData dstGlobal(
+            (__gm__ typename T::Type*)(dst.GetAddr() + gmOffset), shapeDim4(dstN, dstC, dstH, dstW),
+            strideDim4(dstStrideN, dstStrideC, dstStrideH, dstStrideW));
+        tileData srcL0C(cutW, realN);
+        pto::TASSIGN(srcL0C, (uint64_t)(src.GetAddr() + loopH * cutW * 16 * 4));
+        pto::TSTORE(dstGlobal, srcL0C);
+    }
+
+    // ShapeInfo shapeInfo{dstC, dstH, dstW};
+    // int64_t gmOffset = CalStoreOffsetNCHW(shapeInfo, offsetInfo);
+    // using shapeDim4 = pto::Shape<1, -1, -1, -1, -1>;
+    // using strideDim4 = pto::Stride<1, -1, -1, -1, -1>;
+    // using globalData = pto::GlobalTensor<typename T::Type, shapeDim4, strideDim4, pto::Layout::NCHW>;
+    // globalData dstGlobal(
+    //     (__gm__ typename T::Type*)(dst.GetAddr() + gmOffset), shapeDim4(dstN, dstC, dstH, dstW),
+    //     strideDim4(dstStrideN, dstStrideC, dstStrideH, dstStrideW));
+    // using tileData = pto::Tile<
+    //     pto::TileType::Acc, typename U::Type, srcM, srcN, pto::BLayout::ColMajor, -1, -1, pto::SLayout::RowMajor,
+    //     pto::TileConfig::fractalCSize, pto::PadValue::Null, pto::CompactMode::Null>;
+    // tileData srcL0C(cutW, realN);
+    // pto::TASSIGN(srcL0C, (uint64_t)src.GetAddr());
+    // pto::TSTORE(dstGlobal, srcL0C);
+
     return;
 }
 
