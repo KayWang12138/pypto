@@ -405,7 +405,6 @@ def scaled_matmul_kernel(
     g = y.shape[0]
     m = y.shape[1]
     n = y.shape[2]
-    mm_result_tensor = pypto.tensor([g, m, n], pypto.DT_FP32)
 
     # 从 tile_config 获取 group_list, group_type 和 transposition flags
     group_list = tile_config.group_list
@@ -413,12 +412,16 @@ def scaled_matmul_kernel(
     a_trans = tile_config.a_trans
     b_trans = tile_config.b_trans
 
-    # 根据 group_type 计算 begin 和 end (K轴切分)
-    # group_type=0: group_list 各元素为累计值，最后一个元素等于 K
-    # group_type=1: group_list 各元素为单独的 group size，累加得到 K
+    # 使用 pypto.loop 实现多核并行 + Cube/Vector 流水线
+    # Loop 展开：框架自动分发到多核并行执行
+    # 流水线：每个 iteration 内 Cube(scaled_mm) 和 Vector(add) 紧邻执行
+    #         当前 iteration 执行 Vector(add) 时，下一 iteration 的 Cube(scaled_mm) 可并行启动
     begin = 0
     end = 0
-    for i in range(g):
+    for i in pypto.loop(0, g, 1, name="LOOP_group", idx_name="group_idx"):
+        # 根据 group_type 计算 begin 和 end (K轴切分)
+        # group_type=0: group_list 各元素为累计值，最后一个元素等于 K
+        # group_type=1: group_list 各元素为单独的 group size，累加得到 K
         if group_type == 1:
             # 累加方式: begin 指向当前组起始，end 指向当前组结束
             begin = end
@@ -443,7 +446,6 @@ def scaled_matmul_kernel(
             x = a[:, begin:end]  # [M, K_block]
         
         # b 固定为 [K, N] (b_trans=False)，切分 K 轴 = 切分第一维
-        # TODO: 如果需要支持 b_trans=True，需要添加对应逻辑
         weight = b[begin:end, :]  # [K_block, N]
         
         # 切分 scale tensor
@@ -474,16 +476,20 @@ def scaled_matmul_kernel(
             tile_config.n_tile_shape   # N 维度 tile
         )
         
-        # 调用 scaled_mm
+        # Cube 操作: scaled_mm (矩阵乘法)
         # 根据 a_trans 决定 scale_a_trans:
         # - a_trans=True: scale_a_trans=True (scale 形状 [K//64, M, 2])
         # - a_trans=False: scale_a_trans=False (scale 形状 [M, K//64, 2])
-        scale_a_trans = a_trans  # scale_a_trans 与 a_trans 保持一致
-        mm_result_tensor[i] = pypto.scaled_mm(
+        scale_a_trans = a_trans
+        mm_result = pypto.scaled_mm(
             x, weight, pypto.DT_FP32, scaled_x, scaled_weight,
             a_trans=a_trans, scale_a_trans=scale_a_trans, b_trans=b_trans
         )
-    y[:,:,:] = pypto.add(y, mm_result_tensor)
+        
+        # Vector 操作: add (inplace 加法)
+        # 紧跟 Cube 操作，形成 Cube → Vector 流水线
+        # 当当前 iteration 执行 add 时，下一 iteration 的 scaled_mm 可并行启动
+        y[i] = pypto.add(y[i], mm_result)
 
 
 def gen_mxfp8(inputs: GmmMxfp8Inputs) -> torch.Tensor:
