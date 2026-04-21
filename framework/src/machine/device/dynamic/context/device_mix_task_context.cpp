@@ -82,6 +82,21 @@ WrapInfoQueue* DeviceTaskContext::AllocWrapQueue(DynDeviceTask* dyntask)
     return q;
 }
 
+void DeviceTaskContext::InitWrapQueueForThread(DynDeviceTask* dyntask)
+{
+    uint32_t size = sizeof(StaticReadyCoreFunctionQueue) + dyntask->devTask.mixTaskData.wrapIdNum * sizeof(uint64_t);
+    for (size_t i = 0; i < MAX_SCHEDULE_AICPU_NUM - 1; i++) {
+        WsAllocation qalloc = ControlFlowAllocateSlab(
+            devProg_, size, workspace_->SlabAlloc(size, WsAicpuSlabMemType::WRAP_QUEUE_FOR_THREAD));
+        StaticReadyCoreFunctionQueue* q = qalloc.As<StaticReadyCoreFunctionQueue>();
+        q->head = 0;
+        q->tail = 0;
+        q->lock = 0;
+        q->elem = reinterpret_cast<uint64_t*>(q + 1);
+        dyntask->devTask.mixTaskData.wrapQueueForThread[i] = PtrToValue(q);
+    }
+}
+
 bool DeviceTaskContext::IsMixArch(DevAscendProgram* devProg) { return devProg->devArgs.archInfo == ArchInfo::DAV_3510; }
 
 bool DeviceTaskContext::IsMultiDie(DevAscendProgram* devProg)

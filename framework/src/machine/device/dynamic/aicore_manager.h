@@ -242,7 +242,6 @@ public:
                     ret = SyncTaskFinish(deviceTaskCtx, isStageFinish);
                     PerfMtEnd(PERF_EVT_SYNC_AICORE, aicpuIdx_);
                     if (isStageFinish) {
-                        deviceTaskCtx->GetWrapManager().Deinit();
                         if (deviceTaskCtx->GetDeviceTaskCtrl()->Finish(!deviceTaskCtx->IsParallel())) {
                             PerfMtTrace(PERF_TRACE_DEV_TASK_RSP, aicpuIdx_);
                             deviceTaskCtx->EntryStage(DevTaskExecStage::FINISH);

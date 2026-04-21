@@ -25,6 +25,7 @@ inline constexpr size_t MAX_STITCH_FUNC_NUM = 1024;      // stitch数量阈值
 inline constexpr size_t MAX_STITCH_FUNC_NUM_LOWER = 128; // stitch数量阈值下限
 constexpr int MAX_DIMS = 8;
 constexpr uint32_t AICORE_TYPE_NUM = 2;
+constexpr uint32_t MAX_SCHEDULE_AICPU_NUM = 5;
 
 using taskid_t = uint32_t;
 
@@ -124,6 +125,7 @@ struct MixTaskData {
     uint64_t wrapIdNum;                             // 包含的有效wrapId个数
     uint64_t opWrapList[MAX_STITCH_FUNC_NUM_LOWER]; // 指针数组，指向每个function的callop对应的wrapId
     uint64_t opWrapPtrList[MAX_STITCH_FUNC_NUM_LOWER]; // 指针数组，指向每个function的callop对应的wrapInfo
+    uint64_t wrapQueueForThread[MAX_SCHEDULE_AICPU_NUM - 1]; // 指向每个Sched的StaticReadyCoreFunctionQueue的起始位置
 };
 
 inline constexpr size_t DIE_NUM = 2UL;

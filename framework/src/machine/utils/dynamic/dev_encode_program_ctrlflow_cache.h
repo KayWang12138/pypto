@@ -62,6 +62,7 @@ struct MixTaskDataCache {
     uint64_t wrapIdNum;
     uint64_t opWrapList[MAX_STITCH_FUNC_NUM_LOWER];
     WrapInfo** opWrapPtrList[MAX_STITCH_FUNC_NUM_LOWER];
+    StaticReadyCoreFunctionQueue wrapQueueForThread[MAX_SCHEDULE_AICPU_NUM - 1];
 };
 
 struct DynFuncDataCache {
@@ -522,6 +523,22 @@ struct DevControlFlowCache {
         mixTaskDataBackup->queue.elem = wrapQueueBackupElem;
         memcpy_s(mixTaskDataBackup->queue.elem, wrapInfoBackupSize, wrapInfoQueue->elem, wrapInfoBackupSize);
 
+        size_t wrapPtrBackupSize = sizeof(uint64_t) * wrapInfoQueue->capacity; // 与wrapInfoQueue元素数量相同
+        for (uint32_t i = 0; i < MAX_SCHEDULE_AICPU_NUM - 1; i++) {
+            StaticReadyCoreFunctionQueue* wrapQueueForThread =
+                reinterpret_cast<StaticReadyCoreFunctionQueue*>(base->devTask.mixTaskData.wrapQueueForThread[i]);
+            uint64_t* wrapPtrQueueBackupElem = reinterpret_cast<uint64_t*>(AllocateCache(wrapPtrBackupSize));
+            if (wrapPtrQueueBackupElem == nullptr) {
+                return;
+            }
+            mixTaskDataBackup->wrapQueueForThread[i].head = wrapQueueForThread->head;
+            mixTaskDataBackup->wrapQueueForThread[i].tail = wrapQueueForThread->tail;
+            mixTaskDataBackup->wrapQueueForThread[i].elem = wrapPtrQueueBackupElem;
+            memcpy_s(
+                mixTaskDataBackup->wrapQueueForThread[i].elem, wrapPtrBackupSize, wrapQueueForThread->elem,
+                wrapPtrBackupSize);
+        }
+
         memcpy_s(
             mixTaskDataBackup->opWrapList, MAX_STITCH_FUNC_NUM_LOWER, base->devTask.mixTaskData.opWrapList,
             MAX_STITCH_FUNC_NUM_LOWER);
@@ -547,6 +564,17 @@ struct DevControlFlowCache {
 
         size_t wrapInfoBackupSize = sizeof(WrapInfo) * wrapInfoQueue->capacity;
         memcpy_s(wrapInfoQueue->elem, wrapInfoBackupSize, mixTaskDataBackup->queue.elem, wrapInfoBackupSize);
+
+        size_t wrapPtrBackupSize = sizeof(uint64_t) * wrapInfoQueue->capacity; // 与wrapInfoQueue元素数量相同
+        for (uint32_t i = 0; i < MAX_SCHEDULE_AICPU_NUM - 1; i++) {
+            StaticReadyCoreFunctionQueue* wrapQueueForThread =
+                reinterpret_cast<StaticReadyCoreFunctionQueue*>(base->devTask.mixTaskData.wrapQueueForThread[i]);
+            wrapQueueForThread->head = mixTaskDataBackup->wrapQueueForThread[i].head;
+            wrapQueueForThread->tail = mixTaskDataBackup->wrapQueueForThread[i].tail;
+            memcpy_s(
+                wrapQueueForThread->elem, wrapPtrBackupSize, mixTaskDataBackup->wrapQueueForThread[i].elem,
+                wrapPtrBackupSize);
+        }
 
         memcpy_s(
             base->devTask.mixTaskData.opWrapList, MAX_STITCH_FUNC_NUM_LOWER, mixTaskDataBackup->opWrapList,
@@ -1001,6 +1029,23 @@ struct DevControlFlowCache {
         WrapInfo*& wrapInfoBackupElemRef = mixTaskDataBackup->queue.elem;
         WrapInfo* wrapInfoBackupElem = RelocControlFlowCachePointer(wrapInfoBackupElemRef, relocCtrlCache);
         (void)wrapInfoBackupElem;
+
+        for (uint32_t i = 0; i < MAX_SCHEDULE_AICPU_NUM - 1; i++) {
+            StaticReadyCoreFunctionQueue* tmpWrapQueueForThread =
+                reinterpret_cast<StaticReadyCoreFunctionQueue*>(dynTaskBase->devTask.mixTaskData.wrapQueueForThread[i]);
+            StaticReadyCoreFunctionQueue*& wrapQueueForThreadRef = tmpWrapQueueForThread;
+            StaticReadyCoreFunctionQueue* wrapQueueForThread =
+                RelocControlFlowCachePointer(wrapQueueForThreadRef, relocCtrlCache);
+            relocCtrlCache.Reloc(dynTaskBase->devTask.mixTaskData.wrapQueueForThread[i]);
+
+            uint64_t*& wrapPtrElemRef = wrapQueueForThread->elem;
+            uint64_t* wrapPtrElem = RelocControlFlowCachePointer(wrapPtrElemRef, relocCtrlCache);
+            (void)wrapPtrElem;
+
+            uint64_t*& wrapPtrBackupElemRef = mixTaskDataBackup->wrapQueueForThread[i].elem;
+            uint64_t* wrapPtrBackupElem = RelocControlFlowCachePointer(wrapPtrBackupElemRef, relocCtrlCache);
+            (void)wrapPtrBackupElem;
+        }
 
         for (uint32_t dupIndex = 0; dupIndex < dynFuncDataList->funcNum; dupIndex++) {
             relocProgram.Reloc(dynTaskBase->devTask.mixTaskData.opWrapList[dupIndex]);
