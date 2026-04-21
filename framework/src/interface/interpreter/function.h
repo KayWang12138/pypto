@@ -1093,7 +1093,7 @@ struct FunctionInterpreter {
                 continue;
             // TODO: 判断 op 中是否依赖 WaitUntil，如果依赖则将对应的 waitUntil 执行【此时 waitUntil 必定已经执行，拓扑序优先】
             if (DependsOnWaitUntil(&op) || DependsOnWaitQueue(&op)) {
-                waitOpQueue_.push(&op);
+                waitOpQueue_.push_back(&op);
             } else {
                 ExecuteHandleOperationBegin(&op);
                 ExecuteOperation(*frame, &op);
@@ -1101,21 +1101,21 @@ struct FunctionInterpreter {
             }
         }
 
-        for (auto &op: waitOpQueue_) {
-            ExecuteHandleOperationBegin(&op);
-            if (DependsOnWaitUntil(&op)) {
-                std::cout << op.GetOpcodeStr() << op.GetOpMagic() << " depends on waituntil" << std::endl;
+        for (auto& op: waitOpQueue_) {
+            ExecuteHandleOperationBegin(op);
+            if (DependsOnWaitUntil(op)) {
+                std::cout << op->GetOpcodeStr() << op->GetOpMagic() << " depends on waituntil" << std::endl;
                 // GetWaitTask 需要从全局变量中拿，每执行一次 WaitUntil，就应该把相应的执行序下的 waitUntil 记录在全局哈希表中
-                std::future<void>* task = GetWaitTask(&op);
+                std::future<void>* task = GetWaitTask(op);
                 // 如果拿到了相应的执行任务，就需要等待 WaitUntil 执行完成
                 if (task != nullptr) {
-                    std::cout << op.GetOpcodeStr() << op.GetOpMagic() << " is waitting for waituntil ..." << std::endl;
+                    std::cout << op->GetOpcodeStr() << op->GetOpMagic() << " is waitting for waituntil ..." << std::endl;
                     task->get();
                 }
-                RemoveWaitTask(&op);
-                ExecuteOperation(*frame, &op);
+                RemoveWaitTask(op);
+                ExecuteOperation(*frame, op);
             } else {
-                ExecuteOperation(*frame, &op);
+                ExecuteOperation(*frame, op);
             }
             ExecuteHandleOperationEnd();
         }
