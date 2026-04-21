@@ -22,7 +22,7 @@ import pypto
 
 from sparse_attention_antiquant_fp8_impl \
     import sparse_attention_antiquant_d, sparse_attention_antiquant_p, SaTileShapeConfig
-from utils.compare import compare
+from models.experimental.utils.compare import compare
 
 
 @dataclass
