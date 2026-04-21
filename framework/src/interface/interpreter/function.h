@@ -1119,6 +1119,7 @@ struct FunctionInterpreter {
             }
             ExecuteHandleOperationEnd();
         }
+        waitOpQueue_.clear();
         ExecuteHandleFunctionEnd();
 
         CopyInplaceOutcastToIncast(func, frame);
