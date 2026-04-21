@@ -846,7 +846,7 @@ private:
     inline uint64_t TryBatchSendTask(SchDeviceTaskContext* devTaskCtx, CoreType type, ReadyCoreFunctionQueue* readyQue,
                 int coreIdxStart, int coreIdxEnd)
     {
-        if (__atomic_load_n(&readyQue->tail, __ATOMIC_RELAXED) == __atomic_load_n(&readyQue->head, __ATOMIC_RELAXED)) {
+        if (readyQue->unsafe_size() == 0) {
             DEV_VERBOSE_DEBUG("AiCpud:%d, can not send task currently. ready Task: 0", aicpuIdx_);
             return 0;
         }
@@ -1160,8 +1160,8 @@ private:
                 type, resolveCtx[i].finishCoreIdx, resolveCtx[i].finishIds,
                 resolveCtx[i].resolveIndexBase, resloveParallelIdx);
             if (enableFairSch_ && (resloveParallelIdx & (1U << devTaskCtx->parallelIdx))) {
-                if (devTaskCtx->readyAicCoreFunctionQue->tail - devTaskCtx->readyAicCoreFunctionQue->head == 0 ||
-                    devTaskCtx->readyAivCoreFunctionQue->tail - devTaskCtx->readyAivCoreFunctionQue->head == 0) {
+                if (devTaskCtx->readyAicCoreFunctionQue->unsafe_size() == 0 ||
+                    devTaskCtx->readyAivCoreFunctionQue->unsafe_size() == 0) {
                     ret = BatchPushReadyQueue(devTaskCtx);
                     if (unlikely(ret != DEVICE_MACHINE_OK)) {
                         return ret;
@@ -1809,8 +1809,8 @@ private:
         if (!context_->DevTaskEmpty()) {
             auto deviceTaskCtx = context_->FrontDevTaskCtx();
             InitDevTask(deviceTaskCtx);
-            needSendAic = (deviceTaskCtx->readyAicCoreFunctionQue->tail != deviceTaskCtx->readyAicCoreFunctionQue->head);
-            needSendAiv = (deviceTaskCtx->readyAivCoreFunctionQue->tail != deviceTaskCtx->readyAivCoreFunctionQue->head);
+            needSendAic = (deviceTaskCtx->readyAicCoreFunctionQue->unsafe_size() > 0);
+            needSendAiv = (deviceTaskCtx->readyAivCoreFunctionQue->unsafe_size() > 0);
             DEV_DEBUG("hand shake prefetch dev task success: needSendAic=%d, needSendAiv=%d", needSendAic, needSendAiv);
             return deviceTaskCtx;
         }
