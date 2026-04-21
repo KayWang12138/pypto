@@ -199,7 +199,7 @@ TEST_F(TestCodegenDynQuantize, DequantizeInt8ToFP32)
     TileShape::Current().SetVecTile({8, 128});
     Tensor input(DataType::DT_INT8, inputShape, "input");
     Tensor scale(DataType::DT_FP32, scaleShape, "scale");
-    Tensor zeroPoints(DataType::DT_INT32, zeroPointShape, "zeroPoints");
+    Tensor zeroPoints(DataType::DT_FP32, zeroPointShape, "zeroPoints");
     Tensor output(DataType::DT_FP32, outputShape, "output");
 
     std::string funcName = "DEQUANTIZE_INT8_FP32";
@@ -234,7 +234,7 @@ TEST_F(TestCodegenDynQuantize, DequantizeInt16ToFP32)
     TileShape::Current().SetVecTile({16, 64});
     Tensor input(DataType::DT_INT16, inputShape, "input");
     Tensor scale(DataType::DT_FP32, scaleShape, "scale");
-    Tensor zeroPoints(DataType::DT_INT32, zeroPointShape, "zeroPoints");
+    Tensor zeroPoints(DataType::DT_FP32, zeroPointShape, "zeroPoints");
     Tensor output(DataType::DT_FP32, outputShape, "output");
 
     std::string funcName = "DEQUANTIZE_INT16_FP32";
@@ -269,7 +269,7 @@ TEST_F(TestCodegenDynQuantize, DequantizeInt8AxisM2)
     TileShape::Current().SetVecTile({4, 128});
     Tensor input(DataType::DT_INT8, inputShape, "input");
     Tensor scale(DataType::DT_FP32, scaleShape, "scale");
-    Tensor zeroPoints(DataType::DT_INT32, zeroPointShape, "zeroPoints");
+    Tensor zeroPoints(DataType::DT_FP32, zeroPointShape, "zeroPoints");
     Tensor output(DataType::DT_FP32, outputShape, "output");
 
     std::string funcName = "DEQUANTIZE_INT8_AXIS_M2";
@@ -304,7 +304,7 @@ TEST_F(TestCodegenDynQuantize, DequantizeInt16AxisM2)
     TileShape::Current().SetVecTile({4, 128});
     Tensor input(DataType::DT_INT16, inputShape, "input");
     Tensor scale(DataType::DT_FP32, scaleShape, "scale");
-    Tensor zeroPoints(DataType::DT_INT32, zeroPointShape, "zeroPoints");
+    Tensor zeroPoints(DataType::DT_FP32, zeroPointShape, "zeroPoints");
     Tensor output(DataType::DT_FP32, outputShape, "output");
 
     std::string funcName = "DEQUANTIZE_INT16_AXIS_M2";
@@ -340,7 +340,7 @@ TEST_F(TestCodegenDynQuantize, QuantizeDequantizeSymmetricChain)
     Tensor input(DataType::DT_FP32, inputShape, "input");
     Tensor scale(DataType::DT_FP32, scaleShape, "scale");
     Tensor zeroPointsQ; // Empty for symmetric quantization
-    Tensor zeroPointsD(DataType::DT_INT32, scaleShape, "zeroPointsD");
+    Tensor zeroPointsD(DataType::DT_FP32, scaleShape, "zeroPointsD");
     Tensor int8Tensor(DataType::DT_INT8, int8Shape, "int8Tensor");
     Tensor output(DataType::DT_FP32, outputShape, "output");
 
