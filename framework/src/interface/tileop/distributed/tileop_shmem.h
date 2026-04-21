@@ -307,12 +307,11 @@ TILEOP void CopyGmToUbBlock(
     ShapeDyn shape = MakeShape(ubValidShape0, ubValidShape1);
     StrideDyn srcStrideDyn = MakeStride(ubValidShape0, srcStride);
     ShmemGlobalTensor<SourceType> srcGlobal(source, shape, srcStrideDyn);
+    PIPE_SYNC_EVENT(PIPE_S, PIPE_MTE2, EVENT_ID0);
     if constexpr (std::is_same_v<TargetType, SourceType>) {
-        PIPE_SYNC_EVENT(PIPE_S, PIPE_MTE2, EVENT_ID0);
         ShmemUbTile<TargetType, rowShape, colShape> ubTile(ubValidShape0, ubValidShape1);
         pto::TASSIGN(ubTile, reinterpret_cast<uintptr_t>(target));
         pto::TLOAD(ubTile, srcGlobal);
-        PIPE_SYNC_EVENT(PIPE_MTE2, PIPE_V, EVENT_ID0);
     } else {
         __ubuf__ float* castUb = (__ubuf__ float*)buffer;
         ShmemUbTile<float, rowShape, colShape> srcTile(ubValidShape0, ubValidShape1);
@@ -320,8 +319,8 @@ TILEOP void CopyGmToUbBlock(
         pto::TASSIGN(srcTile, reinterpret_cast<uintptr_t>(castUb));
         pto::TASSIGN(dstTile, reinterpret_cast<uintptr_t>(target));
         pto::TLOAD(srcTile, srcGlobal);
-        PIPE_SYNC_EVENT(PIPE_MTE2, PIPE_V, EVENT_ID0);
         pto::TCVT(dstTile, srcTile, pto::RoundMode::CAST_NONE);
+        PIPE_SYNC_EVENT(PIPE_MTE2, PIPE_V, EVENT_ID0);
     }
 }
 
@@ -413,7 +412,7 @@ TILEOP void ShmemPutUb2Gm(
     __gm__ Type* shmemDataAddr = MapVirtualAddr<Type>(hcclContext, shmemDataBaseAddr, ownerRank) +
                                  CalcLinearOffset(shmemDataRawShape1, shmemDataOffset0, shmemDataOffset1);
 
-    PIPE_SYNC_EVENT(PIPE_V, PIPE_MTE3, EVENT_ID0);
+    PIPE_SYNC_EVENT(PIPE_S, PIPE_MTE3, EVENT_ID0);
 
     ShapeDyn shape = MakeShape(outValidShape0, outValidShape1);
     StrideDyn dstStrideDyn = MakeStride(outValidShape0, outValidShape1);
@@ -424,7 +423,6 @@ TILEOP void ShmemPutUb2Gm(
 
     AtomicStore<atomicType>(dstGlobal, ubTile);
 
-    PIPE_SYNC_EVENT(PIPE_MTE3, PIPE_V, EVENT_ID0);
 }
 
 // Signal: write value to remote ranks; S→MTE3 sync so scalar write is visible to TSTORE.
