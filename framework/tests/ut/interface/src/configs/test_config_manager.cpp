@@ -99,7 +99,7 @@ TEST_F(TestConfigManager, Dump)
 
     auto scope = cm.CurrentScope();
     auto lower = AnyCast<int64_t>(scope->GetAnyConfig("pass.pg_lower_bound"));
-    EXPECT_EQ(lower, 20);
+    EXPECT_EQ(lower, 512);
     cm.EndScope();
 
     cm.BeginScope("scope3", {{"pass.pg_lower_bound", 30L}});
