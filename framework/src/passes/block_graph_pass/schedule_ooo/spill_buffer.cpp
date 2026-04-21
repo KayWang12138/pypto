@@ -463,7 +463,11 @@ Status OoOScheduler::CreateParticalBuffer(int spillMemid, Operation* producerOp,
 
     UpdateOpScheduleInfo(copyinOp, {assembleOOperand->memoryrange.memId}, spillAllocOp);
     UpdateOpScheduleInfo(assembleOp, {assembleOOperand->memoryrange.memId, assembleOOperand->memoryrange.memId}, spillAllocOp);
-    if (InsertOps({copyinOp, assembleOp}, spillAllocOp, spillMemid) != SUCCESS) {
+    std::unordered_map<Operation*, std::vector<int>> opMemidMap = {
+        {copyinOp, {assembleOOperand->memoryrange.memId}},
+        {assembleOp, {assembleOOperand->memoryrange.memId, assembleOOperand->memoryrange.memId}}
+    };
+    if (InsertOps(opMemidMap, spillAllocOp, spillMemid) != SUCCESS) {
         return FAILED;
     }
     return SUCCESS;
