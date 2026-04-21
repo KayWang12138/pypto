@@ -800,7 +800,7 @@ Status IsoPartitioner::EstimateCycleUB(Function& function)
 
     // 更新成员变量并记录日志
     cycleUB_ = estimatedCycleUB;
-    APASS_LOG_ERROR_F(
+    APASS_LOG_INFO_F(
         Elements::Config, "Estimated cycleUB_: %d based on total latency: %ld", cycleUB_, totalLatency);
 
     return SUCCESS;
