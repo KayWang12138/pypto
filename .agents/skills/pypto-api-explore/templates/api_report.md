@@ -1,20 +1,10 @@
----
-schema_version: 1
-op_name: {operator_name}
-supported_dtypes: {supported_dtypes}
-dynamic_axes: {axes_list}
-shape_constraints: {shape_constraints}
-tiling_required: {tiling_required}
-feasibility: {feasibility}
----
-
 # API 探索报告
 
 > **生成时间**: {timestamp}
 
 ---
 
-<!-- REQUIRED -->
+<!-- 必填 -->
 ## 1. 概述
 
 ### 1.1 输入摘要
@@ -36,14 +26,14 @@ feasibility: {feasibility}
 
 ---
 
-<!-- REQUIRED -->
+<!-- 必填 -->
 ## 3. API 映射
 
 ### 3.1 映射结果
 
 | 步骤 | 数学表达 | PyPTO API | 映射级别 | 约束满足 |
 |------|----------|-----------|----------|----------|
-| 1 | {expr} | `{api}` | {direct/substitute/unsupported} | {✓/⚠/✗} |
+| 1 | {expr} | `{api}` | {直接映射/替代方案/不支持} | {✓/⚠/✗} |
 
 ### 3.2 Substitute 配方
 
@@ -106,7 +96,7 @@ feasibility: {feasibility}
 
 ---
 
-<!-- REQUIRED -->
+<!-- 必填 -->
 ## 7. 风险评估
 
 ### 7.1 阻断问题
@@ -123,7 +113,7 @@ feasibility: {feasibility}
 
 ---
 
-<!-- REQUIRED -->
+<!-- 必填 -->
 ## 8. 证据索引
 
 | 信息 | 文档路径 |
@@ -135,7 +125,7 @@ feasibility: {feasibility}
 
 ---
 
-<!-- REQUIRED -->
+<!-- 必填 -->
 ## 9. 结论
 
 - **可行性**: {可行 / 需调整 / 不可行}

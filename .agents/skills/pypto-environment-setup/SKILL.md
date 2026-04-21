@@ -3,7 +3,7 @@ name: pypto-environment-setup
 description: PyPTO 环境安装与环境问题修复，包括 CANN、torch_npu、编译工具链、第三方依赖和 PyPTO 编译运行等。触发词：PyPTO environment setup, CANN install, torch_npu, NPU environment, Ascend toolkit, compile PyPTO, build PyPTO, NPU driver, prepare_env, diagnose environment, fix import error, torch_npu import fail, DT_FP8E8M0, pto-isa, ASCEND_HOME_PATH, npu-smi, softmax verify, pip dependency conflict
 ---
 
-# PyPTO Environment Setup
+# PyPTO 环境安装与配置
 
 ## 约定
 
@@ -11,17 +11,7 @@ description: PyPTO 环境安装与环境问题修复，包括 CANN、torch_npu�
 ASCEND_INSTALL_PATH=${ASCEND_INSTALL_PATH:-/usr/local/Ascend}
 ```
 
-- **默认版本**：CANN 8.5.0 + PyTorch/torch_npu
-
-| CANN 版本 | torch 推荐版本 | torch_npu 推荐版本 |
-|-----------|---------------|-------------------|
-| 8.5.0 | 2.6.0 | 2.6.0.post3 |
-
-**版本策略**：
-- 新环境（未安装 torch/torch_npu）：优先安装推荐版本（torch 2.6.0 + torch_npu 2.6.0.post3）
-- 已安装环境：
-  - 版本 ≥ 推荐版本：保持不变，无需降级
-  - 版本 < 推荐版本：升级至推荐版本
+- **默认版本**：CANN 8.5.0 + PyTorch 2.6.0 + torch_npu 2.6.0.post3
 
 ## ⛔ 隐私保护
 

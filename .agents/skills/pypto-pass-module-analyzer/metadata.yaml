@@ -1,0 +1,5 @@
+name: pypto-pass-module-analyzer
+description: "Analyze pass module source code and docs, generate analysis documentation."
+triggers: ["pass analysis", "module analysis", "pass code review"]
+category: pass
+phase_affinity: ["any"]
