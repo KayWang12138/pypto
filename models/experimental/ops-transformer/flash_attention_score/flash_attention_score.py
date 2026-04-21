@@ -45,7 +45,6 @@ from flash_attention_score_impl_new2 import (
     flash_attention_score_kernel_with_mask_fp32,
     flash_attention_score_kernel_with_pse_and_dropout_fp32,
 )
-
 logging.basicConfig(level=logging.INFO, format="%(message)s")
 
 
@@ -76,7 +75,6 @@ def check_nan(tensor: torch.Tensor, name: str) -> bool:
         logging.error(f"  {name} contains {nan_count}/{total_count} NaN values!")
         return True
     return False
-
 
 def flash_attention_score_golden_origin(
     query: torch.Tensor,
@@ -340,6 +338,10 @@ def test_kernel_with_mask_origin(device_id=None, run_mode: str = "npu", skip_gol
 
     if run_mode == "npu":
         golden = flash_attention_score_golden_origin(query.cpu(), key.cpu(), value.cpu(), atten_mask.cpu())
+        # golden = attention_golden(query.cpu().float(), key.cpu().float(), value.cpu().float())
+        # compare(output.float().cpu(), golden.float(), "atten_out", atol=0.001, rtol=0.005, max_error_count=10)
+        # golden = attention_golden_with_mask(query.cpu(), key.cpu(), value.cpu(), atten_mask.cpu())
+        # golden = attention_golden(query.cpu().float(), key.cpu().float(), value.cpu().float())
         logging.info("Got golden")
 
         output_fp32 = output.float().cpu()
@@ -685,7 +687,8 @@ Examples:
 #     main()
 
 import torch_npu
-torch.npu.set_device(2)
-logging.info(f"Running on NPU device {2}\n")
+torch.npu.set_device(1)
+logging.info(f"Running on NPU device {1}\n")
 
-test_kernel_with_mask_origin(device_id=2, skip_golden=False)
+test_kernel_with_mask_origin(device_id=1, skip_golden=False)
+# test_kernel_with_mask(device_id=7, skip_golden=False)

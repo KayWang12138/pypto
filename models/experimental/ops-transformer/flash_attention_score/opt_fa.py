@@ -14,6 +14,65 @@ S1_TILE = 64
 # [optimizations] 4. KV block expansion + increased vector tiling
 S2_TILE = 64
 
+
+def flash_attention_score_golden_origin(
+    query: torch.Tensor,
+    key: torch.Tensor,
+    value: torch.Tensor,
+    atten_mask: Optional[torch.Tensor] = None,
+) -> torch.Tensor:
+    """Golden reference for flash_attention_score_kernel_with_mask_origin.
+    
+    This version only returns output, without softmax_max and softmax_sum.
+    Uses fixed scale = 1/sqrt(HEAD_DIM).
+    """
+    b, n, sq, d = query.shape
+    _, _, skv, _ = key.shape
+
+    scale = 1.0 / math.sqrt(d)
+
+    query_fp32 = query.float()
+    key_fp32 = key.float()
+    value_fp32 = value.float()
+
+    output = torch.zeros(b, n, sq, d, dtype=torch.float32, device=query.device)
+
+    for b_idx in range(b):
+        for n_idx in range(n):
+            for q_idx in range(sq):
+                q_vec = query_fp32[b_idx, n_idx, q_idx, :]
+
+                max_score = float('-inf')
+                sum_exp = 0.0
+                output_vec = torch.zeros(d, dtype=torch.float32, device=query.device)
+
+                for kv_idx in range(skv):
+                    if atten_mask is not None and atten_mask[q_idx, kv_idx] == 1:
+                        continue
+
+                    k_vec = key_fp32[b_idx, n_idx, kv_idx, :]
+                    score = torch.dot(q_vec, k_vec) * scale
+
+                    new_max = max(max_score, score.item())
+
+                    if new_max > max_score:
+                        correction = math.exp(max_score - new_max)
+                        sum_exp = sum_exp * correction
+                        output_vec = output_vec * correction
+                        max_score = new_max
+
+                    exp_score = math.exp(score - max_score)
+                    sum_exp += exp_score
+
+                    v_vec = value_fp32[b_idx, n_idx, kv_idx, :]
+                    output_vec += exp_score * v_vec
+
+                if sum_exp > 0:
+                    output[b_idx, n_idx, q_idx, :] = output_vec / sum_exp
+
+    return output
+
+
 def attention_golden(
     q: torch.Tensor,
     k: torch.Tensor,
