@@ -112,6 +112,7 @@ static Tensor RealUniform(uint64_t key, const SymbolicScalar& counter0, uint64_t
 
 Tensor Uniform(const Element &key, const SymbolicScalar& counter0, const Element &counter1,
     const std::vector<int64_t> &shape, const Element &rounds, DataType dtype) {
+    DECLARE_TRACER();
     uint16_t roundsVal = rounds.Cast<uint16_t>();
     ASSERT(VectorErrorCode::ERR_PARAM_INVALID, shape.size() == 1)
         << "Uniform: shape must be 1-dimensional";
@@ -119,6 +120,7 @@ Tensor Uniform(const Element &key, const SymbolicScalar& counter0, const Element
         << "Uniform: rounds must be 7 or 10";
     ASSERT(VectorErrorCode::ERR_PARAM_INVALID, dtype == DT_FP32 || dtype == DT_FP16 || dtype == DT_BF16)
         << "Uniform: dtype must be DT_FP32, DT_FP16 or DT_BF16";
+    CheckDstShapeSize(shape, "UNIFORM");
     
     return RealUniform(key.Cast<uint64_t>(), counter0, counter1.Cast<uint64_t>(), shape, roundsVal, dtype);
 }
