@@ -105,6 +105,95 @@ pypto.assemble要求输入输出tensor的dtype一致，否则编译报错"Source
 6. 在测试函数中对比所有检查点
 7. 先从个别关键计算点开始，然后二分定位
 
+## 端到端示例
+
+以下示例演示如何使用二分对比法定位精度问题。
+
+### 1. 修改前 kernel 代码（有精度问题）
+
+```python
+import pypto
+import torch
+
+@pypto.frontend.jit
+def kernel(inputs, outputs, ckpts_before, ckpts_after, n):
+    a = inputs[0]
+    # 第1步计算
+    mid1 = pypto.matmul(a, a.T)
+    ckpts_before[0][:] = mid1  # 检查点1：matmul结果
+
+    # 第2步计算（可能有问题）
+    mid2 = pypto.reshape(mid1, (n, -1))
+    mid3 = pypto.compute_exp(mid2)
+    ckpts_after[0][:] = mid3   # 检查点2：exp结果
+
+    outputs[0][:] = mid3
+```
+
+### 2. Golden 参考代码
+
+```python
+import torch
+
+def golden(a, n):
+    # 与 kernel 对应的计算步骤
+    mid1 = torch.matmul(a, a.T)
+
+    mid2 = mid1.reshape(n, -1)
+    mid3 = torch.exp(mid2)
+
+    return mid1, mid3  # 返回检查点数据
+```
+
+### 3. 测试函数（创建检查点 tensor 并对比）
+
+```python
+import numpy as np
+import torch
+
+def test_binary_search():
+    n = 128
+    a = torch.randn(n, n, dtype=torch.float32)
+
+    # 创建检查点 tensor（注意：shape 必须与 kernel 中一致）
+    mid1_shape = (n, n)       # matmul 输出 shape
+    mid3_shape = (n, n)       # exp 输出 shape
+
+    ckpts_before = [pypto.Tensor(pypto.zeros(mid1_shape, dtype=pypto.float32))]
+    ckpts_after = [pypto.Tensor(pypto.zeros(mid3_shape, dtype=pypto.float32))]
+
+    # 运行 kernel
+    inputs = [pypto.Tensor(a.numpy())]
+    outputs = [pypto.Tensor(pypto.zeros(mid3_shape, dtype=pypto.float32))]
+    kernel(inputs, outputs, ckpts_before, ckpts_after, n)
+
+    # 运行 golden
+    golden_mid1, golden_mid3 = golden(a, n)
+
+    # 对比检查点
+    kernel_mid1 = torch.from_numpy(np.array(ckpts_before[0]))
+    kernel_mid3 = torch.from_numpy(np.array(ckpts_after[0]))
+
+    print("检查点1 (matmul):")
+    print(f"  max diff: {(kernel_mid1 - golden_mid1).abs().max().item()}")
+    np.testing.assert_allclose(kernel_mid1.numpy(), golden_mid1.numpy(), atol=1e-5, rtol=1e-5)
+    print("  ✅ 通过")
+
+    print("检查点2 (exp):")
+    print(f"  max diff: {(kernel_mid3 - golden_mid3).abs().max().item()}")
+    np.testing.assert_allclose(kernel_mid3.numpy(), golden_mid3.numpy(), atol=1e-5, rtol=1e-5)
+    print("  ✅ 通过")
+
+test_binary_search()
+```
+
+### 4. 定位思路
+
+1. 若检查点1（matmul）失败 → 问题在 matmul 及其之前
+2. 若检查点1通过但检查点2失败 → 问题在 reshape 或 compute_exp
+3. 在失败的两个检查点之间添加更多检查点，缩小范围
+4. 重复直到定位到具体 op
+
 ## 检查清单
 
 - [ ] 分析代码结构，确定检查点

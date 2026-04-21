@@ -177,6 +177,10 @@ gitcode_search_issues(query="repo:cann/pypto {english keywords}")
 bash scripts/collect-env.sh
 ```
 
+**Unknown 字段处理**：当关键环境字段（CANN 版本、NPU 型号、torch/torch_npu 版本等）采集结果为 `Unknown` 时：
+1. 在 Issue 环境信息区域标注 `⚠️ 未采集到` 并附原始输出
+2. 提示用户手动补充缺失字段："以下环境信息未能自动采集，请手动补充：[列出 Unknown 字段]"
+
 ### 快速参考
 
 | 信息类型 | 命令 | 输出示例 |
