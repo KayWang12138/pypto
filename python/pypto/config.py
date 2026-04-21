@@ -162,7 +162,7 @@ def get_host_options() -> Dict[str, Union[str, int, List[int], Dict[int, int]]]:
     return scope.get_host_options()
 
 
-def set_codegen_options(*, support_dynamic_aligned: Optional[bool] = None) -> None:
+def set_codegen_options(*, support_dynamic_aligned: Optional[bool] = None, soc_version: Optional[str] = None) -> None:
     """
     Set codegen options.
 

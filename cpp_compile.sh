@@ -17,9 +17,9 @@ make -j16
 cd output/bin
 
 # ./tile_fwk_utest --gtest_filter=LiteNPUCodeGenMatmul.*
-# ./tile_fwk_utest --gtest_filter=LiteNPUCodeGenMatmul.test_matmul_001
+./tile_fwk_utest --gtest_filter=LiteNPUCodeGenMatmul.test_matmul_001
 # ./tile_fwk_utest --gtest_filter=LiteNPUCodeGenMatmul.test_matmul_011
-./tile_fwk_utest --gtest_filter=LiteNPUCodeGenMatmul.test_matmul_s8s8_004
+# ./tile_fwk_utest --gtest_filter=LiteNPUCodeGenMatmul.test_matmul_s8s8_004
 
 # ./tile_fwk_utest --gtest_filter=LiteNPUCodeGenSigmoid.test_sigmoid_002
 # ./tile_fwk_utest --gtest_filter=LiteNPUCodeGenIndexPut.*
