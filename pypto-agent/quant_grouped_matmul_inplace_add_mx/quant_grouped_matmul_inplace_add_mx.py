@@ -341,6 +341,8 @@ def scaled_matmul_kernel(
     scaled_a: pypto.Tensor(),
     scaled_b: pypto.Tensor(),
     y: pypto.Tensor(),
+    mm_results: pypto.Tensor(),     # 预分配的结果存储 tensor [g, m, n]
+    index_tensor: pypto.Tensor(),   # 预分配的索引 tensor [g]，值为 [0, 1, ..., g-1]
     tile_config: ShapeConfig
 ):
     """
@@ -402,9 +404,11 @@ def scaled_matmul_kernel(
        - scaled_a: ((K//64)+g, M, 2)
        - scaled_b: ((K//64)+g, N, 2)
     """
-    g = y.shape[0]
-    m = y.shape[1]
-    n = y.shape[2]
+    # 重要：在 jit 函数内，y.shape[0] 返回 SymbolicScalar（符号值）
+    # 因此必须从 tile_config 获取 g、m、n（编译时确定的 Python int）
+    g = len(tile_config.group_list)  # Python int，编译时确定
+    m = tile_config.ori_shape[0]     # Python int，编译时确定
+    n = tile_config.ori_shape[2]     # Python int，编译时确定
 
     # 从 tile_config 获取 group_list, group_type 和 transposition flags
     group_list = tile_config.group_list
@@ -415,7 +419,6 @@ def scaled_matmul_kernel(
     # 注意: 必须使用 range(g) 而非 pypto.loop
     # 原因: group_list[i] 需要在编译时确定 tensor slicing 的 begin/end
     #       pypto.loop 的索引是 SymbolicScalar，无法访问 Python list
-    #       但仍然可以实现 Cube/Vector 流水线：将 add 移入循环内，紧跟 scaled_mm
     begin = 0
     end = 0
     for i in range(g):
@@ -486,10 +489,36 @@ def scaled_matmul_kernel(
             a_trans=a_trans, scale_a_trans=scale_a_trans, b_trans=b_trans
         )
         
-        # Vector 操作: add (inplace 加法)
+        # 将 mm_result ([m, n]) 存入 mm_results ([g, m, n]) 的第 i 个位置
+        # mm_results[i] 得到 [m, n] 的 view
+        mm_results[i] = mm_result
+        
+        # Vector 操作: index_add_ (inplace 累加)
         # 紧跟 Cube 操作，形成 Cube → Vector 流水线
-        # 框架调度：当前 iteration 的 add 和下一 iteration 的 scaled_mm 可并行执行
-        y[i] = pypto.add(y[i], mm_result)
+        # 
+        # 使用 pypto.view 从预分配的大 tensor 中取出当前循环的数据块：
+        #   - mm_results: [g, m, n] → view 取出 [1, m, n] 块（偏移 [i, 0, 0]）
+        #   - index_tensor: [g] → view 取出 [1] 块（偏移 [i]）
+        #
+        # pypto.index_add_ 参数说明：
+        #   - input: y [g, m, n]（目标 tensor）
+        #   - dim: 0（在第0维进行索引累加）
+        #   - index: view_index [1]（值为 [i]，指定累加位置）
+        #   - source: view_source [1, m, n]（要累加的数据）
+        #   - alpha: 1（缩放因子）
+        #
+        # 执行效果: y[i, :, :] += mm_results[i, :, :]
+        
+        # 使用 pypto.view 从预分配的 tensor 中取出当前块
+        # view_source: 从 mm_results [g, m, n] 取出 [1, m, n]，偏移 [i, 0, 0]
+        view_source = pypto.view(mm_results, [1, m, n], offsets=[i, 0, 0])
+        # view_index: 从 index_tensor [g] 取出 [1]，偏移 [i]
+        view_index = pypto.view(index_tensor, [1], offsets=[i])
+        
+        # 设置三维 tile shape（index_add_ 需要 tile shape 与 input 维度一致）
+        # 根据文档约束：dim 轴不可切，source 的 dim 轴长度为 1，所以 TileShape[0] = 1
+        pypto.set_vec_tile_shapes(1, tile_config.vector_tile_shape[2], tile_config.vector_tile_shape[3])
+        pypto.index_add_(y, dim=0, index=view_index, source=view_source, alpha=1)
 
 
 def gen_mxfp8(inputs: GmmMxfp8Inputs) -> torch.Tensor:
@@ -509,6 +538,11 @@ def gen_mxfp8(inputs: GmmMxfp8Inputs) -> torch.Tensor:
     y = inputs.y
     tile_config = inputs.tile_config
 
+    # 获取 group 信息
+    g = len(tile_config.group_list)
+    m = tile_config.ori_shape[0]
+    n = tile_config.ori_shape[2]
+
     # Move tensors to NPU
     a = a.npu()
     b = b.npu()
@@ -516,9 +550,17 @@ def gen_mxfp8(inputs: GmmMxfp8Inputs) -> torch.Tensor:
     scaled_b = scaled_b.npu()
     y = y.npu()
 
+    # 预分配 mm_results tensor（用于存储每个 group 的 scaled_mm 结果）
+    # shape: [g, m, n]
+    mm_results = torch.empty((g, m, n), dtype=torch.float32).npu()
+
+    # 预分配 index tensor（用于 index_add_ 的 index 参数）
+    # shape: [g]，值为 [0, 1, 2, ..., g-1]
+    index_tensor = torch.arange(g, dtype=torch.int32).npu()
+
     # Execute scaled matrix multiplication kernel with new frontend
     # tile_config 包含 group_list、group_type 和 tile shapes
-    scaled_matmul_kernel(a, b, scaled_a, scaled_b, y, tile_config)
+    scaled_matmul_kernel(a, b, scaled_a, scaled_b, y, mm_results, index_tensor, tile_config)
 
     y = y.to(torch.float32)
     return y
