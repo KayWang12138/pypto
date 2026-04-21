@@ -23,6 +23,7 @@
 #include "core/dtype.h"
 #include "core/error.h"
 #include "core/logging.h"
+#include "tilefwk/error.h"
 #include "ir/core.h"
 #include "ir/expr.h"
 #include "ir/function.h"
@@ -48,7 +49,7 @@ class IRCheckTest : public testing::Test {};
 
 TEST_F(IRCheckTest, TestCheckPass) { CHECK(true) << "should not throw"; }
 
-TEST_F(IRCheckTest, TestCheckFail) { ASSERT_THROW(CHECK(false) << "test check message", ValueError); }
+TEST_F(IRCheckTest, TestCheckFail) { ASSERT_THROW(CHECK(false) << "test check message", npu::tile_fwk::Error); }
 
 TEST_F(IRCheckTest, TestInternalCheckPass) { INTERNAL_CHECK(true) << "should not throw"; }
 

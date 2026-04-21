@@ -13,6 +13,7 @@
 
 #include "ir/expr.h"
 #include "core/error.h"
+#include "core/logging.h"
 
 namespace pypto {
 

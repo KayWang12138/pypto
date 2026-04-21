@@ -85,7 +85,7 @@ py::object ConvertSingleTensor(
     ParseTensorData(torchTensor, tensorDef, toDlpack, dataPtr, shape, dtype);
 
     auto base = py::getattr(tensorDef, "_base", py::none());
-    FUNCTION_ASSERT(FError::INVALID_TYPE, py::isinstance<Tensor>(base))
+    ASSERT(FError::INVALID_TYPE, py::isinstance<Tensor>(base))
         << "the '_base' attribute must be a Tensor type";
     auto& t = base.cast<Tensor&>();
 
