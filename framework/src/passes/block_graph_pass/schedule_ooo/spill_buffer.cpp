@@ -424,7 +424,7 @@ Status OoOScheduler::UpdateReloadIssueInfo(Operation* reloadAlloc, Operation* re
     opCoreLocationMap[reloadCopyin] = opCoreLocationMap[allocOp];
     UpdateOpInternalSubgraphID(*reloadAlloc, allocOp);
     UpdateOpInternalSubgraphID(*reloadCopyin, allocOp);
-    UpdateOpIsCube(*reloadCopyin, depManager_.GetSuccessors(spillOp)[0]);
+    UpdateOpIsCube(*reloadCopyin, *(depManager_.GetSuccessors(spillOp).begin()));
     if (UpdateReloadIssueDepend(reloadCopyin, spillOp, spillMemId) != SUCCESS) {
         return FAILED;
     }
@@ -739,7 +739,7 @@ Status OoOScheduler::CreateSpillCopyout(Operation* spillOp, LogicalTensorPtr spi
     opIsAllocMap[spillCopyoutOp] = false;
     opPipeTypeMap[spillCopyoutOp] = RescheduleUtils::GetOpPipeType(spillCopyoutOp);
     opViewOpsMap[spillCopyoutOp] = std::vector<Operation*>();
-    UpdateOpIsCube(*spillCopyoutOp, depManager_.GetSuccessors(spillOp)[0]);
+    UpdateOpIsCube(*spillCopyoutOp, *(depManager_.GetSuccessors(spillOp).begin()));
     for (auto preOp : depManager_.GetPredecessors(spillOp)) {
         if (opIsAllocMap[preOp]) {
             opCoreLocationMap[spillCopyoutOp] = opCoreLocationMap[preOp];
