@@ -14,18 +14,27 @@
 namespace gert {
 
 struct EagerOpExecutionContext;
+class MockSinkableOpExecutionContext;
+using SinkableOpExecutionContext = MockSinkableOpExecutionContext;
 
-enum class SinkableOpIo {
-    kInput,
+enum class SinkableOpIo : uint32_t {
+    kInput = 0,
     kOutput,
 };
 
+// Matches real ``graph/custom_op.h``: ``PrepareExecute`` is the pure
+// virtual the codegen overrides (with the ``override`` keyword).
 class SinkableExecuteOp {
 public:
     virtual ~SinkableExecuteOp() = default;
+    virtual ge::graphStatus PrepareExecute(SinkableOpExecutionContext *ctx) = 0;
 };
 
-/// Records HostArgsToDevice and SpecifyToOffset for assertions in tests.
+/// Mock with the same method names + signatures as the real
+/// ``gert::SinkableOpExecutionContext`` (MallocWorkSpace with capital S,
+/// SpecifyIoOffset, HostArgsToDevice returning ``void *``). Records the
+/// arguments the generated ``PrepareExecute`` passes so tests can assert
+/// on the args-array layout and offset specs.
 class MockSinkableOpExecutionContext {
 public:
     MockSinkableOpExecutionContext(size_t input_num, size_t output_num)
@@ -48,19 +57,20 @@ public:
 
     Tensor *GetInputTensor(size_t i) { return &inputs_[i]; }
 
-    void *MallocWorkspace(size_t /*size*/) {
+    void *MallocWorkSpace(size_t /*size*/) {
         workspace_ = reinterpret_cast<void *>(static_cast<std::uintptr_t>(0x7000));
         return workspace_;
     }
 
-    void HostArgsToDevice(void *args, size_t args_size) {
+    void *HostArgsToDevice(const void *args, size_t args_size) {
         last_args_.resize(args_size / sizeof(int64_t));
         if (args_size > 0 && args != nullptr) {
             std::memcpy(last_args_.data(), args, args_size);
         }
+        return last_args_.data();
     }
 
-    int SpecifyToOffset(SinkableOpIo kind, size_t *offsets, size_t count) {
+    ge::graphStatus SpecifyIoOffset(SinkableOpIo kind, size_t offsets[], size_t count) {
         if (kind == SinkableOpIo::kInput) {
             input_offsets_.clear();
             if (offsets != nullptr && count > 0) {
@@ -70,7 +80,7 @@ public:
             last_output_spec_count_ = count;
             (void)offsets;
         }
-        return 0;
+        return ge::GRAPH_SUCCESS;
     }
 
     const std::vector<int64_t> &last_args() const { return last_args_; }
@@ -92,7 +102,10 @@ private:
     size_t last_output_spec_count_{};
 };
 
-using SinkableOpExecutionContext = MockSinkableOpExecutionContext;
+// ``SinkableOpExecutionContext`` is aliased at the top of the namespace
+// (before ``SinkableExecuteOp``) so the base class's pure-virtual
+// ``PrepareExecute`` signature refers to the same type the generated
+// subclass uses.
 
 }  // namespace gert
 
