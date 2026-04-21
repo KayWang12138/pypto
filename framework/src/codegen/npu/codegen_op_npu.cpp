@@ -524,7 +524,7 @@ void CodeGenOpNPU::UpdateTileTensorShapeAndStride(
     tileTensor.rawShape = newRawShape;
 
     // ---- static or "main block" ----
-    if (tileTensor.isConstant) {
+    if (functionType == FunctionType::STATIC) {
         for (auto s : newOriginShape) {
             tileTensor.shape.emplace_back(std::to_string(s));
         }
@@ -548,7 +548,15 @@ void CodeGenOpNPU::UpdateTileTensorShapeAndStride(
     }
 
     // local tensor
-
+    if (tileTensor.isConstant) {
+        for (const auto& s : newOriginShape) {
+            tileTensor.shape.emplace_back(std::to_string(s));
+        }
+    } else {
+        for (const auto& s : newDynValidShape) {
+            tileTensor.shape.emplace_back(SymbolicExpressionTable::BuildExpression(s));
+        }
+    }
     for (const auto& s : newDynValidShape) {
         tileTensor.shape.emplace_back(SymbolicExpressionTable::BuildExpression(s));
     }
