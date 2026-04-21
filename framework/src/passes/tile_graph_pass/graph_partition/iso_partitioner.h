@@ -96,7 +96,7 @@ class IsoPartitioner : public SuperNodeGraphBuilder {
 public:
     Status PartitionGraph(Function& function);
     Status SetParameter(
-        int32_t pgUpperBound, int32_t parallelNum, int32_t pgLowerBound, bool useReduceBalanceHash = true,
+        int32_t parallelNum, int32_t pgLowerBound, bool useReduceBalanceHash = true,
         bool skipPartition = false);
 
 private:

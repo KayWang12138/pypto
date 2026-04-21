@@ -32,7 +32,7 @@ Status GraphPartition::RunOnFunction(Function& function)
     APASS_LOG_INFO_F(Elements::Function, "===> Start GraphPartition.");
     IsoPartitioner partitioner;
     if (partitioner.SetParameter(
-            function.paramConfigs_.sgPgUpperBound, function.paramConfigs_.sgParallelNum,
+            function.paramConfigs_.sgParallelNum,
             function.paramConfigs_.sgPgLowerBound, true, function.paramConfigs_.pgSkipPartition) != SUCCESS) {
         APASS_LOG_ERROR_F(Elements::Config, "Set parameters of GraphPartition failed.");
         return FAILED;
@@ -745,16 +745,11 @@ Status IsoPartitioner::UpdatePartitionResult(Function& function)
 }
 
 Status IsoPartitioner::SetParameter(
-    int32_t pgUpperBound, int32_t parallelNum, int32_t pgLowerBound, bool useReduceBalanceHash, bool skipPartition)
+    int32_t parallelNum, int32_t pgLowerBound, bool useReduceBalanceHash, bool skipPartition)
 {
     skipPartition_ = skipPartition;
     if (skipPartition) {
         return SUCCESS;
-    }
-    if (pgUpperBound < 0) {
-        APASS_LOG_ERROR_F(
-            Elements::Config, "Illegal pgUpperBound: %d; Parameter pgUpperBound must be non-negative.", pgUpperBound);
-        return FAILED;
     }
     if (parallelNum < 0) {
         APASS_LOG_ERROR_F(
@@ -766,7 +761,6 @@ Status IsoPartitioner::SetParameter(
             Elements::Config, "Illegal pgLowerBound: %d; Parameter pgLowerBound must be non-negative.", pgLowerBound);
         return FAILED;
     }
-    cycleUB_ = pgUpperBound;
     parallelNum_ = parallelNum;
     cycleLB_ = pgLowerBound;
     useReduceBalanceHash_ = useReduceBalanceHash;

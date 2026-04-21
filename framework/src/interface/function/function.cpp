@@ -2160,7 +2160,6 @@ Json Function::DumpJson(bool useTable)
     funcJson["_opseed"] = opSeed_;
     funcJson["_rawid"] = IdGen<IdType::RAW_TENSOR>::Inst().CurId();
     funcJson["_funcid"] = IdGen<IdType::FUNCTION>::Inst().CurId();
-    funcJson["_sg_pg_upperbound"] = paramConfigs_.sgPgUpperBound;
     funcJson["_sg_pg_lowerbound"] = paramConfigs_.sgPgLowerBound;
     funcJson["_sg_parallel_num"] = paramConfigs_.sgParallelNum;
     funcJson["_sg_mg_copyin_upper_bound"] = paramConfigs_.sgMgCopyInUpperBound;
@@ -2481,7 +2480,6 @@ std::shared_ptr<Function> Function::LoadJson(Program& belongTo, const Json& func
     IdGen<IdType::RAW_TENSOR>::Inst().SetId(rawid);
     int funcid = funcJson["_funcid"].get<int>();
     IdGen<IdType::FUNCTION>::Inst().SetId(funcid);
-    func->paramConfigs_.sgPgUpperBound = funcJson["_sg_pg_upperbound"].get<int>();
     func->paramConfigs_.sgPgLowerBound = funcJson["_sg_pg_lowerbound"].get<int>();
     func->paramConfigs_.sgParallelNum = funcJson["_sg_parallel_num"].get<int>();
     func->paramConfigs_.sgMgCopyInUpperBound = funcJson["_sg_mg_copyin_upper_bound"].get<int>();
