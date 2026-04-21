@@ -90,12 +90,10 @@ private:
 
 template <class T>
 struct LockableQueueGeneric : public QueueGeneric<T> {
-
     using datarange = std::pair<const T*, const T*>;
+    using QueueGeneric<T>::operator=;
 
     LockableQueueGeneric(uint32_t capacity = 0, T* _elem = nullptr) : QueueGeneric<T>(capacity, _elem), lockFlag(0) {}
-
-    using QueueGeneric<T>::operator=;
 
     void lock()
     {

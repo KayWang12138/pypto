@@ -862,12 +862,12 @@ private:
         uint32_t readyId[MAX_MANAGER_AIV_NUM];
         auto readyTasksRange = isRealLifo ? readyQue->dequeue_tail(ready, readyId) : readyQue->dequeue(ready);
         const uint32_t taskCount = readyTasksRange.second - readyTasksRange.first;
-       	if (taskCount == 0) {
+        if (taskCount == 0) {
             DEV_VERBOSE_DEBUG("AiCpud:%d, taskCount is zero", aicpuIdx_);
             PerfMtEnd(PERF_EVT_SEND_AIC_TASK, aicpuIdx_);
-            return 0;       		
+            return 0;
        	}
-        
+
         DEV_VERBOSE_DEBUG("AiCpud:%d, pop all new task count: %u", aicpuIdx_, taskCount);
         BatchSendTask(
             devTaskCtx, type, isRealLifo ? readyTasksRange.second - 1 : readyTasksRange.first,
@@ -1099,7 +1099,7 @@ private:
         {
             if (!res) {
                 DEV_ERROR(
-                    SchedErr::READY_QUEUE_OVERFLOW, "#sche.resolve.enqueue: readyQue: %s", 
+                    SchedErr::READY_QUEUE_OVERFLOW, "#sche.resolve.enqueue: readyQue: %s",
                     readyQue->str().c_str());
                 return DEVICE_MACHINE_ERROR;
             }
