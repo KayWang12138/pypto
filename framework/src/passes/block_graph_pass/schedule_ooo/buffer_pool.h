@@ -93,6 +93,11 @@ public:
         LocalBufferPtr tensor, bool& head, bool& tail, std::map<uint64_t, std::map<uint64_t, uint64_t>> freeIntervals);
     Status CompactBufferSlices(std::unordered_map<int, LocalBufferPtr>& localBufferMap);
 
+    // DualDst allocation: 检查两个tensor是否能分配在相同地址
+    bool IsFullForDualDst(const LocalBufferPtr tensor1, const LocalBufferPtr tensor2);
+    // DualDst allocation: 将两个tensor分配在相同地址
+    Status AllocateDualDst(LocalBufferPtr tensor1, LocalBufferPtr tensor2);
+
 private:
     MemoryType memType_{MemoryType::MEM_UNKNOWN};
     uint64_t memSize_{0};

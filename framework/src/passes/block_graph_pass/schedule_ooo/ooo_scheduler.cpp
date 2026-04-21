@@ -344,31 +344,147 @@ Status OoOScheduler::ExecuteAllocIssue(uint64_t& commitCnt, MemoryType memType, 
         Operation* op = pipe.Front();
         auto& coreLocation = opCoreLocationMap[op];
         auto& reqMemIds = GetOpMemIds(op);
-        if (!bufferManagerMap[coreLocation][memType].IsFull(localBufferMap_[reqMemIds[0]])) {
-            APASS_LOG_DEBUG_F(Elements::Operation, "ALLOCATE: %s.", GetOpInfo(op).c_str());
-            if (bufferManagerMap[coreLocation][memType].Allocate(localBufferMap_[reqMemIds[0]]) != SUCCESS) {
-                APASS_LOG_ERROR_F(Elements::Tensor, "Allocate Tensor[%d] failed.", reqMemIds[0]);
-                return FAILED;
+
+        // Check if this is a dual_dst alloc using internal map
+        bool isDualDst = isDualDstOpMap_.count(op) && isDualDstOpMap_[op];
+
+        if (isDualDst) {
+            // DualDst allocation: need to allocate at same address on both AIV0 and AIV1
+            auto tensor1 = op->GetOutputOperand(0);
+
+            // Find paired alloc op by looking at consumers of the dual_dst copy op
+            Operation* pairedAllocOp = nullptr;
+            LogicalTensorPtr tensor2 = nullptr;
+            for (auto consumer : tensor1->GetConsumers()) {
+                if (consumer->GetOpcode() == Opcode::OP_L0C_COPY_UB_DUAL_DST) {
+                    // This tensor is an output of dual_dst op, find the other output's alloc
+                    auto dualDstOutputs = consumer->GetOOperands();
+                    if (dualDstOutputs.size() >= 2) {
+                        if (dualDstOutputs[0] == tensor1) {
+                            tensor2 = dualDstOutputs[1];
+                        } else if (dualDstOutputs[1] == tensor1) {
+                            tensor2 = dualDstOutputs[0];
+                        }
+                        if (tensor2) {
+                            for (auto producer : tensor2->GetProducers()) {
+                                if (producer->GetOpcodeStr().find("ALLOC") != std::string::npos) {
+                                    pairedAllocOp = producer;
+                                    break;
+                                }
+                            }
+                        }
+                        break;
+                    }
+                }
             }
-            NotifyBufferAllocated(memType, reqMemIds[0]);
-            tensorOccupyMap[memType][reqMemIds[0]] = op;
-            localBufferMap_[reqMemIds[0]]->startCycle = clock;
-            if (op->GetOutputOperand(0) == nullptr) {
-                APASS_LOG_ERROR_F(Elements::Operation, "Alloc[%d] cannot find oOperand[0]. %s",
-                    op->GetOpMagic(), GetFormatBacktrace(*op).c_str());
-                return FAILED;
-            }
-            newOperations_.push_back(op);
-            APASS_LOG_DEBUG_F(Elements::Operation, "Insert: %s.", GetOpInfo(op).c_str());
-            pipe.PopFront();
-            if (RetireOpAndAwakeSucc(op, commitCnt) != SUCCESS) {
-                APASS_LOG_ERROR_F(Elements::Operation, "RetireOpAndAwakeSuccOp failed. %s",
-                    GetFormatBacktrace(*op).c_str());
-                return FAILED;
+
+            if (pairedAllocOp && tensor2) {
+                // Check if both pools have space for dual_dst
+                auto& pool0 = bufferManagerMap[CoreLocationType::AIV0][memType];
+                auto& pool1 = bufferManagerMap[CoreLocationType::AIV1][memType];
+                auto buffer1 = localBufferMap_[tensor1->memoryrange.memId];
+                auto buffer2 = localBufferMap_[tensor2->memoryrange.memId];
+
+                if (!pool0.IsFullForDualDst(buffer1, buffer2) && !pool1.IsFullForDualDst(buffer1, buffer2)) {
+                    // Allocate on AIV0
+                    if (pool0.AllocateDualDst(buffer1, buffer2) != SUCCESS) {
+                        APASS_LOG_ERROR_F(Elements::Tensor, "DualDst Allocate on AIV0 failed for Tensor[%d].", reqMemIds[0]);
+                        return FAILED;
+                    }
+                    // Allocate on AIV1 at same address
+                    if (pool1.AllocateDualDst(buffer1, buffer2) != SUCCESS) {
+                        APASS_LOG_ERROR_F(Elements::Tensor, "DualDst Allocate on AIV1 failed for Tensor[%d].", reqMemIds[0]);
+                        return FAILED;
+                    }
+
+                    // Track dual_dst allocation
+                    isDualDstAlloc_[buffer1->id] = true;
+                    isDualDstAlloc_[buffer2->id] = true;
+                    dualDstPairMemId_[buffer1->id] = buffer2->id;
+                    dualDstPairMemId_[buffer2->id] = buffer1->id;
+
+                    APASS_LOG_DEBUG_F(Elements::Operation, "DUAL_DST ALLOCATE: %s paired with %s.",
+                        GetOpInfo(op).c_str(), GetOpInfo(pairedAllocOp).c_str());
+                    NotifyBufferAllocated(memType, reqMemIds[0]);
+                    tensorOccupyMap[memType][reqMemIds[0]] = op;
+                    localBufferMap_[reqMemIds[0]]->startCycle = clock;
+
+                    // Also allocate the paired tensor's alloc
+                    int pairedMemId = tensor2->memoryrange.memId;
+                    NotifyBufferAllocated(memType, pairedMemId);
+                    tensorOccupyMap[memType][pairedMemId] = pairedAllocOp;
+                    localBufferMap_[pairedMemId]->startCycle = clock;
+
+                    newOperations_.push_back(op);
+                    APASS_LOG_DEBUG_F(Elements::Operation, "Insert: %s.", GetOpInfo(op).c_str());
+                    pipe.PopFront();
+
+                    if (RetireOpAndAwakeSucc(op, commitCnt) != SUCCESS) {
+                        APASS_LOG_ERROR_F(Elements::Operation, "RetireOpAndAwakeSuccOp failed. %s",
+                            GetFormatBacktrace(*op).c_str());
+                        return FAILED;
+                    }
+                } else {
+                    canAlloc = false;
+                    break;
+                }
+            } else {
+                // No paired alloc found, use normal allocation
+                if (!bufferManagerMap[coreLocation][memType].IsFull(localBufferMap_[reqMemIds[0]])) {
+                    APASS_LOG_DEBUG_F(Elements::Operation, "ALLOCATE: %s.", GetOpInfo(op).c_str());
+                    if (bufferManagerMap[coreLocation][memType].Allocate(localBufferMap_[reqMemIds[0]]) != SUCCESS) {
+                        APASS_LOG_ERROR_F(Elements::Tensor, "Allocate Tensor[%d] failed.", reqMemIds[0]);
+                        return FAILED;
+                    }
+                    NotifyBufferAllocated(memType, reqMemIds[0]);
+                    tensorOccupyMap[memType][reqMemIds[0]] = op;
+                    localBufferMap_[reqMemIds[0]]->startCycle = clock;
+                    if (op->GetOutputOperand(0) == nullptr) {
+                        APASS_LOG_ERROR_F(Elements::Operation, "Alloc[%d] cannot find oOperand[0]. %s",
+                            op->GetOpMagic(), GetFormatBacktrace(*op).c_str());
+                        return FAILED;
+                    }
+                    newOperations_.push_back(op);
+                    APASS_LOG_DEBUG_F(Elements::Operation, "Insert: %s.", GetOpInfo(op).c_str());
+                    pipe.PopFront();
+                    if (RetireOpAndAwakeSucc(op, commitCnt) != SUCCESS) {
+                        APASS_LOG_ERROR_F(Elements::Operation, "RetireOpAndAwakeSuccOp failed. %s",
+                            GetFormatBacktrace(*op).c_str());
+                        return FAILED;
+                    }
+                } else {
+                    canAlloc = false;
+                    break;
+                }
             }
         } else {
-            canAlloc = false;
-            break;
+            // Normal allocation
+            if (!bufferManagerMap[coreLocation][memType].IsFull(localBufferMap_[reqMemIds[0]])) {
+                APASS_LOG_DEBUG_F(Elements::Operation, "ALLOCATE: %s.", GetOpInfo(op).c_str());
+                if (bufferManagerMap[coreLocation][memType].Allocate(localBufferMap_[reqMemIds[0]]) != SUCCESS) {
+                    APASS_LOG_ERROR_F(Elements::Tensor, "Allocate Tensor[%d] failed.", reqMemIds[0]);
+                    return FAILED;
+                }
+                NotifyBufferAllocated(memType, reqMemIds[0]);
+                tensorOccupyMap[memType][reqMemIds[0]] = op;
+                localBufferMap_[reqMemIds[0]]->startCycle = clock;
+                if (op->GetOutputOperand(0) == nullptr) {
+                    APASS_LOG_ERROR_F(Elements::Operation, "Alloc[%d] cannot find oOperand[0]. %s",
+                        op->GetOpMagic(), GetFormatBacktrace(*op).c_str());
+                    return FAILED;
+                }
+                newOperations_.push_back(op);
+                APASS_LOG_DEBUG_F(Elements::Operation, "Insert: %s.", GetOpInfo(op).c_str());
+                pipe.PopFront();
+                if (RetireOpAndAwakeSucc(op, commitCnt) != SUCCESS) {
+                    APASS_LOG_ERROR_F(Elements::Operation, "RetireOpAndAwakeSuccOp failed. %s",
+                        GetFormatBacktrace(*op).c_str());
+                    return FAILED;
+                }
+            } else {
+                canAlloc = false;
+                break;
+            }
         }
     }
     return SUCCESS;
@@ -798,6 +914,9 @@ Status OoOScheduler::Init(const std::vector<Operation*>& opList, const std::unor
     opViewOpsMap.clear();
     opCoreLocationMap.clear();
     localBufferMap_.clear();
+    isDualDstAlloc_.clear();
+    dualDstPairMemId_.clear();
+    isDualDstOpMap_.clear();
     LOG_SCOPE_BEGIN(tInit, Elements::Function, "Init");
     // 初始化芯片各buffer大小
     localMemSize = CommonUtils::GetLocalMemorySize();
@@ -815,6 +934,36 @@ Status OoOScheduler::Init(const std::vector<Operation*>& opList, const std::unor
         }
     }
     numTotalIssues = orderedOps.size();
+
+    // 检测dual_dst alloc操作: 检查alloc的输出tensor是否是OP_L0C_COPY_UB_DUAL_DST的输出
+    for (const auto &op : opList) {
+        if (op->GetOpcode() == Opcode::OP_L0C_COPY_UB_DUAL_DST) {
+            auto outputs = op->GetOOperands();
+            if (outputs.size() >= 2) {
+                // 找到两个输出tensor的alloc操作并标记为dual_dst
+                for (auto producer1 : outputs[0]->GetProducers()) {
+                    if (producer1->GetOpcodeStr().find("ALLOC") != std::string::npos) {
+                        isDualDstOpMap_[producer1] = true;
+                        auto memId1 = outputs[0]->memoryrange.memId;
+                        isDualDstAlloc_[memId1] = true;
+                        break;
+                    }
+                }
+                for (auto producer2 : outputs[1]->GetProducers()) {
+                    if (producer2->GetOpcodeStr().find("ALLOC") != std::string::npos) {
+                        isDualDstOpMap_[producer2] = true;
+                        auto memId2 = outputs[1]->memoryrange.memId;
+                        isDualDstAlloc_[memId2] = true;
+                        // 记录配对关系
+                        auto memId1 = outputs[0]->memoryrange.memId;
+                        dualDstPairMemId_[memId1] = memId2;
+                        dualDstPairMemId_[memId2] = memId1;
+                        break;
+                    }
+                }
+            }
+        }
+    }
 
     if (InitBufRefCount(orderedOps) != SUCCESS) {
         APASS_LOG_ERROR_F(Elements::Operation, "InitBufRefCount failed!");
