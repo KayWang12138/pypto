@@ -500,10 +500,14 @@ public:
 
     int64_t GetWorkspaceSize(const std::vector<DeviceTensorData>& tensors)
     {
-        if (dynAttr->maxDynamicAssembleOutcastMem.IsValid()) {
+        if (dynAttr->maxDynamicAssembleOutcastMem.IsValid() || dynAttr->maxDynamicCellMatchTableMem.IsValid()) {
             Evaluator eval{dynAttr->inputSymbolDict, tensors, {}};
-            devProg->memBudget.tensor.maxDynamicAssembleOutcastMem =
-                eval.Evaluate(dynAttr->maxDynamicAssembleOutcastMem);
+            if (dynAttr->maxDynamicAssembleOutcastMem.IsValid()) {
+                devProg->memBudget.tensor.maxDynamicAssembleOutcastMem = eval.Evaluate(dynAttr->maxDynamicAssembleOutcastMem);
+            }
+            if (dynAttr->maxDynamicCellMatchTableMem.IsValid()) {
+                devProg->memBudget.tensor.maxDynamicCellMatchTableMem = eval.Evaluate(dynAttr->maxDynamicCellMatchTableMem);
+            }
             workspaceSize = devProg->memBudget.Total();
             return workspaceSize;
         }
@@ -567,7 +571,6 @@ public:
     void* GetKernelBin() { return kernelBin; }
     auto& GetArgTypes() { return argTypes; }
     Function* GetFunction() { return dynFunc.get(); }
-
     ~KernelBinary()
     {
         DeviceLauncher::UnregisterKernelBin(kernelBin);

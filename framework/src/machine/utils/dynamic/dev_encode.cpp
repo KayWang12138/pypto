@@ -14,6 +14,7 @@
  */
 #include "tilefwk/platform.h"
 #include "machine/utils/dynamic/dev_encode.h"
+#include <cstdio>
 #include "machine/utils/dynamic/dev_workspace.h"
 #include "machine/host/main_block.h"
 
@@ -1134,7 +1135,8 @@ struct EncodeDevAscendFunctionInfo {
         auto& cellMatchShape = cellMatchTableDesc.cellShape;
         for (size_t index = 0; index < shape.size(); ++index) {
             auto dimValue = shape[index];
-            if (cellMatchShape.dim[index] > dimValue) {
+            // Dynamic axis (-1) should be materialized to real consumed shape first.
+            if (cellMatchShape.dim[index] == -1 || cellMatchShape.dim[index] > dimValue) {
                 cellMatchShape.dim[index] = dimValue;
                 if (cellMatchShape.dim[index] == 0) {
                     MACHINE_LOGE(
@@ -1168,6 +1170,10 @@ struct EncodeDevAscendFunctionInfo {
         }
         MACHINE_LOGD(
             "Outcast %d rawtensor magic %d shape %s | cellMatchSize %d cellMatchShape %s cellMatchStride %s\n",
+            tensor->magic, tensor->GetRawMagic(), IntVecToStr(tensor->shape).c_str(), cellMatchSize,
+            IntVecToStr(ShapeToVector(cellMatchShape)).c_str(), IntVecToStr(StrideToVector(cellMatchStride)).c_str());
+        std::printf(
+            "[CellMatchDesc] tensor_magic=%d raw_magic=%d shape=%s cell_size=%d cell_shape=%s cell_stride=%s\n",
             tensor->magic, tensor->GetRawMagic(), IntVecToStr(tensor->shape).c_str(), cellMatchSize,
             IntVecToStr(ShapeToVector(cellMatchShape)).c_str(), IntVecToStr(StrideToVector(cellMatchStride)).c_str());
         if (cellMatchStride[0] > MAX_CELLMATCHSSTRIDE) {
@@ -2149,6 +2155,20 @@ static void InitPartialUpdateCellMatch(
     partialUpdateCellMatchTableDesc->SetStrideShape(strideShape);
 }
 
+static bool HasDynamicCellShape(const DevCellMatchTableDesc& desc)
+{
+    for (int d = 0; d < desc.GetDimensionSize(); d++) {
+        DEV_ASSERT_MSG(
+            ProgEncodeErr::CELL_MATCH_PARAM_INVALID, desc.GetCellShape(d) > 0,
+            "cellShape must be positive when checking dynamic partial-update, dim=%d value=%d",
+            d, desc.GetCellShape(d));
+        if (desc.GetStrideShape(d) <= 0) {
+            return true;
+        }
+    }
+    return false;
+}
+
 void DevAscendProgram::InitPartialUpdateSlot(
     uintdevptr_t& initOffset, const std::vector<std::vector<uint8_t>>& devEncodeListInput,
     const std::unordered_map<Function*, int>& rootFuncKeyDict,
@@ -2159,7 +2179,6 @@ void DevAscendProgram::InitPartialUpdateSlot(
     (void)slotRootIncastDict;
     (void)slotRootOutcastDict;
     this->partialUpdateList.HostInitDataSizeOffset(initOffset, slotSize);
-
     this->cellMatchRuntimePartialUpdateTableList.HostInitDataSizeOffset(initOffset, 0);
     int totalCellMatchSize = 0;
     for (size_t index = 0; index < tPartialUpdateSlotIndexList.size(); index++) {
@@ -2184,14 +2203,20 @@ void DevAscendProgram::InitPartialUpdateSlot(
             auto& partialUpdate = At(partialUpdateList, slotIndex);
             partialUpdate.slotIndex = slotIndex;
             partialUpdate.cellMatchTableDesc = partialUpdateCellMatchTableDesc;
-            partialUpdate.cellMatchRuntimePartialUpdateTable.HostAssignRangeOffsetSize(
-                cellMatchRuntimePartialUpdateTableList, totalCellMatchSize, tableSize);
-            auto tableData = partialUpdate.cellMatchRuntimePartialUpdateTable.Data();
-            for (size_t j = 0; j < tableSize; j++) {
-                tableData[j] = AICORE_TASK_INIT;
+            if (!HasDynamicCellShape(partialUpdateCellMatchTableDesc)) {
+                partialUpdate.cellMatchRuntimePartialUpdateTable.HostAssignRangeOffsetSize(
+                    cellMatchRuntimePartialUpdateTableList, totalCellMatchSize, tableSize);
+                auto tableData = partialUpdate.cellMatchRuntimePartialUpdateTable.Data();
+                for (size_t j = 0; j < tableSize; j++) {
+                    tableData[j] = AICORE_TASK_INIT;
+                }
+            } else {
+                partialUpdate.cellMatchRuntimePartialUpdateTable.HostAssignDataSize(0, 0);
             }
         }
-        totalCellMatchSize += tableSize;
+        if (!HasDynamicCellShape(partialUpdateCellMatchTableDesc)) {
+            totalCellMatchSize += tableSize;
+        }
     }
     totalCellMatchSize =
         AlignUp(totalCellMatchSize, sizeof(uint64_t) * FRIENDLY_CACHE_ALIGN_U64_SIZE / sizeof(uint64_t));
@@ -2336,8 +2361,10 @@ struct TensorWorkspaceResult {
     uint64_t devTaskBoundaryOutcastNum{0};
     uint64_t perCoreSpilledMem{0};
     SymbolicScalar maxDynamicAssembleOutcastMem;
+    SymbolicScalar maxDynamicCellMatchTableMem;
     uint64_t totalExclusiveOutcastSlot{0};
     uint64_t totalAssembleOutcastSlot{0};
+    uint64_t dynamicCellMatchSlotNum{0};
 };
 
 struct SlotInfo {
@@ -2463,12 +2490,26 @@ static SymbolicScalar GetDynRawTensorSize(Function* dynFunc, int funcKey, int id
 }
 
 // Helper: process assemble outcast branch for a single outcast
+static bool HasSymbolicDim(const DevAscendRawTensor* rawTensor)
+{
+    if (rawTensor == nullptr) {
+        return false;
+    }
+    for (int i = 0; i < rawTensor->GetDim(); ++i) {
+        if (rawTensor->shape.dim[i].IsExpression()) {
+            return true;
+        }
+    }
+    return false;
+}
+
 static void ProcessAssembleOutcast(
     Function* func, DevAscendFunction* devFunc, size_t outIdx, std::vector<SlotInfo>& slots, uint64_t staticMemReq)
 {
+    auto* rawTensor = devFunc->GetOutcastRawTensor(outIdx);
     SymbolicScalar dynMemReq;
-    // memoryRequirement == 0 means dynamic memory requirement
-    if (devFunc->GetOutcastRawTensor(outIdx)->memoryRequirement == 0) {
+    // Any symbolic shape dimension requires runtime memory evaluation.
+    if (rawTensor->memoryRequirement == 0 || HasSymbolicDim(rawTensor)) {
         dynMemReq = GetDynRawTensorSize(func, devFunc->funcKey, outIdx);
     }
     auto& toSlotList = devFunc->GetOutcast(outIdx).toSlotList;
@@ -2585,12 +2626,31 @@ static TensorWorkspaceResult CalcTensorWorkspace(Function* func, DevAscendProgra
     res.totalAssembleOutcastSlot = std::count_if(slots.begin(), slots.end(), [](const SlotInfo& slot) {
         return slot.kindSet.Count(RuntimeSlotKind::ASSEMBLE_OUTCAST);
     });
+    uint64_t dynamicCellMatchSlotNum = 0;
+    for (size_t i = 0; i < devProg.partialUpdateList.size(); ++i) {
+        auto& partial = devProg.At(devProg.partialUpdateList, i);
+        bool isRuntimeDynamicPartial =
+            partial.cellMatchRuntimePartialUpdateTable.size() == 0 &&
+            partial.cellMatchTableDesc.GetDimensionSize() > 0;
+        if (isRuntimeDynamicPartial) {
+            dynamicCellMatchSlotNum++;
+        }
+    }
+    res.dynamicCellMatchSlotNum = dynamicCellMatchSlotNum;
     uint64_t boundaryOutcastRatio = std::max(
         std::min((uint32_t)EstimatedStitchingCount(), ExpectedMaxCachedNum()), (uint32_t)SLOTS_NEED_ALLOC_SIZE);
     res.devTaskBoundaryOutcastNum =
         res.totalExclusiveOutcastSlot * SLOTS_NEED_ALLOC_SIZE + res.totalAssembleOutcastSlot * boundaryOutcastRatio;
 
     res.perCoreSpilledMem = AlignUp(maxPerCoreSpilledMem, TENSOR_ADDR_ALIGNMENT);
+    // Use dynamic assemble outcast memory as a conservative upper bound.
+    // If symbolic upper bound is unavailable for dynamic partial-update slots, fall back to static outcast max.
+    if (res.dynamicCellMatchSlotNum == 0) {
+        res.maxDynamicCellMatchTableMem = SymbolicScalar(0);
+    } else {
+        SymbolicScalar fallback = SymbolicScalar(std::max<uint64_t>(res.maxStaticOutcastMem, 1024));
+        res.maxDynamicCellMatchTableMem = std::max(maxDynamicAssembleOutcastMem, fallback);
+    }
 
     return res;
 }
@@ -2706,6 +2766,7 @@ void EncodeDevAscendProgram(Function* func, uint64_t& offset, DevAscendProgram* 
         base->memBudget.tensor.devTaskInnerExclusiveOutcasts = tensorWsRes.devTaskInnerExclusiveOutcastMem;
         base->memBudget.tensor.maxStaticOutcastMem = tensorWsRes.maxStaticOutcastMem;
         base->memBudget.tensor.devTaskBoundaryOutcastNum = tensorWsRes.devTaskBoundaryOutcastNum;
+        base->memBudget.tensor.dynamicCellMatchSlotNum = tensorWsRes.dynamicCellMatchSlotNum;
 
         int32_t maxCoreNum =
             Platform::Instance().GetSoc().GetNPUArch() == NPUArch::DAV_3510 ? MAX_AICORE_NUM_3510 : MAX_AICORE_NUM_2210;
@@ -2721,6 +2782,7 @@ void EncodeDevAscendProgram(Function* func, uint64_t& offset, DevAscendProgram* 
         MACHINE_LOGD("base->memBudget.metadata.stitchPool is %lu.", base->memBudget.metadata.stitchPool);
         MACHINE_LOGD("base->memBudget.aicoreSpilled is %lu.", base->memBudget.aicoreSpilled);
         func->GetDyndevAttribute()->maxDynamicAssembleOutcastMem = tensorWsRes.maxDynamicAssembleOutcastMem;
+        func->GetDyndevAttribute()->maxDynamicCellMatchTableMem = tensorWsRes.maxDynamicCellMatchTableMem;
     }
 }
 
