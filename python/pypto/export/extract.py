@@ -3,7 +3,8 @@ from __future__ import annotations
 import os
 import json
 import sys
-from typing import Any, Union
+from pathlib import Path
+from typing import Any, Optional, Tuple, Union
 
 import onnx
 
@@ -14,6 +15,8 @@ from .meta_schema import (
     _extractable_zip_meta_fields,
 )
 from .zip import _unzip_b64_to_dir
+
+DEFAULT_ONNX_DOMAIN = "ai.onnx.contrib"
 
 
 def _try_call(fn, strict=True):
@@ -34,7 +37,7 @@ def _try_call(fn, strict=True):
 # ---------------------------------------------------------------------------
 
 
-def extract_node_from_onnx(
+def _extract_node_from_onnx(
     onnx_model: onnx.ModelProto,
     domain: str,
     op_type: str,
@@ -93,7 +96,7 @@ def _extract_zip_from_onnx_node(
 # ---------------------------------------------------------------------------
 
 
-def extract_node_from_ge_graph(
+def _extract_node_from_ge_graph(
     ge_graph: "torchair.ge._ge_graph.GeGraph",
     op_type: str,
 ):
@@ -102,6 +105,55 @@ def extract_node_from_ge_graph(
         if op.type == op_type:
             return op
     raise ValueError(f"No node found for {op_type}")
+
+
+# ---------------------------------------------------------------------------
+# Unified model loading + node extraction
+# ---------------------------------------------------------------------------
+
+
+def load_model(path: Union[str, Path]) -> Tuple[Any, str]:
+    """Load a pypto-exported model file and return ``(model, format)``.
+
+    *format* is ``"onnx"`` or ``"air"`` (from the file suffix). *model* is an
+    ``onnx.ModelProto`` for ``.onnx`` or a ``torchair.ge._ge_graph.GeGraph``
+    for ``.air``. The torchair import is lazy so .onnx-only environments do
+    not need it installed.
+    """
+    path = Path(path)
+    fmt = path.suffix.lstrip(".").lower()
+    if fmt == "onnx":
+        return onnx.load(str(path)), fmt
+    if fmt == "air":
+        try:
+            from torchair.ge._ge_graph import GeGraph  # type: ignore
+        except ImportError as e:  # pragma: no cover - env-dependent
+            raise ImportError(
+                "Loading .air requires torchair (not installed in this env). "
+                "Use an .onnx input instead."
+            ) from e
+        with open(path, "rb") as f:
+            return GeGraph(serialized_model_def=f.read()), fmt
+    raise ValueError(f"Unsupported model format: {path.suffix!r}")
+
+
+def extract_node(
+    model: Any,
+    op_type: str,
+    domain: str = DEFAULT_ONNX_DOMAIN,
+):
+    """Return the first custom-op node matching *op_type* in *model*.
+
+    Dispatches on the model's Python type:
+      * ``onnx.ModelProto`` — matches ``(domain, op_type)``.
+      * GE graph (from ``.air``) — matches the fully-qualified
+        ``"domain::op_type"``. If *op_type* already contains ``"::"`` it is
+        used verbatim; otherwise *domain* is prefixed.
+    """
+    if isinstance(model, onnx.ModelProto):
+        return _extract_node_from_onnx(model, domain=domain, op_type=op_type)
+    ge_op_type = op_type if "::" in op_type else f"{domain}::{op_type}"
+    return _extract_node_from_ge_graph(model, op_type=ge_op_type)
 
 
 def _extract_string_attr_from_ge_node(
@@ -202,8 +254,9 @@ def extract_pypto_meta(node):
 def _export_all_extractors() -> tuple[str, ...]:
     """Names exported by this module (including schema-driven extract_* / _extract_*)."""
     names = [
-        "extract_node_from_onnx",
-        "extract_node_from_ge_graph",
+        "DEFAULT_ONNX_DOMAIN",
+        "load_model",
+        "extract_node",
         "extract_pypto_meta",
     ]
     for _field in _extractable_string_meta_fields():
