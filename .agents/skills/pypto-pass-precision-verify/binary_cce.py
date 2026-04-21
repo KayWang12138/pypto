@@ -228,7 +228,7 @@ class BinaryCCEDebugger:
             lines = content.split('\n')
             for i, line in enumerate(lines):
                 if line.strip().startswith('#include') and 'aicore_print' not in line:
-                    lines.insert(i + 1, '#include "tilefwk/a/aicore_print.h"')
+                    lines.insert(i + 1, '#include "tilefwk/aicore_print.h"')
                     break
             content = '\n'.join(lines)
         
@@ -259,27 +259,27 @@ class BinaryCCEDebugger:
         for base_name, dims in dim_groups.items():
             dims.sort()  # 按维度排序
             if len(dims) == 1:
-                # 单维度
+                # 单维度 - 使用 Coord1Dim
                 var_name = dims[0][1]
-                print_stmts.append(f'AiCoreLogF(param->ctx, "shape {base_name} dim0=%ld\\n", {var_name});')
+                print_stmts.append(f'AiCorePrintShape(param->ctx, Coord1Dim({var_name}));')
             elif len(dims) == 2:
                 # 二维度
                 var1 = dims[0][1]
                 var2 = dims[1][1]
-                print_stmts.append(f'AiCoreLogF(param->ctx, "shape {base_name}=[%ld,%ld]\\n", {var1}, {var2});')
+                print_stmts.append(f'AiCorePrintShape(param->ctx, Shape2Dim({var1}, {var2}));')
             elif len(dims) == 3:
                 # 三维度
                 var1 = dims[0][1]
                 var2 = dims[1][1]
                 var3 = dims[2][1]
-                print_stmts.append(f'AiCoreLogF(param->ctx, "shape {base_name}=[%ld,%ld,%ld]\\n", {var1}, {var2}, {var3});')
+                print_stmts.append(f'AiCorePrintShape(param->ctx, Shape3Dim({var1}, {var2}, {var3}));')
             elif len(dims) == 4:
                 # 四维度
                 var1 = dims[0][1]
                 var2 = dims[1][1]
                 var3 = dims[2][1]
                 var4 = dims[3][1]
-                print_stmts.append(f'AiCoreLogF(param->ctx, "shape {base_name}=[%ld,%ld,%ld,%ld]\\n", {var1}, {var2}, {var3}, {var4});')
+                print_stmts.append(f'AiCorePrintShape(param->ctx, Shape4Dim({var1}, {var2}, {var3}, {var4}));')
         
         if not print_stmts:
             print("  警告: 无法生成 shape 打印语句")
@@ -304,15 +304,29 @@ class BinaryCCEDebugger:
             print("  警告: 未找到 kernel 函数")
     
     def add_print_to_cce(self, cce_file: Path, tensor_names: List[str], 
-                         print_type: str = "GM", insert_pos: str = "kernel_start"):
+                         print_type: str = "GM", dtype: str = "float", 
+                         end_offset: int = 63, start_offset: int = 0, 
+                         insert_pos: str = "kernel_start"):
         """
         添加打印语句到CCE
+        
+        Args:
+            dtype: 数据类型（float/bfloat16_t/half/int32_t）
+            end_offset: 打印末尾偏移量（含）
+            start_offset: 打印起始偏移量
+            元素数量 = end_offset - start_offset + 1
         
         insert_pos 选项:
         - kernel_start: kernel函数开头
         - kernel_end: kernel函数结尾  
         - tensor_after: 在指定tensor声明之后
         """
+        # 检查元素数量限制（元素数量 = end_offset - start_offset + 1）
+        element_count = end_offset - start_offset + 1
+        if element_count > 80:
+            print(f"  警告: 元素数量 {element_count} > 80，调整偏移量范围")
+            end_offset = start_offset + 79  # 最多80个元素
+            
         content = cce_file.read_text()
         cce_info = self.parse_cce_structure(cce_file)
         
@@ -334,7 +348,7 @@ class BinaryCCEDebugger:
         print_stmts = []
         for tensor_name in tensor_list:
             if tensor_name in content:
-                print_stmts.append(f'{print_func}(param->ctx, ({tensor_type}bfloat16_t*){tensor_name}.GetAddr(), 1, 0);')
+                print_stmts.append(f'{print_func}(param->ctx, ({tensor_type}{dtype}*){tensor_name}.GetAddr(), {end_offset}, {start_offset});')
         
         if not print_stmts:
             print(f"  警告: 未找到tensor {tensor_list}")
@@ -410,7 +424,7 @@ class BinaryCCEDebugger:
                 data['tensor_data'].append(line)
             elif 'shape' in line and ('dim' in line or '[' in line):
                 data['shape_data'].append(line)
-            elif 'AiCoreLogF' in line or 'DumpAicoreLog' in line:
+            elif 'AiCorePrintShape' in line or 'AiCoreLogF' in line or 'DumpAicoreLog' in line:
                 data['other_logs'].append(line)
         
         return data
@@ -584,17 +598,34 @@ def main():
   # 列出CCE文件信息
   python3 binary_cce.py --work-path /path/to/work --list-cce
  
-  # 在指定CCE的kernel开头插入打印
+  # GM数据打印（默认偏移量0~63，共64个元素）
   python3 binary_cce.py --work-path /path/to/work --print-idx 0 --pos kernel_start
+  
+  # GM数据打印（指定偏移量范围）
+  python3 binary_cce.py --work-path /path/to/work --print-idx 0 --end-offset 79 --start-offset 0
+  
+  # GM数据打印（指定dtype）
+  python3 binary_cce.py --work-path /path/to/work --print-idx 0 --dtype bfloat16_t
+  
+  # UB数据打印
+  python3 binary_cce.py --work-path /path/to/work --print-idx 0 --print-type UB
  
-  # 在指定CCE的tensor声明后插入打印
-  python3 binary_cce.py --work-path /path/to/work --print-idx 0 --tensor gmTensor_001 --pos tensor_after
-
-  # 打印 shape 变量（用于诊断 validshape 问题）
+  # Shape打印（用于诊断 validshape 问题）
   python3 binary_cce.py --work-path /path/to/work --print-idx 0 --print-shape sym_15_dim_0,sym_15_dim_1
 
   # 检测 validshape 问题
   python3 binary_cce.py --work-path /path/to/work --ir-file path/to/ir_file.tifwkgr
+
+四种打印方法：
+  GM数据打印：--print-type GM（打印DDR/GM上的tensor数据，最常用）
+  UB数据打印：--print-type UB（打印UB上的tensor数据）
+  Shape打印：--print-shape（打印shape调试信息，使用 AiCorePrintShape）
+  Offset打印：手动添加（打印offset调试信息，使用 AiCorePrintShape + Coord2Dim）
+
+偏移量参数说明：
+  --end-offset: 打印末尾偏移量（默认63）
+  --start-offset: 打印起始偏移量（默认0）
+  元素数量 = end-offset - start-offset + 1（必须≤80）
         """
     )
     
@@ -605,6 +636,12 @@ def main():
     parser.add_argument("--print-idx", type=int, help="指定打印哪个CCE(0-based index)")
     parser.add_argument("--tensor", help="指定要打印的tensor名称（多个用逗号分隔）")
     parser.add_argument("--print-type", choices=["GM", "UB"], default="GM", help="打印类型(GM/UB)")
+    parser.add_argument("--dtype", choices=["float", "bfloat16_t", "half", "int32_t"], 
+                        default="float", help="打印的数据类型（默认float）")
+    parser.add_argument("--end-offset", type=int, default=63, 
+                        help="打印末尾偏移量（默认63）")
+    parser.add_argument("--start-offset", type=int, default=0, 
+                        help="打印起始偏移量（默认0，元素数量=末尾-起始+1）")
     parser.add_argument("--pos", choices=["kernel_start", "kernel_end", "tensor_after"], 
                        default="kernel_start", help="打印语句插入位置")
     parser.add_argument("--rebuild", action="store_true", help="是否重新编译")
@@ -692,9 +729,14 @@ def main():
             tensors = [t.strip() for t in args.tensor.split(',')]
         
         # 添加打印
-        debugger.add_print_to_cce(cce_file, tensors, args.print_type, args.pos)
+        debugger.add_print_to_cce(cce_file, tensors, args.print_type, 
+                                  args.dtype, args.end_offset, args.start_offset, args.pos)
         
-        print(f"\n  插入位置: {args.pos}")
+        element_count = args.end_offset - args.start_offset + 1
+        print(f"\n  打印类型: {args.print_type}")
+        print(f"  数据类型: {args.dtype}")
+        print(f"  偏移量范围: {args.start_offset} ~ {args.end_offset}（共{element_count}个元素）")
+        print(f"  插入位置: {args.pos}")
         print(f"  请运行测试后查看日志:")
         print(f"    {args.work_path}/log/debug/device-*/DumpAicoreLog*")
         
