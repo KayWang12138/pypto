@@ -166,6 +166,7 @@ def export_demo(path: str, force_cpu: bool = False, force_sim: bool = False):
         path,
         input_names=["x0", "x1"],
         output_names=["y"],
+        forward_kwargs={"run_mode": run_mode},
     )
 
 

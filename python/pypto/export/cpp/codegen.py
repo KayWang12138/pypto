@@ -762,20 +762,23 @@ def _generate_op_custom_plugin_cpp(
     """Emit domi plugin registration; *framework_type* is the ``FrameworkType`` enum token (e.g. ``ONNX``)."""
     _validate_op_type_identifier(op_type)
     parse_fn = f"ParseParam{op_type}"
+    # Match real Ascend ``domi::ParseParamByOpFunc`` =
+    # ``std::function<domi::Status(const ge::Operator&, ge::Operator&)>`` —
+    # first arg is ``const ge::Operator&`` (NOT ``const Message*``).
     return f"""// Auto-generated
 
 #include "register/register.h"
 
 namespace domi {{
 // Parsing onnx params
-Status {parse_fn}(const Message* op_src, ge::Operator& op_dest) {{
+Status {parse_fn}(const ge::Operator& op_src, ge::Operator& op_dest) {{
     return SUCCESS;
 }}
 
 REGISTER_CUSTOM_OP("{op_type}")
     .FrameworkType({framework_type})
     .OriginOpType("{op_type}")
-    .ParseParamsByOperator({parse_fn});
+    .ParseParamsByOperatorFn({parse_fn});
 }}
 """
 
@@ -841,6 +844,13 @@ def _generate_op_custom_def_cpp(
     )
     vec_inc = "#include <vector>\n" if any_variadic else ""
 
+    # Class derives from ``ops::OpDef`` (top-level ``ops::`` in real Ascend
+    # ``register/op_def_registry.h``) — so the class itself lives in
+    # ``namespace ops`` (NOT ``ge::ops``); the impls stay in ``namespace ge``
+    # and are referenced qualified. ``ge::graphStatus`` is ``uint32_t`` in
+    # real Ascend (``graph/ge_error_codes.h``), which matches
+    # ``gert::OpImplRegisterV2::InferShapeKernelFunc`` =
+    # ``UINT32 (*)(InferShapeContext *)``.
     return f"""// Auto-generated
 
 #include <cstdint>
@@ -863,31 +873,38 @@ static ge::graphStatus InferDataType(gert::InferDataTypeContext* context) {{
 {infer_dtype_ge_body}
 }}
 
+}} // namespace ge
+
 namespace ops {{
 class {op_type} : public OpDef {{
 public:
     explicit {op_type}(const char *name) : OpDef(name) {{
 {io_defs}
-        this->SetInferShape(InferShapeGeImpl);
-        this->SetInferDataType(InferDataType);
+        this->SetInferShape(ge::InferShapeGeImpl);
+        this->SetInferDataType(ge::InferDataType);
         this->AICore().AddConfig("kirinx90");
     }}
 }};
 
 OP_ADD({op_type});
 }} // namespace ops
-}} // namespace ge
 """
 
 
 def _custom_executor_class_cpp(op_type: str, workspace_block: str) -> str:
     """Return C++ for the sinkable executor class named *op_type* plus ``REG_AUTO_MAPPING_OP``."""
     _validate_op_type_identifier(op_type)
+    # Method names / signatures track the real Ascend header
+    # ``graph/custom_op.h`` and ``exe_graph/runtime/sinkable_op_execution_context.h``:
+    #   * ``BaseCustomOp::PrepareExecute`` is pure virtual — override it.
+    #   * Context is non-virtual POD; methods are ``MallocWorkSpace`` (capital S),
+    #     ``SpecifyIoOffset`` (not ``SpecifyToOffset``), ``HostArgsToDevice`` (returns
+    #     ``void *``, which we intentionally discard).
     return f"""using namespace ge;
 using namespace gert;
 class {op_type} : public SinkableExecuteOp {{
 public:
-    ge::graphStatus PrepareExecute(gert::SinkableOpExecutionContext *ctx)
+    ge::graphStatus PrepareExecute(gert::SinkableOpExecutionContext *ctx) override
     {{
         // get input & output
         printf("Entering PrepareExecute\\n");
@@ -905,35 +922,21 @@ public:
         for (size_t i = 0; i < inputNum; ++i) {{
             p[outputNum + i] = reinterpret_cast<int64_t>(ctx->GetInputTensor(i)->GetAddr());
         }}
-        void *workspaceAddr = ctx->MallocWorkspace(workspaceSize);
+        void *workspaceAddr = ctx->MallocWorkSpace(workspaceSize);
         p[outputNum + inputNum] = reinterpret_cast<int64_t>(workspaceAddr);
 
-        ctx->HostArgsToDevice(args, argsSize);
+        (void)ctx->HostArgsToDevice(args, argsSize);
 
         std::vector<size_t> inputOffsets(inputNum);
         const size_t outBytes = sizeof(int64_t) * outputNum;
         for (size_t i = 0; i < inputNum; ++i) {{
             inputOffsets[i] = outBytes + i * sizeof(int64_t);
         }}
-        (void)ctx->SpecifyToOffset(SinkableOpIo::kInput, inputOffsets.data(), inputNum);
-        (void)ctx->SpecifyToOffset(SinkableOpIo::kOutput, 0, outputNum);
+        (void)ctx->SpecifyIoOffset(SinkableOpIo::kInput, inputOffsets.data(), inputNum);
+        (void)ctx->SpecifyIoOffset(SinkableOpIo::kOutput, nullptr, outputNum);
 
-        return 0;
+        return ge::GRAPH_SUCCESS;
     }}
-
-    graphStatus Execute(gert::EagerOpExecutionContext *ctx)
-    {{
-        return 0;
-    }}
-
-    graphStatus Compile()
-    {{
-        compiled_bin_path_ = "fixme/stub/path";
-        return 0;
-    }}
-
-private:
-    std::string compiled_bin_path_;
 }};
 
 REG_AUTO_MAPPING_OP({op_type});

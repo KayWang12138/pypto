@@ -218,6 +218,7 @@ def export_demo(path: str, force_cpu: bool = False, force_sim: bool = False):
         path,
         input_names=["q", "k", "v"],
         output_names=["out"],
+        forward_kwargs={"run_mode": run_mode},
     )
 
 
