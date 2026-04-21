@@ -57,7 +57,6 @@ void CheckExpandTensorValid(const LogicalTensorPtr& operand, const LogicalTensor
             ASSERT(VectorErrorCode::ERR_PARAM_INVALID, false) << oss.str();
         }
     }
-
 }
 
 void ExpandTile(Function& function, const struct ExpandInfo& expandInfo)
@@ -575,17 +574,16 @@ void TiledCastOperation(
     if (cur == static_cast<int>(input.tensor.GetShape().size())) {
         auto tile = input.tensor.GetStorage()->View(function, input.tileInfo.shape, input.tileInfo.offset);
         auto resultTile = result->View(function, input.tileInfo.shape, input.tileInfo.offset);
-        
+
         DataType srcDtype = tile->Datatype();
         DataType dstDtype = resultTile->Datatype();
-        
+
         bool needTmpBuffer = false;
-        if ((srcDtype == DT_FP32 && dstDtype == DT_INT16) ||
-            (srcDtype == DT_FP16 && dstDtype == DT_INT16) ||
+        if ((srcDtype == DT_FP32 && dstDtype == DT_INT16) || (srcDtype == DT_FP16 && dstDtype == DT_INT16) ||
             (srcDtype == DT_FP16 && dstDtype == DT_INT8)) {
             needTmpBuffer = true;
         }
-        
+
         Operation* op = nullptr;
         if (needTmpBuffer) {
             size_t shapeSize = input.tileInfo.shape.size();
@@ -655,8 +653,6 @@ void CheckCat(const std::vector<Tensor>& tensors, int axis)
     auto shapeSize = shape.size();
     auto dataType = tensors[0].GetDataType();
 
-    ASSERT(VectorErrorCode::ERR_PARAM_INVALID, SHAPE_DIM2 <= shapeSize && shapeSize <= SHAPE_DIM4)
-        << "The support dimension must be 2 to 4 dimensions";
     std::vector<DataType> CAT_SUPPORT_DATATYPES = {DataType::DT_FP32,  DataType::DT_FP16, DataType::DT_INT32,
                                                    DataType::DT_INT16, DataType::DT_INT8, DataType::DT_BF16};
     ASSERT(
