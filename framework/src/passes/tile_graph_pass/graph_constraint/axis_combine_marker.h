@@ -18,6 +18,7 @@
 
 #include <vector>
 #include <queue>
+#include <unordered_set>
 
 #include "interface/operation/opcode.h"
 #include "tilefwk/data_type.h"
@@ -43,10 +44,10 @@ public:
 private:
     void Init(Function& function);
     std::vector<Operation*> opList_;
-    std::vector<std::vector<uint16_t>> opInGraph_;
-    std::vector<std::vector<uint16_t>> opOutGraph_;
-    void UpdateOpACEnableForward(uint16_t opIdx);
-    void UpdateOpACEnableBackward(uint16_t opIdx);
+    std::vector<std::unordered_set<size_t>> opInGraph_;
+    std::vector<std::unordered_set<size_t>> opOutGraph_;
+    void UpdateOpACEnableForward(size_t opIdx);
+    void UpdateOpACEnableBackward(size_t opIdx);
     void ForwardVisit();
     void BackwardVisit();
     void DisableNoneWhiteListTensor(Operation* op);
