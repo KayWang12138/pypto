@@ -135,7 +135,6 @@ TEST_F(SubgraphToFunctionTest, DifferentOffset)
     std::shared_ptr<LogicalTensor> incast = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape0);
     incast->SetMemoryTypeBoth(MEM_DEVICE_DDR);
     incast->SetMagic(tensorMagic0);
-    incast->isSubGraphBoundary = true;
 
     std::shared_ptr<LogicalTensor> tensor0 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape3);
     tensor0->SetMemoryTypeBoth(MEM_UB);
@@ -160,7 +159,6 @@ TEST_F(SubgraphToFunctionTest, DifferentOffset)
     std::shared_ptr<LogicalTensor> input_tensor = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape1);
     input_tensor->SetMemoryTypeBoth(MEM_DEVICE_DDR);
     input_tensor->SetMagic(tensorMagic3);
-    input_tensor->isSubGraphBoundary = true;
     input_tensor->subGraphID = subGraphID0;
 
     auto& copyoutop0 = currFunctionPtr->AddOperation(Opcode::OP_COPY_OUT, {tensor1}, {input_tensor});
@@ -212,7 +210,6 @@ TEST_F(SubgraphToFunctionTest, DifferentOffset)
     std::shared_ptr<LogicalTensor> output_tensor = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape1);
     output_tensor->SetMemoryTypeBoth(MEM_DEVICE_DDR);
     output_tensor->SetMagic(tensorMagic8);
-    output_tensor->isSubGraphBoundary = true;
 
     auto& copyoutop1 = currFunctionPtr->AddOperation(Opcode::OP_COPY_OUT, {result_tensor1}, {output_tensor});
     copyoutop1.SetOpAttribute(std::make_shared<CopyOpAttribute>(
@@ -292,7 +289,6 @@ TEST_F(SubgraphToFunctionTest, SameOffset)
     std::shared_ptr<LogicalTensor> input_tensor = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape1);
     input_tensor->SetMemoryTypeBoth(MEM_DEVICE_DDR);
     input_tensor->SetMagic(tensorMagic3);
-    input_tensor->isSubGraphBoundary = true;
 
     std::shared_ptr<LogicalTensor> inner_tensor1 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape2);
     inner_tensor1->SetMemoryTypeBoth(MEM_UB);
@@ -333,7 +329,6 @@ TEST_F(SubgraphToFunctionTest, SameOffset)
     std::shared_ptr<LogicalTensor> output_tensor = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape3);
     output_tensor->SetMemoryTypeBoth(MEM_DEVICE_DDR);
     output_tensor->SetMagic(tensorMagic8);
-    output_tensor->isSubGraphBoundary = true;
 
     auto& copyoutop1 = currFunctionPtr->AddOperation(Opcode::OP_COPY_OUT, {result_tensor1}, {output_tensor});
     copyoutop1.SetOpAttribute(std::make_shared<CopyOpAttribute>(
@@ -699,8 +694,6 @@ void InitGraphBuilder(ComputationalGraphBuilder& G, std::vector<int64_t> tileSha
     auto final_out_tensor = G.GetTensor("final_out");
     input_tensor->SetMemoryTypeBoth(MemoryType::MEM_DEVICE_DDR);
     final_out_tensor->SetMemoryTypeBoth(MemoryType::MEM_DEVICE_DDR);
-    input_tensor->isSubGraphBoundary = true;
-    final_out_tensor->isSubGraphBoundary = true;
 
     // 4. 设置输入输出转换
     EXPECT_TRUE(G.SetInCast({"input"}));
@@ -789,14 +782,6 @@ TEST_F(SubgraphToFunctionTest, MultiSubgraphDependencyWithMixedOps)
     // 输入输出为DDR内存
     input_tensor->SetMemoryTypeBoth(MemoryType::MEM_DEVICE_DDR);
     final_out_tensor->SetMemoryTypeBoth(MemoryType::MEM_DEVICE_DDR);
-
-    // 标记边界张量
-    input_tensor->isSubGraphBoundary = true;
-    final_out_tensor->isSubGraphBoundary = true;
-
-    // 中间张量作为子图边界
-    G.GetTensor("aic_out")->isSubGraphBoundary = true;
-    G.GetTensor("aiv_out")->isSubGraphBoundary = true;
 
     // 5. 设置输入输出转换
     EXPECT_TRUE(G.SetInCast({"input"}));
