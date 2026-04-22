@@ -186,3 +186,77 @@ TILEOP void TQuantMX(T0 dst, T1 exp, T2 maxScratch, T3 scalingScratch, T4 src)
 }
 
 #endif
+
+
+// // Computing scalar focus and exponent for B16 (BF16/FP16) -> b8 e4m3 quantization.
+// // Compile-time constants are selected based on the source data type T (bfloat16_t or half).
+// //   BF16: shr=7,  exp_mask=0x7F80, nan_check=0xFF,  exp_max=0xFE, subnorm=0x7F80, clamp=-127
+// //   FP16: shr=10, exp_mask=0x7C00, nan_check=0x1F,  exp_max=0x1E, subnorm=0x7C00, clamp=-15
+// // E8M0 uses bias 127. For BF16 (bias 127) emax_e8m0=8. For FP16 (bias 15) we subtract
+// // the bias difference: emax_e8m0 = 8 - (127 - 15) = -104, so E8M0 = biased_fp16 + 104.
+// // For source values already inside the native e4m3 exponent range, we keep shared_exp at the
+// // "no extra scaling" code and force scaling to 1.0 instead of scaling tiny values up.
+// template <typename T>
+// PTO_INTERNAL void ExtractB8ExponentAndScaling(__ubuf__ T *maxPtr, __ubuf__ uint8_t *expPtr, __ubuf__ T *scalingPtr,
+//                                               unsigned exp_max_loop_count, unsigned total_elements_count)
+// {
+//     static_assert(std::is_same<T, bfloat16_t>::value || std::is_same<T, half>::value,
+//                   "ExtractB8ExponentAndScaling B16: T must be bfloat16_t or half");
+//     static constexpr auto distValue =
+//         std::integral_constant<::DistVST, static_cast<::DistVST>(GetDistVst<T, DistVST::DIST_NORM>())>();
+//     // Compile-time format-specific constants
+//     constexpr bool is_bf16 = std::is_same<T, bfloat16_t>::value;
+//     constexpr int shr = is_bf16 ? 7 : 10;                       // mantissa bits
+//     constexpr int16_t exp_mask_val = is_bf16 ? 0x7F80 : 0x7C00; // exponent field mask
+//     constexpr int16_t nan_check = is_bf16 ? 0xFF : 0x1F;        // all-ones exponent (NaN/Inf)
+//     constexpr int16_t exp_max_val = is_bf16 ? 0xFE : 0x1E;      // max non-Inf biased exponent
+//     constexpr int16_t subnorm_val = is_bf16 ? 0x7F80 : 0x7C00;  // +Inf sentinel for clamping
+//     constexpr int16_t clamp_val = is_bf16 ? -127 : -15;         // negative bias (clamping threshold)
+//     constexpr int16_t no_scale_exp_threshold = is_bf16 ? 8 : 23;
+//     constexpr int16_t no_scale_shared_exp = is_bf16 ? 0 : 127;
+//     constexpr int16_t one_val = is_bf16 ? 0x3F80 : 0x3C00;
+
+//     constexpr int16_t emax_e8m0 = is_bf16 ? 8 : (8 - 112);
+//     constexpr int16_t scaling_base = exp_max_val + 8;
+//     RegTensor<T> vb16_max;
+//     vector_s16 vb16_exponent, vb16_shared_exp, vb16_scaling, vb16_nan, vb16_subnorm;
+//     vector_s16 vb16_b8_shared_exp, vb16_b8_nan, vb16_b8_emax, vb16_exp_mask, vb16_scaling_base, vb16_one,
+//         vb16_no_scale_shared_exp;
+//     vbr(vb16_exp_mask, exp_mask_val);
+//     vbr(vb16_b8_nan, 0xFF);
+//     vbr(vb16_subnorm, subnorm_val);
+//     vbr(vb16_scaling_base, scaling_base);
+//     vbr(vb16_exponent, exp_mask_val);
+//     vbr(vb16_b8_emax, emax_e8m0);
+//     vbr(vb16_one, one_val);
+//     vbr(vb16_no_scale_shared_exp, no_scale_shared_exp);
+//     vector_bool preg_inf, preg_no_scale;
+//     constexpr uint32_t elementsPerVL = REPEAT_BYTE / sizeof(T);
+//     uint32_t total_count = total_elements_count;
+//     for (uint16_t i = 0; i < (uint16_t)exp_max_loop_count; ++i) {
+//         vector_bool preg_b16 = CreatePredicate<T>(total_count);
+//         vlds(vb16_max, maxPtr, i * elementsPerVL, NORM);
+//         // Getting biased exponent
+//         vand((vector_s16 &)vb16_exponent, (vector_s16 &)vb16_max, vb16_exp_mask, preg_b16, MODE_ZEROING);
+//         vshrs((vector_s16 &)vb16_exponent, (vector_s16 &)vb16_exponent, shr, preg_b16, MODE_ZEROING);
+//         // E8M0: shared_exp = exponent - emax_e8m0 (bias-corrected for FP16)
+//         vsub((vector_s16 &)vb16_shared_exp, (vector_s16 &)vb16_exponent, (vector_s16 &)vb16_b8_emax, preg_b16);
+//         // Scaling: scaling = (exp_max + 8) - exponent. Low-exponent groups are overridden to 1.0 below.
+//         vsub((vector_s16 &)vb16_scaling, (vector_s16 &)vb16_scaling_base, (vector_s16 &)vb16_exponent, preg_b16);
+//         vshls((vector_s16 &)vb16_scaling, (vector_s16 &)vb16_scaling, shr, preg_b16, MODE_ZEROING);
+//         vcmps_le(preg_no_scale, (vector_s16 &)vb16_exponent, no_scale_exp_threshold, preg_b16);
+//         vsel(vb16_scaling, vb16_one, vb16_scaling, preg_no_scale);
+//         vsel(vb16_shared_exp, vb16_no_scale_shared_exp, vb16_shared_exp, preg_no_scale);
+//         // Handling special cases for NaN and Inf
+//         vcmps_ne(preg_inf, (vector_s16 &)vb16_exponent, nan_check, preg_b16);
+//         vsel(vb16_scaling, vb16_scaling, vb16_b8_nan, preg_inf);
+//         vsel(vb16_shared_exp, vb16_shared_exp, vb16_b8_nan, preg_inf);
+//         vcmps_ge(preg_inf, (vector_s16 &)vb16_scaling, clamp_val, preg_b16);
+//         vsel(vb16_scaling, vb16_scaling, vb16_subnorm, preg_inf);
+//         vsel(vb16_shared_exp, vb16_shared_exp, vb16_subnorm, preg_inf);
+
+//         vsts((vector_s16 &)vb16_shared_exp, ((__ubuf__ int16_t *)expPtr), i * elementsPerVL / sizeof(T), PK_B16,
+//              preg_b16);
+//         vsts((vector_s16 &)vb16_scaling, ((__ubuf__ int16_t *)scalingPtr), i * elementsPerVL, distValue, preg_b16);
+//     }
+// }

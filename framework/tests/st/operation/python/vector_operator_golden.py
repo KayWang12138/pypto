@@ -3034,19 +3034,41 @@ def _quantmx_parse_int_list(value):
     return [int(v) for v in value]
 
 
+# Safe exponent ranges for values generated as mantissa in [1, 2) times 2^exp.
+# These bounds intentionally keep QuantMX golden inputs in the normal-number range only.
+_QUANTMX_SAFE_EXP_RANGE = {
+    "fp16": (-14, 15),
+    "bf16": (-126, 127),
+    "fp32": (-126, 127),
+}
+
+
+def _quantmx_validate_dtype(dtype_name: str):
+    assert dtype_name in _QUANTMX_SAFE_EXP_RANGE, f"QuantMX golden does not support dtype {dtype_name}."
+
+
 def _quantmx_resolve_exp_range(dtype_name: str, params: dict) -> list:
+    _quantmx_validate_dtype(dtype_name)
+    safe_lo, safe_hi = _QUANTMX_SAFE_EXP_RANGE[dtype_name]
     exp_range = _quantmx_parse_int_list(params.get("exp_range"))
     if exp_range is not None:
         assert len(exp_range) == 2, "QuantMX exp_range must contain [min_exp, max_exp]."
         assert exp_range[0] <= exp_range[1], "QuantMX exp_range min must be <= max."
-        return exp_range
+        assert safe_lo <= exp_range[0] <= safe_hi, (
+            f"QuantMX exp_range min {exp_range[0]} is out of safe range [{safe_lo}, {safe_hi}] for {dtype_name}."
+        )
+        assert safe_lo <= exp_range[1] <= safe_hi, (
+            f"QuantMX exp_range max {exp_range[1]} is out of safe range [{safe_lo}, {safe_hi}] for {dtype_name}."
+        )
+        return [int(exp_range[0]), int(exp_range[1])]
 
     default_ranges = {
         "fp32": [-40, 40],
         "bf16": [-80, 80],
         "fp16": [-20, 15],
     }
-    return default_ranges[dtype_name]
+    default_lo, default_hi = default_ranges[dtype_name]
+    return [max(safe_lo, default_lo), min(safe_hi, default_hi)]
 
 
 def _quantmx_resolve_profile_bands(dtype_name: str, exp_range: list, profile: str) -> list:
@@ -3114,6 +3136,9 @@ def _quantmx_resolve_profile_bands(dtype_name: str, exp_range: list, profile: st
 
 def _quantmx_special_exponents(dtype_name: str, exp_range: list, profile: str) -> list:
     exp_lo, exp_hi = exp_range
+    if exp_hi - exp_lo <= 32:
+        return list(range(exp_lo, exp_hi + 1))
+
     default_values = {
         "fp32": [-120, -80, -32, -8, -1, 0, 1, 8, 32, 80, 120],
         "bf16": [-120, -80, -60, -16, -8, -1, 0, 1, 8, 16, 60, 80, 120],
@@ -3159,6 +3184,7 @@ def _generate_quantmx_input(input_tensor: dict, config: dict) -> np.ndarray:
     dtype_name = input_tensor["dtype"]
     shape = tuple(input_tensor["shape"])
     np_dtype = get_dtype_by_name(dtype_name)
+    _quantmx_validate_dtype(dtype_name)
 
     exp_range = _quantmx_resolve_exp_range(dtype_name, params)
     exp_lo, exp_hi = exp_range
@@ -3169,20 +3195,6 @@ def _generate_quantmx_input(input_tensor: dict, config: dict) -> np.ndarray:
     rows = math.prod(shape[:-1])
     group_size = 32
     group_cols = (cols + group_size - 1) // group_size
-    group_scales = np.array(
-        [
-            1.0,
-            -0.75,
-            0.625,
-            -0.5,
-            0.4375,
-            -0.375,
-            0.3125,
-            -0.25,
-        ],
-        dtype=np.float32,
-    )
-
     base = np.zeros((rows, cols), dtype=np.float32)
     profile_bands = _quantmx_resolve_profile_bands(dtype_name, exp_range, input_profile)
     special_exponents = _quantmx_special_exponents(dtype_name, exp_range, input_profile)
@@ -3207,9 +3219,9 @@ def _generate_quantmx_input(input_tensor: dict, config: dict) -> np.ndarray:
             values = np.empty(width, dtype=np.float32)
             for inner in range(width):
                 local_exp = max(exp_lo, dominant_exp - 1 - (inner % 4))
-                local_mant = 1.0 + (((group_id + inner * 5 + seed) % 5) / 16.0)
-                scale = group_scales[(group_id + inner) % len(group_scales)]
-                values[inner] = np.float32(math.ldexp(local_mant, local_exp)) * scale
+                local_mant = 1.0 + (((group_id + inner * 5 + seed) % 13) / 16.0)
+                sign = np.float32(1.0 if ((group_id + inner + seed) % 2 == 0) else -1.0)
+                values[inner] = np.float32(math.ldexp(local_mant, local_exp)) * sign
 
             dominant_idx = (group_id * 11 + seed * 3 + width // 2) % width
             values[dominant_idx] = dominant if (group_id + seed) % 2 == 0 else -dominant
@@ -3232,7 +3244,23 @@ def _generate_quantmx_input(input_tensor: dict, config: dict) -> np.ndarray:
             base[row, start : start + width] = values[permutation]
 
     _quantmx_inject_special_values(base, dtype_name, exp_range, input_profile, seed)
-    return base.reshape(shape).astype(np_dtype)
+    reshaped = base.reshape(shape)
+    casted = reshaped.astype(np_dtype)
+    casted_fp32 = casted.astype(np.float32)
+    assert np.isfinite(casted_fp32).all(), f"QuantMX golden generated non-finite {dtype_name} inputs."
+
+    if dtype_name == "fp16":
+        dtype_finfo = np.finfo(np.float16)
+        assert np.max(np.abs(casted_fp32), initial=0.0) <= dtype_finfo.max, (
+            "QuantMX golden generated fp16 inputs that overflow dtype range."
+        )
+    elif dtype_name == "fp32":
+        dtype_finfo = np.finfo(np.float32)
+        assert np.max(np.abs(casted_fp32), initial=0.0) <= dtype_finfo.max, (
+            "QuantMX golden generated fp32 inputs that overflow dtype range."
+        )
+
+    return casted
 
 
 @TestCaseLoader.reg_params_handler(ops=["QuantMX"])
