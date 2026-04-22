@@ -18,8 +18,8 @@
 #include "calc_api.h"
 #include "fp_convert.h"
 #include "tilefwk/error.h"
+#include "tilefwk/error_code.h"
 #include "securec.h"
-#include "calc_error.h"
 
 namespace npu::tile_fwk {
 
