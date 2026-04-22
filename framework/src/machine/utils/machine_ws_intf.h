@@ -122,7 +122,7 @@ struct LockableQueueGeneric : public QueueGeneric<T> {
 
     bool try_enqueue(T x)
     {
-        std::scoped_lock(*this);
+        std::scoped_lock slock(*this);
         uint32_t t = __atomic_fetch_add(&this->tail, 1, std::memory_order_release);
         if (t >= this->capacity()) {
             return false;
@@ -133,7 +133,7 @@ struct LockableQueueGeneric : public QueueGeneric<T> {
 
     bool try_enqueue(const T* x, uint32_t count)
     {
-        std::scoped_lock(*this);
+        std::scoped_lock slock(*this);
         uint32_t t = __atomic_fetch_add(&this->tail, count, std::memory_order_release);
         if (t + count > this->capacity()) {
             return false;
@@ -153,7 +153,7 @@ struct LockableQueueGeneric : public QueueGeneric<T> {
 
     datarange dequeue(uint32_t max_count)
     {
-        std::scoped_lock(*this);
+        std::scoped_lock slock(*this);
         uint32_t t = __atomic_load_n(&this->tail, __ATOMIC_RELAXED);
         uint32_t h = __atomic_load_n(&this->head, __ATOMIC_RELAXED);
         uint32_t cnt = std::min(t - h, max_count);
@@ -166,7 +166,7 @@ struct LockableQueueGeneric : public QueueGeneric<T> {
 
     datarange dequeue_tail(uint32_t max_count, T* out)
     {
-        std::scoped_lock(*this);
+        std::scoped_lock slock(*this);
         uint32_t t = __atomic_load_n(&this->tail, __ATOMIC_RELAXED);
         uint32_t h = __atomic_load_n(&this->head, __ATOMIC_RELAXED);
         uint32_t cnt = std::min(t - h, max_count);
