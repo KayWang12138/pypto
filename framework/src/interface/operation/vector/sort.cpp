@@ -115,7 +115,7 @@ Tensor Sort32(const Tensor& self, int idxStart)
     DECLARE_TRACER();
     std::unordered_set<DataType> supportedTypes = {DT_FP32};
     CheckTensorDataType(self.GetStorage(), supportedTypes, "SORT32");
-    CheckTensorDimRange(self.GetStorage(), 1, 4, "SORT32");
+    CheckTensorDimRange(self.GetStorage(), 2, 4, "SORT32");
     CheckTensorShapeSize(self.GetStorage(), "SORT32");
     const auto len = static_cast<int>(self.GetShape().size());
     auto outShape = self.GetShape();
@@ -192,7 +192,7 @@ Tensor MrgSort(const Tensor& self, int mergeSize)
     DECLARE_TRACER();
     std::unordered_set<DataType> supportedTypes = {DT_FP32};
     CheckTensorDataType(self.GetStorage(), supportedTypes, "MRGSORT");
-    CheckTensorDimRange(self.GetStorage(), 1, 4, "MRGSORT");
+    CheckTensorDimRange(self.GetStorage(), 2, 4, "MRGSORT");
     CheckTensorShapeSize(self.GetStorage(), "MRGSORT");
     const auto len = static_cast<int>(self.GetShape().size());
     const auto k = static_cast<int>(self.GetShape()[len - 1]);
@@ -264,7 +264,7 @@ Tensor TopKExtract(const Tensor& self, int k, bool isIndex)
     DECLARE_TRACER();
     std::unordered_set<DataType> supportedTypes = {DT_FP32};
     CheckTensorDataType(self.GetStorage(), supportedTypes, "TOPKEXTRACT");
-    CheckTensorDimRange(self.GetStorage(), 1, 4, "TOPKEXTRACT");
+    CheckTensorDimRange(self.GetStorage(), 2, 4, "TOPKEXTRACT");
     CheckTensorShapeSize(self.GetStorage(), "TOPKEXTRACT");
     DataType dType = isIndex ? DataType::DT_INT32 : self.GetStorage()->tensor->datatype;
     const auto len = static_cast<int>(self.GetShape().size());
@@ -543,7 +543,7 @@ std::tuple<Tensor, Tensor> TopK(const Tensor& self, int k, int axis, bool isLarg
     DECLARE_TRACER();
     std::unordered_set<DataType> supportedTypes = {DT_FP32};
     CheckTensorDataType(self.GetStorage(), supportedTypes, "TOPK");
-    CheckTensorDimRange(self.GetStorage(), 1, 4, "TOPK");
+    CheckTensorDimRange(self.GetStorage(), 2, 4, "TOPK");
     CheckTensorShapeSize(self.GetStorage(), "TOPK");
     const auto len = static_cast<int>(self.GetShape().size());
     ASSERT(VectorErrorCode::ERR_PARAM_INVALID, axis == (len - 1) || axis == -1) << "TopK only support last axis";
