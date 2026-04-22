@@ -423,7 +423,8 @@ void TaskSpliter::BuildOpGraph()
 // 记录成环的 Cluster 对
 void TaskSpliter::RecordCycledClusters(
     const std::vector<ScheduleCoreType> &clusterCoreTypes,
-    const std::vector<std::vector<int>> &sccResult) {
+    const std::vector<std::vector<int>> &sccResult)
+{
     cycledTaskNodePairs_.clear();
     for (int sccId = 0; sccId < static_cast<int>(sccResult.size()); sccId++) {
         if (sccResult[sccId].size() <= 1) {
@@ -441,9 +442,8 @@ void TaskSpliter::RecordCycledClusters(
         }
 
         // 输出日志：记录成环的 Cluster
-        std::string sccInfo = "SCC " + std::to_string(sccId)
-            + " has cycle with " + std::to_string(sccResult[sccId].size())
-            + " clusters: [";
+        std::string sccInfo = "SCC " + std::to_string(sccId) + " has cycle with "
+            + std::to_string(sccResult[sccId].size()) + " clusters: [";
         for (size_t j = 0; j < sccResult[sccId].size(); j++) {
             int cid = sccResult[sccId][j];
             sccInfo += "(cluster=" + std::to_string(cid)
@@ -459,8 +459,7 @@ void TaskSpliter::RecordCycledClusters(
         if (hasAIC && hasAIV) {
             APASS_LOG_WARN_F(Elements::Operation,
                 "SCC %d contains both AIC and AIV clusters, "
-                "potential cycle after FlattenSCC between the resulting AIC-group and AIV-group taskNodes.",
-                sccId);
+                "potential cycle after FlattenSCC between the resulting AIC-group and AIV-group taskNodes.", sccId);
             // 标记：这个 SCC 包含的所有 cluster ID，后续在 CombineSCC 映射后
             // 会被映射到新的 taskNode ID。我们在 SplitGraph 结束后再进行映射。
             cycledSCCClusters_.push_back(sccResult[sccId]);
@@ -468,8 +467,7 @@ void TaskSpliter::RecordCycledClusters(
     }
 
     if (cycledSCCClusters_.empty()) {
-        APASS_LOG_INFO_F(Elements::Operation,
-            "No AIC-AIV mixed cycles detected in SCC results.");
+        APASS_LOG_INFO_F(Elements::Operation, "No AIC-AIV mixed cycles detected in SCC results.");
     } else {
         APASS_LOG_WARN_F(Elements::Operation,
             "Detected %zu SCC(s) with AIC-AIV mixed cycles, will record for post-schedule reorder.",
@@ -561,19 +559,9 @@ inline int FlattenSCC(
     return currNewClusterIdx;
 }
 
-// 将强连通分量展开，并构建新的连接图
-void TaskSpliter::CombineSCC(
-    std::vector<int>& clusterIds, std::vector<ScheduleCoreType>& clusterCoreTypes, std::vector<std::set<int>>& inGraph,
-    std::vector<std::set<int>>& outGraph, std::vector<std::vector<int>>& sccResult)
+// 将 cycledSCCClusters_ 中记录的旧 Cluster ID 映射为新 TaskNode ID, 形成 cycledTaskNodePairs_
+void TaskSpliter::RecordIDMap(std::unordered_map<int, int>& oldClusterToNewCluster, std::vector<ScheduleCoreType>& clusterCoreTypes)
 {
-    std::unordered_map<int, int> oldClusterIdToSCCId;
-    std::unordered_map<int, std::vector<int>> sccIdToNewClusters;
-    std::unordered_map<int, int> oldClusterToNewCluster;
-    int newClusterNum =
-        FlattenSCC(clusterCoreTypes, sccResult, oldClusterIdToSCCId, sccIdToNewClusters, oldClusterToNewCluster);
-    APASS_LOG_INFO_F(
-        Elements::Operation, "Cluster num after flatten strongly connected components is %d.", newClusterNum);
-    // 将 cycledSCCClusters_ 中记录的旧 Cluster ID 映射为新 TaskNode ID, 形成 cycledTaskNodePairs_
     for (auto &oldClusters : cycledSCCClusters_) {
         std::set<int> aicNewIds;
         std::set<int> aivNewIds;
@@ -590,11 +578,25 @@ void TaskSpliter::CombineSCC(
             for (int aivId : aivNewIds) {
                 cycledTaskNodePairs_.push_back({aicId, aivId});
                 APASS_LOG_INFO_F(Elements::Operation,
-                    "Recorded cycled taskNode pair: taskNode %d (AIC) <-> taskNode %d (AIV).",
-                    aicId, aivId);
+                    "Recorded cycled taskNode pair: taskNode %d (AIC) <-> taskNode %d (AIV).", aicId, aivId);
             }
         }
     }
+}
+
+// 将强连通分量展开，并构建新的连接图
+void TaskSpliter::CombineSCC(
+    std::vector<int>& clusterIds, std::vector<ScheduleCoreType>& clusterCoreTypes, std::vector<std::set<int>>& inGraph,
+    std::vector<std::set<int>>& outGraph, std::vector<std::vector<int>>& sccResult)
+{
+    std::unordered_map<int, int> oldClusterIdToSCCId;
+    std::unordered_map<int, std::vector<int>> sccIdToNewClusters;
+    std::unordered_map<int, int> oldClusterToNewCluster;
+    int newClusterNum =
+        FlattenSCC(clusterCoreTypes, sccResult, oldClusterIdToSCCId, sccIdToNewClusters, oldClusterToNewCluster);
+    APASS_LOG_INFO_F(
+        Elements::Operation, "Cluster num after flatten strongly connected components is %d.", newClusterNum);
+    RecordIDMap(oldClusterToNewCluster, clusterCoreTypes);
     std::set<std::pair<int, int>> sccConnection;
     for (size_t oldIdx = 0; oldIdx < inGraph.size(); oldIdx++) {
         int currSCC = oldClusterIdToSCCId[oldIdx];
