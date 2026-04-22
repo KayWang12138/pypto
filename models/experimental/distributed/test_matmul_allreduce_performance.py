@@ -323,14 +323,14 @@ def test_matmul_allreduce_add_rmsnorm_performance():
         max_min_time = max(all_min_times)
 
         logger.info(f"运行次数: {len(all_min_times)}")
-        logger.info(f"最小值平均值: {avg_min_time:.3f} us")
-        logger.info(f"最小值最小值: {min_min_time:.3f} us")
-        logger.info(f"最小值最大值: {max_min_time:.3f} us")
+        logger.info(f"平均值: {avg_min_time:.3f} us")
+        logger.info(f"最小值: {min_min_time:.3f} us")
+        logger.info(f"最大值: {max_min_time:.3f} us")
 
         if len(all_min_times) > 1:
             std_dev = statistics.stdev(all_min_times)
-            logger.info(f"最小值标准差: {std_dev:.3f} us")
-            logger.info(f"最小值波动范围: {max_min_time - min_min_time:.3f} us")
+            logger.info(f"标准差: {std_dev:.3f} us")
+            logger.info(f"波动范围: {max_min_time - min_min_time:.3f} us")
 
         # 与预期时间对比
         if expected_total_time is not None:
@@ -396,7 +396,7 @@ def summarize_performance_results(stats_csv_file: str = "performance_statistics_
     # 打印表头
     header_format = "{:<5} {:<20} {:<10} {:<12} {:<12} {:<12} {:<12} {:<12} {:<8}"
     logger.info(header_format.format('序号', '时间', 'world_size', '预期时间(us)',
-                               '最小值最小值(us)', '最小值平均值(us)', '最小值最大值(us)',
+                               '最小值(us)', '平均值(us)', '最大值(us)',
                                '标准差(us)', '运行次数'))
     logger.info("-" * 120)
 
@@ -445,19 +445,19 @@ def summarize_performance_results(stats_csv_file: str = "performance_statistics_
 
         if all_min_of_mins and all_avg_of_mins and all_max_of_mins:
             logger.info(f"\n总体统计 (基于{len(recent_rows)}次统计记录):")
-            logger.info(f"  最小值最小值统计:")
+            logger.info(f"  最小值统计:")
             min_of_min_of_mins = min(all_min_of_mins)
             avg_of_min_of_mins = statistics.mean(all_min_of_mins) if len(all_min_of_mins) > 1 else all_min_of_mins[0]
             max_of_min_of_mins = max(all_min_of_mins)
             logger.info(f"    平均: {avg_of_min_of_mins:.3f} us, 最小: {min_of_min_of_mins:.3f} us, 最大: {max_of_min_of_mins:.3f} us")
 
-            logger.info(f"  最小值平均值统计:")
+            logger.info(f"  平均值统计:")
             min_of_avg_of_mins = min(all_avg_of_mins)
             avg_of_avg_of_mins = statistics.mean(all_avg_of_mins) if len(all_avg_of_mins) > 1 else all_avg_of_mins[0]
             max_of_avg_of_mins = max(all_avg_of_mins)
             logger.info(f"    平均: {avg_of_avg_of_mins:.3f} us, 最小: {min_of_avg_of_mins:.3f} us, 最大: {max_of_avg_of_mins:.3f} us")
 
-            logger.info(f"  最小值最大值统计:")
+            logger.info(f"  最大值统计:")
             min_of_max_of_mins = min(all_max_of_mins)
             avg_of_max_of_mins = statistics.mean(all_max_of_mins) if len(all_max_of_mins) > 1 else all_max_of_mins[0]
             max_of_max_of_mins = max(all_max_of_mins)
