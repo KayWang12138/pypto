@@ -60,7 +60,9 @@ public:
     int AllocNewTaskCtrl()
     {
         uint32_t& taskCtrlIndex = devStartArgs_->devCtrlState.taskCtrlIndex;
-        TIMEOUT_CHECK_START();
+        
+        TimeoutState state;
+        
         while (true) {
             if (taskCtrlIndex == MAX_DEVICE_TASK_NUM)
                 taskCtrlIndex = 0;
@@ -68,7 +70,17 @@ public:
                 return taskCtrlIndex++;
             }
             taskCtrlIndex++;
-            TIMEOUT_CHECK_AND_RESET(TIMEOUT_ONE_MINUTE, CtrlErr::CTRL_ALLOC_TIMEOUT, "Alloc new task ctrl over 1 min.");
+            
+            uint64_t elapsed = state.ElapsedNs();
+            if (elapsed > TIMEOUT_NS_1MIN / 2 && !state.warnPrinted) {
+                DEV_WARN("#ctrl.alloc: AllocNewTaskCtrl waiting 30s, taskCtrlIndex=%u.", taskCtrlIndex);
+                state.warnPrinted = true;
+            }
+            if (elapsed > TIMEOUT_NS_1MIN) {
+                DEV_ERROR(DEVICE_MACHINE_TIMEOUT_CTRL_ALLOC,
+                          "#ctrl.alloc: AllocNewTaskCtrl timeout 1min, taskCtrlIndex=%u.", taskCtrlIndex);
+                return DEVICE_MACHINE_TIMEOUT_CTRL_ALLOC;
+            }
         }
     }
 

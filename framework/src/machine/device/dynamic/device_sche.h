@@ -175,8 +175,6 @@ struct DynMachineManager {
         int die0MaxCpuNum = static_cast<int>(devArgs->scheCpuNum >> 1);
         int die1MaxCpuNum = static_cast<int>(devArgs->scheCpuNum) - die0MaxCpuNum;
 
-        // use CAS, Try to allocate the next available thread index, loop until successfully allocate or exceed the
-        // limit
         if (cpu <= die0MaxCpuid) {
             SetCurThreadIdxForDav3510(die0MaxCpuNum, SCHE_THREAD_START_IDX, curThreadIdx, die0ThreadIdx_);
         } else {
@@ -184,15 +182,16 @@ struct DynMachineManager {
                 die1MaxCpuNum, die0MaxCpuNum + SCHE_THREAD_START_IDX, curThreadIdx, die1ThreadIdx_);
         }
 
-        // wait until all threads are ecexuted to prevent threads from being relaunched after exiting
         cpumask_.fetch_or(1 << cpu, std::memory_order_release);
-        uint64_t start = GetCycles();
+        
+        TimeoutState state;
+        
         while (__builtin_popcount(cpumask_.load(std::memory_order_acquire)) != static_cast<int>(devArgs->nrAicpu)) {
-            if (GetCycles() - start > TIMEOUT_CYCLES) {
-                DEV_ERROR(
-                    ThreadErr::THREAD_CPU_ALLOC_FAILED,
-                    "#sche.thread.init: Thread alloc timeout: threadIdx=%d, physicalCpu=%d.", curThreadIdx, cpu);
-                return npu::tile_fwk::dynamic::DEVICE_MACHINE_ERROR;
+            if (state.ElapsedNs() > TIMEOUT_NS_20MIN) {
+                DEV_ERROR(DEVICE_MACHINE_TIMEOUT_THREAD_ALLOC,
+                          "#sche.thread.init: Thread alloc timeout 20min: threadIdx=%d, physicalCpu=%d.",
+                          curThreadIdx, cpu);
+                return DEVICE_MACHINE_TIMEOUT_THREAD_ALLOC;
             }
             sched_yield();
         }
@@ -205,11 +204,16 @@ struct DynMachineManager {
     int AllocThreadIdxForDav2201(DeviceArgs* devArgs, int cpu, int& curThreadIdx, std::atomic<int>& threadIdx)
     {
         cpumask_.fetch_or(1 << cpu, std::memory_order_release);
-        TIMEOUT_CHECK_START();
+        
+        TimeoutState state;
+        
         while (__builtin_popcount(cpumask_.load(std::memory_order_acquire)) != static_cast<int>(devArgs->nrAicpu)) {
-            TIMEOUT_CHECK_AND_RESET(
-                TIMEOUT_ONE_MINUTE, ThreadErr::THREAD_CPU_ALLOC_FAILED,
-                "#sche.thread.init: Thread alloc timeout over 1 min: threadIdx=%d, physicalCpu=%d.", curThreadIdx, cpu);
+            if (state.ElapsedNs() > TIMEOUT_NS_20MIN) {
+                DEV_ERROR(DEVICE_MACHINE_TIMEOUT_THREAD_ALLOC,
+                          "#sche.thread.init: Thread alloc timeout 20min: threadIdx=%d, physicalCpu=%d.",
+                          curThreadIdx, cpu);
+                return DEVICE_MACHINE_TIMEOUT_THREAD_ALLOC;
+            }
             sched_yield();
         }
 
@@ -656,20 +660,39 @@ struct DynMachineManager {
 
         void ScheWait(DevAscendProgram* devProg)
         {
-            TIMEOUT_CHECK_START();
+            TimeoutState state1;
+            
             while (unlikely(!devProg->runtimeDataRingBufferInited)) {
-                /* In the first launch, sche must wait for ctrl's ring buffer's initialization.
-                 * Otherwise, the ringBufferHead->Empty() is not legal. */
                 RuntimeYield(0);
-                TIMEOUT_CHECK_AND_RESET(
-                    TIMEOUT_ONE_MINUTE, SchedErr::RINGBUFFER_WAIT_TIMEOUT, "Sche wait ring buf init over 1 min.");
+                
+                uint64_t elapsed1 = state1.ElapsedNs();
+                if (elapsed1 > TIMEOUT_NS_1MIN / 2 && !state1.warnPrinted) {
+                    DEV_WARN("#sche.wait: RingBuffer init waiting 30s, may timeout soon.");
+                    state1.warnPrinted = true;
+                }
+                if (elapsed1 > TIMEOUT_NS_1MIN) {
+                    DEV_ERROR(SchedErr::RINGBUFFER_WAIT_TIMEOUT,
+                              "#sche.wait: RingBuffer init timeout 1min.");
+                    return;
+                }
             }
             RuntimeDataRingBufferHead* ringBufferHead = devProg->GetRuntimeDataList();
+            
+            TimeoutState state2;
+            
             while (unlikely(ringBufferHead->Empty())) {
-                /* Sche must wait until the current devStarArgs has been initialized. */
                 RuntimeYield(0);
-                TIMEOUT_CHECK_AND_RESET(
-                    TIMEOUT_ONE_MINUTE, SchedErr::RINGBUFFER_WAIT_TIMEOUT, "Sche wait ring buf data over 1 min.");
+                
+                uint64_t elapsed2 = state2.ElapsedNs();
+                if (elapsed2 > TIMEOUT_NS_1MIN / 2 && !state2.warnPrinted) {
+                    DEV_WARN("#sche.wait: RingBuffer data waiting 30s, may timeout soon.");
+                    state2.warnPrinted = true;
+                }
+                if (elapsed2 > TIMEOUT_NS_1MIN) {
+                    DEV_ERROR(SchedErr::RINGBUFFER_WAIT_TIMEOUT,
+                              "#sche.wait: RingBuffer data timeout 1min.");
+                    return;
+                }
             }
         }
 

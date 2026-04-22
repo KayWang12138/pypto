@@ -10,7 +10,7 @@
 
 /*!
  * \file device_utils.h
- * \brief
+ * \brief Device utility functions and timeout detection macros
  */
 
 #ifndef DEVICE_UTILS_H
@@ -68,20 +68,36 @@ constexpr uint64_t US_PER_SEC = 1000000;
 constexpr uint64_t NSEC_PER_USEC = 1000;
 constexpr uint64_t NSEC_PER_SEC = 1000000000;
 constexpr uint64_t HAND_SHAKE_TIMEOUT = 48000000000; // aicpu stream wait hccl finish
-constexpr uint64_t TIMEOUT_ONE_MINUTE = 3000000000;
 constexpr int32_t MAX_MNG_AICORE_AVG_NUM = 8;
 constexpr uint32_t CORE_IDX_AIV = 0;
 constexpr uint32_t CORE_IDX_AIC = 1;
 const uint32_t AIV_NUM_PER_AI_CORE = 2;
 const int INVALID_CORE_IDX = 0xFF;
 
+// ========== 统一超时常量定义（基于纳秒）==========
+// 注意：A2/A3 频率约 50 MHz（50 cycles/ns），A5 频率约 1000 MHz（1000 cycles/ns）
+// 统一使用纳秒定义超时时间，通过 GetFreq() 动态转换确保跨平台一致性
+
+constexpr uint64_t TIMEOUT_NS_1MIN     = 60ULL * 1000ULL * 1000ULL * 1000ULL;   // 1 分钟
+constexpr uint64_t TIMEOUT_NS_10MIN    = 600ULL * 1000ULL * 1000ULL * 1000ULL;  // 10 分钟
+constexpr uint64_t TIMEOUT_NS_20MIN    = 1200ULL * 1000ULL * 1000ULL * 1000ULL; // 20 分钟
+
+// Legacy constants（保持兼容性，但标记为 deprecated）
+constexpr uint64_t TIMEOUT_ONE_MINUTE = 3000000000;  // DEPRECATED: 实际是 3 秒，命名误导
+
 #ifdef __aarch64__
-constexpr uint64_t TIMEOUT_CYCLES = 500 * 1000 * 1000;
+constexpr uint64_t TIMEOUT_CYCLES = 500 * 1000 * 1000;  // 约 250ms @2GHz（legacy）
 #else
 constexpr uint64_t TIMEOUT_CYCLES = NSEC_PER_SEC;
 #endif
 
 constexpr uint64_t PROF_DUMP_TIMEOUT_CYCLES = TIMEOUT_CYCLES;
+
+// ========== 新增错误码 ==========
+constexpr int32_t DEVICE_MACHINE_TIMEOUT_SLAB_ALLOC = -8;
+constexpr int32_t DEVICE_MACHINE_TIMEOUT_THREAD_ALLOC = -9;
+constexpr int32_t DEVICE_MACHINE_TIMEOUT_RINGBUFFER = -10;
+constexpr int32_t DEVICE_MACHINE_TIMEOUT_CTRL_ALLOC = -11;
 
 #define PERF_LEVEL 0
 #define PERF_AICORE_THREAD_START 100
@@ -288,6 +304,118 @@ inline int CheckTimeOut(const std::string& operation, TimeCheck& timeCheck)
     return CheckTimeOut(timeCheck.startTime, timeCheck.count, timeCheck.curTime, operation);
 }
 
+// ========== 统一超时检测宏 ==========
+// 核心设计：一个宏支持三种模式
+// 1. MODE_EXIT: 超时后退出（返回错误码）
+// 2. MODE_WARN: 超时后打印警告（不退出，周期性打印）
+// 3. MODE_WARN_THEN_EXIT: 在 warn_threshold 时打印警告，在 timeout_threshold 时退出
+
+enum TimeoutMode {
+    MODE_EXIT,              // 超时后直接退出
+    MODE_WARN,              // 周期性警告，不退出
+    MODE_WARN_THEN_EXIT     // 先警告后退出
+};
+
+// 内部状态结构（用于跟踪警告打印状态）
+struct TimeoutState {
+    uint64_t startCycles;
+    uint64_t freq;
+    uint64_t lastWarnCycles;
+    bool warnPrinted;
+    
+    TimeoutState() : startCycles(GetCycles()), freq(GetFreq()), 
+                     lastWarnCycles(0), warnPrinted(false) {}
+    
+    // 纳秒转换为 cycles（考虑平台频率）
+    inline uint64_t NsToCycles(uint64_t ns) const {
+        return (ns * freq) / NSEC_PER_SEC;
+    }
+    
+    // cycles 转换为纳秒
+    inline uint64_t CyclesToNs(uint64_t cycles) const {
+        return (cycles * NSEC_PER_SEC) / freq;
+    }
+    
+    // 获取已消耗的纳秒
+    inline uint64_t ElapsedNs() const {
+        return CyclesToNs(GetCycles() - startCycles);
+    }
+    
+    // 重置计时器
+    inline void Reset() {
+        startCycles = GetCycles();
+        lastWarnCycles = 0;
+        warnPrinted = false;
+    }
+};
+
+// ========== 统一超时检测宏 ==========
+// 用法示例：
+//   TIMEOUT_CHECK(state, TIMEOUT_NS_1MIN, TIMEOUT_NS_1MIN/2, MODE_WARN_THEN_EXIT, err_code, warn_fmt, err_fmt, args...)
+//   TIMEOUT_CHECK(state, TIMEOUT_NS_10MIN, 0, MODE_WARN, 0, warn_fmt, "", args...)
+//   TIMEOUT_CHECK(state, TIMEOUT_NS_20MIN, 0, MODE_EXIT, err_code, "", err_fmt, args...)
+
+#define TIMEOUT_CHECK(state, timeout_ns, warn_ns, mode, err_code, warn_fmt, err_fmt, ...) \
+    do { \
+        uint64_t elapsed_ns = state.ElapsedNs(); \
+        uint64_t timeout_threshold = timeout_ns; \
+        uint64_t warn_threshold = warn_ns; \
+        \
+        /* 模式 1: 直接退出 */ \
+        if ((mode == MODE_EXIT) && (elapsed_ns > timeout_threshold)) { \
+            DEV_ERROR(err_code, err_fmt, ##__VA_ARGS__); \
+            return err_code; \
+        } \
+        \
+        /* 模式 2: 周期性警告（不退出） */ \
+        if ((mode == MODE_WARN) && (elapsed_ns > timeout_threshold)) { \
+            /* 每个周期只打印一次 */ \
+            if (!state.warnPrinted || elapsed_ns > state.lastWarnCycles + timeout_threshold) { \
+                DEV_WARN(warn_fmt, ##__VA_ARGS__); \
+                state.lastWarnCycles = elapsed_ns; \
+                state.warnPrinted = true; \
+            } \
+        } \
+        \
+        /* 模式 3: 先警告后退出 */ \
+        if (mode == MODE_WARN_THEN_EXIT) { \
+            /* 达到警告阈值时打印 */ \
+            if (elapsed_ns > warn_threshold && !state.warnPrinted) { \
+                DEV_WARN(warn_fmt, ##__VA_ARGS__); \
+                state.warnPrinted = true; \
+            } \
+            /* 达到超时阈值时退出 */ \
+            if (elapsed_ns > timeout_threshold) { \
+                DEV_ERROR(err_code, err_fmt, ##__VA_ARGS__); \
+                return err_code; \
+            } \
+        } \
+    } while (0)
+
+// ========== 简化宏：超时退出 ==========
+#define TIMEOUT_CHECK_EXIT(state, timeout_ns, err_code, fmt, ...) \
+    TIMEOUT_CHECK(state, timeout_ns, 0, MODE_EXIT, err_code, "", fmt, ##__VA_ARGS__)
+
+// ========== 简化宏：周期性警告（不退出，仅打印）==========
+#define TIMEOUT_CHECK_WARN(state, timeout_ns, fmt, ...) \
+    do { \
+        uint64_t elapsed_ns = state.ElapsedNs(); \
+        if (elapsed_ns > timeout_ns) { \
+            if (!state.warnPrinted || elapsed_ns > state.lastWarnCycles + timeout_ns) { \
+                DEV_WARN(fmt, ##__VA_ARGS__); \
+                state.lastWarnCycles = elapsed_ns; \
+                state.warnPrinted = true; \
+            } \
+        } \
+    } while (0)
+
+// ========== 简化宏：先警告后退出 ==========
+#define TIMEOUT_CHECK_WARN_EXIT(state, timeout_ns, warn_ns, err_code, warn_fmt, err_fmt, ...) \
+    TIMEOUT_CHECK(state, timeout_ns, warn_ns, MODE_WARN_THEN_EXIT, err_code, warn_fmt, err_fmt, ##__VA_ARGS__)
+
+// ========== Legacy 宏（标记为 DEPRECATED，保持向后兼容）==========
+// 注意：TIMEOUT_CHECK_AND_RESET 是伪超时，超时后重置继续循环，永不退出
+// 建议使用新的 TIMEOUT_CHECK 系列宏替代
 #define TIMEOUT_CHECK_START() uint64_t start = GetCycles()
 
 #define TIMEOUT_CHECK_AND_RESET(timeout, ...)  \
