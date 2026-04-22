@@ -560,7 +560,8 @@ inline int FlattenSCC(
 }
 
 // 将 cycledSCCClusters_ 中记录的旧 Cluster ID 映射为新 TaskNode ID, 形成 cycledTaskNodePairs_
-void TaskSpliter::RecordIDMap(std::unordered_map<int, int>& oldClusterToNewCluster, std::vector<ScheduleCoreType>& clusterCoreTypes)
+void TaskSpliter::RecordIDMap(std::unordered_map<int, int>& oldClusterToNewCluster,
+    std::vector<ScheduleCoreType>& clusterCoreTypes)
 {
     for (auto &oldClusters : cycledSCCClusters_) {
         std::set<int> aicNewIds;
