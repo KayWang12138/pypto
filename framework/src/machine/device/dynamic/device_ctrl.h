@@ -61,7 +61,9 @@ public:
     int AllocNewTaskCtrl()
     {
         uint32_t& taskCtrlIndex = devStartArgs_->devCtrlState.taskCtrlIndex;
-        TIMEOUT_CHECK_START();
+        
+        TimeoutState state;
+        
         while (true) {
             if (taskCtrlIndex == MAX_DEVICE_TASK_NUM)
                 taskCtrlIndex = 0;
@@ -69,7 +71,12 @@ public:
                 return taskCtrlIndex++;
             }
             taskCtrlIndex++;
-            TIMEOUT_CHECK_AND_RESET(TIMEOUT_ONE_MINUTE, CtrlErr::CTRL_ALLOC_TIMEOUT, "Alloc new task ctrl over 1 min.");
+            
+            __PYPTO_TIMEOUT_CHECK(state, TIMEOUT_NS_1MIN, TIMEOUT_NS_10SEC,
+                return DEVICE_MACHINE_ERROR,
+                "#ctrl.alloc: AllocNewTaskCtrl still waiting, taskCtrlIndex=%u.",
+                "#ctrl.alloc: AllocNewTaskCtrl timeout, taskCtrlIndex=%u.",
+                taskCtrlIndex);
         }
     }
 
