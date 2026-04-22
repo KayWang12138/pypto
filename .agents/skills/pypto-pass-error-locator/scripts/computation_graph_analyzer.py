@@ -23,7 +23,7 @@ import logging
 import os
 import argparse
 from collections import defaultdict
-from typing import Dict, List, Any, Optional, Tuple, Set
+from typing import Dict, List, Any, Optional, Tuple, Set, Callable
 from dataclasses import dataclass, field
 from enum import Enum
 
@@ -375,6 +375,7 @@ class ComputationGraphAnalyzer:
             "node_path": cycle_nodes,
             "edges": edge_records,
         }
+
     @classmethod
     def compare_cycle_state(cls, before_json: str, after_json: str, max_cycle_paths: int = 10) -> Dict[str, Any]:
         """对比前后两个图的成环状态"""
@@ -411,6 +412,64 @@ class ComputationGraphAnalyzer:
             "root_cause_hint": root_cause_hint,
             "limitations": cls._default_limitations(),
         }
+
+    @classmethod
+    def _detect_cycles_iterative(
+        cls,
+        graph: Dict[int, List[Any]],
+        get_dst: Callable[[Any], int],
+        build_cycle_path: Callable[[List[int], List[Any]], Dict[str, Any]],
+        max_cycle_paths: int,
+    ) -> List[Dict[str, Any]]:
+        states: Dict[int, str] = {node: "TODO" for node in graph}
+        stack_nodes: List[int] = []
+        stack_edges: List[Any] = []
+        cycle_paths: List[Dict[str, Any]] = []
+        seen_cycles: Set[Tuple[int, ...]] = set()
+
+        for start_node in graph:
+            if states[start_node] != "TODO":
+                continue
+
+            states[start_node] = "IN_STACK"
+            stack_nodes.append(start_node)
+            frame_stack: List[Tuple[int, int, Optional[Any]]] = [(start_node, 0, None)]
+
+            while frame_stack and len(cycle_paths) < max_cycle_paths:
+                node, edge_idx, incoming_edge = frame_stack[-1]
+                edges = graph.get(node, [])
+                if edge_idx >= len(edges):
+                    states[node] = "DONE"
+                    frame_stack.pop()
+                    stack_nodes.pop()
+                    if incoming_edge is not None:
+                        stack_edges.pop()
+                    continue
+
+                edge = edges[edge_idx]
+                frame_stack[-1] = (node, edge_idx + 1, incoming_edge)
+                dst = get_dst(edge)
+                state = states.get(dst, "TODO")
+                if state == "TODO":
+                    states[dst] = "IN_STACK"
+                    stack_nodes.append(dst)
+                    stack_edges.append(edge)
+                    frame_stack.append((dst, 0, edge))
+                    continue
+
+                if state == "IN_STACK":
+                    start_idx = stack_nodes.index(dst)
+                    cycle_nodes = stack_nodes[start_idx:] + [dst]
+                    cycle_edge_path = stack_edges[start_idx:] + [edge]
+                    cycle_key = tuple(cycle_nodes)
+                    if cycle_key not in seen_cycles:
+                        seen_cycles.add(cycle_key)
+                        cycle_paths.append(build_cycle_path(cycle_nodes, cycle_edge_path))
+
+            if len(cycle_paths) >= max_cycle_paths:
+                break
+
+        return cycle_paths
 
     
     def load_graph(self, json_path: str) -> GraphInfo:
@@ -549,43 +608,12 @@ class ComputationGraphAnalyzer:
 
         op_graph = self.build_op_graph(func)
         op_map = self._op_detail_map(func)
-        states: Dict[int, str] = {node: "TODO" for node in op_graph}
-        stack_nodes: List[int] = []
-        stack_edges: List[EdgeInfo] = []
-        cycle_paths: List[Dict[str, Any]] = []
-        seen_cycles: Set[Tuple[int, ...]] = set()
-
-        def dfs(node: int) -> None:
-            if len(cycle_paths) >= max_cycle_paths:
-                return
-            states[node] = "IN_STACK"
-            stack_nodes.append(node)
-            for edge in op_graph.get(node, []):
-                if len(cycle_paths) >= max_cycle_paths:
-                    break
-                dst = edge.dst_opmagic
-                stack_edges.append(edge)
-                state = states.get(dst, "TODO")
-                if state == "TODO":
-                    dfs(dst)
-                elif state == "IN_STACK":
-                    cycle_nodes = self._cycle_slice_from_stack(stack_nodes, dst)
-                    cycle_edge_count = len(cycle_nodes) - 1
-                    start_edge_idx = len(stack_edges) - cycle_edge_count
-                    cycle_edge_path = stack_edges[start_edge_idx:]
-                    cycle_key = tuple(cycle_nodes)
-                    if cycle_key not in seen_cycles:
-                        seen_cycles.add(cycle_key)
-                        cycle_paths.append(self._build_op_cycle_path(cycle_nodes, cycle_edge_path, op_map))
-                stack_edges.pop()
-            stack_nodes.pop()
-            states[node] = "DONE"
-
-        for node in op_graph:
-            if states[node] == "TODO":
-                dfs(node)
-            if len(cycle_paths) >= max_cycle_paths:
-                break
+        cycle_paths = self._detect_cycles_iterative(
+            graph=op_graph,
+            get_dst=lambda edge: edge.dst_opmagic,
+            build_cycle_path=lambda cycle_nodes, cycle_edges: self._build_op_cycle_path(cycle_nodes, cycle_edges, op_map),
+            max_cycle_paths=max_cycle_paths,
+        )
 
         edge_count = sum(len(edges) for edges in op_graph.values())
         return CycleDetectionResult(
@@ -604,43 +632,12 @@ class ComputationGraphAnalyzer:
             return CycleDetectionResult(False, [], 0, 0, "explicit_tensor_dataflow", self._default_limitations())
 
         subgraph_graph = self.build_subgraph_graph(func)
-        states: Dict[int, str] = {node: "TODO" for node in subgraph_graph}
-        stack_nodes: List[int] = []
-        stack_edges: List[SubgraphEdgeInfo] = []
-        cycle_paths: List[Dict[str, Any]] = []
-        seen_cycles: Set[Tuple[int, ...]] = set()
-
-        def dfs(node: int) -> None:
-            if len(cycle_paths) >= max_cycle_paths:
-                return
-            states[node] = "IN_STACK"
-            stack_nodes.append(node)
-            for edge in subgraph_graph.get(node, []):
-                if len(cycle_paths) >= max_cycle_paths:
-                    break
-                dst = edge.dst_subgraph
-                stack_edges.append(edge)
-                state = states.get(dst, "TODO")
-                if state == "TODO":
-                    dfs(dst)
-                elif state == "IN_STACK":
-                    cycle_nodes = self._cycle_slice_from_stack(stack_nodes, dst)
-                    cycle_edge_count = len(cycle_nodes) - 1
-                    start_edge_idx = len(stack_edges) - cycle_edge_count
-                    cycle_edge_path = stack_edges[start_edge_idx:]
-                    cycle_key = tuple(cycle_nodes)
-                    if cycle_key not in seen_cycles:
-                        seen_cycles.add(cycle_key)
-                        cycle_paths.append(self._build_subgraph_cycle_path(cycle_nodes, cycle_edge_path))
-                stack_edges.pop()
-            stack_nodes.pop()
-            states[node] = "DONE"
-
-        for node in subgraph_graph:
-            if states[node] == "TODO":
-                dfs(node)
-            if len(cycle_paths) >= max_cycle_paths:
-                break
+        cycle_paths = self._detect_cycles_iterative(
+            graph=subgraph_graph,
+            get_dst=lambda edge: edge.dst_subgraph,
+            build_cycle_path=self._build_subgraph_cycle_path,
+            max_cycle_paths=max_cycle_paths,
+        )
 
         edge_count = sum(len(edges) for edges in subgraph_graph.values())
         return CycleDetectionResult(
