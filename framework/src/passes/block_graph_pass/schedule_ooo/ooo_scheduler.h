@@ -251,7 +251,7 @@ private:
     Status UpdateCopyoutScheduleInfo(Operation* op, LogicalTensorPtr spillTensor, int spillMemId, Operation* spillAllocOp);
     void UpdateOpScheduleInfo(Operation* op, std::vector<int> memIds, Operation* AllocOp);
     Status InsertOps(std::vector<Operation*> opMap, Operation* spillAllocOp, int memId);
-    Status UpdateScheduleStatus(std::vecor<std::pair<Operation*, std::vector<int>>> opMemidMap, int memId, 
+    Status UpdateScheduleStatus(std::vector<std::pair<Operation*, std::vector<int>>> opMemidMap, int memId, 
         Operation* spillAllocOp, LogicalTensorPtr localTensor, Operation* spillOp);
 
     // ============ 辅助函数：获取Operation属性 ============

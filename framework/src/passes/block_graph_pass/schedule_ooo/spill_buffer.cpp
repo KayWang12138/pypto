@@ -224,7 +224,7 @@ Status OoOScheduler::SpillBufferFromDDR(int memId, Operation* spillOp, LogicalTe
     Operation* allocOp = CreateAllocOp(localTensor);
     Operation* copyinOp = CloneCopyinOp(spillOp, gmTensor, localTensor);
 
-    std::vecor<std::pair<Operation*, std::vector<int>>> opMemidMap = {
+    std::vector<std::pair<Operation*, std::vector<int>>> opMemidMap = {
         {allocOp, {localTensor->memoryrange.memId}},
         {copyinOp, {localTensor->memoryrange.memId}}
     };
@@ -252,7 +252,7 @@ Status OoOScheduler::SpillGeneralBuffer(int spillMemId, Operation* spillOp, Logi
         return FAILED;
     }
 
-    std::vecor<std::pair<Operation*, std::vector<int>>> opMemidMap = {
+    std::vector<std::pair<Operation*, std::vector<int>>> opMemidMap = {
         {allocOp, {localTensor->memoryrange.memId}},
         {copyinOp, {localTensor->memoryrange.memId}}
     };
@@ -313,7 +313,7 @@ Status OoOScheduler::SpillGeneralL1BufferFor3510(int memId, Operation* spillOp, 
         return FAILED;
     }
 
-    std::vecor<std::pair<Operation*, std::vector<int>>> opMemidMap = {
+    std::vector<std::pair<Operation*, std::vector<int>>> opMemidMap = {
         {allocOp, {localTensor->memoryrange.memId}},
         {copyinOp, {localTensor->memoryrange.memId}}
     };
@@ -337,7 +337,7 @@ Status OoOScheduler::SpillReshapeFromDDRFor3510(int memId, Operation* actualSpil
     Operation* copyinOp = CloneCopyinOp(actualSpillOp, ddrTensor, copyinTensor);
     Operation* reshapeOp = CreateReshapeOp(copyinTensor, reshapeTensor);
 
-    std::vecor<std::pair<Operation*, std::vector<int>>> opMemidMap = {
+    std::vector<std::pair<Operation*, std::vector<int>>> opMemidMap = {
         {allocOp, {reshapeTensor->memoryrange.memId}},
         {copyinOp, {reshapeTensor->memoryrange.memId}},
         {reshapeOp, {reshapeTensor->memoryrange.memId, reshapeTensor->memoryrange.memId}}
@@ -376,7 +376,7 @@ Status OoOScheduler::SpillReshapeL1BufferFor3510(int spillMemId, Operation* actu
         return FAILED;
     }
 
-    std::vecor<std::pair<Operation*, std::vector<int>>> opMemidMap = {
+    std::vector<std::pair<Operation*, std::vector<int>>> opMemidMap = {
         {allocOp, {l1Tensor->memoryrange.memId}},
         {copyinOp, {l1Tensor->memoryrange.memId}},
         {reshapeOp, {l1Tensor->memoryrange.memId, l1Tensor->memoryrange.memId}}
@@ -638,7 +638,7 @@ void OoOScheduler::UpdateOpScheduleInfo(Operation* op, std::vector<int> memIds, 
     numTotalIssues++;
 }
 
-Status OoOScheduler::UpdateScheduleStatus(std::vecor<std::pair<Operation*, std::vector<int>>> opMemidMap, int memId, 
+Status OoOScheduler::UpdateScheduleStatus(std::vector<std::pair<Operation*, std::vector<int>>> opMemidMap, int memId, 
     Operation* spillAllocOp, LogicalTensorPtr localTensor, Operation* spillOp) {
     std::vector<Operation*> opMap;
     // 更新op的调度信息
