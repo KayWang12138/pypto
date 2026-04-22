@@ -21,25 +21,37 @@ namespace npu {
 namespace tile_fwk {
 Status InferShapeUtils::InferShape(Function& function, const std::vector<Operation*>& targetOps)
 {
+    std::vector<Operation*> opList;
+    std::set<Operation*> targetOpSet;
+
+    if (targetOps.empty()) {
+        opList = function.Operations().DuplicatedOpList();
+    } else {
+        opList = targetOps;
+        targetOpSet.insert(targetOps.begin(), targetOps.end());
+    }
+
     std::map<int, size_t> opMagic2Idx;
-    std::vector<Operation*> opList = function.Operations().DuplicatedOpList();
     size_t i = 0U;
     for (const auto op : opList) {
         opMagic2Idx[op->GetOpMagic()] = i;
         i++;
     }
-    
-    (void) targetOps;
+
     std::vector<std::vector<size_t>> opOutGraph(opList.size());
     std::vector<std::vector<size_t>> opInGraph(opList.size());
     bool isInferIndex = false;
     for (size_t opIdx = 0; opIdx < opList.size(); opIdx++) {
         const auto& op = opList[opIdx];
         for (const auto producer : op->ProducerOpsOrdered()) {
-            opInGraph[opMagic2Idx[op->GetOpMagic()]].push_back(opMagic2Idx[producer->GetOpMagic()]);
+            if (targetOpSet.empty() || targetOpSet.find(producer) != targetOpSet.end()) {
+                opInGraph[opMagic2Idx[op->GetOpMagic()]].push_back(opMagic2Idx[producer->GetOpMagic()]);
+            }
         }
         for (const auto consumer : op->ConsumerOpsOrdered()) {
-            opOutGraph[opMagic2Idx[op->GetOpMagic()]].push_back(opMagic2Idx[consumer->GetOpMagic()]);
+            if (targetOpSet.empty() || targetOpSet.find(consumer) != targetOpSet.end()) {
+                opOutGraph[opMagic2Idx[op->GetOpMagic()]].push_back(opMagic2Idx[consumer->GetOpMagic()]);
+            }
         }
     }
     TopoProgramUtils::TopoProgram(opList, opInGraph, opOutGraph, isInferIndex);

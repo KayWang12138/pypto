@@ -31,7 +31,7 @@ Status InferDynShape::PostCheck(Function& function)
 }
 
 Status InferDynShape::InferShape(Function& function)
-{   
+{
     if (InferShapeUtils::InferShape(function) == SUCCESS) {
         return SUCCESS;
     }
@@ -43,8 +43,8 @@ Status InferDynShape::RunOnFunction(Function& function)
     // 遍历每一个op，调用对应的infershape函数
     // 遍历顺序，按照入度解依赖
     APASS_LOG_INFO_F(Elements::Function, "===> Start InferDynShape.");
-    if (InferShape(function) != SUCCESS) {
-        APASS_LOG_ERROR_F(Elements::Function, "InferShape failed; Please check InferShape method.");
+    if (InferShapeUtils::InferShape(function) != SUCCESS) {
+        APASS_LOG_ERROR_F(Elements::Function, "InferShape failed; Please check the InferShape method.");
         return FAILED;
     }
     APASS_LOG_DEBUG_F(Elements::Function, "Dump: %s", function.Dump().c_str());
