@@ -12,6 +12,7 @@
 """PTO Script Parser."""
 from collections.abc import Iterator
 import ast
+import builtins
 import inspect
 import functools
 import re
@@ -632,6 +633,92 @@ class Parser(ast.NodeVisitor):
                             return True
         return False
 
+    _FUNCTION_OVERRIDES = {
+        "min": {
+            "builtin": builtins.min,
+            "symbolic": pypto.min,
+        },
+        "max": {
+            "builtin": builtins.max,
+            "symbolic": pypto.max,
+        },
+    }
+
+    def _contains_symbolic_scalar(self, value: Any) -> bool:
+        if isinstance(value, pypto.SymbolicScalar):
+            return True
+        if isinstance(value, dict):
+            return any(
+                self._contains_symbolic_scalar(key)
+                or self._contains_symbolic_scalar(item)
+                for key, item in value.items()
+            )
+        if isinstance(value, (list, tuple, set, frozenset)):
+            return any(self._contains_symbolic_scalar(item) for item in value)
+        return False
+
+    def _dispatch_overridden_builtin_call(
+        self,
+        node: ast.AST,
+        func_name: str,
+        call_args: list[Any],
+        call_kwargs: dict[str, Any],
+    ) -> Any:
+        override = self._FUNCTION_OVERRIDES[func_name]
+        has_symbolic = any(self._contains_symbolic_scalar(arg) for arg in call_args) or any(
+            self._contains_symbolic_scalar(value) for value in call_kwargs.values()
+        )
+
+        if has_symbolic:
+            if call_kwargs:
+                raise ParserError(
+                    node,
+                    TypeError(
+                        f"{func_name}() with SymbolicScalar does not support keyword arguments"
+                    ),
+                )
+            if len(call_args) != 2:
+                raise ParserError(
+                    node,
+                    TypeError(
+                        f"{func_name}() with SymbolicScalar expects exactly 2 positional "
+                        f"arguments, got {len(call_args)}."
+                    ),
+                )
+            return override["symbolic"](call_args[0], call_args[1])
+
+        return override["builtin"](*call_args, **call_kwargs)
+
+    def _visit_overridden_builtin_call(self, node: ast.Call, func_name: str) -> Any:
+        call_args = [self._eval_expr(arg) for arg in node.args]
+        call_kwargs = {
+            kw.arg: self._eval_expr(kw.value) for kw in node.keywords
+        }
+        return self._dispatch_overridden_builtin_call(
+            node, func_name, call_args, call_kwargs
+        )
+
+    def _build_expr_eval_locals(
+        self,
+        extra_vars: Optional[dict[str, Any]] = None,
+    ) -> dict[str, Any]:
+        eval_locals = self.context.get().copy()
+        if extra_vars is not None:
+            eval_locals.update(extra_vars)
+
+        for func_name in self._FUNCTION_OVERRIDES:
+            eval_locals[func_name] = (
+                lambda *args, _func_name=func_name, **kwargs:
+                self._dispatch_overridden_builtin_call(
+                    ast.Name(id=_func_name, ctx=ast.Load()),
+                    _func_name,
+                    list(args),
+                    kwargs,
+                )
+            )
+        return eval_locals
+
+
     def _eval_expr(
         self,
         node: Union[ast.Expression, ast.expr],
@@ -659,15 +746,21 @@ class Parser(ast.NodeVisitor):
             node = node.value
 
         if isinstance(node, ast.Call):
+            if (
+                isinstance(node.func, ast.Name)
+                and node.func.id in self._FUNCTION_OVERRIDES
+            ):
+                return self._visit_overridden_builtin_call(node, node.func.id)
+
             nested_result = self._try_nested_call(node, extra_vars)
             if nested_result is not _NESTED_CALL_UNHANDLED:
                 return nested_result
 
-        var_values = self.context.get()
-        if extra_vars is not None:
-            for k, v in extra_vars.items():
-                var_values[k] = v
-        return ExprEvaluator.eval(node, var_values, self.diag)
+        return ExprEvaluator.eval(
+            node,
+            self._build_expr_eval_locals(extra_vars),
+            self.diag,
+        )
 
 
     def _apply_bound_dim_values_to_context_frame(self) -> None:
