@@ -23,6 +23,8 @@
 #include "calc.h"
 #include "tilefwk/error_code.h"
 #include <algorithm>
+#include <condition_variable>
+#include <mutex>
 
 namespace npu::tile_fwk {
 
@@ -692,7 +694,7 @@ struct FunctionInterpreter {
     size_t pathFuncHash;
     std::vector<ElementDump> execDumpElementList;
     std::vector<std::shared_ptr<FunctionFrame>> execDumpStack;
-    int frameCount{0};
+    std::atomic<int> frameCount{0};
     int opInfoRowNum{0};
     int ProgrameRowNum{0};
 
@@ -704,6 +706,10 @@ struct FunctionInterpreter {
     VerifyType verifyType{VerifyType::INVALID};
     int captureIndex{0};
     int passIndex{-1};
+    std::mutex captureFrameListMutex_;
+    std::mutex mixGlobalTensorMutex_;
+    std::condition_variable mixGlobalTensorCv_;
+    inline static thread_local bool tlsSkipDump_{false};
 
     std::vector<std::shared_ptr<LogicalTensorData>>& GetInputDataViewList()
     {
@@ -888,7 +894,10 @@ struct FunctionInterpreter {
                 task->inoutDataPair == nullptr) {
                 return;
             }
+            bool oldSkipDump = FunctionInterpreter::tlsSkipDump_;
+            FunctionInterpreter::tlsSkipDump_ = true;
             task->interpreter->ExecuteFunctionFrame(task->callee, task->callop, task->inoutDataPair);
+            FunctionInterpreter::tlsSkipDump_ = oldSkipDump;
         }
     };
 
@@ -901,6 +910,11 @@ struct FunctionInterpreter {
                 if (frame.callop != nullptr) {
                     VERIFY_LOGI("BuildCallInOutDataPair: iop %zu is null, try to find in mixGlobalTensorDict.", index);
                     auto callopAttr = std::static_pointer_cast<CallOpAttribute>(frame.callop->GetOpAttribute());
+                    std::unique_lock<std::mutex> mixTensorGuard(mixGlobalTensorMutex_);
+                    mixGlobalTensorCv_.wait(mixTensorGuard, [this, &iop, callopAttr] {
+                        auto it = mixGlobalTensorDict.find({iop, callopAttr->wrapId});
+                        return it != mixGlobalTensorDict.end() && it->second != nullptr;
+                    });
                     iOpDataList[index] = mixGlobalTensorDict[{iop, callopAttr->wrapId}];
                     if (iOpDataList[index] != nullptr) {
                         continue;
@@ -1028,6 +1042,11 @@ struct FunctionInterpreter {
                 if (frame.callop != nullptr) {
                     VERIFY_LOGI("ExecuteOperation: iop %zu is null, try to find in mixGlobalTensorDict.", index);
                     auto callopAttr = std::static_pointer_cast<CallOpAttribute>(frame.callop->GetOpAttribute());
+                    std::unique_lock<std::mutex> mixTensorGuard(mixGlobalTensorMutex_);
+                    mixGlobalTensorCv_.wait(mixTensorGuard, [this, &iop, callopAttr] {
+                        auto it = mixGlobalTensorDict.find({iop, callopAttr->wrapId});
+                        return it != mixGlobalTensorDict.end() && it->second != nullptr;
+                    });
                     iOpDataList[index] = mixGlobalTensorDict[{iop, callopAttr->wrapId}];
                     if (iOpDataList[index] != nullptr) {
                         continue;
@@ -1054,7 +1073,9 @@ struct FunctionInterpreter {
                     auto ret = AllocateDataView(frame, oop);
                     if (frame.callop != nullptr && MIX_PATH_OPS.count(op->GetOpcode()) > 0) {
                         auto callopAttr = std::static_pointer_cast<CallOpAttribute>(frame.callop->GetOpAttribute());
+                        std::lock_guard<std::mutex> mixTensorGuard(mixGlobalTensorMutex_);
                         mixGlobalTensorDict[{oop, callopAttr->wrapId}] = ret;
+                        mixGlobalTensorCv_.notify_all();
                     }
 
                     oOpDataList.push_back(ret);
@@ -1068,17 +1089,24 @@ struct FunctionInterpreter {
         } else {
             TimeStamp ts;
             operationInterpreter->ExecuteOperation(&ctx);
-            opUsage[op->GetOpcodeStr()] += ts.Duration();
+            if (!tlsSkipDump_) {
+                opUsage[op->GetOpcodeStr()] += ts.Duration();
+            }
 
             auto* ooperandDumpList =
                 ctx.ooperandInplaceDataViewList ? ctx.ooperandInplaceDataViewList : ctx.ooperandDataViewList;
-            DumpOperationTensor(ctx.op, ctx.frame, ooperandDumpList, ctx.ioperandDataViewList);
-            dumpOperationUsage += ts.Duration();
+            if (!tlsSkipDump_) {
+                DumpOperationTensor(ctx.op, ctx.frame, ooperandDumpList, ctx.ioperandDataViewList);
+                dumpOperationUsage += ts.Duration();
+            }
         }
     }
 
     void ExecuteHandleFunctionBegin(Function* func, std::shared_ptr<FunctionFrame> frame)
     {
+        if (tlsSkipDump_) {
+            return;
+        }
         TimeStamp ts;
         execDumpStack.push_back(frame);
         DumpFunctionHead(func);
@@ -1092,9 +1120,18 @@ struct FunctionInterpreter {
         }
         dumpTensorUsage += ts.Duration();
     }
-    void ExecuteHandleFunctionEnd() { execDumpStack.pop_back(); }
+    void ExecuteHandleFunctionEnd()
+    {
+        if (tlsSkipDump_) {
+            return;
+        }
+        execDumpStack.pop_back();
+    }
     void ExecuteHandleOperationBegin(Operation* op)
     {
+        if (tlsSkipDump_) {
+            return;
+        }
         execDumpStack.back()->UpdateCurrentOperation(op);
         TimeStamp ts;
         DumpOperation(op);
@@ -1144,8 +1181,11 @@ struct FunctionInterpreter {
             linearArgList = callopAttr->GetLinearArgList();
         }
         std::shared_ptr<FunctionFrame> frame =
-            std::make_shared<FunctionFrame>(func, callop, callopAttr, inoutDataPair, frameCount++);
-        captureFrameList->push_back(frame);
+            std::make_shared<FunctionFrame>(func, callop, callopAttr, inoutDataPair, frameCount.fetch_add(1));
+        if (captureFrameList != nullptr) {
+            std::lock_guard<std::mutex> captureGuard(captureFrameListMutex_);
+            captureFrameList->push_back(frame);
+        }
         frame->funcIndex = func->GetFuncMagic();
         frame->funcHash = func->GetFunctionHash().GetHash();
         frame->funcType = func->GetFunctionTypeStr();
