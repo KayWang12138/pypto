@@ -16,6 +16,11 @@
 #pragma once
 
 #include <sys/time.h>
+#include <sys/types.h>
+#include <unistd.h>
+#include <sys/wait.h>
+#include <spawn.h>
+#include <cstring>
 #include <algorithm>
 #include <memory>
 #include <map>
@@ -647,4 +652,90 @@ enum class CopyOutMode : int64_t { NZ2ND = 0, NZ2NZ = 1, ND2ND = 2, NZ2DN = 3 };
 
 enum class PaddingMode : int64_t { NO_PADDING = 0, PADDING_OUTER = 1, PADDING_INNER = 2 };
 } // namespace Matrix
+
+inline std::string SafeExecCommandWithOutput(const std::vector<std::string>& args)
+{
+    if (args.empty()) {
+        return "";
+    }
+
+    std::vector<char*> argv;
+    for (const auto& a : args) {
+        argv.push_back(const_cast<char*>(a.c_str()));
+    }
+    argv.push_back(nullptr);
+
+    int pipefd[2];
+    if (pipe(pipefd) == -1) {
+        return "";
+    }
+
+    posix_spawn_file_actions_t actions;
+    if (posix_spawn_file_actions_init(&actions) != 0) {
+        close(pipefd[0]);
+        close(pipefd[1]);
+        return "";
+    }
+
+    auto cleanupOnError = [&]() {
+        posix_spawn_file_actions_destroy(&actions);
+        close(pipefd[0]);
+        close(pipefd[1]);
+    };
+
+    if (posix_spawn_file_actions_adddup2(&actions, pipefd[1], STDOUT_FILENO) != 0 ||
+        posix_spawn_file_actions_addclose(&actions, pipefd[0]) != 0 ||
+        posix_spawn_file_actions_addclose(&actions, pipefd[1]) != 0) {
+        cleanupOnError();
+        return "";
+    }
+
+    pid_t pid;
+    int spawnRet = posix_spawnp(&pid, argv[0], &actions, nullptr, argv.data(), ::environ);
+    posix_spawn_file_actions_destroy(&actions);
+    close(pipefd[1]);
+
+    if (spawnRet != 0) {
+        close(pipefd[0]);
+        return "";
+    }
+
+    std::string output;
+    char buffer[4096];
+    ssize_t bytesRead;
+    while ((bytesRead = read(pipefd[0], buffer, sizeof(buffer))) > 0) {
+        output.append(buffer, bytesRead);
+    }
+    close(pipefd[0]);
+
+    int status;
+    waitpid(pid, &status, 0);
+    return output;
+}
+
+inline int SafeExecCommand(const std::vector<std::string>& args)
+{
+    if (args.empty()) {
+        return -1;
+    }
+
+    std::vector<char*> argv;
+    for (const auto& a : args) {
+        argv.push_back(const_cast<char*>(a.c_str()));
+    }
+    argv.push_back(nullptr);
+
+    pid_t pid;
+    int spawnRet = posix_spawnp(&pid, argv[0], nullptr, nullptr, argv.data(), ::environ);
+    if (spawnRet != 0) {
+        return -1;
+    }
+
+    int status;
+    waitpid(pid, &status, 0);
+    if (WIFEXITED(status)) {
+        return WEXITSTATUS(status);
+    }
+    return -1;
+}
 } // namespace npu::tile_fwk
