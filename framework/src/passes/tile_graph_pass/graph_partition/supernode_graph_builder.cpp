@@ -725,7 +725,7 @@ void NodeGraphInfo::BuildNodeMapping(const std::shared_ptr<OperationGraphInfo> o
         for (int32_t opIdx : node2Op_[nodeIdx]) {
             op2Node_[opIdx] = nodeIdx;
             const auto& scopeInfo = operationGraphInfo->opList_[opIdx]->GetScopeInfo();
-            if (scopeInfo.scopeId != -1) {
+            if (scopeInfo.scopeId != -1 && operationGraphInfo->opCoreType_[opIdx] != OpCoreType::ANY) {
                 nodeScope_[nodeIdx] = scopeInfo;
             }
             nodeCycles_[nodeIdx] += operationGraphInfo->opList_[opIdx]->GetLatency();
