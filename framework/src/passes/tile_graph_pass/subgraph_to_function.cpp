@@ -132,12 +132,10 @@ void SubgraphToFunction::RecordIncastInfo(Function& function, RecordInfo recordI
     Offset offset = recordInfo.offset;
     Shape shape = recordInfo.shape;
     auto& op = *nLIST[i][j];
-    if (Platform::Instance().GetSoc().GetNPUArch() == NPUArch::DAV_3510) {
-        for (auto &producerOp : iOperand->GetProducers()) {
-            if (producerOp->GetSubgraphID() == op.GetSubgraphID()) {
-                APASS_LOG_INFO_F(Elements::Tensor, "Tensor %d has producer in same subgraph, cannot be incast.", iOperand->GetMagic());
-                return;
-            }
+    for (auto &producerOp : iOperand->GetProducers()) {
+        if (producerOp->GetSubgraphID() == op.GetSubgraphID()) {
+            APASS_LOG_INFO_F(Elements::Tensor, "Tensor %d has producer in same subgraph, cannot be incast.", iOperand->GetMagic());
+            return;
         }
     }
     // 这里逻辑可能有一些问题，期望是尽可能不要把inplace语义的COPY_OUT的输出变成leaf的incast
@@ -199,12 +197,10 @@ void SubgraphToFunction::RecordOutcastInfo(Function& function, RecordInfo record
     Offset offset = recordInfo.offset;
     Shape shape = recordInfo.shape;
     auto& op = *nLIST[i][j];
-    if (Platform::Instance().GetSoc().GetNPUArch() == NPUArch::DAV_3510) {
-        for (auto &consumerOp : oOperand->GetConsumers()) {
-            if (consumerOp->GetSubgraphID() == op.GetSubgraphID()) {
-                APASS_LOG_INFO_F(Elements::Tensor, "Tensor %d has consumer in same subgraph, cannot be outcast.", oOperand->GetMagic());
-                return;
-            }
+    for (auto &consumerOp : oOperand->GetConsumers()) {
+        if (consumerOp->GetSubgraphID() == op.GetSubgraphID()) {
+            APASS_LOG_INFO_F(Elements::Tensor, "Tensor %d has consumer in same subgraph, cannot be outcast.", oOperand->GetMagic());
+            return;
         }
     }
     if (op.HasAttribute(OpAttributeKey::inplaceIdx) &&
