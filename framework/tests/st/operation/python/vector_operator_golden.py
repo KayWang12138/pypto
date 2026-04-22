@@ -3071,70 +3071,64 @@ def _quantmx_resolve_exp_range(dtype_name: str, params: dict) -> list:
     return [max(safe_lo, default_lo), min(safe_hi, default_hi)]
 
 
-def _quantmx_resolve_profile_bands(dtype_name: str, exp_range: list, profile: str) -> list:
-    exp_lo, exp_hi = exp_range
-    bands_by_profile = {
-        "balanced": [(exp_lo, min(exp_lo + 16, exp_hi)), (max(exp_lo, -8), min(exp_hi, 12))],
-        "wide_sweep": [
-            (exp_lo, min(exp_lo + 20, exp_hi)),
-            (max(exp_lo, -16), min(exp_hi, 8)),
-            (max(exp_lo, 12), min(exp_hi, 48)),
-            (max(exp_lo, exp_hi - 20), exp_hi),
-        ],
-        "boundary_mix": [
-            (exp_lo, min(exp_lo + 4, exp_hi)),
-            (max(exp_lo, -8), min(exp_hi, 4)),
-            (max(exp_lo, exp_hi - 8), exp_hi),
-        ],
-        "tiny_huge": [
-            (exp_lo, min(exp_lo + 6, exp_hi)),
-            (max(exp_lo, -6), min(exp_hi, 6)),
-            (max(exp_lo, exp_hi - 6), exp_hi),
-        ],
-        "signed_sparse": [
-            (max(exp_lo, -18), min(exp_hi, -2)),
-            (max(exp_lo, -6), min(exp_hi, 6)),
-            (max(exp_lo, 10), min(exp_hi, 24)),
-        ],
-        "mixed": [
-            (max(exp_lo, -16), min(exp_hi, -4)),
-            (max(exp_lo, -2), min(exp_hi, 8)),
-            (max(exp_lo, 8), exp_hi),
-        ],
-        "subtiny_focus": [
-            (exp_lo, min(exp_lo + 2, exp_hi)),
-            (max(exp_lo, exp_lo + 4), min(exp_hi, exp_lo + 12)),
-            (max(exp_lo, -10), min(exp_hi, 2)),
-        ],
-        "large_dynamic": [
-            (max(exp_lo, -8), min(exp_hi, 4)),
-            (max(exp_lo, exp_hi - 12), max(exp_lo, exp_hi - 2)),
-        ],
-        "extreme_sweep": [
-            (exp_lo, min(exp_lo + 2, exp_hi)),
-            (max(exp_lo, -24), min(exp_hi, -8)),
-            (max(exp_lo, -2), min(exp_hi, 8)),
-            (max(exp_lo, exp_hi - 6), exp_hi),
-        ],
-        "perf_mix": [
-            (max(exp_lo, -12), min(exp_hi, -2)),
-            (max(exp_lo, 0), min(exp_hi, 10)),
-            (max(exp_lo, 10), min(exp_hi, 24)),
-            (max(exp_lo, exp_hi - 6), exp_hi),
-        ],
-        "perf_extremes": [
-            (exp_lo, min(exp_lo + 2, exp_hi)),
-            (max(exp_lo, exp_hi - 4), exp_hi),
-        ],
-    }
-    resolved = []
-    for band_lo, band_hi in bands_by_profile.get(profile, bands_by_profile["balanced"]):
-        if band_lo <= band_hi:
-            resolved.append((band_lo, band_hi))
-    return resolved or [(exp_lo, exp_hi)]
+def _quantmx_has_exp_range_override(params: dict) -> bool:
+    return str_to_bool(params.get("use_exp_range")) and params.get("exp_range") is not None
 
 
-def _quantmx_special_exponents(dtype_name: str, exp_range: list, profile: str) -> list:
+def _quantmx_resolve_data_range(input_tensor: dict) -> list:
+    data_range = input_tensor.get("data_range")
+    assert data_range is not None, "QuantMX golden requires input_datarange."
+    range_lo = float(data_range["min"])
+    range_hi = float(data_range["max"])
+    assert np.isfinite(range_lo) and np.isfinite(range_hi), "QuantMX input_datarange must be finite."
+    assert range_lo <= range_hi, "QuantMX input_datarange min must be <= max."
+    return [range_lo, range_hi]
+
+
+def _generate_quantmx_input_from_datarange(shape: tuple, data_range: list) -> np.ndarray:
+    range_lo, range_hi = data_range
+    if range_lo == range_hi:
+        return np.full(shape, np.float32(range_lo), dtype=np.float32)
+
+    cols = shape[-1]
+    rows = math.prod(shape[:-1])
+    group_size = 32
+    group_cols = (cols + group_size - 1) // group_size
+    total_groups = max(1, rows * group_cols)
+    base = np.zeros((rows, cols), dtype=np.float32)
+    span = range_hi - range_lo
+
+    for row in range(rows):
+        for group in range(group_cols):
+            group_id = row * group_cols + group
+            start = group * group_size
+            width = min(group_size, cols - start)
+            if width <= 0:
+                continue
+
+            # Assign each 32-element group to a different sub-range so shared scales vary across groups.
+            group_lo = range_lo + span * (group_id / total_groups)
+            group_hi = range_lo + span * ((group_id + 1) / total_groups)
+            center = (group_lo + group_hi) / 2.0
+
+            values = np.linspace(group_lo, group_hi, width, dtype=np.float32)
+            permutation = (np.arange(width) * 11 + group_id * 7) % width
+            values = values[permutation]
+
+            values[0] = np.float32(group_lo)
+            if width > 1:
+                values[1] = np.float32(group_hi)
+            if width > 2:
+                values[2] = np.float32(center)
+            if range_lo <= 0.0 <= range_hi and width > 3:
+                values[3] = np.float32(0.0)
+
+            base[row, start : start + width] = values
+
+    return base.reshape(shape)
+
+
+def _quantmx_special_exponents(dtype_name: str, exp_range: list) -> list:
     exp_lo, exp_hi = exp_range
     if exp_hi - exp_lo <= 32:
         return list(range(exp_lo, exp_hi + 1))
@@ -3144,20 +3138,15 @@ def _quantmx_special_exponents(dtype_name: str, exp_range: list, profile: str) -
         "bf16": [-120, -80, -60, -16, -8, -1, 0, 1, 8, 16, 60, 80, 120],
         "fp16": [-24, -20, -14, -8, -1, 0, 1, 8, 12, 15],
     }
-    profile_values = {
-        "balanced": [-8, -4, -1, 0, 1, 4, 8],
-        "signed_sparse": [-14, -10, -6, -2, 0, 4, 8, 12],
-        "mixed": [-16, -8, -2, 0, 3, 7, 11],
-        "perf_mix": [-10, -4, -1, 0, 5, 10, 14],
-        "boundary_mix": [exp_lo, exp_lo + 1, -1, 0, 1, exp_hi - 1, exp_hi],
-    }
-    candidates = default_values[dtype_name] + profile_values.get(profile, []) + [exp_lo, exp_hi, (exp_lo + exp_hi) // 2]
+    candidates = default_values[dtype_name] + [exp_lo, exp_hi, exp_lo + 1, exp_hi - 1, (exp_lo + exp_hi) // 2]
     clipped = sorted({min(exp_hi, max(exp_lo, item)) for item in candidates})
     return clipped
 
 
-def _quantmx_inject_special_values(base: np.ndarray, dtype_name: str, exp_range: list, profile: str, seed: int):
-    special_exponents = _quantmx_special_exponents(dtype_name, exp_range, profile)
+def _quantmx_inject_special_values(base: np.ndarray, dtype_name: str, exp_range: list):
+    special_exponents = _quantmx_special_exponents(dtype_name, exp_range)
+    if not special_exponents:
+        return
     special_values = [np.float32(0.0), np.float32(-0.0)]
     for exp in special_exponents:
         special_values.extend(
@@ -3175,7 +3164,7 @@ def _quantmx_inject_special_values(base: np.ndarray, dtype_name: str, exp_range:
 
     stride = max(1, flat.size // len(special_values))
     for idx, value in enumerate(special_values):
-        pos = (idx * stride + seed * 17 + idx * idx * 5) % flat.size
+        pos = (idx * stride + idx * idx * 5) % flat.size
         flat[pos] = value
 
 
@@ -3186,18 +3175,37 @@ def _generate_quantmx_input(input_tensor: dict, config: dict) -> np.ndarray:
     np_dtype = get_dtype_by_name(dtype_name)
     _quantmx_validate_dtype(dtype_name)
 
+    explicit_exp_range = _quantmx_has_exp_range_override(params)
+    data_range = _quantmx_resolve_data_range(input_tensor)
+
+    if not explicit_exp_range:
+        reshaped = _generate_quantmx_input_from_datarange(shape, data_range)
+        casted = reshaped.astype(np_dtype)
+        casted_fp32 = casted.astype(np.float32)
+        assert np.isfinite(casted_fp32).all(), f"QuantMX golden generated non-finite {dtype_name} inputs."
+        if dtype_name == "fp16":
+            dtype_finfo = np.finfo(np.float16)
+            assert np.max(np.abs(casted_fp32), initial=0.0) <= dtype_finfo.max, (
+                "QuantMX golden generated fp16 inputs that overflow dtype range."
+            )
+        elif dtype_name == "fp32":
+            dtype_finfo = np.finfo(np.float32)
+            assert np.max(np.abs(casted_fp32), initial=0.0) <= dtype_finfo.max, (
+                "QuantMX golden generated fp32 inputs that overflow dtype range."
+            )
+        return casted
+
     exp_range = _quantmx_resolve_exp_range(dtype_name, params)
     exp_lo, exp_hi = exp_range
-    input_profile = params.get("input_profile", "balanced")
-    seed = int(params.get("input_seed", params.get("case_index", config.get("case_index", 0)) or 0))
 
     cols = shape[-1]
     rows = math.prod(shape[:-1])
     group_size = 32
     group_cols = (cols + group_size - 1) // group_size
+
     base = np.zeros((rows, cols), dtype=np.float32)
-    profile_bands = _quantmx_resolve_profile_bands(dtype_name, exp_range, input_profile)
-    special_exponents = _quantmx_special_exponents(dtype_name, exp_range, input_profile)
+    total_groups = max(1, rows * group_cols)
+    special_exponents = _quantmx_special_exponents(dtype_name, exp_range)
 
     for row in range(rows):
         for group in range(group_cols):
@@ -3207,43 +3215,42 @@ def _generate_quantmx_input(input_tensor: dict, config: dict) -> np.ndarray:
             if width <= 0:
                 continue
 
-            band_lo, band_hi = profile_bands[(group_id + seed) % len(profile_bands)]
-            band_span = max(1, band_hi - band_lo + 1)
-            exp_from_range = band_lo + ((group_id * 19 + row * 7 + seed * 11) % band_span)
-            exp_from_special = special_exponents[(group_id + seed) % len(special_exponents)]
-            use_special_dominant = input_profile in ("tiny_huge", "subtiny_focus", "extreme_sweep", "perf_extremes")
-            dominant_exp = exp_from_special if use_special_dominant or group_id % 5 == 0 else exp_from_range
-            dominant_mant = 1.0 + (((group_id * 13 + seed) % 7) / 8.0)
+            band_span = max(1, exp_hi - exp_lo + 1)
+            exp_from_range = exp_lo + int(((group_id + 0.5) * band_span) / total_groups)
+            exp_from_range = min(exp_hi, max(exp_lo, exp_from_range))
+            exp_from_special = special_exponents[group_id % len(special_exponents)]
+            dominant_exp = exp_from_special if group_id % 5 == 0 else exp_from_range
+            dominant_mant = 1.0 + ((group_id % 7) / 8.0)
             dominant = np.float32(math.ldexp(dominant_mant, dominant_exp))
 
             values = np.empty(width, dtype=np.float32)
             for inner in range(width):
                 local_exp = max(exp_lo, dominant_exp - 1 - (inner % 4))
-                local_mant = 1.0 + (((group_id + inner * 5 + seed) % 13) / 16.0)
-                sign = np.float32(1.0 if ((group_id + inner + seed) % 2 == 0) else -1.0)
+                local_mant = 1.0 + (((group_id + inner * 5) % 13) / 16.0)
+                sign = np.float32(1.0 if ((group_id + inner) % 2 == 0) else -1.0)
                 values[inner] = np.float32(math.ldexp(local_mant, local_exp)) * sign
 
-            dominant_idx = (group_id * 11 + seed * 3 + width // 2) % width
-            values[dominant_idx] = dominant if (group_id + seed) % 2 == 0 else -dominant
+            dominant_idx = (group_id * 11 + width // 2) % width
+            values[dominant_idx] = dominant if group_id % 2 == 0 else -dominant
             if width > 1:
                 neighbor_idx = (dominant_idx + width // 2 + 1) % width
                 neighbor_exp = max(exp_lo, dominant_exp - 1)
                 neighbor = np.float32(math.ldexp(1.25, neighbor_exp))
                 values[neighbor_idx] = -neighbor if values[dominant_idx] > 0 else neighbor
-            if input_profile in ("signed_sparse", "subtiny_focus", "perf_extremes"):
+            if exp_lo <= 0 <= exp_hi and width > 2 and group_id % 3 == 0:
                 values[(dominant_idx + 5) % width] = np.float32(0.0)
                 values[(dominant_idx + 13) % width] = np.float32(-0.0)
-            if input_profile in ("boundary_mix", "tiny_huge", "extreme_sweep", "perf_extremes"):
+            if width > 4 and group_id % 4 == 0:
                 boundary_idx = (dominant_idx + 9) % width
-                boundary_exp = special_exponents[(group_id * 3 + seed + width) % len(special_exponents)]
+                boundary_exp = special_exponents[(group_id * 3 + width) % len(special_exponents)]
                 values[boundary_idx] = np.float32(math.ldexp(1.0, boundary_exp))
                 if width > 2:
                     values[(boundary_idx + 7) % width] = np.float32(-math.ldexp(1.5, boundary_exp))
 
-            permutation = (np.arange(width) * 7 + group_id * 3 + seed) % width
+            permutation = (np.arange(width) * 7 + group_id * 3) % width
             base[row, start : start + width] = values[permutation]
 
-    _quantmx_inject_special_values(base, dtype_name, exp_range, input_profile, seed)
+    _quantmx_inject_special_values(base, dtype_name, exp_range)
     reshaped = base.reshape(shape)
     casted = reshaped.astype(np_dtype)
     casted_fp32 = casted.astype(np.float32)
@@ -3268,9 +3275,8 @@ def params_quantmx_func(params: dict):
     params["mode"] = params.get("mode") or "ROUND_DOWN"
     assert params["mode"] in ("ROUND_UP", "ROUND_DOWN"), "mode must be ROUND_UP or ROUND_DOWN"
     params["performance_mode"] = str_to_bool(params.get("performance_mode"))
-    params["exp_range"] = _quantmx_parse_int_list(params.get("exp_range"))
-    params["input_profile"] = params.get("input_profile") or "balanced"
-    params["input_seed"] = int(params.get("input_seed") or 0)
+    params["use_exp_range"] = str_to_bool(params.get("use_exp_range"))
+    params["exp_range"] = _quantmx_parse_int_list(params.get("exp_range")) if params["use_exp_range"] else None
     return params
 
 
