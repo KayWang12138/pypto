@@ -1075,7 +1075,7 @@ static void CompileDyndevFunction(Function* function, FunctionCache& cache, [[ma
         ((config::GetSimConfig(KEY_ACCURACY_LEVEL, 2) == 2) &&
         config::GetRuntimeOption<int64_t>(CFG_RUN_MODE) == CFG_RUN_MODE_SIM);
     if (enableCompile && config::GetHostOption<int64_t>(COMPILE_STAGE) != CS_CODEGEN_INSTRUCTION) {
-        if (Platform::Instance().GetSoc().GetNPUArch() == NPUArch::DAV_3113) {
+        if (IsLiteNPU(Platform::Instance().GetSoc().GetNPUArch())) {
             for (auto& [hash, leaf] : leafDict) {
                 auto leafAttr = leaf->GetLeafFuncAttribute();
                 if (leafAttr && !leafAttr->binPath.empty()) {
@@ -1140,7 +1140,7 @@ static void CompileDyndevFunction(Function* function, FunctionCache& cache, [[ma
         }
     }
 
-    if (Platform::Instance().GetSoc().GetNPUArch() == NPUArch::DAV_3113) {
+    if (IsLiteNPU(Platform::Instance().GetSoc().GetNPUArch())) {
         SetLiteDevBinary(function);
     } else {
         SetDyndevProgBinary(function);

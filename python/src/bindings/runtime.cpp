@@ -983,13 +983,14 @@ private:
 
     void DoLaunch(KernelBinary* kbinary)
     {
-        if (Platform::Instance().GetSoc().GetNPUArch() == NPUArch::DAV_3113) {
-            kmodule->EslModelLiteLaunch(kbinary, tensors);
-            return;
-        }
         if (config::GetSimConfig(KEY_ACCURACY_LEVEL, 2) == 2) {
-            kmodule->EslModelLaunch(kbinary, tensors);
-            return;
+            if (IsLiteNPU(Platform::Instance().GetSoc().GetNPUArch())) {
+                kmodule->EslModelLiteLaunch(kbinary, tensors);
+                return;
+            } else {
+                kmodule->EslModelLaunch(kbinary, tensors);
+                return;
+            }
         }
         kmodule->EmulationLaunch(kbinary, tensors);
 
