@@ -34,7 +34,7 @@ public:
     void SetUp() override
     {
         DeviceLauncherContext::Get().DeviceInit();
-        rtSetDevice(GetDeviceIdByEnvVar());
+        RuntimeSetDevice(GetDeviceIdByEnvVar());
     }
 
     void TearDown() override { DeviceLauncherContext::Get().DeviceFini(); }
@@ -141,8 +141,8 @@ TEST_F(DynamicBindingTest, TestDeviceCompute)
 {
     SetInterpreterConfig();
     auto agent = RuntimeAgent::GetAgent();
-    aclInit(nullptr);
-    rtSetDevice(GetDeviceIdByEnvVar());
+    AclInit(nullptr);
+    RuntimeSetDevice(GetDeviceIdByEnvVar());
 
     TileShape::Current().SetVecTile(tiling32, tiling32);
     TileShape::Current().SetCubeTile({tiling32, tiling32}, {tiling32, tiling32}, {tiling32, tiling32});
@@ -208,10 +208,11 @@ TEST_F(DynamicBindingTest, TestDeviceCompute)
     };
 
     auto aicpuStream = reinterpret_cast<DeviceStream>(machine::GetRA()->GetScheStream());
+    auto ctrlStream = reinterpret_cast<DeviceStream>(machine::GetRA()->GetCtrlStream());
     auto aicoreStream = reinterpret_cast<DeviceStream>(machine::GetRA()->GetStream());
     EXPECT_EQ(
         0, ExportedOperatorDeviceLaunchOnceWithDeviceTensorData(
-               op, inputList, outputList, aicpuStream, aicoreStream, true));
+               op, inputList, outputList, aicpuStream, ctrlStream, aicoreStream, true));
 
     agent->CopyFromDev((uint8_t*)outputData.data(), outputDevAddr, outputData.size() * sizeof(int32_t));
 

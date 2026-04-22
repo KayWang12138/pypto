@@ -22,7 +22,7 @@
 #include <unordered_set>
 #include <unordered_map>
 #include "interface/utils/common.h"
-#include "interface/utils/vector_error.h"
+#include "interface/utils/error_code.h"
 #include "tilefwk/data_type.h"
 #include "tilefwk/error.h"
 #include "verifier.h"
@@ -322,6 +322,7 @@ enum class Opcode {
     // End: aicpu-aicore communication
     OP_MAX_POOL,
     OP_RANGE,
+    OP_UNIFORM,
     // Begin: parallel sort
     OP_SORT,
     OP_COMPARE_SWAP,
@@ -349,16 +350,19 @@ enum class OpCalcType {
     CALC_TYPE_BOTTOM
 };
 
+enum class AIVCore;
+
 class TileOpCfg {
 public:
     TileOpCfg(){};
-    TileOpCfg(std ::string code, PipeType pipeIdStart, PipeType pipeIdEnd, CoreType coreType)
-        : tileOpCode_(code), pipeIdStart_(pipeIdStart), pipeIdEnd_(pipeIdEnd), coreType_(coreType)
+    TileOpCfg(std ::string code, PipeType pipeIdStart, PipeType pipeIdEnd, CoreType coreType, AIVCore aivCore = static_cast<AIVCore>(-1))
+        : tileOpCode_(code), pipeIdStart_(pipeIdStart), pipeIdEnd_(pipeIdEnd), coreType_(coreType), aivCore_(aivCore)
     {}
     std::string tileOpCode_;
     PipeType pipeIdStart_{PipeType::PIPE_S};
     PipeType pipeIdEnd_{PipeType::PIPE_S};
     CoreType coreType_{CoreType::AIV};
+    AIVCore aivCore_{static_cast<AIVCore>(-1)};
 };
 
 class OpcodeManager {

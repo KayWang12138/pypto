@@ -22,7 +22,7 @@
 #include "interface/tensor/logical_tensor.h"
 #include "interface/operation/opcode.h"
 #include "interface/utils/source_location.h"
-#include "interface/utils/vector_error.h"
+#include "interface/utils/error_code.h"
 
 namespace npu::tile_fwk {
 #define CALL(n, ...) Tensor##n(__VA_ARGS__)
@@ -68,8 +68,7 @@ struct Input {
 };
 
 void CheckTensorShape(const LogicalTensorPtr& tensor, const std::string& op);
-void CheckTensorDynamicShape(const LogicalTensorPtr& iOperand, const Opcode opCode);
-void CheckTensorDynamicShape(const LogicalTensorPtr& iOperand, const std::string& opName);
+void CheckTensorDynamicShape(const LogicalTensors iOperands, const Opcode opCode);
 
 std::vector<int> GetBroadCastShape(LogicalTensorPtr& operand1, LogicalTensorPtr& operand2);
 std::vector<int> GetBroadcastAxes(const Shape& shape1, const Shape& shape2);
