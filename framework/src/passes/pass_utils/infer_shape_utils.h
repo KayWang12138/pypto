@@ -9,13 +9,13 @@
  */
 
 /*!
- * \file infer_shape.h
+ * \file infer_shape_utils.h
  * \brief 公共的 InferShape 方法，支持全量推断和指定 op 推断
  */
 
 #pragma once
-#ifndef INFER_SHAPE_H
-#define INFER_SHAPE_H
+#ifndef INFER_SHAPE_UTILS_H
+#define INFER_SHAPE_UTILS_H
 
 #include <vector>
 #include <set>

@@ -9,12 +9,12 @@
  */
 
 /*!
- * \file infer_shape.cpp
+ * \file infer_shape_utils.cpp
  * \brief 公共的 InferShape 方法实现
  */
 
 #include <set>
-#include "infer_shape.h"
+#include "infer_shape_utils.h"
 #include "passes/pass_utils/topo_program.h"
 
 namespace npu {
