@@ -289,10 +289,12 @@ private:
         CoreType setc;
         PipeType waitp;
         CoreType waitc;
-        AIVCore aivc;
-        std::vector<int> setOpIdList{};
-        std::vector<int> setOpEventIdList{};
-        std::vector<std::pair<int, int>> opDepList{};
+        AIVCore setaivc;
+        AIVCore waitaivc;
+        std::vector<int> setOpIdList{}; // 对应sync_src/cv_sync_src在syncedOpLog中的idx
+        std::vector<int> setOpEventIdList{}; // eventid
+        // sync_src/cv_sync_src对应的setop和waitop的idx pair {setop idx, waitop idx}
+        std::vector<std::pair<int, int>> opDepList{}; 
     };
 
     struct IssueNum {
@@ -336,6 +338,7 @@ private:
         int maxOverlapDepIdx, const DataDepInfo& depInfo, const PipePairEx& pipePairEx, std::vector<IndexOp>& syncedOpLog);
     Status GetDepInfo(std::vector<IndexOp>& syncedOpLog, const PipePairEx& pipePairEx, DataDepInfo& depInfo);
     Status RelaxFakeDataDep(std::vector<IndexOp>& syncedOpLog);
+    Status RelaxCvEventId(std::vector<IndexOp>& syncedOpLog);
     bool CheckIssuedOp(const DepOp& op);
     bool ConstructDepInfo(DataDepInfo& depInfo, std::vector<IndexOp>& syncedOpLog, int i);
     bool FindDataDep(DataDepInfo& depInfo, std::vector<IndexOp>& syncedOpLog, int i);
@@ -378,6 +381,7 @@ private:
     static std::map<PipeCoreRealEx, PipeSeq, PipeCoreRealExCompare> pipe2Seq;
     static std::map<PipeSeq, PipeCoreRealEx> seq2pipe;
     static std::vector<PipePair> dataDepPair;
+    static std::vector<CorePair> cvCorePair;
 
     static constexpr int EVENT_NUM = 8;
     static constexpr int CROSS_CORE_EVENT_NUM = 16;
