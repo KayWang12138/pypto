@@ -1114,7 +1114,7 @@ private:
                 return DEVICE_MACHINE_ERROR;
             }
         }
-        DEV_ASSERT(SchedErr::READY_QUEUE_OVERFLOW, res);
+        DEV_ASSERT(SchedErr::READY_QUEUE_OVERFLOW, res); // fail on queue overflow
         return DEVICE_MACHINE_OK;
     }
 
