@@ -1,40 +1,23 @@
 ---
 name: pypto-pass-precision-verify
-description: 验证PyPTO Pass精度问题，定位精度问题出现在哪个Pass，并尝试修复
-trigger: 验证Pass精度问题、pass verify、Pass精度调试、定位Pass精度问题、Pass精度报错、Pass精度不一致
+description: 验证PyPTO Pass侧精度问题，定位问题来源（前端/Pass/Codegen/Machine），并指导修复。当出现以下情况时使用：(1) PyPTO算子上板结果与torch不一致；(2) 验证日志显示精度报错（tensor_graph FAIL、Pass Verify FAIL）；(3) OP报错涉及动态shape/validshape需打印上板数据验证；(4) 所有验证PASS但精度异常；(5) 用户提到Pass精度调试、精度问题定位、验证报错分析。
 ---
 
-## 快速参考
+## 快速诊断
 
 | 场景 | 错误码 | 处理方法 |
 |-----|-------|---------|
 | 前端问题 | `0xB4001U` | 调用 `pypto-precision-compare` 技能 |
-| OP 报错 | `0xB200FU` | 检查 IR 图，对比 Before/After |
-| 精度问题 | `0xB4001U` | 使用 PreCheck/PostCheck → pass_compare.py → 上板结果比对 |
-| 所有验证通过但精度异常 | 无报错 | 二分前端或二分 CCE |
+| OP 报错 | `0xB200FU` | 检查 IR 图，动态shape需打印验证 |
+| Pass精度问题 | `0xB4001U` | PreCheck/PostCheck → pass_compare → 上板比对 |
+| 无报错但精度异常 | 无 | 调用 pypto-precision-compare 二分前端 |
 
----
-
-## 常见场景速查表
-
-| 场景 | 关键步骤 | 工具/命令 |
-|-----|---------|----------|---------|
-| 快速定位前端问题 | 查看tensor_graph验证结果 → 调用pypto-precision-compare技能 | `grep "tensor_graph Verify" log/*.log` |
-| OP报错排查 | 检查IR图 → 对比Before/After → 查询OP详情 → 确认实际匹配| `get_op_info.py --op-magic <ID>` |
-| Pass精度问题定位 | PreCheck/PostCheck → pass_compare → 上板比对 | 3步骤流程 |
-| Codegen问题排查 | 二分前端 → 二分CCE → 打印验证 | `binary_cce.py --print-idx` |
-
-**快速诊断流程**：
 ```
-出现精度问题
-    ↓
-查看验证日志
-    ↓
-是否有报错码？
-    ├─ 有 0xB4001U → tensor_graph FAIL → 前端问题（调用pypto-precision-compare）
-    ├─ 有 0xB200FU → OP报错 → IR图分析
-    ├─ 有 0xB4001U + Pass名称 → Pass精度问题 → PreCheck/PostCheck流程 + pass_compare → 上板比对
-    ├─ 无报错但精度异常 → 二分前端或二分CCE
+精度问题 → 查看验证日志 → 按错误码选择处理流程：
+├─ 0xB4001U (tensor_graph) → 前端问题 → pypto-precision-compare
+├─ 0xB200FU (OP报错) → IR图分析 → 动态shape则打印验证
+├─ 0xB4001U + Pass名 → Pass精度 → PreCheck/PostCheck
+└─ 无报错 → 二分前端 → pypto-precision-compare
 ```
 
 ---
@@ -46,39 +29,29 @@ trigger: 验证Pass精度问题、pass verify、Pass精度调试、定位Pass精
 3. [操作步骤](#操作步骤)
 4. [错误码速查表](#错误码速查表)
 5. [问题处理流程](#问题处理流程)
-6. [二分CCE方法](#二分cce方法)
-7. [IR图分析方法](#ir图分析方法)
-8. [常见错误案例库](#常见错误案例库)
+6. [打印上板信息](#打印上板信息)
+7. [IR图分析](#ir图分析)
+8. [常见错误案例](#常见错误案例)
 9. [注意事项](#注意事项)
 
 ---
 
 ## 简介
 
-本技能用于验证 PyPTO Pass 侧的精度问题。当 PyPTO 算子上板执行后输出数据与 torch 输出不一致时，用于排查问题是否出现在 Pass 处理阶段。
+验证 PyPTO Pass 侧精度问题，定位问题来源（前端/Pass/Codegen/Machine）。
 
-> **前端问题处理**：若日志显示 `tensor_graph Verify FAIL`，说明问题在前端代码，请直接调用 `pypto-precision-compare` 技能进行定位。
+> `tensor_graph Verify FAIL` → 前端问题，直接调用 `pypto-precision-compare` 技能。
 
 ---
 
 ## 环境与配置
 
-环境依赖检查、环境变量配置和配置说明请参考以下文档：
+环境依赖检查、环境变量配置和配置说明请参考：
 
 | 文档 | 内容 |
 |------|------|
-| [environment_setup.md](./environment_setup.md) | 环境依赖检查、环境变量配置 |
-| [config_guide.md](./config_guide.md) | verify_options配置、tile_fwk_config.json配置、配置备份与恢复 |
-
-**快速配置检查**：
-```bash
-# 验证环境变量
-echo "ASCEND_WORK_PATH: $ASCEND_WORK_PATH"
-echo "ASCEND_GLOBAL_LOG_LEVEL: $ASCEND_GLOBAL_LOG_LEVEL"
-
-# 验证PyPTO安装
-python3 -c "import pypto; print('PyPTO installed')"
-```
+| [references/environment_setup.md](./references/environment_setup.md) | 环境依赖检查、环境变量配置 |
+| [references/config_guide.md](./references/config_guide.md) | verify_options配置、tile_fwk_config.json配置 |
 
 ---
 
@@ -86,65 +59,24 @@ python3 -c "import pypto; print('PyPTO installed')"
 
 ### 步骤一：配置校验开关
 
-> **开始前**：请评估当前测试用例规模。如果数据量较大（如 Shape 参数 T>1000），建议：
-> - 缩小 shape（如 T=64）以加快验证
-> - 确认是否有最小可用用例
-> - 防止编译/运行时间过长导致卡死
-> - **删除 LOOP 中的 unrolllist 参数**：使计算图变为按照1的力度展开，减少编译复杂度
+配置详情请参考 [references/config_guide.md](./references/config_guide.md)。
 
-**缩小用例方法详解**：
+> 大数据量时（Shape T>1000）：缩小shape参数、删除LOOP的unrolllist参数。
 
-| 方法 | 适用场景 | 操作说明 | 效果 |
-|------|---------|---------|------|
-| 缩小 shape | Shape 参数较大 | 将 T、B 等参数缩小至最小值（如 T=64） | 减少数据量，加快编译运行 |
-| 删除 unrolllist | LOOP 级联复杂 | 移除 LOOP 的 unrolllist 参数，使用默认力度展开 | 计算图按力度1展开，减少计算图数量 |
-
-**删除 unrolllist 参数示例**：
-
-```python
-# 原代码（有 unrolllist）
-for s_idx in pypto.loop(s_loop, name="Loop_S", idx_name="s_idx", unroll_list=[64, 32, 16]):
-    # ... 复杂计算图 ...
-
-# 缩小后（删除 unrolllist）
-for s_idx in pypto.loop(s_loop, name="Loop_S", idx_name="s_idx"):  # 删除 unrolllist，默认按1力度展开
-    # ... 计算图按最小力度展开，减少计算图数量，便于调试 ...
-```
-
-> **说明**：删除 `unrolllist` 参数后，LOOP 将按照最小力度（1）展开，生成单张计算图，便于快速定位问题。当问题定位完成后，可恢复 `unrolllist` 参数验证完整场景。
-
-详细配置请参考：[config_guide.md](./config_guide.md)
-
-### 步骤二：编译并运行
+### 步骤二：编译运行
 
 ```bash
-# 编译安装（加 --no-build-isolation）
 python3 -m pip install . --verbose --no-build-isolation
-
-# 运行测试
 python3 your_test_case.py
 ```
 
-**输出目录位置说明**：
+输出目录：`./output/output_*`（验证数据）、`$ASCEND_WORK_PATH/log/`（日志）
 
-| 目录类型 | 位置 | 内容 |
-|---------|------|------|
-| **验证数据目录** | `./output/output_*` | Pass 验证结果、tensor 数据、IR 图 |
-| **组件日志目录** | `$ASCEND_WORK_PATH/log/` | Pass 侧日志、Machine 上板日志 |
+### 步骤三：分析验证结果
 
-### 步骤三：分析验证结果与定位问题
+错误码定义：`framework/src/interface/interpreter/verify_error.h`
 
-运行后会打印验证结果，错误码统一定义于 `framework/src/interface/interpreter/verify_error.h`。
-
-根据日志中的错误码和验证阶段，参考[问题处理流程](#问题处理流程)进行处理。
-
-> **Pass 精度判断标准**：
-> 
-> Pass 侧精度是否通过，**只看最后一个 Pass（CodegenPreproc）是否正确**。
-> 
-> - 如果 CodegenPreproc Pass 验证结果为 PASS → Pass 侧整体通过
-> - 如果中间 Pass 报错但 CodegenPreproc PASS → 中间 Pass 错误可忽略（可能是工具误报）
-> - 如果 CodegenPreproc FAIL → 需要定位具体 Pass 问题
+> **判断标准**：只看 CodegenPreproc Pass 是否通过。中间 Pass 报错但 CodegenPreproc PASS → 可忽略。
 
 ---
 
@@ -161,299 +93,128 @@ python3 your_test_case.py
 
 ## 问题处理流程
 
-### 情况一：tensor_graph Verify FAIL（前端问题）
+### 情况一：tensor_graph FAIL → 调用 `pypto-precision-compare`
 
-| 项目 | 说明 |
-|-----|------|
-| **错误码** | `0xB4001U`（VERIFY_RESULT_MISMATCH） |
-| **日志特征** | `[VERIFY]:ErrCode: FB4001! tensor_graph Verify for 1 data view list index 0 result FAILED` |
-| **处理** | 调用 `pypto-precision-compare` 技能 |
+### 情况二：Pass级别FAIL
 
----
+> **前置配置**（必须）：在 `verify_options` 中配置以下参数，重新运行用例：
+> ```json
+> "pass_verify_pass_filter": "all",
+> "pass_verify_save_tensor": true
+> ```
+> 详见 [references/config_guide.md](./references/config_guide.md)。
 
-### 情况二：Pass 级别 Verify FAIL
+**2.1 OP报错**：对比 Before/After IR，确认是否误报。
 
-#### 2.1 OP 报错
+动态shape场景：IR显示符号变量（如 `sym_15_dim_0`）→ 参考 [references/print_npu_data.md](./references/print_npu_data.md) 打印验证。
 
-| 项目 | 说明 |
-|-----|------|
-| **错误码** | `0xB200FU`（RUNTIME_EXCEPTION） |
-| **日志特征** | `[operation.cpp:58][VERIFY]:ErrCode: FB200F! ExecuteOperation error: op GATHER_IN_UB ...` |
-| **处理** | 查看对应 Pass 的 IR 图，分析该 OP 是否缺失属性 |
+**2.2 精度问题**：
 
-> **重要**：遇到 OP 报错时，请先**对比 Before 和 After 两个 IR 文件**，确认是否为工具误报。
+```
+配置PreCheck/PostCheck → 编译运行 → 观察日志报错
+    ├─ 有报错 → 终止，告知用户
+    └─ 无报错 → pass_compare.py对比
+        ├─ 能定位 → 解决
+        └─ 无法定位 → 上板比对
+```
 
-#### 2.2 精度问题
+**步骤详解**：
 
-| 项目 | 说明 |
-|-----|------|
-| **错误码** | `0xB4001U`（VERIFY_RESULT_MISMATCH） |
-| **日志特征** | `[VERIFY]:ErrCode: FB4001! pass_06_SplitReshape Verify result FAILED` |
-
-**Pass 侧精度问题定位流程**：
-
-1. **首先使用 PreCheck/PostCheck 方法**：打开 `tile_fwk_config.json` 中对应 Pass 的开关
-2. **其次利用 pass_compare.py**：对比失败 Pass 与前置 Pass 的每个 OP 节点
-3. **最后使用上板结果比对**：将 Machine 上板后的结果与 verify_result 中各 Pass 保存的输出逐一比对
-
-**pass_compare.py 使用方法**：
+| 步骤 | 操作 | 说明 |
+|------|------|------|
+| 1 | PreCheck/PostCheck | 打开 `tile_fwk_config.json` 对应Pass开关 |
+| 2 | pass_compare.py | 对比失败Pass与前置Pass的OP节点 |
+| 3 | 上板比对 | 打印前端pypto输出 vs 精度工具Pass输出 |
 
 ```bash
 python3 tools/verifier/pass_compare.py --p <FailedPass> <GoldenPass> --verify_path=/path/to/verify_data
 ```
 
----
+> 上板比对：若精度工具保存的Pass输出与上板结果一致 → 问题在该Pass。
 
-### 情况三：所有验证都 PASS 但仍有精度问题
+### 情况三：无报错但精度异常 → 调用 `pypto-precision-compare`
 
-| 项目 | 说明 |
-|-----|------|
-| **错误码** | 无报错，但上板结果与 golden 不一致 |
-| **原因** | 问题可能在 Codegen 或 Machine 执行阶段 |
-
-**排查决策流程**：
-
-```
-所有验证PASS但精度异常
-        ↓
-┌─ 用户输入精度报错现象？
-│
-│   是 → 调用 Pass侧常见错误分析
-│       → 查阅 error_cases.md 匹配常见问题
-│       → 根据现象特征定位可能原因
-│
-│   否（默认） → 采用二分前端方法
-│       → 调用 pypto-precision-compare 技能
-│       → 定位问题 Op
-│
-│   用户告知某Op错误 / 需打印上板数据？
-│       → 采用二分CCE方法
-│       → 参考 binary_cce.md
-│       → 打印真实上板输出验证
-│
-└───────────────────────────────────────────
-```
-
-**三种排查方向详解**：
-
-| 排查方向 | 适用场景 | 触发条件 | 操作方法 |
-|---------|---------|---------|---------|
-| **Pass侧常见错误分析** | 精度报错现象可描述 | 用户输入精度报错现象 | 查阅 error_cases.md，根据现象匹配常见错误 |
-| **二分前端** | 定位前端代码问题 | 默认采用，或无明显现象特征 | 调用 `pypto-precision-compare` 技能，定位问题 Op |
-| **二分 CCE** | 打印真实上板输出 | 用户告知某Op错误，或需打印上板数据 | 参考 [binary_cce.md](./binary_cce.md) |
-
-> **建议顺序**：优先尝试常见错误分析（成本最低） → 二分前端 → 二分CCE（成本依次递增）
+定位问题Op后，如需打印上板数据验证 → 参考 [references/print_npu_data.md](./references/print_npu_data.md)
 
 ---
 
-## 二分CCE方法
+## 打印上板信息
 
-详细使用方法请参考：**[binary_cce.md](./binary_cce.md)**
+**前置条件**：已通过 `pypto-precision-compare` 定位到具体Op。
 
-**快速入口**：
+用于：打印上板tensor数据、验证动态shape/offset值。
 
-| 场景 | 方法 | 说明 |
-|------|------|------|
-| 多CCE场景 | 方式一/二 | 目标定位或二分搜索 |
-| 单CCE场景 | 方式三/四 | 单CCE直接二分或手动修改 |
+详细方法请参考：**[references/print_npu_data.md](./references/print_npu_data.md)**
 
-### ⚠️ 配置与打印语句确认环节
+### 可打印内容
 
-**在使用二分CCE技能时，完成配置和添加打印语句后，必须向用户展示以下信息供确认**：
+| 内容 | 方法 | 说明 |
+|-----|------|------|
+| GM tensor数据 | `AiCorePrintGmTensor` | DDR/GM上的tensor |
+| UB tensor数据 | `AiCorePrintUbTensor` | UB上的tensor |
+| Shape变量值 | `AicoreLogF` | 动态shape实际值 |
+| Offset值 | `AicoreLogF` | 动态offset实际值 |
 
-> **打印方法详解**：参见 [binary_cce.md - 打印方法概述](./binary_cce.md#打印方法概述)
-
-#### 确认模板
-
-```markdown
-## 二分CCE配置确认
-
-请确认以下配置和打印语句是否正确：
-
-### 1. 关键配置检查
-
-| 配置项 | 文件位置 | 当前值 | 正确值 | 状态 |
-|--------|---------|--------|--------|------|
-| `ENABLE_AICORE_PRINT` | `aicore_print.h` | [展示当前值] | 1 | ✅/❌ |
-| `fixed_output_path` | `tile_fwk_config.json` | [展示当前值] | true | ✅/❌ |
-| `force_overwrite` | `tile_fwk_config.json` | [展示当前值] | false | ✅/❌ |
-| `parallel_compile` | `tile_fwk_config.json` | [展示当前值] | 1 | ✅/❌ |
-
-### 2. CCE文件信息
-
-- **CCE文件路径**: `./kernel_aicore/[文件名].cpp`
-- **目标CCE索引**: [idx]
-- **CCE文件数量**: [count]
-
-### 3. 打印方法与语句
-
-**打印类型**: [GM数据打印 / UB数据打印 / Shape打印 / Offset打印]
-
-#### GM数据打印（最常用）
-```cpp
-#include "tilefwk/aicore_print.h"
-AiCorePrintGmTensor(param->ctx, (__gm__[dtype]*)[tensor名].GetAddr(), [末尾偏移量], [起始偏移量]);
-```
-
-#### UB数据打印
-```cpp
-#include "tilefwk/aicore_print.h"
-AiCorePrintUbTensor(param->ctx, (__ub__[dtype]*)[tensor名].GetAddr(), [末尾偏移量], [起始偏移量]);
-```
-
-#### Shape打印
-```cpp
-#include "tilefwk/aicore_print.h"
-AiCorePrintShape(param->ctx, Shape2Dim(sym_15_dim_0, sym_15_dim_1));
-```
-
-#### Offset打印
-```cpp
-#include "tilefwk/aicore_print.h"
-AiCorePrintShape(param->ctx, Coord2Dim(...));
-```
-
-**打印参数说明**：
-- 数据类型(dtype): float / bfloat16_t / half / int32_t
-- 偏移量范围: [末尾偏移量], [起始偏移量]（元素数量 = 末尾-起始+1 ≤ 80）
-- Shape变量: sym_XX_dim_Y（从CCE中查找）
-- 打印位置: kernel_start / kernel_end / [具体Op前后]
-
-### 4. 预期日志位置
-
-运行后打印数据将出现在：
-```
-$ASCEND_WORK_PATH/log/debug/device-[id]/device-[id].log
-```
-
-### 请确认
-
-1. 配置是否正确？
-2. 打印类型是否选择正确？
-3. 偏移量范围是否合理（末尾-起始+1 ≤ 80）？
-4. 是否可以继续运行测试？
-```
-
-#### 必须展示的内容
-
-| 项目 | 说明 |
-|------|------|
-| **配置值** | 从文件中读取并展示实际值 |
-| **CCE文件名** | 展示完整文件路径 |
-| **打印类型** | GM数据打印 / UB数据打印 / Shape打印 |
-| **打印语句** | 展示实际添加的代码（含行号） |
-| **打印参数** | tensor名、dtype、偏移量范围 |
-| **日志位置** | 告知用户运行后查看日志的位置 |
-
-#### 示例输出
-
-```markdown
-## 二分CCE配置确认
-
-请确认以下配置和打印语句是否正确：
-
-### 1. 关键配置检查
-
-| 配置项 | 文件位置 | 当前值 | 正确值 | 状态 |
-|--------|---------|--------|--------|------|
-| `ENABLE_AICORE_PRINT` | `aicore_print.h` | 1 | 1 | ✅ |
-| `fixed_output_path` | `tile_fwk_config.json` | true | true | ✅ |
-| `force_overwrite` | `tile_fwk_config.json` | false | false | ✅ |
-| `parallel_compile` | `tile_fwk_config.json` | 1 | 1 | ✅ |
-
-### 2. CCE文件信息
-
-- **CCE文件路径**: `./kernel_aicore/TENSOR_Loop_S_Unroll1_PATH0_hiddenfunc0_11_0_aiv.cpp`
-- **目标CCE索引**: 0
-- **CCE文件数量**: 1
-
-### 3. 打印方法与语句
-
-**打印类型**: GM数据打印
-
-**文件**: `./kernel_aicore/TENSOR_Loop_S_Unroll1_PATH0_hiddenfunc0_11_0_aiv.cpp`
-
-```cpp
-// 第 156 行添加的打印语句：
-#include "tilefwk/aicore_print.h"
-
-AiCorePrintGmTensor(param->ctx, (__gm__float*)gmTensor_output.GetAddr(), 63, 0);
-```
-
-**打印参数说明**：
-- Tensor名称: gmTensor_output
-- 数据类型: float
-- 偏移量范围: 0 ~ 63（共64个元素，≤80符合要求）
-- 打印位置: kernel 函数开始处（kernel_start）
-
-### 4. 预期日志位置
-
-运行后打印数据将出现在：
-```
-$ASCEND_WORK_PATH/log/debug/device-0/device-0.log
-```
-
-### 请确认
-
-所有配置正确，打印语句已添加，可以继续运行测试。
-```
-
-**后续步骤**：用户确认后，执行测试并查看日志中的打印数据。
-
----
-
-## IR图分析方法
-
-用于判断是否为工具误报或真实错误，以及辅助CCE二分定位。
-
-详细 IR 分析指南请参考：`pypto/.agents/skills/pypto-pass-error-locator/references/ir-analysis-guide.md`
-
-IR分析实战示例请参考：**[ir_analysis_examples.md](./ir_analysis_examples.md)**
-
-### IR分析工具使用
+### 脚本工具
 
 ```bash
-# 查询指定 OP 的详细信息
-python3 .agents/skills/pypto-pass-error-locator/scripts/get_op_info.py \
-    --ir-file output/output_*/Pass_XX_Name/After_XX_PassName.tifwkgr \
-    --op-magic 10003
+# 初始化配置
+python3 scripts/print_npu_data.py --init --work-path /path/to/work
 
-# 列出所有 OP
+# 列出CCE文件
+python3 scripts/print_npu_data.py --work-path /path/to/work --list-cce
+
+# 打印tensor数据
+python3 scripts/print_npu_data.py --work-path /path/to/work --print-idx 0 --tensor gmTensor_4
+
+# 打印shape值
+python3 scripts/print_npu_data.py --work-path /path/to/work --print-idx 0 --print-shape sym_15_dim_0
+```
+
+详见：[scripts/print_npu_data.py](./scripts/print_npu_data.py)
+
+---
+
+## IR图分析
+
+判断误报、辅助定位。详见 `pypto/.agents/skills/pypto-pass-error-locator/references/ir-analysis-guide.md`
+
+```bash
+# 查询OP详情
 python3 .agents/skills/pypto-pass-error-locator/scripts/get_op_info.py \
-    --ir-file output/output_*/Pass_XX_Name/After_XX_PassName.tifwkgr \
-    --list-ops
+    --ir-file <IR文件> --op-magic <ID>
+
+# 列出所有OP
+python3 .agents/skills/pypto-pass-error-locator/scripts/get_op_info.py \
+    --ir-file <IR文件> --list-ops
 ```
 
 ---
 
-## 常见错误案例库
+## 常见错误案例
 
-遇到常见错误时，请查阅 **[error_cases.md](./error_cases.md)** 查看具体案例的诊断与解决方案。
-
-**案例索引**：
-- **案例01**：Reshape操作导致Pass验证报错 → reshape后添加 `+ 0.0` 规避
-- **案例02**：精度对比通过但Pass验证报错 → 以精度对比结果为准
+查阅 **[references/error_cases.md](./references/error_cases.md)**：
+- 案例01：Reshape报错 → 添加 `+ 0.0` 规避
+- 案例02：精度通过但验证报错 → 以精度结果为准
 
 ---
 
 ## 注意事项
 
-1. **Pass 精度判断标准**：只看 CodegenPreproc Pass 是否通过
-2. **前端问题**：tensor_graph FAIL 时调用 pypto-precision-compare
-3. **工具误报**：IR 图显示 shape 实际匹配时可能是误报
-4. **二分CCE配置**：必须设置 `fixed_output_path=true`, `force_overwrite=false`
-5. **打印限制**：AiCorePrint 偏移量范围对应的元素数量（末尾-起始+1）不能超过 80
-6. **配置恢复**：调试完成后恢复原始配置
-7. **缩小用例恢复**：删除 unrolllist 参数定位问题后，需恢复原始 unrolllist 验证完整场景
+1. Pass精度判断：只看 CodegenPreproc 是否通过
+2. tensor_graph FAIL → 调用 pypto-precision-compare
+3. 无报错但精度异常 → 调用 pypto-precision-compare
+4. 动态shape验证：参考 references/print_npu_data.md
+5. 打印配置：`fixed_output_path=true`, `force_overwrite=false`
+6. 打印限制：元素数量 ≤ 80
 
 ---
 
-## 相关文档索引
+## 相关文档
 
 | 文档 | 内容 |
 |------|------|
-| [environment_setup.md](./environment_setup.md) | 环境依赖检查、环境变量配置 |
-| [config_guide.md](./config_guide.md) | 配置说明、配置备份与恢复 |
-| [binary_cce.md](./binary_cce.md) | 二分CCE完整指南 |
-| [ir_analysis_examples.md](./ir_analysis_examples.md) | IR分析实战示例 |
-| [error_cases.md](./error_cases.md) | 常见错误案例库 |
+| [references/config_guide.md](./references/config_guide.md) | 配置说明 |
+| [references/print_npu_data.md](./references/print_npu_data.md) | 打印上板信息指南 |
+| [references/error_cases.md](./references/error_cases.md) | 常见错误案例 |
+| [scripts/print_npu_data.py](./scripts/print_npu_data.py) | 打印上板信息脚本 |

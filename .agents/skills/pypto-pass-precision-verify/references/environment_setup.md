@@ -141,5 +141,5 @@ fi
 
 ## 相关文档
 
-- 主流程文档：[SKILL.md](./SKILL.md)
-- 配置指南：[config-guide.md](./config-guide.md)
+- 主流程文档：[../SKILL.md](../SKILL.md)
+- 配置指南：[config_guide.md](./config_guide.md)

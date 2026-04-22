@@ -32,7 +32,6 @@ verify_options = {
     "pass_verify_pass_filter": "all",      # 可选：Pass 侧有精度问题时设置
     "pass_verify_save_tensor": True,      # 可选：Pass 侧存在精度问题时设置
 }
-
 @pypto.frontend.jit(verify_options=verify_options)
 def your_kernel(
     input0: pypto.Tensor((1, 4, 1, 64), pypto.DT_FP32),
@@ -201,6 +200,6 @@ echo "配置已更新，原配置已备份到 ${CONFIG_FILE}.backup"
 
 ## 相关文档
 
-- 主流程文档：[SKILL.md](./SKILL.md)
-- 环境配置：[environment-setup.md](./environment-setup.md)
-- 二分CCE方法：[binary_cce.md](./binary_cce.md)
+- 主流程文档：[../SKILL.md](../SKILL.md)
+- 环境配置：[environment_setup.md](./environment_setup.md)
+- CCE打印指南：[binary_cce.md](./binary_cce.md)
