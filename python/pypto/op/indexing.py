@@ -103,6 +103,29 @@ def index_add(
 
 
 @op_wrapper
+def index_add__ub(
+    input: Tensor, dim: int, index: Tensor, source: Tensor, *, alpha: Union[int, float] = 1
+    ) -> Tensor:
+    """
+    The version of index_add_() in ub
+    """
+
+    input.Move(pypto_impl.IndexAddUB(input, source, index, dim, pypto_impl.Element(input.dtype, alpha)))
+    return input
+
+
+@op_wrapper
+def index_add_ub(
+    input: Tensor, dim: int, index: Tensor, source: Tensor, *, alpha: Union[int, float] = 1
+    ) -> Tensor:
+    """
+    The out-of-place version of index_add__ub()
+    """
+
+    return pypto_impl.IndexAddUB(input, source, index, dim, pypto_impl.Element(input.dtype, alpha))
+
+
+@op_wrapper
 def index_put_(
     input: Tensor, indices: tuple, values: Tensor, accumulate: bool = False
     ) -> None:
