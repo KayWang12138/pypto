@@ -16,7 +16,7 @@
 #pragma once
 
 #include <array>
-#include "tilefwk/pypto_fwk_log.h"
+#include "tilefwk/tilefwk_log.h"
 
 namespace npu::tile_fwk {
 class LogModuleManager {
