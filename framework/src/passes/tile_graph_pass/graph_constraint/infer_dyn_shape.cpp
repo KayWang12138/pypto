@@ -18,6 +18,7 @@
 #include "infer_dyn_shape.h"
 #include "passes/pass_check/infer_dyn_shape_checker.h"
 #include "passes/pass_log/pass_log.h"
+#include "passes/pass_utils/infer_shape_utils.h"
 
 #define MODULE_NAME "InferDynShape"
 
@@ -30,7 +31,10 @@ Status InferDynShape::PostCheck(Function& function)
 }
 
 Status InferDynShape::InferShape(Function& function)
-{
+{   
+    if (InferShapeUtils::InferShape(function) == SUCCESS) {
+        std::cout << "Infer shape util success checkpoint" << std::endl;
+    }
     size_t i = 0U;
     std::map<int, size_t> opMagic2Idx;
     std::vector<Operation*> opList = function.Operations().DuplicatedOpList();
