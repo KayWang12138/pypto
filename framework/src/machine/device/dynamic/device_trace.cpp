@@ -245,6 +245,8 @@ int32_t DeviceTrace::ConnectTraceD2H(void* targ) {
         TraceGlobalAttr traceAttr;
         traceAttr.saveMode = 1;
         uint32_t localDevId = 0;
+        // This is primarily used to convert the actual phy device Id to the host-side deviceId
+        // for locating the communication channel established by trace.
         drvGetLocalDevIDByHostDevID(devDfxArgs->deviceId, &localDevId);
         uint32_t hostPid = 0;
         drvQueryProcessHostPid(getpid(), nullptr, nullptr, &hostPid, nullptr);
@@ -262,6 +264,8 @@ int32_t DeviceTrace::ConnectTraceD2H(void* targ) {
 }
 
 int32_t DeviceTrace::BindHandleToEventHandle(TraHandle handle, uint8_t threadIdx) {
+    // Primarily, each AICPU creates one obj handle.
+    //  The trace module limits each event handle to binding at most 5 obj handles.
     if (threadIdx % MAX_HANDLE_NUM == 0) {
         std::string eventTraceHandleName = "PYPTO_Event_Trace_" + std::to_string(threadIdx);
         auto eventHandle = TraceEventCreate(eventTraceHandleName.c_str());
@@ -282,11 +286,11 @@ int32_t DeviceTrace::BindHandleToEventHandle(TraHandle handle, uint8_t threadIdx
 
 TraHandle DeviceTrace::CreateTraceHandle() {
     thread_local TraHandle pyptoHandle = -1;
-    if (pyptoHandle > 0) {
+    if (pyptoHandle >= 0) {
         return pyptoHandle;
     }
-    auto thereadIdx = g_thread_idx.fetch_add(1, std::memory_order_relaxed);
-    std::string handleName = "PyPTO_Aicpu_" + std::to_string(thereadIdx) + "_Trace";
+    auto threadIdx = g_thread_idx.fetch_add(1, std::memory_order_relaxed);
+    std::string handleName = "PyPTO_Aicpu_" + std::to_string(threadIdx) + "_Trace";
     pyptoHandle = TraceCreate(TracerType::TRACER_TYPE_SCHEDULE, handleName.c_str());
     if (pyptoHandle < 0) {
         DEV_WARN("Create pypto trace failed");
@@ -294,7 +298,7 @@ TraHandle DeviceTrace::CreateTraceHandle() {
     }
     pyptoHandleArray_.emplace_back(pyptoHandle);
     DEV_INFO("Create pypto trace Handle successful");
-    auto status = BindHandleToEventHandle(pyptoHandle, thereadIdx);
+    auto status = BindHandleToEventHandle(pyptoHandle, threadIdx);
     if (status != 0) {
         return -1;
     }
@@ -321,7 +325,7 @@ void DeviceTrace::ReportTraceMsg() {
     for (auto enventHandle : eventHandleArry_) {
         auto ret = TraceEventReport(enventHandle);
         if (ret < 0) {
-            DEV_WARN("Report pypto envet Handle buffer info failed, ret: %d", ret);
+            DEV_WARN("Report pypto event Handle buffer info failed, ret: %d", ret);
         }
         DEV_INFO("Event Handle %ld, Report Submit Msg success", enventHandle);
     }
