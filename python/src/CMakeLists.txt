@@ -49,6 +49,8 @@ target_compile_definitions(pypto_impl
 
 # 所依赖的本项目 so 均在 pypto 包 __init__.py 中加载, 此处不再 link
 target_link_libraries(pypto_impl
+        PUBLIC
+            ascendcl
         PRIVATE
             json
             c_sec

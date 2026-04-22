@@ -30,7 +30,7 @@
     },
     "codegen": {
         "support_dynamic_aligned": false,
-        "soc_version": ""
+        "soc_version": "Kirin9030"
     },
     "verify": {
         "enable_pass_verify": false,
@@ -69,7 +69,7 @@
             "draw_function_graph": true,
             "build_task_based_topo": true,
             "sim_mode": 0,
-            "accuracy_level": 1,
+            "accuracy_level": 2,
             "pv_run_level": 0,
             "log_level": 3,
             "timeout_threshold": -1,
