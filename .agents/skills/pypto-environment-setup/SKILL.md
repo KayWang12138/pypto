@@ -11,11 +11,11 @@ description: PyPTO 环境安装与环境问题修复，包括 CANN、torch_npu�
 ASCEND_INSTALL_PATH=${ASCEND_INSTALL_PATH:-/usr/local/Ascend}
 ```
 
-- **默认版本**：CANN 8.5.0 + PyTorch/torch_npu
+- **默认版本**：CANN 9.0.0 + PyTorch/torch_npu
 
 | CANN 版本 | torch 推荐版本 | torch_npu 推荐版本 |
 |-----------|---------------|-------------------|
-| 8.5.0 | 2.6.0 | 2.6.0.post3 |
+| 9.0.0 | 2.6.0 | 2.6.0.post3 |
 
 **版本策略**：
 - 新环境（未安装 torch/torch_npu）：优先安装推荐版本（torch 2.6.0 + torch_npu 2.6.0.post3）
@@ -96,7 +96,7 @@ fi
 > 手动安装/编译细节见 [📋 prepare_environment.md](references/prepare_environment.md)。
 > 遇到报错见 [🔧 troubleshooting.md](references/troubleshooting.md)。
 
-> ⚠️ **torch_npu 版本兼容性**：CANN 8.5.0 必须配套使用 `torch_npu==2.6.0.post3`，其他版本可能导致 HCCL 符号不兼容。安装命令：
+> ⚠️ **torch_npu 版本兼容性**：CANN 9.0.0 必须配套使用 `torch_npu==2.6.0.post3`，其他版本可能导致 HCCL 符号不兼容。安装命令：
 > ```bash
 > pip install torch==2.6.0 torch-npu==2.6.0.post3
 > ```
@@ -195,7 +195,7 @@ python3 scripts/diagnose_env.py --checklist
 =====================================
 PyPTO 环境配置
 =====================================
-CANN 版本:  8.5.0
+CANN 版本:  9.0.0
 NPU 芯片:   Ascend910 (A2/A3)
 Python:     3.10.x
 torch:      2.6.x
