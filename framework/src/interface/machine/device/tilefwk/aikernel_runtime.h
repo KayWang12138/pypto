@@ -19,7 +19,8 @@
 #include "tilefwk/aikernel_data.h"
 
 constexpr int MAIN_BLOCK_INDEX = 1;
-constexpr uint64_t SYNC_TIMEOUT = 48000000000;
+constexpr uint64_t SYNC_TIMEOUT_NS = 48000000000;  // 48 seconds in nanoseconds
+constexpr uint64_t NSEC_PER_SEC = 1000000000;
 
 __always_inline uint64_t GetCycles()
 {
@@ -32,14 +33,40 @@ __always_inline uint64_t GetCycles()
 #endif
 }
 
+__always_inline uint64_t GetFreq()
+{
+#if defined(__aarch64__) && defined(__DEVICE__)
+    uint64_t freq;
+    asm volatile("mrs %0, cntfrq_el0" : "=r"(freq));
+    return freq;
+#else
+    return NSEC_PER_SEC;
+#endif
+}
+
+// Lightweight timeout check macro for aikernel_runtime
+// Converts nanosecond timeout to cycles considering platform frequency
+#define AIKERNEL_TIMEOUT_CHECK_NS(start_cycles, timeout_ns, warn_ns) \
+    do { \
+        uint64_t freq = GetFreq(); \
+        uint64_t elapsed_cycles = GetCycles() - start_cycles; \
+        uint64_t elapsed_ns = (elapsed_cycles * NSEC_PER_SEC) / freq; \
+        if (elapsed_ns > warn_ns) { \
+            /* TODO: Add warning log when logging infrastructure available */ \
+        } \
+        if (elapsed_ns > timeout_ns) { \
+            break; \
+        } \
+    } while (0)
+
 __always_inline void WaitAicoreStart([[maybe_unused]] npu::tile_fwk::DevStartArgsBase* startArgs)
 {
 #if defined(__aarch64__) && defined(__DEVICE__)
-    uint64_t start = GetCycles();
+    uint64_t start_cycles = GetCycles();
+    uint64_t timeout_ns = SYNC_TIMEOUT_NS;
+    uint64_t warn_ns = timeout_ns / 2;  // Warning at half timeout
     while (startArgs->syncFlag != 1) {
-        if (GetCycles() - start > SYNC_TIMEOUT) {
-            break;
-        }
+        AIKERNEL_TIMEOUT_CHECK_NS(start_cycles, timeout_ns, warn_ns);
     }
 #endif
 }
