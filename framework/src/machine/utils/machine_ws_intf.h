@@ -75,8 +75,7 @@ struct QueueGeneric {
     const T* end() const { return elem + tail; }
 
     typedef T value_type;
-//protected:
-public:
+protected:
     uint32_t head;
     uint32_t tail;
     value_type* elem;
