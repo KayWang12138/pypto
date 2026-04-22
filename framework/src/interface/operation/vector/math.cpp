@@ -85,7 +85,7 @@ Tensor LogicalNot(const Tensor& self)
     DECLARE_TRACER();
     std::unordered_set<DataType> supportedTypes = {DT_FP32, DT_FP16, DT_UINT8, DT_INT8, DT_BOOL, DT_BF16};
     CheckTensorDataType(self.GetStorage(), supportedTypes, "LOGICALNOT");
-    CheckTensorDimRange(self.GetStorage(), 2, 4, "LOGICALNOT");
+    CheckTensorDimRange(self.GetStorage(), 1, 4, "LOGICALNOT");
     CheckTensorShapeSize(self.GetStorage(), "LOGICALNOT");
     RETURN_CALL(LogicalNotOperation, *Program::GetInstance().GetCurrentFunction(), self.GetStorage());
 }
@@ -188,7 +188,7 @@ Tensor Sign(const Tensor& self)
     DECLARE_TRACER();
     std::unordered_set<DataType> supportedTypes = {DT_FP16, DT_BF16, DT_INT16, DT_INT32, DT_FP32, DT_INT8};
     CheckTensorDataType(self.GetStorage(), supportedTypes, "SIGN");
-    CheckTensorDimRange(self.GetStorage(), 2, 4, "SIGN");
+    CheckTensorDimRange(self.GetStorage(), 1, 4, "SIGN");
     CheckTensorShapeSize(self.GetStorage(), "SIGN");
     RETURN_CALL(SignOperation, *Program::GetInstance().GetCurrentFunction(), self.GetStorage());
 }
@@ -198,7 +198,7 @@ Tensor Signbit(const Tensor& self)
     DECLARE_TRACER();
     std::unordered_set<DataType> supportedTypes = {DT_FP16, DT_BF16, DT_INT16, DT_INT32, DT_FP32};
     CheckTensorDataType(self.GetStorage(), supportedTypes, "SIGNBIT");
-    CheckTensorDimRange(self.GetStorage(), 2, 4, "SIGNBIT");
+    CheckTensorDimRange(self.GetStorage(), 1, 4, "SIGNBIT");
     CheckTensorShapeSize(self.GetStorage(), "SIGNBIT");
     RETURN_CALL(SignbitOperation, *Program::GetInstance().GetCurrentFunction(), self.GetStorage());
 }
@@ -208,7 +208,7 @@ Tensor Neg(const Tensor& self)
     DECLARE_TRACER();
     std::unordered_set<DataType> supportedTypes = {DT_FP16, DT_BF16, DT_INT16, DT_INT32, DT_FP32};
     CheckTensorDataType(self.GetStorage(), supportedTypes, "NEG");
-    CheckTensorDimRange(self.GetStorage(), 2, 4, "NEG");
+    CheckTensorDimRange(self.GetStorage(), 1, 4, "NEG");
     CheckTensorShapeSize(self.GetStorage(), "NEG");
 
     if (IsFloat(self.GetStorage()->Datatype())) {
@@ -337,7 +337,7 @@ Tensor Log1p(const Tensor& self)
     DECLARE_TRACER();
     std::unordered_set<DataType> supportedTypes = {DT_BF16, DT_FP16, DT_FP32};
     CheckTensorDataType(self.GetStorage(), supportedTypes, "LOG1P");
-    CheckTensorDimRange(self.GetStorage(), 2, 4, "LOG1P");
+    CheckTensorDimRange(self.GetStorage(), 1, 4, "LOG1P");
     CheckTensorShapeSize(self.GetStorage(), "LOG1P");
 
     auto operandCast = Tensor(DataType::DT_FP32, self.GetShape());
@@ -1097,7 +1097,7 @@ static void VarParamVaildCheck(const Tensor& input, std::vector<int>& dim)
 {
     std::unordered_set<DataType> supportedTypes = {DT_FP32, DT_FP16, DT_BF16};
     CheckTensorDataType(input.GetStorage(), supportedTypes, "VAR");
-    CheckTensorDimRange(input.GetStorage(), 2, 4, "VAR");
+    CheckTensorDimRange(input.GetStorage(), 1, 4, "VAR");
     CheckTensorShapeSize(input.GetStorage(), "VAR");
 
     Shape shape = input.GetShape();
