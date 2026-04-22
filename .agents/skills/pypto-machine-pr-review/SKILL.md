@@ -1,5 +1,5 @@
 ---
-name: pr-machine-review
+name: pypto-machine-pr-review
 description: 仅用于 cann/pypto 的 Machine 代码 PR 评审与行级评论回写。覆盖 machine 变更分析、风险分级、position 计算、行级评论发布与结果核验。用户提到“Review Machine PR”“Machine代码评审”“machine模块PR审查”“提交machine review意见”时使用。强制约束：所有 review 意见必须先与用户逐条确认后，才允许提交到 PR。
 ---
 
