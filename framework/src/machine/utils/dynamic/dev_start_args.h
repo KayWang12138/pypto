@@ -170,8 +170,13 @@ public:
 
     void AllocateWait()
     {
+        TimeoutState state;
+        
         while (Full()) {
             RuntimeYield();
+            
+            __PYPTO_TIMEOUT_CHECK(state, TIMEOUT_NS_10MIN, TIMEOUT_NS_10MIN, ,
+                "#ringbuffer.alloc: AllocateWait timeout/warning 10min, ring buffer full.");
         }
     }
 
