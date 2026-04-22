@@ -60,7 +60,7 @@ Status InferParamIndex::ResetOutputDynValidShape(const Operation& op, Function &
                                            Opcode::OP_PERMUTE, Opcode::OP_PERMUTE_ELEMENT};
     bool isCopyIn = (op.GetOpcode() == Opcode::OP_COPY_IN);
     bool isCopyOut = (op.GetOpcode() == Opcode::OP_COPY_OUT);
-    if ((isCopyIn || isCopyOut) && Platform::Instance().GetSoc().GetNPUArch() == NPUArch::DAV_3510) {
+    if ((isCopyIn || isCopyOut)) {
         if (HandleCopyOpShape(op, function, isCopyIn)) {
             return SUCCESS;
         }
