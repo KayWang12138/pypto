@@ -17,7 +17,9 @@ PyPTO 计算图 JSON 分析工具
 - 追踪数据流转
 """
 
+import argparse
 import json
+import logging
 import os
 import argparse
 from collections import defaultdict
@@ -25,6 +27,7 @@ from typing import Dict, List, Any, Optional, Tuple, Set
 from dataclasses import dataclass, field
 from enum import Enum
 
+logging.basicConfig(level=logging.INFO, format="%(message)s")
 
 class GraphType(Enum):
     """计算图类型"""
@@ -228,6 +231,24 @@ class ComputationGraphAnalyzer:
         self.graph: Optional[GraphInfo] = None
 
     @staticmethod
+    def build_tensor_producer_map(func: FunctionInfo) -> Dict[int, List[OperationInfo]]:
+        """构建Tensor到生产者Op的映射"""
+        producer_map: Dict[int, List[OperationInfo]] = defaultdict(list)
+        for op in func.operations:
+            for tensor_magic in op.ooperands:
+                producer_map[tensor_magic].append(op)
+        return dict(producer_map)
+
+    @staticmethod
+    def build_tensor_consumer_map(func: FunctionInfo) -> Dict[int, List[OperationInfo]]:
+        """构建Tensor到消费者Op的映射"""
+        consumer_map: Dict[int, List[OperationInfo]] = defaultdict(list)
+        for op in func.operations:
+            for tensor_magic in op.ioperands:
+                consumer_map[tensor_magic].append(op)
+        return dict(consumer_map)
+
+    @staticmethod
     def _parse_operation(op_data: Dict[str, Any]) -> OperationInfo:
         """解析Operation数据"""
         return OperationInfo(
@@ -282,6 +303,115 @@ class ComputationGraphAnalyzer:
             symbol=rt_data.get('symbol'),
             raw_data=rt_data
         )
+
+    @staticmethod
+    def _default_limitations() -> List[str]:
+        return [
+            "dependOperand is not dumped in graph json",
+            "operation group ordering is not analyzed",
+            "cycle detection is based on explicit tensor dataflow only",
+        ]
+
+    @staticmethod
+    def _cycle_slice_from_stack(node_path: List[int], repeated_node: int) -> List[int]:
+        start_idx = node_path.index(repeated_node)
+        return node_path[start_idx:] + [repeated_node]
+
+    @staticmethod
+    def _op_detail_map(func: FunctionInfo) -> Dict[int, OperationInfo]:
+        return {op.opmagic: op for op in func.operations}
+
+    @staticmethod
+    def _build_op_cycle_path(
+        cycle_nodes: List[int],
+        path_edges: List[EdgeInfo],
+        op_map: Dict[int, OperationInfo],
+    ) -> Dict[str, Any]:
+        edge_records = [
+            {
+                "src_opmagic": edge.src_opmagic,
+                "dst_opmagic": edge.dst_opmagic,
+                "tensor_magic": edge.tensor_magic,
+                "src_opcode": edge.src_opcode,
+                "dst_opcode": edge.dst_opcode,
+            }
+            for edge in path_edges
+        ]
+        node_details = []
+        seen_nodes: Set[int] = set()
+        for node in cycle_nodes[:-1]:
+            if node in seen_nodes:
+                continue
+            seen_nodes.add(node)
+            op = op_map[node]
+            node_details.append(
+                {
+                    "opmagic": op.opmagic,
+                    "opcode": op.opcode,
+                    "file": op.file,
+                    "line": op.line,
+                    "subgraphid": op.subgraphid,
+                }
+            )
+        return {
+            "node_path": cycle_nodes,
+            "edges": edge_records,
+            "node_details": node_details,
+        }
+
+    @staticmethod
+    def _build_subgraph_cycle_path(cycle_nodes: List[int], path_edges: List[SubgraphEdgeInfo]) -> Dict[str, Any]:
+        edge_records = [
+            {
+                "src_subgraph": edge.src_subgraph,
+                "dst_subgraph": edge.dst_subgraph,
+                "tensor_magic": edge.tensor_magic,
+                "producer_ops": edge.producer_ops,
+                "consumer_ops": edge.consumer_ops,
+            }
+            for edge in path_edges
+        ]
+        return {
+            "node_path": cycle_nodes,
+            "edges": edge_records,
+        }
+    @classmethod
+    def compare_cycle_state(cls, before_json: str, after_json: str, max_cycle_paths: int = 10) -> Dict[str, Any]:
+        """对比前后两个图的成环状态"""
+        before_analyzer = cls()
+        before_analyzer.load_graph(before_json)
+        after_analyzer = cls()
+        after_analyzer.load_graph(after_json)
+
+        before_op = before_analyzer.detect_op_cycles(max_cycle_paths=max_cycle_paths)
+        after_op = after_analyzer.detect_op_cycles(max_cycle_paths=max_cycle_paths)
+        before_subgraph = before_analyzer.detect_subgraph_cycles(max_cycle_paths=max_cycle_paths)
+        after_subgraph = after_analyzer.detect_subgraph_cycles(max_cycle_paths=max_cycle_paths)
+
+        first_cycle_introduced_in_after = (
+            (not before_op.has_cycle and after_op.has_cycle)
+            or (not before_subgraph.has_cycle and after_subgraph.has_cycle)
+        )
+        if first_cycle_introduced_in_after:
+            root_cause_hint = "cycle first appears in after graph"
+        elif before_op.has_cycle or before_subgraph.has_cycle:
+            root_cause_hint = "cycle already exists in before graph"
+        else:
+            root_cause_hint = "no explicit cycle detected in either graph"
+
+        return {
+            "analysis_type": "compare_cycle",
+            "before_json": before_json,
+            "after_json": after_json,
+            "before_has_op_cycle": before_op.has_cycle,
+            "after_has_op_cycle": after_op.has_cycle,
+            "before_has_subgraph_cycle": before_subgraph.has_cycle,
+            "after_has_subgraph_cycle": after_subgraph.has_cycle,
+            "first_cycle_introduced_in_after": first_cycle_introduced_in_after,
+            "root_cause_hint": root_cause_hint,
+            "limitations": cls._default_limitations(),
+        }
+
     
     def load_graph(self, json_path: str) -> GraphInfo:
         """加载计算图JSON文件"""
@@ -359,22 +489,6 @@ class ComputationGraphAnalyzer:
             return None
         return self.graph.get_main_function()
 
-    def build_tensor_producer_map(self, func: FunctionInfo) -> Dict[int, List[OperationInfo]]:
-        """构建Tensor到生产者Op的映射"""
-        producer_map: Dict[int, List[OperationInfo]] = defaultdict(list)
-        for op in func.operations:
-            for tensor_magic in op.ooperands:
-                producer_map[tensor_magic].append(op)
-        return dict(producer_map)
-
-    def build_tensor_consumer_map(self, func: FunctionInfo) -> Dict[int, List[OperationInfo]]:
-        """构建Tensor到消费者Op的映射"""
-        consumer_map: Dict[int, List[OperationInfo]] = defaultdict(list)
-        for op in func.operations:
-            for tensor_magic in op.ioperands:
-                consumer_map[tensor_magic].append(op)
-        return dict(consumer_map)
-
     def build_op_graph(self, func: FunctionInfo) -> Dict[int, List[EdgeInfo]]:
         """基于显式Tensor数据流构建Op依赖图"""
         graph: Dict[int, List[EdgeInfo]] = {op.opmagic: [] for op in func.operations}
@@ -426,76 +540,6 @@ class ComputationGraphAnalyzer:
                         )
                     )
         return dict(graph)
-
-    @staticmethod
-    def _default_limitations() -> List[str]:
-        return [
-            "dependOperand is not dumped in graph json",
-            "operation group ordering is not analyzed",
-            "cycle detection is based on explicit tensor dataflow only",
-        ]
-
-    @staticmethod
-    def _cycle_slice_from_stack(node_path: List[int], repeated_node: int) -> List[int]:
-        start_idx = node_path.index(repeated_node)
-        return node_path[start_idx:] + [repeated_node]
-
-    def _op_detail_map(self, func: FunctionInfo) -> Dict[int, OperationInfo]:
-        return {op.opmagic: op for op in func.operations}
-
-    def _build_op_cycle_path(
-        self,
-        cycle_nodes: List[int],
-        path_edges: List[EdgeInfo],
-        op_map: Dict[int, OperationInfo],
-    ) -> Dict[str, Any]:
-        edge_records = [
-            {
-                "src_opmagic": edge.src_opmagic,
-                "dst_opmagic": edge.dst_opmagic,
-                "tensor_magic": edge.tensor_magic,
-                "src_opcode": edge.src_opcode,
-                "dst_opcode": edge.dst_opcode,
-            }
-            for edge in path_edges
-        ]
-        node_details = []
-        seen_nodes: Set[int] = set()
-        for node in cycle_nodes[:-1]:
-            if node in seen_nodes:
-                continue
-            seen_nodes.add(node)
-            op = op_map[node]
-            node_details.append(
-                {
-                    "opmagic": op.opmagic,
-                    "opcode": op.opcode,
-                    "file": op.file,
-                    "line": op.line,
-                    "subgraphid": op.subgraphid,
-                }
-            )
-        return {
-            "node_path": cycle_nodes,
-            "edges": edge_records,
-            "node_details": node_details,
-        }
-
-    def _build_subgraph_cycle_path(self, cycle_nodes: List[int], path_edges: List[SubgraphEdgeInfo]) -> Dict[str, Any]:
-        edge_records = [
-            {
-                "src_subgraph": edge.src_subgraph,
-                "dst_subgraph": edge.dst_subgraph,
-                "tensor_magic": edge.tensor_magic,
-                "producer_ops": edge.producer_ops,
-                "consumer_ops": edge.consumer_ops,
-            }
-            for edge in path_edges
-        ]
-        return {
-            "node_path": cycle_nodes,
-            "edges": edge_records,
-        }
 
     def detect_op_cycles(self, max_cycle_paths: int = 10) -> CycleDetectionResult:
         """检测Op级显式Tensor数据流成环"""
@@ -608,45 +652,6 @@ class ComputationGraphAnalyzer:
             limitations=self._default_limitations(),
         )
 
-    @classmethod
-    def compare_cycle_state(cls, before_json: str, after_json: str, max_cycle_paths: int = 10) -> Dict[str, Any]:
-        """对比前后两个图的成环状态"""
-        before_analyzer = cls()
-        before_analyzer.load_graph(before_json)
-        after_analyzer = cls()
-        after_analyzer.load_graph(after_json)
-
-        before_op = before_analyzer.detect_op_cycles(max_cycle_paths=max_cycle_paths)
-        after_op = after_analyzer.detect_op_cycles(max_cycle_paths=max_cycle_paths)
-        before_subgraph = before_analyzer.detect_subgraph_cycles(max_cycle_paths=max_cycle_paths)
-        after_subgraph = after_analyzer.detect_subgraph_cycles(max_cycle_paths=max_cycle_paths)
-
-        first_cycle_introduced_in_after = (
-            (not before_op.has_cycle and after_op.has_cycle)
-            or (not before_subgraph.has_cycle and after_subgraph.has_cycle)
-        )
-        if first_cycle_introduced_in_after:
-            root_cause_hint = "cycle first appears in after graph"
-        elif before_op.has_cycle or before_subgraph.has_cycle:
-            root_cause_hint = "cycle already exists in before graph"
-        else:
-            root_cause_hint = "no explicit cycle detected in either graph"
-
-        return {
-            "analysis_type": "compare_cycle",
-            "before_json": before_json,
-            "after_json": after_json,
-            "before_has_op_cycle": before_op.has_cycle,
-            "after_has_op_cycle": after_op.has_cycle,
-            "before_has_subgraph_cycle": before_subgraph.has_cycle,
-            "after_has_subgraph_cycle": after_subgraph.has_cycle,
-            "first_cycle_introduced_in_after": first_cycle_introduced_in_after,
-            "root_cause_hint": root_cause_hint,
-            "limitations": cls._default_limitations(),
-        }
-
-    
-
     def _parse_graph(self, data: Dict[str, Any]) -> GraphInfo:
         """解析计算图数据"""
         functions = []
@@ -689,7 +694,6 @@ class ComputationGraphAnalyzer:
             global_tensors=func_data.get('global_tensors', []),
             raw_data=func_data
         )
-
 
 def _build_summary(analyzer: ComputationGraphAnalyzer, args: argparse.Namespace) -> Dict[str, Any]:
     summary: Dict[str, Any] = {
@@ -774,7 +778,7 @@ def main() -> int:
             args.after_json,
             max_cycle_paths=args.max_cycle_paths,
         )
-        print(json.dumps(result, ensure_ascii=False, indent=2))
+        logging.info(json.dumps(result, ensure_ascii=False, indent=2))
         return 0
 
     if not args.json_path:
@@ -785,16 +789,28 @@ def main() -> int:
 
     if args.detect_op_cycle:
         result = analyzer.detect_op_cycles(max_cycle_paths=args.max_cycle_paths)
-        print(json.dumps(_result_to_dict(result, "detect_op_cycle", args.json_path), ensure_ascii=False, indent=2))
+        logging.info(
+            json.dumps(
+                _result_to_dict(result, "detect_op_cycle", args.json_path),
+                ensure_ascii=False,
+                indent=2,
+            )
+        )
         return 0
 
     if args.detect_subgraph_cycle:
         result = analyzer.detect_subgraph_cycles(max_cycle_paths=args.max_cycle_paths)
-        print(json.dumps(_result_to_dict(result, "detect_subgraph_cycle", args.json_path), ensure_ascii=False, indent=2))
+        logging.info(
+            json.dumps(
+                _result_to_dict(result, "detect_subgraph_cycle", args.json_path),
+                ensure_ascii=False,
+                indent=2,
+            )
+        )
         return 0
 
     summary = _build_summary(analyzer, args)
-    print(json.dumps(summary, ensure_ascii=False, indent=2))
+    logging.info(json.dumps(summary, ensure_ascii=False, indent=2))
     return 0
 
 
