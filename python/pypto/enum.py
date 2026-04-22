@@ -38,6 +38,7 @@ SqrtAlgorithm = pypto_impl.SqrtAlgorithm
 RsqrtAlgorithm = pypto_impl.RsqrtAlgorithm
 LogAlgorithm = pypto_impl.LogAlgorithm
 RecipAlgorithm = pypto_impl.RecipAlgorithm
+RemainderAlgorithm = pypto_impl.RemainderAlgorithm
 
 DataType.__repr__ = _enum_repr
 TileOpFormat.__repr__ = _enum_repr

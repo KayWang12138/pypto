@@ -178,7 +178,8 @@ std::string CodeGenOpNPU::PrintBinaryDynamicUnaligned(const PrintBinaryParam& pa
 void CodeGenOpNPU::AddBinaryPrecisionTypeParm(std::vector<std::string>& templateParamList) const
 {
     if (opCode == Opcode::OP_DIV || opCode == Opcode::OP_DIVS ||
-        opCode == Opcode::OP_POW || opCode == Opcode::OP_POWS) {
+        opCode == Opcode::OP_POW || opCode == Opcode::OP_POWS ||
+        opCode == Opcode::OP_REM || opCode == Opcode::OP_REMS || opCode == Opcode::OP_REMRS) {
         int64_t precisionType = 0;
         (void)GetOpAttr(OpAttributeKey::precisionType, precisionType);
         std::string enumName = "";
@@ -186,6 +187,8 @@ void CodeGenOpNPU::AddBinaryPrecisionTypeParm(std::vector<std::string>& template
             enumName = "DivAlgorithm";
         } else if (opCode == Opcode::OP_POW || opCode == Opcode::OP_POWS) {
             enumName = "PowAlgorithm";
+        } else if (opCode == Opcode::OP_REM || opCode == Opcode::OP_REMS || opCode == Opcode::OP_REMRS) {
+            enumName = "RemainderAlgorithm";
         }
         std::string enumValue = "DEFAULT";
         if (precisionType == 1) {
