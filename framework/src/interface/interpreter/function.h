@@ -21,8 +21,7 @@
 #include "interface/interpreter/operation.h"
 #include "interface/tensor/symbolic_scalar_evaluate.h"
 #include "calc.h"
-#include "tilefwk/error_code.h"
-#include "interface/interpreter/verify_error.h"
+#include "interface/utils/error_code.h"
 #include "communication.h"
 #include "tilefwk/comm_group_recorder.h"
 #include <algorithm>

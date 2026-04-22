@@ -30,8 +30,6 @@ constexpr uint32_t WINDATA_INDEX = 0;
 constexpr uint32_t WINSTATUS_INDEX = 1;
 constexpr uint32_t WINDEBUG_INDEX = 2;
 constexpr uint64_t WIN_EXP_SIZE = 1024UL * 1024UL;
-std::unordered_map<std::string, std::pair<uint64_t, uint64_t>>
-    g_context; // key: groupname; value: deviceCommContext,hostCommContext
 
 using namespace npu::tile_fwk;
 
