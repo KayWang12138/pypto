@@ -60,7 +60,7 @@ Status InferDynShape::RunOnFunction(Function& function)
     // 遍历顺序，按照入度解依赖
     APASS_LOG_INFO_F(Elements::Function, "===> Start InferDynShape.");
     if (InferShape(function) != SUCCESS) {
-        APASS_LOG_ERROR_F(Elements::Function, "InferShape failed; Please check the InferShape method.");
+        APASS_LOG_ERROR_F(Elements::Function, "InferShape failed; Please check InferShape method.");
         return FAILED;
     }
     APASS_LOG_DEBUG_F(Elements::Function, "Dump: %s", function.Dump().c_str());
