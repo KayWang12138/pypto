@@ -33,6 +33,7 @@ Example:
 """
 
 import ast
+import builtins
 from typing import Any
 
 import pypto
@@ -46,6 +47,16 @@ class ExprEvaluator:
 
     var_table: dict[str, Any]
     diag: Diagnostics
+    _FUNCTION_OVERRIDES = {
+        "min": {
+            "builtin": builtins.min,
+            "symbolic": pypto.min,
+        },
+        "max": {
+            "builtin": builtins.max,
+            "symbolic": pypto.max,
+        },
+    }
 
     def __init__(self, var_table: dict[str, Any], diag: Diagnostics) -> None:
         self.var_table = var_table
@@ -108,6 +119,69 @@ class ExprEvaluator:
 
         return True
 
+    @classmethod
+    def _contains_symbolic_scalar(cls, value: Any) -> bool:
+        if isinstance(value, pypto.SymbolicScalar):
+            return True
+        if isinstance(value, dict):
+            return any(
+                cls._contains_symbolic_scalar(key)
+                or cls._contains_symbolic_scalar(item)
+                for key, item in value.items()
+            )
+        if isinstance(value, (list, tuple, set, frozenset)):
+            return any(cls._contains_symbolic_scalar(item) for item in value)
+        return False
+
+    @classmethod
+    def _dispatch_overridden_builtin_call(
+        cls,
+        func_name: str,
+        call_args: list[Any],
+        call_kwargs: dict[str, Any],
+    ) -> Any:
+        override = cls._FUNCTION_OVERRIDES[func_name]
+        has_symbolic = any(cls._contains_symbolic_scalar(arg) for arg in call_args) or any(
+            cls._contains_symbolic_scalar(value) for value in call_kwargs.values()
+        )
+
+        if has_symbolic:
+            if call_kwargs:
+                raise TypeError(
+                    f"{func_name}() with SymbolicScalar does not support keyword arguments"
+                )
+            if len(call_args) != 2:
+                raise TypeError(
+                    f"{func_name}() with SymbolicScalar expects exactly 2 positional "
+                    f"arguments, got {len(call_args)}."
+                )
+            return override["symbolic"](call_args[0], call_args[1])
+
+        return override["builtin"](*call_args, **call_kwargs)
+
+    @classmethod
+    def _make_overridden_builtin(cls, func_name: str) -> Any:
+        def overridden_builtin(*args: Any, **kwargs: Any) -> Any:
+            return cls._dispatch_overridden_builtin_call(
+                func_name,
+                list(args),
+                kwargs,
+            )
+
+        return overridden_builtin
+
+    @classmethod
+    def _build_eval_locals(cls, var_table: dict[str, Any]) -> dict[str, Any]:
+        dict_locals = var_table.copy()
+
+        for key, value in dict_locals.items():
+            if isinstance(value, pypto.SymbolicScalar) and value.is_concrete():
+                dict_locals[key] = value.concrete()
+
+        for func_name in cls._FUNCTION_OVERRIDES:
+            dict_locals[func_name] = cls._make_overridden_builtin(func_name)
+        return dict_locals
+
     def visit(self, node: ast.expr) -> Any:
         """Visit and evaluate an expression node.
 
@@ -130,11 +204,7 @@ class ExprEvaluator:
             # Case 1: a simple expression
             mod = ast.fix_missing_locations(ast.Expression(body=node))
             exe = compile(mod, filename=self.diag.source.source_name, mode="eval")
-            dict_locals = var_table.copy()
-            # Replace SymbolicScalars with concrete values if available
-            for key, value in dict_locals.items():
-                if isinstance(value, pypto.SymbolicScalar) and value.is_concrete():
-                    dict_locals[key] = value.concrete()
+            dict_locals = self._build_eval_locals(var_table)
             try:
                 return eval(exe, {}, dict_locals)  # pylint: disable=eval-used
             except Exception as e:
@@ -143,11 +213,7 @@ class ExprEvaluator:
             # Case 2: a expression in a statement
             mod = ast.fix_missing_locations(ast.Module(body=[node], type_ignores=[]))
             exe = compile(mod, filename=self.diag.source.source_name, mode="exec")
-            dict_locals = var_table.copy()
-            # Replace SymbolicScalars with concrete values if available
-            for key, value in dict_locals.items():
-                if isinstance(value, pypto.SymbolicScalar) and value.is_concrete():
-                    dict_locals[key] = value.concrete()
+            dict_locals = self._build_eval_locals(var_table)
             try:
                 return exec(exe, {}, dict_locals)  # pylint: disable=exec-used
             except Exception as e:
