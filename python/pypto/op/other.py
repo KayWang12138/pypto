@@ -13,6 +13,7 @@ from typing import Union, Sequence, List
 
 from .. import pypto_impl
 from .._op_wrapper import op_wrapper
+from ..error import PyptoError
 from ..tensor import Tensor
 from .._element import Element
 
@@ -107,7 +108,7 @@ def pad(input: Tensor, pad: Sequence[int], mode: str = "constant", value: float 
     The padding size by which to pad some dimensions of input are described starting from
     the last dimension and moving forward.
     For pad has format (d_last_dim, d_last_dim-1, ..., d_last_dim-k).
-    Current implementation supports padding the last 2 dimensions (Right and Bottom) with 
+    Current implementation supports padding the last 2 dimensions (Right and Bottom) with
     constant values.
 
     Parameters
@@ -118,12 +119,14 @@ def pad(input: Tensor, pad: Sequence[int], mode: str = "constant", value: float 
         m-elements tuple, where m/2 <= input dimensions and m is even.
         Format is (pad_left, pad_right, pad_top, pad_bottom, ...).
         Note: Currently only supports pad_left=0 and pad_top=0 (Right/Bottom padding only).
+        All padding values must be non-negative. Negative padding values are NOT supported.
     mode : str, optional
         'constant', 'reflect', 'replicate' or 'circular'. Default: 'constant'
         Note: Currently only 'constant' is supported.
     value : float, optional
         fill value for 'constant' padding. Default: 0.0
-        Note: Currently only 'inf' '-inf' '0.0' is supported.
+        Note: The value supports arbitrary floating-point values, and the data
+        type of the padding value will automatically be converted to match that of the input Tensor.
 
     Returns
     -------
@@ -137,18 +140,19 @@ def pad(input: Tensor, pad: Sequence[int], mode: str = "constant", value: float 
         If pad is not a sequence of integers.
     ValueError
         If pad length is not even.
+        If any padding value is negative.
 
     Examples
     --------
     t4d = pypto.tensor([1, 1, 2, 2], pypto.DT_FP32)
     # Pad last dim by (0, 1) -> Right pad 1
     # Pad 2nd to last dim by (0, 1) -> Bottom pad 1
-    p1 = (0, 1, 0, 1) 
+    p1 = (0, 1, 0, 1)
     out = pypto.pad(t4d, p1, "constant", 0.0)
 
     Input t4d: [[[[0.0, 1.0],
                 [2.0, 3.0]]]]
-    
+
     Output out: [[[[0.0, 1.0, 0.0],
                 [2.0, 3.0, 0.0],
                 [0.0, 0.0, 0.0]]]]
@@ -176,7 +180,8 @@ def fillpad(input: Tensor, mode: str = "constant", value: float = 0.0) -> Tensor
         Note: Currently only 'constant' is supported.
     value : float, optional
         fill value for 'constant' padding. Default: 0.0
-        Note: Currently only 'inf' '-inf' '0.0' is supported.
+        Note: The value supports arbitrary floating-point values, and the data
+        type of the padding value will automatically be converted to match that of the input Tensor.
 
     Returns
     -------
@@ -199,7 +204,7 @@ def fillpad(input: Tensor, mode: str = "constant", value: float = 0.0) -> Tensor
               [3.0, 4.0, 0.0, 0.0],
               [0.0, 0.0, 0.0, 0.0],
               [0.0, 0.0, 0.0, 0.0]]
-    
+
     Output out: [[1.0, 2.0, -inf, -inf],
                  [3.0, 4.0, -inf, -inf],
                  [-inf, -inf, -inf, -inf],
@@ -242,13 +247,13 @@ def one_hot(input: Tensor, num_classes: int) -> Tensor:
 
     """
     if not isinstance(input, pypto_impl.Tensor):
-        raise TypeError("input must be a `Tensor`")
+        raise PyptoError(0xF00001, TypeError("input must be a `Tensor`"))
     if not isinstance(num_classes, int):
-        raise TypeError("num_classes must be an `int`")
+        raise PyptoError(0xF00001, TypeError("num_classes must be an `int`"))
     if num_classes == -1:
-        raise RuntimeError("num_classes must be specified")
+        raise PyptoError(0xF00003, RuntimeError("num_classes must be specified"))
     if num_classes <= 0:
-        raise RuntimeError("num_classes must be a positive integer")
+        raise PyptoError(0xF00003, RuntimeError("num_classes must be a positive integer"))
     return pypto_impl.OneHot(input, num_classes)
 
 

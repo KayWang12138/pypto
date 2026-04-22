@@ -22,13 +22,16 @@
 template <typename T, int N>
 class SPSCQueue {
     constexpr static int ALIGN_SIZE = 512;
+
 public:
-    inline void Enqueue(const T &val) {
+    inline void Enqueue(const T& val)
+    {
         while (!TryEnqueue(val))
             ;
     }
 
-    inline bool TryEnqueue(const T &val) {
+    inline bool TryEnqueue(const T& val)
+    {
         auto tail = tail_.load(std::memory_order_relaxed);
         auto head = head_.load(std::memory_order_relaxed);
         if (tail - head == N) {
@@ -39,14 +42,16 @@ public:
         return true;
     }
 
-    inline T Dequeue() {
+    inline T Dequeue()
+    {
         T val;
         while (!TryDequeue(val))
             ;
         return val;
     }
 
-    inline bool TryDequeue(T &val) {
+    inline bool TryDequeue(T& val)
+    {
         auto head = head_.load(std::memory_order_relaxed);
         auto tail = tail_.load(std::memory_order_acquire);
         if (tail - head == 0) {
@@ -57,31 +62,72 @@ public:
         return true;
     }
 
-    inline bool FreeUntil(std::function<bool(const T&)> checker) {
-        bool checkerSucc = false;
-        while (true) {
-            auto head = head_.load(std::memory_order_relaxed);
-            auto tail = tail_.load(std::memory_order_acquire);
-            if (head == tail) {
-                break;
-            }
-
-            const T& elem = pools_[head % N];
-            if (!checker(elem)) {
-                break;
-            }
-
+    inline void PopFront()
+    {
+        if (tail_ - head_ > 0) {
             head_.fetch_add(1, std::memory_order_release);
-            checkerSucc = true;
         }
-        return checkerSucc;
     }
 
-    inline bool IsEmpty() {
-        return (head_ == tail_);
+    inline bool TempDequeue(T &val)
+    {
+        auto head = head_.load(std::memory_order_relaxed);
+        auto tail = tail_.load(std::memory_order_acquire);
+        if (tail - head == 0) {
+            return false;
+        }
+        val = pools_[head % N];
+        return true;
     }
-    
-    inline void ResetEmpty() {
+
+    inline bool FreeUntil(std::function<bool(const T&, bool&)> checker)
+    {
+        bool anyCanfree = false;
+        while (true) {
+            size_t head = head_.load(std::memory_order_acquire);
+            size_t tail = tail_.load(std::memory_order_acquire);
+            if (head == tail) break;
+
+            size_t i = 0;
+            bool popped = false;
+            while (head + i < tail) {
+                size_t idx = (head + i) % N;
+                const T& elem = pools_[idx];
+
+                bool continueFlag = false;
+                bool canfree = checker(elem, continueFlag);
+                if (canfree) {
+                    anyCanfree = true;
+                    if (i == 0) {
+                        head_.fetch_add(1, std::memory_order_release);
+                        popped = true;
+                        break;
+                    } else {
+                        pools_[idx] = nullptr;
+                        ++i;
+                        continue;
+                    }
+                } else {
+                    if (continueFlag) {
+                        ++i;
+                        continue;
+                    } else {
+                        return anyCanfree;
+                    }
+                }
+            }
+
+            if (!popped) {
+                break;
+            }
+        }
+        return anyCanfree;
+    }
+
+    inline bool IsEmpty() { return (head_ == tail_); }
+
+    inline void ResetEmpty()
+    {
         head_ = 0;
         tail_ = 0;
     }

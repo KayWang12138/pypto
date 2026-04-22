@@ -1,12 +1,50 @@
 ---
 name: pypto-pr-fixer
-description: "修复 PyPTO PR 的 CodeCheck CI 失败和 review 评论。自动获取 CodeCheck 违规详情、匹配规则、应用修复。触发词：修复codecheck、codecheck问题、codecheck报错、codecheck失败、codecheck不通过、CI失败、CI报错、PR评论修复、review意见修复、修复PR、PR review fixer。"
+description: 修复 PyPTO PR 的 CodeCheck CI 失败和 review 评论。自动获取 CodeCheck 违规详情、匹配规则、应用修复。触发词：修复codecheck、codecheck问题、codecheck报错、codecheck失败、codecheck不通过、CI失败、CI报错、PR评论修复、review意见修复、修复PR、PR review fixer。
 ---
 
 # PyPTO PR Fixer
 
 PyPTO 仓库 PR 自动修复工具，提供两大能力：
 
+## 环境依赖
+
+| 依赖 | 版本 | 安装命令 |
+|------|------|----------|
+| Python | 3.10+ | 系统自带 |
+| playwright | 1.58+ | `pip install playwright` |
+| Chromium Headless Shell | v1208 | `playwright install chromium-headless-shell` |
+| GitCode MCP | — | 调用 `gitcode-mcp-install` skill 配置 |
+
+**注意**：ARM64 环境只能用 `chromium-headless-shell`，不能用完整 Chrome。
+
+### GitCode MCP 配置检查
+
+本 skill 的 PR 评论获取和 CI 状态检查依赖 GitCode MCP 工具。
+
+检查方式：
+
+```bash
+CONFIG_FILE="$HOME/.config/opencode/opencode.json"
+
+if [ -f "$CONFIG_FILE" ]; then
+    TOKEN_VALUE=$(cat "$CONFIG_FILE" | grep -oP '"GITCODE_TOKEN"\s*:\s*"\K[^"]+' 2>/dev/null || echo "")
+    if [ -n "$TOKEN_VALUE" ] && [ "$TOKEN_VALUE" != "<YOUR_GITCODE_TOKEN>" ]; then
+        echo "GITCODE_TOKEN_STATUS=CONFIGURED"
+    else
+        echo "GITCODE_TOKEN_STATUS=NOT_CONFIGURED"
+    fi
+else
+    echo "GITCODE_TOKEN_STATUS=CONFIG_FILE_NOT_FOUND"
+fi
+```
+
+- **CONFIGURED** → 正常执行
+- **NOT_CONFIGURED / CONFIG_FILE_NOT_FOUND** → 调用 `gitcode-mcp-install` skill 引导用户完成配置，等待执行完成后提示用户需要：
+  1. 在 `~/.config/opencode/opencode.json` 中将 `<YOUR_GITCODE_TOKEN>` 替换为真实 token
+  2. 重启 OpenCode 使配置生效
+
+---
 
 ## 输入协议
 
@@ -57,6 +95,7 @@ pull_number: 1276
 
 10. 同步 upstream（检查 + rebase）
 11. 委托 pypto-pr-creator 完成 commit + push
+```
 
 ## 评论获取与分类
 
@@ -70,10 +109,11 @@ pr_info = gitcode_get_pull_request(owner, repo, pull_number)
 
 # 2. 获取全部评论（包含 pr_comment 和 diff_comment）
 comments = gitcode_list_pull_request_comments(
-    owner=owner, 
-    repo=repo, 
+    owner=owner,
+    repo=repo,
     pull_number=pull_number,
-    include_paths=True  # 自动补全 diff_comment 的文件路径
+    limit=0,  # 必须拉全量评论，避免仅返回默认20条导致遗漏最新CI结果
+    comment_type="all",
 )
 ```
 
@@ -135,9 +175,7 @@ def is_robot_comment(comment):
 
 **不预设固定分类**。LLM 直接理解评论语义，动态判断修复方案。
 
-### 处理流程
-
-对每条人工评论：
+### 通用修复处理流程
 
 1. **理解意图** — 阅读评论全文，理解 reviewer 要求什么
 2. **判断可行性** — 该修改是否可以自动执行？
@@ -189,9 +227,7 @@ cann-robot 评论中包含 codecheck 失败的 HTML 表格：
 </tr>
 ```
 
-### 处理流程
-
-#### 步骤 1：提取报告 URL
+### CodeCheck 修复处理流程
 
 使用 `scripts/extract_latest_codecheck_url.py` 先判定最新 CI 是否由 codecheck 导致失败，再决定输出：
 
@@ -261,6 +297,9 @@ python scripts/extract_latest_codecheck_url.py \
 python scripts/fetch_codecheck_violations.py "$CODECHECK_URL" --output json
 ```
 
+脚本默认优先走 **task API 分页抓取**（按 `pageNum/pageSize` 拉全量），仅在 API 不可用时降级为 DOM 解析。
+当页面概览为 156 时，输出 `total` 也应为 156（而非单页 20）。
+
 **降级条件**（仅以下情况可使用其他方式）：
 1. 脚本文件不存在
 2. 脚本执行报错且无法修复
@@ -318,16 +357,6 @@ python scripts/local_codecheck.py <repo_path> --output json
 
 ---
 
-
-### 环境依赖
-
-| 依赖 | 版本 | 安装命令 |
-|------|------|----------|
-| Python | 3.10+ | 系统自带 |
-| playwright | 1.58+ | `pip install playwright` |
-| Chromium Headless Shell | v1208 | `playwright install chromium-headless-shell` |
-
-**注意**：ARM64 环境只能用 `chromium-headless-shell`，不能用完整 Chrome。
 
 ### CodeCheck 规则参考
 
@@ -394,6 +423,8 @@ PR 创建成功后检查 CLA 和 LGTM 状态：
 
 当遇到 `pre receive hook check failed` 时，执行诊断：
 
+| 检查项 | 诊断命令 | 修复建议 |
+|--------|----------|----------|
 | 分支同步状态 | `git log HEAD..origin/<target> --oneline` | `git pull --rebase` |
 | 提交者身份 | `git log -1 --format="%ae"` | 配置 `git user.email` |
 

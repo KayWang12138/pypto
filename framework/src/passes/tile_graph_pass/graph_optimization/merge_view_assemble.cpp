@@ -21,12 +21,14 @@
 #define MODULE_NAME "MergeViewAssemble"
 
 namespace npu::tile_fwk {
-Status MergeViewAssemble::PreCheck(Function &function) {
+Status MergeViewAssemble::PreCheck(Function& function)
+{
     MergeViewAssembleChecker checker;
     return checker.DoPreCheck(function);
 }
 
-Status MergeViewAssemble::RunOnFunction(Function &function) {
+Status MergeViewAssemble::RunOnFunction(Function& function)
+{
     APASS_LOG_INFO_F(Elements::Function, "===> Start MergeViewAssemble.");
     Status status = MergeViewAssembleUtils::MergeViewAssemble(function);
     if (status != SUCCESS) {

@@ -19,8 +19,9 @@
 namespace pypto {
 namespace ir {
 
-ShapedType::ShapedType(DataType dtype, const std::vector<int64_t> &shape, std::optional<MemRefPtr> memref)
-    : dtype_(dtype), memref_(std::move(memref)) {
+ShapedType::ShapedType(DataType dtype, const std::vector<int64_t>& shape, std::optional<MemRefPtr> memref)
+    : dtype_(dtype), memref_(std::move(memref))
+{
     for (int64_t dim : shape) {
         shape_.push_back(std::make_shared<ConstInt>(dim, DataType::INT64, Span::Unknown()));
     }

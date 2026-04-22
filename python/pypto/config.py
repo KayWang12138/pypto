@@ -59,7 +59,7 @@ def set_pass_options(*,
                      vec_nbuffer_setting: Optional[Dict[int, int]] = None,
                      cube_l1_reuse_setting: Optional[Dict[int, int]] = None,
                      cube_nbuffer_setting: Optional[Dict[int, int]] = None,
-                     sg_set_scope: Optional[int] = None,
+                     sg_set_scope: Optional[Union[int, tuple[int, bool, bool]]] = None,
                      ) -> None:
     """
     Set pass options.
@@ -92,10 +92,57 @@ def set_pass_options(*,
         Merged graph parameter, used to configure
         the merging quantity of AIC subgraphs with the same structure.
     
-    sg_set_scope : int
+    sg_set_scope : Union[int, tuple]
         Merged graph parameter, used to manually control graph merging.
+        - If int: only set scopeid (backward compatible)
+        - If tuple: (scopeid, allow_parallel_merge, allow_cross_scope_merge)
+          * scopeid: int, scope ID
+          * allow_parallel_merge: bool, enable parallel branch merging
+          * allow_cross_scope_merge: bool, allow supernode with scope to merge with others
     """
-    options_dict = {k: v for k, v in locals().items() if v is not None}
+    # 处理 sg_set_scope 参数
+    if sg_set_scope is not None:
+        if isinstance(sg_set_scope, int):
+            # 向后兼容：仅设置 scopeid
+            processed_sg_set_scope = [sg_set_scope, False, False]
+        elif isinstance(sg_set_scope, (tuple, list)):
+            # 新格式：解析元组
+            if len(sg_set_scope) != 3:
+                raise ValueError(
+                    f"Option 'pass.sg_set_scope' has invalid length. "
+                    f"Expected 3, but got {len(sg_set_scope)}."
+                )
+            if not isinstance(sg_set_scope[0], int):
+                raise ValueError(
+                    f"Option 'pass.sg_set_scope[0]' has invalid type. "
+                    f"Expected int, but got {type(sg_set_scope[0]).__name__}."
+                )
+            if not isinstance(sg_set_scope[1], bool):
+                raise ValueError(
+                    f"Option 'pass.sg_set_scope[1]' has invalid type. "
+                    f"Expected bool, but got {type(sg_set_scope[1]).__name__}."
+                )
+            if not isinstance(sg_set_scope[2], bool):
+                raise ValueError(
+                    f"Option 'pass.sg_set_scope[2]' has invalid type. "
+                    f"Expected bool, but got {type(sg_set_scope[2]).__name__}."
+                )
+            processed_sg_set_scope = list(sg_set_scope)
+        else:
+            raise TypeError(
+                f"Option 'pass.sg_set_scope' has invalid type. "
+                f"Expected int64 or tuple, but got {type(sg_set_scope).__name__}."
+            )
+
+        # 将处理后的值放入 options_dict
+        locals_dict = {k: v for k, v in locals().items()
+                       if v is not None and k not in ('sg_set_scope', 'processed_sg_set_scope')}
+        locals_dict['sg_set_scope'] = processed_sg_set_scope
+    else:
+        locals_dict = {k: v for k, v in locals().items() if v is not None}
+
+    # 调用 set_options
+    options_dict = {k: v for k, v in locals_dict.items() if v is not None}
     set_options(pass_options=options_dict)
 
 
@@ -116,7 +163,10 @@ def get_pass_options() -> Dict[str, Union[str, int, List[int], Dict[int, int]]]:
         'cube_nbuffer_setting',
         'sg_set_scope',
     }
-    return {k: v for k, v in rst.items() if k in allowed_keys}
+    result = {k: v for k, v in rst.items() if k in allowed_keys}
+    val = result.get("sg_set_scope", (-1, False, False))
+    result['sg_set_scope'] = (int(val[0]), bool(val[1]), bool(val[2]))
+    return result
 
 
 
@@ -336,8 +386,8 @@ class _Options:
                 opts["cube_tile_shapes"] = self.cube_tile_shapes._impl
             else:
                 opts["cube_tile_shapes"] = CubeTile(*self.cube_tile_shapes)._impl
-        
-                        
+
+
         if self.conv_tile_shapes is not None:
             if isinstance(self.conv_tile_shapes, ConvTile):
                 opts["conv_tile_shapes"] = self.conv_tile_shapes._impl
@@ -546,7 +596,7 @@ class CubeTile:
 
 class ConvTile:
     """ConvTile"""
-    def __init__(self, tile_l1_info: pypto_impl.TileL1Info, tile_l0_info: pypto_impl.TileL0Info, 
+    def __init__(self, tile_l1_info: pypto_impl.TileL1Info, tile_l0_info: pypto_impl.TileL0Info,
                  set_l0_tile: bool = False):
         """
         ConvTile tile for convolution operation, tile_l1_info for L1 Cache, tile_l0_info for L0 Cache

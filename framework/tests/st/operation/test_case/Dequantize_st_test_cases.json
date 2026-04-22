@@ -1,0 +1,67 @@
+{
+    "test_cases": [
+        {
+            "case_index": 0,
+            "case_name": "Dequantize_symmetric_int8_2d_basic",
+            "operation": "Dequantize",
+            "input_tensors": [
+                {
+                    "name": "input0",
+                    "shape": [
+                        32,
+                        64
+                    ],
+                    "dtype": "int8",
+                    "format": "ND",
+                    "need_trans": false,
+                    "data_range": {
+                        "min": -100,
+                        "max": 100
+                    }
+                },
+                {
+                    "name": "input1",
+                    "shape": [
+                        32
+                    ],
+                    "dtype": "fp32",
+                    "format": "ND",
+                    "need_trans": false,
+                    "data_range": {
+                        "min": 0.001,
+                        "max": 0.01
+                    }
+                }
+            ],
+            "output_tensors": [
+                {
+                    "name": "output0",
+                    "shape": [
+                        32,
+                        64
+                    ],
+                    "dtype": "fp32",
+                    "format": "ND",
+                    "need_trans": false
+                }
+            ],
+            "view_shape": [
+                32,
+                64
+            ],
+            "tile_shape": [
+                32,
+                64
+            ],
+            "params": {
+                "otype": 0,
+                "axis": -1,
+                "use_zero_points": false,
+                "param_input_dtype": 1,
+                "on_board": true,
+                "func_id": -1
+            },
+            "index": 0
+        }
+    ]
+}

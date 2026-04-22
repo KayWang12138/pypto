@@ -23,8 +23,8 @@
 #include "tilefwk/data_type.h"
 #include "codegen/codegen.h"
 #include "codegen/symbol_mgr/codegen_symbol.h"
-#include "codegen/cloudnpu/codegen_cloudnpu.h"
-#include "codegen/cloudnpu/codegen_op_cloudnpu.h"
+#include "codegen/npu/cloudnpu/codegen_cloudnpu.h"
+#include "codegen/npu/cloudnpu/codegen_op_cloudnpu.h"
 #include "test_codegen_utils.h"
 #include "test_codegen_common.h"
 
@@ -36,7 +36,8 @@ public:
 
     static void TearDownTestCase() {}
 
-    void SetUp() override {
+    void SetUp() override
+    {
         config::Reset();
         Program::GetInstance().Reset();
         config::SetHostOption(COMPILE_STAGE, CS_EXECUTE_GRAPH);
@@ -47,11 +48,12 @@ public:
     void TearDown() override {}
 };
 
-TEST_F(TestCodegenDynBitwiseUnary, BitwiseNotLayout) {
+TEST_F(TestCodegenDynBitwiseUnary, BitwiseNotLayout)
+{
     MockFuncDynUnaryConf config;
     config.dtype = DT_INT16;
     auto function =
-        GenMockFuncDynUnary("BitwiseNot", config, [](Tensor &input, Tensor &output) { output = BitwiseNot(input); });
+        GenMockFuncDynUnary("BitwiseNot", config, [](Tensor& input, Tensor& output) { output = BitwiseNot(input); });
 
     npu::tile_fwk::CodeGenCtx ctx;
     npu::tile_fwk::CodeGenCloudNPU codeGen(ctx);

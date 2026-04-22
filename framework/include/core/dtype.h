@@ -51,6 +51,7 @@ public:
     static constexpr uint8_t kInt16Code = 0x12;
     static constexpr uint8_t kInt32Code = 0x13;
     static constexpr uint8_t kInt64Code = 0x14;
+    static constexpr uint8_t kIndexCode = 0x15;
     static constexpr uint8_t kSignedIntRangeEnd = 0x1F;
     // 0x15-0x1F reserved for future signed integer types
 
@@ -105,6 +106,7 @@ public:
     static const DataType BF16;      // 16-bit brain floating point
     static const DataType HF4;       // 4-bit Hisilicon float
     static const DataType HF8;       // 8-bit Hisilicon float
+    static const DataType INDEX;     // 32-bit index type
 
     /**
      * \brief Default constructor, initializes to BOOL type
@@ -125,28 +127,37 @@ public:
      *
      * \return Size in bits
      */
-    [[nodiscard]] size_t GetBit() const {
+    [[nodiscard]] size_t GetBit() const
+    {
         switch (code_) {
-            case kBoolCode: return 1;
+            case kBoolCode:
+                return 8;
             case kHf4Code:
             case kFp4Code:
             case kUInt4Code:
-            case kInt4Code: return 4;
+            case kInt4Code:
+                return 4;
             case kHf8Code:
             case kFp8e4m3fnCode:
             case kFp8e5m2Code:
             case kUInt8Code:
-            case kInt8Code: return 8;
+            case kInt8Code:
+                return 8;
             case kBf16Code:
             case kFp16Code:
             case kUInt16Code:
-            case kInt16Code: return 16;
+            case kInt16Code:
+                return 16;
             case kFp32Code:
             case kUInt32Code:
-            case kInt32Code: return 32;
+            case kInt32Code:
+                return 32;
             case kUInt64Code:
-            case kInt64Code: return 64;
-            default: return 0;
+            case kInt64Code:
+            case kIndexCode:
+                return 64;
+            default:
+                return 0;
         }
     }
 
@@ -155,28 +166,51 @@ public:
      *
      * \return String representation of the data type
      */
-    [[nodiscard]] std::string ToString() const {
+    [[nodiscard]] std::string ToString() const
+    {
         switch (code_) {
-            case kInt4Code: return "int4";
-            case kInt8Code: return "int8";
-            case kInt16Code: return "int16";
-            case kInt32Code: return "int32";
-            case kInt64Code: return "int64";
-            case kUInt4Code: return "uint4";
-            case kUInt8Code: return "uint8";
-            case kUInt16Code: return "uint16";
-            case kUInt32Code: return "uint32";
-            case kUInt64Code: return "uint64";
-            case kFp4Code: return "fp4";
-            case kFp8e4m3fnCode: return "fp8e4m3fn";
-            case kFp8e5m2Code: return "fp8e5m2";
-            case kFp16Code: return "fp16";
-            case kFp32Code: return "fp32";
-            case kBf16Code: return "bfloat16";
-            case kHf4Code: return "hf4";
-            case kHf8Code: return "hf8";
-            case kBoolCode: return "bool";
-            default: return "unknown";
+            case kInt4Code:
+                return "int4";
+            case kInt8Code:
+                return "int8";
+            case kInt16Code:
+                return "int16";
+            case kInt32Code:
+                return "int32";
+            case kInt64Code:
+                return "int64";
+            case kIndexCode:
+                return "index";
+            case kUInt4Code:
+                return "uint4";
+            case kUInt8Code:
+                return "uint8";
+            case kUInt16Code:
+                return "uint16";
+            case kUInt32Code:
+                return "uint32";
+            case kUInt64Code:
+                return "uint64";
+            case kFp4Code:
+                return "fp4";
+            case kFp8e4m3fnCode:
+                return "fp8e4m3fn";
+            case kFp8e5m2Code:
+                return "fp8e5m2";
+            case kFp16Code:
+                return "fp16";
+            case kFp32Code:
+                return "fp32";
+            case kBf16Code:
+                return "bfloat16";
+            case kHf4Code:
+                return "hf4";
+            case kHf8Code:
+                return "hf8";
+            case kBoolCode:
+                return "bool";
+            default:
+                return "unknown";
         }
     }
 
@@ -189,22 +223,38 @@ public:
      *
      * \return C style type string (e.g. "float", "int32_t", "half", "bfloat16")
      */
-    [[nodiscard]] std::string ToCTypeString() const {
+    [[nodiscard]] std::string ToCTypeString() const
+    {
         switch (code_) {
-            case kBoolCode: return "bool";
-            case kInt8Code: return "int8_t";
-            case kInt16Code: return "int16_t";
-            case kInt32Code: return "int32_t";
-            case kInt64Code: return "int64_t";
-            case kUInt8Code: return "uint8_t";
-            case kUInt16Code: return "uint16_t";
-            case kUInt32Code: return "uint32_t";
-            case kUInt64Code: return "uint64_t";
-            case kFp16Code: return "half";
-            case kFp32Code: return "float";
-            case kFp64Code: return "double";
-            case kBf16Code: return "bfloat16";
-            default: return "unknown";
+            case kBoolCode:
+                return "bool";
+            case kInt8Code:
+                return "int8_t";
+            case kInt16Code:
+                return "int16_t";
+            case kInt32Code:
+                return "int32_t";
+            case kInt64Code:
+            case kIndexCode:
+                return "int64_t";
+            case kUInt8Code:
+                return "uint8_t";
+            case kUInt16Code:
+                return "uint16_t";
+            case kUInt32Code:
+                return "uint32_t";
+            case kUInt64Code:
+                return "uint64_t";
+            case kFp16Code:
+                return "half";
+            case kFp32Code:
+                return "float";
+            case kFp64Code:
+                return "double";
+            case kBf16Code:
+                return "bfloat16";
+            default:
+                return "unknown";
         }
     }
 
@@ -213,7 +263,8 @@ public:
      *
      * \return true if this is FP4, FP8, FP16, FP32, BF16, HF4, or HF8
      */
-    [[nodiscard]] bool IsFloat() const {
+    [[nodiscard]] bool IsFloat() const
+    {
         // IEEE float types or Brain/Hisilicon float types
         return (code_ >= kIeeeFloatRangeStart && code_ <= kIeeeFloatRangeEnd) ||
                (code_ >= kBrainFloatRangeStart && code_ <= kBrainFloatRangeEnd);
@@ -231,7 +282,8 @@ public:
      *
      * \return true if this is UINT4, UINT8, UINT16, UINT32, or UINT64
      */
-    [[nodiscard]] bool IsUnsignedInt() const {
+    [[nodiscard]] bool IsUnsignedInt() const
+    {
         return code_ >= kUnsignedIntRangeStart && code_ <= kUnsignedIntRangeEnd;
     }
 
@@ -248,7 +300,7 @@ public:
      * \param other The other DataType to compare with
      * \return true if both types have the same code
      */
-    constexpr bool operator==(const DataType &other) const { return code_ == other.code_; }
+    constexpr bool operator==(const DataType& other) const { return code_ == other.code_; }
 
     /**
      * \brief Inequality comparison operator
@@ -256,7 +308,7 @@ public:
      * \param other The other DataType to compare with
      * \return true if types have different codes
      */
-    constexpr bool operator!=(const DataType &other) const { return code_ != other.code_; }
+    constexpr bool operator!=(const DataType& other) const { return code_ != other.code_; }
 
     /**
      * \brief Get the underlying type code
@@ -290,6 +342,64 @@ inline constexpr DataType DataType::FP32 = DataType(kFp32Code);
 inline constexpr DataType DataType::BF16 = DataType(kBf16Code);
 inline constexpr DataType DataType::HF4 = DataType(kHf4Code);
 inline constexpr DataType DataType::HF8 = DataType(kHf8Code);
+inline constexpr DataType DataType::INDEX = DataType(kIndexCode);
 
+/**
+ * @brief Convert DataType to its canonical enum name string
+ *
+ * Returns the uppercase enum-style name for a DataType, suitable for use
+ * as a suffix in code generation (e.g., "FP32", "BF16", "INT32").
+ *
+ * Callers compose the full qualified name:
+ *   - Python printer: prefix + "." + DTypeToString(dtype)
+ *   - C++ codegen:    "DataType::" + DTypeToString(dtype)
+ *
+ * @param dtype The data type to convert
+ * @return Uppercase enum name string
+ */
+inline std::string DTypeToString(const DataType& dtype)
+{
+    if (dtype == DataType::BOOL)
+        return "BOOL";
+    if (dtype == DataType::INT4)
+        return "INT4";
+    if (dtype == DataType::INT8)
+        return "INT8";
+    if (dtype == DataType::INT16)
+        return "INT16";
+    if (dtype == DataType::INT32)
+        return "INT32";
+    if (dtype == DataType::INDEX)
+        return "INDEX";
+    if (dtype == DataType::INT64)
+        return "INT64";
+    if (dtype == DataType::UINT4)
+        return "UINT4";
+    if (dtype == DataType::UINT8)
+        return "UINT8";
+    if (dtype == DataType::UINT16)
+        return "UINT16";
+    if (dtype == DataType::UINT32)
+        return "UINT32";
+    if (dtype == DataType::UINT64)
+        return "UINT64";
+    if (dtype == DataType::FP4)
+        return "FP4";
+    if (dtype == DataType::FP8E4M3FN)
+        return "FP8E4M3FN";
+    if (dtype == DataType::FP8E5M2)
+        return "FP8E5M2";
+    if (dtype == DataType::FP16)
+        return "FP16";
+    if (dtype == DataType::FP32)
+        return "FP32";
+    if (dtype == DataType::BF16)
+        return "BF16";
+    if (dtype == DataType::HF4)
+        return "HF4";
+    if (dtype == DataType::HF8)
+        return "HF8";
+    return "UnknownType";
+}
 } // namespace ir
 } // namespace pypto

@@ -16,20 +16,18 @@
 #include "SimulatorA2A3.h"
 #include "cost_model/simulation_ca/A2A3/model/pipe.h"
 
-namespace CostModel
+namespace CostModel {
+using namespace std;
+uint64_t SimulatorA2A3::Run(std::vector<std::string> program)
 {
-    using namespace std;
-    uint64_t SimulatorA2A3::Run(std::vector<std::string> program)
-    {
-        auto prog = GetProgram(program);
-        auto pipe = std::make_shared<CostModelPipe>("cost", 0, 0);
-        uint32_t baseLatency = 0;
-        uint32_t rLatency = 307;
-        uint32_t wLatency = 153;
-        pipe->SetReadGmFactor(rLatency + baseLatency);
-        pipe->SetWriteGmFactor(wLatency + baseLatency);
-        uint64_t ret = pipe->GetOpCycle(prog);
-        return ret;
-    }
+    auto prog = GetProgram(program);
+    auto pipe = std::make_shared<CostModelPipe>("cost", 0, 0);
+    uint32_t baseLatency = 0;
+    uint32_t rLatency = 307;
+    uint32_t wLatency = 153;
+    pipe->SetReadGmFactor(rLatency + baseLatency);
+    pipe->SetWriteGmFactor(wLatency + baseLatency);
+    uint64_t ret = pipe->GetOpCycle(prog);
+    return ret;
+}
 } // namespace CostModel
-

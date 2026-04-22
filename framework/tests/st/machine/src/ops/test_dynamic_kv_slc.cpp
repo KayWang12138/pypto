@@ -32,7 +32,8 @@ using namespace npu::tile_fwk::dynamic;
 class DynamicSlcTest : public npu::tile_fwk::stest::TestSuite_STest_Ops_Aihac {};
 
 template <typename T = npu::tile_fwk::float16, DataType tensorType = DataType::DT_FP16>
-void testSlc(KvSlcTileShapeConfig& tileConfig) {
+void testSlc(KvSlcTileShapeConfig& tileConfig)
+{
     SetInterpreterConfig();
     int paramsSize = 10;
     std::vector<int> input_param(paramsSize);
@@ -77,8 +78,9 @@ void testSlc(KvSlcTileShapeConfig& tileConfig) {
     std::vector<int32_t> blockTableData(b * maxBlockNumPerBatch, 0);
     std::vector<int32_t> kvSlcActSeqsData(b * s, 0);
 
-    GenKvSlc(topk_tensor, topk_tensor_shape, kvNopeCache, kRopeCache, kvActSeqs, front, near, topK, l_prime,
-            n2, blockTable, blockSize, k_slcOut, v_slcOut, kvSlcActSeqs, tileConfig);
+    GenKvSlc(
+        topk_tensor, topk_tensor_shape, kvNopeCache, kRopeCache, kvActSeqs, front, near, topK, l_prime, n2, blockTable,
+        blockSize, k_slcOut, v_slcOut, kvSlcActSeqs, tileConfig);
 
     readInput<int32_t>(GetGoldenDir() + "/topk_tensor.bin", topkTensorData);
     readInput<int32_t>(GetGoldenDir() + "/topk_tensor_shape.bin", topkTensorShapeData);
@@ -117,18 +119,20 @@ void testSlc(KvSlcTileShapeConfig& tileConfig) {
     auto k_Out = npu::tile_fwk::ProgramData::GetInstance().GetOutputData(0);
     auto v_Out = npu::tile_fwk::ProgramData::GetInstance().GetOutputData(1);
     auto kvSlcActSeqs_out = npu::tile_fwk::ProgramData::GetInstance().GetOutputData(2);
-    EXPECT_TRUE(resultCmp(k_golden, (T *)k_Out->data(), 0.0005f));
-    EXPECT_TRUE(resultCmp(v_golden, (T *)v_Out->data(), 0.0005f));
-    EXPECT_TRUE(resultCmp(kvSlcActSeqs_golden, (int32_t *)kvSlcActSeqs_out->data(), 0.0005f));
+    EXPECT_TRUE(resultCmp(k_golden, (T*)k_Out->data(), 0.0005f));
+    EXPECT_TRUE(resultCmp(v_golden, (T*)v_Out->data(), 0.0005f));
+    EXPECT_TRUE(resultCmp(kvSlcActSeqs_golden, (int32_t*)kvSlcActSeqs_out->data(), 0.0005f));
 }
 
-TEST_F(DynamicSlcTest, dynamic_p_slc_fp16) {
+TEST_F(DynamicSlcTest, dynamic_p_slc_fp16)
+{
     KvSlcTileShapeConfig tileConfig;
     tileConfig.v0TileShape = {32, 32};
     testSlc<npu::tile_fwk::float16, DT_FP16>(tileConfig);
 }
 
-TEST_F(DynamicSlcTest, dynamic_p_slc_bf16) {
+TEST_F(DynamicSlcTest, dynamic_p_slc_bf16)
+{
     KvSlcTileShapeConfig tileConfig;
     tileConfig.v0TileShape = {32, 32};
     testSlc<npu::tile_fwk::bfloat16, DT_BF16>(tileConfig);

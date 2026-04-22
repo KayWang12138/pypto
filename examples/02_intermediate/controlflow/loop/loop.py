@@ -111,7 +111,7 @@ def test_loop_basic(device_id: int = None, dynamic: bool = False) -> None:
     input_t1 = torch.randn(shape, dtype=torch.float16, device=device)
     input_t2 = torch.randn(shape, dtype=torch.float16, device=device)
     output1 = torch.empty(shape, dtype=torch.float16, device=device)
-    output2 = torch.empty(shape, dtype=torch.float16, device=device)    
+    output2 = torch.empty(shape, dtype=torch.float16, device=device)
     loop_basic_kernel(input_t1, input_t2, output1, output2, s, n)
 
     expected = input_t1 + input_t2
@@ -267,7 +267,7 @@ def add_scalar_loop_dynamic_axis_kernel(
     b, w, n, c = input0.shape
     tile_b = 1
     b_loop = b // tile_b
-    
+
 
     for idx in pypto.loop(b_loop):
         b_offset = idx * tile_b

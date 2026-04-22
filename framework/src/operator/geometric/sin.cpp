@@ -18,7 +18,8 @@
 using namespace npu::tile_fwk;
 
 namespace npu::tile_fwk {
-Tensor Sin(Tensor operand) {
+Tensor Sin(Tensor operand)
+{
     // An algorithm guarante data precision from -10^10 to 10^10
     auto dType = operand.GetStorage()->Datatype();
     if (dType != DataType::DT_FP32) {

@@ -34,7 +34,7 @@ loop(start: SymInt, stop: SymInt, step: Optional[SymInt] = 1, /, **kwargs) -> It
 
 ## 约束说明
 
-无。
+loop返回的循环索引变量（如 b_idx）为SymInt类型，不支持作为列表下标索引使用。
 
 ## 调用示例
 
@@ -42,4 +42,3 @@ loop(start: SymInt, stop: SymInt, step: Optional[SymInt] = 1, /, **kwargs) -> It
 for _ in pypto.loop(0, 10, 1, name="LOOP_L0_bIdx_mla_prolog", idx_name="b_idx"):
    ...
 ```
-

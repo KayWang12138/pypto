@@ -28,29 +28,32 @@ using namespace npu::tile_fwk;
 
 class FunctionWithPass : public testing::Test {
 public:
-    static void TearDownTestCase() { }
+    static void TearDownTestCase() {}
 
-    static void SetUpTestCase() { }
+    static void SetUpTestCase() {}
 
-    void SetUp() override {
+    void SetUp() override
+    {
         std::cout << "-----------------------------SetUp-------------------------------" << std::endl;
         Program::GetInstance().Reset();
         config::Reset();
         TileShape::Current().SetVecTile(16, 16);
     }
 
-    void TearDown() override {
+    void TearDown() override
+    {
         Program::GetInstance().Reset();
         config::Reset();
     }
 
-    bool TestContinuous(const std::vector<std::pair<std::vector<int64_t>, std::vector<int64_t>>> &testcase) {
-        auto &func = *Program::GetInstance().GetCurrentFunction();
+    bool TestContinuous(const std::vector<std::pair<std::vector<int64_t>, std::vector<int64_t>>>& testcase)
+    {
+        auto& func = *Program::GetInstance().GetCurrentFunction();
         std::vector<LogicalTensorPtr> tensors;
         std::vector<int64_t> shape3(testcase.front().first.size(), 512);
         Tensor t(DT_FP32, shape3, "p");
 
-        for (auto &ele : testcase) {
+        for (auto& ele : testcase) {
             auto t1 = t.GetStorage()->View(func, ele.first, ele.second);
             tensors.emplace_back(t1);
         }
@@ -64,9 +67,10 @@ constexpr float F_2_2 = 2.2f;
 constexpr float F_3_3 = 3.3f;
 constexpr float F_2_42 = 2.42f;
 
-TEST_F(FunctionWithPass, TestContinuous) {
+TEST_F(FunctionWithPass, TestContinuous)
+{
     std::vector<int64_t> shape{128};
-    auto &func = *Program::GetInstance().GetCurrentFunction();
+    auto& func = *Program::GetInstance().GetCurrentFunction();
     Tensor a(DT_FP32, shape, "a");
     auto b = a.GetStorage()->View(func, {64}, {0});
     auto c = a.GetStorage()->View(func, {64}, {64});
@@ -113,108 +117,60 @@ TEST_F(FunctionWithPass, TestContinuous) {
     EXPECT_EQ(FunctionUtils::IsContinuous(tensorsP), true);
 
     std::vector<std::pair<std::vector<int64_t>, std::vector<int64_t>>> testcase1 = {
-        {{2, 3}, {1, 1}},
-        {{2, 3}, {3, 1}},
-        {{2, 3}, {1, 4}},
-        {{2, 3}, {3, 4}}
-    };
+        {{2, 3}, {1, 1}}, {{2, 3}, {3, 1}}, {{2, 3}, {1, 4}}, {{2, 3}, {3, 4}}};
     EXPECT_EQ(TestContinuous(testcase1), true);
     std::vector<std::pair<std::vector<int64_t>, std::vector<int64_t>>> tensors_3d_offset = {
-        {{2, 2, 2}, {1, 1, 1}},
-        {{2, 2, 2}, {3, 1, 1}},
-        {{2, 2, 2}, {1, 3, 1}},
-        {{2, 2, 2}, {3, 3, 1}},
-        {{2, 2, 2}, {1, 1, 3}},
-        {{2, 2, 2}, {3, 1, 3}},
-        {{2, 2, 2}, {1, 3, 3}},
-        {{2, 2, 2}, {3, 3, 3}}
-    };
+        {{2, 2, 2}, {1, 1, 1}}, {{2, 2, 2}, {3, 1, 1}}, {{2, 2, 2}, {1, 3, 1}}, {{2, 2, 2}, {3, 3, 1}},
+        {{2, 2, 2}, {1, 1, 3}}, {{2, 2, 2}, {3, 1, 3}}, {{2, 2, 2}, {1, 3, 3}}, {{2, 2, 2}, {3, 3, 3}}};
     EXPECT_EQ(TestContinuous(tensors_3d_offset), true);
 
     // 测试用例 3: 2D 矩形，不规则排列，无重叠无缝隙
     std::vector<std::pair<std::vector<int64_t>, std::vector<int64_t>>> tensors_2d_irregular = {
-        {{2, 2}, {0, 0}},
-        {{2, 2}, {2, 0}},
-        {{2, 2}, {0, 2}},
-        {{2, 2}, {2, 2}},
-        {{4, 1}, {0, 4}},
-        {{1, 4}, {4, 0}}
-    };
+        {{2, 2}, {0, 0}}, {{2, 2}, {2, 0}}, {{2, 2}, {0, 2}}, {{2, 2}, {2, 2}}, {{4, 1}, {0, 4}}, {{1, 4}, {4, 0}}};
     EXPECT_EQ(TestContinuous(tensors_2d_irregular), false);
     std::vector<std::pair<std::vector<int64_t>, std::vector<int64_t>>> tensors_2d_irregular_fixed = {
-        {{2, 2}, {0, 0}},
-        {{2, 2}, {2, 0}},
-        {{2, 2}, {0, 2}},
-        {{2, 2}, {2, 2}},
-        {{4, 1}, {0, 4}},
-        {{1, 4}, {4, 0}},
-        {{1, 1}, {4, 4}} // 添加一个 1x1 的矩形填补缝隙
+        {{2, 2}, {0, 0}}, {{2, 2}, {2, 0}}, {{2, 2}, {0, 2}}, {{2, 2}, {2, 2}},
+        {{4, 1}, {0, 4}}, {{1, 4}, {4, 0}}, {{1, 1}, {4, 4}} // 添加一个 1x1 的矩形填补缝隙
     };
     EXPECT_EQ(TestContinuous(tensors_2d_irregular_fixed), true);
 
     // 测试用例 4: 3D 立方体，不规则排列，无重叠无缝隙
     std::vector<std::pair<std::vector<int64_t>, std::vector<int64_t>>> tensors_3d_irregular = {
-        {{2, 2, 2}, {0, 0, 0}},
-        {{2, 2, 2}, {2, 0, 0}},
-        {{2, 2, 2}, {0, 2, 0}},
-        {{2, 2, 2}, {2, 2, 0}},
-        {{2, 2, 2}, {0, 0, 2}},
-        {{2, 2, 2}, {2, 0, 2}},
-        {{2, 2, 2}, {0, 2, 2}},
-        {{2, 2, 2}, {2, 2, 2}},
-        {{4, 1, 1}, {0, 0, 4}},
-        {{1, 4, 1}, {4, 0, 0}},
-        {{1, 1, 4}, {4, 4, 0}}
-    };
+        {{2, 2, 2}, {0, 0, 0}}, {{2, 2, 2}, {2, 0, 0}}, {{2, 2, 2}, {0, 2, 0}}, {{2, 2, 2}, {2, 2, 0}},
+        {{2, 2, 2}, {0, 0, 2}}, {{2, 2, 2}, {2, 0, 2}}, {{2, 2, 2}, {0, 2, 2}}, {{2, 2, 2}, {2, 2, 2}},
+        {{4, 1, 1}, {0, 0, 4}}, {{1, 4, 1}, {4, 0, 0}}, {{1, 1, 4}, {4, 4, 0}}};
     EXPECT_EQ(TestContinuous(tensors_3d_irregular), false);
 
     std::vector<std::pair<std::vector<int64_t>, std::vector<int64_t>>> tensors_3d_irregular_fix = {
-        {{2, 2, 2}, {0, 0, 0}},
-        {{2, 2, 2}, {2, 0, 0}},
-        {{2, 2, 2}, {0, 2, 0}},
-        {{2, 2, 2}, {2, 2, 0}},
-        {{2, 2, 2}, {0, 0, 2}},
-        {{2, 2, 2}, {2, 0, 2}},
-        {{2, 2, 2}, {0, 2, 2}},
-        {{2, 2, 2}, {2, 2, 2}},
-        {{4, 4, 1}, {0, 0, 4}},
-        {{4, 1, 5}, {0, 5, 0}},
-        {{1, 5, 5}, {4, 0, 0}},
+        {{2, 2, 2}, {0, 0, 0}}, {{2, 2, 2}, {2, 0, 0}}, {{2, 2, 2}, {0, 2, 0}}, {{2, 2, 2}, {2, 2, 0}},
+        {{2, 2, 2}, {0, 0, 2}}, {{2, 2, 2}, {2, 0, 2}}, {{2, 2, 2}, {0, 2, 2}}, {{2, 2, 2}, {2, 2, 2}},
+        {{4, 4, 1}, {0, 0, 4}}, {{4, 1, 5}, {0, 5, 0}}, {{1, 5, 5}, {4, 0, 0}},
     };
     EXPECT_EQ(TestContinuous(tensors_3d_irregular), false);
 
     // 测试用例 5: 2D 矩形，有重叠
     std::vector<std::pair<std::vector<int64_t>, std::vector<int64_t>>> tensors_2d_overlap = {
-        {{2, 2}, {1, 1}},
-        {{2, 2}, {2, 2}}
-    };
+        {{2, 2}, {1, 1}}, {{2, 2}, {2, 2}}};
     EXPECT_EQ(TestContinuous(tensors_2d_overlap), false);
 
     // 测试用例 6: 3D 立方体，有缝隙
     std::vector<std::pair<std::vector<int64_t>, std::vector<int64_t>>> tensors_3d_gap = {
-        {{2, 2, 2}, {0, 0, 0}},
-        {{2, 2, 2}, {2, 0, 0}},
-        {{2, 2, 2}, {0, 2, 0}},
-        {{2, 2, 2}, {2, 2, 0}},
-        {{2, 2, 2}, {0, 0, 2}},
-        {{2, 2, 2}, {2, 0, 2}},
-        {{2, 2, 2}, {0, 2, 2}}
+        {{2, 2, 2}, {0, 0, 0}}, {{2, 2, 2}, {2, 0, 0}}, {{2, 2, 2}, {0, 2, 0}}, {{2, 2, 2}, {2, 2, 0}},
+        {{2, 2, 2}, {0, 0, 2}}, {{2, 2, 2}, {2, 0, 2}}, {{2, 2, 2}, {0, 2, 2}}
         // 缺少一个 2x2x2 的立方体在 (2, 2, 2)
     };
     EXPECT_EQ(TestContinuous(tensors_3d_gap), false);
 
     // 测试用例 7: 1D 线段，offset 不从 0 开始
     std::vector<std::pair<std::vector<int64_t>, std::vector<int64_t>>> tensors_1d_offset = {
-        {{3}, {1}},
-        {{3}, {4}},
-        {{3}, {7}}
-    };
+        {{3}, {1}}, {{3}, {4}}, {{3}, {7}}};
     EXPECT_EQ(TestContinuous(tensors_1d_offset), true);
 }
 
-TEST_F(FunctionWithPass, TestContinuous1) {
+TEST_F(FunctionWithPass, TestContinuous1)
+{
     std::vector<int64_t> shape2{32, 32, 64};
-    auto &func = *Program::GetInstance().GetCurrentFunction();
+    auto& func = *Program::GetInstance().GetCurrentFunction();
     Tensor e(DT_FP32, shape2, "e");
     auto f = e.GetStorage()->View(func, {8, 4, 64}, {0, 0, 0});
     auto g = e.GetStorage()->View(func, {8, 4, 64}, {0, 4, 0});
@@ -222,32 +178,37 @@ TEST_F(FunctionWithPass, TestContinuous1) {
     EXPECT_EQ(FunctionUtils::IsContinuous(tensors), true);
 }
 
-TEST_F(FunctionWithPass, TestBf16) {
+TEST_F(FunctionWithPass, TestBf16)
+{
     npu::tile_fwk::bfloat16 bf1 = 1.0f;
     float f1 = (float)bf1;
     EXPECT_EQ(f1, 1.0f);
 }
 
-TEST_F(FunctionWithPass, TestBf16Str) {
+TEST_F(FunctionWithPass, TestBf16Str)
+{
     npu::tile_fwk::bfloat16 bf1 = 1.0f;
     auto strBf16 = std::to_string(bf1);
     EXPECT_EQ(strBf16, "1.000000");
 }
 
-TEST_F(FunctionWithPass, TestFp16Str) {
+TEST_F(FunctionWithPass, TestFp16Str)
+{
     npu::tile_fwk::float16 fp1 = 2.0f;
     auto strFp16 = std::to_string(fp1);
     EXPECT_EQ(strFp16, "2.000000");
 }
 
-TEST_F(FunctionWithPass, AssignFloat_NormalCase) {
+TEST_F(FunctionWithPass, AssignFloat_NormalCase)
+{
     npu::tile_fwk::float16 fp16;
     float fVal = 1.5f; // 正常情况，指数在正常范围内
 
     fp16 = fVal;
 }
 
-TEST_F(FunctionWithPass, AssignFloat_ExponentOverflow) {
+TEST_F(FunctionWithPass, AssignFloat_ExponentOverflow)
+{
     npu::tile_fwk::float16 fp16;
     float fVal = 1e30f; // 指数溢出，应转换为无穷大
 
@@ -257,7 +218,8 @@ TEST_F(FunctionWithPass, AssignFloat_ExponentOverflow) {
     EXPECT_EQ(fp16.value, 31744);
 }
 
-TEST_F(FunctionWithPass, AssignFloat_ExponentUnderflow) {
+TEST_F(FunctionWithPass, AssignFloat_ExponentUnderflow)
+{
     npu::tile_fwk::float16 fp16;
     float fVal = 1e-40f; // 指数下溢，应转换为零或非规格化数
 
@@ -267,7 +229,8 @@ TEST_F(FunctionWithPass, AssignFloat_ExponentUnderflow) {
     EXPECT_EQ(fp16.value, 0) << "Expected zero or denormalized value";
 }
 
-TEST_F(FunctionWithPass, AssignFloat_Exponent8Fu_PositiveInfinity) {
+TEST_F(FunctionWithPass, AssignFloat_Exponent8Fu_PositiveInfinity)
+{
     npu::tile_fwk::float16 fp16;
     float fVal = std::numeric_limits<float>::infinity();
 
@@ -277,7 +240,8 @@ TEST_F(FunctionWithPass, AssignFloat_Exponent8Fu_PositiveInfinity) {
     EXPECT_EQ(fp16.value, 31744);
 }
 
-TEST_F(FunctionWithPass, AssignFloat_Exponent8Fu_NegativeInfinity) {
+TEST_F(FunctionWithPass, AssignFloat_Exponent8Fu_NegativeInfinity)
+{
     npu::tile_fwk::float16 fp16;
     float fVal = -std::numeric_limits<float>::infinity();
 
@@ -287,7 +251,8 @@ TEST_F(FunctionWithPass, AssignFloat_Exponent8Fu_NegativeInfinity) {
     EXPECT_EQ(fp16.value, 64512);
 }
 
-TEST_F(FunctionWithPass, AssignFloat_Exponent70u_Zero) {
+TEST_F(FunctionWithPass, AssignFloat_Exponent70u_Zero)
+{
     npu::tile_fwk::float16 fp16;
     float fVal = 0.0f;
 
@@ -297,7 +262,8 @@ TEST_F(FunctionWithPass, AssignFloat_Exponent70u_Zero) {
     EXPECT_EQ(fp16.value, 0);
 }
 
-TEST_F(FunctionWithPass, AssignFloat_Exponent70u_Denormalized) {
+TEST_F(FunctionWithPass, AssignFloat_Exponent70u_Denormalized)
+{
     npu::tile_fwk::float16 fp16;
     float fVal = 1.0e-45f; // 非规格化数
 
@@ -308,7 +274,8 @@ TEST_F(FunctionWithPass, AssignFloat_Exponent70u_Denormalized) {
     EXPECT_EQ(fp16.value, 0);
 }
 
-TEST_F(FunctionWithPass, AssignFloat_Zero) {
+TEST_F(FunctionWithPass, AssignFloat_Zero)
+{
     npu::tile_fwk::float16 fp16;
     float fVal = 0.0f;
 
@@ -318,7 +285,8 @@ TEST_F(FunctionWithPass, AssignFloat_Zero) {
     EXPECT_EQ(fp16.value, 0);
 }
 
-TEST_F(FunctionWithPass, AssignFloat_NegativeZero) {
+TEST_F(FunctionWithPass, AssignFloat_NegativeZero)
+{
     npu::tile_fwk::float16 fp16;
     float fVal = -0.0f;
 
@@ -328,7 +296,8 @@ TEST_F(FunctionWithPass, AssignFloat_NegativeZero) {
     EXPECT_EQ(fp16.value, 32768);
 }
 
-TEST_F(FunctionWithPass, AssignFloat_PositiveInfinity) {
+TEST_F(FunctionWithPass, AssignFloat_PositiveInfinity)
+{
     npu::tile_fwk::float16 fp16;
     float fVal = std::numeric_limits<float>::infinity();
 
@@ -338,7 +307,8 @@ TEST_F(FunctionWithPass, AssignFloat_PositiveInfinity) {
     EXPECT_EQ(fp16.value, 31744);
 }
 
-TEST_F(FunctionWithPass, AssignFloat_NegativeInfinity) {
+TEST_F(FunctionWithPass, AssignFloat_NegativeInfinity)
+{
     npu::tile_fwk::float16 fp16;
     float fVal = -std::numeric_limits<float>::infinity();
 
@@ -348,7 +318,8 @@ TEST_F(FunctionWithPass, AssignFloat_NegativeInfinity) {
     EXPECT_EQ(fp16.value, 0xFC00);
 }
 
-TEST_F(FunctionWithPass, AssignFloat_Denormalized) {
+TEST_F(FunctionWithPass, AssignFloat_Denormalized)
+{
     npu::tile_fwk::float16 fp16;
     float fVal = 1.0e-45f; // 非规格化数
 
@@ -359,7 +330,8 @@ TEST_F(FunctionWithPass, AssignFloat_Denormalized) {
     EXPECT_EQ(fp16.value, 0);
 }
 
-TEST_F(FunctionWithPass, AssignFloat_Rounding) {
+TEST_F(FunctionWithPass, AssignFloat_Rounding)
+{
     npu::tile_fwk::float16 fp16;
     float fVal = 0.1f; // 需要进行舍入的情况
 
@@ -368,7 +340,8 @@ TEST_F(FunctionWithPass, AssignFloat_Rounding) {
     EXPECT_NE(fp16.value, 0x1F);
 }
 
-TEST_F(FunctionWithPass, TestFp16) {
+TEST_F(FunctionWithPass, TestFp16)
+{
     npu::tile_fwk::float16 f1 = F_1_1;
     npu::tile_fwk::float16 f2 = f1;
     auto test0 = static_cast<float>(f2);
@@ -416,14 +389,16 @@ TEST_F(FunctionWithPass, TestFp16) {
     EXPECT_EQ(static_cast<bool>(f1 <= f5), true);
 }
 
-TEST_F(FunctionWithPass, AssignZero) {
+TEST_F(FunctionWithPass, AssignZero)
+{
     npu::tile_fwk::float16 fp;
     uint16_t uiVal = 0;
     fp = uiVal;
     EXPECT_EQ(fp.value, 0);
 }
 
-TEST_F(FunctionWithPass, AssignLenGreaterThan11) {
+TEST_F(FunctionWithPass, AssignLenGreaterThan11)
+{
     npu::tile_fwk::float16 fp;
     uint16_t uiVal = 0x7FFF; // len = 12
     fp = uiVal;
@@ -431,7 +406,8 @@ TEST_F(FunctionWithPass, AssignLenGreaterThan11) {
     EXPECT_NE(fp.value, 0);
 }
 
-TEST_F(FunctionWithPass, AssignLenLessOrEqual11) {
+TEST_F(FunctionWithPass, AssignLenLessOrEqual11)
+{
     npu::tile_fwk::float16 fp;
     uint16_t uiVal = 0x0FFF; // len = 11
     fp = uiVal;
@@ -439,7 +415,8 @@ TEST_F(FunctionWithPass, AssignLenLessOrEqual11) {
     EXPECT_NE(fp.value, 0);
 }
 
-TEST_F(FunctionWithPass, AssignWithDifferentRoundingModes) {
+TEST_F(FunctionWithPass, AssignWithDifferentRoundingModes)
+{
     npu::tile_fwk::float16 fp;
     uint16_t uiVal = 0x7FFF;
 
@@ -448,7 +425,8 @@ TEST_F(FunctionWithPass, AssignWithDifferentRoundingModes) {
     EXPECT_NE(fp.value, 0);
 }
 
-TEST_F(FunctionWithPass, AssignBoundaryValues) {
+TEST_F(FunctionWithPass, AssignBoundaryValues)
+{
     npu::tile_fwk::float16 fp;
 
     // 测试最小值
@@ -464,14 +442,16 @@ TEST_F(FunctionWithPass, AssignBoundaryValues) {
     EXPECT_NE(fp.value, 0);
 }
 
-TEST_F(FunctionWithPass, AssignZero_double) {
+TEST_F(FunctionWithPass, AssignZero_double)
+{
     npu::tile_fwk::float16 fp;
     double dVal = 0.0;
     fp = dVal;
     EXPECT_EQ(fp.value, 0);
 }
 
-TEST_F(FunctionWithPass, AssignPositiveDouble) {
+TEST_F(FunctionWithPass, AssignPositiveDouble)
+{
     npu::tile_fwk::float16 fp;
     double dVal = 1.0;
     fp = dVal;
@@ -484,7 +464,8 @@ TEST_F(FunctionWithPass, AssignPositiveDouble) {
     EXPECT_NE(fp.value, 0);
 }
 
-TEST_F(FunctionWithPass, AssignNegativeDouble) {
+TEST_F(FunctionWithPass, AssignNegativeDouble)
+{
     npu::tile_fwk::float16 fp;
     double dVal = -1.0;
     fp = dVal;
@@ -497,7 +478,8 @@ TEST_F(FunctionWithPass, AssignNegativeDouble) {
     EXPECT_NE(fp.value, 0);
 }
 
-TEST_F(FunctionWithPass, AssignBoundaryDouble) {
+TEST_F(FunctionWithPass, AssignBoundaryDouble)
+{
     npu::tile_fwk::float16 fp;
 
     // 测试最小正数
@@ -525,7 +507,8 @@ TEST_F(FunctionWithPass, AssignBoundaryDouble) {
     EXPECT_NE(fp.value, 0);
 }
 
-TEST_F(FunctionWithPass, AssignSpecialDoubleValues) {
+TEST_F(FunctionWithPass, AssignSpecialDoubleValues)
+{
     npu::tile_fwk::float16 fp;
 
     // 测试正无穷大
@@ -545,7 +528,8 @@ TEST_F(FunctionWithPass, AssignSpecialDoubleValues) {
     EXPECT_EQ(fp.value, 0xFC00);
 }
 
-TEST_F(FunctionWithPass, AssignRoundingModes_double) {
+TEST_F(FunctionWithPass, AssignRoundingModes_double)
+{
     npu::tile_fwk::float16 fp;
     double dVal = 1.5;
 
@@ -556,14 +540,16 @@ TEST_F(FunctionWithPass, AssignRoundingModes_double) {
     EXPECT_NE(fp.value, 0);
 }
 
-TEST_F(FunctionWithPass, AssignZero_uint32) {
+TEST_F(FunctionWithPass, AssignZero_uint32)
+{
     npu::tile_fwk::float16 fp;
     uint32_t uiVal = 0;
     fp = uiVal;
     EXPECT_EQ(fp.value, 0);
 }
 
-TEST_F(FunctionWithPass, AssignMax_uint32) {
+TEST_F(FunctionWithPass, AssignMax_uint32)
+{
     npu::tile_fwk::float16 fp;
     uint32_t uiVal = 0xFFFFFFFF;
     fp = uiVal;
@@ -571,7 +557,8 @@ TEST_F(FunctionWithPass, AssignMax_uint32) {
     EXPECT_NE(fp.value, 0);
 }
 
-TEST_F(FunctionWithPass, AssignBoundary_uint32) {
+TEST_F(FunctionWithPass, AssignBoundary_uint32)
+{
     npu::tile_fwk::float16 fp;
 
     // 测试最小值
@@ -587,7 +574,8 @@ TEST_F(FunctionWithPass, AssignBoundary_uint32) {
     EXPECT_NE(fp.value, 0);
 }
 
-TEST_F(FunctionWithPass, AssignRoundingModes_uint32) {
+TEST_F(FunctionWithPass, AssignRoundingModes_uint32)
+{
     npu::tile_fwk::float16 fp;
     uint32_t uiVal = 0xFFFFFFFF;
 
@@ -596,14 +584,16 @@ TEST_F(FunctionWithPass, AssignRoundingModes_uint32) {
     EXPECT_NE(fp.value, 0);
 }
 
-TEST_F(FunctionWithPass, AssignZero_int32) {
+TEST_F(FunctionWithPass, AssignZero_int32)
+{
     npu::tile_fwk::float16 fp;
     int32_t iVal = 0;
     fp = iVal;
     EXPECT_EQ(fp.value, 0);
 }
 
-TEST_F(FunctionWithPass, AssignMax_int32) {
+TEST_F(FunctionWithPass, AssignMax_int32)
+{
     npu::tile_fwk::float16 fp;
     int32_t iVal = 0x7FFFFFFF;
     fp = iVal;
@@ -611,7 +601,8 @@ TEST_F(FunctionWithPass, AssignMax_int32) {
     EXPECT_NE(fp.value, 0);
 }
 
-TEST_F(FunctionWithPass, AssignMin_int32) {
+TEST_F(FunctionWithPass, AssignMin_int32)
+{
     npu::tile_fwk::float16 fp;
     int32_t iVal = INT32_MIN;
     fp = iVal;
@@ -619,7 +610,8 @@ TEST_F(FunctionWithPass, AssignMin_int32) {
     EXPECT_NE(fp.value, 0);
 }
 
-TEST_F(FunctionWithPass, AssignBoundary_int32) {
+TEST_F(FunctionWithPass, AssignBoundary_int32)
+{
     npu::tile_fwk::float16 fp;
 
     // 测试最小正数
@@ -635,7 +627,8 @@ TEST_F(FunctionWithPass, AssignBoundary_int32) {
     EXPECT_NE(fp.value, 0);
 }
 
-TEST_F(FunctionWithPass, AssignRoundingModes_int32) {
+TEST_F(FunctionWithPass, AssignRoundingModes_int32)
+{
     npu::tile_fwk::float16 fp;
     int32_t iVal = 0x7FFFFFFF;
 
@@ -644,14 +637,16 @@ TEST_F(FunctionWithPass, AssignRoundingModes_int32) {
     EXPECT_NE(fp.value, 0);
 }
 
-TEST_F(FunctionWithPass, AssignZero_int16) {
+TEST_F(FunctionWithPass, AssignZero_int16)
+{
     npu::tile_fwk::float16 fp;
     int16_t iVal = 0;
     fp = iVal;
     EXPECT_EQ(fp.value, 0);
 }
 
-TEST_F(FunctionWithPass, AssignMax_int16) {
+TEST_F(FunctionWithPass, AssignMax_int16)
+{
     npu::tile_fwk::float16 fp;
     int16_t iVal = 0x7FFF;
     fp = iVal;
@@ -659,7 +654,8 @@ TEST_F(FunctionWithPass, AssignMax_int16) {
     EXPECT_NE(fp.value, 0);
 }
 
-TEST_F(FunctionWithPass, AssignMin_int16) {
+TEST_F(FunctionWithPass, AssignMin_int16)
+{
     npu::tile_fwk::float16 fp;
     int16_t iVal = -0x8000;
     fp = iVal;
@@ -667,7 +663,8 @@ TEST_F(FunctionWithPass, AssignMin_int16) {
     EXPECT_NE(fp.value, 0);
 }
 
-TEST_F(FunctionWithPass, AssignBoundary_int16) {
+TEST_F(FunctionWithPass, AssignBoundary_int16)
+{
     npu::tile_fwk::float16 fp;
 
     // 测试最小正数
@@ -683,7 +680,8 @@ TEST_F(FunctionWithPass, AssignBoundary_int16) {
     EXPECT_NE(fp.value, 0);
 }
 
-TEST_F(FunctionWithPass, AssignRoundingModes_int16) {
+TEST_F(FunctionWithPass, AssignRoundingModes_int16)
+{
     npu::tile_fwk::float16 fp;
     int16_t iVal = 0x7FFF;
 
@@ -691,17 +689,18 @@ TEST_F(FunctionWithPass, AssignRoundingModes_int16) {
     fp = iVal;
     // 预期结果根据具体计算确定
     EXPECT_NE(fp.value, 0);
-
 }
 
-TEST_F(FunctionWithPass, AssignZero_uint16) {
+TEST_F(FunctionWithPass, AssignZero_uint16)
+{
     npu::tile_fwk::float16 fp;
     uint16_t uiVal = 0;
     fp = uiVal;
     EXPECT_EQ(fp.value, 0);
 }
 
-TEST_F(FunctionWithPass, AssignMax_uint16) {
+TEST_F(FunctionWithPass, AssignMax_uint16)
+{
     npu::tile_fwk::float16 fp;
     uint16_t uiVal = 0x7FFF;
     fp = uiVal;
@@ -709,7 +708,8 @@ TEST_F(FunctionWithPass, AssignMax_uint16) {
     EXPECT_NE(fp.value, 0);
 }
 
-TEST_F(FunctionWithPass, AssignBoundary_uint16) {
+TEST_F(FunctionWithPass, AssignBoundary_uint16)
+{
     npu::tile_fwk::float16 fp;
 
     // 测试最小值
@@ -725,7 +725,8 @@ TEST_F(FunctionWithPass, AssignBoundary_uint16) {
     EXPECT_NE(fp.value, 0);
 }
 
-TEST_F(FunctionWithPass, AssignRoundingModes_uint16) {
+TEST_F(FunctionWithPass, AssignRoundingModes_uint16)
+{
     npu::tile_fwk::float16 fp;
     uint16_t uiVal = 0x7FFF;
 
@@ -734,13 +735,15 @@ TEST_F(FunctionWithPass, AssignRoundingModes_uint16) {
     EXPECT_NE(fp.value, 0);
 }
 
-TEST_F(FunctionWithPass, fp16ToUInt8_Negative) {
+TEST_F(FunctionWithPass, fp16ToUInt8_Negative)
+{
     uint16_t fpVal = 0xBC00; // -1.0 in fp16
     float result = npu::tile_fwk::float16::FromBase(fpVal);
-    EXPECT_EQ(result, -1); // 负数转换为uint8_t应为0
+    EXPECT_EQ(result, -1);   // 负数转换为uint8_t应为0
 }
 
-TEST_F(FunctionWithPass, fp16ToUInt8_Zero) {
+TEST_F(FunctionWithPass, fp16ToUInt8_Zero)
+{
     uint16_t fpVal = 0x0000; // +0
     float result = npu::tile_fwk::float16::FromBase(fpVal);
     EXPECT_EQ(result, 0);
@@ -750,7 +753,8 @@ TEST_F(FunctionWithPass, fp16ToUInt8_Zero) {
     EXPECT_EQ(result, 0);
 }
 
-TEST_F(FunctionWithPass, fp16ToInt8_Zero) {
+TEST_F(FunctionWithPass, fp16ToInt8_Zero)
+{
     uint16_t fpVal = 0x0000; // +0
     float result = npu::tile_fwk::float16::FromBase(fpVal);
     EXPECT_EQ(result, 0);
@@ -760,7 +764,8 @@ TEST_F(FunctionWithPass, fp16ToInt8_Zero) {
     EXPECT_EQ(result, 0);
 }
 
-TEST_F(FunctionWithPass, TestSymbolicScalar) {
+TEST_F(FunctionWithPass, TestSymbolicScalar)
+{
     ScalarImmediateType sit = 0;
     RawSymbolicImmediate ryi(sit);
     ryi.DumpJson();
@@ -771,7 +776,8 @@ TEST_F(FunctionWithPass, TestSymbolicScalar) {
     EXPECT_NE(rssPtr, nullptr);
 }
 
-TEST_F(FunctionWithPass, Constructor) {
+TEST_F(FunctionWithPass, Constructor)
+{
     // 测试无操作数
     RawSymbolicExpression expr1(SymbolicOpcode::T_BOP_ADD, {});
     EXPECT_EQ(expr1.Opcode(), SymbolicOpcode::T_BOP_ADD);
@@ -790,25 +796,30 @@ TEST_F(FunctionWithPass, Constructor) {
     EXPECT_EQ(expr3.OperandList().size(), 2);
 }
 
-TEST_F(FunctionWithPass, GetSymbolicCalcBinary) {
-    EXPECT_EQ(RawSymbolicExpression::GetSymbolicCalcBinary(SymbolicOpcode::T_BOP_ADD), &RawSymbolicExpression::CalcBopAdd);
-    EXPECT_EQ(RawSymbolicExpression::GetSymbolicCalcBinary(SymbolicOpcode::T_BOP_SUB), &RawSymbolicExpression::CalcBopSub);
+TEST_F(FunctionWithPass, GetSymbolicCalcBinary)
+{
+    EXPECT_EQ(
+        RawSymbolicExpression::GetSymbolicCalcBinary(SymbolicOpcode::T_BOP_ADD), &RawSymbolicExpression::CalcBopAdd);
+    EXPECT_EQ(
+        RawSymbolicExpression::GetSymbolicCalcBinary(SymbolicOpcode::T_BOP_SUB), &RawSymbolicExpression::CalcBopSub);
     // 类似地测试其他操作码
 }
 
-TEST_F(FunctionWithPass, Accessors) {
+TEST_F(FunctionWithPass, Accessors)
+{
     RawSymbolicScalarPtr operand1 = std::make_shared<RawSymbolicImmediate>(5);
     RawSymbolicScalarPtr operand2 = std::make_shared<RawSymbolicImmediate>(3);
     RawSymbolicExpression expr(SymbolicOpcode::T_BOP_ADD, {operand1, operand2});
 
     EXPECT_EQ(expr.Opcode(), SymbolicOpcode::T_BOP_ADD);
-    const auto &operandList = expr.OperandList();
+    const auto& operandList = expr.OperandList();
     EXPECT_EQ(operandList.size(), 2);
     EXPECT_EQ(operandList[0]->IsImmediate(), true);
     EXPECT_EQ(operandList[1]->IsImmediate(), true);
 }
 
-TEST_F(FunctionWithPass, DumpJson) {
+TEST_F(FunctionWithPass, DumpJson)
+{
     RawSymbolicScalarPtr operand1 = std::make_shared<RawSymbolicImmediate>(5);
     RawSymbolicScalarPtr operand2 = std::make_shared<RawSymbolicImmediate>(3);
     RawSymbolicExpression expr(SymbolicOpcode::T_BOP_ADD, {operand1, operand2});
@@ -821,7 +832,8 @@ TEST_F(FunctionWithPass, DumpJson) {
     EXPECT_EQ(exprJson[3], operand2->DumpJson());
 }
 
-TEST_F(FunctionWithPass, BinaryOperations) {
+TEST_F(FunctionWithPass, BinaryOperations)
+{
     ScalarImmediateType lhs = 5;
     ScalarImmediateType rhs = 3;
 
@@ -840,13 +852,15 @@ TEST_F(FunctionWithPass, BinaryOperations) {
     EXPECT_EQ(RawSymbolicExpression::CalcBopMax(lhs, rhs), 5);
 }
 
-TEST_F(FunctionWithPass, GetSymbolicCalcOpcode) {
+TEST_F(FunctionWithPass, GetSymbolicCalcOpcode)
+{
     EXPECT_EQ(RawSymbolicExpression::GetSymbolicCalcOpcode(SymbolicOpcode::T_BOP_ADD), "+");
     EXPECT_EQ(RawSymbolicExpression::GetSymbolicCalcOpcode(SymbolicOpcode::T_BOP_SUB), "-");
     // 类似地测试其他操作码
 }
 
-TEST_F(FunctionWithPass, Create) {
+TEST_F(FunctionWithPass, Create)
+{
     RawSymbolicScalarPtr operand1 = std::make_shared<RawSymbolicImmediate>(5);
     RawSymbolicScalarPtr operand2 = std::make_shared<RawSymbolicImmediate>(3);
 
@@ -864,7 +878,8 @@ TEST_F(FunctionWithPass, Create) {
     EXPECT_EQ(result2->Kind(), SymbolicScalarKind::T_SCALAR_SYMBOLIC_EXPRESSION);
 }
 
-TEST_F(FunctionWithPass, CreateBopOperations) {
+TEST_F(FunctionWithPass, CreateBopOperations)
+{
     RawSymbolicScalarPtr operand1 = std::make_shared<RawSymbolicImmediate>(5);
     RawSymbolicScalarPtr operand2 = std::make_shared<RawSymbolicImmediate>(3);
 
@@ -879,7 +894,8 @@ TEST_F(FunctionWithPass, CreateBopOperations) {
     // 类似地测试其他二元操作方法
 }
 
-TEST_F(FunctionWithPass, DumpBuffer) {
+TEST_F(FunctionWithPass, DumpBuffer)
+{
     RawSymbolicScalarPtr operand1 = std::make_shared<RawSymbolicImmediate>(5);
     RawSymbolicScalarPtr operand2 = std::make_shared<RawSymbolicImmediate>(3);
     RawSymbolicExpression expr(SymbolicOpcode::T_BOP_ADD, {operand1, operand2});
@@ -889,4 +905,4 @@ TEST_F(FunctionWithPass, DumpBuffer) {
     EXPECT_EQ(buffer.str(), "(5+3)");
 }
 
-}  // namespace
+} // namespace

@@ -18,6 +18,7 @@ import torch
 
 from . import pypto_impl
 from .converter import from_torch
+from .error import PyptoRtError
 
 __all__ = [
     "_device_init",
@@ -70,7 +71,7 @@ def _pto_to_tensor_data(tensors: List[pypto.Tensor]) -> List[pypto_impl.DeviceTe
     datas = []
     for t in tensors:
         if t.ori_shape is None:
-            raise RuntimeError("The ori_shape of the tensor is not specified.")
+            raise PyptoRtError(RuntimeError("The ori_shape of the tensor is not specified."))
         data = pypto_impl.DeviceTensorData(
             t.dtype,
             t.data_ptr,
@@ -83,7 +84,7 @@ def _pto_to_tensor_data(tensors: List[pypto.Tensor]) -> List[pypto_impl.DeviceTe
 def _device_run_once_data_from_host(*args):
     for i, t in enumerate(args):
         if not isinstance(t, pypto.Tensor):
-            raise TypeError(f"Expected a pypto.Tensor at inputs[{i}], but got {type(t).__name__}.")
+            raise PyptoRtError(TypeError(f"Expected a pypto.Tensor at inputs[{i}], but got {type(t).__name__}."))
     pypto_impl.DeviceRunOnceDataFromHost(
         _pto_to_tensor_data(args), [])
 
@@ -128,9 +129,11 @@ def verify(func, inputs, outputs, goldens, *args,
         verify_options = {"enable_pass_verify": True}
     pypto.set_verify_options(**verify_options)
 
-    pypto_impl.SetVerifyData(_pto_to_tensor_data(inputs),
-                             _pto_to_tensor_data(outputs),
-                             _pto_to_tensor_data(goldens))
+    pypto_impl.SetVerifyData(
+        _pto_to_tensor_data(inputs),
+        _pto_to_tensor_data(outputs),
+        _pto_to_tensor_data(goldens),
+    )
 
     inputs = [from_torch(t, f"IN_{idx}") for idx, t in enumerate(inputs)]
     outputs = [from_torch(t, f"OUT_{idx}") for idx, t in enumerate(outputs)]
@@ -143,17 +146,17 @@ def _check_tensor_on_cpu(tensor, kind: str, index: int):
     """Raise if tensor (torch.Tensor or pypto.Tensor) is on device; must be CPU-side."""
     if isinstance(tensor, torch.Tensor):
         if tensor.device.type != 'cpu':
-            raise ValueError(
+            raise PyptoRtError(ValueError(
                 f"set_verify_golden_data: {kind} must be on CPU, but {kind}[{index}] "
                 f"(torch.Tensor) is on device '{tensor.device}'. Please call .cpu() before passing."
-            )
+            ))
         return
     if isinstance(tensor, pypto.Tensor) and tensor.device is not None:
         if getattr(tensor.device, 'type', None) != 'cpu':
-            raise ValueError(
+            raise PyptoRtError(ValueError(
                 f"set_verify_golden_data: {kind} must be on CPU, but {kind}[{index}] "
                 f"(pypto.Tensor) is on device '{tensor.device}'. Please use CPU data, e.g. pypto.from_torch(t.cpu())."
-            )
+            ))
 
 
 def set_verify_golden_data(in_out_tensors=None, goldens=None):
@@ -186,5 +189,4 @@ def set_verify_golden_data(in_out_tensors=None, goldens=None):
             pto_in_out.append(t if isinstance(t, pypto.Tensor)
                               else pypto.from_torch(t))
 
-        pypto_impl.SetVerifyData(_pto_to_tensor_data(pto_in_out),
-                                 [], pto_goldens)
+        pypto_impl.SetVerifyData(_pto_to_tensor_data(pto_in_out), [], pto_goldens)

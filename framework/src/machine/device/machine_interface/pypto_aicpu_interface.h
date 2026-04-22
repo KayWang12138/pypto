@@ -19,28 +19,31 @@
 #include <mutex>
 #include "machine/utils/device_log.h"
 
-using TileFwkKernelServelEnty = int (*)(void *);
+using TileFwkKernelServelEnty = int (*)(void*);
 namespace npu::tile_fwk {
-  const std::string dynServerKernelFun = "DynTileFwkBackendKernelServer";
-  const std::string dynServerKernelInitFun = "DynTileFwkBackendKernelServerInit";
-  const uint64_t dyInitFuncKey = 2;
-  const uint64_t dyExecFuncKey = 3;
-  const uint64_t minSoLen = 1;
+const std::string dynServerKernelFun = "DynTileFwkBackendKernelServer";
+const std::string dynServerKernelInitFun = "DynTileFwkBackendKernelServerInit";
+const uint64_t dyInitFuncKey = 2;
+const uint64_t dyExecFuncKey = 3;
+const uint64_t minSoLen = 1;
 
 class BackendServerHandleManager {
 public:
-    bool SaveSoFile(char *data, const uint64_t &len, uint8_t deviceId = 0) {
+    bool SaveSoFile(char* data, const uint64_t& len, uint8_t deviceId = 0)
+    {
         std::lock_guard<std::mutex> lock(funcLock_);
         if (len < minSoLen || firstCreatSo_) {
             DEV_WARN("Aicpu so len less than 1, don't to copy");
             return true;
         }
-        pyptoServerSoName_ = "/usr/lib64/aicpu_kernels/0/aicpu_kernels_device/libpypto_server" +
-                                           std::to_string(deviceId) + ".so";
+        pyptoServerSoName_ =
+            "/usr/lib64/aicpu_kernels/0/aicpu_kernels_device/libpypto_server" + std::to_string(deviceId) + ".so";
         std::ofstream file(pyptoServerSoName_, std::ios::out | std::ios::binary);
         DEV_DEBUG("Begin to create server.so");
         if (!file) {
-            DEV_ERROR(DevCommonErr::FILE_ERROR, "#sche.task.pre.init.resource: Coundn't create file [%s]", pyptoServerSoName_.c_str());
+            DEV_ERROR(
+                DevCommonErr::FILE_ERROR, "#sche.task.pre.init.resource: Coundn't create file [%s]",
+                pyptoServerSoName_.c_str());
             return false;
         }
 
@@ -48,7 +51,9 @@ public:
         file.write(data, len);
 
         if (!file) {
-            DEV_ERROR(DevCommonErr::FILE_ERROR, "#sche.task.pre.init.resource: Write to file [%s] not success", pyptoServerSoName_.c_str());
+            DEV_ERROR(
+                DevCommonErr::FILE_ERROR, "#sche.task.pre.init.resource: Write to file [%s] not success",
+                pyptoServerSoName_.c_str());
             return false;
         }
         DEV_DEBUG("Create device[%u] server so [%s] success", deviceId, pyptoServerSoName_.c_str());
@@ -59,7 +64,8 @@ public:
 
     BackendServerHandleManager() = default;
 
-    void SetTileFwkKernelMap() {
+    void SetTileFwkKernelMap()
+    {
         std::lock_guard<std::mutex> lock(funcLock_);
         if (firstLoadSo_) {
             return;
@@ -69,34 +75,41 @@ public:
         firstLoadSo_ = true;
     }
 
-    inline int32_t ExecuteFunc(void *args, const uint64_t funcKey) {
+    inline int32_t ExecuteFunc(void* args, const uint64_t funcKey)
+    {
         auto func = GetTileFwkKernelFunc(funcKey);
         if (func == nullptr) {
-            DEV_ERROR(DevCommonErr::NULLPTR, "#sche.func.exec: kernel func[%lu] is invalid, cannot get from so %s", funcKey, pyptoServerSoName_.c_str()); 
+            DEV_ERROR(
+                DevCommonErr::NULLPTR, "#sche.func.exec: kernel func[%lu] is invalid, cannot get from so %s", funcKey,
+                pyptoServerSoName_.c_str());
             return -1;
         }
         return func(args);
     }
 
-    ~BackendServerHandleManager() {
+    ~BackendServerHandleManager()
+    {
         if (soHandle_) {
             DEV_INFO("Close handle");
             (void)dlclose(soHandle_);
         }
     }
+
 private:
-    void LoadTileFwkKernelFunc(const std::string &kernelName) {
+    void LoadTileFwkKernelFunc(const std::string& kernelName)
+    {
         if (soHandle_ == nullptr) {
             soHandle_ = dlopen(pyptoServerSoName_.c_str(), RTLD_LAZY | RTLD_DEEPBIND);
         }
         if (!soHandle_) {
-            DEV_ERROR(DevCommonErr::NULLPTR, "#sche.task.pre.kernel.load: Cannot open so %s", pyptoServerSoName_.c_str());
+            DEV_ERROR(
+                DevCommonErr::NULLPTR, "#sche.task.pre.kernel.load: Cannot open so %s", pyptoServerSoName_.c_str());
             return;
         }
         uint64_t funcKey = 0;
         if (kernelName == dynServerKernelInitFun) {
             funcKey = dyInitFuncKey;
-        } else if (kernelName == dynServerKernelFun){
+        } else if (kernelName == dynServerKernelFun) {
             funcKey = dyExecFuncKey;
         }
         DEV_DEBUG("Current to open kernel func: name=%s, funcKey=%lu.", kernelName.c_str(), funcKey);
@@ -105,10 +118,12 @@ private:
             return;
         }
 
-        TileFwkKernelServelEnty tileFwkServrFuncEnty = reinterpret_cast<TileFwkKernelServelEnty>(dlsym(soHandle_,
-                                                                                                kernelName.c_str()));
+        TileFwkKernelServelEnty tileFwkServrFuncEnty =
+            reinterpret_cast<TileFwkKernelServelEnty>(dlsym(soHandle_, kernelName.c_str()));
         if (tileFwkServrFuncEnty == nullptr) {
-            DEV_ERROR(DevCommonErr::NULLPTR, "#sche.task.pre.kernel.load: Current KernelName [%s] is null", kernelName.c_str());
+            DEV_ERROR(
+                DevCommonErr::NULLPTR, "#sche.task.pre.kernel.load: Current KernelName [%s] is null",
+                kernelName.c_str());
             (void)dlclose(soHandle_);
             return;
         }
@@ -117,7 +132,8 @@ private:
         return;
     }
 
-    TileFwkKernelServelEnty GetTileFwkKernelFunc(const uint64_t funcKey) {
+    TileFwkKernelServelEnty GetTileFwkKernelFunc(const uint64_t funcKey)
+    {
         auto iter = kernelKey2FuncHandle_.find(funcKey);
         if (iter != kernelKey2FuncHandle_.end()) {
             return iter->second;
@@ -128,15 +144,15 @@ private:
 
     std::unordered_map<uint64_t, TileFwkKernelServelEnty> kernelKey2FuncHandle_;
     std::mutex funcLock_;
-    void *soHandle_ = nullptr;
+    void* soHandle_ = nullptr;
     bool firstCreatSo_ = false;
     bool firstLoadSo_ = false;
     std::string pyptoServerSoName_;
 };
 
-}// end name space
+} // namespace npu::tile_fwk
 extern "C" {
-__attribute__((visibility("default"))) uint32_t DynPyptoKernelServer(void *args);
-__attribute__((visibility("default"))) uint32_t DynPyptoKernelServerInit(void *args);
+__attribute__((visibility("default"))) uint32_t DynPyptoKernelServer(void* args);
+__attribute__((visibility("default"))) uint32_t DynPyptoKernelServerInit(void* args);
 }
 #endif // TILE_FWK_AICPU_INTERFACE_H

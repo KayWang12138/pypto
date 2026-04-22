@@ -30,20 +30,23 @@ namespace npu::tile_fwk {
 
 namespace sheet {
 
-inline std::string Integer(int64_t value) {
+inline std::string Integer(int64_t value)
+{
     std::ostringstream oss;
     oss << value;
     return std::move(oss).str();
 }
 
-inline std::string HexaInteger(int64_t value) {
+inline std::string HexaInteger(int64_t value)
+{
     std::ostringstream oss;
     oss << std::hex << value;
     return std::move(oss).str();
 }
 
 template <int decimalPrecision = 1>
-std::string FixedFloat(float value) {
+std::string FixedFloat(float value)
+{
     std::ostringstream oss;
     oss << std::fixed << std::setprecision(decimalPrecision) << value;
     return std::move(oss).str();
@@ -53,18 +56,19 @@ std::string FixedFloat(float value) {
 
 class SheetFormatter {
 public:
-    explicit SheetFormatter(const std::vector<std::string> &titles, char boundary = '=', char separator = '-')
-        : columnTitles_(titles),
-          boundary_(boundary),
-          separator_(separator) {}
+    explicit SheetFormatter(const std::vector<std::string>& titles, char boundary = '=', char separator = '-')
+        : columnTitles_(titles), boundary_(boundary), separator_(separator)
+    {}
 
     template <typename... Args>
-    void AddRow(Args &&... args) {
-        DEV_ASSERT_MSG(DevDataErr::SHEET_COLUMN_MISMATCH, sizeof...(Args) == columnTitles_.size(),
+    void AddRow(Args&&... args)
+    {
+        DEV_ASSERT_MSG(
+            DevDataErr::SHEET_COLUMN_MISMATCH, sizeof...(Args) == columnTitles_.size(),
             "sizeof...(Args)=%zu != columnTitles_.size()=%zu", sizeof...(Args), columnTitles_.size());
         rows_.emplace_back();
         rows_.back().reserve(sizeof...(Args));
-        auto toString = [](auto &&arg) {
+        auto toString = [](auto&& arg) {
             if constexpr (std::is_same_v<std::decay_t<decltype(arg)>, std::string>) {
                 return arg;
             } else if constexpr (std::is_constructible_v<std::string, decltype(arg)>) {
@@ -76,15 +80,18 @@ public:
         (rows_.back().push_back(toString(std::forward<Args>(args))), ...);
     }
 
-    void AddRowSeparator(size_t fromColumn = 0, char c = '-') {
-        DEV_ASSERT_MSG(DevDataErr::SHEET_COLUMN_INDEX_OUT_OF_RANGE, fromColumn < columnTitles_.size(),
+    void AddRowSeparator(size_t fromColumn = 0, char c = '-')
+    {
+        DEV_ASSERT_MSG(
+            DevDataErr::SHEET_COLUMN_INDEX_OUT_OF_RANGE, fromColumn < columnTitles_.size(),
             "fromColumn=%zu >= columnTitles_.size()=%zu", fromColumn, columnTitles_.size());
         if (!rows_.empty()) {
-            rowSeparators_.push_back(RowSeparator { rows_.size(), fromColumn, c });
+            rowSeparators_.push_back(RowSeparator{rows_.size(), fromColumn, c});
         }
     }
 
-    std::vector<std::string> DumpLines() const {
+    std::vector<std::string> DumpLines() const
+    {
         if (columnTitles_.empty()) {
             return {};
         }
@@ -93,7 +100,7 @@ public:
         std::vector<size_t> columnWidths(columnTitles_.size());
         for (size_t col = 0; col < columnTitles_.size(); col++) {
             columnWidths[col] = columnTitles_[col].length();
-            for (auto &&row : rows_) {
+            for (auto&& row : rows_) {
                 columnWidths[col] = std::max(columnWidths[col], row[col].length());
             }
 

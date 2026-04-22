@@ -25,7 +25,8 @@ public:
 
     static void SetUpTestCase() {}
 
-    void SetUp() override {
+    void SetUp() override
+    {
         Program::GetInstance().Reset();
         config::Reset();
     }
@@ -33,11 +34,13 @@ public:
     void TearDown() override {}
 };
 
-TEST_F(DeterminismTest, Verify) {
+TEST_F(DeterminismTest, Verify)
+{
     constexpr int dtsize = 4;
     constexpr int dim = 32;
     constexpr int write = 16;
-    auto tensor = std::make_shared<TraceRawTensorMemory>(TraceMemoryRange(0, dim * dim * dtsize), std::vector<int64_t>({dim, dim}));
+    auto tensor = std::make_shared<TraceRawTensorMemory>(
+        TraceMemoryRange(0, dim * dim * dtsize), std::vector<int64_t>({dim, dim}));
 
     TraceCopy copy(true, tensor, {0, 0}, {write, write}, false);
     auto leafCopyOutList = std::vector<TraceCopy>({copy});
@@ -62,7 +65,7 @@ TEST_F(DeterminismTest, Verify) {
     });
 
     auto rootInList = std::vector<std::shared_ptr<TraceRawTensorMemory>>();
-    auto rootOutList =std::vector<std::shared_ptr<TraceRawTensorMemory>>();
+    auto rootOutList = std::vector<std::shared_ptr<TraceRawTensorMemory>>();
     auto root = std::make_shared<TraceRootTask>(TraceRootTaskUid(0, 0, 0));
     root->GetLeafTaskDict() = leafDict;
     root->GetIncastList() = rootInList;
@@ -103,13 +106,15 @@ TEST_F(DeterminismTest, Verify) {
     }
 }
 
-template<typename T>
-void LoadEvent(TraceExecution &exec, const T &event) {
+template <typename T>
+void LoadEvent(TraceExecution& exec, const T& event)
+{
     std::string trace = "#trace:" + event.Dump();
     exec.LoadTrace(trace);
 }
 
-TEST_F(DeterminismTest, LoadTrace) {
+TEST_F(DeterminismTest, LoadTrace)
+{
     using namespace npu::tile_fwk::schema;
 
     TraceExecution exec;
@@ -147,8 +152,10 @@ TEST_F(DeterminismTest, LoadTrace) {
     auto leafTask2 = exec.GetLeafTask(TraceLeafTaskUid(0, 0x7, 1, 2, 2));
     EXPECT_EQ(rootTask->GetLeafTaskDict()[leafTask1->GetUid()], leafTask1);
     EXPECT_EQ(rootTask->GetLeafTaskDict()[leafTask2->GetUid()], leafTask2);
-    EXPECT_EQ(leafTask1->GetCoaList(), std::vector<TraceCoa>({TraceCoa(1), TraceCoa(2), TraceCoa(3, true), TraceCoa(4)}));
-    EXPECT_EQ(leafTask2->GetCoaList(), std::vector<TraceCoa>({TraceCoa(5), TraceCoa(6), TraceCoa(7, true), TraceCoa(8)}));
+    EXPECT_EQ(
+        leafTask1->GetCoaList(), std::vector<TraceCoa>({TraceCoa(1), TraceCoa(2), TraceCoa(3, true), TraceCoa(4)}));
+    EXPECT_EQ(
+        leafTask2->GetCoaList(), std::vector<TraceCoa>({TraceCoa(5), TraceCoa(6), TraceCoa(7, true), TraceCoa(8)}));
 }
 
 } // namespace npu::tile_fwk

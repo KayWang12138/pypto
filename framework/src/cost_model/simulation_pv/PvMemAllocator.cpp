@@ -16,29 +16,33 @@
 #include "PvMemAllocator.h"
 
 namespace CostModel {
-    PvMemAllocator::PvMemAllocator() {
-        hbmParaBase_ = 0xffff8000;
-        codeBase_ = 0xffffc000;
-        argBase_ = 0x30000000;
-        workspaceBase_ = 0x80000000;
-    }
+PvMemAllocator::PvMemAllocator()
+{
+    hbmParaBase_ = 0xffff8000;
+    codeBase_ = 0xffffc000;
+    argBase_ = 0x30000000;
+    workspaceBase_ = 0x80000000;
+}
 
-    uint64_t PvMemAllocator::AllocWorkspace(uint64_t size) {
-        uint64_t addr = workspaceBase_;
-        workspaceBase_ += size;
-        return addr;
-    }
-    
-    uint64_t PvMemAllocator::AllocArg(uint64_t size) {
-        uint64_t addr = argBase_;
-        argBase_ += ((size + 128 - 1) / 128 * 128);
-        return addr;
-    }
-    
-    uint64_t PvMemAllocator::AllocCode(uint64_t size) {
-        (void)size;
-        uint64_t addr = codeBase_;
-        return addr;
-    }
+uint64_t PvMemAllocator::AllocWorkspace(uint64_t size)
+{
+    uint64_t addr = workspaceBase_;
+    workspaceBase_ += size;
+    return addr;
+}
+
+uint64_t PvMemAllocator::AllocArg(uint64_t size)
+{
+    uint64_t addr = argBase_;
+    argBase_ += ((size + 128 - 1) / 128 * 128);
+    return addr;
+}
+
+uint64_t PvMemAllocator::AllocCode(uint64_t size)
+{
+    (void)size;
+    uint64_t addr = codeBase_;
+    return addr;
+}
 
 } // namespace CostModel

@@ -21,7 +21,8 @@ namespace npu::tile_fwk {
 constexpr float F_1 = 1.0;
 constexpr float F_NEGA_1 = -1.0;
 
-Tensor Sigmoid(Tensor &input) {
+Tensor Sigmoid(Tensor& input)
+{
     // 1/(1+exp(-x))
     auto dtype = input.GetStorage()->Datatype();
     if (dtype != DT_FP32) {

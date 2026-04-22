@@ -4,7 +4,7 @@
 
 | 产品             | 是否支持 |
 |:-----------------|:--------:|
-| Atlas A5 训练系列产品/Atlas A5 推理系列产品 |    √     |
+| Ascend 950PR/Ascend 950DT |    √     |
 | Atlas A3 训练系列产品/Atlas A3 推理系列产品 |    √     |
 | Atlas A2 训练系列产品/Atlas A2 推理系列产品 |    √     |
 
@@ -37,8 +37,7 @@ def floor_div(input: Tensor, other: Union[Tensor, int]) -> Tensor
 ## 约束说明
 
 1. input 和 other 数据类型应该相同。
-2. other 中不能包含$0$值。
-3. 只支持单轴广播。
+2. 只支持单轴广播。
 
 ## 调用示例
 
@@ -67,7 +66,7 @@ out = pypto.floor_div(a, b)
 结果示例如下：
 
 ```python
-输入数据a:    [[2 4 6]] 
+输入数据a:    [[2 4 6]]
 输入数据b:    [[4 2 5]]
 输出数据out:  [[0 2 1]]
 ```

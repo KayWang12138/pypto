@@ -21,30 +21,32 @@
 
 using namespace npu::tile_fwk;
 
-Status Process(Function &function) {
+Status Process(Function& function)
+{
     bool hasDeleted = false;
-    for (auto &op : function.Operations()) {
+    for (auto& op : function.Operations()) {
         if (op.GetOpcode() != Opcode::OP_ASSEMBLE_SSA) {
             continue;
         }
         if (!op.HasAttribute(OpAttributeKey::inplaceIdx)) {
-            APASS_LOG_ERROR_F(Elements::Operation, "Missing required attribute 'INPLACE_IDX' for ASSEMBLE_SSA [%d]. %s", 
-                              op.GetOpMagic(), GetFormatBacktrace(op).c_str());
+            APASS_LOG_ERROR_F(
+                Elements::Operation, "Missing required attribute 'INPLACE_IDX' for ASSEMBLE_SSA [%d]. %s",
+                op.GetOpMagic(), GetFormatBacktrace(op).c_str());
             return FAILED;
         }
         auto inplaceIdx = op.GetIntAttribute(OpAttributeKey::inplaceIdx);
         auto iOperand = op.GetInputOperand(inplaceIdx);
         if (iOperand->GetProducers().size() != 1) {
-            APASS_LOG_ERROR_F(Elements::Operation, 
-                              "Invalid producer count for ASSEMBLE_SSA [%d]. Expected 1, got %zu. %s", 
-                              op.GetOpMagic(), iOperand->GetProducers().size(), GetFormatBacktrace(op).c_str());
+            APASS_LOG_ERROR_F(
+                Elements::Operation, "Invalid producer count for ASSEMBLE_SSA [%d]. Expected 1, got %zu. %s",
+                op.GetOpMagic(), iOperand->GetProducers().size(), GetFormatBacktrace(op).c_str());
             return FAILED;
         }
-        auto &producerOp = **iOperand->GetProducers().begin();
+        auto& producerOp = **iOperand->GetProducers().begin();
         if (producerOp.GetOpcode() != Opcode::OP_VIEW) {
-            APASS_LOG_ERROR_F(Elements::Operation, 
-                              "Invalid producer type for ASSEMBLE_SSA [%d]. Expected OP_VIEW, got %s. %s", 
-                              op.GetOpMagic(), producerOp.GetOpcodeStr().c_str(), GetFormatBacktrace(op).c_str());
+            APASS_LOG_ERROR_F(
+                Elements::Operation, "Invalid producer type for ASSEMBLE_SSA [%d]. Expected OP_VIEW, got %s. %s",
+                op.GetOpMagic(), producerOp.GetOpcodeStr().c_str(), GetFormatBacktrace(op).c_str());
             return FAILED;
         }
         if (!producerOp.GetInputOperand(0)->GetProducers().empty()) {
@@ -65,7 +67,8 @@ Status Process(Function &function) {
     return SUCCESS;
 }
 
-Status RemoveUndrivenView::RunOnFunction(Function &function) {
+Status RemoveUndrivenView::RunOnFunction(Function& function)
+{
     APASS_LOG_INFO_F(Elements::Function, "===> Start RemoveUndrivenView.");
     if (Process(function) != SUCCESS) {
         APASS_LOG_ERROR_F(Elements::Function, "===> Process failed.");

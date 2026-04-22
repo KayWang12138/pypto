@@ -13,13 +13,15 @@ from typing import Union
 from .. import pypto_impl
 from ..enum import ScatterMode
 from .._op_wrapper import op_wrapper
+from ..error import PyptoError
 from ..tensor import Tensor
 from .._element import Element
 from ..tensor import Tensor
 
 
+# will be delated
 @op_wrapper
-def index_add_(
+def index_add__ub(
     input: Tensor, dim: int, index: Tensor, source: Tensor, *, alpha: Union[int, float] = 1
     ) -> Tensor:
     """
@@ -86,7 +88,27 @@ def index_add_(
                 [1 1 1]]               # shape (2, 3)
     """
 
-    input.Move(pypto_impl.IndexAdd(input, source, index, dim, pypto_impl.Element(input.dtype, alpha)))
+    input.Move(pypto_impl.IndexAddUB(input, source, index, dim, pypto_impl.Element(input.dtype, alpha)))
+    return input
+
+
+# will be delated
+@op_wrapper
+def index_add_ub(
+    input: Tensor, dim: int, index: Tensor, source: Tensor, *, alpha: Union[int, float] = 1
+    ) -> Tensor:
+    """
+    The out-of-place version of index_add_()
+    """
+
+    return pypto_impl.IndexAddUB(input, source, index, dim, pypto_impl.Element(input.dtype, alpha))
+
+
+@op_wrapper
+def index_add_(
+    input: Tensor, dim: int, index: Tensor, source: Tensor, *, alpha: Union[int, float] = 1
+    ) -> Tensor:
+    pypto_impl.IndexAdd_(input, source, index, dim, pypto_impl.Element(input.dtype, alpha))
     return input
 
 
@@ -97,8 +119,9 @@ def index_add(
     """
     The out-of-place version of index_add_()
     """
-
-    return pypto_impl.IndexAdd(input, source, index, dim, pypto_impl.Element(input.dtype, alpha))
+    input0 = input
+    pypto_impl.IndexAdd_(input0, source, index, dim, pypto_impl.Element(input.dtype, alpha))
+    return input0
 
 
 @op_wrapper
@@ -106,7 +129,7 @@ def index_put_(
     input: Tensor, indices: tuple, values: Tensor, accumulate: bool = False
     ) -> None:
     """
-    Puts values from the tensor `values` into the tensor `input` using the 
+    Puts values from the tensor `values` into the tensor `input` using the
     indices specified in `indices`(which is a tuple of Tensors).
 
     With different numbers of tensors in indices, this function specified output as:
@@ -119,12 +142,12 @@ def index_put_(
     input : Tensor
         Source tensor that needs to be updated in place.
     indices : a tuple of 1-dimensional Tensor(s)
-        The i-th 1-dimensional tensor represents the index along the 
-        i-th dimension in `input`, with a dtype of either int64 or int32. 
+        The i-th 1-dimensional tensor represents the index along the
+        i-th dimension in `input`, with a dtype of either int64 or int32.
         Broadcasting is not currently supported, and each 1-dimensional
         tensor must have the same length.
     values : Tensor
-        Tensor of the same dtype as self. Broadcasting is not currently 
+        Tensor of the same dtype as self. Broadcasting is not currently
         supported. The size of the first dimension of `values` must be
         the same as the length of the 1-dimensional tensors in `indices`.
         All other dimensions must match `input`.
@@ -232,7 +255,7 @@ def index_select(input: Tensor, dim: int, index: Tensor) -> Tensor:
 
     Output shape
     out.shape = (S₀,…,S_{dim-1}, I₀,…,I_{m-1}, S_{dim+1},…,S_{n-1}).
-    That is, the dimension `S_dim` in `param` is replaced by the full shape of `indices`, 
+    That is, the dimension `S_dim` in `param` is replaced by the full shape of `indices`,
     while all other dimensions of `param` are preserved.
 
     For any multi-indices
@@ -388,14 +411,16 @@ def scatter_update(input: Tensor, dim: int, index: Tensor, src: Tensor) -> Tenso
              ]]
     """
     if dim != -2:
-        raise ValueError("scatter currection only support the case where dim = -2.")
+        raise PyptoError(0xF00002, ValueError(
+            "scatter currection only support the case where dim = -2."
+            ))
     dims = input.Dim()
     if dims == 4:
         chunk_size = input.GetShape()[1]
     elif dims == 2:
         chunk_size = 1
     else:
-        raise ValueError("dim must be 2 or 4")
+        raise PyptoError(0xF00002, ValueError("dim must be 2 or 4"))
 
     return pypto_impl.ScatterUpdate(input, index, src, -2, "PA_BSND", chunk_size)
 
@@ -408,7 +433,9 @@ def get_scatter_mode(reduce: str):
     elif reduce == 'multiply':
         return ScatterMode.MULTIPLY
     else:
-        raise ValueError("scatter reduce only support 'add', 'multiply'")
+        raise PyptoError(0xF00002, ValueError(
+            "scatter reduce only support 'add', 'multiply'"
+            ))
 
 
 @op_wrapper
@@ -443,7 +470,7 @@ def scatter_(
     RuntimeError
         If the dimension of 'index' is not equal to the dimension of 'input'.
         If the index.size(d) > input.size(d)
-        If the index.size(d) > src.size(d) when src is Tensor and d != dim 
+        If the index.size(d) > src.size(d) when src is Tensor and d != dim
         If the value of 'input[i][j][k]' is bigger than the shape size of the dimension of 'input'.
 
     See Also
@@ -467,7 +494,9 @@ def scatter_(
                 [0   2.0 0 0 0]]
     """
     if index.dtype not in (pypto_impl.DT_INT32, pypto_impl.DT_INT64):
-        raise TypeError(f"index tensor must be of int32 or int64, but got {index.dtype}")
+        raise PyptoError(0xF00001, TypeError(
+            f"index tensor must be of int32 or int64, but got {index.dtype}"
+            ))
     scatter_mode = get_scatter_mode(reduce)
     if isinstance(src, (int, float)):
         src_float = float(src)
@@ -480,7 +509,9 @@ def scatter_(
         input.Move(pypto_impl.Scatter(input, index, src, dim, scatter_mode))
         return input
     else:
-        raise TypeError(f"Expected src to be int, float, Element, or Tensor, but got {type(src).__name__}")
+        raise PyptoError(0xF00001, TypeError(
+            f"Expected src to be int, float, Element, or Tensor, but got {type(src).__name__}"
+            ))
 
 
 @op_wrapper
@@ -488,7 +519,9 @@ def scatter(
     input: Tensor, dim: int, index: Tensor, src: Union[float, Element, Tensor], *, reduce: str = None) -> Tensor:
     """Out-of-place version of 'scatter_'."""
     if index.dtype not in (pypto_impl.DT_INT32, pypto_impl.DT_INT64):
-        raise TypeError(f"index tensor must be of int32 or int64, but got {index.dtype}")
+        raise PyptoError(0xF00001, TypeError(
+            f"index tensor must be of int32 or int64, but got {index.dtype}"
+            ))
     scatter_mode = get_scatter_mode(reduce)
     if isinstance(src, (int, float)):
         src_float = float(src)
@@ -498,16 +531,17 @@ def scatter(
     elif isinstance(src, pypto_impl.Tensor):
         return pypto_impl.Scatter(input, index, src, dim, scatter_mode)
     else:
-        raise TypeError(
-            f"Expected src to be int, float, Element, or Tensor, but got {type(src).__name__}")
+        raise PyptoError(0xF00001, TypeError(
+            f"Expected src to be int, float, Element, or Tensor, but got {type(src).__name__}"
+            ))
 
 
 @op_wrapper
 def gathermask(self: Tensor, pattern_mode: int) -> Tensor:
     """
-    Based on the built-in Mask selected by PatternMode, 
-    the positions in the self Tensor where the corresponding Bit is 1 form the output Tensor, 
-    and the values where the Bit is 0 are directly discarded. 
+    Based on the built-in Mask selected by PatternMode,
+    the positions in the self Tensor where the corresponding Bit is 1 form the output Tensor,
+    and the values where the Bit is 0 are directly discarded.
     There are 7 modes for PatternMode:
     - PatternMode=1: Take the first element of every two elements in the last axis.
     - PatternMode=2: Take the second element of every two elements in the last axis.
@@ -527,10 +561,10 @@ def gathermask(self: Tensor, pattern_mode: int) -> Tensor:
     Returns
     -------
     Tensor
-        A new tensor, with the same dtype as `self`, and the Shape of the output Tensor is as follows: 
-        - pattern_mode <= 2, the output shape's trailing axis is self.shape's trailing axis / 2, 
+        A new tensor, with the same dtype as `self`, and the Shape of the output Tensor is as follows:
+        - pattern_mode <= 2, the output shape's trailing axis is self.shape's trailing axis / 2,
             while other axes match the self shape.
-        - When 2 < pattern_mode < 7, the output shape's trailing axis is self.shape's trailing axis divided by 4, 
+        - When 2 < pattern_mode < 7, the output shape's trailing axis is self.shape's trailing axis divided by 4,
             while other axes remain consistent with the self shape.
         - pattern_mode = 7, output shape = self shape.
     Raises

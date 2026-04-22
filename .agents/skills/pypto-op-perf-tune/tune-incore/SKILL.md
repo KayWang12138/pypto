@@ -1,0 +1,180 @@
+---
+name: tune-incore
+description: PyPTO 算子核内性能调优技能。通过分析单 task 的实现指令及 operation，完成核内的性能调优，包括指令级优化、核内流水优化、特殊 Shape 处理等。当用户需要进行核内性能调优、单 task 耗时分析、指令级优化时使用此技能。触发词：核内性能调优、单 task 优化、指令级优化、核内流水、Operation 实现优化。
+---
+
+# PyPTO 算子核内性能调优
+
+## 概述
+
+核内性能调优通过分析单 task 的实现指令及 operation，完成核内的性能调优。适用于深度性能调优后仍需要进一步优化的场景。
+
+## 前置条件
+
+1. **完成深度性能调优**：泳道图分析和合图调优已完成
+2. **精度校验通过**：确保算子计算正确
+3. **识别出单 task 瓶颈**：通过泳道图定位到耗时较长的 task
+
+## 调优方向
+
+### 1. 特殊 Shape 处理
+
+#### 1.1 小 Shape 矩阵乘优化
+
+当矩阵 Shape 较特殊时，可以使用 Vector 操作提前处理输入矩阵。
+
+**案例**：左右矩阵 Shape 分别为 (884736, 16) 和 (16, 16) 的矩阵乘
+
+```python
+def matmul_kernel(a, b, out):
+    # 构造 c：将四个重复的右矩阵在对角线拼成 (64, 64)
+    pypto.set_vec_tile_shapes(64, 64)
+    d = pypto.full([16, 16], 0.0, pypto.DT_BF16)
+    c1 = pypto.concat([b, d, d, d], 1)
+    c2 = pypto.concat([d, b, d, d], 1)
+    c3 = pypto.concat([d, d, b, d], 1)
+    c4 = pypto.concat([d, d, d, b], 1)
+    c = pypto.concat([c1, c2, c3, c4], 0)
+
+    # a 变形
+    a = pypto.reshape(a, [221184, 64])
+
+    # 矩阵乘
+    pypto.set_pass_options(cube_l1_reuse_setting={-1: 9})
+    pypto.set_cube_tile_shapes([512, 512], [64, 64], [64, 64], True)
+    e = pypto.matmul(a, c, pypto.DT_BF16)
+    e = pypto.reshape(e, [884736, 16])
+    pypto.assemble(e, [0, 0], out)
+```
+
+**效果**：从 500us 优化到 40us
+
+### 2. 增加冗余计算避免冗余依赖
+
+通过增加冗余计算来避免冗余依赖和搬运。
+
+**案例**：GLM MoE Fusion
+
+```python
+# 将 e_score_bias_2d 复制 tile_batch 份后进行 cast 操作
+# 使每一份的 cast 都和对应 batch 的其他操作进行了合图
+# 避免一对多的子图依赖，减少调度开销和搬运
+
+e_score_bias_2d_tile = pypto.tensor([tile_batch, ne], e_score_bias_2d.dtype, "e_score_bias_2d_tile")
+for tmp_idx in range(tile_batch):
+    pypto.assemble(e_score_bias_2d, [tmp_idx, 0], e_score_bias_2d_tile)
+e_score_bias_2d_cast = pypto.cast(e_score_bias_2d_tile, tile_logits_fp32.dtype)
+```
+
+### 3. 尾轴长度优化
+
+尽量避免处理尾轴长度较小的 Tensor。
+
+**解决方案**：
+- 使用 concat、transpose 或 reshape 等 Operation 来增大尾轴
+- 设置较大的 TileShape
+
+### 4. L2 Cache 策略
+
+设置合理的 L2 Cache Mode，对于只访问一次的 Global Memory 数据设置其访问状态为不进入 L2 Cache。
+
+```python
+# 设置 L2 Cache 策略
+tensor.set_cache_policy(...)
+```
+
+### 5. TileOperation 实现检查
+
+当进行上述优化后算子性能仍然较差时，需要考虑 TileOperation 本身实现是否较差。
+
+**排查方法**：
+1. 构造单独 Operation 的用例
+2. 与 Ascend C 小算子的性能对比
+3. 确认性能较差后检查是否使用了更优的指令
+
+## 调优检查清单
+
+**⛔ 必须按以下清单逐项执行。每项标记为 ✅已尝试 或 ❌已失败（附原因），禁止跳过。完整优化点信息参考 [shared/optimization_catalog.md](../shared/optimization_catalog.md)。**
+
+**优化优先级**：
+1. ⭐⭐⭐ **P0 - 特殊 Shape 处理** → 详见 [I-1]
+2. ⭐⭐ **P1 - 依赖与搬运优化** → 详见 [I-2][I-3]
+3. ⭐ **P2 - Cache 与实现检查** → 详见 [I-4][I-5]
+
+**🔥 P0 - 特殊 Shape [I-1]**：
+- [ ] [I-1] Matmul 的 Shape 是否特殊（如 M 很大 N 很小）
+- [ ] 是否可以用 Vector 预处理构造标准 Shape
+
+**P1 - 依赖与搬运 [I-2~I-3]**：
+- [ ] [I-2] 是否存在一对多的子图依赖（可通过冗余计算消除）
+- [ ] [I-3] 尾轴是否过小（< 32B 对齐）
+
+**P2 - Cache 与实现 [I-4~I-5]**：
+- [ ] [I-4] 只读一次的数据是否设置了 L2 Cache 策略
+- [ ] [I-5] 单个 Operation 是否与 Ascend C 对比过性能
+
+
+## 常见问题
+
+### Q1: 何时需要进行核内性能调优？
+
+A: 当深度性能调优后，泳道图显示某个或某些 task 耗时明显过长，且无法通过 Stitch、TileShape、合图等方式优化时。
+
+### Q2: 如何判断 Operation 实现效率低？
+
+A:
+1. 构造单独 Operation 的测试用例
+2. 与 Ascend C 小算子性能对比
+3. 如果差距明显，说明 Operation 实现可能需要优化
+
+### Q3: 增加冗余计算会影响精度吗？
+
+A: 不会。冗余计算是指增加一些不影响最终结果的计算（如复制数据），目的是优化调度和合图，不会改变计算逻辑。
+
+## L2 Cache 策略优化
+
+L2 Cache 命中率直接影响核内数据搬运效率，尤其对 Cube 类算子（matmul）影响显著。
+
+**优化策略**：
+
+1. **数据预取**：对连续访问的大块数据，确保访问模式为顺序访问以利用硬件预取
+2. **TileShape 对齐**：将 TileShape 的内积轴（K 轴）设置为 L2 Cache 行大小的整数倍（通常 256B 或 512B）
+3. **双缓冲**：对前后依赖的计算步骤使用 ping-pong buffer 隐藏搬运延迟
+
+**代码示例**：
+
+```python
+# 设置 cube tile shapes 使 K 轴对齐 256B
+# FP16: 256B = 128 elements, BF16: 256B = 128 elements
+pypto.set_cube_tile_shapes([128, 128], [128, 128], [128, 128])
+```
+
+## TileOperation 检查流程
+
+对核内每个 TileOperation，按以下流程检查效率：
+
+1. **检查操作数连续性**：输入 tensor 是否在内存中连续，不连续需先调用 `pypto.reshape` 或 `pypto.transpose` 调整
+2. **检查数据搬运方向**：Gather → 从 HBM 到 L1 应使用 `set_cube_tile_shapes` 配置的块大小；Scatter → 从 L1 到 HBM 应使用 `pypto.assemble`
+3. **检查计算与搬运重叠**：使用 `submit_before_loop=True` 确保子循环正确提交
+
+## 尾轴优化案例
+
+**场景**：尾轴为 1 或非整除时，最后一块数据量小于固定块大小
+
+**问题**：最后一块可能触发额外的零填充计算，浪费算力
+
+**优化方案**：
+
+```python
+# 使用 valid_shape 标记有效数据范围
+for i in pypto.loop(range(total_tiles)):
+    tile = pypto.view(input, shape=[BLOCK_SIZE], offsets=[i * BLOCK_SIZE], valid_shape=[actual_last_size if i == last_tile else BLOCK_SIZE])
+    result = compute(tile)
+    pypto.assemble(result, offsets=[i * BLOCK_SIZE], output=output)
+```
+
+## 参考资料
+
+- [性能调优文档](../../../../docs/tutorials/debug/performance.md)
+- [GLM MoE Fusion 案例](../../../../models/glm_v4_5/glm_moe_fusion.py)
+- [MLA Prolog Quant 案例](../../../../models/deepseek_v32_exp/mla_prolog_quant_impl.py)

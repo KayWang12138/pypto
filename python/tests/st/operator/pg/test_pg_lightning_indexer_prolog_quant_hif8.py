@@ -221,7 +221,7 @@ def indexer_prolog(inputs_initial: dict, dims: dict, precision: str = "same"):
     s = t // b
 
     if precision == "high":
-        inputs = {k: v.to(torch.float32) if v.dtype in [torch.bfloat16, torch.float16] else v.clone() 
+        inputs = {k: v.to(torch.float32) if v.dtype in [torch.bfloat16, torch.float16] else v.clone()
                     for k, v in inputs_initial.items()}
     elif precision == "same":
         inputs = inputs_initial
@@ -249,8 +249,8 @@ def indexer_prolog(inputs_initial: dict, dims: dict, precision: str = "same"):
     sin = sin.view(-1, 1, 1, rope_head_dim)
 
     # q quant matmul
-    q_proj = torch_npu.npu_quant_matmul(q_norm.view(t, q_lora_rank), w_idx_qb.view(q_lora_rank, n * d), 
-        w_idx_qb_scale.view(n * d), pertoken_scale=q_norm_scale.view(t), x1_dtype=torch_npu.hifloat8, 
+    q_proj = torch_npu.npu_quant_matmul(q_norm.view(t, q_lora_rank), w_idx_qb.view(q_lora_rank, n * d),
+        w_idx_qb_scale.view(n * d), pertoken_scale=q_norm_scale.view(t), x1_dtype=torch_npu.hifloat8,
         x2_dtype=torch_npu.hifloat8, output_dtype=x_dtype).view(b, s, n, d)
 
     # q rope
@@ -401,12 +401,12 @@ def lightning_indexer_prolog_quant_hif8_pypto(x, q_norm, q_norm_scale, w_qb, w_q
         return q_hif8, q_scale, k_hif8, k_scale, weights
 
     lightning_indexer_prolog_quant(x, q_norm, q_norm_scale, w_qb, w_qb_scale, wk, w_proj, gamma_k, cos_idx_rope,
-        sin_idx_rope, hadamard_q, hadamard_k, k_cache, k_scale_cache, k_cache_index, k_scale_cache_index, 
+        sin_idx_rope, hadamard_q, hadamard_k, k_cache, k_scale_cache, k_cache_index, k_scale_cache_index,
         q_hif8, q_scale, k_hif8, k_scale, weights)
 
-    k_hif8 = k_hif8.view(block_num, -1)[:, k_storage_offset: 
+    k_hif8 = k_hif8.view(block_num, -1)[:, k_storage_offset:
         k_storage_offset + block_size * n_kv * head_dim].view(block_num, block_size, n_kv, head_dim)
-    k_scale = k_scale.view(block_num, -1)[:, k_scale_storage_offset: 
+    k_scale = k_scale.view(block_num, -1)[:, k_scale_storage_offset:
         k_scale_storage_offset + block_size * n_kv * 1].view(block_num, block_size, n_kv, 1)
 
     q_hif8 = q_hif8.view(t, head_num, head_dim)

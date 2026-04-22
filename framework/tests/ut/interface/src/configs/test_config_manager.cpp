@@ -29,7 +29,8 @@ public:
     void TearDown() override {}
 };
 
-TEST_F(TestConfigManager, PassGloablConfig) {
+TEST_F(TestConfigManager, PassGloablConfig)
+{
     {
         auto ret = config::GetPassGlobalConfig(KEY_PASS_THREAD_NUM, 0);
         EXPECT_EQ(ret, 1);
@@ -47,15 +48,17 @@ TEST_F(TestConfigManager, PassGloablConfig) {
     }
 }
 
-TEST_F(TestConfigManager, PassDefaultConfig) {
-        auto ret = config::GetPassDefaultConfig(KEY_PRINT_GRAPH, true);
-        EXPECT_EQ(ret, false);
-        config::SetPassDefaultConfig(KEY_PRINT_GRAPH, true);
-        ret = config::GetPassDefaultConfig(KEY_PRINT_GRAPH, false);
-        EXPECT_EQ(ret, true);
+TEST_F(TestConfigManager, PassDefaultConfig)
+{
+    auto ret = config::GetPassDefaultConfig(KEY_PRINT_GRAPH, true);
+    EXPECT_EQ(ret, false);
+    config::SetPassDefaultConfig(KEY_PRINT_GRAPH, true);
+    ret = config::GetPassDefaultConfig(KEY_PRINT_GRAPH, false);
+    EXPECT_EQ(ret, true);
 }
 
-TEST_F(TestConfigManager, PassStrategies2) {
+TEST_F(TestConfigManager, PassStrategies2)
+{
     {
         auto ret = ConfigManager::Instance().GetPassConfigs("PVC2_OOO", "RemoveRedundantReshape");
         EXPECT_EQ(ret.dumpGraph, false);
@@ -67,7 +70,8 @@ TEST_F(TestConfigManager, PassStrategies2) {
     }
 }
 
-TEST_F(TestConfigManager, PassStrategies3) {
+TEST_F(TestConfigManager, PassStrategies3)
+{
     // set default config useless
     auto ret = ConfigManager::Instance().GetPassConfigs("PVC2_OOO", "RemoveRedundantReshape");
     EXPECT_EQ(ret.expectedValueCheck, false);
@@ -77,8 +81,9 @@ TEST_F(TestConfigManager, PassStrategies3) {
     EXPECT_EQ(ret.expectedValueCheck, true);
 }
 
-TEST_F(TestConfigManager, Dump) {
-    auto &cm = ConfigManagerNg::GetInstance();
+TEST_F(TestConfigManager, Dump)
+{
+    auto& cm = ConfigManagerNg::GetInstance();
 
     cm.BeginScope("scope1", {{"pass.pg_lower_bound", 10L}});
     auto scope1 = cm.CurrentScope();
@@ -113,19 +118,18 @@ TEST_F(TestConfigManager, Dump) {
     std::cout << scope3->ToString() << std::endl;
 }
 
-
-constexpr const char *ERROR_KEY_WORD = "its value doesn't within the value range";
+constexpr const char* ERROR_KEY_WORD = "its value doesn't within the value range";
 template <typename T>
 bool RangeTest(
-    const std::unordered_map<std::string, std::vector<T>> &input,
-    void (*SetFunc)(const std::string &, const T &),
-    std::string group) {
-    for (auto &[key, val] : input) {
+    const std::unordered_map<std::string, std::vector<T>>& input, void (*SetFunc)(const std::string&, const T&),
+    std::string group)
+{
+    for (auto& [key, val] : input) {
         for (auto it : val) {
             T rlv = it;
             try {
                 SetFunc(group + "." + key, std::move(rlv));
-            } catch (const std::exception &e) {
+            } catch (const std::exception& e) {
                 std::stringstream ss;
                 ss << e.what();
                 std::string errStr(ss.str());
@@ -141,85 +145,65 @@ bool RangeTest(
     return true;
 }
 
-TEST_F(TestConfigManager, NormalRuntimeTest) {
+TEST_F(TestConfigManager, NormalRuntimeTest)
+{
     std::unordered_map<std::string, std::vector<int64_t>> input = {
-        {DEVICE_SCHED_MODE, {0, 1, 2, 3}},
-        {STITCH_FUNCTION_INNER_MEMORY, {1, INT_MAX}},
-        {STITCH_FUNCTION_OUTCAST_MEMORY, {1, INT_MAX}},
-        {STITCH_FUNCTION_NUM_INITIAL, {1, 128}},
-        {STITCH_FUNCTION_NUM_STEP, {0, 128}},
-        {STITCH_CFGCACHE_SIZE, {0, 100000000}},
-        {STITCH_FUNCTION_SIZE, {1, 65535}},
-        {CFG_RUN_MODE, {0, 1}},
+        {DEVICE_SCHED_MODE, {0, 1, 2, 3}},      {STITCH_FUNCTION_MAX_NUM, {1, 1024}},
+        {STITCH_CFGCACHE_SIZE, {0, 100000000}}, {CFG_RUN_MODE, {0, 1}},
         {CFG_VALID_SHAPE_OPTIMIZE, {0, 1}},
     };
     bool ret = RangeTest<int64_t>(input, &(config::SetOptionsNg), "runtime");
     EXPECT_EQ(ret, true);
 }
 
-TEST_F(TestConfigManager, AbnormalRuntimeTest) {
-    int64_t outVal = INT_MAX;
-    ++outVal;
+TEST_F(TestConfigManager, AbnormalRuntimeTest)
+{
     std::unordered_map<std::string, std::vector<int64_t>> input = {
-        {DEVICE_SCHED_MODE, {-1, 4}},
-        {STITCH_FUNCTION_INNER_MEMORY, {0, outVal}},
-        {STITCH_FUNCTION_OUTCAST_MEMORY, {0, outVal}},
-        {STITCH_FUNCTION_NUM_INITIAL, {0, 129}},
-        {STITCH_FUNCTION_NUM_STEP, {-1, 129}},
-        {STITCH_CFGCACHE_SIZE, {-1, 100000001}},
-        {STITCH_FUNCTION_SIZE, {0, 65536}},
-        {CFG_RUN_MODE, {-1, 2}},
-        {CFG_VALID_SHAPE_OPTIMIZE, {-1, 2}},
+        {DEVICE_SCHED_MODE, {-1, 4}}, {STITCH_FUNCTION_MAX_NUM, {0, 1025}}, {STITCH_CFGCACHE_SIZE, {-1, 100000001}},
+        {CFG_RUN_MODE, {-1, 2}},      {CFG_VALID_SHAPE_OPTIMIZE, {-1, 2}},
     };
     bool ret = RangeTest<int64_t>(input, &(config::SetOptionsNg), "runtime");
     EXPECT_EQ(ret, true);
 }
 
-TEST_F(TestConfigManager, NormalPassTest) {
+TEST_F(TestConfigManager, NormalPassTest)
+{
     std::unordered_map<std::string, std::vector<int64_t>> input = {
-        {SG_PARALLEL_NUM, {0, INT_MAX}},
-        {SG_PG_UPPER_BOUND, {0, INT_MAX}},
-        {SG_PG_LOWER_BOUND, {0, INT_MAX}},
-        {MG_COPYIN_UPPER_BOUND, {0, INT_MAX}},
-        {MG_VEC_PARALLEL_LB, {1, 48}},
-        {COPYOUT_RESOLVE_COALESCING, {0, 1000000}}
-    };
+        {SG_PARALLEL_NUM, {0, INT_MAX}},   {SG_PG_UPPER_BOUND, {0, INT_MAX}},
+        {SG_PG_LOWER_BOUND, {0, INT_MAX}}, {MG_COPYIN_UPPER_BOUND, {0, INT_MAX}},
+        {MG_VEC_PARALLEL_LB, {1, 48}},     {COPYOUT_RESOLVE_COALESCING, {0, 1000000}}};
     bool ret = RangeTest<int64_t>(input, &(config::SetOptionsNg), "pass");
     EXPECT_EQ(ret, true);
 
     std::unordered_map<std::string, std::vector<std::map<int64_t, int64_t>>> input2 = {
         {CUBE_L1_REUSE_SETTING, {{{-1, 0}}, {{INT_MAX, INT_MAX}}}},
         {CUBE_NBUFFER_SETTING, {{{-1, 1}}, {{INT_MAX, INT_MAX}}}},
-        {VEC_NBUFFER_SETTING, {{{-1, 1}}, {{INT_MAX, INT_MAX}}}}
-    };
+        {VEC_NBUFFER_SETTING, {{{-1, 1}}, {{INT_MAX, INT_MAX}}}}};
     ret = RangeTest<std::map<int64_t, int64_t>>(input2, &(config::SetOptionsNg), "pass");
     EXPECT_EQ(ret, true);
 }
 
-TEST_F(TestConfigManager, AbnormalPassTest) {
+TEST_F(TestConfigManager, AbnormalPassTest)
+{
     int64_t outVal = INT_MAX;
     ++outVal;
     std::unordered_map<std::string, std::vector<int64_t>> input = {
-        {SG_PARALLEL_NUM, {-1, outVal}},
-        {SG_PG_UPPER_BOUND, {-1, outVal}},
-        {SG_PG_LOWER_BOUND, {-1, outVal}},
-        {MG_COPYIN_UPPER_BOUND, {-1, outVal}},
-        {MG_VEC_PARALLEL_LB, {0, 49}},
-        {COPYOUT_RESOLVE_COALESCING, {-1, 1000001}}
-    };
+        {SG_PARALLEL_NUM, {-1, outVal}},   {SG_PG_UPPER_BOUND, {-1, outVal}},
+        {SG_PG_LOWER_BOUND, {-1, outVal}}, {MG_COPYIN_UPPER_BOUND, {-1, outVal}},
+        {MG_VEC_PARALLEL_LB, {0, 49}},     {COPYOUT_RESOLVE_COALESCING, {-1, 1000001}}};
     bool ret = RangeTest<int64_t>(input, &(config::SetOptionsNg), "pass");
     EXPECT_EQ(ret, true);
 
     std::unordered_map<std::string, std::vector<std::map<int64_t, int64_t>>> input2 = {
         {CUBE_L1_REUSE_SETTING, {{{-2, 0}}, {{outVal, INT_MAX}}, {{-1, -1}}, {{INT_MAX, outVal}}}},
         {CUBE_NBUFFER_SETTING, {{{-2, 1}}, {{INT_MAX, outVal}}, {{-1, 0}}, {{outVal, INT_MAX}}}},
-        {VEC_NBUFFER_SETTING, {{{-2, 1}}, {{INT_MAX, outVal}}, {{-1, 0}}, {{outVal, INT_MAX}}}}
-    };
+        {VEC_NBUFFER_SETTING, {{{-2, 1}}, {{INT_MAX, outVal}}, {{-1, 0}}, {{outVal, INT_MAX}}}}};
     ret = RangeTest<std::map<int64_t, int64_t>>(input2, &(config::SetOptionsNg), "pass");
     EXPECT_EQ(ret, true);
 }
 
-TEST_F(TestConfigManager, GlobalConfig) {
+TEST_F(TestConfigManager, GlobalConfig)
+{
     std::string res = ConfigManagerNg::GetGlobalConfig<std::string>("platform.device_platform");
     EXPECT_EQ(res, "ASCEND_910B2");
 
@@ -236,9 +220,7 @@ TEST_F(TestConfigManager, GlobalConfig) {
     EXPECT_EQ(res_bool, true);
 
     // // add code for coverage, python pybind interface
-    std::map<std::string, Any> config_values = {
-        {"simulation.timeout_threshold", 10}
-    };
+    std::map<std::string, Any> config_values = {{"simulation.timeout_threshold", 10}};
     ConfigManagerNg::GetInstance().SetGlobalConfig(std::move(config_values), "default", 1);
     ConfigManagerNg::GetInstance().GlobalScope();
 
@@ -246,27 +228,27 @@ TEST_F(TestConfigManager, GlobalConfig) {
     ConfigManagerNg::GetInstance().SetGlobalConfig(std::move(empty_values), "default", 1);
 
     PrintOptions p = config::GetPrintOptions();
-
 }
 
-TEST_F(TestConfigManager, LoadJson) {
+TEST_F(TestConfigManager, LoadJson)
+{
     nlohmann::json jdata = {
         {"test_label", "field"},
     };
     TypeInfo test;
     test.build_type_infos(jdata, "");
     EXPECT_EQ(test.typeInfos.size(), 0);
-    jdata = {
-        {
-            "type", "none",
-        }
-    };
+    jdata = {{
+        "type",
+        "none",
+    }};
     test.build_type_infos(jdata, "");
     EXPECT_EQ(test.typeInfos.size(), 0);
 }
 
-TEST_F(TestConfigManager, JitScopeGuardBasic) {
-    auto &cm = ConfigManagerNg::GetInstance();
+TEST_F(TestConfigManager, JitScopeGuardBasic)
+{
+    auto& cm = ConfigManagerNg::GetInstance();
     auto scopeBefore = cm.CurrentScope();
     {
         ConfigManagerNg::JitScopeGuard guard("jit_scope", std::map<std::string, Any>{});
@@ -276,4 +258,26 @@ TEST_F(TestConfigManager, JitScopeGuardBasic) {
     }
     auto scopeAfter = cm.CurrentScope();
     EXPECT_EQ(scopeAfter.get(), scopeBefore.get());
+}
+
+TEST_F(TestConfigManager, IsWithinRangeInvalidKey)
+{
+    auto& cm = ConfigManagerNg::GetInstance();
+    auto scope = cm.CurrentScope();
+    Any value = int64_t(100);
+    scope->UpdateValueWithAny("invalid.key.not.in.scope", int64_t(100));
+    EXPECT_EQ(cm.IsWithinRange("invalid.key.not.in.schema", value), false);
+}
+
+TEST_F(TestConfigManager, InvalidValue)
+{
+    auto& cm = ConfigManagerNg::GetInstance();
+    try {
+        cm.SetScope({{"pass.pg_lower_bound", "1"}});
+        FAIL() << "Expected exception was not thrown.";
+    } catch (const std::exception& e) {
+        std::string msg = e.what();
+        EXPECT_NE(msg.find("Option 'pass.pg_lower_bound' has invalid type."), std::string::npos);
+        EXPECT_NE(msg.find("Expected int64"), std::string::npos);
+    }
 }

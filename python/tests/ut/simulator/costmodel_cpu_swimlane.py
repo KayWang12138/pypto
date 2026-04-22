@@ -158,5 +158,3 @@ def test_softmax():
 
 if __name__ == "__main__":
     test_softmax()
-
-

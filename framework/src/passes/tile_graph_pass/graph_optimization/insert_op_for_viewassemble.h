@@ -35,12 +35,13 @@ class InsertOpForViewAssemble : public Pass {
 public:
     InsertOpForViewAssemble() : Pass("InsertOpForViewAssemble") {}
     ~InsertOpForViewAssemble() override = default;
+
 private:
-    Status RunOnFunction(Function &function) override;
-    Status JudgedViewAssemble(Function &function);
-    Status InsertCopy(Function &function, Operation *viewOp, Operation *assOp);
-    bool NeedInsertCopy(LogicalTensorPtr &assembleOut);
-    void InsertViewAssemble(Function &function, Operation *viewOp, Operation *assembleOp);
+    Status RunOnFunction(Function& function) override;
+    Status JudgedViewAssemble(Function& function);
+    Status InsertCopy(Function& function, Operation* viewOp, Operation* assOp);
+    bool NeedInsertCopy(LogicalTensorPtr& assembleOut);
+    void InsertViewAssemble(Function& function, Operation* viewOp, Operation* assembleOp);
 
     std::unordered_set<LogicalTensorPtr> assembleOutSet_;
     std::unordered_set<LogicalTensorPtr> notProcessOut_;

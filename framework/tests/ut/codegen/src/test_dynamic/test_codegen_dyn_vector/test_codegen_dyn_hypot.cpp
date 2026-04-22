@@ -23,8 +23,8 @@
 #include "tilefwk/data_type.h"
 #include "codegen/codegen.h"
 #include "codegen/symbol_mgr/codegen_symbol.h"
-#include "codegen/cloudnpu/codegen_cloudnpu.h"
-#include "codegen/cloudnpu/codegen_op_cloudnpu.h"
+#include "codegen/npu/cloudnpu/codegen_cloudnpu.h"
+#include "codegen/npu/cloudnpu/codegen_op_cloudnpu.h"
 #include "test_codegen_utils.h"
 #include "test_codegen_common.h"
 
@@ -36,7 +36,8 @@ public:
 
     static void TearDownTestCase() {}
 
-    void SetUp() override {
+    void SetUp() override
+    {
         Program::GetInstance().Reset();
         config::Reset();
         config::SetHostOption(COMPILE_STAGE, CS_EXECUTE_GRAPH);
@@ -46,10 +47,11 @@ public:
     void TearDown() override {}
 };
 
-TEST_F(TestCodegenDynHypot, HypotNormal) {
+TEST_F(TestCodegenDynHypot, HypotNormal)
+{
     MockFuncDynBinaryConf config;
     auto function = GenMockFuncDynBinary(
-        "HYPOT_NORMAL", config, [](Tensor &inputA, Tensor &inputB, Tensor &output) { output = Hypot(inputA, inputB); });
+        "HYPOT_NORMAL", config, [](Tensor& inputA, Tensor& inputB, Tensor& output) { output = Hypot(inputA, inputB); });
 
     npu::tile_fwk::CodeGenCtx ctx;
     npu::tile_fwk::CodeGenCloudNPU codeGen(ctx);

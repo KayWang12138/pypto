@@ -17,18 +17,20 @@
 
 namespace npu::tile_fwk {
 
-    template<>
-    uint64_t HashBuffer::Get<uint64_t>(int index) const {
-        uint64_t l = this->at(index);
-        uint64_t h = this->at(index + 1);
-        return l + (h << 32); // h takes high 32 bits
-    }
-
-    template<>
-    int64_t HashBuffer::Get<int64_t>(int index) const {
-        int64_t l = this->at(index);
-        int64_t h = this->at(index + 1);
-        return l + (h << 32); // h takes high 32 bits
-    }
-
+template <>
+uint64_t HashBuffer::Get<uint64_t>(int index) const
+{
+    uint64_t l = this->at(index);
+    uint64_t h = this->at(index + 1);
+    return l + (h << 32); // h takes high 32 bits
 }
+
+template <>
+int64_t HashBuffer::Get<int64_t>(int index) const
+{
+    int64_t l = this->at(index);
+    int64_t h = this->at(index + 1);
+    return l + (h << 32); // h takes high 32 bits
+}
+
+} // namespace npu::tile_fwk

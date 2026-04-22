@@ -144,13 +144,10 @@ def prolog_quant(x: pypto.Tensor):
 
     abs_res = pypto.abs(input_fp32)
     max_value = pypto.amax(abs_res, dim=-1, keepdim=True)
-    temp448 = pypto.full(max_value.shape, fp8_max_value, pypto.DT_FP32)
 
-    scale_quant = temp448 / max_value
-    out_fp32 = input_fp32 * scale_quant
-    out_fp8 = pypto.cast(out_fp32, pypto.DT_FP8E4M3)
-    temp1 = pypto.full(scale_quant.shape, fp8_one_value, pypto.DT_FP32)
-    scale_dequant = temp1 / scale_quant
+    scale_dequant = max_value * (fp8_one_value / fp8_max_value)
+    out_fp32 = pypto.div(input_fp32, scale_dequant)
+    out_fp8 = pypto.cast(out_fp32, pypto.DT_FP8E4M3, satmode=pypto.SaturationMode.ON)
     return (out_fp8, scale_dequant)
 
 
@@ -231,39 +228,44 @@ def rope_3d(x: pypto.Tensor, cos: pypto.Tensor, sin: pypto.Tensor) -> pypto.Tens
 
 @pypto.frontend.jit(
     pass_options={
-        # 3 cast_cos/sin, 4 q_rope, 7 q_nope, 1 q_quant
-        "vec_nbuffer_setting": {3: 2, 4: 4, 7: 16, 1: 8, -2: 1},
+        # 1 cast_cos/sin, 2 q_rope, 5 q_nope, 7 q_quant
+        "vec_nbuffer_setting": {1: 2, 2: 4, 5: 16, 7: 8, -2: 1},
         "cube_l1_reuse_setting": {-1: 8},
         "pg_upper_bound": 8192
     },
     runtime_options={
-        "stitch_function_inner_memory": 128 * 128,
-        "stitch_function_outcast_memory": 128 * 128,
         "device_sched_mode": 1
     }
 )
 def lightning_indexer_prolog_quant(
-    x_in: pypto.Tensor([pypto.DYNAMIC, pypto.STATIC], pypto.DT_BF16),
-    q_norm_in: pypto.Tensor([pypto.DYNAMIC, pypto.STATIC], pypto.DT_FP8E4M3),
-    q_norm_scale_in: pypto.Tensor([pypto.DYNAMIC, pypto.STATIC], pypto.DT_FP8E8M0),
-    w_qb_in: pypto.Tensor([pypto.STATIC, pypto.STATIC], pypto.DT_FP8E4M3),
-    w_qb_scale_in: pypto.Tensor([pypto.STATIC, pypto.STATIC], pypto.DT_FP8E8M0),
-    wk_in: pypto.Tensor([pypto.STATIC, pypto.STATIC], pypto.DT_BF16),
-    w_proj_in: pypto.Tensor([pypto.STATIC, pypto.STATIC], pypto.DT_BF16),
-    gamma_k_in: pypto.Tensor([pypto.STATIC, pypto.STATIC], pypto.DT_BF16),
-    cos_idx_rope_in: pypto.Tensor([pypto.DYNAMIC, pypto.STATIC], pypto.DT_BF16),
-    sin_idx_rope_in: pypto.Tensor([pypto.DYNAMIC, pypto.STATIC], pypto.DT_BF16),
-    hadamard_q_in: pypto.Tensor([pypto.STATIC, pypto.STATIC], pypto.DT_BF16),
-    hadamard_k_in: pypto.Tensor([pypto.STATIC, pypto.STATIC], pypto.DT_BF16),
-    k_quant_in: pypto.Tensor([pypto.DYNAMIC, pypto.STATIC, pypto.STATIC, pypto.STATIC], pypto.DT_FP8E4M3),
-    k_scale_in: pypto.Tensor([pypto.DYNAMIC, pypto.STATIC, pypto.STATIC, pypto.STATIC], pypto.DT_FP32),
-    k_cache_index_in: pypto.Tensor([pypto.DYNAMIC, pypto.STATIC], pypto.DT_INT64),
-    k_scale_cache_index_in: pypto.Tensor([pypto.DYNAMIC, pypto.STATIC], pypto.DT_INT64),
-    q_quant_out: pypto.Tensor([pypto.DYNAMIC, pypto.STATIC, pypto.STATIC], pypto.DT_FP8E4M3),
-    q_scale_out: pypto.Tensor([pypto.DYNAMIC, pypto.STATIC, pypto.STATIC], pypto.DT_FP32),
-    k_quant_out: pypto.Tensor([pypto.DYNAMIC, pypto.STATIC, pypto.STATIC, pypto.STATIC], pypto.DT_FP8E4M3),
-    k_scale_out: pypto.Tensor([pypto.DYNAMIC, pypto.STATIC, pypto.STATIC, pypto.STATIC], pypto.DT_FP32),
-    weights_out: pypto.Tensor([pypto.DYNAMIC, pypto.STATIC], pypto.DT_BF16),
+    x_in: pypto.Tensor([pypto.DYNAMIC, pypto.STATIC], pypto.DT_BF16, format=pypto.TileOpFormat.TILEOP_ND),
+    q_norm_in: pypto.Tensor([pypto.DYNAMIC, pypto.STATIC], pypto.DT_FP8E4M3, format=pypto.TileOpFormat.TILEOP_ND),
+    q_norm_scale_in: pypto.Tensor([pypto.DYNAMIC, pypto.STATIC], pypto.DT_FP8E8M0, format=pypto.TileOpFormat.TILEOP_ND),
+    w_qb_in: pypto.Tensor([pypto.STATIC, pypto.STATIC], pypto.DT_FP8E4M3, format=pypto.TileOpFormat.TILEOP_ND),
+    w_qb_scale_in: pypto.Tensor([pypto.STATIC, pypto.STATIC], pypto.DT_FP8E8M0, format=pypto.TileOpFormat.TILEOP_ND),
+    wk_in: pypto.Tensor([pypto.STATIC, pypto.STATIC], pypto.DT_BF16, format=pypto.TileOpFormat.TILEOP_ND),
+    w_proj_in: pypto.Tensor([pypto.STATIC, pypto.STATIC], pypto.DT_BF16, format=pypto.TileOpFormat.TILEOP_ND),
+    gamma_k_in: pypto.Tensor([pypto.STATIC, pypto.STATIC], pypto.DT_BF16, format=pypto.TileOpFormat.TILEOP_ND),
+    cos_idx_rope_in: pypto.Tensor([pypto.DYNAMIC, pypto.STATIC], pypto.DT_BF16, format=pypto.TileOpFormat.TILEOP_ND),
+    sin_idx_rope_in: pypto.Tensor([pypto.DYNAMIC, pypto.STATIC], pypto.DT_BF16, format=pypto.TileOpFormat.TILEOP_ND),
+    hadamard_q_in: pypto.Tensor([pypto.STATIC, pypto.STATIC], pypto.DT_BF16, format=pypto.TileOpFormat.TILEOP_ND),
+    hadamard_k_in: pypto.Tensor([pypto.STATIC, pypto.STATIC], pypto.DT_BF16, format=pypto.TileOpFormat.TILEOP_ND),
+    k_quant_in: pypto.Tensor([pypto.DYNAMIC, pypto.STATIC, pypto.STATIC, pypto.STATIC],
+        pypto.DT_FP8E4M3, format=pypto.TileOpFormat.TILEOP_ND),
+    k_scale_in: pypto.Tensor([pypto.DYNAMIC, pypto.STATIC, pypto.STATIC, pypto.STATIC],
+        pypto.DT_FP32, format=pypto.TileOpFormat.TILEOP_ND),
+    k_cache_index_in: pypto.Tensor([pypto.DYNAMIC, pypto.STATIC], pypto.DT_INT64, format=pypto.TileOpFormat.TILEOP_ND),
+    k_scale_cache_index_in: pypto.Tensor([pypto.DYNAMIC, pypto.STATIC],
+        pypto.DT_INT64, format=pypto.TileOpFormat.TILEOP_ND),
+    q_quant_out: pypto.Tensor([pypto.DYNAMIC, pypto.STATIC],
+        pypto.DT_FP8E4M3, format=pypto.TileOpFormat.TILEOP_ND),
+    q_scale_out: pypto.Tensor([pypto.DYNAMIC, pypto.STATIC],
+        pypto.DT_FP32, format=pypto.TileOpFormat.TILEOP_ND),
+    k_quant_out: pypto.Tensor([pypto.DYNAMIC, pypto.STATIC, pypto.STATIC, pypto.STATIC],
+        pypto.DT_FP8E4M3, format=pypto.TileOpFormat.TILEOP_ND),
+    k_scale_out: pypto.Tensor([pypto.DYNAMIC, pypto.STATIC, pypto.STATIC, pypto.STATIC],
+        pypto.DT_FP32, format=pypto.TileOpFormat.TILEOP_ND),
+    weights_out: pypto.Tensor([pypto.DYNAMIC, pypto.STATIC], pypto.DT_BF16, format=pypto.TileOpFormat.TILEOP_ND),
 ):
     """Compute Lightning Indexer Prolog with quantization.
 
@@ -398,5 +400,5 @@ def lightning_indexer_prolog_quant(
         pypto.set_vec_tile_shapes(128, head_num)
         weights = pypto.cast(pypto.matmul(x, w_proj_in, x_dtype), pypto.DT_FP32)
         weights = pypto.cast(pypto.cast(weights * (head_num ** -0.5), pypto.DT_BF16), pypto.DT_FP32)
-        weights = pypto.cast(weights * (head_dim ** -0.5), pypto.DT_BF16) 
+        weights = pypto.cast(weights * (head_dim ** -0.5), pypto.DT_BF16)
         pypto.assemble(weights, [t_idx, 0], weights_out)

@@ -15,6 +15,7 @@ from .. import pypto_impl
 from .._element import Element
 from ..enum import DataType
 from .._op_wrapper import op_wrapper
+from ..error import PyptoError
 from .._utils import to_syms
 from ..symbolic_scalar import SymbolicScalar
 from ..tensor import Tensor
@@ -33,7 +34,7 @@ def convert_to_element(value) -> pypto_impl.Element:
 @overload
 def arange(end: Union[int, float]) -> Tensor:
     """
-    Creates a 1-dimensional tensor containing a sequence of values from 0 (inclusive) 
+    Creates a 1-dimensional tensor containing a sequence of values from 0 (inclusive)
     to 'end'(exclusive), with a step size of 1
 
     Parameters
@@ -65,7 +66,7 @@ def arange(end: Union[int, float]) -> Tensor:
 @overload
 def arange(start: Union[int, float], end: Union[int, float]) -> Tensor:
     """
-    Creates a 1-dimensional tensor containing a sequence of values from start (inclusive) 
+    Creates a 1-dimensional tensor containing a sequence of values from start (inclusive)
     to 'end'(exclusive), with a step size of 1
 
     Parameters
@@ -188,9 +189,9 @@ def arange(*args: Union[int, float]) -> Tensor:
         )
 
     if len(args) != 3:
-        raise ValueError(
+        raise PyptoError(0xF00002, ValueError(
             f"The length of args should in [1, 2, 3], but got {len(args)}."
-        )
+            ))
 
     start, end, step = args
     return pypto_impl.Range(

@@ -13,8 +13,6 @@
  * \brief Unit test for codegen.
  */
 
-#include <iostream>
-
 #include "gtest/gtest.h"
 
 #include "interface/operation/opcode.h"
@@ -26,8 +24,8 @@
 #include "codegen/symbol_mgr/codegen_symbol.h"
 #include "passes/pass_mgr/pass_manager.h"
 #include "codegen/codegen.h"
-#include "codegen/cloudnpu/codegen_op_cloudnpu.h"
-#include "codegen/cloudnpu/codegen_cloudnpu.h"
+#include "codegen/npu/cloudnpu/codegen_op_cloudnpu.h"
+#include "codegen/npu/cloudnpu/codegen_cloudnpu.h"
 #include "test_codegen_utils.h"
 #include "test_codegen_common.h"
 #include "interface/utils/id_gen.h"
@@ -39,7 +37,8 @@ public:
 
     static void TearDownTestCase() { config::SetCodeGenConfig(KEY_CODEGEN_SUPPORT_TILE_TENSOR, true); }
 
-    void SetUp() override {
+    void SetUp() override
+    {
         Program::GetInstance().Reset();
         config::Reset();
         config::SetHostOption(COMPILE_STAGE, CS_EXECUTE_GRAPH);
@@ -50,7 +49,8 @@ public:
     void TearDown() override {}
 };
 
-TEST_F(TestCodegenDynIndexOutCast, IndexOutCast) {
+TEST_F(TestCodegenDynIndexOutCast, IndexOutCast)
+{
     config::SetCodeGenOption(SUPPORT_DYNAMIC_ALIGNED, true);
     int S = 1;
     int S2 = 16;
@@ -70,8 +70,10 @@ TEST_F(TestCodegenDynIndexOutCast, IndexOutCast) {
     Tensor key_states(DataType::DT_FP32, shape2, "key_states"); // [16,16]
 
     std::string funcName = "ScatterUpdate";
-    FUNCTION(funcName, {kv_len, key_states, past_key_states}) {
-        LOOP(funcName, FunctionType::DYNAMIC_LOOP, i, LoopRange(1)) {
+    FUNCTION(funcName, {kv_len, key_states, past_key_states})
+    {
+        LOOP(funcName, FunctionType::DYNAMIC_LOOP, i, LoopRange(1))
+        {
             (void)i;
             past_key_states = ScatterUpdate(past_key_states, kv_len, key_states, -2);
         }
@@ -87,7 +89,7 @@ TEST_F(TestCodegenDynIndexOutCast, IndexOutCast) {
     auto localTensorSrc1 =
         CreateLogicalTensor({*function, DataType::DT_FP32, MemoryType::MEM_UB, shape1, dynValidShape1});
 
-    auto &op =
+    auto& op =
         function->AddOperation(Opcode::OP_INDEX_OUTCAST, {localTensorSrc0, localTensorSrc1, ddrTensor}, {ddrTensor});
     op.SetAttribute("axis", 0);
     op.SetAttribute(OpAttributeKey::panzBlockSize, 1);
@@ -104,7 +106,7 @@ TEST_F(TestCodegenDynIndexOutCast, IndexOutCast) {
     CodeGenCtx ctx;
     CodeGenCloudNPU cga(ctx);
     cga.GenAllocForLocalBuffer(op, symbolManager);
-    CodeGenOpCloudNPUCtx opCtx(symbolManager, *function, *function->rootFunc_->programs_[0], op, {});
+    CodeGenOpNPUCtx opCtx(symbolManager, *function, *function->rootFunc_->programs_[0], op, {});
     CodeGenOpCloudNPU cop(opCtx);
 
     std::string res = cop.GenOpCode();
@@ -114,7 +116,8 @@ TEST_F(TestCodegenDynIndexOutCast, IndexOutCast) {
     EXPECT_EQ(res, expect);
 }
 
-TEST_F(TestCodegenDynIndexOutCast, TestIndexOutTileTensor) {
+TEST_F(TestCodegenDynIndexOutCast, TestIndexOutTileTensor)
+{
     config::SetCodeGenConfig(KEY_CODEGEN_SUPPORT_TILE_TENSOR, true);
     config::SetHostOption(COMPILE_STAGE, CS_CODEGEN_INSTRUCTION);
 
@@ -134,7 +137,7 @@ TEST_F(TestCodegenDynIndexOutCast, TestIndexOutTileTensor) {
     LogicalTensors inputs = {localOutTensor, localOutTensor, localOutTensor};
     LogicalTensors outputs = {indexoutTensor};
 
-    auto &indexoutOp = function->AddOperation(Opcode::OP_INDEX_OUTCAST, inputs, outputs);
+    auto& indexoutOp = function->AddOperation(Opcode::OP_INDEX_OUTCAST, inputs, outputs);
     indexoutOp.SetAttribute("GmTensorParamIdxInCallFunc", 0);
     indexoutOp.SetAttribute("axis", 0);
     indexoutOp.SetAttribute(OpAttributeKey::panzBlockSize, 1);
@@ -149,31 +152,32 @@ TEST_F(TestCodegenDynIndexOutCast, TestIndexOutTileTensor) {
     CodeGenCtx ctx;
     CodeGenCloudNPU cga(ctx);
     cga.GenAllocForLocalBuffer(indexoutOp, symbolManager);
-    CodeGenOpCloudNPUCtx opCtx(symbolManager, *function, *function->rootFunc_->programs_[0], indexoutOp, {}, true);
+    CodeGenOpNPUCtx opCtx(symbolManager, *function, *function->rootFunc_->programs_[0], indexoutOp, {}, true);
     CodeGenOpCloudNPU cop(opCtx);
 
     std::string res = cop.GenOpCode();
-    std::string expect = R"!!!(TIndexOutcast<0, 1>(gmTensor_9, ubTensor_10, ubTensor_10, Coord2Dim(0, 0));
+    std::string expect = R"!!!(TIndexOutcast<0, 1>(gmTensor_0, ubTensor_1, ubTensor_1, Coord2Dim(0, 0));
 )!!!";
     EXPECT_EQ(res, expect);
 }
 
-TEST_F(TestCodegenDynIndexOutCast, DynIndexOutUnaligned) {
+TEST_F(TestCodegenDynIndexOutCast, DynIndexOutUnaligned)
+{
     TileShape::Current().SetVecTile({32, 32});
 
-    PassManager &passManager = PassManager::Instance();
+    PassManager& passManager = PassManager::Instance();
     passManager.RegisterStrategy(
         "GenerateMoveOpPassTestStrategy", {
-                                              {"RemoveRedundantReshape",  PassName::REMOVE_REDUNDANT_RESHAPE},
-                                              {        "ExpandFunction",           PassName::EXPAND_FUNCTION},
-                                              {           "DuplicateOp",              PassName::DUPLICATE_OP},
-                                              {     "MergeViewAssemble",       PassName::MERGE_VIEW_ASSEMBLE},
-                                              {      "AssignMemoryType",        PassName::ASSIGN_MEMORY_TYPE},
+                                              {"RemoveRedundantReshape", PassName::REMOVE_REDUNDANT_RESHAPE},
+                                              {"ExpandFunction", PassName::EXPAND_FUNCTION},
+                                              {"DuplicateOp", PassName::DUPLICATE_OP},
+                                              {"MergeViewAssemble", PassName::MERGE_VIEW_ASSEMBLE},
+                                              {"AssignMemoryType", PassName::ASSIGN_MEMORY_TYPE},
                                               {"SplitLargeFanoutTensor", PassName::SPLIT_LARGE_FANOUT_TENSOR},
-                                              {          "SplitReshape",             PassName::SPLIT_RESHAPE},
-                                              {     "RemoveRedundantOp",       PassName::REMOVE_REDUNDANT_OP},
-                                              {        "GenerateMoveOp",          PassName::GENERATE_MOVE_OP},
-    });
+                                              {"SplitReshape", PassName::SPLIT_RESHAPE},
+                                              {"RemoveRedundantOp", PassName::REMOVE_REDUNDANT_OP},
+                                              {"GenerateMoveOp", PassName::GENERATE_MOVE_OP},
+                                          });
 
     int h = 32;
     int minusTwo = -2;
@@ -182,8 +186,10 @@ TEST_F(TestCodegenDynIndexOutCast, DynIndexOutUnaligned) {
     Tensor keyStates(DT_INT32, {h, h}, "keyStates");
 
     std::string funcName = "DynIndexOutUnaligned";
-    FUNCTION(funcName + "Main", {idxs, keyStates}, {output}) {
-        LOOP(funcName, FunctionType::DYNAMIC_LOOP, i, LoopRange(1)) {
+    FUNCTION(funcName + "Main", {idxs, keyStates}, {output})
+    {
+        LOOP(funcName, FunctionType::DYNAMIC_LOOP, i, LoopRange(1))
+        {
             (void)i;
             output = ScatterUpdate(output, idxs, keyStates, minusTwo);
         }

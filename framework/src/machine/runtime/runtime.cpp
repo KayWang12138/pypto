@@ -13,9 +13,10 @@
  * \brief
  */
 
-#ifdef BUILD_WITH_CANN
-
 #include "machine/runtime/runtime.h"
+#include "tilefwk/platform.h"
+#include "adapter/api/hal_api.h"
+
 namespace {
 const int32_t MODULE_TYPE_AI_CORE = 4;
 const int32_t INFO_TYPE_OCCUPY = 8;
@@ -23,19 +24,15 @@ const uint8_t AICORE_MAP_BUFF_LEN = 2;
 } // namespace
 namespace npu::tile_fwk {
 
-static bool GetPgMask(uint64_t &valid, int32_t &deviceId) {
+static bool GetPgMask(uint64_t& valid, int32_t& deviceId)
+{
     deviceId = GetLogDeviceId();
     uint64_t aicore_bitmap[AICORE_MAP_BUFF_LEN] = {0};
     int32_t size_n = static_cast<int32_t>(sizeof(uint64_t)) * AICORE_MAP_BUFF_LEN;
-    auto halFuncDevInfo = (int (*)(uint32_t deviceId, int32_t moduleType, int32_t infoType,
-                           void* buf, int32_t *size))dlsym(nullptr, "halGetDeviceInfoByBuff");
-    if (halFuncDevInfo == nullptr) {
-        MACHINE_LOGW("Hal function not found.");
-        return false;
-    }
-    auto ret = halFuncDevInfo(static_cast<uint32_t>(deviceId), MODULE_TYPE_AI_CORE, INFO_TYPE_OCCUPY,
-                              reinterpret_cast<void *>(&aicore_bitmap[0]), &size_n);
-    if (ret != 0) {
+    auto ret = HalGetDeviceInfoByBuff(
+        static_cast<uint32_t>(deviceId), MODULE_TYPE_AI_CORE, INFO_TYPE_OCCUPY,
+        reinterpret_cast<void*>(&aicore_bitmap[0]), &size_n);
+    if (ret != HAL_ERROR_NONE) {
         return false;
     }
     valid = aicore_bitmap[0];
@@ -45,14 +42,15 @@ static bool GetPgMask(uint64_t &valid, int32_t &deviceId) {
 constexpr uint32_t SUB_CORE_PER_AICORE = 3;
 
 namespace DAV_2201 {
-    constexpr uint32_t MAX_CORE = 25;
+constexpr uint32_t MAX_CORE = 25;
 }
 
 namespace DAV_3510 {
-    constexpr uint32_t MAX_CORE = 36;
+constexpr uint32_t MAX_CORE = 36;
 }
 
-int RuntimeAgentMemory::GetAicoreRegInfo(std::vector<int64_t> &aic, std::vector<int64_t> &aiv, const int &addrType) {
+int RuntimeAgentMemory::GetAicoreRegInfo(std::vector<int64_t>& aic, std::vector<int64_t>& aiv, const int& addrType)
+{
     int32_t deviceId = 0;
     uint64_t valid = 0;
     if (!GetPgMask(valid, deviceId)) {
@@ -68,21 +66,17 @@ int RuntimeAgentMemory::GetAicoreRegInfo(std::vector<int64_t> &aic, std::vector<
         const uint64_t mask = (1ULL << 25) - 1;
         return ((static_cast<uint64_t>(valid) ^ mask) & (1ULL << id)) == 0;
     };
-    auto halFunc = (int (*)(int type, void *paramValue, size_t paramValueSize, void *outValue,
-        size_t *outSizeRet))dlsym(nullptr, "halMemCtl");
-    if (halFunc == nullptr) {
-        MACHINE_LOGE(DevCommonErr::GET_HANDLE_FAILED, "Hal function not found.");
-        return -1;
-    }
     struct AddrMapInPara inMapPara;
     struct AddrMapOutPara outMapPara;
     inMapPara.devid = deviceId;
     inMapPara.addr_type = addrType;
-    auto ret = halFunc(0, reinterpret_cast<void *>(&inMapPara), sizeof(struct AddrMapInPara),
-        reinterpret_cast<void *>(&outMapPara), nullptr);
-    if (ret != 0) {
-        MACHINE_LOGE(HostLauncherErr::MAP_REG_ADDR_FAILED,
-                       "Map reg addr fail, maybe others are using current device. (ret=%d).", ret);
+    auto ret = HalMemCtl(
+        0, reinterpret_cast<void*>(&inMapPara), sizeof(struct AddrMapInPara), reinterpret_cast<void*>(&outMapPara),
+        nullptr);
+    if (ret != HAL_ERROR_NONE) {
+        MACHINE_LOGE(
+            HostLauncherErr::MAP_REG_ADDR_FAILED, "Map reg addr fail, maybe others are using current device. (ret=%d).",
+            ret);
         return ret;
     }
     for (uint32_t i = 0; i < DAV_2201::MAX_CORE; i++) {
@@ -101,7 +95,8 @@ int RuntimeAgentMemory::GetAicoreRegInfo(std::vector<int64_t> &aic, std::vector<
     return 0;
 }
 
-int RuntimeAgentMemory::GetAicoreRegInfoForDAV3510(std::vector<int64_t> &regs, std::vector<int64_t> &regsPmu) {
+int RuntimeAgentMemory::GetAicoreRegInfoForDAV3510(std::vector<int64_t>& regs, std::vector<int64_t>& regsPmu)
+{
     if (Platform::Instance().GetSoc().GetNPUArch() != NPUArch::DAV_3510) {
         return 0;
     }
@@ -113,14 +108,11 @@ int RuntimeAgentMemory::GetAicoreRegInfoForDAV3510(std::vector<int64_t> &regs, s
     constexpr unsigned long AIV_STRIDE = SUB_CORE_STRIDE;
     constexpr unsigned long AIV_SECOND_STRIDE = 2 * SUB_CORE_STRIDE;
     constexpr size_t MAX_INDEX = DAV_3510::MAX_CORE * SUB_CORE_PER_AICORE;
-
-    auto halFunc = (int (*)(unsigned int devId, struct res_map_info *res_info, unsigned long *va,
-        unsigned int *len))dlsym(nullptr, "halResMap");
     unsigned int devId = GetLogDeviceId();
 
-    struct res_map_info mapInfo;
-    mapInfo.target_proc_type = tagProcType::PROCESS_CP1;
-    mapInfo.res_type = res_map_type::RES_AICORE;
+    struct ResMapInfo mapInfo;
+    mapInfo.target_proc_type = ProcessType::CP1;
+    mapInfo.res_type = ResMapType::AICORE;
     mapInfo.flag = 0;
     mapInfo.rsv[0] = 0;
 
@@ -130,7 +122,7 @@ int RuntimeAgentMemory::GetAicoreRegInfoForDAV3510(std::vector<int64_t> &regs, s
         mapInfo.res_id = coreIndex;
         unsigned long mapAddr;
         unsigned int len = 0x300000;
-        halFunc(devId, &mapInfo, &mapAddr, &len);
+        (void)HalResMap(devId, &mapInfo, &mapAddr, &len);
         uint32_t dieIdx = coreIndex / AICORE_PER_DIE;
         uint32_t localIdx = coreIndex % AICORE_PER_DIE;
         uint32_t dieBase = dieIdx * SUB_CORE_PER_DIE;
@@ -138,7 +130,7 @@ int RuntimeAgentMemory::GetAicoreRegInfoForDAV3510(std::vector<int64_t> &regs, s
         uint32_t aicoreIndex = dieBase + localIdx;
         uint32_t aivFirstIndex = dieBase + AIV_BASE_OFFSET + localIdx * 2;
         uint32_t aivSecondIndex = aivFirstIndex + 1;
-        //aic
+        // aic
         regs[aicoreIndex] = mapAddr;
         regsPmu[aicoreIndex] = mapAddr;
         // first aiv
@@ -151,7 +143,8 @@ int RuntimeAgentMemory::GetAicoreRegInfoForDAV3510(std::vector<int64_t> &regs, s
     return 0;
 }
 
-void *RuntimeAgentMemory::MapAiCoreReg() {
+void* RuntimeAgentMemory::MapAiCoreReg()
+{
     std::vector<int64_t> aiv;
     std::vector<int64_t> aic;
 
@@ -162,17 +155,17 @@ void *RuntimeAgentMemory::MapAiCoreReg() {
     std::vector<int64_t> regAddr;
     regAddr.insert(regAddr.end(), aic.begin(), aic.end());
     regAddr.insert(regAddr.end(), aiv.begin(), aiv.end());
-    uint8_t *devAddr = nullptr;
-    size_t regAddrSize = sizeof(void *) * regAddr.size();
+    uint8_t* devAddr = nullptr;
+    size_t regAddrSize = sizeof(void*) * regAddr.size();
     AllocDevAddr(&devAddr, regAddrSize);
     if (devAddr == nullptr) {
-        MACHINE_LOGE(RtErr::RT_MALLOC_FAILED, "rtMalloc failed. size: %zu", regAddrSize);
+        MACHINE_LOGE(RtErr::RT_MALLOC_FAILED, "RuntimeMalloc failed. size: %zu", regAddrSize);
         return nullptr;
     }
 
-    int rc = rtMemcpy(devAddr, regAddrSize, regAddr.data(), regAddrSize, RT_MEMCPY_HOST_TO_DEVICE);
+    int rc = RuntimeMemcpy(devAddr, regAddrSize, regAddr.data(), regAddrSize, RtMemcpyKind::HOST_TO_DEVICE);
     if (rc != 0) {
-        MACHINE_LOGE(RtErr::RT_MEMCPY_FAILED, "rtMemcpy failed. size: %zu", regAddrSize);
+        MACHINE_LOGE(RtErr::RT_MEMCPY_FAILED, "RuntimeMemcpy failed. size: %zu", regAddrSize);
         FreeDevAddr((uint8_t*)devAddr);
         return nullptr;
     }
@@ -180,7 +173,5 @@ void *RuntimeAgentMemory::MapAiCoreReg() {
     MACHINE_LOGI("All AiCore Reg mapped: %p. size: %zu", devAddr, regAddrSize);
     return devAddr;
 }
-
 } // namespace npu::tile_fwk
 
-#endif // BUILD_WITH_CANN

@@ -17,17 +17,18 @@
 
 namespace npu::tile_fwk {
 
-inline std::string FormatElapsed(double seconds) {
+inline std::string FormatElapsed(double seconds)
+{
     if (seconds < 60.0) {
         std::ostringstream oss;
         oss << std::fixed << std::setprecision(1) << seconds << "s";
         return oss.str();
     }
-    
+
     int total_sec = static_cast<int>(seconds);
     int min = total_sec / 60;
     int sec = total_sec % 60;
-    
+
     std::ostringstream oss;
     if (min >= 60) {
         int hour = min / 60;
@@ -39,4 +40,22 @@ inline std::string FormatElapsed(double seconds) {
     return oss.str();
 }
 
-}  // namespace npu::tile_fwk
+const int MONITOR_LABEL_WIDTH = 21;
+const int MONITOR_STAGE_NAME_WIDTH = 18;
+const int MONITOR_ELAPSED_WIDTH = 8;
+
+inline std::string PadRight(const std::string& str, int width)
+{
+    if (static_cast<int>(str.size()) >= width) {
+        return str;
+    }
+    return str + std::string(width - str.size(), ' ');
+}
+
+inline std::string PadElapsed(const std::string& elapsed) { return PadRight(elapsed, MONITOR_ELAPSED_WIDTH); }
+
+inline std::string PadLabel(const std::string& label) { return PadRight(label, MONITOR_LABEL_WIDTH); }
+
+inline std::string PadStageName(const std::string& stageName) { return PadRight(stageName, MONITOR_STAGE_NAME_WIDTH); }
+
+} // namespace npu::tile_fwk

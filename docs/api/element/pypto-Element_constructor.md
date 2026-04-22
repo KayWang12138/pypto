@@ -38,4 +38,3 @@ def __init__(self, dtype, data) : ...
 ```python
 t = pypto.Element(pypto.DT_FP32, 3)
 ```
-

@@ -36,12 +36,13 @@ public:
     AxisCombine() : Pass("AxisCombine") {}
     ~AxisCombine() override = default;
 
-    Status RunOnFunction(Function &function) override;
-    Status Process(Function &function);
+    Status RunOnFunction(Function& function) override;
+    Status Process(Function& function);
+
 private:
-    Status AlignBroadCastOpInputs(Function &function, Operation &op);
+    Status AlignBroadCastOpInputs(Function& function, Operation& op);
     bool enableBrcb_{true};
     AxisCombineMarker axisCombineMarker;
 };
-}
+} // namespace npu::tile_fwk
 #endif // AXIS_COMBINE_H

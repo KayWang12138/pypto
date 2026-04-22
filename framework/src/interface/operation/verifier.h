@@ -16,15 +16,15 @@
 #include <ostream>
 
 namespace npu::tile_fwk {
-    class Function;
-    class Operation;
-    /**
-     * \brief Entry for verifying operation
-     *
-     * \param func : the function that contains the operation.
-     * \param op : the target operation.
-     * \param oss : stream printer
-     * \return bool : true means success. false means failure.
-     */
-    using VerifyOperationEntry = std::function<bool(const Function &func, const Operation &op, std::ostream &oss)>;
-}
+class Function;
+class Operation;
+/**
+ * \brief Entry for verifying operation
+ *
+ * \param func : the function that contains the operation.
+ * \param op : the target operation.
+ * \param oss : stream printer
+ * \return bool : true means success. false means failure.
+ */
+using VerifyOperationEntry = std::function<bool(const Function& func, const Operation& op, std::ostream& oss)>;
+} // namespace npu::tile_fwk

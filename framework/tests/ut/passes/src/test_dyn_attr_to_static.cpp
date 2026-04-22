@@ -34,7 +34,8 @@ public:
 
     static void TearDownTestCase() {}
 
-    void SetUp() override {
+    void SetUp() override
+    {
         Program::GetInstance().Reset();
         config::Reset();
         config::SetHostOption(COMPILE_STAGE, CS_EXECUTE_GRAPH);
@@ -51,30 +52,37 @@ struct TempDirCleanup {
     ~TempDirCleanup() { (void)!system(("rm -rf " + path).c_str()); }
 };
 
-void CountFilesByExtension(const std::string& dir, size_t& jsonCnt, size_t& tifwkgrCnt) {
+void CountFilesByExtension(const std::string& dir, size_t& jsonCnt, size_t& tifwkgrCnt)
+{
     jsonCnt = 0;
     tifwkgrCnt = 0;
     DIR* dirp = opendir(dir.c_str());
-    if (dirp == nullptr) return;
+    if (dirp == nullptr)
+        return;
     struct dirent* entry;
     while ((entry = readdir(dirp)) != nullptr) {
-        if (entry->d_type != DT_REG) continue;
+        if (entry->d_type != DT_REG)
+            continue;
         std::string filename = entry->d_name;
         size_t pos = filename.rfind('.');
-        if (pos == std::string::npos) continue;
+        if (pos == std::string::npos)
+            continue;
         std::string ext = filename.substr(pos);
-        if (ext == ".json") jsonCnt++;
-        else if (ext == ".tifwkgr") tifwkgrCnt++;
+        if (ext == ".json")
+            jsonCnt++;
+        else if (ext == ".tifwkgr")
+            tifwkgrCnt++;
     }
     closedir(dirp);
 }
 
 const std::string LEFT_BRACKER = "(";
 
-bool VerifyNewMacroExpr(std::reference_wrapper<SymbolicScalar>& dynScalar) {
+bool VerifyNewMacroExpr(std::reference_wrapper<SymbolicScalar>& dynScalar)
+{
     std::string dynParamExpr = SymbolicExpressionTable::BuildExpression(dynScalar);
     // COA类型宏格式是"(RUNTIME_GET_COA_XXX("
-    if (dynParamExpr.find(COA_PREFIX) != 1) {// 只保留COA类型宏，进行下一步检查
+    if (dynParamExpr.find(COA_PREFIX) != 1) { // 只保留COA类型宏，进行下一步检查
         return true;
     }
 
@@ -92,7 +100,8 @@ bool VerifyNewMacroExpr(std::reference_wrapper<SymbolicScalar>& dynScalar) {
     return false;
 }
 
-TEST_F(DynAttrToStaticTest, TestGetTensorData) {
+TEST_F(DynAttrToStaticTest, TestGetTensorData)
+{
     int tiling = 32;
     TileShape::Current().SetVecTile(tiling, tiling);
     TileShape::Current().SetCubeTile({tiling, tiling}, {tiling, tiling}, {tiling, tiling});
@@ -121,12 +130,14 @@ TEST_F(DynAttrToStaticTest, TestGetTensorData) {
         RawTensorData::CreateConstantTensor<float>(output, 0.0f),
     });
 
-    FUNCTION("test_coa", {inputA, inputC}, {output}) {
-        LOOP("loop", FunctionType::DYNAMIC_LOOP, i, LoopRange(1)) {
+    FUNCTION("test_coa", {inputA, inputC}, {output})
+    {
+        LOOP("loop", FunctionType::DYNAMIC_LOOP, i, LoopRange(1))
+        {
             (void)i;
             Tensor t0 = Add(inputA, Element(DT_INT32, (int64_t)2)); // t0[i, j] -> inputA[i, j] + 2 -> i * n + j + 2
-            SymbolicScalar v0 = GetTensorData(t0, {0, 1}); // t0[0, 1] -> 0 * n + 1 + 2 -> 3
-            SymbolicScalar v1 = GetTensorData(t0, {0, 2}); // t0[0, 2] -> 0 * n + 2 + 2 -> 4
+            SymbolicScalar v0 = GetTensorData(t0, {0, 1});          // t0[0, 1] -> 0 * n + 1 + 2 -> 3
+            SymbolicScalar v1 = GetTensorData(t0, {0, 2});          // t0[0, 2] -> 0 * n + 2 + 2 -> 4
             auto t2 = View(inputC, {n, n}, {0, v0 * n});
             auto t3 = View(inputC, {n, n}, {0, v1 * n});
             output = Mul(t2, t3);
@@ -151,8 +162,9 @@ TEST_F(DynAttrToStaticTest, TestGetTensorData) {
         Function* leafFunc = it->second;
         auto operationViewer = leafFunc->Operations(false);
         for (size_t j = 0; j < operationViewer.size(); j++) {
-            auto &op = operationViewer[j];
-            std::vector<std::reference_wrapper<SymbolicScalar>> dynScalarList = passDynAttrToStatic.GetOpDynamicAttributeList(op);
+            auto& op = operationViewer[j];
+            std::vector<std::reference_wrapper<SymbolicScalar>> dynScalarList =
+                passDynAttrToStatic.GetOpDynamicAttributeList(op);
             for (auto dynScalar : dynScalarList) {
                 EXPECT_EQ(VerifyNewMacroExpr(dynScalar), true);
             }
@@ -160,7 +172,8 @@ TEST_F(DynAttrToStaticTest, TestGetTensorData) {
     }
 }
 
-TEST_F(DynAttrToStaticTest, TestSetTensorData) {
+TEST_F(DynAttrToStaticTest, TestSetTensorData)
+{
     int tiling = 32;
     TileShape::Current().SetVecTile(tiling, tiling, tiling);
 
@@ -171,15 +184,17 @@ TEST_F(DynAttrToStaticTest, TestSetTensorData) {
         outputGolden[i] = i;
     }
 
-    ProgramData::GetInstance().AppendInputs({
-    });
+    ProgramData::GetInstance().AppendInputs({});
     ProgramData::GetInstance().AppendOutputs({
         RawTensorData::CreateConstantTensor<int32_t>(output, 0),
     });
 
-    FUNCTION("test_coa", {}, {output}) {
-        LOOP("Step0", FunctionType::DYNAMIC_LOOP, i, LoopRange(n)) {
-            LOOP("Step1", FunctionType::DYNAMIC_LOOP, j, LoopRange(n)) {
+    FUNCTION("test_coa", {}, {output})
+    {
+        LOOP("Step0", FunctionType::DYNAMIC_LOOP, i, LoopRange(n))
+        {
+            LOOP("Step1", FunctionType::DYNAMIC_LOOP, j, LoopRange(n))
+            {
                 for (int k = 0; k < n; k++) {
                     SetTensorData(i * tiling * tiling + j * tiling + k, {i, j, k}, output);
                 }
@@ -205,8 +220,9 @@ TEST_F(DynAttrToStaticTest, TestSetTensorData) {
         Function* leafFunc = it->second;
         auto operationViewer = leafFunc->Operations(false);
         for (size_t j = 0; j < operationViewer.size(); j++) {
-            auto &op = operationViewer[j];
-            std::vector<std::reference_wrapper<SymbolicScalar>> dynScalarList = passDynAttrToStatic.GetOpDynamicAttributeList(op);
+            auto& op = operationViewer[j];
+            std::vector<std::reference_wrapper<SymbolicScalar>> dynScalarList =
+                passDynAttrToStatic.GetOpDynamicAttributeList(op);
             for (auto dynScalar : dynScalarList) {
                 EXPECT_EQ(VerifyNewMacroExpr(dynScalar), true);
             }
@@ -214,7 +230,8 @@ TEST_F(DynAttrToStaticTest, TestSetTensorData) {
     }
 }
 
-TEST_F(DynAttrToStaticTest, TestDynExpression) {
+TEST_F(DynAttrToStaticTest, TestDynExpression)
+{
     TileShape::Current().SetVecTile(64, 64);
 
     int b = 1;
@@ -233,8 +250,10 @@ TEST_F(DynAttrToStaticTest, TestDynExpression) {
         RawTensorData::CreateConstantTensor<float>(out, 0.001f),
     });
 
-    FUNCTION("test_coa", {q}, {out}) {
-        LOOP("L0", FunctionType::DYNAMIC_LOOP, batchId, LoopRange(b)) {
+    FUNCTION("test_coa", {q}, {out})
+    {
+        LOOP("L0", FunctionType::DYNAMIC_LOOP, batchId, LoopRange(b))
+        {
             Tensor q0 = View(q, {1, d}, {1, d}, {batchId, 0});
             auto tmp = Expand(q0, {100, d});
             Assemble(tmp, {batchId * sq, 0}, out);
@@ -257,7 +276,7 @@ TEST_F(DynAttrToStaticTest, TestDynExpression) {
     ASSERT_NE(rootFunc, nullptr);
     for (auto it = rootFunc->programs_.begin(); it != rootFunc->programs_.end(); it++) {
         Function* leafFunc = it->second;
-        for (const auto &dynParam : leafFunc->GetDynParamTable()) {
+        for (const auto& dynParam : leafFunc->GetDynParamTable()) {
             if (dynParam.second.replacedSymbol.empty() && dynParam.second.dim.IsValid()) {
                 std::reference_wrapper<SymbolicScalar> dynExpr = const_cast<SymbolicScalar&>(dynParam.second.dim);
                 EXPECT_EQ(VerifyNewMacroExpr(dynExpr), true);
@@ -266,7 +285,8 @@ TEST_F(DynAttrToStaticTest, TestDynExpression) {
     }
 }
 
-TEST_F(DynAttrToStaticTest, EdgeCases) {
+TEST_F(DynAttrToStaticTest, EdgeCases)
+{
     VectorParamConsistencyChecker checker;
 
     // 场景1：单元素vector（仅一个索引组 {0}）
@@ -295,7 +315,8 @@ TEST_F(DynAttrToStaticTest, EdgeCases) {
     ASSERT_EQ(allGroups.size(), 2);
 }
 
-TEST_F(DynAttrToStaticTest, IntBasicCases) {
+TEST_F(DynAttrToStaticTest, IntBasicCases)
+{
     VectorParamConsistencyChecker checker;
 
     // 场景1：首次注册空vector → 失败
@@ -329,19 +350,19 @@ TEST_F(DynAttrToStaticTest, IntBasicCases) {
     EXPECT_TRUE(checker.RegisterCall({SymbolicScalar(5), SymbolicScalar(6), SymbolicScalar(5)}));
     allGroups = checker.GetAllConsistentIndexGroups();
     ASSERT_EQ(allGroups.size(), 1);
-    std::vector<std::vector<size_t>> groups = {{0,1}, {2}};
+    std::vector<std::vector<size_t>> groups = {{0, 1}, {2}};
     std::string output = checker.PrintIndexGroups(groups);
-    std::string expected = 
-        "\nALL Consistent Index Group:  {\n"
-        "Consistent Index Group: 1{0, 1, }"
-        "\n"
-        "Consistent Index Group: 2{2, }"
-        "\n"
-        "}";
+    std::string expected = "\nALL Consistent Index Group:  {\n"
+                           "Consistent Index Group: 1{0, 1, }"
+                           "\n"
+                           "Consistent Index Group: 2{2, }"
+                           "\n"
+                           "}";
     EXPECT_EQ(output, expected);
 }
 
-TEST_F(DynAttrToStaticTest, DumpAndPrintFunction) {
+TEST_F(DynAttrToStaticTest, DumpAndPrintFunction)
+{
     int tiling = 16;
     TileShape::Current().SetVecTile(tiling, tiling, tiling);
     int n = tiling * 2;
@@ -349,9 +370,12 @@ TEST_F(DynAttrToStaticTest, DumpAndPrintFunction) {
     ProgramData::GetInstance().AppendOutputs({
         RawTensorData::CreateConstantTensor<int32_t>(outcast, 0),
     });
-    FUNCTION("test_dump_and_print", {}, {outcast}) {
-        LOOP("Step0", FunctionType::DYNAMIC_LOOP, i, LoopRange(n)) {
-            LOOP("Step1", FunctionType::DYNAMIC_LOOP, j, LoopRange(n)) {
+    FUNCTION("test_dump_and_print", {}, {outcast})
+    {
+        LOOP("Step0", FunctionType::DYNAMIC_LOOP, i, LoopRange(n))
+        {
+            LOOP("Step1", FunctionType::DYNAMIC_LOOP, j, LoopRange(n))
+            {
                 for (int k = 0; k < n; k++) {
                     SetTensorData(i * tiling * tiling + j * tiling + k, {i, j, k}, outcast);
                 }

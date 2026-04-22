@@ -22,45 +22,49 @@
 
 namespace npu::tile_fwk {
 
-Status MergeViewAssembleUtils::MergeViewAssemble(Function &function) {
+Status MergeViewAssembleUtils::MergeViewAssemble(Function& function)
+{
     MergeViewAssembleUtils MergeViewAssembleUtils;
     Status status = MergeViewAssembleUtils.Process(function);
     return status;
 }
 
-Status MergeViewAssembleUtils::Process(Function &function) {
+Status MergeViewAssembleUtils::Process(Function& function)
+{
     Status status = Initialize();
-    if (status != SUCCESS) {   
+    if (status != SUCCESS) {
         APASS_LOG_ERROR_F(Elements::Function, "MergeViewAssembleUtils initialization failed.");
         return status;
     }
     status = ProcessOperations(function);
-    if (status != SUCCESS) {   
+    if (status != SUCCESS) {
         APASS_LOG_ERROR_F(Elements::Function, "Processing operations failed.");
         return status;
     }
     status = CleanUp(function);
-    if (status != SUCCESS) {   
+    if (status != SUCCESS) {
         APASS_LOG_ERROR_F(Elements::Function, "Cleanup phase failed.");
         return status;
     }
     return SUCCESS;
 }
 
-Status MergeViewAssembleUtils::Initialize() {
+Status MergeViewAssembleUtils::Initialize()
+{
     visitedOp_.clear();
     viewOpToAppend_.clear();
     assembleOpToAppend_.clear();
     return SUCCESS;
 }
 
-Status MergeViewAssembleUtils::ProcessOperations(Function &function) {
-    for (auto &op : function.Operations()) {
+Status MergeViewAssembleUtils::ProcessOperations(Function& function)
+{
+    for (auto& op : function.Operations()) {
         if (visitedOp_.count(op.GetOpMagic()) != 0) {
             continue;
         }
         Status processStatus = SUCCESS;
-        std::vector<Operation *> chain;
+        std::vector<Operation*> chain;
         if (op.GetOpcode() == Opcode::OP_VIEW) {
             processStatus = MergeViewChain(function, op, chain);
         } else if (op.GetOpcode() == Opcode::OP_ASSEMBLE) {
@@ -84,42 +88,46 @@ Status MergeViewAssembleUtils::ProcessOperations(Function &function) {
     return status;
 }
 
-Status MergeViewAssembleUtils::AppendMergedViewOperations(Function &function) {
+Status MergeViewAssembleUtils::AppendMergedViewOperations(Function& function)
+{
     /* Process View ops first to avoid View output being cleared in View-Assemble scenarios */
-    for (auto &viewOp : viewOpToAppend_) {
-        auto attr = std::make_shared<ViewOpAttribute>(viewOp.offset, viewOp.toType, viewOp.dynOffset,
-                     viewOp.dynValidShape);
+    for (auto& viewOp : viewOpToAppend_) {
+        auto attr =
+            std::make_shared<ViewOpAttribute>(viewOp.offset, viewOp.toType, viewOp.dynOffset, viewOp.dynValidShape);
         if (!attr) {
             APASS_LOG_ERROR_F(Elements::Function, "Failed to create ViewOpAttribute.");
             return FAILED;
         }
-        auto &mergedViewOp = function.AddRawOperation(Opcode::OP_VIEW, {viewOp.input}, {viewOp.output});
+        auto& mergedViewOp = function.AddRawOperation(Opcode::OP_VIEW, {viewOp.input}, {viewOp.output}, true, viewOp.sourceLocation);
+        mergedViewOp.SetScopeInfo(viewOp.scopeInfo);
         mergedViewOp.SetOpAttribute(attr);
         // 继承op_attr_copy_in_mode属性
         if (viewOp.hasCopyInMode) {
-            mergedViewOp.SetAttr("op_attr_copy_in_mode", viewOp.copyInModeValue); 
-        }   
-        viewOp.output->UpdateDynValidShape(viewOp.dynValidShape);    
+            mergedViewOp.SetAttr("op_attr_copy_in_mode", viewOp.copyInModeValue);
+        }
+        viewOp.output->UpdateDynValidShape(viewOp.dynValidShape);
     }
     return SUCCESS;
 }
 
-Status MergeViewAssembleUtils::AppendMergedAssembleOperations(Function &function) {
-    for (const auto &assembleOp : assembleOpToAppend_) {
+Status MergeViewAssembleUtils::AppendMergedAssembleOperations(Function& function)
+{
+    for (const auto& assembleOp : assembleOpToAppend_) {
         auto attr = std::make_shared<AssembleOpAttribute>(assembleOp.offset, assembleOp.dynOffset);
         if (!attr) {
             return FAILED;
         }
-        auto &mergedAssembleOp = function.AddRawOperation(Opcode::OP_ASSEMBLE, {assembleOp.input}, {assembleOp.output});
+        auto& mergedAssembleOp = function.AddRawOperation(Opcode::OP_ASSEMBLE, {assembleOp.input}, {assembleOp.output}, true, assembleOp.sourceLocation);
+        mergedAssembleOp.SetScopeInfo(assembleOp.scopeInfo);
         mergedAssembleOp.SetOpAttribute(attr);
     }
     return SUCCESS;
 }
 
-Status MergeViewAssembleUtils::CleanUp(Function &function) {
+Status MergeViewAssembleUtils::CleanUp(Function& function)
+{
     Status status = EraseRedundantAssemble(function);
-    if (status != SUCCESS)
-    {   
+    if (status != SUCCESS) {
         APASS_LOG_ERROR_F(Elements::Function, "EraseRedundantAssemble failed.");
         return status;
     }
@@ -128,16 +136,44 @@ Status MergeViewAssembleUtils::CleanUp(Function &function) {
     return SUCCESS;
 }
 
-Status MergeViewAssembleUtils::MergeViewChain(
-    Function &function, Operation &operation, std::vector<Operation *> &chain) {
+SourceLocationPtr MergeViewAssembleUtils::GetFirstSourceLocation(const std::vector<Operation *> &chain) {
+    SourceLocationPtr firstSourceLocation = nullptr;
+    for (auto *op : chain) {
+        auto loc = op->GetLocation();
+        if (loc != nullptr) {
+            firstSourceLocation = loc;
+            break;
+        }
+    }
+    return firstSourceLocation;
+}
+
+Operation::ScopeInfo MergeViewAssembleUtils::GetChainScopeInfo(const std::vector<Operation*> &chain)
+{
+    for (auto *op : chain) {
+        if (op->GetScopeId() != -1) {
+            return op->GetScopeInfo();
+        }
+    }
+    return Operation::ScopeInfo();
+}
+
+Status MergeViewAssembleUtils::MergeViewChain(Function& function, Operation& operation, std::vector<Operation*>& chain,
+                                              int effectiveScopeId)
+{
     auto viewOpAttribute = std::dynamic_pointer_cast<ViewOpAttribute>(operation.GetOpAttribute());
     // 1. 初始化操作链
     InitOperationChain(operation, chain);
 
+    int newScopeId = operation.GetScopeId();
+    if (effectiveScopeId == -1 && newScopeId != -1) {
+        effectiveScopeId = newScopeId;
+    }
+
     // 2. 处理消费者链
     auto consumers = function.FindConsumers(operation);
     bool chainEnd = true;
-    Status status = ProcessConsumerChain(function, consumers, chain, chainEnd);
+    Status status = ProcessConsumerChain(function, consumers, chain, chainEnd, effectiveScopeId);
     if (status != SUCCESS) {
         return status;
     }
@@ -150,29 +186,27 @@ Status MergeViewAssembleUtils::MergeViewChain(
     return SUCCESS;
 }
 
-void MergeViewAssembleUtils::InitOperationChain(Operation &operation, std::vector<Operation *> &chain)
+void MergeViewAssembleUtils::InitOperationChain(Operation& operation, std::vector<Operation*>& chain)
 {
     visitedOp_.insert(operation.opmagic);
     chain.emplace_back(&operation);
 }
 
 Status MergeViewAssembleUtils::ProcessConsumerChain(
-    Function &function,
-    const std::set<Operation*, LogicalTensor::CompareOp>& consumers,
-    std::vector<Operation *> &chain,
-    bool &chainEnd)
+    Function& function, const std::set<Operation*, LogicalTensor::CompareOp>& consumers, std::vector<Operation*>& chain,
+    bool& chainEnd, int effectiveScopeId)
 {
     if (consumers.empty()) {
         return SUCCESS;
     }
-    Operation *currentOp = chain.back();
+    Operation* currentOp = chain.back();
     auto currentViewAttr = std::dynamic_pointer_cast<ViewOpAttribute>(currentOp->GetOpAttribute());
     if (!currentViewAttr) {
         APASS_LOG_ERROR_F(Elements::Function, "Failed to get current view attribute.");
         return FAILED;
     }
     MemoryType currentMemType = currentViewAttr->GetTo();
-    for (auto &op : consumers) {
+    for (auto& op : consumers) {
         if (!op) {
             return FAILED;
         }
@@ -188,10 +222,15 @@ Status MergeViewAssembleUtils::ProcessConsumerChain(
             if (currentMemType == MemoryType::MEM_UNKNOWN || currentMemType == memoryTo) {
                 // 1.unknown memType 可以向它之后的view合并 2.相同memType的view可以合并
                 canMerge = true;
-            } 
+            }
             if (canMerge) {
+                int consumerScopeId = op->GetScopeId();
+                if (effectiveScopeId != -1 && consumerScopeId != -1 && effectiveScopeId != consumerScopeId) {
+                    chainEnd = true;
+                    continue;
+                }
                 chainEnd = false;
-                Status status = MergeViewChain(function, *op, chain);
+                Status status = MergeViewChain(function, *op, chain, effectiveScopeId);
                 if (status != SUCCESS) {
                     return status;
                 }
@@ -204,13 +243,11 @@ Status MergeViewAssembleUtils::ProcessConsumerChain(
     return SUCCESS;
 }
 
-Status MergeViewAssembleUtils::ProcessChainEnd(
-    Function &function,
-    std::vector<Operation *> &chain)
+Status MergeViewAssembleUtils::ProcessChainEnd(Function& function, std::vector<Operation*>& chain)
 {
     // 1. 验证链的有效性
-    Operation *startOp = chain.front();
-    Operation *endOp = chain.back();
+    Operation* startOp = chain.front();
+    Operation* endOp = chain.back();
     if (startOp->iOperand.empty()) {
         APASS_LOG_ERROR_F(Elements::Function, "First operation in chain has no input operands.");
         return FAILED;
@@ -219,8 +256,8 @@ Status MergeViewAssembleUtils::ProcessChainEnd(
         APASS_LOG_ERROR_F(Elements::Function, "Last operation in chain has no output operands.");
         return FAILED;
     }
-    auto &startTensor = startOp->iOperand.front();
-    auto &endTensor = endOp->oOperand.front();
+    auto& startTensor = startOp->iOperand.front();
+    auto& endTensor = endOp->oOperand.front();
     if (!startTensor) {
         APASS_LOG_ERROR_F(Elements::Function, "Null input tensor found for first operation in chain.");
         return FAILED;
@@ -236,8 +273,12 @@ Status MergeViewAssembleUtils::ProcessChainEnd(
     if (status != SUCCESS) {
         return status;
     }
+    // 获取链路上第一个非空的sourceLocation
+    SourceLocationPtr firstSourceLocation = GetFirstSourceLocation(chain);
+    Operation::ScopeInfo chainScopeInfo = GetChainScopeInfo(chain);
     // 记录合并操作
-    RecordMergedViewOperation(endOp, startTensor, endTensor, newOffset, newDynOffset, newDynValidShape);
+    RecordMergedViewOperation(endOp, startTensor, endTensor, newOffset, newDynOffset, newDynValidShape,
+                              firstSourceLocation, chainScopeInfo);
 
     // 清理链尾
     endOp->oOperand.clear();
@@ -245,10 +286,12 @@ Status MergeViewAssembleUtils::ProcessChainEnd(
     return SUCCESS;
 }
 
-Status MergeViewAssembleUtils::CalculateMergedOffsets(const std::vector<Operation *> &chain, std::vector<int64_t> &newOffset,
-    std::vector<SymbolicScalar> &newDynOffset, std::vector<SymbolicScalar> &newDynValidShape) {
+Status MergeViewAssembleUtils::CalculateMergedOffsets(
+    const std::vector<Operation*>& chain, std::vector<int64_t>& newOffset, std::vector<SymbolicScalar>& newDynOffset,
+    std::vector<SymbolicScalar>& newDynValidShape)
+{
     for (size_t i = 0; i < chain.size(); ++i) {
-        const auto &view = chain[i];
+        const auto& view = chain[i];
         if (!view) {
             APASS_LOG_ERROR_F(Elements::Function, "Null view operation in chain.");
             return FAILED;
@@ -266,7 +309,8 @@ Status MergeViewAssembleUtils::CalculateMergedOffsets(const std::vector<Operatio
             }
             continue;
         }
-        auto ret = TensorOffset::Add(newOffset, newDynOffset, viewOpAttribute->GetFromOffset(), viewOpAttribute->GetFromDynOffset());
+        auto ret = TensorOffset::Add(
+            newOffset, newDynOffset, viewOpAttribute->GetFromOffset(), viewOpAttribute->GetFromDynOffset());
         if (!ret.first.empty()) {
             newOffset = ret.first;
             newDynOffset = ret.second;
@@ -275,15 +319,19 @@ Status MergeViewAssembleUtils::CalculateMergedOffsets(const std::vector<Operatio
             newDynValidShape = viewOpAttribute->GetToDynValidShape();
             continue;
         }
-        newDynValidShape = GetViewValidShape(newDynValidShape, viewOpAttribute->GetFromOffset(),
-            viewOpAttribute->GetFromDynOffset(), view->GetOOperands()[0]->GetShape());
+        newDynValidShape = GetViewValidShape(
+            newDynValidShape, viewOpAttribute->GetFromOffset(), viewOpAttribute->GetFromDynOffset(),
+            view->GetOOperands()[0]->GetShape());
     }
     return SUCCESS;
 }
 
-void MergeViewAssembleUtils::RecordMergedViewOperation(Operation* lastViewOp, const std::shared_ptr<LogicalTensor> &startTensor,
-    const std::shared_ptr<LogicalTensor> &endTensor, const std::vector<int64_t> &newOffset,
-    const std::vector<SymbolicScalar> &newDynOffset, const std::vector<SymbolicScalar> &newDynValidShape) {
+void MergeViewAssembleUtils::RecordMergedViewOperation(
+    Operation* lastViewOp, const std::shared_ptr<LogicalTensor>& startTensor,
+    const std::shared_ptr<LogicalTensor>& endTensor, const std::vector<int64_t>& newOffset,
+    const std::vector<SymbolicScalar>& newDynOffset, const std::vector<SymbolicScalar>& newDynValidShape,
+    const SourceLocationPtr &sourceLocation, const Operation::ScopeInfo &scopeInfo)
+{
     // 获取最后一个VIEW的属性
     auto lastViewAttr = std::dynamic_pointer_cast<ViewOpAttribute>(lastViewOp->GetOpAttribute());
     if (!lastViewAttr) {
@@ -295,12 +343,21 @@ void MergeViewAssembleUtils::RecordMergedViewOperation(Operation* lastViewOp, co
     // 清理消费者关系
     endTensor->GetProducers().clear();
     // 记录合并op
-    viewOpToAppend_.emplace_back(ViewOp{startTensor, endTensor, newOffset, newDynOffset, newDynValidShape, lastViewAttr->GetTo(), hasCopyInMode, std::move(copyInModeValue)});
+    viewOpToAppend_.emplace_back(ViewOp{
+        startTensor, endTensor, newOffset, newDynOffset, newDynValidShape, lastViewAttr->GetTo(), hasCopyInMode,
+        std::move(copyInModeValue), sourceLocation, scopeInfo});
 }
 
-Status MergeViewAssembleUtils::MergeAssembleChain(Function &function, Operation &operation, std::vector<Operation *> &chain) {
+Status MergeViewAssembleUtils::MergeAssembleChain(
+    Function& function, Operation& operation, std::vector<Operation*>& chain, int effectiveScopeId)
+{
     // 1. 初始化操作链
     InitAssembleChain(operation, chain);
+
+    int newScopeId = operation.GetScopeId();
+    if (effectiveScopeId == -1 && newScopeId != -1) {
+        effectiveScopeId = newScopeId;
+    }
 
     // 2. 处理消费者
     bool chainEnd = false;
@@ -308,11 +365,12 @@ Status MergeViewAssembleUtils::MergeAssembleChain(Function &function, Operation 
     if (assembleWithoutAssembleConsumer_.count(operation.opmagic) == 0) {
         auto consumers = function.FindConsumers(operation);
         chainEnd = consumers.empty();
-        Status status = ProcessAssembleConsumers(function, consumers, chain, chainEnd, hasAssembleConsumer);
+        Status status = ProcessAssembleConsumers(function, consumers, chain, chainEnd, hasAssembleConsumer,
+                                                  effectiveScopeId);
         if (status != SUCCESS) {
             return status;
         }
-        if(!hasAssembleConsumer){
+        if (!hasAssembleConsumer) {
             assembleWithoutAssembleConsumer_.insert(operation.opmagic);
         }
     } else {
@@ -331,32 +389,33 @@ Status MergeViewAssembleUtils::MergeAssembleChain(Function &function, Operation 
     return SUCCESS;
 }
 
-void MergeViewAssembleUtils::InitAssembleChain(
-    Operation &operation,
-    std::vector<Operation *> &chain)
+void MergeViewAssembleUtils::InitAssembleChain(Operation& operation, std::vector<Operation*>& chain)
 {
     visitedOp_.insert(operation.opmagic);
     chain.emplace_back(&operation);
 }
 
 Status MergeViewAssembleUtils::ProcessAssembleConsumers(
-    Function &function,
-    const std::set<Operation*, LogicalTensor::CompareOp>& consumers,
-    std::vector<Operation *> &chain,
-    bool &chainEnd, bool &hasAssembleConsumer)
+    Function& function, const std::set<Operation*, LogicalTensor::CompareOp>& consumers, std::vector<Operation*>& chain,
+    bool& chainEnd, bool& hasAssembleConsumer, int effectiveScopeId)
 {
     if (consumers.empty()) {
         return SUCCESS;
     }
-    for (auto &op : consumers) {
+    for (auto& op : consumers) {
         if (!op) {
             APASS_LOG_ERROR_F(Elements::Function, "Null consumer operation found.");
             return FAILED;
         }
         if (op->GetOpcode() == Opcode::OP_ASSEMBLE) {
+            int consumerScopeId = op->GetScopeId();
+            if (effectiveScopeId != -1 && consumerScopeId != -1 && effectiveScopeId != consumerScopeId) {
+                chainEnd = true;
+                continue;
+            }
             hasAssembleConsumer = true;
-            Status status = MergeAssembleChain(function, *op, chain);
-            if (status != SUCCESS) { 
+            Status status = MergeAssembleChain(function, *op, chain, effectiveScopeId);
+            if (status != SUCCESS) {
                 APASS_LOG_ERROR_F(Elements::Function, "Run MergeAssembleChain failed.");
                 return status;
             }
@@ -368,25 +427,26 @@ Status MergeViewAssembleUtils::ProcessAssembleConsumers(
 }
 
 Status MergeViewAssembleUtils::ProcessAssembleChainEnd(
-    Function &function,
-    std::vector<Operation *> &chain,
-    Operation &operation)
+    Function& function, std::vector<Operation*>& chain, Operation& operation)
 {
     // 验证链有效性
     if (chain.front()->iOperand.empty() || chain.back()->oOperand.empty()) {
         APASS_LOG_ERROR_F(Elements::Function, "Invalid chain operations.");
         return FAILED;
     }
-    auto &startTensor = chain.front()->iOperand.front();
-    auto &endTensor = chain.back()->oOperand.front();
+    auto& startTensor = chain.front()->iOperand.front();
+    auto& endTensor = chain.back()->oOperand.front();
     if (!startTensor || !endTensor) {
         APASS_LOG_ERROR_F(Elements::Function, "Null tensor found in chain.");
         return FAILED;
     }
     // 计算合并offset
     auto [newOffset, newDynOffset] = CalculateAssembleOffsets(chain, startTensor->offset.size());
+    // 获取链路上第一个非空的sourceLocation
+    SourceLocationPtr firstSourceLocation = GetFirstSourceLocation(chain);
+    Operation::ScopeInfo chainScopeInfo = GetChainScopeInfo(chain);
     // 4. 记录并清理
-    RecordAssembleOperation(startTensor, endTensor, newOffset, newDynOffset);
+    RecordAssembleOperation(startTensor, endTensor, newOffset, newDynOffset, firstSourceLocation, chainScopeInfo);
     function.GetTensorMap().Erase(endTensor);
     operation.SetAsDeleted();
 
@@ -394,11 +454,12 @@ Status MergeViewAssembleUtils::ProcessAssembleChainEnd(
 }
 
 std::pair<std::vector<int64_t>, std::vector<SymbolicScalar>> MergeViewAssembleUtils::CalculateAssembleOffsets(
-    const std::vector<Operation *> &chain, size_t offsetSize) {
+    const std::vector<Operation*>& chain, size_t offsetSize)
+{
     std::vector<int64_t> newOffset(offsetSize, 0);
     std::vector<SymbolicScalar> newDynOffset;
     for (size_t i = 0; i < chain.size(); ++i) {
-        const auto &assemble = chain[i];
+        const auto& assemble = chain[i];
         if (!assemble) {
             return {};
         }
@@ -411,7 +472,8 @@ std::pair<std::vector<int64_t>, std::vector<SymbolicScalar>> MergeViewAssembleUt
             newDynOffset = assembleOpAttribute->GetToDynOffset();
             continue;
         }
-        auto ret = TensorOffset::Add(newOffset, newDynOffset, assembleOpAttribute->GetToOffset(), assembleOpAttribute->GetToDynOffset());
+        auto ret = TensorOffset::Add(
+            newOffset, newDynOffset, assembleOpAttribute->GetToOffset(), assembleOpAttribute->GetToDynOffset());
         if (!ret.first.empty()) {
             newOffset = ret.first;
             newDynOffset = ret.second;
@@ -420,16 +482,19 @@ std::pair<std::vector<int64_t>, std::vector<SymbolicScalar>> MergeViewAssembleUt
     return {newOffset, newDynOffset};
 }
 
-void MergeViewAssembleUtils::RecordAssembleOperation(const std::shared_ptr<LogicalTensor> &input,
-    const std::shared_ptr<LogicalTensor> &output, const std::vector<int64_t> &offset,
-    const std::vector<SymbolicScalar> &dynOffset) {
-    assembleOpToAppend_.emplace_back(AssembleOp{input, output, offset, dynOffset});
+void MergeViewAssembleUtils::RecordAssembleOperation(
+    const std::shared_ptr<LogicalTensor>& input, const std::shared_ptr<LogicalTensor>& output,
+    const std::vector<int64_t>& offset, const std::vector<SymbolicScalar>& dynOffset,
+    const SourceLocationPtr &sourceLocation, const Operation::ScopeInfo &scopeInfo)
+{
+    assembleOpToAppend_.emplace_back(AssembleOp{input, output, offset, dynOffset, sourceLocation, scopeInfo});
 }
 
-Status MergeViewAssembleUtils::EraseRedundantAssemble(Function &function) const {
-    std::unordered_set<Operation *> redundantAssembles;
-    for (auto &op : function.Operations(false)) {
-        if (op.GetOpcode() !=  Opcode::OP_ASSEMBLE) {
+Status MergeViewAssembleUtils::EraseRedundantAssemble(Function& function) const
+{
+    std::unordered_set<Operation*> redundantAssembles;
+    for (auto& op : function.Operations(false)) {
+        if (op.GetOpcode() != Opcode::OP_ASSEMBLE) {
             continue;
         }
         if (op.iOperand.empty()) {
@@ -440,7 +505,7 @@ Status MergeViewAssembleUtils::EraseRedundantAssemble(Function &function) const 
             redundantAssembles.emplace(&op);
         }
     }
-    for (auto &ele : redundantAssembles) {
+    for (auto& ele : redundantAssembles) {
         if (!ele) {
             continue;
         }

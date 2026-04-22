@@ -9,6 +9,7 @@
  */
 
 #pragma once
+#include <set>
 #include <map>
 #include <memory>
 #include <string>
@@ -27,10 +28,10 @@ namespace ir {
 /**
  * \brief Program definition
  *
- * Represents a complete program with functions mapped by GlobalVar references.
+ * Represents a complete program with functions.
  * Programs are immutable IR nodes.
  *
- * Functions are stored in a sorted map (by GlobalVar name) to ensure deterministic
+ * Functions are stored in a sorted vector (by name) to ensure deterministic
  * ordering for structural equality and hashing.
  *
  * \note The GlobalVar name must match the function name and be unique within the program.
@@ -39,26 +40,23 @@ namespace ir {
 class Program : public IRNode {
 public:
     /**
-     * \brief Create a program from a map of GlobalVars to Functions
+     * \brief Create a program from a vector of functions
      *
-     * \param functions Map of GlobalVar references to their corresponding functions
+     * \param functions Vector of functions
      * \param name Program name (optional)
      * \param span Source location
      */
-    Program(std::map<GlobalVarPtr, FunctionPtr, GlobalVarPtrLess> functions, std::string name, Span span)
-        : IRNode(std::move(span)), name_(std::move(name)), functions_(std::move(functions)) {}
-
-    /**
-     * \brief Create a program from a list of functions
-     *
-     * Convenience constructor that creates GlobalVar references for each function
-     * using the function's name. Functions are automatically sorted by name in the map.
-     *
-     * \param functions List of functions
-     * \param name Program name (optional)
-     * \param span Source location
-     */
-    Program(const std::vector<FunctionPtr> &functions, std::string name, Span span);
+    Program(std::vector<FunctionPtr> functions, std::string name, Span span)
+        : IRNode(std::move(span)), name_(std::move(name)), functions_(std::move(functions))
+    {
+        std::set<std::string> funcNames;
+        for (auto func : functions_) {
+            if (funcNames.count(func->name_)) {
+                throw InternalError("Duplicate function name: " + func->name_);
+            }
+            funcNames.insert(func->name_);
+        }
+    }
 
     [[nodiscard]] ObjectKind GetKind() const override { return ObjectKind::Program; }
     [[nodiscard]] std::string TypeName() const override { return "Program"; }
@@ -69,7 +67,17 @@ public:
      * \param name Function name to look up
      * \return Shared pointer to the function, or nullptr if not found
      */
-    [[nodiscard]] FunctionPtr GetFunction(const std::string &name) const;
+    [[nodiscard]] FunctionPtr GetFunction(const std::string& name) const
+    {
+        {
+            for (auto func : functions_) {
+                if (func->name_ == name) {
+                    return func;
+                }
+            }
+            return nullptr;
+        }
+    }
 
     /**
      * \brief Get a GlobalVar by name
@@ -77,22 +85,24 @@ public:
      * \param name GlobalVar name to look up
      * \return Shared pointer to the GlobalVar, or nullptr if not found
      */
-    [[nodiscard]] GlobalVarPtr GetGlobalVar(const std::string &name) const;
+    [[nodiscard]] GlobalVarPtr GetGlobalVar(const std::string& name) const;
 
     /**
      * \brief Get field descriptors for reflection-based visitation
      *
      * \return Tuple of field descriptors (name as IGNORE field, functions as USUAL field)
      */
-    static constexpr auto GetFieldDescriptors() {
+    static constexpr auto GetFieldDescriptors()
+    {
         return std::tuple_cat(
-            IRNode::GetFieldDescriptors(), std::make_tuple(reflection::IgnoreField(&Program::name_, "name"),
+            IRNode::GetFieldDescriptors(), std::make_tuple(
+                                               reflection::IgnoreField(&Program::name_, "name"),
                                                reflection::UsualField(&Program::functions_, "functions")));
     }
 
 public:
-    std::string name_;                                                // Program name
-    std::map<GlobalVarPtr, FunctionPtr, GlobalVarPtrLess> functions_; // Map of GlobalVars to Functions
+    std::string name_;                   // Program name
+    std::vector<FunctionPtr> functions_; // Vector of Functions
 };
 
 using ProgramPtr = std::shared_ptr<const Program>;

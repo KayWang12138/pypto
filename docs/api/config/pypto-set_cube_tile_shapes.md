@@ -118,4 +118,3 @@ Output需要满足以下约束条件：
 ```python
 pypto.set_cube_tile_shapes([128, 128], [128, 128], [128, 128], True)
 ```
-

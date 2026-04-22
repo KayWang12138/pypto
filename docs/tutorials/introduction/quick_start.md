@@ -83,7 +83,7 @@ from numpy.testing import assert_allclose
 
 
 
-    
+
 
 
 
@@ -102,7 +102,7 @@ def test_softmax(device_id: int = None, run_mode: str = "npu", dynamic: bool = T
     softmax_kernel(x, y) # default dim: -1
     golden = torch.softmax(x, dim=-1).cpu()
     y = y.cpu()
-    
+
     max_diff = np.abs(y.numpy() - golden.numpy()).max()
     print(f"Input shape: {x.shape}")
     print(f"Output shape: {y.shape}")
@@ -191,4 +191,3 @@ PyPTO程序在编译过程中，会自动生成由Tensor和Operation组合而成
     ![](../figures/swimlane_graph.png "泳道图界面")
 
     上图中带有色块的部分即为泳道，展示了每个AIC/AIV上的任务执行情况。泳道条目的长度对应任务的耗时，能够直观地反映计算的密集程度。用户可以通过观察相邻泳道之间的空闲间隔（如图中的黑色区域，或称气泡）以及耗时较长的泳道条目，来分析可能存在的性能瓶颈问题。
-

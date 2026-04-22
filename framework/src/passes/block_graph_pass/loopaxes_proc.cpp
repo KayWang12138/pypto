@@ -21,12 +21,16 @@
 #include "passes/pass_log/pass_log.h"
 #include "passes/pass_interface/pass.h"
 #include "loopaxes_proc.h"
+#include "passes/block_graph_pass/dyn_attr_to_static.h"
+#include "interface/utils/error_code.h"
 
+#undef MODULE_NAME
 #define MODULE_NAME "LoopaxesProc"
 
 namespace npu {
 namespace tile_fwk {
-Status LoopaxesProc::RunOnFunction(Function &function) {
+Status LoopaxesProc::RunOnFunction(Function& function)
+{
     bool enableVF = config::GetPassGlobalConfig(KEY_ENABLE_VF, false);
     bool useMarkFor = enableVF || config::GetPassGlobalConfig(KEY_VF_OPT_MARK_FOR, false);
     if (!useMarkFor) {
@@ -41,13 +45,15 @@ Status LoopaxesProc::RunOnFunction(Function &function) {
     return SUCCESS;
 }
 
-void SetOpLoopEnd(std::shared_ptr<Operation> op) {
+void SetOpLoopEnd(std::shared_ptr<Operation> op)
+{
     op->SetAttribute(OpAttributeKey::loopGroupEnd, true);
     APASS_LOG_INFO_F(
         Elements::Operation, "Op Code %s, Op[%d] set loopGroup --End--", op->GetOpcodeStr().c_str(), op->GetOpMagic());
 }
 
-void LoopaxesProc::ClearStatus() {
+void LoopaxesProc::ClearStatus()
+{
     lastGroupIdx = INVALID_LOOP_GROUPID;
     previousOutputMagic = INVALID_LOOP_GROUPID;
     previousLoopAxes.clear();
@@ -57,38 +63,38 @@ void LoopaxesProc::ClearStatus() {
     }
 }
 
-bool NeedClearStatus(const Operation &op) {
+bool NeedClearStatus(const Operation& op)
+{
     auto opCode = op.GetOpcode();
     auto iter = SUPPORT_VF_FUSE_OPS.find(opCode);
     if (iter == SUPPORT_VF_FUSE_OPS.end()) {
+        APASS_LOG_DEBUG_F(
+            Elements::Operation, "%d %s doesn't support VF fuse", op.GetOpMagic(), op.GetOpcodeStr().c_str());
         return true;
-    }
-
-    if (SUPPORT_BRCINLINE.find(opCode) != SUPPORT_BRCINLINE.end()) {
-        for (const auto& oper : op.GetIOperands()) {
-            auto rawShape = oper->GetRawTensor()->GetRawShape();
-            bool hasOneAxis = std::find(rawShape.begin(), rawShape.end(), 1) != rawShape.end();
-            if (hasOneAxis) {
-                return true;
-            }
-                                
-        }
     }
 
     //  Opcode::OP_EXPAND only support last axis or second last axis in for-loop
     if (opCode == Opcode::OP_EXPAND) {
-        std::string axisKey = OP_ATTR_PREFIX + "EXPANDDIM";
-        ASSERT(op.HasAttr(axisKey)) << "attr " << axisKey << "not found";
-        int64_t expandAxis = op.GetIntAttribute(axisKey);
+        ASSERT(OperationErr::OP_SPECIAL_CONSTRAINT, op.HasAttr(OpAttributeKey::expandDims)) << "expandDims attribute not found";
+        auto expandAxes = op.GetVectorIntAttribute(OpAttributeKey::expandDims);
         int shapeSize = static_cast<int>(op.GetOOperands().front()->GetDynValidShape().size());
-        expandAxis += SHAPE_DIM4 - shapeSize;
-        return expandAxis == 0 || expandAxis == 1;
+
+        for (auto expandAxis : expandAxes) {
+            expandAxis += SHAPE_DIM4 - shapeSize;
+            if (expandAxis == 0 || expandAxis == 1) {
+                APASS_LOG_DEBUG_F(
+                    Elements::Operation, "%d %s expand axis 0/1", op.GetOpMagic(), op.GetOpcodeStr().c_str());
+                return true;
+            }
+        }
+        return false;
     }
 
     return false;
 }
 
-Status LoopaxesProc::UpdateOpLoopAxes(Operation &op, Function &subFunc) {
+Status LoopaxesProc::UpdateOpLoopAxes(Operation& op, Function& subFunc)
+{
     if (SKIP_OPCODE_FOR_CODEGEN.find(op.GetOpcode()) != SKIP_OPCODE_FOR_CODEGEN.end()) {
         APASS_LOG_DEBUG_F(
             Elements::Operation, "Op Code %s, Op[%d] ignore this op", op.GetOpcodeStr().c_str(), op.GetOpMagic());
@@ -125,35 +131,41 @@ Status LoopaxesProc::UpdateOpLoopAxes(Operation &op, Function &subFunc) {
             if (lastOpInLoop != nullptr) {
                 SetOpLoopEnd(lastOpInLoop);
             }
-            APASS_LOG_INFO_F(Elements::Operation, "Op Code %s, Op[%d] set loopGroup ++Start++",
-                op.GetOpcodeStr().c_str(), op.GetOpMagic());
+            APASS_LOG_INFO_F(
+                Elements::Operation, "Op Code %s, Op[%d] set loopGroup ++Start++", op.GetOpcodeStr().c_str(),
+                op.GetOpMagic());
         }
         op.SetAttribute(OpAttributeKey::loopGroup, groupIdx);
         op.SetAttribute(OpAttributeKey::loopAxes, loopAxes);
         lastOpInLoop = op.shared_from_this();
         previousOutputMagic = output->GetMagic();
-        APASS_LOG_INFO_F(Elements::Operation, "Op Code %s, Op[%d] groupIdx is %ld, loopAxes is %s",
-            op.GetOpcodeStr().c_str(), op.GetOpMagic(), groupIdx, IntVecToStr(loopAxes).c_str());
+        APASS_LOG_INFO_F(
+            Elements::Operation, "Op Code %s, Op[%d] groupIdx is %ld, loopAxes is %s", op.GetOpcodeStr().c_str(),
+            op.GetOpMagic(), groupIdx, IntVecToStr(loopAxes).c_str());
     }
     return SUCCESS;
 }
 
-Status LoopaxesProc::UpdateFuncLoopAxes(Function &function) {
-    if (function.rootFunc_ == nullptr) {
-        return SUCCESS;
+Status LoopaxesProc::UpdateFuncLoopAxes(Function& function)
+{
+    DynAttrToStatic dyn2Static;
+    // 遍历所有rootFunc, 找到每个leaf的所有caller, 生成leaf2Caller map
+    if (dyn2Static.BuildLeafToCaller(&function) != SUCCESS) {
+        APASS_LOG_ERROR_F(Elements::Operation, "Failed to call BuildLeafToCaller.");
+        return FAILED;
     }
-    APASS_LOG_DEBUG_F(Elements::Operation, "Function[%s] has rootFunc.", function.GetMagicName().c_str());
-    for (auto &subProgram : function.rootFunc_->programs_) {
+
+    // 遍历leaf2Caller
+    for (auto& pair : dyn2Static.leaf2Caller) {
         groupIdx = INVALID_LOOP_GROUPID;
         lastGroupIdx = groupIdx;
         lastOpInLoop.reset();
-        if (subProgram.second == nullptr) {
-            APASS_LOG_DEBUG_F(Elements::Operation, "subProgram[%lu] of Function[%s] is nullptr.", subProgram.first,
-                function.GetMagicName().c_str());
+        if (pair.first == nullptr) {
+            APASS_LOG_DEBUG_F(Elements::Operation, "subProgram of Function is nullptr.");
             continue;
         }
-        for (auto &op : subProgram.second->Operations(false)) {
-            auto &subFunc = *subProgram.second;
+        for (auto& op : pair.first->Operations(false)) {
+            auto& subFunc = *pair.first;
             UpdateOpLoopAxes(op, subFunc);
         }
         if (lastGroupIdx != INVALID_LOOP_GROUPID && lastOpInLoop != nullptr) {
@@ -163,7 +175,8 @@ Status LoopaxesProc::UpdateFuncLoopAxes(Function &function) {
     return SUCCESS;
 }
 
-bool LoopaxesProc::SameLoopAxes(const std::vector<SymbolicScalar> &curLoopAxes, const Function &subFunc) {
+bool LoopaxesProc::SameLoopAxes(const std::vector<SymbolicScalar>& curLoopAxes, const Function& subFunc)
+{
     if (curLoopAxes.size() != previousLoopAxes.size()) {
         return false;
     }
@@ -171,13 +184,13 @@ bool LoopaxesProc::SameLoopAxes(const std::vector<SymbolicScalar> &curLoopAxes, 
     for (size_t i = 0; i < curLoopAxes.size(); ++i) {
         auto curExpr = SymbolicExpressionTable::BuildExpression(curLoopAxes[i]);
         auto prevExpr = SymbolicExpressionTable::BuildExpression(previousLoopAxes[i]);
-        if (dynParamTable.find(curExpr) != dynParamTable.end() &&
-            dynParamTable.find(prevExpr) != dynParamTable.end()) {
+        if (dynParamTable.find(curExpr) != dynParamTable.end() && dynParamTable.find(prevExpr) != dynParamTable.end()) {
             auto curParamInfo = dynParamTable[curExpr];
             auto preParamInfo = dynParamTable[prevExpr];
             if (!curParamInfo.replacedSymbol.empty() && !preParamInfo.replacedSymbol.empty() &&
                 curParamInfo.replacedSymbol == preParamInfo.replacedSymbol) {
-                APASS_LOG_INFO_F(Elements::Operation, "%s & %s has same replacedSymbol.", curExpr.c_str(), prevExpr.c_str());
+                APASS_LOG_INFO_F(
+                    Elements::Operation, "%s & %s has same replacedSymbol.", curExpr.c_str(), prevExpr.c_str());
                 return true;
             }
         }

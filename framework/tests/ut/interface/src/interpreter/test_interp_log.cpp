@@ -39,7 +39,8 @@
 namespace npu::tile_fwk {
 class InterpreterLogTest : public testing::Test {
 public:
-    void SetUp() override {
+    void SetUp() override
+    {
         Program::GetInstance().Reset();
         config::Reset();
         ProgramData::GetInstance().Reset();
@@ -50,13 +51,15 @@ public:
         TileShape::Current().SetCubeTile({32, 32}, {32, 32}, {32, 32});
     }
 
-    void TearDown() override {
+    void TearDown() override
+    {
         config::SetVerifyOption(KEY_ENABLE_PASS_VERIFY, true);
         config::SetVerifyOption(KEY_PASS_VERIFY_SAVE_TENSOR, true);
     }
 };
 
-TEST_F(InterpreterLogTest, ReshapeMismatchElementCount) {
+TEST_F(InterpreterLogTest, ReshapeMismatchElementCount)
+{
     std::string logOutput = CaptureLogFileAndEcho([]() {
         config::SetVerifyOption(KEY_ENABLE_PASS_VERIFY, true);
         config::SetVerifyOption(KEY_PASS_VERIFY_SAVE_TENSOR, true);
@@ -71,8 +74,10 @@ TEST_F(InterpreterLogTest, ReshapeMismatchElementCount) {
             RawTensorData::CreateConstantTensor<float>(output, 0.0f),
         });
 
-        FUNCTION("main", {input}, {output}) {
-            LOOP("L0", FunctionType::DYNAMIC_LOOP, i, LoopRange(1)) {
+        FUNCTION("main", {input}, {output})
+        {
+            LOOP("L0", FunctionType::DYNAMIC_LOOP, i, LoopRange(1))
+            {
                 (void)i;
                 TileShape::Current().SetVecTile(128, 128, 128);
                 auto t1 = View(input, {128, 1, 128}, {30, 1, 128}, {0, 0, 0});
@@ -84,12 +89,12 @@ TEST_F(InterpreterLogTest, ReshapeMismatchElementCount) {
     });
 
     // 仅校验 verify 日志：不应出现 FAILED
-    EXPECT_FALSE(VerifyLogContainsFailed(logOutput))
-        << "Expected no FAILED in verify log, captured: " << logOutput;
+    EXPECT_FALSE(VerifyLogContainsFailed(logOutput)) << "Expected no FAILED in verify log, captured: " << logOutput;
 }
 
 // 测试精度对比失败场景能否正确输出错误日志，并捕获日志进行校验
-TEST_F(InterpreterLogTest, PrecisionMismatchErrorLog) {
+TEST_F(InterpreterLogTest, PrecisionMismatchErrorLog)
+{
     bool oriLogStdout = LogManager::Instance().enableStdOut_;
     LogManager::Instance().enableStdOut_ = true;
     std::string logOutput = CaptureStdoutAndEcho([]() {
@@ -111,8 +116,10 @@ TEST_F(InterpreterLogTest, PrecisionMismatchErrorLog) {
             RawTensorData::CreateConstantTensor<float>(output, 10.0f),
         });
 
-        FUNCTION("main", {input}, {output}) {
-            LOOP("L0", FunctionType::DYNAMIC_LOOP, i, LoopRange(1)) {
+        FUNCTION("main", {input}, {output})
+        {
+            LOOP("L0", FunctionType::DYNAMIC_LOOP, i, LoopRange(1))
+            {
                 (void)i;
                 auto t = View(input, {s, s}, {0, 0});
                 Assemble(t, {0, 0}, output);
@@ -127,7 +134,8 @@ TEST_F(InterpreterLogTest, PrecisionMismatchErrorLog) {
 }
 
 // 测试空 loop (start=0, end=0) 能否触发 interpreter 的 "skip execute due to idx range = 0" 日志
-TEST_F(InterpreterLogTest, EmptyLoopStartEndZero) {
+TEST_F(InterpreterLogTest, EmptyLoopStartEndZero)
+{
     std::string logOutput = CaptureLogFileAndEcho([]() {
         config::SetVerifyOption(KEY_ENABLE_PASS_VERIFY, true);
         config::SetVerifyOption(KEY_PASS_VERIFY_SAVE_TENSOR, true);
@@ -146,8 +154,10 @@ TEST_F(InterpreterLogTest, EmptyLoopStartEndZero) {
             RawTensorData::CreateConstantTensor<float>(output, 0.0f),
         });
 
-        FUNCTION("main", {input}, {output}) {
-            LOOP("L0", FunctionType::DYNAMIC_LOOP, i, LoopRange(0, 0, 1)) {
+        FUNCTION("main", {input}, {output})
+        {
+            LOOP("L0", FunctionType::DYNAMIC_LOOP, i, LoopRange(0, 0, 1))
+            {
                 (void)i;
                 auto t = View(input, {s, s}, {0, 0});
                 Assemble(t, {0, 0}, output);
@@ -156,8 +166,7 @@ TEST_F(InterpreterLogTest, EmptyLoopStartEndZero) {
     });
 
     // 仅校验 verify 日志：不应出现 FAILED
-    EXPECT_FALSE(VerifyLogContainsFailed(logOutput))
-        << "Expected no FAILED in verify log, captured: " << logOutput;
+    EXPECT_FALSE(VerifyLogContainsFailed(logOutput)) << "Expected no FAILED in verify log, captured: " << logOutput;
 }
 
 } // namespace npu::tile_fwk

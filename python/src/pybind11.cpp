@@ -15,11 +15,13 @@
 
 #include "pybind_common.h"
 #include "bindings/bindings.h"
+#include "bindings/ir/bindings.h"
 
 using namespace npu::tile_fwk;
 
 namespace pypto {
-PYBIND11_MODULE(pypto_impl, m) {
+PYBIND11_MODULE(pypto_impl, m)
+{
     m.doc() = "PyPTO";
     bind_enum(m);
     BindElement(m);
@@ -33,5 +35,8 @@ PYBIND11_MODULE(pypto_impl, m) {
     BindFunction(m);
     BindDistributed(m);
     BindPlatform(m);
+
+    BindIR(m);
+    BindCore(m);
 };
 } // namespace pypto

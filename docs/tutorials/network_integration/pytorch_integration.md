@@ -18,7 +18,7 @@ def softmax_kernel(
     output_tensor: pypto.Tensor((B, N1, N2, DIM), pypto.DT_FP32)
 ):
     ...
-    
+
 
 
 @allow_in_graph
@@ -62,4 +62,3 @@ if __name__ == "__main__":
 ```
 
 完整的样例请参考：[aclgraph.py](../../../examples/03_advanced/aclgraph/aclgraph.py)。
-

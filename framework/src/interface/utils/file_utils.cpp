@@ -29,7 +29,8 @@ namespace {
 const int FILE_AUTHORITY = 0640;
 }
 
-bool GetFileSize(const std::string& fPath, uint32_t &fileSize) {
+bool GetFileSize(const std::string& fPath, uint32_t& fileSize)
+{
     if (RealPath(fPath).empty()) {
         return false;
     }
@@ -42,14 +43,16 @@ bool GetFileSize(const std::string& fPath, uint32_t &fileSize) {
     return true;
 }
 
-uint32_t GetFileSize(const std::string& fPath) {
+uint32_t GetFileSize(const std::string& fPath)
+{
     uint32_t fileSize = 0;
-    (void) GetFileSize(fPath, fileSize);
+    (void)GetFileSize(fPath, fileSize);
     return fileSize;
 }
 
-bool CreateDir(const std::string &directoryPath) {
-    int32_t ret = mkdir(directoryPath.c_str(), S_IRWXU | S_IRGRP | S_IXGRP | S_IROTH | S_IXOTH);  // 755
+bool CreateDir(const std::string& directoryPath)
+{
+    int32_t ret = mkdir(directoryPath.c_str(), S_IRWXU | S_IRGRP | S_IXGRP | S_IROTH | S_IXOTH); // 755
     if (ret != 0 && errno != EEXIST) {
         FUNCTION_LOGW("Create dir[%s] failed, reason is %s", directoryPath.c_str(), strerror(errno));
         return false;
@@ -57,11 +60,12 @@ bool CreateDir(const std::string &directoryPath) {
     return true;
 }
 
-bool JudgeEmptyAndCreateDir(char tmpDirPath[], const std::string &directoryPath) {
+bool JudgeEmptyAndCreateDir(char tmpDirPath[], const std::string& directoryPath)
+{
     std::string realPath = RealPath(tmpDirPath);
     if (realPath.empty()) {
         int32_t ret = 0;
-        ret = mkdir(tmpDirPath, S_IRWXU | S_IRGRP | S_IXGRP | S_IROTH | S_IXOTH);  // 755
+        ret = mkdir(tmpDirPath, S_IRWXU | S_IRGRP | S_IXGRP | S_IROTH | S_IXOTH); // 755
         if (ret != 0 && errno != EEXIST) {
             FUNCTION_LOGW("Create dir[%s] failed, reason is %s", directoryPath.c_str(), strerror(errno));
             return false;
@@ -70,7 +74,8 @@ bool JudgeEmptyAndCreateDir(char tmpDirPath[], const std::string &directoryPath)
     return true;
 }
 
-bool CreateMultiLevelDir(const std::string &directoryPath) {
+bool CreateMultiLevelDir(const std::string& directoryPath)
+{
     auto dirPathLen = directoryPath.length();
     if (dirPathLen >= PATH_MAX) {
         FUNCTION_LOGW("Path[%s] is too long, it must be less than %d", directoryPath.c_str(), PATH_MAX);
@@ -90,7 +95,7 @@ bool CreateMultiLevelDir(const std::string &directoryPath) {
         }
     }
 
-    ret = mkdir(directoryPath.c_str(), S_IRWXU | S_IRGRP | S_IXGRP | S_IROTH | S_IXOTH);  // 755
+    ret = mkdir(directoryPath.c_str(), S_IRWXU | S_IRGRP | S_IXGRP | S_IROTH | S_IXOTH); // 755
     if (ret != 0 && errno != EEXIST) {
         FUNCTION_LOGW("Create dir[%s] failed, reason is: %s", directoryPath.c_str(), strerror(errno));
         return false;
@@ -100,7 +105,7 @@ bool CreateMultiLevelDir(const std::string &directoryPath) {
     return true;
 }
 
-void DeleteFile(const std::string &path)
+void DeleteFile(const std::string& path)
 {
     if (path.empty()) {
         FUNCTION_LOGW("File name is empty.");
@@ -121,7 +126,8 @@ void DeleteFile(const std::string &path)
     }
 }
 
-bool ReadJsonFile(const std::string &file, nlohmann::json &jsonObj) {
+bool ReadJsonFile(const std::string& file, nlohmann::json& jsonObj)
+{
     std::string path = RealPath(file);
     if (path.empty()) {
         FUNCTION_LOGW("File path [%s] does not exist", file.c_str());
@@ -136,7 +142,7 @@ bool ReadJsonFile(const std::string &file, nlohmann::json &jsonObj) {
 
         ifStream >> jsonObj;
         ifStream.close();
-    } catch (const std::exception &e) {
+    } catch (const std::exception& e) {
         FUNCTION_LOGW("Fail to convert file[%s] to Json. Exception message is .%s", path.c_str(), e.what());
         ifStream.close();
         return false;
@@ -145,7 +151,7 @@ bool ReadJsonFile(const std::string &file, nlohmann::json &jsonObj) {
     return true;
 }
 
-bool ReadBytesFromFile(const std::string &fPath, std::vector<char> &buffer)
+bool ReadBytesFromFile(const std::string& fPath, std::vector<char>& buffer)
 {
     std::string realPath = RealPath(fPath);
     if (realPath.empty()) {
@@ -181,7 +187,8 @@ bool ReadBytesFromFile(const std::string &fPath, std::vector<char> &buffer)
     return true;
 }
 
-std::vector<std::string> GetFiles(const std::string& path, const std::string& ext) {
+std::vector<std::string> GetFiles(const std::string& path, const std::string& ext)
+{
     std::vector<std::string> files;
     DIR* dir = opendir(path.c_str());
     if (dir == nullptr) {
@@ -200,7 +207,7 @@ std::vector<std::string> GetFiles(const std::string& path, const std::string& ex
         if (!ext.empty()) {
             size_t pos = fileName.rfind('.');
             if (pos == std::string::npos) {
-                continue;  // 没有扩展名
+                continue; // 没有扩展名
             }
             std::string fileExt = fileName.substr(pos + 1);
             // 转换为小写进行比较
@@ -220,8 +227,9 @@ std::vector<std::string> GetFiles(const std::string& path, const std::string& ex
     return files;
 }
 
-void SaveFile(const std::string &fPath, const std::vector<uint8_t> &data) {
-    FILE *file = fopen(fPath.c_str(), "wb");
+void SaveFile(const std::string& fPath, const std::vector<uint8_t>& data)
+{
+    FILE* file = fopen(fPath.c_str(), "wb");
     if (file == nullptr) {
         FUNCTION_LOGW("Open file [%s] failed.", fPath.c_str());
         return;
@@ -230,8 +238,9 @@ void SaveFile(const std::string &fPath, const std::vector<uint8_t> &data) {
     fclose(file);
 }
 
-bool SaveFile(const std::string &fPath, const uint8_t *data, size_t size) {
-    FILE *file = fopen(fPath.c_str(), "wb");
+bool SaveFile(const std::string& fPath, const uint8_t* data, size_t size)
+{
+    FILE* file = fopen(fPath.c_str(), "wb");
     if (file == nullptr) {
         FUNCTION_LOGW("Open file [%s] failed.", fPath.c_str());
         return false;
@@ -241,20 +250,23 @@ bool SaveFile(const std::string &fPath, const uint8_t *data, size_t size) {
     return true;
 }
 
-void SaveFileSafe(const std::string &fPath, const uint8_t *data, size_t size) {
+void SaveFileSafe(const std::string& fPath, const uint8_t* data, size_t size)
+{
     auto tmpfile = fPath + ".tmp";
     if (SaveFile(tmpfile, data, size)) {
         Rename(tmpfile, fPath);
     }
 }
 
-void Rename(const std::string &oldPath, const std::string &newPath) {
+void Rename(const std::string& oldPath, const std::string& newPath)
+{
     if (rename(oldPath.c_str(), newPath.c_str()) != 0) {
         FUNCTION_LOGW("Rename file %s to %s failed.", oldPath.c_str(), newPath.c_str());
     }
 }
 
-bool DumpFile(const char *data, const size_t size, const std::string &fPath) {
+bool DumpFile(const char* data, const size_t size, const std::string& fPath)
+{
     // dump bin file
     std::ofstream outFile(fPath, std::ios::binary);
     if (!outFile) {
@@ -267,15 +279,15 @@ bool DumpFile(const char *data, const size_t size, const std::string &fPath) {
     return true;
 }
 
-bool DumpFile(const std::vector<uint8_t> &data, const std::string &fPath) {
-    return DumpFile(reinterpret_cast<const char *>(data.data()), data.size(), fPath);
+bool DumpFile(const std::vector<uint8_t>& data, const std::string& fPath)
+{
+    return DumpFile(reinterpret_cast<const char*>(data.data()), data.size(), fPath);
 }
 
-bool DumpFile(const std::string &text, const std::string &fPath) {
-    return DumpFile(text.data(), text.size(), fPath);
-}
+bool DumpFile(const std::string& text, const std::string& fPath) { return DumpFile(text.data(), text.size(), fPath); }
 
-std::vector<uint8_t> LoadFile(const std::string &fPath) {
+std::vector<uint8_t> LoadFile(const std::string& fPath)
+{
     std::vector<uint8_t> binary;
     std::string realPath = RealPath(fPath);
     if (realPath.empty()) {
@@ -283,7 +295,7 @@ std::vector<uint8_t> LoadFile(const std::string &fPath) {
         return binary;
     }
 
-    FILE *file = fopen(fPath.c_str(), "rb");
+    FILE* file = fopen(fPath.c_str(), "rb");
     if (file != nullptr) {
         fseek(file, 0, SEEK_END);
         int size = ftell(file);
@@ -298,7 +310,8 @@ std::vector<uint8_t> LoadFile(const std::string &fPath) {
     return binary;
 }
 
-static int RemoveFile(const char* path, const struct stat* sb, int flag, struct FTW* ftwbuf) {
+static int RemoveFile(const char* path, const struct stat* sb, int flag, struct FTW* ftwbuf)
+{
     (void)sb;
     (void)ftwbuf;
     if (flag == FTW_F) {
@@ -309,7 +322,8 @@ static int RemoveFile(const char* path, const struct stat* sb, int flag, struct 
     return 0;
 }
 
-bool DeleteDir(const std::string& directoryPath) {
+bool DeleteDir(const std::string& directoryPath)
+{
     constexpr int limit = 64;
     int ret = nftw(directoryPath.c_str(), RemoveFile, limit, FTW_DEPTH | FTW_PHYS);
     if (ret != 0) {
@@ -319,7 +333,8 @@ bool DeleteDir(const std::string& directoryPath) {
     return true;
 }
 
-bool FcntlLockFile(const int fd, const int type) {
+bool FcntlLockFile(const int fd, const int type)
+{
     struct flock lock;
     lock.l_whence = SEEK_SET;
     lock.l_start = 0;
@@ -330,8 +345,9 @@ bool FcntlLockFile(const int fd, const int type) {
     return fcntl(fd, F_SETLK, &lock) == 0;
 }
 
-FILE* LockAndOpenFile(const std::string &lockFilePath) {
-    FILE *fp = fopen(lockFilePath.c_str(), "a+");
+FILE* LockAndOpenFile(const std::string& lockFilePath)
+{
+    FILE* fp = fopen(lockFilePath.c_str(), "a+");
     if (fp == nullptr) {
         return nullptr;
     }
@@ -345,7 +361,8 @@ FILE* LockAndOpenFile(const std::string &lockFilePath) {
     return fp;
 }
 
-void UnlockAndCloseFile(FILE *fp) {
+void UnlockAndCloseFile(FILE* fp)
+{
     if (fp == nullptr) {
         return;
     }
@@ -354,7 +371,8 @@ void UnlockAndCloseFile(FILE *fp) {
     fp = nullptr;
 }
 
-bool CopyFile(const std::string &srcPath, const std::string &dstPath) {
+bool CopyFile(const std::string& srcPath, const std::string& dstPath)
+{
     std::ifstream src(srcPath, std::ios::binary);
     std::ofstream dst(dstPath, std::ios::binary);
 
@@ -369,7 +387,8 @@ bool CopyFile(const std::string &srcPath, const std::string &dstPath) {
     return true;
 }
 
-std::string GetCurrentSharedLibPath() {
+std::string GetCurrentSharedLibPath()
+{
     static std::string currentLibPath;
     if (!currentLibPath.empty()) {
         return currentLibPath;
@@ -386,7 +405,8 @@ std::string GetCurrentSharedLibPath() {
     return currentLibPath;
 }
 
-std::string GetCurRunningPath() {
+std::string GetCurRunningPath()
+{
     constexpr size_t size = 1024;
     char buffer[size] = {};
     std::string cwd = getcwd(buffer, size);
@@ -397,15 +417,16 @@ std::string GetCurRunningPath() {
     return cwd;
 }
 
-void RemoveOldestDirs(const std::string &path, const std::string &prefix, int left) {
-    DIR *dir = opendir(path.c_str());
+void RemoveOldestDirs(const std::string& path, const std::string& prefix, int left)
+{
+    DIR* dir = opendir(path.c_str());
     if (dir == nullptr) {
         FUNCTION_LOGW("failed to opendir: %s", path.c_str());
         return;
     }
 
     int32_t dirNum{0};
-    struct dirent *entry;
+    struct dirent* entry;
     std::map<long long, std::string, std::less<>> timeList;
     while ((entry = readdir(dir)) != nullptr) {
         if (strncmp(entry->d_name, prefix.c_str(), prefix.size()) != 0) {
@@ -427,4 +448,4 @@ void RemoveOldestDirs(const std::string &path, const std::string &prefix, int le
         DeleteDir(it->second);
     }
 }
-}  // namespace npu::tile_fwk
+} // namespace npu::tile_fwk

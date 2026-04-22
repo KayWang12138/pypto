@@ -12,7 +12,7 @@
 """PTO Script Parser - Core Parsing Infrastructure.
 
 This module provides the PTO Script Parser implementation, which parses Python
-functions decorated with @pypto.jit or @pypto.frontend.function and converts them
+functions decorated with @pypto.frontend.jit or @pypto.frontend.function and converts them
 to PTO intermediate representation (IR). The parser is inspired by TVM's Script
 Parser and provides a robust, extensible system for compiling Python code to
 optimized PTO operations.
@@ -71,5 +71,5 @@ y = my_kernel(x)
 For detailed developer documentation, see developer_doc.md in the frontend directory.
 """
 
-from . import error
+from ... import error
 from .entry import jit, function

@@ -36,7 +36,7 @@
     controlflow/index
     config/index
     symbolic/index
-    newcategory/index 
+    newcategory/index
     ```
 
     在newcategory/index.md中增加以下内容：

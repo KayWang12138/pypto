@@ -41,4 +41,4 @@ struct CoreConfig : public Config {
     uint64_t logLabelMode = 1;
     bool enableTileOpFlow = false;
 };
-}
+} // namespace CostModel

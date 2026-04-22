@@ -8,6 +8,7 @@
  * See LICENSE in the root of the software repository for the full text of the License.
  */
 
+#include <algorithm>
 #include <chrono>
 #include <cstdio>
 #include <cstdlib>
@@ -24,16 +25,16 @@
 
 namespace npu::tile_fwk {
 
-MonitorManager::~MonitorManager() {
-    Shutdown();
-}
+MonitorManager::~MonitorManager() { Shutdown(); }
 
-MonitorManager &MonitorManager::Instance() {
+MonitorManager& MonitorManager::Instance()
+{
     static MonitorManager instance;
     return instance;
 }
 
-void MonitorManager::Initialize(bool enable, int interval_sec, int timeout_sec, int total_timeout_sec) {
+void MonitorManager::Initialize(bool enable, int interval_sec, int timeout_sec, int total_timeout_sec)
+{
     std::lock_guard<std::mutex> lock(mutex_);
     this->SetCompilerMonitorOptions(enable, interval_sec, timeout_sec, total_timeout_sec);
     if (initialized_) {
@@ -55,6 +56,7 @@ void MonitorManager::Initialize(bool enable, int interval_sec, int timeout_sec, 
     stage_timeout_flag_["Prepare"] = false;
     stage_timeout_flag_["Pass"] = false;
     stage_timeout_flag_["CodeGen"] = false;
+    stage_timeout_flag_[STAGE_FUNC_TO_BIN] = false;
     stage_timeout_flag_["Total"] = false;
     python_stage_ended_ = false;
     stage_elapsed_totals_["Prepare"] = 0.0;
@@ -63,7 +65,8 @@ void MonitorManager::Initialize(bool enable, int interval_sec, int timeout_sec, 
     impl_->StartMonitoring();
 }
 
-void MonitorManager::Shutdown() {
+void MonitorManager::Shutdown()
+{
     std::lock_guard<std::mutex> lock(mutex_);
     if (!initialized_ || !enable_) {
         return;
@@ -76,14 +79,16 @@ void MonitorManager::Shutdown() {
     initialized_ = false;
 }
 
-void MonitorManager::MaybeStartTotalClock() {
+void MonitorManager::MaybeStartTotalClock()
+{
     if (current_stage_.empty()) {
         total_start_ = std::chrono::steady_clock::now();
         stage_start_ = total_start_;
     }
 }
 
-double MonitorManager::GetCurrentStageElapsed(const std::string &name) {
+double MonitorManager::GetCurrentStageElapsed(const std::string& name)
+{
     std::lock_guard<std::mutex> lock(mutex_);
     if (!initialized_) {
         return 0.0;
@@ -96,11 +101,12 @@ double MonitorManager::GetCurrentStageElapsed(const std::string &name) {
     return elapsed;
 }
 
-void MonitorManager::SetTotalFunctionCount(int n) {
+void MonitorManager::SetTotalFunctionCount(int n)
+{
     if (!enable_) {
         return;
     }
-    MonitorImpl *to_start = nullptr;
+    MonitorImpl* to_start = nullptr;
     {
         std::lock_guard<std::mutex> lock(mutex_);
         // Check if Prepare stage was started via Python (env var indicates this)
@@ -129,7 +135,8 @@ void MonitorManager::SetTotalFunctionCount(int n) {
     }
 }
 
-int MonitorManager::GetAndIncrementNextFunctionIndex() {
+int MonitorManager::GetAndIncrementNextFunctionIndex()
+{
     if (!enable_) {
         return 0;
     }
@@ -138,7 +145,8 @@ int MonitorManager::GetAndIncrementNextFunctionIndex() {
     return k;
 }
 
-void MonitorManager::SetCurrentFunctionIndex(int k) {
+void MonitorManager::SetCurrentFunctionIndex(int k)
+{
     if (!enable_) {
         return;
     }
@@ -148,7 +156,47 @@ void MonitorManager::SetCurrentFunctionIndex(int k) {
     (void)setenv("PYPTO_COMPILER_MONITOR_CURRENT", val.c_str(), 1);
 }
 
-void MonitorManager::TryEndPrepareStage() {
+void MonitorManager::SetRootFuncCount(int n)
+{
+    if (!enable_) {
+        return;
+    }
+    std::lock_guard<std::mutex> lock(mutex_);
+    root_func_count_ = n;
+    next_root_func_index_ = 1;
+    current_root_func_index_ = 0;
+}
+
+int MonitorManager::PrepareNextRootFunc()
+{
+    if (!enable_) {
+        return 0;
+    }
+    std::lock_guard<std::mutex> lock(mutex_);
+    int k = next_root_func_index_++;
+    return k;
+}
+
+std::string MonitorManager::GetCurrentRootFuncName() const
+{
+    std::lock_guard<std::mutex> lock(mutex_);
+    return current_root_func_;
+}
+
+int MonitorManager::GetRootFuncCount() const
+{
+    std::lock_guard<std::mutex> lock(mutex_);
+    return root_func_count_;
+}
+
+int MonitorManager::GetCurrentRootFuncIndex() const
+{
+    std::lock_guard<std::mutex> lock(mutex_);
+    return current_root_func_index_;
+}
+
+void MonitorManager::TryEndPrepareStage()
+{
     if (!impl_ || !enable_) {
         return;
     }
@@ -183,22 +231,30 @@ void MonitorManager::TryEndPrepareStage() {
     }
 }
 
-void MonitorManager::NotifyCompilationFinished() {
-    std::lock_guard<std::mutex> lock(mutex_);
-    if (!initialized_ || !enable_) {
-        return;
+void MonitorManager::NotifyCompilationFinished()
+{
+    MonitorImpl* impl_to_stop = nullptr;
+    {
+        std::lock_guard<std::mutex> lock(mutex_);
+        if (!initialized_ || !enable_) {
+            return;
+        }
+        PrintCompilationFinished();
+        if (impl_) {
+            impl_to_stop = impl_;
+            impl_ = nullptr;
+        }
+        initialized_ = false;
+        stage_doing_ = false;
     }
-    PrintCompilationFinished();
-    if (impl_) {
-        impl_->Stop();
-        delete impl_;
-        impl_ = nullptr;
+    if (impl_to_stop) {
+        impl_to_stop->Stop();
+        delete impl_to_stop;
     }
-    initialized_ = false;
-    stage_doing_ = false;
 }
 
-void MonitorManager::PrintCompilationFinished() {
+void MonitorManager::PrintCompilationFinished()
+{
     if (enable_) {
         auto now = std::chrono::steady_clock::now();
         double total_elapsed = std::chrono::duration<double>(now - total_start_).count();
@@ -206,7 +262,7 @@ void MonitorManager::PrintCompilationFinished() {
         // Calculate total from all stage elapsed totals (sum of all stages)
         // This ensures Total elapsed includes Prepare time from Python side
         double stage_total = 0.0;
-        for (const auto &kv : stage_elapsed_totals_) {
+        for (const auto& kv : stage_elapsed_totals_) {
             stage_total += kv.second;
         }
         // Use the larger of: clock-based total vs sum of stages
@@ -225,12 +281,13 @@ void MonitorManager::PrintCompilationFinished() {
 
         int n = total_function_count_ > 0 ? total_function_count_ : 1;
         std::ostringstream stage_msg;
-        for (const auto &[stage, sec] : stage_elapsed_totals_) {
+        for (const auto& [stage, sec] : stage_elapsed_totals_) {
             if (stage == "Pass" || stage == "CodeGen") {
-                stage_msg << " " << ("[" + stage + "]:") << std::fixed <<std::setprecision(1) << sec << "s" << " ";
+                stage_msg << " " << ("[" + stage + "]:") << std::fixed << std::setprecision(1) << sec << "s"
+                          << " ";
             } else {
-                stage_msg << " " << ("[" + stage + "]:") << std::fixed << std::setprecision(1) << sec
-                          << "s  (sum over " << n << " functions)\n";
+                stage_msg << " " << ("[" + stage + "]:") << std::fixed << std::setprecision(1) << sec << "s  (sum over "
+                          << n << " functions)\n";
             }
         }
         COMPILER_LOGI("[Compiler Monitor] Stage timing (aggregated by stage):%s", stage_msg.str().c_str());
@@ -248,7 +305,8 @@ void MonitorManager::PrintCompilationFinished() {
     }
 }
 
-void MonitorManager::SetCompilerMonitorOptions(bool enable, int interval_sec, int timeout_sec, int total_timeout_sec) {
+void MonitorManager::SetCompilerMonitorOptions(bool enable, int interval_sec, int timeout_sec, int total_timeout_sec)
+{
     enable_ = enable;
     interval_sec_.store((interval_sec > 0) ? interval_sec : 60);
     std::string interval_str = std::to_string(interval_sec_.load());
@@ -261,18 +319,18 @@ void MonitorManager::SetCompilerMonitorOptions(bool enable, int interval_sec, in
     (void)setenv("PYPTO_COMPILER_MONITOR_TOTAL_TIMEOUT_SEC", total_timeout_str.c_str(), 1);
 }
 
-bool MonitorManager::IsEnabled() const {
-    return enable_;
-}
+bool MonitorManager::IsEnabled() const { return enable_; }
 
-void MonitorManager::SetStageTimeoutFlag(const std::string &name) {
+void MonitorManager::SetStageTimeoutFlag(const std::string& name)
+{
     std::lock_guard<std::mutex> lock(mutex_);
     if (stage_timeout_flag_.count(name) > 0) {
         stage_timeout_flag_[name] = true;
     }
 }
 
-bool MonitorManager::GetStageTimeoutFlag(const std::string &name) {
+bool MonitorManager::GetStageTimeoutFlag(const std::string& name)
+{
     std::lock_guard<std::mutex> lock(mutex_);
     if (stage_timeout_flag_.count(name) > 0) {
         return stage_timeout_flag_[name];
@@ -280,29 +338,26 @@ bool MonitorManager::GetStageTimeoutFlag(const std::string &name) {
     return false;
 }
 
-int MonitorManager::GetIntervalSec() const {
-    return interval_sec_.load();
-}
+int MonitorManager::GetIntervalSec() const { return interval_sec_.load(); }
 
-int MonitorManager::GetTimeoutSec() const {
-    return timeout_sec_.load();
-}
+int MonitorManager::GetTimeoutSec() const { return timeout_sec_.load(); }
 
-int MonitorManager::GetTotalTimeoutSec() const {
-    return total_timeout_sec_.load();
-}
+int MonitorManager::GetTotalTimeoutSec() const { return total_timeout_sec_.load(); }
 
-std::string MonitorManager::GetCurrentStageName() const {
+std::string MonitorManager::GetCurrentStageName() const
+{
     std::lock_guard<std::mutex> lock(mutex_);
     return current_stage_;
 }
 
-std::string MonitorManager::GetCurrentFunctionName() const {
+std::string MonitorManager::GetCurrentFunctionName() const
+{
     std::lock_guard<std::mutex> lock(mutex_);
     return current_function_;
 }
 
-void MonitorManager::SetCurrentFunctionName(const std::string &name) {
+void MonitorManager::SetCurrentFunctionName(const std::string& name)
+{
     if (!enable_) {
         return;
     }
@@ -310,32 +365,38 @@ void MonitorManager::SetCurrentFunctionName(const std::string &name) {
     current_function_ = name;
 }
 
-std::chrono::steady_clock::time_point MonitorManager::GetStageStartTime() const {
+std::chrono::steady_clock::time_point MonitorManager::GetStageStartTime() const
+{
     std::lock_guard<std::mutex> lock(mutex_);
     return stage_start_;
 }
 
-std::chrono::steady_clock::time_point MonitorManager::GetTotalStartTime() const {
+std::chrono::steady_clock::time_point MonitorManager::GetTotalStartTime() const
+{
     std::lock_guard<std::mutex> lock(mutex_);
     return total_start_;
 }
 
-int MonitorManager::GetTotalFunctionCount() const {
+int MonitorManager::GetTotalFunctionCount() const
+{
     std::lock_guard<std::mutex> lock(mutex_);
     return total_function_count_;
 }
 
-int MonitorManager::GetCurrentFunctionIndex() const {
+int MonitorManager::GetCurrentFunctionIndex() const
+{
     std::lock_guard<std::mutex> lock(mutex_);
     return current_function_index_;
 }
 
-std::unordered_map<std::string, double> MonitorManager::GetStageElapsedTotals() const {
+std::unordered_map<std::string, double> MonitorManager::GetStageElapsedTotals() const
+{
     std::lock_guard<std::mutex> lock(mutex_);
     return stage_elapsed_totals_;
 }
 
-void MonitorManager::StartStage(const std::string &name) {
+void MonitorManager::StartStage(const std::string& name, int rootFuncIndex, const std::string& rootFuncName)
+{
     COMPILER_LOGI("Stage ==[%s]== begin.", name.c_str());
     std::lock_guard<std::mutex> lock(mutex_);
     if (!initialized_ || !impl_ || !enable_) {
@@ -346,10 +407,49 @@ void MonitorManager::StartStage(const std::string &name) {
     current_stage_ = name;
     stage_start_ = std::chrono::steady_clock::now();
     stage_doing_ = true;
+
+    ActiveStageInfo info;
+    info.stageName = name;
+    info.startTime = stage_start_;
+    info.functionIndex = current_function_index_;
+    info.functionName = current_function_;
+    info.rootFuncIndex = (rootFuncIndex < 0) ? current_root_func_index_ : rootFuncIndex;
+    info.rootFuncName = (rootFuncIndex < 0) ? current_root_func_ : rootFuncName;
+    active_stages_.push_back(info);
 }
 
-void MonitorManager::EndStage(const std::string &name) {
+void MonitorManager::EndStage(const std::string& name, int rootFuncIndex, const std::string& rootFuncName)
+{
     std::lock_guard<std::mutex> lock(mutex_);
+    int actualRootFuncIndex = rootFuncIndex;
+    std::string actualRootFuncName = rootFuncName;
+
+    auto it = active_stages_.rend();
+    if (rootFuncIndex < 0) {
+        it = std::find_if(active_stages_.rbegin(), active_stages_.rend(), [&name](const ActiveStageInfo& info) {
+            return info.stageName == name;
+        });
+        if (it != active_stages_.rend()) {
+            actualRootFuncIndex = it->rootFuncIndex;
+            actualRootFuncName = it->rootFuncName;
+        } else {
+            actualRootFuncIndex = current_root_func_index_;
+            actualRootFuncName = current_root_func_;
+        }
+    } else {
+        it = std::find_if(active_stages_.rbegin(), active_stages_.rend(), [&](const ActiveStageInfo& info) {
+            return info.stageName == name && info.rootFuncIndex == rootFuncIndex;
+        });
+    }
+
+    if (it != active_stages_.rend()) {
+        active_stages_.erase(std::prev(it.base()));
+    }
+    EndStageInternal(name, actualRootFuncIndex, actualRootFuncName);
+}
+
+void MonitorManager::EndStageInternal(const std::string& name, int rootFuncIndex, const std::string& rootFuncName)
+{
     if (!initialized_ || !impl_ || !enable_) {
         return;
     }
@@ -357,26 +457,39 @@ void MonitorManager::EndStage(const std::string &name) {
         stage_timeout_flag_["Prepare"] = false;
         stage_timeout_flag_["Pass"] = false;
         stage_timeout_flag_["CodeGen"] = false;
+        stage_timeout_flag_[STAGE_FUNC_TO_BIN] = false;
     }
     impl_->StopMonitoring();
     auto now = std::chrono::steady_clock::now();
     double elapsed = std::chrono::duration<double>(now - stage_start_).count();
-    stage_elapsed_totals_[name] += elapsed;
+    if (name != STAGE_FUNC_TO_BIN) {
+        stage_elapsed_totals_[name] += elapsed;
+    }
     stage_doing_ = false;
     COMPILER_LOGI("Stage ==[%s]== end, sub stage cost %lfs.", name.c_str(), stage_elapsed_totals_[name]);
 
     double total_elapsed = std::chrono::duration<double>(now - total_start_).count();
 
     std::string stage_finish_msg;
-    if (name == "CodeGen") {
+    if (name == STAGE_FUNC_TO_BIN) {
+        int pw = GetProgressWidth();
+        stage_finish_msg = "[Compiler Monitor] " + PadLabel("Function(parallel): ") +
+                           PadRight(std::to_string(rootFuncIndex) + "/" + std::to_string(root_func_count_), pw) +
+                           " | Stage: " + PadStageName("CodeGen[" + name + "]") +
+                           "(completed) | Stage elapsed: " + PadElapsed(FormatElapsed(elapsed)) +
+                           " | Total elapsed: " + PadElapsed(FormatElapsed(total_elapsed)) + " | Func:[" +
+                           rootFuncName + "]";
+    } else if (name == "CodeGen") {
         stage_finish_msg = "[Compiler Monitor] Stage: " + name +
-                           "(completed) | Stage elapsed: " + FormatElapsed(elapsed) +
-                           " | Total elapsed: " + FormatElapsed(total_elapsed);
+                           "(completed) | Stage elapsed: " + PadElapsed(FormatElapsed(elapsed)) +
+                           " | Total elapsed: " + PadElapsed(FormatElapsed(total_elapsed));
     } else {
-        stage_finish_msg = "[Compiler Monitor] Function: " + std::to_string(current_function_index_) + "/" +
-                           std::to_string(total_function_count_) + " | Stage: " + name +
-                           "(completed) | Stage elapsed: " + FormatElapsed(elapsed) +
-                           " | Total elapsed: " + FormatElapsed(total_elapsed) + " | Func:[" + current_function_ + "]";
+        int pw = GetProgressWidth();
+        stage_finish_msg =
+            "[Compiler Monitor] " + PadLabel("Function: ") +
+            PadRight(std::to_string(current_function_index_) + "/" + std::to_string(total_function_count_), pw) +
+            " | Stage: " + PadStageName(name) + "(completed) | Stage elapsed: " + PadElapsed(FormatElapsed(elapsed)) +
+            " | Total elapsed: " + PadElapsed(FormatElapsed(total_elapsed)) + " | Func:[" + current_function_ + "]";
     }
 
     (void)fprintf(stdout, "%s\n", stage_finish_msg.c_str());
@@ -384,7 +497,25 @@ void MonitorManager::EndStage(const std::string &name) {
     COMPILER_LOGI("%s", stage_finish_msg.c_str());
 }
 
-double MonitorManager::GetTotalElapsed() const {
+std::vector<ActiveStageInfo> MonitorManager::GetActiveStages() const
+{
+    std::lock_guard<std::mutex> lock(mutex_);
+    return active_stages_;
+}
+
+int MonitorManager::GetProcessingThresholdSec() const { return processing_threshold_sec_; }
+
+void MonitorManager::SetProcessingThresholdSec(int sec) { processing_threshold_sec_ = sec; }
+
+int MonitorManager::GetProgressWidth() const
+{
+    auto digits = [](int n) { return static_cast<int>(std::to_string(std::max(n, 1)).size()); };
+    int maxDigits = std::max(digits(total_function_count_), digits(root_func_count_));
+    return 2 * maxDigits + 1;
+}
+
+double MonitorManager::GetTotalElapsed() const
+{
     std::lock_guard<std::mutex> lock(mutex_);
     return last_total_elapsed_;
 }
