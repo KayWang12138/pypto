@@ -146,7 +146,7 @@ python3 .agents/skills/pypto-aicore-error-locator/scripts/get_latest_program_jso
 ### 6.1 查找 trace 日志、分析缺失 leaf index 并定位问题 CCE 文件
 
 ```bash
-python3 scripts/analyze_trace.py device_log_path run_path/kernel_aicore
+python3 .agents/skills/pypto-aicore-error-locator/scripts/analyze_trace.py device_log_path run_path/kernel_aicore
 ```
 
 **⚠️ 重要提示**: 若未定位到问题 CCE 文件，请说明原因，**停止执行后续步骤**
@@ -156,12 +156,12 @@ python3 scripts/analyze_trace.py device_log_path run_path/kernel_aicore
 如果有多个问题 CCE 文件，需要分别测试每个文件，以确定哪个是问题文件。若只有一个问题 CCE 文件，测试验证该文件是否为问题文件：
 
 ```bash
-python3 scripts/test_cce_file.py <cce_file> test_cmd run_path
+python3 .agents/skills/pypto-aicore-error-locator/scripts/test_cce_file.py <cce_file> test_cmd run_path
 ```
 
 **⚠️ 重要提示**:
 - 若未定位到问题 CCE 文件，请说明原因，**停止执行后续步骤**
-- 若打印的 error 中包含 `ld.lld: error: undefined` 关键字，则修改 `tile_fwk_config.json` 中的 `parallel_compile` 为 `1`，再从步骤 1 开始重新执行一遍
+- 若打印的 error 中包含 `ld.lld: error: undefined` 关键字，则修改 `tile_fwk_config.json` 中的 `parallel_compile` 为 `1`，再从步骤 1 开始重新执行一遍（**仅限 1 次**，若已修改过则停止并报告）
 
 ---
 
@@ -170,17 +170,17 @@ python3 scripts/test_cce_file.py <cce_file> test_cmd run_path
 ### 7.1 获取 ERROR_IN_T 的值（错误是否在 T 操作中）
 
 ```bash
-python3 scripts/determine_error_scope.py <cce_file> test_cmd run_path
+python3 .agents/skills/pypto-aicore-error-locator/scripts/determine_error_scope.py <cce_file> test_cmd run_path
 ```
 
 **⚠️ 重要提示**:
 - `cce_file` 为步骤 6.2 的输出
-- 若打印的 error 中包含 `ld.lld: error: undefined` 关键字，则修改 `tile_fwk_config.json` 中的 `parallel_compile` 为 `1`，再从步骤 1 开始重新执行一遍
+- 若打印的 error 中包含 `ld.lld: error: undefined` 关键字，则修改 `tile_fwk_config.json` 中的 `parallel_compile` 为 `1`，再从步骤 1 开始重新执行一遍（**仅限 1 次**，若已修改过则停止并报告）
 
 ### 7.2 获取二分查找初始范围
 
 ```bash
-python3 scripts/get_commentable_range.py <cce_file> ERROR_IN_T
+python3 .agents/skills/pypto-aicore-error-locator/scripts/get_commentable_range.py <cce_file> ERROR_IN_T
 ```
 
 记录输出的 `LEFT` 和 `RIGHT` 值。
@@ -190,7 +190,7 @@ python3 scripts/get_commentable_range.py <cce_file> ERROR_IN_T
 根据上一步的 `LEFT` 和 `RIGHT` 值，执行第一次迭代：
 
 ```bash
-python3 scripts/binary_search_iteration.py <cce_file> test_cmd run_path <left> <right> ERROR_IN_T
+python3 .agents/skills/pypto-aicore-error-locator/scripts/binary_search_iteration.py <cce_file> test_cmd run_path <left> <right> ERROR_IN_T
 ```
 
 记录输出的 `NEXT_LEFT` 和 `NEXT_RIGHT` 值。
@@ -243,4 +243,4 @@ python3 .agents/skills/pypto-aicore-error-locator/scripts/locate_source_line.py 
 2. **路径规范**: 所有路径必须使用绝对路径
 3. **默认路径**: 步骤 1 使用默认值初始化，无需收集用户输入
 4. **停止条件**: 遇到不适用的情况或定位失败时，立即停止执行并说明原因
-5. **并行编译问题**: 遇到 `ld.lld: error: undefined` 错误时，需要修改 `parallel_compile` 为 `1` 并从头重新执行
+5. **并行编译问题**: 遇到 `ld.lld: error: undefined` 错误时，需要修改 `parallel_compile` 为 `1` 并从头重新执行。**注意：此重试仅限 1 次**，若修改后仍报相同错误，说明问题不在并行编译，应停止并报告原因

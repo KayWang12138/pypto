@@ -114,6 +114,8 @@ source ${ASCEND_INSTALL_PATH:-/usr/local/Ascend}/ascend-toolkit/set_env.sh
 
 使用空闲卡检测脚本（来自 `pypto-op-develop` skill 的 `scripts/list_idle_chip_ids.sh`）。
 
+> **跨 skill 依赖声明**：本步骤依赖 `pypto-op-develop` skill 的 `scripts/list_idle_chip_ids.sh` 脚本。若该脚本不可用，可使用 `npu-smi info` 手动查找空闲卡。
+
 #### 步骤 4.3：设置环境变量
 ```bash
 # 设置 NPU 设备 ID（根据步骤 4.2 查找空闲 chip id）
@@ -135,7 +137,7 @@ source ${ASCEND_INSTALL_PATH:-/usr/local/Ascend}/ascend-toolkit/set_env.sh
 
 # 动态获取当前架构（确保生成的脚本在不同机器上仍正确）
 arch=$(uname -m)
-export TILE_FWK_DEVICE_ID=0
+export TILE_FWK_DEVICE_ID=${TILE_FWK_DEVICE_ID:-0}
 export PTO_TILE_LIB_CODE_PATH=${ASCEND_HOME_PATH:-/usr/local/Ascend/cann}/${arch}-linux
 
 echo "env_setup.sh 加载完成：TILE_FWK_DEVICE_ID=${TILE_FWK_DEVICE_ID}, PTO_TILE_LIB_CODE_PATH=${PTO_TILE_LIB_CODE_PATH}"

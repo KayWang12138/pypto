@@ -15,7 +15,11 @@ from pathlib import Path
 from typing import Any, Literal, cast
 from urllib.parse import parse_qs, urlparse
 
-from playwright.sync_api import Page, Response, sync_playwright
+try:
+    from playwright.sync_api import Page, Response, sync_playwright
+except ImportError:
+    print("错误：playwright 未安装。请执行：pip install playwright && playwright install chromium-headless-shell")
+    raise SystemExit(1)
 
 WaitStrategy = Literal["domcontentloaded", "load", "networkidle", "commit"]
 

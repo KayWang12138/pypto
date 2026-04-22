@@ -14,7 +14,12 @@ import sys
 from collections import Counter
 from dataclasses import dataclass
 from pathlib import Path
-from typing import TypedDict, TypeGuard, cast
+from typing import TypedDict, cast
+
+try:
+    from typing import TypeGuard
+except ImportError:
+    TypeGuard = bool  # type: ignore[assignment, misc]
 
 logging.basicConfig(level=logging.INFO, format="%(message)s")
 

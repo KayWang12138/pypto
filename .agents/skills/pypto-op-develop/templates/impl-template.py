@@ -45,14 +45,14 @@ def {op}_core(x: pypto.Tensor) -> pypto.Tensor:
 
 @pypto.frontend.jit
 def {op}_kernel(
-    input_tensor: pypto.Tensor(),
-    output_tensor: pypto.Tensor(),
+    input_tensor: pypto.Tensor([pypto.DYNAMIC], pypto.DT_FP32),
+    output_tensor: pypto.Tensor([pypto.DYNAMIC], pypto.DT_FP32),
 ):
     """PyPTO jit kernel。
 
     根据设计方案实现。
-    - Tensor 描述符使用 pypto.Tensor()（shape 自动推断）或
-      pypto.Tensor([pypto.DYNAMIC, ...], pypto.DT_FP32)（显式指定）。
+    - Tensor 描述符使用 pypto.Tensor([pypto.DYNAMIC, ...], dtype)（显式指定动态轴和 dtype），
+      或 pypto.Tensor()（shape 自动推断，适用于全静态场景）。
     - 必须配置 tiling：pypto.set_vec_tile_shapes(...) 或 pypto.set_cube_tile_shapes(...)。
     - 输出写回使用 output_tensor[:] = result 或 pypto.assemble(result, offset, output_tensor)。
     """

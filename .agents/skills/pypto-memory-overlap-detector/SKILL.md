@@ -116,6 +116,14 @@ python3 .agents/skills/pypto-memory-overlap-detector/scripts/add_debug_options.p
 
 - 设置 `#define ENABLE_DUMP_OPERATION` 为 `0`
 
+**⚠️ 重要**：恢复后必须重新编译安装，否则修改不生效：
+
+```bash
+cd pypto_path && python3 build_ci.py -f python3 --disable_auto_execute
+pip install build_out/pypto*.whl --force --no-deps
+cd -
+```
+
 ---
 
 ## 步骤 4：若存在内存重叠，尝试修复
@@ -165,6 +173,14 @@ cd -
 
 ```python
 workspace_tensor = torch.empty(workspace_size, dtype=torch.uint8, device=device)
+```
+
+**⚠️ 重要**：恢复后必须重新编译安装，否则修改不生效：
+
+```bash
+cd pypto_path && python3 build_ci.py -f python3 --disable_auto_execute
+pip install build_out/pypto*.whl --force --no-deps
+cd -
 ```
 
 ---
