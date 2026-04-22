@@ -1272,6 +1272,7 @@ static void CheckScatterUpdateInput(const Tensor& input)
         input.GetShape().size() == NUM_VALUE_2 || input.GetShape().size() == NUM_VALUE_4)
         << "The shape size of input is invaild";
     CheckTensorDimRange(input.GetStorage(), 2, 4, "SCATTERUPDATE");
+    CheckTensorShapeSize(input.GetStorage(), "SCATTERUPDATE");
 }
 
 static void CheckScatterUpdateIndex(const Tensor& index)
@@ -1283,6 +1284,7 @@ static void CheckScatterUpdateIndex(const Tensor& index)
                                                 index.GetShape(NUM_VALUE_0) != NUM_VALUE_0 &&
                                                 index.GetShape(NUM_VALUE_1) != NUM_VALUE_0)
         << "The shape of index is invaild";
+    CheckTensorShapeSize(index.GetStorage(), "SCATTERUPDATE");
 }
 
 static void CheckScatterUpdateInvalid(const Tensor& dst, const Tensor& index, const Tensor& src)
