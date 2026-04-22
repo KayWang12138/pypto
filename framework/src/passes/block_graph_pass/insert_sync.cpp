@@ -701,7 +701,7 @@ Status PipeSync::HandleEventID(DepOp& op, IssueQueue& issueQ, IssueNum& issuenum
             issuenum.maxIssueNum.emplace(pp, GetFreeEventIdQueue(pp, op.idx, ele, cp).size());
             issuenum.currIssueNum.emplace(pp, 0);
 
-            if (issuenum.currIssueNum[pp] >= issuenum.maxIssueNum[pp]) {
+            if (issuenum.currIssueNum[pp] + corePairMap[setWaitCoreType] > issuenum.maxIssueNum[pp]) {
                 if (!deadlock) {
                     eventIdOk = false;
                     break;
