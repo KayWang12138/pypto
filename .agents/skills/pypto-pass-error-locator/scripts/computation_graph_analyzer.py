@@ -611,7 +611,7 @@ class ComputationGraphAnalyzer:
         cycle_paths = self._detect_cycles_iterative(
             graph=op_graph,
             get_dst=lambda edge: edge.dst_opmagic,
-            build_cycle_path=lambda cycle_nodes, cycle_edges: self._build_op_cycle_path(cycle_nodes, cycle_edges, op_map),
+            build_cycle_path=lambda cycle_nodes, cy_edges: self._build_op_cycle_path(cycle_nodes, cy_edges, op_map),
             max_cycle_paths=max_cycle_paths,
         )
 
@@ -691,6 +691,7 @@ class ComputationGraphAnalyzer:
             global_tensors=func_data.get('global_tensors', []),
             raw_data=func_data
         )
+
 
 def _build_summary(analyzer: ComputationGraphAnalyzer, args: argparse.Namespace) -> Dict[str, Any]:
     summary: Dict[str, Any] = {
