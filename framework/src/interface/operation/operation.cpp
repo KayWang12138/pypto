@@ -128,6 +128,9 @@ const std::string FixpOpAttributeKey::fbAddrSpace = "FIX_BUFFER_ADDR_SPACE";
 
 const std::string PoolOpAttributeKey::poolh = "POOL_WIN_H";
 const std::string PoolOpAttributeKey::poolw = "POOL_WIN_W";
+
+const std::string TensorAttributeKey::tensorAddr = "tensorAddr";
+
 bool OperationCmp::operator()(const Operation* lhs, const Operation* rhs) const
 {
     return lhs->GetOpMagic() < rhs->GetOpMagic();
@@ -1167,19 +1170,19 @@ std::vector<std::reference_wrapper<SymbolicScalar>> Operation::GetDynamicAttribu
                 }
                 dynamicAttributeList.push_back(std::reference_wrapper<SymbolicScalar>(shape.GetSpecifiedValue()));
             }
-            for (auto &shape : copyAttr->GetFromDynValidShape()) {
+            for (auto& shape : copyAttr->GetFromDynValidShape()) {
                 if (!shape.IsSpecified()) {
                     continue;
                 }
                 dynamicAttributeList.push_back(std::reference_wrapper<SymbolicScalar>(shape.GetSpecifiedValue()));
             }
-            for (auto &offset : copyAttr->GetToOffset()) {
+            for (auto& offset : copyAttr->GetToOffset()) {
                 if (!offset.IsSpecified()) {
                     continue;
                 }
                 dynamicAttributeList.push_back(std::reference_wrapper<SymbolicScalar>(offset.GetSpecifiedValue()));
             }
-            for (auto &offset : copyAttr->GetFromOffset()) {
+            for (auto& offset : copyAttr->GetFromOffset()) {
                 if (!offset.IsSpecified()) {
                     continue;
                 }
