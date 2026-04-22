@@ -14,7 +14,7 @@
  */
 
 #include "platform_parser.h"
-#include "framework/include/tilefwk/error_code.h"
+#include "tilefwk/error_code.h"
 
 namespace npu {
 namespace tile_fwk {
