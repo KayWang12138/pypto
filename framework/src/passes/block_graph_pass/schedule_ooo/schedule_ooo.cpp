@@ -142,7 +142,8 @@ Status OoOSchedule::ModifyBoundaryOrder(std::vector<Operation*>& opList)
 }
 
 std::vector<ScheduleUnit> OoOSchedule::BuildScheduleUnits(const std::vector<TaskNode> &taskNodeList,
-    const std::vector<std::pair<int, int>> &cyclePairs, std::vector<Operation*> &opList) {
+    const std::vector<std::pair<int, int>> &cyclePairs, std::vector<Operation*> &opList)
+{
     std::vector<ScheduleUnit> scheduleUnits;
     std::unordered_set<int> pairedIndices;
 
@@ -151,7 +152,6 @@ std::vector<ScheduleUnit> OoOSchedule::BuildScheduleUnits(const std::vector<Task
             [&](const TaskNode& n) { return n.idx == pair.first; });
         auto it2 = std::find_if(taskNodeList.begin(), taskNodeList.end(),
             [&](const TaskNode& n) { return n.idx == pair.second; });
-
         if (it1 != taskNodeList.end() && it2 != taskNodeList.end()) {
             ScheduleUnit unit;
             unit.mergedOps.insert(unit.mergedOps.end(), it1->opList_.begin(), it1->opList_.end());
