@@ -68,6 +68,19 @@ void TaskGraph::ApplyCandidate()
     APASS_LOG_INFO_F(Elements::Operation, "Found better schedule, update makespan to %d.", makespan);
 }
 
+// 无条件把 Candidate 字段拷贝为 final；makespan 仅作为字段完整性保留，不参与任何决策
+void TaskGraph::ApplyCandidateUnconditional()
+{
+    int currTime = -1;
+    for (auto& task : tasks) {
+        task.startTime = task.startTimeCandidate;
+        task.endTime = task.endTimeCandidate;
+        task.targetCoreType = task.targetCoreTypeCandidate;
+        currTime = currTime > task.endTime ? currTime : task.endTime;
+    }
+    makespan = currTime;
+}
+
 int TaskGraph::AddTask(const std::string& name, ScheduleCoreType coreType, int latency)
 {
     int newTaskIdx = static_cast<int>(tasks.size());
@@ -306,6 +319,543 @@ void CoreScheduler::BruteForceScheduleRecursiveStep(
     }
 }
 
+// 紧耦合调度：Phase1-事件驱动调度 + Phase2-回溯调整C时间
+void CoreScheduler::TightCouplingSchedule(TaskGraph& taskGraph, std::vector<int>& topoSeq)
+{
+    (void)topoSeq;
+    std::unordered_map<TargetCoreType, std::vector<std::pair<int, int>>> availTime;
+    availTime[TargetCoreType::AIC] = {{0, INT32_MAX}};
+    availTime[TargetCoreType::AIV0] = {{0, INT32_MAX}};
+    availTime[TargetCoreType::AIV1] = {{0, INT32_MAX}};
+
+    std::set<int> finishedTasks;
+    std::queue<int> readyQueue = GetInitialReadyTasks(taskGraph);
+
+    int currentIdx = -1;
+    std::pair<int, int> currentInterval{-1, -1};
+
+    while (!readyQueue.empty() || finishedTasks.size() < taskGraph.tasks.size()) {
+        if (readyQueue.empty()) {
+            break;
+        }
+        int taskId = readyQueue.front();
+        readyQueue.pop();
+
+        if (finishedTasks.count(taskId) > 0) {
+            continue;
+        }
+
+        auto& task = taskGraph.tasks[taskId];
+
+        int depStartTime = 0;
+        for (int predId : task.inTasks) {
+            depStartTime = std::max(depStartTime, taskGraph.tasks[predId].endTimeCandidate);
+        }
+
+        TargetCoreType evalCore = TargetCoreType::UNKNOWN;
+        if (task.coreType == ScheduleCoreType::AIC) {
+            evalCore = TargetCoreType::AIC;
+            FindEarliestSlot(availTime[evalCore], depStartTime, task.latency, currentIdx, currentInterval);
+        } else {
+            int currentIdxAIV0 = -1;
+            std::pair<int, int> currentIntervalAIV0{-1, -1};
+            int currentIdxAIV1 = -1;
+            std::pair<int, int> currentIntervalAIV1{-1, -1};
+            FindEarliestSlot(
+                availTime[TargetCoreType::AIV0], depStartTime, task.latency, currentIdxAIV0, currentIntervalAIV0);
+            FindEarliestSlot(
+                availTime[TargetCoreType::AIV1], depStartTime, task.latency, currentIdxAIV1, currentIntervalAIV1);
+            if (currentIntervalAIV0.first <= currentIntervalAIV1.first) {
+                evalCore = TargetCoreType::AIV0;
+                currentIdx = currentIdxAIV0;
+                currentInterval = currentIntervalAIV0;
+            } else {
+                evalCore = TargetCoreType::AIV1;
+                currentIdx = currentIdxAIV1;
+                currentInterval = currentIntervalAIV1;
+            }
+        }
+
+        task.targetCoreTypeCandidate = evalCore;
+        task.startTimeCandidate = currentInterval.first;
+        task.endTimeCandidate = currentInterval.second;
+        UpdateInterval(availTime[evalCore], currentIdx, currentInterval);
+
+        finishedTasks.insert(taskId);
+
+        for (int succId : task.outTasks) {
+            if (AllDependenciesResolved(taskGraph, succId, finishedTasks)) {
+                readyQueue.push(succId);
+            }
+        }
+    }
+
+    taskGraph.ApplyCandidate();
+    APASS_LOG_INFO_F(Elements::Operation, "TightCouplingSchedule Phase1 get makespan %d.", taskGraph.makespan);
+
+    AdjustCVGaps(taskGraph);
+    APASS_LOG_INFO_F(
+        Elements::Operation, "TightCouplingSchedule Phase2 adjusted, final makespan %d.", taskGraph.makespan);
+}
+
+// Phase2: 回溯调整C的开始时间，最小化C-V时间差
+void CoreScheduler::AdjustCVGaps(TaskGraph& taskGraph)
+{
+    std::vector<int> cTasks;
+    for (auto& task : taskGraph.tasks) {
+        if (task.coreType == ScheduleCoreType::AIC) {
+            cTasks.push_back(task.idx);
+        }
+    }
+
+    std::vector<std::set<int>> cInGraph(cTasks.size());
+    std::vector<std::set<int>> cOutGraph(cTasks.size());
+    std::unordered_map<int, int> cTaskIdToIdx;
+    for (size_t i = 0; i < cTasks.size(); i++) {
+        cTaskIdToIdx[cTasks[i]] = i;
+    }
+    for (size_t i = 0; i < cTasks.size(); i++) {
+        int cTaskId = cTasks[i];
+        for (int predId : taskGraph.tasks[cTaskId].inTasks) {
+            if (taskGraph.tasks[predId].coreType == ScheduleCoreType::AIC && cTaskIdToIdx.count(predId)) {
+                cInGraph[i].insert(cTaskIdToIdx[predId]);
+                cOutGraph[cTaskIdToIdx[predId]].insert(i);
+            }
+        }
+    }
+
+    std::vector<int> cTopoSeq;
+    std::queue<int> cReadyQueue;
+    for (size_t i = 0; i < cTasks.size(); i++) {
+        if (cInGraph[i].empty()) {
+            cReadyQueue.push(i);
+        }
+    }
+    std::vector<bool> cFinished(cTasks.size(), false);
+    while (!cReadyQueue.empty()) {
+        int cIdx = cReadyQueue.front();
+        cReadyQueue.pop();
+        if (cFinished[cIdx]) {
+            continue;
+        }
+        cTopoSeq.push_back(cTasks[cIdx]);
+        cFinished[cIdx] = true;
+        for (int nextCIdx : cOutGraph[cIdx]) {
+            bool allPredDone = true;
+            for (int predCIdx : cInGraph[nextCIdx]) {
+                if (!cFinished[predCIdx]) {
+                    allPredDone = false;
+                    break;
+                }
+            }
+            if (allPredDone) {
+                cReadyQueue.push(nextCIdx);
+            }
+        }
+    }
+
+    std::unordered_map<TargetCoreType, std::vector<std::pair<int, int>>> availTime;
+    availTime[TargetCoreType::AIC] = {{0, INT32_MAX}};
+    availTime[TargetCoreType::AIV0] = {{0, INT32_MAX}};
+    availTime[TargetCoreType::AIV1] = {{0, INT32_MAX}};
+
+    for (auto& task : taskGraph.tasks) {
+        task.startTimeCandidate = task.startTime;
+        task.endTimeCandidate = task.endTime;
+        task.targetCoreTypeCandidate = task.targetCoreType;
+        if (task.coreType == ScheduleCoreType::AIV && task.targetCoreType != TargetCoreType::UNKNOWN) {
+            int slotIdx = -1;
+            std::pair<int, int> slot{-1, -1};
+            FindEarliestSlot(availTime[task.targetCoreType], task.startTime, task.latency, slotIdx, slot);
+            if (slotIdx >= 0 && slot.first == task.startTime) {
+                UpdateInterval(availTime[task.targetCoreType], slotIdx, slot);
+            }
+        }
+    }
+
+    for (int cTaskId : cTopoSeq) {
+        AdjustCTime(taskGraph, cTaskId, availTime);
+    }
+
+    for (int cTaskId : cTopoSeq) {
+        AdjustVAfterC(taskGraph, cTaskId, availTime);
+    }
+
+    for (auto& task : taskGraph.tasks) {
+        task.startTime = task.startTimeCandidate;
+        task.endTime = task.endTimeCandidate;
+        task.targetCoreType = task.targetCoreTypeCandidate;
+    }
+    int maxEndTime = 0;
+    for (auto& task : taskGraph.tasks) {
+        maxEndTime = std::max(maxEndTime, task.endTime);
+    }
+    taskGraph.makespan = maxEndTime;
+    APASS_LOG_INFO_F(Elements::Operation, "AdjustCVGaps finished, makespan=%d.", taskGraph.makespan);
+}
+
+// 调整单个C的开始时间
+void CoreScheduler::AdjustCTime(
+    TaskGraph& taskGraph, int cTaskId, std::unordered_map<TargetCoreType, std::vector<std::pair<int, int>>>& availTime)
+{
+    auto& cTask = taskGraph.tasks[cTaskId];
+
+    int vStartTime = INT32_MAX;
+    for (int succId : cTask.outTasks) {
+        if (taskGraph.tasks[succId].coreType == ScheduleCoreType::AIV) {
+            vStartTime = std::min(vStartTime, taskGraph.tasks[succId].startTime);
+        }
+    }
+
+    if (vStartTime == INT32_MAX) {
+        int minStartTime = 0;
+        for (int predId : cTask.inTasks) {
+            minStartTime = std::max(minStartTime, taskGraph.tasks[predId].endTimeCandidate);
+        }
+        int currentIdx = -1;
+        std::pair<int, int> currentInterval{-1, -1};
+        FindEarliestSlot(availTime[TargetCoreType::AIC], minStartTime, cTask.latency, currentIdx, currentInterval);
+        if (currentIdx >= 0) {
+            cTask.startTimeCandidate = currentInterval.first;
+            cTask.endTimeCandidate = currentInterval.second;
+            UpdateInterval(availTime[TargetCoreType::AIC], currentIdx, currentInterval);
+        }
+        return;
+    }
+
+    int idealCEndTime = vStartTime;
+    int newCStartTime = idealCEndTime - cTask.latency;
+
+    int minStartTime = 0;
+    for (int predId : cTask.inTasks) {
+        minStartTime = std::max(minStartTime, taskGraph.tasks[predId].endTimeCandidate);
+    }
+    newCStartTime = std::max(newCStartTime, minStartTime);
+
+    int currentIdx = -1;
+    std::pair<int, int> currentInterval{-1, -1};
+    FindEarliestSlot(availTime[TargetCoreType::AIC], newCStartTime, cTask.latency, currentIdx, currentInterval);
+
+    if (currentIdx >= 0) {
+        cTask.startTimeCandidate = currentInterval.first;
+        cTask.endTimeCandidate = currentInterval.second;
+        UpdateInterval(availTime[TargetCoreType::AIC], currentIdx, currentInterval);
+    }
+}
+
+void CoreScheduler::AdjustVAfterC(
+    TaskGraph& taskGraph, int cTaskId, std::unordered_map<TargetCoreType, std::vector<std::pair<int, int>>>& availTime)
+{
+    auto& cTask = taskGraph.tasks[cTaskId];
+
+    for (int succId : cTask.outTasks) {
+        if (taskGraph.tasks[succId].coreType != ScheduleCoreType::AIV) {
+            continue;
+        }
+        auto& vTask = taskGraph.tasks[succId];
+
+        if (cTask.endTimeCandidate <= vTask.startTimeCandidate) {
+            continue;
+        }
+
+        TargetCoreType vCore = vTask.targetCoreTypeCandidate;
+        if (vCore != TargetCoreType::AIV0 && vCore != TargetCoreType::AIV1) {
+            continue;
+        }
+
+        int oldStart = vTask.startTimeCandidate;
+        int oldEnd = vTask.endTimeCandidate;
+
+        RestoreInterval(availTime[vCore], oldStart, oldEnd);
+
+        int newVStartTime = cTask.endTimeCandidate;
+        int minVStartTime = 0;
+        for (int predId : vTask.inTasks) {
+            minVStartTime = std::max(minVStartTime, taskGraph.tasks[predId].endTimeCandidate);
+        }
+        newVStartTime = std::max(newVStartTime, minVStartTime);
+
+        int slotIdx = -1;
+        std::pair<int, int> slot{-1, -1};
+        FindEarliestSlot(availTime[vCore], newVStartTime, vTask.latency, slotIdx, slot);
+
+        if (slotIdx >= 0) {
+            vTask.startTimeCandidate = slot.first;
+            vTask.endTimeCandidate = slot.second;
+            UpdateInterval(availTime[vCore], slotIdx, slot);
+        } else {
+            RestoreInterval(availTime[vCore], oldStart, oldEnd);
+        }
+    }
+}
+
+// 恢复时间槽（将已占用的时间槽变为空闲）
+void CoreScheduler::RestoreInterval(std::vector<std::pair<int, int>>& slots, int start, int end)
+{
+    slots.push_back(std::make_pair(start, end));
+    std::sort(slots.begin(), slots.end());
+
+    std::vector<std::pair<int, int>> merged;
+    for (auto& slot : slots) {
+        if (merged.empty()) {
+            merged.push_back(slot);
+        } else {
+            if (merged.back().second >= slot.first) {
+                merged.back().second = std::max(merged.back().second, slot.second);
+            } else {
+                merged.push_back(slot);
+            }
+        }
+    }
+    slots.swap(merged);
+}
+
+// 检查任务的所有前序依赖是否都已完成
+bool CoreScheduler::AllDependenciesResolved(TaskGraph& taskGraph, int taskId, std::set<int>& finished)
+{
+    for (int predId : taskGraph.tasks[taskId].inTasks) {
+        if (finished.count(predId) == 0) {
+            return false;
+        }
+    }
+    return true;
+}
+
+// 获取初始就绪任务（无前序依赖）
+std::queue<int> CoreScheduler::GetInitialReadyTasks(TaskGraph& taskGraph)
+{
+    std::queue<int> ready;
+    for (auto& task : taskGraph.tasks) {
+        if (task.inTasks.empty()) {
+            ready.push(task.idx);
+        }
+    }
+    return ready;
+}
+
+// 对所有的拓扑序执行基于最早完成时间的任务排布
+void CoreScheduler::BruteForceScheduleRecursiveStep(
+    std::vector<bool>& visited, int recursiveLevel, TaskGraph& taskGraph, std::vector<int>& topoList)
+{
+    if (recursiveLevel >= static_cast<int>(taskGraph.tasks.size())) {
+        EFTSchedule(taskGraph, topoList);
+    }
+    for (auto& task : taskGraph.tasks) {
+        if (visited[task.idx]) {
+            continue;
+        }
+        bool canDeploy = true;
+        for (int prevTaskIdx : task.inTasks) {
+            if (!visited[prevTaskIdx]) {
+                canDeploy = false;
+                break;
+            }
+        }
+        if (!canDeploy) {
+            continue;
+        }
+        visited[task.idx] = true;
+        topoList.push_back(task.idx);
+        BruteForceScheduleRecursiveStep(visited, recursiveLevel + 1, taskGraph, topoList);
+        topoList.pop_back();
+        visited[task.idx] = false;
+    }
+}
+
+// --------- GapMin: 启发式最小化跨核相邻依赖边的等待间隔 ---------
+// 紧耦合调度单个任务
+void CoreScheduler::ScheduleOneTask(
+    TaskGraph& taskGraph, int taskId, std::unordered_map<TargetCoreType, std::vector<std::pair<int, int>>>& availTime,
+    std::function<bool(TargetCoreType)> isAicCore)
+{
+    auto& task = taskGraph.tasks[taskId];
+    int evalDepTimeStart = 0;
+    int maxCrossDepEnd = INT32_MIN;
+    bool taskIsAic = (task.coreType == ScheduleCoreType::AIC);
+    for (int prevTaskId : task.inTasks) {
+        auto& prev = taskGraph.tasks[prevTaskId];
+        evalDepTimeStart = std::max(evalDepTimeStart, prev.endTimeCandidate);
+        bool prevIsAic = isAicCore(prev.targetCoreTypeCandidate);
+        if (taskIsAic != prevIsAic) {
+            maxCrossDepEnd = std::max(maxCrossDepEnd, prev.endTimeCandidate);
+        }
+    }
+
+    TargetCoreType evalCore = TargetCoreType::UNKNOWN;
+    int currentIdx = -1;
+    std::pair<int, int> currentInterval{-1, -1};
+
+    if (taskIsAic) {
+        evalCore = TargetCoreType::AIC;
+        FindEarliestSlot(availTime[evalCore], evalDepTimeStart, task.latency, currentIdx, currentInterval);
+    } else {
+        int idxAIV0 = -1;
+        std::pair<int, int> intervalAIV0{-1, -1};
+        FindEarliestSlot(availTime[TargetCoreType::AIV0], evalDepTimeStart, task.latency, idxAIV0, intervalAIV0);
+        int idxAIV1 = -1;
+        std::pair<int, int> intervalAIV1{-1, -1};
+        FindEarliestSlot(availTime[TargetCoreType::AIV1], evalDepTimeStart, task.latency, idxAIV1, intervalAIV1);
+
+        auto calcGap = [&](const std::pair<int, int>& iv) -> int64_t {
+            if (iv.first < 0)
+                return INT64_MAX;
+            if (maxCrossDepEnd == INT32_MIN)
+                return 0;
+            return std::max<int64_t>(0, static_cast<int64_t>(iv.first) - maxCrossDepEnd);
+        };
+        int64_t gap0 = calcGap(intervalAIV0);
+        int64_t gap1 = calcGap(intervalAIV1);
+
+        if (gap0 < gap1 || (gap0 == gap1 && intervalAIV0.first <= intervalAIV1.first)) {
+            evalCore = TargetCoreType::AIV0;
+            currentIdx = idxAIV0;
+            currentInterval = intervalAIV0;
+        } else {
+            evalCore = TargetCoreType::AIV1;
+            currentIdx = idxAIV1;
+            currentInterval = intervalAIV1;
+        }
+    }
+    task.targetCoreTypeCandidate = evalCore;
+    task.startTimeCandidate = currentInterval.first;
+    task.endTimeCandidate = currentInterval.second;
+    UpdateInterval(availTime[evalCore], currentIdx, currentInterval);
+}
+
+// 尝试调度跨核后继
+void CoreScheduler::TryScheduleCrossCoreSuccessors(
+    TaskGraph& taskGraph, int taskId, std::unordered_map<TargetCoreType, std::vector<std::pair<int, int>>>& availTime,
+    std::set<int>& scheduledTasks, std::function<bool(TargetCoreType)> isAicCore)
+{
+    auto& task = taskGraph.tasks[taskId];
+
+    for (int succId : task.outTasks) {
+        if (scheduledTasks.count(succId) > 0) {
+            continue;
+        }
+
+        auto& succ = taskGraph.tasks[succId];
+        bool isCrossCore = (task.coreType != succ.coreType);
+        if (!isCrossCore) {
+            continue;
+        }
+
+        bool allPredScheduled = true;
+        for (int predId : succ.inTasks) {
+            if (scheduledTasks.count(predId) == 0) {
+                allPredScheduled = false;
+                break;
+            }
+        }
+
+        if (allPredScheduled) {
+            ScheduleOneTask(taskGraph, succId, availTime, isAicCore);
+            scheduledTasks.insert(succId);
+            TryScheduleCrossCoreSuccessors(taskGraph, succId, availTime, scheduledTasks, isAicCore);
+        }
+    }
+}
+
+// 轮 1：gap-aware 前向排布，紧耦合调度：C完成后立即调度跨核V后继
+void CoreScheduler::GapMinForwardPass(TaskGraph& taskGraph, std::vector<int>& topoSeq)
+{
+    std::unordered_map<TargetCoreType, std::vector<std::pair<int, int>>> availTime;
+    availTime[TargetCoreType::AIC] = {{0, INT32_MAX}};
+    availTime[TargetCoreType::AIV0] = {{0, INT32_MAX}};
+    availTime[TargetCoreType::AIV1] = {{0, INT32_MAX}};
+    auto isAicCore = [](TargetCoreType c) { return c == TargetCoreType::AIC; };
+
+    std::set<int> scheduledTasks;
+
+    for (int taskId : topoSeq) {
+        if (scheduledTasks.count(taskId) > 0) {
+            continue;
+        }
+
+        ScheduleOneTask(taskGraph, taskId, availTime, isAicCore);
+        scheduledTasks.insert(taskId);
+
+        TryScheduleCrossCoreSuccessors(taskGraph, taskId, availTime, scheduledTasks, isAicCore);
+    }
+}
+
+// 轮 2：反向 ALAP 位移 —— 把每个任务右移到 "同核右邻 start" 与 "所有后继最早 start" 的下界，收敛 outbound gap
+void CoreScheduler::GapMinBackwardShift(TaskGraph& taskGraph, std::vector<int>& topoSeq)
+{
+    // 1. 按核分组并按 startTimeCandidate 排序，建立同核右邻映射
+    std::unordered_map<TargetCoreType, std::vector<int>> coreGroups;
+    for (auto& t : taskGraph.tasks) {
+        coreGroups[t.targetCoreTypeCandidate].push_back(t.idx);
+    }
+    std::unordered_map<int, int> sameCoreNext; // taskId -> next taskId on same core (-1 if none)
+    for (auto& pr : coreGroups) {
+        auto& ids = pr.second;
+        std::sort(ids.begin(), ids.end(), [&](int i, int j) {
+            return taskGraph.tasks[i].startTimeCandidate < taskGraph.tasks[j].startTimeCandidate;
+        });
+        for (size_t i = 0; i + 1 < ids.size(); i++) {
+            sameCoreNext[ids[i]] = ids[i + 1];
+        }
+        if (!ids.empty()) {
+            sameCoreNext[ids.back()] = -1;
+        }
+    }
+
+    // 2. 按 topo 逆序 shift
+    for (auto it = topoSeq.rbegin(); it != topoSeq.rend(); ++it) {
+        int taskId = *it;
+        auto& t = taskGraph.tasks[taskId];
+        if (t.outTasks.empty()) {
+            continue;
+        }
+        int minSuccStart = INT32_MAX;
+        for (int s : t.outTasks) {
+            minSuccStart = std::min(minSuccStart, taskGraph.tasks[s].startTimeCandidate);
+        }
+        int sameCoreCap = INT32_MAX;
+        auto sit = sameCoreNext.find(taskId);
+        if (sit != sameCoreNext.end() && sit->second >= 0) {
+            sameCoreCap = taskGraph.tasks[sit->second].startTimeCandidate;
+        }
+        int newEnd = std::min(minSuccStart, sameCoreCap);
+        if (newEnd <= t.endTimeCandidate) {
+            continue;
+        }
+        int delta = newEnd - t.endTimeCandidate;
+        t.startTimeCandidate += delta;
+        t.endTimeCandidate = newEnd;
+    }
+}
+
+// 统计所有 AIC<->AIV 双向跨核边的等待间隔之和
+int64_t CoreScheduler::SumCrossCoreGap(const TaskGraph& g) const
+{
+    auto isAic = [](TargetCoreType c) { return c == TargetCoreType::AIC; };
+    int64_t sum = 0;
+    for (auto& u : g.tasks) {
+        for (int vId : u.outTasks) {
+            auto& v = g.tasks[vId];
+            bool cross = isAic(u.targetCoreType) != isAic(v.targetCoreType);
+            if (!cross) {
+                continue;
+            }
+            sum += std::max(0, v.startTime - u.endTime);
+        }
+    }
+    return sum;
+}
+
+// 顶层：两轮 + 无条件应用 + 统计日志
+void CoreScheduler::GapMinSchedule(TaskGraph& taskGraph, std::vector<int>& topoSeq)
+{
+    GapMinForwardPass(taskGraph, topoSeq);
+    GapMinBackwardShift(taskGraph, topoSeq);
+    taskGraph.ApplyCandidateUnconditional();
+    APASS_LOG_INFO_F(
+        Elements::Operation, "GapMinSchedule total cross-core gap=%lld, endTime(max)=%d.",
+        static_cast<long long>(SumCrossCoreGap(taskGraph)), taskGraph.makespan);
+}
+
 // 根据节点数量，判断是否遍历所有拓扑序进行任务排布
 void CoreScheduler::Schedule(TaskGraph& taskGraph, int bruteForceThreshold)
 {
@@ -313,7 +863,8 @@ void CoreScheduler::Schedule(TaskGraph& taskGraph, int bruteForceThreshold)
     APASS_LOG_INFO_F(Elements::Operation, "Start schedule with brute force threshold %d.", bruteForceThreshold);
     if (static_cast<int>(taskGraph.tasks.size()) > bruteForceThreshold) {
         std::vector<int> topoSeq = GetDFSTopoSeq(taskGraph);
-        EFTWithInsertSchedule(taskGraph, topoSeq);
+        // EFTWithInsertSchedule(taskGraph, topoSeq);
+        GapMinSchedule(taskGraph, topoSeq);
     } else {
         std::vector<bool> visited(taskGraph.tasks.size(), false);
         std::vector<int> topoList;
