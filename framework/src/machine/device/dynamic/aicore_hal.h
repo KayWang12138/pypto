@@ -240,19 +240,7 @@ public:
         }
     }
 
-    inline void WaitFinQueue(int coreStart, int coreEnd, uint64_t val)
-    {
-        for (int idx = coreStart; idx < coreEnd; idx++) {
-            uint64_t startCycle = GetCycles();
-            while (*finishRegQueues_[GetPhyIdByBlockId(idx)] != val) {
-                if (GetCycles() - startCycle > TIMEOUT_CYCLES) {
-                    DEV_ERROR(
-                        SchedErr::TASK_WAIT_TIMEOUT, "#sche.aicore.wait_finish: CoreId=%d cannot get finish Flag", idx);
-                    return;
-                }
-            }
-        }
-    }
+    
 
     inline uint64_t GetFinishedTask(int coreIdx)
     {
@@ -338,13 +326,12 @@ public:
             return nullptr;
         }
 
-        uint64_t cycles_start = GetCycles();
+        TimeoutState timeoutState;
         while (metric->isMetricStop != 1) {
-            if (GetCycles() - cycles_start > PROF_DUMP_TIMEOUT_CYCLES) {
-                DEV_ERROR(DevCommonErr::NULLPTR, "#sche.prof.aicore.wait_finish: wait metrics done timeout !!!.");
-                return nullptr;
-            }
-        }; // wait aicore dcci metric data finish
+            TIMEOUT_CHECK_EXIT_WITH_ACTION(timeoutState, TIMEOUT_NS_10MIN, DevCommonErr::NULLPTR,
+                { return nullptr; },
+                "#sche.prof.aicore.wait_finish: wait metrics done timeout after 10 minutes.");
+        }
 
         return reinterpret_cast<Metrics*>(arg->shakeBuffer[SHAK_BUF_DFX_DATA_INDEX]);
     }
