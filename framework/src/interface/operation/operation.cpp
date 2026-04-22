@@ -91,6 +91,7 @@ const std::string OpAttributeKey::ownerRank = "owner_rank";
 const std::string OpAttributeKey::maxTileNum = "max_tile_num";
 const std::string OpAttributeKey::precisionType = "precision_type";
 const std::string OpAttributeKey::perm = "perm";
+const std::string OpAttributeKey::gmTensorParamIdxInCallFunc = "gm_tensor_param_idx_in_call_func";
 
 const std::string ConvOpAttributeKey::cin = "CIN";
 const std::string ConvOpAttributeKey::cout = "COUT";
