@@ -333,16 +333,16 @@ public:
         return DEVICE_MACHINE_OK;
     }
 
-    inline int ProcessTaskLoop(SchDeviceTaskContext* deviceTaskCtx, bool& isFinish)
+inline int ProcessTaskLoop(SchDeviceTaskContext* deviceTaskCtx, bool& isFinish)
     {
-        uint64_t start = GetCycles();
+        TimeoutState timeoutState;
         while (!deviceTaskCtx->IsCoreTaskSendFinish()) {
             int32_t ret = RunCoreTask<true>(deviceTaskCtx);
             if (unlikely(ret != DEVICE_MACHINE_OK)) {
                 return ret;
             }
 
-            if (deviceTaskCtx->IsParallel()) { // wait parallel scheduled next time
+            if (deviceTaskCtx->IsParallel()) {
                 deviceTaskCtx->SyncAllSchCoreTaskSent();
                 isFinish = deviceTaskCtx->IsCoreTaskSendFinish();
                 return ret;
@@ -350,14 +350,13 @@ public:
 
             DEV_IF_DEVICE
             {
-                if (GetCycles() - start > TIMEOUT_CYCLES) {
-                    return DEVICE_MACHINE_TIMEOUT_CORETASK;
-                }
+                TIMEOUT_CHECK_EXIT(timeoutState, TIMEOUT_NS_1MIN, DEVICE_MACHINE_TIMEOUT_CORETASK,
+                    "#sche.task.loop.timeout: ProcessTaskLoop timeout after 1 minute.");
             }
         }
         deviceTaskCtx->SyncAllSchCoreTaskSent();
         isFinish = true;
- 
+  
         return DEVICE_MACHINE_OK;
     }
 
@@ -462,12 +461,10 @@ public:
         DEV_DEBUG("Schedule run start succ");
         uint64_t lastDevTaskFinCycle = 0;
         PROF_STAGE_BEGIN_MTSAFE(PERF_EVT_STAGE_SCHEDULE, threadIdx, "dispatch.before\n");
-        uint64_t start_cycles = GetCycles();
+        TimeoutState timeoutState;
         while (ret == 0) {
-            // try fetch devtask from ctrl queue
             FillParallelDevtaskCtx();
 
-            // run devtask
             ret = ProcessParallelDevTasks();
             if (ret != DEVICE_MACHINE_OK)
                 break;
@@ -483,12 +480,11 @@ public:
             }
 
             DEV_IF_DEVICE {
-                if (GetCycles() - start_cycles > TIMEOUT_CYCLES) {
-                    ret =  ToUnderlying(SchedErr::SCH_PARALLEL_DEVTASK_TIMEOUT);
-                    DEV_ERROR(ret,
-                        "Schedule prallel devtask timeout, dequeueFinish=%d.", taskCtrlDequeFinish);
-                    break;
-                }
+                TIMEOUT_CHECK_EXIT_WITH_ACTION(timeoutState, TIMEOUT_NS_20MIN,
+                    ToUnderlying(SchedErr::SCH_PARALLEL_DEVTASK_TIMEOUT),
+                    { ret = ToUnderlying(SchedErr::SCH_PARALLEL_DEVTASK_TIMEOUT); break; },
+                    "#sche.parallel.devtask.timeout: Schedule parallel devtask timeout after 20 minutes, dequeueFinish=%d.",
+                    taskCtrlDequeFinish);
             }
         }
         PROF_STAGE_END_MTSAFE(PERF_EVT_STAGE_SCHEDULE, threadIdx, "dispatch.after\n");
@@ -763,7 +759,7 @@ private:
             isSendStop = true;
         }
 
-        uint64_t start_cycles = GetCycles();
+        TimeoutState timeoutState;
         uint32_t resloveParallelIdx = 0;
         while (devTaskCtx->coreFinishedNum < mngCoreNum) {
             bool curIterAicAllStop = true;
@@ -791,7 +787,6 @@ private:
             }
             aivAllStop = curIterAivAllStop;
 
-            // In a parallel scenario, wait parallel scheduled next time
             if (devTaskCtx->IsParallel()) {
                 (void)BatchPushReadyQueForParallel(resloveParallelIdx);
                 break;
@@ -799,14 +794,10 @@ private:
             
             DEV_IF_DEVICE
             {
-                if (GetCycles() - start_cycles > TIMEOUT_CYCLES) {
-                    DumpDfxWhenCoreNotStop(devTaskCtx);
-                    DEV_ERROR(
-                        SchedErr::TASK_WAIT_TIMEOUT,
-                        "#sche.task.end.sync.timeout: SyncAicoreDevTaskFinish timeout notstopNum=%u.",
-                        mngCoreNum - devTaskCtx->coreFinishedNum);
-                    return DEVICE_MACHINE_TIMEOUT_SYNC_CORE_FINISH;
-                }
+                TIMEOUT_CHECK_EXIT_WITH_ACTION(timeoutState, TIMEOUT_NS_10MIN, DEVICE_MACHINE_TIMEOUT_SYNC_CORE_FINISH,
+                    { DumpDfxWhenCoreNotStop(devTaskCtx); return DEVICE_MACHINE_TIMEOUT_SYNC_CORE_FINISH; },
+                    "#sche.task.end.sync.timeout: SyncAicoreDevTaskFinish timeout after 10 minutes, notstopNum=%u.",
+                    mngCoreNum - devTaskCtx->coreFinishedNum);
             }
         }
 
@@ -1872,7 +1863,7 @@ private:
         int handShakeNum = 0;
         int mngAicoreNum = aicEnd_ - aicStart_ + aivEnd_ - aivStart_;
         bool handFlag[MAX_AICORE_NUM] = {false};
-        uint64_t start_cycles = GetCycles();
+        TimeoutState timeoutState;
         bool needSendAic = false;
         bool needSendAiv = false;
         bool aicAllSuccess = false;
@@ -1912,7 +1903,7 @@ private:
             }
 
             if (needSendAic && aicSucessCnt >= aicTreshold) {
-                __sync_synchronize(); // sync  REG_SPR_FAST_PATH_ENABLE
+                __sync_synchronize();
                 TryBatchSendTask(deviceCtx, CoreType::AIC, deviceCtx->readyAicCoreFunctionQue, aicStart_, aicEnd_);
                 aicSucessCnt = 0;
             }
@@ -1939,14 +1930,10 @@ private:
                 aivSucessCnt = 0;
             }
 
-            if (unlikely(GetCycles() - start_cycles > HAND_SHAKE_TIMEOUT)) {
-                DumpAicoreStatusWhenTimeout(handFlag);
-                DEV_ERROR(
-                    SchedErr::HANDSHAKE_TIMEOUT,
-                    "#sche.handshake.timeout: HandShakeByGmWithPreSendTask timeout notHandshakeNum=%d.",
-                    mngAicoreNum - handShakeNum);
-                return DEVICE_MACHINE_ERROR;
-            }
+            TIMEOUT_CHECK_EXIT_WITH_ACTION(timeoutState, HAND_SHAKE_TIMEOUT, DEVICE_MACHINE_ERROR,
+                { DumpAicoreStatusWhenTimeout(handFlag); return DEVICE_MACHINE_ERROR; },
+                "#sche.handshake.timeout: HandShakeByGmWithPreSendTask timeout after 48 seconds, notHandshakeNum=%d.",
+                mngAicoreNum - handShakeNum);
         }
 
         HandShakePostProc(deviceCtx, needSendAic, needSendAiv);
