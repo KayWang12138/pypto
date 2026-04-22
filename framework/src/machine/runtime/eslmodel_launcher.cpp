@@ -120,7 +120,7 @@ int EslModelLauncher::EslModelLaunchDeviceTensorData(Function *function,
     DeviceKernelArgs kArgs;
     DeviceLauncher::DeviceLauncherConfigFillDeviceInfo(config);
     EslModelMemoryUtils eslMemoryUtil;
- 	DeviceLauncher::DeviceInitDistributedContext(eslMemoryUtil, dynAttr->commGroupNames, kArgs);
+ 	//DeviceLauncher::DeviceInitDistributedContext(eslMemoryUtil, dynAttr->commGroupNames, kArgs);
     DeviceLauncher::DeviceInitTilingData(eslMemoryUtil, kArgs, dynAttr->devProgBinary, nullptr, config, nullptr);
     DeviceLauncher::DeviceInitKernelInOuts(eslMemoryUtil, kArgs, inputList, outputList, dynAttr->disableL2List);
     ExchangeCaputerMode(isCapture);

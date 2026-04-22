@@ -19,6 +19,7 @@
 #include "tilefwk/symbolic_scalar.h"
 #include "tilefwk/symbolic_distributed.h"
 #include "tilefwk/comm_group_recorder.h"
+#include "interface/program/program.h"
 
 namespace npu::tile_fwk {
 SymbolicScalar GetHcclRankId(const std::string& groupName)
@@ -39,4 +40,35 @@ SymbolicScalar BindTensor(uint64_t groupIndex, uint64_t memType, uint64_t size, 
     static uint64_t index = 0;
     return bindTensor(groupIndex, memType, size, maxTileNum, index++);
 }
+
+SymbolicScalar GetHcclRankIdV2(const Tensor &t) {
+    std::string name = SymbolHandler::GetNameByHandlerId(SymbolHandlerId::GetHcclRankIdV2);
+    name = AddRuntimePrefix(name);
+    SymbolicScalar getHcclRankId(name);
+    return getHcclRankId(GetInputDataAddr(t));
+}
+
+SymbolicScalar BindTensorV2(const Tensor &t, uint64_t memType, uint64_t size, uint64_t maxTileNum) {
+    std::string name = SymbolHandler::GetNameByHandlerId(SymbolHandlerId::BindTensorV2);
+    name = AddRuntimePrefix(name);
+    SymbolicScalar bindTensor(name);
+    static uint64_t index = 0;
+    return bindTensor(GetInputDataAddr(t), memType, size, maxTileNum, index++);
+}
+
+SymbolicScalar GetInputDataAddr(const Tensor &t) {
+    auto slotManager = Program::GetInstance().GetTensorSlotManager();
+    slotManager->TensorRead(t);
+    std::string getInputDataAddrName = SymbolHandler::GetNameByHandlerId(SymbolHandlerId::GetInputDataAddr);
+    int inputIndex = slotManager->GetInputIndex(t);
+    ASSERT(inputIndex >= 0 && static_cast<size_t>(inputIndex) < slotManager->GetInputNameList().size()) <<
+        "Tensor" << t.GetStorage(false)->GetRawTensor()->GetSymbol() << " is not in input tensor list";
+    std::string inputName = slotManager->GetInputNameList()[inputIndex];
+    getInputDataAddrName = AddRuntimePrefix(getInputDataAddrName);
+    inputName =AddArgPrefix(inputName);
+    SymbolicScalar getInputDataAddr(getInputDataAddrName);
+    SymbolicScalar input(inputName);
+    return getInputDataAddr(input);
+}
+
 } // namespace npu::tile_fwk

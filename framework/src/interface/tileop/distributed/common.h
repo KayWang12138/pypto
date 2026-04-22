@@ -156,10 +156,8 @@ struct DispatchInfo {
 template <typename T, uint32_t memType = 0>
 TILEOP __gm__ T* MapVirtualAddr(__gm__ int64_t* hcclContext, __gm__ T* vAddr, uint32_t dstRankId)
 {
-    uint64_t addrVal = (uint64_t)vAddr;
-    uint64_t groupIndex = TileOp::Distributed::DecodeShmemAddrGroupIndex(addrVal);
-    uint64_t offset = TileOp::Distributed::DecodeShmemAddrOffset(addrVal);
-    __gm__ TileOp::CommContext* commCtxParam = (__gm__ TileOp::CommContext*)hcclContext[groupIndex];
+    uint64_t offset = TileOp::Distributed::DecodeShmemAddrOffset((uint64_t)vAddr);
+    __gm__ TileOp::CommContext* commCtxParam = (__gm__ TileOp::CommContext*)hcclContext;
     if constexpr (memType == 0) {
         return (__gm__ T*)(commCtxParam->winAddr[dstRankId] + offset);
     } else {

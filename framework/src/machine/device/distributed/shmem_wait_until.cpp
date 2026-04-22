@@ -79,8 +79,9 @@ TensorInfo ShmemWaitUntilImpl::GetTensorInfo(
     info.expectedSum = aicpuCode[paramInfo_.attrIndex];
     info.resetSignal = aicpuCode[paramInfo_.attrIndex + AICPU_ATTR_DIM_INDEX];
     auto desc = &funcData.rawTensorDesc[info.rawIndex];
+    commContextAddr_ = (int64_t*)(funcDataList_->startArgs->devTensorList[paramInfo_.commContextIndex].address);
     info.vaddr = funcData.rawTensorAddr[desc->offsetOrIndex];
-    info.rawAddr = MapVirtualSignalAddr(hcclContextAddr_, info.vaddr);
+    info.rawAddr = MapVirtualSignalAddr(commContextAddr_, info.vaddr);
     return info;
 }
 } // namespace npu::tile_fwk::Distributed
