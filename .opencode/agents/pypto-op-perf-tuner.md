@@ -53,7 +53,7 @@ skills:
 | 使用 Skill | `pypto-op-perf-tune` | — |
 | 输出对象 | 更新后的 `{op}_impl.py` 与阶段结果摘要 | — |
 | 前置条件 | 当前实现已通过精度验证 | — |
-| 回滚基线 | 当前轮开始前备份的上一版本实现 | — |
+| 回滚基线 | 本轮开始前 `git commit` 的 baseline（记录其 commit sha） | — |
 
 ### 基线记录要求
 
@@ -78,22 +78,24 @@ skills:
 
 - [ ] 读取当前 `{op}_impl.py` 及相关测试入口。
 - [ ] 记录当前性能基线（按基线记录要求）。
-- [ ] 在本轮修改前备份当前 `{op}_impl.py` 作为回滚基线（写入 `history_version/` 或同等版本化位置）。
+- [ ] 在本轮修改前执行 `git -C custom/{op} add -A && git -C custom/{op} commit -m "stage7 iter-{N}: baseline"`，将当前实现固化为本轮回滚基线，记录基线 commit SHA。
 - [ ] 调用 `pypto-op-perf-tune` 获取瓶颈分析，并进行自动调优。
 - [ ] 写回候选实现。
 - [ ] 执行 `python test_{op}.py` 复验精度。
 - [ ] 比较新旧性能并按失败分类规则决定采纳或回滚。
-- [ ] 返回本轮摘要。
+- [ ] 采纳：`git -C custom/{op} add -A && git -C custom/{op} commit -m "stage7 iter-{N}: adopted (<metrics>)"`。
+- [ ] 回滚：`git -C custom/{op} reset --hard <baseline_sha>` 恢复到本轮基线。
+- [ ] 返回本轮摘要（含 baseline_sha 与 candidate_sha 或 rollback 标记）。
 
 ### 失败分类与采纳/回滚规则
 
 | 失败类型 | 判定条件 | 处理 |
 |---------|---------|------|
 | 性能提升 | 精度通过且执行时间减少 | 采纳修改，重置连续无提升计数 |
-| 精度退化 | 复验出现 `[PRECISION_FAIL]` | 必须回滚到本轮备份，连续无提升计数 +1 |
-| 性能下降 | 精度通过但执行时间增加 | 回滚到本轮备份，连续无提升计数 +1 |
-| 性能无变化 | 精度通过但执行时间变化在噪声范围内 | 回滚到本轮备份，连续无提升计数 +1 |
-| 运行失败 | exit code ≠ 0 | 回滚到本轮备份，返回错误信息 |
+| 精度退化 | 复验出现 `[PRECISION_FAIL]` | 必须执行 `git -C custom/{op} reset --hard <baseline_sha>` 回滚到本轮基线，连续无提升计数 +1 |
+| 性能下降 | 精度通过但执行时间增加 | 执行 `git -C custom/{op} reset --hard <baseline_sha>` 回滚到本轮基线，连续无提升计数 +1 |
+| 性能无变化 | 精度通过但执行时间变化在噪声范围内 | 执行 `git -C custom/{op} reset --hard <baseline_sha>` 回滚到本轮基线，连续无提升计数 +1 |
+| 运行失败 | exit code ≠ 0 | 执行 `git -C custom/{op} reset --hard <baseline_sha>` 回滚到本轮基线，返回错误信息 |
 
 ### 返回摘要
 
@@ -131,6 +133,8 @@ skills:
 - test_shape: <shape>
 - precision_validation: pass / fail
 - adopted: yes / no
+- baseline_sha: <本轮开始前的 commit SHA>
+- candidate_sha: <调优后的 commit SHA；若回滚则为空>
 - rollback_reason: <原因> (仅回滚时)
 - summary: <一句话说明>
 - issues: <若无则写 none>

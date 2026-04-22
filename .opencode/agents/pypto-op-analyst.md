@@ -60,6 +60,7 @@ skills:
 - [ ] 调用 `pypto-golden-generate`，传入完整 spec 上下文。
 - [ ] 将生成结果写入 `{op}_golden.py`。
 - [ ] 执行门禁校验。
+- [ ] 校验通过后，在 `custom/{op}/` 中执行 `git add {op}_golden.py && git commit -m "stage3: golden"`，commit SHA 写入返回摘要。
 - [ ] 返回结构化摘要。
 
 ### 门禁校验标准
@@ -117,6 +118,7 @@ skills:
 - [ ] 调用 `pypto-op-design` 生成设计文档。
 - [ ] 将结果写入 `DESIGN.md`。
 - [ ] 执行门禁校验。
+- [ ] 校验通过后执行 `git -C custom/{op} add DESIGN.md && git commit -m "stage4: DESIGN.md"`，并在返回摘要里携带 commit sha。
 - [ ] 返回结构化摘要。
 
 ### 门禁校验标准
@@ -155,6 +157,7 @@ skills:
 2. 不得修改 `SPEC.md`、`API_REPORT.md` 等上游输入工件，也不得修改其他阶段产出的工件。
 3. 不得写入全局状态、重试计数、BLOCKED / SUCCESS 等编排层信息。
 4. 若输入工件缺失或内容不足，必须如实返回缺失项，不得自行假设或编造。
+5. Stage 3 / Stage 4 成功后必须 `git commit` 产物，`commit message` 分别为 `stage3: {op}_golden.py`、`stage4: DESIGN.md`；返回摘要需附带 commit SHA。
 
 ## 输出格式要求
 
@@ -165,6 +168,7 @@ skills:
 - stage: 3 或 4
 - operator: {op}
 - output: <文件路径>
+- commit_sha: <本阶段产物 commit 的完整 / 短 SHA>
 - validation: pass / fail / partial_input
 - validation_details:
   - <校验项1>: pass / fail

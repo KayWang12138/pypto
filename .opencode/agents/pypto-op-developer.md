@@ -39,8 +39,8 @@ tools:
    - 不得凭经验推断 `[PRECISION_PASS]`、`[PRECISION_FAIL]` 或运行失败。
 
 4. **局部回滚必须可追溯**
-   - Stage 6 每次修复前必须备份当前实现。
-   - 遇到功能问题或精度退化时，必须按约定回滚。
+   - Stage 6 每次修复前必须通过 `git commit` 将当前实现固化为 baseline。
+   - 遇到功能问题或精度退化时必须使用 `git reset --hard <baseline_sha>` 回滚。
 
 5. **Stage 边界严格**
    - 每次调度只执行一轮"生成/修复 → 测试 → 判定"，不做内部重试循环；重试由 Orchestrator 发起新调度。
@@ -134,24 +134,27 @@ tools:
 | 必需输入 | `custom/{op}/{op}_impl.py` | 当前实现（修复基础） |
 | 必需输入 | `custom/{op}/{op}_golden.py` | 参考实现（精度对比基准） |
 | 必需输入 | 上次失败信息 | 错误类型、stderr、精度偏差数据 |
-| 备份目录 | `custom/{op}/history_version/` | — |
+| 版本控制 | `custom/{op}/.git`（sub-git 仓，由 orchestrator 引导层初始化） | — |
 | 输出文件 | 更新后的 `custom/{op}/{op}_impl.py` | — |
 | 使用 Skill | `pypto-precision-debug` | — |
 
-### 备份规则
+### Git 基础快照规则
+
+所有阶段产物版本通过 `custom/{op}/` 的内置 sub-git 仓库管理，本 agent 负责 Stage 6 的提交与回滚。
 
 | 规则 | 说明 |
 |------|------|
-| 备份时机 | 每次调用 `pypto-precision-debug` 修改 impl 之前 |
-| 备份位置 | `custom/{op}/history_version/` |
-| 备份命名 | `{op}_impl_s6_attempt{N}.py`（N 从 1 递增） |
-| 回滚来源 | 始终回滚到本次修复开始前的备份版本 |
-| 保留策略 | 所有备份保留，不自动清理 |
+| 基线 commit 时机 | 每次调用 `pypto-precision-debug` 之前，以当前工作树做一次 commit 作为本次 attempt 的基线（若上一轮已有 clean commit，可复用，无需空提交） |
+| 修复后 commit 时机 | 修改完 `{op}_impl.py` 并重新执行 `python test_{op}.py` 得到复测结果后，立即以描述性 message 提交结果 |
+| Commit message 规范 | `stage6 attempt{N}: <baseline\|pass\|fail\|rollback> - <简述改动或原因>`；N 从 1 递增 |
+| 范围 | 提交应包含所有修改的源码与本轮更新的 `debug_log.md`、`.orchestrator_state.json` |
+| 回滚 | 当复测判定需要回滚时，执行 `git -C custom/{op} reset --hard <baseline_sha>`，并追加一条标注性空提交 `stage6 attempt{N}: rolled back to baseline` 以便审计 |
+| 保留策略 | 不手动删除历史 commit；一切 attempt 均保留在 git log 中 |
 
 ### 执行清单
 
 - [ ] 读取当前 `{op}_impl.py`、`{op}_golden.py` 与上次失败信息。
-- [ ] 在修改前按备份规则备份当前 `{op}_impl.py` 到 `history_version/`。
+- [ ] 在修改前，若工作区非干净先 `git -C custom/{op} add -A && git commit -m "stage6 attempt{N}: baseline"`，确保当前 `{op}_impl.py` 已 commit，记录 baseline_sha。
 - [ ] 调用 `pypto-precision-debug` 执行定位和修复。
 - [ ] 将修复结果写回 `{op}_impl.py`。
 - [ ] 重新执行 `python test_{op}.py`。
@@ -171,7 +174,7 @@ tools:
 
 返回结果至少包含：
 
-- 修复前备份路径（含完整文件名）
+- 基线 commit SHA（修复前的 `git rev-parse HEAD`）与候选 commit SHA（修复后）
 - 复测命令
 - 失败分类判定结果
 - 是否回滚及回滚原因
@@ -184,7 +187,7 @@ tools:
 1. 不得调用其他 Subagent。
 2. 不得写入全局重试计数、恢复策略或全局结束状态。
 3. 不得跳过首跑 / 复测直接报告结果。
-4. Stage 6 每次修复前必须完成备份。
+4. Stage 6 每次修复前必须通过 `git commit` 固化基线；回滚须使用 `git reset --hard <baseline_sha>`。
 5. 功能问题必须回滚，不得保留不可运行实现。
 
 ## NPU 测试执行方式
@@ -221,7 +224,7 @@ Orchestrator 依赖该日志做重试决策，必须在返回摘要之前写入�
 | `test_{op}.py` | Stage 5 | 首跑测试 |
 | `README.md` | Stage 5 | 算子说明文档 |
 | `debug_log.md` | Stage 5 / 6 | 每次调用追加一条记录 |
-| `history/{op}_impl_s6_attempt{n}.py` | Stage 6 | 修复前备份 |
+| `custom/{op}/.git` 下的 commit 历史 | Stage 5/6 | 每次 attempt 前后的基线/结果 commit，可通过 `git reset --hard <sha>` 回滚 |
 
 ## 输出格式要求
 
@@ -238,7 +241,8 @@ Orchestrator 依赖该日志做重试决策，必须在返回摘要之前写入�
 - precheck: pass / fail（仅 Stage 5）
 - test_command: python test_{op}.py
 - rollback: yes / no
-- backup_path: <备份文件路径>（仅 Stage 6）
+- baseline_sha: <修复前 commit sha>（仅 Stage 6）
+- result_sha: <修复后 commit sha>（仅 Stage 6）
 - debug_log_appended: true
 - summary: <一句话说明>
 - issues: <若无则写 none>

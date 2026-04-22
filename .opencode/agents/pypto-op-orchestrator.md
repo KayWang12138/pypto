@@ -57,6 +57,7 @@ skills:
 
 每次收到开发、继续开发、重试、恢复等请求时，必须按以下顺序执行：
 
+- [ ] **初始化 / 检测算子 git 仓（见「版本管理」小节）**：若 `custom/{op}/.git` 不存在，按"版本管理 → 仓初始化"流程建立；已存在则跳过。
 - [ ] 检测状态（禁止对不存在的路径执行 `ls` / `stat`，避免 ENOENT 错误）：
       ```bash
       mkdir -p custom/{op} && cat custom/{op}/.orchestrator_state.json 2>/dev/null || echo "NEW"
@@ -74,6 +75,8 @@ skills:
 
 ```text
 custom/{op}/
+├── .git/                    # 独立 git 仓库（每个算子一个，用于阶段版本与 rollback）
+├── .gitignore               # 屏蔽 __pycache__、*.pyc、*.log 等噪声
 ├── SPEC.md
 ├── API_REPORT.md
 ├── DESIGN.md
@@ -81,8 +84,8 @@ custom/{op}/
 ├── {op}_impl.py
 ├── test_{op}.py
 ├── README.md
-├── .orchestrator_state.json
-└── history_version/
+├── .orchestrator_state.json # 纳入 git 版本控制
+└── debug_log.md             # 纳入 git 版本控制
 ```
 
 ### 工件 Owner / Consumer / 衔接信息
@@ -112,10 +115,55 @@ custom/{op}/
 
 | 分类 | 工件 | 策略 |
 |------|------|------|
-| 用户工件 | `SPEC.md`、`DESIGN.md` | 优先版本化，不直接丢弃历史 |
-| 自动工件 | `{op}_golden.py`、`{op}_impl.py`、`test_{op}.py`、`README.md` | 可按阶段结果覆盖 |
+| 用户工件 | `SPEC.md`、`DESIGN.md` | 优先级最高；修改需通过 git 历史审查 |
+| 自动工件 | `{op}_golden.py`、`{op}_impl.py`、`test_{op}.py`、`README.md` | 可按阶段结果覆盖；历史保留在 git commit 中 |
 
 ---
+
+## 版本控制（Git-based）
+
+每个算子目录 `custom/{op}/` 是**独立的 git 仓库**，用于承载该算子整个开发周期的工件与状态变更历史。Orchestrator 与各 Subagent 通过 `git commit` / `git reset` 完成版本记录与回滚。
+
+### 仓库生命周期
+
+| 事件 | 动作 | 责任方 |
+|------|------|--------|
+| `custom/{op}/` 首次创建 | `git init` + 写入 `.gitignore` + 初始 commit（见「启动流程」Step 0） | Orchestrator |
+| Stage 1 完成 | `git add SPEC.md .orchestrator_state.json && git commit -m "stage1: <op> spec"` | Orchestrator |
+| Stage 2 完成 | `git commit -am "stage2: <op> api report"` | Orchestrator |
+| Stage 3 完成 | `git commit -am "stage3: <op> golden"` | `pypto-op-analyst` |
+| Stage 4 完成 | `git commit -am "stage4: <op> design"` | `pypto-op-analyst` |
+| Stage 5 首跑前 / 后 | `git commit -am "stage5 attempt{K}: <pass|fail|<category>>"` | `pypto-op-developer` |
+| Stage 6 每次修复前 / 后 | `git commit -am "stage6 attempt{K}: <pass|fail|rollback>"` | `pypto-op-developer` |
+| Stage 7 每轮前 / 后 | `git commit -am "stage7 iter{K}: <adopt|rollback>"` | `pypto-op-perf-tuner` |
+
+### .gitignore 约定
+
+- `__pycache__/`、`*.pyc`、`*.pyo`、`*.log`、`*.tmp`、`*.bak`、`.pytest_cache/`、`build/`、`.DS_Store` 等运行态噪音 **必须** 被忽略。
+- `.orchestrator_state.json` 与 `debug_log.md`（Stage 6 调试日志）**必须纳入版本控制**，作为每个 attempt 的可回溯状态。
+
+### 回滚与审计
+
+| 动作 | 命令 |
+|------|------|
+| 保存基线 | `git -C custom/{op} commit -m "stage{N} attempt-{K} baseline"` |
+| 回滚 | `git -C custom/{op} reset --hard <sha>` 或 `git -C custom/{op} checkout <sha> -- <path>` |
+| 审计历史 | `git -C custom/{op} log --oneline` 或 `git -C custom/{op} diff <sha1>..<sha2>` |
+| 清理 | 由 git 自行管理，禁止手工删除 `.git/` 或 object 文件 |
+
+### commit 责任分工
+
+每个 Subagent 在自己阶段成功结束或中断时，**必须**完成一次 commit：
+
+- `pypto-op-analyst`：Stage 3 golden、Stage 4 design
+- `pypto-op-developer`：Stage 5 实现、Stage 6 精度修复
+- `pypto-op-perf-tuner`：Stage 7 性能调优
+
+Orchestrator 仅为 Stage 1-2 和 workspace 初始化负责 commit；不得代 Subagent 做 commit。
+
+---
+
+## 七阶段状态机
 
 ## 七阶段状态机
 
@@ -272,14 +320,25 @@ state_transition(opDir, action, stage, reason?)
 ### 正常推进流程
 
 ```
-start_stage(1) → [执行] → complete_stage(1) → start_stage(2) → [执行] → complete_stage(2) → ...
+start_stage(1) → [执行] → complete_stage(1) → start_stage(2) → [执行] → ...
 ```
 
 ### 失败重试流程
 
 ```
-complete_stage(N) → [门禁失败] → fail_stage(N) → start_stage(N) → [重试]
+complete_stage(N) → [门禁] 失败 → fail_stage(N) → start_stage(N) → ...
 ```
+
+### v2 新增字段（`state_transition` 自动维护，无需手工改写）
+
+| 字段 | 语义 |
+|---|---|
+| `schema_version` | 当前为 `2`。读入旧 v1 文件（无此字段）时工具会自动升级 |
+| `stage_history[]` | 最近 50 次状态迁移的审计日志，每条含 `at/action/stage/attempt`，失败附 `error`，完成附 `gate` 摘要 |
+| `artifacts` | `complete_stage` 时按阶段快照相关产物（SPEC/DESIGN/golden/impl/test/README）的 sha256，便于检测上游是否在阶段完成后又被篡改 |
+| `last_error` | 最近一次 `fail_stage` 的结构化错误；成功 `complete_stage` 同阶段后自动清空 |
+
+`fail_stage` 传入 `error: {kind, message, rule_ids}` 时会记录到 `last_error` 与 `stage_history`；`complete_stage` 时 lint 门禁摘要会作为 `gate` 同步写入 `stage_history`。
 
 ---
 

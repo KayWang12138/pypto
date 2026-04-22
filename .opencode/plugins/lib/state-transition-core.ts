@@ -1,8 +1,43 @@
+export const SCHEMA_VERSION = 2;
+export const HISTORY_CAP = 50;
+
 export type TransitionAction = "start_stage" | "complete_stage" | "fail_stage" | "init";
+
+export type GateSummary = {
+  warnCount?: number;
+  failCount?: number;
+  ruleIds?: string[];
+};
+
+export type StageErrorRecord = {
+  kind?: string;
+  message: string;
+  ruleIds?: string[];
+};
+
+export type HistoryEntry = {
+  at: string;
+  action: TransitionAction;
+  stage: number;
+  attempt: number;
+  reason?: string;
+  gate?: GateSummary;
+  error?: StageErrorRecord;
+};
+
+export type ArtifactFingerprint = {
+  sha256: string;
+  stage: number;
+  recorded_at: string;
+};
 
 export type TransitionInput = {
   action: TransitionAction;
   stage: number;
+  reason?: string;
+  gate?: GateSummary;
+  error?: StageErrorRecord;
+  at?: string;
 };
 
 export type OrchestratorState = {
@@ -11,6 +46,14 @@ export type OrchestratorState = {
   stage_status: Record<string, string>;
   stage_retry_count?: Record<string, number>;
   last_updated?: string;
+
+  // v2 additive fields (absent in v1 state files).
+  schema_version?: number;
+  history?: HistoryEntry[];
+  artifacts?: Record<string, ArtifactFingerprint>;
+  last_error?: StageErrorRecord & { stage: number; at: string };
+
+  // Legacy/extra fields (e.g., spec_md_hash, perf_iteration) pass through untouched.
   [key: string]: unknown;
 };
 
@@ -26,16 +69,38 @@ function ensureNumber(val: unknown): number {
   return Math.floor(n);
 }
 
+/**
+ * Fill in v2 default fields when loading a state written by an older writer.
+ * Never throws; keeps existing values intact.
+ */
+export function migrateState(prev: OrchestratorState): OrchestratorState {
+  if (prev.schema_version === undefined) prev.schema_version = SCHEMA_VERSION;
+  if (!prev.history) prev.history = [];
+  if (!prev.artifacts) prev.artifacts = {};
+  return prev;
+}
+
+function pushHistory(state: OrchestratorState, entry: HistoryEntry): void {
+  const list = state.history ?? (state.history = []);
+  list.push(entry);
+  while (list.length > HISTORY_CAP) list.shift();
+}
+
 export function applyTransition(
   prev: OrchestratorState,
   input: TransitionInput,
 ): OrchestratorState {
   const stage = ensureNumber(input.stage);
   const next = cloneState(prev);
+  migrateState(next);
   const statusMap = next.stage_status ?? {};
   next.stage_status = statusMap;
   const retryMap = next.stage_retry_count ?? {};
   next.stage_retry_count = retryMap;
+  const now = input.at ?? new Date().toISOString();
+  // Attempt counter snapshot BEFORE any retry_count increment in fail_stage.
+  // Rule: attempt = retries_seen_so_far + 1 (first start is attempt 1).
+  const attempt = (Number(retryMap[String(stage)]) || 0) + 1;
 
   switch (input.action) {
     case "init": {
@@ -96,6 +161,10 @@ export function applyTransition(
         next.current_stage = nextStage;
         statusMap[nextKey] = "in_progress";
       }
+      // Clear last_error if it belongs to the stage we just completed.
+      if (next.last_error && next.last_error.stage === stage) {
+        delete next.last_error;
+      }
       break;
     }
 
@@ -103,6 +172,13 @@ export function applyTransition(
       const failKey = String(stage);
       retryMap[failKey] = (Number(retryMap[failKey]) || 0) + 1;
       statusMap[failKey] = "failed";
+      next.last_error = {
+        stage,
+        at: now,
+        kind: input.error?.kind,
+        message: input.error?.message ?? input.reason ?? "stage failed",
+        ...(input.error?.ruleIds ? { ruleIds: input.error.ruleIds } : {}),
+      };
       break;
     }
 
@@ -110,6 +186,18 @@ export function applyTransition(
       throw new Error(`unsupported action: ${(input as { action?: string }).action ?? "unknown"}`);
   }
 
-  next.last_updated = new Date().toISOString();
+  // Record transition in rolling history (bounded by HISTORY_CAP).
+  pushHistory(next, {
+    at: now,
+    action: input.action,
+    stage,
+    attempt,
+    reason: input.reason,
+    gate: input.gate,
+    error: input.action === "fail_stage" ? next.last_error : undefined,
+  });
+
+  next.schema_version = SCHEMA_VERSION;
+  next.last_updated = now;
   return next;
 }
