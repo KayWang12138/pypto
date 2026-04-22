@@ -734,7 +734,10 @@ public:
     {
         void* ptr = nullptr;
         DEV_VERBOSE_DEBUG("SlabAlloc type = %u, size = %u.", ToUnderlying(type), objSize);
-        SlabTryDynAddCache(type, objSize); // ready que need dyn add cache
+        SlabTryDynAddCache(type, objSize);
+        
+        TimeoutState state;
+        
         do {
             if (type < WsAicpuSlabMemType::COHERENT_SLAB_MEM_TYPE_BUTT) {
                 ptr = metadataAllocators_.generalSlab.Alloc(ToUnderlying(type));
@@ -746,7 +749,6 @@ public:
             }
 
             if (submmitTaskQueue_.IsEmpty()) {
-                // should not happen, first task alloc failed
                 metadataAllocators_.generalSlab.DumpMemoryStatusWhenAbnormal("SlabAlloc null");
                 metadataAllocators_.stitchSlab.DumpMemoryStatusWhenAbnormal("SlabAlloc null");
                 DEV_ERROR(
@@ -756,13 +758,20 @@ public:
                     WsErr::SLAB_ADD_CACHE_FAILED, false, "Slab alloc null,type=%u,objsize=%u.", ToUnderlying(type),
                     objSize);
             }
-            uint64_t ttlstart = GetCycles();
-            while (!DeviceTaskMemTryRecycle()) {  // wait sch aicpu finish task
-                if (GetCycles() - ttlstart > TIMEOUT_CYCLES) {
-                    ttlstart = GetCycles();
-                    DEV_WARN("Waiting for device task finished for too long.");
-                }
-            };
+            
+TimeoutState innerState;
+        while (!DeviceTaskMemTryRecycle()) {
+            __PYPTO_TIMEOUT_CHECK(innerState, TIMEOUT_NS_20MIN, TIMEOUT_NS_1MIN, ,
+                "#workspace.alloc.inner_timeout: Inner recycle still waiting over 1min, type=%u, objSize=%u.",
+                "#workspace.alloc.inner_timeout: Inner recycle timeout, type=%u, objSize=%u.",
+                ToUnderlying(type), objSize);
+        };
+        
+        __PYPTO_TIMEOUT_CHECK(state, TIMEOUT_NS_20MIN, TIMEOUT_NS_2MIN, 
+            { WsAllocation emptyAlloc; emptyAlloc.ptr = 0; return emptyAlloc; },
+            "#workspace.alloc: SlabAlloc still waiting, type=%u, objSize=%u.",
+            "#workspace.alloc: SlabAlloc timeout, type=%u, objSize=%u.",
+            ToUnderlying(type), objSize);
         } while (true);
 
         WsAllocation allocation;
@@ -781,9 +790,14 @@ public:
     }
 
     void SlabStageAllocMemSubmmit(DynDeviceTask* devTask) {
+        TimeoutState state;
+        
         while (!submmitTaskQueue_.TryEnqueue(devTask)) {
-            // maybe que is full, need wait task finish and recycle aicpu meta memory
             DeviceTaskMemTryRecycle();
+            
+            __PYPTO_TIMEOUT_CHECK(state, TIMEOUT_NS_10MIN, TIMEOUT_NS_10MIN, return,
+                "#workspace.submit: SlabStageAllocMemSubmmit still waiting 10min.",
+                "#workspace.submit: SlabStageAllocMemSubmmit timeout 10min.");
         }
         return;
     }
