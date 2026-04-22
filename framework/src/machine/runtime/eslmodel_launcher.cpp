@@ -153,14 +153,14 @@ int EslModelLauncher::EslModelRunOnce(void *kernel, const DeviceLauncherConfig &
 }
 
 int EslModelLauncher::EslModelLiteRunOnce(Function *function, std::vector<DeviceTensorData> &tensors) {
-#ifdef BUILD_WITH_CANN
+    MACHINE_LOGI("####### Enter EslModelLiteRunOnce");
     ProgramData::GetInstance().Reset();
 
     // Allocate device memory and copy host to device
     std::vector<uint8_t *> deviceAddrs;
     for (size_t i = 0; i < tensors.size(); i++) {
         uint8_t *deviceAddr = nullptr;
-        RuntimeMalloc((void **)&deviceAddr, tensors[i].GetDataSize(), RT_MEMORY_HBM, 0);
+        AclRtMalloc((void **)&deviceAddr, tensors[i].GetDataSize(), AclRtMemMallocPolicy::HUGE_FIRST);
         AclRtMemcpy(deviceAddr, tensors[i].GetDataSize(), (uint8_t *)tensors[i].GetAddr(),
                      tensors[i].GetDataSize(), AclRtMemcpyKind::HOST_TO_DEVICE);
         deviceAddrs.push_back(deviceAddr);
@@ -181,9 +181,9 @@ int EslModelLauncher::EslModelLiteRunOnce(Function *function, std::vector<Device
     MACHINE_LOGI("###### AclRtSetDevice end");
 
     // Create stream
-    RtStream stream = nullptr;
+    AclRtStream stream = nullptr;
     MACHINE_LOGI("###### RuntimeStreamCreate start");
-    RuntimeStreamCreate(&stream, 0);
+    AclRtCreateStream(&stream);
     MACHINE_LOGI("###### RuntimeStreamCreate end");
 
     // Prepare kernel args
@@ -203,26 +203,31 @@ int EslModelLauncher::EslModelLiteRunOnce(Function *function, std::vector<Device
         .length = kernelBinary.size(),
     };
     void *hdl = nullptr;
-    int ret = RuntimeRegisterAllKernel(&binary, &hdl);
+    int ret = RuntimeDevBinaryRegister(&binary, &hdl);
     if (ret != RT_SUCCESS) {
         MACHINE_LOGE(HostLauncherErr::REGISTER_KERNEL_FAILED, "register kernel failed, ret: %d", ret);
     }
     MACHINE_LOGI("###### hdl: %p", hdl);
-    MACHINE_LOGI("###### RuntimeRegisterAllKernel end");
+    MACHINE_LOGI("###### RuntimeDevBinaryRegister end");
+
+    int stubFunc = 1;
+    std::string kernelName = dynAttr->kernelName;
+    // std::string kernelName = "TENSOR___main___Unroll1_PATH0_hiddenfunc0_5_main";
+    MACHINE_LOGI("###### rtFunctionRegister start");
+    RuntimeFunctionRegister(hdl, &stubFunc, kernelName.c_str(), kernelName.c_str(), 0);
+    MACHINE_LOGI("###### rtFunctionRegister end");
 
     // Launch kernel
-    MACHINE_LOGI("###### RuntimeKernelLaunchWithHandleV2 start");
-    RtTaskCfgInfo cfg = {};
-    cfg.schemMode = static_cast<uint8_t>(RtSchemModeType::BATCH);
-    ret = RuntimeKernelLaunchWithHandleV2(hdl, 0, 1, &rtArgs, nullptr, stream, &cfg);
-    MACHINE_LOGI("###### RuntimeKernelLaunchWithHandleV2 end");
+    MACHINE_LOGI("###### RuntimeKernelLaunch start");
+    ret = RuntimeKernelLaunch(&stubFunc, 1, rtArgs.args, rtArgs.argsSize, nullptr, stream);
+    MACHINE_LOGI("###### RuntimeKernelLaunch end");
 
     ASSERT(ret == RT_SUCCESS) << "LiteKernelLaunch failed: " << ret;
 
     // Synchronize stream
-    MACHINE_LOGI("###### RuntimeStreamSynchronize start");
-    ret = RuntimeStreamSynchronize(stream);
-    MACHINE_LOGI("###### RuntimeStreamSynchronize end");
+    MACHINE_LOGI("###### AclRtSynchronizeStream start");
+    ret = AclRtSynchronizeStream(stream);
+    MACHINE_LOGI("###### AclRtSynchronizeStream end");
 
     ASSERT(ret == RT_SUCCESS) << "Stream sync failed: " << ret;
 
@@ -230,17 +235,12 @@ int EslModelLauncher::EslModelLiteRunOnce(Function *function, std::vector<Device
     for (size_t i = 0; i < tensors.size(); i++) {
         AclRtMemcpy((uint8_t *)tensors[i].GetAddr(), tensors[i].GetDataSize(), deviceAddrs[i],
                      tensors[i].GetDataSize(), AclRtMemcpyKind::DEVICE_TO_HOST);
-        RuntimeFree(deviceAddrs[i]);
+        AclRtFree(deviceAddrs[i]);
     }
 
-    RuntimeStreamDestroy(stream);
+    AclRtDestroyStream(stream);
     AclRtResetDevice(deviceId);
     AclFinalize();
     return ret;
-#else
-    (void) function;
-    (void) tensors;
-    return 0;
-#endif
 }
 } 
