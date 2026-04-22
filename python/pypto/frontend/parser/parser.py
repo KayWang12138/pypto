@@ -25,6 +25,7 @@ from .context import Context
 from .diagnostics import DiagnosticLevel, Diagnostics, Source
 from .evaluator import ExprEvaluator
 from .liveness import LivenessAnalyzer
+from .tensor_init_check import check_uninitialized_tensor_storage_reads
 
 ParamSpec = tuple[str, bool, Any]
 
@@ -302,6 +303,7 @@ class Parser(ast.NodeVisitor):
         analyzer = LivenessAnalyzer()
         exempt_vars = set(self._parsed_extra_vars.keys())
         self.delete_after = analyzer.analyze(node, exempt_vars)
+        check_uninitialized_tensor_storage_reads(node, exempt_names=exempt_vars)
 
         # Store for later execution (lazy mode)
         self._parsed_node = node
