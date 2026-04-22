@@ -1203,6 +1203,7 @@ struct FunctionInterpreter {
         EvaluateDynParam(dynParamTable, linearArgList);
 
         ExecuteHandleFunctionBegin(func, frame);
+        func->SortOperations();
         auto operations = func->Operations();
         for (size_t opIdx = 0; opIdx < operations.size();) {
             auto& op = operations.at(opIdx);
