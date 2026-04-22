@@ -384,6 +384,45 @@ TEST_F(Fp8DecodeTest, DecodeFp8E4M3_MaxValue)
     EXPECT_FALSE(std::isinf(maxVal));
 }
 
+// 测试 DecodeFp8E4M3 对次正规值(指数为0且尾数非0)的解码
+// FP8 E4M3 subnormal: exp=0000, mant=001~111
+// value = mant × 2^-3 × 2^(1-7) = mant × 2^-9
+// 0x01 (mant=1): 1 × 2^-9 = 0.001953125
+// 0x07 (mant=7): 7 × 2^-9 = 0.013671875
+TEST_F(Fp8DecodeTest, DecodeFp8E4M3_SubnormalValues)
+{
+    float minSubnormal = DecodeFp8E4M3(0x01);
+    float expectedMin = std::pow(2.0f, -9);
+    EXPECT_NEAR(expectedMin, minSubnormal, expectedMin * 0.01f);
+    EXPECT_GT(minSubnormal, 0.0f);
+    EXPECT_LT(minSubnormal, 0.002f);
+
+    float maxSubnormal = DecodeFp8E4M3(0x07);
+    float expectedMax = 7.0f * std::pow(2.0f, -9);
+    EXPECT_NEAR(expectedMax, maxSubnormal, expectedMax * 0.01f);
+    EXPECT_GT(maxSubnormal, 0.01f);
+    EXPECT_LT(maxSubnormal, 0.014f);
+
+    EXPECT_NEAR(2.0f * std::pow(2.0f, -9), DecodeFp8E4M3(0x02), 1e-6f);
+    EXPECT_NEAR(4.0f * std::pow(2.0f, -9), DecodeFp8E4M3(0x04), 1e-6f);
+}
+
+// 测试 DecodeFp8E4M3 对负次正规值的解码，验证符号位处理
+// 0x81 (sign=1, mant=1): -1 × 2^-9 = -0.001953125
+// 0x87 (sign=1, mant=7): -7 × 2^-9 = -0.013671875
+TEST_F(Fp8DecodeTest, DecodeFp8E4M3_SubnormalNegative)
+{
+    float negMin = DecodeFp8E4M3(0x81);
+    float expectedNegMin = -std::pow(2.0f, -9);
+    EXPECT_NEAR(expectedNegMin, negMin, std::abs(expectedNegMin) * 0.01f);
+    EXPECT_LT(negMin, 0.0f);
+
+    float negMax = DecodeFp8E4M3(0x87);
+    float expectedNegMax = -7.0f * std::pow(2.0f, -9);
+    EXPECT_NEAR(expectedNegMax, negMax, std::abs(expectedNegMax) * 0.01f);
+    EXPECT_LT(negMax, 0.0f);
+}
+
 // 测试 DecodeFp8E5M2 对零值和无穷大的解码，验证 Inf 支持
 TEST_F(Fp8DecodeTest, DecodeFp8E5M2_ZeroAndInf)
 {
@@ -405,6 +444,44 @@ TEST_F(Fp8DecodeTest, DecodeFp8E5M2_NanValues)
     EXPECT_TRUE(std::isnan(DecodeFp8E5M2(0x7E)));
     EXPECT_TRUE(std::isnan(DecodeFp8E5M2(0x7F)));
     EXPECT_TRUE(std::isnan(DecodeFp8E5M2(0xFE)));
+}
+
+// 测试 DecodeFp8E5M2 对次正规值(指数为0且尾数非0)的解码
+// FP8 E5M2 subnormal: exp=00000, mant=01~11
+// value = mant × 2^-2 × 2^(1-15) = mant × 2^-16
+// 0x01 (mant=1): 1 × 2^-16 = 1.52587890625e-05
+// 0x03 (mant=3): 3 × 2^-16 = 4.57763671875e-05
+TEST_F(Fp8DecodeTest, DecodeFp8E5M2_SubnormalValues)
+{
+    float minSubnormal = DecodeFp8E5M2(0x01);
+    float expectedMin = std::pow(2.0f, -16);
+    EXPECT_NEAR(expectedMin, minSubnormal, expectedMin * 0.01f);
+    EXPECT_GT(minSubnormal, 0.0f);
+    EXPECT_LT(minSubnormal, 2e-5f);
+
+    float maxSubnormal = DecodeFp8E5M2(0x03);
+    float expectedMax = 3.0f * std::pow(2.0f, -16);
+    EXPECT_NEAR(expectedMax, maxSubnormal, expectedMax * 0.01f);
+    EXPECT_GT(maxSubnormal, 4e-5f);
+    EXPECT_LT(maxSubnormal, 5e-5f);
+
+    EXPECT_NEAR(2.0f * std::pow(2.0f, -16), DecodeFp8E5M2(0x02), 1e-7f);
+}
+
+// 测试 DecodeFp8E5M2 对负次正规值的解码，验证符号位处理
+// 0x81 (sign=1, mant=1): -1 × 2^-16
+// 0x83 (sign=1, mant=3): -3 × 2^-16
+TEST_F(Fp8DecodeTest, DecodeFp8E5M2_SubnormalNegative)
+{
+    float negMin = DecodeFp8E5M2(0x81);
+    float expectedNegMin = -std::pow(2.0f, -16);
+    EXPECT_NEAR(expectedNegMin, negMin, std::abs(expectedNegMin) * 0.01f);
+    EXPECT_LT(negMin, 0.0f);
+
+    float negMax = DecodeFp8E5M2(0x83);
+    float expectedNegMax = -3.0f * std::pow(2.0f, -16);
+    EXPECT_NEAR(expectedNegMax, negMax, std::abs(expectedNegMax) * 0.01f);
+    EXPECT_LT(negMax, 0.0f);
 }
 
 // 测试 DecodeFp8E5M2 对正常正值(1.0~4.0)的解码正确性
