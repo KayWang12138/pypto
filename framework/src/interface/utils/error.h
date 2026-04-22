@@ -17,8 +17,9 @@
 #include <iostream>
 
 #include "tilefwk/error.h"
-#include "tilefwk/pypto_fwk_log.h"
 #include "tilefwk/error_code.h"
+#include "tilefwk/pypto_fwk_log.h"
+#include "tilefwk/error_manager.h"
 
 namespace npu::tile_fwk {
 struct TerminateHandler {
@@ -40,6 +41,10 @@ struct TerminateHandler {
                 }
             } catch (const std::exception& e) {
                 FUNCTION_LOGE("Caught exception: %s", e.what());
+                const std::string &lastErrMsg = ErrorManager::Instance().GetLastErrorMessage();
+                if (!lastErrMsg.empty()) {
+                    std::cerr << lastErrMsg << std::endl;
+                }
                 std::cerr << "Caught exception: '" << e.what() << "'\n";
             }
             fflush(nullptr);
@@ -58,6 +63,10 @@ struct TerminateHandler {
             msg = "floating point exception !!!";
         }
         FUNCTION_LOGE("%s\n%s", msg, backtrace.c_str());
+        const std::string &lastErrMsg = ErrorManager::Instance().GetLastErrorMessage();
+        if (!lastErrMsg.empty()) {
+            std::cerr << lastErrMsg << std::endl;
+        }
         std::cerr << msg << "\n" << backtrace << std::endl;
         fflush(nullptr);
         _Exit(1);
