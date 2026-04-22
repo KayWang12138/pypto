@@ -843,13 +843,21 @@ void SuperNodeGraphBuilder::RebuildSuperNodes(std::vector<int32_t>& snParent, in
     superNodeInfo_->SetNodeCoreTypeAndMergeable(operationInfo_, false);
 }
 
-void SuperNodeGraphBuilder::ApplyCvFuseIds(
-    const std::map<int32_t, int32_t>& scopeToCvFuseId, const std::map<int32_t, std::vector<int32_t>>& scope2Nodes)
+void SuperNodeGraphBuilder::ApplyCvFuseIds(const std::map<int32_t, int32_t>& scopeToCvFuseId)
 {
-    for (const auto& [scopeId, cvFuseId] : scopeToCvFuseId) {
-        auto it = scope2Nodes.find(scopeId);
-        if (it == scope2Nodes.end()) continue;
-        for (int32_t nodeIdx : it->second) {
+    // 遍历所有supernode，若supernode中存在任一op的scopeId在scopeToCvFuseId中，
+    // 则将该supernode中所有op标记为该scope对应的cvFuseId
+    for (size_t nodeIdx = 0; nodeIdx < superNodeInfo_->node2Op_.size(); nodeIdx++) {
+        int32_t cvFuseId = -1;
+        for (int32_t opIdx : superNodeInfo_->node2Op_[nodeIdx]) {
+            int32_t scopeId = operationInfo_->opList_[opIdx]->GetScopeId();
+            auto it = scopeToCvFuseId.find(scopeId);
+            if (it != scopeToCvFuseId.end()) {
+                cvFuseId = it->second;
+                break;
+            }
+        }
+        if (cvFuseId != -1) {
             for (int32_t opIdx : superNodeInfo_->node2Op_[nodeIdx]) {
                 operationInfo_->opList_[opIdx]->scopeInfo_.SetCvFuseId(cvFuseId);
             }
