@@ -18,6 +18,11 @@
 #include <cstdint>
 
 namespace npu::tile_fwk {
+template <typename T, typename = std::enable_if_t<std::is_enum_v<T>>>
+inline constexpr std::underlying_type_t<T> ToUnderlying(T value)
+{
+    return static_cast<std::underlying_type_t<T>>(value);
+}
 
 // =============================================================================
 // F0-1XXXX: external limitation
