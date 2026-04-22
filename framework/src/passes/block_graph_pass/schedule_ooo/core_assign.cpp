@@ -420,6 +420,62 @@ void TaskSpliter::BuildOpGraph()
     APASS_LOG_INFO_F(Elements::Operation, "Build op connection graph finished.");
 }
 
+// 记录成环的 Cluster 对
+void TaskSpliter::RecordCycledClusters(
+    const std::vector<ScheduleCoreType> &clusterCoreTypes,
+    const std::vector<std::vector<int>> &sccResult) {
+    cycledTaskNodePairs_.clear();
+    for (int sccId = 0; sccId < static_cast<int>(sccResult.size()); sccId++) {
+        if (sccResult[sccId].size() <= 1) {
+            continue;
+        }
+        // 这个 SCC 有成环。找出包含的 AIC 和 AIV cluster
+        bool hasAIC = false;
+        bool hasAIV = false;
+        for (int clusterId : sccResult[sccId]) {
+            if (clusterCoreTypes[clusterId] == ScheduleCoreType::AIC) {
+                hasAIC = true;
+            } else {
+                hasAIV = true;
+            }
+        }
+
+        // 输出日志：记录成环的 Cluster
+        std::string sccInfo = "SCC " + std::to_string(sccId)
+            + " has cycle with " + std::to_string(sccResult[sccId].size())
+            + " clusters: [";
+        for (size_t j = 0; j < sccResult[sccId].size(); j++) {
+            int cid = sccResult[sccId][j];
+            sccInfo += "(cluster=" + std::to_string(cid)
+                + ", core=" + ScheduleCoreTypeToString(clusterCoreTypes[cid]) + ")";
+            if (j + 1 < sccResult[sccId].size()) {
+                sccInfo += ", ";
+            }
+        }
+        sccInfo += "]";
+        APASS_LOG_WARN_F(Elements::Operation, "%s", sccInfo.c_str());
+
+        // 如果同时包含 AIC 和 AIV，FlattenSCC 后会拆成两个新 Cluster,CombineSCC 会消除 SCC 内部边,故记录下这对关系
+        if (hasAIC && hasAIV) {
+            APASS_LOG_WARN_F(Elements::Operation,
+                "SCC %d contains both AIC and AIV clusters, "
+                "potential cycle after FlattenSCC between the resulting AIC-group and AIV-group taskNodes.",
+                sccId);
+            // 标记：这个 SCC 包含的所有 cluster ID，后续在 CombineSCC 映射后
+            // 会被映射到新的 taskNode ID。我们在 SplitGraph 结束后再进行映射。
+            cycledSCCClusters_.push_back(sccResult[sccId]);
+        }
+    }
+
+    if (cycledSCCClusters_.empty()) {
+        APASS_LOG_INFO_F(Elements::Operation,
+            "No AIC-AIV mixed cycles detected in SCC results.");
+    } else {
+        APASS_LOG_WARN_F(Elements::Operation,
+            "Detected %zu SCC(s) with AIC-AIV mixed cycles, will record for post-schedule reorder.",
+            cycledSCCClusters_.size());
+    }
+}
 // mix子图切分主函数
 void TaskSpliter::SplitGraph(const std::vector<Operation*>& opList)
 {
@@ -437,6 +493,8 @@ void TaskSpliter::SplitGraph(const std::vector<Operation*>& opList)
     std::vector<std::vector<int>> sccResult;
     StrongConnectionComponentFinder sccFinder;
     sccFinder.Find(inGraph, outGraph, sccResult);
+    // 这两个新 Cluster 之间的"成环关系"
+    RecordCycledClusters(clusterCoreTypes, sccResult);
     CombineSCC(clusterIds, clusterCoreTypes, inGraph, outGraph, sccResult);
     APASS_LOG_INFO_F(Elements::Operation, "Find strongly connected components finished.");
     opIdxToTaskId_.swap(clusterIds);
@@ -515,6 +573,28 @@ void TaskSpliter::CombineSCC(
         FlattenSCC(clusterCoreTypes, sccResult, oldClusterIdToSCCId, sccIdToNewClusters, oldClusterToNewCluster);
     APASS_LOG_INFO_F(
         Elements::Operation, "Cluster num after flatten strongly connected components is %d.", newClusterNum);
+    // 将 cycledSCCClusters_ 中记录的旧 Cluster ID 映射为新 TaskNode ID, 形成 cycledTaskNodePairs_
+    for (auto &oldClusters : cycledSCCClusters_) {
+        std::set<int> aicNewIds;
+        std::set<int> aivNewIds;
+        for (int oldCid : oldClusters) {
+            int newCid = oldClusterToNewCluster[oldCid];
+            if (clusterCoreTypes[oldCid] == ScheduleCoreType::AIC) {
+                aicNewIds.insert(newCid);
+            } else {
+                aivNewIds.insert(newCid);
+            }
+        }
+        // 每个 AIC 新 ID 和 AIV 新 ID 之间都是成环对
+        for (int aicId : aicNewIds) {
+            for (int aivId : aivNewIds) {
+                cycledTaskNodePairs_.push_back({aicId, aivId});
+                APASS_LOG_INFO_F(Elements::Operation,
+                    "Recorded cycled taskNode pair: taskNode %d (AIC) <-> taskNode %d (AIV).",
+                    aicId, aivId);
+            }
+        }
+    }
     std::set<std::pair<int, int>> sccConnection;
     for (size_t oldIdx = 0; oldIdx < inGraph.size(); oldIdx++) {
         int currSCC = oldClusterIdToSCCId[oldIdx];
@@ -680,24 +760,85 @@ inline bool IsFromAIVToAIC(Operation* op)
     return true;
 }
 
+// 反向DFS查找产出指定MemoryType tensor的前驱op
+void TaskSpliter::ReverseDFSFindByOutputMemType(int opIdx, MemoryType targetMemType, std::vector<int>& result, std::vector<bool>& visited)
+{
+    if (visited[opIdx]) {
+        return;
+    }
+    visited[opIdx] = true;
+    for (auto& oop : opList_[opIdx]->GetOOperands()) {
+        if (oop->GetMemoryTypeToBe() == targetMemType) {
+            result.push_back(opIdx);
+            return;
+        }
+    }
+    for (auto& iop : opList_[opIdx]->GetIOperands()) {
+        for (auto& producerOp : iop->GetProducers()) {
+            if (opMagicToIdx_.count(producerOp->GetOpMagic()) == 0) {
+                continue;
+            }
+            int producerIdx = opMagicToIdx_[producerOp->GetOpMagic()];
+            ReverseDFSFindByOutputMemType(producerIdx, targetMemType, result, visited);
+        }
+    }
+}
+
 // 根据op的CoreType构建连通集
 int TaskSpliter::BuildCluster(std::vector<int>& clusterIds, std::vector<ScheduleCoreType>& clusterCoreTypes)
 {
     DSUWithOrder dsu(opList_.size());
     for (size_t idx = 0; idx < opOutGraph_.size(); idx++) {
+        // 判断后接 tensor 为 L1 且存在多个消费者时，不进行 union
+        bool skip = false;
+        if (opList_[idx]->GetOutputOperand(0)->GetMemoryTypeOriginal() == MemoryType::MEM_L1 && opOutGraph_[idx].size() > 1) {
+            skip = true;
+            APASS_LOG_DEBUG_F(
+                Elements::Operation, "Skip union op: %s[%d]", opList_[idx]->GetOpcodeStr().c_str(), opList_[idx]->GetOpMagic());
+        }
         for (int nextOpIdx : opOutGraph_[idx]) {
-            if (opCoreTypes_[idx] == opCoreTypes_[nextOpIdx]) {
+            if (opCoreTypes_[idx] == opCoreTypes_[nextOpIdx] && !skip && opList_[nextOpIdx]->GetOpcodeStr().find("L1_TO_L0") == std::string::npos) {
                 dsu.Union(idx, nextOpIdx);
             }
         }
     }
     for (auto pr : sameLayerConnection_) {
-        dsu.Union(pr.first, pr.second);
+        if (opCoreTypes_[pr.first] == opCoreTypes_[pr.second]) {
+            dsu.Union(pr.first, pr.second);
+        }
     }
     for (size_t idx = 0; idx < opOutGraph_.size(); idx++) {
-        if (IsFromAICToAIV(opList_[idx]) || IsFromAIVToAIC(opList_[idx])) {
+        if (IsFromAICToAIV(opList_[idx])) {
             for (int nextOpIdx : opOutGraph_[idx]) {
                 dsu.Union(nextOpIdx, *opOutGraph_[idx].begin());
+            }
+        }
+    }
+    // 对输入tensor为L0C的非alloc op，反向DFS找L1_COPY_IN，未与L1_TO_L0 union的则union到当前L0C集合
+    for (size_t idx = 0; idx < opList_.size(); idx++) {
+        if (opList_[idx]->GetIOperands().size() == 0 || opList_[idx]->GetInputOperand(0)->GetMemoryTypeOriginal() != MemoryType::MEM_L0C) {
+            continue;
+        }
+        std::vector<int> l1CopyInOps;
+        std::vector<bool> visited(opList_.size(), false);
+        ReverseDFSFindByOutputMemType(idx, MemoryType::MEM_L1, l1CopyInOps, visited);
+        for (auto& l1CopyInOpIdx : l1CopyInOps) {
+            bool alreadyUnionedWithL1ToL0 = false;
+            for (auto& consumer : opList_[l1CopyInOpIdx]->ConsumerOps()) {
+                if (consumer->GetOpcodeStr().find("L1_TO_L0") == std::string::npos) {
+                    continue;
+                }
+                if (opMagicToIdx_.count(consumer->GetOpMagic()) == 0) {
+                    continue;
+                }
+                int consumerIdx = opMagicToIdx_[consumer->GetOpMagic()];
+                if (dsu.Find(l1CopyInOpIdx) == dsu.Find(consumerIdx)) {
+                    alreadyUnionedWithL1ToL0 = true;
+                    break;
+                }
+            }
+            if (!alreadyUnionedWithL1ToL0 && opCoreTypes_[idx] == opCoreTypes_[l1CopyInOpIdx]) {
+                dsu.Union(l1CopyInOpIdx, idx);
             }
         }
     }
