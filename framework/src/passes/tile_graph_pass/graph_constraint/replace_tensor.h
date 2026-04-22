@@ -182,7 +182,8 @@ private:
     Status InsertNeedCopy(Function& function);
 
     std::unordered_map<DataType, int> viewTypeTable = {
-        {DT_INT8, 1}, {DT_BF16, 2}, {DT_FP16, 2}, {DT_FP32, 4}, {DT_FP8E4M3, 1}
+        {DT_INT8, 1}, {DT_BF16, 2}, {DT_FP16, 2}, {DT_FP32, 4},
+        {DT_FP8E4M3, 1}, {DT_FP8E5M2, 1}, {DT_FP8E8M0, 1}
     };
     std::queue<LogicalTensorPtr> backRoots;
     std::queue<LogicalTensorPtr> forRoots;
