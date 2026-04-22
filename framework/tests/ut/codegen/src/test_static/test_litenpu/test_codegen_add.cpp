@@ -123,7 +123,7 @@ TEST_F(LiteNPUCodeGenAdd, test_add_005)
     PROGRAM("ADD_005")
     {
         Tensor input0(DataType::DT_FP32, {112}, "input0");
-        Element input1(DataType::DT_FP32, 2.0f);
+        Element input1(DataType::DT_FP32, 2.0);
         auto output = Tensor(DataType::DT_FP32, {112}, "output");
         FUNCTION("ADD_005")
         {
@@ -199,7 +199,7 @@ TEST_F(LiteNPUCodeGenAdd, test_add_009)
     PROGRAM("ADD_009")
     {
         Tensor input0(DataType::DT_FP32, {32, 20}, "input0");
-        Element input1(DataType::DT_FP32, 2.0f);
+        Element input1(DataType::DT_FP32, 2.0);
         auto output = Tensor(DataType::DT_FP32, {32, 20}, "output");
         FUNCTION("ADD_009")
         {
@@ -370,7 +370,7 @@ TEST_F(LiteNPUCodeGenAdd, test_add_018)
     PROGRAM("ADD_018")
     {
         Tensor input0(DataType::DT_FP32, {10, 32, 23}, "input0");
-        Element input1(DataType::DT_FP32, 2.0f);
+        Element input1(DataType::DT_FP32, 2.0);
         auto output = Tensor(DataType::DT_FP32, {10, 32, 23}, "output");
         FUNCTION("ADD_018")
         {
@@ -579,7 +579,7 @@ TEST_F(LiteNPUCodeGenAdd, test_add_029)
     PROGRAM("ADD_029")
     {
         Tensor input0(DataType::DT_FP32, {5, 16, 11, 12}, "input0");
-        Element input1(DataType::DT_FP32, 2.0f);
+        Element input1(DataType::DT_FP32, 2.0);
         auto output = Tensor(DataType::DT_FP32, {5, 16, 11, 12}, "output");
         FUNCTION("ADD_029")
         {
