@@ -37,7 +37,7 @@ from typing import Any
 
 import pypto
 
-from pypto.error import ParserError
+from pypto.error import ParserError, FeError
 from .diagnostics import Diagnostics
 
 
@@ -155,4 +155,4 @@ class ExprEvaluator:
         else:
             # Other unsupported expression types, raise python native error,
             # which will be caught by the parser and reported as a bug.
-            raise NotImplementedError("Unsupported expression type.")
+            raise FeError(NotImplementedError("Unsupported expression type."))
