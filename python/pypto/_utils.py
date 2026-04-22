@@ -28,6 +28,7 @@ from importlib import metadata
 from . import pypto_impl
 from .enum import DataType
 from .symbolic_scalar import SymbolicScalar, SymInt
+from .error import FrontendError
 
 
 def to_sym(value) -> pypto_impl.SymbolicScalar:
@@ -37,7 +38,7 @@ def to_sym(value) -> pypto_impl.SymbolicScalar:
         return value
     if isinstance(value, SymbolicScalar):
         return value.base()
-    raise ValueError("Invalid value type")
+    raise FrontendError(ValueError("Invalid value type"))
 
 
 def to_syms(value: Union[Sequence[int], Sequence[SymbolicScalar]]) -> List[pypto_impl.SymbolicScalar]:
@@ -125,7 +126,7 @@ class BuildOnlineManager:
         def __init__(self):
             self.cmake = self._which_cmake()
             if self.cmake is None:
-                raise RuntimeError("Can not find cmake, please check your envirionment.")
+                raise FrontendError(RuntimeError("Can not find cmake, please check your envirionment."))
 
         @classmethod
         def _which_cmake(cls) -> Optional[Path]:
@@ -204,7 +205,8 @@ class BuildOnlineManager:
                 self.torch_root_dir = str(Path(torch.__file__).parent)
                 self.torch_c_use_cxx11_abi = int(torch._C._GLIBCXX_USE_CXX11_ABI)
             except (ModuleNotFoundError or ImportError) as e:
-                raise RuntimeError(f"Can not import torch, please check your python environment. Error: {e}") from e
+                raise FrontendError(
+                    RuntimeError(f"Can not import torch, please check your python environment. Error: {e}")) from e
             finally:
                 os.environ = os_env
 
@@ -242,6 +244,6 @@ class BuildOnlineManager:
             # 加载
             calc_shared = Path(install_prefix, "lib/libtile_fwk_calculator.so")
             if not calc_shared.exists():
-                raise RuntimeError(f"{calc_shared} not exists.")
+                raise FrontendError(RuntimeError(f"{calc_shared} not exists."))
             ctypes.CDLL(str(calc_shared), mode=ctypes.RTLD_GLOBAL)
         self.calculator_loaded = True
