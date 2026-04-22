@@ -24,8 +24,6 @@
  */
 
 #pragma once
-#ifndef DEVICE_TRACE_H
-#define DEVICE_TRACE_H
 
 #include <functional>
 #include <mutex>
@@ -35,6 +33,7 @@
 #include <cstdarg>
 #include <cstdio>
 #include <atomic>
+
 #define MAX_MSG_LEN 112
 
 inline std::string TraceInfo([[maybe_unused]]const char* fmt, ...) {
@@ -221,4 +220,3 @@ public:
 };
 } // namespace npu::tile_fwk::dynamic
 #endif
-#endif // DEVICE_TRACE_H
