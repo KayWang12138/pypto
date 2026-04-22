@@ -225,11 +225,11 @@ private:
     Operation* CreateReshapeOp(LogicalTensorPtr iOperand, LogicalTensorPtr oOperand);
     Operation* CreateAssembleOp(LogicalTensorPtr iOperand, LogicalTensorPtr oOperand, std::shared_ptr<AssembleOpAttribute> assembleAttr);
 
-    Operation* GetSpillOp(int memId) override;
+    Operation* GetSpillOp(int memId);
     LogicalTensorPtr GetSpillTensor(Operation* spillOp, int spillMemId);
     Status UpdateSpillOpDepend(Operation* spillOp, LogicalTensorPtr newTensor, int spillMemId);
     bool HasEnoughBuffer(Operation* allocOp, MemoryType memType);
-    Status SpillOnBlock();
+    Status SpillOnBlock() override;
     Status SpillOnCoreBlock(CoreLocationType coreLocation, bool& didSpill);
     Operation* SkipViewChain(Operation* start, bool followProducers);
 
