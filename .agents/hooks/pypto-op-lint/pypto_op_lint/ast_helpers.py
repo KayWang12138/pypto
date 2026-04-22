@@ -211,7 +211,9 @@ def _extract_symbolic_dynamic_aliases(tree: ast.Module,
         target = node.targets[0].id
         value = node.value
         if isinstance(value, ast.Attribute):
-            if isinstance(value.value, ast.Name) and value.value.id in pypto_aliases and value.attr in ("DYNAMIC", "DYN"):
+            if (isinstance(value.value, ast.Name)
+                and value.value.id in pypto_aliases
+                and value.attr in ("DYNAMIC", "DYN")):
                 aliases.add(target)
         elif isinstance(value, ast.Name) and value.id in ("DYNAMIC", "DYN"):
             aliases.add(target)

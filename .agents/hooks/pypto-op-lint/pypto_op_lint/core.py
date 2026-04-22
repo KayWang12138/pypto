@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import ast
 import json
+import logging
 import os
 import re
 import shutil
@@ -151,8 +152,8 @@ def _load_rules() -> list[dict[str, Any]]:
     try:
         with open(rules_path, "r", encoding="utf-8") as f:
             data = json.load(f)
-    except (FileNotFoundError, json.JSONDecodeError, OSError) as e:
-        print(f"[pypto-op-lint FATAL] rules.json 加载失败: {e}", file=sys.stderr)
+    except (json.JSONDecodeError, OSError) as e:
+        logging.getLogger(__name__).error("[pypto-op-lint FATAL] rules.json 加载失败: %s", e)
         return []
     return data.get("rules", [])
 
