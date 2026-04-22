@@ -415,10 +415,7 @@ Status OoOScheduler::SpillMultiProducerBuffer(int spillMemid, Operation* spillOp
     }
     Operation* allocOp = CreateAllocOp(assembleOOperand);
     UpdateOpScheduleInfo(allocOp, {assembleOOperand->memoryrange.memId}, spillAllocOp);
-    std::unordered_map<Operation*, std::vector<int>> opMemidMap = {
-        {allocOp, {assembleOOperand->memoryrange.memId}}
-    };
-    if (InsertOps(opMemidMap, spillAllocOp, spillMemid) != SUCCESS) {
+    if (InsertOps({allocOp}, spillAllocOp, spillMemid) != SUCCESS) {
         return FAILED;
     }
 
@@ -463,11 +460,7 @@ Status OoOScheduler::CreateParticalBuffer(int spillMemid, Operation* producerOp,
 
     UpdateOpScheduleInfo(copyinOp, {assembleOOperand->memoryrange.memId}, spillAllocOp);
     UpdateOpScheduleInfo(assembleOp, {assembleOOperand->memoryrange.memId, assembleOOperand->memoryrange.memId}, spillAllocOp);
-    std::unordered_map<Operation*, std::vector<int>> opMemidMap = {
-        {copyinOp, {assembleOOperand->memoryrange.memId}},
-        {assembleOp, {assembleOOperand->memoryrange.memId, assembleOOperand->memoryrange.memId}}
-    };
-    if (InsertOps(opMemidMap, spillAllocOp, spillMemid) != SUCCESS) {
+    if (InsertOps({copyinOp, assembleOp}, spillAllocOp, spillMemid) != SUCCESS) {
         return FAILED;
     }
     return SUCCESS;
@@ -647,13 +640,15 @@ void OoOScheduler::UpdateOpScheduleInfo(Operation* op, std::vector<int> memIds, 
 
 Status OoOScheduler::UpdateScheduleStatus(std::unordered_map<Operation*, std::vector<int>> opMemidMap, int memId, 
     Operation* spillAllocOp, LogicalTensorPtr localTensor, Operation* spillOp) {
+    std::vector<Operation*> opMap;
     // 更新op的调度信息
     for (auto &[op, memid] : opMemidMap) {
         UpdateOpScheduleInfo(op, memid, spillAllocOp);
+        opMap.emplace_back(op);
     }
 
     // 生成的op插入排序队列
-    if (InsertOps(opMemidMap, spillAllocOp, memId) != SUCCESS) {
+    if (InsertOps(opMap, spillAllocOp, memId) != SUCCESS) {
         return FAILED;
     }
     // 修改图上op与tensor链接关系
@@ -669,15 +664,15 @@ Status OoOScheduler::UpdateScheduleStatus(std::unordered_map<Operation*, std::ve
     return SUCCESS;
 }
 
-Status OoOScheduler::InsertOps(std::unordered_map<Operation*, std::vector<int>> opMemidMap, Operation* spillAllocOp, int memId) {
+Status OoOScheduler::InsertOps(std::vector<Operation*> opMap, Operation* spillAllocOp, int memId) {
     int bufNextUseTime = GetBufNextUseTime(spillAllocOp, memId);
     if (bufNextUseTime == -1) {
         APASS_LOG_ERROR_F(Elements::Tensor, "Get Tensor[%d] next use time failed.", memId);
         return FAILED;
     }
-    for (auto &op : opMemidMap) {
-        opExecOrderMap[op.first] = bufNextUseTime++;
-        InsertOrdered(op.first);
+    for (auto &op : opMap) {
+        opExecOrderMap[op] = bufNextUseTime++;
+        InsertOrdered(op);
     }
     return SUCCESS;
 }
