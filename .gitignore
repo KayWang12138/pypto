@@ -46,5 +46,3 @@ run_log
 log_ca
 cannsim*
 trace_*
-# OpenCode 配置
-.opencode/
