@@ -449,7 +449,7 @@ def pre_compute_2d(
 
     qkv_pre_res.append(q_b_proj)
 
-    ####### kv ##########
+    # kv
     if is_quant_a:
         pypto.set_vec_tile_shapes(mv, q_lora_rank)
         pypto.set_cube_tile_shapes([tile_config.pre_quant_cube_tile[0], tile_config.pre_quant_cube_tile[1]],
@@ -583,7 +583,7 @@ def mla_prolog_quant_compute(
         q = q_kv[0]
         kv_tmp = q_kv[1]
 
-        ########### q ##############
+        # q
         q_tmp = pypto.reshape(q, [tile_bs, n1, q_head_dim])
         pypto.set_semantic_label("Prepare_qNope")
         q_nope = pypto.view(q_tmp, [tile_bs, n1, qk_nope_head_dim], [0, 0, 0])
@@ -606,20 +606,20 @@ def mla_prolog_quant_compute(
         pypto.set_vec_tile_shapes(tile_config.q_vec_tile0, tile_config.q_vec_tile1, 64)
         pypto.assemble(q_rope_view, output_offset, query_rope_out)
 
-        ########### RoPE #################
+        # RoPE
         pypto.set_vec_tile_shapes(tile_config.k_vec_tile0, tile_config.k_vec_tile1)
         pypto.set_semantic_label("RotaryPosEmb")
         k_pe_view = pypto.view(kv_tmp, [tile_bs, qk_rope_head_dim], [0, kv_lora_rank])
         k_rope_2d = rope_v2(k_pe_view, cos_2d_view, sin_2d_view, rope_cfg)
 
-        ############### kNope ##############
+        # kNope
 
         compressed_kv = pypto.view(kv_tmp, [tile_bs, kv_lora_rank], [0, 0])
         pypto.set_semantic_label("RmsNorm_compressedkv")
         pypto.set_vec_tile_shapes(tile_config.k_vec_tile0, tile_config.k_vec_tile1)
         k_nope = rms_norm(compressed_kv, gamma_ckv, epsilon_ckv)
 
-        ########### kNope Quant ############
+        # kNope Quant
         pypto.set_semantic_label("Quant_knope")
         pypto.set_vec_tile_shapes(32, kv_lora_rank)
         k_nope_split = pypto.reshape(k_nope, [tile_bs, 4, kv_lora_rank // 4])
@@ -635,7 +635,6 @@ def mla_prolog_quant_compute(
         pypto.set_semantic_label("ScatterUpdate_kvCache")
         pypto.set_vec_tile_shapes(32, 1, 1, kv_lora_rank)
         kv_cache_out[:] = pypto.scatter_update(kv_cache, -2, index, k_nope_4d)
-
 
 
 def options_list():
