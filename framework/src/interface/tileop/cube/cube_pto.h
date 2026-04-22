@@ -649,10 +649,10 @@ TILEOP void TInsertL0CToUB(
     tileUBTensor& ubTile, tileL0CTensor& l0cTile, int64_t ubOffset0, int64_t ubOffset1, int16_t subblockId = 0)
 {
     if (subblockId == 0) {
-        pto::TEXTRACT<tileUBTensor, tileL0CTensor, pto::AccToVecMode::SingleModeVec0>(
+        pto::TINSERT<tileUBTensor, tileL0CTensor, pto::AccToVecMode::SingleModeVec0>(
             ubTile, l0cTile, ubOffset0, ubOffset1);
     } else {
-        pto::TEXTRACT<tileUBTensor, tileL0CTensor, pto::AccToVecMode::SingleModeVec1>(
+        pto::TINSERT<tileUBTensor, tileL0CTensor, pto::AccToVecMode::SingleModeVec1>(
             ubTile, l0cTile, ubOffset0, ubOffset1);
     }
 }
