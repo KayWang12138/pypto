@@ -1,0 +1,213 @@
+{
+  "operator_name": "gated_delta_rule_backward",
+  "current_stage": 5,
+  "stage_status": {
+    "1": "completed",
+    "2": "completed",
+    "3": "completed",
+    "4": "completed",
+    "5": "failed",
+    "6": "pending",
+    "7": "pending"
+  },
+  "stage_retry_count": {
+    "1": 0,
+    "2": 0,
+    "3": 0,
+    "4": 0,
+    "5": 4,
+    "6": 0,
+    "7": 0
+  },
+  "perf_iteration": {
+    "count": 0,
+    "last_improvement": 0,
+    "consecutive_no_improvement": 0
+  },
+  "last_updated": "2026-04-22T00:31:26.040Z",
+  "schema_version": 2,
+  "history": [
+    {
+      "at": "2026-04-21T12:35:55.752Z",
+      "action": "init",
+      "stage": 1,
+      "attempt": 1
+    },
+    {
+      "at": "2026-04-21T12:35:59.621Z",
+      "action": "start_stage",
+      "stage": 1,
+      "attempt": 1
+    },
+    {
+      "at": "2026-04-21T12:39:32.854Z",
+      "action": "complete_stage",
+      "stage": 1,
+      "attempt": 1,
+      "gate": {
+        "warnCount": 0,
+        "failCount": 0,
+        "ruleIds": []
+      }
+    },
+    {
+      "at": "2026-04-21T12:40:00.092Z",
+      "action": "start_stage",
+      "stage": 2,
+      "attempt": 1
+    },
+    {
+      "at": "2026-04-21T12:47:33.630Z",
+      "action": "complete_stage",
+      "stage": 2,
+      "attempt": 1,
+      "gate": {
+        "warnCount": 0,
+        "failCount": 0,
+        "ruleIds": []
+      }
+    },
+    {
+      "at": "2026-04-21T12:47:55.454Z",
+      "action": "start_stage",
+      "stage": 3,
+      "attempt": 1
+    },
+    {
+      "at": "2026-04-21T13:12:54.237Z",
+      "action": "complete_stage",
+      "stage": 3,
+      "attempt": 1,
+      "gate": {
+        "warnCount": 0,
+        "failCount": 0,
+        "ruleIds": []
+      }
+    },
+    {
+      "at": "2026-04-21T13:13:14.334Z",
+      "action": "start_stage",
+      "stage": 4,
+      "attempt": 1
+    },
+    {
+      "at": "2026-04-21T13:23:14.907Z",
+      "action": "complete_stage",
+      "stage": 4,
+      "attempt": 1,
+      "gate": {
+        "warnCount": 0,
+        "failCount": 0,
+        "ruleIds": []
+      }
+    },
+    {
+      "at": "2026-04-21T13:23:40.132Z",
+      "action": "start_stage",
+      "stage": 5,
+      "attempt": 1
+    },
+    {
+      "at": "2026-04-21T14:09:48.935Z",
+      "action": "fail_stage",
+      "stage": 5,
+      "attempt": 1,
+      "reason": "Compile error: Empty tensor during InferMemoryConflict pass. Three iterative fixes applied but core view+reshape pattern still fails.",
+      "error": {
+        "stage": 5,
+        "at": "2026-04-21T14:09:48.935Z",
+        "kind": "compile",
+        "message": "ValueError: Empty tensor during InferMemoryConflict pass + Errcode F21004 op [REGISTER_COPY] tile shape not set"
+      }
+    },
+    {
+      "at": "2026-04-21T14:10:04.905Z",
+      "action": "start_stage",
+      "stage": 5,
+      "attempt": 2,
+      "reason": "Retry Stage 5 after compile failure fix"
+    },
+    {
+      "at": "2026-04-21T15:05:05.439Z",
+      "action": "fail_stage",
+      "stage": 5,
+      "attempt": 2,
+      "reason": "Compile failure after 6 iterative fixes. Root cause: 4D tensor layout incompatible with pypto.view patterns. Switching to 3D layout strategy.",
+      "error": {
+        "stage": 5,
+        "at": "2026-04-21T15:05:05.439Z",
+        "kind": "compile",
+        "message": "Persistent compile errors: FFFFFFFFFFF Run pass failed, possibly device state corruption from repeated failures. Switching to 3D tensor layout strategy."
+      }
+    },
+    {
+      "at": "2026-04-21T15:05:14.654Z",
+      "action": "start_stage",
+      "stage": 5,
+      "attempt": 3,
+      "reason": "Retry Stage 5 attempt 3: 3D tensor layout strategy matching forward impl"
+    },
+    {
+      "at": "2026-04-21T17:07:42.582Z",
+      "action": "fail_stage",
+      "stage": 5,
+      "attempt": 3,
+      "reason": "SPEC.md modified after Stage 2 completion - p0_shapes format fix. Re-verifying.",
+      "error": {
+        "stage": 5,
+        "at": "2026-04-21T17:07:42.582Z",
+        "kind": "gate",
+        "message": "SPEC.md was modified after Stage 2 (p0_shapes format fix). Need to re-verify SPEC.md."
+      }
+    },
+    {
+      "at": "2026-04-21T17:08:30.430Z",
+      "action": "start_stage",
+      "stage": 5,
+      "attempt": 4,
+      "reason": "Re-attempt Stage 5 after reverting SPEC.md to original format"
+    },
+    {
+      "at": "2026-04-22T00:31:26.040Z",
+      "action": "fail_stage",
+      "stage": 5,
+      "attempt": 4,
+      "reason": "Gate deadlock: OL34 needs list format p0_shapes, freeze blocks SPEC.md edit. Need to reset.",
+      "error": {
+        "stage": 5,
+        "at": "2026-04-22T00:31:26.040Z",
+        "kind": "gate_deadlock",
+        "message": "OL34 requires list-format p0_shapes but SPEC.md freeze blocks modification. Resetting to resolve deadlock."
+      }
+    }
+  ],
+  "artifacts": {
+    "SPEC.md": {
+      "sha256": "37d0d02bd9851494f0ac347b941d01a05ffd2dec9bf8a7a095ee24ec8dbe94d2",
+      "stage": 1,
+      "recorded_at": "2026-04-21T12:39:32.854Z"
+    },
+    "API_REPORT.md": {
+      "sha256": "f0bd761027e1342b5419f0b36480ba4dac806340e5eedb03e15f42db4a7550af",
+      "stage": 2,
+      "recorded_at": "2026-04-21T12:47:33.630Z"
+    },
+    "gated_delta_rule_backward_golden.py": {
+      "sha256": "62d01a13f73d2d73582a4c6b952b8aea61dd5fb29eab3b2684c11b026956770b",
+      "stage": 3,
+      "recorded_at": "2026-04-21T13:12:54.237Z"
+    },
+    "DESIGN.md": {
+      "sha256": "8822944264f5639beece87c458be3660a445db211b01c7b11cb971999edc8494",
+      "stage": 4,
+      "recorded_at": "2026-04-21T13:23:14.907Z"
+    }
+  },
+  "spec_md_hash": "37d0d02bd9851494f0ac347b941d01a05ffd2dec9bf8a7a095ee24ec8dbe94d2",
+  "last_error": {
+    "stage": 5,
+    "at": "2026-04-22T00:31:26.040Z",
+    "kind": "gate_deadlock",
+    "message": "OL34 requires list-format p0_shapes but SPEC.md freeze blocks modification. Resetting to resolve deadlock."
+  }
+}

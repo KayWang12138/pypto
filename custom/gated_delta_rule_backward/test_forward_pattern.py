@@ -1,0 +1,57 @@
+#!/usr/bin/env python3
+"""Test: EXACT forward pattern - rebind from input, write to separate output OUTSIDE inner loop."""
+import torch, torch_npu, pypto
+
+DEVICE_ID = 4
+torch.npu.set_device(DEVICE_ID)
+torch.npu.empty_cache()
+
+@pypto.frontend.jit
+def test_forward_pattern(
+    dht: pypto.Tensor([pypto.DYNAMIC, 2, 32, 32], pypto.DT_FP32),
+    update: pypto.Tensor([pypto.DYNAMIC, 2, 2, 32, 32], pypto.DT_FP32),
+    dh0_out: pypto.Tensor([pypto.DYNAMIC, 2, 32, 32], pypto.DT_FP32),
+):
+    """Match the forward's exact pattern:
+    last_state = input[b, h]
+    for chunk in loop:
+        ... compute cur_state ...
+        last_state[:] = cur_state
+    output[b, h] = last_state
+    """
+    pypto.experimental.set_operation_options(combine_axis=True)
+    B_val = 1
+    NT_val = 2
+    for b_idx in pypto.loop(B_val, name="LOOP_B", idx_name="b_idx"):
+        for h_idx in pypto.loop(2, name="LOOP_H", idx_name="h_idx"):
+            # rebind from INPUT (not output!)
+            pypto.set_vec_tile_shapes(32, 32)
+            d_s = dht[b_idx, h_idx]  # from input, not output
+
+            for i_idx in pypto.loop(NT_val, name="LOOP_C", idx_name="i_idx", unroll_list=[16, 1]):
+                c = NT_val - 1 - i_idx
+                u = update[b_idx, h_idx, c]  # from input
+
+                pypto.set_vec_tile_shapes(32, 32)
+                d_s_new = pypto.add(d_s, u)
+                d_s[:] = d_s_new
+
+            # Write to output OUTSIDE the inner loop
+            pypto.set_vec_tile_shapes(32, 32)
+            dh0_out[b_idx, h_idx] = d_s
+
+dht = torch.randn(1, 2, 32, 32, device=f"npu:{DEVICE_ID}", dtype=torch.float32)
+upd = torch.randn(1, 2, 2, 32, 32, device=f"npu:{DEVICE_ID}", dtype=torch.float32)
+dh0 = torch.zeros(1, 2, 32, 32, device=f"npu:{DEVICE_ID}", dtype=torch.float32)
+
+test_forward_pattern(dht, upd, dh0)
+torch.npu.synchronize()
+
+expected = (dht[0, 0] + upd[0, 0, 1] + upd[0, 0, 0]).cpu()
+actual = dh0[0, 0].cpu()
+diff = (expected - actual).abs().max().item()
+print(f"diff: {diff}")
+if diff < 1e-5:
+    print("PASSED")
+else:
+    print("FAILED")
