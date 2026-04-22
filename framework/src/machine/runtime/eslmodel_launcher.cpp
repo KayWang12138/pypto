@@ -153,7 +153,6 @@ int EslModelLauncher::EslModelRunOnce(void *kernel, const DeviceLauncherConfig &
 }
 
 int EslModelLauncher::EslModelLiteRunOnce(Function *function, std::vector<DeviceTensorData> &tensors) {
-    MACHINE_LOGI("####### Enter EslModelLiteRunOnce");
     ProgramData::GetInstance().Reset();
 
     // Allocate device memory and copy host to device
@@ -167,24 +166,18 @@ int EslModelLauncher::EslModelLiteRunOnce(Function *function, std::vector<Device
     }
 
     // Init ACL
-    MACHINE_LOGI("###### AclInit start");
     auto rc = AclInit(nullptr);
     if (rc != 0 && rc != ACLRT_ERROR_REPEAT_INITIALIZE) {
         return rc;
     }
-    MACHINE_LOGI("###### AclInit end");
 
     // Set device
-    MACHINE_LOGI("###### AclRtSetDevice start");
     int32_t deviceId = 0;
     AclRtSetDevice(deviceId);
-    MACHINE_LOGI("###### AclRtSetDevice end");
 
     // Create stream
     AclRtStream stream = nullptr;
-    MACHINE_LOGI("###### RuntimeStreamCreate start");
     AclRtCreateStream(&stream);
-    MACHINE_LOGI("###### RuntimeStreamCreate end");
 
     // Prepare kernel args
     RtArgsEx rtArgs = {};
@@ -192,10 +185,8 @@ int EslModelLauncher::EslModelLiteRunOnce(Function *function, std::vector<Device
     rtArgs.argsSize = deviceAddrs.size() * sizeof(void *);
 
     // Register kernel binary
-    MACHINE_LOGI("###### RuntimeRegisterAllKernel start");
     auto dynAttr = function->GetDyndevAttribute();
     std::vector<uint8_t> &kernelBinary = dynAttr->kernelBinary;
-    MACHINE_LOGI("###### kernelBinary, data[%p], size[%zu]", kernelBinary.data(), kernelBinary.size());
     RtDevBinary binary = {
         .magic = RT_DEV_BINARY_MAGIC_ELF,
         .version = 0,
@@ -207,28 +198,17 @@ int EslModelLauncher::EslModelLiteRunOnce(Function *function, std::vector<Device
     if (ret != RT_SUCCESS) {
         MACHINE_LOGE(HostLauncherErr::REGISTER_KERNEL_FAILED, "register kernel failed, ret: %d", ret);
     }
-    MACHINE_LOGI("###### hdl: %p", hdl);
-    MACHINE_LOGI("###### RuntimeDevBinaryRegister end");
 
     int stubFunc = 1;
     std::string kernelName = dynAttr->kernelName;
-    // std::string kernelName = "TENSOR___main___Unroll1_PATH0_hiddenfunc0_5_main";
-    MACHINE_LOGI("###### rtFunctionRegister start");
     RuntimeFunctionRegister(hdl, &stubFunc, kernelName.c_str(), kernelName.c_str(), 0);
-    MACHINE_LOGI("###### rtFunctionRegister end");
 
     // Launch kernel
-    MACHINE_LOGI("###### RuntimeKernelLaunch start");
     ret = RuntimeKernelLaunch(&stubFunc, 1, rtArgs.args, rtArgs.argsSize, nullptr, stream);
-    MACHINE_LOGI("###### RuntimeKernelLaunch end");
-
     ASSERT(ret == RT_SUCCESS) << "LiteKernelLaunch failed: " << ret;
 
     // Synchronize stream
-    MACHINE_LOGI("###### AclRtSynchronizeStream start");
     ret = AclRtSynchronizeStream(stream);
-    MACHINE_LOGI("###### AclRtSynchronizeStream end");
-
     ASSERT(ret == RT_SUCCESS) << "Stream sync failed: " << ret;
 
     // Copy device to host and free device memory
