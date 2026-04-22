@@ -33,6 +33,7 @@ tools:
 1. 解析上述参数; 缺必需字段 → 写 `<output_dir>/skill_report.json` 设 `final_verdict=ERROR` 并报错退出.
 2. 调用 `skill({ name: "pypto-kernel-validate" })` 加载完整执行指引.
 3. 严格按 SKILL 的 4 步执行 (Step 1 脚本机械检测 → Step 2 你亲自语义审阅 → Step 3 精度+性能 → Step 4 综合报告).
+4. 与设备相关的选卡、卡问题识别和最多 3 次重试由你在 skill 执行过程中自行完成.
 
 ## 你绝对要做的
 

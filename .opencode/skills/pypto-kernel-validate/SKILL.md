@@ -32,6 +32,17 @@ description: 校验一个声称由 PyPTO 开发的算子产物 — 反作弊 (�
 
 ## 工作流 (必须严格按以下 4 步执行, 不得跳步)
 
+在进入 Step 1 前, 先做一次设备准备. 这部分判断与重试由你这个 validator agent 自己完成:
+
+- 必须先运行 `.agents/skills/pypto-op-develop/scripts/list_idle_chip_ids.sh` 检查当前空闲卡列表.
+- 若 prompt 传入了 `device_id`, 且该卡在空闲卡列表中, 优先使用这张卡.
+- 若 prompt 没传 `device_id`, 则从空闲卡列表中任选一张卡使用.
+- 若 prompt 传入了 `device_id`, 但该卡不在空闲卡列表中, 不要直接使用这张卡; 应改用空闲卡列表中的其它卡.
+- 仅对“潜在卡问题”做最多 3 次重试; 由你根据日志与现象自行判断是否属于卡问题.
+- 下列情况不按卡问题重试: 编译报错、correctness 结果是精度差异、performance 只是测速结果不够好.
+- 下列情况按潜在卡问题处理并允许重试: runtime error, 或 performance 阶段 `base/gen` 任一未采集到.
+- 如果切卡或重试过, 必须在最终 `skill_report.json` 的 `final_reasoning` 中说明尝试了哪些 device、重试了几次、依据是什么.
+
 ### Step 1: 脚本机械检测 (cheat_detector)
 
 调用统一 verifier CLI 的 `cheat-check` 子命令:

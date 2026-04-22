@@ -25,6 +25,8 @@ concurrency: 1
 pypto:
   # opencode CLI 可执行路径; 留空则按 PATH 查找.
   opencode_bin: ""
+  # 显式传给 opencode run -m 的模型名; 留空则沿用 opencode 当前默认配置.
+  opencode_model: ""
   # 调用的 agent 名 (须在 pypto/.opencode/agents/ 下注册).
   agent: "pypto-op-orchestrator"
   # 单 case 工作流超时, 秒. 7 阶段实跑可能很慢, 默认 90 min 覆盖 Stage 7

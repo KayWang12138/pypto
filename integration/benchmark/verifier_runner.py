@@ -197,6 +197,7 @@ async def run_verifier(
     profile_run_times: Optional[int] = None,
     verifier_mode: str = "opencode",
     opencode_bin: str = "",
+    opencode_model: str = "",
     validator_agent: str = _DEFAULT_VALIDATOR_AGENT,
     skill_timeout_sec: int = 1800,
     output_dir: Optional[Path] = None,
@@ -222,6 +223,7 @@ async def run_verifier(
         profile_warmup_times / profile_run_times: 与原签名一致.
         verifier_mode: 见上方"执行模式".
         opencode_bin: opencode 可执行路径; 空则按 PATH 查找. (仅 opencode 模式)
+        opencode_model: 显式传给 ``opencode run -m`` 的模型名; 空则沿用默认配置. (仅 opencode 模式)
         validator_agent: opencode agent 名. (仅 opencode 模式)
         skill_timeout_sec: skill agent 子进程硬超时. (仅 opencode 模式)
         output_dir: skill 报告输出目录. None 时自动取 ``op_dir/.skill_validate``.
@@ -258,6 +260,7 @@ async def run_verifier(
             log_file=log_file,
             mode=mode,
             opencode_bin=opencode_bin,
+            opencode_model=opencode_model,
             validator_agent=validator_agent,
             skill_timeout_sec=skill_timeout_sec,
             output_dir=output_dir,
@@ -593,6 +596,7 @@ async def _run_via_opencode_skill(
     log_file: Optional[Path],
     mode: str,
     opencode_bin: str,
+    opencode_model: str,
     validator_agent: str,
     skill_timeout_sec: int,
     output_dir: Optional[Path],
@@ -646,12 +650,11 @@ async def _run_via_opencode_skill(
         ),
     )
 
-    # --dangerously-skip-permissions: validator agent 是受 SKILL 完全约束的脚本场景,
-    # 不需要交互式 permission prompt; 否则 opencode 在 run 模式下没法 ack, 会
-    # auto-reject 任何 external_directory / 不在 default-allow 列表的工具调用,
-    # validator agent 因此无法跑 cheat-check / verify 这种 bash 命令.
-    cmd = [opencode, "run", "--dangerously-skip-permissions",
-           "--agent", validator_agent, prompt]
+    cmd = [opencode, "run", "--dangerously-skip-permissions", "--agent", validator_agent]
+    if opencode_model:
+        cmd.extend(["-m", opencode_model])
+    cmd.append(prompt)
+
     env = os.environ.copy()
     env["TILE_FWK_DEVICE_ID"] = str(device_id)
 
@@ -660,7 +663,9 @@ async def _run_via_opencode_skill(
         log_file.parent.mkdir(parents=True, exist_ok=True)
         log_handle = log_file.open("w", encoding="utf-8", buffering=1)
         log_handle.write(f"$ cd {_PYPTO_REPO_ROOT}\n")
-        log_handle.write(f"$ TILE_FWK_DEVICE_ID={device_id} {shlex.join(cmd[:4])} <prompt>\n")
+        log_handle.write(
+            f"$ TILE_FWK_DEVICE_ID={device_id} {shlex.join(cmd[:-1])} <prompt>\n"
+        )
         log_handle.flush()
 
     start = time.monotonic()
@@ -758,6 +763,8 @@ def _main_cli() -> int:
     parser.add_argument("--backend", default="ascend")
     parser.add_argument("--framework", default="torch")
     parser.add_argument("--device", type=int, default=0)
+    parser.add_argument("--opencode-model", default="",
+                        help="显式传给 opencode run -m 的模型名")
     parser.add_argument("--log-dir", type=Path, default=Path("~/pypto_bench_logs").expanduser())
     parser.add_argument("--log-file", type=Path, default=None)
     parser.add_argument("--task-id", type=str, default="0")
@@ -796,6 +803,7 @@ def _main_cli() -> int:
         profile_warmup_times=args.profile_warmup,
         profile_run_times=args.profile_run,
         verifier_mode=args.verifier_mode,
+        opencode_model=args.opencode_model,
         opencode_bin=args.opencode_bin,
         validator_agent=args.validator_agent,
         skill_timeout_sec=args.skill_timeout,

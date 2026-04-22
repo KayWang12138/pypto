@@ -146,6 +146,7 @@ class _RunCfg:
     pypto_repo_root: Path
     workdir_root: str
     opencode_bin: str
+    opencode_model: str
     pypto_agent: str
     pypto_timeout: int
     pypto_output_format: str
@@ -203,6 +204,7 @@ async def run_one_case(case_path: Path, device_id: int, cfg: _RunCfg,
                 pypto_repo_root=cfg.pypto_repo_root,
                 workdir_root=cfg.workdir_root,
                 opencode_bin=cfg.opencode_bin,
+                opencode_model=cfg.opencode_model,
                 agent=cfg.pypto_agent,
                 timeout_sec=cfg.pypto_timeout,
                 device_id=device_id,
@@ -242,6 +244,7 @@ async def run_one_case(case_path: Path, device_id: int, cfg: _RunCfg,
                 mode=cfg.mode,
                 verifier_mode=cfg.verifier_mode,
                 opencode_bin=cfg.opencode_bin,
+                opencode_model=cfg.opencode_model,
                 validator_agent=cfg.validator_agent,
                 skill_timeout_sec=cfg.skill_timeout_sec,
             )
@@ -337,6 +340,7 @@ def _build_cfg(args: argparse.Namespace, yaml_cfg: Dict[str, Any]) -> _RunCfg:
         pypto_repo_root=_resolve_pypto_repo_root(args.repo_root),
         workdir_root=args.workdir_root or pypto_yaml.get("workdir_root", "custom"),
         opencode_bin=args.opencode_bin or pypto_yaml.get("opencode_bin", "") or "",
+        opencode_model=args.opencode_model or pypto_yaml.get("opencode_model", "") or "",
         pypto_agent=args.agent or pypto_yaml.get("agent", "pypto-op-orchestrator"),
         pypto_timeout=args.timeout_sec or pypto_yaml.get("timeout_sec", 1800),
         pypto_output_format=args.opencode_format or pypto_yaml.get("output_format", "default"),
@@ -385,6 +389,8 @@ def _build_arg_parser() -> argparse.ArgumentParser:
                    help="算子产物根目录, 形成 {root}/{op}/")
     p.add_argument("--opencode-bin", type=str, default="",
                    help="opencode 可执行路径")
+    p.add_argument("--opencode-model", type=str, default="",
+                   help="显式传给 opencode run -m 的模型名; 未传则沿用 opencode 当前默认配置")
     p.add_argument("--agent", type=str, default="",
                    help="opencode --agent 名")
     p.add_argument("--timeout-sec", type=int, default=0,

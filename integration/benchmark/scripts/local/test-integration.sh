@@ -32,6 +32,7 @@ VERIFIER_MODE="${VERIFIER_MODE:-opencode}"
 SKILL_TIMEOUT="${SKILL_TIMEOUT:-1500}"
 PYPTO_TIMEOUT="${PYPTO_TIMEOUT:-5400}"
 MODE="${MODE:-performance}"
+OPENCODE_MODEL="${OPENCODE_MODEL:-}"
 VERIFY_RTOL="${VERIFY_RTOL:-}"
 VERIFY_ATOL="${VERIFY_ATOL:-}"
 
@@ -59,6 +60,10 @@ cmd=(
   --log-dir "${LOG_DIR}"
   --log-level INFO
 )
+
+if [ -n "${OPENCODE_MODEL}" ]; then
+  cmd+=( --opencode-model "${OPENCODE_MODEL}" )
+fi
 
 if [ -n "${VERIFY_RTOL}" ]; then
   cmd+=( --verify-rtol "${VERIFY_RTOL}" )

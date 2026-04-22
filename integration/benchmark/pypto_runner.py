@@ -276,6 +276,7 @@ def run_pypto_workflow(
     workdir_root: str = "custom",
     *,
     opencode_bin: str = "",
+    opencode_model: str = "",
     agent: str = "pypto-op-orchestrator",
     timeout_sec: int = 5400,
     device_id: Optional[int] = None,
@@ -306,6 +307,7 @@ def run_pypto_workflow(
         workdir_root: 算子产物根目录 (相对 pypto 仓根).
         opencode_bin: opencode 可执行路径; 留空则按 PATH 查找.
         agent: opencode agent 名.
+        opencode_model: 显式传给 ``opencode run -m`` 的模型名; 留空则沿用 CLI 当前默认配置.
         timeout_sec: 子进程整体超时 (硬墙). 默认 90 min, 覆盖 7 阶段
             含 Stage 7 性能调优 10 轮迭代.
         device_id: 注入 ``TILE_FWK_DEVICE_ID``; ``None`` 时不覆盖外部已设值.
@@ -367,8 +369,10 @@ def run_pypto_workflow(
         opencode, "run",
         "--agent", agent,
         "--format", output_format,
-        prompt,
     ]
+    if opencode_model:
+        cmd.extend(["-m", opencode_model])
+    cmd.append(prompt)
 
     env = os.environ.copy()
     if device_id is not None:
@@ -493,6 +497,8 @@ def _main_cli() -> int:
     parser.add_argument("op_name")
     parser.add_argument("--repo-root", type=Path, default=Path.cwd())
     parser.add_argument("--workdir-root", default="custom")
+    parser.add_argument("--opencode-model", default="",
+                        help="显式传给 opencode run -m 的模型名")
     parser.add_argument("--timeout-sec", type=int, default=5400)
     parser.add_argument("--device", type=int, default=None)
     parser.add_argument("--log-file", type=Path, default=None)
@@ -504,6 +510,7 @@ def _main_cli() -> int:
         op_name=args.op_name,
         pypto_repo_root=args.repo_root,
         workdir_root=args.workdir_root,
+        opencode_model=args.opencode_model,
         timeout_sec=args.timeout_sec,
         device_id=args.device,
         log_file=args.log_file,
