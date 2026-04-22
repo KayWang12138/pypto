@@ -38,7 +38,7 @@ bool CodegenPreproc::IsCopyNeedSave(const Operation& op) const
 }
 
 void CodegenPreproc::SetTensorParamAddr(
-    LogicalTensor& tensor, int tensorParamIdx, const SymbolicScalar& attrOffsetScalar, int opMagic) const
+    LogicalTensor& tensor, int64_t tensorParamIdx, const SymbolicScalar& attrOffsetScalar, int opMagic) const
 {
     SymbolicScalar paramAddr =
         GET_PARAM_ADDR(AddRuntimePrefix("param"), SymbolicScalar(tensorParamIdx), attrOffsetScalar);
@@ -83,32 +83,37 @@ Status CodegenPreproc::SaveGmTensorParamIdxToOp(Function& func) const
         APASS_LOG_INFO_F(
             Elements::Operation, "%d:%sgmParamInCallFunc size: %zu", __LINE__, __FUNCTION__, gmParamInCallFunc.size());
 
-        int tensorParamIdx{0};
+        int64_t tensorParamIdx{0};
         for (auto param : gmParamInCallFunc) {
             for (auto op : param.second) {
-                op->SetAttribute("GmTensorParamIdxInCallFunc", tensorParamIdx);
-                int attrOffset{0};
-                for (size_t i = 0; i < op->GetIOperands().size(); ++i) {
-                    auto& tensor = op->GetIOperands()[i];
-                    if (tensor->GetMemoryTypeToBe() == MEM_DEVICE_DDR) {
-                        SetTensorParamAddr(
-                            *tensor, tensorParamIdx, SymbolicScalar(op->GetIOpAttrOffset(attrOffset++)),
-                            op->GetOpMagic());
-                    }
+                op->SetAttribute(OpAttributeKey::gmTensorParamIdxInCallFunc, tensorParamIdx++);
+            }
+        }
+
+        for (auto& op : subProgram.second->Operations(false)) {
+            int64_t gmTensorParamIdx{0};
+            if (op.HasAttribute(OpAttributeKey::gmTensorParamIdxInCallFunc)) {
+                op.GetAttr(OpAttributeKey::gmTensorParamIdxInCallFunc, gmTensorParamIdx);
+            }
+            int attrOffset{0};
+            for (size_t i = 0; i < op.GetIOperands().size(); ++i) {
+                auto& tensor = op.GetIOperands()[i];
+                if (tensor->GetMemoryTypeToBe() == MEM_DEVICE_DDR) {
+                    SetTensorParamAddr(
+                        *tensor, gmTensorParamIdx, SymbolicScalar(op.GetIOpAttrOffset(attrOffset++)), op.GetOpMagic());
                 }
-                attrOffset = 0;
-                for (size_t i = 0; i < op->GetOOperands().size(); ++i) {
-                    auto& tensor = op->GetOOperands()[i];
-                    if (tensor->GetMemoryTypeToBe() == MEM_DEVICE_DDR) {
-                        SetTensorParamAddr(
-                            *tensor, tensorParamIdx, SymbolicScalar(op->GetOOpAttrOffset(attrOffset++)),
-                            op->GetOpMagic());
-                    }
+            }
+            attrOffset = 0;
+            for (size_t i = 0; i < op.GetOOperands().size(); ++i) {
+                auto& tensor = op.GetOOperands()[i];
+                if (tensor->GetMemoryTypeToBe() == MEM_DEVICE_DDR) {
+                    SetTensorParamAddr(
+                        *tensor, gmTensorParamIdx, SymbolicScalar(op.GetOOpAttrOffset(attrOffset++)), op.GetOpMagic());
                 }
-                ++tensorParamIdx;
             }
         }
     }
+
     return SUCCESS;
 }
 
