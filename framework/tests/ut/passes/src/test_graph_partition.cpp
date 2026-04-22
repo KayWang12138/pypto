@@ -43,7 +43,7 @@ public:
         config::SetHostConfig(KEY_STRATEGY, "GraphPartitionTestStrategy");
         Platform::Instance().ObtainPlatformInfo();
     }
-    void TearDown() override {}
+    void TearDown() override { Platform::Instance().GetSoc().SetNPUArch(NPUArch::DAV_UNKNOWN); }
 };
 
 void SetScopeInfoForOps(ComputationalGraphBuilder& G,
@@ -925,9 +925,10 @@ TEST_F(GraphPartitionTest, TestScopeCase5)
         "MMACC_c",     "MMACC_d",     "ASSEMBLE_oi_tmp_ddr"};
     int cubeSubgraph = VerifyOpsInSameSubgraph(G, cubeOps);
     for (const auto& name : cubeOps) {
-        EXPECT_EQ(
-            G.GetOp(name)->HasAttr(OpAttributeKey::isCube) && G.GetOp(name)->GetBoolAttribute(OpAttributeKey::isCube),
-            true);
+        auto op = G.GetOp(name);
+        auto isCube = op->HasAttr(OpAttributeKey::isCube) && op->GetBoolAttribute(OpAttributeKey::isCube);
+        EXPECT_EQ(isCube, true);
+        EXPECT_EQ(op->GetCvFuseId(), -1);
     }
     EXPECT_NE(cubeSubgraph, scope1Subgraph);
     EXPECT_NE(cubeSubgraph, scope2Subgraph);
@@ -937,6 +938,54 @@ TEST_F(GraphPartitionTest, TestScopeCase5)
     EXPECT_NE(v2Subgraph, scope1Subgraph);
     EXPECT_NE(v2Subgraph, scope2Subgraph);
     EXPECT_NE(v2Subgraph, cubeSubgraph);
+}
+
+// cvmix
+TEST_F(GraphPartitionTest, TestScopeCase6)
+{
+    Platform::Instance().GetSoc().SetNPUArch(NPUArch::DAV_3510);
+
+    ComputationalGraphBuilder G;
+    ConstructGLMAttentionCase(G);
+
+    Operation::ScopeInfo scope1;
+    scope1.scopeId = 1;
+    std::vector<std::string> scope1Ops = {"MULS_scale", "ROWMAX_mij", "MAX_new",     "SUB_tsub",
+                                          "EXP_pij",    "CAST_fp16",  "ROWSUM_local"};
+    SetScopeInfoForOps(G, scope1Ops, scope1);
+
+    std::vector<std::string> scope2Ops = {"SUB_tsub2", "EXP_update_mul", "MUL_tmp", "ADD_sum_update"};
+    SetScopeInfoForOps(G, scope2Ops, scope1);
+
+    std::vector<std::string> cubeOps = {
+        "VIEW_v_l1_0", "VIEW_v_l1_1", "VIEW_v_l1_2",        "VIEW_v_l1_3", "VIEW_a_l1_0", "VIEW_a_l1_1",
+        "VIEW_a_l1_2", "VIEW_a_l1_3", "VIEW_L0B_v0",        "VIEW_L0B_v1", "VIEW_L0B_v2", "VIEW_L0B_v3",
+        "VIEW_L0A_a0", "VIEW_L0A_a1", "VIEW_L0A_a2",        "VIEW_L0A_a3", "MMUL_a",      "MMACC_b",
+        "MMACC_c",     "MMACC_d",     "ASSEMBLE_oi_tmp_ddr"};
+    SetScopeInfoForOps(G, cubeOps, scope1);
+    Function* function = G.GetFunction();
+    IsoPartitioner partitioner;
+    EXPECT_EQ(partitioner.SetParameter(100000, 20, 0, false), SUCCESS);
+    EXPECT_EQ(partitioner.PartitionGraph(*function), SUCCESS);
+    EXPECT_EQ(function->GetTotalSubGraphCount(), 2);
+    int scope1Subgraph = VerifyOpsInSameSubgraph(G, scope1Ops);
+    int scope2Subgraph = VerifyOpsInSameSubgraph(G, scope2Ops);
+    EXPECT_EQ(scope1Subgraph, scope2Subgraph);
+
+    std::unordered_set<std::string> cubeOpSet(cubeOps.begin(), cubeOps.end());
+    for (const auto& name : cubeOps) {
+        const auto& op = G.GetOp(name);
+        EXPECT_EQ(op->HasAttr(OpAttributeKey::isCube), true);
+        EXPECT_EQ(op->GetBoolAttribute(OpAttributeKey::isCube), true);
+        EXPECT_EQ(op->GetCvFuseId(), 0);
+    }
+    for (const auto& opPair : G.operations_) {
+        if (cubeOpSet.count(opPair.first) == 0) {
+            const auto& op = opPair.second;
+            EXPECT_EQ(op->HasAttr(OpAttributeKey::isCube), true) << op->GetOpcodeStr() << op->GetOpMagic();
+            EXPECT_EQ(op->GetBoolAttribute(OpAttributeKey::isCube), false) << op->GetOpcodeStr() << op->GetOpMagic();
+        }
+    }
 }
 
 TEST_F(GraphPartitionTest, TestNonIsomorphismGraph)
