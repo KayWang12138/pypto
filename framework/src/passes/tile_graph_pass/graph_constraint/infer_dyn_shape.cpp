@@ -35,27 +35,7 @@ Status InferDynShape::InferShape(Function& function)
     if (InferShapeUtils::InferShape(function) == SUCCESS) {
         return SUCCESS;
     }
-    size_t i = 0U;
-    std::map<int, size_t> opMagic2Idx;
-    std::vector<Operation*> opList = function.Operations().DuplicatedOpList();
-    for (const auto op : opList) {
-        opMagic2Idx[op->GetOpMagic()] = i;
-        i++;
-    }
-    std::vector<std::vector<size_t>> opInGraph(opList.size());
-    std::vector<std::vector<size_t>> opOutGraph(opList.size());
-    for (size_t opIdx = 0; opIdx < opList.size(); opIdx++) {
-        const auto& op = opList[opIdx];
-        for (const auto producer : op->ProducerOpsOrdered()) {
-            opInGraph[opMagic2Idx[op->GetOpMagic()]].push_back(opMagic2Idx[producer->GetOpMagic()]);
-        }
-        for (const auto consumer : op->ConsumerOpsOrdered()) {
-            opOutGraph[opMagic2Idx[op->GetOpMagic()]].push_back(opMagic2Idx[consumer->GetOpMagic()]);
-        }
-    }
-    bool isInferIndex = false;
-    TopoProgramUtils::TopoProgram(opList, opInGraph, opOutGraph, isInferIndex);
-    return SUCCESS;
+    return FAILED;
 }
 
 Status InferDynShape::RunOnFunction(Function& function)
