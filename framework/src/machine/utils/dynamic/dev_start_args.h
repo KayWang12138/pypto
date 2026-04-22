@@ -170,8 +170,13 @@ public:
 
     void AllocateWait()
     {
+        TimeoutState state;
+        
         while (Full()) {
             RuntimeYield();
+            
+            TIMEOUT_CHECK_WARN(state, TIMEOUT_NS_10MIN,
+                               "#ringbuffer.alloc: AllocateWait waiting 10min, ring buffer full.");
         }
     }
 
