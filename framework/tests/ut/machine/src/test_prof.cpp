@@ -180,8 +180,6 @@ protected:
             taskStat->execStart = 0;
             taskStat->subGraphId = 0;
 
-            prof->ProInitHandShake();
-            prof->ProInitAiCpuTaskStat();
             int threadIdx = 0;
             AiCpuTaskStat* aiCpuStat = new AiCpuTaskStat();
             AiCpuHandShakeSta handShakeSta;
@@ -193,16 +191,11 @@ protected:
 
             for (int i = 0; i < iterations; i++) {
                 prof->ProfGet(aicoreId, subgraphId, taskId, taskStat);
-                prof->ProfGetAiCpuTaskStat(threadIdx, aiCpuStat);
-                prof->ProGetHandShake(threadIdx, &handShakeSta);
             }
-            prof->ProfStopHandShake();
-            prof->ProfStopAiCpuTaskStat();
             int64_t flag = 0;
             prof->ProfGetSwitch(flag);
 
             prof->ProfStop();
-            prof->GetAiCpuTaskStat(taskId);
             delete aiCpuStat;
             delete taskStat;
         }
