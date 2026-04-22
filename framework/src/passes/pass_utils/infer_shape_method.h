@@ -9,28 +9,29 @@
  */
 
 /*!
- * \file infer_dyn_shape.h
+ * \file infer_shape_method.h
  * \brief
  */
 
-#ifndef INFER_DYN_SHAPE_PASS_H_
-#define INFER_DYN_SHAPE_PASS_H_
+#pragma once
+#ifndef INFER_SHAPE_METHOD_H
+#define INFER_SHAPE_METHOD_H
+#include <map>
+#include <vector>
 #include "interface/operation/op_infer_shape_impl.h"
-#include "passes/pass_interface/pass.h"
 #include "interface/function/function.h"
-#include "passes/pass_utils/topo_program.h"
-#include "passes/pass_utils/infer_shape_method.h"
+
 namespace npu {
 namespace tile_fwk {
-class InferDynShape : public Pass {
+class InferShapeMethod {
 public:
-    InferDynShape() : Pass("InferDynShape") {}
-    ~InferDynShape() override {}
-    Status RunOnFunction(Function& function) override;
-    Status PostCheck(Function& function) override;
+    InferShapeMethod() = default;
+    ~InferShapeMethod() = default;
+    Status InferShape(Function& function);
 
 private:
-    InferShapeMethod inferShapeMethod_;
+    Status BuildGraph(Function& function, std::vector<Operation*>& opList,
+                     std::vector<std::vector<size_t>>& opInGraph, std::vector<std::vector<size_t>>& opOutGraph);
 };
 } // namespace tile_fwk
 } // namespace npu
