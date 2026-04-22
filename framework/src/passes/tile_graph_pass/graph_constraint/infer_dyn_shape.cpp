@@ -33,7 +33,7 @@ Status InferDynShape::PostCheck(Function& function)
 Status InferDynShape::InferShape(Function& function)
 {   
     if (InferShapeUtils::InferShape(function) == SUCCESS) {
-        std::cout << "Infer shape util success checkpoint" << std::endl;
+        return SUCCESS;
     }
     size_t i = 0U;
     std::map<int, size_t> opMagic2Idx;
