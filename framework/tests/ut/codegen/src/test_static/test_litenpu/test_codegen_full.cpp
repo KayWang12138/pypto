@@ -32,23 +32,27 @@ public:
 
     static void SetUpTestCase() {}
 
-    void SetUp() override {
+    void SetUp() override
+    {
         config::Reset();
         config::SetHostOption(COMPILE_STAGE, CS_EXECUTE_GRAPH);
-        config::SetBuildStatic(true);
+        CodeGenSocVersionManager::Instance().SetCodeGenSocVersion("Kirin9030");
     }
 
     void TearDown() override {}
 };
 
-TEST_F(LiteNPUCodeGenFull, test_full_001) {
-    PROGRAM("FULL_001") {
+TEST_F(LiteNPUCodeGenFull, test_full_001)
+{
+    PROGRAM("FULL_001")
+    {
         Element input(DataType::DT_FP16, 1.0);
         DataType dataType = DataType::DT_FP16;
         std::vector<int64_t> dstShape = {112};
 
         auto output = Tensor(DataType::DT_FP16, {112}, "output");
-        FUNCTION("FULL_001") {
+        FUNCTION("FULL_001")
+        {
             TileShape::Current().SetVecTile({120});
             output = Full(input, dataType, dstShape);
         }
@@ -60,14 +64,17 @@ TEST_F(LiteNPUCodeGenFull, test_full_001) {
     codeGen.GenCode(*function, {});
 }
 
-TEST_F(LiteNPUCodeGenFull, test_full_002) {
-    PROGRAM("FULL_002") {
+TEST_F(LiteNPUCodeGenFull, test_full_002)
+{
+    PROGRAM("FULL_002")
+    {
         Element input(DataType::DT_FP32, 1.0f);
         DataType dataType = DataType::DT_FP32;
         std::vector<int64_t> dstShape = {100};
 
         auto output = Tensor(DataType::DT_FP32, {100}, "output");
-        FUNCTION("FULL_002") {
+        FUNCTION("FULL_002")
+        {
             TileShape::Current().SetVecTile({50});
             output = Full(input, dataType, dstShape);
         }
@@ -79,14 +86,17 @@ TEST_F(LiteNPUCodeGenFull, test_full_002) {
     codeGen.GenCode(*function, {});
 }
 
-TEST_F(LiteNPUCodeGenFull, test_full_003) {
-    PROGRAM("FULL_003") {
+TEST_F(LiteNPUCodeGenFull, test_full_003)
+{
+    PROGRAM("FULL_003")
+    {
         Element input(DataType::DT_INT8, 1);
         DataType dataType = DataType::DT_INT8;
         std::vector<int64_t> dstShape = {137};
 
         auto output = Tensor(DataType::DT_INT8, {137}, "output");
-        FUNCTION("FULL_003") {
+        FUNCTION("FULL_003")
+        {
             TileShape::Current().SetVecTile({136});
             output = Full(input, dataType, dstShape);
         }
@@ -98,14 +108,17 @@ TEST_F(LiteNPUCodeGenFull, test_full_003) {
     codeGen.GenCode(*function, {});
 }
 
-TEST_F(LiteNPUCodeGenFull, test_full_004) {
-    PROGRAM("FULL_004") {
+TEST_F(LiteNPUCodeGenFull, test_full_004)
+{
+    PROGRAM("FULL_004")
+    {
         Element input(DataType::DT_INT16, 1);
         DataType dataType = DataType::DT_INT16;
         std::vector<int64_t> dstShape = {4, 128};
 
         auto output = Tensor(DataType::DT_INT16, {4, 128}, "output");
-        FUNCTION("FULL_004") {
+        FUNCTION("FULL_004")
+        {
             TileShape::Current().SetVecTile({8, 256});
             output = Full(input, dataType, dstShape);
         }
@@ -117,14 +130,17 @@ TEST_F(LiteNPUCodeGenFull, test_full_004) {
     codeGen.GenCode(*function, {});
 }
 
-TEST_F(LiteNPUCodeGenFull, test_full_005) {
-    PROGRAM("FULL_005") {
+TEST_F(LiteNPUCodeGenFull, test_full_005)
+{
+    PROGRAM("FULL_005")
+    {
         Element input(DataType::DT_INT32, 1);
         DataType dataType = DataType::DT_INT32;
         std::vector<int64_t> dstShape = {4, 130};
 
         auto output = Tensor(DataType::DT_INT32, {4, 130}, "output");
-        FUNCTION("FULL_005") {
+        FUNCTION("FULL_005")
+        {
             TileShape::Current().SetVecTile({10, 100});
             output = Full(input, dataType, dstShape);
         }
@@ -136,14 +152,17 @@ TEST_F(LiteNPUCodeGenFull, test_full_005) {
     codeGen.GenCode(*function, {});
 }
 
-TEST_F(LiteNPUCodeGenFull, test_full_006) {
-    PROGRAM("FULL_006") {
+TEST_F(LiteNPUCodeGenFull, test_full_006)
+{
+    PROGRAM("FULL_006")
+    {
         Element input(DataType::DT_FP16, 1.0);
         DataType dataType = DataType::DT_FP16;
         std::vector<int64_t> dstShape = {15, 31};
 
         auto output = Tensor(DataType::DT_FP16, {15, 31}, "output");
-        FUNCTION("FULL_006") {
+        FUNCTION("FULL_006")
+        {
             TileShape::Current().SetVecTile({5, 32});
             output = Full(input, dataType, dstShape);
         }
@@ -155,14 +174,17 @@ TEST_F(LiteNPUCodeGenFull, test_full_006) {
     codeGen.GenCode(*function, {});
 }
 
-TEST_F(LiteNPUCodeGenFull, test_full_007) {
-    PROGRAM("FULL_007") {
+TEST_F(LiteNPUCodeGenFull, test_full_007)
+{
+    PROGRAM("FULL_007")
+    {
         Element input(DataType::DT_FP32, 1.0f);
         DataType dataType = DataType::DT_FP32;
         std::vector<int64_t> dstShape = {4, 140};
 
         auto output = Tensor(DataType::DT_FP32, {4, 140}, "output");
-        FUNCTION("FULL_007") {
+        FUNCTION("FULL_007")
+        {
             TileShape::Current().SetVecTile({2, 70});
             output = Full(input, dataType, dstShape);
         }
@@ -174,14 +196,17 @@ TEST_F(LiteNPUCodeGenFull, test_full_007) {
     codeGen.GenCode(*function, {});
 }
 
-TEST_F(LiteNPUCodeGenFull, test_full_008) {
-    PROGRAM("FULL_008") {
+TEST_F(LiteNPUCodeGenFull, test_full_008)
+{
+    PROGRAM("FULL_008")
+    {
         Element input(DataType::DT_INT8, 1);
         DataType dataType = DataType::DT_INT8;
         std::vector<int64_t> dstShape = {10, 5, 12};
 
         auto output = Tensor(DataType::DT_INT8, {10, 5, 12}, "output");
-        FUNCTION("FULL_008") {
+        FUNCTION("FULL_008")
+        {
             TileShape::Current().SetVecTile({5, 5, 32});
             output = Full(input, dataType, dstShape);
         }
@@ -193,14 +218,17 @@ TEST_F(LiteNPUCodeGenFull, test_full_008) {
     codeGen.GenCode(*function, {});
 }
 
-TEST_F(LiteNPUCodeGenFull, test_full_009) {
-    PROGRAM("FULL_009") {
+TEST_F(LiteNPUCodeGenFull, test_full_009)
+{
+    PROGRAM("FULL_009")
+    {
         Element input(DataType::DT_INT16, 1);
         DataType dataType = DataType::DT_INT16;
         std::vector<int64_t> dstShape = {7, 3, 170};
 
         auto output = Tensor(DataType::DT_INT16, {7, 3, 170}, "output");
-        FUNCTION("FULL_009") {
+        FUNCTION("FULL_009")
+        {
             TileShape::Current().SetVecTile({5, 5, 100});
             output = Full(input, dataType, dstShape);
         }
@@ -212,14 +240,17 @@ TEST_F(LiteNPUCodeGenFull, test_full_009) {
     codeGen.GenCode(*function, {});
 }
 
-TEST_F(LiteNPUCodeGenFull, test_full_010) {
-    PROGRAM("FULL_010") {
+TEST_F(LiteNPUCodeGenFull, test_full_010)
+{
+    PROGRAM("FULL_010")
+    {
         Element input(DataType::DT_INT32, 1);
         DataType dataType = DataType::DT_INT32;
         std::vector<int64_t> dstShape = {9, 8, 100};
 
         auto output = Tensor(DataType::DT_INT32, {9, 8, 100}, "output");
-        FUNCTION("FULL_010") {
+        FUNCTION("FULL_010")
+        {
             TileShape::Current().SetVecTile({5, 4, 120});
             output = Full(input, dataType, dstShape);
         }
@@ -231,14 +262,17 @@ TEST_F(LiteNPUCodeGenFull, test_full_010) {
     codeGen.GenCode(*function, {});
 }
 
-TEST_F(LiteNPUCodeGenFull, test_full_011) {
-    PROGRAM("FULL_011") {
+TEST_F(LiteNPUCodeGenFull, test_full_011)
+{
+    PROGRAM("FULL_011")
+    {
         Element input(DataType::DT_FP16, 1.0);
         DataType dataType = DataType::DT_FP16;
         std::vector<int64_t> dstShape = {20, 40, 10};
 
         auto output = Tensor(DataType::DT_FP16, {20, 40, 10}, "output");
-        FUNCTION("FULL_011") {
+        FUNCTION("FULL_011")
+        {
             TileShape::Current().SetVecTile({10, 10, 4});
             output = Full(input, dataType, dstShape);
         }
@@ -250,14 +284,17 @@ TEST_F(LiteNPUCodeGenFull, test_full_011) {
     codeGen.GenCode(*function, {});
 }
 
-TEST_F(LiteNPUCodeGenFull, test_full_012) {
-    PROGRAM("FULL_012") {
+TEST_F(LiteNPUCodeGenFull, test_full_012)
+{
+    PROGRAM("FULL_012")
+    {
         Element input(DataType::DT_FP32, 1.0f);
         DataType dataType = DataType::DT_FP32;
         std::vector<int64_t> dstShape = {32, 3, 5, 14};
 
         auto output = Tensor(DataType::DT_FP32, {32, 3, 5, 14}, "output");
-        FUNCTION("FULL_012") {
+        FUNCTION("FULL_012")
+        {
             TileShape::Current().SetVecTile({16, 5, 5, 16});
             output = Full(input, dataType, dstShape);
         }
@@ -269,14 +306,17 @@ TEST_F(LiteNPUCodeGenFull, test_full_012) {
     codeGen.GenCode(*function, {});
 }
 
-TEST_F(LiteNPUCodeGenFull, test_full_013) {
-    PROGRAM("FULL_013") {
+TEST_F(LiteNPUCodeGenFull, test_full_013)
+{
+    PROGRAM("FULL_013")
+    {
         Element input(DataType::DT_INT8, 1);
         DataType dataType = DataType::DT_INT8;
         std::vector<int64_t> dstShape = {8, 10, 6, 16};
 
         auto output = Tensor(DataType::DT_INT8, {8, 10, 6, 16}, "output");
-        FUNCTION("FULL_013") {
+        FUNCTION("FULL_013")
+        {
             TileShape::Current().SetVecTile({2, 10, 9, 8});
             output = Full(input, dataType, dstShape);
         }
@@ -288,14 +328,17 @@ TEST_F(LiteNPUCodeGenFull, test_full_013) {
     codeGen.GenCode(*function, {});
 }
 
-TEST_F(LiteNPUCodeGenFull, test_full_014) {
-    PROGRAM("FULL_014") {
+TEST_F(LiteNPUCodeGenFull, test_full_014)
+{
+    PROGRAM("FULL_014")
+    {
         Element input(DataType::DT_INT16, 1);
         DataType dataType = DataType::DT_INT16;
         std::vector<int64_t> dstShape = {6, 20, 9, 31};
 
         auto output = Tensor(DataType::DT_INT16, {6, 20, 9, 31}, "output");
-        FUNCTION("FULL_014") {
+        FUNCTION("FULL_014")
+        {
             TileShape::Current().SetVecTile({3, 40, 4, 40});
             output = Full(input, dataType, dstShape);
         }
@@ -307,14 +350,17 @@ TEST_F(LiteNPUCodeGenFull, test_full_014) {
     codeGen.GenCode(*function, {});
 }
 
-TEST_F(LiteNPUCodeGenFull, test_full_015) {
-    PROGRAM("FULL_015") {
+TEST_F(LiteNPUCodeGenFull, test_full_015)
+{
+    PROGRAM("FULL_015")
+    {
         Element input(DataType::DT_INT32, 1);
         DataType dataType = DataType::DT_INT32;
         std::vector<int64_t> dstShape = {6, 9, 21, 10};
 
         auto output = Tensor(DataType::DT_INT32, {6, 9, 21, 10}, "output");
-        FUNCTION("FULL_015") {
+        FUNCTION("FULL_015")
+        {
             TileShape::Current().SetVecTile({3, 3, 30, 20});
             output = Full(input, dataType, dstShape);
         }
@@ -326,14 +372,17 @@ TEST_F(LiteNPUCodeGenFull, test_full_015) {
     codeGen.GenCode(*function, {});
 }
 
-TEST_F(LiteNPUCodeGenFull, test_full_016) {
-    PROGRAM("FULL_016") {
+TEST_F(LiteNPUCodeGenFull, test_full_016)
+{
+    PROGRAM("FULL_016")
+    {
         Element input(DataType::DT_FP16, 1.0);
         DataType dataType = DataType::DT_FP16;
         std::vector<int64_t> dstShape = {6, 9, 21, 10};
 
         auto output = Tensor(DataType::DT_FP16, {6, 9, 21, 10}, "output");
-        FUNCTION("FULL_016") {
+        FUNCTION("FULL_016")
+        {
             TileShape::Current().SetVecTile({5, 10, 5, 5});
             output = Full(input, dataType, dstShape);
         }
@@ -345,14 +394,17 @@ TEST_F(LiteNPUCodeGenFull, test_full_016) {
     codeGen.GenCode(*function, {});
 }
 
-TEST_F(LiteNPUCodeGenFull, test_full_017) {
-    PROGRAM("FULL_017") {
+TEST_F(LiteNPUCodeGenFull, test_full_017)
+{
+    PROGRAM("FULL_017")
+    {
         Element input(DataType::DT_FP32, 1.0f);
         DataType dataType = DataType::DT_FP32;
         std::vector<int64_t> dstShape = {6, 9, 21, 10};
 
         auto output = Tensor(DataType::DT_FP32, {6, 9, 21, 10}, "output");
-        FUNCTION("FULL_017") {
+        FUNCTION("FULL_017")
+        {
             TileShape::Current().SetVecTile({3, 3, 40, 5});
             output = Full(input, dataType, dstShape);
         }
@@ -364,14 +416,17 @@ TEST_F(LiteNPUCodeGenFull, test_full_017) {
     codeGen.GenCode(*function, {});
 }
 
-TEST_F(LiteNPUCodeGenFull, test_full_018) {
-    PROGRAM("FULL_018") {
+TEST_F(LiteNPUCodeGenFull, test_full_018)
+{
+    PROGRAM("FULL_018")
+    {
         Element input(DataType::DT_INT8, 1);
         DataType dataType = DataType::DT_INT8;
         std::vector<int64_t> dstShape = {6, 9, 21, 10};
 
         auto output = Tensor(DataType::DT_INT8, {6, 9, 21, 10}, "output");
-        FUNCTION("FULL_018") {
+        FUNCTION("FULL_018")
+        {
             TileShape::Current().SetVecTile({5, 5, 12, 20});
             output = Full(input, dataType, dstShape);
         }
@@ -383,14 +438,17 @@ TEST_F(LiteNPUCodeGenFull, test_full_018) {
     codeGen.GenCode(*function, {});
 }
 
-TEST_F(LiteNPUCodeGenFull, test_full_019) {
-    PROGRAM("FULL_019") {
+TEST_F(LiteNPUCodeGenFull, test_full_019)
+{
+    PROGRAM("FULL_019")
+    {
         Element input(DataType::DT_INT16, 1);
         DataType dataType = DataType::DT_INT16;
         std::vector<int64_t> dstShape = {6, 9, 21, 10};
 
         auto output = Tensor(DataType::DT_INT16, {6, 9, 21, 10}, "output");
-        FUNCTION("FULL_019") {
+        FUNCTION("FULL_019")
+        {
             TileShape::Current().SetVecTile({5, 8, 12, 5});
             output = Full(input, dataType, dstShape);
         }

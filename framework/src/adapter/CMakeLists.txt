@@ -28,6 +28,7 @@ target_include_directories(tile_fwk_adapter
 target_compile_definitions(tile_fwk_adapter
         PUBLIC
             $<BUILD_INTERFACE:$<$<AND:$<BOOL:${BUILD_WITH_CANN}>,$<NOT:$<BOOL:${ENABLE_UTEST}>>>:BUILD_WITH_CANN>>
+            $<BUILD_INTERFACE:$<$<BOOL:${BUILD_WITH_CANN_MOBILE}>:BUILD_WITH_CANN_MOBILE>>
 )
 target_link_directories(tile_fwk_adapter
         PUBLIC
@@ -36,6 +37,8 @@ target_link_directories(tile_fwk_adapter
             $<BUILD_INTERFACE:$<$<BOOL:${BUILD_WITH_CANN}>:${ASCEND_CANN_PACKAGE_PATH}/${CMAKE_SYSTEM_PROCESSOR}-linux/devlib>>
 )
 target_link_libraries(tile_fwk_adapter
+        PUBLIC
+            ascendcl
         PRIVATE
             $<$<BOOL:${ENABLE_COMPILE_DEPENDENCY_CHECK}>:tile_fwk_utils>
             intf_pub_cxx17

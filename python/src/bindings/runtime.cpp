@@ -38,6 +38,11 @@
 #include "machine/host/perf_analysis.h"
 #include "bindings/torch_tensor_converter.h"
 
+#ifdef BUILD_WITH_CANN
+#include "acl/acl.h"
+#include "runtime/rt.h"
+#endif
+
 using namespace npu::tile_fwk;
 using namespace npu::tile_fwk::dynamic;
 

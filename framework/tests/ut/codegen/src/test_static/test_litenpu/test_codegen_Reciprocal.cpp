@@ -26,29 +26,31 @@
 #include "codegen/npu/litenpu/codegen_litenpu.h"
 using namespace npu::tile_fwk;
 
-
 class LiteNPUCodegenReciprocal : public testing::Test {
 public:
     static void TearDownTestCase() {}
 
     static void SetUpTestCase() {}
 
-    void SetUp() override {
+    void SetUp() override
+    {
         config::Reset();
         config::SetHostOption(COMPILE_STAGE, CS_EXECUTE_GRAPH);
-        config::SetBuildStatic(true);
+        CodeGenSocVersionManager::Instance().SetCodeGenSocVersion("Kirin9030");
     }
 
     void TearDown() override {}
 };
 
-
 // Unary_fp16_001
-TEST_F(LiteNPUCodegenReciprocal, test_Reciprocal_fp16_001) {
-    PROGRAM("Reciprocal_fp16_001") {
+TEST_F(LiteNPUCodegenReciprocal, test_Reciprocal_fp16_001)
+{
+    PROGRAM("Reciprocal_fp16_001")
+    {
         Tensor input(DataType::DT_FP16, {112}, "input");
         auto output = Tensor(DataType::DT_FP16, {112}, "output");
-        FUNCTION("Reciprocal_fp16_001") {
+        FUNCTION("Reciprocal_fp16_001")
+        {
             TileShape::Current().SetVecTile({50});
             output = Reciprocal(input);
         }
@@ -61,11 +63,14 @@ TEST_F(LiteNPUCodegenReciprocal, test_Reciprocal_fp16_001) {
 }
 
 // Unary_fp16_002
-TEST_F(LiteNPUCodegenReciprocal, test_Reciprocal_fp16_002) {
-    PROGRAM("Reciprocal_fp16_002") {
+TEST_F(LiteNPUCodegenReciprocal, test_Reciprocal_fp16_002)
+{
+    PROGRAM("Reciprocal_fp16_002")
+    {
         Tensor input(DataType::DT_FP16, {100}, "input");
         auto output = Tensor(DataType::DT_FP16, {100}, "output");
-        FUNCTION("Reciprocal_fp16_002") {
+        FUNCTION("Reciprocal_fp16_002")
+        {
             TileShape::Current().SetVecTile({100});
             output = Reciprocal(input);
         }
@@ -78,11 +83,14 @@ TEST_F(LiteNPUCodegenReciprocal, test_Reciprocal_fp16_002) {
 }
 
 // Unary_fp32_003
-TEST_F(LiteNPUCodegenReciprocal, test_Reciprocal_fp32_003) {
-    PROGRAM("Reciprocal_fp32_003") {
+TEST_F(LiteNPUCodegenReciprocal, test_Reciprocal_fp32_003)
+{
+    PROGRAM("Reciprocal_fp32_003")
+    {
         Tensor input(DataType::DT_FP32, {4, 128}, "input");
         auto output = Tensor(DataType::DT_FP32, {4, 128}, "output");
-        FUNCTION("Reciprocal_fp32_003") {
+        FUNCTION("Reciprocal_fp32_003")
+        {
             TileShape::Current().SetVecTile({2, 32});
             output = Reciprocal(input);
         }
@@ -95,11 +103,14 @@ TEST_F(LiteNPUCodegenReciprocal, test_Reciprocal_fp32_003) {
 }
 
 // Unary_fp32_004
-TEST_F(LiteNPUCodegenReciprocal, test_Reciprocal_fp32_004) {
-    PROGRAM("Reciprocal_fp32_004") {
+TEST_F(LiteNPUCodegenReciprocal, test_Reciprocal_fp32_004)
+{
+    PROGRAM("Reciprocal_fp32_004")
+    {
         Tensor input(DataType::DT_FP32, {4, 130}, "input");
         auto output = Tensor(DataType::DT_FP32, {4, 130}, "output");
-        FUNCTION("Reciprocal_fp32_004") {
+        FUNCTION("Reciprocal_fp32_004")
+        {
             TileShape::Current().SetVecTile({1, 130});
             output = Reciprocal(input);
         }
@@ -112,11 +123,14 @@ TEST_F(LiteNPUCodegenReciprocal, test_Reciprocal_fp32_004) {
 }
 
 // Unary_fp16_005
-TEST_F(LiteNPUCodegenReciprocal, test_Reciprocal_fp16_005) {
-    PROGRAM("Reciprocal_fp16_005") {
+TEST_F(LiteNPUCodegenReciprocal, test_Reciprocal_fp16_005)
+{
+    PROGRAM("Reciprocal_fp16_005")
+    {
         Tensor input(DataType::DT_FP16, {2, 4, 160}, "input");
         auto output = Tensor(DataType::DT_FP16, {2, 4, 160}, "output");
-        FUNCTION("Reciprocal_fp16_005") {
+        FUNCTION("Reciprocal_fp16_005")
+        {
             TileShape::Current().SetVecTile({1, 2, 32});
             output = Reciprocal(input);
         }
@@ -129,11 +143,14 @@ TEST_F(LiteNPUCodegenReciprocal, test_Reciprocal_fp16_005) {
 }
 
 // Unary_fp32_006
-TEST_F(LiteNPUCodegenReciprocal, test_Reciprocal_fp32_006) {
-    PROGRAM("Reciprocal_fp32_006") {
+TEST_F(LiteNPUCodegenReciprocal, test_Reciprocal_fp32_006)
+{
+    PROGRAM("Reciprocal_fp32_006")
+    {
         Tensor input(DataType::DT_FP32, {2, 4, 140}, "input");
         auto output = Tensor(DataType::DT_FP32, {2, 4, 140}, "output");
-        FUNCTION("Reciprocal_fp32_006") {
+        FUNCTION("Reciprocal_fp32_006")
+        {
             TileShape::Current().SetVecTile({1, 2, 140});
             output = Reciprocal(input);
         }
@@ -146,11 +163,14 @@ TEST_F(LiteNPUCodegenReciprocal, test_Reciprocal_fp32_006) {
 }
 
 // Unary_fp16_007
-TEST_F(LiteNPUCodegenReciprocal, test_Reciprocal_fp16_007) {
-    PROGRAM("Reciprocal_fp16_007") {
+TEST_F(LiteNPUCodegenReciprocal, test_Reciprocal_fp16_007)
+{
+    PROGRAM("Reciprocal_fp16_007")
+    {
         Tensor input(DataType::DT_FP16, {2, 5, 152}, "input");
         auto output = Tensor(DataType::DT_FP16, {2, 5, 152}, "output");
-        FUNCTION("Reciprocal_fp16_007") {
+        FUNCTION("Reciprocal_fp16_007")
+        {
             TileShape::Current().SetVecTile({1, 5, 32});
             output = Reciprocal(input);
         }
@@ -163,11 +183,14 @@ TEST_F(LiteNPUCodegenReciprocal, test_Reciprocal_fp16_007) {
 }
 
 // Unary_fp32_008
-TEST_F(LiteNPUCodegenReciprocal, test_Reciprocal_fp32_008) {
-    PROGRAM("Reciprocal_fp32_008") {
+TEST_F(LiteNPUCodegenReciprocal, test_Reciprocal_fp32_008)
+{
+    PROGRAM("Reciprocal_fp32_008")
+    {
         Tensor input(DataType::DT_FP32, {2, 3, 170}, "input");
         auto output = Tensor(DataType::DT_FP32, {2, 3, 170}, "output");
-        FUNCTION("Reciprocal_fp32_008") {
+        FUNCTION("Reciprocal_fp32_008")
+        {
             TileShape::Current().SetVecTile({1, 3, 170});
             output = Reciprocal(input);
         }
@@ -180,11 +203,14 @@ TEST_F(LiteNPUCodegenReciprocal, test_Reciprocal_fp32_008) {
 }
 
 // Unary_fp16_009
-TEST_F(LiteNPUCodegenReciprocal, test_Reciprocal_fp16_009) {
-    PROGRAM("Reciprocal_fp16_009") {
+TEST_F(LiteNPUCodegenReciprocal, test_Reciprocal_fp16_009)
+{
+    PROGRAM("Reciprocal_fp16_009")
+    {
         Tensor input(DataType::DT_FP16, {5, 2, 4, 176}, "input");
         auto output = Tensor(DataType::DT_FP16, {5, 2, 4, 176}, "output");
-        FUNCTION("Reciprocal_fp16_009") {
+        FUNCTION("Reciprocal_fp16_009")
+        {
             TileShape::Current().SetVecTile({2, 1, 2, 16});
             output = Reciprocal(input);
         }
@@ -197,11 +223,14 @@ TEST_F(LiteNPUCodegenReciprocal, test_Reciprocal_fp16_009) {
 }
 
 // Unary_fp32_010
-TEST_F(LiteNPUCodegenReciprocal, test_Reciprocal_fp32_010) {
-    PROGRAM("Reciprocal_fp32_010") {
+TEST_F(LiteNPUCodegenReciprocal, test_Reciprocal_fp32_010)
+{
+    PROGRAM("Reciprocal_fp32_010")
+    {
         Tensor input(DataType::DT_FP32, {5, 2, 4, 130}, "input");
         auto output = Tensor(DataType::DT_FP32, {5, 2, 4, 130}, "output");
-        FUNCTION("Reciprocal_fp32_010") {
+        FUNCTION("Reciprocal_fp32_010")
+        {
             TileShape::Current().SetVecTile({1, 1, 1, 130});
             output = Reciprocal(input);
         }
@@ -214,11 +243,14 @@ TEST_F(LiteNPUCodegenReciprocal, test_Reciprocal_fp32_010) {
 }
 
 // Unary_fp16_011
-TEST_F(LiteNPUCodegenReciprocal, test_Reciprocal_fp16_011) {
-    PROGRAM("Reciprocal_fp16_011") {
+TEST_F(LiteNPUCodegenReciprocal, test_Reciprocal_fp16_011)
+{
+    PROGRAM("Reciprocal_fp16_011")
+    {
         Tensor input(DataType::DT_FP16, {2, 3, 5, 134}, "input");
         auto output = Tensor(DataType::DT_FP16, {2, 3, 5, 134}, "output");
-        FUNCTION("Reciprocal_fp16_011") {
+        FUNCTION("Reciprocal_fp16_011")
+        {
             TileShape::Current().SetVecTile({1, 1, 5, 32});
             output = Reciprocal(input);
         }
@@ -231,11 +263,14 @@ TEST_F(LiteNPUCodegenReciprocal, test_Reciprocal_fp16_011) {
 }
 
 // Unary_fp32_012
-TEST_F(LiteNPUCodegenReciprocal, test_Reciprocal_fp32_012) {
-    PROGRAM("Reciprocal_fp32_012") {
+TEST_F(LiteNPUCodegenReciprocal, test_Reciprocal_fp32_012)
+{
+    PROGRAM("Reciprocal_fp32_012")
+    {
         Tensor input(DataType::DT_FP32, {4, 2, 6, 135}, "input");
         auto output = Tensor(DataType::DT_FP32, {4, 2, 6, 135}, "output");
-        FUNCTION("Reciprocal_fp32_012") {
+        FUNCTION("Reciprocal_fp32_012")
+        {
             TileShape::Current().SetVecTile({2, 2, 3, 32});
             output = Reciprocal(input);
         }
@@ -248,11 +283,14 @@ TEST_F(LiteNPUCodegenReciprocal, test_Reciprocal_fp32_012) {
 }
 
 // Unary_fp16_013
-TEST_F(LiteNPUCodegenReciprocal, test_Reciprocal_fp16_013) {
-    PROGRAM("Reciprocal_fp16_013") {
+TEST_F(LiteNPUCodegenReciprocal, test_Reciprocal_fp16_013)
+{
+    PROGRAM("Reciprocal_fp16_013")
+    {
         Tensor input(DataType::DT_FP16, {6, 2, 4, 130}, "input");
         auto output = Tensor(DataType::DT_FP16, {6, 2, 4, 130}, "output");
-        FUNCTION("Reciprocal_fp16_013") {
+        FUNCTION("Reciprocal_fp16_013")
+        {
             TileShape::Current().SetVecTile({1, 1, 4, 130});
             output = Reciprocal(input);
         }
@@ -265,11 +303,14 @@ TEST_F(LiteNPUCodegenReciprocal, test_Reciprocal_fp16_013) {
 }
 
 // Unary_fp32_014
-TEST_F(LiteNPUCodegenReciprocal, test_Reciprocal_fp32_014) {
-    PROGRAM("Reciprocal_fp32_014") {
+TEST_F(LiteNPUCodegenReciprocal, test_Reciprocal_fp32_014)
+{
+    PROGRAM("Reciprocal_fp32_014")
+    {
         Tensor input(DataType::DT_FP32, {3, 2, 3, 139}, "input");
         auto output = Tensor(DataType::DT_FP32, {3, 2, 3, 139}, "output");
-        FUNCTION("Reciprocal_fp32_014") {
+        FUNCTION("Reciprocal_fp32_014")
+        {
             TileShape::Current().SetVecTile({1, 2, 1, 139});
             output = Reciprocal(input);
         }
@@ -282,11 +323,14 @@ TEST_F(LiteNPUCodegenReciprocal, test_Reciprocal_fp32_014) {
 }
 
 // Unary_fp16_015
-TEST_F(LiteNPUCodegenReciprocal, test_Reciprocal_fp16_015) {
-    PROGRAM("Reciprocal_fp16_015") {
+TEST_F(LiteNPUCodegenReciprocal, test_Reciprocal_fp16_015)
+{
+    PROGRAM("Reciprocal_fp16_015")
+    {
         Tensor input(DataType::DT_FP16, {6, 3, 5, 141}, "input");
         auto output = Tensor(DataType::DT_FP16, {6, 3, 5, 141}, "output");
-        FUNCTION("Reciprocal_fp16_015") {
+        FUNCTION("Reciprocal_fp16_015")
+        {
             TileShape::Current().SetVecTile({3, 3, 5, 32});
             output = Reciprocal(input);
         }

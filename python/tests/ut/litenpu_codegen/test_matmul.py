@@ -3,7 +3,28 @@ import torch
 import numpy as np
 import unittest
 
-@pypto.frontend.jit(codegen_options={"soc_version": "Kirin9030"}, runtime_options={"run_mode": pypto.RunMode.SIM})
+def compare_cos(davinci1_input, davinci2_input):
+    davinci1_input = davinci1_input.reshape(-1).astype(np.float64)
+    davinci2_input = davinci2_input.reshape(-1).astype(np.float64)
+    print(davinci1_input.shape)
+    print(davinci2_input.shape)
+
+    print("max diff: ", np.max(np.abs(davinci1_input-davinci2_input)))
+    index = np.argmax(np.abs(davinci1_input-davinci2_input))
+    print("max diff index = ", index, " dav1 value: ", davinci1_input[index], "dav2 value: ", davinci2_input[index])
+    print("average diff: ", np.mean(np.abs(davinci1_input - davinci2_input)))
+    ab = np.sum(np.multiply(davinci1_input, davinci2_input))
+    aa = np.sqrt(np.sum(np.multiply(davinci1_input, davinci2_input)))
+    bb = np.sqrt(np.sum(np.multiply(davinci1_input, davinci2_input)))
+    if aa*bb == 0 and ab == 0:
+        cos = 1.0
+    else:
+        cos = ab / (aa*bb) # this value should be greater than 0.9999 to be correct
+    print(cos)
+    print()
+    return cos
+
+@pypto.frontend.jit(codegen_options={"soc_version": "Kirin9030"}, runtime_options={"run_mode": pypto.RunMode.NPU})
 def matmul_kernel(
     a: pypto.Tensor([...], pypto.DT_FP16),
     b: pypto.Tensor([...], pypto.DT_FP16),
@@ -26,7 +47,9 @@ class TestLiteNPUMatmul(unittest.TestCase):
 
         matmul_kernel(a, b, out)
 
-        self.assertEqual(1, 1)
+        golden_out = a@b
+        cos_value = compare_cos(np.array(out.cpu()), np.array(golden_out.cpu()))
+        self.assertGreaterEqual(cos_value, 0.9999)
 
 if __name__ == '__main__':
     unittest.main()

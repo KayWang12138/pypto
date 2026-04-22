@@ -32,24 +32,25 @@ public:
 
     static void SetUpTestCase() {}
 
-    void SetUp() override {
+    void SetUp() override
+    {
         config::Reset();
         config::SetHostOption(COMPILE_STAGE, CS_EXECUTE_GRAPH);
-        config::SetBuildStatic(true);
+        CodeGenSocVersionManager::Instance().SetCodeGenSocVersion("Kirin9030");
     }
 
     void TearDown() override {}
 };
 
 // fp16 test cases
-TEST_F(LiteNPUCodeGenAmax, test_amax_fp16_001) {
-    PROGRAM("AMAX_FP16_001") {
+TEST_F(LiteNPUCodeGenAmax, test_amax_fp16_001)
+{
+    PROGRAM("AMAX_FP16_001")
+    {
         TileShape::Current().SetVecTile({48});
         Tensor operand(DT_FP16, {112}, "operand");
         Tensor result;
-        FUNCTION("AMAX_FP16_001") {
-            result = Amax(operand, -1, false);
-        }
+        FUNCTION("AMAX_FP16_001") { result = Amax(operand, -1, false); }
     }
     auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + "AMAX_FP16_001");
     npu::tile_fwk::CodeGenCtx ctx;
@@ -57,14 +58,14 @@ TEST_F(LiteNPUCodeGenAmax, test_amax_fp16_001) {
     codeGen.GenCode(*function, {});
 }
 
-TEST_F(LiteNPUCodeGenAmax, test_amax_fp16_002) {
-    PROGRAM("AMAX_FP16_002") {
+TEST_F(LiteNPUCodeGenAmax, test_amax_fp16_002)
+{
+    PROGRAM("AMAX_FP16_002")
+    {
         TileShape::Current().SetVecTile({96});
         Tensor operand(DT_FP16, {100}, "operand");
         Tensor result;
-        FUNCTION("AMAX_FP16_002") {
-            result = Amax(operand, -1, false);
-        }
+        FUNCTION("AMAX_FP16_002") { result = Amax(operand, -1, false); }
     }
     auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + "AMAX_FP16_002");
     npu::tile_fwk::CodeGenCtx ctx;
@@ -72,14 +73,14 @@ TEST_F(LiteNPUCodeGenAmax, test_amax_fp16_002) {
     codeGen.GenCode(*function, {});
 }
 
-TEST_F(LiteNPUCodeGenAmax, test_amax_fp16_003) {
-    PROGRAM("AMAX_FP16_003") {
+TEST_F(LiteNPUCodeGenAmax, test_amax_fp16_003)
+{
+    PROGRAM("AMAX_FP16_003")
+    {
         TileShape::Current().SetVecTile({2, 32});
         Tensor operand(DT_FP16, {4, 128}, "operand");
         Tensor result;
-        FUNCTION("AMAX_FP16_003") {
-            result = Amax(operand, -1, false);
-        }
+        FUNCTION("AMAX_FP16_003") { result = Amax(operand, -1, false); }
     }
     auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + "AMAX_FP16_003");
     npu::tile_fwk::CodeGenCtx ctx;
@@ -87,14 +88,14 @@ TEST_F(LiteNPUCodeGenAmax, test_amax_fp16_003) {
     codeGen.GenCode(*function, {});
 }
 
-TEST_F(LiteNPUCodeGenAmax, test_amax_fp16_004) {
-    PROGRAM("AMAX_FP16_004") {
+TEST_F(LiteNPUCodeGenAmax, test_amax_fp16_004)
+{
+    PROGRAM("AMAX_FP16_004")
+    {
         TileShape::Current().SetVecTile({1, 128});
         Tensor operand(DT_FP16, {4, 130}, "operand");
         Tensor result;
-        FUNCTION("AMAX_FP16_004") {
-            result = Amax(operand, -1, false);
-        }
+        FUNCTION("AMAX_FP16_004") { result = Amax(operand, -1, false); }
     }
     auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + "AMAX_FP16_004");
     npu::tile_fwk::CodeGenCtx ctx;
@@ -102,14 +103,14 @@ TEST_F(LiteNPUCodeGenAmax, test_amax_fp16_004) {
     codeGen.GenCode(*function, {});
 }
 
-TEST_F(LiteNPUCodeGenAmax, test_amax_fp16_005) {
-    PROGRAM("AMAX_FP16_005") {
+TEST_F(LiteNPUCodeGenAmax, test_amax_fp16_005)
+{
+    PROGRAM("AMAX_FP16_005")
+    {
         TileShape::Current().SetVecTile({1, 2, 32});
         Tensor operand(DT_FP16, {2, 4, 160}, "operand");
         Tensor result;
-        FUNCTION("AMAX_FP16_005") {
-            result = Amax(operand, -1, false);
-        }
+        FUNCTION("AMAX_FP16_005") { result = Amax(operand, -1, false); }
     }
     auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + "AMAX_FP16_005");
     npu::tile_fwk::CodeGenCtx ctx;
@@ -117,14 +118,14 @@ TEST_F(LiteNPUCodeGenAmax, test_amax_fp16_005) {
     codeGen.GenCode(*function, {});
 }
 
-TEST_F(LiteNPUCodeGenAmax, test_amax_fp16_006) {
-    PROGRAM("AMAX_FP16_006") {
+TEST_F(LiteNPUCodeGenAmax, test_amax_fp16_006)
+{
+    PROGRAM("AMAX_FP16_006")
+    {
         TileShape::Current().SetVecTile({1, 2, 128});
         Tensor operand(DT_FP16, {2, 4, 140}, "operand");
         Tensor result;
-        FUNCTION("AMAX_FP16_006") {
-            result = Amax(operand, -1, false);
-        }
+        FUNCTION("AMAX_FP16_006") { result = Amax(operand, -1, false); }
     }
     auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + "AMAX_FP16_006");
     npu::tile_fwk::CodeGenCtx ctx;
@@ -132,14 +133,14 @@ TEST_F(LiteNPUCodeGenAmax, test_amax_fp16_006) {
     codeGen.GenCode(*function, {});
 }
 
-TEST_F(LiteNPUCodeGenAmax, test_amax_fp16_007) {
-    PROGRAM("AMAX_FP16_007") {
+TEST_F(LiteNPUCodeGenAmax, test_amax_fp16_007)
+{
+    PROGRAM("AMAX_FP16_007")
+    {
         TileShape::Current().SetVecTile({1, 5, 32});
         Tensor operand(DT_FP16, {2, 5, 152}, "operand");
         Tensor result;
-        FUNCTION("AMAX_FP16_007") {
-            result = Amax(operand, -1, false);
-        }
+        FUNCTION("AMAX_FP16_007") { result = Amax(operand, -1, false); }
     }
     auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + "AMAX_FP16_007");
     npu::tile_fwk::CodeGenCtx ctx;
@@ -147,14 +148,14 @@ TEST_F(LiteNPUCodeGenAmax, test_amax_fp16_007) {
     codeGen.GenCode(*function, {});
 }
 
-TEST_F(LiteNPUCodeGenAmax, test_amax_fp16_008) {
-    PROGRAM("AMAX_FP16_008") {
+TEST_F(LiteNPUCodeGenAmax, test_amax_fp16_008)
+{
+    PROGRAM("AMAX_FP16_008")
+    {
         TileShape::Current().SetVecTile({1, 3, 160});
         Tensor operand(DT_FP16, {2, 3, 170}, "operand");
         Tensor result;
-        FUNCTION("AMAX_FP16_008") {
-            result = Amax(operand, -1, false);
-        }
+        FUNCTION("AMAX_FP16_008") { result = Amax(operand, -1, false); }
     }
     auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + "AMAX_FP16_008");
     npu::tile_fwk::CodeGenCtx ctx;
@@ -162,14 +163,14 @@ TEST_F(LiteNPUCodeGenAmax, test_amax_fp16_008) {
     codeGen.GenCode(*function, {});
 }
 
-TEST_F(LiteNPUCodeGenAmax, test_amax_fp16_009) {
-    PROGRAM("AMAX_FP16_009") {
+TEST_F(LiteNPUCodeGenAmax, test_amax_fp16_009)
+{
+    PROGRAM("AMAX_FP16_009")
+    {
         TileShape::Current().SetVecTile({2, 1, 2, 16});
         Tensor operand(DT_FP16, {5, 2, 4, 176}, "operand");
         Tensor result;
-        FUNCTION("AMAX_FP16_009") {
-            result = Amax(operand, -1, false);
-        }
+        FUNCTION("AMAX_FP16_009") { result = Amax(operand, -1, false); }
     }
     auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + "AMAX_FP16_009");
     npu::tile_fwk::CodeGenCtx ctx;
@@ -177,14 +178,14 @@ TEST_F(LiteNPUCodeGenAmax, test_amax_fp16_009) {
     codeGen.GenCode(*function, {});
 }
 
-TEST_F(LiteNPUCodeGenAmax, test_amax_fp16_010) {
-    PROGRAM("AMAX_FP16_010") {
+TEST_F(LiteNPUCodeGenAmax, test_amax_fp16_010)
+{
+    PROGRAM("AMAX_FP16_010")
+    {
         TileShape::Current().SetVecTile({1, 1, 1, 128});
         Tensor operand(DT_FP16, {5, 2, 4, 130}, "operand");
         Tensor result;
-        FUNCTION("AMAX_FP16_010") {
-            result = Amax(operand, -1, false);
-        }
+        FUNCTION("AMAX_FP16_010") { result = Amax(operand, -1, false); }
     }
     auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + "AMAX_FP16_010");
     npu::tile_fwk::CodeGenCtx ctx;
@@ -192,14 +193,14 @@ TEST_F(LiteNPUCodeGenAmax, test_amax_fp16_010) {
     codeGen.GenCode(*function, {});
 }
 
-TEST_F(LiteNPUCodeGenAmax, test_amax_fp16_011) {
-    PROGRAM("AMAX_FP16_011") {
+TEST_F(LiteNPUCodeGenAmax, test_amax_fp16_011)
+{
+    PROGRAM("AMAX_FP16_011")
+    {
         TileShape::Current().SetVecTile({1, 1, 5, 32});
         Tensor operand(DT_FP16, {2, 3, 5, 134}, "operand");
         Tensor result;
-        FUNCTION("AMAX_FP16_011") {
-            result = Amax(operand, -1, false);
-        }
+        FUNCTION("AMAX_FP16_011") { result = Amax(operand, -1, false); }
     }
     auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + "AMAX_FP16_011");
     npu::tile_fwk::CodeGenCtx ctx;
@@ -207,14 +208,14 @@ TEST_F(LiteNPUCodeGenAmax, test_amax_fp16_011) {
     codeGen.GenCode(*function, {});
 }
 
-TEST_F(LiteNPUCodeGenAmax, test_amax_fp16_012) {
-    PROGRAM("AMAX_FP16_012") {
+TEST_F(LiteNPUCodeGenAmax, test_amax_fp16_012)
+{
+    PROGRAM("AMAX_FP16_012")
+    {
         TileShape::Current().SetVecTile({2, 2, 3, 32});
         Tensor operand(DT_FP16, {4, 2, 6, 135}, "operand");
         Tensor result;
-        FUNCTION("AMAX_FP16_012") {
-            result = Amax(operand, -1, false);
-        }
+        FUNCTION("AMAX_FP16_012") { result = Amax(operand, -1, false); }
     }
     auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + "AMAX_FP16_012");
     npu::tile_fwk::CodeGenCtx ctx;
@@ -222,14 +223,14 @@ TEST_F(LiteNPUCodeGenAmax, test_amax_fp16_012) {
     codeGen.GenCode(*function, {});
 }
 
-TEST_F(LiteNPUCodeGenAmax, test_amax_fp16_013) {
-    PROGRAM("AMAX_FP16_013") {
+TEST_F(LiteNPUCodeGenAmax, test_amax_fp16_013)
+{
+    PROGRAM("AMAX_FP16_013")
+    {
         TileShape::Current().SetVecTile({1, 1, 4, 128});
         Tensor operand(DT_FP16, {6, 2, 4, 130}, "operand");
         Tensor result;
-        FUNCTION("AMAX_FP16_013") {
-            result = Amax(operand, -1, false);
-        }
+        FUNCTION("AMAX_FP16_013") { result = Amax(operand, -1, false); }
     }
     auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + "AMAX_FP16_013");
     npu::tile_fwk::CodeGenCtx ctx;
@@ -237,14 +238,14 @@ TEST_F(LiteNPUCodeGenAmax, test_amax_fp16_013) {
     codeGen.GenCode(*function, {});
 }
 
-TEST_F(LiteNPUCodeGenAmax, test_amax_fp16_014) {
-    PROGRAM("AMAX_FP16_014") {
+TEST_F(LiteNPUCodeGenAmax, test_amax_fp16_014)
+{
+    PROGRAM("AMAX_FP16_014")
+    {
         TileShape::Current().SetVecTile({1, 2, 1, 128});
         Tensor operand(DT_FP16, {3, 2, 3, 139}, "operand");
         Tensor result;
-        FUNCTION("AMAX_FP16_014") {
-            result = Amax(operand, -1, false);
-        }
+        FUNCTION("AMAX_FP16_014") { result = Amax(operand, -1, false); }
     }
     auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + "AMAX_FP16_014");
     npu::tile_fwk::CodeGenCtx ctx;
@@ -252,14 +253,14 @@ TEST_F(LiteNPUCodeGenAmax, test_amax_fp16_014) {
     codeGen.GenCode(*function, {});
 }
 
-TEST_F(LiteNPUCodeGenAmax, test_amax_fp16_015) {
-    PROGRAM("AMAX_FP16_015") {
+TEST_F(LiteNPUCodeGenAmax, test_amax_fp16_015)
+{
+    PROGRAM("AMAX_FP16_015")
+    {
         TileShape::Current().SetVecTile({3, 3, 5, 32});
         Tensor operand(DT_FP16, {6, 3, 5, 141}, "operand");
         Tensor result;
-        FUNCTION("AMAX_FP16_015") {
-            result = Amax(operand, -1, false);
-        }
+        FUNCTION("AMAX_FP16_015") { result = Amax(operand, -1, false); }
     }
     auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + "AMAX_FP16_015");
     npu::tile_fwk::CodeGenCtx ctx;
@@ -268,14 +269,14 @@ TEST_F(LiteNPUCodeGenAmax, test_amax_fp16_015) {
 }
 
 // fp32 test cases
-TEST_F(LiteNPUCodeGenAmax, test_amax_fp32_001) {
-    PROGRAM("AMAX_FP32_001") {
+TEST_F(LiteNPUCodeGenAmax, test_amax_fp32_001)
+{
+    PROGRAM("AMAX_FP32_001")
+    {
         TileShape::Current().SetVecTile({48});
         Tensor operand(DT_FP32, {112}, "operand");
         Tensor result;
-        FUNCTION("AMAX_FP32_001") {
-            result = Amax(operand, -1, false);
-        }
+        FUNCTION("AMAX_FP32_001") { result = Amax(operand, -1, false); }
     }
     auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + "AMAX_FP32_001");
     npu::tile_fwk::CodeGenCtx ctx;
@@ -283,14 +284,14 @@ TEST_F(LiteNPUCodeGenAmax, test_amax_fp32_001) {
     codeGen.GenCode(*function, {});
 }
 
-TEST_F(LiteNPUCodeGenAmax, test_amax_fp32_002) {
-    PROGRAM("AMAX_FP32_002") {
+TEST_F(LiteNPUCodeGenAmax, test_amax_fp32_002)
+{
+    PROGRAM("AMAX_FP32_002")
+    {
         TileShape::Current().SetVecTile({96});
         Tensor operand(DT_FP32, {100}, "operand");
         Tensor result;
-        FUNCTION("AMAX_FP32_002") {
-            result = Amax(operand, -1, false);
-        }
+        FUNCTION("AMAX_FP32_002") { result = Amax(operand, -1, false); }
     }
     auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + "AMAX_FP32_002");
     npu::tile_fwk::CodeGenCtx ctx;
@@ -298,14 +299,14 @@ TEST_F(LiteNPUCodeGenAmax, test_amax_fp32_002) {
     codeGen.GenCode(*function, {});
 }
 
-TEST_F(LiteNPUCodeGenAmax, test_amax_fp32_003) {
-    PROGRAM("AMAX_FP32_003") {
+TEST_F(LiteNPUCodeGenAmax, test_amax_fp32_003)
+{
+    PROGRAM("AMAX_FP32_003")
+    {
         TileShape::Current().SetVecTile({2, 32});
         Tensor operand(DT_FP32, {4, 128}, "operand");
         Tensor result;
-        FUNCTION("AMAX_FP32_003") {
-            result = Amax(operand, -1, false);
-        }
+        FUNCTION("AMAX_FP32_003") { result = Amax(operand, -1, false); }
     }
     auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + "AMAX_FP32_003");
     npu::tile_fwk::CodeGenCtx ctx;
@@ -313,14 +314,14 @@ TEST_F(LiteNPUCodeGenAmax, test_amax_fp32_003) {
     codeGen.GenCode(*function, {});
 }
 
-TEST_F(LiteNPUCodeGenAmax, test_amax_fp32_004) {
-    PROGRAM("AMAX_FP32_004") {
+TEST_F(LiteNPUCodeGenAmax, test_amax_fp32_004)
+{
+    PROGRAM("AMAX_FP32_004")
+    {
         TileShape::Current().SetVecTile({1, 128});
         Tensor operand(DT_FP32, {4, 130}, "operand");
         Tensor result;
-        FUNCTION("AMAX_FP32_004") {
-            result = Amax(operand, -1, false);
-        }
+        FUNCTION("AMAX_FP32_004") { result = Amax(operand, -1, false); }
     }
     auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + "AMAX_FP32_004");
     npu::tile_fwk::CodeGenCtx ctx;
@@ -328,14 +329,14 @@ TEST_F(LiteNPUCodeGenAmax, test_amax_fp32_004) {
     codeGen.GenCode(*function, {});
 }
 
-TEST_F(LiteNPUCodeGenAmax, test_amax_fp32_005) {
-    PROGRAM("AMAX_FP32_005") {
+TEST_F(LiteNPUCodeGenAmax, test_amax_fp32_005)
+{
+    PROGRAM("AMAX_FP32_005")
+    {
         TileShape::Current().SetVecTile({1, 2, 32});
         Tensor operand(DT_FP32, {2, 4, 160}, "operand");
         Tensor result;
-        FUNCTION("AMAX_FP32_005") {
-            result = Amax(operand, -1, false);
-        }
+        FUNCTION("AMAX_FP32_005") { result = Amax(operand, -1, false); }
     }
     auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + "AMAX_FP32_005");
     npu::tile_fwk::CodeGenCtx ctx;
@@ -343,14 +344,14 @@ TEST_F(LiteNPUCodeGenAmax, test_amax_fp32_005) {
     codeGen.GenCode(*function, {});
 }
 
-TEST_F(LiteNPUCodeGenAmax, test_amax_fp32_006) {
-    PROGRAM("AMAX_FP32_006") {
+TEST_F(LiteNPUCodeGenAmax, test_amax_fp32_006)
+{
+    PROGRAM("AMAX_FP32_006")
+    {
         TileShape::Current().SetVecTile({1, 2, 128});
         Tensor operand(DT_FP32, {2, 4, 140}, "operand");
         Tensor result;
-        FUNCTION("AMAX_FP32_006") {
-            result = Amax(operand, -1, false);
-        }
+        FUNCTION("AMAX_FP32_006") { result = Amax(operand, -1, false); }
     }
     auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + "AMAX_FP32_006");
     npu::tile_fwk::CodeGenCtx ctx;
@@ -358,14 +359,14 @@ TEST_F(LiteNPUCodeGenAmax, test_amax_fp32_006) {
     codeGen.GenCode(*function, {});
 }
 
-TEST_F(LiteNPUCodeGenAmax, test_amax_fp32_007) {
-    PROGRAM("AMAX_FP32_007") {
+TEST_F(LiteNPUCodeGenAmax, test_amax_fp32_007)
+{
+    PROGRAM("AMAX_FP32_007")
+    {
         TileShape::Current().SetVecTile({1, 5, 32});
         Tensor operand(DT_FP32, {2, 5, 152}, "operand");
         Tensor result;
-        FUNCTION("AMAX_FP32_007") {
-            result = Amax(operand, -1, false);
-        }
+        FUNCTION("AMAX_FP32_007") { result = Amax(operand, -1, false); }
     }
     auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + "AMAX_FP32_007");
     npu::tile_fwk::CodeGenCtx ctx;
@@ -373,14 +374,14 @@ TEST_F(LiteNPUCodeGenAmax, test_amax_fp32_007) {
     codeGen.GenCode(*function, {});
 }
 
-TEST_F(LiteNPUCodeGenAmax, test_amax_fp32_008) {
-    PROGRAM("AMAX_FP32_008") {
+TEST_F(LiteNPUCodeGenAmax, test_amax_fp32_008)
+{
+    PROGRAM("AMAX_FP32_008")
+    {
         TileShape::Current().SetVecTile({1, 3, 168});
         Tensor operand(DT_FP32, {2, 3, 170}, "operand");
         Tensor result;
-        FUNCTION("AMAX_FP32_008") {
-            result = Amax(operand, -1, false);
-        }
+        FUNCTION("AMAX_FP32_008") { result = Amax(operand, -1, false); }
     }
     auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + "AMAX_FP32_008");
     npu::tile_fwk::CodeGenCtx ctx;
@@ -388,14 +389,14 @@ TEST_F(LiteNPUCodeGenAmax, test_amax_fp32_008) {
     codeGen.GenCode(*function, {});
 }
 
-TEST_F(LiteNPUCodeGenAmax, test_amax_fp32_009) {
-    PROGRAM("AMAX_FP32_009") {
+TEST_F(LiteNPUCodeGenAmax, test_amax_fp32_009)
+{
+    PROGRAM("AMAX_FP32_009")
+    {
         TileShape::Current().SetVecTile({2, 1, 2, 16});
         Tensor operand(DT_FP32, {5, 2, 4, 176}, "operand");
         Tensor result;
-        FUNCTION("AMAX_FP32_009") {
-            result = Amax(operand, -1, false);
-        }
+        FUNCTION("AMAX_FP32_009") { result = Amax(operand, -1, false); }
     }
     auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + "AMAX_FP32_009");
     npu::tile_fwk::CodeGenCtx ctx;
@@ -403,14 +404,14 @@ TEST_F(LiteNPUCodeGenAmax, test_amax_fp32_009) {
     codeGen.GenCode(*function, {});
 }
 
-TEST_F(LiteNPUCodeGenAmax, test_amax_fp32_010) {
-    PROGRAM("AMAX_FP32_010") {
+TEST_F(LiteNPUCodeGenAmax, test_amax_fp32_010)
+{
+    PROGRAM("AMAX_FP32_010")
+    {
         TileShape::Current().SetVecTile({1, 1, 1, 128});
         Tensor operand(DT_FP32, {5, 2, 4, 130}, "operand");
         Tensor result;
-        FUNCTION("AMAX_FP32_010") {
-            result = Amax(operand, -1, false);
-        }
+        FUNCTION("AMAX_FP32_010") { result = Amax(operand, -1, false); }
     }
     auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + "AMAX_FP32_010");
     npu::tile_fwk::CodeGenCtx ctx;
@@ -418,14 +419,14 @@ TEST_F(LiteNPUCodeGenAmax, test_amax_fp32_010) {
     codeGen.GenCode(*function, {});
 }
 
-TEST_F(LiteNPUCodeGenAmax, test_amax_fp32_011) {
-    PROGRAM("AMAX_FP32_011") {
+TEST_F(LiteNPUCodeGenAmax, test_amax_fp32_011)
+{
+    PROGRAM("AMAX_FP32_011")
+    {
         TileShape::Current().SetVecTile({1, 1, 5, 32});
         Tensor operand(DT_FP32, {2, 3, 5, 134}, "operand");
         Tensor result;
-        FUNCTION("AMAX_FP32_011") {
-            result = Amax(operand, -1, false);
-        }
+        FUNCTION("AMAX_FP32_011") { result = Amax(operand, -1, false); }
     }
     auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + "AMAX_FP32_011");
     npu::tile_fwk::CodeGenCtx ctx;
@@ -433,14 +434,14 @@ TEST_F(LiteNPUCodeGenAmax, test_amax_fp32_011) {
     codeGen.GenCode(*function, {});
 }
 
-TEST_F(LiteNPUCodeGenAmax, test_amax_fp32_012) {
-    PROGRAM("AMAX_FP32_012") {
+TEST_F(LiteNPUCodeGenAmax, test_amax_fp32_012)
+{
+    PROGRAM("AMAX_FP32_012")
+    {
         TileShape::Current().SetVecTile({2, 2, 3, 32});
         Tensor operand(DT_FP32, {4, 2, 6, 135}, "operand");
         Tensor result;
-        FUNCTION("AMAX_FP32_012") {
-            result = Amax(operand, -1, false);
-        }
+        FUNCTION("AMAX_FP32_012") { result = Amax(operand, -1, false); }
     }
     auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + "AMAX_FP32_012");
     npu::tile_fwk::CodeGenCtx ctx;
@@ -448,14 +449,14 @@ TEST_F(LiteNPUCodeGenAmax, test_amax_fp32_012) {
     codeGen.GenCode(*function, {});
 }
 
-TEST_F(LiteNPUCodeGenAmax, test_amax_fp32_013) {
-    PROGRAM("AMAX_FP32_013") {
+TEST_F(LiteNPUCodeGenAmax, test_amax_fp32_013)
+{
+    PROGRAM("AMAX_FP32_013")
+    {
         TileShape::Current().SetVecTile({1, 1, 4, 128});
         Tensor operand(DT_FP32, {6, 2, 4, 130}, "operand");
         Tensor result;
-        FUNCTION("AMAX_FP32_013") {
-            result = Amax(operand, -1, false);
-        }
+        FUNCTION("AMAX_FP32_013") { result = Amax(operand, -1, false); }
     }
     auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + "AMAX_FP32_013");
     npu::tile_fwk::CodeGenCtx ctx;
@@ -463,14 +464,14 @@ TEST_F(LiteNPUCodeGenAmax, test_amax_fp32_013) {
     codeGen.GenCode(*function, {});
 }
 
-TEST_F(LiteNPUCodeGenAmax, test_amax_fp32_014) {
-    PROGRAM("AMAX_FP32_014") {
+TEST_F(LiteNPUCodeGenAmax, test_amax_fp32_014)
+{
+    PROGRAM("AMAX_FP32_014")
+    {
         TileShape::Current().SetVecTile({1, 2, 1, 136});
         Tensor operand(DT_FP32, {3, 2, 3, 139}, "operand");
         Tensor result;
-        FUNCTION("AMAX_FP32_014") {
-            result = Amax(operand, -1, false);
-        }
+        FUNCTION("AMAX_FP32_014") { result = Amax(operand, -1, false); }
     }
     auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + "AMAX_FP32_014");
     npu::tile_fwk::CodeGenCtx ctx;
@@ -478,14 +479,14 @@ TEST_F(LiteNPUCodeGenAmax, test_amax_fp32_014) {
     codeGen.GenCode(*function, {});
 }
 
-TEST_F(LiteNPUCodeGenAmax, test_amax_fp32_015) {
-    PROGRAM("AMAX_FP32_015") {
+TEST_F(LiteNPUCodeGenAmax, test_amax_fp32_015)
+{
+    PROGRAM("AMAX_FP32_015")
+    {
         TileShape::Current().SetVecTile({3, 3, 5, 32});
         Tensor operand(DT_FP32, {6, 3, 5, 141}, "operand");
         Tensor result;
-        FUNCTION("AMAX_FP32_015") {
-            result = Amax(operand, -1, false);
-        }
+        FUNCTION("AMAX_FP32_015") { result = Amax(operand, -1, false); }
     }
     auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + "AMAX_FP32_015");
     npu::tile_fwk::CodeGenCtx ctx;
