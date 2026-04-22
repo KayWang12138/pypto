@@ -44,6 +44,37 @@ namespace {
         return false;
     }
 
+    bool IsBoundaryAsInput(const LogicalTensor& tensor, const Operation* op)
+    {
+        if (op == nullptr) return false;
+        if (op->GetOpcode() == Opcode::OP_COPY_IN) {
+            return !op->GetIOperands().empty() && op->GetIOperands().front().get() == &tensor;
+        }
+        if (op->GetOpcode() == Opcode::OP_ASSEMBLE) {
+            return !op->GetOOperands().empty() &&
+            op->GetOOperands().front()->GetMemoryTypeOriginal() == MemoryType::MEM_DEVICE_DDR;
+        }
+        return false;
+    }
+
+    bool IsBoundaryAsOutput(const LogicalTensor& tensor, const Operation* op)
+    {
+        if (op == nullptr) return false;
+        if (op->GetOpcode() == Opcode::OP_COPY_OUT) {
+            return !op->HasAttribute(OpAttributeKey::inplaceIdx) && 
+                !op->GetOOperands().empty() && op->GetOOperands().front().get() == &tensor;
+        }
+        if (op->GetOpcode() == Opcode::OP_ASSEMBLE) {
+            return tensor.GetMemoryTypeOriginal() == MemoryType::MEM_DEVICE_DDR;
+        }
+        if (op->GetOpcode() == Opcode::OP_RESHAPE) {
+            return !op->GetIOperands().empty() && 
+                op->GetIOperands().front()->GetMemoryTypeOriginal() == MemoryType::MEM_DEVICE_DDR &&
+                tensor.GetMemoryTypeOriginal() == MemoryType::MEM_DEVICE_DDR;
+        }
+        return false;
+    }
+
     bool IsBaseBoundary(const LogicalTensor& tensor)
     {
         if (tensor.GetProducers().empty() && !tensor.GetConsumers().empty()) {
@@ -55,39 +86,17 @@ namespace {
             return true;
         }
 
-        // 当Tensor作为输入时
+        // 当 Tensor 作为输入时
         for (const auto& op : tensor.GetConsumers()) {
-            // Tensor为Copy In的输入
-            if (op->GetOpcode() == Opcode::OP_COPY_IN) {
-                if (!op->GetIOperands().empty() && op->GetIOperands().front().get() == &tensor) return true;
-            }
-            // DDR上的Assemble
-            if (op->GetOpcode() == Opcode::OP_ASSEMBLE) {
-                if (!op->GetOOperands().empty() && 
-                    op->GetOOperands().front()->GetMemoryTypeOriginal() == MemoryType::MEM_DEVICE_DDR) return true;
+            if (IsBoundaryAsInput(tensor, op)) {
+                return true;
             }
         }
 
-        // 当Tensor作为输出时
+        // 当 Tensor 作为输出时
         for (const auto& op : tensor.GetProducers()) {
-            // Tensor为Copy Out的输出
-            if (op->GetOpcode() == Opcode::OP_COPY_OUT) {
-                if (!op->HasAttribute(OpAttributeKey::inplaceIdx) && 
-                    !op->GetOOperands().empty() && op->GetOOperands().front().get() == &tensor) {
-                    return true;
-                }
-            }
-            // DDR上的Assemble
-            if (op->GetOpcode() == Opcode::OP_ASSEMBLE) {
-                if (tensor.GetMemoryTypeOriginal() == MemoryType::MEM_DEVICE_DDR) return true;
-            }
-            // Tensor为Reshape的输出
-            if (op->GetOpcode() == Opcode::OP_RESHAPE) {
-                if (!op->GetIOperands().empty() && 
-                    op->GetIOperands().front()->GetMemoryTypeOriginal() == MemoryType::MEM_DEVICE_DDR &&
-                    tensor.GetMemoryTypeOriginal() == MemoryType::MEM_DEVICE_DDR) {
-                    return true;
-                }
+            if (IsBoundaryAsOutput(tensor, op)) {
+                return true;
             }
         }
 
