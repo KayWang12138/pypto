@@ -15,7 +15,7 @@
 #include <type_traits>
 #include <vector>
 
-#include "core/logging.h"
+#include "tilefwk/error.h"
 #include "ir/reflection/field_traits.h"
 
 namespace pypto {

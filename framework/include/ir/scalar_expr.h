@@ -19,6 +19,7 @@
 #include "ir/expr.h"
 #include "ir/reflection/field_traits.h"
 #include "ir/type.h"
+#include "tilefwk/error.h"
 
 namespace pypto {
 namespace ir {
@@ -69,7 +70,7 @@ public:
         // Note: Must use dynamic_pointer_cast here because this header is included before
         // the TypePtr overload of As<> is defined in kind_traits.h
         auto scalarType = std::dynamic_pointer_cast<const ScalarType>(GetType());
-        INTERNAL_CHECK(scalarType) << "ConstInt is expected to have ScalarType type, but got " << GetType()->TypeName()
+        ASSERT(npu::tile_fwk::FError::EINTERNAL, scalarType) << "ConstInt is expected to have ScalarType type, but got " << GetType()->TypeName()
                                    << " at " << span_.ToString();
         return scalarType->dtype_;
     }
@@ -116,7 +117,7 @@ public:
         // Note: Must use dynamic_pointer_cast here because this header is included before
         // the TypePtr overload of As<> is defined in kind_traits.h
         auto scalarType = std::dynamic_pointer_cast<const ScalarType>(GetType());
-        INTERNAL_CHECK(scalarType) << "ConstFloat is expected to have ScalarType type, but got "
+        ASSERT(npu::tile_fwk::FError::EINTERNAL, scalarType) << "ConstFloat is expected to have ScalarType type, but got "
                                    << GetType()->TypeName() << " at " << span_.ToString();
         return scalarType->dtype_;
     }

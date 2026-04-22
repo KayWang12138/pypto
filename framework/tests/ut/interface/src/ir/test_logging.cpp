@@ -18,6 +18,7 @@
 #include <fstream>
 #include <string>
 
+#include "tilefwk/error.h"
 #include "core/logging.h"
 
 namespace pypto {

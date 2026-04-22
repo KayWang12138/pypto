@@ -16,9 +16,10 @@
 #pragma once
 
 #include <cstdint>
-#include "interface/utils/common.h"
 
 namespace npu::tile_fwk {
+
+#define TO_UNDERLYING(e) static_cast<uint32_t>(e)
 
 // =============================================================================
 // F0-1XXXX: external limitation
@@ -109,44 +110,44 @@ enum class CodeGenErrorCategory {
 };
 
 enum class FwkErr : uint32_t {
-    PLATFORM_NOT_SUPPORTED = ToUnderlying(CodeGenErrorCategory::FRAMEWORK) + 1U,
-    INVALID_FUNCTION = ToUnderlying(CodeGenErrorCategory::FRAMEWORK) + 2U,
+    PLATFORM_NOT_SUPPORTED = TO_UNDERLYING(CodeGenErrorCategory::FRAMEWORK) + 1U,
+    INVALID_FUNCTION = TO_UNDERLYING(CodeGenErrorCategory::FRAMEWORK) + 2U,
 };
 
 enum class OperErr : uint32_t {
-    ATTRIBUTE_INVALID = ToUnderlying(CodeGenErrorCategory::OPERATION_ADAPTER) + 1U,
-    TENSOR_DIM_EXCEEDED = ToUnderlying(CodeGenErrorCategory::OPERATION_ADAPTER) + 2U,
-    OPERAND_COUNT_EXCEEDED = ToUnderlying(CodeGenErrorCategory::OPERATION_ADAPTER) + 3U,
-    OPERAND_COUNT_NOT_MATCHED = ToUnderlying(CodeGenErrorCategory::OPERATION_ADAPTER) + 4U,
-    OPERATION_INIT_FAILED = ToUnderlying(CodeGenErrorCategory::OPERATION_ADAPTER) + 5U,
-    OPERAND_TYPE_UNSUPPORTED = ToUnderlying(CodeGenErrorCategory::OPERATION_ADAPTER) + 6U,
+    ATTRIBUTE_INVALID = TO_UNDERLYING(CodeGenErrorCategory::OPERATION_ADAPTER) + 1U,
+    TENSOR_DIM_EXCEEDED = TO_UNDERLYING(CodeGenErrorCategory::OPERATION_ADAPTER) + 2U,
+    OPERAND_COUNT_EXCEEDED = TO_UNDERLYING(CodeGenErrorCategory::OPERATION_ADAPTER) + 3U,
+    OPERAND_COUNT_NOT_MATCHED = TO_UNDERLYING(CodeGenErrorCategory::OPERATION_ADAPTER) + 4U,
+    OPERATION_INIT_FAILED = TO_UNDERLYING(CodeGenErrorCategory::OPERATION_ADAPTER) + 5U,
+    OPERAND_TYPE_UNSUPPORTED = TO_UNDERLYING(CodeGenErrorCategory::OPERATION_ADAPTER) + 6U,
 };
 
 enum class GenCodeErr : uint32_t {
-    GEN_OP_CODE_FAILED = ToUnderlying(CodeGenErrorCategory::GEN_OP_CODE) + 1U,
-    OP_CODE_UNSUPPORTED = ToUnderlying(CodeGenErrorCategory::GEN_OP_CODE) + 2U,
-    PRINT_FAILED = ToUnderlying(CodeGenErrorCategory::GEN_OP_CODE) + 3U,
-    PRINT_MODE_ERROR = ToUnderlying(CodeGenErrorCategory::GEN_OP_CODE) + 4U,
-    DATA_TYPE_MISMATCHED = ToUnderlying(CodeGenErrorCategory::GEN_OP_CODE) + 5U,
-    DATA_TYPE_UNSUPPORTED = ToUnderlying(CodeGenErrorCategory::GEN_OP_CODE) + 6U,
-    TENSOR_SHAPE_INVALID = ToUnderlying(CodeGenErrorCategory::GEN_OP_CODE) + 7U,
-    TENSOR_SHAPE_MISMATCHED = ToUnderlying(CodeGenErrorCategory::GEN_OP_CODE) + 8U,
-    TENSOR_DIM_UNSUPPORTED = ToUnderlying(CodeGenErrorCategory::GEN_OP_CODE) + 9U,
-    TENSOR_OFFSET_INVALID = ToUnderlying(CodeGenErrorCategory::GEN_OP_CODE) + 10U,
-    TENSOR_MAGIC_CONFLICT = ToUnderlying(CodeGenErrorCategory::GEN_OP_CODE) + 11U,
-    PARAM_IDX_INVALID = ToUnderlying(CodeGenErrorCategory::GEN_OP_CODE) + 12U,
-    TENSOR_NOT_FOUND = ToUnderlying(CodeGenErrorCategory::GEN_OP_CODE) + 13U,
-    SYMBOL_NOT_FOUND = ToUnderlying(CodeGenErrorCategory::GEN_OP_CODE) + 14U,
-    PIPE_ID_NOT_FOUND = ToUnderlying(CodeGenErrorCategory::GEN_OP_CODE) + 15U,
-    SYMBOL_ID_INVALID = ToUnderlying(CodeGenErrorCategory::GEN_OP_CODE) + 16U,
+    GEN_OP_CODE_FAILED = TO_UNDERLYING(CodeGenErrorCategory::GEN_OP_CODE) + 1U,
+    OP_CODE_UNSUPPORTED = TO_UNDERLYING(CodeGenErrorCategory::GEN_OP_CODE) + 2U,
+    PRINT_FAILED = TO_UNDERLYING(CodeGenErrorCategory::GEN_OP_CODE) + 3U,
+    PRINT_MODE_ERROR = TO_UNDERLYING(CodeGenErrorCategory::GEN_OP_CODE) + 4U,
+    DATA_TYPE_MISMATCHED = TO_UNDERLYING(CodeGenErrorCategory::GEN_OP_CODE) + 5U,
+    DATA_TYPE_UNSUPPORTED = TO_UNDERLYING(CodeGenErrorCategory::GEN_OP_CODE) + 6U,
+    TENSOR_SHAPE_INVALID = TO_UNDERLYING(CodeGenErrorCategory::GEN_OP_CODE) + 7U,
+    TENSOR_SHAPE_MISMATCHED = TO_UNDERLYING(CodeGenErrorCategory::GEN_OP_CODE) + 8U,
+    TENSOR_DIM_UNSUPPORTED = TO_UNDERLYING(CodeGenErrorCategory::GEN_OP_CODE) + 9U,
+    TENSOR_OFFSET_INVALID = TO_UNDERLYING(CodeGenErrorCategory::GEN_OP_CODE) + 10U,
+    TENSOR_MAGIC_CONFLICT = TO_UNDERLYING(CodeGenErrorCategory::GEN_OP_CODE) + 11U,
+    PARAM_IDX_INVALID = TO_UNDERLYING(CodeGenErrorCategory::GEN_OP_CODE) + 12U,
+    TENSOR_NOT_FOUND = TO_UNDERLYING(CodeGenErrorCategory::GEN_OP_CODE) + 13U,
+    SYMBOL_NOT_FOUND = TO_UNDERLYING(CodeGenErrorCategory::GEN_OP_CODE) + 14U,
+    PIPE_ID_NOT_FOUND = TO_UNDERLYING(CodeGenErrorCategory::GEN_OP_CODE) + 15U,
+    SYMBOL_ID_INVALID = TO_UNDERLYING(CodeGenErrorCategory::GEN_OP_CODE) + 16U,
 };
 
 enum class CmpCodeErr : uint32_t {
-    COMPILE_CODE_FAILED = ToUnderlying(CodeGenErrorCategory::COMPILE_CODE) + 1U,
-    INCLUDE_FILE_NOT_FOUND = ToUnderlying(CodeGenErrorCategory::COMPILE_CODE) + 2U,
-    PTO_ISA_NOT_FOUND = ToUnderlying(CodeGenErrorCategory::COMPILE_CODE) + 3U,
-    CMD_CHECK_FAILED = ToUnderlying(CodeGenErrorCategory::COMPILE_CODE) + 4U,
-    FILE_IO_FAILED = ToUnderlying(CodeGenErrorCategory::COMPILE_CODE) + 5U,
+    COMPILE_CODE_FAILED = TO_UNDERLYING(CodeGenErrorCategory::COMPILE_CODE) + 1U,
+    INCLUDE_FILE_NOT_FOUND = TO_UNDERLYING(CodeGenErrorCategory::COMPILE_CODE) + 2U,
+    PTO_ISA_NOT_FOUND = TO_UNDERLYING(CodeGenErrorCategory::COMPILE_CODE) + 3U,
+    CMD_CHECK_FAILED = TO_UNDERLYING(CodeGenErrorCategory::COMPILE_CODE) + 4U,
+    FILE_IO_FAILED = TO_UNDERLYING(CodeGenErrorCategory::COMPILE_CODE) + 5U,
 };
 
 // =============================================================================
@@ -170,148 +171,148 @@ enum class MachineError : uint32_t {
 };
 
 enum class DevDataErr : uint32_t {
-    DEV_RELOC_VECTOR_INDEX_OOB = ToUnderlying(MachineError::DEV_DATA) + 0x01U,
-    SMALL_ARRAY_RESIZE_OOB = ToUnderlying(MachineError::DEV_DATA) + 0x02U,
-    VECTOR_UNINITIALIZED = ToUnderlying(MachineError::DEV_DATA) + 0x03U,
-    VECTOR_INDEX_OUT_OF_RANGE = ToUnderlying(MachineError::DEV_DATA) + 0x04U,
-    VECTOR_EMPTY_ACCESS = ToUnderlying(MachineError::DEV_DATA) + 0x05U,
-    ITEM_POOL_UNINITIALIZED = ToUnderlying(MachineError::DEV_DATA) + 0x06U,
-    ITEM_POOL_FREE_LIST_INVALID = ToUnderlying(MachineError::DEV_DATA) + 0x07U,
-    ITEM_POOL_INDEX_OUT_OF_RANGE = ToUnderlying(MachineError::DEV_DATA) + 0x08U,
-    SHEET_COLUMN_MISMATCH = ToUnderlying(MachineError::DEV_DATA) + 0x09U,
-    SHEET_COLUMN_INDEX_OUT_OF_RANGE = ToUnderlying(MachineError::DEV_DATA) + 0x0AU,
+    DEV_RELOC_VECTOR_INDEX_OOB = TO_UNDERLYING(MachineError::DEV_DATA) + 0x01U,
+    SMALL_ARRAY_RESIZE_OOB = TO_UNDERLYING(MachineError::DEV_DATA) + 0x02U,
+    VECTOR_UNINITIALIZED = TO_UNDERLYING(MachineError::DEV_DATA) + 0x03U,
+    VECTOR_INDEX_OUT_OF_RANGE = TO_UNDERLYING(MachineError::DEV_DATA) + 0x04U,
+    VECTOR_EMPTY_ACCESS = TO_UNDERLYING(MachineError::DEV_DATA) + 0x05U,
+    ITEM_POOL_UNINITIALIZED = TO_UNDERLYING(MachineError::DEV_DATA) + 0x06U,
+    ITEM_POOL_FREE_LIST_INVALID = TO_UNDERLYING(MachineError::DEV_DATA) + 0x07U,
+    ITEM_POOL_INDEX_OUT_OF_RANGE = TO_UNDERLYING(MachineError::DEV_DATA) + 0x08U,
+    SHEET_COLUMN_MISMATCH = TO_UNDERLYING(MachineError::DEV_DATA) + 0x09U,
+    SHEET_COLUMN_INDEX_OUT_OF_RANGE = TO_UNDERLYING(MachineError::DEV_DATA) + 0x0AU,
 };
 
 enum class DevCommonErr : uint32_t {
-    MEMCPY_FAILED = ToUnderlying(MachineError::DEV_COMMON) + 0x01U,
-    ALLOC_FAILED = ToUnderlying(MachineError::DEV_COMMON) + 0x02U,
-    MALLOC_FAILED = ToUnderlying(MachineError::DEV_COMMON) + 0x03U,
-    NULLPTR = ToUnderlying(MachineError::DEV_COMMON) + 0x04U,
-    PARAM_INVALID = ToUnderlying(MachineError::DEV_COMMON) + 0x05U,
-    PARAM_CHECK_FAILED = ToUnderlying(MachineError::DEV_COMMON) + 0x06U,
-    FILE_ERROR = ToUnderlying(MachineError::DEV_COMMON) + 0x07U,
-    SYSTEM_CALL_FAILED = ToUnderlying(MachineError::DEV_COMMON) + 0x08U,
-    GET_ENV_FAILED = ToUnderlying(MachineError::DEV_COMMON) + 0x09U,
-    GET_HANDLE_FAILED = ToUnderlying(MachineError::DEV_COMMON) + 0x0AU,
-    FREE_FAILED = ToUnderlying(MachineError::DEV_COMMON) + 0x0BU,
-    LOAD_LIBRARY_FAILED = ToUnderlying(MachineError::DEV_COMMON) + 0x0CU,
-    INIT_FAILED = ToUnderlying(MachineError::DEV_COMMON) + 0x0DU,
-    EXEC_THRID_API_FAILD = ToUnderlying(MachineError::DEV_COMMON) + 0x0EU,
-    CANN_API_NOT_FOUND = ToUnderlying(MachineError::DEV_COMMON) + 0x0FU,
+    MEMCPY_FAILED = TO_UNDERLYING(MachineError::DEV_COMMON) + 0x01U,
+    ALLOC_FAILED = TO_UNDERLYING(MachineError::DEV_COMMON) + 0x02U,
+    MALLOC_FAILED = TO_UNDERLYING(MachineError::DEV_COMMON) + 0x03U,
+    NULLPTR = TO_UNDERLYING(MachineError::DEV_COMMON) + 0x04U,
+    PARAM_INVALID = TO_UNDERLYING(MachineError::DEV_COMMON) + 0x05U,
+    PARAM_CHECK_FAILED = TO_UNDERLYING(MachineError::DEV_COMMON) + 0x06U,
+    FILE_ERROR = TO_UNDERLYING(MachineError::DEV_COMMON) + 0x07U,
+    SYSTEM_CALL_FAILED = TO_UNDERLYING(MachineError::DEV_COMMON) + 0x08U,
+    GET_ENV_FAILED = TO_UNDERLYING(MachineError::DEV_COMMON) + 0x09U,
+    GET_HANDLE_FAILED = TO_UNDERLYING(MachineError::DEV_COMMON) + 0x0AU,
+    FREE_FAILED = TO_UNDERLYING(MachineError::DEV_COMMON) + 0x0BU,
+    LOAD_LIBRARY_FAILED = TO_UNDERLYING(MachineError::DEV_COMMON) + 0x0CU,
+    INIT_FAILED = TO_UNDERLYING(MachineError::DEV_COMMON) + 0x0DU,
+    EXEC_THRID_API_FAILD = TO_UNDERLYING(MachineError::DEV_COMMON) + 0x0EU,
+    CANN_API_NOT_FOUND = TO_UNDERLYING(MachineError::DEV_COMMON) + 0x0FU,
 };
 
 enum class HostBackEndErr : uint32_t {
-    COMPILE_AICORE_FAILED = ToUnderlying(MachineError::HOST_BACKEND) + 0x01U,
-    COMPILE_CCEC_FAILED = ToUnderlying(MachineError::HOST_BACKEND) + 0x02U,
-    LINK_FAILED = ToUnderlying(MachineError::HOST_BACKEND) + 0x03U,
-    GEN_AICORE_FILE_FAILED = ToUnderlying(MachineError::HOST_BACKEND) + 0x04U,
-    GEN_DYNAMIC_OP_FAILED = ToUnderlying(MachineError::HOST_BACKEND) + 0x05U,
-    PRECOMPILE_FAILED = ToUnderlying(MachineError::HOST_BACKEND) + 0x06U,
-    FUNCTION_CACHE_HASH_MISS = ToUnderlying(MachineError::HOST_BACKEND) + 0x07U,
-    DUPLICATE_LEAF_FUNC_HASH = ToUnderlying(MachineError::HOST_BACKEND) + 0x08U,
-    RUN_PASS_FAILED = ToUnderlying(MachineError::HOST_BACKEND) + 0x09U,
+    COMPILE_AICORE_FAILED = TO_UNDERLYING(MachineError::HOST_BACKEND) + 0x01U,
+    COMPILE_CCEC_FAILED = TO_UNDERLYING(MachineError::HOST_BACKEND) + 0x02U,
+    LINK_FAILED = TO_UNDERLYING(MachineError::HOST_BACKEND) + 0x03U,
+    GEN_AICORE_FILE_FAILED = TO_UNDERLYING(MachineError::HOST_BACKEND) + 0x04U,
+    GEN_DYNAMIC_OP_FAILED = TO_UNDERLYING(MachineError::HOST_BACKEND) + 0x05U,
+    PRECOMPILE_FAILED = TO_UNDERLYING(MachineError::HOST_BACKEND) + 0x06U,
+    FUNCTION_CACHE_HASH_MISS = TO_UNDERLYING(MachineError::HOST_BACKEND) + 0x07U,
+    DUPLICATE_LEAF_FUNC_HASH = TO_UNDERLYING(MachineError::HOST_BACKEND) + 0x08U,
+    RUN_PASS_FAILED = TO_UNDERLYING(MachineError::HOST_BACKEND) + 0x09U,
 };
 
 enum class HostLauncherErr : uint32_t {
-    LAUNCH_AICPU_FAILED = ToUnderlying(MachineError::HOST_LAUNCHER) + 0x01U,
-    LAUNCH_PREPARE_FAILED = ToUnderlying(MachineError::HOST_LAUNCHER) + 0x02U,
-    LAUNCH_CUSTOM_AICPU_FAILED = ToUnderlying(MachineError::HOST_LAUNCHER) + 0x03U,
-    LAUNCH_AICORE_FAILED = ToUnderlying(MachineError::HOST_LAUNCHER) + 0x04U,
-    LAUNCH_BUILTIN_OP_NULL_FAILED = ToUnderlying(MachineError::HOST_LAUNCHER) + 0x05U,
-    REGISTER_KERNEL_FAILED = ToUnderlying(MachineError::HOST_LAUNCHER) + 0x06U,
-    PREPARE_ARGS_FAILED = ToUnderlying(MachineError::HOST_LAUNCHER) + 0x07U,
-    MAP_REG_ADDR_FAILED = ToUnderlying(MachineError::HOST_LAUNCHER) + 0x08U,
-    MEM_POOL_CHECK_ALL_SENTINELS_FAILED = ToUnderlying(MachineError::HOST_LAUNCHER) + 0x09U,
-    TRIPLE_STREAM_ERROR = ToUnderlying(MachineError::HOST_LAUNCHER) + 0x0AU,
-    SYNC_FAILED = ToUnderlying(MachineError::HOST_LAUNCHER) + 0x0BU,
+    LAUNCH_AICPU_FAILED = TO_UNDERLYING(MachineError::HOST_LAUNCHER) + 0x01U,
+    LAUNCH_PREPARE_FAILED = TO_UNDERLYING(MachineError::HOST_LAUNCHER) + 0x02U,
+    LAUNCH_CUSTOM_AICPU_FAILED = TO_UNDERLYING(MachineError::HOST_LAUNCHER) + 0x03U,
+    LAUNCH_AICORE_FAILED = TO_UNDERLYING(MachineError::HOST_LAUNCHER) + 0x04U,
+    LAUNCH_BUILTIN_OP_NULL_FAILED = TO_UNDERLYING(MachineError::HOST_LAUNCHER) + 0x05U,
+    REGISTER_KERNEL_FAILED = TO_UNDERLYING(MachineError::HOST_LAUNCHER) + 0x06U,
+    PREPARE_ARGS_FAILED = TO_UNDERLYING(MachineError::HOST_LAUNCHER) + 0x07U,
+    MAP_REG_ADDR_FAILED = TO_UNDERLYING(MachineError::HOST_LAUNCHER) + 0x08U,
+    MEM_POOL_CHECK_ALL_SENTINELS_FAILED = TO_UNDERLYING(MachineError::HOST_LAUNCHER) + 0x09U,
+    TRIPLE_STREAM_ERROR = TO_UNDERLYING(MachineError::HOST_LAUNCHER) + 0x0AU,
+    SYNC_FAILED = TO_UNDERLYING(MachineError::HOST_LAUNCHER) + 0x0BU,
 };
 
 enum class SchedErr : uint32_t {
-    TASK_WAIT_TIMEOUT = ToUnderlying(MachineError::SCHEDULE) + 0x01U,
-    HANDSHAKE_TIMEOUT = ToUnderlying(MachineError::SCHEDULE) + 0x02U,
-    READY_QUEUE_OVERFLOW = ToUnderlying(MachineError::SCHEDULE) + 0x03U,
-    CORE_TASK_EXEC_FAILED = ToUnderlying(MachineError::SCHEDULE) + 0x04U,
-    CORE_TASK_PROCESS_FAILED = ToUnderlying(MachineError::SCHEDULE) + 0x05U,
-    RINGBUFFER_WAIT_TIMEOUT = ToUnderlying(MachineError::SCHEDULE) + 0x06U,
-    ABNOMAL_LAST_WORD = ToUnderlying(MachineError::SCHEDULE) + 0x07U,
-    SCH_DEVTASK_CTX_FULL = ToUnderlying(MachineError::SCHEDULE) + 0x08U,
-    FSM_STATUS_ERROR = ToUnderlying(MachineError::SCHEDULE) + 0x09U,
-    SCH_PARALLEL_DEVTASK_TIMEOUT = ToUnderlying(MachineError::SCHEDULE) + 0x0aU,
+    TASK_WAIT_TIMEOUT = TO_UNDERLYING(MachineError::SCHEDULE) + 0x01U,
+    HANDSHAKE_TIMEOUT = TO_UNDERLYING(MachineError::SCHEDULE) + 0x02U,
+    READY_QUEUE_OVERFLOW = TO_UNDERLYING(MachineError::SCHEDULE) + 0x03U,
+    CORE_TASK_EXEC_FAILED = TO_UNDERLYING(MachineError::SCHEDULE) + 0x04U,
+    CORE_TASK_PROCESS_FAILED = TO_UNDERLYING(MachineError::SCHEDULE) + 0x05U,
+    RINGBUFFER_WAIT_TIMEOUT = TO_UNDERLYING(MachineError::SCHEDULE) + 0x06U,
+    ABNOMAL_LAST_WORD = TO_UNDERLYING(MachineError::SCHEDULE) + 0x07U,
+    SCH_DEVTASK_CTX_FULL = TO_UNDERLYING(MachineError::SCHEDULE) + 0x08U,
+    FSM_STATUS_ERROR = TO_UNDERLYING(MachineError::SCHEDULE) + 0x09U,
+    SCH_PARALLEL_DEVTASK_TIMEOUT = TO_UNDERLYING(MachineError::SCHEDULE) + 0x0aU,
 };
 
 enum class CtrlErr : uint32_t {
-    CTRL_FLOW_EXEC_FAILED = ToUnderlying(MachineError::CONTROL_FLOW) + 0x01U,
-    ROOT_ALLOC_CTX_NULL = ToUnderlying(MachineError::CONTROL_FLOW) + 0x02U,
-    ROOT_STITCH_CTX_NULL = ToUnderlying(MachineError::CONTROL_FLOW) + 0x03U,
-    DEVICE_TASK_BUILD_FAILED = ToUnderlying(MachineError::CONTROL_FLOW) + 0x04U,
-    TASK_STATS_ABNORMAL = ToUnderlying(MachineError::CONTROL_FLOW) + 0x05U,
-    CTRL_INIT_FAILED = ToUnderlying(MachineError::CONTROL_FLOW) + 0x06U,
-    CTRL_SIM_FAILED = ToUnderlying(MachineError::CONTROL_FLOW) + 0x07U,
-    CTRL_ALLOC_TIMEOUT = ToUnderlying(MachineError::CONTROL_FLOW) + 0x08U,
+    CTRL_FLOW_EXEC_FAILED = TO_UNDERLYING(MachineError::CONTROL_FLOW) + 0x01U,
+    ROOT_ALLOC_CTX_NULL = TO_UNDERLYING(MachineError::CONTROL_FLOW) + 0x02U,
+    ROOT_STITCH_CTX_NULL = TO_UNDERLYING(MachineError::CONTROL_FLOW) + 0x03U,
+    DEVICE_TASK_BUILD_FAILED = TO_UNDERLYING(MachineError::CONTROL_FLOW) + 0x04U,
+    TASK_STATS_ABNORMAL = TO_UNDERLYING(MachineError::CONTROL_FLOW) + 0x05U,
+    CTRL_INIT_FAILED = TO_UNDERLYING(MachineError::CONTROL_FLOW) + 0x06U,
+    CTRL_SIM_FAILED = TO_UNDERLYING(MachineError::CONTROL_FLOW) + 0x07U,
+    CTRL_ALLOC_TIMEOUT = TO_UNDERLYING(MachineError::CONTROL_FLOW) + 0x08U,
 };
 
 enum class WsErr : uint32_t {
-    SLAB_ADD_CACHE_FAILED = ToUnderlying(MachineError::WORKSPACE) + 0x01U,
-    SLAB_STAGE_LIST_INCONSISTENT = ToUnderlying(MachineError::WORKSPACE) + 0x02U,
-    SLAB_TYPE_INVALID = ToUnderlying(MachineError::WORKSPACE) + 0x03U,
-    WORKSPACE_INIT_RESOURCE_ERROR = ToUnderlying(MachineError::WORKSPACE) + 0x04U,
-    WORKSPACE_INIT_PARAM_INVALID = ToUnderlying(MachineError::WORKSPACE) + 0x05U,
-    WS_TENSOR_ADDRESS_OUT_OF_RANGE = ToUnderlying(MachineError::WORKSPACE) + 0x06U,
-    WORKSPACE_ITER_INVALID = ToUnderlying(MachineError::WORKSPACE) + 0x07U,
-    WORKSPACE_REFCOUNT_INVALID = ToUnderlying(MachineError::WORKSPACE) + 0x08U,
-    WORKSPACE_ALLOCATOR_REGIST_FAILED = ToUnderlying(MachineError::WORKSPACE) + 0x09U,
-    WORKSPACE_CATEGORY_INVALID = ToUnderlying(MachineError::WORKSPACE) + 0x0AU,
-    WORKSPACE_CAPACITY_INSUFFICIENT = ToUnderlying(MachineError::WORKSPACE) + 0x0BU,
-    WORKSPACE_BASE_ADDR_OUT_OF_RANGE = ToUnderlying(MachineError::WORKSPACE) + 0x0CU,
+    SLAB_ADD_CACHE_FAILED = TO_UNDERLYING(MachineError::WORKSPACE) + 0x01U,
+    SLAB_STAGE_LIST_INCONSISTENT = TO_UNDERLYING(MachineError::WORKSPACE) + 0x02U,
+    SLAB_TYPE_INVALID = TO_UNDERLYING(MachineError::WORKSPACE) + 0x03U,
+    WORKSPACE_INIT_RESOURCE_ERROR = TO_UNDERLYING(MachineError::WORKSPACE) + 0x04U,
+    WORKSPACE_INIT_PARAM_INVALID = TO_UNDERLYING(MachineError::WORKSPACE) + 0x05U,
+    WS_TENSOR_ADDRESS_OUT_OF_RANGE = TO_UNDERLYING(MachineError::WORKSPACE) + 0x06U,
+    WORKSPACE_ITER_INVALID = TO_UNDERLYING(MachineError::WORKSPACE) + 0x07U,
+    WORKSPACE_REFCOUNT_INVALID = TO_UNDERLYING(MachineError::WORKSPACE) + 0x08U,
+    WORKSPACE_ALLOCATOR_REGIST_FAILED = TO_UNDERLYING(MachineError::WORKSPACE) + 0x09U,
+    WORKSPACE_CATEGORY_INVALID = TO_UNDERLYING(MachineError::WORKSPACE) + 0x0AU,
+    WORKSPACE_CAPACITY_INSUFFICIENT = TO_UNDERLYING(MachineError::WORKSPACE) + 0x0BU,
+    WORKSPACE_BASE_ADDR_OUT_OF_RANGE = TO_UNDERLYING(MachineError::WORKSPACE) + 0x0CU,
 };
 
 enum class ProgEncodeErr : uint32_t {
-    DYNFUNC_DATA_ALIGNMENT_ERROR = ToUnderlying(MachineError::PROGRAM_ENCODE) + 0x01U,
-    FUNC_OP_SIZE_MISMATCH = ToUnderlying(MachineError::PROGRAM_ENCODE) + 0x02U,
-    STITCH_PRED_SUCC_MISMATCH = ToUnderlying(MachineError::PROGRAM_ENCODE) + 0x03U,
-    STITCH_LIST_TOO_LARGE = ToUnderlying(MachineError::PROGRAM_ENCODE) + 0x04U,
-    STITCH_HANDLE_INDEX_OUT_OF_RANGE = ToUnderlying(MachineError::PROGRAM_ENCODE) + 0x05U,
-    CELL_MATCH_PARAM_INVALID = ToUnderlying(MachineError::PROGRAM_ENCODE) + 0x06U,
-    RANGE_VERIFY_FAILED = ToUnderlying(MachineError::PROGRAM_ENCODE) + 0x07U,
-    CACHE_RELOC_KIND_INVALID = ToUnderlying(MachineError::PROGRAM_ENCODE) + 0x08U,
-    ADDR_OFFSET_RAW_MAGIC_MISMATCH = ToUnderlying(MachineError::PROGRAM_ENCODE) + 0x09U,
-    CALL_OP_COUNT_EXCEEDS_UINT16_MAX = ToUnderlying(MachineError::PROGRAM_ENCODE) + 0x0AU,
-    CELL_MATCH_DIM_ZERO = ToUnderlying(MachineError::PROGRAM_ENCODE) + 0x0BU,
-    ASSEMBLE_STITCH_MEMORY_EXCESS = ToUnderlying(MachineError::PROGRAM_ENCODE) + 0x0CU,
-    LEAF_CALLEE_ATTR_NULL = ToUnderlying(MachineError::PROGRAM_ENCODE) + 0x0DU,
+    DYNFUNC_DATA_ALIGNMENT_ERROR = TO_UNDERLYING(MachineError::PROGRAM_ENCODE) + 0x01U,
+    FUNC_OP_SIZE_MISMATCH = TO_UNDERLYING(MachineError::PROGRAM_ENCODE) + 0x02U,
+    STITCH_PRED_SUCC_MISMATCH = TO_UNDERLYING(MachineError::PROGRAM_ENCODE) + 0x03U,
+    STITCH_LIST_TOO_LARGE = TO_UNDERLYING(MachineError::PROGRAM_ENCODE) + 0x04U,
+    STITCH_HANDLE_INDEX_OUT_OF_RANGE = TO_UNDERLYING(MachineError::PROGRAM_ENCODE) + 0x05U,
+    CELL_MATCH_PARAM_INVALID = TO_UNDERLYING(MachineError::PROGRAM_ENCODE) + 0x06U,
+    RANGE_VERIFY_FAILED = TO_UNDERLYING(MachineError::PROGRAM_ENCODE) + 0x07U,
+    CACHE_RELOC_KIND_INVALID = TO_UNDERLYING(MachineError::PROGRAM_ENCODE) + 0x08U,
+    ADDR_OFFSET_RAW_MAGIC_MISMATCH = TO_UNDERLYING(MachineError::PROGRAM_ENCODE) + 0x09U,
+    CALL_OP_COUNT_EXCEEDS_UINT16_MAX = TO_UNDERLYING(MachineError::PROGRAM_ENCODE) + 0x0AU,
+    CELL_MATCH_DIM_ZERO = TO_UNDERLYING(MachineError::PROGRAM_ENCODE) + 0x0BU,
+    ASSEMBLE_STITCH_MEMORY_EXCESS = TO_UNDERLYING(MachineError::PROGRAM_ENCODE) + 0x0CU,
+    LEAF_CALLEE_ATTR_NULL = TO_UNDERLYING(MachineError::PROGRAM_ENCODE) + 0x0DU,
 };
 
 enum class TensorMetaErr : uint32_t {
-    TENSOR_DIM_COUNT_EXCEEDED = ToUnderlying(MachineError::TENSOR_META) + 0x01U,
-    TENSOR_ENCODE_PTR_MISMATCH = ToUnderlying(MachineError::TENSOR_META) + 0x02U,
-    RAW_TENSOR_INDEX_OUT_OF_RANGE = ToUnderlying(MachineError::TENSOR_META) + 0x03U,
-    SHAPE_VALUE_MISMATCH = ToUnderlying(MachineError::TENSOR_META) + 0x04U,
-    INCAST_ADDRESS_NULL = ToUnderlying(MachineError::TENSOR_META) + 0x05U,
-    OUTCAST_ADDRESS_NULL = ToUnderlying(MachineError::TENSOR_META) + 0x06U,
-    RUNTIME_WORKSPACE_NULL = ToUnderlying(MachineError::TENSOR_META) + 0x07U,
+    TENSOR_DIM_COUNT_EXCEEDED = TO_UNDERLYING(MachineError::TENSOR_META) + 0x01U,
+    TENSOR_ENCODE_PTR_MISMATCH = TO_UNDERLYING(MachineError::TENSOR_META) + 0x02U,
+    RAW_TENSOR_INDEX_OUT_OF_RANGE = TO_UNDERLYING(MachineError::TENSOR_META) + 0x03U,
+    SHAPE_VALUE_MISMATCH = TO_UNDERLYING(MachineError::TENSOR_META) + 0x04U,
+    INCAST_ADDRESS_NULL = TO_UNDERLYING(MachineError::TENSOR_META) + 0x05U,
+    OUTCAST_ADDRESS_NULL = TO_UNDERLYING(MachineError::TENSOR_META) + 0x06U,
+    RUNTIME_WORKSPACE_NULL = TO_UNDERLYING(MachineError::TENSOR_META) + 0x07U,
 };
 
 enum class ServerKernelErr : uint32_t {
-    KERNEL_EXEC_FAILED = ToUnderlying(MachineError::SERVER_KERNEL) + 0x01U,
+    KERNEL_EXEC_FAILED = TO_UNDERLYING(MachineError::SERVER_KERNEL) + 0x01U,
 };
 
 enum class ThreadErr : uint32_t {
-    SIGNAL_HANDLER_ABNORMAL = ToUnderlying(MachineError::THREAD_MACHINE) + 0x01U,
-    THREAD_CPU_ALLOC_FAILED = ToUnderlying(MachineError::THREAD_MACHINE) + 0x03U,
+    SIGNAL_HANDLER_ABNORMAL = TO_UNDERLYING(MachineError::THREAD_MACHINE) + 0x01U,
+    THREAD_CPU_ALLOC_FAILED = TO_UNDERLYING(MachineError::THREAD_MACHINE) + 0x03U,
 };
 
 enum class RtErr : uint32_t {
-    RT_INIT_FAILED = ToUnderlying(MachineError::RUNTIME_ERROR) + 0x01U,
-    RT_MEMCPY_FAILED = ToUnderlying(MachineError::RUNTIME_ERROR) + 0x02U,
-    RT_MEMSET_FAILED = ToUnderlying(MachineError::RUNTIME_ERROR) + 0x03U,
-    RT_MALLOC_FAILED = ToUnderlying(MachineError::RUNTIME_ERROR) + 0x04U,
-    RT_LAUNCH_FAILED = ToUnderlying(MachineError::RUNTIME_ERROR) + 0x05U,
-    RT_EVENT_FAILED = ToUnderlying(MachineError::RUNTIME_ERROR) + 0x06U,
-    RT_CAPTURE_FAILED = ToUnderlying(MachineError::RUNTIME_ERROR) + 0x07U,
-    RT_REGISTER_FAILED = ToUnderlying(MachineError::RUNTIME_ERROR) + 0x08U,
-    RT_LOAD_FAILED = ToUnderlying(MachineError::RUNTIME_ERROR) + 0x09U,
-    RT_GET_FUNC_FAILED = ToUnderlying(MachineError::RUNTIME_ERROR) + 0x0AU,
-    RT_DEVICE_FAILED = ToUnderlying(MachineError::RUNTIME_ERROR) + 0x0BU,
+    RT_INIT_FAILED = TO_UNDERLYING(MachineError::RUNTIME_ERROR) + 0x01U,
+    RT_MEMCPY_FAILED = TO_UNDERLYING(MachineError::RUNTIME_ERROR) + 0x02U,
+    RT_MEMSET_FAILED = TO_UNDERLYING(MachineError::RUNTIME_ERROR) + 0x03U,
+    RT_MALLOC_FAILED = TO_UNDERLYING(MachineError::RUNTIME_ERROR) + 0x04U,
+    RT_LAUNCH_FAILED = TO_UNDERLYING(MachineError::RUNTIME_ERROR) + 0x05U,
+    RT_EVENT_FAILED = TO_UNDERLYING(MachineError::RUNTIME_ERROR) + 0x06U,
+    RT_CAPTURE_FAILED = TO_UNDERLYING(MachineError::RUNTIME_ERROR) + 0x07U,
+    RT_REGISTER_FAILED = TO_UNDERLYING(MachineError::RUNTIME_ERROR) + 0x08U,
+    RT_LOAD_FAILED = TO_UNDERLYING(MachineError::RUNTIME_ERROR) + 0x09U,
+    RT_GET_FUNC_FAILED = TO_UNDERLYING(MachineError::RUNTIME_ERROR) + 0x0AU,
+    RT_DEVICE_FAILED = TO_UNDERLYING(MachineError::RUNTIME_ERROR) + 0x0BU,
 };
 
 // =============================================================================
@@ -475,6 +476,8 @@ enum class ConvTileOpError : uint32_t {
     TILEOP_INDEX_INVALID = 0xC6404U,
     UNKNOWN = 0xC6499U
 };
+
+#undef TO_UNDERLYING
 
 } // namespace npu::tile_fwk
 

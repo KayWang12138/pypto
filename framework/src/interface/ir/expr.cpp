@@ -14,8 +14,7 @@
 #include <utility>
 #include <vector>
 
-#include "core/error.h"
-#include "core/logging.h"
+#include "tilefwk/error.h"
 #include "ir/kind_traits.h"
 #include "ir/type.h"
 
@@ -40,11 +39,11 @@ TupleGetItemExpr::TupleGetItemExpr(ExprPtr tuple, int index, Span span)
 {
     // Type checking: tuple must have TupleType
     auto tupleType = As<TupleType>(tuple_->GetType());
-    INTERNAL_CHECK(tupleType) << "TupleGetItemExpr requires tuple to have TupleType, got "
+    ASSERT(npu::tile_fwk::FError::EINTERNAL, tupleType) << "TupleGetItemExpr requires tuple to have TupleType, got "
                               << tuple_->GetType()->TypeName() << " at " << span_.ToString();
 
     // Bounds checking
-    INTERNAL_CHECK(index >= 0 && index < static_cast<int>(tupleType->types_.size()))
+    ASSERT(npu::tile_fwk::FError::EINTERNAL, index >= 0 && index < static_cast<int>(tupleType->types_.size()))
         << "TupleGetItemExpr index " << index << " out of bounds for tuple with " << tupleType->types_.size()
         << " elements at " << span_.ToString();
 
