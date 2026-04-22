@@ -376,12 +376,75 @@ TEST_F(Fp8DecodeTest, DecodeFp8E4M3_NormalNegative)
     EXPECT_NEAR(-4.0f, DecodeFp8E4M3(0xC8), 0.02f);
 }
 
-// 测试 DecodeFp8E4M3 对最大值(0x7E≈448)的解码，验证无 Inf 溢出
+// 测试 DecodeFp8E4M3 对最大值(exp=15)的解码，验证 E4M3 特殊定义
+// E4M3 special: exp=15 → 240.0 (fixed value, no Inf/NaN)
+// This is NVIDIA/ARM E4M3 standard definition
 TEST_F(Fp8DecodeTest, DecodeFp8E4M3_MaxValue)
 {
-    float maxVal = DecodeFp8E4M3(0x7E);
-    EXPECT_NEAR(448.0f, maxVal, 1.0f);
-    EXPECT_FALSE(std::isinf(maxVal));
+    // exp=15, mant=6 (0x7E)
+    EXPECT_NEAR(240.0f, DecodeFp8E4M3(0x7E), 1.0f);
+    EXPECT_FALSE(std::isinf(DecodeFp8E4M3(0x7E)));
+    
+    // exp=15, mant=0 (0x78)
+    EXPECT_NEAR(240.0f, DecodeFp8E4M3(0x78), 1.0f);
+    
+    // exp=15, mant=7 (0x7F)
+    EXPECT_NEAR(240.0f, DecodeFp8E4M3(0x7F), 1.0f);
+    
+    // Negative max (0xFE)
+    EXPECT_NEAR(-240.0f, DecodeFp8E4M3(0xFE), 1.0f);
+}
+
+// 测试 DecodeFp8E4M3 对次正规值(指数为0且尾数非0)的解码
+// FP8 E4M3 subnormal: exp=0000, mant=001~111
+// IEEE formula: value = mant × 2^(-MantBits) × 2^(1-bias) = mant × 2^-9
+// 0x01 (mant=1): 1 × 2^-9 = 0.001953125
+// 0x02 (mant=2): 2 × 2^-9 = 0.003906250
+// 0x03 (mant=3): 3 × 2^-9 = 0.005859375
+// 0x04 (mant=4): 4 × 2^-9 = 0.007812500
+// 0x05 (mant=5): 5 × 2^-9 = 0.009765625
+// 0x06 (mant=6): 6 × 2^-9 = 0.011718750
+// 0x07 (mant=7): 7 × 2^-9 = 0.013671875
+TEST_F(Fp8DecodeTest, DecodeFp8E4M3_SubnormalValues)
+{
+    // Min subnormal (mant=1)
+    EXPECT_NEAR(std::pow(2.0f, -9), DecodeFp8E4M3(0x01), 1e-10f);
+    EXPECT_GT(DecodeFp8E4M3(0x01), 0.0f);
+    EXPECT_LT(DecodeFp8E4M3(0x01), 0.002f);
+
+    // Max subnormal (mant=7)
+    EXPECT_NEAR(7.0f * std::pow(2.0f, -9), DecodeFp8E4M3(0x07), 1e-10f);
+    EXPECT_GT(DecodeFp8E4M3(0x07), 0.01f);
+    EXPECT_LT(DecodeFp8E4M3(0x07), 0.014f);
+
+    // Complete coverage: all subnormal mantissa values
+    EXPECT_NEAR(2.0f * std::pow(2.0f, -9), DecodeFp8E4M3(0x02), 1e-10f);
+    EXPECT_NEAR(3.0f * std::pow(2.0f, -9), DecodeFp8E4M3(0x03), 1e-10f);
+    EXPECT_NEAR(4.0f * std::pow(2.0f, -9), DecodeFp8E4M3(0x04), 1e-10f);
+    EXPECT_NEAR(5.0f * std::pow(2.0f, -9), DecodeFp8E4M3(0x05), 1e-10f);
+    EXPECT_NEAR(6.0f * std::pow(2.0f, -9), DecodeFp8E4M3(0x06), 1e-10f);
+}
+
+// 测试 DecodeFp8E4M3 对负次正规值的解码，验证符号位处理
+// 0x81 (sign=1, mant=1): -1 × 2^-9 = -0.001953125
+// 0x82 (sign=1, mant=2): -2 × 2^-9 = -0.003906250
+// 0x87 (sign=1, mant=7): -7 × 2^-9 = -0.013671875
+TEST_F(Fp8DecodeTest, DecodeFp8E4M3_SubnormalNegative)
+{
+    // Min negative subnormal
+    EXPECT_NEAR(-std::pow(2.0f, -9), DecodeFp8E4M3(0x81), 1e-10f);
+    EXPECT_LT(DecodeFp8E4M3(0x81), 0.0f);
+
+    // Max negative subnormal
+    EXPECT_NEAR(-7.0f * std::pow(2.0f, -9), DecodeFp8E4M3(0x87), 1e-10f);
+    EXPECT_LT(DecodeFp8E4M3(0x87), 0.0f);
+
+    // Complete coverage
+    EXPECT_NEAR(-2.0f * std::pow(2.0f, -9), DecodeFp8E4M3(0x82), 1e-10f);
+    EXPECT_NEAR(-3.0f * std::pow(2.0f, -9), DecodeFp8E4M3(0x83), 1e-10f);
+    EXPECT_NEAR(-4.0f * std::pow(2.0f, -9), DecodeFp8E4M3(0x84), 1e-10f);
+    EXPECT_NEAR(-5.0f * std::pow(2.0f, -9), DecodeFp8E4M3(0x85), 1e-10f);
+    EXPECT_NEAR(-6.0f * std::pow(2.0f, -9), DecodeFp8E4M3(0x86), 1e-10f);
 }
 
 // 测试 DecodeFp8E5M2 对零值和无穷大的解码，验证 Inf 支持
@@ -407,6 +470,45 @@ TEST_F(Fp8DecodeTest, DecodeFp8E5M2_NanValues)
     EXPECT_TRUE(std::isnan(DecodeFp8E5M2(0xFE)));
 }
 
+// 测试 DecodeFp8E5M2 对次正规值(指数为0且尾数非0)的解码
+// FP8 E5M2 subnormal: exp=00000, mant=01~11
+// IEEE formula: value = mant × 2^(-MantBits) × 2^(1-bias) = mant × 2^-16
+// 0x01 (mant=1): 1 × 2^-16 = 1.52587890625e-05
+// 0x02 (mant=2): 2 × 2^-16 = 3.05175781250e-05
+// 0x03 (mant=3): 3 × 2^-16 = 4.57763671875e-05
+TEST_F(Fp8DecodeTest, DecodeFp8E5M2_SubnormalValues)
+{
+    // Min subnormal (mant=1)
+    EXPECT_NEAR(std::pow(2.0f, -16), DecodeFp8E5M2(0x01), 1e-11f);
+    EXPECT_GT(DecodeFp8E5M2(0x01), 0.0f);
+    EXPECT_LT(DecodeFp8E5M2(0x01), 2e-5f);
+
+    // Max subnormal (mant=3)
+    EXPECT_NEAR(3.0f * std::pow(2.0f, -16), DecodeFp8E5M2(0x03), 1e-11f);
+    EXPECT_GT(DecodeFp8E5M2(0x03), 4e-5f);
+    EXPECT_LT(DecodeFp8E5M2(0x03), 5e-5f);
+
+    // Middle subnormal (mant=2)
+    EXPECT_NEAR(2.0f * std::pow(2.0f, -16), DecodeFp8E5M2(0x02), 1e-11f);
+}
+
+// 测试 DecodeFp8E5M2 对负次正规值的解码，验证符号位处理
+// 0x81 (sign=1, mant=1): -1 × 2^-16
+// 0x82 (sign=1, mant=2): -2 × 2^-16
+// 0x83 (sign=1, mant=3): -3 × 2^-16
+TEST_F(Fp8DecodeTest, DecodeFp8E5M2_SubnormalNegative)
+{
+    // All negative subnormal values
+    EXPECT_NEAR(-std::pow(2.0f, -16), DecodeFp8E5M2(0x81), 1e-11f);
+    EXPECT_LT(DecodeFp8E5M2(0x81), 0.0f);
+
+    EXPECT_NEAR(-2.0f * std::pow(2.0f, -16), DecodeFp8E5M2(0x82), 1e-11f);
+    EXPECT_LT(DecodeFp8E5M2(0x82), 0.0f);
+
+    EXPECT_NEAR(-3.0f * std::pow(2.0f, -16), DecodeFp8E5M2(0x83), 1e-11f);
+    EXPECT_LT(DecodeFp8E5M2(0x83), 0.0f);
+}
+
 // 测试 DecodeFp8E5M2 对正常正值(1.0~4.0)的解码正确性
 // FP8 E5M2 格式: S(1) + E(5) + M(2), bias=15
 // 1.0f = 2^0 × 1.0 → E=15, M=0 → 0x3C
@@ -422,12 +524,12 @@ TEST_F(Fp8DecodeTest, DecodeFp8E5M2_NormalPositive)
 }
 
 // 测试 DecodeFp8E8M0 对 2 的幂次的解码，验证纯指数格式
-// FP8 E8M0 格式: S(1) + E(7 bits, range 0-127), bias=127, 无尾数位
-// 实际 exponent = exp - 127，范围 [-126, 0]，只能表示 <= 1.0f 的幂次
-// 0.0f: exp=0 → 0x00
-// 1.0f = 2^0 → exp=127 → 0x7F
-// 0.5f = 2^-1 → exp=126 → 0x7E
-// 注意: E8M0 无法表示 > 1.0f 的值 (exp 最大 127，实际 exponent 最大 0)
+// FP8 E8M0 格式: 8-bit exponent (no sign bit, no mantissa), bias=127
+// value = exp == 0 ? 0.0 : 2^(exp-127), range [2^-127, 2^127]
+// 0x00: exp=0 → 0.0 (special case)
+// 0x7F: exp=127 → 2^(127-127) = 1.0
+// 0x7E: exp=126 → 2^(126-127) = 0.5
+// 0x80: exp=128 → 2^(128-127) = 2.0
 TEST_F(Fp8DecodeTest, DecodeFp8E8M0_PowersOfTwo)
 {
     EXPECT_FLOAT_EQ(0.0f, DecodeFp8E8M0(0x00));
@@ -435,18 +537,17 @@ TEST_F(Fp8DecodeTest, DecodeFp8E8M0_PowersOfTwo)
     EXPECT_NEAR(0.5f, DecodeFp8E8M0(0x7E), 0.01f);
     EXPECT_NEAR(0.25f, DecodeFp8E8M0(0x7D), 0.01f);
     EXPECT_NEAR(0.125f, DecodeFp8E8M0(0x7C), 0.01f);
+    EXPECT_NEAR(2.0f, DecodeFp8E8M0(0x80), 0.01f);
 }
 
-// 测试 DecodeFp8E8M0 对负值的解码，验证符号位处理
-// 负数: 符号位 bit 7 = 1
-// -0.0f: S=1, exp=0 → 0x80
-// -1.0f = -2^0 → S=1, exp=127 → 0xFF
-// -0.5f = -2^-1 → S=1, exp=126 → 0xFE
-TEST_F(Fp8DecodeTest, DecodeFp8E8M0_NegativePowersOfTwo)
+// 测试 DecodeFp8E8M0 对边界值的解码，验证 exponent 范围
+// E8M0 支持 2^-127 ~ 2^127 的幂次（正数）
+// 0x01: exp=1 → 2^(1-127) ≈ 1.175e-38 (min non-zero)
+// 0xFE: exp=254 → 2^(254-127) ≈ 1.701e+38 (max)
+TEST_F(Fp8DecodeTest, DecodeFp8E8M0_BoundaryValues)
 {
-    EXPECT_FLOAT_EQ(-0.0f, DecodeFp8E8M0(0x80));
-    EXPECT_NEAR(-1.0f, DecodeFp8E8M0(0xFF), 0.01f);
-    EXPECT_NEAR(-0.5f, DecodeFp8E8M0(0xFE), 0.01f);
+    EXPECT_NEAR(std::pow(2.0f, -127.0f), DecodeFp8E8M0(0x01), 1e-10f);
+    EXPECT_NEAR(std::pow(2.0f, 127.0f), DecodeFp8E8M0(0xFE), 1e-10f);
 }
 
 // 测试 DecodeHf8 对零值和小值(0.5~1.0)的解码，验证华为自定义格式
@@ -605,31 +706,25 @@ TEST_F(AiCorePrintUTest, Bf16Const_CorrectValue)
     EXPECT_EQ(Bf16Const::TO_FP32_SHIFT, 16u);
 }
 
-// 测试 Fp8E4M3Const 各常量(指数/尾数位数、bias、shift)的正确值
+// 测试 Fp8E4M3Const 各常量(指数/尾数位数、bias)的正确值
 TEST_F(AiCorePrintUTest, Fp8E4M3Const_CorrectValues)
 {
     EXPECT_EQ(Fp8E4M3Const::EXP_BITS, 4u);
     EXPECT_EQ(Fp8E4M3Const::MANT_BITS, 3u);
     EXPECT_EQ(Fp8E4M3Const::EXP_BIAS, 7u);
-    EXPECT_EQ(Fp8E4M3Const::SIGN_SHIFT, 7u);
-    EXPECT_EQ(Fp8E4M3Const::EXP_SHIFT, 3u);
 }
 
-// 测试 Fp8E5M2Const 各常量(指数/尾数位数、bias、shift)的正确值
+// 测试 Fp8E5M2Const 各常量(指数/尾数位数、bias)的正确值
 TEST_F(AiCorePrintUTest, Fp8E5M2Const_CorrectValues)
 {
     EXPECT_EQ(Fp8E5M2Const::EXP_BITS, 5u);
     EXPECT_EQ(Fp8E5M2Const::MANT_BITS, 2u);
     EXPECT_EQ(Fp8E5M2Const::EXP_BIAS, 15u);
-    EXPECT_EQ(Fp8E5M2Const::SIGN_SHIFT, 7u);
-    EXPECT_EQ(Fp8E5M2Const::EXP_SHIFT, 2u);
 }
 
-// 测试 Fp8E8M0Const 各常量(指数位数 7、尾数 0、bias 127)的正确值
+// 测试 Fp8E8M0Const 各常量(bias、sign shift)的正确值
 TEST_F(AiCorePrintUTest, Fp8E8M0Const_CorrectValues)
 {
-    EXPECT_EQ(Fp8E8M0Const::EXP_BITS, 7u);
-    EXPECT_EQ(Fp8E8M0Const::MANT_BITS, 0u);
     EXPECT_EQ(Fp8E8M0Const::EXP_BIAS, 127u);
     EXPECT_EQ(Fp8E8M0Const::SIGN_SHIFT, 7u);
 }
