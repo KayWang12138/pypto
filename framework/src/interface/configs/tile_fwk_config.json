@@ -42,7 +42,7 @@
     },
     "debug": {
         "compile_debug_mode": 0,
-        "runtime_debug_mode": 0
+        "runtime_debug_mode": 1
     },
     "operation": {
         "force_combine_axis" : false,
