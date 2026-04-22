@@ -858,31 +858,20 @@ private:
             return 0;
         }
         PerfMtBegin(PERF_EVT_SEND_AIC_TASK, aicpuIdx_);
+        const bool isRealLifo = (enableL2CacheSch_ && !firstLock[static_cast<int>(type)]);
         uint32_t readyId[MAX_MANAGER_AIV_NUM];
-        ReadyQueueLock(readyQue);
-        uint32_t head = __atomic_load_n(&readyQue->head, __ATOMIC_RELAXED);
-        uint32_t tail = __atomic_load_n(&readyQue->tail, __ATOMIC_RELAXED);
-        uint32_t taskCount = std::min(ready, tail - head);
+        auto readyTasksRange = isRealLifo ? readyQue->dequeue_tail(ready, readyId) : readyQue->dequeue(ready);
+        const uint32_t taskCount = readyTasksRange.second - readyTasksRange.first;
         if (taskCount == 0) {
-            DEV_VERBOSE_DEBUG("AiCpud:%u, taskCount is zero", head);
-            ReadyQueueUnLock(readyQue);
+            DEV_VERBOSE_DEBUG("AiCpud:%d, taskCount is zero", aicpuIdx_);
             PerfMtEnd(PERF_EVT_SEND_AIC_TASK, aicpuIdx_);
             return 0;
         }
-        bool isRealLifo = (enableL2CacheSch_ && !firstLock[static_cast<int>(type)]);
-        if (isRealLifo) {
-            memcpy_s(
-                readyId, taskCount * sizeof(uint64_t), reinterpret_cast<uint8_t*>(&readyQue->elem[tail - taskCount]),
-                taskCount * sizeof(uint32_t));
-            __atomic_fetch_sub(&readyQue->tail, taskCount, std::memory_order_release);
-        } else {
-            __atomic_fetch_add(&readyQue->head, taskCount, std::memory_order_release);
-        }
-        ReadyQueueUnLock((readyQue));
+
         DEV_VERBOSE_DEBUG("AiCpud:%d, pop all new task count: %u", aicpuIdx_, taskCount);
         BatchSendTask(
-            devTaskCtx, type, isRealLifo ? &readyId[taskCount - 1] : &readyQue->elem[head],
-            taskCount, coreIdxStart, coreIdxEnd, isRealLifo);
+            devTaskCtx, type, isRealLifo ? readyTasksRange.second - 1 : readyTasksRange.first, taskCount, coreIdxStart,
+            coreIdxEnd, isRealLifo);
         DEV_VERBOSE_DEBUG("core ready cnt: %u", context_->corePendReadyCnt_[static_cast<int>(type)]);
         firstLock[static_cast<int>(type)] = false;
         PerfMtEnd(PERF_EVT_SEND_AIC_TASK, aicpuIdx_);
@@ -890,7 +879,7 @@ private:
     }
 
     inline uint32_t BatchSendTask(
-        SchDeviceTaskContext* devTaskCtx, CoreType type, uint32_t *newTask, uint32_t taskCount,
+        SchDeviceTaskContext* devTaskCtx, CoreType type, const uint32_t *newTask, uint32_t taskCount,
         int coreIdxStart, int coreIdxEnd, bool isLifo)
     {
         uint32_t sendCnt = 0;

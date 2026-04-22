@@ -144,10 +144,9 @@ struct LockableQueueGeneric : public QueueGeneric<T> {
 
     std::pair<const T*, const T*> dequeue_all()
     {
-        lock();
+        std::scoped_lock slock(*this);
         uint32_t t = __atomic_load_n(&this->tail, __ATOMIC_RELAXED);
         uint32_t h = __atomic_exchange_n(&this->head, t, __ATOMIC_RELAXED);
-        unlock();
         return std::make_pair(this->elem + h, this->elem + t);
     }
 
