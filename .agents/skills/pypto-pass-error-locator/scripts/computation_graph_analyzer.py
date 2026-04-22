@@ -29,6 +29,7 @@ from enum import Enum
 
 logging.basicConfig(level=logging.INFO, format="%(message)s")
 
+
 class GraphType(Enum):
     """计算图类型"""
     TENSOR_GRAPH = 1
