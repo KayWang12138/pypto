@@ -57,9 +57,7 @@ private:
     ConvertInserter inserter;
     AssignMemoryTypeChecker checker;
 };
-const std::unordered_set<Opcode> matchOpcodeToProducerView = {Opcode::OP_VIEW, Opcode::OP_ASSEMBLE, Opcode::OP_RESHAPE};
 static constexpr double UB_THRESHOLD_ASSEMBLE = 0.35;
-static constexpr double UB_THRESHOLD_VIEW = 0.5;
 static constexpr double UB_THRESHOLD_NORMAL = 1.0;
 static constexpr double L1_THRESHOLD = 0.5;
 } // namespace npu::tile_fwk

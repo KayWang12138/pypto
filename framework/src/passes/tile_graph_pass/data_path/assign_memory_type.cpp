@@ -68,7 +68,7 @@ Status AssignMemoryType::RunOnFunction(Function& function)
         const size_t UB_SIZE_THRESHOLD_ASSEMBLE =
             static_cast<size_t>(Platform::Instance().GetDie().GetMemoryLimit(MemoryType::MEM_UB) * UB_THRESHOLD_ASSEMBLE);
         const size_t UB_SIZE_THRESHOLD_VIEW =
-            static_cast<size_t>(Platform::Instance().GetDie().GetMemoryLimit(MemoryType::MEM_UB) * UB_THRESHOLD_VIEW);
+            static_cast<size_t>(Platform::Instance().GetDie().GetMemoryLimit(MemoryType::MEM_UB) * UB_THRESHOLD_NORMAL);
         const size_t L1_SIZE_THRESHOLD =
             static_cast<size_t>(Platform::Instance().GetDie().GetMemoryLimit(MemoryType::MEM_L1) * L1_THRESHOLD);
         APASS_LOG_INFO_F(
@@ -401,10 +401,8 @@ void AssignMemoryType::UpdateOverSizedLocalBufferForAssemble(Operation& operatio
 
 void AssignMemoryType::UpdateOverSizedLocalBufferForView(Operation& operation)
 {   
-    const bool useThresholdView = (matchOpcodeToProducerView.find(operation.GetOpcode()) != matchOpcodeToProducerView.end());
     const int UB_SIZE_THRESHOLD = static_cast<int>(
-        Platform::Instance().GetDie().GetMemoryLimit(MemoryType::MEM_UB) * 
-        (useThresholdView ? UB_THRESHOLD_VIEW : UB_THRESHOLD_NORMAL));
+        Platform::Instance().GetDie().GetMemoryLimit(MemoryType::MEM_UB) * UB_THRESHOLD_NORMAL);
     auto output = operation.GetOOperands().front();
     auto memType = output->GetMemoryTypeOriginal();
     if (((memType == MemoryType::MEM_UB) && (output->GetDataSize() > UB_SIZE_THRESHOLD))) {
