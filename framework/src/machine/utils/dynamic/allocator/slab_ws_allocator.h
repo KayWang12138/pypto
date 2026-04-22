@@ -19,6 +19,7 @@
 #include <algorithm>
 
 #include "machine/utils/device_log.h"
+#include "machine/device/dynamic/device_utils.h"
 #include "ws_allocator_basics.h"
 
 namespace npu::tile_fwk::dynamic {
@@ -241,7 +242,12 @@ public:
                         "workspace.slab.stage: stageAllocHead is null for cacheIndex=%u\n", i);
                 }
                 DEV_ASSERT(WsErr::SLAB_STAGE_LIST_INCONSISTENT, temp != nullptr);
+                TimeoutState stageAllocTimeoutState;
                 while (*static_cast<void**>(temp) != caches_[i].stageAllocTail) {
+                    __PYPTO_TIMEOUT_CHECK(stageAllocTimeoutState, TIMEOUT_NS_INFINITE, TIMEOUT_NS_10MIN, ,
+                        "workspace.slab.stage: Stage alloc traversal still waiting for cacheIndex=%u.",
+                        "workspace.slab.stage: Stage alloc traversal timeout 10min for cacheIndex=%u.",
+                        i);
                     temp = *static_cast<void**>(temp);
                 }
                 if (temp == nullptr) {
