@@ -461,6 +461,20 @@ void CodeGenOp::GetGmParamIdx(const Operation& oper)
     if (oper.HasAttribute("GmTensorParamIdxInCallFunc")) {
         GmTensorParamIdxInCallFunc = oper.GetIntAttribute("GmTensorParamIdxInCallFunc");
     }
+
+    for (size_t i = 0; i < oper.GetOOperands().size(); ++i) {
+        if (oper.GetOOperands()[i]->GetMemoryTypeToBe() == MEM_DEVICE_DDR) {
+            paramLocation[i] = oper.GetOOpAttrOffset(i);
+        }
+    }
+    size_t iOffset = oper.GetOOperands().size() == 0 ? 1 : oper.GetOOperands().size();
+    for (size_t i = 0; i < oper.GetIOperands().size(); ++i) {
+        if (oper.GetIOperands()[i]->GetMemoryTypeToBe() == MEM_DEVICE_DDR) {
+            paramLocation[i + iOffset] = oper.GetIOpAttrOffset(i);
+        }
+    }
+
+    return;
 }
 
 } // namespace npu::tile_fwk
