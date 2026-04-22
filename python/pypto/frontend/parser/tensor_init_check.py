@@ -66,52 +66,6 @@ class _TensorStorageInitChecker:
         self._exempt = exempt
         self.uninit: Set[str] = set()
 
-    def _rhs_reads_uninit(self, rhs: ast.expr) -> bool:
-        for child in ast.walk(rhs):
-            if isinstance(child, ast.Name) and isinstance(child.ctx, ast.Load):
-                if child.id in self._exempt:
-                    continue
-                if child.id in self.uninit:
-                    return True
-        return False
-
-    def _maybe_raise_name(self, node: ast.Name) -> None:
-        if isinstance(node.ctx, ast.Load):
-            if node.id in self._exempt:
-                return
-            if node.id in self.uninit:
-                raise ParserError(node, ValueError(_MSG))
-
-    def _check_reads(self, expr: ast.expr) -> None:
-        for child in ast.walk(expr):
-            if isinstance(child, ast.Name) and isinstance(child.ctx, ast.Load):
-                self._maybe_raise_name(child)
-
-    def _apply_unpack_names(
-        self, target: ast.expr, is_alloc: bool, ru: bool
-    ) -> None:
-        if isinstance(target, (ast.Tuple, ast.List)):
-            for elt in target.elts:
-                if isinstance(elt, ast.Starred):
-                    continue
-                if isinstance(elt, (ast.Tuple, ast.List)):
-                    self._apply_unpack_names(elt, is_alloc, ru)
-                elif isinstance(elt, ast.Name):
-                    if is_alloc:
-                        self.uninit.add(elt.id)
-                    elif ru:
-                        self.uninit.add(elt.id)
-                    else:
-                        self.uninit.discard(elt.id)
-            return
-        if isinstance(target, ast.Name):
-            if is_alloc:
-                self.uninit.add(target.id)
-            elif ru:
-                self.uninit.add(target.id)
-            else:
-                self.uninit.discard(target.id)
-
     def visit_assign(self, node: ast.Assign) -> None:
         self._check_reads(node.value)
         val = node.value
@@ -267,6 +221,52 @@ class _TensorStorageInitChecker:
             for t in stmt.targets:
                 self._check_reads(t)
             return
+
+    def _rhs_reads_uninit(self, rhs: ast.expr) -> bool:
+        for child in ast.walk(rhs):
+            if isinstance(child, ast.Name) and isinstance(child.ctx, ast.Load):
+                if child.id in self._exempt:
+                    continue
+                if child.id in self.uninit:
+                    return True
+        return False
+
+    def _maybe_raise_name(self, node: ast.Name) -> None:
+        if isinstance(node.ctx, ast.Load):
+            if node.id in self._exempt:
+                return
+            if node.id in self.uninit:
+                raise ParserError(node, ValueError(_MSG))
+
+    def _check_reads(self, expr: ast.expr) -> None:
+        for child in ast.walk(expr):
+            if isinstance(child, ast.Name) and isinstance(child.ctx, ast.Load):
+                self._maybe_raise_name(child)
+
+    def _apply_unpack_names(
+        self, target: ast.expr, is_alloc: bool, ru: bool
+    ) -> None:
+        if isinstance(target, (ast.Tuple, ast.List)):
+            for elt in target.elts:
+                if isinstance(elt, ast.Starred):
+                    continue
+                if isinstance(elt, (ast.Tuple, ast.List)):
+                    self._apply_unpack_names(elt, is_alloc, ru)
+                elif isinstance(elt, ast.Name):
+                    if is_alloc:
+                        self.uninit.add(elt.id)
+                    elif ru:
+                        self.uninit.add(elt.id)
+                    else:
+                        self.uninit.discard(elt.id)
+            return
+        if isinstance(target, ast.Name):
+            if is_alloc:
+                self.uninit.add(target.id)
+            elif ru:
+                self.uninit.add(target.id)
+            else:
+                self.uninit.discard(target.id)
 
 
 def check_uninitialized_tensor_storage_reads(
