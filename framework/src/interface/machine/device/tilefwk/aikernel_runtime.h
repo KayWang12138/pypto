@@ -19,7 +19,19 @@
 #include "tilefwk/aikernel_data.h"
 
 constexpr int MAIN_BLOCK_INDEX = 1;
-constexpr uint64_t SYNC_TIMEOUT = 48000000000;
+
+// 根据架构定义不同的超时 cycles
+// 目标超时时间：16分钟（960秒）
+// 与 aicore_compiler.cpp 中架构判断方式保持一致：
+//   DAV_2201 (A2/A3) -> 不定义 __DAV_V310
+//   DAV_3510 (A5)    -> 定义 __DAV_V310
+#ifdef __DAV_V310
+    // A5 (1000 MHz): 16分钟 = 960秒 * 1000MHz = 960,000,000,000 cycles
+    constexpr uint64_t SYNC_TIMEOUT = 960000000000ULL;
+#else
+    // A2/A3 (50 MHz): 16分钟 = 960秒 * 50MHz = 48,000,000,000 cycles
+    constexpr uint64_t SYNC_TIMEOUT = 48000000000ULL;
+#endif
 
 __always_inline uint64_t GetCycles()
 {
@@ -38,7 +50,7 @@ __always_inline void WaitAicoreStart([[maybe_unused]] npu::tile_fwk::DevStartArg
     uint64_t start = GetCycles();
     while (startArgs->syncFlag != 1) {
         if (GetCycles() - start > SYNC_TIMEOUT) {
-            break;
+            break;  // 超时退出
         }
     }
 #endif
