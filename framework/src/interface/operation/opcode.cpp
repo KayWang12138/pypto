@@ -35,9 +35,11 @@ void OpcodeManager::RegisterInfo(
     std::vector<MemoryType> outputsMemType, const TileOpCfg tileOpCfg, OpCalcType calcType,
     const std::vector<std::string>& attrs, VerifyOperationEntry verifyOperationEntry)
 {
-    ASSERT(opcode < Opcode::OP_UNKNOWN) << "opcode: " << static_cast<int64_t>(opcode);
-    ASSERT(strToEnum_.count(str) == 0) << str << " doesn't exist.";
-    ASSERT(registered_.count(opcode) == 0) << "opcode: " << static_cast<int64_t>(opcode) << " not registered.";
+    ASSERT(VectorErrorCode::ERR_PARAM_INVALID, opcode < Opcode::OP_UNKNOWN)
+        << "opcode: " << static_cast<int64_t>(opcode) << " is unknown";
+    ASSERT(VectorErrorCode::ERR_PARAM_INVALID, strToEnum_.count(str) == 0) << str << " doesn't exist.";
+    ASSERT(VectorErrorCode::ERR_PARAM_INVALID, registered_.count(opcode) == 0)
+        << "opcode: " << static_cast<int64_t>(opcode) << " not registered.";
     registered_.emplace(opcode);
     strToEnum_.emplace(str, opcode);
     opcodeInfos_[static_cast<int>(opcode)] =
@@ -597,7 +599,7 @@ void OpcodeManager::RegisterVector()
         OpCalcType::OTHER, {OpAttributeKey::perm, OP_ATTR_PREFIX + "validShape"}, TileShapeVerifier::Verify);
     RegisterInfo(
         Opcode::OP_EXPAND, OpCoreType::AIV, "EXPAND", {MemoryType::MEM_UB}, {MemoryType::MEM_UB},
-        {"TileOp::Texpand", PIPE_V, PIPE_V, CoreType::AIV}, OpCalcType::ELMWISE, {OP_ATTR_PREFIX + "EXPANDDIM"},
+        {"TileOp::Texpand", PIPE_V, PIPE_V, CoreType::AIV}, OpCalcType::ELMWISE, {OpAttributeKey::expandDims},
         TileShapeVerifier::Verify);
     RegisterInfo(
         Opcode::OP_ONEHOT, OpCoreType::AIV, "ONEHOT", {MemoryType::MEM_UB}, {MemoryType::MEM_UB},
@@ -700,6 +702,9 @@ void OpcodeManager::RegisterVector()
         Opcode::OP_RANGE, OpCoreType::AIV, "RANGE", {MemoryType::MEM_UB}, {MemoryType::MEM_UB},
         {"TileOp::Range", PIPE_S, PIPE_V, CoreType::AIV}, OpCalcType::OTHER,
         {OP_ATTR_PREFIX + "START", OP_ATTR_PREFIX + "STEP", OpAttributeKey::dynScalar}, TileShapeVerifier::Verify);
+    RegisterInfo(Opcode::OP_UNIFORM, OpCoreType::AIV, "UNIFORM", {}, {MemoryType::MEM_UB, MemoryType::MEM_UB},
+        {"TileOp::TUniform", PIPE_V, PIPE_V, CoreType::AIV}, OpCalcType::OTHER,
+        {OpAttributeKey::vectorScalar, OpAttributeKey::dynScalar, OP_ATTR_PREFIX + "SHAPE"}, TileShapeVerifier::Verify);
     RegisterInfo(
         Opcode::OP_VEC_DUP, OpCoreType::AIV, "VEC_DUP", {MemoryType::MEM_UB}, {MemoryType::MEM_UB},
         {"TileOp::Tduplicate", PIPE_V, PIPE_V, CoreType::AIV}, OpCalcType::OTHER,
@@ -1183,7 +1188,8 @@ OpcodeManager::OpcodeManager()
     RegisterCube();
     RegisterDistribute();
     RegisterCommon();
-    ASSERT(strToEnum_.size() == static_cast<size_t>(Opcode::OP_UNKNOWN));
+    ASSERT(VectorErrorCode::ERR_PARAM_INVALID, strToEnum_.size() == static_cast<size_t>(Opcode::OP_UNKNOWN))
+        << "strToEnum_.size() should equal to Opcode::OP_UNKNOWN";
 }
 
 // NEXTNEXT: delete after tile op register has supported tile tensor
@@ -1282,6 +1288,7 @@ std::unordered_map<Opcode, std::string> SUPPORT_TILETENSOR_OPS{
     {Opcode::OP_ONEHOT, "TOneHot"},
     {Opcode::OP_VEC_DUP, "TVecDup"},
     {Opcode::OP_RANGE, "TRange"},
+    {Opcode::OP_UNIFORM, "TUniform"},
     {Opcode::OP_BRCB, "Tbrcb"},
     {Opcode::OP_LN, "TLog"},
     {Opcode::OP_INDEX_OUTCAST, "TIndexOutcast"},

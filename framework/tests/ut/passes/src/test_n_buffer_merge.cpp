@@ -266,5 +266,32 @@ Status NBufferMergeTest::TestNBufferMergeWithDifferentVecBufferSetting(std::map<
     NBufferMerge NBM;
     return NBM.RunOnFunction(*function);
 }
+
+Function* BuildFunctionWithSubgraphs(
+    ComputationalGraphBuilder& G, const std::vector<int64_t>& tileShape, int subGraphNum)
+{
+    EXPECT_EQ(G.AddTensors(DataType::DT_FP32, tileShape, {"incast0", "incast1", "outcast"}), true);
+    EXPECT_EQ(G.AddOps({Opcode::OP_COPY_IN}, {{"incast0"}}, {{"incast1"}}, {"copy_in"}, true), true);
+    G.GetOp("copy_in")->UpdateSubgraphID(0);
+    for (int i = 1; i <= subGraphNum; i++) {
+        std::string strID = std::to_string(i);
+        EXPECT_EQ(G.AddTensors(DataType::DT_FP32, tileShape,
+            {"tensor1_" + strID, "tensor2_" + strID, "tensor3_" + strID}), true);
+        std::vector<std::vector<std::string>> iOperands{
+            {"incast1"}, {"tensor1_" + strID}, {"tensor2_" + strID}, {"tensor3_" + strID}};
+        std::vector<std::vector<std::string>> oOperands{
+            {"tensor1_" + strID}, {"tensor2_" + strID}, {"tensor3_" + strID}, {"outcast"}};
+        std::vector<std::string> opNames{"ABS_" + strID, "EXP_" + strID, "ADDS_" + strID, "ASSEMBLE_" + strID};
+        std::vector<Opcode> opLists{Opcode::OP_ABS, Opcode::OP_EXP, Opcode::OP_ADDS, Opcode::OP_ASSEMBLE};
+        EXPECT_EQ(G.AddOps(opLists, iOperands, oOperands, opNames, true), true);
+        G.GetOp("ABS_" + strID)->UpdateSubgraphID(i);
+        G.GetOp("EXP_" + strID)->UpdateSubgraphID(i);
+        G.GetOp("ADDS_" + strID)->UpdateSubgraphID(i);
+        G.GetOp("ASSEMBLE_" + strID)->UpdateSubgraphID(i);
+    }
+    EXPECT_EQ(G.SetInCast({"incast0"}), true);
+    EXPECT_EQ(G.SetOutCast({"outcast"}), true);
+    return G.GetFunction();
+}
 } // namespace tile_fwk
 } // namespace npu

@@ -107,6 +107,14 @@
 行为：
 - 存在不允许的OP或OP组合
 
+#### 8. OP_SCOPE_ERROR
+描述：OP的Scope配置存在问题\
+行为：
+- scope_id为-1时，allow_parallel_merge和allow_cross_scope_merge必须配置为false
+- 相同scope_id的所有操作必须配置一致的allow_parallel_merge和allow_cross_scope_merge
+- A2/A3架构中不允许相同scope_id中同时存在AIC和AIV操作
+- A5架构中允许相同scope_id中同时存在AIC和AIV操作，但allowParallelMerge和allowCrossScopeMerge必须配置为false
+
 ### Function相关错误
 
 #### 1. FUNCTION_GRAPH_STRUCTURE
@@ -233,5 +241,15 @@
 描述：Tensor的内存类型配置不合法\
 行为：
 - 内存类型不匹配
+
+#### 4. CONFIG_FILE_FAILED
+描述：配置文件读取、解析或加载失败
+行为：
+- INI配置文件打开失败
+- INI配置文件读取失败
+- INI配置文件中不存在对应的配置项
+- INI配置文件对应tab下不存在指定的配置key
+- SoC配置项读取失败，不存在指定的配置信息
+
 
 ### Manager相关错误

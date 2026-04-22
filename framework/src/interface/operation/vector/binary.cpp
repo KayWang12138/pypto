@@ -17,7 +17,7 @@
 #include "tensor_transformation.h"
 #include "interface/utils/operator_tracer.h"
 #include "interface/configs/config_manager.h"
-#include "interface/utils/vector_error.h"
+#include "interface/utils/error_code.h"
 #include "passes/tile_graph_pass/graph_constraint/axis_combine.h"
 namespace npu::tile_fwk {
 
@@ -160,11 +160,15 @@ void TiledBinaryOperation(
         }
 
         if (op != nullptr) {
-            std::vector<int64_t> brcOperand(shapeSize, 0);
+            std::vector<int64_t> brcOperand(shapeSize, -1);
+            size_t brcAxesCount = 0;
             for (size_t i = 0; i < shapeSize; i++) {
                 brcOperand[i] = BrcAxisBinaryOp(input1.tensor, input2.tensor, i);
+                if (brcOperand[i] != -1) {
+                    brcAxesCount++;
+                }
             }
-            if (brcOperand[shapeSize - 1] != -1) {
+            if (brcOperand[shapeSize - 1] != -1 && brcAxesCount >= 2) {
                 op->SetAttribute(OpAttributeKey::excludeBufferReuse, true);
             }
             op->SetAttribute(OP_ATTR_PREFIX + "brcOperand", brcOperand);
@@ -201,7 +205,6 @@ std::pair<std::vector<int64_t>, std::vector<int64_t>> GetBrcExpandShape(
     size_t shapeSize = result->shape.size();
 
     bool isInWhiteList = SUPPORT_BRC_INLINE.count(GetBinaryOpNameCode<T>());
-    bool isSupportDtype = (operand1->Datatype() == DT_FP32 || operand1->Datatype() == DT_FP16);
     bool isCombineAxisEnabled =
         function.paramConfigs_.forceCombineAxis || (function.paramConfigs_.combineAxis && isInWhiteList);
     if (isInWhiteList) {
@@ -212,17 +215,15 @@ std::pair<std::vector<int64_t>, std::vector<int64_t>> GetBrcExpandShape(
                 operand2Shape[i] = operand2->shape[i];
             }
         }
-        if (isSupportDtype) {
-            // The 2nd last axis: skip expand, brcinline
-            if (shapeSize > 1) {
-                operand1Shape[shapeSize - 2] = operand1->shape[shapeSize - 2];
-                operand2Shape[shapeSize - 2] = operand2->shape[shapeSize - 2];
-            }
-            // The last axis: brcinline when combineAxis is enabled
-            if (shapeSize > 0 && isCombineAxisEnabled) {
-                operand1Shape[shapeSize - 1] = operand1->shape[shapeSize - 1];
-                operand2Shape[shapeSize - 1] = operand2->shape[shapeSize - 1];
-            }
+        // The 2nd last axis: skip expand, brcinline
+        if (shapeSize > 1) {
+            operand1Shape[shapeSize - 2] = operand1->shape[shapeSize - 2];
+            operand2Shape[shapeSize - 2] = operand2->shape[shapeSize - 2];
+        }
+        // The last axis: brcinline when combineAxis is enabled
+        if (shapeSize > 0 && isCombineAxisEnabled) {
+            operand1Shape[shapeSize - 1] = operand1->shape[shapeSize - 1];
+            operand2Shape[shapeSize - 1] = operand2->shape[shapeSize - 1];
         }
     }
     return {operand1Shape, operand2Shape};
@@ -318,7 +319,7 @@ void PReLUOperationOperandCheck(
     ASSERT(VectorErrorCode::ERR_PARAM_INVALID, input->Datatype() == weight->Datatype())
         << "The input and weight should have the same data type";
 
-    ASSERT(VectorErrorCode::ERR_PARAM_INVALID, input->shape.size() >= 2 && input->shape.size() <= 4)
+    ASSERT(VectorErrorCode::ERR_PARAM_SHAPE_DIM_UNSUPPORTED, input->shape.size() >= 2 && input->shape.size() <= 4)
         << "The input shape dimension should be in range [2, 4]";
 
     ASSERT(VectorErrorCode::ERR_PARAM_INVALID, weight->shape.size() == 1) << "The weight should be 1-dimensional";
@@ -473,7 +474,7 @@ Tensor Gcd(const Tensor& self, const Tensor& other)
     auto dataType = self.GetDataType();
     ASSERT(VectorErrorCode::ERR_PARAM_INVALID, dataType == other.GetDataType())
         << "Inputs must have the same dataType.";
-    ASSERT(VectorErrorCode::ERR_PARAM_INVALID, SHAPE_DIM1 <= shapeSize && shapeSize <= SHAPE_DIM5)
+    ASSERT(VectorErrorCode::ERR_PARAM_SHAPE_DIM_UNSUPPORTED, SHAPE_DIM1 <= shapeSize && shapeSize <= SHAPE_DIM5)
         << "This operation's input only support 1-5 dims";
     std::unordered_set<DataType> GCD_SUPPORT_DATATYPES = {
         DataType::DT_INT32, DataType::DT_INT16, DataType::DT_INT8, DataType::DT_UINT8};
@@ -487,7 +488,7 @@ Tensor Gcd(const Tensor& self, const Element& other)
     DECLARE_TRACER();
     auto shapeSize = self.GetShape().size();
     auto dataType = self.GetDataType();
-    ASSERT(VectorErrorCode::ERR_PARAM_INVALID, SHAPE_DIM1 <= shapeSize && shapeSize <= SHAPE_DIM5)
+    ASSERT(VectorErrorCode::ERR_PARAM_SHAPE_DIM_UNSUPPORTED, SHAPE_DIM1 <= shapeSize && shapeSize <= SHAPE_DIM5)
         << "This operation's input only support 1-5 dims";
     std::unordered_set<DataType> GCD_SUPPORT_DATATYPES = {
         DataType::DT_INT32, DataType::DT_INT16, DataType::DT_INT8, DataType::DT_UINT8};

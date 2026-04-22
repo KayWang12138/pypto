@@ -263,10 +263,10 @@ TEST_F(L1CopyInReuseTest, TestInvalidL1Map)
     function->SetTotalSubGraphCount(subGraphNum);
     L1CopyInReuseMerge LCRM;
     EXPECT_EQ(LCRM.RunOnFunction(*function), SUCCESS);
-    function->paramConfigs_.cubeL1ReuseSetting = {{0, -3}};
+    function->paramConfigs_.cubeL1ReuseSetting = {{-1, -3}};
     EXPECT_EQ(LCRM.RunOnFunction(*function), FAILED);
     function->paramConfigs_.cubeL1ReuseSetting = {{-2, 2}};
-    function->paramConfigs_.cubeNBufferSetting = {{0, -5}};
+    function->paramConfigs_.cubeNBufferSetting = {{-1, -5}};
     EXPECT_EQ(LCRM.RunOnFunction(*function), FAILED);
 }
 

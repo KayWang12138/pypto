@@ -92,91 +92,27 @@ tensor.set_cache_policy(...)
 2. 与 Ascend C 小算子的性能对比
 3. 确认性能较差后检查是否使用了更优的指令
 
-## 性能优化建议库
+## 调优检查清单
 
-### 建议 1：小 Shape 矩阵乘
+**⛔ 必须按以下清单逐项执行。每项标记为 ✅已尝试 或 ❌已失败（附原因），禁止跳过。完整优化点信息参考 [shared/optimization_catalog.md](../shared/optimization_catalog.md)。**
 
-**问题**：矩阵 Shape 特殊，性能较差
+**优化优先级**：
+1. ⭐⭐⭐ **P0 - 特殊 Shape 处理** → 详见 [I-1]
+2. ⭐⭐ **P1 - 依赖与搬运优化** → 详见 [I-2][I-3]
+3. ⭐ **P2 - Cache 与实现检查** → 详见 [I-4][I-5]
 
-**解决方案**：
-- 使用 Vector 操作提前处理输入矩阵
-- 通过 concat/reshape 调整 Shape
+**🔥 P0 - 特殊 Shape [I-1]**：
+- [ ] [I-1] Matmul 的 Shape 是否特殊（如 M 很大 N 很小）
+- [ ] 是否可以用 Vector 预处理构造标准 Shape
 
-**代码示例**：
-```python
-# 构造标准 Shape 的矩阵
-c = pypto.concat([...], ...)
-a = pypto.reshape(a, [new_shape])
-```
+**P1 - 依赖与搬运 [I-2~I-3]**：
+- [ ] [I-2] 是否存在一对多的子图依赖（可通过冗余计算消除）
+- [ ] [I-3] 尾轴是否过小（< 32B 对齐）
 
-### 建议 2：尾轴过小
+**P2 - Cache 与实现 [I-4~I-5]**：
+- [ ] [I-4] 只读一次的数据是否设置了 L2 Cache 策略
+- [ ] [I-5] 单个 Operation 是否与 Ascend C 对比过性能
 
-**问题**：Operation 输入 Tensor 尾轴较小
-
-**解决方案**：
-- 使用 concat 增大尾轴
-- 使用 transpose 调整轴顺序
-- 使用 reshape 调整 Shape
-
-### 建议 3：冗余依赖
-
-**问题**：一对多的子图依赖，增加调度开销
-
-**解决方案**：
-- 增加冗余计算使每个分支独立
-- 使用 `sg_set_scope` 合并子图
-
-### 建议 4：L2 Cache 效率低
-
-**问题**：L2 Cache 命中率低
-
-**解决方案**：
-- 使用 L2 亲和调度
-- 设置合理的 L2 Cache Mode
-
-### 建议 5：Operation 实现效率低
-
-**问题**：TileOperation 本身实现较差
-
-**解决方案**：
-- 与 Ascend C 小算子性能对比
-- 检查是否使用更优指令
-- 考虑使用其他 Operation 组合替代
-
-## 调优流程
-
-```
-┌────────────────────────────────────────────┐
-│                核内性能调优流程            │
-├────────────────────────────────────────────┤
-│                                            │
-│  1. 定位瓶颈 task                          │
-│     └─ 通过泳道图找到耗时最长的 task       │
-│                                            │
-│  2. 分析 task 特征                         │
-│     ├─ 输入输出 Shape                      │
-│     ├─ Operation 类型                      │
-│     └─ 依赖关系                            │
-│                                            │
-│  3. 选择优化策略                           │
-│     ├─ 特殊 Shape → Vector 预处理          │
-│     ├─ 尾轴过小 → concat/transpose/reshape │
-│     ├─ 冗余依赖 → 增加冗余计算             │
-│     ├─ L2 Cache → Cache 策略优化           │
-│     └─ Operation → 检查实现/替代方案       │
-│                                            │
-│  4. 应用优化                               │
-│     └─ 每次只修改一个参数                  │
-│                                            │
-│  5. 验证                                   │
-│     ├─ 重新编译运行                        │
-│     ├─ 检查精度                            │
-│     └─ 对比性能数据                        │
-│                                            │
-│  6. 迭代直到达到目标性能                   │
-│                                            │
-└────────────────────────────────────────────┘
-```
 
 ## 常见问题
 
@@ -194,6 +130,48 @@ A:
 ### Q3: 增加冗余计算会影响精度吗？
 
 A: 不会。冗余计算是指增加一些不影响最终结果的计算（如复制数据），目的是优化调度和合图，不会改变计算逻辑。
+
+## L2 Cache 策略优化
+
+L2 Cache 命中率直接影响核内数据搬运效率，尤其对 Cube 类算子（matmul）影响显著。
+
+**优化策略**：
+
+1. **数据预取**：对连续访问的大块数据，确保访问模式为顺序访问以利用硬件预取
+2. **TileShape 对齐**：将 TileShape 的内积轴（K 轴）设置为 L2 Cache 行大小的整数倍（通常 256B 或 512B）
+3. **双缓冲**：对前后依赖的计算步骤使用 ping-pong buffer 隐藏搬运延迟
+
+**代码示例**：
+
+```python
+# 设置 cube tile shapes 使 K 轴对齐 256B
+# FP16: 256B = 128 elements, BF16: 256B = 128 elements
+pypto.set_cube_tile_shapes([128, 128], [128, 128], [128, 128])
+```
+
+## TileOperation 检查流程
+
+对核内每个 TileOperation，按以下流程检查效率：
+
+1. **检查操作数连续性**：输入 tensor 是否在内存中连续，不连续需先调用 `pypto.reshape` 或 `pypto.transpose` 调整
+2. **检查数据搬运方向**：Gather → 从 HBM 到 L1 应使用 `set_cube_tile_shapes` 配置的块大小；Scatter → 从 L1 到 HBM 应使用 `pypto.assemble`
+3. **检查计算与搬运重叠**：使用 `submit_before_loop=True` 确保子循环正确提交
+
+## 尾轴优化案例
+
+**场景**：尾轴为 1 或非整除时，最后一块数据量小于固定块大小
+
+**问题**：最后一块可能触发额外的零填充计算，浪费算力
+
+**优化方案**：
+
+```python
+# 使用 valid_shape 标记有效数据范围
+for i in pypto.loop(range(total_tiles)):
+    tile = pypto.view(input, shape=[BLOCK_SIZE], offsets=[i * BLOCK_SIZE], valid_shape=[actual_last_size if i == last_tile else BLOCK_SIZE])
+    result = compute(tile)
+    pypto.assemble(result, offsets=[i * BLOCK_SIZE], output=output)
+```
 
 ## 参考资料
 

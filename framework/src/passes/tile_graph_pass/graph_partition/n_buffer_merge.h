@@ -49,6 +49,9 @@ private:
     Status CheckAndFixColorOrder(
         OperationsViewer& opOriList, int& color1, std::vector<int>& colorCycles1,
         std::vector<std::vector<int>>& colorNode1);
+    void UpdateOpColor(
+        OperationsViewer& opOriList, int& color, std::vector<int>& colorCycles,
+        std::vector<std::vector<int>>& colorNode);
     std::map<uint64_t, size_t> GetIsoColorMergeNum(const std::map<uint64_t, std::vector<int>>& hashMap) const;
     std::vector<std::vector<int>> SortColorWithInput(std::vector<int>& colorValues) const;
     Status MergeProcess(
@@ -59,7 +62,7 @@ private:
         OperationsViewer& opOriList);
     void MergePingPong(
         std::vector<std::vector<int>>& sortedColors, const OperationsViewer& opOriList,
-        std::vector<uint64_t>& hashColor, size_t& numDBmerge);
+        std::vector<uint64_t>& hashColor, size_t& numDBmerge, int hashOrder);
     std::map<uint64_t, size_t> SetNumDB(std::map<uint64_t, std::vector<int>>& hashMap);
     Status CheckVecNBufferSettingForManualMerge();
     Status MergeProcessForMulityInOut(
@@ -68,7 +71,7 @@ private:
     Status InitVecNBufferModeBySetting();
 
 private:
-    int color_{0};
+    int colorNum_{0};
     std::vector<std::vector<int>> inGraph_;
     std::vector<std::vector<int>> outGraph_;
     std::vector<std::vector<int>> inColor_;
