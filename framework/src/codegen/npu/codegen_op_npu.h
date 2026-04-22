@@ -295,6 +295,8 @@ protected:
     // get start offset in total block
     SymbolicScalar GetOperandStartOffset(int operandIdx) const;
 
+    SymbolicScalar GetGmTensorAddr(unsigned gmParamIdx);
+
     virtual std::string GenGmParamVar(unsigned gmParamIdx) const;
 
     std::vector<std::string> GenGetParamMacroPacked(unsigned gmParamIdx, int dim, const std::string& prefix) const;
