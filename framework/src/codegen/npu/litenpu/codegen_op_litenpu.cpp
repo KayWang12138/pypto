@@ -124,4 +124,19 @@ void CodeGenOpLiteNPU::UpdateTileTensorShapeAndStride(
     }
 }
 
+std::vector<std::string> CodeGenOpLiteNPU::GetGmOffsetForTileTensor(unsigned gmIdx, bool isSpillingToGM) const
+{
+    int dim = static_cast<int>(rawShape[gmIdx].size());
+    std::vector<std::string> gmOffsetExpr;
+    if (isSpillingToGM) {
+        return std::vector<std::string>(dim, "0");
+    }
+
+    if (offsetFromAttr[gmIdx][ID0].IsValid()) {
+        return GenSymbolicArgument(offsetFromAttr[gmIdx]);
+    }
+
+    return GenGetParamMacroPacked(gmIdx, dim, PREFIX_STR_OFFSET);
+}
+
 } // namespace npu::tile_fwk
