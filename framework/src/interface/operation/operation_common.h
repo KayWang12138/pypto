@@ -116,8 +116,8 @@ enum class AIVCore;
 class OpSyncQueue {
 public:
     OpSyncQueue() {}
-    OpSyncQueue(PipeType pipeId, PipeType trigPipeId, CoreType coreType, CoreType tirgCoreType, int evid, AIVCore aivCore)
-        : pipeId_(pipeId), trigPipeId_(trigPipeId), coreType_(coreType), trigCoreType_(tirgCoreType), eventId_(evid), aivCore_(aivCore)
+    OpSyncQueue(PipeType pipeId, PipeType trigPipeId, CoreType coreType, CoreType tirgCoreType, int evid, AIVCore setAivCore, AIVCore waitAivCore)
+        : pipeId_(pipeId), trigPipeId_(trigPipeId), coreType_(coreType), trigCoreType_(tirgCoreType), eventId_(evid), setAivCore_(setAivCore), waitAivCore_(waitAivCore)
     {}
 
     OpSyncQueue(int bufid, const std::vector<int>& offset, CoreType coreType, CoreType tirgCoreType)
@@ -129,7 +129,8 @@ public:
     CoreType coreType_{CoreType::AIV};
     CoreType trigCoreType_{CoreType::AIV};
     int eventId_{0};
-    AIVCore aivCore_;
+    AIVCore setAivCore_;
+    AIVCore waitAivCore_;
     int gMBufId{0};
     std::vector<int> offset_;
 
