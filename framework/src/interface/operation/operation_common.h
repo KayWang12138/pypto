@@ -139,7 +139,13 @@ class OpSyncQueue {
 public:
     OpSyncQueue() {}
     OpSyncQueue(PipeType pipeId, PipeType trigPipeId, CoreType coreType, CoreType tirgCoreType, int evid, AIVCore setAivCore, AIVCore waitAivCore)
-        : pipeId_(pipeId), trigPipeId_(trigPipeId), coreType_(coreType), trigCoreType_(tirgCoreType), eventId_(evid), setAivCore_(setAivCore), waitAivCore_(waitAivCore)
+        : pipeId_(pipeId),
+          trigPipeId_(trigPipeId),
+          coreType_(coreType),
+          trigCoreType_(tirgCoreType),
+          eventId_(evid),
+          setAivCore_(setAivCore),
+          waitAivCore_(waitAivCore)
     {}
 
     OpSyncQueue(int bufid, const std::vector<int>& offset, CoreType coreType, CoreType tirgCoreType)
