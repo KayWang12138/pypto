@@ -585,6 +585,25 @@ TensorBucket& Allocator::GetBestFitBucket(const TensorsDesc& tensorsDesc)
         }
     }
 
+    // 祖先链 BFS 没有命中：对旁系 tensor（无祖先关系但时序错开）做一次全桶兜底扫描，
+    // 避免因 GetProducers 走不到对方桶而被迫开新桶。
+    for (size_t bucketIdx = 0; bucketIdx < buckets_.size(); ++bucketIdx) {
+        if (visitedBucket.count(static_cast<int>(bucketIdx)) > 0) {
+            continue;
+        }
+        if (bucketsIdxToSize_[bucketIdx] < rawDataSizeKey) {
+            continue;
+        }
+        if (!buckets_[bucketIdx].HasTopoDependency(tensorsDesc.connectionOpsBitmap)) {
+            continue;
+        }
+        bucketsIdxToSize_[bucketIdx] = rawDataSize;
+        UpdateTensorMagicToBucketIdx(tensorsDesc.tensors, bucketIdx);
+        APASS_LOG_INFO_F(
+            Elements::Tensor, "Reusing bucket %zu for tensor magic=%d via fallback scan.", bucketIdx, first->magic);
+        return buckets_[bucketIdx];
+    }
+
     return HandleNewBuckets(tensorsDesc, rawDataSize, first->magic);
 }
 
