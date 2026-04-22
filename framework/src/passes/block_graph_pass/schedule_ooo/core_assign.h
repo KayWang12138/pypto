@@ -112,7 +112,8 @@ public:
         std::vector<int>& clusterIds, std::vector<ScheduleCoreType>& clusterCoreTypes,
         std::vector<std::set<int>>& inGraph, std::vector<std::set<int>>& outGraph,
         std::vector<std::vector<int>>& sccResult);
-    void RecordIDMap(std::unordered_map<int, int>& oldClusterToNewCluster, std::vector<ScheduleCoreType>& clusterCoreTypes);
+    void RecordIDMap(std::unordered_map<int, int>& oldClusterToNewCluster,
+        std::vector<ScheduleCoreType>& clusterCoreTypes);
     TaskGraph& GetTaskGraph() { return taskGraph_; }
     std::vector<Operation*> GetMergedOperations();
     std::vector<Operation*> opList_;
