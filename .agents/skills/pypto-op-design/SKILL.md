@@ -87,6 +87,29 @@ description: 当需要设计 PyPTO 算子实现方案时使用。通过迭代式
 - **编译期已知但超出 tile** → **不标 DYNAMIC**，用 Python for 或编译器自动切分
 - **运行时才确定大小** → **标 `pypto.DYNAMIC`**，用 `pypto.loop`
 
+#### Loop 模式选择：`pypto.loop` vs `pypto.loop_unroll`
+
+| 模式 | 适用场景 | 特点 |
+|------|---------|------|
+| `pypto.loop` | 循环体无跨迭代依赖，每次迭代独立 | 默认模式，编译器自动调度 |
+| `pypto.loop_unroll` | 循环体有跨迭代依赖（如累加、状态传递） | 需配合 `unroll_list` 指定每次迭代变化的 tensor 列表 |
+
+**`loop_unroll` 使用条件**（满足任一即需使用）：
+1. 循环内有累加操作（如 `acc = acc + x_tile`）
+2. 循环内有状态传递（如 RNN、scan 类操作）
+3. 当前迭代的输出是下一迭代的输入
+
+**`unroll_list` 说明**：指定每次迭代需要"刷新"的 tensor 列表。编译器会为列表中的 tensor 在每次迭代生成独立的计算图。
+
+```python
+# loop_unroll 示例：累加场景
+acc = pypto.zeros([1, D], pypto.DT_FP32)
+for b in pypto.loop_unroll(B, unroll_list=[acc], name="cumsum"):
+    x_tile = pypto.view(x, [1, D], [b, 0])
+    acc = pypto.add(acc, x_tile)
+    pypto.assemble(acc, [b, 0], out)
+```
+
 #### SymbolicScalar 约束
 
 动态轴的 `tensor.shape[i]` 和 `pypto.loop` 返回的索引都是 SymbolicScalar，**不是 Python int**：

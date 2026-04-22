@@ -38,6 +38,8 @@ git remote set-url origin git@gitcode.com:<username>/pypto.git
 
 ### 方式 4: GITCODE_TOKEN + URL 内嵌
 
+> ⚠️ **安全警告**：此方式将 Token 明文嵌入 remote URL，执行 `git remote get-url origin` 会泄露 Token。推荐优先使用方式 1（cache）或方式 3（SSH Key）。若必须使用此方式，请避免在日志、调试信息中执行 `git remote get-url`。
+
 ```bash
 export GITCODE_TOKEN="your-token"
 git remote set-url origin https://oauth2:${GITCODE_TOKEN}@gitcode.com/<username>/pypto.git
