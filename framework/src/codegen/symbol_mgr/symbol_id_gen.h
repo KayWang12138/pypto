@@ -17,7 +17,7 @@
 
 #include <array>
 #include <cstdint>
-
+#include "tilefwk/error.h"
 #include "tilefwk/error_code.h"
 
 namespace npu::tile_fwk {
