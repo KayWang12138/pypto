@@ -208,7 +208,7 @@ Tensor Neg(const Tensor& self)
     DECLARE_TRACER();
     std::unordered_set<DataType> supportedTypes = {DT_FP16, DT_BF16, DT_INT16, DT_INT32, DT_FP32};
     CheckTensorDataType(self.GetStorage(), supportedTypes, "NEG");
-    CheckTensorDimRange(self.GetStorage(), 2, 4, "NEG");
+    CheckTensorDimRange(self.GetStorage(), 1, 4, "NEG");
     CheckTensorShapeSize(self.GetStorage(), "NEG");
 
     if (IsFloat(self.GetStorage()->Datatype())) {
