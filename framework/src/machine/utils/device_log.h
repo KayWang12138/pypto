@@ -159,7 +159,15 @@ inline void DeviceLogSplitDebug(const char* func, const char* format, Args... ar
         if (IsLogEnableError()) {                                                              \
             dlog_error(LOG_MOD_ID, "%lu %s\nErrCode: F%05X! " #fmt , GET_TID(), __FUNCTION__,  \
                        static_cast<uint32_t>(errCode) & 0xFFFFF, ##__VA_ARGS__);               \
-            DEV_ATRACE(fmt, ##__VA_ARGS__);                                                        \
+            DEV_ATRACE(fmt, ##__VA_ARGS__);                                                    \
+        }                                                                                      \
+    } while (false)
+
+#define DEV_TRACE_LOG_ERROR(errCode, fmt, ...)                                                 \
+    do {                                                                                       \
+        if (IsLogEnableError()) {                                                              \
+            dlog_error(LOG_MOD_ID, "%lu %s\nErrCode: F%05X! " #fmt , GET_TID(), __FUNCTION__,  \
+                       static_cast<uint32_t>(errCode) & 0xFFFFF, ##__VA_ARGS__);               \
         }                                                                                      \
     } while (false)
 

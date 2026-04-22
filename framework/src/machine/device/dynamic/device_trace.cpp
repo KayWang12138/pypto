@@ -53,7 +53,7 @@ void* DeviceTrace::LoadLibrary(const std::string& libraryName) {
     void* handle = dlopen(libraryName.c_str(), RTLD_NOW);
     if (handle == nullptr) {
         const char* error = dlerror();
-        DEV_WARN(
+        DEV_TRACE_LOG_ERROR(
             DevCommonErr::LOAD_LIBRARY_FAILED, "Failed to load library %s: %s", libraryName.c_str(),
             error ? error : "unknown error");
     }
@@ -183,7 +183,7 @@ int32_t DeviceTrace::AtraceInitialize() {
         DEV_INFO("Successfully loaded libascend_trace.so");
         int32_t ret = InitializeAtraceFunctions();
         if (ret != 0) {
-            DEV_ERROR(
+            DEV_TRACE_LOG_ERROR(
                 DevCommonErr::INIT_FAILED, "Failed to initialize Atrace functions, error code: %d",
                 static_cast<int>(ret));
             dlclose(handle_);
@@ -202,7 +202,7 @@ int32_t DeviceTrace::UtraceInitialize() {
         DEV_INFO("Successfully loaded libutrace.so");
         int32_t ret = InitializeUtraceFunctions();
         if (ret != 0) {
-            DEV_ERROR(
+            DEV_TRACE_LOG_ERROR(
                 DevCommonErr::INIT_FAILED, "Failed to initialize Utrace functions, error code: %d",
                 static_cast<int>(ret));
             dlclose(handle_);
@@ -233,7 +233,7 @@ int32_t DeviceTrace::Initialize(void* targ) {
         DEV_INFO("Current using so is libutrace.so");
         return ConnectTraceD2H(targ);
     }
-    DEV_ERROR(DevCommonErr::LOAD_LIBRARY_FAILED, "Failed to initialize device trace: no trace library available");
+    DEV_TRACE_LOG_ERROR(DevCommonErr::LOAD_LIBRARY_FAILED, "Failed to initialize device trace: no trace library available");
     return static_cast<int32_t>(DevCommonErr::LOAD_LIBRARY_FAILED);
 }
 
@@ -266,7 +266,7 @@ int32_t DeviceTrace::BindHandleToEventHandle(TraHandle handle, uint8_t threadIdx
         std::string eventTraceHandleName = "PYPTO_Event_Trace_" + std::to_string(threadIdx);
         auto eventHandle = TraceEventCreate(eventTraceHandleName.c_str());
         if (eventHandle < 0) {
-            DEV_ERROR(DevCommonErr::GET_HANDLE_FAILED, "Create pypto event trace failed");
+            DEV_WARN("Create pypto event trace failed");
             return static_cast<int32_t>(DevCommonErr::LOAD_LIBRARY_FAILED);
         }
         DEV_INFO("Create pypto eventHandle_ successful");
@@ -274,9 +274,7 @@ int32_t DeviceTrace::BindHandleToEventHandle(TraHandle handle, uint8_t threadIdx
     }
     auto status = TraceEventBindTrace(eventHandleArry_.back(), handle);
     if (status < 0) {
-        DEV_ERROR(
-            DevCommonErr::PARAM_CHECK_FAILED, "Bind pypto trace handle to pypto event trace failed, error status: %d",
-            status);
+        DEV_WARN("Bind pypto trace handle to pypto event trace failed, error status: %d", status);
         return static_cast<int32_t>(DevCommonErr::LOAD_LIBRARY_FAILED);
     }
     return 0;
@@ -291,7 +289,7 @@ TraHandle DeviceTrace::CreateTraceHandle() {
     std::string handleName = "PyPTO_Aicpu_" + std::to_string(thereadIdx) + "_Trace";
     pyptoHandle = TraceCreate(TracerType::TRACER_TYPE_SCHEDULE, handleName.c_str());
     if (pyptoHandle < 0) {
-        DEV_ERROR(DevCommonErr::GET_HANDLE_FAILED, "Create pypto trace failed");
+        DEV_WARN("Create pypto trace failed");
         return -1;
     }
     pyptoHandleArray_.emplace_back(pyptoHandle);
@@ -315,7 +313,7 @@ void DeviceTrace::SubmitTraceMsg(const std::string& traceMsg) {
     uint32_t bufSize = msgSize > MAX_MSG_LEN ? MAX_MSG_LEN : msgSize;
     auto ret = TraceSubmit(pyptoHandle, buffer, bufSize);
     if (ret < 0) {
-        DEV_ERROR(DevCommonErr::EXEC_THRID_API_FAILD, "Submit pyptoHandle buffer info failed, ret: %d", ret);
+        DEV_WARN("Submit pyptoHandle buffer info failed, ret: %d", ret);
     }
 }
 
@@ -323,7 +321,7 @@ void DeviceTrace::ReportTraceMsg() {
     for (auto enventHandle : eventHandleArry_) {
         auto ret = TraceEventReport(enventHandle);
         if (ret < 0) {
-            DEV_ERROR(DevCommonErr::EXEC_THRID_API_FAILD, "Report pypto envet Handle buffer info failed, ret: %d", ret);
+            DEV_WARN("Report pypto envet Handle buffer info failed, ret: %d", ret);
         }
         DEV_INFO("Event Handle %ld, Report Submit Msg success", enventHandle);
     }
