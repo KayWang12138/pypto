@@ -191,7 +191,9 @@ license: 完整条款见 LICENSE.txt
 
 #### 4.2 将异常进行分类
 - 分析用户提供的测试代码，了解用户业务场景
-- 根据日志中获取的异常代码位置，分析异常代码上下文(通常需要向上取 20 行，向下取 10 行), 理解异常代码业务逻辑
+- 根据日志中获取的异常代码位置，执行以下可执行动作：
+  - 固定命令抓取上下文：`sed -n '<line-20>,<line+10>p' <file>`
+  - 输出三项证据：触发条件、关键分支变量、返回码
 - 使用 `pypto-pass-module-analyzer` 技能分析理解对应pass模块整体业务逻辑
 - 根据日志内容结合代码逻辑，推断异常类型，异常类型及特征如常见异常类型表格中所示
 
@@ -214,7 +216,7 @@ license: 完整条款见 LICENSE.txt
   - 首次外显现象：pass 中断且 `After` 图缺失
   - 补充诊断手段：在目标 pass 的 `RunOnFunction` 增加异常捕获/临时日志后重新复现
   - 最终异常证据：补充捕获后新增的错误码、错误文本、源码行号
-- 汇总异常定位过程中的关键信息及分析结果，形成分析报告，格式参考 `PyPTO Pass 错误分析报告`
+- 汇总异常定位过程中的关键信息及分析结果，形成分析报告，格式参考 [报告模板](references/pass-error-report-template.md)
 - 给出可行的修复建议（如：增加判空、修改算子映射逻辑、调整内存分配策略）
 
 **验证检查点**：
@@ -225,56 +227,7 @@ license: 完整条款见 LICENSE.txt
 
 ## 输出格式
 
-### 错误分析报告格式
-
-````markdown
-## PyPTO Pass 错误分析报告
-
-### 一、基本信息
-- **错误级别**: ERROR
-- **发生时间**: 2026-03-16 10:02:24.711
-- **进程ID**: 638465
-- **复现命令**: python3 build_ci.py -c -f=cpp -u=NBufferMergeTest.TestMode4
-
-### 二、错误位置
-- **文件**: n_buffer_merge.cpp
-- **行号**: 530
-- **Pass模块**: NBufferMerge
-- **Element类型**: Config
-
-### 三、错误信息
-```text
-The VEC_NBUFFER_SETTING key -3 is incorrect; Please set keys of VEC_NBUFFER_SETTING between -1 and max hashOrder 0.
-```
-
-### 四、错误原因分析
-1. **主要原因**: 参数配置错误
-2. **详细分析**: VEC_NBUFFER_SETTING 参数值 -3 超出有效范围
-3. **影响范围**: 仅影响当前Pass模块
-4. **相关代码片段**:
-   ```cpp
-    // n_buffer_merge.cpp:530
-    if (key < -1 || key > max_hash_order) {
-        GELOGE(INTERNAL_ERROR, "The VEC_NBUFFER_SETTING key %d is incorrect; Please set keys of VEC_NBUFFER_SETTING between -1 and max hashOrder %d.", key, max_hash_order);
-        return INTERNAL_ERROR;
-    }
-    ```
-
-### 五、修复建议
-1. **修复方案**: 调整 VEC_NBUFFER_SETTING 参数值
-2. **具体步骤**:
-   - 检查参数配置文件
-   - 将参数值调整为有效范围（-1 到 0）
-   - 重新执行测试用例
-3. **风险提示**:
-   - 修改参数可能影响性能
-   - 建议先在测试环境验证
-
-### 六、附录
-- **完整日志**: [日志文件路径]
-- **相关文档**: [文档链接]
-- **参考案例**: [案例链接]
-````
+报告格式详见 [PyPTO Pass 错误分析报告模板](references/pass-error-report-template.md)。
 
 ## 输出成功标准
 
@@ -285,16 +238,27 @@ The VEC_NBUFFER_SETTING key -3 is incorrect; Please set keys of VEC_NBUFFER_SETT
 - 错误原因分析基于日志和源码证据
 - 根因链完整（现象 -> 触发位置 -> 状态异常 -> 违反规则）
 
-## 版本兼容性
+## 输出校验与回退
 
-本技能支持以下 PyPTO 版本：
-- PyPTO 8.5.0+
-- 建议使用最新版本以获得最佳支持
+### 校验方式
 
-不同版本可能存在以下差异：
-- 日志格式可能略有不同
-- Pass 模块名称可能变化
-- 错误信息内容可能更新
+输出报告后，执行以下校验：
+
+1. **格式校验**：确认报告包含六个必需章节（基本信息、错误位置、错误信息、原因分析、修复建议、附录）
+2. **证据链校验**：确认根因链完整且各环节有对应证据（日志片段、源码行号、计算图差异、文档约束）
+3. **可执行性校验**：确认修复建议包含具体操作步骤而非泛化描述
+
+### 失败回退
+
+当校验失败时，按以下路径回退：
+
+| 失败类型 | 回退步骤 | 回退原因 |
+|---------|---------|---------|
+| 格式不完整 | 回退到步骤 5（异常分析） | 重新汇总分析结果 |
+| 证据链断裂 | 回退到步骤 2（关键信息获取） | 补充缺失的日志或计算图证据 |
+| 修复建议不可执行 | 回退到步骤 4（异常分类） | 重新定位根因并细化修复方案 |
+
+回退后必须记录：回退原因、缺失内容、补充动作。
 
 ## 性能优化建议
 
@@ -304,45 +268,12 @@ The VEC_NBUFFER_SETTING key -3 is incorrect; Please set keys of VEC_NBUFFER_SETT
 3. 使用多线程并行处理多个日志文件
 4. 缓存已解析的日志信息，避免重复解析
 
-## 使用示例
-
-### 示例 1：参数配置错误
-
-**用户输入：**
-```
-执行 python3 build_ci.py -c -f=cpp -u=NBufferMergeTest.TestMode4 异常，pass报错
-```
-
-**执行流程：**
-1. 设置调试选项和环境变量
-2. 执行命令复现问题
-3. 从日志中提取提取错误信息
-4. 定位到 NBufferMerge.Config Pass
-5. 分析参数配置错误
-6. 提供修复建议
-
-**输出：**
-````markdown
-## PyPTO Pass 错误分析报告
-
-### 错误位置
-- 文件: n_buffer_merge.cpp
-- 行号: 530
-- Pass模块: NBufferMerge
-- Element类型: Config
-
-### 错误信息
-The VEC_NBUFFER_SETTING key -3 is incorrect; Please set keys of VEC_NBUFFER_SETTING between -1 and max hashOrder 0.
-
-### 修复建议
-将 VEC_NBUFFER_SETTING 参数值从 -3 改为 -1
-````
-
 ## 参考文档
 
 ### 核心文档
 - [PyPTO Pass 异常分析流程指导](references/pass-error-analysis-guide.md)
 - [PyPTO IR分析指导](references/ir-analysis-guide.md)
+- [PyPTO Pass 错误分析报告模板](references/pass-error-report-template.md)
 - [查看计算图](../../../docs/tools/computation_graph/查看计算图.md)
 
 ### 相关技能

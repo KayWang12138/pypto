@@ -16,7 +16,7 @@ ls "$ASCEND_PROCESS_LOG_PATH/debug/plog"
 ```
 
 ```bash
-grep -n "\[ERROR\]\|\[WARN\]" "$ASCEND_PROCESS_LOG_PATH/debug/plog/pypto-*.log"
+grep -n "\[ERROR\]\|\[WARN\]" "$ASCEND_PROCESS_LOG_PATH"/debug/plog/pypto-*.log
 ```
 
 ### 步骤 2：提取关键信息
