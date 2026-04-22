@@ -909,13 +909,7 @@ struct FunctionInterpreter {
                 auto iop = callop->GetIOperands()[index];
                 if (frame.callop != nullptr) {
                     VERIFY_LOGI("BuildCallInOutDataPair: iop %zu is null, try to find in mixGlobalTensorDict.", index);
-                    auto callopAttr = std::static_pointer_cast<CallOpAttribute>(frame.callop->GetOpAttribute());
-                    std::unique_lock<std::mutex> mixTensorGuard(mixGlobalTensorMutex_);
-                    mixGlobalTensorCv_.wait(mixTensorGuard, [this, &iop, callopAttr] {
-                        auto it = mixGlobalTensorDict.find({iop, callopAttr->wrapId});
-                        return it != mixGlobalTensorDict.end() && it->second != nullptr;
-                    });
-                    iOpDataList[index] = mixGlobalTensorDict[{iop, callopAttr->wrapId}];
+                    iOpDataList[index] = WaitAndGetMixGlobalTensorDataView(frame, iop);
                     if (iOpDataList[index] != nullptr) {
                         continue;
                     }
@@ -1041,13 +1035,7 @@ struct FunctionInterpreter {
                 auto iop = op->GetIOperands()[index];
                 if (frame.callop != nullptr) {
                     VERIFY_LOGI("ExecuteOperation: iop %zu is null, try to find in mixGlobalTensorDict.", index);
-                    auto callopAttr = std::static_pointer_cast<CallOpAttribute>(frame.callop->GetOpAttribute());
-                    std::unique_lock<std::mutex> mixTensorGuard(mixGlobalTensorMutex_);
-                    mixGlobalTensorCv_.wait(mixTensorGuard, [this, &iop, callopAttr] {
-                        auto it = mixGlobalTensorDict.find({iop, callopAttr->wrapId});
-                        return it != mixGlobalTensorDict.end() && it->second != nullptr;
-                    });
-                    iOpDataList[index] = mixGlobalTensorDict[{iop, callopAttr->wrapId}];
+                    iOpDataList[index] = WaitAndGetMixGlobalTensorDataView(frame, iop);
                     if (iOpDataList[index] != nullptr) {
                         continue;
                     }
@@ -1100,6 +1088,19 @@ struct FunctionInterpreter {
                 dumpOperationUsage += ts.Duration();
             }
         }
+    }
+
+    std::shared_ptr<LogicalTensorData> WaitAndGetMixGlobalTensorDataView(
+        FunctionFrame& frame, const std::shared_ptr<LogicalTensor>& iop)
+    {
+        ASSERT(ControlFlowScene::INVALID_INPLACE_CHAIN, frame.callop != nullptr);
+        auto callopAttr = std::static_pointer_cast<CallOpAttribute>(frame.callop->GetOpAttribute());
+        std::unique_lock<std::mutex> mixTensorGuard(mixGlobalTensorMutex_);
+        mixGlobalTensorCv_.wait(mixTensorGuard, [this, &iop, callopAttr] {
+            auto it = mixGlobalTensorDict.find({iop, callopAttr->wrapId});
+            return it != mixGlobalTensorDict.end() && it->second != nullptr;
+        });
+        return mixGlobalTensorDict[{iop, callopAttr->wrapId}];
     }
 
     void ExecuteHandleFunctionBegin(Function* func, std::shared_ptr<FunctionFrame> frame)
