@@ -679,6 +679,13 @@ std::string CodeGenOpNPU::PrintMemCopyInWithL1TileTensor(const PrintMemCopyWithL
 {
     std::vector<std::string> tileOpParamList = GenTileOpParamForNormalCopyTileTensor(param.gmIdx);
 
+    if (opCode == Opcode::OP_L1_COPY_IN) {
+        std::vector<int64_t> dstOffset = offset[ID0];
+        std::string coordCp = WrapParamByParentheses(dstOffset);
+        std::string coord = PrintCoord(rawShape[ID0].size(), coordCp);
+        tileOpParamList.insert(tileOpParamList.end() - 1, coord);
+    }
+    
     auto [outerValueStr, innerValueStr] = GetOuterInnerValueStr(param.gmIdx, param.gmShape, param.isSpillingToGM);
     if (opCode != Opcode::OP_L1_COPY_IN_A_SCALE && opCode != Opcode::OP_L1_COPY_IN_B_SCALE) {
         tileOpParamList.insert(tileOpParamList.end(), {outerValueStr, innerValueStr});

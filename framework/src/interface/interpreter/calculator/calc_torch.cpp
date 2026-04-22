@@ -990,6 +990,135 @@ static void Range(const TensorData& out, const Element& start, const Element& en
     ToOperand(tout.second, tout.first, out.dtype);
 }
 
+static uint32_t MultiplyHighLow(uint32_t a, uint32_t b, uint32_t& hi)
+{
+    uint64_t product = static_cast<uint64_t>(a) * static_cast<uint64_t>(b);
+    hi = static_cast<uint32_t>(product >> 32);
+    return static_cast<uint32_t>(product & 0xFFFFFFFF);
+}
+
+static void PhiloxRandomGolden(std::vector<uint32_t>& counter, std::vector<uint32_t>& key, int rounds)
+{
+    for (int i = 0; i < rounds; ++i) {
+        uint32_t hi0, hi1;
+        uint32_t lo0 = MultiplyHighLow(0xD2511F53, counter[0], hi0);
+        uint32_t lo1 = MultiplyHighLow(0xCD9E8D57, counter[2], hi1);
+
+        counter = {hi1 ^ counter[1] ^ key[0], lo1, hi0 ^ counter[3] ^ key[1], lo0};
+
+        key[0] += 0x9E3779B9;
+        key[1] += 0xBB67AE85;
+    }
+}
+
+static void Uniform(
+    const TensorData& out, const Element& key, const Element& counter0, const Element& counter1, const Element& rounds,
+    DataType dtype)
+{
+    std::vector<uint32_t> keyVec(2);
+    keyVec[0] = static_cast<uint32_t>(key.Cast<uint64_t>() & 0xFFFFFFFF);
+    keyVec[1] = static_cast<uint32_t>(key.Cast<uint64_t>() >> 32);
+
+    std::vector<uint32_t> counterVec(4);
+    counterVec[0] = static_cast<uint32_t>(counter0.Cast<uint64_t>() & 0xFFFFFFFF);
+    counterVec[1] = static_cast<uint32_t>(counter0.Cast<uint64_t>() >> 32);
+    counterVec[2] = static_cast<uint32_t>(counter1.Cast<uint64_t>() & 0xFFFFFFFF);
+    counterVec[3] = static_cast<uint32_t>(counter1.Cast<uint64_t>() >> 32);
+
+    int64_t totalElements = 1;
+    for (int64_t dim : out.shape) {
+        totalElements *= dim;
+    }
+
+    std::vector<uint32_t> result(totalElements);
+    std::vector<uint32_t> currentKey = keyVec;
+    std::vector<uint32_t> currentCounter = counterVec;
+
+    uint16_t roundsVal = rounds.Cast<uint16_t>();
+
+    for (int64_t i = 0; i < totalElements; i += 4) {
+        PhiloxRandomGolden(currentCounter, currentKey, roundsVal);
+
+        for (int j = 0; j < 4 && (i + j) < totalElements; ++j) {
+            result[i + j] = currentCounter[j];
+        }
+
+        currentCounter[0]++;
+        if (currentCounter[0] == 0) {
+            currentCounter[1]++;
+            if (currentCounter[1] == 0) {
+                currentCounter[2]++;
+                if (currentCounter[2] == 0) {
+                    currentCounter[3]++;
+                }
+            }
+        }
+    }
+
+    auto tout = From(out);
+
+    if (dtype == DT_FP32) {
+        std::vector<float> resultFloat(totalElements);
+        for (int64_t i = 0; i < totalElements; ++i) {
+            uint32_t x = result[i];
+            uint32_t man = x & 0x7fffff;
+            uint32_t exp = 127;
+            uint32_t val = (exp << 23) | man;
+            float f;
+            std::memcpy(&f, &val, sizeof(val));
+            resultFloat[i] = f - 1.0f;
+        }
+        auto options = torch::TensorOptions().dtype(torch::kFloat32);
+        auto tmp = torch::from_blob(resultFloat.data(), {totalElements}, options).clone();
+        tout.second.copy_(tmp.reshape(tout.second.sizes()));
+    } else if (dtype == DT_FP16) {
+        std::vector<uint16_t> resultHalf(totalElements);
+        for (int64_t i = 0; i < totalElements; ++i) {
+            uint32_t x = result[i];
+            uint16_t x16 = static_cast<uint16_t>(x & 0xFFFF);
+            uint16_t man = x16 & 0x3ff;
+            uint16_t exp = 15;
+            uint16_t val = (exp << 10) | man;
+            resultHalf[i] = val;
+        }
+        auto options = torch::TensorOptions().dtype(torch::kInt16);
+        auto tmp = torch::from_blob(resultHalf.data(), {totalElements}, options).clone();
+        auto tmpHalf = tmp.to(torch::kFloat16);
+        auto tmpFloat = (tmpHalf - torch::scalar_tensor(1.0, torch::kFloat16)).to(torch::kFloat32);
+        tout.second.copy_(tmpFloat.reshape(tout.second.sizes()).to(torch::kFloat16));
+    } else if (dtype == DT_BF16) {
+        std::vector<uint16_t> resultBfloat16(totalElements);
+        for (int64_t i = 0; i < totalElements; ++i) {
+            uint32_t x = result[i];
+            uint16_t x16 = static_cast<uint16_t>(x & 0xFFFF);
+            uint16_t man = x16 & 0x7f;
+            uint16_t exp = 127;
+            uint16_t val = (exp << 7) | man;
+            resultBfloat16[i] = val;
+        }
+        auto options = torch::TensorOptions().dtype(torch::kInt16);
+        auto tmp = torch::from_blob(resultBfloat16.data(), {totalElements}, options).clone();
+        auto tmpBfloat16 = tmp.to(torch::kBFloat16);
+        auto tmpFloat = (tmpBfloat16 - torch::scalar_tensor(1.0, torch::kBFloat16)).to(torch::kFloat32);
+        tout.second.copy_(tmpFloat.reshape(tout.second.sizes()).to(torch::kBFloat16));
+    } else {
+        std::vector<float> resultFloat(totalElements);
+        for (int64_t i = 0; i < totalElements; ++i) {
+            uint32_t x = result[i];
+            uint32_t man = x & 0x7fffff;
+            uint32_t exp = 127;
+            uint32_t val = (exp << 23) | man;
+            float f;
+            std::memcpy(&f, &val, sizeof(val));
+            resultFloat[i] = f - 1.0f;
+        }
+        auto options = torch::TensorOptions().dtype(torch::kFloat32);
+        auto tmp = torch::from_blob(resultFloat.data(), {totalElements}, options).clone();
+        tout.second.copy_(tmp.reshape(tout.second.sizes()));
+    }
+    ToOperand(tout.second, tout.first, out.dtype);
+}
+
 template <typename T>
 static void CompareImpl(
     const TensorData& out, const torch::Tensor& tself, const T& other_op, CmpOperationType operation, CmpModeType mode)
@@ -1392,7 +1521,8 @@ void Gather(const TensorData& out, const TensorData& params, const TensorData& i
     if (axis < 0) {
         axis += paramsRank;
     }
-    TORCH_CHECK(axis >= 0 && axis < static_cast<int64_t>(paramsRank), "axis out of range");
+    ASSERT(CalculatorErrorScene::GATHER_AXIS_OUT_OF_RANGE, axis >= 0 && axis < static_cast<int64_t>(paramsRank))
+        << "axis out of range";
     auto idxFlat = tindices.second.to(torch::kLong).reshape({-1});
     auto gathered = tparams.second.index_select(/*dim=*/axis, /*index=*/idxFlat);
     std::vector<int64_t> outSize{};
@@ -1408,52 +1538,64 @@ void GatherINUBGolden(
     int64_t blockSize, int64_t axis)
 {
     // ---- 基本约束：只做 CPU，不考虑 CUDA ----
-    TORCH_CHECK(
-        params.is_cpu() && indices.is_cpu() && pageTable.is_cpu() && out.is_cpu(),
-        "CPU-only: params/indices/pageTable/out must all be on CPU.");
+    ASSERT(
+        CalculatorErrorScene::GATHER_INUB_DEVICE_INVALID,
+        params.is_cpu() && indices.is_cpu() && pageTable.is_cpu() && out.is_cpu())
+        << "CPU-only: params/indices/pageTable/out must all be on CPU.";
 
     // ---- axis：严格等价你 golden（token 维），只允许 axis==0 ----
     if (axis < 0)
         axis += params.dim();
-    TORCH_CHECK(axis == 0, "Only axis==0 is supported to match the original golden logic.");
-    TORCH_CHECK(blockSize > 0, "blockSize must be > 0.");
+    ASSERT(CalculatorErrorScene::GATHER_INUB_AXIS_INVALID, axis == 0)
+        << "Only axis==0 is supported to match the original golden logic.";
+    ASSERT(CalculatorErrorScene::GATHER_INUB_BLOCKSIZE_INVALID, blockSize > 0) << "blockSize must be > 0.";
 
     // ---- 形状严格限制：indices/pageTable 只能是 [1, a] ----
-    TORCH_CHECK(params.dim() == 2, "params must be [num_buffer_tokens, hidden_dim]");
-    TORCH_CHECK(indices.dim() == 2 && indices.size(0) == 1, "indices must be [1, topk_count]");
-    TORCH_CHECK(pageTable.dim() == 2 && pageTable.size(0) == 1, "pageTable must be [1, num_logical_blocks]");
-    TORCH_CHECK(out.dim() == 2, "out must be [topk_count, hidden_dim]");
+    ASSERT(CalculatorErrorScene::GATHER_INUB_SHAPE_INVALID, params.dim() == 2)
+        << "params must be [num_buffer_tokens, hidden_dim]";
+    ASSERT(CalculatorErrorScene::GATHER_INUB_SHAPE_INVALID, indices.dim() == 2 && indices.size(0) == 1)
+        << "indices must be [1, topk_count]";
+    ASSERT(CalculatorErrorScene::GATHER_INUB_SHAPE_INVALID, pageTable.dim() == 2 && pageTable.size(0) == 1)
+        << "pageTable must be [1, num_logical_blocks]";
+    ASSERT(CalculatorErrorScene::GATHER_INUB_SHAPE_INVALID, out.dim() == 2) << "out must be [topk_count, hidden_dim]";
 
     const int64_t hidden_dim = params.size(1);
     const int64_t topk_count = indices.size(1);
     const int64_t num_logical_blocks = pageTable.size(1);
 
-    TORCH_CHECK(out.size(0) == topk_count && out.size(1) == hidden_dim, "out must have shape [topk_count, hidden_dim]");
+    ASSERT(CalculatorErrorScene::GATHER_INUB_SHAPE_INVALID, out.size(0) == topk_count && out.size(1) == hidden_dim)
+        << "out must have shape [topk_count, hidden_dim]";
 
     // ---- dtype：indices/pageTable 必须是整数；统一转 int64（不转 params）----
-    TORCH_CHECK(
-        indices.scalar_type() == at::kInt || indices.scalar_type() == at::kLong, "indices must be int32 or int64");
-    TORCH_CHECK(
-        pageTable.scalar_type() == at::kInt || pageTable.scalar_type() == at::kLong,
-        "pageTable must be int32 or int64");
+    ASSERT(
+        CalculatorErrorScene::GATHER_INUB_DTYPE_INVALID,
+        indices.scalar_type() == at::kInt || indices.scalar_type() == at::kLong)
+        << "indices must be int32 or int64";
+    ASSERT(
+        CalculatorErrorScene::GATHER_INUB_DTYPE_INVALID,
+        pageTable.scalar_type() == at::kInt || pageTable.scalar_type() == at::kLong)
+        << "pageTable must be int32 or int64";
 
     // out/params dtype 必须一致（index_select 不会帮你做 dtype cast）
-    TORCH_CHECK(out.scalar_type() == params.scalar_type(), "out and params must have the same dtype");
+    ASSERT(CalculatorErrorScene::GATHER_INUB_DTYPE_INVALID, out.scalar_type() == params.scalar_type())
+        << "out and params must have the same dtype";
 
     // ---- 1) logical indices: [topk] int64 ----
     at::Tensor logical = indices.reshape({-1}).to(at::kLong);
 
     // ---- logical 越界检查： [0, num_logical_blocks * blockSize) ----
     const int64_t total_logical_tokens = num_logical_blocks * blockSize;
-    TORCH_CHECK(total_logical_tokens >= 0, "total_logical_tokens overflow?");
-    TORCH_CHECK(logical.ge(0).all().item<bool>(), "logical_index < 0 exists in indices");
-    TORCH_CHECK(
-        logical.lt(total_logical_tokens).all().item<bool>(),
-        "logical_index out of range: must be < num_logical_blocks * blockSize");
+    ASSERT(CalculatorErrorScene::GATHER_INUB_LOGICAL_INDEX_INVALID, total_logical_tokens >= 0)
+        << "total_logical_tokens overflow?";
+    ASSERT(CalculatorErrorScene::GATHER_INUB_LOGICAL_INDEX_INVALID, logical.ge(0).all().item<bool>())
+        << "logical_index < 0 exists in indices";
+    ASSERT(CalculatorErrorScene::GATHER_INUB_LOGICAL_INDEX_INVALID, logical.lt(total_logical_tokens).all().item<bool>())
+        << "logical_index out of range: must be < num_logical_blocks * blockSize";
 
     // ---- 2) pageTable: [num_logical_blocks] int64 ----
     at::Tensor pt = pageTable.reshape({-1}).to(at::kLong);
-    TORCH_CHECK(pt.numel() == num_logical_blocks, "pageTable numel mismatch");
+    ASSERT(CalculatorErrorScene::GATHER_INUB_PAGETABLE_NUMEL_MISMATCH, pt.numel() == num_logical_blocks)
+        << "pageTable numel mismatch";
 
     // ---- 3) compute physical indices (完全等价 golden) ----
     // logical_block = logical / blockSize
@@ -1464,14 +1606,19 @@ void GatherINUBGolden(
     at::Tensor offset = logical.remainder(blockSize);           // same as % for non-negative
 
     // 逻辑块 id 范围检查（其实 logical 已经检查过，这里更保险）
-    TORCH_CHECK(logical_block.ge(0).all().item<bool>(), "logical_block_id < 0 exists");
-    TORCH_CHECK(logical_block.lt(num_logical_blocks).all().item<bool>(), "logical_block_id out of range for pageTable");
+    ASSERT(CalculatorErrorScene::GATHER_INUB_LOGICAL_BLOCK_INVALID, logical_block.ge(0).all().item<bool>())
+        << "logical_block_id < 0 exists";
+    ASSERT(
+        CalculatorErrorScene::GATHER_INUB_LOGICAL_BLOCK_INVALID,
+        logical_block.lt(num_logical_blocks).all().item<bool>())
+        << "logical_block_id out of range for pageTable";
 
     at::Tensor physical_block = pt.index_select(0, logical_block);
     at::Tensor physical = physical_block.mul(blockSize).add(offset); // int64
 
     // ---- physical 越界检查：[0, num_buffer_tokens) ----
-    TORCH_CHECK(physical.ge(0).all().item<bool>(), "physical_index < 0 exists");
+    ASSERT(CalculatorErrorScene::GATHER_INUB_PHYSICAL_INDEX_INVALID, physical.ge(0).all().item<bool>())
+        << "physical_index < 0 exists";
 
     // ---- 4) index_select gather: params[physical, :] -> [topk, hidden_dim] ----
     at::Tensor selected = params.index_select(0, physical); // dtype 跟 params 一样
@@ -2407,6 +2554,7 @@ static struct CalcOps calcOps = {
     .Hypot = Hypot,
     .PReLU = PReLU,
     .LogicalAnd = LogicalAnd,
+    .Uniform = Uniform,
     .AddS = AddS,
     .SubS = SubS,
     .MulS = MulS,

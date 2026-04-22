@@ -202,6 +202,8 @@ CodeGenOpNPU::CodeGenOpNPU(const CodeGenOpNPUCtx& ctx)
       compositeOps_({
           // range op
           {Opcode::OP_RANGE, [this]() { return GenRangeOp(); }},
+          // uniform op
+          {Opcode::OP_UNIFORM, [this]() { return GenUniformOp(); }},
 
           // logicalnot
           {Opcode::OP_LOGICALNOT, [this]() { return GenLogicalNotOp(); }},
@@ -521,7 +523,7 @@ void CodeGenOpNPU::UpdateTileTensorShapeAndStride(
 
     tileTensor.rawShape = newRawShape;
 
-    // ---- static ----
+    // ---- static or "main block" ----
     if (functionType == FunctionType::STATIC) {
         for (auto s : newOriginShape) {
             tileTensor.shape.emplace_back(std::to_string(s));
@@ -546,9 +548,14 @@ void CodeGenOpNPU::UpdateTileTensorShapeAndStride(
     }
 
     // local tensor
-
-    for (const auto& s : newDynValidShape) {
-        tileTensor.shape.emplace_back(SymbolicExpressionTable::BuildExpression(s));
+    if (tileTensor.isConstant) {
+        for (const auto& s : newOriginShape) {
+            tileTensor.shape.emplace_back(std::to_string(s));
+        }
+    } else {
+        for (const auto& s : newDynValidShape) {
+            tileTensor.shape.emplace_back(SymbolicExpressionTable::BuildExpression(s));
+        }
     }
     tileTensor.stride = BuildStride(newRawShape);
 }

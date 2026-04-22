@@ -108,6 +108,7 @@ public:
     std::string GenGatherMaskOp() const;
 
     std::string GenRangeOp() const;
+    std::string GenUniformOp() const;
     std::string PrintRangeTileTensor(
         const std::string& startVal, const std::string& stepVal, const std::string& tileIdxExpr) const;
     std::string GenL0CToUBTileTensor() const;
@@ -419,8 +420,8 @@ protected:
     std::string PrintIndexOutCastDynamic(const PrintIndexOutCastParam& param) const;
     std::string PrintIndexOutCastDynamicUnaligned(const PrintIndexOutCastParam& param) const;
 
-    std::string PrintExpandDynamicUnaligned(const PrintUnaryParam& param, int expandAxis) const;
-    std::string PrintExpandLayout(int expandAxis) const;
+    std::string PrintExpandDynamicUnaligned(const PrintUnaryParam& param, std::vector<int> expandAxes) const;
+    std::string PrintExpandLayout(std::vector<int> expandAxes) const;
     std::string PrintExpand(
         const std::string& s0Var, const std::string& dVar, const std::string& srcDtypeStr,
         const std::string& dstDtypeStr) const;

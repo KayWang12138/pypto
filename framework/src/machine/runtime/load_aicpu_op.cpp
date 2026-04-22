@@ -18,13 +18,12 @@
 #include <nlohmann/json.hpp>
 #include <fstream>
 #include <limits.h>
-#ifdef BUILD_WITH_CANN
 #include "tilefwk/pypto_fwk_log.h"
 #include "interface/utils/file_utils.h"
 #include "interface/utils/op_info_manager.h"
 #include "machine/runtime/runtime.h"
 #include "machine/utils/machine_utils.h"
-#include "machine/utils/machine_error.h"
+#include "tilefwk/error_code.h"
 using Json = nlohmann::json;
 
 namespace {
@@ -194,4 +193,3 @@ int LoadAicpuOp::LaunchBuiltInOp([[maybe_unused]] RtStream stream, [[maybe_unuse
 #endif
 }
 } // namespace npu::tile_fwk
-#endif

@@ -147,7 +147,7 @@ public:
                 auto taskId = (value & 0xFFFFFFFF) - 1;
                 if (value == 0 || taskId == AICORE_TASK_STOP || (taskId & 0xFFFFFFFF) == AICORE_FUNC_STOP)
                     return;
-                CostModelSendTask(coreIdx, taskId & 0xFFFFFFFF, {});
+                CostModelSendTask(coreIdx, taskId & 0xFFFFFFFF);
             }
         }
     }
@@ -293,14 +293,14 @@ public:
         return taskIds[coreIdx].front();
     }
 
-    void CostModelSendTask(int coreIdx, uint64_t taskId, std::map<uint64_t, uint64_t> tensorAddr2SizeMap)
+    void CostModelSendTask(int coreIdx, uint64_t taskId)
     {
         uint64_t time = taskIds[coreIdx].empty() ? GetCycles() : taskTimes[coreIdx].back();
         uint64_t timeCost = getTaskTimeCost == nullptr ? 0 : getTaskTimeCost(coreIdx, taskId, time);
         taskTimes[coreIdx].push_back(time + timeCost);
         taskIds[coreIdx].push_back(taskId);
         if (costModel_) {
-            costModel_->SendTask(coreIdx, taskId, tensorAddr2SizeMap);
+            costModel_->SendTask(coreIdx, taskId);
         }
         DEV_DEBUG(
             "CostModel AICore add task: aicoreIdx=%d, taskId=%#lx, newQueueSize=%lu, finishTime=%lu.", coreIdx, taskId,
@@ -516,17 +516,23 @@ public:
         return &arg->parallelDevTask;
     }
 
-    void SetParallelDevTask(volatile ParallelDevTask* kernelParallDevTask, int parallelIdx, int64_t funcData)
+    void SetParallelDevTask(
+        volatile ParallelDevTask* kernelParallDevTask, int parallelIdx, int64_t funcData, uint32_t devTaskId)
     {
         DEV_IF_DEVICE
         {
-            kernelParallDevTask->elements[parallelIdx % npu::tile_fwk::SCH_DEVTASK_MAX_PARALLELISM] = funcData;
+            kernelParallDevTask->ptrElements[parallelIdx % npu::tile_fwk::SCH_DEVTASK_MAX_PARALLELISM] = funcData;
+            kernelParallDevTask->idElements[parallelIdx % npu::tile_fwk::SCH_DEVTASK_MAX_PARALLELISM] = devTaskId;
         } else {
             if (enableEslModel_) {
                 eslModel_.WriteEslMem(
                     reinterpret_cast<uint64_t>(
-                        &kernelParallDevTask->elements[parallelIdx % npu::tile_fwk::SCH_DEVTASK_MAX_PARALLELISM]),
+                        &kernelParallDevTask->ptrElements[parallelIdx % npu::tile_fwk::SCH_DEVTASK_MAX_PARALLELISM]),
                         sizeof(funcData), &funcData);
+                eslModel_.WriteEslMem(
+                    reinterpret_cast<uint64_t>(
+                        &kernelParallDevTask->idElements[parallelIdx % npu::tile_fwk::SCH_DEVTASK_MAX_PARALLELISM]),
+                        sizeof(devTaskId), &devTaskId);
             }
         }
     }
@@ -575,7 +581,8 @@ public:
             args_[coreIdx]->parallelDevTask.front = 0;
             args_[coreIdx]->parallelDevTask.rear = 0;
             for (uint32_t i = 0; i < npu::tile_fwk::SCH_DEVTASK_MAX_PARALLELISM; i++) {
-                args_[coreIdx]->parallelDevTask.elements[i] = 0;
+                args_[coreIdx]->parallelDevTask.ptrElements[i] = 0;
+                args_[coreIdx]->parallelDevTask.idElements[i] = 0;
             }
         } else {
             if (enableEslModel_) {
@@ -590,7 +597,9 @@ public:
                 int64_t i64Zereo = 0;
                 for (uint32_t i = 0; i < npu::tile_fwk::SCH_DEVTASK_MAX_PARALLELISM; i++) {
                     eslModel_.WriteEslMem(
-                    reinterpret_cast<uint64_t>(&args_[coreIdx]->parallelDevTask.elements[i]), sizeof(i64Zereo), &i64Zereo);
+                    reinterpret_cast<uint64_t>(&args_[coreIdx]->parallelDevTask.ptrElements[i]), sizeof(i64Zereo), &i64Zereo);
+                    eslModel_.WriteEslMem(
+                    reinterpret_cast<uint64_t>(&args_[coreIdx]->parallelDevTask.idElements[i]), sizeof(u32Zero), &u32Zero);
                 }
             }
         }

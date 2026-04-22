@@ -18,6 +18,7 @@
 #include <deque>
 #include <functional>
 #include <map>
+#include <sstream>
 #include <tuple>
 #include <cstdint>
 #include <string>
@@ -27,7 +28,7 @@
 #include "interface/utils/common.h"
 #include "interface/tensor/logical_tensor.h"
 #include "codegen/utils/codegen_utils.h"
-#include "codegen/utils/codegen_error.h"
+#include "tilefwk/error_code.h"
 #include "symbol_id_gen.h"
 
 namespace npu::tile_fwk {
@@ -93,7 +94,7 @@ struct TileTensor {
                 // only calc linear offset in the outermost loop, tensor in loop use base addr from tensor out of loop
                 linearOffset = CalcLinearOffset(rawShape, localBufOffset);
             }
-            if (linearOffset != 0) {
+            if (linearOffset != 0 && bufType != BUF_L1) {
                 // append linear offset, e.g. UBTileTensorFP32Dim2_1 ubTensor_1((uint64_t)((float *)UB_S0_E4096 + 32))
                 oss << "((" << DataType2CCEStr(dtype) << " *)" << bufVar << " + " << linearOffset << ")";
             } else {
@@ -151,6 +152,15 @@ struct TileTensorKey {
     {
         return dim == other.dim && bufVar == other.bufVar && shape == other.shape && dtype == other.dtype &&
                localBufOffset == other.localBufOffset && rawShape == other.rawShape;
+    }
+
+    std::string ToString() const
+    {
+        std::ostringstream oss;
+        oss << "dim=" << dim << ", dtype=" << ToUnderlying(dtype) << ", bufVar=" << bufVar
+            << ", shape=" << IntVecToStr(shape) << ", rawShape=" << IntVecToStr(rawShape)
+            << ", localBufOffset=" << IntVecToStr(localBufOffset);
+        return oss.str();
     }
 };
 

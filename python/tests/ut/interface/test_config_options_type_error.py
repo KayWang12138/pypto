@@ -26,7 +26,7 @@ def assert_option_type_error(setter, pattern):
     [
         (
             lambda: pypto.set_pass_options(sg_set_scope="aa"),
-            "Option 'pass.sg_set_scope' has invalid type. Expected int64, but got string.",
+            "Option 'pass.sg_set_scope' has invalid type. Expected int64 or tuple, but got str.",
         ),
         (
             lambda: pypto.set_pass_options(cube_nbuffer_setting=[1, 2]),
@@ -73,6 +73,10 @@ def test_wrapper_option_type_mismatch_error(setter, pattern):
         (
             {"runtime_options": {"ready_on_host_tensors": "tensor0"}},
             "Option 'runtime.ready_on_host_tensors' has invalid type. Expected list\\[string\\], but got string.",
+        ),
+        (
+            {"runtime_options": {"device_sched_parallelism": "aa"}},
+            "Option 'runtime.device_sched_parallelism' has invalid type. Expected int64, but got string.",
         ),
         (
             {"verify_options": {"pass_verify_pass_filter": False}},

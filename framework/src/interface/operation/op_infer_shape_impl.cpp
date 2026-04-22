@@ -18,8 +18,9 @@
 #include "interface/operation/operation.h"
 #include "interface/tensor/symbolic_scalar.h"
 #include "interface/utils/common.h"
-#include "interface/utils/vector_error.h"
-#include "interface/utils/matmul_error.h"
+#include "tilefwk/error_code.h"
+#include "tilefwk/error_code.h"
+#include "tilefwk/error_code.h"
 
 namespace npu::tile_fwk {
 const std::string COPY_OUT_FORCE_INFER_SHAPE = "copy_out_force_infer_shape";
@@ -475,6 +476,18 @@ void RangeInferFunc(Operation* op, std::vector<std::vector<SymbolicScalar>>& out
     }
 }
 REGISTER_INFER_SHAPE_FUNC(OP_RANGE, Opcode::OP_RANGE, RangeInferFunc);
+
+void UniformInferFunc(Operation *op, std::vector<std::vector<SymbolicScalar>> &outValidShapes) {
+    std::vector<SymbolicScalar> outValidShape;
+    auto shapeAttr = op->GetVectorIntAttribute(OP_ATTR_PREFIX + "SHAPE");
+    for (auto dim : shapeAttr) {
+        outValidShape.push_back(SymbolicScalar(static_cast<int64_t>(dim)));
+    }
+    for (auto output : op->GetOOperands()) {
+        outValidShapes.push_back(outValidShape);
+    }
+}
+REGISTER_INFER_SHAPE_FUNC(OP_UNIFORM, Opcode::OP_UNIFORM, UniformInferFunc);
 
 // reduce infer shape func
 void ReduceInferFunc(Operation* op, std::vector<std::vector<SymbolicScalar>>& outValidShapes)
