@@ -17,6 +17,8 @@
 import sys
 import logging
 import json
+import math
+import struct
 from pathlib import Path
 from typing import List
 
@@ -129,7 +131,9 @@ def gen_op_golden(
         for input_tensor in config["input_tensors"]:
             min = input_tensor["data_range"]["min"]
             max = input_tensor["data_range"]["max"]
-            if min != max:
+            if op == "QuantMX":
+                tensor = _generate_quantmx_input(input_tensor, config)
+            elif min != max:
                 assert not isinstance(min, str) and not isinstance(
                     min, str
                 ), "Data range must be number when the min and max are not same."
@@ -166,9 +170,12 @@ def gen_op_golden(
             input_tensor.tofile(Path(output_path, read_input["name"] + ".bin"))
 
         for idx in range(len(config["output_tensors"])):
-            res[idx].astype(
-                get_dtype_by_name(config["output_tensors"][idx]["dtype"])
-            ).tofile(Path(output_path, config["output_tensors"][idx]["name"] + ".bin"))
+            output_dtype = config["output_tensors"][idx]["dtype"]
+            output_file = Path(output_path, config["output_tensors"][idx]["name"] + ".bin")
+            if output_dtype in ["fp8e4m3", "fp8e5m2", "fp8e8m0"] and res[idx].dtype == np.uint8:
+                res[idx].tofile(output_file)
+            else:
+                res[idx].astype(get_dtype_by_name(output_dtype)).tofile(output_file)
         return True
 
     case_path: Path = Path(Path(__file__).parent.parent, "test_case").resolve()
@@ -2902,6 +2909,401 @@ def gen_argsort_op_golden(case_name: str, output: Path, case_index: int = None) 
         return [idx.numpy()]
     logging.debug("Case(%s), Golden creating...", case_name)
     return gen_op_golden("ArgSort", golden_func, output, case_index)
+
+
+def _decode_e4m3_fn(code: int) -> float:
+    sign = -1 if (code & 0x80) != 0 else 1
+    exp = (code >> 3) & 0x0F
+    mant = code & 0x07
+    if exp == 0:
+        if mant == 0:
+            return -0.0 if sign < 0 else 0.0
+        return float(sign) * math.ldexp(float(mant), -9)
+    if exp == 0x0F and mant == 0x07:
+        return math.nan
+    significand = 1.0 + float(mant) / 8.0
+    return float(sign) * math.ldexp(significand, exp - 7)
+
+
+# MX quantization constants per target dtype (OCP Microscaling Formats MX v1.0).
+# Extensible for future fp4 support.
+_MX_DTYPE_PARAMS = {
+    "fp8_e4m3": {
+        "target_max_pow2": 8,
+        "max_pos": 448.0,
+        "min_normal": 2 ** (1 - 7),   # 2^-6 = 0.015625
+        "exp_bias": 7,
+        "mbits": 3,
+    },
+    # Future: "fp4_e2m1": {"target_max_pow2": 2, "max_pos": 6.0, "min_normal": 1.0, "exp_bias": 1, "mbits": 1},
+}
+
+_E8M0_EXPONENT_BIAS = 127
+_F32_EXP_BIAS = 127
+_F32_MBITS = 23
+
+
+def _compute_shared_exponents(max_abs: np.ndarray, target_max_pow2: int) -> np.ndarray:
+    """Vectorized OCP FLOOR-mode shared exponent computation.
+
+    Returns an ndarray of E8M0 biased bytes (uint8).
+    Reference: OCP MX Spec 1.0 — scale = 2^floor(log2(max_abs)) / 2^target_max_pow2
+    """
+    nan_mask = np.isnan(max_abs)
+    bits = max_abs.view(np.int32)
+    fp_exponent = ((bits >> _F32_MBITS) & 0xFF).astype(np.int32)
+    # scale_biased = fp_exponent - target_max_pow2, clamped to [0, 254]
+    # NaN: explicit override to 0xFF; Inf (fp_exponent=255): normal computation → 247 for fp8_e4m3
+    biased = np.clip(fp_exponent - target_max_pow2, 0, 254).astype(np.uint8)
+    biased[nan_mask] = 0xFF
+    return biased
+
+
+def _compute_scalings_from_exponents(e8m0: np.ndarray) -> np.ndarray:
+    """Vectorized reciprocal scaling factor from E8M0 biased exponents.
+
+    reciprocal_scale = 2^(E8M0_BIAS - e8m0) so that data * reciprocal_scale = data / scale.
+    """
+    e8m0_i32 = e8m0.astype(np.int32)
+    scale_exp = np.int32(254) - e8m0_i32
+    # BitsToFloat(scale_exp << 23)
+    result = (scale_exp << _F32_MBITS).astype(np.int32).view(np.float32)
+    # Handle e8m0 == 254 where scale_exp == 0 (subnormal reciprocal)
+    result[scale_exp == 0] = np.float32(math.ldexp(1.0, -_E8M0_EXPONENT_BIAS))
+    # Handle NaN
+    result[e8m0 == 0xFF] = np.float32(np.nan)
+    return result
+
+
+def _encode_e4m3_fn_vectorized(values: np.ndarray) -> np.ndarray:
+    """Vectorized FP8 E4M3 encoding using bit manipulation (round-to-nearest-even).
+
+    Reference: torchao _f32_to_floatx_unpacked (OCP MX Formats).
+    """
+    p = _MX_DTYPE_PARAMS["fp8_e4m3"]
+    shift = _F32_MBITS - p["mbits"]            # 23 - 3 = 20
+    magic_adder = np.int32((1 << (shift - 1)) - 1)
+    denorm_exp = (_F32_EXP_BIAS - p["exp_bias"]) + shift + 1  # 141
+    denorm_mask_int = np.int32(denorm_exp << _F32_MBITS)
+    denorm_mask_float = np.array(denorm_mask_int, dtype=np.int32).view(np.float32)
+    max_code = np.uint8(0x7E)
+    val_to_add = np.int32(((p["exp_bias"] - _F32_EXP_BIAS) << _F32_MBITS) + int(magic_adder))
+
+    values = np.asarray(values, dtype=np.float32)
+    bits = values.view(np.int32)
+    sign = ((bits >> 24) & np.int32(0x80)).astype(np.uint8)
+    abs_bits = (bits & np.int32(0x7FFFFFFF))
+    abs_val = abs_bits.view(np.float32).copy()
+
+    nan_mask = np.isnan(values)
+    saturate_mask = abs_val >= np.float32(p["max_pos"])
+    denormal_mask = (~saturate_mask) & (abs_val < np.float32(p["min_normal"])) & (~nan_mask)
+    normal_mask = (~saturate_mask) & (~denormal_mask) & (~nan_mask)
+
+    # Denormal path
+    denorm_result = (abs_val + denorm_mask_float).view(np.int32) - denorm_mask_int
+    denorm_result = denorm_result.astype(np.uint8)
+
+    # Normal path: adjust exponent and round-to-nearest-even
+    mant_odd = ((abs_bits >> np.int32(shift)) & np.int32(1)).astype(np.int32)
+    normal_result = abs_bits + val_to_add + mant_odd
+    normal_result = ((normal_result >> np.int32(shift)) & np.int32(0x7F)).astype(np.uint8)
+
+    # Combine branches
+    result = np.where(saturate_mask, max_code, np.uint8(0))
+    result = np.where(denormal_mask, denorm_result, result)
+    result = np.where(normal_mask, normal_result, result)
+    result = np.where(nan_mask, np.uint8(0x7F), result)
+    result = result | sign
+    return result.astype(np.uint8)
+
+
+def _float_to_bits(value: float) -> int:
+    return struct.unpack("<I", struct.pack("<f", np.float32(value)))[0]
+
+
+def _bits_to_float(bits: int) -> float:
+    return struct.unpack("<f", struct.pack("<I", bits))[0]
+
+
+def _quantmx_parse_int_list(value):
+    if value is None:
+        return None
+    if isinstance(value, str):
+        value = parse_list_str(value)
+    return [int(v) for v in value]
+
+
+def _quantmx_resolve_exp_range(dtype_name: str, params: dict) -> list:
+    exp_range = _quantmx_parse_int_list(params.get("exp_range"))
+    if exp_range is not None:
+        assert len(exp_range) == 2, "QuantMX exp_range must contain [min_exp, max_exp]."
+        assert exp_range[0] <= exp_range[1], "QuantMX exp_range min must be <= max."
+        return exp_range
+
+    default_ranges = {
+        "fp32": [-40, 40],
+        "bf16": [-80, 80],
+        "fp16": [-20, 15],
+    }
+    return default_ranges[dtype_name]
+
+
+def _quantmx_resolve_profile_bands(dtype_name: str, exp_range: list, profile: str) -> list:
+    exp_lo, exp_hi = exp_range
+    bands_by_profile = {
+        "balanced": [(exp_lo, min(exp_lo + 16, exp_hi)), (max(exp_lo, -8), min(exp_hi, 12))],
+        "wide_sweep": [
+            (exp_lo, min(exp_lo + 20, exp_hi)),
+            (max(exp_lo, -16), min(exp_hi, 8)),
+            (max(exp_lo, 12), min(exp_hi, 48)),
+            (max(exp_lo, exp_hi - 20), exp_hi),
+        ],
+        "boundary_mix": [
+            (exp_lo, min(exp_lo + 4, exp_hi)),
+            (max(exp_lo, -8), min(exp_hi, 4)),
+            (max(exp_lo, exp_hi - 8), exp_hi),
+        ],
+        "tiny_huge": [
+            (exp_lo, min(exp_lo + 6, exp_hi)),
+            (max(exp_lo, -6), min(exp_hi, 6)),
+            (max(exp_lo, exp_hi - 6), exp_hi),
+        ],
+        "signed_sparse": [
+            (max(exp_lo, -18), min(exp_hi, -2)),
+            (max(exp_lo, -6), min(exp_hi, 6)),
+            (max(exp_lo, 10), min(exp_hi, 24)),
+        ],
+        "mixed": [
+            (max(exp_lo, -16), min(exp_hi, -4)),
+            (max(exp_lo, -2), min(exp_hi, 8)),
+            (max(exp_lo, 8), exp_hi),
+        ],
+        "subtiny_focus": [
+            (exp_lo, min(exp_lo + 2, exp_hi)),
+            (max(exp_lo, exp_lo + 4), min(exp_hi, exp_lo + 12)),
+            (max(exp_lo, -10), min(exp_hi, 2)),
+        ],
+        "large_dynamic": [
+            (max(exp_lo, -8), min(exp_hi, 4)),
+            (max(exp_lo, exp_hi - 12), max(exp_lo, exp_hi - 2)),
+        ],
+        "extreme_sweep": [
+            (exp_lo, min(exp_lo + 2, exp_hi)),
+            (max(exp_lo, -24), min(exp_hi, -8)),
+            (max(exp_lo, -2), min(exp_hi, 8)),
+            (max(exp_lo, exp_hi - 6), exp_hi),
+        ],
+        "perf_mix": [
+            (max(exp_lo, -12), min(exp_hi, -2)),
+            (max(exp_lo, 0), min(exp_hi, 10)),
+            (max(exp_lo, 10), min(exp_hi, 24)),
+            (max(exp_lo, exp_hi - 6), exp_hi),
+        ],
+        "perf_extremes": [
+            (exp_lo, min(exp_lo + 2, exp_hi)),
+            (max(exp_lo, exp_hi - 4), exp_hi),
+        ],
+    }
+    resolved = []
+    for band_lo, band_hi in bands_by_profile.get(profile, bands_by_profile["balanced"]):
+        if band_lo <= band_hi:
+            resolved.append((band_lo, band_hi))
+    return resolved or [(exp_lo, exp_hi)]
+
+
+def _quantmx_special_exponents(dtype_name: str, exp_range: list, profile: str) -> list:
+    exp_lo, exp_hi = exp_range
+    default_values = {
+        "fp32": [-120, -80, -32, -8, -1, 0, 1, 8, 32, 80, 120],
+        "bf16": [-120, -80, -60, -16, -8, -1, 0, 1, 8, 16, 60, 80, 120],
+        "fp16": [-24, -20, -14, -8, -1, 0, 1, 8, 12, 15],
+    }
+    profile_values = {
+        "balanced": [-8, -4, -1, 0, 1, 4, 8],
+        "signed_sparse": [-14, -10, -6, -2, 0, 4, 8, 12],
+        "mixed": [-16, -8, -2, 0, 3, 7, 11],
+        "perf_mix": [-10, -4, -1, 0, 5, 10, 14],
+        "boundary_mix": [exp_lo, exp_lo + 1, -1, 0, 1, exp_hi - 1, exp_hi],
+    }
+    candidates = default_values[dtype_name] + profile_values.get(profile, []) + [exp_lo, exp_hi, (exp_lo + exp_hi) // 2]
+    clipped = sorted({min(exp_hi, max(exp_lo, item)) for item in candidates})
+    return clipped
+
+
+def _quantmx_inject_special_values(base: np.ndarray, dtype_name: str, exp_range: list, profile: str, seed: int):
+    special_exponents = _quantmx_special_exponents(dtype_name, exp_range, profile)
+    special_values = [np.float32(0.0), np.float32(-0.0)]
+    for exp in special_exponents:
+        special_values.extend(
+            [
+                np.float32(math.ldexp(1.0, exp)),
+                np.float32(-math.ldexp(1.0, exp)),
+                np.float32(math.ldexp(1.5, exp)),
+                np.float32(-math.ldexp(1.25, exp)),
+            ]
+        )
+
+    flat = base.reshape(-1)
+    if flat.size == 0:
+        return
+
+    stride = max(1, flat.size // len(special_values))
+    for idx, value in enumerate(special_values):
+        pos = (idx * stride + seed * 17 + idx * idx * 5) % flat.size
+        flat[pos] = value
+
+
+def _generate_quantmx_input(input_tensor: dict, config: dict) -> np.ndarray:
+    params = config.get("params", {}) or {}
+    dtype_name = input_tensor["dtype"]
+    shape = tuple(input_tensor["shape"])
+    np_dtype = get_dtype_by_name(dtype_name)
+
+    exp_range = _quantmx_resolve_exp_range(dtype_name, params)
+    exp_lo, exp_hi = exp_range
+    input_profile = params.get("input_profile", "balanced")
+    seed = int(params.get("input_seed", params.get("case_index", config.get("case_index", 0)) or 0))
+
+    cols = shape[-1]
+    rows = math.prod(shape[:-1])
+    group_size = 32
+    group_cols = (cols + group_size - 1) // group_size
+    group_scales = np.array(
+        [
+            1.0,
+            -0.75,
+            0.625,
+            -0.5,
+            0.4375,
+            -0.375,
+            0.3125,
+            -0.25,
+        ],
+        dtype=np.float32,
+    )
+
+    base = np.zeros((rows, cols), dtype=np.float32)
+    profile_bands = _quantmx_resolve_profile_bands(dtype_name, exp_range, input_profile)
+    special_exponents = _quantmx_special_exponents(dtype_name, exp_range, input_profile)
+
+    for row in range(rows):
+        for group in range(group_cols):
+            group_id = row * group_cols + group
+            start = group * group_size
+            width = min(group_size, cols - start)
+            if width <= 0:
+                continue
+
+            band_lo, band_hi = profile_bands[(group_id + seed) % len(profile_bands)]
+            band_span = max(1, band_hi - band_lo + 1)
+            exp_from_range = band_lo + ((group_id * 19 + row * 7 + seed * 11) % band_span)
+            exp_from_special = special_exponents[(group_id + seed) % len(special_exponents)]
+            use_special_dominant = input_profile in ("tiny_huge", "subtiny_focus", "extreme_sweep", "perf_extremes")
+            dominant_exp = exp_from_special if use_special_dominant or group_id % 5 == 0 else exp_from_range
+            dominant_mant = 1.0 + (((group_id * 13 + seed) % 7) / 8.0)
+            dominant = np.float32(math.ldexp(dominant_mant, dominant_exp))
+
+            values = np.empty(width, dtype=np.float32)
+            for inner in range(width):
+                local_exp = max(exp_lo, dominant_exp - 1 - (inner % 4))
+                local_mant = 1.0 + (((group_id + inner * 5 + seed) % 5) / 16.0)
+                scale = group_scales[(group_id + inner) % len(group_scales)]
+                values[inner] = np.float32(math.ldexp(local_mant, local_exp)) * scale
+
+            dominant_idx = (group_id * 11 + seed * 3 + width // 2) % width
+            values[dominant_idx] = dominant if (group_id + seed) % 2 == 0 else -dominant
+            if width > 1:
+                neighbor_idx = (dominant_idx + width // 2 + 1) % width
+                neighbor_exp = max(exp_lo, dominant_exp - 1)
+                neighbor = np.float32(math.ldexp(1.25, neighbor_exp))
+                values[neighbor_idx] = -neighbor if values[dominant_idx] > 0 else neighbor
+            if input_profile in ("signed_sparse", "subtiny_focus", "perf_extremes"):
+                values[(dominant_idx + 5) % width] = np.float32(0.0)
+                values[(dominant_idx + 13) % width] = np.float32(-0.0)
+            if input_profile in ("boundary_mix", "tiny_huge", "extreme_sweep", "perf_extremes"):
+                boundary_idx = (dominant_idx + 9) % width
+                boundary_exp = special_exponents[(group_id * 3 + seed + width) % len(special_exponents)]
+                values[boundary_idx] = np.float32(math.ldexp(1.0, boundary_exp))
+                if width > 2:
+                    values[(boundary_idx + 7) % width] = np.float32(-math.ldexp(1.5, boundary_exp))
+
+            permutation = (np.arange(width) * 7 + group_id * 3 + seed) % width
+            base[row, start : start + width] = values[permutation]
+
+    _quantmx_inject_special_values(base, dtype_name, exp_range, input_profile, seed)
+    return base.reshape(shape).astype(np_dtype)
+
+
+@TestCaseLoader.reg_params_handler(ops=["QuantMX"])
+def params_quantmx_func(params: dict):
+    params["mode"] = params.get("mode") or "ROUND_DOWN"
+    assert params["mode"] in ("ROUND_UP", "ROUND_DOWN"), "mode must be ROUND_UP or ROUND_DOWN"
+    params["performance_mode"] = str_to_bool(params.get("performance_mode"))
+    params["exp_range"] = _quantmx_parse_int_list(params.get("exp_range"))
+    params["input_profile"] = params.get("input_profile") or "balanced"
+    params["input_seed"] = int(params.get("input_seed") or 0)
+    return params
+
+
+@GoldenRegister.reg_golden_func(
+    case_names=[
+        "TestQuantMX/QuantMXOperationTest.TestQuantMX",
+    ]
+)
+def gen_quantmx_op_golden(case_name: str, output: Path, case_index: int = None) -> bool:
+    def golden_func(inputs: list, _config: dict):
+        params = _config.get("params", {}) or {}
+        mode = params.get("mode", "ROUND_DOWN")
+        if mode != "ROUND_DOWN":
+            raise ValueError("QuantMX golden currently only supports ROUND_DOWN (OCP standard) mode.")
+
+        quant_dtype = "fp8_e4m3"  # extensible for future fp4 support
+        dp = _MX_DTYPE_PARAMS[quant_dtype]
+        group_size = 32
+
+        x = inputs[0].astype(np.float32, copy=False)
+        if x.ndim < 2 or x.ndim > 4:
+            raise ValueError("QuantMX golden only supports 2D to 4D input.")
+
+        cols = x.shape[-1]
+        rows = x.size // cols
+        group_cols = (cols + group_size - 1) // group_size
+        scale_group_cols = (cols + 63) // 64
+
+        # Pad last dim to multiple of group_size, reshape to [rows, group_cols, group_size]
+        x_flat = x.reshape(rows, cols)
+        padded_cols = group_cols * group_size
+        x_padded = np.zeros((rows, padded_cols), dtype=np.float32)
+        x_padded[:, :cols] = x_flat
+        x_grouped = x_padded.reshape(rows, group_cols, group_size)
+
+        # Vectorized max-abs per group → shared exponent → reciprocal scale
+        max_abs = np.max(np.abs(x_grouped), axis=2).astype(np.float32)
+        e8m0 = _compute_shared_exponents(max_abs, dp["target_max_pow2"])
+        group_scaling = _compute_scalings_from_exponents(e8m0)
+
+        # Scale each element: broadcast [rows, group_cols, 1] over group dim
+        scaled = x_grouped * group_scaling[:, :, np.newaxis]
+
+        # Encode to target dtype (vectorized)
+        quant_grouped = _encode_e4m3_fn_vectorized(scaled)
+
+        # Unpad and reshape back
+        quant_flat = quant_grouped.reshape(rows, padded_cols)[:, :cols]
+        quant = quant_flat.reshape(x.shape)
+
+        # Build exp output: [*batch, scale_group_cols, 2]
+        exp_shape = list(x.shape[:-1]) + [scale_group_cols, 2]
+        exp = np.zeros(exp_shape, dtype=np.uint8)
+        exp_flat = exp.reshape(rows, scale_group_cols * 2)
+        e8m0_flat = e8m0.reshape(rows, group_cols)
+        exp_flat[:, :group_cols] = e8m0_flat
+
+        return [quant, exp]
+
+    logging.debug("Case(%s), Golden creating...", case_name)
+    return gen_op_golden("QuantMX", golden_func, output, case_index)
 
 
 @GoldenRegister.reg_golden_func(
