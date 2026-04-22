@@ -187,7 +187,6 @@ license: 完整条款见 LICENSE.txt
 | **属性缺失** | `attribute not found`, `missing attribute`, `required attribute`, `get attribute failed` | 属性名称、算子名称、期望属性类型、缺失的属性列表 |
 | **计算图成环** | `cycle detected`, `graph cycle`, `topological sort failed`, `circular dependency` | 成环节点、循环路径、依赖关系、拓扑排序失败节点 |
 | **索引越界** | `index out of range`, `invalid index` | 索引值、范围、张量形状 |
-| **合轴异常** | `AxisCombine process failed`, `CombineAxis failed` | 轴信息、形状信息、期望维度、实际维度、期望形状和实际形状 |
 
 
 #### 4.2 将异常进行分类
