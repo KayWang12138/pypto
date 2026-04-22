@@ -17,8 +17,9 @@
 #include <iostream>
 
 #include "tilefwk/error.h"
-#include "tilefwk/pypto_fwk_log.h"
 #include "tilefwk/error_code.h"
+#include "tilefwk/pypto_fwk_log.h"
+#include "tilefwk/error_manager.h"
 
 namespace npu::tile_fwk {
 struct TerminateHandler {
@@ -39,7 +40,8 @@ struct TerminateHandler {
                     std::rethrow_exception(eptr);
                 }
             } catch (const std::exception& e) {
-                FUNCTION_LOGE("Caught exception: %s", e.what());
+                FUNCTION_LOGE_E(FError::EINTERNAL, "Caught exception: %s", e.what());
+                ErrorManager::Instance().OutputErrorMessage();
                 std::cerr << "Caught exception: '" << e.what() << "'\n";
             }
             fflush(nullptr);
@@ -57,7 +59,8 @@ struct TerminateHandler {
         } else if (signo == SIGFPE) {
             msg = "floating point exception !!!";
         }
-        FUNCTION_LOGE("%s\n%s", msg, backtrace.c_str());
+        FUNCTION_LOGE_E(FError::EINTERNAL, "%s\n%s", msg, backtrace.c_str());
+        ErrorManager::Instance().OutputErrorMessage();
         std::cerr << msg << "\n" << backtrace << std::endl;
         fflush(nullptr);
         _Exit(1);
