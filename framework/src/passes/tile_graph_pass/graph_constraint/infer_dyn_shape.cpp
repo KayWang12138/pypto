@@ -30,14 +30,6 @@ Status InferDynShape::PostCheck(Function& function)
     return checker.DoPostCheck(function);
 }
 
-Status InferDynShape::InferShape(Function& function)
-{
-    if (InferShapeUtils::InferShape(function) == SUCCESS) {
-        return SUCCESS;
-    }
-    return FAILED;
-}
-
 Status InferDynShape::RunOnFunction(Function& function)
 {
     // 遍历每一个op，调用对应的infershape函数
