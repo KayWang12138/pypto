@@ -101,6 +101,10 @@ protected:
         std::vector<int32_t>& snParent,
         bool& needRebuild,
         std::map<int32_t, int32_t>& scopeToCvFuseId);
+    void MergeScopeNodesParallel(const std::vector<int32_t>& nodes, int32_t scopeId,
+        std::vector<int32_t>& snParent, bool& needRebuild);
+    void MergeScopeNodesSequential(const std::vector<int32_t>& nodes, int32_t scopeId,
+        std::vector<int32_t>& snParent, bool& needRebuild);
     void RebuildSuperNodes(std::vector<int32_t>& snParent, int32_t numNodes);
     void ApplyCvFuseIds(const std::map<int32_t, int32_t>& scopeToCvFuseId);
 

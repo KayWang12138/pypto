@@ -781,6 +781,48 @@ Status SuperNodeGraphBuilder::ValidateScopeCoreTypes(
     return FAILED;
 }
 
+void SuperNodeGraphBuilder::MergeScopeNodesParallel(
+    const std::vector<int32_t>& nodes, int32_t scopeId, std::vector<int32_t>& snParent, bool& needRebuild)
+{
+    int32_t firstNode = -1;
+    int32_t p1 = -1;
+    for (int32_t nodeIdx : nodes) {
+        if (firstNode == -1) {
+            firstNode = nodeIdx;
+            p1 = FindParent(snParent, firstNode);
+        } else {
+            int32_t p2 = FindParent(snParent, nodeIdx);
+            snParent[p2] = p1;
+            APASS_LOG_DEBUG_F(
+                Elements::Operation, "Combine %d and %d for ScopeMerge(parallel) scopeId=%d in building SuperNode.",
+                operationInfo_->opList_[superNodeInfo_->node2Op_[nodeIdx][0]]->GetOpMagic(),
+                operationInfo_->opList_[superNodeInfo_->node2Op_[firstNode][0]]->GetOpMagic(),
+                scopeId);
+            needRebuild = true;
+        }
+    }
+}
+
+void SuperNodeGraphBuilder::MergeScopeNodesSequential(
+    const std::vector<int32_t>& nodes, int32_t scopeId, std::vector<int32_t>& snParent, bool& needRebuild)
+{
+    for (int32_t nodeIdx : nodes) {
+        int32_t p1 = FindParent(snParent, nodeIdx);
+        for (int32_t outNodeIdx : superNodeInfo_->nodeOutGraph_[nodeIdx]) {
+            if (superNodeInfo_->nodeScope_[outNodeIdx].scopeId == scopeId) {
+                int32_t p2 = FindParent(snParent, outNodeIdx);
+                snParent[p2] = p1;
+                APASS_LOG_DEBUG_F(
+                    Elements::Operation, "Combine %d and %d for ScopeMerge scopeId=%d in building SuperNode.",
+                    operationInfo_->opList_[superNodeInfo_->node2Op_[outNodeIdx][0]]->GetOpMagic(),
+                    operationInfo_->opList_[superNodeInfo_->node2Op_[nodeIdx][0]]->GetOpMagic(),
+                    scopeId);
+                needRebuild = true;
+            }
+        }
+    }
+}
+
 Status SuperNodeGraphBuilder::CheckAndMergeScopes(
     const ScopeCollectResult& scopeInfo, std::vector<int32_t>& snParent, bool& needRebuild,
     std::map<int32_t, int32_t>& scopeToCvFuseId)
@@ -800,41 +842,10 @@ Status SuperNodeGraphBuilder::CheckAndMergeScopes(
         }
         bool allowParallel =
             scopeInfo.scopeAllowParallel.count(scopeId) > 0 && scopeInfo.scopeAllowParallel.at(scopeId);
-        const auto& nodes = nodesIt->second;
         if (allowParallel) {
-            int32_t firstNode = -1;
-            int32_t p1 = -1;
-            for (int32_t nodeIdx : nodes) {
-                if (firstNode == -1) {
-                    firstNode = nodeIdx;
-                    p1 = FindParent(snParent, firstNode);
-                } else {
-                    int32_t p2 = FindParent(snParent, nodeIdx);
-                    snParent[p2] = p1;
-                    APASS_LOG_DEBUG_F(
-                        Elements::Operation, "Combine %d and %d for ScopeMerge(parallel) scopeId=%d in building SuperNode.",
-                        operationInfo_->opList_[superNodeInfo_->node2Op_[nodeIdx][0]]->GetOpMagic(),
-                        operationInfo_->opList_[superNodeInfo_->node2Op_[firstNode][0]]->GetOpMagic(),
-                        scopeId);
-                    needRebuild = true;
-                }
-            }
-            continue;
-        }
-        for (int32_t nodeIdx : nodes) {
-            int32_t p1 = FindParent(snParent, nodeIdx);
-            for (int32_t outNodeIdx : superNodeInfo_->nodeOutGraph_[nodeIdx]) {
-                if (superNodeInfo_->nodeScope_[outNodeIdx].scopeId == scopeId) {
-                    int32_t p2 = FindParent(snParent, outNodeIdx);
-                    snParent[p2] = p1;
-                    APASS_LOG_DEBUG_F(
-                        Elements::Operation, "Combine %d and %d for ScopeMerge scopeId=%d in building SuperNode.",
-                        operationInfo_->opList_[superNodeInfo_->node2Op_[outNodeIdx][0]]->GetOpMagic(),
-                        operationInfo_->opList_[superNodeInfo_->node2Op_[nodeIdx][0]]->GetOpMagic(),
-                        scopeId);
-                    needRebuild = true;
-                }
-            }
+            MergeScopeNodesParallel(nodesIt->second, scopeId, snParent, needRebuild);
+        } else {
+            MergeScopeNodesSequential(nodesIt->second, scopeId, snParent, needRebuild);
         }
     }
     return SUCCESS;
