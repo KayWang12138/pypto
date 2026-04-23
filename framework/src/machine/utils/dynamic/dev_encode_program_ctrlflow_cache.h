@@ -131,6 +131,12 @@ struct DynDeviceTaskBase {
     void SetParallelInfo(ParallelInfo info) { parallelInfo = info; }
     bool IsParallelSameIterLastDevTask() { return isParallelSameIterLastTask; }
     void SetParallelSameIterLastDevTask(bool isLast) { isParallelSameIterLastTask = isLast; }
+    int maxC_{0};
+    int maxV_{0};
+
+    int GetMaxC() const { return maxC_; }
+    int GetMaxV() const { return maxV_; }
+    void SetMaxCV(int maxC, int maxV) { maxC_ = maxC; maxV_ = maxV; }
 };
 
 struct DeviceTaskCache {

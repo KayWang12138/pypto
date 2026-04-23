@@ -97,6 +97,13 @@ public:
     uint64_t rootInnerTensorWsMemoryRequirement{0};
     uint64_t exclusiveOutcastWsMemoryRequirement{0};
 
+    int maxC_{0};
+    int maxV_{0};
+
+    int GetMaxC() const { return maxC_; }
+    int GetMaxV() const { return maxV_; }
+    void SetMaxCV(int maxC, int maxV) { maxC_ = maxC; maxV_ = maxV; }
+
 private:
     DevLocalVector<int> opWrapList_;
     DevLocalVector<DevAscendRawTensor> rawTensorList_;
