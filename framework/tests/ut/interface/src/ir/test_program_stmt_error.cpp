@@ -28,6 +28,7 @@
 #include "ir/program.h"
 #include "ir/scalar_expr.h"
 #include "ir/stmt.h"
+#include "tilefwk/error.h"
 #include "ir/type.h"
 
 namespace pypto {

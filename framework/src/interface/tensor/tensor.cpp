@@ -39,15 +39,15 @@ Tensor::~Tensor()
     if (storage_ == nullptr) {
         return;
     }
-    FUNCTION_ASSERT(FError::INVALID_PTR, storage_->tensor != nullptr);
+    F_ASSERT(FError::INVALID_PTR, storage_->tensor != nullptr);
     storage_->tensor->AddRefCount(-1);
 }
 
 Tensor::Tensor(std::shared_ptr<LogicalTensor> s)
     : storage_(std::move(s)), index_(IdGen<IdType::TENSOR_INDEX>::Inst().NewId())
 {
-    FUNCTION_ASSERT(FError::INVALID_PTR, storage_ != nullptr);
-    FUNCTION_ASSERT(FError::INVALID_PTR, storage_->tensor != nullptr);
+    F_ASSERT(FError::INVALID_PTR, storage_ != nullptr);
+    F_ASSERT(FError::INVALID_PTR, storage_->tensor != nullptr);
     Program::GetInstance().InsertAliveTensor(this);
     storage_->tensor->AddRefCount(1);
 
@@ -252,11 +252,11 @@ bool Tensor::IsEmpty() const { return storage_ == nullptr; }
 int32_t Tensor::GetShape(int axis) const
 {
     const size_t dimCount = storage_->shape.size();
-    FUNCTION_ASSERT(FError::INVALID_VAL, dimCount > 0) << "Tensor has no dimensions! disCount: " << dimCount;
+    F_ASSERT(FError::INVALID_VAL, dimCount > 0) << "Tensor has no dimensions! disCount: " << dimCount;
     if (axis < 0) {
         axis += static_cast<int>(dimCount);
     }
-    FUNCTION_ASSERT(FError::OUT_OF_RANGE, axis >= 0 && static_cast<size_t>(axis) < dimCount)
+    F_ASSERT(FError::OUT_OF_RANGE, axis >= 0 && static_cast<size_t>(axis) < dimCount)
         << "Axis index " << axis << " is out of range [0, " << (dimCount - 1) << "].";
     return storage_->shape[axis];
 }
@@ -304,9 +304,12 @@ const std::vector<SymbolicScalar>& npu::tile_fwk::GetInputShape(const Tensor& t)
 namespace npu::tile_fwk {
 SymbolicScalar GetInputData(const Tensor& t, const std::vector<SymbolicScalar>& offset)
 {
-    ASSERT(t.Dim() == offset.size()) << "t.Dim(): " << t.Dim() << "!= offset.size(): " << offset.size();
-    ASSERT(t.Dim() > 0 && t.Dim() <= 0x4) << "t.Dim(): " << t.Dim() << ", limit: [1, 4]";
-    ASSERT(IsInteger(t.GetDataType())) << "Not Int type, got: " << DataType2String(t.GetDataType());
+    F_ASSERT(FError::INVALID_VAL, t.Dim() == offset.size())
+        << "t.Dim(): " << t.Dim() << "!= offset.size(): " << offset.size();
+    F_ASSERT(FError::INVALID_VAL, t.Dim() > 0 && t.Dim() <= 0x4)
+        << "t.Dim(): " << t.Dim() << ", limit: [1, 4]";
+    F_ASSERT(FError::INVALID_VAL, IsInteger(t.GetDataType()))
+        << "Not Int type, got: " << DataType2String(t.GetDataType());
 
     auto slotManager = Program::GetInstance().GetTensorSlotManager();
     slotManager->TensorRead(t);
@@ -331,12 +334,12 @@ SymbolicScalar GetInputData(const Tensor& t, const std::vector<SymbolicScalar>& 
 static SymbolicScalar DoGetTensorDataInt32(
     SymbolHandlerId handlerId, const Tensor& t, const std::vector<SymbolicScalar>& offset)
 {
-    FUNCTION_ASSERT(FError::INVALID_VAL, t.GetShape().size() == offset.size())
+    F_ASSERT(FError::INVALID_VAL, t.GetShape().size() == offset.size())
         << "Mismatch dimension: " << t.GetShape().size() << " vs " << offset.size() << "\n";
     Program::GetInstance().GetTensorSlotManager()->TensorRead(t);
 
     auto currDynFunc = Program::GetInstance().GetCurrentDynamicFunction();
-    FUNCTION_ASSERT(FError::INVALID_OPERATION, currDynFunc != nullptr) << "Not under dynamic function!\n";
+    F_ASSERT(FError::INVALID_OPERATION, currDynFunc != nullptr) << "Not under dynamic function!\n";
 
     auto currDynAttr = currDynFunc->GetDyndevAttribute();
     int getTensorDataIndex = currDynAttr->getTensorDataCount++;
@@ -398,7 +401,7 @@ static void DoSetTensorDataInt32(const SymbolicScalar& v, const std::vector<Symb
     Program::GetInstance().GetTensorSlotManager()->TensorWrite(t);
 
     auto currDynFunc = Program::GetInstance().GetCurrentDynamicFunction();
-    FUNCTION_ASSERT(FError::INVALID_OPERATION, currDynFunc != nullptr) << "Not under dynamic function!\n";
+    F_ASSERT(FError::INVALID_OPERATION, currDynFunc != nullptr) << "Not under dynamic function!\n";
 
     Shape vShape = Shape(t.GetShape().size(), 1);
     auto tmp = Full(v, t.GetDataType(), vShape);
