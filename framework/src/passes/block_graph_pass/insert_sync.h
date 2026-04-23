@@ -294,7 +294,8 @@ private:
         std::vector<int> setOpIdList{}; // 对应sync_src/cv_sync_src在syncedOpLog中的idx
         std::vector<int> setOpEventIdList{}; // eventid
         // sync_src/cv_sync_src对应的setop和waitop的idx pair {setop idx, waitop idx}
-        std::vector<std::pair<int, int>> opDepList{}; 
+        std::vector<std::pair<int, int>> opDepList{};
+        std::string DumpDataDepInfo(const std::vector<IndexOp>& syncedOpLog, std::vector<Operation*>& oriOpList);
     };
 
     struct IssueNum {
@@ -345,7 +346,11 @@ private:
     void FindCvSyncSrcInfo(std::vector<IndexOp>& syncedOpLog, std::vector<int>& eventIdVec, const CorePair& corePair,
                            std::unordered_map<PipePair, DataDepInfo, PipePairHash>& cvDepInfoMap);
     bool FindMaxOverLapForCV(PipePair& targetPp, int& maxOverlapIdx,
-                                       std::unordered_map<PipePair, DataDepInfo, PipePairHash>& cvDepInfoMap);
+                             std::unordered_map<PipePair, DataDepInfo, PipePairHash>& cvDepInfoMap);
+    std::string DumpMergeCVInfo(PipePair targetPp, int maxOverlapIdx,
+                                std::unordered_map<PipePair, DataDepInfo, PipePairHash> cvDepInfoMap);
+    std::string DumpDepInfoMap(const std::vector<IndexOp>& syncedOpLog,
+                               std::unordered_map<PipePair, DataDepInfo, PipePairHash>& cvDepInfoMap);
     bool CheckIssuedOp(const DepOp& op);
     bool ConstructDepInfo(DataDepInfo& depInfo, std::vector<IndexOp>& syncedOpLog, int i);
     bool FindDataDep(DataDepInfo& depInfo, std::vector<IndexOp>& syncedOpLog, int i);

@@ -1320,27 +1320,74 @@ bool PipeSync::FindMaxOverLapForCV(PipePair& targetPp, int& maxOverlapIdx,
     return true;
 }
 
+std::string PipeSync::DumpMergeCVInfo(PipePair targetPp, int maxOverlapIdx,
+                                      std::unordered_map<PipePair, DataDepInfo, PipePairHash> cvDepInfoMap) {
+    std::stringstream ss;
+    ss << "\nMerge PipePair: " << GetPipeTypeDict().Find(targetPp.first.pipe) << " ";
+    ss << GetPipeTypeDict().Find(targetPp.second.pipe) << "\n";
+    ss << "    set1: " << cvDepInfoMap[targetPp].opDepList[maxOverlapIdx].first << "  ";
+    ss << "wait1: " << cvDepInfoMap[targetPp].opDepList[maxOverlapIdx].second << "\n";
+    ss << "    set2: " << cvDepInfoMap[targetPp].opDepList[maxOverlapIdx + 1].first << "  ";
+    ss << "wait2: " << cvDepInfoMap[targetPp].opDepList[maxOverlapIdx + 1].second << "\n";
+    return ss.str();
+}
+
+std::string PipeSync::DataDepInfo::DumpDataDepInfo(const std::vector<IndexOp>& syncedOpLog, std::vector<Operation*>& oriOpList) {
+    std::stringstream ss;
+    ss << "    CV_SYNC_SRC magic: ";
+    for (auto sync : setOpIdList) {
+        ss << syncedOpLog[sync].second.get().GetOpMagic() << " ";
+    }
+    ss << "\n    CV EventID: ";
+    for (auto id : setOpEventIdList) {
+        ss << id << " ";
+    }
+    ss << "\n    Set Wait Pair: \n";
+    for (auto [setidx, waitidx] : opDepList) {
+        ss << "        " << setidx << " " << oriOpList[setidx]->GetOpMagic() << " " << oriOpList[setidx]->GetOpcodeStr();
+        ss << "  " << waitidx << " " << oriOpList[waitidx]->GetOpMagic() << " " << oriOpList[waitidx]->GetOpcodeStr() << "\n";
+    }
+    return ss.str();
+}
+
+std::string PipeSync::DumpDepInfoMap(const std::vector<IndexOp>& syncedOpLog,
+                                     std::unordered_map<PipePair, DataDepInfo, PipePairHash>& cvDepInfoMap) {
+    std::stringstream ss;
+    ss << "\nCV DepInfoMap info:\n";
+    for (auto& [pp, depinfo] : cvDepInfoMap) {
+        ss << "  " << GetPipeTypeDict().Find(pp.first.pipe) << " " << GetPipeTypeDict().Find(pp.second.pipe) << "\n";
+        ss << depinfo.DumpDataDepInfo(syncedOpLog, oriOpList_);
+    }
+    return ss.str();
+}
+
 Status PipeSync::RelaxCvEventId(std::vector<IndexOp>& syncedOpLog) {
     for (const auto& corePair : cvCorePair) {
         // 该corepair类型已无可用eventid
         if (!(crossCoreFreeEventId_.count(corePair) != 0 && crossCoreFreeEventId_[corePair].size() == 0)) {
             continue;
         }
+        APASS_LOG_DEBUG_F(Elements::Operation, "CoreType: %s AIVCore: %d -> CoreType: %s AIVCore: %d has no eventid to use, start relax cv eventid.",
+                          GetCoreTypeDict().Find(corePair.first.first).c_str(), static_cast<int>(corePair.first.second),
+                          GetCoreTypeDict().Find(corePair.second.first).c_str(), static_cast<int>(corePair.second.second));
         // 收集所有的eventid, 避免已经被释放的eventid被重复统计(从后向前找可以保证被释放的eventid不被统计进去)
         std::vector<int> eventIdVec{};
         // core 和 aivcore已经保证相同，不需要再加入此信息
         std::unordered_map<PipePair, DataDepInfo, PipePairHash> cvDepInfoMap;
         // 找出所有当前遍历的corePair类型的CV_SYNC_SRC及对应的op信息
         FindCvSyncSrcInfo(syncedOpLog, eventIdVec, corePair, cvDepInfoMap);
-        
+        APASS_LOG_DEBUG_F(Elements::Operation, "%s", DumpDepInfoMap(syncedOpLog, cvDepInfoMap).c_str());
+
         // 遍历所有的depinfo, 找到依赖间重叠最大的一对
         PipeCoreReal pp1(PIPE_S, CoreType::AIV);
         PipeCoreReal pp2(PIPE_S, CoreType::AIV);
         PipePair targetPp{pp1, pp2};
         int maxOverlapIdx = -1;
         if (!(FindMaxOverLapForCV(targetPp, maxOverlapIdx, cvDepInfoMap))) {
+            APASS_LOG_DEBUG_F(Elements::Operation, "Cannot find mergeable setwait pair");
             continue;
         }
+        APASS_LOG_DEBUG_F(Elements::Operation, "%s", DumpMergeCVInfo(targetPp, maxOverlapIdx, cvDepInfoMap).c_str());
 
         // 合并依赖
         PipeCoreRealEx setpp(cvDepInfoMap[targetPp].setp, cvDepInfoMap[targetPp].setc, cvDepInfoMap[targetPp].setaivc);
