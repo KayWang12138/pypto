@@ -281,3 +281,16 @@ TEST_F(TestConfigManager, InvalidValue)
         EXPECT_NE(msg.find("Expected int64"), std::string::npos);
     }
 }
+
+TEST_F(TestConfigManager, InvalidIntMapRangeValue)
+{
+    auto& cm = ConfigManagerNg::GetInstance();
+    try {
+        cm.SetScope({{"pass.cube_l1_reuse_setting", std::map<int64_t, int64_t>{{-11, 2}}}});
+        FAIL() << "Expected exception was not thrown.";
+    } catch (const std::exception& e) {
+        std::string msg = e.what();
+        EXPECT_NE(msg.find("pass.cube_l1_reuse_setting"), std::string::npos);
+        EXPECT_NE(msg.find(ERROR_KEY_WORD), std::string::npos);
+    }
+}
