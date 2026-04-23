@@ -18,7 +18,6 @@
 #include "interface/operation/op_infer_shape_impl.h"
 #include "passes/pass_interface/pass.h"
 #include "interface/function/function.h"
-#include "passes/pass_utils/topo_program.h"
 namespace npu {
 namespace tile_fwk {
 class InferDynShape : public Pass {
