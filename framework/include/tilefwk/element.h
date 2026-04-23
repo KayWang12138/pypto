@@ -47,7 +47,7 @@ public:
         } else if (IsFloat()) {
             return static_cast<double>(data_.fData);
         }
-        ASSERT(false);
+        F_ASSERT(false);
         return int64_t(0);
     }
 

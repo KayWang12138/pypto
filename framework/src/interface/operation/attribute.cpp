@@ -190,7 +190,7 @@ std::shared_ptr<OpAttribute> ViewOpAttribute::Clone() const
 
 std::string AssembleOpAttribute::Dump() const
 {
-    FUNCTION_ASSERT(!toOffset_.empty());
+    F_ASSERT(!toOffset_.empty());
     std::stringstream ss;
     ss << "from " << MemoryTypeToString(from_);
     if (!fromDynValidShape_.empty()) {
@@ -353,7 +353,7 @@ std::string CallOpAttribute::DumpAttr(int idx) const
         }
         ss << "]";
     } else {
-        FUNCTION_ASSERT(static_cast<size_t>(idx) < argList_.size())
+        F_ASSERT(static_cast<size_t>(idx) < argList_.size())
             << "idx: " << static_cast<size_t>(idx) << "argList.size(): " << argList_.size();
         ss << "attr[" << idx << "][";
         for (size_t j = 0; j < argList_[idx].size(); j++) {
@@ -394,7 +394,7 @@ std::vector<int64_t> CallOpAttribute::GetLinearImmediateArgList(int begin, int e
             if (returnEmptyForSymbolic) {
                 return {};
             } else {
-                FUNCTION_ASSERT(false) << "Invalid Immediate in " << Dump() << " index " << i << " = "
+                F_ASSERT(false) << "Invalid Immediate in " << Dump() << " index " << i << " = "
                                        << linearArgList[i].Dump();
             }
         }

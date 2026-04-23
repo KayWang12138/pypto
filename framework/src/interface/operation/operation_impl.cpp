@@ -687,13 +687,13 @@ int NextPowerofTwo(int n)
 std::tuple<Tensor, Tensor> Sort(const Tensor& x, bool descending)
 {
     DECLARE_TRACER();
-    FUNCTION_ASSERT(x.GetShape().size() == NUM2);
-    FUNCTION_ASSERT(x.GetShape()[0] == 1);
+    F_ASSERT(x.GetShape().size() == NUM2);
+    F_ASSERT(x.GetShape()[0] == 1);
     auto& vecTile = TileShape::Current().GetVecTile();
-    FUNCTION_ASSERT(vecTile.size() == NUM2);
-    FUNCTION_ASSERT(vecTile[0] == 1);
+    F_ASSERT(vecTile.size() == NUM2);
+    F_ASSERT(vecTile[0] == 1);
     auto tileSize = vecTile[1];
-    FUNCTION_ASSERT(IsPowerOfTwo(tileSize));
+    F_ASSERT(IsPowerOfTwo(tileSize));
     int length = x.GetShape()[1];
     int padLength = NextPowerofTwo(length);
 
@@ -746,13 +746,13 @@ std::tuple<Tensor, Tensor> Sort(const Tensor& x, bool descending)
 std::tuple<Tensor, Tensor> SortWithIndex(const Tensor& x, const Tensor& idx, bool descending)
 {
     DECLARE_TRACER();
-    FUNCTION_ASSERT(x.GetShape().size() == NUM2);
-    FUNCTION_ASSERT(x.GetShape()[0] == 1);
+    F_ASSERT(x.GetShape().size() == NUM2);
+    F_ASSERT(x.GetShape()[0] == 1);
     auto& vecTile = TileShape::Current().GetVecTile();
-    FUNCTION_ASSERT(vecTile.size() == NUM2);
-    FUNCTION_ASSERT(vecTile[0] == 1);
+    F_ASSERT(vecTile.size() == NUM2);
+    F_ASSERT(vecTile[0] == 1);
     auto tileSize = vecTile[1];
-    FUNCTION_ASSERT(IsPowerOfTwo(tileSize));
+    F_ASSERT(IsPowerOfTwo(tileSize));
     int length = x.GetShape()[1];
     int padLength = NextPowerofTwo(length);
     int nTile = padLength / tileSize;
@@ -888,12 +888,12 @@ bool isInteger(float num)
 
 void FactorCheck(const Tensor& operand, const float factor)
 {
-    FUNCTION_ASSERT(factor > 0) << "factor must > 0";
+    F_ASSERT(factor > 0) << "factor must > 0";
     if (factor > 1) {
-        FUNCTION_ASSERT(isInteger(factor)) << "factor must be int";
+        F_ASSERT(isInteger(factor)) << "factor must be int";
     } else if (factor < 1) {
         auto lastDim = operand.GetShape()[operand.GetShape().size() - 1];
-        FUNCTION_ASSERT(isInteger(lastDim * factor))
+        F_ASSERT(isInteger(lastDim * factor))
             << "lastDim * factor must be int,  lastDim = " << lastDim << ", factor = " << factor;
     }
 }
@@ -962,7 +962,7 @@ void TiledViewTypeOperation(
     if (factor < 1) {
         auto vecTile = tileShape.GetVecTile();
         auto lastDim = vecTile[vecTile.size() - 1];
-        FUNCTION_ASSERT(isInteger(lastDim * factor)) << "TileShape lastDim * factor must be int";
+        F_ASSERT(isInteger(lastDim * factor)) << "TileShape lastDim * factor must be int";
     }
     TiledViewTypeOperation(function, tileShape, 0, input, factor, result);
 }
@@ -1736,7 +1736,7 @@ void ExpandOperationInto(
         default: {
             FUNCTION_LOGE(
                 FError::NOT_EXIST, "Unsupported opcode %d, opmagic is %d", static_cast<int>(opCode), op.GetOpMagic());
-            FUNCTION_ASSERT(false) << "Unsupported opcode " << static_cast<int>(opCode) << ", opmagic is "
+            F_ASSERT(false) << "Unsupported opcode " << static_cast<int>(opCode) << ", opmagic is "
                                    << op.GetOpMagic();
         }
     }
