@@ -17,10 +17,25 @@ import torch
 import numpy as np
 import unittest
 
-def compare_cos(x: torch.Tensor, y: torch.Tensor):
-    x = x.reshape(-1).to(torch.float32)
-    y = y.reshape(-1).to(torch.float32)
-    cos = torch.nn.functional.cosine_similarity(x, y, dim=0)
+def compare_cos(davinci1_input, davinci2_input):
+    davinci1_input = davinci1_input.reshape(-1).cpu().numpy().astype(np.float64)
+    davinci2_input = davinci2_input.reshape(-1).cpu().numpy().astype(np.float64)
+    print(davinci1_input.shape)
+    print(davinci2_input.shape)
+
+    print("max diff: ", np.max(np.abs(davinci1_input-davinci2_input)))
+    index = np.argmax(np.abs(davinci1_input-davinci2_input))
+    print("max diff index = ", index, " dav1 value: ", davinci1_input[index], "dav2 value: ", davinci2_input[index])
+    print("average diff: ", np.mean(np.abs(davinci1_input - davinci2_input)))
+    ab = np.sum(np.multiply(davinci1_input, davinci2_input))
+    aa = np.sqrt(np.sum(np.multiply(davinci1_input, davinci1_input)))
+    bb = np.sqrt(np.sum(np.multiply(davinci2_input, davinci2_input)))
+    if aa*bb == 0 and ab == 0:
+        cos = 1.0
+    else:
+        cos = ab / (aa*bb)
+    print(cos)
+    print()
     return cos
 
 def pypto_assemble_in_torch(source, target, offsets=None):

@@ -19,15 +19,26 @@ import numpy as np
 import unittest
 
 
-def compare_cos(a, b):
-    a = a.flatten()
-    b = b.flatten()
-    dot_product = np.dot(a, b)
-    norm_a = np.linalg.norm(a)
-    norm_b = np.linalg.norm(b)
-    if norm_a == 0 or norm_b == 0:
-        return 0.0
-    return dot_product / (norm_a * norm_b)
+def compare_cos(davinci1_input, davinci2_input):
+    davinci1_input = davinci1_input.reshape(-1).astype(np.float64)
+    davinci2_input = davinci2_input.reshape(-1).astype(np.float64)
+    print(davinci1_input.shape)
+    print(davinci2_input.shape)
+
+    print("max diff: ", np.max(np.abs(davinci1_input-davinci2_input)))
+    index = np.argmax(np.abs(davinci1_input-davinci2_input))
+    print("max diff index = ", index, " dav1 value: ", davinci1_input[index], "dav2 value: ", davinci2_input[index])
+    print("average diff: ", np.mean(np.abs(davinci1_input - davinci2_input)))
+    ab = np.sum(np.multiply(davinci1_input, davinci2_input))
+    aa = np.sqrt(np.sum(np.multiply(davinci1_input, davinci1_input)))
+    bb = np.sqrt(np.sum(np.multiply(davinci2_input, davinci2_input)))
+    if aa*bb == 0 and ab == 0:
+        cos = 1.0
+    else:
+        cos = ab / (aa*bb)
+    print(cos)
+    print()
+    return cos
 def pypto_view_in_torch(x, shape=None, offsets=None, valid_shape=None, dtype=None):
     # 1. 处理 dtype 转换 (位重解释/Bitcast)
     if dtype is not None:
