@@ -1088,42 +1088,19 @@ struct FunctionInterpreter {
         auto dynParamTable = func->GetDynParamTable();
         EvaluateDynParam(dynParamTable, linearArgList);
 
+        std::cout << "Start | execute function " << func->GetFuncMagic() << std::endl;
         ExecuteHandleFunctionBegin(func, frame);
-        // TODO: 将依赖 WaitUntil 的 Op 以及对应的任务绑定
-        ResolveWaitUntilDependency(func);
         for (auto& op : func->Operations()) {
             if (op.GetOpcode() == Opcode::OP_PRINT && verifyType != VerifyType::TENSOR_GRAPH)
                 continue;
-            // TODO: 判断 op 中是否依赖 WaitUntil，如果依赖则将对应的 waitUntil 执行【此时 waitUntil 必定已经执行，拓扑序优先】
-            if (DependsOnWaitUntil(&op) || DependsOnWaitQueue(&op)) {
-                waitOpQueue_.push_back(&op);
-            } else {
-                ExecuteHandleOperationBegin(&op);
-                ExecuteOperation(*frame, &op);
-                ExecuteHandleOperationEnd();
-            }
-        }
-
-        for (auto& op: waitOpQueue_) {
-            ExecuteHandleOperationBegin(op);
-            if (DependsOnWaitUntil(op)) {
-                std::cout << op->GetOpcodeStr() << op->GetOpMagic() << " depends on waituntil" << std::endl;
-                // GetWaitTask 需要从全局变量中拿，每执行一次 WaitUntil，就应该把相应的执行序下的 waitUntil 记录在全局哈希表中
-                std::future<void>* task = GetWaitTask(op);
-                // 如果拿到了相应的执行任务，就需要等待 WaitUntil 执行完成
-                if (task != nullptr) {
-                    std::cout << op->GetOpcodeStr() << op->GetOpMagic() << " is waitting for waituntil ..." << std::endl;
-                    task->get();
-                }
-                RemoveWaitTask(op);
-                ExecuteOperation(*frame, op);
-            } else {
-                ExecuteOperation(*frame, op);
-            }
+            std::cout << "Start | execute op " << op.GetOpcodeStr() << ":" << op.GetOpcode() << std::endl;
+            ExecuteHandleOperationBegin(&op);
+            ExecuteOperation(*frame, &op);
             ExecuteHandleOperationEnd();
+            std::cout << "End | execute op " << op.GetOpcodeStr() << ":" << op.GetOpcode() << std::endl;
         }
-        waitOpQueue_.clear();
         ExecuteHandleFunctionEnd();
+        std::cout << "End | execute function " << func->GetFuncMagic() << std::endl;
 
         CopyInplaceOutcastToIncast(func, frame);
 
@@ -1145,40 +1122,6 @@ struct FunctionInterpreter {
                 }
             }
         }
-    }
-
-    bool DependsOnWaitUntil(Operation* op) {
-        if (waitDependencies_.find(op) != waitDependencies_.end()) {
-            return true;
-        }
-        return false;
-    }
-
-    bool DependsOnWaitQueue(Operation* op) {
-        for (Operation *wop: waitOpQueue_) {
-            for (auto ot: wop->GetOOperands()) {
-                if (ot->HasConsumer(op)) {
-                    return true;
-                }
-            }
-        }
-        return false;
-    }
-    
-    std::future<void>* GetWaitTask(Operation* op) {
-        auto it = waitDependencies_.find(op);
-        if (it == waitDependencies_.end()) {
-            return nullptr;
-        }
-        return SimulationCommManager::GetWaitTaskFuture(it->second);
-    }
-
-    void RemoveWaitTask(Operation* op) {
-        auto it = waitDependencies_.find(op);
-        if (it == waitDependencies_.end()) {
-            return;
-        }
-        waitDependencies_.erase(it);
     }
 
     void CopyInplaceOutcastToIncast(Function* func, const std::shared_ptr<FunctionFrame>& frame)
