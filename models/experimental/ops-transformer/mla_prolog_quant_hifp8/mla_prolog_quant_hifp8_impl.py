@@ -54,6 +54,28 @@ def scalar_div(tensor, other, is_reserve=False):
 
 @dataclass
 class MlaTileConfig:
+    """Tile configuration for MLA prolog quantization operations.
+    
+    Contains tiling parameters for optimizing memory access patterns
+    and computation efficiency on NPU.
+    
+    Attributes:
+        tile_b: Batch tile size
+        tile_s: Sequence tile size
+        tile_bs: Combined batch-sequence tile size
+        m_tile: Matmul tile size
+        mv_tile: Vector matmul tile size
+        pre_quant_cube_tile: Cube tile shapes for pre-quantization matmul
+        unroll_list: List of unroll lengths for loop optimization
+        q_vec_tile0: Query vector tile dimension 0
+        q_vec_tile1: Query vector tile dimension 1
+        k_vec_tile0: Key vector tile dimension 0
+        k_vec_tile1: Key vector tile dimension 1
+        cube_l1_reuse_setting: L1 reuse configuration for cube operations
+        pg_upper_bound: Upper bound for pipeline granularity
+        cube_nbuffer_setting: N-buffer configuration for cube operations
+        dynamic_unaligned_enable: Enable dynamic unaligned processing
+    """
     def __init__(self):
         self.tile_b = 8
         self.tile_s = 1
@@ -74,6 +96,20 @@ class MlaTileConfig:
 
 @dataclass
 class MlaQuantInputs:
+    """Container for quantization scale tensors.
+    
+    Encapsulates all dequantization and quantization scale tensors
+    used throughout the MLA prolog quantization computation.
+    
+    Attributes:
+        dequant_scale_x: Dequantization scale for input tensor
+        dequant_scale_w_dq: Dequantization scale for w_dq weight
+        dequant_scale_w_uq_qr: Dequantization scale for w_uq_qr weight
+        dequant_scale_w_dkv_kr: Dequantization scale for w_dkv_kr weight
+        quant_scale_ckv: Quantization scale for compressed KV
+        quant_scale_ckr: Quantization scale for compressed KR
+        smooth_scales_cq: Smooth quantization factor for query
+    """
     dequant_scale_x: pypto.Tensor = None
     dequant_scale_w_dq: pypto.Tensor = None
     dequant_scale_w_uq_qr: pypto.Tensor = None
@@ -85,6 +121,16 @@ class MlaQuantInputs:
 
 @dataclass
 class RopeTileShapeConfig:
+    """Tile shape configuration for RoPE (Rotary Position Embedding) operations.
+    
+    Defines tile shapes for different dimensional RoPE computations
+    to optimize memory access and computation patterns.
+    
+    Attributes:
+        two_dim: Tile shape for 2D RoPE operations, e.g., [32, 64]
+        three_dim: Tile shape for 3D RoPE operations, e.g., [32, 32, 128]
+        four_dim: Tile shape for 4D RoPE operations, e.g., [16, 128, 128, 128]
+    """
     two_dim: List[int]
     three_dim: List[int]
     four_dim: List[int]
