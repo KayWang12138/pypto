@@ -307,7 +307,7 @@ int CheckInjectStr(const char cmdStr[], size_t strLen)
 std::string CodeGenNPU::PrepareCmd(const CompileInfo& compileInfo, const std::string& compileOptions) const
 {
     std::ostringstream oss;
-    oss << "bisheng -c -O3 -g -x cce -std=c++17 ";
+    oss << "bisheng -c -O3 -g -x cce -std=c++17";
     BuildArchOptions(oss, compileInfo);
     BuildIncludes(oss);
     BuildExtraOptions(oss, compileOptions);
