@@ -18,7 +18,6 @@
 #include <vector>
 #include <utility>
 #include <string>
-#include <securec.h>
 #include "hccl_context.h"
 #include "tilefwk/platform.h"
 #include "interface/tileop/distributed/comm_context.h"
