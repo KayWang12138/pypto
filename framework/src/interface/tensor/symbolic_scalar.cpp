@@ -86,7 +86,7 @@ std::vector<uint8_t> CompileAndLoadSection(
     if (needDump) {
         FILE* fsrc = fopen(sourceFilePath.c_str(), "w");
         if (fsrc == nullptr) {
-            FUNCTION_LOGE_E(FError::BAD_FD, "Fail to open source file %s", sourceFilePath.c_str());
+            FUNCTION_LOGE(FError::BAD_FD, "Fail to open source file %s", sourceFilePath.c_str());
             return {};
         }
         fprintf(fsrc, "%s", code.c_str());
@@ -114,7 +114,7 @@ std::vector<uint8_t> CompileAndLoadSection(
 
     FILE* fbin = fopen(binaryFilePath.c_str(), "rb");
     if (fbin == nullptr) {
-        FUNCTION_LOGE_E(FError::BAD_FD, "open binary file name failed");
+        FUNCTION_LOGE(FError::BAD_FD, "open binary file name failed");
         return {};
     }
 

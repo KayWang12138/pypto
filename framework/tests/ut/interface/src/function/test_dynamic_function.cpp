@@ -736,7 +736,7 @@ TEST_F(DynamicFunctionTest, TestLoopWithManualRank)
             auto loopAttr = subFunc->GetDynloopAttribute();
             EXPECT_NE(loopAttr, nullptr);
             EXPECT_EQ(loopAttr->unrollTimes, ranks[idx++]);
-            FUNCTION_LOGE_E(
+            FUNCTION_LOGE(
                 FError::UNKNOWN, "unrollTimes: %d range: %s", loopAttr->unrollTimes,
                 loopAttr->loopRange.Dump().c_str());
             EXPECT_EQ(loopAttr->pathList.size(), 1);
