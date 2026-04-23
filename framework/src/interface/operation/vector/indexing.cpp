@@ -580,7 +580,7 @@ void CheckGatherParamsInvalid(const Tensor& params, const Tensor& indices, int a
 Tensor Gather(const Tensor& params, const Tensor& indices, int axis)
 {
     DECLARE_TRACER();
-    CheckGatherParamsInvalid(params, indices, axis, "GATHER");
+    // CheckGatherParamsInvalid(params, indices, axis, "GATHER");
     RETURN_CALL(
         GatherOperation, *Program::GetInstance().GetCurrentFunction(), params.GetStorage(), indices.GetStorage(), axis);
 }
