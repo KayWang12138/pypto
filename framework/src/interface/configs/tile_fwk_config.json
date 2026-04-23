@@ -1,7 +1,6 @@
 {
     "pass": {
         "pg_parallel_lower_bound": 20,
-        "pg_upper_bound": 10000,
         "pg_lower_bound": 512,
         "pg_partition_algorithm": "Iso",
         "mg_copyin_upper_bound": 104857600,
@@ -17,8 +16,6 @@
         "vec_nbuffer_setting_by_label": {}
     },
     "runtime": {
-        "stitch_cfgcache_size": 0,
-        "stitch_function_size": 20000,
         "device_sched_mode": 0,
         "run_mode": 0,
         "stitch_function_max_num": 128,

@@ -29,7 +29,6 @@ namespace npu::tile_fwk {
 
 // pass
 constexpr const char* SG_PARALLEL_NUM = "pg_parallel_lower_bound";
-constexpr const char* SG_PG_UPPER_BOUND = "pg_upper_bound";
 constexpr const char* SG_PG_LOWER_BOUND = "pg_lower_bound";
 constexpr const char* SG_PARTITION_ALGORITHM = "pg_partition_algorithm";
 constexpr const char* SG_SET_SCOPE = "sg_set_scope";
@@ -47,8 +46,7 @@ constexpr const char* COPYOUT_RESOLVE_COALESCING = "copyout_resolve_coalescing";
 // runtime
 constexpr const char* DEVICE_SCHED_MODE = "device_sched_mode";
 constexpr const char* STITCH_FUNCTION_MAX_NUM = "stitch_function_max_num";
-constexpr const char* STITCH_FUNCTION_SIZE = "stitch_function_size";
-constexpr const char* STITCH_CFGCACHE_SIZE = "stitch_cfgcache_size";
+
 constexpr const char* CFG_RUN_MODE = "run_mode";
 constexpr const char* CFG_VALID_SHAPE_OPTIMIZE = "valid_shape_optimize";
 constexpr int64_t CFG_RUN_MODE_NPU = 0;
