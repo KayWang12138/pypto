@@ -36,6 +36,7 @@
 #include "machine/runtime/device_launcher.h"
 #include "machine/utils/dynamic/dev_start_args.h"
 #include "machine/host/perf_analysis.h"
+#include "tilefwk/platform.h"
 #include "bindings/torch_tensor_converter.h"
 
 using namespace npu::tile_fwk;
@@ -812,6 +813,12 @@ public:
         ASSERT(ret == RT_SUCCESS) << "EslModelLaunch run failed: " << ret;
     }
 
+    void EslModelLiteLaunch(KernelBinary* kernel, std::vector<DeviceTensorData>& tensors)
+    {
+        int ret = EslModelLauncher::EslModelLiteRunOnce(kernel->GetFunction(), tensors);
+        ASSERT(ret == RT_SUCCESS) << "EslModelLiteLaunch run failed: " << ret;
+    }
+
 private:
     void InitCachedArgs()
     {
@@ -1030,6 +1037,10 @@ private:
     void DoLaunch(KernelBinary* kbinary)
     {
         if (config::GetSimConfig(KEY_ACCURACY_LEVEL, 2) == 2) {
+            if (IsLiteNPU(Platform::Instance().GetSoc().GetNPUArch())) {
+                kmodule->EslModelLiteLaunch(kbinary, tensors);
+                return;
+            }
             kmodule->EslModelLaunch(kbinary, tensors);
             return;
         }
