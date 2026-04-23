@@ -18,6 +18,9 @@ import pypto
 import numpy as np
 import time
 
+import logging
+
+from numpy.testing import assert_allclose
 
 NUM_HEADS = 8
 HEAD_DIM = 64
@@ -58,7 +61,7 @@ def get_device_id():
         "cube_l1_reuse_setting": {-1: 8},
         "vec_nbuffer_setting": {-1: 8},
         "cube_nbuffer_setting": {-1: 8},
-        "pg_upper_bound": 5000000,
+        # "pg_upper_bound": 5000000,
     },
     host_options={"compile_monitor_enable": True}
 )
@@ -142,7 +145,7 @@ def flash_attention_varlen_forward_kernel(
                         pypto.set_pass_options(sg_set_scope=-1)
 
                         ##
-                        pypto.set_pass_options(sg_set_scope=5002)
+                        pypto.set_pass_options(sg_set_scope=5001)
                         # pypto.set_pass_options(sg_set_scope=1)
 
                         scores_scaled = pypto.mul(scores, SCALE)
@@ -161,13 +164,13 @@ def flash_attention_varlen_forward_kernel(
                                 # pypto.set_vec_tile_shapes(8, 512)
                                 pypto.set_vec_tile_shapes(64, 512)
                                 # pypto.set_vec_tile_shapes(128, 256)
-                                pij_div = pypto.div(pij, lij)
+                                pij_div = pypto.div(pij, lij, precision_type=pypto.DivAlgorithm.INTRINSIC)
                                 pij_bf16 = pypto.cast(pij_div, pypto.DT_BF16)
 
                                 ##
                                 pypto.set_pass_options(sg_set_scope=-1)
 
-                                pypto.set_pass_options(sg_set_scope=5003)
+                                pypto.set_pass_options(sg_set_scope=5001)
                                 oij = pypto.matmul(pij_bf16, v_tile, out_dtype=pypto.DT_BF16)
                                 pypto.set_pass_options(sg_set_scope=-1)
 
@@ -207,7 +210,7 @@ def flash_attention_varlen_forward_kernel(
                         #     li_new = pypto.add(pypto.mul(t2, li), pypto.mul(t4, lij))
                         #     oi_tmp = pypto.add(pypto.mul(oi, t2), pypto.mul(oij, t4))
 
-                        #     out_fp32 = pypto.div(oi_tmp, li_new)
+                        #     out_fp32 = pypto.div(oi_tmp, li_new, precision_type=pypto.DivAlgorithm.INTRINSIC)
                         #     out_bf16 = pypto.cast(out_fp32, pypto.DT_BF16)
                         #     pypto.assemble(out_bf16, [q_start + q_tile_start, h_offset], output)
                         #     pypto.assemble(li_new, [q_start + q_tile_start, 0], l_output)
@@ -257,6 +260,29 @@ def attention_golden(q, k, v):
     p = torch.softmax(scores, dim=-1)
     return torch.matmul(p, v.float())
 
+def attention_forward_golden(q, k, v, scale):
+    """
+    Golden reference: 标准 attention 计算。
+
+    Q: [s1_size, head_dim],  KV: [s2_size, head_dim]
+    输入 q/k/v 均为 BF16。
+
+    Args:
+        q:     [s1_size, head_dim] BF16 — Q 切片
+        k, v:  [s2_size, head_dim] BF16 — KV 切片
+        scale: attention scale factor (1/sqrt(head_dim))
+    Returns:
+        o:     [s1_size, head_dim] FP32 — 输出 O
+        m:     [s1_size, 1] FP32 —softmax 最大值 M
+        l:     [s1_size, 1] FP32 — softmax 分母 L
+    """
+    scores = torch.matmul(q.float(), k.float().T) * scale
+    m = scores.max(dim=-1, keepdim=True)[0]
+    p = torch.softmax(scores, dim=-1)
+    l = p.sum(dim=-1, keepdim=True)
+    o = torch.matmul(p, v.float())
+    return o, m, l
+
 
 def test_forward(device, seq_lens_q, seq_lens_k, enable_perf=False):
     batch_size = len(seq_lens_q)
@@ -281,8 +307,17 @@ def test_forward(device, seq_lens_q, seq_lens_k, enable_perf=False):
     flash_attention_varlen_forward_kernel(q, k, v, out, l_out, m_out, cu_seqlens_q, cu_seqlens_k, batch_size)
     elapsed = time.time() - start
 
-    # Verify forward
-    max_diff = 0.0
+    ###
+    rtol = 0.0078125
+    atol = 0.0001
+
+    hidden_dim = NUM_HEADS * HEAD_DIM
+    # ---- Golden 计算: 先完整计算所有 batch/head 的 golden O/M/L ----
+    # golden O/M/L 与 kernel 输出同 shape: [total_q, ...], dtype与kernel输出一致
+    out_golden = torch.empty(total_q, hidden_dim, dtype=torch.float32, device=device)
+    m_golden = torch.empty(total_q, 1, dtype=torch.float32, device=device)
+    l_golden = torch.empty(total_q, 1, dtype=torch.float32, device=device)
+
     q_off, k_off = 0, 0
     for b in range(batch_size):
         sq, sk = seq_lens_q[b], seq_lens_k[b]
@@ -291,22 +326,44 @@ def test_forward(device, seq_lens_q, seq_lens_k, enable_perf=False):
             q_h = q[q_off:q_off + sq, h_off:h_off + HEAD_DIM]
             k_h = k[k_off:k_off + sk, h_off:h_off + HEAD_DIM]
             v_h = v[k_off:k_off + sk, h_off:h_off + HEAD_DIM]
-            out_h = out[q_off:q_off + sq, h_off:h_off + HEAD_DIM]
 
-            golden = attention_golden(q_h, k_h, v_h)
-            diff = (out_h.float() - golden).abs().max().item()
-            max_diff = max(max_diff, diff)
+            golden_o, golden_m, golden_l = attention_forward_golden(q_h, k_h, v_h, SCALE)
+            # golden 返回 [sq, ...] FP32, 写入对应 [total_q, ...] 位置
+            out_golden[q_off:q_off + sq, h_off:h_off + HEAD_DIM] = golden_o
+            m_golden[q_off:q_off + sq, :] = golden_m
+            l_golden[q_off:q_off + sq, :] = golden_l
         q_off += sq
         k_off += sk
 
-    print(f"  Fwd time: {elapsed:.3f}s, Max diff: {max_diff:.6f}")
+    # ---- 调用 kernel ----
+    # logging.info("  Running kernel...")
+    # flash_attention_varlen_forward_kernel(
+    #     q, k, v, out, l_out, m_out, cu_seqlens_q, cu_seqlens_k)
 
-    if max_diff > 0.01:
-        print(f"  Warning: Max diff {max_diff} > 0.01")
-        return False
+    # ---- 精度校验: kernel 输出 vs golden 输出 ----
+    rtol = 0.0078125
+    atol = 0.0001
 
-    print("✓ Forward test passed\n")
-    return True
+    passed = True
+    for name, npu_tensor, golden_tensor in [
+        ("O", out, out_golden),
+        ("M", m_out, m_golden),
+        ("L", l_out, l_golden),
+    ]:
+        npu_np = npu_tensor.float().cpu().numpy()
+        golden_np = golden_tensor.float().cpu().numpy()
+        max_diff = np.abs(npu_np - golden_np).max()
+        try:
+            assert_allclose(npu_np, golden_np, rtol=rtol, atol=atol)
+            logging.info(f"  {name}: PASSED (max_diff={max_diff:.6f}, rtol={rtol}, atol={atol})")
+        except AssertionError as e:
+            logging.info(f"  {name}: FAILED (max_diff={max_diff:.6f})")
+            logging.info(f"    {e}")
+            passed = False
+
+    logging.info(f"  {'PASSED' if passed else 'FAILED'}")
+    logging.info("")
+    return passed
 
 
 def main():
