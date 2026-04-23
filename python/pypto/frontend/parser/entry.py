@@ -687,7 +687,10 @@ class JitCallableWrapper:
             # Run kernel on esl
             cann_is_configed: bool = bool(os.environ.get("ASCEND_HOME_PATH"))
             if (pypto.get_global_config("simulation.accuracy_level") == 2 and cann_is_configed):
-                import torch_npu
+                try:
+                    import torch_npu
+                except ImportError:
+                    torch_npu = None
                 pypto_impl.LaunchKernelTorch(
                     self, _current_stream(), torch_tensors, tensor_defs
                 )
@@ -705,8 +708,11 @@ class JitCallableWrapper:
         """Check if the input tensor definitions match the input tensors.
         """
         def get_format(tensor):
-            import torch_npu
-            if torch_npu.get_npu_format(tensor) == 29:
+            try:
+                import torch_npu
+            except ImportError:
+                torch_npu = None
+            if torch_npu is not None and torch_npu.get_npu_format(tensor) == 29:
                 return "NZ"
             return "ND"
 
@@ -1071,7 +1077,10 @@ class JitCallableWrapper:
             If device type is not NPU or if execution fails.
         """
         if device.type == "npu":
-            import torch_npu  # pylint: disable=import-outside-toplevel, unused-import
+            try:
+                import torch_npu  # pylint: disable=import-outside-toplevel, unused-import
+            except ImportError:
+                torch_npu = None
 
             in_tensor_data = _pto_to_tensor_data(in_tensors)
             out_tensor_data = _pto_to_tensor_data(out_tensors)
