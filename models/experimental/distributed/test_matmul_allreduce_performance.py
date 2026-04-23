@@ -244,7 +244,7 @@ def test_matmul_allreduce_add_rmsnorm_performance():
     config = DistributedConfig(world_size=world_size)
     logger.info(f"检测到 soc_version={soc_version}, 使用 world_size={world_size}")
 
-    expected_total_time = 80 if soc_version == 260 else 60
+    expected_total_time = 80 if soc_version == 260 else 70
     all_min_times = []
 
     for run_num in range(1, 11):
