@@ -34,7 +34,7 @@ description: PyPTO 算子精度问题排查技能。专注于用户代码层面�
 | 优先级 | 问题现象 | 规避方法 | 代码示例 | 原因说明 |
 |-------|---------|---------|---------|---------|
 | 1 ★推荐 | 使用旧前端写法 | 切换到 `pypto.frontend.jit` | `@pypto.frontend.jit` | 新前端是 PyPTO 推荐写法，旧前端已不再维护，可避免多种已知问题 |
-| 2 | view + reshape 精度异常 | view 后避免 `inplace=True`（单独 reshape 可安全使用 `inplace=True`） | `pypto.reshape(tensor_view, shape, inplace=False)` | view 后 inplace=True 会错误修改内存地址；动态 shape 场景单独使用 reshape 推荐用 inplace=True |
+| 2 | view + reshape 精度异常 | view 后避免 `inplace=True`（单独 reshape 可安全使用 `inplace=True`） | `pypto.reshape(tensor_view, shape, inplace=False)` | view 后 inplace=True 会错误修改内存地址 |
 | 3 | 循环展开后精度异常 | `unroll_list=[1]` | `pypto.loop(range(n), unroll_list=[1])` | 关闭循环展开，规避 RegisterCopy pass 的寄存器拷贝 bug |
 | 4 | 嵌套循环精度异常 | `submit_before_loop=True` | `pypto.loop(range(m), submit_before_loop=True)` | 确保子循环正确提交，避免并行执行时的内存覆盖 |
 | 5 | 特定 shape 精度异常 | 调整 shape | 避免尾轴为 1，避免非整除 | 特定 shape 可能触发 Pass 推导边界情况，导致 valid_shape 错误 |

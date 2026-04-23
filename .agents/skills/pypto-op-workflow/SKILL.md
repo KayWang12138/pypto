@@ -205,13 +205,6 @@ description: PyPTO 算子开发工作流程。用于开发华为昇腾 AI 处理
 | `[PRECISION_FAIL]` | 精度验证失败 | → Stage 6（精度修复） |
 | 无标记 + exit ≠ 0 | 运行失败（编译/import/runtime） | → Stage 5 内排查重试（**最多 10 次**） |
 
-> **SIM 模式说明**：无 NPU 时使用 `run_mode=sim`，三态判定规则如下：
-> - `[PRECISION_PASS]` → 标记为 `[SIM_PASS]`，视为临时通过，待 NPU 可用后需重新验证
-> - `[PRECISION_FAIL]` → 正常进入 Stage 6
-> - SIM 模式无法进行性能调优（Stage 7 需等待 NPU 环境）
-
-> **标记格式说明**：`[PRECISION_PASS/FAIL]` 方括号标记仅用于 `pypto-op-develop` 生成的测试文件（通过 `print` 输出）。若使用 `models/` 下的成熟案例测试文件，需根据其实际输出格式适配判定逻辑。
-
 **Stage 5 重试限制**：
 - 运行失败时在 Stage 5 内排查重试，**最多 10 次**
 - 10 次重试后仍失败 → 向用户报告失败原因和已尝试的排查路径，等待用户决策
