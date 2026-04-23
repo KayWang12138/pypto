@@ -23,7 +23,7 @@
 #include "passes/pass_utils/parallel_tool.h"
 #include "passes/pass_utils/subgraph_utils.h"
 #include "passes/pass_log/pass_log.h"
-#include "interface/utils/error_code.h"
+#include "tilefwk/error_code.h"
 
 #ifndef MODULE_NAME
 #define MODULE_NAME "OoOSchedule"

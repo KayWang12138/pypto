@@ -41,7 +41,6 @@ public:
         config::Reset();
         config::SetHostOption(COMPILE_STAGE, CS_EXECUTE_GRAPH);
         config::SetPassOption(VEC_NBUFFER_SETTING, std::map<int64_t, int64_t>{{-1, 2}});
-        NBufferMerge::ResetGlobalHashOrderCounter();
     }
 
     void TearDown() override {}
@@ -276,8 +275,9 @@ Function* BuildFunctionWithSubgraphs(
     G.GetOp("copy_in")->UpdateSubgraphID(0);
     for (int i = 1; i <= subGraphNum; i++) {
         std::string strID = std::to_string(i);
-        EXPECT_EQ(G.AddTensors(DataType::DT_FP32, tileShape,
-            {"tensor1_" + strID, "tensor2_" + strID, "tensor3_" + strID}), true);
+        EXPECT_EQ(
+            G.AddTensors(DataType::DT_FP32, tileShape, {"tensor1_" + strID, "tensor2_" + strID, "tensor3_" + strID}),
+            true);
         std::vector<std::vector<std::string>> iOperands{
             {"incast1"}, {"tensor1_" + strID}, {"tensor2_" + strID}, {"tensor3_" + strID}};
         std::vector<std::vector<std::string>> oOperands{
@@ -295,49 +295,30 @@ Function* BuildFunctionWithSubgraphs(
     return G.GetFunction();
 }
 
-TEST_F(NBufferMergeTest, TestHashOrderGlobalAccumulation)
+TEST_F(NBufferMergeTest, TestSemanticLabelSetting)
 {
-    NBufferMerge::ResetGlobalHashOrderCounter();
     std::vector<int64_t> tileShape{16, 16};
     const int mgVecParallelLb = 3;
-    const int subGraphNum1 = 4;
-    const int subGraphNum2 = 3;
+    const int subGraphNum = 4;
+    ComputationalGraphBuilder G;
+    Function* function = BuildFunctionWithSubgraphs(G, tileShape, subGraphNum);
 
-    // 第一个 Function
-    ComputationalGraphBuilder G1;
-    Function* function1 = BuildFunctionWithSubgraphs(G1, tileShape, subGraphNum1);
-    function1->paramConfigs_.vecNBufferSetting = {{-1, 2}};
-    function1->paramConfigs_.mgVecParallelLb = mgVecParallelLb;
-    function1->SetTotalSubGraphCount(subGraphNum1 + 1);
-    NBufferMerge NBM1;
-    EXPECT_EQ(NBM1.RunOnFunction(*function1), SUCCESS);
-
-    // 获取第一个 Function 的最大 hashOrder
-    int maxHashOrder1 = -1;
-    for (auto& op : function1->Operations()) {
-        if (!op.IsDeleted()) {
-            maxHashOrder1 = std::max(maxHashOrder1, op.GetVecMergeHashOrder());
-        }
+    // Set semantic label for subgraph 1 and 2
+    auto vecLabel = std::make_shared<SemanticLabel>("VecLabel", __FILE__, __LINE__);
+    for (int i = 1; i <= 2; i++) {
+        std::string strID = std::to_string(i);
+        G.GetOp("ABS_" + strID)->SetSemanticLabel(vecLabel);
+        G.GetOp("EXP_" + strID)->SetSemanticLabel(vecLabel);
     }
-    EXPECT_GE(maxHashOrder1, 0) << "First function should have vecMergeHashOrder set";
 
-    // 第二个 Function
-    ComputationalGraphBuilder G2;
-    Function* function2 = BuildFunctionWithSubgraphs(G2, tileShape, subGraphNum2);
-    function2->paramConfigs_.vecNBufferSetting = {{-1, 2}};
-    function2->paramConfigs_.mgVecParallelLb = mgVecParallelLb;
-    function2->SetTotalSubGraphCount(subGraphNum2 + 1);
-    NBufferMerge NBM2;
-    EXPECT_EQ(NBM2.RunOnFunction(*function2), SUCCESS);
-
-    // 获取第二个 Function 的最小 hashOrder 并验证累加
-    int minHashOrder2 = INT_MAX;
-    for (auto& op : function2->Operations()) {
-        if (!op.IsDeleted() && op.GetVecMergeHashOrder() >= 0) {
-            minHashOrder2 = std::min(minHashOrder2, op.GetVecMergeHashOrder());
-        }
-    }
-    EXPECT_GT(minHashOrder2, maxHashOrder1) << "Second function's hashOrder should be greater than first";
+    // Default merge=4, but "VecLabel" override to 1 (no merge for labeled subgraphs)
+    function->paramConfigs_.vecNBufferSetting = {{-1, 4}};
+    function->paramConfigs_.vecNBufferSettingByLabel = {{"VecLabel", 1}};
+    function->paramConfigs_.mgVecParallelLb = mgVecParallelLb;
+    function->SetTotalSubGraphCount(subGraphNum + 1);
+    NBufferMerge NBM;
+    EXPECT_EQ(NBM.RunOnFunction(*function), SUCCESS);
 }
+
 } // namespace tile_fwk
 } // namespace npu

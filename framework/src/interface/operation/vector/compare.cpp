@@ -17,7 +17,7 @@
 #include "tensor_transformation.h"
 #include "interface/utils/operator_tracer.h"
 #include "passes/pass_utils/graph_utils.h"
-#include "interface/utils/error_code.h"
+#include "tilefwk/error_code.h"
 
 namespace npu::tile_fwk {
 
@@ -333,18 +333,30 @@ void TiledCmpsOperation(
 Tensor Compare(const Tensor& self, const Tensor& other, OpType op, OutType mode)
 {
     DECLARE_TRACER();
+    CheckTensorsDataTypeConsistency(self.GetStorage(), other.GetStorage(), "COMPARE");
+    std::unordered_set<DataType> supportedTypes = {DT_FP16, DT_BF16, DT_FP32};
+    CheckTensorDataType(self.GetStorage(), supportedTypes, "COMPARE");
+    CheckBinaryInputTensors(self.GetStorage(), other.GetStorage(), "COMPARE");
     RETURN_CALL(CompareOperation, *Program::GetInstance().GetCurrentFunction(), self, other, op, mode);
 }
 
 Tensor Compare(const Tensor& self, const Element& other, OpType op, OutType mode)
 {
     DECLARE_TRACER();
+    std::unordered_set<DataType> supportedTypes = {DT_FP16, DT_BF16, DT_FP32};
+    CheckTensorDataType(self.GetStorage(), supportedTypes, "COMPARE");
+    CheckTensorDimRange(self.GetStorage(), 1, 4, "COMPARE");
+    CheckTensorShapeSize(self.GetStorage(), "COMPARE");
     RETURN_CALL(CompareOperationScalar, *Program::GetInstance().GetCurrentFunction(), self, other, op, mode);
 }
 
 Tensor Compare(const Element& self, const Tensor& other, OpType op, OutType mode)
 {
     DECLARE_TRACER();
+    std::unordered_set<DataType> supportedTypes = {DT_FP16, DT_BF16, DT_FP32};
+    CheckTensorDataType(other.GetStorage(), supportedTypes, "COMPARE");
+    CheckTensorDimRange(other.GetStorage(), 1, 4, "COMPARE");
+    CheckTensorShapeSize(other.GetStorage(), "COMPARE");
     RETURN_CALL(CompareOperationScalar, *Program::GetInstance().GetCurrentFunction(), self, other, op, mode);
 }
 

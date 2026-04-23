@@ -138,6 +138,7 @@ void DeviceExecuteContext::GELaunchRunCached(DevStartArgs* startArgs, PushTaskEn
 int DeviceExecuteContext::RunControlFlow(DevStartArgs* startArgs)
 {
     PerfBegin(PERF_EVT_CONTROL_FLOW);
+    DEV_ATRACE("Start to Control Flow");
     RuntimeCallEntryType runtimeCallList[static_cast<uint32_t>(RuntimeCallStage::T_RUNTIME_CALL_MAX)] = {
         DeviceExecuteRuntimeCallRootAlloc,
         DeviceExecuteRuntimeCallRootStitch,
@@ -156,6 +157,7 @@ int DeviceExecuteContext::RunControlFlow(DevStartArgs* startArgs)
             finalErrorState);
         return finalErrorState;
     }
+    DEV_ATRACE("Finish Control Flow");
     PerfEnd(PERF_EVT_CONTROL_FLOW);
     return DEVICE_MACHINE_OK;
 }
@@ -276,7 +278,7 @@ void DeviceExecuteContext::ProcessControlFlowCacheRecord(DynDeviceTask* dynTask)
             devProg->ctrlFlowCacheAnchor->IncastOutcastAddrBackup(dynTask);
             devProg->ctrlFlowCacheAnchor->TaskAddrBackupWorkspace(dynTask);
             devProg->ctrlFlowCacheAnchor->RuntimeAddrBackup(
-                slotContext.GetSlotList(), workspace.GetRuntimeOutcastTensorPoolBase(), devProg->slotSize,
+                slotContext.GetSlotList(), workspace.GetRuntimeOutcastTensorPool(), devProg->slotSize,
                 devProg->runtimeOutcastPoolSize, workspace.GetTensorAllocator(), devProg->GetParallelism());
         }
         devProg->ctrlFlowCacheAnchor->AppendDeviceTask(dynTask);
@@ -353,6 +355,7 @@ int DeviceExecuteContext::SubmitToAicoreAndRecycleMemory(bool withoutTail, bool 
     PROF_STAGE_BEGIN(PERF_EVT_STAGE_PUSH_TASK, "push.before\n");
     DumpDeviceTask(taskId, dynTask);
     PerfMtTrace(PERF_TRACE_DEV_TASK_BUILD, CTRL_CPU_THREAD_IDX);
+    DEV_ATRACE("Ctrl Cpu push devTask: %lu to Sche Cpu", taskId);
     PushTask(dynTask);
     PROF_STAGE_END(PERF_EVT_STAGE_PUSH_TASK, "push.after\n");
     return ret;
@@ -579,10 +582,11 @@ void* DeviceExecuteContext::DeviceExecuteRuntimeCallRootStitch(void* ctx_, uint6
     if (ctx->DuppedRootUpdateAndCachedAllSubmitted()) {
         DEV_TRACE_DEBUG(CtrlEvent(none(), ControlFlowCachePartRunControlContinue()));
         // forcely break device task
-        ctx->devProg->ctrlFlowCacheAnchor->RuntimeAddrRestore(
-            ctx->slotContext.GetSlotList(), ctx->workspace.GetRuntimeOutcastTensorPoolBase(), ctx->devProg->slotSize,
+        auto ctrlFlowCacheAnchor = ctx->devProg->ctrlFlowCacheAnchor;
+        ctrlFlowCacheAnchor->RuntimeAddrRestore(
+            ctx->slotContext.GetSlotList(), ctx->workspace.GetRuntimeOutcastTensorPool(), ctx->devProg->slotSize,
             ctx->devProg->runtimeOutcastPoolSize, ctx->workspace.GetTensorAllocator(), ctx->devProg->GetParallelism());
-        ctx->devProg->ctrlFlowCacheAnchor->RuntimeAddrRelocWorkspace(
+        ctrlFlowCacheAnchor->RuntimeAddrRelocWorkspace(
             0, ctx->args->contextWorkspaceAddr, ctx->args, ctx->slotContext.GetSlotList(),
             ctx->workspace.GetRuntimeOutcastTensorPoolBase(), ctx->devProg->GetParallelism());
     }
