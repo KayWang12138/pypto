@@ -100,7 +100,7 @@ TEST_F(TestCodegenDynIndexOutCast, IndexOutCast)
     op.SetOpAttribute(std::make_shared<CopyOpAttribute>(MEM_UB, to_offset, shapeImme, shapeImme));
     auto copyAttr = std::static_pointer_cast<CopyOpAttribute>(op.GetOpAttribute());
     op.SetOOpAttrOffset(0, 0);
-    op.SetAttribute("GmTensorParamIdxInCallFunc", 0);
+    op.SetAttribute(OpAttributeKey::gmTensorParamIdxInCall, 0);
 
     std::shared_ptr<SymbolManager> symbolManager = std::make_shared<SymbolManager>();
     CodeGenCtx ctx;
@@ -138,7 +138,7 @@ TEST_F(TestCodegenDynIndexOutCast, TestIndexOutTileTensor)
     LogicalTensors outputs = {indexoutTensor};
 
     auto& indexoutOp = function->AddOperation(Opcode::OP_INDEX_OUTCAST, inputs, outputs);
-    indexoutOp.SetAttribute("GmTensorParamIdxInCallFunc", 0);
+    indexoutOp.SetAttribute(OpAttributeKey::gmTensorParamIdxInCall, 0);
     indexoutOp.SetAttribute("axis", 0);
     indexoutOp.SetAttribute(OpAttributeKey::panzBlockSize, 1);
     std::string cacheMode = "PA_BNSD";
