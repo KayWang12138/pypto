@@ -26,6 +26,7 @@
 #include "interface/compiler_monitor/monitor_manager.h"
 #include "interface/compiler_monitor/monitor_stage_scope.h"
 #include "machine/host/perf_analysis.h"
+#include "passes/pass_mgr/pass_manager.h"
 
 extern "C" {
 using RunPassFunc = int (*)(npu::tile_fwk::Program&, npu::tile_fwk::Function&, const std::string&);
@@ -200,6 +201,7 @@ void HostMachine::CompileFunction(Function* func) const
 void HostMachine::ResetAllPasses()
 {
     MACHINE_LOGI("ResetAllPasses called");
+    PassManager::ResetStaticVariables();
     
     auto& backend = Backend::GetBackend();
     if (backend.resetAllPasses) {
