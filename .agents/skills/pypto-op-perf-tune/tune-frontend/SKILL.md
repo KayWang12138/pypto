@@ -280,7 +280,7 @@ pypto.set_cube_tile_shapes([16, 16], [16, K, 256], [256, 256])
 1. 满足特定 Operation 对 TileShape 的规格约束
 2. 保证 Operation 的输入与输出 Tensor 可以在 UB 中分配内存
 3. TileShape 不能过大也不能过小（数据块大小在 16 到 64KB 之间）
-4. 尾轴 32B 对齐
+4. **优先用满尾轴**，即尾轴 TileShape 设为与实际 Shape 尾轴相同；尾轴过大必须切分时，按 **512B 对齐**切分
 5. 归约类计算尽可能不要在归约轴上进行切分
 
 ```python
