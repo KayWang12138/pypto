@@ -444,7 +444,8 @@ public:
         RtAicpuArgsEx& rtArgs, [[maybe_unused]] bool debugEnable, [[maybe_unused]] Function* function);
     static int LaunchSyncTask(AclRtStream aicoreStream, bool isCaptureMode);
     static int LaunchAicoreKernel(
-        AclRtStream aicoreStream, void* kernel, RtArgsEx& rtArgs, RtTaskCfgInfo& rtTaskCfg, bool debugEnable);
+        AclRtStream aicoreStream, void* kernel, RtArgsEx& rtArgs, RtTaskCfgInfo& rtTaskCfg,
+        bool debugEnable, [[maybe_unused]] Function* function);
     static int DeviceRunOnce(
         Function* function, DevControlFlowCache* hostCtrlCache = nullptr,
         const DeviceLauncherConfig& config = DeviceLauncherConfig());
