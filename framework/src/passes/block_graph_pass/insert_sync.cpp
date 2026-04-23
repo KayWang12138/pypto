@@ -665,70 +665,46 @@ Status PipeSync::HandleEventID(DepOp& op, IssueQueue& issueQ, IssueNum& issuenum
     bool eventIdOk = true;
     bool failedFlag{false};
     std::unordered_map<CorePair, size_t, CorePairHash> corePairMap;
+
     for (auto ele : op.setPipe) {
         if (op.selfPipeCore.pipeEnd == depOps_[ele].selfPipeCore.pipeStart) {
             continue;
         }
-        PipeCoreRealEx currPipeCoreEx(op.selfPipeCore.pipeEnd, op.selfPipeCore.core, op.selfPipeCore.aivCore);
-        PipeCoreRealEx elePipeCoreEx(depOps_[ele].selfPipeCore.pipeStart, depOps_[ele].selfPipeCore.core, depOps_[ele].selfPipeCore.aivCore);
-        PipePairEx pp{currPipeCoreEx, elePipeCoreEx};
+        PipeCoreRealEx currEx(op.selfPipeCore.pipeEnd, op.selfPipeCore.core, op.selfPipeCore.aivCore);
+        PipeCoreRealEx eleEx(depOps_[ele].selfPipeCore.pipeStart, depOps_[ele].selfPipeCore.core, depOps_[ele].selfPipeCore.aivCore);
+        PipePairEx pp{currEx, eleEx};
 
-        if (currPipeCoreEx.core == elePipeCoreEx.core) {
-            CorePair cp;
-            issuenum.maxIssueNum.emplace(pp, GetFreeEventIdQueue(pp, op.idx, ele, cp).size());
-            issuenum.currIssueNum.emplace(pp, 0);
+        size_t extraCount = 0;
+        if (currEx.core != eleEx.core) {
+            CorePair setwaitCoreType{{op.selfPipeCore.core, op.selfPipeCore.aivCore}, {depOps_[ele].selfPipeCore.core, depOps_[ele].selfPipeCore.aivCore}};
+            extraCount = ++corePairMap[setwaitCoreType];
+        }
+        CorePair cp;
+        issuenum.maxIssueNum.emplace(pp, GetFreeEventIdQueue(pp, op.idx, ele, cp).size());
+        issuenum.currIssueNum.emplace(pp, 0);
 
-            if (issuenum.currIssueNum[pp] >= issuenum.maxIssueNum[pp]) {
-                if (!deadlock) {
-                    eventIdOk = false;
-                    break;
-                }
-                // eventID deadlock, adjust op dependency to release eventID.
-                if (AdjustOpDep(op, ele, issueQ, failedFlag) != SUCCESS) {
-                    APASS_LOG_ERROR_F(Elements::Operation, "HandleEventID failed at function AdjustOpDep.");
-                    return FAILED;
-                }
-                if (failedFlag) {
-                    break;
-                }
+        if (issuenum.currIssueNum[pp] + extraCount >= issuenum.maxIssueNum[pp]) {
+            if (!deadlock) {
+                eventIdOk = false;
+                break;
             }
-        } else {
-            CoreTypeDetail setCoreType = {op.selfPipeCore.core, op.selfPipeCore.aivCore};
-            CoreTypeDetail waitCoreType = {depOps_[ele].selfPipeCore.core, depOps_[ele].selfPipeCore.aivCore};
-            CorePair setWaitCoreType = {setCoreType, waitCoreType};
-            corePairMap[setWaitCoreType] += 1;
-            CorePair cp;
-            issuenum.maxIssueNum.emplace(pp, GetFreeEventIdQueue(pp, op.idx, ele, cp).size());
-            issuenum.currIssueNum.emplace(pp, 0);
-
-            if (issuenum.currIssueNum[pp] + corePairMap[setWaitCoreType] > issuenum.maxIssueNum[pp]) {
-                if (!deadlock) {
-                    eventIdOk = false;
-                    break;
-                }
-                // eventID deadlock, adjust op dependency to release eventID.
-                if (AdjustOpDep(op, ele, issueQ, failedFlag) != SUCCESS) {
-                    APASS_LOG_ERROR_F(Elements::Operation, "HandleEventID failed at function AdjustOpDep.");
-                    return FAILED;
-                }
-                if (failedFlag) {
-                    break;
-                }
+            if (AdjustOpDep(op, ele, issueQ, failedFlag) != SUCCESS) {
+                APASS_LOG_ERROR_F(Elements::Operation, "HandleEventID failed at function AdjustOpDep.");
+                return FAILED;
+            }
+            if (failedFlag) {
+                break;
             }
         }
     }
-    
+
     if (failedFlag) {
         eventIdOk = false;
         deadlock = true;
     } else {
         deadlock = false;
     }
-    if (!eventIdOk) {
-        res = false;
-        return SUCCESS;
-    }
-    res = true;
+    res = eventIdOk;
     return SUCCESS;
 }
 
