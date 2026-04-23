@@ -903,7 +903,7 @@ Status SuperNodeGraphBuilder::ProcessScopeMerge()
 
     if (GraphUtils::IsCVMixPlatform()) {
         std::cout << "cvfuse" << std::endl;
-        ApplyCvFuseIds(scopeToCvFuseId, scopeInfo.scope2Nodes);
+        ApplyCvFuseIds(scopeToCvFuseId);
     }
     return SUCCESS;
 }
