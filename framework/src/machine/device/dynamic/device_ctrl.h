@@ -297,14 +297,7 @@ public:
     int ExecDyn(npu::tile_fwk::DeviceKernelArgs* args)
     {
         DEV_INFO("start control flow.");
-<<<<<<< HEAD
         DEV_ATRACE("start control flow.");
-// #ifdef __DEVICE__
-// #if AICPU_PMU_EVENT_ENABLE
-//         AICPU_PMU_SCOPE("ExecDyn");
-// #endif
-// #endif
-=======
 // PMU 采集示例（两种采样路径相互独立，开关位于 framework/src/machine/utils/device_switch.h）：
 //   1) AICPU_PMU_EVENT_ENABLE = 1  使用 perf_event_open / ioctl / read 路径（兼容性好）
 //      头文件: machine/utils/perf_event_sampler.h
@@ -318,7 +311,6 @@ public:
         AICPU_PMU_SCOPE("ExecDyn");
 #endif
 #endif
->>>>>>> feat(machine): support direct AICPU PMU profiling
         auto devProg = PtrToPtr<int64_t, DevAscendProgram>(args->cfgdata);
         auto devStartArgs = (DevStartArgs*)devProg->GetRuntimeDataList()->GetRuntimeDataPending();
 

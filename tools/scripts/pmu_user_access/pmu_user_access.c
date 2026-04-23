@@ -35,26 +35,40 @@
 #include <linux/printk.h>
 
 #define PMUSERENR_EN_ALL 0xFUL
+#define PMU_CNTENSET_CYCLE_BIT (1UL << 31)
 
 static enum cpuhp_state g_pmu_hp_state;
 
 static void PmuWriteOnCpu(void *info)
 {
     unsigned long val = (unsigned long)info;
+    unsigned long pmcr = 0;
 
     asm volatile("msr pmuserenr_el0, %0" ::"r"(val));
+    /*
+     * Make sure the cycle counter is actually running; PMUSERENR_EL0 only
+     * controls EL0 accessibility, not whether PMCCNTR_EL0 is enabled.
+     */
+    asm volatile("mrs %0, pmcr_el0" : "=r"(pmcr));
+    pmcr |= 1UL; /* PMCR_EL0.E: enable all counters */
+    asm volatile("msr pmcr_el0, %0" ::"r"(pmcr));
+    asm volatile("msr pmcntenset_el0, %0" ::"r"(PMU_CNTENSET_CYCLE_BIT));
     asm volatile("isb" ::: "memory");
 }
 
 static int PmuCpuOnline(unsigned int cpu)
 {
-    PmuWriteOnCpu((void *)PMUSERENR_EN_ALL);
+    /*
+     * PMU EL0 access control is per-CPU; ensure we program the target CPU.
+     * The CPUHP callback is not guaranteed to run on @cpu itself.
+     */
+    smp_call_function_single(cpu, PmuWriteOnCpu, (void *)PMUSERENR_EN_ALL, 1);
     return 0;
 }
 
 static int PmuCpuOffline(unsigned int cpu)
 {
-    PmuWriteOnCpu((void *)0UL);
+    smp_call_function_single(cpu, PmuWriteOnCpu, (void *)0UL, 1);
     return 0;
 }
 
