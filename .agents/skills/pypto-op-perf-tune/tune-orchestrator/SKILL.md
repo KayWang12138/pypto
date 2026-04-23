@@ -414,14 +414,26 @@ ls $PTO_TILE_LIB_CODE_PATH/include/pto/  # 路径必须存在
 
 ### S2_COLLECT
 
+**⚠️ output 目录位于执行算子命令时的工作目录下，非固定位置。** 需在正确的工作目录下执行验证命令。
+
 ```bash
+# 在执行算子命令时的工作目录下验证
 ls output/output_*/merged_swimlane.json   # 必须存在
+
+# 如果不确定位置，从项目根目录搜索
+find . -name "merged_swimlane.json" -type f
 ```
 
 ### S3_ANALYZE
 
+**⚠️ 同 S2_COLLECT，需在正确的工作目录下验证。**
+
 ```bash
+# 在执行算子命令时的工作目录下验证
 ls output/output_*/performance_analysis_report.md   # 必须存在
+
+# 如果不确定位置，从项目根目录搜索
+find . -name "performance_analysis_report.md" -type f
 ```
 
 ### S4_TUNE 各 PHASE

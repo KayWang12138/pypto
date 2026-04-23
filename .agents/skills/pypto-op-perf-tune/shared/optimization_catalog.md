@@ -40,7 +40,7 @@
 | S-2 | 核填充（TileShape 调整增任务数） | ⭐⭐⭐ | 核未满 | tune-swimlane §3.2 | S-1 完成 |
 | S-3 | 负载均衡分析 | ⭐⭐⭐ | 多子图算子 | tune-swimlane §3.3 | S-2 完成 |
 | S-4 | Vector 手动合图（sg_set_scope） | ⭐⭐⭐ | 有连续 AIV 操作 | tune-swimlane §4.1.2 | S-3 完成 |
-| S-5 | Vector 自动合图（nbuffer + pg_upper_bound） | ⭐⭐ | 短耗时 AIV 任务 | tune-swimlane §4.1.1 | S-3 完成 |
+| S-5 | Vector 自动合图（nbuffer） | ⭐⭐ | 短耗时 AIV 任务 | tune-swimlane §4.1.1 | S-3 完成 |
 | S-6 | Cube L1Reuse（消除重复搬运） | ⭐⭐ | AIC 核满、有重复搬运 | tune-swimlane §4.2.1 | S-3 完成 |
 | S-7 | Cube CubeNBuffer（合并同构子图） | ⭐⭐ | AIC 核满、短耗时 | tune-swimlane §4.2.2 | S-3 完成 |
 | S-8 | L1Reuse + CubeNBuffer 协同 | ⭐ | 已有 S-6/S-7 基础 | tune-swimlane §4.2.3 | S-6 或 S-7 |
@@ -315,7 +315,7 @@
 - **约束**: 仅对有直接上下游数据依赖的 Vector 操作生效；不包裹 Cube 操作；不跨 loop 边界
 - **⛔ 最易跳过的优化项**: 如果跳过此项，必须说明具体原因
 
-### [S-5] Vector 自动合图（nbuffer + pg_upper_bound）
+### [S-5] Vector 自动合图（nbuffer）
 
 - **阶段**: 深度调优
 - **优先级**: ⭐⭐ P3
@@ -323,7 +323,7 @@
 - **前置条件**: S-3 完成
 - **检查方法**: 运行 `analyze_swimlane.py` 查看 `[AIV]` 部分，确认短耗时任务
 - **操作指南**: tune-swimlane SKILL.md §4.1.1
-- **配置示例**: `pass_options={"pg_upper_bound": 500000, "vec_nbuffer_setting": {-2: 1, -1: 2}}`
+- **配置示例**: `pass_options={"vec_nbuffer_setting": {-2: 1, -1: 2}}`
 - **调优方法**: 可先用 `{-1: N}` 全局配置，再按 psgId 精细调优
 
 ### [S-6] Cube L1Reuse（消除重复搬运）
