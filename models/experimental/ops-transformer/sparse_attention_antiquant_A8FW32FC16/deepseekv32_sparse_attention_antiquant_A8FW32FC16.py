@@ -87,7 +87,7 @@ def compute_attention_aq(input_data, params, s2_tile):
                 s2_end = s2_start + s2_tile_cur
 
                 topk_indices_tmp = topk_indices[b_idx * s1 + s1_idx, s2_start:s2_end]
-                slc_nope = torch.zeros([s2_tile_cur, kv_lora_rank + 2 * qk_rope_dim + 4 * 4], dtype=torch.int8)
+                slc_nope = torch.zeros([s2_tile_cur, kv_lora_rank + 2 * qk_rope_dim + 4 * 4], dtype=torch.torch.float8_e4m3fn)
                 slc_kv_up = torch.zeros([s2_tile_cur, kv_lora_rank + qk_rope_dim], dtype=input_dtype)
 
                 # 当前b&s1&s2 topk_index  --->  kvCache的offset
@@ -106,10 +106,10 @@ def compute_attention_aq(input_data, params, s2_tile):
                     slc_nope[cur_s2_idx, :] = nope_cache_2d[slc_idx, :]
 
                 # 存8算16
-                slc_kv_int8 = slc_nope[:, :kv_lora_rank]
-                slc_kv_scales_vint8 = slc_nope[:, kv_lora_rank + 2 * qk_rope_dim:]
-                slc_kv_scales = slc_kv_scales_vint8.view(torch.float32).reshape(-1, 1)
-                slc_kv_fp32 = slc_kv_int8.reshape(-1, 128).to(torch.float)
+                slc_kv_fp8 = slc_nope[:, :kv_lora_rank]
+                slc_kv_scales_vfp8 = slc_nope[:, kv_lora_rank + 2 * qk_rope_dim:]
+                slc_kv_scales = slc_kv_scales_vfp8.view(torch.float32).reshape(-1, 1)
+                slc_kv_fp32 = slc_kv_fp8.reshape(-1, 128).to(torch.float)
                 slc_kv = slc_kv_fp32 * slc_kv_scales
                 slc_kr_vin8 = slc_nope[:, kv_lora_rank:kv_lora_rank + 2 * qk_rope_dim]
 
@@ -247,7 +247,7 @@ def gen_gather_select_attention_golden_aq(dtype, bn1n2s1, is_kn_quant, actual_se
     kn_bsnd_reshape = kn_bsnd.reshape(block_num * block_size, 4, 128).to(torch.float32)
     kn_scales = kn_bsnd_reshape.abs().amax(dim=-1, keepdim=True).clamp(min=1e-8) / 127.0
     kn_quant_fp32 = kn_bsnd.reshape(block_num * block_size, 4, 128) / kn_scales
-    kn_quant = torch.round(kn_quant_fp32).clamp(-128, 127).to(torch.int8)
+    kn_quant = torch.round(kn_quant_fp32).clamp(-128, 127).to(torch.float8_e4m3fn)
 
     kr = gen_uniform_data(shape_kr, -1, 1, dtype)
 
@@ -335,13 +335,13 @@ def do_test_sparse_attention_func_aq(bn1n2s1, actual_seq, input_params, input_da
 def get_case_config(case_name: str):
     # case参数配置字典，key为case名称，value为对应的参数元组(bn1n2s1, is_kn_quant, actual_seq)
     test_case_config = {
-        "sfa_bf16_b4_s2_seq64K_total_int8_d": (
+        "sfa_bf16_b4_s2_seq64K_total_fp8_d": (
             (4, 128, 1, 2), 1, [65536, 16381, 666, 15]
         ),
-        "sfa_bf16_b4_s2_seq64K_per_int8_d": (
+        "sfa_bf16_b4_s2_seq64K_per_fp8_d": (
             (4, 128, 1, 2), 1, [65536] * 4
         ),
-        "sfa_bf16_b1_s256_seq64K_int8_p": (
+        "sfa_bf16_b1_s256_seq64K_fp8_p": (
             (1, 128, 1, 256), 1, [65536]
         ),
     }
@@ -366,29 +366,29 @@ def do_test_sfa_entry(case_name: str, is_p: bool):
 
 
 @pytest.mark.soc("950", "910")
-def test_sfa_bf16_b4_s2_seq64k_total_int8_d():
+def test_sfa_bf16_b4_s2_seq64k_total_fp8_d():
     '''
     sfa decode测试函数
     '''
-    do_test_sfa_entry("sfa_bf16_b4_s2_seq64K_total_int8_d", is_p=False)
+    do_test_sfa_entry("sfa_bf16_b4_s2_seq64K_total_fp8_d", is_p=False)
 
 
 @pytest.mark.soc("950", "910")
 @pytest.mark.skip(reason="perf")
-def test_sfa_bf16_b4_s2_seq64k_per_int8_d():
+def test_sfa_bf16_b4_s2_seq64k_per_fp8_d():
     '''
     sfa decode测试函数
     '''
-    do_test_sfa_entry("sfa_bf16_b4_s2_seq64K_per_int8_d", is_p=False)
+    do_test_sfa_entry("sfa_bf16_b4_s2_seq64K_per_fp8_d", is_p=False)
 
 
 @pytest.mark.soc("950", "910")
 @pytest.mark.skip(reason="large test case")
-def test_sfa_bf16_b1_s256_seq64k_int8_p():
+def test_sfa_bf16_b1_s256_seq64k_fp8_p():
     '''
     sfa prefill测试函数
     '''
-    do_test_sfa_entry("sfa_bf16_b1_s256_seq64K_int8_p", is_p=True)
+    do_test_sfa_entry("sfa_bf16_b1_s256_seq64K_fp8_p", is_p=True)
 
 
 if __name__ == "__main__":
@@ -396,6 +396,6 @@ if __name__ == "__main__":
         format='%(asctime)s - %(filename)s:%(lineno)d - %(levelname)s: %(message)s',
         level=logging.INFO
     )
-    test_sfa_bf16_b4_s2_seq64k_total_int8_d()
-    test_sfa_bf16_b4_s2_seq64k_per_int8_d()
-    test_sfa_bf16_b1_s256_seq64k_int8_p()
+    test_sfa_bf16_b4_s2_seq64k_total_fp8_d()
+    test_sfa_bf16_b4_s2_seq64k_per_fp8_d()
+    test_sfa_bf16_b1_s256_seq64k_fp8_p()
