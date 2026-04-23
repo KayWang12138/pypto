@@ -25,6 +25,8 @@
 
 namespace npu::tile_fwk {
 
+const std::unordered_set<Opcode> nodeScopeSkipCode{Opcode::OP_ASSEMBLE, Opcode::OP_VIEW};
+
 uint64_t OperationGraphInfo::GetHash(const Operation* op) const
 {
     std::string hashString;
@@ -724,11 +726,12 @@ void NodeGraphInfo::BuildNodeMapping(const std::shared_ptr<OperationGraphInfo> o
     for (int32_t nodeIdx = 0; nodeIdx < numNodes; nodeIdx++) {
         for (int32_t opIdx : node2Op_[nodeIdx]) {
             op2Node_[opIdx] = nodeIdx;
-            const auto& scopeInfo = operationGraphInfo->opList_[opIdx]->GetScopeInfo();
-            if (scopeInfo.scopeId != -1) {
+            const auto& op = operationGraphInfo->opList_[opIdx];
+            const auto& scopeInfo = op->GetScopeInfo();
+            if (scopeInfo.scopeId != -1 && nodeScopeSkipCode.find(op->GetOpcode()) == nodeScopeSkipCode.end()) {
                 nodeScope_[nodeIdx] = scopeInfo;
             }
-            nodeCycles_[nodeIdx] += operationGraphInfo->opList_[opIdx]->GetLatency();
+            nodeCycles_[nodeIdx] += op->GetLatency();
         }
     }
 }
@@ -742,23 +745,31 @@ SuperNodeGraphBuilder::ScopeCollectResult SuperNodeGraphBuilder::CollectScopeInf
             continue;
         }
         result.scope2Nodes[scopeInfo.scopeId].push_back(nodeIdx);
-        for (int32_t opIdx : superNodeInfo_->node2Op_[nodeIdx]) {
-            result.scopeCoreTypes[scopeInfo.scopeId].insert(operationInfo_->opCoreType_[opIdx]);
-        }
         if (scopeInfo.allowParallelMerge) {
             result.scopeAllowParallel[scopeInfo.scopeId] = true;
+        }
+    }
+    for (size_t opIdx = 0; opIdx < operationInfo_->opList_.size(); opIdx++) {
+        const auto& scopeInfo = operationInfo_->opList_[opIdx]->GetScopeInfo();
+        if (scopeInfo.scopeId == -1) {
+            continue;
+        }
+        bool isCube = operationInfo_->opList_[opIdx]->HasAttr(OpAttributeKey::isCube) &&
+                      operationInfo_->opList_[opIdx]->GetBoolAttribute(OpAttributeKey::isCube);
+        if (isCube) {
+            result.scopeCoreTypes[scopeInfo.scopeId].hasCube = true;
+        } else {
+            result.scopeCoreTypes[scopeInfo.scopeId].hasVector = true;
         }
     }
     return result;
 }
 
 Status SuperNodeGraphBuilder::ValidateScopeCoreTypes(
-    int32_t scopeId, const std::unordered_set<OpCoreType>& coreTypes, bool isCVMix,
+    int32_t scopeId, const ScopeCoreTypeInfo& coreTypeInfo, bool isCVMix,
     std::map<int32_t, int32_t>& scopeToCvFuseId)
 {
-    bool hasAic = coreTypes.count(OpCoreType::AIC) > 0;
-    bool hasAiv = coreTypes.count(OpCoreType::AIV) > 0;
-    if (!hasAic || !hasAiv) {
+    if (!coreTypeInfo.hasCube || !coreTypeInfo.hasVector) {
         return SUCCESS;
     }
     if (isCVMix) {
@@ -775,9 +786,12 @@ Status SuperNodeGraphBuilder::CheckAndMergeScopes(
     std::map<int32_t, int32_t>& scopeToCvFuseId)
 {
     bool isCVMix = GraphUtils::IsCVMixPlatform();
-    for (auto& [scopeId, coreTypes] : scopeInfo.scopeCoreTypes) {
-        if (ValidateScopeCoreTypes(scopeId, coreTypes, isCVMix, scopeToCvFuseId) != SUCCESS) {
+    for (auto& [scopeId, coreTypeInfo] : scopeInfo.scopeCoreTypes) {
+        if (ValidateScopeCoreTypes(scopeId, coreTypeInfo, isCVMix, scopeToCvFuseId) != SUCCESS) {
             return FAILED;
+        }
+        if (coreTypeInfo.hasCube && coreTypeInfo.hasVector) {
+            continue;
         }
         bool allowParallel =
             scopeInfo.scopeAllowParallel.count(scopeId) > 0 && scopeInfo.scopeAllowParallel.at(scopeId);
@@ -843,13 +857,24 @@ void SuperNodeGraphBuilder::RebuildSuperNodes(std::vector<int32_t>& snParent, in
     superNodeInfo_->SetNodeCoreTypeAndMergeable(operationInfo_, false);
 }
 
-void SuperNodeGraphBuilder::ApplyCvFuseIds(
-    const std::map<int32_t, int32_t>& scopeToCvFuseId, const std::map<int32_t, std::vector<int32_t>>& scope2Nodes)
+void SuperNodeGraphBuilder::ApplyCvFuseIds(const std::map<int32_t, int32_t>& scopeToCvFuseId)
 {
-    for (const auto& [scopeId, cvFuseId] : scopeToCvFuseId) {
-        auto it = scope2Nodes.find(scopeId);
-        if (it == scope2Nodes.end()) continue;
-        for (int32_t nodeIdx : it->second) {
+    // 遍历所有supernode，若supernode中存在任一op的scopeId在scopeToCvFuseId中，
+    // 则将该supernode中所有op标记为该scope对应的cvFuseId
+    for (auto& [scopid, cvfuseid] : scopeToCvFuseId) {
+        std::cout << scopid << "have cvfuse" << cvfuseid << std::endl;
+    }
+    for (size_t nodeIdx = 0; nodeIdx < superNodeInfo_->node2Op_.size(); nodeIdx++) {
+        int32_t cvFuseId = -1;
+        for (int32_t opIdx : superNodeInfo_->node2Op_[nodeIdx]) {
+            int32_t scopeId = operationInfo_->opList_[opIdx]->GetScopeId();
+            auto it = scopeToCvFuseId.find(scopeId);
+            if (it != scopeToCvFuseId.end()) {
+                cvFuseId = it->second;
+                break;
+            }
+        }
+        if (cvFuseId != -1) {
             for (int32_t opIdx : superNodeInfo_->node2Op_[nodeIdx]) {
                 operationInfo_->opList_[opIdx]->scopeInfo_.SetCvFuseId(cvFuseId);
             }
@@ -880,7 +905,8 @@ Status SuperNodeGraphBuilder::ProcessScopeMerge()
     }
 
     if (GraphUtils::IsCVMixPlatform()) {
-        ApplyCvFuseIds(scopeToCvFuseId, scopeInfo.scope2Nodes);
+        std::cout << "cvfuse" << std::endl;
+        ApplyCvFuseIds(scopeToCvFuseId);
     }
     return SUCCESS;
 }
