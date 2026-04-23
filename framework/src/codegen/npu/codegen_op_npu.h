@@ -295,7 +295,7 @@ protected:
     // get start offset in total block
     SymbolicScalar GetOperandStartOffset(int operandIdx) const;
 
-    SymbolicScalar GetGmTensorAddr(unsigned gmParamIdx) const;
+    std::string GetGmTensorAddrByAttr(unsigned gmParamIdx) const;
 
     virtual std::string GenGmParamVar(unsigned gmParamIdx) const;
 

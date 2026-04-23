@@ -440,25 +440,37 @@ SymbolicScalar CodeGenOpNPU::GetOperandStartOffset(int operandIdx) const
     return resOffset;
 }
 
-SymbolicScalar CodeGenOpNPU::GetGmTensorAddr(unsigned gmParamIdx) const
+std::string CodeGenOpNPU::GetGmTensorAddrByAttr(unsigned gmParamIdx) const
 {
     std::map<int, SymbolicScalar> addrs;
     bool ret = GetTensorAttr(gmParamIdx, TensorAttributeKey::tensorAddr, addrs);
-    ASSERT(OperErr::ATTRIBUTE_INVALID, ret)
-        << "paramAddr is not found!! gmParamIdx: " << gmParamIdx << ", op: " << originalOp.Dump();
+    if (!ret || addrs.empty()) {
+        CODEGEN_LOGW(
+            "gmParamIdx: %d, tensorAddr is not found in attr !! op: %s", gmParamIdx, originalOp.Dump().c_str());
+        return "";
+    }
     auto iter = addrs.find(originalOp.GetOpMagic());
     ASSERT(OperErr::ATTRIBUTE_INVALID, iter != addrs.end())
         << "add is not found by opMagic: " << originalOp.GetOpMagic() << ", gmParamIdx: " << gmParamIdx
         << ", op: " << originalOp.Dump();
-    return iter->second;
+    std::string gmParamVar = SymbolicExpressionTable::BuildExpression(iter->second);
+    CODEGEN_LOGI("gmParamVar from attr is : %s", gmParamVar.c_str());
+    return gmParamVar;
 }
 
 std::string CodeGenOpNPU::GenGmParamVar(unsigned gmParamIdx) const
 {
     if (isUnderDynamicFunction) {
-        SymbolicScalar addr = GetGmTensorAddr(gmParamIdx);
-        std::string gmParamVar = SymbolicExpressionTable::BuildExpression(addr);
-        CODEGEN_LOGI("gmParamVar: %s", gmParamVar.c_str());
+        std::string gmParamVar = GetGmTensorAddrByAttr(gmParamIdx);
+        if (!gmParamVar.empty()) {
+            return gmParamVar;
+        }
+        // Use CodeGen generation as the fallback
+        std::ostringstream os;
+        os << "GET_PARAM_ADDR(" << GM_TENSOR_PARAM_STR << ", " << GmTensorParamIdxInCallFunc << ", "
+           << paramLocation[gmParamIdx] << ")";
+        gmParamVar = os.str();
+        CODEGEN_LOGI("gmParamVar by codegen: %s", gmParamVar.c_str());
         return gmParamVar;
     }
 
