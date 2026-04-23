@@ -158,5 +158,8 @@ private:
 
     static void* DeviceExecuteRuntimeCallSetLoopDieId(void* ctx_, uint64_t rootKey);
     int errorState_{DEVICE_MACHINE_OK};
+
+    int currentMaxC_{0};
+    int currentMaxV_{0};
 };
 } // namespace npu::tile_fwk::dynamic

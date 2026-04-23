@@ -751,7 +751,7 @@ public:
 
         kernelArgs[5] = args->kArgs.cfgdata; // 5 is cfgdata
         ret = DeviceLauncher::LaunchAicoreKernel(
-            aicoreStream, kernel->GetKernelBin(), rtAicoreArgs, rtTaskCfg, debugEnable);
+            aicoreStream, kernel->GetKernelBin(), rtAicoreArgs, rtTaskCfg, debugEnable, kernel->GetFunction());
         ASSERT(ret == RT_SUCCESS) << "launch aicore failed: " << ret;
     }
 
@@ -763,7 +763,7 @@ public:
 
         DeviceLauncherConfig config;
         DeviceLauncher::DeviceLauncherConfigFillDeviceInfo(config);
-        int ret = EmulationLauncher::EmulationLaunchDeviceTensorData(kernel->GetFunction(), tensors, {}, config);
+        int ret = EmulationLauncher::EmulationLaunchDeviceTensorData(kernel->GetFunction(), tensors, {}, config, !IsCacheEnabled());
         ASSERT(ret == RT_SUCCESS) << "emulation run failed: " << ret;
     }
 
@@ -979,7 +979,6 @@ private:
             kmodule->EslModelLaunch(kbinary, tensors);
             return;
         }
-        kmodule->EmulationLaunch(kbinary, tensors);
 
         int64_t* wsAddr = nullptr;
         int64_t wsSize = kmodule->GetWorkspaceSize(kbinary, tensors);
@@ -997,6 +996,8 @@ private:
 
         uint8_t* ctrlFlowCache = kmodule->FindCtrlFlowCache(kbinary, module, tensors);
         HOST_PERF_TRACE(TracePhase::FindCtrlFlowCache);
+
+        kmodule->EmulationLaunch(kbinary, tensors);
 
         kmodule->Launch(kbinary, aicoreStream, tensors, ctrlFlowCache, wsAddr);
         HOST_PERF_TRACE(TracePhase::Launch);

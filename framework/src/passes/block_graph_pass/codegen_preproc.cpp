@@ -28,6 +28,7 @@
 #include <set>
 #include <queue>
 #include <algorithm>
+#include <unordered_map>
 
 #define MODULE_NAME "CodegenPreproc"
 
@@ -354,7 +355,9 @@ inline std::pair<int, int> EstimateRequiredCores(
     std::vector<int> inDegree(subgraphNum, 0);
     for (int i = 0; i < subgraphNum; ++i) {
         for (int consumer : subgraphOutGraph[i]) {
-            inDegree[consumer]++;
+            if (consumer >= 0 && consumer < subgraphNum) {
+                inDegree[consumer]++;
+            }
         }
     }
 
@@ -371,14 +374,20 @@ inline std::pair<int, int> EstimateRequiredCores(
     while (!q.empty()) {
         int node = q.front();
         q.pop();
+
+        if (node < 0 || node >= subgraphNum) {
+            continue;
+        }
         
         int endTime = earliestStart[node] + subgraphLatency[node];
         
         for (int consumer : subgraphOutGraph[node]) {
-            earliestStart[consumer] = std::max(earliestStart[consumer], endTime);
-            inDegree[consumer]--;
-            if (inDegree[consumer] == 0) {
-                q.push(consumer);
+            if (consumer >= 0 && consumer < subgraphNum) {
+                earliestStart[consumer] = std::max(earliestStart[consumer], endTime);
+                inDegree[consumer]--;
+                if (inDegree[consumer] == 0) {
+                    q.push(consumer);
+                }
             }
         }
     }
@@ -445,6 +454,13 @@ inline void EstimateCVCores(Function &function) {
     }
     auto maxCVCores = EstimateRequiredCores(subgraphNum, isCubeGraph, subgraphOutGraph, subgraphLatency);
     function.SetMaxCVCoreUsage(maxCVCores);
+
+    if (function.GetFunctionType() == FunctionType::DYNAMIC_LOOP_PATH) {
+        Function *rootFuntion = function.GetRootFunction();
+        if (rootFuntion != nullptr) {
+            rootFuntion->SetMaxCVCoreUsage(maxCVCores);
+        }
+    }
 }
 
 Status CodegenPreproc::RunOnFunction(Function &function)
