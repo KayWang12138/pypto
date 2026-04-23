@@ -152,7 +152,8 @@ int EslModelLauncher::EslModelRunOnce(void *kernel, const DeviceLauncherConfig &
     return rc;
 }
 
-int EslModelLauncher::EslModelLiteRunOnce(Function *function, std::vector<DeviceTensorData> &tensors) {
+int EslModelLauncher::EslModelLiteRunOnce(Function *function, std::vector<DeviceTensorData> &tensors)
+{
     ProgramData::GetInstance().Reset();
 
     // Allocate device memory and copy host to device
@@ -161,7 +162,7 @@ int EslModelLauncher::EslModelLiteRunOnce(Function *function, std::vector<Device
         uint8_t *deviceAddr = nullptr;
         AclRtMalloc((void **)&deviceAddr, tensors[i].GetDataSize(), AclRtMemMallocPolicy::HUGE_FIRST);
         AclRtMemcpy(deviceAddr, tensors[i].GetDataSize(), (uint8_t *)tensors[i].GetAddr(),
-                     tensors[i].GetDataSize(), AclRtMemcpyKind::HOST_TO_DEVICE);
+            tensors[i].GetDataSize(), AclRtMemcpyKind::HOST_TO_DEVICE);
         deviceAddrs.push_back(deviceAddr);
     }
 
@@ -214,7 +215,7 @@ int EslModelLauncher::EslModelLiteRunOnce(Function *function, std::vector<Device
     // Copy device to host and free device memory
     for (size_t i = 0; i < tensors.size(); i++) {
         AclRtMemcpy((uint8_t *)tensors[i].GetAddr(), tensors[i].GetDataSize(), deviceAddrs[i],
-                     tensors[i].GetDataSize(), AclRtMemcpyKind::DEVICE_TO_HOST);
+            tensors[i].GetDataSize(), AclRtMemcpyKind::DEVICE_TO_HOST);
         AclRtFree(deviceAddrs[i]);
     }
 

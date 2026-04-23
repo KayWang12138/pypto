@@ -194,7 +194,7 @@ RtError StubDevBinaryRegister(const RtDevBinary *bin, void **hdl)
 }
 
 RtError StubFunctionRegister(void *binHandle, const void *stubFunc, const char_t *stubName,
-                            const void *kernelInfoExt, uint32_t funcMode)
+    const void *kernelInfoExt, uint32_t funcMode)
 {
     ADAPTER_LOGD("Enter stub function of FunctionRegister.");
     (void)binHandle;
@@ -202,11 +202,11 @@ RtError StubFunctionRegister(void *binHandle, const void *stubFunc, const char_t
     (void)stubName;
     (void)kernelInfoExt;
     (void)funcMode;
-    return RT_SUCCESS;  
+    return RT_SUCCESS;
 }
 
 RtError StubKernelLaunch(const void *stubFunc, uint32_t blockDim, void *args, uint32_t argsSize,
-                        RtSmDesc *smDesc, RtStream stm)
+    RtSmDesc *smDesc, RtStream stm)
 {
     ADAPTER_LOGD("Enter stub function of KernelLaunch.");
     (void)stubFunc;
@@ -215,7 +215,7 @@ RtError StubKernelLaunch(const void *stubFunc, uint32_t blockDim, void *args, ui
     (void)argsSize;
     (void)smDesc;
     (void)stm;
-    return RT_SUCCESS;  
+    return RT_SUCCESS;
 }
 
 RtError StubLaunchCpuKernel(const RtFuncHandle funcHandle, uint32_t numBlocks, RtStream stm,

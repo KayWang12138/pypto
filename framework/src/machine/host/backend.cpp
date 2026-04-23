@@ -1076,7 +1076,7 @@ static void CompileDyndevFunction(Function* function, FunctionCache& cache, [[ma
         config::GetRuntimeOption<int64_t>(CFG_RUN_MODE) == CFG_RUN_MODE_SIM);
     if (enableCompile && config::GetHostOption<int64_t>(COMPILE_STAGE) != CS_CODEGEN_INSTRUCTION) {
         if (IsLiteNPU(Platform::Instance().GetSoc().GetNPUArch())) {
-            for (auto& [hash, leaf] : leafDict) {
+            for (auto& [[[maybe_unused]] hash, leaf] : leafDict) {
                 auto leafAttr = leaf->GetLeafFuncAttribute();
                 if (leafAttr && !leafAttr->binPath.empty()) {
                     kernelPath = leafAttr->binPath;

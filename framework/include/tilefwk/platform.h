@@ -333,7 +333,8 @@ inline std::string NPUArchToString(NPUArch npu_arch)
     }
 }
 
-inline bool IsLiteNPU(NPUArch arch) {
+inline bool IsLiteNPU(NPUArch arch)
+{
     return arch == NPUArch::DAV_3113;
 }
 
