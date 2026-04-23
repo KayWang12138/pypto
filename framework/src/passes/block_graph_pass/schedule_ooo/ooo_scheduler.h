@@ -204,7 +204,12 @@ private:
     bool IsBelongSpillBlackList(Operation* spillOp, Operation* op);
     void FindFilterLtags(Operation* allocOp, std::set<Operation*> &filterLtags);
     bool CheckMachineAndL1(Operation* spillOp, Operation* allocOp);
-    bool CheckParallelL0C2L1(Operation* spillOp);
+
+    // partial-write producer helpers (ASSEMBLE / L0C_TO_L1 / ALLOC)
+    bool IsSupportedPartialWriteProducer(const Operation &op) const;
+    Status GetPartialWriteReplayAttr(Operation* producerOp, std::vector<int64_t> &toOffset,
+        std::vector<SymbolicScalar> &toDynOffset, std::vector<SymbolicScalar> &fromDynValidShape) const;
+    bool HasNZHorizontalSlice(const std::vector<Operation*> &producers) const;
 
     Status SpillBuffer(int memId, Operation* spillAllocOp, SpillContext &ctx);
     Status SpillBufferFromDDR(int spillMemId, Operation* spillOp, LogicalTensorPtr spillTensor, Operation* spillAllocOp, SpillContext &ctx);
@@ -245,7 +250,6 @@ private:
     void UpdateOpInternalSubgraphID(Operation &op, Operation* srcOp);
     int GetBufLastUseTime(Operation* op, int curMemId);
     int GetBufNextUseTime(Operation* op, int curMemId);
-    int64_t CalcWorkspaceOffset(std::vector<int64_t> shape, std::vector<int64_t> offset, DataType dataType);
     void GetWorkspaceBaseOffset(LogicalTensorPtr ddrTensor, int64_t& base);
     Status RearrangeBuffer(Operation* allocOp, MemoryType memType);
     Status UpdateCopyoutScheduleInfo(Operation* op, LogicalTensorPtr spillTensor, int spillMemId, Operation* spillAllocOp);
