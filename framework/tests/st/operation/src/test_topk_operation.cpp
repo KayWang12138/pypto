@@ -41,6 +41,29 @@ struct TopKOpMetadata {
     nlohmann::json test_data_;
 };
 
+void TopKOpExeFunc1D(const std::vector<Tensor>& inputs, std::vector<Tensor>& outputs, const OpFuncArgs* opArgs)
+{
+    auto args = static_cast<const TopKOpFuncArgs*>(opArgs);
+    SymbolicScalar firstDim = inputs[0].GetShape()[0];
+    const int firstViewShape = args->viewShape_[0];
+    int loop[] = {CeilDiv(firstDim, firstViewShape)};
+    FUNCTION("main", {inputs[0]}, {outputs[0], outputs[1]})
+    {
+        LOOP("LOOP_L0_bIdx", FunctionType::DYNAMIC_LOOP, bIdx, LoopRange(loop[IDX_DIM0]))
+        {
+            std::vector<SymbolicScalar> offset = {bIdx * args->viewShape_[0]};
+            auto viewTensor = View(
+                inputs[0], args->viewShape_,
+                {std::min(firstDim - bIdx * firstViewShape, firstViewShape)},
+                offset);
+            TileShape::Current().SetVecTile(args->tileShape_);
+            auto res = TopK(viewTensor, args->count_[0], args->dims_[0], args->largest_[0]);
+            Assemble(std::get<0>(res), offset, outputs[0]);
+            Assemble(std::get<1>(res), offset, outputs[1]);
+        }
+    }
+}
+
 void TopKOpExeFunc(const std::vector<Tensor>& inputs, std::vector<Tensor>& outputs, const OpFuncArgs* opArgs)
 {
     auto args = static_cast<const TopKOpFuncArgs*>(opArgs);
@@ -162,7 +185,8 @@ class TopKOperationTest : public npu::tile_fwk::stest::TestSuite_STest_Ops_Aihac
 
 INSTANTIATE_TEST_SUITE_P(
     TestTopK, TopKOperationTest,
-    ::testing::ValuesIn(GetOpMetaData<TopKOpMetadata>({TopKOpExeFunc, TopKOpExeFunc3D, TopKOpExeFunc4D}, "TopK")));
+    ::testing::ValuesIn(GetOpMetaData<TopKOpMetadata>({TopKOpExeFunc1D, TopKOpExeFunc,
+     TopKOpExeFunc3D, TopKOpExeFunc4D}, "TopK")));
 
 TEST_P(TopKOperationTest, TestTopK)
 {
