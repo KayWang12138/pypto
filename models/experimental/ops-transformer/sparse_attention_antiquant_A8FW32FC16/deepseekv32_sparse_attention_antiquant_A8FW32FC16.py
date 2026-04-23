@@ -20,8 +20,8 @@ import numpy as np
 import pytest
 import pypto
 
-from sparse_attention_antiquant_impl \
-    import sparse_attention_antiquant_d, sparse_attention_antiquant_p, SaTileShapeConfig
+from sparse_attention_antiquant_A8FW32FC16_impl \
+    import sparse_attention_antiquant_A8FW32FC16_d, sparse_attention_antiquant_A8FW32FC16_p, SaTileShapeConfig
 from utils.compare import compare
 
 
@@ -52,7 +52,7 @@ def compute_attention_aq(input_data, params, s2_tile):
     SA, 存8算16, Page nope cache, 计算流非FA
     使用PyTorch实现
     """
-    q_nope, q_rope, nope_cache_2d, topk_indices, block_table, actual_seq = input_data
+    q_nope, q_rope, kn_quant, kr, kn_scales, topk_indices, block_table, actual_seq = input_data
     nq, block_size, scalar, topk, kv_lora_rank, qk_rope_dim = params
     b_s1_nq, _ = q_nope.shape
     b = len(actual_seq)
@@ -89,6 +89,9 @@ def compute_attention_aq(input_data, params, s2_tile):
                 topk_indices_tmp = topk_indices[b_idx * s1 + s1_idx, s2_start:s2_end]
                 slc_nope = torch.zeros([s2_tile_cur, kv_lora_rank + 2 * qk_rope_dim + 4 * 4], dtype=torch.torch.float8_e4m3fn)
                 slc_kv_up = torch.zeros([s2_tile_cur, kv_lora_rank + qk_rope_dim], dtype=input_dtype)
+                kn_quant_slice = torch.zeros([s2_tile_cur, kv_lora_rank], dtype=torch.float8_e4m3fn)
+                kr_slice = torch.zeros([s2_tile_cur, qk_rope_dim], dtype=torch.bfloat16)
+                kn_scales_slice = torch.zeros([s2_tile_cur, 4], dtype=torch.float32)
 
                 # 当前b&s1&s2 topk_index  --->  kvCache的offset
                 offset = torch.zeros([s2_tile_cur], dtype=torch.int32)
@@ -103,19 +106,21 @@ def compute_attention_aq(input_data, params, s2_tile):
                 # 索引 kvCache
                 for cur_s2_idx in range(s2_tile_cur):
                     slc_idx = offset[cur_s2_idx]
-                    slc_nope[cur_s2_idx, :] = nope_cache_2d[slc_idx, :]
+                    kn_quant_slice[cur_s2_idx, :] = kn_quant[slc_idx, :]
+                    kr_slice[cur_s2_idx, :] = kr[slc_idx, :]
+                    kn_scales_slice[cur_s2_idx, :] = kn_scales[slc_idx, :]
+                
+                kn_quant_fp32 = kn_quant_slice.to(torch.float32)
 
-                # 存8算16
-                slc_kv_fp8 = slc_nope[:, :kv_lora_rank]
-                slc_kv_scales_vfp8 = slc_nope[:, kv_lora_rank + 2 * qk_rope_dim:]
-                slc_kv_scales = slc_kv_scales_vfp8.view(torch.float32).reshape(-1, 1)
-                slc_kv_fp32 = slc_kv_fp8.reshape(-1, 128).to(torch.float)
-                slc_kv = slc_kv_fp32 * slc_kv_scales
-                slc_kr_vin8 = slc_nope[:, kv_lora_rank:kv_lora_rank + 2 * qk_rope_dim]
+                kn_quant_fp32_reshape = kn_quant_fp32.reshape(s2_tile_cur * 4, 128)
+                kn_scales_slice_reshape = kn_scales_slice.reshape(s2_tile_cur * 4, 1)
 
-                slc_kv_up[:, :kv_lora_rank] = slc_kv.to(input_dtype).reshape(-1, kv_lora_rank)
-                slc_kv_up[:, kv_lora_rank:] = slc_kr_vin8.view(input_dtype)
-                vj = slc_kv_up[:, :kv_lora_rank]
+                slc_kv = kn_quant_fp32_reshape * kn_scales_slice_reshape
+                slc_kv_up[:, :kv_lora_rank] = slc_kv.reshape(s2_tile_cur, kv_lora_rank).to(input_dtype)
+                slc_kv_up[:, kv_lora_rank:] = kr_slice
+
+                slc_kv_reshape = slc_kv.reshape(s2_tile_cur, kv_lora_rank).to(input_dtype)
+
 
                 # C1
                 sij = torch.matmul(qi.to(torch.float32), slc_kv_up.transpose(1, 0).to(torch.float32)).to(torch.float32)
@@ -130,7 +135,7 @@ def compute_attention_aq(input_data, params, s2_tile):
                 tilda_pij_f16 = t_softmax.to(input_dtype)
 
                 # C2
-                q1 = torch.matmul(tilda_pij_f16.to(torch.float32), vj.to(torch.float32)).to(torch.float32)
+                q1 = torch.matmul(tilda_pij_f16.to(torch.float32), slc_kv_reshape.to(torch.float32)).to(torch.float32)
 
             attention_output[b_idx, s1_idx, :, :] = q1.to(input_dtype)
 
@@ -254,7 +259,7 @@ def gen_gather_select_attention_golden_aq(dtype, bn1n2s1, is_kn_quant, actual_se
     # 2D
     kn_quant = kn_quant.reshape(block_num * block_size, kv_lora_rank)
     kn_scales = kn_scales.reshape(block_num * block_size, 4)
-    kr = kr.reshape(block_num * block_size, qk_rope_dim)
+    kr = kr.reshape(block_num * block_size, qk_rope_dim).to(torch.bfloat16)
 
     # q split to [nope + rope]
     q_nope = q_bsnd[:, :, :, :kv_lora_rank]
@@ -264,14 +269,14 @@ def gen_gather_select_attention_golden_aq(dtype, bn1n2s1, is_kn_quant, actual_se
 
     # 3. 计算attention
     params = [n_q, block_size, scalar, topk, kv_lora_rank, qk_rope_dim]
-    input_data = [q_nope, q_rope, nope_cache_2d, topk_indices, block_table, actual_seq]
+    input_data = [q_nope, q_rope, kn_quant, kr, kn_scales, topk_indices, block_table, actual_seq]
 
     s2_tile = 2048
     atten_out, tmp_out = compute_attention_aq(input_data, params, s2_tile)
 
     # input params
     input_params = [b, s_q, n_q, n_kv, max_kv_seq, kv_lora_rank, qk_rope_dim, block_num, block_size, topk, scalar]
-    input_data_map = [q_nope, q_rope, nope_cache_2d, topk_indices, block_table, actual_seq]
+    input_data_map = [q_nope, q_rope, kn_quant, kr, kn_scales, topk_indices, block_table, actual_seq]
 
     return input_params, input_data_map, atten_out
 
@@ -303,7 +308,7 @@ def do_test_sparse_attention_func_aq(bn1n2s1, actual_seq, input_params, input_da
 
     b, s1, n_q, n_kv, max_kv_seq, kv_lora_rank, qk_rope_dim, block_num, block_size, topk, \
         softmax_scale = input_params
-    q_nope, q_rope, nope_cache_2d, topk_indices, block_table, kv_actual_seqs = input_data
+    q_nope, q_rope, kn_quant, kr, kn_scales, topk_indices, block_table, kv_actual_seqs = input_data
     kv_act_seqs = torch.tensor(actual_seq, dtype=torch.int32)
 
     calc_attention_out = torch.zeros([b * s1 * n_q, kv_lora_rank], dtype=torch.bfloat16)
@@ -311,12 +316,14 @@ def do_test_sparse_attention_func_aq(bn1n2s1, actual_seq, input_params, input_da
 
     q_nope_npu = q_nope.npu()
     q_rope_npu = q_rope.npu()
-    nope_cache_npu = nope_cache_2d.npu()
+    kn_quant_npu = kn_quant.npu()
+    kr_npu = kr.npu()
+    kn_scales_npu = kn_scales.npu()
     topk_indices_npu = topk_indices.npu()
     block_table_npu = block_table.npu()
     kv_act_seqs_npu = kv_act_seqs.npu()
 
-    pto_inputs = [q_nope_npu, q_rope_npu, nope_cache_npu, topk_indices_npu, block_table_npu, kv_act_seqs_npu]
+    pto_inputs = [q_nope_npu, q_rope_npu, kn_quant_npu, kr_npu, kn_scales_npu, topk_indices_npu, block_table_npu, kv_act_seqs_npu]
     pto_outputs = [calc_attention_out_npu]
 
     max_blocknum_perbatch = math.ceil(max_kv_seq / block_size)

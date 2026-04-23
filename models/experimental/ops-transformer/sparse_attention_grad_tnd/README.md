@@ -1,220 +1,144 @@
-# aclnnSparseFlashAttentionGrad
+# Sparse Attention Anti-Quantization A8FW32FC16
 
-## 产品支持情况
+## 算子概述
 
-|产品      | 是否支持 |
-|:----------------------------|:-----------:|
-|<term>Ascend 950PR/Ascend 950DT</term>|      √     |
-|<term>Atlas A3 训练系列产品/Atlas A3 推理系列产品</term>|    √     |
-|<term>Atlas A2 训练系列产品/Atlas A2 推理系列产品</term>|    √     |
+本算子实现了面向 **DeepSeek V32 Multi-head Latent Attention (MLA)** 架构的 **Sparse Flash Attention with FP8 Anti-Quantization (反量化)**，运行于华为昇腾 NPU 上。
 
-## 功能说明
+核心功能：
+1. 基于 PagedAttention 机制，通过 top-k 索引从分页 KV cache 中 gather 选定的 KV 条目
+2. 对 FP8 量化的 key-nope 进行在线反量化（per-group FP32 scales）
+3. 组装完整的 Q/K 并执行标准 Attention 计算：`O = softmax(Q @ K^T / sqrt(d)) @ V`
 
-- 接口功能：实现稀疏Flash Attention的反向梯度计算（TND格式）。根据前向计算的中间结果（softmax_max、softmax_sum）和输出梯度（d_out），计算Q、K、V的梯度。
+本算子专为 DeepSeek V32 的 MLA 架构设计，其中 KV cache 存储压缩的 latent 表示，value 复用反量化后的 key-nope。
 
-- 核心功能：
-  - Q和K分别拆分为nope（无旋转位置编码）和pe（含旋转位置编码）两部分。
-  - 使用前向保存的softmax_max和softmax_sum恢复softmax概率矩阵P，避免重新计算。
-  - 对dK和dV使用scatter-add（index_add_）将梯度累加到正确位置。
-  - 支持多batch动态序列长度，actual_seq_qlen/actual_seq_kvlen为前缀和格式。
-  - 对每个(b, s)位置批量处理G个query heads。
+## 核心参数
 
-## 计算公式
+| 参数 | 值 | 说明 |
+|---|---|---|
+| `kv_lora_rank` | 512 | KV latent 维度 |
+| `qk_rope_dim` | 64 | RoPE 维度 |
+| `head_dim` | 576 | 完整 head 维度（512 + 64） |
+| `nq` | 128 | Query head 数量 |
+| `n_kv` | 1 | KV head 数量（GQA） |
+| `topk` | 2048 | 每个 token 选取的 top-k KV 数量 |
+| `block_size` | 128 | PagedAttention block 大小 |
 
-对于每个query token $t$和KV head $h$（处理G个query heads）：
+## 文件结构
 
-$$
-\begin{aligned}
-\textbf{Step 1: Gather} \\
-sel\_k &= \text{concat}(K_{nope}[\text{idx}], K_{pe}[\text{idx}]) & (K, D+D_R) \\
-Q_{group} &= \text{concat}(Q_{nope}[t], Q_{pe}[t]) & (G, D+D_R) \\
-\\
-\textbf{Step 2: 恢复softmax概率} \\
-S &= Q_{group} \times sel\_k^T \times \text{scale} & (G, K) \\
-P &= \frac{\exp(S - m_i)}{l_i} & (G, K) \\
-\\
-\textbf{Step 3: 计算dP, dV} \\
-dP &= dO \times V[\text{idx}]^T & (G, K) \\
-dV_{local} &= P^T \times dO & (K, D) \\
-\\
-\textbf{Step 4: 计算dS, dQ, dK} \\
-D_{val} &= \sum(dO \odot O, \dim=-1) & (G, 1) \\
-dS &= P \odot (dP - D_{val}) & (G, K) \\
-dQ_{local} &= dS \times sel\_k \times \text{scale} & (G, D+D_R) \\
-dK_{local} &= dS^T \times Q_{group} \times \text{scale} & (K, D+D_R) \\
-\\
-\textbf{Step 5: Scatter-add写回} \\
-dQ_{nope}[t] &\mathrel{+}= dQ_{local}[:, :D] \\
-dQ_{pe}[t] &\mathrel{+}= dQ_{local}[:, D:] \\
-dK_{nope}[\text{idx}] &\mathrel{+}= dK_{local}[:, :D] + dV_{local} \\
-dK_{pe}[\text{idx}] &\mathrel{+}= dK_{local}[:, D:]
-\end{aligned}
-$$
-
-### 符号说明
-
-| 符号 | 含义 |
-|------|------|
-| $Q_{nope}$ | Query nope部分，shape为$(T_1, N_1, D)$ |
-| $Q_{pe}$ | Query pe（RoPE）部分，shape为$(T_1, N_1, D_R)$ |
-| $K_{nope}$ | Key nope部分，shape为$(T_2, N_2, D)$ |
-| $K_{pe}$ | Key pe（RoPE）部分，shape为$(T_2, N_2, D_R)$ |
-| $V$ | Value（等于K_nope），shape为$(T_2, N_2, D)$ |
-| $dO$ | 输出梯度，shape为$(T_1, N_1, D)$ |
-| $O$ | 前向输出，shape为$(T_1, N_1, D)$ |
-| $m_i$ | 前向softmax最大值，shape为$(N_2, T_1, G)$ |
-| $l_i$ | 前向softmax求和值，shape为$(N_2, T_1, G)$ |
-| $\text{idx}$ | sparse_idx指定的稀疏KV索引 |
-| $\text{scale}$ | 注意力缩放因子，$1/\sqrt{D+D_R}$ |
-| $G$ | GQA分组数，$N_1/N_2$ |
-
-## 函数原型
-
-### JIT编译kernel
-
-```python
-@pypto.frontend.jit(...)
-def sparse_flash_attention_grad(
-    q_nope, q_pe, k_nope, k_pe, value,
-    sparse_idx, d_out, out, sm_max, sm_sum,
-    actual_seq_qlen, actual_seq_kvlen,
-    dq_nope_out, dq_pe_out, dk_nope_out, dk_pe_out, dv_out,
-    dk_nope_in, dk_pe_in,
-    N1, N2, D, DR, K, G, scale_value
-):
-    """JIT编译的SFA反向kernel，TND格式，nope/rope拆分，动态shape。"""
+```
+sparse_attention_antiquant_fp8/
+├── README.md
+├── sparse_attention_antiquant_fp8_impl.py        # 算子实现
+└── deepseekv32_sparse_attention_antiquant_fp8.py  # Golden 参考实现 + 测试
 ```
 
-### 封装接口
+## API 签名
+
+算子提供两个入口：`sparse_attention_antiquant_d`（Decode）和 `sparse_attention_antiquant_p`（Prefill），签名一致：
 
 ```python
-def npu_pangu_sparse_attention_grad(
-    q_nope, q_pe, k_nope, k_pe, value,
-    sparse_idx, d_out, out, sm_max, sm_sum,
-    actual_seq_qlen, actual_seq_kvlen, scale_value
-) -> (dq_nope, dq_pe, dk_nope, dk_pe, dv)
+sparse_attention_antiquant_d(
+    query_nope,    # (t*nq, 512)           BF16   query nope 部分
+    query_rope,    # (t*nq, 64)            BF16   query rope 部分
+    nope_cache,    # (block_num*bs, 672)   FP8    分页 KV cache（含 kn + kr + scales）
+    topk_indices,  # (t, n_kv*topk)        INT32  top-k 选取的 token 索引
+    block_table,   # (b, max_blocknum)     INT32  PagedAttention block 映射表
+    kv_act_seqs,   # (b,)                  INT32  每个 batch 的实际序列长度
+    attention_out,  # (b*s*nq, 512)        BF16   输出
+    nq, n_kv, softmax_scale, topk, block_size, max_blocknum_perbatch, tile_config
+)
 ```
 
-## 参数说明
+### Decode vs Prefill 差异
 
-### Kernel输入参数
+| 配置项 | Decode (`_d`) | Prefill (`_p`) |
+|---|---|---|
+| `vec_nbuffer_setting` | `{-1: 2, 0: 4}` | `{-1: 4, 0: 4}` |
+| `cube_l1_reuse_setting` | `{-1: 2}` | `{-1: 4}` |
+| `device_sched_mode` | `3` | 未设置 |
 
-| 参数名 | 输入/输出 | 描述 | 数据类型 | 维度(shape) |
-|:--- |:--- |:--- |:--- |:--- |
-| q_nope | 输入 | Query nope部分 | BFLOAT16 | (T1, N1, D)，T1为动态维度 |
-| q_pe | 输入 | Query pe（RoPE）部分 | BFLOAT16 | (T1, N1, DR) |
-| k_nope | 输入 | Key nope部分 | BFLOAT16 | (T2, N2, D)，T2为动态维度 |
-| k_pe | 输入 | Key pe（RoPE）部分 | BFLOAT16 | (T2, N2, DR) |
-| value | 输入 | Value张量 | BFLOAT16 | (T2, N2, D) |
-| sparse_idx | 输入 | 稀疏TopK索引 | INT32 | (T1, N2, K) |
-| d_out | 输入 | 输出梯度 | BFLOAT16 | (T1, N1, D) |
-| out | 输入 | 前向输出 | BFLOAT16 | (T1, N1, D) |
-| sm_max | 输入 | 前向softmax最大值 | FLOAT32 | (N2, T1, G)，T1为动态维度 |
-| sm_sum | 输入 | 前向softmax求和值 | FLOAT32 | (N2, T1, G) |
-| actual_seq_qlen | 输入 | Query长度前缀和 | INT32 | (B,)，B为动态维度 |
-| actual_seq_kvlen | 输入 | KV长度前缀和 | INT32 | (B,) |
-| dq_nope_out | 输出 | Q nope梯度 | BFLOAT16 | (T1*N1, D) |
-| dq_pe_out | 输出 | Q pe梯度 | BFLOAT16 | (T1*N1, DR) |
-| dk_nope_out | 输出 | K nope梯度（含dV累加） | FLOAT32 | (T2*N2, D) |
-| dk_pe_out | 输出 | K pe梯度 | FLOAT32 | (T2*N2, DR) |
-| dv_out | 输出 | V梯度 | FLOAT32 | (T2*N2, D) |
+## KV Cache 布局（nope_cache）
 
-### 标量/编译时参数
+每个 token 在 `nope_cache` 中占 656 字节（padding 至 672 字节对齐），FP8 视角的数据编排：
 
-| 参数名 | 描述 | 数据类型 |
-|:--- |:--- |:--- |
-| N1 | Query head数 | INT |
-| N2 | KV head数 | INT |
-| D | nope维度 | INT |
-| DR | rope维度 | INT |
-| K | 稀疏TopK大小 | INT |
-| G | GQA分组数（N1/N2） | INT |
-| scale_value | 注意力缩放因子 | FLOAT |
+| 字节偏移 | 内容 | 逻辑 dtype | 维度 |
+|---|---|---|---|
+| `[0:512]` | kv_nope（量化后） | FP8_E4M3 | 512 |
+| `[512:640]` | key_rope | BF16（以 FP8 视角存储） | 64（128 bytes） |
+| `[640:656]` | dequant scales | FP32（以 FP8 视角存储） | 4（16 bytes） |
 
-## 约束说明
+反量化方式：将 512 维 kv_nope 按 4 组（每组 128 个元素）分组，每组乘以对应的 FP32 scale。
 
-### 确定性计算
+## 计算流程
 
-- aclnnSparseFlashAttentionGrad默认采用确定性实现，相同输入多次调用结果一致。
+算子采用 5 层嵌套循环结构：
 
-### 公共约束
+```
+L0: batch_idx      — 遍历 batch
+  L1: slc_idx      — 遍历 query 序列
+    L2: n_kv_idx   — 遍历 KV head
+      L3: group_idx — 遍历 query group（nq / n_kv / g_tile）
+        L4: s2_idx  — 遍历 KV 序列 tile
+```
 
-1. 仅支持BFLOAT16数据类型，梯度计算中间结果以FP32进行累加。
-2. 输入Tensor的数据格式仅支持ND。
-3. actual_seq_qlen和actual_seq_kvlen均为前缀和格式。
-4. sparse_idx中的索引值为T2维度上的全局索引。
-5. dk_nope_out中已包含dV的累加（即dk_nope + dv）。
-6. 输出梯度dk_nope_out和dk_pe_out为FLOAT32类型，外部需转换回BFLOAT16。
-7. KV-side tensor使用MAX_TOTAL_KV（128K）作为静态上界。
-8. 使用index_add_进行dK/dV的scatter-add操作。
+每次 L4 迭代的计算步骤：
 
-### 输入shape约束
+1. **V0 Gather**：通过 `gather_in_ub` 根据 topk_indices + block_table 从 nope_cache 中取出选定的 KV 条目
+2. **Dequant**：提取 FP8 kn -> cast FP32 -> 乘以 per-group scales -> cast BF16
+3. **组装 K**：拼接 kn(512) + kr(64) -> kj(576)
+4. **组装 Q**：拼接 qn(512) + qr(64) -> qi(576)
+5. **C1 MatMul**：`sij = qi @ kj^T`，FP32 累加，shape (g_tile, s2_tile)
+6. **V1 Softmax**：scale -> amax -> sub -> exp -> sum -> div -> cast BF16
+7. **C2 MatMul**：`q1 = softmax @ vj`，其中 vj = kn（512 维），输出 BF16
+8. **写出**：将 q1 写入 attention_out
 
-| 约束项 | 描述 |
-|:--- |:--- |
-| q_nope.dim() == 3, q_nope.size(2) == 512 | Q nope必须为3维，最后一维为512 |
-| q_pe.dim() == 3, q_pe.size(2) == 64 | Q pe必须为3维，最后一维为64 |
-| k_nope.dim() == 3, k_nope.size(2) == 512 | K nope必须为3维，最后一维为512 |
-| k_pe.dim() == 3, k_pe.size(2) == 64 | K pe必须为3维，最后一维为64 |
-| value.dim() == 3, value.size(2) == 512 | Value必须为3维，最后一维为512 |
-| sm_max.dim() == 3, sm_max.size(0) == 1 | softmax_max第一维为N2（通常为1） |
+## Tiling 配置
 
-### 规格约束
-
-| 规格项 | 规格 | 规格说明 |
-|:--- |:--- |:--- |
-| D | 512 | nope维度（kv_lora_rank） |
-| DR | 64 | rope维度（qk_rope_dim） |
-| K | 1024、2048等 | 稀疏TopK大小 |
-| N1 | 2、16等 | Query head数 |
-| N2 | 1 | KV head数 |
-| MAX_TOTAL_KV | 128*1024 | KV侧静态上界 |
-
-## 调用示例
+通过 `SaTileShapeConfig` 数据类配置：
 
 ```python
-import torch
-from sparse_flash_attention_grad_impl import npu_pangu_sparse_attention_grad
-
-# ========== 参数配置 ==========
-actual_q_lens = [4]
-actual_kv_lens = [32768]
-N1, N2 = 2, 1
-D, DR = 512, 64
-K = 2048
-G = N1 // N2
-scale_value = 1.0 / (D + DR) ** 0.5
-
-T1 = sum(actual_q_lens)
-T2 = sum(actual_kv_lens)
-
-# ========== 构造输入数据 ==========
-q_nope = torch.randn(T1, N1, D, dtype=torch.bfloat16).npu()
-q_pe = torch.randn(T1, N1, DR, dtype=torch.bfloat16).npu()
-k_nope = torch.randn(T2, N2, D, dtype=torch.bfloat16).npu()
-k_pe = torch.randn(T2, N2, DR, dtype=torch.bfloat16).npu()
-value = k_nope.clone()
-d_out = torch.randn(T1, N1, D, dtype=torch.bfloat16).npu()
-
-# 前向输出和softmax中间结果（需从前向保存）
-out = torch.randn(T1, N1, D, dtype=torch.bfloat16).npu()
-sm_max = torch.randn(N2, T1, G, dtype=torch.float32).npu()
-sm_sum = torch.randn(N2, T1, G, dtype=torch.float32).npu()
-
-sparse_idx = torch.randint(0, T2, (T1, N2, K), dtype=torch.int32).npu()
-actual_seq_qlen = torch.tensor(actual_q_lens, dtype=torch.int32).cumsum(0).to(torch.int32).npu()
-actual_seq_kvlen = torch.tensor(actual_kv_lens, dtype=torch.int32).cumsum(0).to(torch.int32).npu()
-
-# ========== 调用反向kernel ==========
-dq_nope, dq_pe, dk_nope, dk_pe, dv = npu_pangu_sparse_attention_grad(
-    q_nope, q_pe, k_nope, k_pe, value,
-    sparse_idx, d_out, out, sm_max, sm_sum,
-    actual_seq_qlen, actual_seq_kvlen, scale_value)
-
-torch.npu.synchronize()
-print(f"dQ_nope shape: {dq_nope.shape}")
-print(f"dQ_pe shape: {dq_pe.shape}")
-print(f"dK_nope shape: {dk_nope.shape}")
-print(f"dK_pe shape: {dk_pe.shape}")
-print(f"dV shape: {dv.shape}")
+@dataclass
+class SaTileShapeConfig:
+    g_tile: int          # Group tile 大小（如 128）
+    s_kv_tile: int       # KV 序列 tile 大小（如 2048）
+    c1_tile_shape: list  # 6 个 int，C1 MatMul cube tile
+    v1_tile_shape: list  # 2 个 int，V1 Softmax vector tile
+    c2_tile_shape: list  # 6 个 int，C2 MatMul cube tile
+    v2_tile_shape: list  # 2 个 int（已定义但未使用）
 ```
+
+典型配置值：g_tile=128, s_kv_tile=2048, cube tiles 128x128, vector tiles 8x2048 / 64x128。
+
+## 测试用例
+
+### 运行方式
+
+```bash
+pytest deepseekv32_sparse_attention_antiquant_fp8.py -v
+```
+
+### 测试矩阵
+
+| 用例名 | (b, nq, n_kv, s_q) | actual_seq | 模式 |
+|---|---|---|---|
+| `sfa_bf16_b4_s2_seq64K_total_fp8_d` | (4, 128, 1, 2) | [65536, 16381, 666, 15] | Decode |
+| `sfa_bf16_b4_s2_seq64K_per_fp8_d` | (4, 128, 1, 2) | [65536]*4 | Decode（性能测试，默认 skip） |
+| `sfa_bf16_b1_s256_seq64K_fp8_p` | (1, 128, 1, 256) | [65536] | Prefill（默认 skip） |
+
+### 精度验证标准
+
+- `atol = 0.0001`
+- `rtol = 0.005`
+- `max_error_count = 100`
+
+### 支持芯片
+
+- Ascend 910
+- Ascend 950
+
+## 约束与注意事项
+
+1. Golden 参考实现使用 per-tile softmax（非 flash/online softmax），当 topk 超过单个 s2_tile 时精度对齐可能存在偏差
+2. nope_cache 的 672 字节 padding 对齐是硬编码要求
+3. 算子专为 DeepSeek V32 MLA 架构定制，kv_lora_rank=512 和 qk_rope_dim=64 为固定参数
+4. Value 复用反量化后的 key-nope（kv_lora_rank=512 维），这是 MLA 架构的特性
