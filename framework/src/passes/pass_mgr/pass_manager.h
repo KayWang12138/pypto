@@ -38,6 +38,8 @@ public:
     void ResetAllPasses();
     std::string GetResumePath(const std::string& strategy);
 
+    static void ResetStaticVariables();
+
     struct PassEntry {
         std::string identifier;
         PassName passName;

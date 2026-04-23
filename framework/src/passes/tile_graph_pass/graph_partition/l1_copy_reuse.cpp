@@ -17,6 +17,9 @@
 #include "passes/pass_utils/pass_utils.h"
 
 namespace npu::tile_fwk {
+int L1CopyInReuseRunner::globalL1ReuseHashOrder_ = 0;
+int L1CopyInReuseRunner::globalCubeMergeHashOrder_ = 0;
+
 inline std::vector<uint64_t> GetGMInputFeature(const Operation& op)
 { // 提取GM tensor的特征
     auto ioperand = op.GetIOperands()[0];
@@ -260,12 +263,11 @@ void L1CopyInReuseRunner::GetColorHash(
         hashColor[opOriList[i].GetSubgraphID()] =
             (hashColor[opOriList[i].GetSubgraphID()] * p + (hashTileOp[i] ^ a)) % mod;
     }
-    int order = 0;
     for (int i : mulaccGraph_) {
         hashMap_[hashColor[i]].push_back(i);
         if (hashMap_[hashColor[i]].size() == 1) {
-            hashOrder_[hashColor[i]] = order;
-            order++;
+            hashOrder_[hashColor[i]] = globalL1ReuseHashOrder_;
+            globalL1ReuseHashOrder_++;
         }
     }
     for (auto& entry : hashMap_) {
@@ -293,16 +295,16 @@ void L1CopyInReuseRunner::HashUpdate(
     }
 
     hashOrder_.clear();
-    int order = 0;
     for (int i = 0; i < color; i++) {
+        if (!mulaccGraph_.count(i)) continue;
         if (hashMap_.find(hashColor[i]) != hashMap_.end() && hashOrder_.find(hashColor[i]) == hashOrder_.end()) {
-            hashOrder_[hashColor[i]] = order;
+            hashOrder_[hashColor[i]] = globalCubeMergeHashOrder_;
             for (auto subgraphId : hashMap_[hashColor[i]]) {
                 for (auto opIdx : colorNode[subgraphId]) {
-                    opOriList[opIdx].UpdateCubeMergeHashOrder(order);
+                    opOriList[opIdx].UpdateCubeMergeHashOrder(globalCubeMergeHashOrder_);
                 }
             }
-            order++;
+            globalCubeMergeHashOrder_++;
         }
     }
 
