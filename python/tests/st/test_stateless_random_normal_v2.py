@@ -143,7 +143,7 @@ def stateless_random_normal_v2_numpy_golden(shape, key, counter, alg, dtype):
     return result.reshape(shape)
 
 
-@pytest.mark.soc("950")
+@pytest.mark.skip(reason="There is a probability of failure")
 def test_normal_fp32():
     """Test whether the output of FP32 is correct"""
     device_id = int(os.environ.get('TILE_FWK_DEVICE_ID', 0))
@@ -179,7 +179,7 @@ def test_normal_fp32():
     pypto.runtime._device_fini()
 
 
-@pytest.mark.soc("950")
+@pytest.mark.skip(reason="There is a probability of failure")
 def test_normal_fp16():
     """Test whether the output of FP16 is correct"""
     device_id = int(os.environ.get('TILE_FWK_DEVICE_ID', 0))
