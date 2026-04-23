@@ -166,6 +166,7 @@ struct LeafFuncAttribute {
     std::string binPathMainBlock;    // 异构子图二进制文件路径(运行时选择主尾块场景中的主块)
     std::string kernelDeclare;       // 异构子图代码的kernel声明，用于后续整体调用
     std::string kernelDeclareMainBlock; // 异构子图代码的kernel声明，用于后续整体调用(运行时选择主尾块场景中的主块)
+    std::string magicName;
     CoreType coreType{CoreType::INVALID};
     AIVCore aivCore{AIVCore::UNSPECIFIED}; // 表示Mix子图切完的vector子图放在AIV0核还是AIV1核，0=AIV0, 1=AIV1, -1=未指定
     int32_t mixId{INVALID_MIX_ID}; // 表示哪些切完的leafFunction是从一个Mix子图切出来的
@@ -437,6 +438,7 @@ struct DyndevFunctionAttribute {
 
     // for costmodel
     std::map<int, uint64_t> devLeafIndex2Hash;
+    std::string kernelName;
 };
 
 enum class DynParamInfoType { VALID_SHAPE, OFFSET, END };
