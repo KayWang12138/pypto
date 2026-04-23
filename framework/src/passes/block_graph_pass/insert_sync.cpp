@@ -677,7 +677,7 @@ Status PipeSync::HandleEventID(DepOp& op, IssueQueue& issueQ, IssueNum& issuenum
         size_t extraCount = 0;
         if (currEx.core != eleEx.core) {
             CorePair setwaitCoreType{{op.selfPipeCore.core, op.selfPipeCore.aivCore}, {depOps_[ele].selfPipeCore.core, depOps_[ele].selfPipeCore.aivCore}};
-            extraCount = ++corePairMap[setwaitCoreType];
+            extraCount = corePairMap[setwaitCoreType]++;
         }
         CorePair cp;
         issuenum.maxIssueNum.emplace(pp, GetFreeEventIdQueue(pp, op.idx, ele, cp).size());
@@ -688,6 +688,7 @@ Status PipeSync::HandleEventID(DepOp& op, IssueQueue& issueQ, IssueNum& issuenum
                 eventIdOk = false;
                 break;
             }
+            // eventID deadlock, adjust op dependency to release eventID.
             if (AdjustOpDep(op, ele, issueQ, failedFlag) != SUCCESS) {
                 APASS_LOG_ERROR_F(Elements::Operation, "HandleEventID failed at function AdjustOpDep.");
                 return FAILED;
