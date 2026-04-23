@@ -722,13 +722,24 @@ void NodeGraphInfo::BuildNodeMapping(const std::shared_ptr<OperationGraphInfo> o
     nodeScope_.assign(numNodes, Operation::ScopeInfo());
     nodeCycles_.assign(numNodes, 0);
     for (int32_t nodeIdx = 0; nodeIdx < numNodes; nodeIdx++) {
+        Operation::ScopeInfo anyScopeInfo;
+        bool allAnySameScope = true;
         for (int32_t opIdx : node2Op_[nodeIdx]) {
             op2Node_[opIdx] = nodeIdx;
             const auto& scopeInfo = operationGraphInfo->opList_[opIdx]->GetScopeInfo();
-            if (scopeInfo.scopeId != -1 && operationGraphInfo->opCoreType_[opIdx] != OpCoreType::ANY) {
-                nodeScope_[nodeIdx] = scopeInfo;
+            if (scopeInfo.scopeId != -1) {
+                if (operationGraphInfo->opCoreType_[opIdx] != OpCoreType::ANY) {
+                    nodeScope_[nodeIdx] = scopeInfo;
+                } else if (anyScopeInfo.scopeId == -1) {
+                    anyScopeInfo = scopeInfo;
+                } else if (anyScopeInfo.scopeId != scopeInfo.scopeId) {
+                    allAnySameScope = false;
+                }
             }
             nodeCycles_[nodeIdx] += operationGraphInfo->opList_[opIdx]->GetLatency();
+        }
+        if (nodeScope_[nodeIdx].scopeId == -1 && allAnySameScope && anyScopeInfo.scopeId != -1) {
+            nodeScope_[nodeIdx] = anyScopeInfo;
         }
     }
 }
