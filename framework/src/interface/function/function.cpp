@@ -805,8 +805,8 @@ void Function::OperationLoopCheck(const std::string& errorMsg)
 
             if (states[magic] == DfsState::IN_STACK) {
                 dupOpMagic = magic;
-                FUNCTION_LOGE_E(FError::EINTERNAL, "[OperationLoopCheck] Cycle detected: ");
-                FUNCTION_LOGE_E(FError::EINTERNAL, "[OperationLoopCheck]     Operation: %s", curr->Dump().c_str());
+                FUNCTION_LOGE(FError::EINTERNAL, "[OperationLoopCheck] Cycle detected: ");
+                FUNCTION_LOGE(FError::EINTERNAL, "[OperationLoopCheck]     Operation: %s", curr->Dump().c_str());
                 return true;
             }
 
@@ -816,9 +816,9 @@ void Function::OperationLoopCheck(const std::string& errorMsg)
                 for (auto* consumer : consumers[oop.get()]) {
                     if (self(consumer, self)) {
                         if (dupOpMagic != -1) {
-                            FUNCTION_LOGE_E(
+                            FUNCTION_LOGE(
                                 FError::EINTERNAL, "[OperationLoopCheck]     Tensor:    %s", oop->Dump().c_str());
-                            FUNCTION_LOGE_E(
+                            FUNCTION_LOGE(
                                 FError::EINTERNAL, "[OperationLoopCheck]     Operation: %s", curr->Dump().c_str());
                             if (magic == dupOpMagic) {
                                 dupOpMagic = -1; // stop dumpping
@@ -859,13 +859,13 @@ bool Function::OperationLoopCheck()
                 visitStack.push_back(nextOp);
             }
             if (inLinkNum[nextOp] < 0) {
-                FUNCTION_LOGE_E(FError::EINTERNAL, "[OperationLoopCheck]     Operation:%s", nextOp->Dump().c_str());
+                FUNCTION_LOGE(FError::EINTERNAL, "[OperationLoopCheck]     Operation:%s", nextOp->Dump().c_str());
                 return false;
             }
         }
     }
     if (visitedOp.size() != operations_.size()) {
-        FUNCTION_LOGE_E(FError::EINTERNAL, "[OperationLoopCheck]     Loop Detected.");
+        FUNCTION_LOGE(FError::EINTERNAL, "[OperationLoopCheck]     Loop Detected.");
         return false;
     }
     return true;
@@ -1005,8 +1005,8 @@ std::unordered_set<int> Function::LoopCheck()
 
             if (states[currSubgraph] == DfsState::IN_STACK) {
                 duplicatedSubgraphID = currSubgraph;
-                FUNCTION_LOGE_E(FError::EINTERNAL, "[Cycle Detection] Cycle detected: ");
-                FUNCTION_LOGE_E(FError::EINTERNAL, "[Cycle Detection]     subgraph id: %d", currSubgraph);
+                FUNCTION_LOGE(FError::EINTERNAL, "[Cycle Detection] Cycle detected: ");
+                FUNCTION_LOGE(FError::EINTERNAL, "[Cycle Detection]     subgraph id: %d", currSubgraph);
                 subGraphInCycle.emplace(currSubgraph);
                 return true;
             }
@@ -1017,13 +1017,13 @@ std::unordered_set<int> Function::LoopCheck()
                 for (int consumer : consumers[oop.get()]) {
                     if (self(consumer, self)) {
                         if (duplicatedSubgraphID != -2) {
-                            FUNCTION_LOGE_E(
+                            FUNCTION_LOGE(
                                 FError::EINTERNAL, "[Cycle Detection]     tensor:      %s", oop->Dump().c_str());
-                            FUNCTION_LOGE_E(FError::EINTERNAL, "[producer]=");
+                            FUNCTION_LOGE(FError::EINTERNAL, "[producer]=");
                             for (const auto& producer : oop->GetProducers()) {
-                                FUNCTION_LOGE_E(FError::EINTERNAL, "%d", producer->GetOpMagic());
+                                FUNCTION_LOGE(FError::EINTERNAL, "%d", producer->GetOpMagic());
                             }
-                            FUNCTION_LOGE_E(FError::EINTERNAL, "[Cycle Detection]     subgraph id: %d", currSubgraph);
+                            FUNCTION_LOGE(FError::EINTERNAL, "[Cycle Detection]     subgraph id: %d", currSubgraph);
                             subGraphInCycle.emplace(currSubgraph);
                             if (currSubgraph == duplicatedSubgraphID) {
                                 duplicatedSubgraphID = -2; // stop dumpping
