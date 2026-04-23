@@ -30,6 +30,7 @@ enum class DevTaskExecStage { INIT = 0, SEND_CORE_TASK = 1, WAIT_TAIL_TASK_FINIS
 
 struct SchDeviceTaskContext {
     DeviceTaskCtrl *taskCtrl{nullptr};
+    std::atomic<uint8_t> firstBatchOwner{static_cast<uint8_t>(FirstBatchDispatchOwnerState::FIRST_BATCH_UNCLAIMED)};
     ReadyCoreFunctionQueue* readyAicCoreFunctionQue{nullptr};
     ReadyCoreFunctionQueue* readyAivCoreFunctionQue{nullptr};
     ReadyCoreFunctionQueue* readyAicpuFunctionQue{nullptr};
@@ -73,6 +74,8 @@ struct SchDeviceTaskContext {
         Init();
         taskCtrl = inputTaskCtrl;
         isFirstTaskSend = 0;
+        firstBatchOwner.store(
+            static_cast<uint8_t>(FirstBatchDispatchOwnerState::FIRST_BATCH_UNCLAIMED), std::memory_order_relaxed);
         readyAicCoreFunctionQue = reinterpret_cast<ReadyCoreFunctionQueue*>(taskCtrl->devTask->readyAicCoreFunctionQue);
         readyAivCoreFunctionQue = reinterpret_cast<ReadyCoreFunctionQueue*>(taskCtrl->devTask->readyAivCoreFunctionQue);
         readyAicpuFunctionQue = reinterpret_cast<ReadyCoreFunctionQueue*>(taskCtrl->devTask->readyAicpuFunctionQue);
@@ -87,6 +90,8 @@ struct SchDeviceTaskContext {
         lastSent = 0;
         allSent = 0;
         curStage = DevTaskExecStage::INIT;
+        firstBatchOwner.store(
+            static_cast<uint8_t>(FirstBatchDispatchOwnerState::FIRST_BATCH_UNCLAIMED), std::memory_order_relaxed);
         coreTaskFinished.fill(0);
         coreFinishedNum = 0;
     }

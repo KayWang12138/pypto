@@ -114,14 +114,40 @@ public:
     {
         volatile ParallelDevTask* kernelParallDevTask = aicoreHal_.GetParallelDevTask(coreIdx);
         for (uint32_t idx = parallelCtx->front; idx < parallelCtx->rear; idx++) {
-            auto dyntask = (DynDeviceTask *)(parallelCtx->Element(idx)->GetDeviceTask());
+            auto* taskCtx = parallelCtx->Element(idx);
+            auto* dyntask = (DynDeviceTask *)(taskCtx->GetDeviceTask());
             aicoreHal_.SetParallelDevTask(
                 kernelParallDevTask, idx, static_cast<int64_t>(PtrToValue(dyntask->GetDynFuncDataList())),
                 dyntask->GetIndex());
+            aicoreHal_.SetParallelFirstBatchOwner(
+                kernelParallDevTask, idx, taskCtx->firstBatchOwner.load(std::memory_order_acquire));
         }
         aicoreHal_.SetParallelDevTaskSize(kernelParallDevTask, parallelCtx->front, parallelCtx->rear);
         aicoreHal_.SetParallelDevTaskCtxVersion(coreIdx, parallelCtx->Version());
         DEV_VERBOSE_DEBUG("Fill prallel dev task for core %d, ver:%u", coreIdx, parallelCtx->Version());
+    }
+
+    inline void SyncFirstBatchOwnerToAllCores(uint32_t parallelIdx, uint8_t owner)
+    {
+        ForEachManageAicore([&](int coreIdx) {
+            volatile ParallelDevTask* kernelParallelDevTask = aicoreHal_.GetParallelDevTask(coreIdx);
+            aicoreHal_.SetParallelFirstBatchOwner(kernelParallelDevTask, parallelIdx, owner);
+        });
+    }
+
+    inline void SyncFirstBatchOwnerToReadyCores(uint32_t parallelIdx, uint8_t owner)
+    {
+        auto syncReadyCoreByType = [&](CoreType type) {
+            int typeIdx = static_cast<int>(type);
+            uint64_t readyCnt = context_->coreRunReadyCnt_[typeIdx];
+            for (uint64_t i = 0; i < readyCnt; ++i) {
+                int coreIdx = context_->runReadyCoreIdx_[typeIdx][i];
+                volatile ParallelDevTask* kernelParallelDevTask = aicoreHal_.GetParallelDevTask(coreIdx);
+                aicoreHal_.SetParallelFirstBatchOwner(kernelParallelDevTask, parallelIdx, owner);
+            }
+        };
+        syncReadyCoreByType(CoreType::AIC);
+        syncReadyCoreByType(CoreType::AIV);
     }
 
     inline void SetSchduleContext(SchduleContext* context)
@@ -313,12 +339,17 @@ public:
         DEV_INFO("receive new task %lu, firstTaskSend=%d.", deviceTaskCtx->TaskId(), deviceTaskCtx->isFirstTaskSend);
 
         // The initialization of aicpu tasks takes time, so to reduce headroom overhead, a batch of tasks is sent first.
-        if (!deviceTaskCtx->isFirstTaskSend) {
+        if (!deviceTaskCtx->isFirstTaskSend && !enableAicoreFirstBatchSelfDispatch_) {
             InitDevTask(deviceTaskCtx);
             ret = RunCoreTask(deviceTaskCtx);
             if (unlikely(ret != DEVICE_MACHINE_OK)) {
                 return ret;
             }
+        } else if (!deviceTaskCtx->isFirstTaskSend && enableAicoreFirstBatchSelfDispatch_) {
+            // First-batch tasks are expected to be consumed by AICORE self-dispatch path.
+            // Keep SCHE side in observed state and do not pre-send here.
+            auto owner = deviceTaskCtx->firstBatchOwner.load(std::memory_order_acquire);
+            DEV_INFO("skip sche first-batch pre-send in preprocess, owner=%u.", owner);
         }
 
         if (IsNeedProcAicpuTask()) {
@@ -996,6 +1027,8 @@ private:
             if (devTaskCtx->bindParallelCtxVersion > coreParallelVersion) {
                 modifyFlag |= (1ULL << idx);
                 aicoreHal_.SetParallelDevTask(coreParallelDevTask, idx, funcData, dyntask->GetIndex());
+                aicoreHal_.SetParallelFirstBatchOwner(
+                    coreParallelDevTask, idx, devTaskCtx->firstBatchOwner.load(std::memory_order_acquire));
             }
         }
         return modifyFlag;
@@ -1071,6 +1104,17 @@ private:
         devTaskCtx->sendCnt[static_cast<int>(type)]++;
 
         if (!devTaskCtx->isFirstTaskSend) {
+            // If SCHE sends the first task, try to claim ownership only once.
+            // Avoid redundant cross-core owner broadcasts on the first-task hot path.
+            if (enableAicoreFirstBatchSelfDispatch_) {
+                uint8_t expected = static_cast<uint8_t>(FirstBatchDispatchOwnerState::FIRST_BATCH_UNCLAIMED);
+                const uint8_t doneBySche =
+                    static_cast<uint8_t>(FirstBatchDispatchOwnerState::FIRST_BATCH_DONE_BY_SCHE);
+                if (devTaskCtx->firstBatchOwner.compare_exchange_strong(
+                        expected, doneBySche, std::memory_order_acq_rel, std::memory_order_acquire)) {
+                    SyncFirstBatchOwnerToReadyCores(devTaskCtx->parallelIdx, doneBySche);
+                }
+            }
             PerfMtTrace(PERF_TRACE_DEV_TASK_SEND_FIRST_LEAF_TASK, aicpuIdx_);
             DEV_ATRACE("aicpuIdx: %d DevTask: %lu, Send first leafTask: %lu to aicore",
                         aicpuIdx_, devTaskCtx->TaskId(), newTask);
@@ -1787,6 +1831,9 @@ private:
             }
             enableL2CacheSch_ = static_cast<uint8_t>(deviceArgs->machineConfig) &
                                 static_cast<uint8_t>(MachineScheduleConfig::L2CACHE_AFFINITY_SCH);
+            enableAicoreFirstBatchSelfDispatch_ = static_cast<uint8_t>(deviceArgs->machineConfig) &
+                                                  static_cast<uint8_t>(
+                                                      MachineScheduleConfig::AICORE_FIRST_BATCH_SELF_DISPATCH);
         }
         UpdateAiCoreBlockIndexSection(deviceArgs->archInfo);
         if constexpr (IsDeviceMode()) {
@@ -1811,6 +1858,14 @@ private:
         FillParallelDevtaskCtx();
         if (!context_->DevTaskEmpty()) {
             auto deviceTaskCtx = context_->FrontDevTaskCtx();
+            if (enableAicoreFirstBatchSelfDispatch_) {
+                uint8_t expected = static_cast<uint8_t>(FirstBatchDispatchOwnerState::FIRST_BATCH_UNCLAIMED);
+                if (deviceTaskCtx->firstBatchOwner.compare_exchange_strong(
+                        expected, static_cast<uint8_t>(FirstBatchDispatchOwnerState::FIRST_BATCH_CLAIMED_BY_AICORE),
+                        std::memory_order_acq_rel, std::memory_order_acquire)) {
+                    DEV_INFO("first-batch owner claimed by AICORE, task=%lu.", deviceTaskCtx->TaskId());
+                }
+            }
             InitDevTask(deviceTaskCtx);
             needSendAic = (deviceTaskCtx->readyAicCoreFunctionQue->tail != deviceTaskCtx->readyAicCoreFunctionQue->head);
             needSendAiv = (deviceTaskCtx->readyAivCoreFunctionQue->tail != deviceTaskCtx->readyAivCoreFunctionQue->head);
@@ -1822,6 +1877,18 @@ private:
 
     inline void HandShakePostProc(SchDeviceTaskContext* schDeviceTaskCtx, bool needSendAic, bool needSendAiv)
     {
+        if (enableAicoreFirstBatchSelfDispatch_ && schDeviceTaskCtx != nullptr) {
+            auto owner = schDeviceTaskCtx->firstBatchOwner.load(std::memory_order_acquire);
+            if (owner == static_cast<uint8_t>(FirstBatchDispatchOwnerState::FIRST_BATCH_CLAIMED_BY_AICORE) ||
+                owner == static_cast<uint8_t>(FirstBatchDispatchOwnerState::FIRST_BATCH_DONE_BY_AICORE)) {
+                // Owner already written to each core via InitDevTask->FillKernelArgsParallexDevTask; no GM resync here.
+                DEV_INFO("skip handshake postproc first-batch send, owner=%u.", owner);
+                return;
+            }
+        }
+        if (enableAicoreFirstBatchSelfDispatch_ && schDeviceTaskCtx == nullptr) {
+            return;
+        }
         // send task by left ready core
         if (needSendAic) {
             __sync_synchronize();
@@ -1913,7 +1980,13 @@ private:
 
             if (needSendAic && aicSucessCnt >= aicTreshold) {
                 __sync_synchronize(); // sync  REG_SPR_FAST_PATH_ENABLE
-                TryBatchSendTask(deviceCtx, CoreType::AIC, deviceCtx->readyAicCoreFunctionQue, aicStart_, aicEnd_);
+                bool skipFirstBatchScheSend =
+                    enableAicoreFirstBatchSelfDispatch_ && (deviceCtx != nullptr) &&
+                    (deviceCtx->firstBatchOwner.load(std::memory_order_acquire) ==
+                     static_cast<uint8_t>(FirstBatchDispatchOwnerState::FIRST_BATCH_CLAIMED_BY_AICORE));
+                if (!skipFirstBatchScheSend) {
+                    TryBatchSendTask(deviceCtx, CoreType::AIC, deviceCtx->readyAicCoreFunctionQue, aicStart_, aicEnd_);
+                }
                 aicSucessCnt = 0;
             }
 
@@ -1935,7 +2008,13 @@ private:
 
             if (needSendAiv && aivSucessCnt >= aivThreshold) {
                 __sync_synchronize();
-                TryBatchSendTask(deviceCtx, CoreType::AIV, deviceCtx->readyAivCoreFunctionQue, aivStart_, aivEnd_);
+                bool skipFirstBatchScheSend =
+                    enableAicoreFirstBatchSelfDispatch_ && (deviceCtx != nullptr) &&
+                    (deviceCtx->firstBatchOwner.load(std::memory_order_acquire) ==
+                     static_cast<uint8_t>(FirstBatchDispatchOwnerState::FIRST_BATCH_CLAIMED_BY_AICORE));
+                if (!skipFirstBatchScheSend) {
+                    TryBatchSendTask(deviceCtx, CoreType::AIV, deviceCtx->readyAivCoreFunctionQue, aivStart_, aivEnd_);
+                }
                 aivSucessCnt = 0;
             }
 
@@ -2241,6 +2320,7 @@ private:
     uint64_t procAicpuFunctionCnt_{0};
     bool enableL2CacheSch_{false};
     bool enableFairSch_{false};
+    bool enableAicoreFirstBatchSelfDispatch_{false};
     bool validGetPgMask_{true};
 
     std::array<uint32_t, MAX_AICORE_NUM> runningIds_;

@@ -429,6 +429,20 @@ INLINE void InitCtx(ExecuteContext *ctx, __gm__ Metrics* metric, volatile __gm__
     return;
 }
 
+INLINE void MarkFirstBatchDoneByAicore(ExecuteContext* ctx)
+{
+    if (ctx->parallelDevTask == nullptr) {
+        return;
+    }
+    uint32_t idx = ctx->curLeafTaskParallelIdx % npu::tile_fwk::SCH_DEVTASK_MAX_PARALLELISM;
+    uint8_t owner = ctx->parallelDevTask->firstBatchOwner[idx];
+    if (owner == static_cast<uint8_t>(FirstBatchDispatchOwnerState::FIRST_BATCH_CLAIMED_BY_AICORE)) {
+        ctx->parallelDevTask->firstBatchOwner[idx] =
+            static_cast<uint8_t>(FirstBatchDispatchOwnerState::FIRST_BATCH_DONE_BY_AICORE);
+        dcci(&ctx->parallelDevTask->firstBatchOwner[idx], SINGLE_CACHE_LINE, CACHELINE_OUT);
+    }
+}
+
 INLINE void ExecCoreFunctionKernel(ExecuteContext* ctx, uint32_t curTaskIdx)
 {
     UNUSED(ctx);
@@ -620,6 +634,7 @@ INLINE void KernelEntry(
   
             if (isFirstTask) {
                 PerfTraceRecord(ctx.SeqNo(), metric, PERF_TRACE_CORE_DEV_TASK_WAIT_RCV_FIRST_LEAF_TASK, args);
+                MarkFirstBatchDoneByAicore(&ctx);
                 isFirstTask = false;
             }
 

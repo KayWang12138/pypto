@@ -551,6 +551,20 @@ public:
         }
     }
 
+    void SetParallelFirstBatchOwner(volatile ParallelDevTask* kernelParallDevTask, int parallelIdx, uint8_t owner)
+    {
+        const uint32_t idx = parallelIdx % npu::tile_fwk::SCH_DEVTASK_MAX_PARALLELISM;
+        DEV_IF_DEVICE
+        {
+            kernelParallDevTask->firstBatchOwner[idx] = owner;
+        } else {
+            if (enableEslModel_) {
+                eslModel_.WriteEslMem(
+                    reinterpret_cast<uint64_t>(&kernelParallDevTask->firstBatchOwner[idx]), sizeof(owner), &owner);
+            }
+        }
+    }
+
     inline uint32_t ParallelDevTaskCtxVersion(int coreIdx)
     {
         return parallelDevTaskCtxVersion[coreIdx];
@@ -583,6 +597,8 @@ public:
             for (uint32_t i = 0; i < npu::tile_fwk::SCH_DEVTASK_MAX_PARALLELISM; i++) {
                 args_[coreIdx]->parallelDevTask.ptrElements[i] = 0;
                 args_[coreIdx]->parallelDevTask.idElements[i] = 0;
+                args_[coreIdx]->parallelDevTask.firstBatchOwner[i] =
+                    static_cast<uint8_t>(FirstBatchDispatchOwnerState::FIRST_BATCH_UNCLAIMED);
             }
         } else {
             if (enableEslModel_) {
@@ -600,6 +616,9 @@ public:
                     reinterpret_cast<uint64_t>(&args_[coreIdx]->parallelDevTask.ptrElements[i]), sizeof(i64Zereo), &i64Zereo);
                     eslModel_.WriteEslMem(
                     reinterpret_cast<uint64_t>(&args_[coreIdx]->parallelDevTask.idElements[i]), sizeof(u32Zero), &u32Zero);
+                    uint8_t owner = static_cast<uint8_t>(FirstBatchDispatchOwnerState::FIRST_BATCH_UNCLAIMED);
+                    eslModel_.WriteEslMem(reinterpret_cast<uint64_t>(&args_[coreIdx]->parallelDevTask.firstBatchOwner[i]),
+                        sizeof(owner), &owner);
                 }
             }
         }
