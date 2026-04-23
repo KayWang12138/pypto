@@ -25,6 +25,8 @@
 
 namespace npu::tile_fwk {
 
+const std::unordered_set<Opcode> nodeScopeSkipCode{Opcode::OP_ASSEMBLE, Opcode::OP_VIEW};
+
 uint64_t OperationGraphInfo::GetHash(const Operation* op) const
 {
     std::string hashString;
@@ -722,24 +724,14 @@ void NodeGraphInfo::BuildNodeMapping(const std::shared_ptr<OperationGraphInfo> o
     nodeScope_.assign(numNodes, Operation::ScopeInfo());
     nodeCycles_.assign(numNodes, 0);
     for (int32_t nodeIdx = 0; nodeIdx < numNodes; nodeIdx++) {
-        Operation::ScopeInfo anyScopeInfo;
-        bool allAnySameScope = true;
         for (int32_t opIdx : node2Op_[nodeIdx]) {
             op2Node_[opIdx] = nodeIdx;
-            const auto& scopeInfo = operationGraphInfo->opList_[opIdx]->GetScopeInfo();
-            if (scopeInfo.scopeId != -1) {
-                if (operationGraphInfo->opCoreType_[opIdx] != OpCoreType::ANY) {
-                    nodeScope_[nodeIdx] = scopeInfo;
-                } else if (anyScopeInfo.scopeId == -1) {
-                    anyScopeInfo = scopeInfo;
-                } else if (anyScopeInfo.scopeId != scopeInfo.scopeId) {
-                    allAnySameScope = false;
-                }
+            const auto& op = operationGraphInfo->opList_[opIdx];
+            const auto& scopeInfo = op->GetScopeInfo();
+            if (scopeInfo.scopeId != -1 && nodeScopeSkipCode.find(op->GetOpcode()) == nodeScopeSkipCode.end()) {
+                nodeScope_[nodeIdx] = scopeInfo;
             }
-            nodeCycles_[nodeIdx] += operationGraphInfo->opList_[opIdx]->GetLatency();
-        }
-        if (nodeScope_[nodeIdx].scopeId == -1 && allAnySameScope && anyScopeInfo.scopeId != -1) {
-            nodeScope_[nodeIdx] = anyScopeInfo;
+            nodeCycles_[nodeIdx] += op->GetLatency();
         }
     }
 }
