@@ -50,6 +50,42 @@ void AdjustTileShapeForReduce(const int dim, const Tensor& result, std::vector<i
     TileShape::Current().SetVecTile(tileshape);
 }
 
+void Sum1DOperationExeFunc(const std::vector<Tensor>& inputs, std::vector<Tensor>& outputs, const OpFuncArgs* opArgs)
+{
+    auto args = static_cast<const SumOpFuncArgs*>(opArgs);
+    FUNCTION("main", {inputs[0]}, {outputs[0]})
+    {
+        SymbolicScalar firstDim = inputs[0].GetShape()[0];
+        int dim = args->dims_[0];
+        bool keepDim = args->keepDim_;
+        if (dim < 0) {
+            dim = static_cast<int>(inputs[0].GetShape().size()) + dim;
+        }
+        SymbolicScalar viewShape[] = {args->viewShape_[0]};
+        int loops[] = {
+            CeilDiv(inputs[0].GetShape()[0], viewShape[0])};
+        viewShape[dim] = 0;
+        loops[dim] = 1;
+        LOOP("LOOP_L0_bIdx", FunctionType::DYNAMIC_LOOP, bIdx, LoopRange(loops[IDX_DIM0]))
+        {
+            auto viewTensor = View(
+                inputs[0],
+                {viewShape[0] == 0 ? firstDim : viewShape[0]},
+                {viewShape[0] == 0 ? firstDim : std::min(firstDim - bIdx * viewShape[0], viewShape[0])},
+                {bIdx * viewShape[0]});
+            TileShape::Current().SetVecTile(args->tileShape_);
+            std::vector<SymbolicScalar> offset = {
+                bIdx * viewShape[0]};
+            auto res = Sum(viewTensor, args->dims_[0], keepDim);
+            if (!keepDim) {
+                offset.erase(offset.begin() + dim);
+                AdjustTileShapeForReduce(dim, res, args->tileShape_);
+            }
+            Assemble(res, offset, outputs[0]);
+        }
+    }
+}
+
 void SumOperationExeFunc(const std::vector<Tensor>& inputs, std::vector<Tensor>& outputs, const OpFuncArgs* opArgs)
 {
     auto args = static_cast<const SumOpFuncArgs*>(opArgs);
@@ -198,7 +234,8 @@ class SumOperationTest : public npu::tile_fwk::stest::TestSuite_STest_Ops_Aihac_
 INSTANTIATE_TEST_SUITE_P(
     TestSum, SumOperationTest,
     ::testing::ValuesIn(
-        GetOpMetaData<SumOpMetadata>({SumOperationExeFunc, Sum3DOperationExeFunc, Sum4DOperationExeFunc}, "Sum")));
+        GetOpMetaData<SumOpMetadata>({Sum1DOperationExeFunc, SumOperationExeFunc,
+         Sum3DOperationExeFunc, Sum4DOperationExeFunc}, "Sum")));
 
 TEST_P(SumOperationTest, TestSum)
 {
