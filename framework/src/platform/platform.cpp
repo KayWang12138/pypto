@@ -295,7 +295,7 @@ void Platform::ObtainPlatformInfo()
     std::string codeGenSocVersion;
     std::unique_ptr<PlatformParser> parser;
     PLATFORM_LOGD("Start obtaining platform info.");
-    codeGenSocVersion = CodeGenSocVersionManager::Instance().GetCodeGenSocVersion();
+    codeGenSocVersion = PlatformSocVersionManager::Instance().GetPlatformSocVersion();
     if (!codeGenSocVersion.empty()) {
         PLATFORM_LOGD("Cannot obtain platform through cann package, use simulation info.");
         parser = std::make_unique<INIParser>();
