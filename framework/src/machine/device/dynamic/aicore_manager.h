@@ -2088,6 +2088,15 @@ private:
         DumpAicoreLog(coreIdx);
 #endif
 
+#if PMU_COLLECT
+    volatile KernelArgs* arg = reinterpret_cast<KernelArgs*>(sharedBuffer_ + coreIdx * SHARED_BUFFER_SIZE);
+    volatile Metrics* metric = reinterpret_cast<Metrics*>(arg->shakeBuffer[SHAK_BUF_DFX_DATA_INDEX]);
+    if (metric != nullptr && metric->taskCount > 0) {
+        auto stat= metric->tasks[metric->taskCount - 1];
+        ProfGetPmu(coreIdx, stat->subGraphId, stat->taskId, stat);
+    }
+#endif
+
 #if ENABLE_TENSOR_DUMP
         // dump output tensor
         if (unlikely(isEnableDump)) {
