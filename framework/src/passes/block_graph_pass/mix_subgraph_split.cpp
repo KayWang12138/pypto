@@ -668,5 +668,6 @@ void MixSubgraphSplit::Reset()
     // 清理所有缓存记录
     globalSplitRecords_.clear();
     globalNextMixId_ = 0;
+}
 } // namespace tile_fwk
 } // namespace npu
