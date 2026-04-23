@@ -84,14 +84,18 @@ protected:
      */
     Status ProcessScopeMerge();
 
+    struct ScopeCoreTypeInfo {
+        bool hasCube = false;
+        bool hasVector = false;
+    };
     struct ScopeCollectResult {
-        std::map<int32_t, std::unordered_set<OpCoreType>> scopeCoreTypes;
+        std::map<int32_t, ScopeCoreTypeInfo> scopeCoreTypes;
         std::map<int32_t, bool> scopeAllowParallel;
         std::map<int32_t, std::vector<int32_t>> scope2Nodes;
     };
     ScopeCollectResult CollectScopeInfo(int32_t numNodes);
     Status ValidateScopeCoreTypes(
-        int32_t scopeId, const std::unordered_set<OpCoreType>& coreTypes, bool isCVMix,
+        int32_t scopeId, const ScopeCoreTypeInfo& coreTypeInfo, bool isCVMix,
         std::map<int32_t, int32_t>& scopeToCvFuseId);
     Status CheckAndMergeScopes(const ScopeCollectResult& scopeInfo,
         std::vector<int32_t>& snParent,
