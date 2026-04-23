@@ -793,9 +793,14 @@ Status SuperNodeGraphBuilder::CheckAndMergeScopes(
         if (coreTypeInfo.hasCube && coreTypeInfo.hasVector) {
             continue;
         }
+        auto nodesIt = scopeInfo.scope2Nodes.find(scopeId);
+        if (nodesIt == scopeInfo.scope2Nodes.end()) {
+            APASS_LOG_DEBUG_F(Elements::Operation, "ScopeId=%d has no supernode to merge, skip.", scopeId);
+            continue;
+        }
         bool allowParallel =
             scopeInfo.scopeAllowParallel.count(scopeId) > 0 && scopeInfo.scopeAllowParallel.at(scopeId);
-        const auto& nodes = scopeInfo.scope2Nodes.at(scopeId);
+        const auto& nodes = nodesIt->second;
         if (allowParallel) {
             int32_t firstNode = -1;
             int32_t p1 = -1;
