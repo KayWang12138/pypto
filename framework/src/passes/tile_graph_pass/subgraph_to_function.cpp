@@ -14,7 +14,9 @@
  */
 
 #include "passes/tile_graph_pass/subgraph_to_function.h"
+#include <algorithm>
 #include <fstream>
+#include <numeric>
 #include "interface/function/function.h"
 #include "interface/tensor/logical_tensor.h"
 #include "tilefwk/tilefwk.h"
@@ -417,6 +419,23 @@ void SubgraphToFunction::ProcessCopyOutOperand(
     }
 }
 
+void SubgraphToFunction::ProcessSymbolOfReshape(Function& function, Operation& op) const
+{
+    // ddr -> reshape -> ddr -> copin
+    if (op.GetOpcode() == Opcode::OP_RESHAPE) {
+        if (function.IsFromInCast(op.GetOOperands().front())) {
+            op.GetOOperands().front()->tensor->SetSymbol(op.GetIOperands().front()->tensor->GetSymbol());
+        }
+    }
+    // copyout -> ddr -> reshape -> ddr
+    auto nextOp = *(op.GetOOperands().front()->GetConsumers().begin());
+    if (nextOp != nullptr && nextOp->GetOpcode() == Opcode::OP_RESHAPE) {
+        if (function.IsFromOutCast(op.GetOOperands().front())) {
+            op.GetOOperands().front()->tensor->SetSymbol(op.GetOOperands().front()->tensor->GetSymbol());
+        }
+    }
+}
+
 void SubgraphToFunction::SymbolizeEachFunction(
     Function& rootFunc, std::vector<Function*>& mergedFuncList1, size_t i) const
 {
@@ -429,6 +448,7 @@ void SubgraphToFunction::SymbolizeEachFunction(
     auto& leafFunc = mergedFuncList1[i];
     for (auto& tileOp : leafFunc->Operations()) {
         // symbolic
+        ProcessSymbolOfReshape(rootFunc, tileOp);
         ProcessInputOperands(rootFunc, tileOp, pSgParamInfo, tParamLoc, iParamLoc);
         ProcessOutputOperands(rootFunc, tileOp, pSgParamInfo, tParamLoc, oParamLoc);
     }
@@ -672,8 +692,9 @@ static std::unordered_map<int, GetTensorDataOutcastDesc> GetTensorDataBuildOutca
     }
     for (auto& [index, desc] : getTensorDataOutcastDescDict) {
         (void)index;
-        ASSERT(OperationErr::OP_SPECIAL_CONSTRAINT, desc.opListDict[Opcode::OP_ADDS].size() == 1) << "Expect the size is 1 for opListDict, but we get "
-                                                             << desc.opListDict[Opcode::OP_ADDS].size() << "OP_ADDS";
+        ASSERT(OperationErr::OP_SPECIAL_CONSTRAINT, desc.opListDict[Opcode::OP_ADDS].size() == 1)
+            << "Expect the size is 1 for opListDict, but we get " << desc.opListDict[Opcode::OP_ADDS].size()
+            << "OP_ADDS";
         auto mark = desc.opListDict[Opcode::OP_ADDS][0];
 
         std::shared_ptr<LogicalTensor> addsOpOut = mark->GetOOperands()[0];

@@ -122,7 +122,7 @@ if (ENABLE_FEATURE_PYTHON_FRONT_END)
                 framework/src/interface/configs/tile_fwk_types.json
                 framework/src/interface/configs/tile_fwk_config_schema.json
                 framework/src/platform/parser/platforminfo.ini
-                framework/src/platform/parser/simulation_platform/platform_config/A2A3.ini
+                framework/src/platform/parser/simulation_platform/platform_config/*.ini
             DESTINATION ${PyPTO_WhlName}/lib/configs
     )
 
