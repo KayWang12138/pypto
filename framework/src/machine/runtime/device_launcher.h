@@ -33,6 +33,7 @@
 #include "machine/runtime/device_memory_utils.h"
 #include "machine/runtime/distributed/distributed_context.h"
 #include "tilefwk/error_code.h"
+#include "machine/runtime/e2e_host_sim/e2e_host_sim_kernel_meta_hook.h"
 
 namespace npu::tile_fwk::dynamic {
 struct AiCpuArgs {
@@ -131,7 +132,7 @@ public:
         size_t runtimeDataCount = devProg->GetDeviceRuntimeOffset().count;
         size_t runtimeDataRingBufferSize =
             RuntimeDataRingBufferHead::GetRingBufferSize(runtimeDataSize, runtimeDataCount);
-        if (cachedOperator && *CachedOperator::GetMetaDataDevAddrHolder(cachedOperator) != nullptr) {
+        if (devMem.IsDevice() && cachedOperator && *CachedOperator::GetMetaDataDevAddrHolder(cachedOperator) != nullptr) {
             devProg->devArgs.runtimeDataRingBufferAddr =
                 reinterpret_cast<uint64_t>(*CachedOperator::GetMetaDataDevAddrHolder(cachedOperator));
         } else {
@@ -225,6 +226,7 @@ public:
         CachedOperator* cachedOperator)
     {
         AssignMetaAddr(devMem, kArgs, devProg, cachedOperator);
+        E2EHostSimInitKernelMetaDeviceArgs(devMem, devProg);
         devProg->l2CacheOffset = devMem.GetL2Offset();
         if (config.workspaceAddr) {
             kArgs.workspace = (int64_t*)config.workspaceAddr;
