@@ -107,18 +107,19 @@ public:
 
     inline int32_t Enqueue(SignalTileOp* task)
     {
-        queue_[rear_] = task;
-        rear_ = (rear_ + 1) & AICPU_TASK_ARRAY_SIZE_MOD;
-        if (rear_ == front_) {
+        if (count_ >= AICPU_TASK_ARRAY_SIZE) {
             DEV_ERROR(
                 DistributedErrorCode::AICPU_TASK_NUM_EXCEED_LIMIT,
-                "ctrl.task.pre.task.enqueue#: SignalTileOp queue_ is full, front=%u, rear=%u", front_, rear_);
+                "ctrl.task.pre.task.enqueue#: SignalTileOp queue_ is full, count=%u", count_ + 1);
             return dynamic::DEVICE_MACHINE_ERROR;
         }
+        queue_[rear_] = task;
+        rear_ = (rear_ + 1) & AICPU_TASK_ARRAY_SIZE_MOD;
+        count_++;
         return dynamic::DEVICE_MACHINE_OK;
     }
 
-    inline bool IsEmpty() const { return front_ == rear_; }
+    inline bool IsEmpty() const { return count_ == 0; }
 
     inline int32_t Dequeue()
     {
@@ -127,6 +128,7 @@ public:
             return dynamic::DEVICE_MACHINE_ERROR;
         }
         front_ = (front_ + 1) & AICPU_TASK_ARRAY_SIZE_MOD;
+        count_--;
         return dynamic::DEVICE_MACHINE_OK;
     }
 
@@ -169,6 +171,7 @@ private:
     SignalTileOp* queue_[AICPU_TASK_ARRAY_SIZE];
     uint16_t front_{0};
     uint16_t rear_{0};
+    uint16_t count_{0};
 };
 
 class ShmemWaitUntilImpl {
