@@ -344,7 +344,7 @@ private:
                             const std::vector<IndexOp>& syncedOpLog, int idx, int eventId);
     void FindCvSyncSrcInfo(std::vector<IndexOp>& syncedOpLog, std::vector<int>& eventIdVec, const CorePair& corePair,
                            std::unordered_map<PipePair, DataDepInfo, PipePairHash>& cvDepInfoMap);
-    bool PipeSync::FindMaxOverLapForCV(PipePair& targetPp, int& maxOverlapIdx,
+    bool FindMaxOverLapForCV(PipePair& targetPp, int& maxOverlapIdx,
                                        std::unordered_map<PipePair, DataDepInfo, PipePairHash>& cvDepInfoMap);
     bool CheckIssuedOp(const DepOp& op);
     bool ConstructDepInfo(DataDepInfo& depInfo, std::vector<IndexOp>& syncedOpLog, int i);
