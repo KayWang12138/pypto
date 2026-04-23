@@ -861,9 +861,6 @@ void SuperNodeGraphBuilder::ApplyCvFuseIds(const std::map<int32_t, int32_t>& sco
 {
     // 遍历所有supernode，若supernode中存在任一op的scopeId在scopeToCvFuseId中，
     // 则将该supernode中所有op标记为该scope对应的cvFuseId
-    for (auto& [scopid, cvfuseid] : scopeToCvFuseId) {
-        std::cout << scopid << "have cvfuse" << cvfuseid << std::endl;
-    }
     for (size_t nodeIdx = 0; nodeIdx < superNodeInfo_->node2Op_.size(); nodeIdx++) {
         int32_t cvFuseId = -1;
         for (int32_t opIdx : superNodeInfo_->node2Op_[nodeIdx]) {
@@ -905,7 +902,6 @@ Status SuperNodeGraphBuilder::ProcessScopeMerge()
     }
 
     if (GraphUtils::IsCVMixPlatform()) {
-        std::cout << "cvfuse" << std::endl;
         ApplyCvFuseIds(scopeToCvFuseId);
     }
     return SUCCESS;
