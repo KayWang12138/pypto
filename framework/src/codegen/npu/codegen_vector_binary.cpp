@@ -39,26 +39,6 @@ std::string GetBrcbOprandIdxStr(int64_t brcbOperandIdx)
     return ret;
 }
 
-std::string GetPenuBrcOprandIdxStr(int64_t PenuBrcbOperandIdx)
-{
-    CODEGEN_LOGI("input PenuBrcbOperandIdx is %ld", static_cast<long>(PenuBrcbOperandIdx));
-    std::string ret = "TileOp::";
-    switch (PenuBrcbOperandIdx) {
-        case ToUnderlying(PenuBroadcastOperand::NONE):
-            ret.append("PenuBroadcastOperand::NONE");
-            break;
-        case ToUnderlying(PenuBroadcastOperand::LEFT_OPERAND):
-            ret.append("PenuBroadcastOperand::LEFT_OPERAND");
-            break;
-        case ToUnderlying(PenuBroadcastOperand::RIGHT_OPERAND):
-            ret.append("PenuBroadcastOperand::RIGHT_OPERAND");
-            break;
-        default:
-            ret.append("PenuBroadcastOperand::NONE");
-    }
-    return ret;
-}
-
 std::string CodeGenOpNPU::PrintBinaryStatic(const PrintBinaryParam& param) const
 {
     const std::string& dstDtypeStr = param.dstDtypeStr;
@@ -205,21 +185,27 @@ std::string CodeGenOpNPU::PrintBinaryTileTensor() const
     std::vector<std::string> templateParamList;
     AddBinaryPrecisionTypeParm(templateParamList);
 
-    int64_t brcOperandIdx = 0;
-    int64_t penuBrcOperandIdx = 0;
+    std::vector<int64_t> brcOperand;
     std::string lastUse = GetLastUse();
+    bool needBrcinline = GetOpAttr(OpAttributeKey::brcOperand, brcOperand);
+    int64_t brcbIdxVal = 0;
+    if (GetOpAttr(OpAttributeKey::brcbIdx, brcbIdxVal)) {
+        ASSERT(GenCodeErr::PRINT_FAILED, needBrcinline && !brcOperand.empty())
+            << "brcbIdx attribute is set but brcOperand is missing or empty";
+        ASSERT(GenCodeErr::PRINT_FAILED, brcbIdxVal == brcOperand.back())
+            << "brcbIdx (" << brcbIdxVal << ") and brcOperand.back() (" << brcOperand.back()
+            << ") diverged — upstream pass must keep them synchronized";
+    }
     if (!lastUse.empty()) {
         templateParamList.emplace_back(lastUse);
     }
-    bool hasBrcb = GetOpAttr(OpAttributeKey::brcbIdx, brcOperandIdx);
-    bool hasPenu = GetOpAttr(OpAttributeKey::brcpIdx, penuBrcOperandIdx);
-    // Must provide NONE for the last axis if only the 2nd last axis is specified
-    // To match TileOp template
-    if (hasBrcb || hasPenu) {
-        templateParamList.emplace_back(GetBrcbOprandIdxStr(brcOperandIdx));
-    }
-    if (hasPenu) {
-        templateParamList.emplace_back(GetPenuBrcOprandIdxStr(penuBrcOperandIdx));
+    if (needBrcinline) {
+        if (brcOperand.size() < 5) {
+            brcOperand.insert(brcOperand.begin(), 5 - brcOperand.size(), 0);
+        }
+        for (auto operandIdx : brcOperand) {
+            templateParamList.emplace_back(std::to_string(operandIdx));
+        }
     }
 
     std::ostringstream oss;

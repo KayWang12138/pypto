@@ -86,7 +86,7 @@ TEST_F(TestCodegenDynBinaryBrc, TestAddBrcTileTensorDynamic)
     for (auto& subFunc : function->rootFunc_->programs_) {
         for (auto& op : subFunc.second->Operations()) {
             if (op.GetOpcode() == Opcode::OP_ADD) {
-                op.SetAttribute(OpAttributeKey::brcbIdx, 1);
+                op.SetAttribute(OpAttributeKey::brcOperand, {0, 0, 0, 0, 1});
                 std::shared_ptr<SymbolManager> symbolManager = std::make_shared<SymbolManager>();
                 CodeGenCtx ctx;
                 CodeGenCloudNPU cga(ctx);
@@ -94,7 +94,7 @@ TEST_F(TestCodegenDynBinaryBrc, TestAddBrcTileTensorDynamic)
                 CodeGenOpCloudNPU cop({symbolManager, *function, *function->rootFunc_->programs_[0], op, {}});
                 std::string res = cop.GenOpCode();
                 std::string expect =
-                    R"!!!(TAdd<LastUse3Dim<0, 1, 1>, TileOp::BroadcastOperand::LEFT_OPERAND>(ubTensor_0, ubTensor_0, ubTensor_2);
+                    R"!!!(TAdd<LastUse3Dim<0, 1, 1>, 0, 0, 0, 0, 1>(ubTensor_0, ubTensor_0, ubTensor_2);
 )!!!";
                 EXPECT_EQ(res, expect);
                 break;
