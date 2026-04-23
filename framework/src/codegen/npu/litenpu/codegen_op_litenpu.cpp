@@ -51,6 +51,22 @@ std::string CodeGenOpLiteNPU::GenGmParamVar(unsigned gmParamIdx) const
     return std::string("RealizedGM") + std::to_string(paramLocation[gmParamIdx]) + ".Addr";
 }
 
+std::string CodeGenOpLiteNPU::GenGMAddrExprWithOffset(const std::string& /* addrExpr */) const
+{
+    // gm offset of spilling workspace is calculated by pass, the value is saved in dim 0.
+    int64_t gmOffset = 0;
+    // gmOffset Default to 0 when the attribute is not set
+    GetAttr(OpAttributeKey::workspaceBaseOffset, gmOffset);
+    std::ostringstream oss;
+    if (gmOffset == 0) {
+        oss << "workspace";
+    } else {
+        oss << "((__gm__ uint8_t*)" << "workspace" << " + " << gmOffset << ")";
+    }
+
+    return oss.str();
+}
+
 TileTensor CodeGenOpLiteNPU::BuildTileTensor(int paramIdx, const std::string& usingType, const ShapeInLoop& shapeInLoop)
 {
     bool isSpillToGm = operand[paramIdx] == SYMBOL_STACK_BASE;
@@ -106,6 +122,21 @@ void CodeGenOpLiteNPU::UpdateTileTensorShapeAndStride(
         tileTensor.stride = BuildStride(newRawShape);
         return;
     }
+}
+
+std::vector<std::string> CodeGenOpLiteNPU::GetGmOffsetForTileTensor(unsigned gmIdx, bool isSpillingToGM) const
+{
+    int dim = static_cast<int>(rawShape[gmIdx].size());
+    std::vector<std::string> gmOffsetExpr;
+    if (isSpillingToGM) {
+        return std::vector<std::string>(dim, "0");
+    }
+
+    if (offsetFromAttr[gmIdx][ID0].IsValid()) {
+        return GenSymbolicArgument(offsetFromAttr[gmIdx]);
+    }
+
+    return GenGetParamMacroPacked(gmIdx, dim, PREFIX_STR_OFFSET);
 }
 
 } // namespace npu::tile_fwk
