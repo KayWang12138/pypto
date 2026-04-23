@@ -1189,6 +1189,8 @@ struct EncodeDevAscendFunctionInfo {
             EncodeRawTensorAttr& attr = rawAttrs.emplace_back();
             attr.storage = tensor->storage_;
             attr.storageOffset = tensor->storageOffset_;
+            // rawMagicToRawTensor[tensor->GetRawTensor()->rawmagic] = tensor->GetRawTensor();
+            MACHINE_LOGD("ttttttttttttttest");
             rawMagicToRawTensor[tensor->GetRawTensor()->rawmagic] = tensor->GetRawTensor();
         }
     }
