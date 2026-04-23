@@ -20,129 +20,138 @@
 
 namespace npu::tile_fwk {
 namespace {
-    bool HasCrossSubgraphEdges(const LogicalTensor& tensor)
-    {
-        int expectedSubgraphId = -1;
+bool HasCrossSubgraphEdges(const LogicalTensor& tensor)
+{
+    int expectedSubgraphId = -1;
 
-        auto check_op = [&](Operation* op) {
-            if (op == nullptr) return false;
-            int opSubgraphId = op->GetSubgraphID();
-            if (expectedSubgraphId == -1) {
-                expectedSubgraphId = opSubgraphId;
-            } else if (expectedSubgraphId != opSubgraphId) {
-                return true;
-            }
+    auto check_op = [&](Operation* op) {
+        if (op == nullptr)
             return false;
-        };
-
-        for (const auto& op : tensor.GetProducers()) {
-            if (check_op(op)) return true;
-        }
-        for (const auto& op : tensor.GetConsumers()) {
-            if (check_op(op)) return true;
-        }
-        return false;
-    }
-
-    bool IsBoundaryAsInput(const LogicalTensor& tensor, const Operation* op)
-    {
-        if (op == nullptr) return false;
-        if (op->GetOpcode() == Opcode::OP_COPY_IN) {
-            return !op->GetIOperands().empty() && op->GetIOperands().front().get() == &tensor;
-        }
-        if (op->GetOpcode() == Opcode::OP_ASSEMBLE) {
-            return !op->GetOOperands().empty() &&
-            op->GetOOperands().front()->GetMemoryTypeOriginal() == MemoryType::MEM_DEVICE_DDR;
-        }
-        return false;
-    }
-
-    bool IsBoundaryAsOutput(const LogicalTensor& tensor, const Operation* op)
-    {
-        if (op == nullptr) return false;
-        if (op->GetOpcode() == Opcode::OP_COPY_OUT) {
-            return !op->HasAttribute(OpAttributeKey::inplaceIdx) && 
-                !op->GetOOperands().empty() && op->GetOOperands().front().get() == &tensor;
-        }
-        if (op->GetOpcode() == Opcode::OP_ASSEMBLE) {
-            return tensor.GetMemoryTypeOriginal() == MemoryType::MEM_DEVICE_DDR;
-        }
-        if (op->GetOpcode() == Opcode::OP_RESHAPE) {
-            return !op->GetIOperands().empty() && 
-                op->GetIOperands().front()->GetMemoryTypeOriginal() == MemoryType::MEM_DEVICE_DDR &&
-                tensor.GetMemoryTypeOriginal() == MemoryType::MEM_DEVICE_DDR;
-        }
-        return false;
-    }
-
-    bool IsBaseBoundary(const LogicalTensor& tensor)
-    {
-        if (tensor.GetProducers().empty() && !tensor.GetConsumers().empty()) {
+        int opSubgraphId = op->GetSubgraphID();
+        if (expectedSubgraphId == -1) {
+            expectedSubgraphId = opSubgraphId;
+        } else if (expectedSubgraphId != opSubgraphId) {
             return true;
         }
+        return false;
+    };
 
-        // 跨子图边缘
-        if (HasCrossSubgraphEdges(tensor)) {
+    for (const auto& op : tensor.GetProducers()) {
+        if (check_op(op))
+            return true;
+    }
+    for (const auto& op : tensor.GetConsumers()) {
+        if (check_op(op))
+            return true;
+    }
+    return false;
+}
+
+bool IsBoundaryAsInput(const LogicalTensor& tensor, const Operation& op)
+{
+    if (op.GetOpcode() == Opcode::OP_COPY_IN) {
+        return !op.GetIOperands().empty() && op.GetIOperands().front().get() == &tensor;
+    }
+    if (op.GetOpcode() == Opcode::OP_ASSEMBLE) {
+        return !op.GetOOperands().empty() &&
+               op.GetOOperands().front()->GetMemoryTypeOriginal() == MemoryType::MEM_DEVICE_DDR;
+    }
+    return false;
+}
+
+bool IsBoundaryAsOutput(const LogicalTensor& tensor, const Operation& op)
+{
+    if (op.GetOpcode() == Opcode::OP_COPY_OUT) {
+        return !op.HasAttribute(OpAttributeKey::inplaceIdx) && !op.GetOOperands().empty() &&
+               op.GetOOperands().front().get() == &tensor;
+    }
+    if (op.GetOpcode() == Opcode::OP_ASSEMBLE) {
+        return tensor.GetMemoryTypeOriginal() == MemoryType::MEM_DEVICE_DDR;
+    }
+    if (op.GetOpcode() == Opcode::OP_RESHAPE) {
+        return !op.GetIOperands().empty() &&
+               op.GetIOperands().front()->GetMemoryTypeOriginal() == MemoryType::MEM_DEVICE_DDR &&
+               tensor.GetMemoryTypeOriginal() == MemoryType::MEM_DEVICE_DDR;
+    }
+    return false;
+}
+
+bool IsBaseBoundary(const LogicalTensor& tensor)
+{
+    if (tensor.GetProducers().empty() && !tensor.GetConsumers().empty()) {
+        return true;
+    }
+
+    // 跨子图边缘
+    if (HasCrossSubgraphEdges(tensor)) {
+        return true;
+    }
+
+    // 当 Tensor 作为输入时
+    for (const auto& op : tensor.GetConsumers()) {
+        if (op == nullptr) {
+            continue;
+        }
+        if (IsBoundaryAsInput(tensor, *op)) {
             return true;
         }
+    }
 
-        // 当 Tensor 作为输入时
-        for (const auto& op : tensor.GetConsumers()) {
-            if (IsBoundaryAsInput(tensor, op)) {
-                return true;
-            }
+    // 当 Tensor 作为输出时
+    for (const auto& op : tensor.GetProducers()) {
+        if (op == nullptr) {
+            continue;
         }
-
-        // 当 Tensor 作为输出时
-        for (const auto& op : tensor.GetProducers()) {
-            if (IsBoundaryAsOutput(tensor, op)) {
-                return true;
-            }
+        if (IsBoundaryAsOutput(tensor, *op)) {
+            return true;
         }
+    }
 
+    return false;
+}
+
+bool IsBoundaryImpl(const LogicalTensor& tensor, std::unordered_set<const LogicalTensor*>& visited)
+{
+    if (!visited.insert(&tensor).second) {
         return false;
     }
 
-    bool IsBoundaryImpl(const LogicalTensor& tensor, std::unordered_set<const LogicalTensor*>& visited)
-    {
-        if (!visited.insert(&tensor).second) {
-            return false;
-        }
+    if (IsBaseBoundary(tensor)) {
+        return true;
+    }
 
-        if (IsBaseBoundary(tensor)) {
-            return true;
+    // Reshape边界属性传播
+    for (const auto& op : tensor.GetProducers()) {
+        if (op->GetOpcode() == Opcode::OP_RESHAPE && !op->GetIOperands().empty()) {
+            if (IsBoundaryImpl(*(op->GetIOperands().front()), visited))
+                return true;
         }
+    }
+    for (const auto& op : tensor.GetConsumers()) {
+        if (op->GetOpcode() == Opcode::OP_RESHAPE && !op->GetOOperands().empty()) {
+            if (IsBoundaryImpl(*(op->GetOOperands().front()), visited))
+                return true;
+        }
+    }
 
-        // Reshape边界属性传播
-        for (const auto& op : tensor.GetProducers()) {
-            if (op->GetOpcode() == Opcode::OP_RESHAPE && !op->GetIOperands().empty()) {
-                if (IsBoundaryImpl(*(op->GetIOperands().front()), visited)) return true;
-            }
-        }
-        for (const auto& op : tensor.GetConsumers()) {
-            if (op->GetOpcode() == Opcode::OP_RESHAPE && !op->GetOOperands().empty()) {
-                if (IsBoundaryImpl(*(op->GetOOperands().front()), visited)) return true;
-            }
-        }
+    return false;
+}
 
+} // anonymous namespace
+
+bool SubgraphUtils::IsBoundary(const LogicalTensorPtr& tensor)
+{
+    if (tensor == nullptr) {
         return false;
     }
+    std::unordered_set<const LogicalTensor*> visited;
+    return IsBoundaryImpl(*tensor, visited);
+}
 
-    } // anonymous namespace
-
-    bool SubgraphUtils::IsBoundary(const LogicalTensorPtr& tensor)
-    {
-        if (tensor == nullptr) {
-            return false;
-        }
-        std::unordered_set<const LogicalTensor*> visited;
-        return IsBoundaryImpl(*tensor, visited);
-    }
-
-    bool SubgraphUtils::IsBoundary(const LogicalTensor& tensor)
-    {
-        std::unordered_set<const LogicalTensor*> visited;
-        return IsBoundaryImpl(tensor, visited);
-    }
+bool SubgraphUtils::IsBoundary(const LogicalTensor& tensor)
+{
+    std::unordered_set<const LogicalTensor*> visited;
+    return IsBoundaryImpl(tensor, visited);
+}
 
 } // namespace npu::tile_fwk
