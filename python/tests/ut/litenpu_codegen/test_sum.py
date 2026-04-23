@@ -39,7 +39,7 @@ def compare_cos(davinci1_input, davinci2_input):
     return cos
 
 
-@pypto.frontend.jit(codegen_options={"soc_version": "Kirin9030"}, runtime_options={"run_mode": pypto.RunMode.SIM})
+@pypto.frontend.jit(codegen_options={"soc_version": "Kirin9030"}, runtime_options={"run_mode": pypto.RunMode.NPU})
 def sum_kernel_fp16_001(
     input_tensor: pypto.Tensor([...], pypto.DT_FP16),
     out_tensor: pypto.Tensor([...], pypto.DT_FP16),
@@ -48,7 +48,7 @@ def sum_kernel_fp16_001(
     out_tensor[:] = pypto.sum(input_tensor, -1)
 
 
-@pypto.frontend.jit(codegen_options={"soc_version": "Kirin9030"}, runtime_options={"run_mode": pypto.RunMode.SIM})
+@pypto.frontend.jit(codegen_options={"soc_version": "Kirin9030"}, runtime_options={"run_mode": pypto.RunMode.NPU})
 def sum_kernel_fp16_002(
     input_tensor: pypto.Tensor([...], pypto.DT_FP16),
     out_tensor: pypto.Tensor([...], pypto.DT_FP16),
@@ -57,7 +57,7 @@ def sum_kernel_fp16_002(
     out_tensor[:] = pypto.sum(input_tensor, -1)
 
 
-@pypto.frontend.jit(codegen_options={"soc_version": "Kirin9030"}, runtime_options={"run_mode": pypto.RunMode.SIM})
+@pypto.frontend.jit(codegen_options={"soc_version": "Kirin9030"}, runtime_options={"run_mode": pypto.RunMode.NPU})
 def sum_kernel_fp16_003(
     input_tensor: pypto.Tensor([...], pypto.DT_FP16),
     out_tensor: pypto.Tensor([...], pypto.DT_FP16),
@@ -66,7 +66,7 @@ def sum_kernel_fp16_003(
     out_tensor[:] = pypto.sum(input_tensor, -1)
 
 
-@pypto.frontend.jit(codegen_options={"soc_version": "Kirin9030"}, runtime_options={"run_mode": pypto.RunMode.SIM})
+@pypto.frontend.jit(codegen_options={"soc_version": "Kirin9030"}, runtime_options={"run_mode": pypto.RunMode.NPU})
 def sum_kernel_fp16_004(
     input_tensor: pypto.Tensor([...], pypto.DT_FP16),
     out_tensor: pypto.Tensor([...], pypto.DT_FP16),
@@ -75,7 +75,7 @@ def sum_kernel_fp16_004(
     out_tensor[:] = pypto.sum(input_tensor, -1)
 
 
-@pypto.frontend.jit(codegen_options={"soc_version": "Kirin9030"}, runtime_options={"run_mode": pypto.RunMode.SIM})
+@pypto.frontend.jit(codegen_options={"soc_version": "Kirin9030"}, runtime_options={"run_mode": pypto.RunMode.NPU})
 def sum_kernel_fp16_005(
     input_tensor: pypto.Tensor([...], pypto.DT_FP16),
     out_tensor: pypto.Tensor([...], pypto.DT_FP16),
@@ -84,7 +84,7 @@ def sum_kernel_fp16_005(
     out_tensor[:] = pypto.sum(input_tensor, -1)
 
 
-@pypto.frontend.jit(codegen_options={"soc_version": "Kirin9030"}, runtime_options={"run_mode": pypto.RunMode.SIM})
+@pypto.frontend.jit(codegen_options={"soc_version": "Kirin9030"}, runtime_options={"run_mode": pypto.RunMode.NPU})
 def sum_kernel_fp16_006(
     input_tensor: pypto.Tensor([...], pypto.DT_FP16),
     out_tensor: pypto.Tensor([...], pypto.DT_FP16),
@@ -93,7 +93,7 @@ def sum_kernel_fp16_006(
     out_tensor[:] = pypto.sum(input_tensor, -1)
 
 
-@pypto.frontend.jit(codegen_options={"soc_version": "Kirin9030"}, runtime_options={"run_mode": pypto.RunMode.SIM})
+@pypto.frontend.jit(codegen_options={"soc_version": "Kirin9030"}, runtime_options={"run_mode": pypto.RunMode.NPU})
 def sum_kernel_fp16_007(
     input_tensor: pypto.Tensor([...], pypto.DT_FP16),
     out_tensor: pypto.Tensor([...], pypto.DT_FP16),
@@ -102,7 +102,7 @@ def sum_kernel_fp16_007(
     out_tensor[:] = pypto.sum(input_tensor, -1)
 
 
-@pypto.frontend.jit(codegen_options={"soc_version": "Kirin9030"}, runtime_options={"run_mode": pypto.RunMode.SIM})
+@pypto.frontend.jit(codegen_options={"soc_version": "Kirin9030"}, runtime_options={"run_mode": pypto.RunMode.NPU})
 def sum_kernel_fp16_008(
     input_tensor: pypto.Tensor([...], pypto.DT_FP16),
     out_tensor: pypto.Tensor([...], pypto.DT_FP16),
@@ -111,7 +111,7 @@ def sum_kernel_fp16_008(
     out_tensor[:] = pypto.sum(input_tensor, -1)
 
 
-@pypto.frontend.jit(codegen_options={"soc_version": "Kirin9030"}, runtime_options={"run_mode": pypto.RunMode.SIM})
+@pypto.frontend.jit(codegen_options={"soc_version": "Kirin9030"}, runtime_options={"run_mode": pypto.RunMode.NPU})
 def sum_kernel_fp16_009(
     input_tensor: pypto.Tensor([...], pypto.DT_FP16),
     out_tensor: pypto.Tensor([...], pypto.DT_FP16),
@@ -120,7 +120,7 @@ def sum_kernel_fp16_009(
     out_tensor[:] = pypto.sum(input_tensor, -1)
 
 
-@pypto.frontend.jit(codegen_options={"soc_version": "Kirin9030"}, runtime_options={"run_mode": pypto.RunMode.SIM})
+@pypto.frontend.jit(codegen_options={"soc_version": "Kirin9030"}, runtime_options={"run_mode": pypto.RunMode.NPU})
 def sum_kernel_fp16_010(
     input_tensor: pypto.Tensor([...], pypto.DT_FP16),
     out_tensor: pypto.Tensor([...], pypto.DT_FP16),
@@ -129,7 +129,7 @@ def sum_kernel_fp16_010(
     out_tensor[:] = pypto.sum(input_tensor, -1)
 
 
-@pypto.frontend.jit(codegen_options={"soc_version": "Kirin9030"}, runtime_options={"run_mode": pypto.RunMode.SIM})
+@pypto.frontend.jit(codegen_options={"soc_version": "Kirin9030"}, runtime_options={"run_mode": pypto.RunMode.NPU})
 def sum_kernel_fp16_011(
     input_tensor: pypto.Tensor([...], pypto.DT_FP16),
     out_tensor: pypto.Tensor([...], pypto.DT_FP16),
@@ -138,7 +138,7 @@ def sum_kernel_fp16_011(
     out_tensor[:] = pypto.sum(input_tensor, -1)
 
 
-@pypto.frontend.jit(codegen_options={"soc_version": "Kirin9030"}, runtime_options={"run_mode": pypto.RunMode.SIM})
+@pypto.frontend.jit(codegen_options={"soc_version": "Kirin9030"}, runtime_options={"run_mode": pypto.RunMode.NPU})
 def sum_kernel_fp16_012(
     input_tensor: pypto.Tensor([...], pypto.DT_FP16),
     out_tensor: pypto.Tensor([...], pypto.DT_FP16),
@@ -147,7 +147,7 @@ def sum_kernel_fp16_012(
     out_tensor[:] = pypto.sum(input_tensor, -1)
 
 
-@pypto.frontend.jit(codegen_options={"soc_version": "Kirin9030"}, runtime_options={"run_mode": pypto.RunMode.SIM})
+@pypto.frontend.jit(codegen_options={"soc_version": "Kirin9030"}, runtime_options={"run_mode": pypto.RunMode.NPU})
 def sum_kernel_fp16_013(
     input_tensor: pypto.Tensor([...], pypto.DT_FP16),
     out_tensor: pypto.Tensor([...], pypto.DT_FP16),
@@ -156,7 +156,7 @@ def sum_kernel_fp16_013(
     out_tensor[:] = pypto.sum(input_tensor, -1)
 
 
-@pypto.frontend.jit(codegen_options={"soc_version": "Kirin9030"}, runtime_options={"run_mode": pypto.RunMode.SIM})
+@pypto.frontend.jit(codegen_options={"soc_version": "Kirin9030"}, runtime_options={"run_mode": pypto.RunMode.NPU})
 def sum_kernel_fp16_014(
     input_tensor: pypto.Tensor([...], pypto.DT_FP16),
     out_tensor: pypto.Tensor([...], pypto.DT_FP16),
@@ -165,7 +165,7 @@ def sum_kernel_fp16_014(
     out_tensor[:] = pypto.sum(input_tensor, -1)
 
 
-@pypto.frontend.jit(codegen_options={"soc_version": "Kirin9030"}, runtime_options={"run_mode": pypto.RunMode.SIM})
+@pypto.frontend.jit(codegen_options={"soc_version": "Kirin9030"}, runtime_options={"run_mode": pypto.RunMode.NPU})
 def sum_kernel_fp16_015(
     input_tensor: pypto.Tensor([...], pypto.DT_FP16),
     out_tensor: pypto.Tensor([...], pypto.DT_FP16),
@@ -401,7 +401,7 @@ class TestLiteNPUSumFP16(unittest.TestCase):
         self.assertGreaterEqual(cos_value, 0.9999)
 
 
-@pypto.frontend.jit(codegen_options={"soc_version": "Kirin9030"}, runtime_options={"run_mode": pypto.RunMode.SIM})
+@pypto.frontend.jit(codegen_options={"soc_version": "Kirin9030"}, runtime_options={"run_mode": pypto.RunMode.NPU})
 def sum_kernel_fp32_001(
     input_tensor: pypto.Tensor([...], pypto.DT_FP32),
     out_tensor: pypto.Tensor([...], pypto.DT_FP32),
@@ -410,7 +410,7 @@ def sum_kernel_fp32_001(
     out_tensor[:] = pypto.sum(input_tensor, -1)
 
 
-@pypto.frontend.jit(codegen_options={"soc_version": "Kirin9030"}, runtime_options={"run_mode": pypto.RunMode.SIM})
+@pypto.frontend.jit(codegen_options={"soc_version": "Kirin9030"}, runtime_options={"run_mode": pypto.RunMode.NPU})
 def sum_kernel_fp32_002(
     input_tensor: pypto.Tensor([...], pypto.DT_FP32),
     out_tensor: pypto.Tensor([...], pypto.DT_FP32),
@@ -419,7 +419,7 @@ def sum_kernel_fp32_002(
     out_tensor[:] = pypto.sum(input_tensor, -1)
 
 
-@pypto.frontend.jit(codegen_options={"soc_version": "Kirin9030"}, runtime_options={"run_mode": pypto.RunMode.SIM})
+@pypto.frontend.jit(codegen_options={"soc_version": "Kirin9030"}, runtime_options={"run_mode": pypto.RunMode.NPU})
 def sum_kernel_fp32_003(
     input_tensor: pypto.Tensor([...], pypto.DT_FP32),
     out_tensor: pypto.Tensor([...], pypto.DT_FP32),
@@ -428,7 +428,7 @@ def sum_kernel_fp32_003(
     out_tensor[:] = pypto.sum(input_tensor, -1)
 
 
-@pypto.frontend.jit(codegen_options={"soc_version": "Kirin9030"}, runtime_options={"run_mode": pypto.RunMode.SIM})
+@pypto.frontend.jit(codegen_options={"soc_version": "Kirin9030"}, runtime_options={"run_mode": pypto.RunMode.NPU})
 def sum_kernel_fp32_004(
     input_tensor: pypto.Tensor([...], pypto.DT_FP32),
     out_tensor: pypto.Tensor([...], pypto.DT_FP32),
@@ -437,7 +437,7 @@ def sum_kernel_fp32_004(
     out_tensor[:] = pypto.sum(input_tensor, -1)
 
 
-@pypto.frontend.jit(codegen_options={"soc_version": "Kirin9030"}, runtime_options={"run_mode": pypto.RunMode.SIM})
+@pypto.frontend.jit(codegen_options={"soc_version": "Kirin9030"}, runtime_options={"run_mode": pypto.RunMode.NPU})
 def sum_kernel_fp32_005(
     input_tensor: pypto.Tensor([...], pypto.DT_FP32),
     out_tensor: pypto.Tensor([...], pypto.DT_FP32),
@@ -446,7 +446,7 @@ def sum_kernel_fp32_005(
     out_tensor[:] = pypto.sum(input_tensor, -1)
 
 
-@pypto.frontend.jit(codegen_options={"soc_version": "Kirin9030"}, runtime_options={"run_mode": pypto.RunMode.SIM})
+@pypto.frontend.jit(codegen_options={"soc_version": "Kirin9030"}, runtime_options={"run_mode": pypto.RunMode.NPU})
 def sum_kernel_fp32_006(
     input_tensor: pypto.Tensor([...], pypto.DT_FP32),
     out_tensor: pypto.Tensor([...], pypto.DT_FP32),
@@ -455,7 +455,7 @@ def sum_kernel_fp32_006(
     out_tensor[:] = pypto.sum(input_tensor, -1)
 
 
-@pypto.frontend.jit(codegen_options={"soc_version": "Kirin9030"}, runtime_options={"run_mode": pypto.RunMode.SIM})
+@pypto.frontend.jit(codegen_options={"soc_version": "Kirin9030"}, runtime_options={"run_mode": pypto.RunMode.NPU})
 def sum_kernel_fp32_007(
     input_tensor: pypto.Tensor([...], pypto.DT_FP32),
     out_tensor: pypto.Tensor([...], pypto.DT_FP32),
@@ -464,7 +464,7 @@ def sum_kernel_fp32_007(
     out_tensor[:] = pypto.sum(input_tensor, -1)
 
 
-@pypto.frontend.jit(codegen_options={"soc_version": "Kirin9030"}, runtime_options={"run_mode": pypto.RunMode.SIM})
+@pypto.frontend.jit(codegen_options={"soc_version": "Kirin9030"}, runtime_options={"run_mode": pypto.RunMode.NPU})
 def sum_kernel_fp32_008(
     input_tensor: pypto.Tensor([...], pypto.DT_FP32),
     out_tensor: pypto.Tensor([...], pypto.DT_FP32),
@@ -473,7 +473,7 @@ def sum_kernel_fp32_008(
     out_tensor[:] = pypto.sum(input_tensor, -1)
 
 
-@pypto.frontend.jit(codegen_options={"soc_version": "Kirin9030"}, runtime_options={"run_mode": pypto.RunMode.SIM})
+@pypto.frontend.jit(codegen_options={"soc_version": "Kirin9030"}, runtime_options={"run_mode": pypto.RunMode.NPU})
 def sum_kernel_fp32_009(
     input_tensor: pypto.Tensor([...], pypto.DT_FP32),
     out_tensor: pypto.Tensor([...], pypto.DT_FP32),
@@ -482,7 +482,7 @@ def sum_kernel_fp32_009(
     out_tensor[:] = pypto.sum(input_tensor, -1)
 
 
-@pypto.frontend.jit(codegen_options={"soc_version": "Kirin9030"}, runtime_options={"run_mode": pypto.RunMode.SIM})
+@pypto.frontend.jit(codegen_options={"soc_version": "Kirin9030"}, runtime_options={"run_mode": pypto.RunMode.NPU})
 def sum_kernel_fp32_010(
     input_tensor: pypto.Tensor([...], pypto.DT_FP32),
     out_tensor: pypto.Tensor([...], pypto.DT_FP32),
@@ -491,7 +491,7 @@ def sum_kernel_fp32_010(
     out_tensor[:] = pypto.sum(input_tensor, -1)
 
 
-@pypto.frontend.jit(codegen_options={"soc_version": "Kirin9030"}, runtime_options={"run_mode": pypto.RunMode.SIM})
+@pypto.frontend.jit(codegen_options={"soc_version": "Kirin9030"}, runtime_options={"run_mode": pypto.RunMode.NPU})
 def sum_kernel_fp32_011(
     input_tensor: pypto.Tensor([...], pypto.DT_FP32),
     out_tensor: pypto.Tensor([...], pypto.DT_FP32),
@@ -500,7 +500,7 @@ def sum_kernel_fp32_011(
     out_tensor[:] = pypto.sum(input_tensor, -1)
 
 
-@pypto.frontend.jit(codegen_options={"soc_version": "Kirin9030"}, runtime_options={"run_mode": pypto.RunMode.SIM})
+@pypto.frontend.jit(codegen_options={"soc_version": "Kirin9030"}, runtime_options={"run_mode": pypto.RunMode.NPU})
 def sum_kernel_fp32_012(
     input_tensor: pypto.Tensor([...], pypto.DT_FP32),
     out_tensor: pypto.Tensor([...], pypto.DT_FP32),
@@ -509,7 +509,7 @@ def sum_kernel_fp32_012(
     out_tensor[:] = pypto.sum(input_tensor, -1)
 
 
-@pypto.frontend.jit(codegen_options={"soc_version": "Kirin9030"}, runtime_options={"run_mode": pypto.RunMode.SIM})
+@pypto.frontend.jit(codegen_options={"soc_version": "Kirin9030"}, runtime_options={"run_mode": pypto.RunMode.NPU})
 def sum_kernel_fp32_013(
     input_tensor: pypto.Tensor([...], pypto.DT_FP32),
     out_tensor: pypto.Tensor([...], pypto.DT_FP32),
@@ -518,7 +518,7 @@ def sum_kernel_fp32_013(
     out_tensor[:] = pypto.sum(input_tensor, -1)
 
 
-@pypto.frontend.jit(codegen_options={"soc_version": "Kirin9030"}, runtime_options={"run_mode": pypto.RunMode.SIM})
+@pypto.frontend.jit(codegen_options={"soc_version": "Kirin9030"}, runtime_options={"run_mode": pypto.RunMode.NPU})
 def sum_kernel_fp32_014(
     input_tensor: pypto.Tensor([...], pypto.DT_FP32),
     out_tensor: pypto.Tensor([...], pypto.DT_FP32),
@@ -527,7 +527,7 @@ def sum_kernel_fp32_014(
     out_tensor[:] = pypto.sum(input_tensor, -1)
 
 
-@pypto.frontend.jit(codegen_options={"soc_version": "Kirin9030"}, runtime_options={"run_mode": pypto.RunMode.SIM})
+@pypto.frontend.jit(codegen_options={"soc_version": "Kirin9030"}, runtime_options={"run_mode": pypto.RunMode.NPU})
 def sum_kernel_fp32_015(
     input_tensor: pypto.Tensor([...], pypto.DT_FP32),
     out_tensor: pypto.Tensor([...], pypto.DT_FP32),
@@ -763,7 +763,7 @@ class TestLiteNPUSumFP32(unittest.TestCase):
         self.assertGreaterEqual(cos_value, 0.9999)
 
 
-@pypto.frontend.jit(codegen_options={"soc_version": "Kirin9030"}, runtime_options={"run_mode": pypto.RunMode.SIM})
+@pypto.frontend.jit(codegen_options={"soc_version": "Kirin9030"}, runtime_options={"run_mode": pypto.RunMode.NPU})
 def sum_kernel_int32_001(
     input_tensor: pypto.Tensor([...], pypto.DT_INT32),
     out_tensor: pypto.Tensor([...], pypto.DT_INT32),
@@ -772,7 +772,7 @@ def sum_kernel_int32_001(
     out_tensor[:] = pypto.sum(input_tensor, -1)
 
 
-@pypto.frontend.jit(codegen_options={"soc_version": "Kirin9030"}, runtime_options={"run_mode": pypto.RunMode.SIM})
+@pypto.frontend.jit(codegen_options={"soc_version": "Kirin9030"}, runtime_options={"run_mode": pypto.RunMode.NPU})
 def sum_kernel_int32_002(
     input_tensor: pypto.Tensor([...], pypto.DT_INT32),
     out_tensor: pypto.Tensor([...], pypto.DT_INT32),
@@ -781,7 +781,7 @@ def sum_kernel_int32_002(
     out_tensor[:] = pypto.sum(input_tensor, -1)
 
 
-@pypto.frontend.jit(codegen_options={"soc_version": "Kirin9030"}, runtime_options={"run_mode": pypto.RunMode.SIM})
+@pypto.frontend.jit(codegen_options={"soc_version": "Kirin9030"}, runtime_options={"run_mode": pypto.RunMode.NPU})
 def sum_kernel_int32_003(
     input_tensor: pypto.Tensor([...], pypto.DT_INT32),
     out_tensor: pypto.Tensor([...], pypto.DT_INT32),
@@ -790,7 +790,7 @@ def sum_kernel_int32_003(
     out_tensor[:] = pypto.sum(input_tensor, -1)
 
 
-@pypto.frontend.jit(codegen_options={"soc_version": "Kirin9030"}, runtime_options={"run_mode": pypto.RunMode.SIM})
+@pypto.frontend.jit(codegen_options={"soc_version": "Kirin9030"}, runtime_options={"run_mode": pypto.RunMode.NPU})
 def sum_kernel_int32_004(
     input_tensor: pypto.Tensor([...], pypto.DT_INT32),
     out_tensor: pypto.Tensor([...], pypto.DT_INT32),
@@ -799,7 +799,7 @@ def sum_kernel_int32_004(
     out_tensor[:] = pypto.sum(input_tensor, -1)
 
 
-@pypto.frontend.jit(codegen_options={"soc_version": "Kirin9030"}, runtime_options={"run_mode": pypto.RunMode.SIM})
+@pypto.frontend.jit(codegen_options={"soc_version": "Kirin9030"}, runtime_options={"run_mode": pypto.RunMode.NPU})
 def sum_kernel_int32_005(
     input_tensor: pypto.Tensor([...], pypto.DT_INT32),
     out_tensor: pypto.Tensor([...], pypto.DT_INT32),
@@ -808,7 +808,7 @@ def sum_kernel_int32_005(
     out_tensor[:] = pypto.sum(input_tensor, -1)
 
 
-@pypto.frontend.jit(codegen_options={"soc_version": "Kirin9030"}, runtime_options={"run_mode": pypto.RunMode.SIM})
+@pypto.frontend.jit(codegen_options={"soc_version": "Kirin9030"}, runtime_options={"run_mode": pypto.RunMode.NPU})
 def sum_kernel_int32_006(
     input_tensor: pypto.Tensor([...], pypto.DT_INT32),
     out_tensor: pypto.Tensor([...], pypto.DT_INT32),
@@ -817,7 +817,7 @@ def sum_kernel_int32_006(
     out_tensor[:] = pypto.sum(input_tensor, -1)
 
 
-@pypto.frontend.jit(codegen_options={"soc_version": "Kirin9030"}, runtime_options={"run_mode": pypto.RunMode.SIM})
+@pypto.frontend.jit(codegen_options={"soc_version": "Kirin9030"}, runtime_options={"run_mode": pypto.RunMode.NPU})
 def sum_kernel_int32_007(
     input_tensor: pypto.Tensor([...], pypto.DT_INT32),
     out_tensor: pypto.Tensor([...], pypto.DT_INT32),
@@ -826,7 +826,7 @@ def sum_kernel_int32_007(
     out_tensor[:] = pypto.sum(input_tensor, -1)
 
 
-@pypto.frontend.jit(codegen_options={"soc_version": "Kirin9030"}, runtime_options={"run_mode": pypto.RunMode.SIM})
+@pypto.frontend.jit(codegen_options={"soc_version": "Kirin9030"}, runtime_options={"run_mode": pypto.RunMode.NPU})
 def sum_kernel_int32_008(
     input_tensor: pypto.Tensor([...], pypto.DT_INT32),
     out_tensor: pypto.Tensor([...], pypto.DT_INT32),
@@ -835,7 +835,7 @@ def sum_kernel_int32_008(
     out_tensor[:] = pypto.sum(input_tensor, -1)
 
 
-@pypto.frontend.jit(codegen_options={"soc_version": "Kirin9030"}, runtime_options={"run_mode": pypto.RunMode.SIM})
+@pypto.frontend.jit(codegen_options={"soc_version": "Kirin9030"}, runtime_options={"run_mode": pypto.RunMode.NPU})
 def sum_kernel_int32_009(
     input_tensor: pypto.Tensor([...], pypto.DT_INT32),
     out_tensor: pypto.Tensor([...], pypto.DT_INT32),
@@ -844,7 +844,7 @@ def sum_kernel_int32_009(
     out_tensor[:] = pypto.sum(input_tensor, -1)
 
 
-@pypto.frontend.jit(codegen_options={"soc_version": "Kirin9030"}, runtime_options={"run_mode": pypto.RunMode.SIM})
+@pypto.frontend.jit(codegen_options={"soc_version": "Kirin9030"}, runtime_options={"run_mode": pypto.RunMode.NPU})
 def sum_kernel_int32_010(
     input_tensor: pypto.Tensor([...], pypto.DT_INT32),
     out_tensor: pypto.Tensor([...], pypto.DT_INT32),
@@ -853,7 +853,7 @@ def sum_kernel_int32_010(
     out_tensor[:] = pypto.sum(input_tensor, -1)
 
 
-@pypto.frontend.jit(codegen_options={"soc_version": "Kirin9030"}, runtime_options={"run_mode": pypto.RunMode.SIM})
+@pypto.frontend.jit(codegen_options={"soc_version": "Kirin9030"}, runtime_options={"run_mode": pypto.RunMode.NPU})
 def sum_kernel_int32_011(
     input_tensor: pypto.Tensor([...], pypto.DT_INT32),
     out_tensor: pypto.Tensor([...], pypto.DT_INT32),
@@ -862,7 +862,7 @@ def sum_kernel_int32_011(
     out_tensor[:] = pypto.sum(input_tensor, -1)
 
 
-@pypto.frontend.jit(codegen_options={"soc_version": "Kirin9030"}, runtime_options={"run_mode": pypto.RunMode.SIM})
+@pypto.frontend.jit(codegen_options={"soc_version": "Kirin9030"}, runtime_options={"run_mode": pypto.RunMode.NPU})
 def sum_kernel_int32_012(
     input_tensor: pypto.Tensor([...], pypto.DT_INT32),
     out_tensor: pypto.Tensor([...], pypto.DT_INT32),
@@ -871,7 +871,7 @@ def sum_kernel_int32_012(
     out_tensor[:] = pypto.sum(input_tensor, -1)
 
 
-@pypto.frontend.jit(codegen_options={"soc_version": "Kirin9030"}, runtime_options={"run_mode": pypto.RunMode.SIM})
+@pypto.frontend.jit(codegen_options={"soc_version": "Kirin9030"}, runtime_options={"run_mode": pypto.RunMode.NPU})
 def sum_kernel_int32_013(
     input_tensor: pypto.Tensor([...], pypto.DT_INT32),
     out_tensor: pypto.Tensor([...], pypto.DT_INT32),
@@ -880,7 +880,7 @@ def sum_kernel_int32_013(
     out_tensor[:] = pypto.sum(input_tensor, -1)
 
 
-@pypto.frontend.jit(codegen_options={"soc_version": "Kirin9030"}, runtime_options={"run_mode": pypto.RunMode.SIM})
+@pypto.frontend.jit(codegen_options={"soc_version": "Kirin9030"}, runtime_options={"run_mode": pypto.RunMode.NPU})
 def sum_kernel_int32_014(
     input_tensor: pypto.Tensor([...], pypto.DT_INT32),
     out_tensor: pypto.Tensor([...], pypto.DT_INT32),
@@ -889,7 +889,7 @@ def sum_kernel_int32_014(
     out_tensor[:] = pypto.sum(input_tensor, -1)
 
 
-@pypto.frontend.jit(codegen_options={"soc_version": "Kirin9030"}, runtime_options={"run_mode": pypto.RunMode.SIM})
+@pypto.frontend.jit(codegen_options={"soc_version": "Kirin9030"}, runtime_options={"run_mode": pypto.RunMode.NPU})
 def sum_kernel_int32_015(
     input_tensor: pypto.Tensor([...], pypto.DT_INT32),
     out_tensor: pypto.Tensor([...], pypto.DT_INT32),

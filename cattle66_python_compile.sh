@@ -8,7 +8,7 @@ pip3 uninstall pypto -y
 
 python3 -m pip install . --verbose
 
-TEST_DIR="/mnt/workspace/gitCode/GBowen666/pypto/python/tests/ut/litenpu_codegen"
+TEST_DIR="/home/l00613242/pto_src_litenpu/pto_20260421/pypto/python/tests/ut/litenpu_codegen"
 
 cd $TEST_DIR
 
@@ -36,6 +36,43 @@ show_usage() {
     exit 1
 }
 
+run_test_with_stats() {
+    local test_module=$1
+    local test_case=$2
+    
+    if [ -z "$test_case" ]; then
+        echo "Running all $test_module tests..."
+        output=$(python -m unittest -v $test_module 2>&1)
+    else
+        echo "Running $test_module test: $test_case"
+        output=$(python -m unittest -v $test_module.$test_case 2>&1)
+    fi
+    
+    echo "$output"
+    
+    total_tests=$(echo "$output" | grep -E "test_.*\.\.\." | wc -l)
+    passed_tests=$(echo "$output" | grep -E "test_.*\.\.\. ok" | wc -l)
+    failed_tests=$(echo "$output" | grep -E "test_.*\.\.\. FAIL" | wc -l)
+    error_tests=$(echo "$output" | grep -E "test_.*\.\.\. ERROR" | wc -l)
+    
+    echo ""
+    echo "=========================================="
+    echo "Test Statistics for $test_module"
+    echo "=========================================="
+    echo "Total tests:    $total_tests"
+    echo "Passed:         $passed_tests"
+    echo "Failed:         $failed_tests"
+    echo "Errors:         $error_tests"
+    
+    if [ $failed_tests -gt 0 ] || [ $error_tests -gt 0 ]; then
+        echo ""
+        echo "Failed tests:"
+        echo "$output" | grep -E "test_.*\.\.\. (FAIL|ERROR)"
+    fi
+    echo "=========================================="
+    echo ""
+}
+
 if [ $# -lt 1 ]; then
     show_usage
 fi
@@ -45,119 +82,45 @@ TEST_CASE=$2
 
 case $OPERATOR in
     amax)
-        if [ -z "$TEST_CASE" ]; then
-            echo "Running all amax tests..."
-            python -m unittest -v test_amax
-        else
-            echo "Running amax test: $TEST_CASE"
-            python -m unittest -v test_amax.$TEST_CASE
-        fi
+        run_test_with_stats "test_amax" "$TEST_CASE"
         ;;
     amin)
-        if [ -z "$TEST_CASE" ]; then
-            echo "Running all amin tests..."
-            python -m unittest -v test_amin
-        else
-            echo "Running amin test: $TEST_CASE"
-            python -m unittest -v test_amin.$TEST_CASE
-        fi
+        run_test_with_stats "test_amin" "$TEST_CASE"
         ;;
     sum)
-        if [ -z "$TEST_CASE" ]; then
-            echo "Running all sum tests..."
-            python -m unittest -v test_sum
-        else
-            echo "Running sum test: $TEST_CASE"
-            python -m unittest -v test_sum.$TEST_CASE
-        fi
+        run_test_with_stats "test_sum" "$TEST_CASE"
         ;;
     transpose)
-        if [ -z "$TEST_CASE" ]; then
-            echo "Running all transpose tests..."
-            python -m unittest -v test_transpose
-        else
-            echo "Running transpose test: $TEST_CASE"
-            python -m unittest -v test_transpose.$TEST_CASE
-        fi
+        run_test_with_stats "test_transpose" "$TEST_CASE"
         ;;
     view)
-        if [ -z "$TEST_CASE" ]; then
-            echo "Running all view tests..."
-            python -m unittest -v test_view
-        else
-            echo "Running view test: $TEST_CASE"
-            python -m unittest -v test_view.$TEST_CASE
-        fi
+        run_test_with_stats "test_view" "$TEST_CASE"
         ;;
     unsqueeze)
-        if [ -z "$TEST_CASE" ]; then
-            echo "Running all unsqueeze tests..."
-            python -m unittest -v test_unsqueeze
-        else
-            echo "Running unsqueeze test: $TEST_CASE"
-            python -m unittest -v test_unsqueeze.$TEST_CASE
-        fi
+        run_test_with_stats "test_unsqueeze" "$TEST_CASE"
         ;;
     reshape)
-        if [ -z "$TEST_CASE" ]; then
-            echo "Running all reshape tests..."
-            python -m unittest -v test_reshape
-        else
-            echo "Running reshape test: $TEST_CASE"
-            python -m unittest -v test_reshape.$TEST_CASE
-        fi
+        run_test_with_stats "test_reshape" "$TEST_CASE"
         ;;
     assemble)
-        if [ -z "$TEST_CASE" ]; then
-            echo "Running all assemble tests..."
-            python -m unittest -v test_assemble
-        else
-            echo "Running assemble test: $TEST_CASE"
-            python -m unittest -v test_assemble.$TEST_CASE
-        fi
+        run_test_with_stats "test_assemble" "$TEST_CASE"
         ;;
     all)
         echo "Running all operator tests..."
         echo ""
+        
+        run_test_with_stats "test_amax"
+        run_test_with_stats "test_amin"
+        run_test_with_stats "test_sum"
+        run_test_with_stats "test_transpose"
+        run_test_with_stats "test_view"
+        run_test_with_stats "test_unsqueeze"
+        run_test_with_stats "test_reshape"
+        run_test_with_stats "test_assemble"
+        
         echo "=========================================="
-        echo "Running amax tests..."
+        echo "ALL OPERATORS TEST SUMMARY"
         echo "=========================================="
-        python -m unittest -v test_amax
-        echo ""
-        echo "=========================================="
-        echo "Running amin tests..."
-        echo "=========================================="
-        python -m unittest -v test_amin
-        echo ""
-        echo "=========================================="
-        echo "Running sum tests..."
-        echo "=========================================="
-        python -m unittest -v test_sum
-        echo ""
-        echo "=========================================="
-        echo "Running transpose tests..."
-        echo "=========================================="
-        python -m unittest -v test_transpose
-        echo ""
-        echo "=========================================="
-        echo "Running view tests..."
-        echo "=========================================="
-        python -m unittest -v test_view
-        echo ""
-        echo "=========================================="
-        echo "Running unsqueeze tests..."
-        echo "=========================================="
-        python -m unittest -v test_unsqueeze
-        echo ""
-        echo "=========================================="
-        echo "Running reshape tests..."
-        echo "=========================================="
-        python -m unittest -v test_reshape
-        echo ""
-        echo "=========================================="
-        echo "Running assemble tests..."
-        echo "=========================================="
-        python -m unittest -v test_assemble
         ;;
     *)
         echo "Unknown operator: $OPERATOR"

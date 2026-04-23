@@ -23,7 +23,7 @@ def compare_cos(x: torch.Tensor, y: torch.Tensor):
     cos = torch.nn.functional.cosine_similarity(x, y, dim=0)
     return cos
 
-def torch_assemble(source, target, offsets=None):
+def pypto_assemble_in_torch(source, target, offsets=None):
     """
     source: 可以是 (tensor, offset) 的列表，或者是单个 tensor
     target: 目标 tensor (out)
@@ -43,7 +43,7 @@ def torch_assemble(source, target, offsets=None):
             slices.append(slice(off, off + source.shape[i]))
         target[tuple(slices)] = source
 
-@pypto.frontend.jit(codegen_options={"soc_version": "Kirin9030"}, runtime_options={"run_mode": pypto.RunMode.SIM})
+@pypto.frontend.jit(codegen_options={"soc_version": "Kirin9030"}, runtime_options={"run_mode": pypto.RunMode.NPU})
 def assemble_kernel_fp16(
     input_tensor: pypto.Tensor([...], pypto.DT_FP16),
     out_tensor: pypto.Tensor([...], pypto.DT_FP16),
@@ -52,7 +52,7 @@ def assemble_kernel_fp16(
     pypto.assemble(input_tensor, [0, 0], out_tensor)
 
 
-@pypto.frontend.jit(codegen_options={"soc_version": "Kirin9030"}, runtime_options={"run_mode": pypto.RunMode.SIM})
+@pypto.frontend.jit(codegen_options={"soc_version": "Kirin9030"}, runtime_options={"run_mode": pypto.RunMode.NPU})
 def assemble_kernel_fp16_002(
     input_tensor: pypto.Tensor([...], pypto.DT_FP16),
     out_tensor: pypto.Tensor([...], pypto.DT_FP16),
@@ -61,7 +61,7 @@ def assemble_kernel_fp16_002(
     pypto.assemble(input_tensor, [1, 1], out_tensor)
 
 
-@pypto.frontend.jit(codegen_options={"soc_version": "Kirin9030"}, runtime_options={"run_mode": pypto.RunMode.SIM})
+@pypto.frontend.jit(codegen_options={"soc_version": "Kirin9030"}, runtime_options={"run_mode": pypto.RunMode.NPU})
 def assemble_kernel_fp16_003(
     input_tensor: pypto.Tensor([...], pypto.DT_FP16),
     out_tensor: pypto.Tensor([...], pypto.DT_FP16),
@@ -70,7 +70,7 @@ def assemble_kernel_fp16_003(
     pypto.assemble(input_tensor, [0, 0, 0], out_tensor)
 
 
-@pypto.frontend.jit(codegen_options={"soc_version": "Kirin9030"}, runtime_options={"run_mode": pypto.RunMode.SIM})
+@pypto.frontend.jit(codegen_options={"soc_version": "Kirin9030"}, runtime_options={"run_mode": pypto.RunMode.NPU})
 def assemble_kernel_fp16_004(
     input_tensor: pypto.Tensor([...], pypto.DT_FP16),
     out_tensor: pypto.Tensor([...], pypto.DT_FP16),
@@ -79,7 +79,7 @@ def assemble_kernel_fp16_004(
     pypto.assemble(input_tensor, [1], out_tensor)
 
 
-@pypto.frontend.jit(codegen_options={"soc_version": "Kirin9030"}, runtime_options={"run_mode": pypto.RunMode.SIM})
+@pypto.frontend.jit(codegen_options={"soc_version": "Kirin9030"}, runtime_options={"run_mode": pypto.RunMode.NPU})
 def assemble_kernel_fp16_005(
     input_tensor: pypto.Tensor([...], pypto.DT_FP16),
     out_tensor: pypto.Tensor([...], pypto.DT_FP16),
@@ -88,7 +88,7 @@ def assemble_kernel_fp16_005(
     pypto.assemble(input_tensor, [0, 2], out_tensor)
 
 
-@pypto.frontend.jit(codegen_options={"soc_version": "Kirin9030"}, runtime_options={"run_mode": pypto.RunMode.SIM})
+@pypto.frontend.jit(codegen_options={"soc_version": "Kirin9030"}, runtime_options={"run_mode": pypto.RunMode.NPU})
 def assemble_kernel_fp16_006(
     input_tensor: pypto.Tensor([...], pypto.DT_FP16),
     out_tensor: pypto.Tensor([...], pypto.DT_FP16),
@@ -97,7 +97,7 @@ def assemble_kernel_fp16_006(
     pypto.assemble(input_tensor, [0, 1, 1], out_tensor)
 
 
-@pypto.frontend.jit(codegen_options={"soc_version": "Kirin9030"}, runtime_options={"run_mode": pypto.RunMode.SIM})
+@pypto.frontend.jit(codegen_options={"soc_version": "Kirin9030"}, runtime_options={"run_mode": pypto.RunMode.NPU})
 def assemble_kernel_fp16_007(
     input_tensor: pypto.Tensor([...], pypto.DT_FP16),
     out_tensor: pypto.Tensor([...], pypto.DT_FP16),
@@ -106,7 +106,7 @@ def assemble_kernel_fp16_007(
     pypto.assemble(input_tensor, [0, 0, 0, 0], out_tensor)
 
 
-@pypto.frontend.jit(codegen_options={"soc_version": "Kirin9030"}, runtime_options={"run_mode": pypto.RunMode.SIM})
+@pypto.frontend.jit(codegen_options={"soc_version": "Kirin9030"}, runtime_options={"run_mode": pypto.RunMode.NPU})
 def assemble_kernel_fp16_008(
     input_tensor: pypto.Tensor([...], pypto.DT_FP16),
     out_tensor: pypto.Tensor([...], pypto.DT_FP16),
@@ -115,7 +115,7 @@ def assemble_kernel_fp16_008(
     pypto.assemble(input_tensor, [0], out_tensor)
 
 
-@pypto.frontend.jit(codegen_options={"soc_version": "Kirin9030"}, runtime_options={"run_mode": pypto.RunMode.SIM})
+@pypto.frontend.jit(codegen_options={"soc_version": "Kirin9030"}, runtime_options={"run_mode": pypto.RunMode.NPU})
 def assemble_kernel_fp16_009(
     input_tensor: pypto.Tensor([...], pypto.DT_FP16),
     out_tensor: pypto.Tensor([...], pypto.DT_FP16),
@@ -124,7 +124,7 @@ def assemble_kernel_fp16_009(
     pypto.assemble(input_tensor, [0, 0], out_tensor)
 
 
-@pypto.frontend.jit(codegen_options={"soc_version": "Kirin9030"}, runtime_options={"run_mode": pypto.RunMode.SIM})
+@pypto.frontend.jit(codegen_options={"soc_version": "Kirin9030"}, runtime_options={"run_mode": pypto.RunMode.NPU})
 def assemble_kernel_fp16_010(
     input1: pypto.Tensor([...], pypto.DT_FP16),
     input2: pypto.Tensor([...], pypto.DT_FP16),
@@ -144,7 +144,7 @@ class TestLiteNPUAssembleFP16(unittest.TestCase):
         input_tensor = torch.rand(shape_input, dtype=dtype, device=device)
         out_tensor = torch.rand(shape_out, dtype=dtype, device=device)
         golden_out = torch.zeros(shape_out, dtype=dtype, device=device)
-        torch_assemble(input_tensor, golden_out, [0, 0])
+        pypto_assemble_in_torch(input_tensor, golden_out, [0, 0])
 
         assemble_kernel_fp16(input_tensor, out_tensor)
 
@@ -161,7 +161,7 @@ class TestLiteNPUAssembleFP16(unittest.TestCase):
         input_tensor = torch.rand(shape_input, dtype=dtype, device=device)
         out_tensor = torch.rand(shape_out, dtype=dtype, device=device)
         golden_out = torch.zeros(shape_out, dtype=dtype, device=device)
-        torch_assemble(input_tensor, golden_out, [1, 1])
+        pypto_assemble_in_torch(input_tensor, golden_out, [1, 1])
 
         assemble_kernel_fp16_002(input_tensor, out_tensor)
 
@@ -178,7 +178,7 @@ class TestLiteNPUAssembleFP16(unittest.TestCase):
         input_tensor = torch.rand(shape_input, dtype=dtype, device=device)
         out_tensor = torch.rand(shape_out, dtype=dtype, device=device)
         golden_out = torch.zeros(shape_out, dtype=dtype, device=device)
-        torch_assemble(input_tensor, golden_out, [0, 0, 0])
+        pypto_assemble_in_torch(input_tensor, golden_out, [0, 0, 0])
 
         assemble_kernel_fp16_003(input_tensor, out_tensor)
 
@@ -195,7 +195,7 @@ class TestLiteNPUAssembleFP16(unittest.TestCase):
         input_tensor = torch.rand(shape_input, dtype=dtype, device=device)
         out_tensor = torch.rand(shape_out, dtype=dtype, device=device)
         golden_out = torch.zeros(shape_out, dtype=dtype, device=device)
-        torch_assemble(input_tensor, golden_out, [1])
+        pypto_assemble_in_torch(input_tensor, golden_out, [1])
 
         assemble_kernel_fp16_004(input_tensor, out_tensor)
 
@@ -212,7 +212,7 @@ class TestLiteNPUAssembleFP16(unittest.TestCase):
         input_tensor = torch.rand(shape_input, dtype=dtype, device=device)
         out_tensor = torch.rand(shape_out, dtype=dtype, device=device)
         golden_out = torch.zeros(shape_out, dtype=dtype, device=device)
-        torch_assemble(input_tensor, golden_out, [0, 2])
+        pypto_assemble_in_torch(input_tensor, golden_out, [0, 2])
 
         assemble_kernel_fp16_005(input_tensor, out_tensor)
 
@@ -229,7 +229,7 @@ class TestLiteNPUAssembleFP16(unittest.TestCase):
         input_tensor = torch.rand(shape_input, dtype=dtype, device=device)
         out_tensor = torch.rand(shape_out, dtype=dtype, device=device)
         golden_out = torch.zeros(shape_out, dtype=dtype, device=device)
-        torch_assemble(input_tensor, golden_out, [0, 1, 1])
+        pypto_assemble_in_torch(input_tensor, golden_out, [0, 1, 1])
 
         assemble_kernel_fp16_006(input_tensor, out_tensor)
 
@@ -246,7 +246,7 @@ class TestLiteNPUAssembleFP16(unittest.TestCase):
         input_tensor = torch.rand(shape_input, dtype=dtype, device=device)
         out_tensor = torch.rand(shape_out, dtype=dtype, device=device)
         golden_out = torch.zeros(shape_out, dtype=dtype, device=device)
-        torch_assemble(input_tensor, golden_out, [0, 0, 0, 0])
+        pypto_assemble_in_torch(input_tensor, golden_out, [0, 0, 0, 0])
 
         assemble_kernel_fp16_007(input_tensor, out_tensor)
 
@@ -263,7 +263,7 @@ class TestLiteNPUAssembleFP16(unittest.TestCase):
         input_tensor = torch.rand(shape_input, dtype=dtype, device=device)
         out_tensor = torch.rand(shape_out, dtype=dtype, device=device)
         golden_out = torch.zeros(shape_out, dtype=dtype, device=device)
-        torch_assemble(input_tensor, golden_out, [0])
+        pypto_assemble_in_torch(input_tensor, golden_out, [0])
 
         assemble_kernel_fp16_008(input_tensor, out_tensor)
 
@@ -280,7 +280,7 @@ class TestLiteNPUAssembleFP16(unittest.TestCase):
         input_tensor = torch.rand(shape_input, dtype=dtype, device=device)
         out_tensor = torch.rand(shape_out, dtype=dtype, device=device)
         golden_out = torch.zeros(shape_out, dtype=dtype, device=device)
-        torch_assemble(input_tensor, golden_out, [0, 0])
+        pypto_assemble_in_torch(input_tensor, golden_out, [0, 0])
 
         assemble_kernel_fp16_009(input_tensor, out_tensor)
 
@@ -299,7 +299,7 @@ class TestLiteNPUAssembleFP16(unittest.TestCase):
         input2 = torch.rand(shape_input2, dtype=dtype, device=device)
         out_tensor = torch.rand(shape_out, dtype=dtype, device=device)
         golden_out = torch.zeros(shape_out, dtype=dtype, device=device)
-        torch_assemble([(input1, [0, 0]), (input2, [2, 2])], golden_out)
+        pypto_assemble_in_torch([(input1, [0, 0]), (input2, [2, 2])], golden_out)
 
         assemble_kernel_fp16_010(input1, input2, out_tensor)
 
@@ -308,7 +308,7 @@ class TestLiteNPUAssembleFP16(unittest.TestCase):
         self.assertGreaterEqual(cos, 0.9999)
 
 
-@pypto.frontend.jit(codegen_options={"soc_version": "Kirin9030"}, runtime_options={"run_mode": pypto.RunMode.SIM})
+@pypto.frontend.jit(codegen_options={"soc_version": "Kirin9030"}, runtime_options={"run_mode": pypto.RunMode.NPU})
 def assemble_kernel_fp32(
     input_tensor: pypto.Tensor([...], pypto.DT_FP32),
     out_tensor: pypto.Tensor([...], pypto.DT_FP32),
@@ -317,7 +317,7 @@ def assemble_kernel_fp32(
     pypto.assemble(input_tensor, [0, 0], out_tensor)
 
 
-@pypto.frontend.jit(codegen_options={"soc_version": "Kirin9030"}, runtime_options={"run_mode": pypto.RunMode.SIM})
+@pypto.frontend.jit(codegen_options={"soc_version": "Kirin9030"}, runtime_options={"run_mode": pypto.RunMode.NPU})
 def assemble_kernel_fp32_002(
     input_tensor: pypto.Tensor([...], pypto.DT_FP32),
     out_tensor: pypto.Tensor([...], pypto.DT_FP32),
@@ -326,7 +326,7 @@ def assemble_kernel_fp32_002(
     pypto.assemble(input_tensor, [1, 1], out_tensor)
 
 
-@pypto.frontend.jit(codegen_options={"soc_version": "Kirin9030"}, runtime_options={"run_mode": pypto.RunMode.SIM})
+@pypto.frontend.jit(codegen_options={"soc_version": "Kirin9030"}, runtime_options={"run_mode": pypto.RunMode.NPU})
 def assemble_kernel_fp32_003(
     input_tensor: pypto.Tensor([...], pypto.DT_FP32),
     out_tensor: pypto.Tensor([...], pypto.DT_FP32),
@@ -335,7 +335,7 @@ def assemble_kernel_fp32_003(
     pypto.assemble(input_tensor, [0, 0, 0], out_tensor)
 
 
-@pypto.frontend.jit(codegen_options={"soc_version": "Kirin9030"}, runtime_options={"run_mode": pypto.RunMode.SIM})
+@pypto.frontend.jit(codegen_options={"soc_version": "Kirin9030"}, runtime_options={"run_mode": pypto.RunMode.NPU})
 def assemble_kernel_fp32_004(
     input_tensor: pypto.Tensor([...], pypto.DT_FP32),
     out_tensor: pypto.Tensor([...], pypto.DT_FP32),
@@ -344,7 +344,7 @@ def assemble_kernel_fp32_004(
     pypto.assemble(input_tensor, [1], out_tensor)
 
 
-@pypto.frontend.jit(codegen_options={"soc_version": "Kirin9030"}, runtime_options={"run_mode": pypto.RunMode.SIM})
+@pypto.frontend.jit(codegen_options={"soc_version": "Kirin9030"}, runtime_options={"run_mode": pypto.RunMode.NPU})
 def assemble_kernel_fp32_005(
     input_tensor: pypto.Tensor([...], pypto.DT_FP32),
     out_tensor: pypto.Tensor([...], pypto.DT_FP32),
@@ -353,7 +353,7 @@ def assemble_kernel_fp32_005(
     pypto.assemble(input_tensor, [0, 2], out_tensor)
 
 
-@pypto.frontend.jit(codegen_options={"soc_version": "Kirin9030"}, runtime_options={"run_mode": pypto.RunMode.SIM})
+@pypto.frontend.jit(codegen_options={"soc_version": "Kirin9030"}, runtime_options={"run_mode": pypto.RunMode.NPU})
 def assemble_kernel_fp32_006(
     input_tensor: pypto.Tensor([...], pypto.DT_FP32),
     out_tensor: pypto.Tensor([...], pypto.DT_FP32),
@@ -362,7 +362,7 @@ def assemble_kernel_fp32_006(
     pypto.assemble(input_tensor, [0, 1, 1], out_tensor)
 
 
-@pypto.frontend.jit(codegen_options={"soc_version": "Kirin9030"}, runtime_options={"run_mode": pypto.RunMode.SIM})
+@pypto.frontend.jit(codegen_options={"soc_version": "Kirin9030"}, runtime_options={"run_mode": pypto.RunMode.NPU})
 def assemble_kernel_fp32_007(
     input_tensor: pypto.Tensor([...], pypto.DT_FP32),
     out_tensor: pypto.Tensor([...], pypto.DT_FP32),
@@ -371,7 +371,7 @@ def assemble_kernel_fp32_007(
     pypto.assemble(input_tensor, [0, 0, 0, 0], out_tensor)
 
 
-@pypto.frontend.jit(codegen_options={"soc_version": "Kirin9030"}, runtime_options={"run_mode": pypto.RunMode.SIM})
+@pypto.frontend.jit(codegen_options={"soc_version": "Kirin9030"}, runtime_options={"run_mode": pypto.RunMode.NPU})
 def assemble_kernel_fp32_008(
     input_tensor: pypto.Tensor([...], pypto.DT_FP32),
     out_tensor: pypto.Tensor([...], pypto.DT_FP32),
@@ -380,7 +380,7 @@ def assemble_kernel_fp32_008(
     pypto.assemble(input_tensor, [0], out_tensor)
 
 
-@pypto.frontend.jit(codegen_options={"soc_version": "Kirin9030"}, runtime_options={"run_mode": pypto.RunMode.SIM})
+@pypto.frontend.jit(codegen_options={"soc_version": "Kirin9030"}, runtime_options={"run_mode": pypto.RunMode.NPU})
 def assemble_kernel_fp32_009(
     input_tensor: pypto.Tensor([...], pypto.DT_FP32),
     out_tensor: pypto.Tensor([...], pypto.DT_FP32),
@@ -389,7 +389,7 @@ def assemble_kernel_fp32_009(
     pypto.assemble(input_tensor, [0, 0], out_tensor)
 
 
-@pypto.frontend.jit(codegen_options={"soc_version": "Kirin9030"}, runtime_options={"run_mode": pypto.RunMode.SIM})
+@pypto.frontend.jit(codegen_options={"soc_version": "Kirin9030"}, runtime_options={"run_mode": pypto.RunMode.NPU})
 def assemble_kernel_fp32_010(
     input1: pypto.Tensor([...], pypto.DT_FP32),
     input2: pypto.Tensor([...], pypto.DT_FP32),
@@ -409,7 +409,7 @@ class TestLiteNPUAssembleFP32(unittest.TestCase):
         input_tensor = torch.rand(shape_input, dtype=dtype, device=device)
         out_tensor = torch.rand(shape_out, dtype=dtype, device=device)
         golden_out = torch.zeros(shape_out, dtype=dtype, device=device)
-        torch_assemble(input_tensor, golden_out, [0, 0])
+        pypto_assemble_in_torch(input_tensor, golden_out, [0, 0])
 
         assemble_kernel_fp32(input_tensor, out_tensor)
 
@@ -426,7 +426,7 @@ class TestLiteNPUAssembleFP32(unittest.TestCase):
         input_tensor = torch.rand(shape_input, dtype=dtype, device=device)
         out_tensor = torch.rand(shape_out, dtype=dtype, device=device)
         golden_out = torch.zeros(shape_out, dtype=dtype, device=device)
-        torch_assemble(input_tensor, golden_out, [1, 1])
+        pypto_assemble_in_torch(input_tensor, golden_out, [1, 1])
 
         assemble_kernel_fp32_002(input_tensor, out_tensor)
 
@@ -443,7 +443,7 @@ class TestLiteNPUAssembleFP32(unittest.TestCase):
         input_tensor = torch.rand(shape_input, dtype=dtype, device=device)
         out_tensor = torch.rand(shape_out, dtype=dtype, device=device)
         golden_out = torch.zeros(shape_out, dtype=dtype, device=device)
-        torch_assemble(input_tensor, golden_out, [0, 0, 0])
+        pypto_assemble_in_torch(input_tensor, golden_out, [0, 0, 0])
 
         assemble_kernel_fp32_003(input_tensor, out_tensor)
 
@@ -460,7 +460,7 @@ class TestLiteNPUAssembleFP32(unittest.TestCase):
         input_tensor = torch.rand(shape_input, dtype=dtype, device=device)
         out_tensor = torch.rand(shape_out, dtype=dtype, device=device)
         golden_out = torch.zeros(shape_out, dtype=dtype, device=device)
-        torch_assemble(input_tensor, golden_out, [1])
+        pypto_assemble_in_torch(input_tensor, golden_out, [1])
 
         assemble_kernel_fp32_004(input_tensor, out_tensor)
 
@@ -477,7 +477,7 @@ class TestLiteNPUAssembleFP32(unittest.TestCase):
         input_tensor = torch.rand(shape_input, dtype=dtype, device=device)
         out_tensor = torch.rand(shape_out, dtype=dtype, device=device)
         golden_out = torch.zeros(shape_out, dtype=dtype, device=device)
-        torch_assemble(input_tensor, golden_out, [0, 2])
+        pypto_assemble_in_torch(input_tensor, golden_out, [0, 2])
 
         assemble_kernel_fp32_005(input_tensor, out_tensor)
 
@@ -494,7 +494,7 @@ class TestLiteNPUAssembleFP32(unittest.TestCase):
         input_tensor = torch.rand(shape_input, dtype=dtype, device=device)
         out_tensor = torch.rand(shape_out, dtype=dtype, device=device)
         golden_out = torch.zeros(shape_out, dtype=dtype, device=device)
-        torch_assemble(input_tensor, golden_out, [0, 1, 1])
+        pypto_assemble_in_torch(input_tensor, golden_out, [0, 1, 1])
 
         assemble_kernel_fp32_006(input_tensor, out_tensor)
 
@@ -511,7 +511,7 @@ class TestLiteNPUAssembleFP32(unittest.TestCase):
         input_tensor = torch.rand(shape_input, dtype=dtype, device=device)
         out_tensor = torch.rand(shape_out, dtype=dtype, device=device)
         golden_out = torch.zeros(shape_out, dtype=dtype, device=device)
-        torch_assemble(input_tensor, golden_out, [0, 0, 0, 0])
+        pypto_assemble_in_torch(input_tensor, golden_out, [0, 0, 0, 0])
 
         assemble_kernel_fp32_007(input_tensor, out_tensor)
 
@@ -528,7 +528,7 @@ class TestLiteNPUAssembleFP32(unittest.TestCase):
         input_tensor = torch.rand(shape_input, dtype=dtype, device=device)
         out_tensor = torch.rand(shape_out, dtype=dtype, device=device)
         golden_out = torch.zeros(shape_out, dtype=dtype, device=device)
-        torch_assemble(input_tensor, golden_out, [0])
+        pypto_assemble_in_torch(input_tensor, golden_out, [0])
 
         assemble_kernel_fp32_008(input_tensor, out_tensor)
 
@@ -545,7 +545,7 @@ class TestLiteNPUAssembleFP32(unittest.TestCase):
         input_tensor = torch.rand(shape_input, dtype=dtype, device=device)
         out_tensor = torch.rand(shape_out, dtype=dtype, device=device)
         golden_out = torch.zeros(shape_out, dtype=dtype, device=device)
-        torch_assemble(input_tensor, golden_out, [0, 0])
+        pypto_assemble_in_torch(input_tensor, golden_out, [0, 0])
 
         assemble_kernel_fp32_009(input_tensor, out_tensor)
 
@@ -564,7 +564,7 @@ class TestLiteNPUAssembleFP32(unittest.TestCase):
         input2 = torch.rand(shape_input2, dtype=dtype, device=device)
         out_tensor = torch.rand(shape_out, dtype=dtype, device=device)
         golden_out = torch.zeros(shape_out, dtype=dtype, device=device)
-        torch_assemble([(input1, [0, 0]), (input2, [2, 2])], golden_out)
+        pypto_assemble_in_torch([(input1, [0, 0]), (input2, [2, 2])], golden_out)
 
         assemble_kernel_fp32_010(input1, input2, out_tensor)
 
@@ -573,7 +573,7 @@ class TestLiteNPUAssembleFP32(unittest.TestCase):
         self.assertGreaterEqual(cos, 0.9999)
 
 
-@pypto.frontend.jit(codegen_options={"soc_version": "Kirin9030"}, runtime_options={"run_mode": pypto.RunMode.SIM})
+@pypto.frontend.jit(codegen_options={"soc_version": "Kirin9030"}, runtime_options={"run_mode": pypto.RunMode.NPU})
 def assemble_kernel_int8(
     input_tensor: pypto.Tensor([...], pypto.DT_INT8),
     out_tensor: pypto.Tensor([...], pypto.DT_INT8),
@@ -582,7 +582,7 @@ def assemble_kernel_int8(
     pypto.assemble(input_tensor, [0, 0], out_tensor)
 
 
-@pypto.frontend.jit(codegen_options={"soc_version": "Kirin9030"}, runtime_options={"run_mode": pypto.RunMode.SIM})
+@pypto.frontend.jit(codegen_options={"soc_version": "Kirin9030"}, runtime_options={"run_mode": pypto.RunMode.NPU})
 def assemble_kernel_int8_002(
     input_tensor: pypto.Tensor([...], pypto.DT_INT8),
     out_tensor: pypto.Tensor([...], pypto.DT_INT8),
@@ -591,7 +591,7 @@ def assemble_kernel_int8_002(
     pypto.assemble(input_tensor, [1, 1], out_tensor)
 
 
-@pypto.frontend.jit(codegen_options={"soc_version": "Kirin9030"}, runtime_options={"run_mode": pypto.RunMode.SIM})
+@pypto.frontend.jit(codegen_options={"soc_version": "Kirin9030"}, runtime_options={"run_mode": pypto.RunMode.NPU})
 def assemble_kernel_int8_003(
     input_tensor: pypto.Tensor([...], pypto.DT_INT8),
     out_tensor: pypto.Tensor([...], pypto.DT_INT8),
@@ -600,7 +600,7 @@ def assemble_kernel_int8_003(
     pypto.assemble(input_tensor, [1], out_tensor)
 
 
-@pypto.frontend.jit(codegen_options={"soc_version": "Kirin9030"}, runtime_options={"run_mode": pypto.RunMode.SIM})
+@pypto.frontend.jit(codegen_options={"soc_version": "Kirin9030"}, runtime_options={"run_mode": pypto.RunMode.NPU})
 def assemble_kernel_int8_004(
     input_tensor: pypto.Tensor([...], pypto.DT_INT8),
     out_tensor: pypto.Tensor([...], pypto.DT_INT8),
@@ -609,7 +609,7 @@ def assemble_kernel_int8_004(
     pypto.assemble(input_tensor, [0, 2], out_tensor)
 
 
-@pypto.frontend.jit(codegen_options={"soc_version": "Kirin9030"}, runtime_options={"run_mode": pypto.RunMode.SIM})
+@pypto.frontend.jit(codegen_options={"soc_version": "Kirin9030"}, runtime_options={"run_mode": pypto.RunMode.NPU})
 def assemble_kernel_int8_005(
     input1: pypto.Tensor([...], pypto.DT_INT8),
     input2: pypto.Tensor([...], pypto.DT_INT8),
@@ -629,7 +629,7 @@ class TestLiteNPUAssembleInt8(unittest.TestCase):
         input_tensor = torch.randint(0, 100, shape_input, dtype=dtype, device=device)
         out_tensor = torch.randint(0, 100, shape_out, dtype=dtype, device=device)
         golden_out = torch.zeros(shape_out, dtype=dtype, device=device)
-        torch_assemble(input_tensor, golden_out, [0, 0])
+        pypto_assemble_in_torch(input_tensor, golden_out, [0, 0])
 
         assemble_kernel_int8(input_tensor, out_tensor)
 
@@ -646,7 +646,7 @@ class TestLiteNPUAssembleInt8(unittest.TestCase):
         input_tensor = torch.randint(0, 100, shape_input, dtype=dtype, device=device)
         out_tensor = torch.randint(0, 100, shape_out, dtype=dtype, device=device)
         golden_out = torch.zeros(shape_out, dtype=dtype, device=device)
-        torch_assemble(input_tensor, golden_out, [1, 1])
+        pypto_assemble_in_torch(input_tensor, golden_out, [1, 1])
 
         assemble_kernel_int8_002(input_tensor, out_tensor)
 
@@ -663,7 +663,7 @@ class TestLiteNPUAssembleInt8(unittest.TestCase):
         input_tensor = torch.randint(0, 100, shape_input, dtype=dtype, device=device)
         out_tensor = torch.randint(0, 100, shape_out, dtype=dtype, device=device)
         golden_out = torch.zeros(shape_out, dtype=dtype, device=device)
-        torch_assemble(input_tensor, golden_out, [1])
+        pypto_assemble_in_torch(input_tensor, golden_out, [1])
 
         assemble_kernel_int8_003(input_tensor, out_tensor)
 
@@ -680,7 +680,7 @@ class TestLiteNPUAssembleInt8(unittest.TestCase):
         input_tensor = torch.randint(0, 100, shape_input, dtype=dtype, device=device)
         out_tensor = torch.randint(0, 100, shape_out, dtype=dtype, device=device)
         golden_out = torch.zeros(shape_out, dtype=dtype, device=device)
-        torch_assemble(input_tensor, golden_out, [0, 2])
+        pypto_assemble_in_torch(input_tensor, golden_out, [0, 2])
 
         assemble_kernel_int8_004(input_tensor, out_tensor)
 
@@ -699,7 +699,7 @@ class TestLiteNPUAssembleInt8(unittest.TestCase):
         input2 = torch.randint(0, 100, shape_input2, dtype=dtype, device=device)
         out_tensor = torch.randint(0, 100, shape_out, dtype=dtype, device=device)
         golden_out = torch.zeros(shape_out, dtype=dtype, device=device)
-        torch_assemble([(input1, [0, 0]), (input2, [2, 2])], golden_out)
+        pypto_assemble_in_torch([(input1, [0, 0]), (input2, [2, 2])], golden_out)
 
         assemble_kernel_int8_005(input1, input2, out_tensor)
 
@@ -708,7 +708,7 @@ class TestLiteNPUAssembleInt8(unittest.TestCase):
         self.assertGreaterEqual(cos, 0.9999)
 
 
-@pypto.frontend.jit(codegen_options={"soc_version": "Kirin9030"}, runtime_options={"run_mode": pypto.RunMode.SIM})
+@pypto.frontend.jit(codegen_options={"soc_version": "Kirin9030"}, runtime_options={"run_mode": pypto.RunMode.NPU})
 def assemble_kernel_int16(
     input_tensor: pypto.Tensor([...], pypto.DT_INT16),
     out_tensor: pypto.Tensor([...], pypto.DT_INT16),
@@ -717,7 +717,7 @@ def assemble_kernel_int16(
     pypto.assemble(input_tensor, [0, 0], out_tensor)
 
 
-@pypto.frontend.jit(codegen_options={"soc_version": "Kirin9030"}, runtime_options={"run_mode": pypto.RunMode.SIM})
+@pypto.frontend.jit(codegen_options={"soc_version": "Kirin9030"}, runtime_options={"run_mode": pypto.RunMode.NPU})
 def assemble_kernel_int16_002(
     input_tensor: pypto.Tensor([...], pypto.DT_INT16),
     out_tensor: pypto.Tensor([...], pypto.DT_INT16),
@@ -726,7 +726,7 @@ def assemble_kernel_int16_002(
     pypto.assemble(input_tensor, [1, 1], out_tensor)
 
 
-@pypto.frontend.jit(codegen_options={"soc_version": "Kirin9030"}, runtime_options={"run_mode": pypto.RunMode.SIM})
+@pypto.frontend.jit(codegen_options={"soc_version": "Kirin9030"}, runtime_options={"run_mode": pypto.RunMode.NPU})
 def assemble_kernel_int16_003(
     input_tensor: pypto.Tensor([...], pypto.DT_INT16),
     out_tensor: pypto.Tensor([...], pypto.DT_INT16),
@@ -735,7 +735,7 @@ def assemble_kernel_int16_003(
     pypto.assemble(input_tensor, [1], out_tensor)
 
 
-@pypto.frontend.jit(codegen_options={"soc_version": "Kirin9030"}, runtime_options={"run_mode": pypto.RunMode.SIM})
+@pypto.frontend.jit(codegen_options={"soc_version": "Kirin9030"}, runtime_options={"run_mode": pypto.RunMode.NPU})
 def assemble_kernel_int16_004(
     input_tensor: pypto.Tensor([...], pypto.DT_INT16),
     out_tensor: pypto.Tensor([...], pypto.DT_INT16),
@@ -744,7 +744,7 @@ def assemble_kernel_int16_004(
     pypto.assemble(input_tensor, [0, 2], out_tensor)
 
 
-@pypto.frontend.jit(codegen_options={"soc_version": "Kirin9030"}, runtime_options={"run_mode": pypto.RunMode.SIM})
+@pypto.frontend.jit(codegen_options={"soc_version": "Kirin9030"}, runtime_options={"run_mode": pypto.RunMode.NPU})
 def assemble_kernel_int16_005(
     input1: pypto.Tensor([...], pypto.DT_INT16),
     input2: pypto.Tensor([...], pypto.DT_INT16),
@@ -764,7 +764,7 @@ class TestLiteNPUAssembleInt16(unittest.TestCase):
         input_tensor = torch.randint(0, 100, shape_input, dtype=dtype, device=device)
         out_tensor = torch.randint(0, 100, shape_out, dtype=dtype, device=device)
         golden_out = torch.zeros(shape_out, dtype=dtype, device=device)
-        torch_assemble(input_tensor, golden_out, [0, 0])
+        pypto_assemble_in_torch(input_tensor, golden_out, [0, 0])
 
         assemble_kernel_int16(input_tensor, out_tensor)
 
@@ -781,7 +781,7 @@ class TestLiteNPUAssembleInt16(unittest.TestCase):
         input_tensor = torch.randint(0, 100, shape_input, dtype=dtype, device=device)
         out_tensor = torch.randint(0, 100, shape_out, dtype=dtype, device=device)
         golden_out = torch.zeros(shape_out, dtype=dtype, device=device)
-        torch_assemble(input_tensor, golden_out, [1, 1])
+        pypto_assemble_in_torch(input_tensor, golden_out, [1, 1])
 
         assemble_kernel_int16_002(input_tensor, out_tensor)
 
@@ -798,7 +798,7 @@ class TestLiteNPUAssembleInt16(unittest.TestCase):
         input_tensor = torch.randint(0, 100, shape_input, dtype=dtype, device=device)
         out_tensor = torch.randint(0, 100, shape_out, dtype=dtype, device=device)
         golden_out = torch.zeros(shape_out, dtype=dtype, device=device)
-        torch_assemble(input_tensor, golden_out, [1])
+        pypto_assemble_in_torch(input_tensor, golden_out, [1])
 
         assemble_kernel_int16_003(input_tensor, out_tensor)
 
@@ -815,7 +815,7 @@ class TestLiteNPUAssembleInt16(unittest.TestCase):
         input_tensor = torch.randint(0, 100, shape_input, dtype=dtype, device=device)
         out_tensor = torch.randint(0, 100, shape_out, dtype=dtype, device=device)
         golden_out = torch.zeros(shape_out, dtype=dtype, device=device)
-        torch_assemble(input_tensor, golden_out, [0, 2])
+        pypto_assemble_in_torch(input_tensor, golden_out, [0, 2])
 
         assemble_kernel_int16_004(input_tensor, out_tensor)
 
@@ -834,7 +834,7 @@ class TestLiteNPUAssembleInt16(unittest.TestCase):
         input2 = torch.randint(0, 100, shape_input2, dtype=dtype, device=device)
         out_tensor = torch.randint(0, 100, shape_out, dtype=dtype, device=device)
         golden_out = torch.zeros(shape_out, dtype=dtype, device=device)
-        torch_assemble([(input1, [0, 0]), (input2, [2, 2])], golden_out)
+        pypto_assemble_in_torch([(input1, [0, 0]), (input2, [2, 2])], golden_out)
 
         assemble_kernel_int16_005(input1, input2, out_tensor)
 
@@ -843,7 +843,7 @@ class TestLiteNPUAssembleInt16(unittest.TestCase):
         self.assertGreaterEqual(cos, 0.9999)
 
 
-@pypto.frontend.jit(codegen_options={"soc_version": "Kirin9030"}, runtime_options={"run_mode": pypto.RunMode.SIM})
+@pypto.frontend.jit(codegen_options={"soc_version": "Kirin9030"}, runtime_options={"run_mode": pypto.RunMode.NPU})
 def assemble_kernel_int32(
     input_tensor: pypto.Tensor([...], pypto.DT_INT32),
     out_tensor: pypto.Tensor([...], pypto.DT_INT32),
@@ -852,7 +852,7 @@ def assemble_kernel_int32(
     pypto.assemble(input_tensor, [0, 0], out_tensor)
 
 
-@pypto.frontend.jit(codegen_options={"soc_version": "Kirin9030"}, runtime_options={"run_mode": pypto.RunMode.SIM})
+@pypto.frontend.jit(codegen_options={"soc_version": "Kirin9030"}, runtime_options={"run_mode": pypto.RunMode.NPU})
 def assemble_kernel_int32_002(
     input_tensor: pypto.Tensor([...], pypto.DT_INT32),
     out_tensor: pypto.Tensor([...], pypto.DT_INT32),
@@ -861,7 +861,7 @@ def assemble_kernel_int32_002(
     pypto.assemble(input_tensor, [1, 1], out_tensor)
 
 
-@pypto.frontend.jit(codegen_options={"soc_version": "Kirin9030"}, runtime_options={"run_mode": pypto.RunMode.SIM})
+@pypto.frontend.jit(codegen_options={"soc_version": "Kirin9030"}, runtime_options={"run_mode": pypto.RunMode.NPU})
 def assemble_kernel_int32_003(
     input_tensor: pypto.Tensor([...], pypto.DT_INT32),
     out_tensor: pypto.Tensor([...], pypto.DT_INT32),
@@ -870,7 +870,7 @@ def assemble_kernel_int32_003(
     pypto.assemble(input_tensor, [1], out_tensor)
 
 
-@pypto.frontend.jit(codegen_options={"soc_version": "Kirin9030"}, runtime_options={"run_mode": pypto.RunMode.SIM})
+@pypto.frontend.jit(codegen_options={"soc_version": "Kirin9030"}, runtime_options={"run_mode": pypto.RunMode.NPU})
 def assemble_kernel_int32_004(
     input_tensor: pypto.Tensor([...], pypto.DT_INT32),
     out_tensor: pypto.Tensor([...], pypto.DT_INT32),
@@ -879,7 +879,7 @@ def assemble_kernel_int32_004(
     pypto.assemble(input_tensor, [0, 2], out_tensor)
 
 
-@pypto.frontend.jit(codegen_options={"soc_version": "Kirin9030"}, runtime_options={"run_mode": pypto.RunMode.SIM})
+@pypto.frontend.jit(codegen_options={"soc_version": "Kirin9030"}, runtime_options={"run_mode": pypto.RunMode.NPU})
 def assemble_kernel_int32_005(
     input1: pypto.Tensor([...], pypto.DT_INT32),
     input2: pypto.Tensor([...], pypto.DT_INT32),
@@ -899,7 +899,7 @@ class TestLiteNPUAssembleInt32(unittest.TestCase):
         input_tensor = torch.randint(0, 100, shape_input, dtype=dtype, device=device)
         out_tensor = torch.randint(0, 100, shape_out, dtype=dtype, device=device)
         golden_out = torch.zeros(shape_out, dtype=dtype, device=device)
-        torch_assemble(input_tensor, golden_out, [0, 0])
+        pypto_assemble_in_torch(input_tensor, golden_out, [0, 0])
 
         assemble_kernel_int32(input_tensor, out_tensor)
 
@@ -916,7 +916,7 @@ class TestLiteNPUAssembleInt32(unittest.TestCase):
         input_tensor = torch.randint(0, 100, shape_input, dtype=dtype, device=device)
         out_tensor = torch.randint(0, 100, shape_out, dtype=dtype, device=device)
         golden_out = torch.zeros(shape_out, dtype=dtype, device=device)
-        torch_assemble(input_tensor, golden_out, [1, 1])
+        pypto_assemble_in_torch(input_tensor, golden_out, [1, 1])
 
         assemble_kernel_int32_002(input_tensor, out_tensor)
 
@@ -933,7 +933,7 @@ class TestLiteNPUAssembleInt32(unittest.TestCase):
         input_tensor = torch.randint(0, 100, shape_input, dtype=dtype, device=device)
         out_tensor = torch.randint(0, 100, shape_out, dtype=dtype, device=device)
         golden_out = torch.zeros(shape_out, dtype=dtype, device=device)
-        torch_assemble(input_tensor, golden_out, [1])
+        pypto_assemble_in_torch(input_tensor, golden_out, [1])
 
         assemble_kernel_int32_003(input_tensor, out_tensor)
 
@@ -950,7 +950,7 @@ class TestLiteNPUAssembleInt32(unittest.TestCase):
         input_tensor = torch.randint(0, 100, shape_input, dtype=dtype, device=device)
         out_tensor = torch.randint(0, 100, shape_out, dtype=dtype, device=device)
         golden_out = torch.zeros(shape_out, dtype=dtype, device=device)
-        torch_assemble(input_tensor, golden_out, [0, 2])
+        pypto_assemble_in_torch(input_tensor, golden_out, [0, 2])
 
         assemble_kernel_int32_004(input_tensor, out_tensor)
 
@@ -969,7 +969,7 @@ class TestLiteNPUAssembleInt32(unittest.TestCase):
         input2 = torch.randint(0, 100, shape_input2, dtype=dtype, device=device)
         out_tensor = torch.randint(0, 100, shape_out, dtype=dtype, device=device)
         golden_out = torch.zeros(shape_out, dtype=dtype, device=device)
-        torch_assemble([(input1, [0, 0]), (input2, [2, 2])], golden_out)
+        pypto_assemble_in_torch([(input1, [0, 0]), (input2, [2, 2])], golden_out)
 
         assemble_kernel_int32_005(input1, input2, out_tensor)
 
@@ -978,7 +978,7 @@ class TestLiteNPUAssembleInt32(unittest.TestCase):
         self.assertGreaterEqual(cos, 0.9999)
 
 
-@pypto.frontend.jit(codegen_options={"soc_version": "Kirin9030"}, runtime_options={"run_mode": pypto.RunMode.SIM})
+@pypto.frontend.jit(codegen_options={"soc_version": "Kirin9030"}, runtime_options={"run_mode": pypto.RunMode.NPU})
 def assemble_kernel_list_fp32_001(
     input1: pypto.Tensor([...], pypto.DT_FP32),
     input2: pypto.Tensor([...], pypto.DT_FP32),
@@ -988,7 +988,7 @@ def assemble_kernel_list_fp32_001(
     pypto.assemble([(input1, [0, 0]), (input2, [2, 2])], out_tensor, False)
 
 
-@pypto.frontend.jit(codegen_options={"soc_version": "Kirin9030"}, runtime_options={"run_mode": pypto.RunMode.SIM})
+@pypto.frontend.jit(codegen_options={"soc_version": "Kirin9030"}, runtime_options={"run_mode": pypto.RunMode.NPU})
 def assemble_kernel_list_fp32_002(
     input1: pypto.Tensor([...], pypto.DT_FP32),
     input2: pypto.Tensor([...], pypto.DT_FP32),
@@ -998,7 +998,7 @@ def assemble_kernel_list_fp32_002(
     pypto.assemble([(input1, [1]), (input2, [3])], out_tensor, False)
 
 
-@pypto.frontend.jit(codegen_options={"soc_version": "Kirin9030"}, runtime_options={"run_mode": pypto.RunMode.SIM})
+@pypto.frontend.jit(codegen_options={"soc_version": "Kirin9030"}, runtime_options={"run_mode": pypto.RunMode.NPU})
 def assemble_kernel_list_fp32_003(
     input1: pypto.Tensor([...], pypto.DT_FP32),
     input2: pypto.Tensor([...], pypto.DT_FP32),
@@ -1008,7 +1008,7 @@ def assemble_kernel_list_fp32_003(
     pypto.assemble([(input1, [0, 0, 0]), (input2, [1, 1, 1])], out_tensor, False)
 
 
-@pypto.frontend.jit(codegen_options={"soc_version": "Kirin9030"}, runtime_options={"run_mode": pypto.RunMode.SIM})
+@pypto.frontend.jit(codegen_options={"soc_version": "Kirin9030"}, runtime_options={"run_mode": pypto.RunMode.NPU})
 def assemble_kernel_list_multi_shape_001(
     input1: pypto.Tensor([...], pypto.DT_FP32),
     input2: pypto.Tensor([...], pypto.DT_FP32),
@@ -1018,7 +1018,7 @@ def assemble_kernel_list_multi_shape_001(
     pypto.assemble([(input1, [0, 0]), (input2, [2, 2])], out_tensor, False)
 
 
-@pypto.frontend.jit(codegen_options={"soc_version": "Kirin9030"}, runtime_options={"run_mode": pypto.RunMode.SIM})
+@pypto.frontend.jit(codegen_options={"soc_version": "Kirin9030"}, runtime_options={"run_mode": pypto.RunMode.NPU})
 def assemble_kernel_list_multi_shape_002(
     input1: pypto.Tensor([...], pypto.DT_FP32),
     input2: pypto.Tensor([...], pypto.DT_FP32),
@@ -1028,7 +1028,7 @@ def assemble_kernel_list_multi_shape_002(
     pypto.assemble([(input1, [0, 0]), (input2, [2, 0])], out_tensor, False)
 
 
-@pypto.frontend.jit(codegen_options={"soc_version": "Kirin9030"}, runtime_options={"run_mode": pypto.RunMode.SIM})
+@pypto.frontend.jit(codegen_options={"soc_version": "Kirin9030"}, runtime_options={"run_mode": pypto.RunMode.NPU})
 def assemble_kernel_list_multi_shape_003(
     input1: pypto.Tensor([...], pypto.DT_FP32),
     input2: pypto.Tensor([...], pypto.DT_FP32),
@@ -1050,7 +1050,7 @@ class TestLiteNPUAssembleList(unittest.TestCase):
         input2 = torch.rand(shape_input2, dtype=dtype, device=device)
         out_tensor = torch.rand(shape_out, dtype=dtype, device=device)
         golden_out = torch.zeros(shape_out, dtype=dtype, device=device)
-        torch_assemble([(input1, [0, 0]), (input2, [2, 2])], golden_out)
+        pypto_assemble_in_torch([(input1, [0, 0]), (input2, [2, 2])], golden_out)
 
         assemble_kernel_list_fp32_001(input1, input2, out_tensor)
 
@@ -1069,7 +1069,7 @@ class TestLiteNPUAssembleList(unittest.TestCase):
         input2 = torch.rand(shape_input2, dtype=dtype, device=device)
         out_tensor = torch.rand(shape_out, dtype=dtype, device=device)
         golden_out = torch.zeros(shape_out, dtype=dtype, device=device)
-        torch_assemble([(input1, [1]), (input2, [3])], golden_out)
+        pypto_assemble_in_torch([(input1, [1]), (input2, [3])], golden_out)
 
         assemble_kernel_list_fp32_002(input1, input2, out_tensor)
 
@@ -1088,7 +1088,7 @@ class TestLiteNPUAssembleList(unittest.TestCase):
         input2 = torch.rand(shape_input2, dtype=dtype, device=device)
         out_tensor = torch.rand(shape_out, dtype=dtype, device=device)
         golden_out = torch.zeros(shape_out, dtype=dtype, device=device)
-        torch_assemble([(input1, [0, 0, 0]), (input2, [1, 1, 1])], golden_out)
+        pypto_assemble_in_torch([(input1, [0, 0, 0]), (input2, [1, 1, 1])], golden_out)
 
         assemble_kernel_list_fp32_003(input1, input2, out_tensor)
 
@@ -1107,7 +1107,7 @@ class TestLiteNPUAssembleList(unittest.TestCase):
         input2 = torch.rand(shape_input2, dtype=dtype, device=device)
         out_tensor = torch.rand(shape_out, dtype=dtype, device=device)
         golden_out = torch.zeros(shape_out, dtype=dtype, device=device)
-        torch_assemble([(input1, [0, 0]), (input2, [2, 2])], golden_out)
+        pypto_assemble_in_torch([(input1, [0, 0]), (input2, [2, 2])], golden_out)
 
         assemble_kernel_list_multi_shape_001(input1, input2, out_tensor)
 
@@ -1126,7 +1126,7 @@ class TestLiteNPUAssembleList(unittest.TestCase):
         input2 = torch.rand(shape_input2, dtype=dtype, device=device)
         out_tensor = torch.rand(shape_out, dtype=dtype, device=device)
         golden_out = torch.zeros(shape_out, dtype=dtype, device=device)
-        torch_assemble([(input1, [0, 0]), (input2, [2, 0])], golden_out)
+        pypto_assemble_in_torch([(input1, [0, 0]), (input2, [2, 0])], golden_out)
 
         assemble_kernel_list_multi_shape_002(input1, input2, out_tensor)
 
@@ -1145,7 +1145,7 @@ class TestLiteNPUAssembleList(unittest.TestCase):
         input2 = torch.rand(shape_input2, dtype=dtype, device=device)
         out_tensor = torch.rand(shape_out, dtype=dtype, device=device)
         golden_out = torch.zeros(shape_out, dtype=dtype, device=device)
-        torch_assemble([(input1, [0, 0]), (input2, [2, 0])], golden_out)
+        pypto_assemble_in_torch([(input1, [0, 0]), (input2, [2, 0])], golden_out)
 
         assemble_kernel_list_multi_shape_003(input1, input2, out_tensor)
 

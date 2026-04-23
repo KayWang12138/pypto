@@ -29,7 +29,7 @@ def compare_cos(a, b):
     return dot_product / (norm_a * norm_b)
 
 
-@pypto.frontend.jit(codegen_options={"soc_version": "Kirin9030"}, runtime_options={"run_mode": pypto.RunMode.SIM})
+@pypto.frontend.jit(codegen_options={"soc_version": "Kirin9030"}, runtime_options={"run_mode": pypto.RunMode.NPU})
 def unsqueeze_kernel_fp16(
     input_tensor: pypto.Tensor([...], pypto.DT_FP16),
     out_tensor: pypto.Tensor([...], pypto.DT_FP16),
@@ -38,7 +38,7 @@ def unsqueeze_kernel_fp16(
     out_tensor[:] = pypto.unsqueeze(input_tensor, 0)
 
 
-@pypto.frontend.jit(codegen_options={"soc_version": "Kirin9030"}, runtime_options={"run_mode": pypto.RunMode.SIM})
+@pypto.frontend.jit(codegen_options={"soc_version": "Kirin9030"}, runtime_options={"run_mode": pypto.RunMode.NPU})
 def unsqueeze_kernel_fp16_002(
     input_tensor: pypto.Tensor([...], pypto.DT_FP16),
     out_tensor: pypto.Tensor([...], pypto.DT_FP16),
@@ -47,7 +47,7 @@ def unsqueeze_kernel_fp16_002(
     out_tensor[:] = pypto.unsqueeze(input_tensor, 0)
 
 
-@pypto.frontend.jit(codegen_options={"soc_version": "Kirin9030"}, runtime_options={"run_mode": pypto.RunMode.SIM})
+@pypto.frontend.jit(codegen_options={"soc_version": "Kirin9030"}, runtime_options={"run_mode": pypto.RunMode.NPU})
 def unsqueeze_kernel_fp16_003(
     input_tensor: pypto.Tensor([...], pypto.DT_FP16),
     out_tensor: pypto.Tensor([...], pypto.DT_FP16),
@@ -56,7 +56,7 @@ def unsqueeze_kernel_fp16_003(
     out_tensor[:] = pypto.unsqueeze(input_tensor, 1)
 
 
-@pypto.frontend.jit(codegen_options={"soc_version": "Kirin9030"}, runtime_options={"run_mode": pypto.RunMode.SIM})
+@pypto.frontend.jit(codegen_options={"soc_version": "Kirin9030"}, runtime_options={"run_mode": pypto.RunMode.NPU})
 def unsqueeze_kernel_fp16_004(
     input_tensor: pypto.Tensor([...], pypto.DT_FP16),
     out_tensor: pypto.Tensor([...], pypto.DT_FP16),
@@ -65,7 +65,7 @@ def unsqueeze_kernel_fp16_004(
     out_tensor[:] = pypto.unsqueeze(input_tensor, 2)
 
 
-@pypto.frontend.jit(codegen_options={"soc_version": "Kirin9030"}, runtime_options={"run_mode": pypto.RunMode.SIM})
+@pypto.frontend.jit(codegen_options={"soc_version": "Kirin9030"}, runtime_options={"run_mode": pypto.RunMode.NPU})
 def unsqueeze_kernel_fp16_005(
     input_tensor: pypto.Tensor([...], pypto.DT_FP16),
     out_tensor: pypto.Tensor([...], pypto.DT_FP16),
@@ -74,7 +74,7 @@ def unsqueeze_kernel_fp16_005(
     out_tensor[:] = pypto.unsqueeze(input_tensor, 3)
 
 
-@pypto.frontend.jit(codegen_options={"soc_version": "Kirin9030"}, runtime_options={"run_mode": pypto.RunMode.SIM})
+@pypto.frontend.jit(codegen_options={"soc_version": "Kirin9030"}, runtime_options={"run_mode": pypto.RunMode.NPU})
 def unsqueeze_kernel_fp16_006(
     input_tensor: pypto.Tensor([...], pypto.DT_FP16),
     out_tensor: pypto.Tensor([...], pypto.DT_FP16),
@@ -83,7 +83,7 @@ def unsqueeze_kernel_fp16_006(
     out_tensor[:] = pypto.unsqueeze(input_tensor, 0)
 
 
-@pypto.frontend.jit(codegen_options={"soc_version": "Kirin9030"}, runtime_options={"run_mode": pypto.RunMode.SIM})
+@pypto.frontend.jit(codegen_options={"soc_version": "Kirin9030"}, runtime_options={"run_mode": pypto.RunMode.NPU})
 def unsqueeze_kernel_fp16_007(
     input_tensor: pypto.Tensor([...], pypto.DT_FP16),
     out_tensor: pypto.Tensor([...], pypto.DT_FP16),
@@ -92,7 +92,7 @@ def unsqueeze_kernel_fp16_007(
     out_tensor[:] = pypto.unsqueeze(input_tensor, 0)
 
 
-@pypto.frontend.jit(codegen_options={"soc_version": "Kirin9030"}, runtime_options={"run_mode": pypto.RunMode.SIM})
+@pypto.frontend.jit(codegen_options={"soc_version": "Kirin9030"}, runtime_options={"run_mode": pypto.RunMode.NPU})
 def unsqueeze_kernel_fp16_008(
     input_tensor: pypto.Tensor([...], pypto.DT_FP16),
     out_tensor: pypto.Tensor([...], pypto.DT_FP16),
@@ -101,7 +101,7 @@ def unsqueeze_kernel_fp16_008(
     out_tensor[:] = pypto.unsqueeze(input_tensor, 1)
 
 
-@pypto.frontend.jit(codegen_options={"soc_version": "Kirin9030"}, runtime_options={"run_mode": pypto.RunMode.SIM})
+@pypto.frontend.jit(codegen_options={"soc_version": "Kirin9030"}, runtime_options={"run_mode": pypto.RunMode.NPU})
 def unsqueeze_kernel_fp16_009(
     input_tensor: pypto.Tensor([...], pypto.DT_FP16),
     out_tensor: pypto.Tensor([...], pypto.DT_FP16),
@@ -110,7 +110,7 @@ def unsqueeze_kernel_fp16_009(
     out_tensor[:] = pypto.unsqueeze(input_tensor, 4)
 
 
-@pypto.frontend.jit(codegen_options={"soc_version": "Kirin9030"}, runtime_options={"run_mode": pypto.RunMode.SIM})
+@pypto.frontend.jit(codegen_options={"soc_version": "Kirin9030"}, runtime_options={"run_mode": pypto.RunMode.NPU})
 def unsqueeze_kernel_fp16_010(
     input_tensor: pypto.Tensor([...], pypto.DT_FP16),
     out_tensor: pypto.Tensor([...], pypto.DT_FP16),
@@ -271,7 +271,7 @@ class TestLiteNPUUnsqueezeFP16(unittest.TestCase):
         self.assertGreaterEqual(cos_value, 0.9999)
 
 
-@pypto.frontend.jit(codegen_options={"soc_version": "Kirin9030"}, runtime_options={"run_mode": pypto.RunMode.SIM})
+@pypto.frontend.jit(codegen_options={"soc_version": "Kirin9030"}, runtime_options={"run_mode": pypto.RunMode.NPU})
 def unsqueeze_kernel_fp32(
     input_tensor: pypto.Tensor([...], pypto.DT_FP32),
     out_tensor: pypto.Tensor([...], pypto.DT_FP32),
@@ -280,7 +280,7 @@ def unsqueeze_kernel_fp32(
     out_tensor[:] = pypto.unsqueeze(input_tensor, 0)
 
 
-@pypto.frontend.jit(codegen_options={"soc_version": "Kirin9030"}, runtime_options={"run_mode": pypto.RunMode.SIM})
+@pypto.frontend.jit(codegen_options={"soc_version": "Kirin9030"}, runtime_options={"run_mode": pypto.RunMode.NPU})
 def unsqueeze_kernel_fp32_002(
     input_tensor: pypto.Tensor([...], pypto.DT_FP32),
     out_tensor: pypto.Tensor([...], pypto.DT_FP32),
@@ -289,7 +289,7 @@ def unsqueeze_kernel_fp32_002(
     out_tensor[:] = pypto.unsqueeze(input_tensor, 0)
 
 
-@pypto.frontend.jit(codegen_options={"soc_version": "Kirin9030"}, runtime_options={"run_mode": pypto.RunMode.SIM})
+@pypto.frontend.jit(codegen_options={"soc_version": "Kirin9030"}, runtime_options={"run_mode": pypto.RunMode.NPU})
 def unsqueeze_kernel_fp32_003(
     input_tensor: pypto.Tensor([...], pypto.DT_FP32),
     out_tensor: pypto.Tensor([...], pypto.DT_FP32),
@@ -298,7 +298,7 @@ def unsqueeze_kernel_fp32_003(
     out_tensor[:] = pypto.unsqueeze(input_tensor, 1)
 
 
-@pypto.frontend.jit(codegen_options={"soc_version": "Kirin9030"}, runtime_options={"run_mode": pypto.RunMode.SIM})
+@pypto.frontend.jit(codegen_options={"soc_version": "Kirin9030"}, runtime_options={"run_mode": pypto.RunMode.NPU})
 def unsqueeze_kernel_fp32_004(
     input_tensor: pypto.Tensor([...], pypto.DT_FP32),
     out_tensor: pypto.Tensor([...], pypto.DT_FP32),
@@ -307,7 +307,7 @@ def unsqueeze_kernel_fp32_004(
     out_tensor[:] = pypto.unsqueeze(input_tensor, 2)
 
 
-@pypto.frontend.jit(codegen_options={"soc_version": "Kirin9030"}, runtime_options={"run_mode": pypto.RunMode.SIM})
+@pypto.frontend.jit(codegen_options={"soc_version": "Kirin9030"}, runtime_options={"run_mode": pypto.RunMode.NPU})
 def unsqueeze_kernel_fp32_005(
     input_tensor: pypto.Tensor([...], pypto.DT_FP32),
     out_tensor: pypto.Tensor([...], pypto.DT_FP32),
@@ -316,7 +316,7 @@ def unsqueeze_kernel_fp32_005(
     out_tensor[:] = pypto.unsqueeze(input_tensor, 3)
 
 
-@pypto.frontend.jit(codegen_options={"soc_version": "Kirin9030"}, runtime_options={"run_mode": pypto.RunMode.SIM})
+@pypto.frontend.jit(codegen_options={"soc_version": "Kirin9030"}, runtime_options={"run_mode": pypto.RunMode.NPU})
 def unsqueeze_kernel_fp32_006(
     input_tensor: pypto.Tensor([...], pypto.DT_FP32),
     out_tensor: pypto.Tensor([...], pypto.DT_FP32),
@@ -325,7 +325,7 @@ def unsqueeze_kernel_fp32_006(
     out_tensor[:] = pypto.unsqueeze(input_tensor, 0)
 
 
-@pypto.frontend.jit(codegen_options={"soc_version": "Kirin9030"}, runtime_options={"run_mode": pypto.RunMode.SIM})
+@pypto.frontend.jit(codegen_options={"soc_version": "Kirin9030"}, runtime_options={"run_mode": pypto.RunMode.NPU})
 def unsqueeze_kernel_fp32_007(
     input_tensor: pypto.Tensor([...], pypto.DT_FP32),
     out_tensor: pypto.Tensor([...], pypto.DT_FP32),
@@ -334,7 +334,7 @@ def unsqueeze_kernel_fp32_007(
     out_tensor[:] = pypto.unsqueeze(input_tensor, 0)
 
 
-@pypto.frontend.jit(codegen_options={"soc_version": "Kirin9030"}, runtime_options={"run_mode": pypto.RunMode.SIM})
+@pypto.frontend.jit(codegen_options={"soc_version": "Kirin9030"}, runtime_options={"run_mode": pypto.RunMode.NPU})
 def unsqueeze_kernel_fp32_008(
     input_tensor: pypto.Tensor([...], pypto.DT_FP32),
     out_tensor: pypto.Tensor([...], pypto.DT_FP32),
@@ -343,7 +343,7 @@ def unsqueeze_kernel_fp32_008(
     out_tensor[:] = pypto.unsqueeze(input_tensor, 1)
 
 
-@pypto.frontend.jit(codegen_options={"soc_version": "Kirin9030"}, runtime_options={"run_mode": pypto.RunMode.SIM})
+@pypto.frontend.jit(codegen_options={"soc_version": "Kirin9030"}, runtime_options={"run_mode": pypto.RunMode.NPU})
 def unsqueeze_kernel_fp32_009(
     input_tensor: pypto.Tensor([...], pypto.DT_FP32),
     out_tensor: pypto.Tensor([...], pypto.DT_FP32),
@@ -352,7 +352,7 @@ def unsqueeze_kernel_fp32_009(
     out_tensor[:] = pypto.unsqueeze(input_tensor, 4)
 
 
-@pypto.frontend.jit(codegen_options={"soc_version": "Kirin9030"}, runtime_options={"run_mode": pypto.RunMode.SIM})
+@pypto.frontend.jit(codegen_options={"soc_version": "Kirin9030"}, runtime_options={"run_mode": pypto.RunMode.NPU})
 def unsqueeze_kernel_fp32_010(
     input_tensor: pypto.Tensor([...], pypto.DT_FP32),
     out_tensor: pypto.Tensor([...], pypto.DT_FP32),
@@ -513,7 +513,7 @@ class TestLiteNPUUnsqueezeFP32(unittest.TestCase):
         self.assertGreaterEqual(cos_value, 0.9999)
 
 
-@pypto.frontend.jit(codegen_options={"soc_version": "Kirin9030"}, runtime_options={"run_mode": pypto.RunMode.SIM})
+@pypto.frontend.jit(codegen_options={"soc_version": "Kirin9030"}, runtime_options={"run_mode": pypto.RunMode.NPU})
 def unsqueeze_kernel_int32(
     input_tensor: pypto.Tensor([...], pypto.DT_INT32),
     out_tensor: pypto.Tensor([...], pypto.DT_INT32),
@@ -522,7 +522,7 @@ def unsqueeze_kernel_int32(
     out_tensor[:] = pypto.unsqueeze(input_tensor, 0)
 
 
-@pypto.frontend.jit(codegen_options={"soc_version": "Kirin9030"}, runtime_options={"run_mode": pypto.RunMode.SIM})
+@pypto.frontend.jit(codegen_options={"soc_version": "Kirin9030"}, runtime_options={"run_mode": pypto.RunMode.NPU})
 def unsqueeze_kernel_int32_002(
     input_tensor: pypto.Tensor([...], pypto.DT_INT32),
     out_tensor: pypto.Tensor([...], pypto.DT_INT32),
@@ -531,7 +531,7 @@ def unsqueeze_kernel_int32_002(
     out_tensor[:] = pypto.unsqueeze(input_tensor, 0)
 
 
-@pypto.frontend.jit(codegen_options={"soc_version": "Kirin9030"}, runtime_options={"run_mode": pypto.RunMode.SIM})
+@pypto.frontend.jit(codegen_options={"soc_version": "Kirin9030"}, runtime_options={"run_mode": pypto.RunMode.NPU})
 def unsqueeze_kernel_int32_003(
     input_tensor: pypto.Tensor([...], pypto.DT_INT32),
     out_tensor: pypto.Tensor([...], pypto.DT_INT32),
@@ -540,7 +540,7 @@ def unsqueeze_kernel_int32_003(
     out_tensor[:] = pypto.unsqueeze(input_tensor, 2)
 
 
-@pypto.frontend.jit(codegen_options={"soc_version": "Kirin9030"}, runtime_options={"run_mode": pypto.RunMode.SIM})
+@pypto.frontend.jit(codegen_options={"soc_version": "Kirin9030"}, runtime_options={"run_mode": pypto.RunMode.NPU})
 def unsqueeze_kernel_int32_004(
     input_tensor: pypto.Tensor([...], pypto.DT_INT32),
     out_tensor: pypto.Tensor([...], pypto.DT_INT32),
@@ -549,7 +549,7 @@ def unsqueeze_kernel_int32_004(
     out_tensor[:] = pypto.unsqueeze(input_tensor, 0)
 
 
-@pypto.frontend.jit(codegen_options={"soc_version": "Kirin9030"}, runtime_options={"run_mode": pypto.RunMode.SIM})
+@pypto.frontend.jit(codegen_options={"soc_version": "Kirin9030"}, runtime_options={"run_mode": pypto.RunMode.NPU})
 def unsqueeze_kernel_int32_005(
     input_tensor: pypto.Tensor([...], pypto.DT_INT32),
     out_tensor: pypto.Tensor([...], pypto.DT_INT32),
@@ -635,7 +635,7 @@ class TestLiteNPUUnsqueezeInt32(unittest.TestCase):
         self.assertGreaterEqual(cos_value, 0.9999)
 
 
-@pypto.frontend.jit(codegen_options={"soc_version": "Kirin9030"}, runtime_options={"run_mode": pypto.RunMode.SIM})
+@pypto.frontend.jit(codegen_options={"soc_version": "Kirin9030"}, runtime_options={"run_mode": pypto.RunMode.NPU})
 def unsqueeze_kernel_int8(
     input_tensor: pypto.Tensor([...], pypto.DT_INT8),
     out_tensor: pypto.Tensor([...], pypto.DT_INT8),
@@ -644,7 +644,7 @@ def unsqueeze_kernel_int8(
     out_tensor[:] = pypto.unsqueeze(input_tensor, 0)
 
 
-@pypto.frontend.jit(codegen_options={"soc_version": "Kirin9030"}, runtime_options={"run_mode": pypto.RunMode.SIM})
+@pypto.frontend.jit(codegen_options={"soc_version": "Kirin9030"}, runtime_options={"run_mode": pypto.RunMode.NPU})
 def unsqueeze_kernel_int8_002(
     input_tensor: pypto.Tensor([...], pypto.DT_INT8),
     out_tensor: pypto.Tensor([...], pypto.DT_INT8),
@@ -653,7 +653,7 @@ def unsqueeze_kernel_int8_002(
     out_tensor[:] = pypto.unsqueeze(input_tensor, 0)
 
 
-@pypto.frontend.jit(codegen_options={"soc_version": "Kirin9030"}, runtime_options={"run_mode": pypto.RunMode.SIM})
+@pypto.frontend.jit(codegen_options={"soc_version": "Kirin9030"}, runtime_options={"run_mode": pypto.RunMode.NPU})
 def unsqueeze_kernel_int8_003(
     input_tensor: pypto.Tensor([...], pypto.DT_INT8),
     out_tensor: pypto.Tensor([...], pypto.DT_INT8),
@@ -662,7 +662,7 @@ def unsqueeze_kernel_int8_003(
     out_tensor[:] = pypto.unsqueeze(input_tensor, 2)
 
 
-@pypto.frontend.jit(codegen_options={"soc_version": "Kirin9030"}, runtime_options={"run_mode": pypto.RunMode.SIM})
+@pypto.frontend.jit(codegen_options={"soc_version": "Kirin9030"}, runtime_options={"run_mode": pypto.RunMode.NPU})
 def unsqueeze_kernel_int8_004(
     input_tensor: pypto.Tensor([...], pypto.DT_INT8),
     out_tensor: pypto.Tensor([...], pypto.DT_INT8),
@@ -671,7 +671,7 @@ def unsqueeze_kernel_int8_004(
     out_tensor[:] = pypto.unsqueeze(input_tensor, 0)
 
 
-@pypto.frontend.jit(codegen_options={"soc_version": "Kirin9030"}, runtime_options={"run_mode": pypto.RunMode.SIM})
+@pypto.frontend.jit(codegen_options={"soc_version": "Kirin9030"}, runtime_options={"run_mode": pypto.RunMode.NPU})
 def unsqueeze_kernel_int8_005(
     input_tensor: pypto.Tensor([...], pypto.DT_INT8),
     out_tensor: pypto.Tensor([...], pypto.DT_INT8),
@@ -757,7 +757,7 @@ class TestLiteNPUUnsqueezeInt8(unittest.TestCase):
         self.assertGreaterEqual(cos_value, 0.9999)
 
 
-@pypto.frontend.jit(codegen_options={"soc_version": "Kirin9030"}, runtime_options={"run_mode": pypto.RunMode.SIM})
+@pypto.frontend.jit(codegen_options={"soc_version": "Kirin9030"}, runtime_options={"run_mode": pypto.RunMode.NPU})
 def unsqueeze_kernel_int16(
     input_tensor: pypto.Tensor([...], pypto.DT_INT16),
     out_tensor: pypto.Tensor([...], pypto.DT_INT16),
@@ -766,7 +766,7 @@ def unsqueeze_kernel_int16(
     out_tensor[:] = pypto.unsqueeze(input_tensor, 0)
 
 
-@pypto.frontend.jit(codegen_options={"soc_version": "Kirin9030"}, runtime_options={"run_mode": pypto.RunMode.SIM})
+@pypto.frontend.jit(codegen_options={"soc_version": "Kirin9030"}, runtime_options={"run_mode": pypto.RunMode.NPU})
 def unsqueeze_kernel_int16_002(
     input_tensor: pypto.Tensor([...], pypto.DT_INT16),
     out_tensor: pypto.Tensor([...], pypto.DT_INT16),
@@ -775,7 +775,7 @@ def unsqueeze_kernel_int16_002(
     out_tensor[:] = pypto.unsqueeze(input_tensor, 0)
 
 
-@pypto.frontend.jit(codegen_options={"soc_version": "Kirin9030"}, runtime_options={"run_mode": pypto.RunMode.SIM})
+@pypto.frontend.jit(codegen_options={"soc_version": "Kirin9030"}, runtime_options={"run_mode": pypto.RunMode.NPU})
 def unsqueeze_kernel_int16_003(
     input_tensor: pypto.Tensor([...], pypto.DT_INT16),
     out_tensor: pypto.Tensor([...], pypto.DT_INT16),
@@ -784,7 +784,7 @@ def unsqueeze_kernel_int16_003(
     out_tensor[:] = pypto.unsqueeze(input_tensor, 2)
 
 
-@pypto.frontend.jit(codegen_options={"soc_version": "Kirin9030"}, runtime_options={"run_mode": pypto.RunMode.SIM})
+@pypto.frontend.jit(codegen_options={"soc_version": "Kirin9030"}, runtime_options={"run_mode": pypto.RunMode.NPU})
 def unsqueeze_kernel_int16_004(
     input_tensor: pypto.Tensor([...], pypto.DT_INT16),
     out_tensor: pypto.Tensor([...], pypto.DT_INT16),
@@ -793,7 +793,7 @@ def unsqueeze_kernel_int16_004(
     out_tensor[:] = pypto.unsqueeze(input_tensor, 0)
 
 
-@pypto.frontend.jit(codegen_options={"soc_version": "Kirin9030"}, runtime_options={"run_mode": pypto.RunMode.SIM})
+@pypto.frontend.jit(codegen_options={"soc_version": "Kirin9030"}, runtime_options={"run_mode": pypto.RunMode.NPU})
 def unsqueeze_kernel_int16_005(
     input_tensor: pypto.Tensor([...], pypto.DT_INT16),
     out_tensor: pypto.Tensor([...], pypto.DT_INT16),

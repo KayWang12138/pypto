@@ -29,7 +29,7 @@ def compare_cos(a, b):
     return dot_product / (norm_a * norm_b)
 
 
-@pypto.frontend.jit(codegen_options={"soc_version": "Kirin9030"}, runtime_options={"run_mode": pypto.RunMode.SIM})
+@pypto.frontend.jit(codegen_options={"soc_version": "Kirin9030"}, runtime_options={"run_mode": pypto.RunMode.NPU})
 def transpose_kernel_fp16(
     input_tensor: pypto.Tensor([...], pypto.DT_FP16),
     out_tensor: pypto.Tensor([...], pypto.DT_FP16),
@@ -38,7 +38,7 @@ def transpose_kernel_fp16(
     out_tensor[:] = pypto.transpose(input_tensor, 0, 1)
 
 
-@pypto.frontend.jit(codegen_options={"soc_version": "Kirin9030"}, runtime_options={"run_mode": pypto.RunMode.SIM})
+@pypto.frontend.jit(codegen_options={"soc_version": "Kirin9030"}, runtime_options={"run_mode": pypto.RunMode.NPU})
 def transpose_kernel_fp16_003(
     input_tensor: pypto.Tensor([3, 4, 5], pypto.DT_FP16),
     out_tensor: pypto.Tensor([...], pypto.DT_FP16),
@@ -47,7 +47,7 @@ def transpose_kernel_fp16_003(
     out_tensor[:] = pypto.transpose(input_tensor, 1, 2)
 
 
-@pypto.frontend.jit(codegen_options={"soc_version": "Kirin9030"}, runtime_options={"run_mode": pypto.RunMode.SIM})
+@pypto.frontend.jit(codegen_options={"soc_version": "Kirin9030"}, runtime_options={"run_mode": pypto.RunMode.NPU})
 def transpose_kernel_fp16_004(
     input_tensor: pypto.Tensor([2, 3, 4], pypto.DT_FP16),
     out_tensor: pypto.Tensor([...], pypto.DT_FP16),
@@ -56,7 +56,7 @@ def transpose_kernel_fp16_004(
     out_tensor[:] = pypto.transpose(input_tensor, 0, 2)
 
 
-@pypto.frontend.jit(codegen_options={"soc_version": "Kirin9030"}, runtime_options={"run_mode": pypto.RunMode.SIM})
+@pypto.frontend.jit(codegen_options={"soc_version": "Kirin9030"}, runtime_options={"run_mode": pypto.RunMode.NPU})
 def transpose_kernel_fp16_005(
     input_tensor: pypto.Tensor([2, 3, 4, 5], pypto.DT_FP16),
     out_tensor: pypto.Tensor([...], pypto.DT_FP16),
@@ -65,7 +65,7 @@ def transpose_kernel_fp16_005(
     out_tensor[:] = pypto.transpose(input_tensor, 2, 3)
 
 
-@pypto.frontend.jit(codegen_options={"soc_version": "Kirin9030"}, runtime_options={"run_mode": pypto.RunMode.SIM})
+@pypto.frontend.jit(codegen_options={"soc_version": "Kirin9030"}, runtime_options={"run_mode": pypto.RunMode.NPU})
 def transpose_kernel_fp16_006(
     input_tensor: pypto.Tensor([2, 3, 4, 5], pypto.DT_FP16),
     out_tensor: pypto.Tensor([...], pypto.DT_FP16),
@@ -74,7 +74,7 @@ def transpose_kernel_fp16_006(
     out_tensor[:] = pypto.transpose(input_tensor, 1, 2)
 
 
-@pypto.frontend.jit(codegen_options={"soc_version": "Kirin9030"}, runtime_options={"run_mode": pypto.RunMode.SIM})
+@pypto.frontend.jit(codegen_options={"soc_version": "Kirin9030"}, runtime_options={"run_mode": pypto.RunMode.NPU})
 def transpose_kernel_fp16_007(
     input_tensor: pypto.Tensor([2, 3, 4, 5, 6], pypto.DT_FP16),
     out_tensor: pypto.Tensor([...], pypto.DT_FP16),
@@ -83,7 +83,7 @@ def transpose_kernel_fp16_007(
     out_tensor[:] = pypto.transpose(input_tensor, 3, 4)
 
 
-@pypto.frontend.jit(codegen_options={"soc_version": "Kirin9030"}, runtime_options={"run_mode": pypto.RunMode.SIM})
+@pypto.frontend.jit(codegen_options={"soc_version": "Kirin9030"}, runtime_options={"run_mode": pypto.RunMode.NPU})
 def transpose_kernel_fp16_008(
     input_tensor: pypto.Tensor([4, 5], pypto.DT_FP16),
     out_tensor: pypto.Tensor([...], pypto.DT_FP16),
@@ -92,7 +92,7 @@ def transpose_kernel_fp16_008(
     out_tensor[:] = pypto.transpose(input_tensor, 0, 1)
 
 
-@pypto.frontend.jit(codegen_options={"soc_version": "Kirin9030"}, runtime_options={"run_mode": pypto.RunMode.SIM})
+@pypto.frontend.jit(codegen_options={"soc_version": "Kirin9030"}, runtime_options={"run_mode": pypto.RunMode.NPU})
 def transpose_kernel_fp16_009(
     input_tensor: pypto.Tensor([2, 5, 6], pypto.DT_FP16),
     out_tensor: pypto.Tensor([...], pypto.DT_FP16),
@@ -101,7 +101,7 @@ def transpose_kernel_fp16_009(
     out_tensor[:] = pypto.transpose(input_tensor, 1, 2)
 
 
-@pypto.frontend.jit(codegen_options={"soc_version": "Kirin9030"}, runtime_options={"run_mode": pypto.RunMode.SIM})
+@pypto.frontend.jit(codegen_options={"soc_version": "Kirin9030"}, runtime_options={"run_mode": pypto.RunMode.NPU})
 def transpose_kernel_fp16_010(
     input_tensor: pypto.Tensor([3, 2, 4, 5], pypto.DT_FP16),
     out_tensor: pypto.Tensor([...], pypto.DT_FP16),
@@ -252,7 +252,7 @@ class TestLiteNPUTransposeFP16(unittest.TestCase):
         self.assertGreaterEqual(cos_value, 0.9999)
 
 
-@pypto.frontend.jit(codegen_options={"soc_version": "Kirin9030"}, runtime_options={"run_mode": pypto.RunMode.SIM})
+@pypto.frontend.jit(codegen_options={"soc_version": "Kirin9030"}, runtime_options={"run_mode": pypto.RunMode.NPU})
 def transpose_kernel_fp32(
     input_tensor: pypto.Tensor([...], pypto.DT_FP32),
     out_tensor: pypto.Tensor([...], pypto.DT_FP32),
@@ -261,7 +261,7 @@ def transpose_kernel_fp32(
     out_tensor[:] = pypto.transpose(input_tensor, 0, 1)
 
 
-@pypto.frontend.jit(codegen_options={"soc_version": "Kirin9030"}, runtime_options={"run_mode": pypto.RunMode.SIM})
+@pypto.frontend.jit(codegen_options={"soc_version": "Kirin9030"}, runtime_options={"run_mode": pypto.RunMode.NPU})
 def transpose_kernel_fp32_003(
     input_tensor: pypto.Tensor([3, 4, 5], pypto.DT_FP32),
     out_tensor: pypto.Tensor([...], pypto.DT_FP32),
@@ -270,7 +270,7 @@ def transpose_kernel_fp32_003(
     out_tensor[:] = pypto.transpose(input_tensor, 1, 2)
 
 
-@pypto.frontend.jit(codegen_options={"soc_version": "Kirin9030"}, runtime_options={"run_mode": pypto.RunMode.SIM})
+@pypto.frontend.jit(codegen_options={"soc_version": "Kirin9030"}, runtime_options={"run_mode": pypto.RunMode.NPU})
 def transpose_kernel_fp32_004(
     input_tensor: pypto.Tensor([2, 3, 4], pypto.DT_FP32),
     out_tensor: pypto.Tensor([...], pypto.DT_FP32),
@@ -279,7 +279,7 @@ def transpose_kernel_fp32_004(
     out_tensor[:] = pypto.transpose(input_tensor, 0, 2)
 
 
-@pypto.frontend.jit(codegen_options={"soc_version": "Kirin9030"}, runtime_options={"run_mode": pypto.RunMode.SIM})
+@pypto.frontend.jit(codegen_options={"soc_version": "Kirin9030"}, runtime_options={"run_mode": pypto.RunMode.NPU})
 def transpose_kernel_fp32_005(
     input_tensor: pypto.Tensor([2, 3, 4, 5], pypto.DT_FP32),
     out_tensor: pypto.Tensor([...], pypto.DT_FP32),
@@ -288,7 +288,7 @@ def transpose_kernel_fp32_005(
     out_tensor[:] = pypto.transpose(input_tensor, 2, 3)
 
 
-@pypto.frontend.jit(codegen_options={"soc_version": "Kirin9030"}, runtime_options={"run_mode": pypto.RunMode.SIM})
+@pypto.frontend.jit(codegen_options={"soc_version": "Kirin9030"}, runtime_options={"run_mode": pypto.RunMode.NPU})
 def transpose_kernel_fp32_006(
     input_tensor: pypto.Tensor([2, 3, 4, 5], pypto.DT_FP32),
     out_tensor: pypto.Tensor([...], pypto.DT_FP32),
@@ -297,7 +297,7 @@ def transpose_kernel_fp32_006(
     out_tensor[:] = pypto.transpose(input_tensor, 1, 2)
 
 
-@pypto.frontend.jit(codegen_options={"soc_version": "Kirin9030"}, runtime_options={"run_mode": pypto.RunMode.SIM})
+@pypto.frontend.jit(codegen_options={"soc_version": "Kirin9030"}, runtime_options={"run_mode": pypto.RunMode.NPU})
 def transpose_kernel_fp32_007(
     input_tensor: pypto.Tensor([2, 3, 4, 5, 6], pypto.DT_FP32),
     out_tensor: pypto.Tensor([...], pypto.DT_FP32),
@@ -306,7 +306,7 @@ def transpose_kernel_fp32_007(
     out_tensor[:] = pypto.transpose(input_tensor, 3, 4)
 
 
-@pypto.frontend.jit(codegen_options={"soc_version": "Kirin9030"}, runtime_options={"run_mode": pypto.RunMode.SIM})
+@pypto.frontend.jit(codegen_options={"soc_version": "Kirin9030"}, runtime_options={"run_mode": pypto.RunMode.NPU})
 def transpose_kernel_fp32_008(
     input_tensor: pypto.Tensor([4, 5], pypto.DT_FP32),
     out_tensor: pypto.Tensor([...], pypto.DT_FP32),
@@ -315,7 +315,7 @@ def transpose_kernel_fp32_008(
     out_tensor[:] = pypto.transpose(input_tensor, 0, 1)
 
 
-@pypto.frontend.jit(codegen_options={"soc_version": "Kirin9030"}, runtime_options={"run_mode": pypto.RunMode.SIM})
+@pypto.frontend.jit(codegen_options={"soc_version": "Kirin9030"}, runtime_options={"run_mode": pypto.RunMode.NPU})
 def transpose_kernel_fp32_009(
     input_tensor: pypto.Tensor([2, 5, 6], pypto.DT_FP32),
     out_tensor: pypto.Tensor([...], pypto.DT_FP32),
@@ -324,7 +324,7 @@ def transpose_kernel_fp32_009(
     out_tensor[:] = pypto.transpose(input_tensor, 1, 2)
 
 
-@pypto.frontend.jit(codegen_options={"soc_version": "Kirin9030"}, runtime_options={"run_mode": pypto.RunMode.SIM})
+@pypto.frontend.jit(codegen_options={"soc_version": "Kirin9030"}, runtime_options={"run_mode": pypto.RunMode.NPU})
 def transpose_kernel_fp32_010(
     input_tensor: pypto.Tensor([3, 2, 4, 5], pypto.DT_FP32),
     out_tensor: pypto.Tensor([...], pypto.DT_FP32),
@@ -475,7 +475,7 @@ class TestLiteNPUTransposeFP32(unittest.TestCase):
         self.assertGreaterEqual(cos_value, 0.9999)
 
 
-@pypto.frontend.jit(codegen_options={"soc_version": "Kirin9030"}, runtime_options={"run_mode": pypto.RunMode.SIM})
+@pypto.frontend.jit(codegen_options={"soc_version": "Kirin9030"}, runtime_options={"run_mode": pypto.RunMode.NPU})
 def transpose_kernel_int32(
     input_tensor: pypto.Tensor([...], pypto.DT_INT32),
     out_tensor: pypto.Tensor([...], pypto.DT_INT32),
@@ -484,7 +484,7 @@ def transpose_kernel_int32(
     out_tensor[:] = pypto.transpose(input_tensor, 0, 1)
 
 
-@pypto.frontend.jit(codegen_options={"soc_version": "Kirin9030"}, runtime_options={"run_mode": pypto.RunMode.SIM})
+@pypto.frontend.jit(codegen_options={"soc_version": "Kirin9030"}, runtime_options={"run_mode": pypto.RunMode.NPU})
 def transpose_kernel_int32_003(
     input_tensor: pypto.Tensor([3, 4, 5], pypto.DT_INT32),
     out_tensor: pypto.Tensor([...], pypto.DT_INT32),
@@ -493,7 +493,7 @@ def transpose_kernel_int32_003(
     out_tensor[:] = pypto.transpose(input_tensor, 1, 2)
 
 
-@pypto.frontend.jit(codegen_options={"soc_version": "Kirin9030"}, runtime_options={"run_mode": pypto.RunMode.SIM})
+@pypto.frontend.jit(codegen_options={"soc_version": "Kirin9030"}, runtime_options={"run_mode": pypto.RunMode.NPU})
 def transpose_kernel_int32_004(
     input_tensor: pypto.Tensor([2, 3, 4, 5], pypto.DT_INT32),
     out_tensor: pypto.Tensor([...], pypto.DT_INT32),
@@ -502,7 +502,7 @@ def transpose_kernel_int32_004(
     out_tensor[:] = pypto.transpose(input_tensor, 2, 3)
 
 
-@pypto.frontend.jit(codegen_options={"soc_version": "Kirin9030"}, runtime_options={"run_mode": pypto.RunMode.SIM})
+@pypto.frontend.jit(codegen_options={"soc_version": "Kirin9030"}, runtime_options={"run_mode": pypto.RunMode.NPU})
 def transpose_kernel_int32_005(
     input_tensor: pypto.Tensor([4, 5], pypto.DT_INT32),
     out_tensor: pypto.Tensor([...], pypto.DT_INT32),
@@ -583,7 +583,7 @@ class TestLiteNPUTransposeInt32(unittest.TestCase):
         self.assertGreaterEqual(cos_value, 0.9999)
 
 
-@pypto.frontend.jit(codegen_options={"soc_version": "Kirin9030"}, runtime_options={"run_mode": pypto.RunMode.SIM})
+@pypto.frontend.jit(codegen_options={"soc_version": "Kirin9030"}, runtime_options={"run_mode": pypto.RunMode.NPU})
 def transpose_kernel_int16(
     input_tensor: pypto.Tensor([...], pypto.DT_INT16),
     out_tensor: pypto.Tensor([...], pypto.DT_INT16),
@@ -592,7 +592,7 @@ def transpose_kernel_int16(
     out_tensor[:] = pypto.transpose(input_tensor, 0, 1)
 
 
-@pypto.frontend.jit(codegen_options={"soc_version": "Kirin9030"}, runtime_options={"run_mode": pypto.RunMode.SIM})
+@pypto.frontend.jit(codegen_options={"soc_version": "Kirin9030"}, runtime_options={"run_mode": pypto.RunMode.NPU})
 def transpose_kernel_int16_003(
     input_tensor: pypto.Tensor([3, 4, 5], pypto.DT_INT16),
     out_tensor: pypto.Tensor([...], pypto.DT_INT16),
@@ -601,7 +601,7 @@ def transpose_kernel_int16_003(
     out_tensor[:] = pypto.transpose(input_tensor, 1, 2)
 
 
-@pypto.frontend.jit(codegen_options={"soc_version": "Kirin9030"}, runtime_options={"run_mode": pypto.RunMode.SIM})
+@pypto.frontend.jit(codegen_options={"soc_version": "Kirin9030"}, runtime_options={"run_mode": pypto.RunMode.NPU})
 def transpose_kernel_int16_004(
     input_tensor: pypto.Tensor([2, 3, 4], pypto.DT_INT16),
     out_tensor: pypto.Tensor([...], pypto.DT_INT16),
@@ -610,7 +610,7 @@ def transpose_kernel_int16_004(
     out_tensor[:] = pypto.transpose(input_tensor, 0, 2)
 
 
-@pypto.frontend.jit(codegen_options={"soc_version": "Kirin9030"}, runtime_options={"run_mode": pypto.RunMode.SIM})
+@pypto.frontend.jit(codegen_options={"soc_version": "Kirin9030"}, runtime_options={"run_mode": pypto.RunMode.NPU})
 def transpose_kernel_int16_005(
     input_tensor: pypto.Tensor([2, 3, 4, 5], pypto.DT_INT16),
     out_tensor: pypto.Tensor([...], pypto.DT_INT16),
@@ -619,7 +619,7 @@ def transpose_kernel_int16_005(
     out_tensor[:] = pypto.transpose(input_tensor, 2, 3)
 
 
-@pypto.frontend.jit(codegen_options={"soc_version": "Kirin9030"}, runtime_options={"run_mode": pypto.RunMode.SIM})
+@pypto.frontend.jit(codegen_options={"soc_version": "Kirin9030"}, runtime_options={"run_mode": pypto.RunMode.NPU})
 def transpose_kernel_int16_006(
     input_tensor: pypto.Tensor([2, 3, 4, 5], pypto.DT_INT16),
     out_tensor: pypto.Tensor([...], pypto.DT_INT16),
@@ -628,7 +628,7 @@ def transpose_kernel_int16_006(
     out_tensor[:] = pypto.transpose(input_tensor, 1, 2)
 
 
-@pypto.frontend.jit(codegen_options={"soc_version": "Kirin9030"}, runtime_options={"run_mode": pypto.RunMode.SIM})
+@pypto.frontend.jit(codegen_options={"soc_version": "Kirin9030"}, runtime_options={"run_mode": pypto.RunMode.NPU})
 def transpose_kernel_int16_007(
     input_tensor: pypto.Tensor([2, 3, 4, 5, 6], pypto.DT_INT16),
     out_tensor: pypto.Tensor([...], pypto.DT_INT16),
@@ -637,7 +637,7 @@ def transpose_kernel_int16_007(
     out_tensor[:] = pypto.transpose(input_tensor, 3, 4)
 
 
-@pypto.frontend.jit(codegen_options={"soc_version": "Kirin9030"}, runtime_options={"run_mode": pypto.RunMode.SIM})
+@pypto.frontend.jit(codegen_options={"soc_version": "Kirin9030"}, runtime_options={"run_mode": pypto.RunMode.NPU})
 def transpose_kernel_int16_008(
     input_tensor: pypto.Tensor([4, 5], pypto.DT_INT16),
     out_tensor: pypto.Tensor([...], pypto.DT_INT16),
@@ -646,7 +646,7 @@ def transpose_kernel_int16_008(
     out_tensor[:] = pypto.transpose(input_tensor, 0, 1)
 
 
-@pypto.frontend.jit(codegen_options={"soc_version": "Kirin9030"}, runtime_options={"run_mode": pypto.RunMode.SIM})
+@pypto.frontend.jit(codegen_options={"soc_version": "Kirin9030"}, runtime_options={"run_mode": pypto.RunMode.NPU})
 def transpose_kernel_int16_009(
     input_tensor: pypto.Tensor([2, 5, 6], pypto.DT_INT16),
     out_tensor: pypto.Tensor([...], pypto.DT_INT16),
@@ -655,7 +655,7 @@ def transpose_kernel_int16_009(
     out_tensor[:] = pypto.transpose(input_tensor, 1, 2)
 
 
-@pypto.frontend.jit(codegen_options={"soc_version": "Kirin9030"}, runtime_options={"run_mode": pypto.RunMode.SIM})
+@pypto.frontend.jit(codegen_options={"soc_version": "Kirin9030"}, runtime_options={"run_mode": pypto.RunMode.NPU})
 def transpose_kernel_int16_010(
     input_tensor: pypto.Tensor([3, 2, 4, 5], pypto.DT_INT16),
     out_tensor: pypto.Tensor([...], pypto.DT_INT16),
@@ -664,7 +664,7 @@ def transpose_kernel_int16_010(
     out_tensor[:] = pypto.transpose(input_tensor, 2, 3)
 
 
-@pypto.frontend.jit(codegen_options={"soc_version": "Kirin9030"}, runtime_options={"run_mode": pypto.RunMode.SIM})
+@pypto.frontend.jit(codegen_options={"soc_version": "Kirin9030"}, runtime_options={"run_mode": pypto.RunMode.NPU})
 def transpose_kernel_int16_011(
     input_tensor: pypto.Tensor([3, 2, 4, 5], pypto.DT_INT16),
     out_tensor: pypto.Tensor([...], pypto.DT_INT16),
