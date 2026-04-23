@@ -1661,8 +1661,7 @@ void PipeSync::UpdateDep(DepOp& currOp, DepOp& prevOp)
         prevOp.setPipe.emplace_back(currOp.idx);
         currPipeDep.setPipes[prevPipe] = prevOp.idx;
         auto prevPipeDepIter = latestPipeDep_.find(prevPipe);
-        auto prevWaitPipeIdx = prevPipeDepIter->second.waitIdx;
-        if (prevPipeDepIter != latestPipeDep_.end() && prevWaitPipeIdx <= prevOp.idx) {
+        if (prevPipeDepIter != latestPipeDep_.end()) {
             // merge dependency
             std::map<PipeCoreRealEx, size_t, PipeCoreRealExCompare> prevSetPipes = prevPipeDepIter->second.setPipes;
             for (auto [prevSetPipeType, prevSetPipeIdx] : prevSetPipes) {
