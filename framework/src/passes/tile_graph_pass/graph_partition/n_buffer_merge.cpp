@@ -25,6 +25,8 @@
 
 namespace npu::tile_fwk {
 
+int NBufferMerge::globalVecMergeHashOrder_ = 0;
+
 void NBufferMerge::GetOpHash(std::vector<uint64_t>& hashList, const std::string op, size_t idx)
 {
     uint64_t p = 37;
@@ -299,13 +301,12 @@ void NBufferMerge::GetColorHash(
     for (auto subgraphId : mulaccGraph) {
         hashColor[subgraphId] = 0;
     }
-    int order = 0;
     for (int i = 0; i < colorNum_; i++) {
         if (mulaccGraph.count(i)) continue;
         hashMap[hashColor[i]].push_back(i);
         if (hashMap[hashColor[i]].size() == 1) {
-            hashOrder_[hashColor[i]] = order;
-            order++;
+            hashOrder_[hashColor[i]] = globalVecMergeHashOrder_;
+            globalVecMergeHashOrder_++;
         }
     }
     for (auto& entry : hashMap) {
