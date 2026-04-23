@@ -118,8 +118,10 @@ struct DeviceKernelArgsParameter {
     uint32_t runMode{RUN_INVALID};
     uint32_t p1;
     uint64_t globalRound{0};
+    int ctrlBlockNum{0};
+    int ctrlScheAicpu{0};
 };
-static_assert(sizeof(DeviceKernelArgsParameter) == sizeof(uint64_t) * 0x2, "Invalid parameter size");
+static_assert(sizeof(DeviceKernelArgsParameter) == (sizeof(uint64_t) + sizeof(int)) * 0x2, "Invalid parameter size");
 
 struct DeviceRuntimeOffset {
     uint64_t startArgsOffset{0};
