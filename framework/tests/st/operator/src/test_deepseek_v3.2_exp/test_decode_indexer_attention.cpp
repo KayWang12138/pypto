@@ -21,6 +21,7 @@
 #include "test_suite_stest_ops.h"
 #include "operator/models/deepseek_v3.2_exp/decode_indexer_attention.h"
 #include "operator/models/deepseek_v3.2_exp/dsia_common.h"
+#include "interface/configs/config_manager_ng.h"
 #include "tilefwk/data_type.h"
 #include "tilefwk/symbolic_scalar.h"
 #include "tilefwk/tensor.h"
@@ -29,7 +30,10 @@ using namespace npu::tile_fwk;
 using namespace npu::tile_fwk::dynamic;
 class DecodeIndexerAttentionSTest : public npu::tile_fwk::stest::TestSuite_STest_Ops_Aihac {};
 namespace {
-void SetPreConfig() {}
+void SetPreConfig()
+{
+    config::SetRuntimeOption<bool>(ENABLE_AICORE_FIRST_BATCH_SELF_DISPATCH, true);
+}
 
 template <typename T = npu::tile_fwk::float16, typename wDtype = int8_t, bool isSmooth = false, bool nz = false>
 void TestDecodeIndexerAttentionSTest(DSIASimpleParams& params)

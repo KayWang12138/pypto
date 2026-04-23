@@ -16,6 +16,7 @@
         "stitch_cfgcache_size": 0,
         "stitch_function_size": 20000,
         "device_sched_mode": 0,
+        "enable_aicore_first_batch_self_dispatch": false,
         "run_mode": 0,
         "stitch_function_max_num": 128,
         "valid_shape_optimize": 0,
