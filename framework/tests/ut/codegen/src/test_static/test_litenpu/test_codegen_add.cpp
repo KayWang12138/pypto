@@ -123,7 +123,7 @@ TEST_F(LiteNPUCodeGenAdd, test_add_005)
     PROGRAM("ADD_005")
     {
         Tensor input0(DataType::DT_FP32, {112}, "input0");
-        Element input1(DataType::DT_FP32, 2.0f);
+        Element input1(DataType::DT_FP32, 2.0);
         auto output = Tensor(DataType::DT_FP32, {112}, "output");
         FUNCTION("ADD_005")
         {
@@ -199,7 +199,7 @@ TEST_F(LiteNPUCodeGenAdd, test_add_009)
     PROGRAM("ADD_009")
     {
         Tensor input0(DataType::DT_FP32, {32, 20}, "input0");
-        Element input1(DataType::DT_FP32, 2.0f);
+        Element input1(DataType::DT_FP32, 2.0);
         auto output = Tensor(DataType::DT_FP32, {32, 20}, "output");
         FUNCTION("ADD_009")
         {
@@ -370,7 +370,7 @@ TEST_F(LiteNPUCodeGenAdd, test_add_018)
     PROGRAM("ADD_018")
     {
         Tensor input0(DataType::DT_FP32, {10, 32, 23}, "input0");
-        Element input1(DataType::DT_FP32, 2.0f);
+        Element input1(DataType::DT_FP32, 2.0);
         auto output = Tensor(DataType::DT_FP32, {10, 32, 23}, "output");
         FUNCTION("ADD_018")
         {
@@ -579,7 +579,7 @@ TEST_F(LiteNPUCodeGenAdd, test_add_029)
     PROGRAM("ADD_029")
     {
         Tensor input0(DataType::DT_FP32, {5, 16, 11, 12}, "input0");
-        Element input1(DataType::DT_FP32, 2.0f);
+        Element input1(DataType::DT_FP32, 2.0);
         auto output = Tensor(DataType::DT_FP32, {5, 16, 11, 12}, "output");
         FUNCTION("ADD_029")
         {
@@ -597,12 +597,12 @@ TEST_F(LiteNPUCodeGenAdd, test_add_030)
 {
     PROGRAM("ADD_030")
     {
-        Tensor input0(DataType::DT_FP16, {10, 15, 16, 7}, "input0");
+        Tensor input0(DataType::DT_FP16, {5, 5, 6, 7}, "input0");
         Element input1(DataType::DT_FP16, 2.0);
-        auto output = Tensor(DataType::DT_FP16, {10, 15, 16, 7}, "output");
+        auto output = Tensor(DataType::DT_FP16, {5, 5, 6, 7}, "output");
         FUNCTION("ADD_030")
         {
-            TileShape::Current().SetVecTile({10, 16, 20, 10});
+            TileShape::Current().SetVecTile({5, 5, 10, 10});
             output = Add(input0, input1);
         }
     }
@@ -673,12 +673,12 @@ TEST_F(LiteNPUCodeGenAdd, test_add_034)
 {
     PROGRAM("ADD_034")
     {
-        Tensor input0(DataType::DT_INT16, {25, 1, 15, 17}, "input0");
-        Tensor input1(DataType::DT_INT16, {25, 11, 15, 17}, "input1");
-        auto output = Tensor(DataType::DT_INT16, {25, 11, 15, 17}, "output");
+        Tensor input0(DataType::DT_INT16, {11, 1, 15, 17}, "input0");
+        Tensor input1(DataType::DT_INT16, {11, 11, 15, 17}, "input1");
+        auto output = Tensor(DataType::DT_INT16, {11, 11, 15, 17}, "output");
         FUNCTION("ADD_034")
         {
-            TileShape::Current().SetVecTile({25, 12, 15, 2});
+            TileShape::Current().SetVecTile({11, 12, 15, 2});
             output = Add(input0, input1);
         }
     }
