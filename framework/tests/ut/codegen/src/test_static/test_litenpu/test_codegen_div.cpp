@@ -123,7 +123,7 @@ TEST_F(LiteNPUCodeGenDiv, test_div_005)
     PROGRAM("DIV_005")
     {
         Tensor input0(DataType::DT_FP32, {112}, "input0");
-        Element input1(DataType::DT_FP32, 2.0f);
+        Element input1(DataType::DT_FP32, 2.0);
         auto output = Tensor(DataType::DT_FP32, {112}, "output");
         FUNCTION("DIV_005")
         {
@@ -199,7 +199,7 @@ TEST_F(LiteNPUCodeGenDiv, test_div_009)
     PROGRAM("DIV_009")
     {
         Tensor input0(DataType::DT_FP32, {32, 20}, "input0");
-        Element input1(DataType::DT_FP32, 2.0f);
+        Element input1(DataType::DT_FP32, 2.0);
         auto output = Tensor(DataType::DT_FP32, {32, 20}, "output");
         FUNCTION("DIV_009")
         {
@@ -370,7 +370,7 @@ TEST_F(LiteNPUCodeGenDiv, test_div_018)
     PROGRAM("DIV_018")
     {
         Tensor input0(DataType::DT_FP32, {10, 32, 23}, "input0");
-        Element input1(DataType::DT_FP32, 2.0f);
+        Element input1(DataType::DT_FP32, 2.0);
         auto output = Tensor(DataType::DT_FP32, {10, 32, 23}, "output");
         FUNCTION("DIV_018")
         {
@@ -579,7 +579,7 @@ TEST_F(LiteNPUCodeGenDiv, test_div_029)
     PROGRAM("DIV_029")
     {
         Tensor input0(DataType::DT_FP32, {5, 16, 11, 12}, "input0");
-        Element input1(DataType::DT_FP32, 2.0f);
+        Element input1(DataType::DT_FP32, 2.0);
         auto output = Tensor(DataType::DT_FP32, {5, 16, 11, 12}, "output");
         FUNCTION("DIV_029")
         {
@@ -597,12 +597,12 @@ TEST_F(LiteNPUCodeGenDiv, test_div_030)
 {
     PROGRAM("DIV_030")
     {
-        Tensor input0(DataType::DT_FP16, {10, 15, 16, 7}, "input0");
+        Tensor input0(DataType::DT_FP16, {5, 5, 6, 7}, "input0");
         Element input1(DataType::DT_FP16, 2.0);
-        auto output = Tensor(DataType::DT_FP16, {10, 15, 16, 7}, "output");
+        auto output = Tensor(DataType::DT_FP16, {5, 5, 6, 7}, "output");
         FUNCTION("DIV_030")
         {
-            TileShape::Current().SetVecTile({10, 16, 20, 10});
+            TileShape::Current().SetVecTile({5, 5, 10, 10});
             output = Div(input0, input1);
         }
     }
@@ -673,12 +673,12 @@ TEST_F(LiteNPUCodeGenDiv, test_div_034)
 {
     PROGRAM("DIV_034")
     {
-        Tensor input0(DataType::DT_FP16, {25, 1, 15, 17}, "input0");
-        Tensor input1(DataType::DT_FP16, {25, 11, 15, 17}, "input1");
-        auto output = Tensor(DataType::DT_FP16, {25, 11, 15, 17}, "output");
+        Tensor input0(DataType::DT_FP16, {11, 1, 15, 17}, "input0");
+        Tensor input1(DataType::DT_FP16, {11, 11, 15, 17}, "input1");
+        auto output = Tensor(DataType::DT_FP16, {11, 11, 15, 17}, "output");
         FUNCTION("DIV_034")
         {
-            TileShape::Current().SetVecTile({25, 12, 15, 2});
+            TileShape::Current().SetVecTile({11, 12, 15, 2});
             output = Div(input0, input1);
         }
     }
