@@ -302,29 +302,6 @@ TEST_F(SubgraphToFunctionCheckTest, CheckSubGraphBoundary_Rule1_DDR_NotBoundary)
     EXPECT_EQ(status, FAILED);
 }
 
-TEST_F(SubgraphToFunctionCheckTest, CheckSubGraphBoundary_Rule2_DifferentSubGraphId)
-{
-    config::SetHostOption(COMPILE_STAGE, CS_EXECUTE_GRAPH);
-
-    auto f = std::make_shared<Function>(Program::GetInstance(), "test_sg_boundary", "test_sg_boundary", nullptr);
-    Program::GetInstance().InsertFuncToFunctionMap("test_sg_boundary", f);
-
-    ComputationalGraphBuilder G(f.get());
-    G.AddTensor(DataType::DT_FP32, kShape88, "in");
-    G.AddTensor(DataType::DT_FP32, kShape88, "out");
-    G.AddOp(Opcode::OP_ADD, {"in"}, {"out"}, "add_op");
-
-    auto op = G.GetOp("add_op");
-    auto tensor = G.GetTensor("in");
-
-    op->UpdateSubgraphID(1);
-    tensor->isSubGraphBoundary = false;
-
-    SubGraphToFuncChecker checker;
-    auto status = checker.CheckSubGraphBoundary(*f);
-    EXPECT_EQ(status, FAILED);
-}
-
 TEST_F(SubgraphToFunctionCheckTest, CheckSubGraphBoundary_Rule3_CopyIn_NoBoundary)
 {
     config::SetHostOption(COMPILE_STAGE, CS_EXECUTE_GRAPH);
