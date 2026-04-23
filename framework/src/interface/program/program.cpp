@@ -269,7 +269,7 @@ bool Program::BeginFunction(
         functionmap_.emplace(funcMagicName, std::move(newFunc));
         currentFunctionMagicName_ = funcMagicName;
     } else {
-        FUNCTION_LOGE_E(FError::IS_EXIST, "funcMagicName[%s] is already in the function map", funcMagicName.c_str());
+        FUNCTION_LOGE(FError::IS_EXIST, "funcMagicName[%s] is already in the function map", funcMagicName.c_str());
         currentFunctionMagicName_ = funcMagicName;
         currentFunctionPtr_ = functionmap_[funcMagicName].get();
     }
@@ -379,7 +379,7 @@ std::tuple<Function*, Operation*, bool> Program::EndFunction(const std::string& 
     }
     currentFunctionPtr_->SetUnderDynamicFunction(Program::GetInstance().GetCurrentDynamicFunction() != nullptr);
     if (currentFunctionPtr_->IsStatic() && funcName != currentFunctionPtr_->GetRawName()) {
-        FUNCTION_LOGE_E(
+        FUNCTION_LOGE(
             FError::NOT_EXIST, "Function name not match current: %s != %s", currentFunctionPtr_->GetRawName().c_str(),
             funcName.c_str());
         return std::make_tuple(nullptr, nullptr, false);
@@ -547,7 +547,7 @@ Json Program::DumpJson(Function* mainFunc) const
                 programDump["entryhash"] = tensorGraphFunc->GetFunctionHash().c_str();
                 programDump["curr_funcmagic"] = tensorGraphFunc->GetFuncMagic();
             } else {
-                FUNCTION_LOGE_E(FError::NOT_EXIST, "Failed to find main function.");
+                FUNCTION_LOGE(FError::NOT_EXIST, "Failed to find main function.");
             }
         }
     } else {
@@ -573,7 +573,7 @@ std::shared_ptr<Function> Program::GetFunctionByMagic(int funcMagic)
             return func.second;
         }
     }
-    FUNCTION_LOGE_E(FError::NOT_EXIST, "Cannot find function iter by magic %d", funcMagic);
+    FUNCTION_LOGE(FError::NOT_EXIST, "Cannot find function iter by magic %d", funcMagic);
     return nullptr;
 }
 
