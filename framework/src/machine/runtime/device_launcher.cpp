@@ -696,11 +696,12 @@ int DeviceLauncher::LaunchAicpuKernel(
 }
 
 int DeviceLauncher::LaunchAicoreKernel(
-    AclRtStream aicoreStream, void* kernel, RtArgsEx& rtArgs, RtTaskCfgInfo& rtTaskCfg, bool debugEnable)
+    AclRtStream aicoreStream, void* kernel, RtArgsEx& rtArgs, RtTaskCfgInfo& rtTaskCfg,
+    bool debugEnable, [[maybe_unused]] Function* function)
 {
     auto& devRunner = DeviceRunner::Get();
     auto tilingKey = OpInfoManager::GetInstance().GetOpTilingKey();
-    auto blockDim = dynamic::GetCfgBlockdim();
+    const int blockDim = static_cast<int>(DeviceLauncher::GetDevProg(function)->devArgs.nrValidAic);
     auto startTime = MspfSysCycleTime();
     auto ret = RuntimeKernelLaunchWithHandleV2(kernel, tilingKey, blockDim, &rtArgs, nullptr, aicoreStream, &rtTaskCfg);
     devRunner.ReportHostProfInfo(aicoreStream, startTime, blockDim, MSPF_GE_TASK_TYPE_MIX_AIC, true);
