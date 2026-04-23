@@ -75,6 +75,8 @@ void Program::Reset()
     CreateInitFunction();
     tensorSlotManager_ = nullptr;
     currentFunctionPtr_ = functionmap_[currentFunctionMagicName_].get();
+    HostMachine::GetInstance().ResetAllPasses();
+    APASS_LOG_INFO_F(Elements::Function, "Program::Reset() completed");
 }
 
 Function* Program::GetFunctionByRawName(const std::string& rawName) const
