@@ -50,8 +50,8 @@ logging.basicConfig(level=logging.INFO, format="%(message)s")
 
 BATCH_SIZE = 2
 NUM_HEADS = 4
-SEQ_LEN_Q = 64
-SEQ_LEN_KV = 64
+SEQ_LEN_Q = 256
+SEQ_LEN_KV = 256
 HEAD_DIM = 64
 
 
@@ -93,45 +93,19 @@ def flash_attention_score_golden_origin(
 
     scale = 1.0 / math.sqrt(d)
 
-    query_fp32 = query.float()
-    key_fp32 = key.float()
-    value_fp32 = value.float()
+    q = query.float()
+    k = key.float()
+    v = value.float()
 
-    output = torch.zeros(b, n, sq, d, dtype=torch.float32, device=query.device)
+    scores = torch.matmul(q, k.transpose(-2, -1)) * scale
 
-    for b_idx in range(b):
-        for n_idx in range(n):
-            for q_idx in range(sq):
-                q_vec = query_fp32[b_idx, n_idx, q_idx, :]
+    if atten_mask is not None:
+        mask = atten_mask.to(torch.bool).to(scores.device)
+        scores = scores.masked_fill(mask.unsqueeze(0).unsqueeze(0), float("-inf"))
 
-                max_score = float('-inf')
-                sum_exp = 0.0
-                output_vec = torch.zeros(d, dtype=torch.float32, device=query.device)
-
-                for kv_idx in range(skv):
-                    if atten_mask is not None and atten_mask[q_idx, kv_idx] == 1:
-                        continue
-
-                    k_vec = key_fp32[b_idx, n_idx, kv_idx, :]
-                    score = torch.dot(q_vec, k_vec) * scale
-
-                    new_max = max(max_score, score.item())
-
-                    if new_max > max_score:
-                        correction = math.exp(max_score - new_max)
-                        sum_exp = sum_exp * correction
-                        output_vec = output_vec * correction
-                        max_score = new_max
-
-                    exp_score = math.exp(score - max_score)
-                    sum_exp += exp_score
-
-                    v_vec = value_fp32[b_idx, n_idx, kv_idx, :]
-                    output_vec += exp_score * v_vec
-
-                if sum_exp > 0:
-                    output[b_idx, n_idx, q_idx, :] = output_vec / sum_exp
-
+    probs = torch.softmax(scores, dim=-1)
+    probs = torch.nan_to_num(probs, nan=0.0)
+    output = torch.matmul(probs, v)
     return output.to(torch.bfloat16)
 
 
@@ -147,54 +121,34 @@ def flash_attention_score_golden(
     Args:
         scale_value: Scaling factor for attention scores (default: 1/sqrt(HEAD_DIM))
     """
-    b, n, sq, d = query.shape
-    _, _, skv, _ = key.shape
-
+    _, _, _, d = query.shape
     scale = scale_value if scale_value is not None else 1.0 / math.sqrt(d)
 
-    query_fp32 = query.float()
-    key_fp32 = key.float()
-    value_fp32 = value.float()
+    q = query.float()
+    k = key.float()
+    v = value.float()
 
-    output = torch.zeros(b, n, sq, d, dtype=torch.float32, device=query.device)
-    softmax_max = torch.zeros(b, n, sq, 1, dtype=torch.float32, device=query.device)
-    softmax_sum = torch.zeros(b, n, sq, 1, dtype=torch.float32, device=query.device)
+    scores = torch.matmul(q, k.transpose(-2, -1)) * scale
 
-    for b_idx in range(b):
-        for n_idx in range(n):
-            for q_idx in range(sq):
-                q_vec = query_fp32[b_idx, n_idx, q_idx, :]
+    if atten_mask is not None:
+        mask = atten_mask.to(device=scores.device, dtype=torch.bool)
+        scores = scores.masked_fill(mask.unsqueeze(0).unsqueeze(0), float("-inf"))
 
-                max_score = float('-inf')
-                sum_exp = 0.0
-                output_vec = torch.zeros(d, dtype=torch.float32, device=query.device)
+    softmax_max = scores.amax(dim=-1, keepdim=True)
 
-                for kv_idx in range(skv):
-                    if atten_mask is not None and atten_mask[q_idx, kv_idx] == 1:
-                        continue
+    valid_rows = torch.isfinite(softmax_max)
 
-                    k_vec = key_fp32[b_idx, n_idx, kv_idx, :]
-                    score = torch.dot(q_vec, k_vec) * scale
+    shifted = torch.where(valid_rows, scores - softmax_max, torch.zeros_like(scores))
+    exp_scores = torch.where(valid_rows, torch.exp(shifted), torch.zeros_like(scores))
 
-                    new_max = max(max_score, score.item())
+    softmax_sum = exp_scores.sum(dim=-1, keepdim=True)
+    weighted = torch.matmul(exp_scores, v)
 
-                    if new_max > max_score:
-                        correction = math.exp(max_score - new_max)
-                        sum_exp = sum_exp * correction
-                        output_vec = output_vec * correction
-                        max_score = new_max
-
-                    exp_score = math.exp(score - max_score)
-                    sum_exp += exp_score
-
-                    v_vec = value_fp32[b_idx, n_idx, kv_idx, :]
-                    output_vec += exp_score * v_vec
-
-                if sum_exp > 0:
-                    output[b_idx, n_idx, q_idx, :] = output_vec / sum_exp
-                    
-                softmax_max[b_idx, n_idx, q_idx, 0] = max_score
-                softmax_sum[b_idx, n_idx, q_idx, 0] = sum_exp
+    output = torch.where(
+        softmax_sum > 0,
+        weighted / softmax_sum,
+        torch.zeros_like(weighted),
+    )
 
     return output.to(torch.bfloat16), softmax_max, softmax_sum
 
@@ -228,64 +182,49 @@ def flash_attention_score_golden_with_pse_and_dropout(inputs: FlashAttentionInpu
     pse_type = inputs.pse_type
     keep_prob = inputs.keep_prob
     scale_value = inputs.scale_value
-    b, n, sq, d = query.shape
-    _, _, skv, _ = key.shape
+    _, _, _, d = query.shape
 
     scale = scale_value if scale_value is not None else 1.0 / math.sqrt(d)
 
-    query_fp32 = query.float()
-    key_fp32 = key.float()
-    value_fp32 = value.float()
+    q = query.float()
+    k = key.float()
+    v = value.float()
     pse_fp32 = pse.float()
 
-    output = torch.zeros(b, n, sq, d, dtype=torch.float32, device=query.device)
-    softmax_max = torch.zeros(b, n, sq, 1, dtype=torch.float32, device=query.device)
-    softmax_sum = torch.zeros(b, n, sq, 1, dtype=torch.float32, device=query.device)
+    qk = torch.matmul(q, k.transpose(-2, -1))
 
-    for b_idx in range(b):
-        for n_idx in range(n):
-            for q_idx in range(sq):
-                q_vec = query_fp32[b_idx, n_idx, q_idx, :]
+    if pse_type == 1:
+        scores = (qk + pse_fp32) * scale
+    else:
+        scores = qk * scale + pse_fp32
 
-                max_score = float('-inf')
-                sum_exp = 0.0
-                output_vec = torch.zeros(d, dtype=torch.float32, device=query.device)
+    if atten_mask is not None:
+        mask = atten_mask.to(device=scores.device, dtype=torch.bool)
+        scores = scores.masked_fill(mask.unsqueeze(0).unsqueeze(0), float("-inf"))
 
-                for kv_idx in range(skv):
-                    if atten_mask is not None and atten_mask[q_idx, kv_idx] == 1:
-                        continue
+    softmax_max = scores.amax(dim=-1, keepdim=True)
+    valid_rows = torch.isfinite(softmax_max)
 
-                    k_vec = key_fp32[b_idx, n_idx, kv_idx, :]
-                    
-                    if pse_type == 1:
-                        score = (torch.dot(q_vec, k_vec) + pse_fp32[b_idx, n_idx, q_idx, kv_idx]) * scale
-                    else:
-                        score = torch.dot(q_vec, k_vec) * scale + pse_fp32[b_idx, n_idx, q_idx, kv_idx]
+    shifted = torch.where(valid_rows, scores - softmax_max, torch.zeros_like(scores))
+    exp_scores = torch.where(valid_rows, torch.exp(shifted), torch.zeros_like(scores))
 
-                    new_max = max(max_score, score.item())
+    drop = drop_mask.to(device=scores.device, dtype=exp_scores.dtype)
+    while drop.dim() < exp_scores.dim():
+        drop = drop.unsqueeze(0)
 
-                    if new_max > max_score:
-                        correction = math.exp(max_score - new_max)
-                        sum_exp = sum_exp * correction
-                        output_vec = output_vec * correction
-                        max_score = new_max
+    exp_scores = exp_scores * drop
 
-                    exp_score = math.exp(score - max_score)
-                    exp_score = exp_score * drop_mask[q_idx, kv_idx]
-                    
-                    if keep_prob < 1.0:
-                        exp_score = exp_score / keep_prob
-                    
-                    sum_exp += exp_score
+    if keep_prob < 1.0:
+        exp_scores = exp_scores / keep_prob
 
-                    v_vec = value_fp32[b_idx, n_idx, kv_idx, :]
-                    output_vec += exp_score * v_vec
+    softmax_sum = exp_scores.sum(dim=-1, keepdim=True)
+    weighted = torch.matmul(exp_scores, v)
 
-                if sum_exp > 0:
-                    output[b_idx, n_idx, q_idx, :] = output_vec / sum_exp
-                    
-                softmax_max[b_idx, n_idx, q_idx, 0] = max_score
-                softmax_sum[b_idx, n_idx, q_idx, 0] = sum_exp
+    output = torch.where(
+        softmax_sum > 0,
+        weighted / softmax_sum,
+        torch.zeros_like(weighted),
+    )
 
     return output.to(torch.bfloat16), softmax_max, softmax_sum
 
