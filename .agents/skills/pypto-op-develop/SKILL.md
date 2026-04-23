@@ -218,6 +218,12 @@ python3 test_{op}.py
 
 ⚠️ 有 NPU 卡的情况下，不要使用 `run_mode=sim`。
 
+**无 NPU 环境时**：使用 `run_mode=sim` 进行初步验证。注意：
+- SIM 模式基于 cost model，精度数值可能与 NPU 存在差异
+- SIM 模式通过（`[PRECISION_PASS]`）应标记为 `[SIM_PASS]`，视为临时通过
+- 待 NPU 环境可用后，必须重新使用 NPU 模式验证精度
+- SIM 模式仅作为开发阶段的初步检查，不能替代 NPU 验证
+
 ---
 
 ## 实现注意点

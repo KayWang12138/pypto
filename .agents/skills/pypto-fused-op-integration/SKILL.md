@@ -7,6 +7,8 @@ description: 将 PyPTO 融合算子集成到整网中，替代多个小算子组
 
 将 PyPTO 融合算子替换到整网中，替代多个小算子组合的完整工作流程。
 
+**⚠️ 环境要求**：本技能核心步骤（基线验证、打点采集、整网验证、性能分析）需要 NPU 环境。无 NPU 时，仅可执行需求分析和 Golden 编写等 CPU 步骤。请在开始前确认 NPU 可用（`npu-smi info`）。
+
 **本文档基于 GLM-4.5 模型实践总结，完整代码示例请参考：**
 - 原始文档：`models/glm_v4_5/intergrated_example.md`
 - 示例代码：`models/glm_v4_5/` 目录下的算子实现文件
@@ -242,7 +244,7 @@ description: 将 PyPTO 融合算子集成到整网中，替代多个小算子组
    或使用 `pypto-golden-generate` skill 自动生成，参考 `.agents/skills/pypto-golden-generate/templates/golden-template.py` 模板。
    
    关键要点：
-   - Golden 实现必须是纯 PyTorch 实现，禁止引入 pypto
+   - Golden 实现优先使用纯 PyTorch，禁止引入 pypto；含硬件特定操作（如 NPU 量化算子）的算子允许使用 torch_npu 进行设备放置
    - Golden 实现应完整覆盖原始小算子组合的计算逻辑
    - 导出 `{op}_golden()` 函数供测试脚本调用
    - 每个融合算子必须有独立 `{op}_golden.py` 文件，禁止将 golden 逻辑内联在测试或实现文件中

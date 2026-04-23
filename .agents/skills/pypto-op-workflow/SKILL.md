@@ -107,6 +107,17 @@ description: PyPTO 算子开发工作流程。用于开发华为昇腾 AI 处理
 | **输出工件** | `SPEC.md`（含算子名、公式、输入输出规格、精度要求、典型配置） |
 | **完成标准** | `SPEC.md` 包含算子名称、数学公式、输入输出规格（shape + dtype）、精度要求 |
 
+**阶段产出文件对应关系**：
+
+| 阶段 | 产出文件 | 存放位置 | 下游消费方式 |
+|------|---------|---------|------------|
+| Stage 1 | `SPEC.md` | 算子工作目录根 | Stage 2/3/4 读取规格信息 |
+| Stage 2 | `API_REPORT.md` | 算子工作目录根 | Stage 4 读取 API 映射和约束 |
+| Stage 3 | `{op}_golden.py` | 算子工作目录根 | Stage 5 test 文件 import golden 函数 |
+| Stage 4 | `DESIGN.md` | 算子工作目录根 | Stage 5 读取 tiling/loop 设计 |
+| Stage 5 | `{op}_impl.py` + `test_{op}.py` + `README.md` | 算子工作目录根 | Stage 6/7 读取 impl 和 test |
+| Stage 7 | 性能分析报告 | `output/` 子目录 | 交付物 |
+
 **关键决策**：
 - 信息完整 → 展示确认后直接生成
 - 信息不足 → 向用户提问补充（最多 2 轮确认）
@@ -193,6 +204,13 @@ description: PyPTO 算子开发工作流程。用于开发华为昇腾 AI 处理
 | `[PRECISION_PASS]` | 精度验证通过 | → Stage 7（性能调优） |
 | `[PRECISION_FAIL]` | 精度验证失败 | → Stage 6（精度修复） |
 | 无标记 + exit ≠ 0 | 运行失败（编译/import/runtime） | → Stage 5 内排查重试（**最多 10 次**） |
+
+> **SIM 模式说明**：无 NPU 时使用 `run_mode=sim`，三态判定规则如下：
+> - `[PRECISION_PASS]` → 标记为 `[SIM_PASS]`，视为临时通过，待 NPU 可用后需重新验证
+> - `[PRECISION_FAIL]` → 正常进入 Stage 6
+> - SIM 模式无法进行性能调优（Stage 7 需等待 NPU 环境）
+
+> **标记格式说明**：`[PRECISION_PASS/FAIL]` 方括号标记仅用于 `pypto-op-develop` 生成的测试文件（通过 `print` 输出）。若使用 `models/` 下的成熟案例测试文件，需根据其实际输出格式适配判定逻辑。
 
 **Stage 5 重试限制**：
 - 运行失败时在 Stage 5 内排查重试，**最多 10 次**
