@@ -259,8 +259,8 @@ class CompactDumpTensorInfoParser:
         # 定义字段解析顺序和类型（严格匹配C/C++结构体）
         self.field_specs = [
             ("B>headSize", "uint32_t"),
-            ("funcId", "uint32_t"),
-            ("taskId", "uint32_t"),
+            ("B>funcId", "uint32_t"),
+            ("B>taskId", "uint32_t"),
             ("ROOT_CALL:opmagic", "uint32_t"),
             ("blockIdx", "int32_t"),
             ("B>dataType", "int32_t"),
@@ -407,7 +407,7 @@ class CompactDumpTensorInfoParser:
                 self.raw_tensor_info[tensor_info["ROOT_CALL:rawmagic"]] = []
             self.raw_tensor_info[tensor_info["ROOT_CALL:rawmagic"]].append(tensor_info)
 
-        key = (tensor_info["taskId"], tensor_info["ROOT_CALL:opmagic"], tensor_info["B>seqNo"])
+        key = (tensor_info["B>taskId"], tensor_info["ROOT_CALL:opmagic"], tensor_info["B>seqNo"])
         if key not in self.task_tensor_info:
             self.task_tensor_info[key] = []
         self.task_tensor_info[key].append(tensor_info)
@@ -435,7 +435,7 @@ class CompactDumpTensorInfoParser:
                 continue
                 
             block_idx = tensor_infos[0].get("blockIdx")
-            task_id = tensor_infos[0].get("taskId")
+            task_id = tensor_infos[0].get("B>taskId")
             seq_no = tensor_infos[0].get("B>seqNo")
             key = (block_idx, task_id, seq_no)
             if key not in exec_time_index:
@@ -596,6 +596,7 @@ def main():
     df["FUNC:hash"] = df["FUNC:hash"].apply(lambda x: f"{x:.0f}'")
     df["B>execStart"] = df["B>execStart"].apply(lambda x: f"{x:.0f}'")
     df["B>execEnd"] = df["B>execEnd"].apply(lambda x: f"{x:.0f}'")
+    df["B>TIMESTAMP"] = df["B>TIMESTAMP"].apply(lambda x: f"{x:.0f}'")
 
     logging.info(df)
 
