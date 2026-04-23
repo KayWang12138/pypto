@@ -172,7 +172,6 @@ protected:
             prof->ProfStart();
 
             int32_t aicoreId = 0;
-            int32_t subgraphId = 0;
             int32_t taskId = 0;
             TaskStat* taskStat = new TaskStat();
             taskStat->taskId = 0;
@@ -180,7 +179,7 @@ protected:
             taskStat->execStart = 0;
             taskStat->subGraphId = 0;
             for (int i = 0; i < iterations; i++) {
-                prof->ProfGet(aicoreId, subgraphId, taskId, taskStat);
+                prof->ProfGetLog(aicoreId, taskStat);
             }
             int64_t flag = 0;
             prof->ProfGetSwitch(flag);
