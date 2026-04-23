@@ -30,6 +30,14 @@
 #include "device_trace.h"
 #ifdef __DEVICE__
 #include "log_types.h"
+#if defined(PMU_USER_ACCESS_KO_AUTO_LOAD) && PMU_USER_ACCESS_KO_AUTO_LOAD
+#if defined(__has_include)
+#if __has_include("machine/utils/pmu_user_access_ko_embedded.h")
+#include "machine/utils/pmu_user_access_ko_embedded.h"
+#endif
+#endif
+#include "machine/utils/pmu_ko_loader.h"
+#endif
 #endif
 
 #ifdef __USE_CUSTOM_CTRLFLOW__
@@ -297,14 +305,7 @@ public:
     int ExecDyn(npu::tile_fwk::DeviceKernelArgs* args)
     {
         DEV_INFO("start control flow.");
-<<<<<<< HEAD
         DEV_ATRACE("start control flow.");
-// #ifdef __DEVICE__
-// #if AICPU_PMU_EVENT_ENABLE
-//         AICPU_PMU_SCOPE("ExecDyn");
-// #endif
-// #endif
-=======
 // PMU 采集示例（两种采样路径相互独立，开关位于 framework/src/machine/utils/device_switch.h）：
 //   1) AICPU_PMU_EVENT_ENABLE = 1  使用 perf_event_open / ioctl / read 路径（兼容性好）
 //      头文件: machine/utils/perf_event_sampler.h
@@ -314,11 +315,10 @@ public:
 //      宏: ARM_PMU_DIRECT_SCOPE / ARM_PMU_DIRECT_BEGIN / ARM_PMU_DIRECT_END
 //      前置条件: aarch64 架构 + 内核已开启 PMUSERENR_EL0.EN
 #ifdef __DEVICE__
-#if AICPU_PMU_EVENT_ENABLE
-        AICPU_PMU_SCOPE("ExecDyn");
+#if ARM_PMU_DIRECT_ENABLE
+        ARM_PMU_DIRECT_SCOPE("ExecDyn");
 #endif
 #endif
->>>>>>> feat(machine): support direct AICPU PMU profiling
         auto devProg = PtrToPtr<int64_t, DevAscendProgram>(args->cfgdata);
         auto devStartArgs = (DevStartArgs*)devProg->GetRuntimeDataList()->GetRuntimeDataPending();
 
@@ -367,12 +367,31 @@ public:
 #endif
     }
 
+    void InitPmuUserAccessKo()
+    {
+#ifdef __DEVICE__
+#if defined(PMU_USER_ACCESS_KO_AUTO_LOAD) && PMU_USER_ACCESS_KO_AUTO_LOAD
+        static bool loadTried = false;
+        if (loadTried) {
+            return;
+        }
+        loadTried = true;
+
+        int ret = npu::tile_fwk::PmuInitEmbeddedKo();
+        if (ret != 0) {
+            DEV_WARN("[PMU_KO] Auto load failed, ARM PMU direct sampler may be unavailable, ret=%d", ret);
+        }
+#endif
+#endif
+    }
+
     int EntryInit(DeviceKernelArgs* kargs)
     {
         SetModuleLogLevel(kargs);
         PerfBegin(PERF_EVT_DEVICE_MACHINE_INIT_DYN);
 #ifdef __DEVICE__
         InitLogSwitch();
+        InitPmuUserAccessKo();
         AiCoreProf::RegDevProf();
 #endif
         if (kargs == nullptr) {

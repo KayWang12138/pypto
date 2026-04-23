@@ -68,7 +68,12 @@ namespace npu::tile_fwk {
 // （ArmPmuDirectSampler / ARM_PMU_DIRECT_SCOPE / ARM_PMU_DIRECT_BEGIN / ARM_PMU_DIRECT_END）。
 // 前置条件：aarch64 架构，内核已开启 PMUSERENR_EL0.EN（EL0 允许访问 PMU）。
 // 典型开销：Begin/End 各 10~20 ns。
-#define ARM_PMU_DIRECT_ENABLE 0
+#define ARM_PMU_DIRECT_ENABLE 1
+
+// 启用后，device 初始化阶段会尝试从内嵌的 pmu_user_access.ko 写出文件并加载模块。
+// 需要先运行 tools/scripts/pmu_user_access/embed_ko_to_code.sh 生成
+// framework/src/machine/utils/pmu_user_access_ko_embedded.h。
+#define PMU_USER_ACCESS_KO_AUTO_LOAD ARM_PMU_DIRECT_ENABLE
 
 // ready quene mode for aicore task : Last-in-first-out(LIFO stack mode) or first-in-first-out(FIFO quene mode)
 constexpr bool READY_QUE_LIFO_SWITCH = true;

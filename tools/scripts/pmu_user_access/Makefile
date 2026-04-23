@@ -11,15 +11,16 @@ obj-m += pmu_user_access.o
 KVER ?= $(shell uname -r)
 KDIR ?= /lib/modules/$(KVER)/build
 PWD  := $(shell pwd)
+CC   ?= gcc
 
-.PHONY: all clean install uninstall probe
+.PHONY: all clean install uninstall probe loader
 
 all:
 	$(MAKE) -C $(KDIR) M=$(PWD) modules
 
 clean:
 	$(MAKE) -C $(KDIR) M=$(PWD) clean
-	rm -f probe_pmu
+	rm -f probe_pmu loader
 
 install: all
 	sudo insmod ./pmu_user_access.ko
@@ -31,6 +32,9 @@ uninstall:
 
 probe: probe_pmu
 	./probe_pmu
+
+loader: loader.c
+	$(CC) -O2 -Wall $< -o $@
 
 probe_pmu: probe_pmu.c
 	$(CC) -O2 -Wall $< -o $@
