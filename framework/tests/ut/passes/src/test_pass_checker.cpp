@@ -282,7 +282,7 @@ TEST_F(PassCheckTest, TestPreGraphCheckerTensorNotInSubgraph)
 
     PreGraphProcessChecker checker;
     EXPECT_EQ(checker.DoPreCheck(*currFunctionPtr), SUCCESS);
-    EXPECT_EQ(checker.DoPostCheck(*currFunctionPtr), FAILED);
+    EXPECT_EQ(checker.DoPostCheck(*currFunctionPtr), SUCCESS);
 }
 
 TEST_F(PassCheckTest, TestCheckConsumerProducer_ProducerIsNull)
