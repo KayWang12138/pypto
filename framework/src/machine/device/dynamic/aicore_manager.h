@@ -1407,8 +1407,6 @@ private:
                 finTaskRegVal, pendingIdRef, runningIdRef);
         }
 #else
-        (void)ctx;
-        (void)finishCnt;
         ret = ResolveWhenSyncMode(type, finTaskId, finTaskState, coreIdx, resloveParallelIdx);
         if (unlikely(ret != DEVICE_MACHINE_OK)) {
             return ret;
@@ -2086,6 +2084,15 @@ private:
 
 #if ENABLE_AICORE_PRINT
         DumpAicoreLog(coreIdx);
+#endif
+
+#if PMU_COLLECT
+    volatile KernelArgs* arg = reinterpret_cast<KernelArgs*>(aicoreHal_.GetSharedBuffer() + coreIdx * SHARED_BUFFER_SIZE);
+    volatile Metrics* metric = reinterpret_cast<Metrics*>(arg->shakeBuffer[SHAK_BUF_DFX_DATA_INDEX]);
+    if (metric != nullptr && metric->taskCount > 0) {
+        const TaskStat* stat = const_cast<const TaskStat*>(&metric->tasks[metric->taskCount - 1]);
+        aicoreProf_.ProfGetPmu(coreIdx, stat->subGraphId, stat->taskId, stat);
+    }
 #endif
 
 #if ENABLE_TENSOR_DUMP

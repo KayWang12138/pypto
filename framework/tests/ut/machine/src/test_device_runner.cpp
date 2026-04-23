@@ -133,8 +133,6 @@ TEST_F(TestDeviceRunner, test_ini_proflevel)
     prof.ProfInit(devArgs.get());
     prof.ProfStart();
     int32_t aicoreId = 0;
-    int32_t subgraphId = 0;
-    int32_t taskId = 0;
     TaskStat* taskStat = new TaskStat();
     taskStat->seqNo = 1;
     taskStat->subGraphId = 0;
@@ -144,7 +142,7 @@ TEST_F(TestDeviceRunner, test_ini_proflevel)
     taskStat->waitStart = 1;
     taskStat->waitEventIdx = 0;
     taskStat->setEventIdx = 0;
-    prof.ProfGet(aicoreId, subgraphId, taskId, taskStat);
+    prof.ProfGetLog(aicoreId, taskStat);
     prof.profLevel_ = npu::tile_fwk::dynamic::PROF_LEVEL_FUNC_LOG_PMU;
     uint32_t ctrl0val = 0;
     prof.addrs_.ctrl0Addr = &ctrl0val;
