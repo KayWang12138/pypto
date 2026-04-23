@@ -88,17 +88,10 @@ Status ColorGraph::PreColorSort(Function& function)
 
 void ColorGraph::InitializeTensorColor(Operation& op) const
 {
-    const int newColor = op.GetSubgraphID();
-    for (auto& input : op.GetIOperands()) {
-        if (input->GetProducers().size() == 0) {
-            input->subGraphID = newColor;
-        }
-    }
     for (auto& output : op.GetOOperands()) {
         TileRange range;
         range.memId = output->tensor->GetRawMagic();
         output->memoryrange = range;
-        output->subGraphID = newColor;
     }
 }
 } // namespace npu::tile_fwk

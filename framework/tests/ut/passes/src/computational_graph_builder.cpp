@@ -42,7 +42,6 @@ bool ComputationalGraphBuilder::AddTensor(
     }
     auto tensor = GetTensor(name);
     tensor->SetMemoryTypeBoth(memType, true);
-    tensor->subGraphID = subGraphID;
     tensor->memoryrange.memId = tensor->GetMagic();
     tensors_[name] = tensor;
     return true;
@@ -98,13 +97,15 @@ bool ComputationalGraphBuilder::AddOp(
     Operation& op = function->AddRawOperation(opcode, itensors, otensors, updateFunctionMap);
     if (op.GetOpcode() == Opcode::OP_COPY_IN) {
         auto shapeImme = OpImmediate::Specified(itensors[0]->GetShape());
-        op.SetOpAttribute(std::make_shared<CopyOpAttribute>(
-            OpImmediate::Specified({0, 0}), otensors[0]->GetMemoryTypeOriginal(), shapeImme, shapeImme,
-            std::vector<OpImmediate>()));
+        op.SetOpAttribute(
+            std::make_shared<CopyOpAttribute>(
+                OpImmediate::Specified({0, 0}), otensors[0]->GetMemoryTypeOriginal(), shapeImme, shapeImme,
+                std::vector<OpImmediate>()));
     } else if (op.GetOpcode() == Opcode::OP_COPY_OUT) {
         auto shapeImme = OpImmediate::Specified(itensors[0]->GetShape());
-        op.SetOpAttribute(std::make_shared<CopyOpAttribute>(
-            itensors[0]->GetMemoryTypeOriginal(), OpImmediate::Specified({0, 0}), shapeImme, shapeImme));
+        op.SetOpAttribute(
+            std::make_shared<CopyOpAttribute>(
+                itensors[0]->GetMemoryTypeOriginal(), OpImmediate::Specified({0, 0}), shapeImme, shapeImme));
     }
     operations_[name] = &op;
     return true;

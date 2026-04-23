@@ -275,9 +275,6 @@ TEST_F(PassCheckTest, TestPreGraphCheckerTensorNotInSubgraph)
     currFunctionPtr->AddOperation(Opcode::OP_ADD, {tensor1}, {outcast1});
     currFunctionPtr->Operations()[0].UpdateSubgraphID(0);
     currFunctionPtr->Operations()[1].UpdateSubgraphID(1);
-    incast1->subGraphID = 0;
-    outcast1->subGraphID = 1;
-    tensor1->subGraphID = NOT_IN_SUBGRAPH;
 
     currFunctionPtr->inCasts_.push_back(incast1);
     currFunctionPtr->outCasts_.push_back(outcast1);
