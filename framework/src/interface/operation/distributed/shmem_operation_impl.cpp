@@ -207,6 +207,82 @@ void CreateShmemSignal(const char* group, int64_t worldSize, ShmemTensor& t)
     ValidateShmemTensor(t, false, true);
 }
 
+static void CreateShmemSignalImpl(const Tensor& commContext, ShmemTensor& t, const Shape& shape)
+{
+    auto& function = *Program::GetInstance().GetCurrentFunction();
+    Shape signalShape{t.worldSize};
+    signalShape.insert(signalShape.end(), shape.begin(), shape.end());
+    auto signalInner = std::make_shared<LogicalTensor>(function, DataType::DT_INT32, signalShape);
+    t.signal = signalInner;
+    Program::GetInstance().GetTensorSlotManager()->TensorWrite(t.signal, SlotProperty::SHMEM_TENSOR);
+    auto& signalOp = function.AddOperation(Opcode::OP_BIND_TENSOR, {commContext.GetStorage()}, {signalInner});
+    int64_t maxTileNum = 1;
+    signalOp.SetAttribute(
+        OpAttributeKey::bindTensor, BindTensorV2(commContext, 1, GetSignalBufferSize(t, maxTileNum), maxTileNum));
+    signalOp.SetAttribute(OpAttributeKey::maxTileNum, maxTileNum);
+    t.signalOp = &signalOp;
+    t.commTensor = const_cast<Tensor*>(&commContext);
+}
+
+ShmemTensor CreateShmemTensor(const Tensor& commContext, const char* group, int64_t worldSize, DataType dataType, const Shape& shape)
+{
+    ShmemTensor t;
+    static uint64_t s_index = 0;
+    LOOP("CreateShmemTensor" + std::to_string(s_index++), FunctionType::DYNAMIC_LOOP, index, LoopRange(1))
+    {
+        (void)index;
+        CreateShmemTensor(commContext, group, worldSize, dataType, shape, t);
+    }
+    return t;
+}
+
+void CreateShmemTensor(const Tensor& commContext, const char* group, int64_t worldSize, DataType dataType, const Shape& shape, ShmemTensor& t)
+{
+    ValidateGroup(group);
+
+    t.group = std::string(group);
+    t.worldSize = worldSize;
+    auto& function = *Program::GetInstance().GetCurrentFunction();
+    //int32_t hcclGroupIndex = static_cast<int>(CommGroupRecorder::GetInstance().Input(std::string(group)));
+    Shape dataShape = shape;
+    auto dataInner = std::make_shared<LogicalTensor>(function, dataType, dataShape);
+    t.data = dataInner;
+    Program::GetInstance().GetTensorSlotManager()->TensorWrite(t.data, SlotProperty::SHMEM_TENSOR);
+    auto& dataOp = function.AddOperation(Opcode::OP_BIND_TENSOR, {commContext.GetStorage()}, {dataInner});
+    dataOp.SetAttribute(
+        OpAttributeKey::bindTensor,
+        BindTensorV2(
+            commContext, 0,
+            AlignUp(
+                BytesOf(dataType) * std::accumulate(dataShape.begin(), dataShape.end(), 1, std::multiplies<int64_t>()),
+                SHMEM_SIZE_ALIGN)));
+
+    CreateShmemSignalImpl(commContext, t, shape);
+
+    ValidateShmemTensor(t, true, true);
+}
+
+ShmemTensor CreateShmemSignal(const Tensor& commContext, const char* group, int64_t worldSize)
+{
+    ShmemTensor t;
+    static uint64_t s_index = 0;
+    LOOP("CreateShmemSignal" + std::to_string(s_index++), FunctionType::DYNAMIC_LOOP, index, LoopRange(1))
+    {
+        (void)index;
+        CreateShmemSignal(commContext, group, worldSize, t);
+    }
+    return t;
+}
+
+void CreateShmemSignal(const Tensor& commContext, const char* group, int64_t worldSize, ShmemTensor& t)
+{
+    ValidateGroup(group);
+    t.group = std::string(group);
+    t.worldSize = worldSize;
+    CreateShmemSignalImpl(commContext, t, {1, SHMEM_SIGNAL_STRIDE});
+    ValidateShmemTensor(t, false, true);
+}
+
 template <typename OffsetType, bool HasValidShape = false>
 ShmemTensor ShmemViewImpl(
     const ShmemTensor& operand, const std::vector<int64_t>& shapes, const std::vector<OffsetType>& offsets,
@@ -234,7 +310,7 @@ ShmemTensor ShmemViewImpl(
     std::vector<OffsetType> signalOffset(operand.signal.GetShape().size(), 0);
     std::copy(offsets.begin(), offsets.end(), signalOffset.end() - offsets.size());
     auto signal = View(operand.signal, signalShape, signalOffset);
-    return ShmemTensor{operand.group, operand.worldSize, data, signal, operand.signalOp};
+    return ShmemTensor{operand.group, operand.worldSize, data, signal, operand.signalOp, operand.commTensor};
 }
 
 ShmemTensor ShmemView(
@@ -279,11 +355,12 @@ static Tensor ShmemPutImpl(
     ValidateTiling(isUb2Gm ? Opcode::OP_SHMEM_PUT_UB2GM : Opcode::OP_SHMEM_PUT, src, "src");
     auto& function = *Program::GetInstance().GetCurrentFunction();
     auto out = std::make_shared<LogicalTensor>(function, DT_INT32, pred.GetShape());
+    auto commCtx = ((Operation*)(dst.signalOp))->GetInputOperand(0);
     auto& op =
         isUb2Gm ? function.AddOperation(
-                      Opcode::OP_SHMEM_PUT_UB2GM, {src.GetStorage(), dst.data.GetStorage(), pred.GetStorage()}, {out}) :
+                      Opcode::OP_SHMEM_PUT_UB2GM, {src.GetStorage(), dst.data.GetStorage(), pred.GetStorage(), commCtx}, {out}) :
                   function.AddOperation(
-                      Opcode::OP_SHMEM_PUT, {pred.GetStorage(), src.GetStorage(), dst.data.GetStorage()}, {out});
+                      Opcode::OP_SHMEM_PUT, {pred.GetStorage(), src.GetStorage(), dst.data.GetStorage(), commCtx}, {out});
     if (src.GetValidShape().size() == 0) {
         src.GetStorage()->UpdateDynValidShape(SymbolicScalar::FromConcrete(src.GetShape()));
     }
