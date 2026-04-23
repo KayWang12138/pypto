@@ -208,7 +208,7 @@ bool RecordFunc::Iterator::operator!=(const IteratorEnd& rhs)
     if (!wrappedIter_.has_value()) {
         return cur_ != 1;
     }
-    FUNCTION_ASSERT(rhs.wrappedEnd.has_value()) << "Input param rhs has no value";
+    F_ASSERT(rhs.wrappedEnd.has_value()) << "Input param rhs has no value";
     bool result = *wrappedIter_ != *rhs.wrappedEnd;
     return result;
 }
@@ -228,7 +228,7 @@ RecordLoopFunc::RecordLoopFunc(
     if (parallel_) {
         for (auto& rlf : Program::GetInstance().GetLoopStack()) {
             if (rlf.get().Getparallel()) {
-                ASSERT(!rlf.get().Getparallel()) << "The parallel attribute value does not allow nesting";
+                F_ASSERT(FError::INVALID_OPERATION, !rlf.get().Getparallel()) << "The parallel attribute value does not allow nesting";
             }
         }
     }
@@ -308,7 +308,7 @@ bool RecordLoopFunc::MatchUnrollTimes(int unrollTimes)
     if (!curRlf.VisitedUnroll(unrollTimes)) {
         curRlf.VisitUnroll(unrollTimes);
     }
-    FUNCTION_ASSERT(FError::EINTERNAL, curRlf.StillHaveUnrollTimes()) << "unrollTimes_ is empty.";
+    F_ASSERT(curRlf.StillHaveUnrollTimes()) << "unrollTimes_ is empty.";
     if (curRlf.CurUnrollTimes() == unrollTimes) {
         return true;
     }
@@ -329,7 +329,7 @@ RecordLoopFunc::Iterator RecordLoopFunc::Iterator::operator++()
         scalar_ = scalar_ + rlf_.LoopStep();
         cur_++;
     } else {
-        FUNCTION_ASSERT(cur_ == 0) << "The cur_ = " << cur_;
+        F_ASSERT(cur_ == 0) << "The cur_ = " << cur_;
         scalar_ = scalar_ + rlf_.LoopStep() * rlf_.CurUnrollTimes();
         cur_ += rlf_.CurUnrollTimes();
     }
@@ -343,13 +343,13 @@ bool RecordLoopFunc::Iterator::operator!=(const IteratorEnd& rhs)
     (void)rhs;
     if (rlf_.dryRun_) {
         rlf_.dryRun_ = false;
-        FUNCTION_ASSERT(cur_ == 0) << "The cur_ = " << cur_;
+        F_ASSERT(cur_ == 0) << "The cur_ = " << cur_;
         if (rlf_.IsCustomUnrollTimes(rlf_.CurUnrollTimes())) {
             scalar_.AsLoopEnd(true);
         }
         return true;
     }
-    FUNCTION_ASSERT(FError::EINTERNAL, rlf_.StillHaveUnrollTimes()) << "unrollTimes_ is empty.";
+    F_ASSERT(rlf_.StillHaveUnrollTimes()) << "unrollTimes_ is empty.";
     if (cur_ < rlf_.CurUnrollTimes()) {
         if (cur_ == 0) {
             scalar_.AsLoopBegin(true);
@@ -363,7 +363,7 @@ bool RecordLoopFunc::Iterator::operator!=(const IteratorEnd& rhs)
         }
         return true;
     }
-    FUNCTION_ASSERT(cur_ == rlf_.CurUnrollTimes())
+    F_ASSERT(cur_ == rlf_.CurUnrollTimes())
         << " cur_ = " << cur_ << ", rlf_.CurUnrollTimes() = " << rlf_.CurUnrollTimes();
     if (rlf_.IterationEnd()) {
         rlf_.EndLoopFunction();
@@ -372,7 +372,7 @@ bool RecordLoopFunc::Iterator::operator!=(const IteratorEnd& rhs)
             return false;
         }
     }
-    FUNCTION_ASSERT(FError::EINTERNAL, rlf_.StillHaveUnrollTimes()) << "unrollTimes_ is empty.";
+    F_ASSERT(rlf_.StillHaveUnrollTimes()) << "unrollTimes_ is empty.";
     cur_ = 0;
     scalar_ = originalScalar_;
     scalar_.AsLoopBegin(true);
@@ -402,7 +402,7 @@ void RecordLoopFunc::IterationBegin()
 
 void RecordLoopFunc::IterationNext()
 {
-    FUNCTION_ASSERT(FError::EINTERNAL, customUnrollTimes_.empty() || customUnrollTimes_.count(1) > 0)
+    F_ASSERT(customUnrollTimes_.empty() || customUnrollTimes_.count(1) > 0)
         << "Must have unroll 1 if user defined custom unroll times.";
 }
 
@@ -430,9 +430,9 @@ void RecordLoopFunc::GenDefaultUnrollTimes(const std::set<int>& unrollList)
 
 void RecordLoopFunc::VisitUnroll(int unrollTimes)
 {
-    FUNCTION_ASSERT(FError::IS_EXIST, visited_.count(unrollTimes) == 0)
+    F_ASSERT(FError::IS_EXIST, visited_.count(unrollTimes) == 0)
         << "unrollTimes[" << unrollTimes << "] already exists in visited.";
-    FUNCTION_ASSERT(FError::IS_EXIST, unrollTimes_.count(unrollTimes) == 0)
+    F_ASSERT(FError::IS_EXIST, unrollTimes_.count(unrollTimes) == 0)
         << "unrollTimes[" << unrollTimes << "] already exists..";
     visited_.emplace(unrollTimes);
     unrollTimes_.emplace(unrollTimes);
@@ -440,13 +440,13 @@ void RecordLoopFunc::VisitUnroll(int unrollTimes)
 
 int RecordLoopFunc::CurUnrollTimes() const
 {
-    FUNCTION_ASSERT(FError::EINTERNAL, StillHaveUnrollTimes()) << "unrollTimes_ is empty.";
+    F_ASSERT(StillHaveUnrollTimes()) << "unrollTimes_ is empty.";
     return *unrollTimes_.begin();
 }
 
 void RecordLoopFunc::NextUnrollTimes()
 {
-    FUNCTION_ASSERT(FError::EINTERNAL, StillHaveUnrollTimes()) << "unrollTimes_ is empty.";
+    F_ASSERT(StillHaveUnrollTimes()) << "unrollTimes_ is empty.";
     unrollTimes_.erase(unrollTimes_.begin());
 }
 

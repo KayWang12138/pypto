@@ -108,7 +108,7 @@ void Program::CreateInitFunction()
 
 void Program::CreateCallerCalleeLink(Function* caller, Function* callee)
 {
-    FUNCTION_ASSERT(
+    F_ASSERT(
         FError::INVALID_TYPE,
         caller->IsGraphType(GraphType::TENSOR_GRAPH) && callee->IsGraphType(GraphType::TENSOR_GRAPH))
         << "caller graphType: " << GetGraphTypeNameDict().Find(caller->GetGraphType())
@@ -260,7 +260,7 @@ bool Program::BeginFunction(
         newFunc->BeginFunction(explicitOpArgs);
 
         currentFunctionPtr_ = newFunc.get();
-        FUNCTION_ASSERT(FError::IS_EXIST, functionmap_.count(funcMagicName) == 0)
+        F_ASSERT(FError::IS_EXIST, functionmap_.count(funcMagicName) == 0)
             << funcMagicName << " already exists in funcmap.";
         functionmap_.emplace(funcMagicName, std::move(newFunc));
         currentFunctionMagicName_ = funcMagicName;
@@ -297,10 +297,10 @@ Operation& Program::ConnectCallerGusket(Function& caller, FunctionCallArgs& args
 
 Operation* Program::FinishCurrentFunction(const std::shared_ptr<TensorSlotScope>& scope, bool generateCall)
 {
-    FUNCTION_ASSERT(FError::EINTERNAL, functionMagicNameStack_.size() != 0)
+    F_ASSERT(functionMagicNameStack_.size() != 0)
         << "The stack of functionMagicName is null.";
     auto funcMagicName = currentFunctionPtr_->GetRawName() + "_" + std::to_string(currentFunctionPtr_->GetFuncMagic());
-    FUNCTION_ASSERT(FError::NOT_EXIST, currentFunctionPtr_->GetMagicName() == funcMagicName)
+    F_ASSERT(FError::NOT_EXIST, currentFunctionPtr_->GetMagicName() == funcMagicName)
         << "currentFunc magicName: " << currentFunctionPtr_->GetMagicName()
         << ", rawName: " << currentFunctionPtr_->GetRawName() << "funcMagic: " << currentFunctionPtr_->GetFuncMagic();
 
@@ -313,7 +313,7 @@ Operation* Program::FinishCurrentFunction(const std::shared_ptr<TensorSlotScope>
     if (!generateCall) {
         return nullptr;
     }
-    FUNCTION_ASSERT(FError::EINTERNAL, currentFunctionPtr_->HasParent())
+    F_ASSERT(currentFunctionPtr_->HasParent())
         << "CurrentFunction doesn't have a parent function.";
     if (scope) {
         GetTensorSlotManager()->ConnectSlot(scope);
@@ -430,7 +430,7 @@ Operation& Program::AddOperation(
     const std::vector<std::shared_ptr<LogicalTensor>>& oOperand)
 {
     // Add the operation to the current function
-    FUNCTION_ASSERT(currentFunctionMagicName_ != PROGRAM_ENTRY_FUNCTION_NAME) << "No active function to add operation.";
+    F_ASSERT(currentFunctionMagicName_ != PROGRAM_ENTRY_FUNCTION_NAME) << "No active function to add operation.";
     return currentFunctionPtr_->AddOperation(opCode, iOperand, oOperand);
 }
 
@@ -534,7 +534,7 @@ Json Program::DumpJson(Function* mainFunc) const
                 } else if (tensorGraphFunc != nullptr) {
                     programDump["curr_funcmagic"] = tensorGraphFunc->GetFuncMagic();
                 } else {
-                    FUNCTION_ASSERT(FError::NOT_EXIST, false) << "cannot find current function magic";
+                    F_ASSERT(FError::NOT_EXIST, false) << "cannot find current function magic";
                 }
             } else if (!tileGraphFuncs.empty()) {
                 programDump["entryhash"] = tileGraphFuncs[0]->GetFunctionHash().c_str();
@@ -629,7 +629,7 @@ void Program::LoadJson(Json& programJson)
             continue;
         }
     }
-    FUNCTION_ASSERT(FError::NOT_EXIST, currentFunctionPtr_ != nullptr) << "loss of pointer.";
+    F_ASSERT(FError::NOT_EXIST, currentFunctionPtr_ != nullptr) << "loss of pointer.";
 }
 
 void Program::DumpJsonFile(const std::string& fileName, Function* mainFunc)
@@ -640,7 +640,7 @@ void Program::DumpJsonFile(const std::string& fileName, Function* mainFunc)
     }
     FUNCTION_LOGD("Program dump json to %s.", filePath.c_str());
     std::ofstream file(filePath);
-    FUNCTION_ASSERT(FError::BAD_FD, file.is_open()) << "Failed to open file: " << filePath;
+    F_ASSERT(FError::BAD_FD, file.is_open()) << "Failed to open file: " << filePath;
     file << DumpJson(mainFunc).dump(1) << std::endl;
     file.close();
 }
@@ -671,7 +671,7 @@ bool Program::QueryAndUpdateCurrentFunction()
         }
         return false;
     } else {
-        FUNCTION_ASSERT(FError::INVALID_TYPE, currentFunctionPtr_->IsGraphType(GraphType::BLOCK_GRAPH))
+        F_ASSERT(FError::INVALID_TYPE, currentFunctionPtr_->IsGraphType(GraphType::BLOCK_GRAPH))
             << "currentFunction graphType: " << GetGraphTypeNameDict().Find(currentFunctionPtr_->GetGraphType());
         auto cacheFunc = cacheValue->GetFunction();
         functionmap_.erase(currentFunctionPtr_->GetMagicName());

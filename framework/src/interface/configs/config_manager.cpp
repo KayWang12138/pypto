@@ -176,11 +176,11 @@ static std::string CreateLogTopFolder()
         }
     }
     bool ret = CreateDir(folderPath);
-    CHECK(ret) << "Failed to create dir: " << folderPath << ", ensure its parent dir exists.";
+    CHECK(FError::BAD_FD, ret) << "Failed to create dir: " << folderPath << ", ensure its parent dir exists.";
 
     folderPath = folderPath + "/output_" + timestamp.str() + "_" + std::to_string(getpid()) + "_" + GetIpContext();
     ret = CreateDir(folderPath);
-    ASSERT(ret) << "Failed to create dir: " << folderPath << ", ensure its parent dir exists.";
+    F_ASSERT(FError::BAD_FD, ret) << "Failed to create dir: " << folderPath << ", ensure its parent dir exists.";
     config::SetRunDataOption(KEY_COMPUTE_GRAPH_PATH, RealPath(folderPath));
 
     return folderPath;
@@ -407,7 +407,7 @@ void CreateRunDataDir()
     timestamp << std::put_time(std::localtime(&time), "%Y%m%d%H%M%S");
     g_config.rundataDir.dName = PREFIX_RUNDATA + timestamp.str();
     bool res = CreateMultiLevelDir(g_config.rundataDir.montage());
-    ASSERT(res) << "Failed to create directory: " << g_config.rundataDir.montage();
+    F_ASSERT(FError::BAD_FD, res) << "Failed to create directory: " << g_config.rundataDir.montage();
 }
 
 void SetRunDataOption(const std::string& key, const std::string& value)
