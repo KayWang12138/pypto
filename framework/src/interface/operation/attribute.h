@@ -121,7 +121,7 @@ public:
     static void NormalizeValue(
         SymbolicScalar& arg, OpImmediate& opImm, const SymbolicScalar& normCall, bool valueToIndex)
     {
-        ASSERT(opImm.IsSpecified());
+        F_ASSERT(opImm.IsSpecified());
         SymbolicScalar value = opImm.GetSpecifiedValue();
         if (valueToIndex) {
             opImm = OpImmediate::Specified(normCall);
@@ -135,7 +135,7 @@ public:
     {
         int offset = 0;
         for (auto& op : opImmList) {
-            ASSERT(op.IsSpecified());
+            F_ASSERT(op.IsSpecified());
             SymbolicScalar value = op.GetSpecifiedValue();
             if (valueToIndex) {
                 op = OpImmediate::Parameter(coaIndex + offset);
@@ -164,18 +164,18 @@ public:
 
     const SymbolicScalar& GetSpecifiedValue() const
     {
-        ASSERT(IsSpecified());
+        F_ASSERT(IsSpecified());
         return specifiedValue_;
     }
     SymbolicScalar& GetSpecifiedValue()
     {
-        ASSERT(IsSpecified());
+        F_ASSERT(IsSpecified());
         return specifiedValue_;
     }
 
     int GetParameterIndex() const
     {
-        ASSERT(IsParameter());
+        F_ASSERT(IsParameter());
         return parameterIndex_;
     }
 
@@ -183,13 +183,13 @@ public:
 
     OpImmediate operator+(const OpImmediate& rhs) const
     {
-        ASSERT(IsSpecified() && rhs.IsSpecified());
+        F_ASSERT(IsSpecified() && rhs.IsSpecified());
         return Specified(GetSpecifiedValue() + rhs.GetSpecifiedValue());
     }
 
     OpImmediate& operator-=(int offset)
     {
-        ASSERT(IsSpecified());
+        F_ASSERT(IsSpecified());
         specifiedValue_ = specifiedValue_ - offset;
         return *this;
     }
