@@ -22,10 +22,9 @@ _DEFAULTS: Dict[str, Any] = {
     # 桥接层一般会在 run_verifier 里覆盖成调用方传入的 log_dir.
     "log_dir": "~/pypto_bench_logs",
 
-    # 单次 verify 子进程超时(秒). 桥接层一般会再覆盖成 CLI --timeout / verify_timeout.
-    # 90s 足够应付绝大多数 KernelBench 用例, PyPTO autotune 收敛时间长的算子需要
-    # 调用方显式放大.
-    "verify_timeout": 90,
+    # 单次 verify 子进程超时(秒). 默认 15 分钟, 避免较慢算子在 autotune / profile
+    # 路径上过早超时. 桥接层仍可通过 CLI --timeout / verify_timeout 覆盖.
+    "verify_timeout": 900,
 
     # PyPTO 运行模式: 0=NPU (默认), 1=CPU SIM. 桥接层只跑 NPU.
     "pypto_run_mode": 0,

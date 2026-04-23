@@ -23,6 +23,8 @@ KernelBench/<level>/{N}_{name}.py   (上游 PyTorch case 文件)
   -> pypto_runner.run_pypto_workflow   子进程 opencode run --agent
                                        pypto-op-orchestrator
                                        prompt 内嵌 ModelNew 文件契约
+                                       (对齐 get_init_inputs/get_inputs 拆分,
+                                       可选跳过 Stage 7 perf-tune)
                                        -> custom/<op>/<op>_impl.py
                                        -> custom/<op>/<op>_pypto_impl.py
                                        -> custom/<op>/<op>_golden.py
@@ -55,7 +57,8 @@ KernelBench/<level>/{N}_{name}.py   (上游 PyTorch case 文件)
 工件契约 (与 pypto 内部工作流解耦):
 
 - **外层 prompt** (`pypto_runner.py:_PROMPT_TEMPLATE`): 显式声明
-  `{op}_pypto_impl.py` 文件契约 (含完整 ModelNew 代码模板 + 自检命令).
+  `{op}_pypto_impl.py` 文件契约 (含完整 ModelNew 模板、自检命令, 并明确
+  对齐 `get_init_inputs()` / `get_inputs()` 的两段式调用约定).
   pypto 内部 SKILL/agent 不动, agent 像消费普通用户需求一样消费这段 prompt.
 - **verifier 兜底** (`verifier/pypto_adapter.py:get_modelnew_loader`):
   生成的 ModelNew 加载代码内置 fallback — 当 `{op}_pypto_impl.py` 缺失或缺
@@ -189,6 +192,17 @@ python -m integration.benchmark.run_kernelbench \
 > direct 模式仍会跑脚本机械层反作弊 (cheat_detector) 和运行时多 kernel 检测,
 > 但跳过 SKILL.md 中要求的 LLM 语义审阅. 仅用于不愿付 LLM 调用成本的场景.
 
+### correctness / 快速生成: 跳过 Stage 7 迭代性能调优
+
+```bash
+python -m integration.benchmark.run_kernelbench \
+  --cases 19_ReLU \
+  --mode correctness \
+  --skip-stage7-perf-tune
+```
+
+> 该参数只跳过 pypto 工作流第七步的迭代性能优化, 不会跳过 Stage 1-6 的实现与精度验证.
+
 ### 批处理多用例 (含性能, 多卡)
 
 ```bash
@@ -225,6 +239,14 @@ python -m integration.benchmark.run_kernelbench --level level1 --limit 5 ...
 ```bash
 # 只重跑验证 (不重新生成算子)
 python -m integration.benchmark.run_kernelbench --cases 19_ReLU --skip-pypto-gen
+```
+
+若希望重跑生成但跳过性能调优, 可改用:
+
+```bash
+python -m integration.benchmark.run_kernelbench \
+  --cases 19_ReLU \
+  --skip-stage7-perf-tune
 ```
 
 ## 测试脚本 (scripts/local)

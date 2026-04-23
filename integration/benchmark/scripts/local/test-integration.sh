@@ -33,6 +33,7 @@ SKILL_TIMEOUT="${SKILL_TIMEOUT:-1500}"
 PYPTO_TIMEOUT="${PYPTO_TIMEOUT:-5400}"
 MODE="${MODE:-performance}"
 OPENCODE_MODEL="${OPENCODE_MODEL:-}"
+SKIP_STAGE7_PERF_TUNE="${SKIP_STAGE7_PERF_TUNE:-0}"
 VERIFY_RTOL="${VERIFY_RTOL:-}"
 VERIFY_ATOL="${VERIFY_ATOL:-}"
 
@@ -63,6 +64,10 @@ cmd=(
 
 if [ -n "${OPENCODE_MODEL}" ]; then
   cmd+=( --opencode-model "${OPENCODE_MODEL}" )
+fi
+
+if [ "${SKIP_STAGE7_PERF_TUNE}" = "1" ]; then
+  cmd+=( --skip-stage7-perf-tune )
 fi
 
 if [ -n "${VERIFY_RTOL}" ]; then

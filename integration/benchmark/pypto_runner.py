@@ -4,8 +4,8 @@
 # Licensed under the CANN Open Software License Agreement Version 2.0 (the "License").
 """pypto 7 阶段 agent 工作流子进程调度器.
 
-通过 ``opencode run --agent pypto-op-orchestrator`` 在 pypto 仓内启动 7 阶段
-agent 工作流, 等待算子产物落到 ``custom/{op}/`` 后返回结果.
+通过 ``opencode run --agent pypto-op-orchestrator`` 在 pypto 仓内启动基于
+7 阶段状态机的 agent 工作流, 等待算子产物落到 ``custom/{op}/`` 后返回结果.
 
 设计要点:
 - ``opencode`` 是外部 CLI; 我们不做 IPC, 只通过 ``stdout/stderr`` 抓日志, 通过
@@ -16,7 +16,8 @@ agent 工作流, 等待算子产物落到 ``custom/{op}/`` 后返回结果.
   ``tail -f log_file`` 能实时看到 agent 进度 (默认不传 ``--print-logs``,
   避免 opencode 内部 server log 把真正的 agent 输出淹没).
 - 主线程仅做 ``timeout_sec`` 硬墙轮询; 不做 early-stop, 让 agent 跑完它
-  自己的 7 阶段状态机 (含 Stage 5↔6 修正循环和 Stage 7 性能调优).
+  自己的状态机 (含 Stage 5↔6 修正循环; Stage 7 可按外部参数决定是否跳过
+  迭代性能调优).
 - prompt 含 ``{op}_pypto_impl.py`` (ModelNew 包装) 的硬约束; runner 不替
   agent 兜底生成. 若 agent 没产出, ``ARTIFACT_MISSING``, 由调用方决策.
 """
@@ -117,10 +118,11 @@ def all_artifacts_present(artifacts: Dict[str, Path]) -> List[str]:
 # ────────────────────────────────────────────────────────────
 
 _PROMPT_TEMPLATE = """\
-请以 pypto-op-orchestrator 角色为算子 `{op_name}` 跑完 7 阶段端到端开发流程.
+请以 pypto-op-orchestrator 角色为算子 `{op_name}` 跑完本次 benchmark 所需的 pypto 工作流.
 
 工作目录: `{op_dir_rel}/`
 SPEC.md (已就绪, 请直接读取并按其内容推进): `{op_dir_rel}/SPEC.md`
+KernelBench task_desc (已就绪, 需要用它校准包装接口): `{task_desc_rel}`
 
 请严格按 pypto 现有 7 阶段产出以下标准产物 (按 pypto-op-orchestrator 自带规范):
   - SPEC.md (已存在)
@@ -136,10 +138,37 @@ SPEC.md (已就绪, 请直接读取并按其内容推进): `{op_dir_rel}/SPEC.md
 【外部桥接附加要求 -- 仅本次任务额外完成, 不要修改 pypto 内置 SKILL/agent】
 ================================================================
 
+下游 KernelVerifier 的真实调用约定不是“把所有参数拍平成一个 wrapper 调用”,
+而是严格遵循 KernelBench task_desc 的两段式接口:
+
+----------------------------------------------------------------------
+init_inputs = get_init_inputs()
+raw_inputs = get_inputs()
+model = ModelNew(*init_inputs)
+outputs = model(*raw_inputs)
+----------------------------------------------------------------------
+
+本 case 的 task_desc 关键信息:
+- task_desc 文件: `{task_desc_rel}`
+- get_init_inputs() 探针 repr: `{init_args_repr}`
+
+Model.__init__ 参考源码:
+----------------------------------------------------------------------
+{model_init_source}
+----------------------------------------------------------------------
+
+Model.forward / __call__ 参考源码:
+----------------------------------------------------------------------
+{forward_source}
+----------------------------------------------------------------------
+
 Stage 5 完成且自验证通过后, 请在同一目录 `{op_dir_rel}/` 下额外生成一个文件
 `{op_name}_pypto_impl.py`. 该文件是给下游 KernelBench 风格评测器
-(KernelVerifier) 的入口, 内容必须与下方代码模板严格一致
-(只替换 `{op_name}` 占位符, 类签名 / forward 行为 / import 关系不得改动):
+(KernelVerifier) 的入口. 你必须根据上面的 task_desc 约定自行确定
+`ModelNew.__init__` / `ModelNew.forward` 与 `{op_name}_wrapper` 的绑定方式.
+
+建议模板如下 (import 关系必须保持, 但 `forward()` 内的实参绑定可按 task_desc
+调整, 不要求逐字照抄):
 
 ----------------------------------------------------------------------
 import torch
@@ -157,36 +186,105 @@ class ModelNew(nn.Module):
         self._init_kwargs = init_kwargs
 
     def forward(self, *inputs: torch.Tensor) -> torch.Tensor:
-        return {op_name}_wrapper(*inputs)
+        # 按 task_desc 的 init / forward 拆分关系转发给 {op_name}_wrapper
+        return {op_name}_wrapper(...)
 ----------------------------------------------------------------------
 
 ModelNew 文件硬约束:
 1. 必须是新文件 `{op_name}_pypto_impl.py`, 与 `{op_name}_impl.py` 同目录.
 2. 必须 `from {op_name}_impl import {op_name}_wrapper` (不得内联 wrapper 实现).
-3. `__init__` 签名固定为 `(*init_args, **init_kwargs)`, 兼容 KernelBench
-   `get_init_inputs()` 返回的任意展开 (大多数用例为空, 但保留通用签名).
-4. `forward` 内部禁止复制 kernel 逻辑或调用任何其他实现, 只能转发到
-   `{op_name}_wrapper`.
-5. 不得修改已生成的 `{op_name}_impl.py` 的导出符号或函数签名.
+3. `ModelNew(*get_init_inputs()).forward(*get_inputs())` 必须与 task_desc 严格兼容.
+4. 如果 task_desc 把参数拆成 init 和 forward 两部分, 必须保持这个拆分;
+   禁止要求下游验证器把 init_args 和 raw_inputs 错误拍平成一个外部调用接口.
+5. 若 `{op_name}_wrapper` 需要 init 参数, 允许在 `ModelNew.forward()` 内部把
+   `self._init_args` / `self._init_kwargs` 按正确顺序转发给 wrapper.
+6. `forward` 内部禁止复制 kernel 逻辑或调用任何其他实现, 只能做参数整理并
+   转发到 `{op_name}_wrapper`.
+7. 不得修改已生成的 `{op_name}_impl.py` 的导出符号或函数签名, 除非是为修正
+   与 task_desc 调用约定不兼容的问题.
 
 ModelNew 文件自检 (必须通过):
-   python -c "import sys; sys.path.insert(0, '{op_dir_rel}'); from {op_name}_pypto_impl import ModelNew; m = ModelNew(); print(type(m).__name__)"
-预期输出: `ModelNew`.
+----------------------------------------------------------------------
+python - <<'PY'
+import importlib.util
+import sys
+
+sys.path.insert(0, '{op_dir_rel}')
+
+task_spec = importlib.util.spec_from_file_location('kb_task', '{task_desc_rel}')
+task_mod = importlib.util.module_from_spec(task_spec)
+task_spec.loader.exec_module(task_mod)
+
+impl_spec = importlib.util.spec_from_file_location('kb_impl', '{op_dir_rel}/{op_name}_pypto_impl.py')
+impl_mod = importlib.util.module_from_spec(impl_spec)
+impl_spec.loader.exec_module(impl_mod)
+
+calls = {{}}
+
+def _stub(*args, **kwargs):
+    calls['args_len'] = len(args)
+    calls['kwargs_keys'] = sorted(kwargs)
+    return None
+
+impl_mod.{op_name}_wrapper = _stub
+model = impl_mod.ModelNew(*task_mod.get_init_inputs())
+model(*task_mod.get_inputs())
+print(type(model).__name__, calls)
+PY
+----------------------------------------------------------------------
+预期行为: 不抛异常, 且输出里包含 `ModelNew`.
+
+{stage7_control_section}
 
 ================================================================
 其它约束:
 - 所有产物落在 `{op_dir_rel}/`, 不要写到其它目录.
 - 走真实 NPU 验证 (有可用 NPU 时), 不要降级到 sim 模式.
 - 完成或阻塞时, 在最后一行打印一条机读标记:
-  `[BENCHMARK_DONE] op={op_name} state=<SUCCESS|BLOCKED_*> artifacts=impl,golden,test,pypto_impl`
+  `[BENCHMARK_DONE] op={op_name} state=<SUCCESS|BLOCKED_*> stage7=<ran|skipped> artifacts=impl,golden,test,pypto_impl`
   缺失任一产物时, 在 artifacts= 后只列出实际存在的项.
 
 请立即开始, 不要再问我问题.
 """
 
 
-def render_prompt(op_name: str, op_dir_rel: str) -> str:
-    return _PROMPT_TEMPLATE.format(op_name=op_name, op_dir_rel=op_dir_rel)
+def _render_stage7_control_section(skip_stage7_perf_tune: bool) -> str:
+    if not skip_stage7_perf_tune:
+        return (
+            "================================================================\n"
+            "【Stage 7 控制】\n"
+            "本次任务保持默认行为: Stage 7 需要正常执行迭代性能调优.\n"
+            "完成后请在 `[BENCHMARK_DONE]` 中写 `stage7=ran`.\n"
+        )
+    return (
+        "================================================================\n"
+        "【Stage 7 控制】\n"
+        "本次 benchmark 明确要求跳过 Stage 7 的迭代性能优化.\n"
+        "要求:\n"
+        "1. Stage 5 / 6 精度通过后, Stage 7 只做 no-op 收尾, 不做 profile / 调优迭代.\n"
+        "2. 不要为了 Stage 7 再改动本算子的实现 / 测试 / README 等工件.\n"
+        "3. 最终流程仍需正常结束, 并在最终报告中写明 `iterations=0`, "
+        "`stop_reason=skipped_by_request`.\n"
+        "4. `[BENCHMARK_DONE]` 中写 `stage7=skipped`.\n"
+    )
+
+
+def render_prompt(op_name: str, op_dir_rel: str, *,
+                  task_desc_rel: Optional[str] = None,
+                  init_args_repr: str = "[]",
+                  model_init_source: str = "# (未提取到 __init__ 源码)",
+                  forward_source: str = "# (未提取到 forward 源码)",
+                  skip_stage7_perf_tune: bool = False) -> str:
+    task_desc_rel = task_desc_rel or f"{op_dir_rel}/task_desc.py"
+    return _PROMPT_TEMPLATE.format(
+        op_name=op_name,
+        op_dir_rel=op_dir_rel,
+        task_desc_rel=task_desc_rel,
+        init_args_repr=init_args_repr,
+        model_init_source=model_init_source,
+        forward_source=forward_source,
+        stage7_control_section=_render_stage7_control_section(skip_stage7_perf_tune),
+    )
 
 
 # ────────────────────────────────────────────────────────────
@@ -285,6 +383,11 @@ def run_pypto_workflow(
     extra_env: Optional[Dict[str, str]] = None,
     skip_if_done: bool = True,
     need_kernelbench: bool = True,
+    task_desc_rel: Optional[str] = None,
+    case_init_args_repr: str = "[]",
+    case_init_source: str = "# (未提取到 __init__ 源码)",
+    case_forward_source: str = "# (未提取到 forward 源码)",
+    skip_stage7_perf_tune: bool = False,
 ) -> PyptoRunResult:
     """跑一次 pypto 7 阶段工作流.
 
@@ -295,8 +398,7 @@ def run_pypto_workflow(
         (1) 子进程是否退出
         (2) 是否到 ``timeout_sec`` (硬墙)
       不做任何 artifact-based 的 early-stop — agent 自己有 Stage 5↔6 修正
-      循环和 Stage 7 性能调优中止条件 (10 轮 / 连续 3 次无提升), 切断它就是
-      切断它的自我修正能力.
+      循环; Stage 7 是否执行迭代调优由 ``skip_stage7_perf_tune`` 经 prompt 控制.
     - 子进程退出后, 用 ``expected_artifact_paths`` 检查产物齐全性. 缺
       ``{op}_pypto_impl.py`` 也算 ``ARTIFACT_MISSING`` — runner 不兜底,
       由 prompt 里的硬约束驱动 agent 自己产出.
@@ -316,6 +418,11 @@ def run_pypto_workflow(
         extra_env: 额外环境变量, 优先级最高.
         skip_if_done: 若产物齐全且 state file 存在则跳过.
         need_kernelbench: 是否要求 ``{op}_pypto_impl.py`` 也存在才算齐全.
+        task_desc_rel: 传给 prompt 的 ``task_desc.py`` 相对路径.
+        case_init_args_repr: 传给 prompt 的 ``get_init_inputs()`` 探针 repr.
+        case_init_source: 传给 prompt 的 ``Model.__init__`` 源码摘要.
+        case_forward_source: 传给 prompt 的 ``Model.forward/__call__`` 源码摘要.
+        skip_stage7_perf_tune: 是否要求 orchestrator 跳过 Stage 7 迭代性能调优.
 
     Returns:
         ``PyptoRunResult``.
@@ -359,7 +466,15 @@ def run_pypto_workflow(
             message=f"SPEC.md 不存在: {spec_path} (应由 case_loader 预先写入).",
         )
 
-    prompt = render_prompt(op_name, op_dir_rel)
+    prompt = render_prompt(
+        op_name,
+        op_dir_rel,
+        task_desc_rel=task_desc_rel or f"{op_dir_rel}/task_desc.py",
+        init_args_repr=case_init_args_repr,
+        model_init_source=case_init_source,
+        forward_source=case_forward_source,
+        skip_stage7_perf_tune=skip_stage7_perf_tune,
+    )
 
     # 注意: 不加 --print-logs! 它会把 opencode 内部 server/storage/agent 的
     # 每一笔操作都以单行平铺 JSON 倒进 stdout (一行常 5000+ 字符), 单 case
@@ -499,6 +614,10 @@ def _main_cli() -> int:
     parser.add_argument("--workdir-root", default="custom")
     parser.add_argument("--opencode-model", default="",
                         help="显式传给 opencode run -m 的模型名")
+    parser.add_argument("--skip-stage7-perf-tune",
+                        action=argparse.BooleanOptionalAction,
+                        default=False,
+                        help="是否跳过 Stage 7 迭代性能调优")
     parser.add_argument("--timeout-sec", type=int, default=5400)
     parser.add_argument("--device", type=int, default=None)
     parser.add_argument("--log-file", type=Path, default=None)
@@ -515,6 +634,7 @@ def _main_cli() -> int:
         device_id=args.device,
         log_file=args.log_file,
         skip_if_done=not args.no_skip,
+        skip_stage7_perf_tune=args.skip_stage7_perf_tune,
     )
     print(json.dumps(result.to_dict(), indent=2, ensure_ascii=False))
     return 0 if result.ok else 1

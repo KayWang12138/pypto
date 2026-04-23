@@ -60,6 +60,7 @@ class CaseSpec:
     source_file: str                       # 绝对路径
     task_desc: str                         # 原始源码 (KernelBench 风格)
     framework_module: str = "torch"        # 上游 KernelBench 一律 torch; 探针时若 import 不同, 会被覆盖
+    init_source: str = ""                  # Model.__init__ 的源码片段
     forward_source: str = ""               # Model.forward / __call__ 的源码片段
     init_args_repr: str = "[]"             # get_init_inputs() 的 repr
     inputs: List[TensorSpec] = field(default_factory=list)
@@ -88,12 +89,13 @@ def _detect_framework(tree: ast.Module) -> str:
     return "numpy"
 
 
-def _extract_forward_source(tree: ast.Module, source: str) -> str:
-    """提取 ``Model`` 类里 ``__call__`` 或 ``forward`` 方法的源码."""
+def _extract_model_method_source(tree: ast.Module, source: str,
+                                 *method_names: str) -> str:
+    """提取 ``Model`` 类里指定方法的源码片段."""
     for node in tree.body:
         if isinstance(node, ast.ClassDef) and node.name == "Model":
             for item in node.body:
-                if isinstance(item, ast.FunctionDef) and item.name in ("__call__", "forward"):
+                if isinstance(item, ast.FunctionDef) and item.name in method_names:
                     return ast.get_source_segment(source, item) or ""
     return ""
 
@@ -264,7 +266,8 @@ def load_case(case_path: Path, op_name: Optional[str] = None,
         op_name = derive_op_name(case_id)
 
     framework = _detect_framework(tree)
-    forward_src = _extract_forward_source(tree, source)
+    init_src = _extract_model_method_source(tree, source, "__init__")
+    forward_src = _extract_model_method_source(tree, source, "__call__", "forward")
     inputs, init_repr = _probe_inputs(case_path, timeout_sec=probe_timeout_sec)
 
     return CaseSpec(
@@ -273,6 +276,7 @@ def load_case(case_path: Path, op_name: Optional[str] = None,
         source_file=str(case_path),
         task_desc=source,
         framework_module=framework,
+        init_source=init_src,
         forward_source=forward_src,
         init_args_repr=init_repr,
         inputs=inputs,
@@ -308,6 +312,24 @@ _SPEC_TEMPLATE = """\
 init_args = {init_args_repr}
 ```
 
+## KernelBench 调用约定
+
+```python
+model = Model(*get_init_inputs())
+outputs = model(*get_inputs())
+```
+
+- `get_init_inputs()` 与 `get_inputs()` 是两段不同的调用面.
+- 若 PyPTO wrapper 需要消费 init 参数, 应由 `ModelNew.__init__` 保存, 并在
+  `ModelNew.forward()` 内部按正确顺序转发给 wrapper.
+- 禁止要求下游验证器把 init 参数和 forward 输入拍平成一个外部调用接口.
+
+## 构造逻辑 (Model.__init__ 参考实现)
+
+```python
+{init_source}
+```
+
 ## 计算逻辑 (Model 参考实现)
 
 ```python
@@ -322,12 +344,15 @@ init_args = {init_args_repr}
 
 ## 算子开发约束
 
-1. 必须导出 ``{op_name}_wrapper(*tensors) -> torch.Tensor``.
-2. 本算子由外部 KernelBench 桥接消费; 调用方会在 prompt 中要求额外产出
+1. 必须导出 ``{op_name}_wrapper(...) -> torch.Tensor``.
+2. 对外桥接后的调用约定必须与 KernelBench 一致:
+   ``ModelNew(*get_init_inputs()).forward(*get_inputs())`` 必须可用.
+3. 若存在 init 参数, 不得要求外部把 init_args 和 forward inputs 错误拍平后再调用 wrapper.
+4. 本算子由外部 KernelBench 桥接消费; 调用方会在 prompt 中要求额外产出
    ``{op_name}_pypto_impl.py`` (含 ``ModelNew`` 类), 文件契约以 prompt 为准,
    本 SPEC 不重复声明.
-3. golden / impl / test 三文件分离.
-4. 输入/输出 dtype 必须与原 KernelBench 用例一致.
+5. golden / impl / test 三文件分离.
+6. 输入/输出 dtype 必须与原 KernelBench 用例一致.
 
 ## 原始 KernelBench 任务描述 (task_desc)
 
@@ -357,6 +382,7 @@ def render_spec_md(case: CaseSpec) -> str:
         framework=case.framework_module,
         inputs_section=_render_inputs_section(case.inputs),
         init_args_repr=case.init_args_repr,
+        init_source=textwrap.dedent(case.init_source).strip() or "# (未提取到 __init__ 源码)",
         forward_source=textwrap.dedent(case.forward_source).strip() or "# (未提取到 forward 源码)",
         task_desc=case.task_desc.strip(),
     )

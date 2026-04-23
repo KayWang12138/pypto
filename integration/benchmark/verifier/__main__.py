@@ -334,7 +334,7 @@ def _build_arg_parser() -> argparse.ArgumentParser:
     v.add_argument("--framework", default="torch")
     v.add_argument("--device-id", type=int, default=0)
     v.add_argument("--task-id", default="0")
-    v.add_argument("--verify-timeout", type=int, default=300)
+    v.add_argument("--verify-timeout", type=int, default=900)
     v.add_argument("--verify-rtol", type=float, default=None,
                    help="verify 精度比较 rtol; 未传则用配置/默认值")
     v.add_argument("--verify-atol", type=float, default=None,

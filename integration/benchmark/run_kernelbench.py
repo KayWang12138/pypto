@@ -150,6 +150,7 @@ class _RunCfg:
     pypto_agent: str
     pypto_timeout: int
     pypto_output_format: str
+    skip_stage7_perf_tune: bool
     arch: str
     backend: str
     framework: str
@@ -211,6 +212,11 @@ async def run_one_case(case_path: Path, device_id: int, cfg: _RunCfg,
                 log_file=pypto_log,
                 output_format=cfg.pypto_output_format,
                 skip_if_done=not cfg.force_regen,
+                task_desc_rel=f"{cfg.workdir_root}/{op_name}/task_desc.py",
+                case_init_args_repr=case.init_args_repr,
+                case_init_source=case.init_source,
+                case_forward_source=case.forward_source,
+                skip_stage7_perf_tune=cfg.skip_stage7_perf_tune,
             )
 
         record.pypto_status = pypto_result.status.value
@@ -344,10 +350,15 @@ def _build_cfg(args: argparse.Namespace, yaml_cfg: Dict[str, Any]) -> _RunCfg:
         pypto_agent=args.agent or pypto_yaml.get("agent", "pypto-op-orchestrator"),
         pypto_timeout=args.timeout_sec or pypto_yaml.get("timeout_sec", 1800),
         pypto_output_format=args.opencode_format or pypto_yaml.get("output_format", "default"),
+        skip_stage7_perf_tune=(
+            args.skip_stage7_perf_tune
+            if args.skip_stage7_perf_tune is not None
+            else bool(pypto_yaml.get("skip_stage7_perf_tune", False))
+        ),
         arch=args.arch or verifier_yaml.get("arch", "ascend910b4"),
         backend=args.backend or verifier_yaml.get("backend", "ascend"),
         framework=args.framework or verifier_yaml.get("framework", "torch"),
-        verify_timeout=args.verify_timeout or verifier_yaml.get("verify_timeout", 300),
+        verify_timeout=args.verify_timeout or verifier_yaml.get("verify_timeout", 900),
         log_dir=Path(args.log_dir or verifier_yaml.get("log_dir", "~/pypto_bench_logs")).expanduser(),
         report_dir=Path(args.report_dir or report_yaml.get("out_dir", "benchmark_report")).resolve(),
         mode=args.mode or verifier_yaml.get("mode", "correctness"),
@@ -398,6 +409,11 @@ def _build_arg_parser() -> argparse.ArgumentParser:
     p.add_argument("--opencode-format", type=str, default="",
                    choices=["", "default", "json"],
                    help="opencode --format")
+    p.add_argument("--skip-stage7-perf-tune",
+                   action=argparse.BooleanOptionalAction,
+                   default=None,
+                   help="是否跳过 pypto 工作流第七步的迭代性能调优; "
+                        "true 时仅做 Stage 7 收尾, 不跑性能优化循环")
     p.add_argument("--arch", type=str, default="",
                    help="硬件架构 (ascend910b4 等)")
     p.add_argument("--backend", type=str, default="",
@@ -494,6 +510,7 @@ def main(argv: Optional[List[str]] = None) -> int:
     logger.info(f"level            = {level} (-> {level_dir})")
     logger.info(f"cases            = {[p.stem for p in case_paths]}")
     logger.info(f"devices          = {devices}, concurrency = {concurrency}")
+    logger.info(f"skip_stage7      = {cfg.skip_stage7_perf_tune}")
     logger.info(f"arch / backend   = {cfg.arch} / {cfg.backend}")
     logger.info(f"report_dir       = {cfg.report_dir}")
 
@@ -511,6 +528,7 @@ def main(argv: Optional[List[str]] = None) -> int:
             "mode": cfg.mode,
             "verifier_mode": cfg.verifier_mode,
             "validator_agent": cfg.validator_agent if cfg.verifier_mode == "opencode" else None,
+            "skip_stage7_perf_tune": cfg.skip_stage7_perf_tune,
             "devices": devices,
             "concurrency": concurrency,
             "pypto_repo_root": str(cfg.pypto_repo_root),

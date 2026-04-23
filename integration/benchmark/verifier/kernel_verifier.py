@@ -189,7 +189,7 @@ class KernelVerifier:
             )
             (verify_dir / verify_script_name).write_text(script_text, encoding="utf-8")
 
-            verify_timeout = int(self.config.get("verify_timeout", 90))
+            verify_timeout = int(self.config.get("verify_timeout", 900))
             # +30s buffer 防止 PyPTO autotune 卡在 sync IO 上误超时.
             success, log = await self._run_one_script(
                 verify_script_name, str(verify_dir), verify_timeout + 30
@@ -255,8 +255,8 @@ class KernelVerifier:
                 encoding="utf-8",
             )
 
-            base_timeout = int(self.config.get("verify_timeout", 90)) + 60
-            gen_timeout = int(self.config.get("verify_timeout", 90)) + 600  # PyPTO autotune 慢
+            base_timeout = int(self.config.get("verify_timeout", 900)) + 60
+            gen_timeout = int(self.config.get("verify_timeout", 900)) + 600  # PyPTO autotune 慢
 
             base_ok, base_log = await self._run_one_script(
                 base_script_name, str(verify_dir), base_timeout

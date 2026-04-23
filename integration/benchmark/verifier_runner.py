@@ -189,7 +189,7 @@ async def run_verifier(
     device_id: int = 0,
     log_dir: Optional[Path] = None,
     task_id: str = "0",
-    verify_timeout: int = 300,
+    verify_timeout: int = 900,
     extra_config: Optional[Dict[str, Any]] = None,
     log_file: Optional[Path] = None,
     mode: str = "correctness",
@@ -768,7 +768,7 @@ def _main_cli() -> int:
     parser.add_argument("--log-dir", type=Path, default=Path("~/pypto_bench_logs").expanduser())
     parser.add_argument("--log-file", type=Path, default=None)
     parser.add_argument("--task-id", type=str, default="0")
-    parser.add_argument("--timeout", type=int, default=300)
+    parser.add_argument("--timeout", type=int, default=900)
     parser.add_argument("--mode", choices=_MODE_CHOICES, default="correctness",
                         help="correctness=精度; performance/full=精度+性能 (gen vs base speedup)")
     parser.add_argument("--profile-warmup", type=int, default=None)
