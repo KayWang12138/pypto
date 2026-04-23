@@ -217,7 +217,7 @@ def sparse_attention_antiquant_compute(query_nope, query_rope, kn_quant, kr,
         "device_sched_mode": 3
     }
 )
-def sparse_attention_antiquant_A8FW32FC16_d(
+def sparse_attention_antiquant_kv_split_d(
     query_nope: pypto.Tensor([pypto.DYNAMIC, pypto.STATIC], pypto.DT_BF16),
     query_rope: pypto.Tensor([pypto.DYNAMIC, pypto.STATIC], pypto.DT_BF16),
     kn_quant: pypto.Tensor([pypto.STATIC, pypto.STATIC], pypto.DT_FP8E4M3),
@@ -281,7 +281,7 @@ def sparse_attention_antiquant_A8FW32FC16_d(
         "stitch_function_max_num": 128
     }
 )
-def sparse_attention_antiquant_A8FW32FC16_p(
+def sparse_attention_antiquant_kv_split_p(
     query_nope: pypto.Tensor([pypto.DYNAMIC, pypto.STATIC], pypto.DT_BF16),
     query_rope: pypto.Tensor([pypto.DYNAMIC, pypto.STATIC], pypto.DT_BF16),
     kn_quant: pypto.Tensor([pypto.STATIC, pypto.STATIC], pypto.DT_FP8E4M3),

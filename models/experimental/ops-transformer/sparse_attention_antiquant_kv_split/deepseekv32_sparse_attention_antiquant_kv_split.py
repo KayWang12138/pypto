@@ -24,8 +24,8 @@ import pypto
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', '..', '..', 'deepseek_v32_exp'))
 from utils.compare import compare
-from sparse_attention_antiquant_A8FW32FC16_impl \
-    import sparse_attention_antiquant_A8FW32FC16_d, sparse_attention_antiquant_A8FW32FC16_p, SaTileShapeConfig
+from sparse_attention_antiquant_kv_split_impl \
+    import sparse_attention_antiquant_kv_split_d, sparse_attention_antiquant_kv_split_p, SaTileShapeConfig
 from utils.compare import compare
 
 
@@ -91,7 +91,8 @@ def compute_attention_aq(input_data, params, s2_tile):
                 s2_end = s2_start + s2_tile_cur
 
                 topk_indices_tmp = topk_indices[b_idx * s1 + s1_idx, s2_start:s2_end]
-                slc_nope = torch.zeros([s2_tile_cur, kv_lora_rank + 2 * qk_rope_dim + 4 * 4], dtype=torch.torch.float8_e4m3fn)
+                slc_nope = torch.zeros([s2_tile_cur, kv_lora_rank + 2 * qk_rope_dim + 4 * 4],\
+                    dtype=torch.torch.float8_e4m3fn)
                 slc_kv_up = torch.zeros([s2_tile_cur, kv_lora_rank + qk_rope_dim], dtype=input_dtype)
                 kn_quant_slice = torch.zeros([s2_tile_cur, kv_lora_rank], dtype=torch.float8_e4m3fn)
                 kr_slice = torch.zeros([s2_tile_cur, qk_rope_dim], dtype=torch.bfloat16)
@@ -333,10 +334,10 @@ def do_test_sparse_attention_func_aq(bn1n2s1, actual_seq, input_params, input_da
     max_blocknum_perbatch = math.ceil(max_kv_seq / block_size)
 
     if is_p:
-        sparse_attention_antiquant_A8FW32FC16_p(*pto_inputs, *pto_outputs, n_q, n_kv, softmax_scale, topk, block_size, \
+        sparse_attention_antiquant_kv_split_p(*pto_inputs, *pto_outputs, n_q, n_kv, softmax_scale, topk, block_size, \
             max_blocknum_perbatch, tile_config)
     else:
-        sparse_attention_antiquant_A8FW32FC16_d(*pto_inputs, *pto_outputs, n_q, n_kv, softmax_scale, topk, block_size, \
+        sparse_attention_antiquant_kv_split_d(*pto_inputs, *pto_outputs, n_q, n_kv, softmax_scale, topk, block_size, \
             max_blocknum_perbatch, tile_config)
     calc_attention_out_npu = calc_attention_out_npu.reshape(b, s1, n_q, kv_lora_rank)
     torch_npu.npu.synchronize()

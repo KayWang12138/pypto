@@ -28,18 +28,18 @@
 ## 文件结构
 
 ```
-sparse_attention_antiquant_A8FW32FC16/
+sparse_attention_antiquant_kv_split/
 ├── README.md
-├── sparse_attention_antiquant_A8FW32FC16_impl.py        # 算子实现
-└── deepseekv32_sparse_attention_antiquant_A8FW32FC16.py  # Golden 参考实现 + 测试
+├── sparse_attention_antiquant_kv_split_impl.py        # 算子实现
+└── deepseekv32_sparse_attention_antiquant_kv_split.py  # Golden 参考实现 + 测试
 ```
 
 ## API 签名
 
-算子提供两个入口：`sparse_attention_antiquant_A8FW32FC16_d`（Decode）和 `sparse_attention_antiquant_A8FW32FC16_p`（Prefill），签名一致：
+算子提供两个入口：`sparse_attention_antiquant_kv_split_d`（Decode）和 `sparse_attention_antiquant_kv_split_p`（Prefill），签名一致：
 
 ```python
-sparse_attention_antiquant_A8FW32FC16_d(
+sparse_attention_antiquant_kv_split_d(
     query_nope,    # (t*nq, 512)           BF16   query nope 部分
     query_rope,    # (t*nq, 64)            BF16   query rope 部分
     kn_quant,      # (block_num*bs, 512)   FP8    分页 KV cache（含 kn）
@@ -110,7 +110,7 @@ class SaTileShapeConfig:
 ### 运行方式
 
 ```bash
-pytest deepseekv32_sparse_attention_antiquant_A8FW32FC16.py -v
+pytest deepseekv32_sparse_attention_antiquant_kv_split.py -v
 ```
 
 ### 测试矩阵
