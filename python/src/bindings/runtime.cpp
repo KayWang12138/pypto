@@ -37,6 +37,8 @@
 #include "machine/utils/dynamic/dev_start_args.h"
 #include "machine/host/perf_analysis.h"
 #include "bindings/torch_tensor_converter.h"
+#include "machine/runtime/e2e_host_sim_launcher.h"
+#include "machine/runtime/launcher_router.h"
 
 using namespace npu::tile_fwk;
 using namespace npu::tile_fwk::dynamic;
@@ -216,13 +218,16 @@ std::string DeviceRunOnceDataFromHost(
     DeviceLauncherConfig config;
     DeviceLauncher::DeviceLauncherConfigFillDeviceInfo(config);
     EmulationLauncher::BuildControlFlowCache(func, memUtils, inputs, outputs, &hostCache, config);
-
-    if (config::GetDebugOption<int>(CFG_RUNTIME_DBEUG_MODE) == 1 &&
-        EmulationLauncher::EmulationRunOnce(func, hostCache) != 0) {
+    auto launchMode = LaunchRouter::ResolveCurrent();
+    if (launchMode == LaunchMode::EMULATION && EmulationLauncher::EmulationRunOnce(func, hostCache) != 0) {
         return "emulation run failed";
     }
 
-    if (DeviceRunOnce(func, reinterpret_cast<uint8_t*>(hostCache)) != 0) {
+    if (launchMode == LaunchMode::E2E_HOST_SIM && E2EHostSimLauncher::RunOnce(func, reinterpret_cast<uint8_t*>(hostCache)) != 0) {
+        return "e2e host sim run failed";
+    }
+
+    if (launchMode == LaunchMode::DEVICE_RT && DeviceRunOnce(func, reinterpret_cast<uint8_t*>(hostCache)) != 0) {
         return "device run failed";
     }
 
@@ -265,12 +270,20 @@ std::string OperatorDeviceRunOnceDataFromDevice(
     if (!errorMsg.empty()) {
         return errorMsg;
     }
-
-    if (config::GetDebugOption<int>(CFG_RUNTIME_DBEUG_MODE) == 1) {
+    auto launchMode = LaunchRouter::ResolveCurrent();
+    if (launchMode == LaunchMode::EMULATION) {
         DeviceLauncherConfig config;
         DeviceLauncher::DeviceLauncherConfigFillDeviceInfo(config);
         if (EmulationLauncher::EmulationLaunchDeviceTensorData(func, inputs, outputs, config, nullptr) != 0) {
             return "emulation run failed";
+        }
+    }
+    
+    if (launchMode == LaunchMode::E2E_HOST_SIM) {
+        DeviceLauncherConfig config;
+        DeviceLauncher::DeviceLauncherConfigFillDeviceInfo(config);
+        if (E2EHostSimLauncher::E2EHostSimLaunchDeviceTensorData(func, inputs, outputs, config, nullptr) != 0) {
+            return "e2e host sim run failed";
         }
     }
 
@@ -284,7 +297,8 @@ std::string OperatorDeviceRunOnceDataFromDevice(
     auto ctrlStream = DeviceGetCtrlStream();
     auto workspaceDataAddr = static_cast<uintptr_t>(workspaceData);
     auto ctrlCache = static_cast<uintptr_t>(devCtrlCache);
-    int rc = ExportedOperatorDeviceLaunchOnceWithDeviceTensorData(
+    if (launchMode != LaunchMode::E2E_HOST_SIM) {
+        int rc = ExportedOperatorDeviceLaunchOnceWithDeviceTensorData(
         op, inputs, outputs, aicpuStream, ctrlStream, aicoreStream, false, reinterpret_cast<uint8_t*>(ctrlCache),
         DeviceLauncherConfig::CreateConfigWithWorkspaceAddr(workspaceDataAddr));
     if (rc < 0) {
@@ -788,7 +802,7 @@ public:
 
     void EmulationLaunch(KernelBinary* kernel, std::vector<DeviceTensorData>& tensors, uint8_t* devCache)
     {
-        if (!isDebugMode) {
+        if (launchMode_ != LaunchMode::EMULATION) {
             return;
         }
         DeviceLauncherConfig config;
@@ -797,6 +811,18 @@ public:
         DevControlFlowCache* ctrlCache = GetHostCtrlFlowCache(kernel, tensors, devCache, hostCache);
         int ret = EmulationLauncher::EmulationLaunchDeviceTensorData(kernel->GetFunction(), tensors, {}, config, ctrlCache);
         ASSERT(ret == RT_SUCCESS) << "emulation run failed: " << ret;
+    }
+    bool IsE2ehostSimMode() const { return launchMode_ == LaunchMode::E2E_HOST_SIM; }
+    
+    void E2HostSimLaunch(KernelBinary* kernel, std::vector<DeviceTensorData>& tensors)
+    {
+        if (launchMode_ != LaunchMode::E2E_HOST_SIM) {
+            return;
+        }
+        DeviceLauncherConfig config;
+        DeviceLauncher::DeviceLauncherConfigFillDeviceInfo(config);
+        int ret = E2SimLauncher::E2SimLaunchDeviceTensorData(kernel->GetFunction(), tensors, {}, config);
+        ASSERT(ret == RT_SUCCESS) << "E2SimLaunch run failed: " << ret;
     }
 
     void EslModelLaunch(KernelBinary* kernel, std::vector<DeviceTensorData>& tensors)
@@ -838,7 +864,9 @@ private:
         if (!module.attr("_debug_options").is_none()) {
             auto debugOptions = module.attr("_debug_options").cast<py::dict>();
             if (debugOptions.contains("runtime_debug_mode")) {
-                isDebugMode = debugOptions["runtime_debug_mode"].cast<int64_t>() == CFG_DEBUG_ALL;
+                auto debugMode = debugOptions["runtime_debug_mode"].cast<int64_t>();
+                launchMode_ = LauncherRouter::ResolveLaunchMode(debugMode);
+                isDebugMode = (launchMode_ == LaunchMode::EMULATION);
             }
         }
         if (!module.attr("_infer_controlflow_shape").is_none()) {
@@ -944,6 +972,7 @@ private:
     bool inferCacheShape{false};
     bool isDebugMode{false};
     bool compileStageAllComplete{true};
+    LaunchMode launchMode_{LaunchMode::DEVICE_RT};
     bool compileMonitorEnable{true};
     int intervalSec{60};
     int timeoutSec{-1};
@@ -1034,6 +1063,7 @@ private:
             return;
         }
 
+
         int64_t* wsAddr = nullptr;
         int64_t wsSize = kmodule->GetWorkspaceSize(kbinary, tensors);
         if (wsSize) {
@@ -1052,7 +1082,9 @@ private:
         HOST_PERF_TRACE(TracePhase::FindCtrlFlowCache);
 
         kmodule->EmulationLaunch(kbinary, tensors, ctrlFlowCache);
-
+        if (kmodule->IsE2ehostSimMode()) {
+            return;
+        }
         kmodule->Launch(kbinary, aicoreStream, tensors, ctrlFlowCache, wsAddr);
         HOST_PERF_TRACE(TracePhase::Launch);
         DumpIOTensorsWithCann(aicoreStream, tensors, kbinary->GetFunction()->GetRawName());
