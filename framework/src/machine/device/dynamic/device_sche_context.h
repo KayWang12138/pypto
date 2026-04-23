@@ -48,6 +48,8 @@ struct SchDeviceTaskContext {
     std::array<uint8_t, MAX_AICORE_NUM> coreTaskFinished;
     uint16_t readyCount[AICORE_TYPE_NUM]{0,0};
     uint32_t readyIds[AICORE_TYPE_NUM][READY_ID_FIX_CACHE_NUM];
+    uint16_t finishHubCnt{0};
+    uint32_t finishHubTask[72];
 
     WrapManager wrapManager;
 
