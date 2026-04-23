@@ -80,16 +80,20 @@ bool PlatformParser::GetCCECVersion(std::unordered_map<std::string, std::string>
     return !ccecVersion.empty();
 }
 
-INIParser::INIParser()
+void INIParser::INIParserInit(const std::string& socVersion)
 {
     std::string srcPath;
     SimulationPlatform simulationPlatform;
-    simulationPlatform.GetCostModelPlatformRealPath(srcPath);
+    simulationPlatform.GetCostModelPlatformRealPath(socVersion, srcPath);
     PLATFORM_LOGD("Try to initiate the ini parser.");
     if (!Initialize(srcPath)) {
         throw std::runtime_error("can not open simulation file: " + srcPath);
     }
 }
+
+INIParser::INIParser() { INIParserInit(""); }
+
+INIParser::INIParser(std::string socVersion) { INIParserInit(socVersion); }
 
 bool INIParser::Initialize(const std::string& iniFilePath)
 {

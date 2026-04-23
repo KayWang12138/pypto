@@ -91,7 +91,7 @@ def set_pass_options(*,
     cube_nbuffer_setting : Dict[int, int]
         Merged graph parameter, used to configure
         the merging quantity of AIC subgraphs with the same structure.
-    
+
     sg_set_scope : Union[int, tuple]
         Merged graph parameter, used to manually control graph merging.
         - If int: only set scopeid (backward compatible)
@@ -212,7 +212,7 @@ def get_host_options() -> Dict[str, Union[str, int, List[int], Dict[int, int]]]:
     return scope.get_host_options()
 
 
-def set_codegen_options(*, support_dynamic_aligned: Optional[bool] = None) -> None:
+def set_codegen_options(*, support_dynamic_aligned: Optional[bool] = None, soc_version: Optional[str] = None) -> None:
     """
     Set codegen options.
 
