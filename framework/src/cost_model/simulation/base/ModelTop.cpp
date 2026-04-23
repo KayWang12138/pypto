@@ -22,7 +22,7 @@
 #include "cost_model/simulation/tools/visualizer.h"
 #include "cost_model/simulation/arch/PipeFactory.h"
 #include "cost_model/simulation/pv/PvModelFactory.h"
-#include "cost_model/simulation/utils/simulation_error.h"
+#include "tilefwk/error_code.h"
 #include "interface/utils/file_utils.h"
 #include "tilefwk/pypto_fwk_log.h"
 #include "tilefwk/error.h"
@@ -442,9 +442,8 @@ bool SimSys::IsTerminate() const { return terminate; }
 void SimSys::ReportDeadlock(size_t machineId)
 {
     deadlock = true;
-    SIMULATION_LOGE(
-        "ErrCode: F%u, [ReportDeadlock] Machine %zu is deadlock at cycle %lu",
-        static_cast<unsigned>(CostModel::ForwardSimErrorScene::DEAD_LOCK), machineId,
+    SIMULATION_LOGE_E(CostModel::ForwardSimErrorScene::DEAD_LOCK,
+        "[ReportDeadlock] Machine %zu is deadlock at cycle %lu", machineId,
         static_cast<unsigned long>(globalCycles));
 }
 
@@ -590,7 +589,7 @@ void SimSys::OutputLogForPipeSwimLane(std::string prefix)
     std::string cmd = "python3 " + drawScriptPath + " " + pipeDetailPath;
     int ret = system(cmd.c_str());
     if (ret != 0) {
-        SIMULATION_LOGE("cmd error: %s", cmd.c_str());
+        SIMULATION_LOGE_E(CostModel::ExternalErrorScene::PYTHON_CMD_ERROR, "cmd error: %s", cmd.c_str());
     }
 }
 
@@ -626,7 +625,7 @@ void SimSys::OutputLogForSwimLane(std::string prefix)
     std::string cmd = "python3 " + drawScriptPath + " " + outSwimPath + " -t";
     int result1 = system(cmd.c_str());
     if (result1 != 0) {
-        SIMULATION_LOGE("cmd error: %s", cmd.c_str());
+        SIMULATION_LOGE_E(CostModel::ExternalErrorScene::PYTHON_CMD_ERROR, "cmd error: %s", cmd.c_str());
     }
 
     std::string mergeScriptPath = GetCurrentSharedLibPath() + "/scripts/draw_swim_lane.py";
@@ -660,7 +659,7 @@ void SimSys::OutputLogForSwimLane(std::string prefix)
     SIMULATION_LOGI("cmd: %s", cmd.c_str());
     int result2 = system(cmd.c_str());
     if (result2 != 0) {
-        SIMULATION_LOGE("cmd error: %s", cmd.c_str());
+        SIMULATION_LOGE_E(CostModel::ExternalErrorScene::PYTHON_CMD_ERROR, "cmd error: %s", cmd.c_str());
     }
 }
 

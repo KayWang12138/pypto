@@ -20,7 +20,7 @@
 #include "interface/cache/function_cache.h"
 #include "interface/machine/host/machine_task.h"
 #include "tilefwk/pypto_fwk_log.h"
-#include "simulation/utils/simulation_error.h"
+#include "tilefwk/error_code.h"
 
 namespace {
 const std::string PROGRAM_ENTRY_FUNCTION_NAME = "PROGRAM_ENTRY";
@@ -144,9 +144,8 @@ Json CostModelAgent::ParseDynTopo(std::string& path)
             } catch (const std::invalid_argument& e) {
                 // ignore
             } catch (const std::out_of_range& e) {
-                SIMULATION_LOGE(
-                    "ErrCode: F%u, Out of range: %s",
-                    static_cast<unsigned>(CostModel::ExternalErrorScene::FILE_CONTENT_ERROR), e.what());
+                SIMULATION_LOGE_E(CostModel::ExternalErrorScene::FILE_CONTENT_ERROR,
+                    "Out of range: %s", e.what());
             }
         }
         uint64_t seqNo = fields[seqPos];

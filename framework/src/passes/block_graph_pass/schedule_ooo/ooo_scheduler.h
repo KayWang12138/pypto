@@ -24,7 +24,7 @@
 #include "passes/block_graph_pass/schedule_ooo/buffer_pool.h"
 #include "passes/block_graph_pass/schedule_ooo/dep_manager.h"
 #include "passes/block_graph_pass/schedule_ooo/schedule_base.h"
-#include "passes/statistics/ooo_schedule_statistic.h"
+#include "passes/statistics/schedule_observer.h"
 #include "schedule_main_loop_base.h"
 
 namespace npu::tile_fwk {
@@ -108,9 +108,10 @@ public:
         const std::unordered_set<CoreLocationType> fixCoreConfig = CORE_INIT_CONFIGS_HARDWARE_ONE);
     OoOScheduler(Function& function) : function_(function) {}
 
+    // Non-owning observer. Caller must ensure the observer outlives the whole Schedule() call.
+    void AddObserver(ScheduleObserver* observer) { observers_.push_back(observer); }
     std::vector<Operation*> GetNewOperations() { return newOperations_; }
     int64_t workspaceOffset{0};
-    OoOSchedulerCheck oooCheck;
     std::unordered_map<PipeType, int> pipeEndTime;
 
 private:
@@ -146,6 +147,15 @@ private:
     int workspaceMemId{SYMBOL_STACK_BASE};
     std::vector<Operation*> newOperations_;
     std::vector<Operation*> operations_;
+    std::vector<ScheduleObserver*> observers_;
+
+    // Notification helpers — event construction lives in ooo_scheduler_notify.cpp
+    // to keep scheduler main flows focused on scheduling logic.
+    void NotifyPipeIssued(PipeType pipeType, int latency);
+    void NotifyBufferAllocated(MemoryType memType, int memId);
+    void NotifyBufferFreed(MemoryType memType, int memId);
+    void NotifySpill(const SpillInfo& info, LocalBufferPtr allocBuffer);
+    void NotifyScheduleEnd(bool success);
 
     // scheduler
     Status Init(
@@ -190,7 +200,6 @@ private:
     Status CheckAndUpdateLifecycle();
 
     void UpdateIssueExecOrder();
-    void UpdateBufferUsage(MemoryType bufferType, int memId, bool isFree);
     void PrintOpList(std::vector<Operation *> opList);
     Status PrintSpillFailedInfo(Operation* allocOp, bool isGenSpill);
 
@@ -203,7 +212,6 @@ private:
         std::vector<int> &groupNextUseTime, std::unordered_map<int, size_t> &nextUseTimeCache, bool isGenSpill);
     Operation* GetSpillIssue(Operation* allocOp, int memId, bool isGenSpill);
     bool CheckMachineAndL1(Operation* spillOp, Operation* allocOp);
-    bool CheckParallelL0C2L1(Operation* spillOp);
     bool IsBelongSpillBlackList(Operation* spillOp, Operation* op);
     void FindFilterLtags(Operation* allocOp, std::set<Operation*> &filterLtags);
     Status SpillAllBuffer(Operation* allocOp, size_t &pcIdx, bool isGenSpill, LocalBufferPtr allocBuffer);
@@ -229,11 +237,20 @@ private:
     Status UpdateReloadIssueInfo(Operation* reloadAlloc, Operation* reloadCopyin,
         Operation* spillOp, int spillMemId, Operation* allocOp);
     bool HasEnoughBuffer(Operation* allocOp, MemoryType memType);
+    // spill assemble
     Status SpillAssembleBuffer(SpillInfo &spillInfo, Operation* allocOp, size_t &pcIdx,
         LocalBufferPtr allocBuffer, bool isGenSpill);
-    Status SpillParticalBuffer(SpillInfo &spillInfo, Operation* allocOp, Operation* assembleOp,
+    Status SpillParticalBuffer(SpillInfo &spillInfo, Operation* allocOp, Operation* producerOp,
         LogicalTensorPtr assembleTensor, bool &isFirst, bool isGenSpill);
     Status FindAssembleWithSpillTensor(SpillInfo &spillInfo, std::vector<Operation*> &assembleOps);
+    bool IsSupportedPartialWriteProducer(const Operation &op) const;
+    Status GetPartialWriteReplayAttr(Operation* producerOp, std::vector<int64_t> &toOffset,
+        std::vector<SymbolicScalar> &toDynOffset, std::vector<SymbolicScalar> &fromDynValidShape) const;
+    Operation* FindAllocForAssembleProducers(const std::vector<Operation*> &assembleOps) const;
+    bool HasNZHorizontalSlice(const std::vector<Operation*> &assembleOps) const;
+    Status RejectIfNZHorizontalSlice(SpillInfo &spillInfo, std::vector<Operation*> &assembleOps);
+    Status ReplayPartialWriteProducers(SpillInfo &spillInfo, Operation* allocOp,
+        LogicalTensorPtr assembleTensor, const std::vector<Operation*> &assembleOps, bool isGenSpill);
     Status SpillOnBlock() override;
     Status SpillOnCoreBlock(CoreLocationType targetCore, bool &didSpill);
     Operation* SkipViewChain(Operation* start, bool followProducers);
@@ -256,16 +273,13 @@ private:
     int GetBufNextUseOrder(Operation* op, int curMemId);
     int GetBufLastUseOrder(Operation* op, int curMemId);
     Operation* GetBufLastWriteOp(Operation* op, int curMemId);
-    OoOSchedulerCheck::SpillInfo RecordSpillInfo(MemoryType bufferType, int memId, LocalBufferPtr allocIssue,
-        LogicalTensorPtr spillOutTensor, bool needCopyOut);
     bool CanAllocateAll(std::vector<LocalBufferPtr> tensors, MemoryType memType);
     int GetMemidAllocPriority(int memId);
     Operation* UpdateIssueAttr(Operation &newOp, std::vector<int> memIds, Operation* allocOp,
         int &bufNextUseOrder, bool isGenSpill);
     Status UpdateAssembleBuffer(SpillInfo &spillInfo, LocalBufferPtr allocBuffer, LogicalTensorPtr assembleTensor);
-    LogicalTensorPtr CreateAssemblePartTensor(LogicalTensorPtr iOperand, LogicalTensorPtr assembleTensor,
-        SpillInfo &spillInfo, std::shared_ptr<AssembleOpAttribute> assembleAttr);
-    int64_t CalcWorkspaceOffset(std::vector<int64_t> shape, std::vector<int64_t> offset, DataType dataType);
+    LogicalTensorPtr CreateAssemblePartTensor(
+        LogicalTensorPtr iOperand, LogicalTensorPtr assembleTensor, const std::vector<int64_t> &toOffset);
     void GetWorkspaceBaseOffset(LogicalTensorPtr ddrTensor, int64_t& base);
     Status UpdateCopyOutMode(Operation& copyOutOp);
     Status UpdateCopyInMode(Operation& copyInOp);

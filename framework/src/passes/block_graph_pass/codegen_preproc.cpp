@@ -203,9 +203,16 @@ bool ReduceNeedCombineAxis(const Operation& op)
 void CodegenPreproc::FixExpandDimForAxisCombine(Operation& op, int dimSize) const
 {
     if (op.GetOpcode() == Opcode::OP_EXPAND) {
-        int axis = op.GetIntAttribute(OP_ATTR_PREFIX + "EXPANDDIM");
-        if (axis == dimSize - NUM2) {
-            op.SetAttribute(OP_ATTR_PREFIX + "EXPANDDIM", axis + 1);
+        auto axes = op.GetVectorIntAttribute(OpAttributeKey::expandDims);
+        bool updated = false;
+        for (auto &axis : axes) {
+            if (axis == dimSize - NUM2) {
+                axis = axis + 1;
+                updated = true;
+            }
+        }
+        if (updated) {
+            op.SetAttribute(OpAttributeKey::expandDims, axes);
         }
     }
     // 隐式expand场景
@@ -238,7 +245,12 @@ inline bool SkipInputCombineOps(Operation& op, int dimSize)
         return false;
     }
     if (op.GetOpcode() == Opcode::OP_EXPAND) {
-        return op.GetIntAttribute(OP_ATTR_PREFIX + "EXPANDDIM") != dimSize - NUM1; // 尾轴expand不支持换轴
+        auto axes = op.GetVectorIntAttribute(OpAttributeKey::expandDims);
+        for (auto &axis : axes) {
+            if (axis == dimSize - NUM1) {  // 尾轴expand不支持换轴
+                return false;
+            }
+        }
     }
     return true;
 }
@@ -256,7 +268,8 @@ Status CodegenPreproc::ForceCombineAxisForAxisCombine(Function& func) const
             std::vector<bool> inputCombineAxis;
             LogicalTensors inputs = op.GetIOperands();
             for (size_t i = 0; i < inputs.size(); ++i) {
-                if (inputs[i]->tensor->rawshape.back() == 1 &&
+                if (inputs[i]->GetMemoryTypeOriginal() != MemoryType::MEM_DEVICE_DDR &&
+                    inputs[i]->tensor->rawshape.back() == 1 &&
                     SkipInputCombineOps(op, static_cast<int>(inputs[i]->tensor->rawshape.size()))) {
                     inputCombineAxis.push_back(true);
                 } else {
@@ -267,7 +280,8 @@ Status CodegenPreproc::ForceCombineAxisForAxisCombine(Function& func) const
             std::vector<bool> outputCombineAxis;
             auto outputs = op.GetOOperands();
             for (size_t i = 0; i < outputs.size(); ++i) {
-                if (outputs[i]->tensor->rawshape.back() == 1 && ReduceNeedCombineAxis(op)) {
+                if (outputs[i]->GetMemoryTypeOriginal() != MemoryType::MEM_DEVICE_DDR &&
+                    outputs[i]->tensor->rawshape.back() == 1 && ReduceNeedCombineAxis(op)) {
                     outputCombineAxis.push_back(true);
                     // OP_EXPAND 只有单输出，此处只会执行一次
                     FixExpandDimForAxisCombine(op, static_cast<int>(outputs[i]->tensor->rawshape.size()));

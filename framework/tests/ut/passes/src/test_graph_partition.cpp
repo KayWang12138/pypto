@@ -21,6 +21,7 @@
 #include "tilefwk/tilefwk_op.h"
 #include "interface/function/function.h"
 #include "passes/tile_graph_pass/graph_partition/iso_partitioner.h"
+#include "passes/tile_graph_pass/graph_partition/graph_partition.h"
 #include "tilefwk/tilefwk.h"
 #include "interface/inner/tilefwk.h"
 #include "passes/pass_mgr/pass_manager.h"
@@ -40,9 +41,18 @@ public:
         config::Reset();
         config::SetHostOption(COMPILE_STAGE, CS_EXECUTE_GRAPH);
         config::SetHostConfig(KEY_STRATEGY, "GraphPartitionTestStrategy");
+        Platform::Instance().ObtainPlatformInfo();
     }
     void TearDown() override {}
 };
+
+void SetScopeInfoForOps(ComputationalGraphBuilder& G,
+    const std::vector<std::string>& opNames, const Operation::ScopeInfo& info)
+{
+    for (const auto& name : opNames) {
+        G.GetOp(name)->SetScopeInfo(info);
+    }
+}
 
 void GetPairSumGraph(ComputationalGraphBuilder& G)
 {
@@ -74,12 +84,11 @@ TEST_F(GraphPartitionTest, TestBuildOpGraph)
     ComputationalGraphBuilder G;
     GetPairSumGraph(G);
     Function* function = G.GetFunction();
-    const int cycleUB = 10;
     const int parallelTH = 10;
     const int cycleLB = 10;
     const int useNodeHash = false;
     IsoPartitioner partitioner;
-    EXPECT_EQ(partitioner.SetParameter(cycleUB, parallelTH, cycleLB, useNodeHash), SUCCESS);
+    EXPECT_EQ(partitioner.SetParameter(parallelTH, cycleLB, useNodeHash), SUCCESS);
     EXPECT_EQ(partitioner.PartitionGraph(*function), SUCCESS);
     EXPECT_EQ(partitioner.operationInfo_->opList_.size(), function->Operations().size());
     EXPECT_EQ(partitioner.operationInfo_->magic2Idx_.size(), function->Operations().size());
@@ -157,12 +166,11 @@ TEST_F(GraphPartitionTest, TestSuperNode)
     ComputationalGraphBuilder G;
     GetReshapeGraph(G);
     Function* function = G.GetFunction();
-    const int cycleUB = 0;
     const int parallelTH = 10;
     const int cycleLB = 10;
     const int useNodeHash = false;
     IsoPartitioner partitioner;
-    EXPECT_EQ(partitioner.SetParameter(cycleUB, parallelTH, cycleLB, useNodeHash), SUCCESS);
+    EXPECT_EQ(partitioner.SetParameter(parallelTH, cycleLB, useNodeHash), SUCCESS);
     EXPECT_EQ(partitioner.PartitionGraph(*function), SUCCESS);
     std::unordered_set<int> frontReshapeNode;
     const int brNum = 4;
@@ -190,12 +198,11 @@ TEST_F(GraphPartitionTest, TestReduceNodeHash)
     ComputationalGraphBuilder G;
     GetPairSumGraph(G);
     Function* function = G.GetFunction();
-    const int cycleUB = 0;
     const int parallelTH = 10;
     const int cycleLB = 10;
     const int useNodeHash = true;
     IsoPartitioner partitioner;
-    EXPECT_EQ(partitioner.SetParameter(cycleUB, parallelTH, cycleLB, useNodeHash), SUCCESS);
+    EXPECT_EQ(partitioner.SetParameter(parallelTH, cycleLB, useNodeHash), SUCCESS);
     EXPECT_EQ(partitioner.PartitionGraph(*function), SUCCESS);
     std::unordered_set<uint64_t> copyInHash;
     const int brNum = 4;
@@ -243,15 +250,51 @@ TEST_F(GraphPartitionTest, TestBuildIsomorphismGraph)
     ComputationalGraphBuilder G;
     GetCrossGraph(G);
     Function* function = G.GetFunction();
-    const int cycleUB = 100000;
     const int parallelTH = 10;
     const int cycleLB = 100000;
     const int useNodeHash = false;
     IsoPartitioner partitioner;
-    EXPECT_EQ(partitioner.SetParameter(cycleUB, parallelTH, cycleLB, useNodeHash), SUCCESS);
+    EXPECT_EQ(partitioner.SetParameter(parallelTH, cycleLB, useNodeHash), SUCCESS);
     EXPECT_EQ(partitioner.PartitionGraph(*function), SUCCESS);
     const int subGraphNum = 8;
     EXPECT_EQ(function->GetTotalSubGraphCount(), subGraphNum);
+}
+
+TEST_F(GraphPartitionTest, TestIsoParameterFailure)
+{
+    ComputationalGraphBuilder G;
+    Function *function = G.GetFunction();
+    EXPECT_EQ(function->Operations().size(), 0);
+
+    const int parallelTHFail = -2;
+    const int parallelTH = 10;
+    const int cycleLBFail = -1;
+    const int cycleLB = 100000;
+    const int useNodeHash = false;
+
+    IsoPartitioner partitioner;
+    EXPECT_EQ(partitioner.SetParameter(parallelTHFail, cycleLB, useNodeHash), FAILED);
+    EXPECT_EQ(partitioner.SetParameter(parallelTH, cycleLBFail, useNodeHash), FAILED);
+
+    EXPECT_EQ(partitioner.PartitionGraph(*function), FAILED);
+}
+
+TEST_F(GraphPartitionTest, TestOspParameter)
+{
+    ComputationalGraphBuilder G;
+    Function *function = G.GetFunction();
+    EXPECT_EQ(function->Operations().size(), 0);
+
+    OspPartitioner partitioner(OspMode::SARKAR);
+
+    const int cycleLBFail = -11;
+    const int cycleLB = 10000;
+
+    function->paramConfigs_.sgPgLowerBound = cycleLBFail;
+    EXPECT_EQ(partitioner.SetParameter(*function), FAILED);
+
+    function->paramConfigs_.sgPgLowerBound = cycleLB;
+    EXPECT_EQ(partitioner.SetParameter(*function), SUCCESS);
 }
 
 TEST_F(GraphPartitionTest, TestEmptyGraph)
@@ -264,7 +307,46 @@ TEST_F(GraphPartitionTest, TestEmptyGraph)
     EXPECT_EQ(function->GetTotalSubGraphCount(), 0);
 }
 
-void GetCubeVectorGraph(ComputationalGraphBuilder& G, int brNum)
+TEST_F(GraphPartitionTest, TestSarkarEmptyGraph)
+{
+    const std::string partitionAlg = "OspSarkar";
+
+    ComputationalGraphBuilder G;
+    Function *function = G.GetFunction();
+    function->paramConfigs_.sgPartitionAlgorithm = partitionAlg;
+    EXPECT_EQ(function->paramConfigs_.sgPartitionAlgorithm, partitionAlg);
+    EXPECT_EQ(function->Operations().size(), 0);
+    GraphPartition gpp;
+    EXPECT_EQ(gpp.RunOnFunction(*function), SUCCESS);
+}
+
+TEST_F(GraphPartitionTest, TestOrbitBspEmptyGraph)
+{
+    const std::string partitionAlg = "OspBsp";
+
+    ComputationalGraphBuilder G;
+    Function *function = G.GetFunction();
+    function->paramConfigs_.sgPartitionAlgorithm = partitionAlg;
+    EXPECT_EQ(function->paramConfigs_.sgPartitionAlgorithm, partitionAlg);
+    EXPECT_EQ(function->Operations().size(), 0);
+    GraphPartition gpp;
+    EXPECT_EQ(gpp.RunOnFunction(*function), SUCCESS);
+}
+
+TEST_F(GraphPartitionTest, TestPartitionerParameterFailure)
+{
+    const std::string partitionAlg = "NotExistent";
+
+    ComputationalGraphBuilder G;
+    Function *function = G.GetFunction();
+    function->paramConfigs_.sgPartitionAlgorithm = partitionAlg;
+    EXPECT_EQ(function->paramConfigs_.sgPartitionAlgorithm, partitionAlg);
+    EXPECT_EQ(function->Operations().size(), 0);
+    GraphPartition gpp;
+    EXPECT_EQ(gpp.RunOnFunction(*function), FAILED);
+}
+
+void GetCubeVectorGraph(ComputationalGraphBuilder &G, int brNum)
 {
     std::vector<int64_t> tileShape{16, 16};
     std::vector<std::string> inTensorNames;
@@ -322,12 +404,11 @@ TEST_F(GraphPartitionTest, TestCVGraph)
     const int brNum = 4;
     GetCubeVectorGraph(G, brNum);
     Function* function = G.GetFunction();
-    const int cycleUB = 100000;
     const int parallelTH = 1;
     const int cycleLB = 100000;
     const int useNodeHash = false;
     IsoPartitioner partitioner;
-    EXPECT_EQ(partitioner.SetParameter(cycleUB, parallelTH, cycleLB, useNodeHash), SUCCESS);
+    EXPECT_EQ(partitioner.SetParameter(parallelTH, cycleLB, useNodeHash), SUCCESS);
     EXPECT_EQ(partitioner.PartitionGraph(*function), SUCCESS);
     std::unordered_set<std::string> cubeOp{"MUL1", "MC1", "MC2", "MC3", "COPY_OUT_C"};
     for (int i = 0; i < brNum; i++) {
@@ -354,7 +435,74 @@ TEST_F(GraphPartitionTest, TestCVGraph)
     EXPECT_EQ(subgraphIDs.size(), subGraphNum);
 }
 
-void GetMergeableGraph(ComputationalGraphBuilder& G, int brNum)
+TEST_F(GraphPartitionTest, TestOspCVGraph)
+{
+    for (const auto partitionAlg : {"Iso", "OspSarkar", "OspBsp"}) {
+        ComputationalGraphBuilder G;
+        const int brNum = 4;
+        GetCubeVectorGraph(G, brNum);
+        Function *function = G.GetFunction();
+        function->paramConfigs_.sgPartitionAlgorithm = partitionAlg;
+
+        GraphPartition gpp;
+        EXPECT_EQ(gpp.PreCheck(*function), SUCCESS);
+        EXPECT_EQ(gpp.RunOnFunction(*function), SUCCESS);
+
+        std::unordered_set<std::string> cubeOp{"MUL1", "MC1", "MC2", "MC3", "COPY_OUT_C"};
+        for (int i = 0; i < brNum; i++) {
+            std::string br = std::to_string(i);
+            cubeOp.insert("IN_L1_A" + br);
+            cubeOp.insert("IN_L1_B" + br);
+            cubeOp.insert("L1_TO_L0A" + br);
+            cubeOp.insert("L1_TO_L0B" + br);
+        }
+        const int subGraphNum = function->GetTotalSubGraphCount();
+        std::unordered_map<int, bool> subgraphIDs2IsCube;
+        for (auto &opPair : G.operations_) {
+            Operation *op = opPair.second;
+            EXPECT_NE(op, nullptr);
+            if (cubeOp.count(opPair.first) > 0) {
+                EXPECT_EQ(op->HasAttr(OpAttributeKey::isCube) && op->GetBoolAttribute(OpAttributeKey::isCube), true);
+            } else {
+                EXPECT_EQ(op->HasAttr(OpAttributeKey::isCube) && !op->GetBoolAttribute(OpAttributeKey::isCube), true);
+            }
+            EXPECT_EQ(op->GetSubgraphID() >= 0 && op->GetSubgraphID() < subGraphNum, true);
+
+            const auto subgraphId = op->GetSubgraphID();
+            if (subgraphIDs2IsCube.count(subgraphId) > 0) {
+                EXPECT_EQ(subgraphIDs2IsCube.at(subgraphId), op->GetBoolAttribute(OpAttributeKey::isCube));
+            } else {
+                subgraphIDs2IsCube.emplace(subgraphId, op->GetBoolAttribute(OpAttributeKey::isCube));
+            }
+        }
+        EXPECT_EQ(subgraphIDs2IsCube.size(), subGraphNum);
+        EXPECT_EQ(gpp.PostCheck(*function), SUCCESS);
+    }
+}
+
+TEST_F(GraphPartitionTest, TestMixCVGraph)
+{
+    for (const auto mode : {OspMode::SARKAR, OspMode::MERKLEBSP}) {
+        ComputationalGraphBuilder G;
+        const int brNum = 4;
+        GetCubeVectorGraph(G, brNum);
+        Function *function = G.GetFunction();
+
+        for (const bool cvMix : {true, false}) {
+            OspPartitioner partitioner(mode, cvMix);
+            EXPECT_EQ(partitioner.PartitionGraph(*function), SUCCESS);
+
+            const int subGraphNum = function->GetTotalSubGraphCount();
+            for (auto &opPair : G.operations_) {
+                Operation *op = opPair.second;
+                EXPECT_NE(op, nullptr);
+                EXPECT_EQ(op->GetSubgraphID() >= 0 && op->GetSubgraphID() < subGraphNum, true);
+            }
+        }
+    }
+}
+
+void GetMergeableGraph(ComputationalGraphBuilder &G, int brNum)
 {
     std::vector<int64_t> tileShape{16, 16};
     std::vector<std::string> inCast;
@@ -391,20 +539,19 @@ void GetMergeableGraph(ComputationalGraphBuilder& G, int brNum)
     EXPECT_EQ(G.SetOutCast(outCast), true);
 }
 
-TEST_F(GraphPartitionTest, TestCycleUpperBound)
+TEST_F(GraphPartitionTest, TestDynamicCycleEstimation)
 {
     ComputationalGraphBuilder G;
     const int brNum = 4;
     GetMergeableGraph(G, brNum);
     Function* function = G.GetFunction();
-    const int cycleUB = 0;
     const int parallelTH = 1;
     const int cycleLB = 100000;
     const int useNodeHash = false;
     IsoPartitioner partitioner;
-    EXPECT_EQ(partitioner.SetParameter(cycleUB, parallelTH, cycleLB, useNodeHash), SUCCESS);
+    EXPECT_EQ(partitioner.SetParameter(parallelTH, cycleLB, useNodeHash), SUCCESS);
     EXPECT_EQ(partitioner.PartitionGraph(*function), SUCCESS);
-    const int subGraphNum = 6 * brNum;
+    const int subGraphNum = brNum;
     EXPECT_EQ(function->GetTotalSubGraphCount(), subGraphNum);
 }
 
@@ -414,12 +561,11 @@ TEST_F(GraphPartitionTest, TestParallelThreshold)
     const int brNum = 4;
     GetMergeableGraph(G, brNum);
     Function* function = G.GetFunction();
-    const int cycleUB = 100000;
     const int parallelTH = brNum * 2;
     const int cycleLB = 0;
     const int useNodeHash = false;
     IsoPartitioner partitioner;
-    EXPECT_EQ(partitioner.SetParameter(cycleUB, parallelTH, cycleLB, useNodeHash), SUCCESS);
+    EXPECT_EQ(partitioner.SetParameter(parallelTH, cycleLB, useNodeHash), SUCCESS);
     EXPECT_EQ(partitioner.PartitionGraph(*function), SUCCESS);
     const int subGraphNum = 3 * brNum;
     EXPECT_EQ(function->GetTotalSubGraphCount(), subGraphNum);
@@ -431,12 +577,11 @@ TEST_F(GraphPartitionTest, TestSmallGraphBound)
     const int brNum = 4;
     GetMergeableGraph(G, brNum);
     Function* function = G.GetFunction();
-    const int cycleUB = 100000;
     const int parallelTH = brNum * 2;
     const int cycleLB = 100000;
     const int useNodeHash = false;
     IsoPartitioner partitioner;
-    EXPECT_EQ(partitioner.SetParameter(cycleUB, parallelTH, cycleLB, useNodeHash), SUCCESS);
+    EXPECT_EQ(partitioner.SetParameter(parallelTH, cycleLB, useNodeHash), SUCCESS);
     EXPECT_EQ(partitioner.PartitionGraph(*function), SUCCESS);
     const int subGraphNum = brNum;
     EXPECT_EQ(function->GetTotalSubGraphCount(), subGraphNum);
@@ -448,12 +593,11 @@ TEST_F(GraphPartitionTest, TestLargeSuperNode)
     const int brNum = 5000;
     GetCubeVectorGraph(G, brNum);
     Function* function = G.GetFunction();
-    const int cycleUB = 100000;
     const int parallelTH = brNum * 2;
     const int cycleLB = 100000;
     const int useNodeHash = false;
     IsoPartitioner partitioner;
-    EXPECT_EQ(partitioner.SetParameter(cycleUB, parallelTH, cycleLB, useNodeHash), SUCCESS);
+    EXPECT_EQ(partitioner.SetParameter(parallelTH, cycleLB, useNodeHash), SUCCESS);
     EXPECT_EQ(partitioner.PartitionGraph(*function), SUCCESS);
 }
 
@@ -485,12 +629,11 @@ TEST_F(GraphPartitionTest, TestLargeWideGraph)
     const int brNum = 5000;
     GetWideGraph(G, brNum);
     Function* function = G.GetFunction();
-    const int cycleUB = 100000;
     const int parallelTH = 20;
     const int cycleLB = 100000;
     const int useNodeHash = false;
     IsoPartitioner partitioner;
-    EXPECT_EQ(partitioner.SetParameter(cycleUB, parallelTH, cycleLB, useNodeHash), SUCCESS);
+    EXPECT_EQ(partitioner.SetParameter(parallelTH, cycleLB, useNodeHash), SUCCESS);
     EXPECT_EQ(partitioner.PartitionGraph(*function), SUCCESS);
 }
 
@@ -526,12 +669,11 @@ TEST_F(GraphPartitionTest, TestLargeDeepGraph)
     const int brNum = 5000;
     GetDeepGraph(G, brNum);
     Function* function = G.GetFunction();
-    const int cycleUB = 100000;
     const int parallelTH = 20;
     const int cycleLB = 100000;
     const int useNodeHash = false;
     IsoPartitioner partitioner;
-    EXPECT_EQ(partitioner.SetParameter(cycleUB, parallelTH, cycleLB, useNodeHash), SUCCESS);
+    EXPECT_EQ(partitioner.SetParameter(parallelTH, cycleLB, useNodeHash), SUCCESS);
     EXPECT_EQ(partitioner.PartitionGraph(*function), SUCCESS);
 }
 
@@ -550,18 +692,17 @@ TEST_F(GraphPartitionTest, TestIsomorphismGraph)
     EXPECT_EQ(G.SetOutCast({"h6"}), true);
 
     Function* function = G.GetFunction();
-    const int cycleUB = 100000;
     const int parallelTH = 20;
     const int cycleLB = 100000;
     const int useNodeHash = false;
     IsoPartitioner partitioner;
-    EXPECT_EQ(partitioner.SetParameter(cycleUB, parallelTH, cycleLB, useNodeHash), SUCCESS);
+    EXPECT_EQ(partitioner.SetParameter(parallelTH, cycleLB, useNodeHash), SUCCESS);
     EXPECT_EQ(partitioner.PartitionGraph(*function), SUCCESS);
     const int subGraphNum = 4;
     EXPECT_EQ(function->GetTotalSubGraphCount(), subGraphNum);
 }
 
-TEST_F(GraphPartitionTest, TestScopeId)
+void RunScopeTest(bool allowCrossScopeMerge, int expectedSubGraphNum)
 {
     ComputationalGraphBuilder G;
     std::vector<int64_t> tileShape{32, 32};
@@ -574,21 +715,228 @@ TEST_F(GraphPartitionTest, TestScopeId)
     EXPECT_EQ(G.AddOp(Opcode::OP_COPY_OUT, {"h5"}, {"h6"}, "COPY_OUT", true), true);
     EXPECT_EQ(G.SetInCast({"h1"}), true);
     EXPECT_EQ(G.SetOutCast({"h6"}), true);
-    G.GetOp("A1")->SetScopeId(1);
-    G.GetOp("A2")->SetScopeId(1);
-    G.GetOp("M")->SetScopeId(1);
-    G.GetOp("COPY_OUT")->SetScopeId(1);
+    Operation::ScopeInfo info;
+    info.scopeId = 1;
+    info.allowCrossScopeMerge = allowCrossScopeMerge;
+    for (auto* op : {G.GetOp("A1"), G.GetOp("A2"), G.GetOp("M"), G.GetOp("COPY_OUT")}) {
+        op->SetScopeInfo(info);
+    }
 
     Function* function = G.GetFunction();
-    const int cycleUB = 100000;
     const int parallelTH = 20;
     const int cycleLB = 100000;
     const int useNodeHash = false;
     IsoPartitioner partitioner;
-    EXPECT_EQ(partitioner.SetParameter(cycleUB, parallelTH, cycleLB, useNodeHash), SUCCESS);
+    EXPECT_EQ(partitioner.SetParameter(parallelTH, cycleLB, useNodeHash), SUCCESS);
     EXPECT_EQ(partitioner.PartitionGraph(*function), SUCCESS);
-    const int subGraphNum = 2;
-    EXPECT_EQ(function->GetTotalSubGraphCount(), subGraphNum);
+    EXPECT_EQ(function->GetTotalSubGraphCount(), expectedSubGraphNum);
+}
+
+TEST_F(GraphPartitionTest, TestScopeCase1) { RunScopeTest(false, 2); }
+
+TEST_F(GraphPartitionTest, TestScopeCase2) { RunScopeTest(true, 1); }
+
+void RunScopeTest2(bool paraller, bool crossScopeMerge, int expectedSubGraphNum)
+{
+    ComputationalGraphBuilder G;
+    const int brNum = 1;
+    GetMergeableGraph(G, brNum);
+    Function* function = G.GetFunction();
+    Operation::ScopeInfo info(1);
+    info.allowParallelMerge = paraller;
+    info.allowCrossScopeMerge = crossScopeMerge,
+    SetScopeInfoForOps(G, {"COPY_INt0", "RESHAPE_INt0", "ABSt0", "COPY_INb0", "RESHAPE_INb0", "ABSb0"}, info);
+    IsoPartitioner partitioner;
+    EXPECT_EQ(partitioner.SetParameter(100000, 20, 0, false), SUCCESS);
+    EXPECT_EQ(partitioner.PartitionGraph(*function), SUCCESS);
+    EXPECT_EQ(function->GetTotalSubGraphCount(), expectedSubGraphNum);
+}
+
+TEST_F(GraphPartitionTest, TestScopeCase3) { RunScopeTest2(true, false, 2); }
+
+TEST_F(GraphPartitionTest, TestScopeCase4) { RunScopeTest2(true, true, 1); }
+
+void AddGLMTensors(ComputationalGraphBuilder& G)
+{
+    std::vector<int64_t> shapeSij{12, 512};
+    std::vector<int64_t> shapeOne{12, 1};
+    std::vector<int64_t> shapeOi{12, 128};
+    std::vector<int64_t> shapeVBlock{128, 128};
+
+    EXPECT_EQ(G.AddTensors(DataType::DT_FP32, shapeSij, {"sij", "sij_ub", "sij_scale", "tsub", "tilda_pij"}), true);
+    EXPECT_EQ(
+        G.AddTensors(
+            DataType::DT_FP32, shapeOne,
+            {"max_update", "sum_update", "max_update_ub", "tilda_mij", "max_new", "sum_local", "max_new_ddr",
+             "max_update_ub2", "tsub2", "update_mul", "sum_update_ub", "tmp_mul", "sum_update_out",
+             "sum_update_out_ddr"}),
+        true);
+    EXPECT_EQ(
+        G.AddTensors(
+            DataType::DT_FP32, shapeOi,
+            {"oi_update", "oi_tmp_ddr", "oi_update_ub", "oi_tmp_ub", "tmp_oi", "oi_update_out", "oi_update_out_ddr"}),
+        true);
+    EXPECT_EQ(G.AddTensors(DataType::DT_BF16, shapeSij, {"tilda_pij_fp16", "pij_assembled_ddr"}), true);
+    EXPECT_EQ(G.AddTensors(DataType::DT_BF16, std::vector<int64_t>{-1, 128}, {"value_cache_2d"}), true);
+
+    std::vector<MemoryType> memL1(4, MemoryType::MEM_L1);
+    std::vector<MemoryType> memL0B(4, MemoryType::MEM_L0B);
+    std::vector<MemoryType> memL0A(4, MemoryType::MEM_L0A);
+    std::vector<MemoryType> memL0C(4, MemoryType::MEM_L0C);
+
+    EXPECT_EQ(G.AddTensors(DataType::DT_BF16, shapeVBlock, memL1, {"v_l1_0", "v_l1_1", "v_l1_2", "v_l1_3"}), true);
+    EXPECT_EQ(G.AddTensors(DataType::DT_BF16, shapeVBlock, memL0B, {"v_l0b_0", "v_l0b_1", "v_l0b_2", "v_l0b_3"}), true);
+    EXPECT_EQ(G.AddTensors(DataType::DT_BF16, shapeOi, memL1, {"a_l1_0", "a_l1_1", "a_l1_2", "a_l1_3"}), true);
+    EXPECT_EQ(G.AddTensors(DataType::DT_BF16, shapeOi, memL0A, {"a_l0a_0", "a_l0a_1", "a_l0a_2", "a_l0a_3"}), true);
+    EXPECT_EQ(G.AddTensors(DataType::DT_FP32, shapeOi, memL0C, {"mmul_a", "mmul_b", "mmul_c", "mmul_d"}), true);
+
+    EXPECT_EQ(G.AddTensor(DataType::DT_FP32, {12, 128}, "div_out"), true);
+    EXPECT_EQ(G.AddTensor(DataType::DT_FP32, {1, 12, 128}, "reshape_out"), true);
+    EXPECT_EQ(G.AddTensor(DataType::DT_FP32, {1, 12, 128}, "cast_out"), true);
+    EXPECT_EQ(G.AddTensor(DataType::DT_FP32, {1, 12, 128}, "atten_out"), true);
+}
+
+void AddGLMSoftmaxOps(ComputationalGraphBuilder& G)
+{
+    EXPECT_EQ(G.AddOp(Opcode::OP_VIEW, {"sij"}, {"sij_ub"}, "VIEW_sij", true), true);
+    EXPECT_EQ(G.AddOp(Opcode::OP_MULS, {"sij_ub"}, {"sij_scale"}, "MULS_scale", true), true);
+    EXPECT_EQ(G.AddOp(Opcode::OP_ROWMAX_SINGLE, {"sij_scale"}, {"tilda_mij"}, "ROWMAX_mij", true), true);
+    EXPECT_EQ(G.AddOp(Opcode::OP_VIEW, {"max_update"}, {"max_update_ub"}, "VIEW_max_update", true), true);
+    EXPECT_EQ(G.AddOp(Opcode::OP_MAXIMUM, {"max_update_ub", "tilda_mij"}, {"max_new"}, "MAX_new", true), true);
+    EXPECT_EQ(G.AddOp(Opcode::OP_SUB, {"sij_scale", "max_new"}, {"tsub"}, "SUB_tsub", true), true);
+    EXPECT_EQ(G.AddOp(Opcode::OP_EXP, {"tsub"}, {"tilda_pij"}, "EXP_pij", true), true);
+    EXPECT_EQ(G.AddOp(Opcode::OP_CAST, {"tilda_pij"}, {"tilda_pij_fp16"}, "CAST_fp16", true), true);
+    EXPECT_EQ(G.AddOp(Opcode::OP_ASSEMBLE, {"tilda_pij_fp16"}, {"pij_assembled_ddr"}, "ASSEMBLE_pij_ddr", true), true);
+    EXPECT_EQ(G.AddOp(Opcode::OP_ROWSUM_SINGLE, {"tilda_pij"}, {"sum_local"}, "ROWSUM_local", true), true);
+    EXPECT_EQ(G.AddOp(Opcode::OP_ASSEMBLE, {"max_new"}, {"max_new_ddr"}, "ASSEMBLE_max_new_ddr", true), true);
+}
+
+void AddGLMCubeOps(ComputationalGraphBuilder& G)
+{
+    EXPECT_EQ(G.AddOp(Opcode::OP_VIEW, {"value_cache_2d"}, {"v_l1_0"}, "VIEW_v_l1_0", true), true);
+    EXPECT_EQ(G.AddOp(Opcode::OP_VIEW, {"value_cache_2d"}, {"v_l1_1"}, "VIEW_v_l1_1", true), true);
+    EXPECT_EQ(G.AddOp(Opcode::OP_VIEW, {"value_cache_2d"}, {"v_l1_2"}, "VIEW_v_l1_2", true), true);
+    EXPECT_EQ(G.AddOp(Opcode::OP_VIEW, {"value_cache_2d"}, {"v_l1_3"}, "VIEW_v_l1_3", true), true);
+    EXPECT_EQ(G.AddOp(Opcode::OP_VIEW, {"pij_assembled_ddr"}, {"a_l1_0"}, "VIEW_a_l1_0", true), true);
+    EXPECT_EQ(G.AddOp(Opcode::OP_VIEW, {"pij_assembled_ddr"}, {"a_l1_1"}, "VIEW_a_l1_1", true), true);
+    EXPECT_EQ(G.AddOp(Opcode::OP_VIEW, {"pij_assembled_ddr"}, {"a_l1_2"}, "VIEW_a_l1_2", true), true);
+    EXPECT_EQ(G.AddOp(Opcode::OP_VIEW, {"pij_assembled_ddr"}, {"a_l1_3"}, "VIEW_a_l1_3", true), true);
+    {
+        std::vector<std::pair<std::string, std::string>> vViews = {
+            {"v_l1_0", "v_l0b_0"}, {"v_l1_1", "v_l0b_1"}, {"v_l1_2", "v_l0b_2"}, {"v_l1_3", "v_l0b_3"}};
+        for (int i = 0; i < static_cast<int>(vViews.size()); i++) {
+            std::string opName = "VIEW_L0B_v" + std::to_string(i);
+            EXPECT_EQ(G.AddOp(Opcode::OP_VIEW, {vViews[i].first}, {vViews[i].second}, opName, true), true);
+            auto viewOp = G.GetOp(opName);
+            std::vector<int64_t> offset = {0, 0, 0};
+            viewOp->SetOpAttribute(std::make_shared<ViewOpAttribute>(offset, MemoryType::MEM_L0B));
+        }
+    }
+    {
+        std::vector<std::pair<std::string, std::string>> aViews = {
+            {"a_l1_0", "a_l0a_0"}, {"a_l1_1", "a_l0a_1"}, {"a_l1_2", "a_l0a_2"}, {"a_l1_3", "a_l0a_3"}};
+        for (int i = 0; i < static_cast<int>(aViews.size()); i++) {
+            std::string opName = "VIEW_L0A_a" + std::to_string(i);
+            EXPECT_EQ(G.AddOp(Opcode::OP_VIEW, {aViews[i].first}, {aViews[i].second}, opName, true), true);
+            auto viewOp = G.GetOp(opName);
+            std::vector<int64_t> offset = {0, 0, 0};
+            viewOp->SetOpAttribute(std::make_shared<ViewOpAttribute>(offset, MemoryType::MEM_L0A));
+        }
+    }
+    EXPECT_EQ(G.AddOp(Opcode::OP_A_MUL_B, {"a_l0a_0", "v_l0b_0"}, {"mmul_a"}, "MMUL_a", true), true);
+    EXPECT_EQ(G.AddOp(Opcode::OP_A_MULACC_B, {"a_l0a_1", "v_l0b_1", "mmul_a"}, {"mmul_b"}, "MMACC_b", true), true);
+    EXPECT_EQ(G.AddOp(Opcode::OP_A_MULACC_B, {"a_l0a_2", "v_l0b_2", "mmul_b"}, {"mmul_c"}, "MMACC_c", true), true);
+    EXPECT_EQ(G.AddOp(Opcode::OP_A_MULACC_B, {"a_l0a_3", "v_l0b_3", "mmul_c"}, {"mmul_d"}, "MMACC_d", true), true);
+    EXPECT_EQ(G.AddOp(Opcode::OP_ASSEMBLE, {"mmul_d"}, {"oi_tmp_ddr"}, "ASSEMBLE_oi_tmp_ddr", true), true);
+}
+
+void AddGLMUpdateOps(ComputationalGraphBuilder& G)
+{
+    EXPECT_EQ(G.AddOp(Opcode::OP_VIEW, {"max_update"}, {"max_update_ub2"}, "VIEW_max_update2", true), true);
+    EXPECT_EQ(G.AddOp(Opcode::OP_SUB, {"max_update_ub2", "max_new"}, {"tsub2"}, "SUB_tsub2", true), true);
+    EXPECT_EQ(G.AddOp(Opcode::OP_EXP, {"tsub2"}, {"update_mul"}, "EXP_update_mul", true), true);
+    EXPECT_EQ(G.AddOp(Opcode::OP_VIEW, {"sum_update"}, {"sum_update_ub"}, "VIEW_sum_update", true), true);
+    EXPECT_EQ(G.AddOp(Opcode::OP_MUL, {"sum_update_ub", "update_mul"}, {"tmp_mul"}, "MUL_tmp", true), true);
+    EXPECT_EQ(G.AddOp(Opcode::OP_ADD, {"tmp_mul", "sum_local"}, {"sum_update_out"}, "ADD_sum_update", true), true);
+    EXPECT_EQ(G.AddOp(Opcode::OP_ASSEMBLE, {"sum_update_out"}, {"sum_update_out_ddr"}, "ASSEMBLE_sum_ddr", true), true);
+
+    EXPECT_EQ(G.AddOp(Opcode::OP_VIEW, {"oi_update"}, {"oi_update_ub"}, "VIEW_oi_update", true), true);
+    EXPECT_EQ(G.AddOp(Opcode::OP_VIEW, {"oi_tmp_ddr"}, {"oi_tmp_ub"}, "VIEW_oi_tmp", true), true);
+    EXPECT_EQ(G.AddOp(Opcode::OP_MUL, {"oi_update_ub", "update_mul"}, {"tmp_oi"}, "MUL_oi", true), true);
+    EXPECT_EQ(G.AddOp(Opcode::OP_ADD, {"tmp_oi", "oi_tmp_ub"}, {"oi_update_out"}, "ADD_oi_update", true), true);
+    EXPECT_EQ(G.AddOp(Opcode::OP_ASSEMBLE, {"oi_update_out"}, {"oi_update_out_ddr"}, "ASSEMBLE_oi_ddr", true), true);
+    EXPECT_EQ(G.AddOp(Opcode::OP_DIV, {"oi_update_out", "sum_update_out"}, {"div_out"}, "DIV_1", true), true);
+    EXPECT_EQ(G.AddOp(Opcode::OP_RESHAPE, {"div_out"}, {"reshape_out"}, "RESHAPE_1", true), true);
+    EXPECT_EQ(G.AddOp(Opcode::OP_CAST, {"reshape_out"}, {"cast_out"}, "CAST_1", true), true);
+    EXPECT_EQ(G.AddOp(Opcode::OP_ASSEMBLE, {"cast_out"}, {"atten_out"}, "ASSEMBLE_1", true), true);
+}
+
+int VerifyOpsInSameSubgraph(ComputationalGraphBuilder& G, const std::vector<std::string>& opNames)
+{
+    int subgraphId = G.GetOp(opNames[0])->GetSubgraphID();
+    for (const auto& name : opNames) {
+        EXPECT_EQ(G.GetOp(name)->GetSubgraphID(), subgraphId);
+    }
+    return subgraphId;
+}
+
+void ConstructGLMAttentionCase(ComputationalGraphBuilder& G)
+{
+    AddGLMTensors(G);
+    AddGLMSoftmaxOps(G);
+    AddGLMCubeOps(G);
+    AddGLMUpdateOps(G);
+
+    EXPECT_EQ(G.SetInCast({"sij", "max_update", "sum_update", "oi_update", "value_cache_2d"}), true);
+    EXPECT_EQ(G.SetOutCast({"max_new_ddr", "sum_update_out_ddr", "oi_update_out_ddr", "atten_out"}), true);
+}
+
+TEST_F(GraphPartitionTest, TestScopeCase5)
+{
+    ComputationalGraphBuilder G;
+    ConstructGLMAttentionCase(G);
+
+    Operation::ScopeInfo scope1(1);
+    scope1.allowParallelMerge = true;
+    scope1.allowCrossScopeMerge = false;
+    std::vector<std::string> scope1Ops = {"MULS_scale", "ROWMAX_mij", "MAX_new",     "SUB_tsub",
+                                          "EXP_pij",    "CAST_fp16",  "ROWSUM_local"};
+    SetScopeInfoForOps(G, scope1Ops, scope1);
+
+    Operation::ScopeInfo scope2(2);
+    scope2.allowParallelMerge = true;
+    scope2.allowCrossScopeMerge = false;
+    std::vector<std::string> scope2Ops = {"SUB_tsub2", "EXP_update_mul", "MUL_tmp", "ADD_sum_update"};
+    SetScopeInfoForOps(G, scope2Ops, scope2);
+
+    Function* function = G.GetFunction();
+    IsoPartitioner partitioner;
+    EXPECT_EQ(partitioner.SetParameter(100000, 20, 0, false), SUCCESS);
+    EXPECT_EQ(partitioner.PartitionGraph(*function), SUCCESS);
+
+    int scope1Subgraph = VerifyOpsInSameSubgraph(G, scope1Ops);
+    int scope2Subgraph = VerifyOpsInSameSubgraph(G, scope2Ops);
+    EXPECT_NE(scope1Subgraph, scope2Subgraph);
+
+    std::vector<std::string> cubeOps = {
+        "VIEW_v_l1_0", "VIEW_v_l1_1", "VIEW_v_l1_2",        "VIEW_v_l1_3", "VIEW_a_l1_0", "VIEW_a_l1_1",
+        "VIEW_a_l1_2", "VIEW_a_l1_3", "VIEW_L0B_v0",        "VIEW_L0B_v1", "VIEW_L0B_v2", "VIEW_L0B_v3",
+        "VIEW_L0A_a0", "VIEW_L0A_a1", "VIEW_L0A_a2",        "VIEW_L0A_a3", "MMUL_a",      "MMACC_b",
+        "MMACC_c",     "MMACC_d",     "ASSEMBLE_oi_tmp_ddr"};
+    int cubeSubgraph = VerifyOpsInSameSubgraph(G, cubeOps);
+    for (const auto& name : cubeOps) {
+        EXPECT_EQ(
+            G.GetOp(name)->HasAttr(OpAttributeKey::isCube) && G.GetOp(name)->GetBoolAttribute(OpAttributeKey::isCube),
+            true);
+    }
+    EXPECT_NE(cubeSubgraph, scope1Subgraph);
+    EXPECT_NE(cubeSubgraph, scope2Subgraph);
+
+    std::vector<std::string> v2Ops = {"VIEW_oi_update", "VIEW_oi_tmp", "MUL_oi", "ADD_oi_update", "ASSEMBLE_oi_ddr"};
+    int v2Subgraph = VerifyOpsInSameSubgraph(G, v2Ops);
+    EXPECT_NE(v2Subgraph, scope1Subgraph);
+    EXPECT_NE(v2Subgraph, scope2Subgraph);
+    EXPECT_NE(v2Subgraph, cubeSubgraph);
 }
 
 TEST_F(GraphPartitionTest, TestNonIsomorphismGraph)
@@ -606,12 +954,11 @@ TEST_F(GraphPartitionTest, TestNonIsomorphismGraph)
     EXPECT_EQ(G.SetOutCast({"hout"}), true);
 
     Function* function = G.GetFunction();
-    const int cycleUB = 100000;
     const int parallelTH = 20;
     const int cycleLB = 100000;
     const int useNodeHash = false;
     IsoPartitioner partitioner;
-    EXPECT_EQ(partitioner.SetParameter(cycleUB, parallelTH, cycleLB, useNodeHash), SUCCESS);
+    EXPECT_EQ(partitioner.SetParameter(parallelTH, cycleLB, useNodeHash), SUCCESS);
     EXPECT_EQ(partitioner.PartitionGraph(*function), SUCCESS);
     const int subGraphNum = 1;
     EXPECT_EQ(function->GetTotalSubGraphCount(), subGraphNum);

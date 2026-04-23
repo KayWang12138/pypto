@@ -47,15 +47,14 @@ def _load_shared_libs():
     # name, load
     desc_lst: List[List[Any]] = [
         ["libtile_fwk_utils.so", True, ],
+        ["libtile_fwk_adapter.so", True, ],
         ["libtile_fwk_cann_host_runtime.so", True, ],
         ["libtile_fwk_platform.so", True, ],
         ["libtile_fwk_interface.so", True, ],
         ["libtile_fwk_codegen.so", True, ],
         ["libtile_fwk_compiler.so", True, ],
-        ["libtile_fwk_runtime.so", use_cann, ],
-        ["libtile_fwk_runtime_stub.so", not use_cann, ],
+        ["libtile_fwk_runtime.so", True, ],
         ["libtile_fwk_simulation.so", True, ],
-        ["libtile_fwk_simulation_ca.so", True, ],
         ["libtile_fwk_simulation_pv.so", use_cann, ],
     ]
     for desc in desc_lst:
@@ -82,6 +81,7 @@ from .symbolic_scalar import SymbolicScalar
 from .tensor import Tensor
 from .functions import Function, get_last_function, get_current_function
 from ._element import Element
+from .logging import *  # noqa
 
 # Import frontend after all other imports to avoid circular imports
 from . import frontend

@@ -73,7 +73,8 @@ public:
             isNeedWriteRegForFastPath_ = false;
         }
         enableEslModel_ = deviceArgs->enableEslModel;
-        DEV_IF_NONDEVICE {
+        DEV_IF_NONDEVICE
+        {
             if (enableEslModel_) {
                 eslModel_.Init();
             }
@@ -252,281 +253,6 @@ public:
                     break;
             }
         } else {
-            for (int i = 0; i < n; i++) {
-                vals[i] = CostModelGetTask(coreIdx[i]);
-            }
-        }
-    }
-
-    inline void WaitFinQueue(int coreStart, int coreEnd, uint64_t val)
-    {
-        for (int idx = coreStart; idx < coreEnd; idx++) {
-            uint64_t startCycle = GetCycles();
-            while (GetFinishedTask(idx) != val) {
-                if (GetCycles() - startCycle > TIMEOUT_CYCLES) {
-                    DEV_ERROR(
-                        SchedErr::TASK_WAIT_TIMEOUT, "#sche.aicore.wait_finish: CoreId=%d cannot get finish Flag", idx);
-                    return;
-                }
-            }
-        }
-    }
-
-    inline uint64_t GetFinishedTask(int coreIdx)
-    {
-        if constexpr (IsDeviceMode()) {
-            return *(finishRegQueues_[GetPhyIdByBlockId(coreIdx)]);
-        } else {
-            if (enableEslModel_) {
-                return eslModel_.ReadEslReg(coreIdx);
-            } else if (IsHostSimMode()) {
-                return HostRegBus::Global().ReadCond(static_cast<size_t>(GetHostSimPhyId(coreIdx)));
-            } else {
-                return CostModelGetTask(coreIdx);
-            }
-        }
-    }
-
-    void SetTaskTimeCost(std::function<uint64_t(uint64_t, uint64_t, uint64_t)> func) { getTaskTimeCost = func; }
-
-    uint64_t CostModelGetTask(int coreIdx)
-    {
-        auto currentTime = GetCycles();
-        DEV_DEBUG("CostModel AICore polling: aicoreIdx=%d, time=%lu.", coreIdx, currentTime);
-        if (taskIds[coreIdx].empty())
-            return AICORE_FUNC_STOP | AICORE_FIN_MASK;
-        uint64_t taskId = 0;
-        while (!taskIds[coreIdx].empty() && currentTime >= taskTimes[coreIdx].front()) {
-            taskId = taskIds[coreIdx].front();
-            taskTimes[coreIdx].pop_front();
-            taskIds[coreIdx].pop_front();
-        }
-        if (taskIds[coreIdx].empty()) {
-            DEV_DEBUG(
-                "CostModel AICore finish task: aicoreIdx=%d, taskId=%#lx, currentTime=%lu.", coreIdx, taskId,
-                currentTime);
-            return taskId | AICORE_FIN_MASK;
-        }
-        DEV_DEBUG(
-            "CostModel AICore running task: aicoreIdx=%d, taskId=%#lx, currentTime=%lu, finishTime=%lu.", coreIdx,
-            taskIds[coreIdx].front(), currentTime, taskTimes[coreIdx].front());
-        return taskIds[coreIdx].front();
-    }
-
-    void CostModelSendTask(int coreIdx, uint64_t taskId, std::map<uint64_t, uint64_t> tensorAddr2SizeMap)
-    {
-        uint64_t time = taskIds[coreIdx].empty() ? GetCycles() : taskTimes[coreIdx].back();
-        uint64_t timeCost = getTaskTimeCost == nullptr ? 0 : getTaskTimeCost(coreIdx, taskId, time);
-        taskTimes[coreIdx].push_back(time + timeCost);
-        taskIds[coreIdx].push_back(taskId);
-        if (costModel_) {
-            costModel_->SendTask(coreIdx, taskId, tensorAddr2SizeMap);
-        }
-        DEV_DEBUG(
-            "CostModel AICore add task: aicoreIdx=%d, taskId=%#lx, newQueueSize=%lu, finishTime=%lu.", coreIdx, taskId,
-            taskIds[coreIdx].size(), time + timeCost);
-    }
-
-    int64_t GetSharedBuffer() { return sharedBuffer_; }
-
-    inline void MapRegistersForAllCores(int aicNum)
-    {
-        for (uint32_t idx = 0; idx < static_cast<u_int32_t>(aicNum * CORE_NUM_PER_AI_CORE); idx++) {
-            void* addr = reinterpret_cast<void*>(regAddrs_[idx]);
-            if (addr == nullptr) {
-                continue;
-            }
-            DEV_VERBOSE_DEBUG("phy core %u Addr is %p.", idx, addr);
-            volatile uint64_t* reqQueueReg =
-                reinterpret_cast<volatile uint64_t*>(static_cast<uint8_t*>(addr) + regSprDataMainBase_);
-            readyRegQueues_[idx] = reqQueueReg;
-            volatile uint64_t* finishQueueReg =
-                reinterpret_cast<volatile uint64_t*>(static_cast<uint8_t*>(addr) + regSprCond_);
-            finishRegQueues_[idx] = finishQueueReg;
-        }
-    }
-
-    inline int& GetPhyIdByBlockId(int coreIdx) { return blockIdToPhyCoreId_[coreIdx]; }
-
-    Metrics* GetMetrics(int coreIdx)
-    {
-        volatile KernelArgs* arg = reinterpret_cast<KernelArgs*>(sharedBuffer_ + coreIdx * SHARED_BUFFER_SIZE);
-        volatile Metrics* metric = reinterpret_cast<Metrics*>(arg->shakeBuffer[SHAK_BUF_DFX_DATA_INDEX]);
-        DEV_INFO("aicoreIdx=%d host alloc metric memory: %p.", coreIdx, metric);
-        if (metric == nullptr) {
-            DEV_ERROR(DevCommonErr::NULLPTR, "#sche.prof.aicore.getaddr: aicoreIdx=%d null metric.", coreIdx);
-            return nullptr;
-        }
-
-        uint64_t cycles_start = GetCycles();
-        while (metric->isMetricStop != 1) {
-            if (GetCycles() - cycles_start > PROF_DUMP_TIMEOUT_CYCLES) {
-                DEV_ERROR(DevCommonErr::NULLPTR, "#sche.prof.aicore.wait_finish: wait metrics done timeout !!!.");
-                return nullptr;
-            }
-        }; // wait aicore dcci metric data finish
-
-        return reinterpret_cast<Metrics*>(arg->shakeBuffer[SHAK_BUF_DFX_DATA_INDEX]);
-    }
-
-    int DumpTaskProf(int coreIdx)
-    {
-        Metrics* metric = GetMetrics(coreIdx);
-        if (metric == nullptr) {
-            return DEVICE_MACHINE_ERROR;
-        }
-
-        DEV_VERBOSE_DEBUG("Dump core %d prof data , task cnt %ld, metric:%p.", coreIdx, metric->taskCount, metric);
-        for (int i = 0; i < metric->taskCount; i++) {
-            volatile TaskStat* stat = &metric->tasks[i];
-            aicoreProf_->ProfGet(coreIdx, stat->subGraphId, stat->taskId, &(metric)->tasks[i]);
-            DEV_VERBOSE_DEBUG(
-                "  Dump prof for task %d, execstart: %ld execend :%ld.", stat->taskId, stat->execStart, stat->execEnd);
-        }
-        return 0;
-    }
-
-    int DumpAicorePerfTrace(int aicpuIdx, int coreIdx, CoreType coretype, std::ostringstream& oss)
-    {
-        (void)coreIdx;
-        (void)coretype;
-        (void)oss;
-        (void)aicpuIdx;
-#if ENABLE_PERF_TRACE
-        Metrics* metric = GetMetrics(coreIdx);
-        if (metric == nullptr) {
-            return DEVICE_MACHINE_ERROR;
-        }
-        oss << "{\"blockIdx\":" << coreIdx << ",\"coreType\":\"SCHED" << aicpuIdx << "-"
-            << (coretype == CoreType::AIC ? "AIC" : "AIV") << "\",\"freq\":" << freq_ << ",\"tasks\":[";
-
-        auto turnNumIdx = metric->turnNum - 1;
-        uint64_t curCycle = 0;
-        for (uint32_t type = 0; type < PERF_TRACE_CORE_MAX; type++) {
-            for (uint32_t cnt = 0; cnt < metric->perfTraceCnt[turnNumIdx][type]; cnt++) {
-                curCycle = metric->perfTrace[turnNumIdx][type][cnt];
-                if (curCycle == 0) {
-                    break;
-                }
-                oss << "{\"name\":\"" << AicorePerfTraceName[type];
-                if (metric->perfTraceDevTaskId[turnNumIdx][type][cnt] != INVALID_DEV_TASK_ID) {
-                    oss << "(" << metric->perfTraceDevTaskId[turnNumIdx][type][cnt] << ")";
-                }
-                oss << "\",\"end\":" << curCycle << "}"
-                    << (((type == PERF_TRACE_CORE_MAX - 1) && (cnt == metric->perfTraceCnt[turnNumIdx][type] - 1)) ?
-                            "" :
-                            ",");
-            }
-        }
-        oss << "]}";
-#endif
-        return DEVICE_MACHINE_OK;
-    }
-
-    void DumpAicoreStatus(int coreIdx) const
-    {
-        volatile KernelArgs *arg = reinterpret_cast<KernelArgs *>(sharedBuffer_ + coreIdx * SHARED_BUFFER_SIZE);
-        DEV_ERROR(
-            SchedErr::ABNOMAL_LAST_WORD,
-            "!!***********************aicore %d last status **************************!!", coreIdx);
-        DEV_ERROR(
-            SchedErr::ABNOMAL_LAST_WORD, "hello status %ld.", arg->shakeBuffer[0]);
-        DEV_ERROR(
-            SchedErr::ABNOMAL_LAST_WORD, "last_taskId %ld task status [%ld, %ld, %ld, %ld].",
-            arg->shakeBuffer[NUM_ONE], arg->shakeBuffer[NUM_TWO], arg->shakeBuffer[NUM_THREE],
-            arg->shakeBuffer[NUM_FOUR], arg->shakeBuffer[NUM_FIVE]);
-
-        for (size_t i = 0; i < sizeof(arg->taskStat) / sizeof(TaskStat); i++) {
-            DEV_ERROR(
-                SchedErr::ABNOMAL_LAST_WORD, "task rsp index %lu: taskId %d, subGraphID %d execStart %ld execEnd %ld.",
-                i, arg->taskStat[i].taskId, arg->taskStat[i].subGraphId,
-                arg->taskStat[i].execStart, arg->taskStat[i].execEnd);
-        }
-    }
-
-    uint64_t GetAicoreStatus(int coreIdx) const
-    {
-        int aicoreStatusIndex = 2;
-        volatile KernelArgs* arg = reinterpret_cast<KernelArgs*>(sharedBuffer_ + coreIdx * SHARED_BUFFER_SIZE);
-        return arg->shakeBuffer[aicoreStatusIndex];
-    }
-
-    uint64_t GetAicoreStatusBackup(int coreIdx) const
-    {
-        int aicoreStatusIndex = 3;
-        volatile KernelArgs *arg = reinterpret_cast<KernelArgs *>(sharedBuffer_ + coreIdx * SHARED_BUFFER_SIZE);
-        return arg->shakeBuffer[aicoreStatusIndex];
-    }
-
-    bool TryHandShakeByGm(int coreIdx, int64_t dotStatus)
-    {
-        auto args =
-            reinterpret_cast<KernelArgs*>((static_cast<uint64_t>(sharedBuffer_)) + SHARED_BUFFER_SIZE * coreIdx);
-        volatile int64_t* shakeBuffer = args->shakeBuffer;
-        if ((*shakeBuffer & 0xFFFFFFFF) != AICORE_SAY_HELLO) {
-            return false;
-        }
-
-        args_[coreIdx] = args;
-        args->taskEntry.reserved[0] = static_cast<uint32_t>(dotStatus);
-        GetPhyIdByBlockId(coreIdx) = (*shakeBuffer >> NUM_THIRTY_TWO) & AICORE_COREID_MASK;
-        if (isNeedWriteRegForFastPath_) {
-            WriteReg32(coreIdx, REG_SPR_FAST_PATH_ENABLE, REG_SPR_FAST_PATH_OPEN);
-        }
-        SetReadyQueue(coreIdx, (uint64_t)0);
-        // make sure reset wave goodbye flag after hand shake ,orelse impact last aicore exit through wavegoodbye flag
-        args_[coreIdx]->waveBufferCpuToCore[CPU_TO_CORE_SHAK_BUF_GOODBYE_INDEX] = 0;
-        return true;
-    }
-
-    // We must makesure close 0x18 before aicore exit.
-    void ResetShakeBuf(int coreIdx) {
-        if constexpr (IsDeviceMode()) {
-            if (isNeedWriteRegForFastPath_) {
-                WriteReg32(coreIdx, REG_SPR_FAST_PATH_ENABLE, REG_SPR_FAST_PATH_CLOSE);
-                __sync_synchronize();
-            }
-            args_[coreIdx]->shakeBuffer[0] = 0;
-            args_[coreIdx]->shakeBufferCpuToCore[CPU_TO_CORE_SHAK_BUF_COREFUNC_DATA_INDEX] = 0;
-            args_[coreIdx]->waveBufferCpuToCore[CPU_TO_CORE_SHAK_BUF_GOODBYE_INDEX] = AICORE_SAY_GOODBYE;
-        }else {
-            if (enableEslModel_) {
-                uint64_t valToSend = 0;
-                eslModel_.WriteEslMem(reinterpret_cast<uint64_t>(&args_[coreIdx]->shakeBuffer[0]), sizeof(uint64_t), &valToSend);
-                valToSend = AICORE_SAY_GOODBYE;
-                eslModel_.WriteEslMem(reinterpret_cast<uint64_t>(&args_[coreIdx]->waveBufferCpuToCore[CPU_TO_CORE_SHAK_BUF_GOODBYE_INDEX]), sizeof(uint64_t), &valToSend);
-            } else if (IsHostSimMode() && args_[coreIdx] != nullptr) {
-                args_[coreIdx]->shakeBuffer[0] = 0;
-                args_[coreIdx]->shakeBufferCpuToCore[CPU_TO_CORE_SHAK_BUF_COREFUNC_DATA_INDEX] = 0;
-                args_[coreIdx]->waveBufferCpuToCore[CPU_TO_CORE_SHAK_BUF_GOODBYE_INDEX] = AICORE_SAY_GOODBYE;
-                HostRegBus::Global().WriteMainBase(static_cast<size_t>(GetHostSimPhyId(coreIdx)), 0);
-                HostRegBus::Global().WriteCond(static_cast<size_t>(GetHostSimPhyId(coreIdx)), 0);
-            }
-            
-        }
-        ResetParallelDevTask(coreIdx);
-        return;
-    }
-
-    volatile TaskStat* GetTaskStat(int coreIdx, int pos)
-    {
-        volatile TaskStat* stat = &args_[coreIdx]->taskStat[pos];
-        return stat;
-    }
-
-    inline void InitKernelArgs(int coreIdx, int64_t buffer) {
-        (void)buffer;
-        if (args_[coreIdx] == nullptr && (IsDeviceMode() || IsHostSimMode())) {
-            args_[coreIdx] =
-                reinterpret_cast<KernelArgs*>((static_cast<uint64_t>(sharedBuffer_)) + SHARED_BUFFER_SIZE * coreIdx);
-        }
-        if constexpr (IsDeviceMode()) {
-#if ENABLE_AICORE_PRINT
-            volatile KernelArgs *arg = args_[coreIdx];
-            arg->shakeBuffer[SHAK_BUF_PRINT_BUFFER_INDEX] = buffer;
-            __sync_synchronize();
-#endif
-        } else {
 #if ENABLE_AICORE_PRINT
             if (IsHostSimMode() && buffer != 0) {
                 volatile KernelArgs* arg = args_[coreIdx];
@@ -534,145 +260,458 @@ public:
                 arg->shakeBufferCpuToCore[SHAK_BUF_PRINT_BUFFER_INDEX] = buffer;
             }
 #endif
-        }
-    }
-
-    volatile ParallelDevTask* GetParallelDevTask(int coreIdx)
-    {
-        volatile KernelArgs *arg = args_[coreIdx];
-        return &arg->parallelDevTask;
-    }
-
-    void SetParallelDevTask(volatile ParallelDevTask* kernelParallDevTask, int parallelIdx, int64_t funcData)
-    {
-        DEV_IF_DEVICE
-        {
-            kernelParallDevTask->elements[parallelIdx % npu::tile_fwk::SCH_DEVTASK_MAX_PARALLELISM] = funcData;
-        } else {
             if (enableEslModel_) {
-                eslModel_.WriteEslMem(
-                    reinterpret_cast<uint64_t>(
-                        &kernelParallDevTask->elements[parallelIdx % npu::tile_fwk::SCH_DEVTASK_MAX_PARALLELISM]),
-                        sizeof(funcData), &funcData);
-            } else if (IsHostSimMode()) {
-                kernelParallDevTask->elements[parallelIdx % npu::tile_fwk::SCH_DEVTASK_MAX_PARALLELISM] = funcData;
+                if (args_[coreIdx] == nullptr) {
+                    args_[coreIdx] = reinterpret_cast<KernelArgs*>(
+                        (static_cast<uint64_t>(sharedBuffer_)) + SHARED_BUFFER_SIZE * coreIdx);
+                }
             }
         }
     }
+}
+}
 
-    void SetParallelDevTaskSize(volatile ParallelDevTask* kernelParallDevTask, uint32_t front, uint32_t rear)
+inline void WaitFinQueue(int coreStart, int coreEnd, uint64_t val)
+{
+    for (int idx = coreStart; idx < coreEnd; idx++) {
+        uint64_t startCycle = GetCycles();
+        while (GetFinishedTask(idx) != val) {
+            if (GetCycles() - startCycle > TIMEOUT_CYCLES) {
+                DEV_ERROR(
+                    SchedErr::TASK_WAIT_TIMEOUT, "#sche.aicore.wait_finish: CoreId=%d cannot get finish Flag", idx);
+                return;
+            }
+        }
+    }
+}
+
+inline uint64_t GetFinishedTask(int coreIdx)
+{
+    if constexpr (IsDeviceMode()) {
+        return *(finishRegQueues_[GetPhyIdByBlockId(coreIdx)]);
+    } else {
+        if (enableEslModel_) {
+            return eslModel_.ReadEslReg(coreIdx);
+        } else if (IsHostSimMode()) {
+            return HostRegBus::Global().ReadCond(static_cast<size_t>(GetHostSimPhyId(coreIdx)));
+        } else {
+            return CostModelGetTask(coreIdx);
+        }
+    }
+}
+
+void SetTaskTimeCost(std::function<uint64_t(uint64_t, uint64_t, uint64_t)> func) { getTaskTimeCost = func; }
+
+uint64_t CostModelGetTask(int coreIdx)
+{
+    auto currentTime = GetCycles();
+    DEV_DEBUG("CostModel AICore polling: aicoreIdx=%d, time=%lu.", coreIdx, currentTime);
+    if (taskIds[coreIdx].empty())
+        return AICORE_FUNC_STOP | AICORE_FIN_MASK;
+    uint64_t taskId = 0;
+    while (!taskIds[coreIdx].empty() && currentTime >= taskTimes[coreIdx].front()) {
+        taskId = taskIds[coreIdx].front();
+        taskTimes[coreIdx].pop_front();
+        taskIds[coreIdx].pop_front();
+    }
+    if (taskIds[coreIdx].empty()) {
+        DEV_DEBUG(
+            "CostModel AICore finish task: aicoreIdx=%d, taskId=%#lx, currentTime=%lu.", coreIdx, taskId, currentTime);
+        return taskId | AICORE_FIN_MASK;
+    }
+    DEV_DEBUG(
+        "CostModel AICore running task: aicoreIdx=%d, taskId=%#lx, currentTime=%lu, finishTime=%lu.", coreIdx,
+        taskIds[coreIdx].front(), currentTime, taskTimes[coreIdx].front());
+    return taskIds[coreIdx].front();
+}
+
+void CostModelSendTask(int coreIdx, uint64_t taskId)
+{
+    uint64_t time = taskIds[coreIdx].empty() ? GetCycles() : taskTimes[coreIdx].back();
+    uint64_t timeCost = getTaskTimeCost == nullptr ? 0 : getTaskTimeCost(coreIdx, taskId, time);
+    taskTimes[coreIdx].push_back(time + timeCost);
+    taskIds[coreIdx].push_back(taskId);
+    if (costModel_) {
+        costModel_->SendTask(coreIdx, taskId);
+    }
+    DEV_DEBUG(
+        "CostModel AICore add task: aicoreIdx=%d, taskId=%#lx, newQueueSize=%lu, finishTime=%lu.", coreIdx, taskId,
+        taskIds[coreIdx].size(), time + timeCost);
+}
+
+int64_t GetSharedBuffer() { return sharedBuffer_; }
+
+inline void MapRegistersForAllCores(int aicNum)
+{
+    for (uint32_t idx = 0; idx < static_cast<u_int32_t>(aicNum * CORE_NUM_PER_AI_CORE); idx++) {
+        void* addr = reinterpret_cast<void*>(regAddrs_[idx]);
+        if (addr == nullptr) {
+            continue;
+        }
+        DEV_VERBOSE_DEBUG("phy core %u Addr is %p.", idx, addr);
+        volatile uint64_t* reqQueueReg =
+            reinterpret_cast<volatile uint64_t*>(static_cast<uint8_t*>(addr) + regSprDataMainBase_);
+        readyRegQueues_[idx] = reqQueueReg;
+        volatile uint64_t* finishQueueReg =
+            reinterpret_cast<volatile uint64_t*>(static_cast<uint8_t*>(addr) + regSprCond_);
+        finishRegQueues_[idx] = finishQueueReg;
+    }
+}
+
+inline int& GetPhyIdByBlockId(int coreIdx) { return blockIdToPhyCoreId_[coreIdx]; }
+
+Metrics* GetMetrics(int coreIdx)
+{
+    volatile KernelArgs* arg = reinterpret_cast<KernelArgs*>(sharedBuffer_ + coreIdx * SHARED_BUFFER_SIZE);
+    volatile Metrics* metric = reinterpret_cast<Metrics*>(arg->shakeBuffer[SHAK_BUF_DFX_DATA_INDEX]);
+    DEV_INFO("aicoreIdx=%d host alloc metric memory: %p.", coreIdx, metric);
+    if (metric == nullptr) {
+        DEV_ERROR(DevCommonErr::NULLPTR, "#sche.prof.aicore.getaddr: aicoreIdx=%d null metric.", coreIdx);
+        return nullptr;
+    }
+
+    uint64_t cycles_start = GetCycles();
+    while (metric->isMetricStop != 1) {
+        if (GetCycles() - cycles_start > PROF_DUMP_TIMEOUT_CYCLES) {
+            DEV_ERROR(DevCommonErr::NULLPTR, "#sche.prof.aicore.wait_finish: wait metrics done timeout !!!.");
+            return nullptr;
+        }
+    }; // wait aicore dcci metric data finish
+
+    return reinterpret_cast<Metrics*>(arg->shakeBuffer[SHAK_BUF_DFX_DATA_INDEX]);
+}
+
+int DumpTaskProf(int coreIdx)
+{
+    Metrics* metric = GetMetrics(coreIdx);
+    if (metric == nullptr) {
+        return DEVICE_MACHINE_ERROR;
+    }
+
+    DEV_VERBOSE_DEBUG("Dump core %d prof data , task cnt %ld, metric:%p.", coreIdx, metric->taskCount, metric);
+    for (int i = 0; i < metric->taskCount; i++) {
+        volatile TaskStat* stat = &metric->tasks[i];
+        aicoreProf_->ProfGet(coreIdx, stat->subGraphId, stat->taskId, &(metric)->tasks[i]);
+        DEV_VERBOSE_DEBUG(
+            "  Dump prof for task %d, execstart: %ld execend :%ld.", stat->taskId, stat->execStart, stat->execEnd);
+    }
+    return 0;
+}
+
+int DumpAicorePerfTrace(int aicpuIdx, int coreIdx, CoreType coretype, std::ostringstream& oss)
+{
+    (void)coreIdx;
+    (void)coretype;
+    (void)oss;
+    (void)aicpuIdx;
+#if ENABLE_PERF_TRACE
+    Metrics* metric = GetMetrics(coreIdx);
+    if (metric == nullptr) {
+        return DEVICE_MACHINE_ERROR;
+    }
+    oss << "{\"blockIdx\":" << coreIdx << ",\"coreType\":\"SCHED" << aicpuIdx << "-"
+        << (coretype == CoreType::AIC ? "AIC" : "AIV") << "\",\"freq\":" << freq_ << ",\"tasks\":[";
+
+    auto turnNumIdx = metric->turnNum - 1;
+    uint64_t curCycle = 0;
+    for (uint32_t type = 0; type < PERF_TRACE_CORE_MAX; type++) {
+        for (uint32_t cnt = 0; cnt < metric->perfTraceCnt[turnNumIdx][type]; cnt++) {
+            curCycle = metric->perfTrace[turnNumIdx][type][cnt];
+            if (curCycle == 0) {
+                break;
+            }
+            oss << "{\"name\":\"" << AicorePerfTraceName[type];
+            if (metric->perfTraceDevTaskId[turnNumIdx][type][cnt] != INVALID_DEV_TASK_ID) {
+                oss << "(" << metric->perfTraceDevTaskId[turnNumIdx][type][cnt] << ")";
+            }
+            oss << "\",\"end\":" << curCycle << "}"
+                << (((type == PERF_TRACE_CORE_MAX - 1) && (cnt == metric->perfTraceCnt[turnNumIdx][type] - 1)) ? "" :
+                                                                                                                 ",");
+        }
+    }
+    oss << "]}";
+#endif
+    return DEVICE_MACHINE_OK;
+}
+
+void DumpAicoreStatus(int coreIdx) const
+{
+    volatile KernelArgs* arg = reinterpret_cast<KernelArgs*>(sharedBuffer_ + coreIdx * SHARED_BUFFER_SIZE);
+    DEV_ERROR(
+        SchedErr::ABNOMAL_LAST_WORD, "!!***********************aicore %d last status **************************!!",
+        coreIdx);
+    DEV_ERROR(SchedErr::ABNOMAL_LAST_WORD, "hello status %ld.", arg->shakeBuffer[0]);
+    DEV_ERROR(
+        SchedErr::ABNOMAL_LAST_WORD, "last_taskId %ld task status [%ld, %ld, %ld, %ld].", arg->shakeBuffer[NUM_ONE],
+        arg->shakeBuffer[NUM_TWO], arg->shakeBuffer[NUM_THREE], arg->shakeBuffer[NUM_FOUR], arg->shakeBuffer[NUM_FIVE]);
+
+    for (size_t i = 0; i < sizeof(arg->taskStat) / sizeof(TaskStat); i++) {
+        DEV_ERROR(
+            SchedErr::ABNOMAL_LAST_WORD, "task rsp index %lu: taskId %d, subGraphID %d execStart %ld execEnd %ld.", i,
+            arg->taskStat[i].taskId, arg->taskStat[i].subGraphId, arg->taskStat[i].execStart, arg->taskStat[i].execEnd);
+    }
+}
+
+uint64_t GetAicoreStatus(int coreIdx) const
+{
+    int aicoreStatusIndex = 2;
+    volatile KernelArgs* arg = reinterpret_cast<KernelArgs*>(sharedBuffer_ + coreIdx * SHARED_BUFFER_SIZE);
+    return arg->shakeBuffer[aicoreStatusIndex];
+}
+
+uint64_t GetAicoreStatusBackup(int coreIdx) const
+{
+    int aicoreStatusIndex = 3;
+    volatile KernelArgs* arg = reinterpret_cast<KernelArgs*>(sharedBuffer_ + coreIdx * SHARED_BUFFER_SIZE);
+    return arg->shakeBuffer[aicoreStatusIndex];
+}
+
+bool TryHandShakeByGm(int coreIdx, int64_t dotStatus)
+{
+    auto args = reinterpret_cast<KernelArgs*>((static_cast<uint64_t>(sharedBuffer_)) + SHARED_BUFFER_SIZE * coreIdx);
+    volatile int64_t* shakeBuffer = args->shakeBuffer;
+    if ((*shakeBuffer & 0xFFFFFFFF) != AICORE_SAY_HELLO) {
+        return false;
+    }
+
+    args_[coreIdx] = args;
+    args->taskEntry.reserved[0] = static_cast<uint32_t>(dotStatus);
+    GetPhyIdByBlockId(coreIdx) = (*shakeBuffer >> NUM_THIRTY_TWO) & AICORE_COREID_MASK;
+    if (isNeedWriteRegForFastPath_) {
+        WriteReg32(coreIdx, REG_SPR_FAST_PATH_ENABLE, REG_SPR_FAST_PATH_OPEN);
+    }
+    SetReadyQueue(coreIdx, (uint64_t)0);
+    // make sure reset wave goodbye flag after hand shake ,orelse impact last aicore exit through wavegoodbye flag
+    args_[coreIdx]->waveBufferCpuToCore[CPU_TO_CORE_SHAK_BUF_GOODBYE_INDEX] = 0;
+    return true;
+}
+
+// We must makesure close 0x18 before aicore exit.
+void ResetShakeBuf(int coreIdx)
+{
+    if constexpr (IsDeviceMode()) {
+        if (isNeedWriteRegForFastPath_) {
+            WriteReg32(coreIdx, REG_SPR_FAST_PATH_ENABLE, REG_SPR_FAST_PATH_CLOSE);
+            __sync_synchronize();
+        }
+        args_[coreIdx]->shakeBuffer[0] = 0;
+        args_[coreIdx]->shakeBufferCpuToCore[CPU_TO_CORE_SHAK_BUF_COREFUNC_DATA_INDEX] = 0;
+        args_[coreIdx]->waveBufferCpuToCore[CPU_TO_CORE_SHAK_BUF_GOODBYE_INDEX] = AICORE_SAY_GOODBYE;
+    } else {
+        if (enableEslModel_) {
+            uint64_t valToSend = 0;
+            eslModel_.WriteEslMem(
+                reinterpret_cast<uint64_t>(&args_[coreIdx]->shakeBuffer[0]), sizeof(uint64_t), &valToSend);
+            valToSend = AICORE_SAY_GOODBYE;
+            eslModel_.WriteEslMem(
+                reinterpret_cast<uint64_t>(&args_[coreIdx]->waveBufferCpuToCore[CPU_TO_CORE_SHAK_BUF_GOODBYE_INDEX]),
+                sizeof(uint64_t), &valToSend);
+        } else if (IsHostSimMode() && args_[coreIdx] != nullptr) {
+            args_[coreIdx]->shakeBuffer[0] = 0;
+            args_[coreIdx]->shakeBufferCpuToCore[CPU_TO_CORE_SHAK_BUF_COREFUNC_DATA_INDEX] = 0;
+            args_[coreIdx]->waveBufferCpuToCore[CPU_TO_CORE_SHAK_BUF_GOODBYE_INDEX] = AICORE_SAY_GOODBYE;
+            HostRegBus::Global().WriteMainBase(static_cast<size_t>(GetHostSimPhyId(coreIdx)), 0);
+            HostRegBus::Global().WriteCond(static_cast<size_t>(GetHostSimPhyId(coreIdx)), 0);
+        }
+    }
+    ResetParallelDevTask(coreIdx);
+    return;
+}
+
+volatile TaskStat* GetTaskStat(int coreIdx, int pos)
+{
+    volatile TaskStat* stat = &args_[coreIdx]->taskStat[pos];
+    return stat;
+}
+
+inline void InitKernelArgs(int coreIdx, int64_t buffer)
+{
+    (void)buffer;
+    if (args_[coreIdx] == nullptr && (IsDeviceMode() || IsHostSimMode())) {
+        args_[coreIdx] =
+            reinterpret_cast<KernelArgs*>((static_cast<uint64_t>(sharedBuffer_)) + SHARED_BUFFER_SIZE * coreIdx);
+    }
+    if constexpr (IsDeviceMode()) {
+#if ENABLE_AICORE_PRINT
+        volatile KernelArgs* arg = args_[coreIdx];
+        arg->shakeBuffer[SHAK_BUF_PRINT_BUFFER_INDEX] = buffer;
+        __sync_synchronize();
+#endif
+    } else {
+#if ENABLE_AICORE_PRINT
+        if (IsHostSimMode() && buffer != 0) {
+            volatile KernelArgs* arg = args_[coreIdx];
+            arg->shakeBuffer[SHAK_BUF_PRINT_BUFFER_INDEX] = buffer;
+            arg->shakeBufferCpuToCore[SHAK_BUF_PRINT_BUFFER_INDEX] = buffer;
+        }
+#endif
+        if (enableEslModel_) {
+            if (args_[coreIdx] == nullptr) {
+                args_[coreIdx] = reinterpret_cast<KernelArgs*>(
+                    (static_cast<uint64_t>(sharedBuffer_)) + SHARED_BUFFER_SIZE * coreIdx);
+            }
+        }
+    }
+}
+
+volatile ParallelDevTask* GetParallelDevTask(int coreIdx)
+{
+    volatile KernelArgs* arg = args_[coreIdx];
+    return &arg->parallelDevTask;
+}
+
+void SetParallelDevTask(
+    volatile ParallelDevTask* kernelParallDevTask, int parallelIdx, int64_t funcData, uint32_t devTaskId)
+{
+    DEV_IF_DEVICE
     {
-        DEV_IF_DEVICE
-        {
+        kernelParallDevTask->ptrElements[parallelIdx % npu::tile_fwk::SCH_DEVTASK_MAX_PARALLELISM] = funcData;
+        kernelParallDevTask->idElements[parallelIdx % npu::tile_fwk::SCH_DEVTASK_MAX_PARALLELISM] = devTaskId;
+    }
+    else
+    {
+        if (enableEslModel_) {
+            eslModel_.WriteEslMem(
+                reinterpret_cast<uint64_t>(
+                    &kernelParallDevTask->ptrElements[parallelIdx % npu::tile_fwk::SCH_DEVTASK_MAX_PARALLELISM]),
+                sizeof(funcData), &funcData);
+            eslModel_.WriteEslMem(
+                reinterpret_cast<uint64_t>(
+                    &kernelParallDevTask->idElements[parallelIdx % npu::tile_fwk::SCH_DEVTASK_MAX_PARALLELISM]),
+                sizeof(devTaskId), &devTaskId);
+        } else if (IsHostSimMode()) {
+            kernelParallDevTask->ptrElements[parallelIdx % npu::tile_fwk::SCH_DEVTASK_MAX_PARALLELISM] = funcData;
+            kernelParallDevTask->idElements[parallelIdx % npu::tile_fwk::SCH_DEVTASK_MAX_PARALLELISM] = devTaskId;
+        }
+    }
+}
+
+void SetParallelDevTaskSize(volatile ParallelDevTask* kernelParallDevTask, uint32_t front, uint32_t rear)
+{
+    DEV_IF_DEVICE
+    {
+        kernelParallDevTask->front = front;
+        kernelParallDevTask->rear = rear;
+    }
+    else
+    {
+        if (enableEslModel_) {
+            eslModel_.WriteEslMem(reinterpret_cast<uint64_t>(&kernelParallDevTask->front), sizeof(front), &front);
+            eslModel_.WriteEslMem(reinterpret_cast<uint64_t>(&kernelParallDevTask->rear), sizeof(rear), &rear);
+        } else if (IsHostSimMode()) {
             kernelParallDevTask->front = front;
             kernelParallDevTask->rear = rear;
-        } else {
-            if (enableEslModel_) {
-                eslModel_.WriteEslMem(reinterpret_cast<uint64_t>(&kernelParallDevTask->front), sizeof(front), &front);
-                eslModel_.WriteEslMem(reinterpret_cast<uint64_t>(&kernelParallDevTask->rear), sizeof(rear), &rear);
-            } else if (IsHostSimMode()) {
-                kernelParallDevTask->front = front;
-                kernelParallDevTask->rear = rear;
-            }
+        }
+    }
+}
+
+inline uint32_t ParallelDevTaskCtxVersion(int coreIdx) { return parallelDevTaskCtxVersion[coreIdx]; }
+
+inline void SetParallelDevTaskCtxVersion(int coreIdx, uint32_t version)
+{
+    parallelDevTaskCtxVersion[coreIdx] = version;
+    DEV_IF_DEVICE
+    {
+        volatile KernelArgs* arg = args_[coreIdx];
+        arg->parallelDevTask.version = version;
+    }
+    else
+    {
+        if (enableEslModel_) {
+            volatile KernelArgs* arg = args_[coreIdx];
+            eslModel_.WriteEslMem(reinterpret_cast<uint64_t>(&arg->parallelDevTask.version), sizeof(version), &version);
+        } else if (IsHostSimMode() && args_[coreIdx] != nullptr) {
+            args_[coreIdx]->parallelDevTask.version = version;
         }
     }
 
-    inline uint32_t ParallelDevTaskCtxVersion(int coreIdx)
-    {
-        return parallelDevTaskCtxVersion[coreIdx];
-    }
+    DEV_VERBOSE_DEBUG("Refresh core %d parall version %u", coreIdx, version);
+}
 
-    inline void SetParallelDevTaskCtxVersion(int coreIdx, uint32_t version)
+void ResetParallelDevTask(int coreIdx)
+{
+    DEV_IF_DEVICE
     {
-        parallelDevTaskCtxVersion[coreIdx] = version;
-        DEV_IF_DEVICE {
-            volatile KernelArgs *arg = args_[coreIdx];
-            arg->parallelDevTask.version = version;
-        } else {
-            if (IsHostSimMode() && args_[coreIdx] != nullptr) {
-                args_[coreIdx]->parallelDevTask.version = version;
-            }
+        args_[coreIdx]->parallelDevTask.version = 0;
+        args_[coreIdx]->parallelDevTask.front = 0;
+        args_[coreIdx]->parallelDevTask.rear = 0;
+        for (uint32_t i = 0; i < npu::tile_fwk::SCH_DEVTASK_MAX_PARALLELISM; i++) {
+            args_[coreIdx]->parallelDevTask.ptrElements[i] = 0;
+            args_[coreIdx]->parallelDevTask.idElements[i] = 0;
         }
-
-        DEV_VERBOSE_DEBUG("Refresh core %d parall version %u", coreIdx, version);
     }
-
-    void ResetParallelDevTask(int coreIdx)
+    else
     {
-        DEV_IF_DEVICE
-        {
+        if (enableEslModel_) {
+            uint32_t u32Zero = 0;
+            eslModel_.WriteEslMem(
+                reinterpret_cast<uint64_t>(&args_[coreIdx]->parallelDevTask.version), sizeof(u32Zero), &u32Zero);
+            eslModel_.WriteEslMem(
+                reinterpret_cast<uint64_t>(&args_[coreIdx]->parallelDevTask.front), sizeof(u32Zero), &u32Zero);
+            eslModel_.WriteEslMem(
+                reinterpret_cast<uint64_t>(&args_[coreIdx]->parallelDevTask.front), sizeof(u32Zero), &u32Zero);
+
+            int64_t i64Zereo = 0;
+            for (uint32_t i = 0; i < npu::tile_fwk::SCH_DEVTASK_MAX_PARALLELISM; i++) {
+                eslModel_.WriteEslMem(
+                    reinterpret_cast<uint64_t>(&args_[coreIdx]->parallelDevTask.ptrElements[i]), sizeof(i64Zereo),
+                    &i64Zereo);
+                eslModel_.WriteEslMem(
+                    reinterpret_cast<uint64_t>(&args_[coreIdx]->parallelDevTask.idElements[i]), sizeof(u32Zero),
+                    &u32Zero);
+            }
+        } else if (IsHostSimMode() && args_[coreIdx] != nullptr) {
             args_[coreIdx]->parallelDevTask.version = 0;
             args_[coreIdx]->parallelDevTask.front = 0;
             args_[coreIdx]->parallelDevTask.rear = 0;
             for (uint32_t i = 0; i < npu::tile_fwk::SCH_DEVTASK_MAX_PARALLELISM; i++) {
                 args_[coreIdx]->parallelDevTask.elements[i] = 0;
             }
-        } else {
-            if (enableEslModel_) {
-                uint32_t u32Zero = 0;
-                eslModel_.WriteEslMem(
-                    reinterpret_cast<uint64_t>(&args_[coreIdx]->parallelDevTask.version), sizeof(u32Zero), &u32Zero);
-                eslModel_.WriteEslMem(
-                    reinterpret_cast<uint64_t>(&args_[coreIdx]->parallelDevTask.front), sizeof(u32Zero), &u32Zero);
-                eslModel_.WriteEslMem(
-                    reinterpret_cast<uint64_t>(&args_[coreIdx]->parallelDevTask.front), sizeof(u32Zero), &u32Zero);
-                
-                int64_t i64Zereo = 0;
-                for (uint32_t i = 0; i < npu::tile_fwk::SCH_DEVTASK_MAX_PARALLELISM; i++) {
-                    eslModel_.WriteEslMem(
-                    reinterpret_cast<uint64_t>(&args_[coreIdx]->parallelDevTask.elements[i]), sizeof(i64Zereo), &i64Zereo);
-                }
-            } else if (IsHostSimMode() && args_[coreIdx] != nullptr) {
-                args_[coreIdx]->parallelDevTask.version = 0;
-                args_[coreIdx]->parallelDevTask.front = 0;
-                args_[coreIdx]->parallelDevTask.rear = 0;
-                for (uint32_t i = 0; i < npu::tile_fwk::SCH_DEVTASK_MAX_PARALLELISM; i++) {
-                    args_[coreIdx]->parallelDevTask.elements[i] = 0;
-                }
-            }
         }
     }
+}
 
-    inline void InitCostModelDevTaskData(int coreIdx, int64_t funcData)
-    {
-        if constexpr (!IsDeviceMode()) {
-            if (costModel_) {
-                costModel_->InitData(coreIdx, funcData);
-            }
+inline void InitCostModelDevTaskData(int coreIdx, int64_t funcData)
+{
+    if constexpr (!IsDeviceMode()) {
+        if (costModel_) {
+            costModel_->InitData(coreIdx, funcData);
         }
     }
+}
 
 private:
-    int64_t sharedBuffer_;
-    int64_t* regAddrs_{nullptr};
-    int aicStart_{0};
-    int aicEnd_{0};
-    int aivStart_{0};
-    int aivEnd_{0};
-    uint32_t regNum_{0};
-    uint64_t freq_{50};
+int64_t sharedBuffer_;
+int64_t* regAddrs_{nullptr};
+int aicStart_{0};
+int aicEnd_{0};
+int aivStart_{0};
+int aivEnd_{0};
+uint32_t regNum_{0};
+uint64_t freq_{50};
 
-    std::array<volatile KernelArgs*, MAX_AICORE_NUM> args_;
+std::array<volatile KernelArgs*, MAX_AICORE_NUM> args_;
 
-    std::array<volatile uint64_t*, MAX_AICORE_NUM> readyRegQueues_;
-    std::array<volatile uint64_t*, MAX_AICORE_NUM> finishRegQueues_;
+std::array<volatile uint64_t*, MAX_AICORE_NUM> readyRegQueues_;
+std::array<volatile uint64_t*, MAX_AICORE_NUM> finishRegQueues_;
 
-    // cost model aicore
-    std::function<uint64_t(uint64_t, uint64_t, uint64_t)> getTaskTimeCost{nullptr};
-    std::array<std::deque<uint64_t>, MAX_AICORE_NUM> taskIds;
-    std::array<std::deque<uint64_t>, MAX_AICORE_NUM> taskTimes;
+// cost model aicore
+std::function<uint64_t(uint64_t, uint64_t, uint64_t)> getTaskTimeCost{nullptr};
+std::array<std::deque<uint64_t>, MAX_AICORE_NUM> taskIds;
+std::array<std::deque<uint64_t>, MAX_AICORE_NUM> taskTimes;
 
-    std::array<int, MAX_AICORE_NUM> blockIdToPhyCoreId_;
-    std::array<uint32_t, MAX_AICORE_NUM> parallelDevTaskCtxVersion;
+std::array<int, MAX_AICORE_NUM> blockIdToPhyCoreId_;
+std::array<uint32_t, MAX_AICORE_NUM> parallelDevTaskCtxVersion;
 
-    uint32_t regSprDataMainBase_{DAV_2201::REG_SPR_DATA_MAIN_BASE};
-    uint32_t regSprCond_{DAV_2201::REG_SPR_COND};
+uint32_t regSprDataMainBase_{DAV_2201::REG_SPR_DATA_MAIN_BASE};
+uint32_t regSprCond_{DAV_2201::REG_SPR_COND};
 
-    bool isNeedWriteRegForFastPath_{true};
-    AiCoreProf* aicoreProf_{nullptr};
-    CostModel::AiCoreModel* costModel_{nullptr};
+bool isNeedWriteRegForFastPath_{true};
+AiCoreProf* aicoreProf_{nullptr};
+CostModel::AiCoreModel* costModel_{nullptr};
 
-    bool enableEslModel_;
-    EslAicoreHal eslModel_;
-};
+bool enableEslModel_;
+EslAicoreHal eslModel_;
+}
+;
 } // namespace npu::tile_fwk::dynamic

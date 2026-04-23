@@ -30,7 +30,9 @@
 #include "dynamic/aicpu_call.h"
 
 #ifdef SUPPORT_TILE_TENSOR
+#ifndef __LITE_NPU
 #include "distributed/tileop_shmem.h"
+#endif
 #include "utils/layout.h"
 #include "vector/unary.h"
 #include "vector/trans.h"
@@ -60,6 +62,7 @@
 #include "vector/logicaland.h"
 #include "vector/vector_dup.h"
 #include "vector/range.h"
+#include "vector/uniform.h"
 #include "vector/triul.h"
 #include "vector/onehot.h"
 #include "vector/index_outcast.h"

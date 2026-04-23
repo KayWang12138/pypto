@@ -21,8 +21,8 @@
 #include "codegen/codegen.h"
 #include <vector>
 #include <string>
-#include "codegen/cloudnpu/codegen_cloudnpu.h"
-#include "codegen/cloudnpu/codegen_op_cloudnpu.h"
+#include "codegen/npu/cloudnpu/codegen_cloudnpu.h"
+#include "codegen/npu/cloudnpu/codegen_op_cloudnpu.h"
 #include "test_codegen_utils.h"
 
 namespace npu::tile_fwk {
@@ -233,7 +233,7 @@ TEST_F(TestCodegenUnary, ExpandDim2Axis0TileTensor)
 {
     Function& func = TestExpandBody({1, 22}, {22, 22}, {2, 2}, "ExpandDim2Axis0TileTensor", true);
     std::string res = GetResultFromCpp(func);
-    std::string expect = R"!!!(TExpand<LastUse2Dim<0, 1>, 2>(ubTensor_2, ubTensor_0);
+    std::string expect = R"!!!(TExpand<LastUse2Dim<0, 1>, 3>(ubTensor_2, ubTensor_0);
 )!!!";
     CheckStringExist(expect, res);
 }
@@ -370,7 +370,7 @@ TEST_F(TestCodegenUnary, TestRowMaxLine)
     CodeGenCtx ctx;
     CodeGenCloudNPU cga(ctx);
     cga.GenAllocForLocalBuffer(op, symbolManager);
-    CodeGenOpCloudNPUCtx opCtx(symbolManager, *function, *function->rootFunc_->programs_[0], op);
+    CodeGenOpNPUCtx opCtx(symbolManager, *function, *function->rootFunc_->programs_[0], op);
     CodeGenOpCloudNPU cop(opCtx);
     std::string res = cop.GenOpCode();
     std::string expect =
@@ -394,7 +394,7 @@ TEST_F(TestCodegenUnary, TestExpDefaultPrecision)
     CodeGenCtx ctx;
     CodeGenCloudNPU cga(ctx);
     cga.GenAllocForLocalBuffer(op, symbolManager);
-    CodeGenOpCloudNPUCtx opCtx(symbolManager, *function, *function->rootFunc_->programs_[0], op);
+    CodeGenOpNPUCtx opCtx(symbolManager, *function, *function->rootFunc_->programs_[0], op);
     CodeGenOpCloudNPU cop(opCtx);
     std::string res = cop.GenOpCode();
     std::string expect = R"!!!(TExp<pto::ExpAlgorithm::DEFAULT>(ubTensor_0, ubTensor_0);
@@ -418,7 +418,7 @@ TEST_F(TestCodegenUnary, TestExpHighPrecision)
     CodeGenCtx ctx;
     CodeGenCloudNPU cga(ctx);
     cga.GenAllocForLocalBuffer(op, symbolManager);
-    CodeGenOpCloudNPUCtx opCtx(symbolManager, *function, *function->rootFunc_->programs_[0], op);
+    CodeGenOpNPUCtx opCtx(symbolManager, *function, *function->rootFunc_->programs_[0], op);
     CodeGenOpCloudNPU cop(opCtx);
     std::string res = cop.GenOpCode();
     std::string expect = R"!!!(TExp<pto::ExpAlgorithm::HIGH_PRECISION>(ubTensor_0, ubTensor_0);
@@ -441,7 +441,7 @@ TEST_F(TestCodegenUnary, TestSqrtDefaultPrecision)
     CodeGenCtx ctx;
     CodeGenCloudNPU cga(ctx);
     cga.GenAllocForLocalBuffer(op, symbolManager);
-    CodeGenOpCloudNPUCtx opCtx(symbolManager, *function, *function->rootFunc_->programs_[0], op);
+    CodeGenOpNPUCtx opCtx(symbolManager, *function, *function->rootFunc_->programs_[0], op);
     CodeGenOpCloudNPU cop(opCtx);
     std::string res = cop.GenOpCode();
     std::string expect = R"!!!(TSqrt<pto::SqrtAlgorithm::DEFAULT>(ubTensor_0, ubTensor_0);
@@ -465,7 +465,7 @@ TEST_F(TestCodegenUnary, TestSqrtHighPrecision)
     CodeGenCtx ctx;
     CodeGenCloudNPU cga(ctx);
     cga.GenAllocForLocalBuffer(op, symbolManager);
-    CodeGenOpCloudNPUCtx opCtx(symbolManager, *function, *function->rootFunc_->programs_[0], op);
+    CodeGenOpNPUCtx opCtx(symbolManager, *function, *function->rootFunc_->programs_[0], op);
     CodeGenOpCloudNPU cop(opCtx);
     std::string res = cop.GenOpCode();
     std::string expect = R"!!!(TSqrt<pto::SqrtAlgorithm::HIGH_PRECISION>(ubTensor_0, ubTensor_0);
@@ -488,7 +488,7 @@ TEST_F(TestCodegenUnary, TestLogDefaultPrecision)
     CodeGenCtx ctx;
     CodeGenCloudNPU cga(ctx);
     cga.GenAllocForLocalBuffer(op, symbolManager);
-    CodeGenOpCloudNPUCtx opCtx(symbolManager, *function, *function->rootFunc_->programs_[0], op);
+    CodeGenOpNPUCtx opCtx(symbolManager, *function, *function->rootFunc_->programs_[0], op);
     CodeGenOpCloudNPU cop(opCtx);
     std::string res = cop.GenOpCode();
     std::string expect = R"!!!(TLog<pto::LogAlgorithm::DEFAULT>(ubTensor_0, ubTensor_0);
@@ -512,7 +512,7 @@ TEST_F(TestCodegenUnary, TestLogHighPrecision)
     CodeGenCtx ctx;
     CodeGenCloudNPU cga(ctx);
     cga.GenAllocForLocalBuffer(op, symbolManager);
-    CodeGenOpCloudNPUCtx opCtx(symbolManager, *function, *function->rootFunc_->programs_[0], op);
+    CodeGenOpNPUCtx opCtx(symbolManager, *function, *function->rootFunc_->programs_[0], op);
     CodeGenOpCloudNPU cop(opCtx);
     std::string res = cop.GenOpCode();
     std::string expect = R"!!!(TLog<pto::LogAlgorithm::HIGH_PRECISION>(ubTensor_0, ubTensor_0);

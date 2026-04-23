@@ -23,8 +23,8 @@
 #include "interface/operation/operation.h"
 #include "tilefwk/data_type.h"
 #include "codegen/symbol_mgr/codegen_symbol.h"
-#include "codegen/cloudnpu/codegen_op_cloudnpu.h"
-#include "codegen/cloudnpu/codegen_cloudnpu.h"
+#include "codegen/npu/cloudnpu/codegen_op_cloudnpu.h"
+#include "codegen/npu/cloudnpu/codegen_cloudnpu.h"
 #include "test_codegen_utils.h"
 #include "test_codegen_common.h"
 
@@ -77,7 +77,7 @@ std::string TestL0COutBody(const std::string& funcName, bool isDynamicAligned = 
     CodeGenCtx ctx;
     CodeGenCloudNPU cga(ctx);
     cga.GenAllocForLocalBuffer(op, symbolManager);
-    CodeGenOpCloudNPUCtx opCtx(symbolManager, *function, *function->rootFunc_->programs_[0], op, {});
+    CodeGenOpNPUCtx opCtx(symbolManager, *function, *function->rootFunc_->programs_[0], op, {});
     CodeGenOpCloudNPU cop(opCtx);
     return cop.GenOpCode();
 }
@@ -122,7 +122,7 @@ TEST_F(TestCodegenDynCopy, L1ToFB)
     CodeGenCtx ctx;
     CodeGenCloudNPU cga(ctx);
     cga.GenAllocForLocalBuffer(op, symbolManager);
-    CodeGenOpCloudNPUCtx opCtx(symbolManager, *function, *function->rootFunc_->programs_[0], op, {});
+    CodeGenOpNPUCtx opCtx(symbolManager, *function, *function->rootFunc_->programs_[0], op, {});
     CodeGenOpCloudNPU cop(opCtx);
     std::string res = cop.GenOpCode();
     std::string expect =
@@ -185,7 +185,7 @@ TEST_F(TestCodegenDynCopy, L1CopyInTileTensor)
 {
     std::string res = TestL1CopyInBody("L1CopyInTileTensor", false, 0, 0, true);
     std::string expect =
-        R"!!!(TLoad<CopyInMode::NZ2NZ, PaddingMode::NO_PADDING>(l1Tensor_0, gmTensor_1, Coord2Dim(GET_PARAM_OFFSET_2(param, 0, 0)), GET_PARAM_RAWSHAPE_BY_IDX(param, 0, 0, 2, 0), GET_PARAM_RAWSHAPE_BY_IDX(param, 0, 0, 2, 1));
+        R"!!!(TLoad<CopyInMode::NZ2NZ, PaddingMode::NO_PADDING>(l1Tensor_0, gmTensor_1, Coord2Dim(0, 0), Coord2Dim(GET_PARAM_OFFSET_2(param, 0, 0)), GET_PARAM_RAWSHAPE_BY_IDX(param, 0, 0, 2, 0), GET_PARAM_RAWSHAPE_BY_IDX(param, 0, 0, 2, 1));
 )!!!";
     EXPECT_EQ(res, expect);
 }
@@ -250,7 +250,7 @@ TEST_F(TestCodegenDynCopy, TestGatherInL1TileTensor)
     CodeGenCtx ctx;
     CodeGenCloudNPU cga(ctx);
     cga.GenAllocForLocalBuffer(gatherL1Op, symbolManager);
-    CodeGenOpCloudNPUCtx opCtx(symbolManager, *function, *function->rootFunc_->programs_[0], gatherL1Op, {}, true);
+    CodeGenOpNPUCtx opCtx(symbolManager, *function, *function->rootFunc_->programs_[0], gatherL1Op, {}, true);
     CodeGenOpCloudNPU cop(opCtx);
 
     std::string res = cop.GenOpCode();
@@ -280,7 +280,7 @@ TEST_F(TestCodegenDynCopy, L1ToBt)
     CodeGenCtx ctx;
     CodeGenCloudNPU cga(ctx);
     cga.GenAllocForLocalBuffer(op, symbolManager);
-    CodeGenOpCloudNPUCtx opCtx(symbolManager, *function, *function->rootFunc_->programs_[0], op, {});
+    CodeGenOpNPUCtx opCtx(symbolManager, *function, *function->rootFunc_->programs_[0], op, {});
     CodeGenOpCloudNPU cop(opCtx);
     std::string res = cop.GenOpCode();
     std::string expect =
@@ -348,7 +348,7 @@ TEST_F(TestCodegenDynCopy, L1CopyInTensor)
     std::string res =
         TestMatmulMteBody("L1CopyInTensor", Opcode::OP_L1_COPY_IN, MemoryType::MEM_DEVICE_DDR, MemoryType::MEM_L1);
     std::string expect =
-        R"!!!(TLoad<CopyInMode::ND2NZ, PaddingMode::NO_PADDING>(l1Tensor_0, gmTensor_1, Coord2Dim(GET_PARAM_OFFSET_2(param, 0, -1)), GET_PARAM_RAWSHAPE_BY_IDX(param, 0, -1, 2, 0), GET_PARAM_RAWSHAPE_BY_IDX(param, 0, -1, 2, 1));
+        R"!!!(TLoad<CopyInMode::ND2NZ, PaddingMode::NO_PADDING>(l1Tensor_0, gmTensor_1, Coord2Dim(0, 0), Coord2Dim(GET_PARAM_OFFSET_2(param, 0, -1)), GET_PARAM_RAWSHAPE_BY_IDX(param, 0, -1, 2, 0), GET_PARAM_RAWSHAPE_BY_IDX(param, 0, -1, 2, 1));
 )!!!";
     EXPECT_EQ(res, expect);
 }
@@ -448,7 +448,7 @@ std::string TestCopyL1Body(Opcode opcode, MemoryType inputType, MemoryType outpu
     CodeGenCtx ctx;
     CodeGenCloudNPU cga(ctx);
     cga.GenAllocForLocalBuffer(op, symbolManager);
-    CodeGenOpCloudNPUCtx opCtx(symbolManager, *function, *function->rootFunc_->programs_[0], op, {});
+    CodeGenOpNPUCtx opCtx(symbolManager, *function, *function->rootFunc_->programs_[0], op, {});
     CodeGenOpCloudNPU cop(opCtx);
 
     return cop.GenOpCode();
@@ -498,7 +498,7 @@ void TestUBCopyInBody(const std::string funcName, const std::string& expect)
     CodeGenCtx ctx;
     CodeGenCloudNPU cga(ctx);
     cga.GenAllocForLocalBuffer(op, symbolManager);
-    CodeGenOpCloudNPUCtx opCtx(symbolManager, *function, *function->rootFunc_->programs_[0], op, {});
+    CodeGenOpNPUCtx opCtx(symbolManager, *function, *function->rootFunc_->programs_[0], op, {});
     CodeGenOpCloudNPU cop(opCtx);
     std::string res = cop.GenOpCode();
     EXPECT_EQ(res, expect);
@@ -542,7 +542,7 @@ TEST_F(TestCodegenDynCopy, L0CToL1)
     CodeGenCtx ctx;
     CodeGenCloudNPU cga(ctx);
     cga.GenAllocForLocalBuffer(op, symbolManager);
-    CodeGenOpCloudNPUCtx opCtx(symbolManager, *function, *function->rootFunc_->programs_[0], op, {});
+    CodeGenOpNPUCtx opCtx(symbolManager, *function, *function->rootFunc_->programs_[0], op, {});
     CodeGenOpCloudNPU cop(opCtx);
     std::string res = cop.GenOpCode();
     std::string expect =

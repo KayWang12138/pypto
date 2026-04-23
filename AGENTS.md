@@ -35,7 +35,7 @@
 - `gitcode-mcp-install`：安装和配置 GitCode MCP Server
 
 #### Pass 分析与优化
-- `pypto-pass-error-fixer`：Pass 模块错误诊断与修复，提供从问题定位到修复验证的完整工作流程
+- `pypto-pass-error-locator`：Pass 模块错误诊断，提供从问题定位到给出修复建议的完整工作流程
 - `pypto-pass-module-analyzer`：Pass 模块代码分析，生成模块分析文档，帮助理解接口、功能与特殊场景
 - `pypto-pass-perf-optimizer`：Pass 编译性能优化，分析和优化 Pass 模块的编译性能
 - `pypto-pass-ut-generate`：根据 Pass 业务描述，生成单元测试用例（UT）
@@ -90,3 +90,9 @@
    - 当文档、样例与经验推断冲突时，应先指出冲突并回到可核实依据，不凭经验强行定论
 5. **验证模式优先使用真实 NPU 环境**
    - 若 `npu-smi info` 检测到可用 NPU 环境，且用户未明确要求使用 sim 模式，则禁止使用 sim 模式进行验证
+6. **严禁绕过或规避门禁，必须正向解决问题**
+   - 算子开发过程中，禁止绕过、规避门禁，或针对门禁报错采用取巧手段临时“过检”
+   - 遇到门禁报错时，必须优先正向分析根本原因，并基于规范、实现和验证结果采取正确修复方案
+   - 禁止以关闭检查、放宽约束、修改验证条件、伪造结果或其他规避性方式替代真实修复
+7. **代码仓探索必须使用 subagent**
+   - 禁止在 primary agent 中大规模探索代码仓

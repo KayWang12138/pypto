@@ -26,6 +26,7 @@
 #include "machine/utils/device_log.h"
 #include "machine/utils/barrier.h"
 #include "machine/device/dynamic/aicore_prof.h"
+#include "device_trace.h"
 #ifdef __DEVICE__
 #include "log_types.h"
 #endif
@@ -40,11 +41,11 @@ namespace npu::tile_fwk::dynamic {
 
 class DeviceCtrlMachine {
 public:
-    DeviceTaskCtrl* InitTaskCtrl(int idx, DeviceTask *devTask, DeviceExecuteContext *ctx)
+    DeviceTaskCtrl* InitTaskCtrl(int idx, DeviceTask* devTask, DeviceExecuteContext* ctx)
     {
         if (ctx == nullptr) {
-             DEV_ERROR(	 
-                 CtrlErr::ROOT_ALLOC_CTX_NULL, "#ctrl.push.init_dtask: Init Task control failed, which ctx is null.");
+            DEV_ERROR(
+                CtrlErr::ROOT_ALLOC_CTX_NULL, "#ctrl.push.init_dtask: Init Task control failed, which ctx is null.");
             return nullptr;
         }
         auto taskCtrl = &GetTaskCtrlInPool(idx);
@@ -86,7 +87,7 @@ public:
         return true;
     }
 
-    int PushTask(DynDeviceTask *dynTask, DeviceExecuteContext *ctx)
+    int PushTask(DynDeviceTask* dynTask, DeviceExecuteContext* ctx)
     {
         auto idx = AllocNewTaskCtrl();
         bool appendLastTaskCtrl = false;
@@ -115,7 +116,8 @@ public:
         return idx;
     }
 
-    void StopAicoreManager() {
+    void StopAicoreManager()
+    {
         for (uint32_t i = 0; i < GetScheAicpuNum(); ++i) {
             GetTaskQueue(i).Enqueue(nullptr);
         }
@@ -127,7 +129,7 @@ public:
         inspector_ = inspector;
     }
 
-    void InitTaskPipeWithSched(DevAscendProgram *devProg)
+    void InitTaskPipeWithSched(DevAscendProgram* devProg)
     {
         for (uint32_t i = 0; i < devProg->devArgs.scheCpuNum; ++i) {
             GetTaskQueue(i).ResetEmpty();
@@ -236,9 +238,10 @@ public:
 
         RuntimeDataRingBufferHead* ringBufferHead = devProg->GetRuntimeDataList();
 
-        DEV_INFO("AllocatePrepare begin runtimedata: %lu, %lu %lu", ringBufferHead->GetIndexFinished(),
+        DEV_INFO(
+            "AllocatePrepare begin runtimedata: %lu, %lu %lu", ringBufferHead->GetIndexFinished(),
             ringBufferHead->GetIndexPending(), ringBufferHead->GetRuntimeDataCount());
-        DevStartArgs *devStartArgs = reinterpret_cast<DevStartArgs*>(ringBufferHead->AllocatePrepare());
+        DevStartArgs* devStartArgs = reinterpret_cast<DevStartArgs*>(ringBufferHead->AllocatePrepare());
         DEV_INFO("AllocatePrepare end");
 
         devStartArgs->syncFlag = 0;
@@ -258,6 +261,7 @@ public:
         uint64_t outputSize = *(kargs->inputs + 1);
         auto inputPtr = PtrToPtr<int64_t, DevTensorData>(kargs->inputs + TENSOR_INFO_OFFSET);
         DEV_INFO("inputSize=%lu, outputSize=%lu, tensorListPtr=%p.", inputSize, outputSize, inputPtr);
+        DEV_ATRACE("inputSize=%lu, outputSize=%lu, tensorListPtr=%p.", inputSize, outputSize, inputPtr);
         devStartArgs->devTensorList = inputPtr;
         devStartArgs->inputTensorSize = static_cast<uint64_t>(inputSize);
         devStartArgs->outputTensorSize = static_cast<uint64_t>(outputSize);
@@ -292,6 +296,7 @@ public:
     int ExecDyn(npu::tile_fwk::DeviceKernelArgs* args)
     {
         DEV_INFO("start control flow.");
+        DEV_ATRACE("start control flow.");
         auto devProg = PtrToPtr<int64_t, DevAscendProgram>(args->cfgdata);
         auto devStartArgs = (DevStartArgs*)devProg->GetRuntimeDataList()->GetRuntimeDataPending();
 
@@ -304,16 +309,16 @@ public:
             if (unlikely(inspectorEntry_ != nullptr)) {
                 inspectorEntry_(inspector_, exeCtx, dynTask);
             }
-            DEV_IF_DEBUG {
-                DumpTask(dynTask->GetIndex(), (DeviceTask*)dynTask, true);
-            }
+            DEV_IF_DEBUG { DumpTask(dynTask->GetIndex(), (DeviceTask*)dynTask, true); }
             PushTask(dynTask, exeCtx);
         });
         PerfEnd(PERF_EVT_CONTROL_FLOW_CALL);
         if (ret != DEVICE_MACHINE_OK) {
+            DeviceTrace::GetInstance().ReportTraceMsg();
             return ret;
         }
         DEV_INFO("end control flow.");
+        DEV_ATRACE("end control flow.");
         PerfBegin(PERF_EVT_STAGE_STOP_AICORE);
         StopAicoreManager();
         PerfEnd(PERF_EVT_STAGE_STOP_AICORE);
@@ -357,7 +362,9 @@ public:
                 kargs->workspace, kargs->cfgdata);
             return -1;
         }
+        DEV_ATRACE("Start to init devprog");
         InitDyn(kargs);
+        DEV_ATRACE("Finish init devprog");
         PerfEnd(PERF_EVT_DEVICE_MACHINE_INIT_DYN);
         return 0;
     }

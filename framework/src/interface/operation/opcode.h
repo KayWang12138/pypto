@@ -22,6 +22,7 @@
 #include <unordered_set>
 #include <unordered_map>
 #include "interface/utils/common.h"
+#include "tilefwk/error_code.h"
 #include "tilefwk/data_type.h"
 #include "tilefwk/error.h"
 #include "verifier.h"
@@ -315,6 +316,7 @@ enum class Opcode {
     // End: aicpu-aicore communication
     OP_MAX_POOL,
     OP_RANGE,
+    OP_UNIFORM,
     // Begin: parallel sort
     OP_SORT,
     OP_COMPARE_SWAP,
@@ -342,16 +344,19 @@ enum class OpCalcType {
     CALC_TYPE_BOTTOM
 };
 
+enum class AIVCore;
+
 class TileOpCfg {
 public:
     TileOpCfg(){};
-    TileOpCfg(std ::string code, PipeType pipeIdStart, PipeType pipeIdEnd, CoreType coreType)
-        : tileOpCode_(code), pipeIdStart_(pipeIdStart), pipeIdEnd_(pipeIdEnd), coreType_(coreType)
+    TileOpCfg(std ::string code, PipeType pipeIdStart, PipeType pipeIdEnd, CoreType coreType, AIVCore aivCore = static_cast<AIVCore>(-1))
+        : tileOpCode_(code), pipeIdStart_(pipeIdStart), pipeIdEnd_(pipeIdEnd), coreType_(coreType), aivCore_(aivCore)
     {}
     std::string tileOpCode_;
     PipeType pipeIdStart_{PipeType::PIPE_S};
     PipeType pipeIdEnd_{PipeType::PIPE_S};
     CoreType coreType_{CoreType::AIV};
+    AIVCore aivCore_{static_cast<AIVCore>(-1)};
 };
 
 class OpcodeManager {
@@ -383,24 +388,24 @@ public:
     Opcode GetOpcode(const std::string& str) const
     {
         auto it = strToEnum_.find(str);
-        ASSERT(it != strToEnum_.end());
+        ASSERT(VectorErrorCode::ERR_PARAM_INVALID, it != strToEnum_.end()) << "str not found in strToEnum_";
         return it->second;
     }
     const std::string& GetOpcodeStr(Opcode opcode) const
     {
-        ASSERT(HasOpcode(opcode));
+        ASSERT(VectorErrorCode::ERR_PARAM_INVALID, HasOpcode(opcode)) << "opcode not found";
         return opcodeInfos_[static_cast<int>(opcode)].str;
     }
 
     OpCoreType GetCoreType(Opcode opcode) const
     {
-        ASSERT(HasOpcode(opcode)) << "Can't find op " << static_cast<int>(opcode) << std::endl;
+        ASSERT(VectorErrorCode::ERR_PARAM_INVALID, HasOpcode(opcode)) << "Can't find op";
         return opcodeInfos_[static_cast<int>(opcode)].coreType;
     }
 
     const TileOpCfg& GetTileOpCfg(Opcode opcode) const
     {
-        ASSERT(HasOpcode(opcode)) << "Can't find op " << static_cast<int>(opcode) << std::endl;
+        ASSERT(VectorErrorCode::ERR_PARAM_INVALID, HasOpcode(opcode)) << "Can't find op";
         return opcodeInfos_[static_cast<int>(opcode)].tileOpCfg;
     }
 
@@ -807,8 +812,8 @@ const std::unordered_set<Opcode> SUPPORT_DYNAMIC_UNALIGNED_OPS{
     Opcode::OP_FLOORDIV,
     Opcode::OP_FLOORDIVS};
 
-const std::unordered_set<Opcode> UNSUPPORT_FP16_OPS{
-    Opcode::OP_MOD, Opcode::OP_MODS, Opcode::OP_REMRS, Opcode::OP_REMS, Opcode::OP_REM};
+const std::unordered_set<Opcode> UNSUPPORT_FP16_OPS{Opcode::OP_MOD,  Opcode::OP_MODS, Opcode::OP_REMRS,
+                                                    Opcode::OP_REMS, Opcode::OP_REM,  Opcode::OP_INDEX_ADD};
 
 const std::unordered_set<Opcode> UNSUPPORT_BF16_OPS{
     Opcode::OP_INDEX_ADD,

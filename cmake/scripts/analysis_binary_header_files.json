@@ -60,7 +60,8 @@
       "Area": [
         "framework/src/operator/",
         "framework/src/passes/",
-        "framework/src/platform/"
+        "framework/src/platform/",
+        "framework/src/utils"
       ],
       "Include": [
         "framework/include/"
@@ -116,6 +117,7 @@
         "framework/tests/runtime/"
       ],
       "Area": [
+        "framework/src/adapter",
         "framework/src/interface/",
         "framework/src/passes/",
         "framework/src/machine/",
@@ -170,16 +172,12 @@
       ]
     }
   },
-  "libtile_fwk_simulation_ca.so": {
+  "libtile_fwk_utils.so": {
     "Source-Header": {
       "Self": [
-        "framework/src/cost_model/simulation_ca/"
+        "framework/src/utils"
       ],
       "Area": [
-        "framework/src/interface/",
-        "framework/src/passes/",
-        "framework/src/codegen/",
-        "framework/src/cost_model/simulation/"
       ],
       "Include": [
         "framework/include/"
@@ -187,14 +185,13 @@
       "WhiteList": [
       ],
       "BlackList": [
-        "framework/src/interface/tileop/"
       ]
     }
   },
-  "libtile_fwk_utils.so": {
+  "libtile_fwk_adapter.so": {
     "Source-Header": {
       "Self": [
-        "framework/src/utils"
+        "framework/src/adapter"
       ],
       "Area": [
       ],

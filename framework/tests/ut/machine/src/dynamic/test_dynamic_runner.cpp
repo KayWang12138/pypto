@@ -100,7 +100,7 @@ TEST_F(TestDynamicDeviceRunner, TestDynamicRun)
 
 TEST_F(TestDynamicDeviceRunner, TestRegisterDynamicKernel)
 {
-    [[maybe_unused]] rtBinHandle staticHdl_;
+    [[maybe_unused]] RtBinHandle staticHdl_;
     npu::tile_fwk::DeviceRunner runner;
     runner.RegisterKernelBin(&staticHdl_);
 }
@@ -159,6 +159,7 @@ TEST_F(TestDynamicDeviceRunner, test_launch_init)
     DeviceKernelArgs pyptoKernelArgs;
     DeviceArgs devKernelArgs;
     devKernelArgs.aicpuPerfAddr = 1;
+    pyptoKernelArgs.parameter.runMode = RUN_SPLITTED_STREAM_CTRL;
     pyptoKernelArgs.cfgdata = static_cast<int64_t*>(static_cast<void*>(&devKernelArgs));
     auto ret = DynTileFwkBackendKernelServer(&pyptoKernelArgs);
     EXPECT_EQ(ret, -1);

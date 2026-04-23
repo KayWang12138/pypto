@@ -29,7 +29,7 @@
 #include "interface/interpreter/raw_tensor_data.h"
 #include "interface/configs/config_manager.h"
 #include "machine/runtime/device_launcher.h"
-#include "machine/utils/machine_error.h"
+#include "tilefwk/error_code.h"
 #include "tilefwk/pypto_fwk_log.h"
 
 namespace npu::tile_fwk::dynamic {
@@ -105,7 +105,8 @@ public:
         const DeviceLauncherConfig& config = DeviceLauncherConfig());
     static int EmulationLaunchDeviceTensorData(
         Function* function, const std::vector<DeviceTensorData>& inputList,
-        const std::vector<DeviceTensorData>& outputList, const DeviceLauncherConfig& config = DeviceLauncherConfig());
+        const std::vector<DeviceTensorData>& outputList, const DeviceLauncherConfig& config = DeviceLauncherConfig(),
+        DevControlFlowCache* ctrlCache = nullptr);
     static int EmulationRunOnce(
         Function* function, DevControlFlowCache* ctrlCache,
         const DeviceLauncherConfig& config = DeviceLauncherConfig());

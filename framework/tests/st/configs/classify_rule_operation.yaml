@@ -231,6 +231,7 @@ stest:
       - TestIndexPut_/IndexPut_OperationTest.TestIndexPut_/42
       - TestExpand/ExpandOperationTest.TestExpand/4
       - TestExpand/ExpandOperationTest.TestExpand/20
+      - TestExpand/ExpandOperationTest.TestExpand/42
       - TestMinimum/MinimumOperationTest.TestMinimum/12
       - TestMaximum/MaximumOperationTest.TestMaximum/12
       - TestMinimum/MinimumOperationTest.TestMinimum/19
@@ -245,6 +246,8 @@ stest:
       - TestRemainderRS/RemainderRSOperationTest.TestRemainderRS/9
       - TestIndexAddUB/IndexAddUBOperationTest.TestIndexAddUB/20
       - TestIndexAddUB/IndexAddUBOperationTest.TestIndexAddUB/21
+      - TestIndexAdd_/IndexAdd_OperationTest.TestIndexAdd_/19
+      - TestIndexAdd_/IndexAdd_OperationTest.TestIndexAdd_/30
       - TestLogicalAnd/LogicalAndOperationTest.TestLogicalAnd/0
       - TestBitwiseRightShift/BitwiseRightShiftOperationTest.TestBitwiseRightShift/0
       - TestBitwiseLeftShift/BitwiseLeftShiftOperationTest.TestBitwiseLeftShift/0

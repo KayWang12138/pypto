@@ -23,6 +23,7 @@
 #include "passes/pass_check/generate_move_op_checker.h"
 #include "passes/pass_utils/dead_operation_eliminate.h"
 #include "passes/pass_log/pass_log.h"
+#include "tilefwk/error_code.h"
 
 #define MODULE_NAME "GenerateMoveOp"
 
@@ -33,7 +34,7 @@ const Offset ZERO_OFFSET = {0, 0};
 
 int64_t GenerateMoveOp::PadUB(int64_t dim, int64_t padValue)
 {
-    ASSERT(padValue > 0);
+    ASSERT(TensorErr::TENSOR_INVALID_MEMORY_TYPE, padValue > 0);
     return (dim + padValue - 1) / padValue * padValue;
 }
 
@@ -237,6 +238,7 @@ void GenerateMoveOp::SetL0C2L1CopyAttr(
         OpImmediate::Specified(op.iOperand.front()->tensor->GetDynRawShape()), OpImmediate::Specified(validShape));
     copyAttr->SetToOffset(toOffset);
     op.SetOpAttribute(copyAttr);
+    op.SetAttr(OpAttributeKey::copyIsNZ, static_cast<int64_t>(1));
 }
 
 Status GenerateMoveOp::SetOpcodeByMemPath(Operation& op, MemoryType from, MemoryType to) const
@@ -325,6 +327,7 @@ void GenerateMoveOp::ProcessUB2L1(Function& function, Operation& op) const
         // 插入UB2UB节点（ND2NZ)
         auto& ub2ub = function.AddRawOperation(Opcode::OP_UB_COPY_ND2NZ, {inputTensor}, {ubNzTensor});
         ub2ub.SetLocation(op.GetLocation());
+        ub2ub.SetScopeInfo(op.GetScopeInfo());
         ub2ub.UpdateSubgraphID(op.GetSubgraphID());
 
         // 图重连

@@ -88,15 +88,14 @@ if (ENABLE_FEATURE_PYTHON_FRONT_END)
     set(InstallExport ${PROJECT_NAME}Targets)
     set(InstallTargets
             tile_fwk_utils
+            tile_fwk_adapter
             tile_fwk_cann_host_runtime
             tile_fwk_platform
             tile_fwk_interface
             tile_fwk_codegen
             tile_fwk_compiler
             tile_fwk_runtime
-            tile_fwk_runtime_stub
             tile_fwk_simulation
-            tile_fwk_simulation_ca
             tile_fwk_simulation_pv
     )
     if (BUILD_WITH_CANN)
@@ -135,6 +134,7 @@ if (ENABLE_FEATURE_PYTHON_FRONT_END)
                 tools/profiling/function_json_convert.py
                 tools/profiling/parse_pipe_time_trace.py
                 tools/scripts/machine_perf_trace.py
+                tools/scripts/extract_pass_log.py
             DESTINATION ${PyPTO_WhlName}/lib/scripts
     )
 
@@ -150,13 +150,6 @@ if (ENABLE_FEATURE_PYTHON_FRONT_END)
     endif ()
     install(DIRECTORY framework/src/interface/tileop/
             DESTINATION ${PyPTO_WhlName}/lib/include/tileop
-            PATTERN "*.h"
-            PATTERN "*.hpp"
-            PATTERN ".svn" EXCLUDE
-            PATTERN ".git" EXCLUDE
-    )
-    install(DIRECTORY framework/src/cost_model/simulation_ca/mock/
-            DESTINATION ${PyPTO_WhlName}/lib/include/mock
             PATTERN "*.h"
             PATTERN "*.hpp"
             PATTERN ".svn" EXCLUDE
