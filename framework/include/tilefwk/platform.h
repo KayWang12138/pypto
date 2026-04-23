@@ -421,25 +421,25 @@ public:
 
 class Host {};
 
-class CodeGenSocVersionManager {
+class PlatformSocVersionManager {
 private:
-    CodeGenSocVersionManager() = default;
-    ~CodeGenSocVersionManager() = default;
+    PlatformSocVersionManager() = default;
+    ~PlatformSocVersionManager() = default;
 
-    std::string codeGenSocVersion_;
+    std::string platformSocVersion_;
 
 public:
-    static CodeGenSocVersionManager& Instance()
+    static PlatformSocVersionManager& Instance()
     {
-        static CodeGenSocVersionManager instance;
+        static PlatformSocVersionManager instance;
         return instance;
     }
 
-    CodeGenSocVersionManager(const CodeGenSocVersionManager&) = delete;
-    CodeGenSocVersionManager& operator=(const CodeGenSocVersionManager&) = delete;
+    PlatformSocVersionManager(const PlatformSocVersionManager&) = delete;
+    PlatformSocVersionManager& operator=(const PlatformSocVersionManager&) = delete;
 
-    std::string GetCodeGenSocVersion() const { return codeGenSocVersion_; }
-    void SetCodeGenSocVersion(const std::string& version) { codeGenSocVersion_ = version; }
+    std::string GetPlatformSocVersion() const { return platformSocVersion_; }
+    void SetPlatformSocVersion(const std::string& version) { platformSocVersion_ = version; }
 };
 
 class Platform {

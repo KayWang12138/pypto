@@ -42,7 +42,7 @@ std::string SimulationPlatform::GetCurrentSharedLibPath()
 
 bool SimulationPlatform::GetCostModelPlatformRealPath(std::string& realPath)
 {
-    std::string socVersion = CodeGenSocVersionManager::Instance().GetCodeGenSocVersion();
+    std::string socVersion = PlatformSocVersionManager::Instance().GetPlatformSocVersion();
     realPath = RealPath(GetCurrentSharedLibPath() + PLATFORM_INFO_RELATIVE_PATH + socVersion + INI_EXTENSION);
     if (realPath.empty()) {
         return false;

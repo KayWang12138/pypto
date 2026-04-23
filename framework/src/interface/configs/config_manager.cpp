@@ -24,7 +24,6 @@
 #include <arpa/inet.h>
 #include <ifaddrs.h>
 
-#include "tilefwk/platform.h"
 #include "tilefwk/pypto_fwk_log.h"
 #include "interface/utils/common.h"
 #include "interface/utils/file_utils.h"
@@ -68,8 +67,6 @@ const nlohmann::json* ConfigManager::GetJsonNode(const nlohmann::json& root, con
 
 Status ConfigManager::Initialize()
 {
-    std::string socVersion = config::GetCodeGenOption<std::string>(CODEGEN_SOC_VERSION);
-    CodeGenSocVersionManager::Instance().SetCodeGenSocVersion(socVersion);
     /* 环境变量优先生效 */
     std::string jsonFilePath = GetEnvVar(tilefwkConfigEnvName);
     if (jsonFilePath.empty()) {

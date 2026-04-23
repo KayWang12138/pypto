@@ -69,7 +69,7 @@ constexpr int64_t CS_CODEGEN_BINARY = 5;
 
 // codegen
 constexpr const char* SUPPORT_DYNAMIC_ALIGNED = "support_dynamic_aligned";
-constexpr const char* CODEGEN_SOC_VERSION = "soc_version";
+constexpr const char* PLATFORM_SOC_VERSION = "soc_version";
 
 /* flow virifer tools KEYs */
 const std::string KEY_ENABLE_PASS_VERIFY = "enable_pass_verify";

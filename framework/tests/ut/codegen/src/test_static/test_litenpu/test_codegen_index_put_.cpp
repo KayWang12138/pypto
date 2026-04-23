@@ -37,7 +37,7 @@ public:
     {
         config::Reset();
         config::SetHostOption(COMPILE_STAGE, CS_EXECUTE_GRAPH);
-        CodeGenSocVersionManager::Instance().SetCodeGenSocVersion("Kirin9030");
+        config::SetCodeGenOption<std::string>(PLATFORM_SOC_VERSION, "Kirin9030");
     }
 
     void TearDown() override {}
