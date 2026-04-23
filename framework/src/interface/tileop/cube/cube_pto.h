@@ -382,7 +382,7 @@ TILEOP void TExtract(T& dst, U& src, const Coord& dstCoord, const Coord& srcCoor
 
     pto::TASSIGN(l1Tile, (uint64_t)dst.GetAddr());
     // staticUBH - 1 is for resolving bank conflicts
-    if constexpr (staticUBH - 1 >= staticL1H && staticUBW >= staticL1W) {
+    if (srcShape0 >= dstShape0 && srcShape1 >= dstShape1) {
         using tileUBTensor = pto::Tile<
             pto::TileType::Vec, typename U::Type, staticUBH, staticUBW, pto::BLayout::ColMajor, staticUBH, staticUBW,
             pto::SLayout::RowMajor>;
