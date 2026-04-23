@@ -182,6 +182,10 @@ void SetParamConfig(Function* currentFuncPtr)
         currentScope->GetPassConfig<std::string>(SG_PARTITION_ALGORITHM);
     currentFuncPtr->paramConfigs_.sgMgCopyInUpperBound = currentScope->GetPassConfig<int>(MG_COPYIN_UPPER_BOUND);
     currentFuncPtr->paramConfigs_.machineConfig_ = currentScope->GetRuntimeConfig<uint8_t>(DEVICE_SCHED_MODE);
+    if (currentScope->GetRuntimeConfig<bool>(ENABLE_AICORE_FIRST_BATCH_SELF_DISPATCH)) {
+        currentFuncPtr->paramConfigs_.machineConfig_ |=
+            static_cast<uint8_t>(MachineScheduleConfig::AICORE_FIRST_BATCH_SELF_DISPATCH);
+    }
     currentFuncPtr->paramConfigs_.cubeL1ReuseSetting =
         currentScope->GetPassConfig<std::map<int64_t, int64_t>>(CUBE_L1_REUSE_SETTING);
     currentFuncPtr->paramConfigs_.cubeNBufferSetting =

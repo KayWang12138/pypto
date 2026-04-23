@@ -221,6 +221,13 @@
                         }
                     ]
                 },
+                "enable_aicore_first_batch_self_dispatch": {
+                    "type": "boolean",
+                    "label": {
+                        "zh": "使能AICORE首批任务自分发模式。开启后，SCHE在握手和初始化阶段不再预先分发首批ReadyTask。",
+                        "en": "Enable AICORE first-batch self-dispatch mode. When enabled, SCHE skips first-batch pre-dispatch during handshake and init stage."
+                    }
+                },
                 "stitch_function_max_num": {
                     "type": "integer",
                     "label": {

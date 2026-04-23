@@ -55,6 +55,7 @@ constexpr int64_t CFG_RUN_MODE_NPU = 0;
 constexpr int64_t CFG_RUN_MODE_SIM = 1;
 constexpr const char* READY_ON_HOST_TENSORS = "ready_on_host_tensors";
 constexpr const char* DEVICE_SCHED_PARALLELISM = "device_sched_parallelism";
+constexpr const char* ENABLE_AICORE_FIRST_BATCH_SELF_DISPATCH = "enable_aicore_first_batch_self_dispatch";
 
 // host
 constexpr const char* COMPILE_STAGE = "compile_stage";
