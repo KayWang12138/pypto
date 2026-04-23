@@ -102,11 +102,11 @@ public:
     static int EmulationLaunchOnceWithHostTensorData(
         Function* function, const std::vector<DeviceTensorData>& inputList,
         const std::vector<DeviceTensorData>& outputList, DevControlFlowCache* ctrlCache, EmulationMemoryUtils& memUtils,
-        const DeviceLauncherConfig& config = DeviceLauncherConfig());
+        const DeviceLauncherConfig& config = DeviceLauncherConfig(), bool isNeedCalc = true);
     static int EmulationLaunchDeviceTensorData(
         Function* function, const std::vector<DeviceTensorData>& inputList,
         const std::vector<DeviceTensorData>& outputList, const DeviceLauncherConfig& config = DeviceLauncherConfig(),
-        DevControlFlowCache* ctrlCache = nullptr);
+        DevControlFlowCache* ctrlCache = nullptr, bool isNeedCalc = true);
     static int EmulationRunOnce(
         Function* function, DevControlFlowCache* ctrlCache,
         const DeviceLauncherConfig& config = DeviceLauncherConfig());

@@ -762,7 +762,7 @@ public:
 
         kernelArgs[5] = args->kArgs.cfgdata; // 5 is cfgdata
         ret = DeviceLauncher::LaunchAicoreKernel(
-            aicoreStream, kernel->GetKernelBin(), rtAicoreArgs, rtTaskCfg, debugEnable);
+            aicoreStream, kernel->GetKernelBin(), rtAicoreArgs, rtTaskCfg, debugEnable, kernel->GetFunction());
         ASSERT(ret == RT_SUCCESS) << "launch aicore failed: " << ret;
     }
 
@@ -796,7 +796,7 @@ public:
         DeviceLauncher::DeviceLauncherConfigFillDeviceInfo(config);
         std::vector<uint8_t> hostCache;
         DevControlFlowCache* ctrlCache = GetHostCtrlFlowCache(kernel, tensors, devCache, hostCache);
-        int ret = EmulationLauncher::EmulationLaunchDeviceTensorData(kernel->GetFunction(), tensors, {}, config, ctrlCache);
+        int ret = EmulationLauncher::EmulationLaunchDeviceTensorData(kernel->GetFunction(), tensors, {}, config, ctrlCache, !IsCacheEnabled());
         ASSERT(ret == RT_SUCCESS) << "emulation run failed: " << ret;
     }
 
