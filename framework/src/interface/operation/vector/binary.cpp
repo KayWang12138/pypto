@@ -83,11 +83,12 @@ void BinaryOperationOperandCheck(
 }
 
 // Identify which operand need brc at a specific axis counting from the first
+// Return value 0 = NONE, 1 = LEFT_OPERAND, 2 = RIGHT_OPERAND
 int BrcAxisBinaryOp(LogicalTensorPtr operand1, LogicalTensorPtr operand2, int64_t axisNum)
 {
     ASSERT(VectorErrorCode::ERR_PARAM_INVALID, operand1->shape.size() == operand2->shape.size()) << "Dims not match";
     int64_t shapeSize = operand1->shape.size();
-    int operandNum = -1;
+    int operandNum = 0;
 
     int64_t idx = (axisNum < 0) ? (shapeSize + axisNum) : axisNum;
     if (idx >= shapeSize || idx < 0) {
@@ -147,19 +148,19 @@ void TiledBinaryOperation(
         }
 
         if (op != nullptr) {
-            std::vector<int64_t> brcOperand(shapeSize, -1);
+            std::vector<int64_t> brcOperand(shapeSize, 0);
             size_t brcAxesCount = 0;
             for (size_t i = 0; i < shapeSize; i++) {
                 brcOperand[i] = BrcAxisBinaryOp(input1.tensor, input2.tensor, i);
-                if (brcOperand[i] != -1) {
+                if (brcOperand[i] != 0) {
                     brcAxesCount++;
                 }
             }
-            if (brcOperand[shapeSize - 1] != -1 && brcAxesCount >= 2) {
+            if (brcOperand[shapeSize - 1] != 0 && brcAxesCount >= 2) {
                 op->SetAttribute(OpAttributeKey::excludeBufferReuse, true);
             }
             op->SetAttribute(OP_ATTR_PREFIX + "brcOperand", brcOperand);
-            if (shapeSize >= NUM2 && brcOperand[shapeSize - NUM2] != -1) {
+            if (shapeSize >= NUM2 && brcOperand[shapeSize - NUM2] != 0) {
                 op->SetAttribute(OpAttributeKey::brcpIdx, brcOperand[shapeSize - NUM2]);
             }
         }
