@@ -1559,6 +1559,30 @@ class ASTParser:
                         self.scope_manager.exit_scope(leak_vars=False)
                     return
 
+                # Handle vf.vf_scope(name="...") - VF API code region marker
+                if func.attr == "vf_scope":
+                    # Extract name kwarg
+                    vf_name = "vf_scope"
+                    for kw in context_expr.keywords:
+                        if kw.arg == "name" and isinstance(kw.value, ast.Constant):
+                            vf_name = kw.value.value
+                    # Emit scope_enter as EvalStmt
+                    enter_call = ir.create_op_call(
+                        "vf.vf_scope_enter", [], {"name": vf_name}, span
+                    )
+                    self.builder.emit(ir.EvalStmt(enter_call, span))
+                    # Parse body normally (VF API calls inside)
+                    self.scope_manager.enter_scope("vf_scope")
+                    for body_stmt in stmt.body:
+                        self.parse_statement(body_stmt)
+                    self.scope_manager.exit_scope(leak_vars=True)
+                    # Emit scope_exit as EvalStmt
+                    exit_call = ir.create_op_call(
+                        "vf.vf_scope_exit", [], {"name": vf_name}, span
+                    )
+                    self.builder.emit(ir.EvalStmt(exit_call, span))
+                    return
+
         # Unsupported context manager
         raise UnsupportedFeatureError(
             "Unsupported context manager in with statement",
@@ -1876,6 +1900,10 @@ class ASTParser:
         left = self.parse_expression(binop.left)
         right = self.parse_expression(binop.right)
 
+        # Tile + offset in VF scope → TileOffsetExpr (pointer arithmetic)
+        if isinstance(binop.op, ast.Add) and isinstance(left.type, ir.TileType):
+            return ir.TileOffsetExpr(left, right, span)
+
         op_map = {
             ast.Add: ir.add,
             ast.Sub: ir.sub,
@@ -2120,6 +2148,10 @@ class ASTParser:
         # plm.{operation} (2-segment) — manual (non-SSA) ops
         if len(attrs) == 2 and attrs[0] == "plm" and attrs[1] != "const":
             return self._parse_manual_op(attrs[1], call)
+
+        # vf.{operation} (2-segment) — VF API ops (direct VF instruction)
+        if len(attrs) == 2 and attrs[0] == "vf":
+            return self._parse_vf_op(attrs[1], call)
 
         # pl.{operation} (2-segment, unified dispatch or promoted ops)
         if len(attrs) >= 2 and attrs[0] in ("pl", "plm") and attrs[1] not in ("tensor", "block", "system", "TileType"):
@@ -2929,6 +2961,24 @@ class ASTParser:
         "move_fp": "Use plm.move(..., fp_tile=...) instead",
         "store_fp": "Use plm.store(..., fp_tile=...) instead",
     }
+
+    def _parse_vf_op(self, op_name: str, call: ast.Call) -> ir.Expr:
+        """Parse a VF API operation call: vf.{op_name}(...).
+
+        VF ops directly emit VF instructions. Arguments and kwargs are passed
+        through to ir.create_op_call with the "vf." prefix.
+
+        Args:
+            op_name: Name of the VF operation (without ``vf.`` prefix).
+            call: Call AST node.
+
+        Returns:
+            IR expression for the VF op call.
+        """
+        span = self.span_tracker.get_span(call)
+        args = [self.parse_expression(arg) for arg in call.args]
+        kwargs = self._parse_op_kwargs(call)
+        return ir.create_op_call(f"vf.{op_name}", args, kwargs, span)
 
     def _parse_manual_op(self, op_name: str, call: ast.Call) -> ir.Expr:
         """Parse a manual (non-SSA) operation call: plm.{op_name}(..., dst=tile).

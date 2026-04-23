@@ -85,6 +85,26 @@ class CCECodegen : public CodegenBase {
   void Emit(const std::string& line) override;
   std::string GetExprAsCode(const ir::ExprPtr& expr) override;
   [[nodiscard]] std::string GetTypeString(const DataType& dtype) const override;
+  void set_in_vf_scope(bool v) { in_vf_scope_ = v; if (!v) { vf_ptr_vars_.clear(); vf_post_update_ptrs_.clear(); } }
+  [[nodiscard]] bool in_vf_scope() const { return in_vf_scope_; }
+  int GetTileOffsetCounter() { return tile_offset_counter_++; }
+  void RegisterVFPtrVar(const std::string& name) { vf_ptr_vars_.insert(name); }
+  [[nodiscard]] bool IsVFPtrVar(const std::string& name) const { return vf_ptr_vars_.count(name) > 0; }
+  std::string GetOrCreatePostUpdatePtr(const std::string& key, const std::string& ptr_type,
+                                       const std::string& init_expr) {
+    auto it = vf_post_update_ptrs_.find(key);
+    if (it != vf_post_update_ptrs_.end()) return it->second;
+    std::string var = "_vf_st_ptr_" + std::to_string(GetTileOffsetCounter());
+    if (loop_depth_ > 0) {
+      // Inside loop: hoist declaration before the loop
+      loop_hoisted_decls_.push_back("__ubuf__ " + ptr_type + " *" + var + " = " + init_expr + ";");
+    } else {
+      // Not in loop (single iteration or no loop): emit directly
+      Emit("__ubuf__ " + ptr_type + " *" + var + " = " + init_expr + ";");
+    }
+    vf_post_update_ptrs_[key] = var;
+    return var;
+  }
   int64_t GetConstIntValue(const ir::ExprPtr& expr) override;
   std::string GetVarName(const ir::VarPtr& var) override;
 
@@ -545,6 +565,9 @@ class CCECodegen : public CodegenBase {
   // Loop tile hoisting: declarations collected during loop body visit, emitted before outermost loop
   int loop_depth_ = 0;                        ///< Current for-loop nesting depth (0 = not in loop)
   int if_depth_ = 0;                          ///< Current if-stmt nesting depth (0 = not in if)
+  bool in_vf_scope_ = false;                  ///< Whether currently inside a __VEC_SCOPE__ block
+  std::set<std::string> vf_ptr_vars_;         ///< Variable names that are __ubuf__ pointers in VF scope
+  std::map<std::string, std::string> vf_post_update_ptrs_;  ///< tile_name → declared POST_UPDATE pointer var
   std::vector<std::string> loop_hoisted_decls_;  ///< Lines to hoist before outermost loop/if
 
   // EventId array deduplication: maps (val0, val1) → EventId variable name (2-way)

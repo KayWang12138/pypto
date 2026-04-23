@@ -1099,8 +1099,15 @@ void CCECodegen::VisitStmt_(const ir::AssignStmtPtr& op) {
       current_target_var_ = "";
       return;
     }
-    emitter_.EmitLine("auto " + var_name + " = " + current_expr_value_ + ";");
-    current_expr_value_ = "";
+    // In VF scope, TileOffsetExpr results are __ubuf__ pointers
+    if (in_vf_scope_ && ir::As<ir::TileOffsetExpr>(op->value_)) {
+      emitter_.EmitLine("__ubuf__ uint8_t *" + var_name + " = " + current_expr_value_ + ";");
+      vf_ptr_vars_.insert(var_name);
+      current_expr_value_ = "";
+    } else {
+      emitter_.EmitLine("auto " + var_name + " = " + current_expr_value_ + ";");
+      current_expr_value_ = "";
+    }
   }
 
   // Clear context
@@ -1698,7 +1705,9 @@ void CCECodegen::EmitForLoopWithHoisting(
     emitter_.SetIndentLevel(saved_indent);
   }
 
-  emitter_.EmitLine("for (uint64_t " + loop_var_name + " = " + start + "; " + loop_var_name + " < " + stop +
+  // In __VEC_SCOPE__, bisheng requires uint16_t loop variables
+  std::string loop_type = in_vf_scope_ ? "uint16_t" : "uint64_t";
+  emitter_.EmitLine("for (" + loop_type + " " + loop_var_name + " = " + start + "; " + loop_var_name + " < " + stop +
                     "; " + loop_var_name + " += " + step + ") {");
   emitter_.IncreaseIndent();
 
@@ -1817,6 +1826,19 @@ void CCECodegen::VisitExpr_(const ir::TileOffsetExprPtr& op) {
   std::string base_tile = GetExprAsCode(op->tile_);
   std::string offset_expr = GetExprAsCode(op->offset_);
 
+  // Compute element size in bytes from dtype
+  auto tile_type = ir::As<ir::TileType>(op->tile_->GetType());
+  INTERNAL_CHECK(tile_type != nullptr) << "TileOffsetExpr tile must have TileType";
+  int elem_bytes = static_cast<int>(tile_type->dtype_.GetBit() / 8);
+  if (elem_bytes == 0) elem_bytes = 1;  // guard sub-byte types
+
+  // In VF scope: generate __ubuf__ pointer expression (inline, no temp variable)
+  if (in_vf_scope_) {
+    current_expr_value_ = "((__ubuf__ uint8_t *)" + base_tile + ".data() + (" +
+                          offset_expr + ") * " + std::to_string(elem_bytes) + ")";
+    return;
+  }
+
   // Get base tile address — try tile_addresses_ first, then extract from TileType memref
   std::string base_addr;
   auto addr_it = tile_addresses_.find(base_tile);
@@ -1824,18 +1846,11 @@ void CCECodegen::VisitExpr_(const ir::TileOffsetExprPtr& op) {
     base_addr = addr_it->second;
   } else {
     // Fallback: extract address from TileType's memref
-    auto tile_type = ir::As<ir::TileType>(op->tile_->GetType());
     INTERNAL_CHECK(tile_type != nullptr && tile_type->memref_.has_value())
         << "TileOffsetExpr: base tile '" << base_tile << "' has no address info";
     int64_t addr = ExtractConstInt((*tile_type->memref_)->addr_);
     base_addr = FormatAddressHex(addr);
   }
-
-  // Compute element size in bytes from dtype
-  auto tile_type = ir::As<ir::TileType>(op->tile_->GetType());
-  INTERNAL_CHECK(tile_type != nullptr) << "TileOffsetExpr tile must have TileType";
-  int elem_bytes = static_cast<int>(tile_type->dtype_.GetBit() / 8);
-  if (elem_bytes == 0) elem_bytes = 1;  // guard sub-byte types
 
   // Generate unique temp tile name
   std::string temp_name = base_tile + "_eoff_" + std::to_string(tile_offset_counter_++);
