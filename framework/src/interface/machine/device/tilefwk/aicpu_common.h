@@ -195,6 +195,7 @@ struct TaskStat {
 struct DevDfxArgs {
     int32_t logLevel{-1};
     int32_t isOpenPerfTrace{0};
+    uint32_t deviceId{0};
 };
 
 constexpr uint32_t PERF_TRACE_INST_MAX_NUM_EVERY_TYPE = 20;
@@ -248,7 +249,8 @@ struct ParallelDevTask {
     uint32_t rear{0};
     uint32_t version;
     uint32_t reserver;
-    int64_t elements[npu::tile_fwk::SCH_DEVTASK_MAX_PARALLELISM]; // device task ptr
+    uint32_t idElements[npu::tile_fwk::SCH_DEVTASK_MAX_PARALLELISM]; // device task id
+    int64_t ptrElements[npu::tile_fwk::SCH_DEVTASK_MAX_PARALLELISM]; // device task ptr
 };
 
 struct TaskEntry {

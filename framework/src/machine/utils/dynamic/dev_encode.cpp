@@ -30,6 +30,7 @@
 #include <algorithm>
 #include <cstddef>
 #include <cstdint>
+#include <stdexcept>
 #include <unordered_map>
 #include <utility>
 #include <queue>
@@ -2218,7 +2219,13 @@ static int ParseUnrollTimes(const std::string& rawName)
         }
         std::string suffix = rawName.substr(unrollPos + unrollMask.length());
         if (std::isdigit(suffix.front())) {
-            unrollTimes *= std::stoi(suffix);
+            try {
+                unrollTimes *= std::stoi(suffix);
+            } catch (const std::invalid_argument&) {
+                MACHINE_LOGE(DevCommonErr::PARAM_INVALID, "Invalid unroll times: %s", suffix.c_str());
+            } catch (const std::out_of_range&) {
+                MACHINE_LOGE(DevCommonErr::PARAM_INVALID, "Unroll times: %s exceeds int range", suffix.c_str());
+            }
         }
     }
     return unrollTimes;
@@ -2687,8 +2694,8 @@ void EncodeDevAscendProgram(Function* func, uint64_t& offset, DevAscendProgram* 
         encodeInfo.Init(&devfunc, false);
         offset = devfunc.GetSize();
     } else {
-        uint32_t parallism = 1; // need get prallism from  parallel option
-        base->SetParallelism(parallism);
+        base->SetParallelism(config::GetRuntimeOption<uint32_t>(DEVICE_SCHED_PARALLELISM));
+        MACHINE_LOGD("device sched parallelism is %u.", base->GetParallelism());
         encodeInfo.Init(base, true);
         offset = base->GetSize();
 

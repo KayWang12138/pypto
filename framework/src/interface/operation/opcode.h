@@ -22,7 +22,7 @@
 #include <unordered_set>
 #include <unordered_map>
 #include "interface/utils/common.h"
-#include "interface/utils/error_code.h"
+#include "tilefwk/error_code.h"
 #include "tilefwk/data_type.h"
 #include "tilefwk/error.h"
 #include "verifier.h"
@@ -290,6 +290,12 @@ enum class Opcode {
     OP_BIND_TENSOR,
     OP_MOE_DISTRIBUTED_COMBINE_SEND,
     OP_MOE_DISTRIBUTED_COMBINE_RECEIVE,
+
+    // Quantization
+    OP_QUANTIZE_SYM,   // Symmetric quantization: FP32 -> INT8
+    OP_QUANTIZE_ASYM,  // Asymmetric quantization: FP32 -> UINT8
+    OP_DEQUANTIZE,
+
     // Begin: add for TOPK and ArgSort
     OP_TOPK,
     OP_TILEDMRGSORT,
@@ -374,6 +380,7 @@ public:
     void RegisterVectorUnary();
     void RegisterVectorSort();
     void RegisterVectorReduction();
+    void RegisterVectorQuant();
     void RegisterVector();
     void RegisterCube();
     void RegisterDistribute();
@@ -765,6 +772,10 @@ const std::unordered_set<Opcode> SUPPORT_DYNAMIC_UNALIGNED_OPS{
     Opcode::OP_PAIRMIN,
     Opcode::OP_ROWMIN_SINGLE,
     Opcode::OP_ROWMINLINE,
+    Opcode::OP_QUANTIZE_SYM,
+    Opcode::OP_QUANTIZE_ASYM,
+    Opcode::OP_DEQUANTIZE,
+
     Opcode::OP_TOPK_SORT,
     Opcode::OP_TOPK_MERGE,
     Opcode::OP_TOPK_EXTRACT,
@@ -812,8 +823,8 @@ const std::unordered_set<Opcode> SUPPORT_DYNAMIC_UNALIGNED_OPS{
     Opcode::OP_FLOORDIV,
     Opcode::OP_FLOORDIVS};
 
-const std::unordered_set<Opcode> UNSUPPORT_FP16_OPS{
-    Opcode::OP_MOD, Opcode::OP_MODS, Opcode::OP_REMRS, Opcode::OP_REMS, Opcode::OP_REM};
+const std::unordered_set<Opcode> UNSUPPORT_FP16_OPS{Opcode::OP_MOD,  Opcode::OP_MODS, Opcode::OP_REMRS,
+                                                    Opcode::OP_REMS, Opcode::OP_REM,  Opcode::OP_INDEX_ADD};
 
 const std::unordered_set<Opcode> UNSUPPORT_BF16_OPS{
     Opcode::OP_INDEX_ADD,

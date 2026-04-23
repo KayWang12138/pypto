@@ -38,7 +38,7 @@
 #include "interface/compiler_monitor/monitor_stage_scope.h"
 #include <dlfcn.h>
 #include "tilefwk/pypto_fwk_log.h"
-#include "interface/utils/error_code.h"
+#include "tilefwk/error_code.h"
 
 using namespace npu::tile_fwk::dynamic;
 namespace npu::tile_fwk {
@@ -453,7 +453,7 @@ static void BuildControlFlow(
     std::ostringstream& expressionOss, std::ostringstream& exprHeaderOss, int indent, const std::string& expName,
     std::vector<std::string>& exprSrcFiles, ValDependTensorMeta& valDependTensorMeta)
 {
-    bool supportParallelLoop = false; // enable by the parallism option
+    bool supportParallelLoop = (config::GetRuntimeOption<uint16_t>(DEVICE_SCHED_PARALLELISM) > 1); // enable by the parallism option
     auto funcType = func->GetFunctionType();
     if (funcType == FunctionType::DYNAMIC) {
         controlFlowOss << "#define __TILE_FWK_AICPU__ 1\n"

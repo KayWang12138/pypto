@@ -18,9 +18,9 @@
 #include "interface/operation/operation.h"
 #include "interface/tensor/symbolic_scalar.h"
 #include "interface/utils/common.h"
-#include "interface/utils/error_code.h"
-#include "interface/utils/error_code.h"
-#include "interface/utils/error_code.h"
+#include "tilefwk/error_code.h"
+#include "tilefwk/error_code.h"
+#include "tilefwk/error_code.h"
 
 namespace npu::tile_fwk {
 const std::string COPY_OUT_FORCE_INFER_SHAPE = "copy_out_force_infer_shape";
@@ -324,18 +324,21 @@ REGISTER_INFER_SHAPE_FUNC(OP_SCATTER, Opcode::OP_SCATTER, ScatterInferFunc);
 
 void IndexAddInferFunc(Operation* op, std::vector<std::vector<SymbolicScalar>>& outValidShapes)
 {
-    std::vector<SymbolicScalar> outValidShape;
+    auto selfValidShape = op->GetIOperands()[0]->GetDynValidShape();
+    auto srcValidShape = op->GetIOperands()[1]->GetDynValidShape();
+    outValidShapes.push_back(selfValidShape);
+    outValidShapes.push_back({1, srcValidShape[srcValidShape.size() - 1]});
+}
+REGISTER_INFER_SHAPE_FUNC(OP_INDEX_ADD, Opcode::OP_INDEX_ADD, IndexAddInferFunc);
+
+void IndexAddUBInferFunc(Operation* op, std::vector<std::vector<SymbolicScalar>>& outValidShapes)
+{
     auto inValidShape = op->GetIOperands()[0]->GetDynValidShape();
-
-    for (size_t i = 0; i < inValidShape.size(); ++i) {
-        outValidShape.push_back(inValidShape[i]);
-    }
-
     for (auto output : op->GetOOperands()) {
-        outValidShapes.push_back(outValidShape);
+        outValidShapes.push_back(inValidShape);
     }
 }
-REGISTER_INFER_SHAPE_FUNC(OP_INDEX_ADD_UB, Opcode::OP_INDEX_ADD_UB, IndexAddInferFunc);
+REGISTER_INFER_SHAPE_FUNC(OP_INDEX_ADD_UB, Opcode::OP_INDEX_ADD_UB, IndexAddUBInferFunc);
 
 void LogicalNotInferFunc(Operation* op, std::vector<std::vector<SymbolicScalar>>& outValidShapes)
 {
@@ -464,6 +467,20 @@ void OneHotInferFunc(Operation* op, std::vector<std::vector<SymbolicScalar>>& ou
     outValidShapes.push_back(outValidShape);
 }
 REGISTER_INFER_SHAPE_FUNC(OP_ONEHOT, Opcode::OP_ONEHOT, OneHotInferFunc);
+
+// Quantize infer shape func
+void QuantizeInferFunc(Operation* op, std::vector<std::vector<SymbolicScalar>>& outValidShapes) {
+    std::vector<SymbolicScalar> outValidShape(op->GetIOperands()[0]->GetDynValidShape());
+    outValidShapes.push_back(outValidShape);
+}
+REGISTER_INFER_SHAPE_FUNC(OP_QUANTIZE_SYM, Opcode::OP_QUANTIZE_SYM, QuantizeInferFunc);
+REGISTER_INFER_SHAPE_FUNC(OP_QUANTIZE_ASYM, Opcode::OP_QUANTIZE_ASYM, QuantizeInferFunc);
+
+ void DequantizeInferFunc(Operation* op, std::vector<std::vector<SymbolicScalar>>& outValidShapes) {
+    std::vector<SymbolicScalar> outValidShape(op->GetIOperands()[0]->GetDynValidShape());
+    outValidShapes.push_back(outValidShape);
+}
+REGISTER_INFER_SHAPE_FUNC(OP_DEQUANTIZE, Opcode::OP_DEQUANTIZE, DequantizeInferFunc);
 
 // Range infer shape func
 void RangeInferFunc(Operation* op, std::vector<std::vector<SymbolicScalar>>& outValidShapes)
