@@ -109,9 +109,12 @@ def from_torch(tensor, name: str = "", dynamic_axis: Optional[List[int]] = None,
     if tensor_format is None:
         tensor_format = TileOpFormat.TILEOP_ND
         if tensor.device.type == "npu":
-            import torch_npu
+            try:
+                import torch_npu
+            except ImportError:
+                torch_npu = None
 
-            if torch_npu.get_npu_format(tensor) == 29:
+            if torch_npu is not None and torch_npu.get_npu_format(tensor) == 29:
                 tensor_format = TileOpFormat.TILEOP_NZ
                 _check_inner_shape(tensor, dtype, is_nz=True)
             else:
