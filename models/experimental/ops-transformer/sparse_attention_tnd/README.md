@@ -127,7 +127,7 @@ def sfa_forward_tnd(kv_lora_rank, qk_rope_dim, nq, n_kv, scale,
 
 ```python
 import torch
-from pangu_sparse_attention_impl import sfa_forward_tnd, SaTileShapeConfig
+from sfa_sparse_attention_impl import sfa_forward_tnd, SaTileShapeConfig
 
 # ========== 参数配置 ==========
 B = 2
