@@ -61,7 +61,14 @@ namespace npu::tile_fwk {
 
 #define PERF_AICPU_TEST_SWITCH 0 // 性能AICPU数据测试
 
-#define AICPU_PMU_EVENT_ENABLE 1 // AICPU perf_event_open PMU采集开关
+#define AICPU_PMU_EVENT_ENABLE 1 // AICPU perf_event_open PMU采集开关（ioctl/read 路径）
+
+// ARM PMU 直读采样开关：通过 MRS/MSR 指令直接访问 ARMv8 PMUv3 寄存器，零系统调用。
+// 与 AICPU_PMU_EVENT_ENABLE 相互独立，对应 arm_pmu_direct_sampler.h 中的独立接口
+// （ArmPmuDirectSampler / ARM_PMU_DIRECT_SCOPE / ARM_PMU_DIRECT_BEGIN / ARM_PMU_DIRECT_END）。
+// 前置条件：aarch64 架构，内核已开启 PMUSERENR_EL0.EN（EL0 允许访问 PMU）。
+// 典型开销：Begin/End 各 10~20 ns。
+#define ARM_PMU_DIRECT_ENABLE 0
 
 // ready quene mode for aicore task : Last-in-first-out(LIFO stack mode) or first-in-first-out(FIFO quene mode)
 constexpr bool READY_QUE_LIFO_SWITCH = true;

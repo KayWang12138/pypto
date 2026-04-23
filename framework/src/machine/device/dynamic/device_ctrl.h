@@ -295,11 +295,19 @@ public:
     int ExecDyn(npu::tile_fwk::DeviceKernelArgs* args)
     {
         DEV_INFO("start control flow.");
-// #ifdef __DEVICE__
-// #if AICPU_PMU_EVENT_ENABLE
-//         AICPU_PMU_SCOPE("ExecDyn");
-// #endif
-// #endif
+// PMU 采集示例（两种采样路径相互独立，开关位于 framework/src/machine/utils/device_switch.h）：
+//   1) AICPU_PMU_EVENT_ENABLE = 1  使用 perf_event_open / ioctl / read 路径（兼容性好）
+//      头文件: machine/utils/perf_event_sampler.h
+//      宏: AICPU_PMU_SCOPE / AICPU_PMU_BEGIN / AICPU_PMU_END
+//   2) ARM_PMU_DIRECT_ENABLE   = 1  使用 MRS/MSR 直读 ARMv8 PMU 寄存器（零系统调用）
+//      头文件: machine/utils/arm_pmu_direct_sampler.h
+//      宏: ARM_PMU_DIRECT_SCOPE / ARM_PMU_DIRECT_BEGIN / ARM_PMU_DIRECT_END
+//      前置条件: aarch64 架构 + 内核已开启 PMUSERENR_EL0.EN
+#ifdef __DEVICE__
+#if AICPU_PMU_EVENT_ENABLE
+        AICPU_PMU_SCOPE("ExecDyn");
+#endif
+#endif
         auto devProg = PtrToPtr<int64_t, DevAscendProgram>(args->cfgdata);
         auto devStartArgs = (DevStartArgs*)devProg->GetRuntimeDataList()->GetRuntimeDataPending();
 

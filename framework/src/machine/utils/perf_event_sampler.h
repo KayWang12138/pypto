@@ -324,6 +324,17 @@ private:
         DEV_INFO("[AICPU_PMU] %s", section_name_literal); \
         (sampler_name).Dump(); \
     } while (0)
+
+// 外部对象式采样（跨函数场景）
+#define AICPU_PMU_BEGIN_EXTERNAL(sampler_ptr) \
+    do { (sampler_ptr)->Begin(); } while (0)
+
+#define AICPU_PMU_END_EXTERNAL(sampler_ptr, section_name_literal) \
+    do { \
+        (sampler_ptr)->End(); \
+        DEV_INFO("[AICPU_PMU] %s", section_name_literal); \
+        (sampler_ptr)->Dump(); \
+    } while (0)
 #else
 struct AicpuPerfEventSampler {
     void Begin() {}
@@ -338,6 +349,8 @@ struct AicpuPerfScopedSampler {
 #define AICPU_PMU_SCOPE(section_name_literal)
 #define AICPU_PMU_BEGIN(sampler_name)
 #define AICPU_PMU_END(sampler_name, section_name_literal)
+#define AICPU_PMU_BEGIN_EXTERNAL(sampler_ptr)
+#define AICPU_PMU_END_EXTERNAL(sampler_ptr, section_name_literal)
 #endif
 
 } // namespace npu::tile_fwk
