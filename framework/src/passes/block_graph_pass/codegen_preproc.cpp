@@ -86,14 +86,14 @@ Status CodegenPreproc::SaveGmTensorParamIdxToOp(Function& func) const
         int64_t tensorParamIdx{0};
         for (auto param : gmParamInCallFunc) {
             for (auto op : param.second) {
-                op->SetAttribute(OpAttributeKey::gmTensorParamIdxInCallFunc, tensorParamIdx++);
+                op->SetAttribute(OpAttributeKey::gmTensorParamIdxInCall, tensorParamIdx++);
             }
         }
 
         for (auto& op : subProgram.second->Operations(false)) {
             int64_t gmTensorParamIdx{0};
-            if (op.HasAttribute(OpAttributeKey::gmTensorParamIdxInCallFunc)) {
-                op.GetAttr(OpAttributeKey::gmTensorParamIdxInCallFunc, gmTensorParamIdx);
+            if (op.HasAttribute(OpAttributeKey::gmTensorParamIdxInCall)) {
+                op.GetAttr(OpAttributeKey::gmTensorParamIdxInCall, gmTensorParamIdx);
             }
             int attrOffset{0};
             for (size_t i = 0; i < op.GetIOperands().size(); ++i) {

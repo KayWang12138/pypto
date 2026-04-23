@@ -458,8 +458,8 @@ void CodeGenOp::GetGmParamIdx(const Operation& oper)
         return;
     }
 
-    if (oper.HasAttribute("GmTensorParamIdxInCallFunc")) {
-        GmTensorParamIdxInCallFunc = oper.GetIntAttribute("GmTensorParamIdxInCallFunc");
+    if (oper.HasAttribute(OpAttributeKey::gmTensorParamIdxInCall)) {
+        GmTensorParamIdxInCallFunc = oper.GetIntAttribute(OpAttributeKey::gmTensorParamIdxInCall);
     }
 
     for (size_t i = 0; i < oper.GetOOperands().size(); ++i) {
