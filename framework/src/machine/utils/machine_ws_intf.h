@@ -41,18 +41,18 @@ struct QueueGeneric {
 
     QueueGeneric& operator=(const QueueGeneric& rhs)
     {
-        head = rhs.head;
-        tail = rhs.tail;
+        head = 0;
+        tail = rhs.size();
         if (capacity() == 0) {
             return *this;
         }
-        std::copy(rhs.elem, rhs.elem + rhs.size(), elem);
+        std::copy(rhs.elem + rhs.head, rhs.elem + rhs.tail, elem);
         return *this;
     }
 
-    uint32_t capacity() const { return _capacity; }
+    __attribute__((always_inline)) uint32_t capacity() const { return _capacity; }
 
-    uint32_t size() const { return tail - head; }
+    __attribute__((always_inline)) uint32_t size() const { return tail - head; }
 
     std::string str() const
     {
@@ -75,6 +75,7 @@ struct QueueGeneric {
     const T* end() const { return elem + tail; }
 
     typedef T value_type;
+
 protected:
     uint32_t head;
     uint32_t tail;
@@ -95,53 +96,58 @@ struct LockableQueueGeneric : public QueueGeneric<T> {
 
     LockableQueueGeneric(uint32_t capacity = 0, T* _elem = nullptr) : QueueGeneric<T>(capacity, _elem), lockFlag(0) {}
 
-    void lock()
+    __attribute__((always_inline)) inline void lock()
     {
         while (!__sync_bool_compare_and_swap(&lockFlag, 0, 1)) {
         }
     }
 
-    void unlock()
+    __attribute__((always_inline)) inline void unlock()
     {
         while (!__sync_bool_compare_and_swap(&lockFlag, 1, 0)) {
         }
     }
 
-    uint32_t unsafe_size() const
+    __attribute__((always_inline)) inline uint32_t unsafe_size() const
     {
         return __atomic_load_n(&this->tail, __ATOMIC_RELAXED) - __atomic_load_n(&this->head, __ATOMIC_RELAXED);
     }
 
-    void unsafe_enqueue(T x) { this->elem[__atomic_fetch_add(&this->tail, 1, std::memory_order_release)] = x; }
+    __attribute__((always_inline)) inline void unsafe_enqueue(T x)
+    {
+        this->elem[__atomic_fetch_add(&this->tail, 1, std::memory_order_release)] = x;
+    }
 
-    void unsafe_enqueue(T* x, uint32_t count)
+    __attribute__((always_inline)) inline void unsafe_enqueue(T* x, uint32_t count)
     {
         std::copy(x, x + count, this->elem + __atomic_fetch_add(&this->tail, count, std::memory_order_release));
     }
 
-    bool try_enqueue(T x)
+    __attribute__((always_inline)) inline bool try_enqueue(T x)
     {
         std::scoped_lock slock(*this);
         uint32_t t = __atomic_fetch_add(&this->tail, 1, std::memory_order_release);
-        if (t >= this->capacity()) {
+        if (unlikely(t >= this->capacity())) {
+            __atomic_store_n(&this->tail, t, __ATOMIC_RELAXED);
             return false;
         }
         this->elem[t] = x;
         return true;
     }
 
-    bool try_enqueue(const T* x, uint32_t count)
+    __attribute__((always_inline)) inline bool try_enqueue(const T* x, uint32_t count)
     {
         std::scoped_lock slock(*this);
         uint32_t t = __atomic_fetch_add(&this->tail, count, std::memory_order_release);
-        if (t + count > this->capacity()) {
+        if (unlikely(t + count > this->capacity())) {
+            __atomic_store_n(&this->tail, t, __ATOMIC_RELAXED);
             return false;
         }
         std::copy(x, x + count, this->elem + t);
         return true;
     }
 
-    std::pair<const T*, const T*> dequeue_all()
+    __attribute__((always_inline)) inline std::pair<const T*, const T*> dequeue_all()
     {
         std::scoped_lock slock(*this);
         uint32_t t = __atomic_load_n(&this->tail, __ATOMIC_RELAXED);
@@ -149,7 +155,7 @@ struct LockableQueueGeneric : public QueueGeneric<T> {
         return std::make_pair(this->elem + h, this->elem + t);
     }
 
-    datarange dequeue(uint32_t max_count)
+    __attribute__((always_inline)) inline datarange dequeue(uint32_t max_count)
     {
         std::scoped_lock slock(*this);
         uint32_t t = __atomic_load_n(&this->tail, __ATOMIC_RELAXED);
@@ -162,7 +168,7 @@ struct LockableQueueGeneric : public QueueGeneric<T> {
         return datarange(this->elem + h, this->elem + h + cnt);
     }
 
-    datarange dequeue_tail(uint32_t max_count, T* out)
+    __attribute__((always_inline)) inline datarange dequeue_tail(uint32_t max_count, T* out)
     {
         std::scoped_lock slock(*this);
         uint32_t t = __atomic_load_n(&this->tail, __ATOMIC_RELAXED);
