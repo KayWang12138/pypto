@@ -131,7 +131,8 @@ void DumpAicoreTaskExectInfo(DeviceArgs& args, const std::vector<void*>& perfDat
         MACHINE_LOGI("The files program.json and dyn_topo.txt exist. Start merging the swimlane.");
         std::string command = "python3 " + draw_swim_lane_py_path + " \"" + jsonFilePath + "\" \"" + topo_txt_path +
                               "\" \"" + program_json_path +
-                              "\" --label_type=1 --time_convert_denominator=" + std::to_string(freq);
+                              "\" --label_type=1 --time_convert_denominator=" + std::to_string(freq) +
+                              " --mix_event_info=\"" + mix_event_path + "\"";
         int ret = Checkinject(command.c_str(), command.size());
         if (ret != 0) {
             MACHINE_LOGE(DevCommonErr::SYSTEM_CALL_FAILED, "Draw swimlane cmd illegal char.");
