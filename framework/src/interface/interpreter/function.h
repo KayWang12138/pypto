@@ -23,6 +23,7 @@
 #include "calc.h"
 #include "tilefwk/error_code.h"
 #include <algorithm>
+#include <chrono>
 #include <condition_variable>
 #include <mutex>
 
@@ -709,6 +710,7 @@ struct FunctionInterpreter {
     std::mutex captureFrameListMutex_;
     std::mutex mixGlobalTensorMutex_;
     std::condition_variable mixGlobalTensorCv_;
+    static constexpr int64_t MIX_GLOBAL_TENSOR_WAIT_TIMEOUT_MS = 30000; // 30s timeout to detect dead waits
     inline static thread_local bool tlsSkipDump_{false};
 
     std::vector<std::shared_ptr<LogicalTensorData>>& GetInputDataViewList()
@@ -1096,10 +1098,18 @@ struct FunctionInterpreter {
         ASSERT(ControlFlowScene::INVALID_INPLACE_CHAIN, frame.callop != nullptr);
         auto callopAttr = std::static_pointer_cast<CallOpAttribute>(frame.callop->GetOpAttribute());
         std::unique_lock<std::mutex> mixTensorGuard(mixGlobalTensorMutex_);
-        mixGlobalTensorCv_.wait(mixTensorGuard, [this, &iop, callopAttr] {
+        const auto waitDeadline =
+            std::chrono::steady_clock::now() + std::chrono::milliseconds(MIX_GLOBAL_TENSOR_WAIT_TIMEOUT_MS);
+        const bool waitOk = mixGlobalTensorCv_.wait_until(mixTensorGuard, waitDeadline, [this, &iop, callopAttr] {
             auto it = mixGlobalTensorDict.find({iop, callopAttr->wrapId});
             return it != mixGlobalTensorDict.end() && it->second != nullptr;
         });
+        ASSERT(ControlFlowScene::INVALID_INPLACE_CHAIN, waitOk)
+            << "Timeout while waiting mixGlobalTensorDict in multithread execution, wrapId="
+            << callopAttr->wrapId << ", timeoutMs=" << MIX_GLOBAL_TENSOR_WAIT_TIMEOUT_MS;
+        if (!waitOk) {
+            return nullptr;
+        }
         return mixGlobalTensorDict[{iop, callopAttr->wrapId}];
     }
 
@@ -1204,7 +1214,6 @@ struct FunctionInterpreter {
         EvaluateDynParam(dynParamTable, linearArgList);
 
         ExecuteHandleFunctionBegin(func, frame);
-        func->SortOperations();
         auto operations = func->Operations();
         for (size_t opIdx = 0; opIdx < operations.size();) {
             auto& op = operations.at(opIdx);
