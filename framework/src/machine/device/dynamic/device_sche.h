@@ -571,6 +571,12 @@ struct DynMachineManager {
         DevStartArgs* runtimeDataCurrent =
             reinterpret_cast<DevStartArgs*>(devProg->GetRuntimeDataList()->GetRuntimeDataCurrent());
         auto devArgs = devProg->devArgs;
+        if (kargs->parameter.ctrlBlockNum != 0 && kargs->parameter.ctrlBlockNum < devArgs->nrValidAic) {
+            devArgs->nrValidAic = kargs->parameter.ctrlBlockNum;
+            devArgs->scheCpuNum = kargs->parameter.ctrlScheAicpu;
+            DEV_INFO("control aicore before launch, nrValidAic changed to %d scheCpuNum changed to %d",
+                kargs->parameter.ctrlBlockNum, kargs->parameter.ctrlScheAicpu);
+        }
         int threadIdx = -1;
         RunSchInit(&devArgs);
         if (AllocThreadIdx(&devArgs, threadIdx, runtimeDataCurrent->devScheState.threadIdx) !=

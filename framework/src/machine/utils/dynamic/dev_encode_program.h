@@ -334,6 +334,7 @@ struct DevAscendProgram {
         uint32_t nrValidAic;
         uint32_t scheCpuNum;
         ArchInfo archInfo;
+        bool enableControlCore;
     };
 
     DevArgsPreservedParams BackupDevArgsParams(const DeviceArgs& src)
@@ -345,6 +346,7 @@ struct DevAscendProgram {
         params.nrValidAic = src.nrValidAic;
         params.scheCpuNum = src.scheCpuNum;
         params.archInfo = src.archInfo;
+        params.enableControlCore = src.enableControlCore;
         return params;
     }
 
@@ -356,6 +358,7 @@ struct DevAscendProgram {
         dst.nrValidAic = params.nrValidAic;
         dst.scheCpuNum = params.scheCpuNum;
         dst.archInfo = params.archInfo;
+        dst.enableControlCore = params.enableControlCore;
     }
 
     void ResetFromLaunch()
