@@ -545,6 +545,20 @@ public:
         }
     }
 
+    void SetParallelFirstBatchOwner(volatile ParallelDevTask* kernelParallDevTask, int parallelIdx, uint8_t owner)
+    {
+        const uint32_t idx = parallelIdx % npu::tile_fwk::SCH_DEVTASK_MAX_PARALLELISM;
+        DEV_IF_DEVICE
+        {
+            kernelParallDevTask->firstBatchOwner[idx] = owner;
+        } else {
+            if (enableEslModel_) {
+                eslModel_.WriteEslMem(
+                    reinterpret_cast<uint64_t>(&kernelParallDevTask->firstBatchOwner[idx]), sizeof(owner), &owner);
+            }
+        }
+    }
+
     inline uint32_t ParallelDevTaskCtxVersion(int coreIdx)
     {
         return parallelDevTaskCtxVersion[coreIdx];
@@ -575,6 +589,8 @@ public:
             args_[coreIdx]->parallelDevTask.front = 0;
             args_[coreIdx]->parallelDevTask.rear = 0;
             for (uint32_t i = 0; i < npu::tile_fwk::SCH_DEVTASK_MAX_PARALLELISM; i++) {
+                args_[coreIdx]->parallelDevTask.firstBatchOwner[i] =
+                    static_cast<uint8_t>(FirstBatchDispatchOwnerState::FIRST_BATCH_UNCLAIMED);
                 args_[coreIdx]->parallelDevTask.elements[i] = 0;
             }
         } else {

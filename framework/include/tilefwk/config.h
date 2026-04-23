@@ -36,7 +36,13 @@ enum class MachineScheduleConfig {
      * \brief Fair scheduling refers to maintaining as balanced a distribution of tasks across cores as possible,
      *        Enabling this configuration will introduce some additional public scheduling overhead.
      */
-    MULTI_CORE_FAIR_SCH = 0x2
+    MULTI_CORE_FAIR_SCH = 0x2,
+
+    /**
+     * \brief Enable AICORE first-batch self-dispatch path.
+     *        When enabled, SCHE skips first-batch pre-dispatch during handshake/init stage.
+     */
+    AICORE_FIRST_BATCH_SELF_DISPATCH = 0x4
 };
 
 namespace config {

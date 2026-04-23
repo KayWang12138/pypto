@@ -243,11 +243,20 @@ inline const char* AicorePerfTraceName[] = {
 
 
 // use ring buffer to control parallel multi devtask
+enum FirstBatchDispatchOwnerState : uint8_t {
+    FIRST_BATCH_UNCLAIMED = 0,
+    FIRST_BATCH_CLAIMED_BY_AICORE = 1,
+    FIRST_BATCH_CLAIMED_BY_SCHE = 2,
+    FIRST_BATCH_DONE_BY_AICORE = 3,
+    FIRST_BATCH_DONE_BY_SCHE = 4
+};
+
 struct ParallelDevTask {
     uint32_t front{0};
     uint32_t rear{0};
     uint32_t version;
     uint32_t reserver;
+    uint8_t firstBatchOwner[npu::tile_fwk::SCH_DEVTASK_MAX_PARALLELISM]{0};
     int64_t elements[npu::tile_fwk::SCH_DEVTASK_MAX_PARALLELISM]; // device task ptr
 };
 
