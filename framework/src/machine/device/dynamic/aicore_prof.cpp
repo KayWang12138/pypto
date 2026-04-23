@@ -146,7 +146,7 @@ void AiCoreProf::ProfStart()
     }
 }
 
-void AiCoreProf::ProfGet(int32_t coreIdx, uint32_t subGraphId, uint32_t taskId, const struct TaskStat* taskStat)
+void AiCoreProf::ProfGet(int32_t coreIdx, const struct TaskStat* taskStat)
 {
     DEV_DEBUG("Start to Get prof data.");
     if (profLevel_ == PROF_LEVEL_OFF || profReportAdditionalInfoFunc_ == nullptr) {
@@ -154,11 +154,8 @@ void AiCoreProf::ProfGet(int32_t coreIdx, uint32_t subGraphId, uint32_t taskId, 
     }
 
     taskCnt_++;
-    if (profLevel_ == PROF_LEVEL_FUNC_LOG) {
+    if (profLevel_ == PROF_LEVEL_FUNC_LOG || profLevel_ == PROF_LEVEL_FUNC_LOG_PMU) {
         ProfGetLog(coreIdx, taskStat);
-    } else if (profLevel_ == PROF_LEVEL_FUNC_LOG_PMU) {
-        ProfGetLog(coreIdx, taskStat);
-        ProfGetPmu(coreIdx, subGraphId, taskId, taskStat);
     }
 }
 
@@ -475,6 +472,7 @@ void AiCoreProf::ProfGetPmu(int32_t coreIdx, uint32_t subGraphId, uint32_t taskI
     if (!ProfCheckLevel(PROF_TASK_TIME_L2)) {
         return;
     }
+
     MsprofAicpuPyPtoPmuData data = {0};
     FillPmuData(data, coreIdx, subGraphId, taskId, taskStat);
     DEV_DEBUG(

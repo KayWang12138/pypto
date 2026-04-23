@@ -283,7 +283,7 @@ public:
 #endif
     void ProfInit(DeviceArgs *deviceArgs);
     void ProfStart();
-    void ProfGet(int32_t coreIdx, uint32_t subGraphId, uint32_t taskId, const struct TaskStat* taskStat);
+    void ProfGet(int32_t coreIdx, const struct TaskStat* taskStat);
     void ProfGetSwitch(int64_t& flag) const;
     void ProfStop();
     void AsmCntvc(uint64_t& cntvct) const;
