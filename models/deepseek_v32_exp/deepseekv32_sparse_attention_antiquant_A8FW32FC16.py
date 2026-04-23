@@ -256,18 +256,6 @@ def gen_gather_select_attention_golden_aq(dtype, bn1n2s1, is_kn_quant, actual_se
     kn_scales = kn_scales.reshape(block_num * block_size, 4)
     kr = kr.reshape(block_num * block_size, qk_rope_dim)
 
-    # nope_cache: kv尾轴512 int8， kr尾轴64 bf16/fp16，kv scale尾轴4 fp32，共656
-    nope_cache_2d = torch.zeros([block_num * block_size, kv_lora_rank + qk_rope_dim * 2 + 4 * 4], dtype=torch.int8)
-
-    # [:, 0:512]
-    nope_cache_2d[:, :kv_lora_rank] = kn_quant
-
-    # [:, 512:640]
-    nope_cache_2d[:, kv_lora_rank:kv_lora_rank + qk_rope_dim * 2] = kr.view(torch.int8)
-
-    # [:, 640:656]
-    nope_cache_2d[:, kv_lora_rank + qk_rope_dim * 2:] = kn_scales.view(torch.int8)
-
     # q split to [nope + rope]
     q_nope = q_bsnd[:, :, :, :kv_lora_rank]
     q_rope = q_bsnd[:, :, :, kv_lora_rank:]
