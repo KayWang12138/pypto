@@ -76,7 +76,7 @@ TEST_F(TestCodegenDynExpandExpDif, TestExpandExpDifLastAxis)
     const Shape shape_x = {16, 128};
     const Shape shape_y = {16, 1};
     std::string expect =
-        R"!!!(TExpandExpDif<TileOp::BroadcastOperand::RIGHT_OPERAND>(ubTensor_4, ubTensor_4, ubTensor_2);)!!!";
+        R"!!!(TExpandExpDif<0, 0, 0, 0, 2>(ubTensor_4, ubTensor_4, ubTensor_2);)!!!";
     TestExpandExpDif(shape_x, shape_y, expect);
 }
 
