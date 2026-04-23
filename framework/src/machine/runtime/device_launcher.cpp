@@ -684,6 +684,8 @@ int DeviceLauncher::LaunchAicpuKernel(
     int ret = 0;
     auto args = (AiCpuArgs*)rtArgs.args;
     const int nrAicpu = static_cast<int>(DeviceLauncher::GetDevProg(function)->devArgs.nrAicpu);
+    args->kArgs.parameter.ctrlBlockNum = static_cast<int>(DeviceLauncher::GetDevProg(function)->devArgs.nrValidAic);
+    args->kArgs.parameter.ctrlScheAicpu = static_cast<int>(DeviceLauncher::GetDevProg(function)->devArgs.scheCpuNum);
     auto startTime = MspfSysCycleTime();
     args->kArgs.parameter.runMode = RUN_SPLITTED_STREAM_CTRL;
     ret = RuntimeAicpuKernelLaunchExWithArgs(
@@ -704,11 +706,12 @@ int DeviceLauncher::LaunchAicpuKernel(
 }
 
 int DeviceLauncher::LaunchAicoreKernel(
-    AclRtStream aicoreStream, void* kernel, RtArgsEx& rtArgs, RtTaskCfgInfo& rtTaskCfg, bool debugEnable)
+    AclRtStream aicoreStream, void* kernel, RtArgsEx& rtArgs, RtTaskCfgInfo& rtTaskCfg,
+    bool debugEnable, [[maybe_unused]] Function* function)
 {
     auto& devRunner = DeviceRunner::Get();
     auto tilingKey = OpInfoManager::GetInstance().GetOpTilingKey();
-    auto blockDim = dynamic::GetCfgBlockdim();
+    const int blockDim = static_cast<int>(DeviceLauncher::GetDevProg(function)->devArgs.nrValidAic);
     auto startTime = MspfSysCycleTime();
     auto ret = RuntimeKernelLaunchWithHandleV2(kernel, tilingKey, blockDim, &rtArgs, nullptr, aicoreStream, &rtTaskCfg);
     devRunner.ReportHostProfInfo(aicoreStream, startTime, blockDim, MSPF_GE_TASK_TYPE_MIX_AIC, true);
