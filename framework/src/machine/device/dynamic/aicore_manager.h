@@ -21,6 +21,7 @@
 #include <map>
 #include <atomic>
 #include <array>
+#include <cstdio>
 #include <semaphore.h>
 #include "machine/utils/dynamic/dev_start_args.h"
 #include "securec.h"
@@ -92,13 +93,24 @@ public:
 
     void InitAicoreParallelDevTask(ParallelSchDeviceTaskContext* parallelCtx)
     {
-        DEV_IF_DEVICE {
+        if constexpr (IsDeviceMode()) {
             ForEachManageAicore([&](int coreIdx) {
                 auto logbuf = logger_ ? logger_[coreIdx].GetBuffer() : nullptr;
-                aicoreHal_.InitKernelArgs(coreIdx,  reinterpret_cast<int64_t>(logbuf));
+                aicoreHal_.InitKernelArgs(coreIdx, reinterpret_cast<int64_t>(logbuf));
                 FillKernelArgsParallexDevTask(parallelCtx, coreIdx);
             });
+            return;
         }
+
+        if (!aicoreHal_.IsHostSimMode()) {
+            return;
+        }
+
+        ForEachManageAicore([&](int coreIdx) {
+            auto logbuf = logger_ ? logger_[coreIdx].GetBuffer() : nullptr;
+            aicoreHal_.InitKernelArgs(coreIdx, reinterpret_cast<int64_t>(logbuf));
+            FillKernelArgsParallexDevTask(parallelCtx, coreIdx);
+        });
     }
 
     void FillKernelArgsParallexDevTask(ParallelSchDeviceTaskContext* parallelCtx, int coreIdx)
@@ -441,6 +453,15 @@ public:
                 return ret;
             }
             aicoreProf_.ProfStart();
+        } else if (aicoreHal_.IsHostSimMode()) {
+            ret = HandShake(devStartArgs);
+            PerfMtTrace(PERF_TRACE_CORE_HAND_SHAKE, threadIdx);
+            if (unlikely(ret != 0)) {
+                while ((taskCtrl = taskQueue_->Dequeue())) {
+                    taskCtrl->Finish(true);
+                }
+                return ret;
+            }
         }
         DEV_DEBUG("Schedule run start succ");
         uint64_t lastDevTaskFinCycle = 0;
@@ -470,6 +491,13 @@ public:
                     ret =  ToUnderlying(SchedErr::SCH_PARALLEL_DEVTASK_TIMEOUT);
                     DEV_ERROR(ret,
                         "Schedule prallel devtask timeout, dequeueFinish=%d.", taskCtrlDequeFinish);
+                    break;
+                }
+            }
+            DEV_IF_NONDEVICE {
+                if (aicoreHal_.IsHostSimMode() && GetCycles() - start_cycles > TIMEOUT_CYCLES) {
+                    ret = ToUnderlying(SchedErr::SCH_PARALLEL_DEVTASK_TIMEOUT);
+                    DEV_ERROR(ret, "HostSim schedule parallel devtask timeout, dequeueFinish=%d.", taskCtrlDequeFinish);
                     break;
                 }
             }
@@ -662,9 +690,9 @@ private:
             DEV_IF_DEVICE {
                 NormalStopSingleCore(coreIdx);
             } else {
-                if (enableEslModel_) {
+                if (enableEslModel_ || aicoreHal_.IsHostSimMode()) {
                     NormalStopSingleCore(coreIdx);
-                } 
+                }
             }
             DEV_VERBOSE_DEBUG("Last devtask ,core %d send AICORE_TASK_STOP.", coreIdx);
         }
@@ -722,6 +750,10 @@ private:
         ForEachManageAicore([this](int coreIdx) {
             DEV_IF_DEVICE {
                 NormalStopSingleCore(coreIdx);
+            } else {
+                if (enableEslModel_ || aicoreHal_.IsHostSimMode()) {
+                    NormalStopSingleCore(coreIdx);
+                }
             }
             DEV_VERBOSE_DEBUG("core %d send AICORE_TASK_STOP.", coreIdx);
         });
@@ -787,6 +819,17 @@ private:
                     DEV_ERROR(
                         SchedErr::TASK_WAIT_TIMEOUT,
                         "#sche.task.end.sync.timeout: SyncAicoreDevTaskFinish timeout notstopNum=%u.",
+                        mngCoreNum - devTaskCtx->coreFinishedNum);
+                    return DEVICE_MACHINE_TIMEOUT_SYNC_CORE_FINISH;
+                }
+            }
+            DEV_IF_NONDEVICE
+            {
+                if (aicoreHal_.IsHostSimMode() && GetCycles() - start_cycles > TIMEOUT_CYCLES) {
+                    DumpDfxWhenCoreNotStop(devTaskCtx);
+                    DEV_ERROR(
+                        SchedErr::TASK_WAIT_TIMEOUT,
+                        "#sche.task.end.sync.timeout: HostSim SyncAicoreDevTaskFinish timeout notstopNum=%u.",
                         mngCoreNum - devTaskCtx->coreFinishedNum);
                     return DEVICE_MACHINE_TIMEOUT_SYNC_CORE_FINISH;
                 }
@@ -1970,12 +2013,16 @@ private:
 
         DEV_IF_NONDEVICE
         {
-            context_->corePendReadyCnt_[static_cast<int>(CoreType::AIC)] = aicEnd_ - aicStart_;
-            context_->corePendReadyCnt_[static_cast<int>(CoreType::AIV)] = aivEnd_ - aivStart_;
-            ForEachManageAicoreReverse([this](int coreIdx) {
-                int coreType = static_cast<int>(AicoreType(coreIdx));
-                AddReadyCoreIdx(coreIdx, coreType);
-            });
+            // Host-sim builds ready-core mapping during handshake (TryHandShakeByGm).
+            // Pre-filling here would duplicate ready entries and break scheduler/core communication semantics.
+            if (!aicoreHal_.IsHostSimMode()) {
+                context_->corePendReadyCnt_[static_cast<int>(CoreType::AIC)] = aicEnd_ - aicStart_;
+                context_->corePendReadyCnt_[static_cast<int>(CoreType::AIV)] = aivEnd_ - aivStart_;
+                ForEachManageAicoreReverse([this](int coreIdx) {
+                    int coreType = static_cast<int>(AicoreType(coreIdx));
+                    AddReadyCoreIdx(coreIdx, coreType);
+                });
+            }
         }
 
         context_->lastPendReadyCoreIdx_[static_cast<int>(CoreType::AIV)] = static_cast<uint32_t>(aivStart_);
