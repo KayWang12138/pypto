@@ -22,7 +22,7 @@
 #include <unordered_set>
 #include <unordered_map>
 #include "interface/utils/common.h"
-#include "interface/utils/error_code.h"
+#include "tilefwk/error_code.h"
 #include "tilefwk/data_type.h"
 #include "tilefwk/error.h"
 #include "verifier.h"
@@ -812,8 +812,8 @@ const std::unordered_set<Opcode> SUPPORT_DYNAMIC_UNALIGNED_OPS{
     Opcode::OP_FLOORDIV,
     Opcode::OP_FLOORDIVS};
 
-const std::unordered_set<Opcode> UNSUPPORT_FP16_OPS{
-    Opcode::OP_MOD, Opcode::OP_MODS, Opcode::OP_REMRS, Opcode::OP_REMS, Opcode::OP_REM};
+const std::unordered_set<Opcode> UNSUPPORT_FP16_OPS{Opcode::OP_MOD,  Opcode::OP_MODS, Opcode::OP_REMRS,
+                                                    Opcode::OP_REMS, Opcode::OP_REM,  Opcode::OP_INDEX_ADD};
 
 const std::unordered_set<Opcode> UNSUPPORT_BF16_OPS{
     Opcode::OP_INDEX_ADD,
