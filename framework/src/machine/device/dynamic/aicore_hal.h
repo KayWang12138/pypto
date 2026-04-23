@@ -20,6 +20,7 @@
 #include "machine/device/dynamic/aicore_prof.h"
 #include "machine/device/dynamic/costmodel_utils.h"
 #include "machine/device/dynamic/eslmodel_aicore_hal.h"
+#include "machine/runtime/e2e_host_sim/host_reg_bus.h"
 
 namespace npu::tile_fwk::dynamic {
 constexpr uint32_t NUM_ONE = 1;
@@ -93,6 +94,20 @@ public:
 
     int64_t* GetRegAddrs() const { return regAddrs_; }
     uint32_t GetregNum() const { return regNum_; }
+    inline int GetHostSimPhyId(int coreIdx)
+    {
+        int phyId = GetPhyIdByBlockId(coreIdx);
+        return (phyId >= 0) ? phyId : coreIdx;
+    }
+
+    inline bool IsHostSimMode() const
+    {
+        if constexpr (IsDeviceMode()) {
+            return false;
+        } else {
+            return !enableEslModel_ && HostRegBus::Global().CoreNum() > 0;
+        }
+    }
 
     inline uint32_t ReadReg32(int coreIdx, int offset)
     {
@@ -142,11 +157,14 @@ public:
         } else {
             if (enableEslModel_) {
                 eslModel_.WriteEslReg(coreIdx, &value);
-            }else {
+            } else if (IsHostSimMode()) {
+                HostRegBus::Global().WriteMainBase(static_cast<size_t>(GetHostSimPhyId(coreIdx)), value);
+            } else {
                 DEV_VERBOSE_DEBUG("set coreidx %d value %lx.", coreIdx, value);
                 auto taskId = (value & 0xFFFFFFFF) - 1;
-                if (value == 0 || taskId == AICORE_TASK_STOP || (taskId & 0xFFFFFFFF) == AICORE_FUNC_STOP)
+                if (value == 0 || taskId == AICORE_TASK_STOP || (taskId & 0xFFFFFFFF) == AICORE_FUNC_STOP) {
                     return;
+                }
                 CostModelSendTask(coreIdx, taskId & 0xFFFFFFFF, {});
             }
         }
@@ -244,7 +262,7 @@ public:
     {
         for (int idx = coreStart; idx < coreEnd; idx++) {
             uint64_t startCycle = GetCycles();
-            while (*finishRegQueues_[GetPhyIdByBlockId(idx)] != val) {
+            while (GetFinishedTask(idx) != val) {
                 if (GetCycles() - startCycle > TIMEOUT_CYCLES) {
                     DEV_ERROR(
                         SchedErr::TASK_WAIT_TIMEOUT, "#sche.aicore.wait_finish: CoreId=%d cannot get finish Flag", idx);
@@ -261,7 +279,9 @@ public:
         } else {
             if (enableEslModel_) {
                 return eslModel_.ReadEslReg(coreIdx);
-            }else {
+            } else if (IsHostSimMode()) {
+                return HostRegBus::Global().ReadCond(static_cast<size_t>(GetHostSimPhyId(coreIdx)));
+            } else {
                 return CostModelGetTask(coreIdx);
             }
         }
@@ -456,7 +476,6 @@ public:
         SetReadyQueue(coreIdx, (uint64_t)0);
         // make sure reset wave goodbye flag after hand shake ,orelse impact last aicore exit through wavegoodbye flag
         args_[coreIdx]->waveBufferCpuToCore[CPU_TO_CORE_SHAK_BUF_GOODBYE_INDEX] = 0;
-        DEV_VERBOSE_DEBUG("hand shake success coreidex:%d", coreIdx);
         return true;
     }
 
@@ -476,6 +495,12 @@ public:
                 eslModel_.WriteEslMem(reinterpret_cast<uint64_t>(&args_[coreIdx]->shakeBuffer[0]), sizeof(uint64_t), &valToSend);
                 valToSend = AICORE_SAY_GOODBYE;
                 eslModel_.WriteEslMem(reinterpret_cast<uint64_t>(&args_[coreIdx]->waveBufferCpuToCore[CPU_TO_CORE_SHAK_BUF_GOODBYE_INDEX]), sizeof(uint64_t), &valToSend);
+            } else if (IsHostSimMode() && args_[coreIdx] != nullptr) {
+                args_[coreIdx]->shakeBuffer[0] = 0;
+                args_[coreIdx]->shakeBufferCpuToCore[CPU_TO_CORE_SHAK_BUF_COREFUNC_DATA_INDEX] = 0;
+                args_[coreIdx]->waveBufferCpuToCore[CPU_TO_CORE_SHAK_BUF_GOODBYE_INDEX] = AICORE_SAY_GOODBYE;
+                HostRegBus::Global().WriteMainBase(static_cast<size_t>(GetHostSimPhyId(coreIdx)), 0);
+                HostRegBus::Global().WriteCond(static_cast<size_t>(GetHostSimPhyId(coreIdx)), 0);
             }
             
         }
@@ -491,14 +516,23 @@ public:
 
     inline void InitKernelArgs(int coreIdx, int64_t buffer) {
         (void)buffer;
+        if (args_[coreIdx] == nullptr && (IsDeviceMode() || IsHostSimMode())) {
+            args_[coreIdx] =
+                reinterpret_cast<KernelArgs*>((static_cast<uint64_t>(sharedBuffer_)) + SHARED_BUFFER_SIZE * coreIdx);
+        }
         if constexpr (IsDeviceMode()) {
-            if (args_[coreIdx] == nullptr) {
-                args_[coreIdx] = reinterpret_cast<KernelArgs*>((static_cast<uint64_t>(sharedBuffer_)) + SHARED_BUFFER_SIZE * coreIdx);
-            }
 #if ENABLE_AICORE_PRINT
             volatile KernelArgs *arg = args_[coreIdx];
             arg->shakeBuffer[SHAK_BUF_PRINT_BUFFER_INDEX] = buffer;
             __sync_synchronize();
+#endif
+        } else {
+#if ENABLE_AICORE_PRINT
+            if (IsHostSimMode() && buffer != 0) {
+                volatile KernelArgs* arg = args_[coreIdx];
+                arg->shakeBuffer[SHAK_BUF_PRINT_BUFFER_INDEX] = buffer;
+                arg->shakeBufferCpuToCore[SHAK_BUF_PRINT_BUFFER_INDEX] = buffer;
+            }
 #endif
         }
     }
@@ -520,6 +554,8 @@ public:
                     reinterpret_cast<uint64_t>(
                         &kernelParallDevTask->elements[parallelIdx % npu::tile_fwk::SCH_DEVTASK_MAX_PARALLELISM]),
                         sizeof(funcData), &funcData);
+            } else if (IsHostSimMode()) {
+                kernelParallDevTask->elements[parallelIdx % npu::tile_fwk::SCH_DEVTASK_MAX_PARALLELISM] = funcData;
             }
         }
     }
@@ -534,6 +570,9 @@ public:
             if (enableEslModel_) {
                 eslModel_.WriteEslMem(reinterpret_cast<uint64_t>(&kernelParallDevTask->front), sizeof(front), &front);
                 eslModel_.WriteEslMem(reinterpret_cast<uint64_t>(&kernelParallDevTask->rear), sizeof(rear), &rear);
+            } else if (IsHostSimMode()) {
+                kernelParallDevTask->front = front;
+                kernelParallDevTask->rear = rear;
             }
         }
     }
@@ -549,6 +588,10 @@ public:
         DEV_IF_DEVICE {
             volatile KernelArgs *arg = args_[coreIdx];
             arg->parallelDevTask.version = version;
+        } else {
+            if (IsHostSimMode() && args_[coreIdx] != nullptr) {
+                args_[coreIdx]->parallelDevTask.version = version;
+            }
         }
 
         DEV_VERBOSE_DEBUG("Refresh core %d parall version %u", coreIdx, version);
@@ -578,6 +621,13 @@ public:
                 for (uint32_t i = 0; i < npu::tile_fwk::SCH_DEVTASK_MAX_PARALLELISM; i++) {
                     eslModel_.WriteEslMem(
                     reinterpret_cast<uint64_t>(&args_[coreIdx]->parallelDevTask.elements[i]), sizeof(i64Zereo), &i64Zereo);
+                }
+            } else if (IsHostSimMode() && args_[coreIdx] != nullptr) {
+                args_[coreIdx]->parallelDevTask.version = 0;
+                args_[coreIdx]->parallelDevTask.front = 0;
+                args_[coreIdx]->parallelDevTask.rear = 0;
+                for (uint32_t i = 0; i < npu::tile_fwk::SCH_DEVTASK_MAX_PARALLELISM; i++) {
+                    args_[coreIdx]->parallelDevTask.elements[i] = 0;
                 }
             }
         }
