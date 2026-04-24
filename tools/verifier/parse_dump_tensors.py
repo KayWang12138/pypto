@@ -89,7 +89,7 @@ class VerifyRes:
             verify_tshape = tensor_info["valid_shape"]
             tensor_infos[i]["A>PHASE_NAME"] = tensor_info["PHASE_NAME"] 
             tensor_infos[i]["A>validshape"] = verify_tshape
-            tensor_infos[i]["A>datatype"] = tensor_info["datatype"]
+            tensor_infos[i]["A>datatype"] = tensor_info["A>datatype"]
             tensor_infos[i]["A>FILENAME"] = tensor_info["verify_dup_tensor"]
 
             if os.path.exists(verify_tensor_info) and len(verify_tshape) == len(dump_tshape):
@@ -147,6 +147,7 @@ class VerifyRes:
         verify_dup_tensor = ""
         valid_shape = []
         loop_info = ""
+        dtype = ""
         op_info_list.sort(key=lambda x: x.get("NO."))      # 按序号排序,序号也是执行顺序
 
         for op_info in op_info_list:
@@ -178,7 +179,7 @@ class VerifyRes:
             verify_dup_tensor = os.path.join(self.verify_path, op_info.get("PHASE_NAME"), verify_dup_tensor)
         tensor_info["verify_dup_tensor"] = verify_dup_tensor
         tensor_info["valid_shape"], tensor_info["loop_info"], tensor_info["PHASE_NAME"] = valid_shape, loop_info, op_info.get("PHASE_NAME")
-        tensor_info["datatype"] = dtype
+        tensor_info["A>datatype"] = dtype
 
     def process_single_task(self, tensor_infos, op_info_list_callop):
         tensor_infos_new = copy.deepcopy(tensor_infos)
