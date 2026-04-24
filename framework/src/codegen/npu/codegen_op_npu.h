@@ -241,7 +241,7 @@ protected:
     }
 
     template <typename T>
-    bool GetAttr(const std::string& key, T& value) const
+    bool GetOpAttr(const std::string& key, T& value) const
     {
         return GetAttrFromMap(opAttrs, key, value);
     }
