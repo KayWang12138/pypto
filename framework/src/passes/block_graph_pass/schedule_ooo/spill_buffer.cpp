@@ -216,7 +216,8 @@ void OoOScheduler::GetActualSpillInfo(Operation* spillOp, std::pair<LogicalTenso
 }
 
 void OoOScheduler::UpdateOpAttr(Operation &op, int opLatency, LogicalTensorPtr spillTensor,
-        std::vector<int64_t> offset, Operation* spillOp, int64_t workspaceBaseOffset, bool isSpecialL1) {
+    std::vector<int64_t> offset, Operation* spillOp, int64_t workspaceBaseOffset, bool isSpecialL1)
+{
     if (op.GetOpcode() == Opcode::OP_COPY_OUT) {
         op.SetAttr(OpAttributeKey::workspaceBaseOffset, workspaceBaseOffset);
         op.SetOpAttribute(std::make_shared<CopyOpAttribute>(
@@ -441,7 +442,8 @@ Status OoOScheduler::UpdateReloadIssueInfo(Operation* reloadAlloc, Operation* re
 }
 
 Status OoOScheduler::CreateSpillReloadIssue(LogicalTensorPtr spillOutTensor,
-    LogicalTensorPtr spillTensor, Operation* spillOp, std::pair<Operation*, Operation*> &reloadOps, bool isSpecialL1) {
+    LogicalTensorPtr spillTensor, Operation* spillOp, std::pair<Operation*, Operation*> &reloadOps,  bool isSpecialL1)
+{
     MemoryType memType = spillTensor->GetMemoryTypeOriginal();
     // 创建将spill搬出数据搬回OP_COPY_IN的tensor
     LogicalTensorPtr localTensor = std::make_shared<LogicalTensor>(
@@ -582,7 +584,8 @@ Status OoOScheduler::SpillReshapeParticalBuffer(SpillInfo &spillInfo, Operation*
     }
     int64_t base = 0;
     GetWorkspaceBaseOffset(spillInfo.ddrTensor_, base);
-    UpdateOpAttr(spillCopyInOp, DEFAULT_LATENCY, newTensor, spillInfo.ddrTensor_->GetOffset(), preOp, base, spillInfo.isSpecialL1_);
+    UpdateOpAttr(spillCopyInOp, DEFAULT_LATENCY, newTensor, spillInfo.ddrTensor_->GetOffset(), preOp, base,
+        spillInfo.isSpecialL1_);
     auto spillCopyInOpPtr = UpdateIssueAttr(spillCopyInOp, {reshapeTensor->memoryrange.memId}, allocOp, bufNextUseOrder, isGenSpill);
     // A5 下 DDR->COPY_IN->L1->RESHAPE->L1 场景不标记 copy_in_mode
     if (preOp->GetOpcode() != Opcode::OP_COPY_IN && UpdateCopyInMode(spillCopyInOp) != SUCCESS) {
@@ -705,7 +708,8 @@ Status OoOScheduler::CreateSpillCopyout(Operation* spillOp, LogicalTensorPtr spi
     // 创建spill搬出所需的DDR OP_COPY_OUT
     Operation &spillOutOp = function_.AddRawOperation(Opcode::OP_COPY_OUT, {spillTensor}, {ddrTensor});
     spillCopyoutOp = &spillOutOp;
-    UpdateOpAttr(spillOutOp, DEFAULT_LATENCY, spillTensor, offset, spillOp, workspaceOffsetTemp, spillInfo.isSpecialL1_);
+    UpdateOpAttr(spillOutOp, DEFAULT_LATENCY, spillTensor, offset, spillOp, workspaceOffsetTemp,
+        spillInfo.isSpecialL1_);
     if (spillInfo.spillOp_ != spillOp && spillTensor->GetMemoryTypeOriginal() == MemoryType::MEM_L0C) {
         // L0C_L1 上的 op_attr_scale_value 属性迁移至 L0C_COPY_OUT 上
         Element scaleValue = Element(DataType::DT_UINT64, 0);
@@ -1162,25 +1166,25 @@ Status OoOScheduler::GetSpillInfo(Operation* allocOp, int spillMemId, bool isGen
 }
 
 bool OoOScheduler::IsPartialWrite(const Operation &op) const
-  {
-      const auto opcode = op.GetOpcode();
-      if (opcode != Opcode::OP_ASSEMBLE && opcode != Opcode::OP_L0C_TO_L1) {
-          return false;
-      }
-      if (opcode == Opcode::OP_L0C_TO_L1 &&
-          Platform::Instance().GetSoc().GetNPUArch() == NPUArch::DAV_3510) {
-          return false;
-      }
-      const auto &inShape = op.GetInputOperand(0)->shape;
-      const auto &outShape = op.GetOutputOperand(0)->shape;
-      const size_t dims = std::min(inShape.size(), outShape.size());
-      for (size_t i = 0; i < dims; ++i) {
-          if (outShape[i] > inShape[i]) {
-              return true;
-          }
-      }
-      return false;
-  }
+{
+    const auto opcode = op.GetOpcode();
+    if (opcode != Opcode::OP_ASSEMBLE && opcode != Opcode::OP_L0C_TO_L1) {
+        return false;
+    }
+    if (opcode == Opcode::OP_L0C_TO_L1 &&
+        Platform::Instance().GetSoc().GetNPUArch() == NPUArch::DAV_3510) {
+        return false;
+    }
+    const auto &inShape = op.GetInputOperand(0)->shape;
+    const auto &outShape = op.GetOutputOperand(0)->shape;
+    const size_t dims = std::min(inShape.size(), outShape.size());
+    for (size_t i = 0; i < dims; ++i) {
+        if (outShape[i] > inShape[i]) {
+            return true;
+        }
+    }
+    return false;
+}
 
 Status OoOScheduler::SpillMultiBuffer(Operation* allocOp, std::vector<int> spillGroup, size_t &pcIdx,
     LocalBufferPtr allocBuffer, bool isGenSpill) {
