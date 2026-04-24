@@ -27,6 +27,15 @@ _MEMORY_SPACE_MAP: dict[str, MemorySpace] = {
     "Scaling": MemorySpace.Scaling,
 }
 
+_BUFFER_CLASS_NAMES = frozenset({
+    "NBuffer", "Buffer",
+    "UBBuffer", "UBNBuffer",
+    "L1Buffer", "L1NBuffer",
+    "L0ABuffer", "L0ANBuffer",
+    "L0BBuffer", "L0BNBuffer",
+    "L0CBuffer", "L0CNBuffer",
+})
+
 from .diagnostics import (
     InvalidOperationError,
     ParserSyntaxError,
@@ -120,6 +129,7 @@ class ASTParser:
         strict_ssa: bool = False,
         closure_vars: dict[str, Any] | None = None,
         auto_sync: bool = False,
+        auto_mutex: bool = False,
         npu_arch: str | None = None,
     ):
         """Initialize AST parser.
@@ -134,6 +144,7 @@ class ASTParser:
             strict_ssa: If True, enforce SSA (single assignment). If False (default), allow reassignment.
             closure_vars: Optional variables from the enclosing scope for dynamic shape resolution
             auto_sync: If True, automatically insert sync_src/sync_dst for cross-pipeline deps.
+            auto_mutex: If True, automatically insert mutex lock/unlock around buffer-managed tile ops.
             npu_arch: Target architecture string (e.g. ``"dav-2201"``, ``"a3"``, ``"dav-3510"``).
                 Used to determine whether same-pipeline syncs are needed.
         """
@@ -175,6 +186,8 @@ class ASTParser:
 
         # Counter for generating unique names in variable tuple index lowering
         self._tuple_idx_counter: int = 0
+        # Counter for anonymous buffer tile variables (auto-named _buf_tile_N).
+        self._buf_tile_counter: int = 0
 
         # Registry mapping variable names to their constant-integer-tuple values.
         # Populated when a simple assignment like `event_ids = (0, 1)` is parsed.
@@ -203,6 +216,8 @@ class ASTParser:
             )
         else:
             self.auto_sync = None
+
+        self._auto_mutex = auto_mutex
 
     def _validate_tiling_params(
         self, args_to_process: list[ast.arg], func_def: ast.FunctionDef,
@@ -725,6 +740,26 @@ class ASTParser:
                 tile_type = self._parse_tile_type_call(stmt.value)
                 self.scope_manager.define_python_var(var_name, tile_type, span=span)
                 return
+            # pl.NBuffer(...) / pl.Buffer(...) / pl.L1NBuffer(...) etc.
+            if (
+                isinstance(func, ast.Attribute)
+                and func.attr in _BUFFER_CLASS_NAMES
+                and isinstance(func.value, ast.Name)
+                and func.value.id == "pl"
+            ):
+                buf_obj = self._parse_buffer_descriptor_call(func.attr, stmt.value)
+                # Inject Python variable name for readable codegen tile names
+                from pypto_block.language.buffer import Buffer as _BufferCls, NBuffer as _NBufferCls
+                if isinstance(buf_obj, _BufferCls):
+                    buf_obj._var_name = var_name
+                elif isinstance(buf_obj, _NBufferCls):
+                    for i, slot in enumerate(buf_obj.slots):
+                        slot._var_name = f"{var_name}_{i}"
+                self.scope_manager.define_python_var(var_name, buf_obj, span=span)
+                # For multi-slot NBuffers, inject an IR struct to track the cursor
+                if isinstance(buf_obj, _NBufferCls) and buf_obj.num_slots > 1:
+                    self._inject_nbuffer_cursor_struct(var_name, buf_obj, span)
+                return
             # Delegate to struct / struct-array / yield helpers
             if self._parse_struct_assignment(var_name, stmt.value, span):
                 return
@@ -745,10 +780,20 @@ class ASTParser:
                 span=span,
                 hint="Inline functions used as expressions must return a value",
             )
+        # If parse_expression returned a non-IR Python object (e.g.
+        # BufferSlot from nbuf.current()), store as python_var rather
+        # than trying to emit an IR let-binding.
+        if not isinstance(value_expr, ir.Expr):
+            self.scope_manager.define_python_var(var_name, value_expr, span=span)
+            return
         ir_var_name = self._inline_prefix + var_name if self._inline_prefix else var_name
         var = self.builder.let(ir_var_name, value_expr, span=span)
         self.scope_manager.define_var(var_name, var, span=span)
         self._register_assignment_metadata(var_name, var, stmt)
+
+        # Auto-mutex: emit deferred mutex_unlock AFTER the assignment
+        if self._auto_mutex:
+            self._emit_auto_mutex_unlocks()
 
     def parse_assignment(self, stmt: ast.Assign) -> None:
         """Parse regular assignment: var = value or tuple unpacking.
@@ -1543,15 +1588,17 @@ class ASTParser:
                 
                 # Handle pl.section_vector() - creates SectionStmt
                 if func.attr == "section_vector":
+                    self._tuple_select_cache.clear()
                     with self.builder.section(ir.SectionKind.Vector, span):
                         self.scope_manager.enter_scope("section")
                         for body_stmt in stmt.body:
                             self.parse_statement(body_stmt)
                         self.scope_manager.exit_scope(leak_vars=False)
                     return
-                
+
                 # Handle pl.section_cube() - creates SectionStmt
                 if func.attr == "section_cube":
+                    self._tuple_select_cache.clear()
                     with self.builder.section(ir.SectionKind.Cube, span):
                         self.scope_manager.enter_scope("section")
                         for body_stmt in stmt.body:
@@ -1761,20 +1808,17 @@ class ASTParser:
         expr = self.parse_expression(stmt.value)
         span = self.span_tracker.get_span(stmt)
 
-        # Void inline functions return None — nothing to emit
-        if expr is None:
+        # Void inline functions or python_var method calls (e.g. nbuf.advance())
+        # return None or a non-IR sentinel — nothing to emit.
+        if expr is None or not isinstance(expr, ir.Expr):
             return
-
-        # Validate that we got an IR expression (not a list literal, etc.)
-        if not isinstance(expr, ir.Expr):
-            raise ParserSyntaxError(
-                f"Evaluation statement must be an IR expression, got {type(expr).__name__}",
-                span=span,
-                hint="Only function calls and operations can be used as standalone statements",
-            )
 
         # Emit EvalStmt using builder method
         self.builder.eval_stmt(expr, span)
+
+        # Auto-mutex: emit deferred mutex_unlock AFTER the op
+        if self._auto_mutex:
+            self._emit_auto_mutex_unlocks()
 
     def parse_expression(self, expr: ast.expr) -> ir.Expr:
         """Parse expression and return IR Expr.
@@ -2137,6 +2181,17 @@ class ASTParser:
             op_name = attrs[2]
             return self._parse_system_op(op_name, call)
 
+        # pl.mutex.{operation} (3-segment) — A5 Mutex buffer-id tokens
+        # Rewritten to ir_op.system.mutex_{lock,unlock} via the shared dispatcher.
+        if len(attrs) >= 3 and attrs[0] == "pl" and attrs[1] == "mutex":
+            op_name = "mutex_" + attrs[2]
+            return self._parse_system_op(op_name, call)
+
+        # pl.NBuffer(...) / pl.Buffer(...) / pl.L1NBuffer(...) etc.
+        # Declarative buffer descriptors (Python-level objects; not IR ops).
+        if len(attrs) == 2 and attrs[0] == "pl" and attrs[1] in _BUFFER_CLASS_NAMES:
+            return self._parse_buffer_descriptor_call(attrs[1], call)
+
         # pl.const(value, dtype) — typed constant literal
         if len(attrs) >= 2 and attrs[0] in ("pl", "plm") and attrs[1] == "const":
             return self._parse_typed_constant(call)
@@ -2157,6 +2212,12 @@ class ASTParser:
         if len(attrs) >= 2 and attrs[0] in ("pl", "plm") and attrs[1] not in ("tensor", "block", "system", "TileType"):
             op_name = attrs[1]
             return self._parse_unified_op(op_name, call)
+
+        # Fallback: method call on a python_var (e.g. q_l1_db.current()).
+        # Try evaluating the whole call via closure+scope and convert result.
+        result = self._try_eval_python_var_call_as_ir(call)
+        if result is not None:
+            return result
 
         raise UnsupportedFeatureError(
             f"Unsupported operation call: {ast.unparse(call)}",
@@ -2517,6 +2578,187 @@ class ASTParser:
 
         return TileType(**kwargs)
 
+    def _parse_buffer_descriptor_call(self, class_name: str, call: ast.Call) -> Any:
+        """Parse pl.NBuffer(...) / pl.Buffer(...) / pl.L1NBuffer(...) etc.
+
+        These are pure Python descriptors — not IR operations. All kwargs
+        (shape, dtype, memory, base_addr, buf_ids, ...) are Python literals
+        or closure constants, so we evaluate them via closure rather than
+        through the IR-expression path (which would convert tuples into
+        MakeTuple nodes, for example).
+        """
+        import pypto_block.language.buffer as _buf_mod
+
+        cls = getattr(_buf_mod, class_name, None)
+        if cls is None:
+            raise ParserSyntaxError(
+                f"Unknown buffer class: pl.{class_name}",
+                span=self.span_tracker.get_span(call),
+            )
+
+        call_span = self.span_tracker.get_span(call)
+
+        # Resolve positional args (canndsl convention: base_addr, dtype).
+        pos_args = []
+        for arg in call.args:
+            try:
+                pos_args.append(self.expr_evaluator.eval_expr(arg))
+            except Exception:
+                # dtype may need type_resolver
+                try:
+                    pos_args.append(self.type_resolver.resolve_dtype(arg))
+                except Exception as exc2:
+                    raise ParserTypeError(
+                        f"pl.{class_name}() positional arg must be a static value: {exc2}",
+                        span=self.span_tracker.get_span(arg),
+                    ) from exc2
+
+        kwargs: dict[str, Any] = {}
+        for kw in call.keywords:
+            if kw.arg is None:
+                raise ParserSyntaxError(
+                    f"pl.{class_name}() does not support **kwargs",
+                    span=call_span,
+                )
+            # Dtype needs the type-resolver path so pl.FP16 / pl.FP32 resolve
+            # correctly; everything else is a plain Python value.
+            if kw.arg == "dtype":
+                kwargs[kw.arg] = self.type_resolver.resolve_dtype(kw.value)
+                continue
+            try:
+                kwargs[kw.arg] = self.expr_evaluator.eval_expr(kw.value)
+            except Exception as exc:
+                raise ParserTypeError(
+                    f"pl.{class_name}() kwarg '{kw.arg}' must be a static "
+                    f"Python value (constant, tuple, enum, ...): {exc}",
+                    span=self.span_tracker.get_span(kw.value),
+                ) from exc
+
+        return cls(*pos_args, **kwargs)
+
+    def _inject_nbuffer_cursor_struct(self, var_name: str, nbuf, span: ir.Span) -> None:
+        """Inject an IR struct to track the auto-rotate cursor for a multi-slot NBuffer.
+
+        Emits ``struct.declare`` + ``struct.set`` for the cursor field (init 0),
+        and stores the struct name on the NBuffer object for later use by
+        :meth:`_parse_nbuffer_method_call`.
+        """
+        struct_name = f"_nbuf_{var_name}_ctx"
+        # Create _StructVar for scope tracking (cursor field is managed
+        # entirely by struct.get/set — no separate IR variable needed).
+        struct_var = _StructVar({"cursor": None}, name=struct_name)
+        self.scope_manager.define_python_var(struct_name, struct_var, span=span)
+
+        # Emit struct.declare
+        decl_call = ir.create_op_call(
+            "struct.declare", [],
+            {"array": struct_name, "size": 1, "fields": "cursor"},
+            span,
+        )
+        self.builder.emit(ir.EvalStmt(decl_call, span))
+        # No struct.set needed — cursor init is 0 (default)
+
+        # Also materialize tile tuple as an IR MakeTuple so tuple-index works.
+        tile_exprs = []
+        for slot in nbuf.slots:
+            managed = slot.tile  # _TileRef
+            tile_exprs.append(managed.unwrap())
+        tile_tuple_expr = ir.MakeTuple(tile_exprs, span)
+        tile_tuple_var = self.builder.let(f"_nbuf_{var_name}_tiles", tile_tuple_expr, span=span)
+
+        # Store metadata on the NBuffer for _parse_nbuffer_method_call
+        nbuf._ir_struct_name = struct_name
+        nbuf._ir_tile_tuple_var = tile_tuple_var
+        nbuf._ir_tile_tuple_size = nbuf.num_slots
+
+    def _parse_nbuffer_method_call(self, nbuf, method_name: str, call: ast.Call, span: ir.Span):
+        """Generate IR for ``nbuf.current()`` / ``nbuf.previous()`` with auto-rotate.
+
+        For ``current()``:
+          1. cursor = struct.get(_cursor)
+          2. buf_idx = cursor % num_slots
+          3. tile = tiles[buf_idx]  (if-else chain)
+          4. struct.set(_cursor, cursor + 1)  (advance for next call)
+          5. Return BufferSlot(tile=_TileRef(tile_ir, buf_id_ir), buf_id=buf_id_ir)
+
+        For ``previous()``:
+          1. cursor = struct.get(_cursor)
+          2. buf_idx = (cursor - 1) % num_slots
+          3. tile = tiles[buf_idx]
+          4. No cursor advance
+          5. Return BufferSlot
+        """
+        from pypto_block.language.buffer import BufferSlot, _TileRef
+
+        struct_name = nbuf._ir_struct_name
+        tile_tuple_var = nbuf._ir_tile_tuple_var
+        n_slots = nbuf._ir_tile_tuple_size
+
+        # Read cursor from struct.
+        # Note: keep as a raw Call — PTO codegen emits memref.load each time
+        # it encounters this expression. Do NOT let-bind: PTO's AssignStmt
+        # handler for backend ops doesn't register non-tile variable mappings.
+        idx_zero = ir.ConstInt(0, DataType.INDEX, span)
+        cursor_expr = ir.create_op_call(
+            "struct.get", [idx_zero],
+            {"array": struct_name, "field": "cursor"}, span,
+        )
+
+        # Compute buf_idx
+        n_const = ir.ConstInt(n_slots, DataType.INDEX, span)
+        if method_name == "current":
+            buf_idx_raw = ir.create_op_call(
+                "arith.mod", [cursor_expr, n_const], {}, span,
+            ) if n_slots > 2 else (cursor_expr % n_const)
+        else:  # previous
+            one = ir.ConstInt(1, DataType.INDEX, span)
+            shifted = cursor_expr - one
+            # For 2-slot: (cursor - 1) % 2 ≡ cursor + 1 mod 2 ≡ 1 - cursor%2
+            buf_idx_raw = shifted % n_const
+
+        # Snapshot buf_idx into a let-bound Var BEFORE the cursor advance below.
+        # This decouples the tile-selection index from the advance, so codegen
+        # emits `bufidx = cursor % N; cursor = cursor + 1; ... use arr[bufidx]`
+        # rather than advancing the cursor before any use reads `cursor % N`.
+        buf_idx_name = f"_bufidx_{self._tuple_idx_counter}"
+        self._tuple_idx_counter += 1
+        buf_idx_expr = self.builder.let(buf_idx_name, buf_idx_raw, span=span)
+
+        # Build tuple-index if-else chain for tile selection
+        elem_type = tile_tuple_var.type.fields[0] if hasattr(tile_tuple_var.type, 'fields') else None
+        if elem_type is None:
+            # Fallback: get type from the first tile
+            elem_type = ir.TupleGetItemExpr(tile_tuple_var, 0, span).type
+
+        tile_ir = self._build_tuple_index_chain(
+            tile_tuple_var, buf_idx_expr, elem_type, n_slots, 0, span,
+        )
+
+        # Build buf_id selection only when NBuffer has buf_ids (Mutex sync enabled)
+        buf_id_ir = None
+        if nbuf.has_buf_ids:
+            buf_id_exprs = [ir.ConstInt(bid, DataType.INDEX, span) for bid in nbuf.buf_ids]
+            buf_id_tuple = ir.MakeTuple(buf_id_exprs, span)
+            buf_id_ir = self._build_tuple_index_chain(
+                buf_id_tuple, buf_idx_expr, ir.ScalarType(DataType.INDEX), n_slots, 0, span,
+            )
+
+        # For current(): advance cursor (struct.set cursor = cursor + 1)
+        if method_name == "current":
+            one = ir.ConstInt(1, DataType.INDEX, span)
+            next_cursor = cursor_expr + one
+            set_call = ir.create_op_call(
+                "struct.set", [idx_zero, next_cursor],
+                {"array": struct_name, "field": "cursor"}, span,
+            )
+            self.builder.emit(ir.EvalStmt(set_call, span))
+
+        # Return a BufferSlot with dynamic tile + optional buf_id
+        slot_memory = nbuf.slots[0].spec.memory if nbuf.slots else None
+        buf_id_values = nbuf.buf_ids if nbuf.has_buf_ids else None
+        managed_tile = _TileRef(tile_ir, buf_id_ir, buf_id_values=buf_id_values, memory=slot_memory)
+        return BufferSlot(managed_tile, buf_id_ir)
+
     def _parse_struct_call(self, call: ast.Call, struct_name: str = "") -> _StructVar:
         """Parse pl.struct(field1=val1, field2=val2, ...) into a _StructVar.
 
@@ -2728,6 +2970,12 @@ class ASTParser:
         Returns:
             IR expression from system operation
         """
+        # Mutex ops take positional (pipe, mutex_id) but pipe must be resolved
+        # as a Python PipeType enum rather than an IR expression — so we use
+        # kwarg-style resolution for the positional args.
+        if op_name in ("mutex_lock", "mutex_unlock"):
+            return self._parse_mutex_op(op_name, call)
+
         args = [self.parse_expression(arg) for arg in call.args]
         kwargs = self._parse_op_kwargs(call)
 
@@ -2784,6 +3032,7 @@ class ASTParser:
             span=call_span,
         )
 
+
     def _parse_printf_op(self, call: ast.Call, call_span: ir.Span) -> ir.Expr:
         """Parse printf debug operation."""
         if call.keywords:
@@ -2807,6 +3056,113 @@ class ASTParser:
 
         args = [self.parse_expression(arg) for arg in call.args[1:]]
         return ir_op.debug.printf(format_node.value, *args, span=call_span)
+
+
+    def _parse_mutex_op(self, op_name: str, call: ast.Call) -> ir.Expr:
+        """Parse pl.mutex.lock / pl.mutex.unlock.
+
+        Supports two forms:
+            pl.mutex.lock(pl.PipeType.MTE2, 0)            # positional
+            pl.mutex.lock(pipe=pl.PipeType.MTE2, mutex_id=0)  # keyword
+
+        The first positional arg (pipe) is always resolved via the closure
+        (must be a static PipeType enum). The second positional arg
+        (mutex_id) is resolved as a Python int when it is a constant, or as
+        an IR Expr (for dynamic buf_id tuple subscripts) otherwise.
+        """
+        call_span = self.span_tracker.get_span(call)
+        op_func = getattr(ir_op.system, op_name)
+
+        # Collect pipe and mutex_id from either positional or keyword args.
+        pipe_val = None
+        mutex_id_val = None
+        extra_kwargs: dict[str, Any] = {}
+
+        positional = list(call.args)
+        if len(positional) >= 1:
+            pipe_val = self._resolve_mutex_pipe_arg(positional[0])
+        if len(positional) >= 2:
+            mutex_id_val = self._resolve_mutex_id_arg(positional[1])
+        if len(positional) > 2:
+            raise ParserSyntaxError(
+                f"pl.mutex.{op_name.split('_', 1)[1]} takes at most 2 positional "
+                f"arguments (pipe, mutex_id), got {len(positional)}",
+                span=call_span,
+            )
+
+        for kw in call.keywords:
+            if kw.arg == "pipe":
+                pipe_val = self._resolve_mutex_pipe_arg(kw.value)
+            elif kw.arg == "mutex_id":
+                mutex_id_val = self._resolve_mutex_id_arg(kw.value)
+            else:
+                extra_kwargs[kw.arg] = self._resolve_single_kwarg(kw.arg, kw.value)
+
+        if pipe_val is None:
+            raise ParserSyntaxError(
+                f"pl.mutex.{op_name.split('_', 1)[1]} missing required argument 'pipe'",
+                span=call_span,
+            )
+        if mutex_id_val is None:
+            raise ParserSyntaxError(
+                f"pl.mutex.{op_name.split('_', 1)[1]} missing required argument 'mutex_id'",
+                span=call_span,
+            )
+
+        return op_func(pipe_val, mutex_id_val, span=call_span, **extra_kwargs)
+
+    def _resolve_mutex_pipe_arg(self, node: ast.expr):
+        """Resolve a ``pipe`` argument to a static PipeType enum.
+
+        Uses closure eval (not parse_expression) because PipeType is a
+        Python-level constant, not an IR value.
+        """
+        try:
+            return self.expr_evaluator.eval_expr(node)
+        except Exception as exc:
+            raise ParserTypeError(
+                f"pl.mutex.lock/unlock 'pipe' must be a static PipeType enum: {exc}",
+                span=self.span_tracker.get_span(node),
+                hint="Pass e.g. pl.PipeType.MTE2",
+            ) from exc
+
+    def _resolve_mutex_id_arg(self, node: ast.expr):
+        """Resolve a ``mutex_id`` argument.
+
+        Returns an int when the AST is a constant, otherwise an IR Expr for
+        the dynamic variant (e.g. tuple subscript ``buf_ids[buf_idx]``).
+        """
+        if isinstance(node, ast.Constant) and isinstance(node.value, int):
+            return node.value
+        if isinstance(node, ast.UnaryOp) and isinstance(node.op, ast.USub):
+            if isinstance(node.operand, ast.Constant) and isinstance(node.operand.value, int):
+                return -node.operand.value
+        # Try closure eval augmented with python_vars (for cur.buf_id etc).
+        root = node
+        while isinstance(root, (ast.Attribute, ast.Subscript, ast.Call)):
+            if isinstance(root, ast.Call):
+                root = root.func
+            else:
+                root = root.value
+        if isinstance(root, ast.Name):
+            py_obj = self.scope_manager.get_python_var(root.id)
+            if py_obj is not None:
+                saved = self.expr_evaluator.closure_vars
+                try:
+                    augmented = dict(saved)
+                    augmented[root.id] = py_obj
+                    self.expr_evaluator.closure_vars = augmented
+                    ok, val = self.expr_evaluator.try_eval_expr(node)
+                    if ok and isinstance(val, int):
+                        return val
+                finally:
+                    self.expr_evaluator.closure_vars = saved
+        # Try plain closure eval.
+        ok, val = self.expr_evaluator.try_eval_expr(node)
+        if ok and isinstance(val, int):
+            return val
+        return self.parse_expression(node)
+
 
     def _parse_debug_op(self, op_name: str, call: ast.Call) -> ir.Expr:
         """Parse debug operation."""
@@ -2980,6 +3336,113 @@ class ASTParser:
         kwargs = self._parse_op_kwargs(call)
         return ir.create_op_call(f"vf.{op_name}", args, kwargs, span)
 
+    # --- auto_mutex helpers ---------------------------------------------------
+
+    def _try_resolve_tileref(self, node: ast.expr):
+        """Try to resolve an AST node to a _TileRef without unwrapping to IR.
+
+        Handles: ``cur.tile``, ``buf.tile``, ``nbuf.slots[i].tile``,
+        and direct _TileRef references in closure/scope.
+        Returns _TileRef or None.
+        """
+        from pypto_block.language.buffer import _TileRef
+        # Walk to root Name to check python_var / closure
+        root = node
+        while isinstance(root, (ast.Attribute, ast.Subscript)):
+            root = root.value
+        if not isinstance(root, ast.Name):
+            return None
+
+        # Check scope python_var
+        py_obj = self.scope_manager.get_python_var(root.id)
+        if py_obj is not None:
+            saved = self.expr_evaluator.closure_vars
+            try:
+                augmented = dict(saved)
+                augmented[root.id] = py_obj
+                self.expr_evaluator.closure_vars = augmented
+                ok, val = self.expr_evaluator.try_eval_expr(node)
+                if ok and isinstance(val, _TileRef):
+                    return val
+            finally:
+                self.expr_evaluator.closure_vars = saved
+            return None
+
+        # Check closure
+        ok, val = self.expr_evaluator.try_eval_expr(node)
+        if ok and isinstance(val, _TileRef):
+            return val
+        return None
+
+    def _resolve_auto_mutex_pipe(self, op_name: str, tilerefs: list):
+        """Determine the pipe for auto_mutex from op_name and tile memory spaces."""
+        from pypto_block.frontend.sync_tracker.op_metadata import (
+            _OP_TO_PIPE, get_move_pipe, get_store_pipe,
+        )
+        if op_name == "move":
+            # move(dst, src) → DSL arg0=dst, arg1=src
+            dst_mem = tilerefs[0]._memory if tilerefs[0] else None
+            src_mem = tilerefs[1]._memory if len(tilerefs) > 1 and tilerefs[1] else None
+            if src_mem is not None and dst_mem is not None:
+                return get_move_pipe(src_mem, dst_mem)
+        if op_name in ("store", "store_tile"):
+            # store(tensor, tile, offsets) → DSL arg1=tile (the source)
+            src_mem = tilerefs[1]._memory if len(tilerefs) > 1 and tilerefs[1] else None
+            if src_mem is not None:
+                return get_store_pipe(src_mem)
+        return _OP_TO_PIPE.get(op_name)
+
+    def _emit_auto_mutex(self, op_name: str, call: ast.Call, span: ir.Span):
+        """Emit mutex_lock before and mutex_unlock after a manual op.
+
+        Scans call.args for _TileRef-backed tiles, determines the op pipe,
+        and emits lock/unlock for each unique _TileRef.
+        Returns None — the caller still parses the op normally.
+        """
+        from pypto_block.ir.op.system_ops import mutex_lock, mutex_unlock
+
+        # 1. Scan args for _TileRef objects (before parse_expression)
+        tilerefs = [self._try_resolve_tileref(arg) for arg in call.args]
+        unique_refs = []
+        seen = set()
+        for tref in tilerefs:
+            if tref is None or not tref.has_buf_id:
+                continue
+            key = id(tref)
+            if key in seen:
+                continue
+            seen.add(key)
+            unique_refs.append(tref)
+
+        if not unique_refs:
+            return
+
+        # 2. Determine pipe
+        pipe = self._resolve_auto_mutex_pipe(op_name, tilerefs)
+        if pipe is None:
+            return
+
+        # 3. Emit lock for each unique _TileRef
+        for tref in unique_refs:
+            lock_expr = mutex_lock(pipe, tref._buf_id, buf_id_values=tref._buf_id_values, span=span)
+            self.builder.emit(ir.EvalStmt(lock_expr, span))
+
+        # Store for post-op unlock emission
+        self._pending_mutex_unlocks = (unique_refs, pipe, span)
+
+    def _emit_auto_mutex_unlocks(self):
+        """Emit mutex_unlock calls queued by _emit_auto_mutex."""
+        if not hasattr(self, "_pending_mutex_unlocks") or self._pending_mutex_unlocks is None:
+            return
+        from pypto_block.ir.op.system_ops import mutex_unlock
+
+        unique_refs, pipe, span = self._pending_mutex_unlocks
+        for tref in unique_refs:
+            unlock_expr = mutex_unlock(pipe, tref._buf_id, buf_id_values=tref._buf_id_values, span=span)
+            self.builder.emit(ir.EvalStmt(unlock_expr, span))
+        self._pending_mutex_unlocks = None
+
+
     def _parse_manual_op(self, op_name: str, call: ast.Call) -> ir.Expr:
         """Parse a manual (non-SSA) operation call: plm.{op_name}(..., dst=tile).
 
@@ -3017,17 +3480,25 @@ class ASTParser:
         if self.auto_sync is not None:
             self.auto_sync.emit_forward_syncs(op_name, call, span)
 
+        # Auto-mutex: emit mutex_lock before op (and queue unlock for after)
+        if self._auto_mutex:
+            self._emit_auto_mutex(op_name, call, span)
+
         args = [self.parse_expression(arg) for arg in call.args]
         kwargs = self._parse_op_kwargs(call)
         # Dispatch to ir_op.manual.<op_name> when a handler exists.
         if hasattr(ir_op.manual, op_name):
             op_func = getattr(ir_op.manual, op_name)
-            return op_func(*args, **kwargs, span=span)
+            result = op_func(*args, **kwargs, span=span)
+        else:
+            # first args is out, we need push out from first to last when create op
+            result = ir.create_op_call(
+                f"manual.{op_name}", args[1:] + args[0:1], kwargs, span
+            )
 
-        # first args is out, we need push out from first to last when create op
-        result_expr = ir.create_op_call(
-            f"manual.{op_name}", args[1:] + args[0:1], kwargs, span
-        )
+        # Auto-mutex unlocks are deferred — emitted by parse_evaluation_statement
+        # AFTER the op's EvalStmt is emitted, to ensure correct IR ordering:
+        #   mutex_lock → op → mutex_unlock
 
         # Do NOT rebind the dst variable in scope.  The tile Var created by
         # make_tile remains the canonical buffer handle for the whole kernel;
@@ -3036,7 +3507,7 @@ class ASTParser:
         # to a Call rather than a Var, breaking GetExprAsCode lookups in the
         # PTO backend (which expects Var nodes for tile arguments).
 
-        return result_expr
+        return result
 
     # Maps unified op names to the scalar variant for block ops.
     # Only binary arithmetic ops have scalar auto-dispatch.
@@ -3396,6 +3867,15 @@ class ASTParser:
         compound_result = self._parse_struct_array_compound_attribute(attr, span)
         if compound_result is not None:
             return compound_result
+
+        # Generic fallback: try evaluating the whole attribute chain via
+        # closure (augmented with python_vars from scope) and convert the
+        # result to IR. Supports Buffer/NBuffer python_var attribute access
+        # like nbuf.slots[0].tile or nbuf.buf_ids[0].
+        ir_result = self._try_eval_python_var_attr_as_ir(attr, span)
+        if ir_result is not None:
+            return ir_result
+
         raise UnsupportedFeatureError(
             f"Standalone attribute access not supported: {ast.unparse(attr)}",
             span=span,
@@ -3403,8 +3883,150 @@ class ASTParser:
                          "or within function calls",
         )
 
+    def _try_eval_python_var_attr_as_ir(self, node: ast.expr, span: ir.Span):
+        """Try to evaluate an attribute/subscript chain rooted at a python_var.
+
+        When the root Name of an attribute chain (e.g. ``nbuf`` in
+        ``nbuf.slots[0].tile``) is a python_var stored in scope_manager,
+        we temporarily inject it into the expr_evaluator's closure and
+        eval the whole expression.  The resulting Python value is then
+        converted to an IR Expr via ``python_value_to_ir``.
+
+        Returns an ir.Expr on success, None if the root is not a python_var
+        or evaluation fails.
+        """
+        # First try via scope python_vars (kernel-internal NBuffer etc.)
+        result = self._eval_with_python_vars(node, span)
+        if result is not None:
+            return result
+        # Also try plain closure eval (external Buffer/NBuffer declarations).
+        # First try raw eval to check for _TileRef cache.
+        from pypto_block.language.buffer import _TileRef as _MT
+        ok, raw_val = self.expr_evaluator.try_eval_expr(node)
+        if ok:
+            if isinstance(raw_val, _MT) and raw_val._ir_var is not None:
+                return raw_val._ir_var
+            try:
+                result = self.expr_evaluator.python_value_to_ir(raw_val, span)
+                result = self._ensure_tile_has_var(result, span,
+                    tileref=raw_val if isinstance(raw_val, _MT) else None)
+                if isinstance(raw_val, _MT) and isinstance(result, ir.Var):
+                    raw_val._ir_var = result
+                return result
+            except Exception:
+                pass
+        return None
+
+    def _try_eval_python_var_call_as_ir(self, node: ast.Call):
+        """Try to evaluate a call rooted at a python_var (e.g. ``nbuf.current()``).
+
+        Returns an ir.Expr on success. Returns a raw Python object (e.g.
+        BufferSlot) when the result is not IR-convertible — the caller
+        (parse_assignment) stores it as python_var. Returns the sentinel
+        ``True`` for void calls (advance()). Returns None only if the
+        root is not a python_var or evaluation fails entirely.
+        """
+        # Intercept NBuffer.current() / .previous() with IR cursor struct.
+        from pypto_block.language.buffer import NBuffer as _NBufferCls
+        if isinstance(node.func, ast.Attribute) and node.func.attr in ("current", "previous"):
+            if isinstance(node.func.value, ast.Name):
+                obj_name = node.func.value.id
+                nbuf = self.scope_manager.get_python_var(obj_name)
+                if isinstance(nbuf, _NBufferCls) and hasattr(nbuf, "_ir_struct_name"):
+                    span = self.span_tracker.get_span(node)
+                    return self._parse_nbuffer_method_call(
+                        nbuf, node.func.attr, node, span,
+                    )
+
+        span = self.span_tracker.get_span(node)
+        return self._eval_with_python_vars(node, span, allow_raw=True)
+
+    def _eval_with_python_vars(self, node: ast.expr, span: ir.Span, *, allow_raw: bool = False):
+        """Evaluate ``node`` with scope python_vars injected into the closure.
+
+        Returns an ir.Expr on success, None if the root Name is not a
+        python_var or evaluation/conversion fails. When ``allow_raw`` is True,
+        returns raw Python objects that cannot be IR-converted (e.g. BufferSlot),
+        and returns ``True`` (as a sentinel) for void results (Python None).
+        """
+        # Walk to the root Name.
+        root = node
+        while isinstance(root, (ast.Attribute, ast.Subscript, ast.Call)):
+            if isinstance(root, ast.Call):
+                root = root.func
+            else:
+                root = root.value
+        if not isinstance(root, ast.Name):
+            return None
+
+        py_obj = self.scope_manager.get_python_var(root.id)
+        if py_obj is None:
+            return None
+
+        saved = self.expr_evaluator.closure_vars
+        try:
+            augmented = dict(saved)
+            augmented[root.id] = py_obj
+            self.expr_evaluator.closure_vars = augmented
+            ok, value = self.expr_evaluator.try_eval_expr(node)
+            if not ok:
+                return None
+            # Void call (e.g. advance()) — signal the caller to skip emission.
+            if value is None and allow_raw:
+                return True  # sentinel: "eval succeeded, nothing to emit"
+            try:
+                # If value is a _TileRef with a cached IR Var, reuse it.
+                from pypto_block.language.buffer import _TileRef as _MT
+                if isinstance(value, _MT) and value._ir_var is not None:
+                    return value._ir_var
+
+                result = self.expr_evaluator.python_value_to_ir(value, span)
+                # Wrap anonymous tile Call nodes in a let-binding so that
+                # CCE codegen can resolve them to C++ variable names.
+                result = self._ensure_tile_has_var(result, span,
+                    tileref=value if isinstance(value, _MT) else None)
+
+                # Cache the IR Var on the _TileRef for future reuse.
+                if isinstance(value, _MT) and isinstance(result, ir.Var):
+                    value._ir_var = result
+
+                return result
+            except Exception:
+                return value if allow_raw else None
+        except Exception:
+            return None
+        finally:
+            self.expr_evaluator.closure_vars = saved
+
+    def _ensure_tile_has_var(self, expr, span: ir.Span, tileref=None):
+        """Wrap an anonymous tile ``ir.Call`` in a ``builder.let`` binding.
+
+        CCE codegen resolves tile names via ``context_.GetVarName(Var)``.
+        When a tile comes from ``_TileRef.unwrap()`` or closure eval, it
+        may be a bare ``ir.Call("block.make_tile", ...)`` that was never
+        assigned to a variable — producing an empty name in the generated C++.
+
+        This method detects that case and emits a let-binding so the tile
+        gets a proper IR variable name. If ``tileref`` has a ``_var_name``,
+        uses that for readability; otherwise falls back to ``_buf_tile_N``.
+        """
+        if not isinstance(expr, ir.Expr):
+            return expr
+        # Only wrap Call nodes that produce a TileType and are NOT already Vars.
+        if isinstance(expr, ir.Var):
+            return expr
+        if isinstance(expr, ir.Call) and isinstance(expr.type, ir.TileType):
+            if tileref is not None and getattr(tileref, '_var_name', None):
+                name = tileref._var_name
+            else:
+                name = f"_buf_tile_{self._buf_tile_counter}"
+                self._buf_tile_counter += 1
+            return self.builder.let(name, expr, span=span)
+        return expr
+
     def parse_list(self, list_node: ast.List) -> ir.MakeTuple:
         """Parse list literal into MakeTuple IR expression.
+
 
         Args:
             list_node: List AST node

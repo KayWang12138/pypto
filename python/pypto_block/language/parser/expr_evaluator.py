@@ -134,6 +134,11 @@ class ExprEvaluator:
             return ir.ConstFloat(value, DataType.DEFAULT_CONST_FLOAT, span)
         if isinstance(value, ir.Expr):
             return value
+        # Tile wrapper — unwrap to the underlying IR Call expression.
+        if hasattr(value, "unwrap") and callable(value.unwrap):
+            inner = value.unwrap()
+            if isinstance(inner, ir.Expr):
+                return inner
         if isinstance(value, DynVar):
             return ir.Var(value.name, ir.ScalarType(DataType.INDEX), span)
         if isinstance(value, (list, tuple)):

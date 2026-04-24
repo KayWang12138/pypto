@@ -149,5 +149,63 @@ REGISTER_OP("system.sync_all")
     .set_attr<int>("wait_pipe")
     .f_deduce_type(DeduceUnknownType);
 
+// ============================================================================
+// Mutex (Buffer-ID Token) Ops — A5 only
+// ----------------------------------------------------------------------------
+// Acquire/release a Mutex buffer-id token for a given pipe. Used as an
+// alternative to event-id based sync_src/sync_dst pairs on A5. Lowered to
+// pto.get_buf / pto.rls_buf in the PTO backend codegen.
+// Semantics:
+//   - Lock<pipe>(id): blocks current pipe instruction queue until the token
+//     `id` is released.
+//   - Unlock<pipe>(id): releases the token after prior instructions on the
+//     given pipe drain.
+// Valid mutex_id range: 0-31 (per Ascend C Mutex ISASI spec).
+// ============================================================================
+
+// Register system.mutex_lock (Mutex::Lock, A5)
+// Attributes: pipe, mutex_id, mode
+REGISTER_OP("system.mutex_lock")
+    .set_description("Acquire Mutex buffer-id token (A5)")
+    .set_op_category("SyncOp")
+    .no_argument()
+    .set_attr<int>("pipe")
+    .set_attr<int>("mutex_id")
+    .set_attr<int>("mode")
+    .f_deduce_type(DeduceUnknownType);
+
+// Register system.mutex_unlock (Mutex::Unlock, A5)
+// Attributes: pipe, mutex_id, mode
+REGISTER_OP("system.mutex_unlock")
+    .set_description("Release Mutex buffer-id token (A5)")
+    .set_op_category("SyncOp")
+    .no_argument()
+    .set_attr<int>("pipe")
+    .set_attr<int>("mutex_id")
+    .set_attr<int>("mode")
+    .f_deduce_type(DeduceUnknownType);
+
+// Register system.mutex_lock_dyn (Mutex::Lock with dynamic mutex_id, A5)
+REGISTER_OP("system.mutex_lock_dyn")
+    .set_description("Acquire Mutex buffer-id token with dynamic ID (A5)")
+    .set_op_category("SyncOp")
+    .add_argument("mutex_id", "Dynamic Mutex ID (ScalarType INDEX)")
+    .set_attr<int>("pipe")
+    .set_attr<int>("mode")
+    .set_attr<int>("max_mutex_id")
+    .set_attr<std::vector<int>>("buf_id_values")
+    .f_deduce_type(DeduceUnknownType);
+
+// Register system.mutex_unlock_dyn (Mutex::Unlock with dynamic mutex_id, A5)
+REGISTER_OP("system.mutex_unlock_dyn")
+    .set_description("Release Mutex buffer-id token with dynamic ID (A5)")
+    .set_op_category("SyncOp")
+    .add_argument("mutex_id", "Dynamic Mutex ID (ScalarType INDEX)")
+    .set_attr<int>("pipe")
+    .set_attr<int>("mode")
+    .set_attr<int>("max_mutex_id")
+    .set_attr<std::vector<int>>("buf_id_values")
+    .f_deduce_type(DeduceUnknownType);
+
 }  // namespace ir
 }  // namespace pypto

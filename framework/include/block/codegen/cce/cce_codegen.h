@@ -178,6 +178,14 @@ class CCECodegen : public CodegenBase {
    */
   std::string GetOrCreateStructType(const std::string& fields_csv, const std::string& hint_name);
 
+  /**
+   * @brief Check whether a PIPE_V mutex lock/unlock should be skipped.
+   *
+   * Returns true (skip) when arch is A5, pipe is PIPE_V, and all buf_ids
+   * in the vector are only used by PIPE_V (no cross-pipe synchronization needed).
+   */
+  bool ShouldSkipVPipeMutex(ir::PipeType pipe, const std::vector<int>& buf_ids) const;
+
  protected:
   // Override visitor methods for code generation - Statements
   void VisitStmt_(const ir::AssignStmtPtr& op) override;
@@ -569,6 +577,43 @@ class CCECodegen : public CodegenBase {
   std::set<std::string> vf_ptr_vars_;         ///< Variable names that are __ubuf__ pointers in VF scope
   std::map<std::string, std::string> vf_post_update_ptrs_;  ///< tile_name → declared POST_UPDATE pointer var
   std::vector<std::string> loop_hoisted_decls_;  ///< Lines to hoist before outermost loop/if
+  std::vector<std::string> cross_section_decls_;  ///< Decls needed by both Cube and Vec sections
+  std::set<std::string> buf_id_var_names_;  ///< Var names used as runtime buf_id (Mutex)
+  std::set<std::string> var_read_names_;    ///< Var names read anywhere in the function body
+  std::unordered_map<std::string, int> var_read_counts_;  ///< Var name → read count
+  std::map<int, std::set<ir::PipeType>> cube_mutex_pipes_;  ///< buf_id → pipes in Cube section
+  std::map<int, std::set<ir::PipeType>> vec_mutex_pipes_;   ///< buf_id → pipes in Vec section
+
+  /**
+   * @brief Pre-scan the IR for Var names used as runtime buf_id (Mutex).
+   *
+   * A runtime buf_id is the first argument of ``system.mutex_lock_dyn`` or
+   * ``system.mutex_unlock_dyn``. The N-way optimizer uses the result to emit
+   * ``uint8_t``/``_bid_`` arrays for these Vars instead of ``event_t``/``_eid_``
+   * arrays, avoiding semantic confusion with event_id arrays.
+   */
+  void CollectBufIdVarNames(const ir::StmtPtr& stmt, std::set<std::string>& out) const;
+
+  /**
+   * @brief Pre-scan the IR for mutex_id → pipe mappings.
+   *
+   * Used on A5 to eliminate redundant PIPE_V get_buf/rls_buf: if a buf_id is
+   * only used by PIPE_V (never by MTE2/MTE3/M/etc.), the V-side mutex
+   * synchronization is unnecessary (V→V ops execute in order within the pipe).
+   */
+  void CollectMutexPipeInfo(const ir::StmtPtr& stmt);
+
+  /**
+   * @brief Pre-scan the IR for all Var names appearing in read positions
+   * (Call args, Yield values, AssignStmt/ReturnStmt values, subscripts, etc.).
+   *
+   * Used to drop IfStmt phi return_vars that have no downstream consumer —
+   * the SSA pass conservatively inserts phi nodes whenever a variable is
+   * re-assigned across control flow, but if the resulting phi var is never
+   * read afterwards, EmitFullPhiIf would emit a dead declaration and
+   * unused branch assignments.
+   */
+  void CollectVarReadNames(const ir::StmtPtr& stmt, std::set<std::string>& out) const;
 
   // EventId array deduplication: maps (val0, val1) → EventId variable name (2-way)
   std::map<std::pair<int64_t, int64_t>, std::string> event_id_decls_;
@@ -593,6 +638,21 @@ class CCECodegen : public CodegenBase {
 
   /// Track emitted tile reference aliases to avoid C++ redefinition errors
   std::set<std::string> emitted_tile_aliases_;
+
+  // BufferSlot optimization: merge NBuffer tile+bid arrays into struct arrays
+  struct PendingTileNWay {
+    std::string index_expr;
+    std::string arr_name;
+    std::string tile_type_str;
+    std::vector<std::string> tile_vals;
+    ir::VarPtr return_var;
+    std::string dedup_key;
+  };
+  std::optional<PendingTileNWay> pending_tile_nway_;
+  bool buffer_slot_struct_emitted_ = false;
+  std::set<std::string> buffer_slot_decls_emitted_;  ///< dedup for BufferSlot array decls
+
+  void FlushPendingTileNWay();
 };
 
 }  // namespace codegen

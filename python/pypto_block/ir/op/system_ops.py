@@ -195,3 +195,87 @@ def sync_all(
     }
     actual_span = _get_span_or_capture(span)
     return _ir_core.create_op_call("system.sync_all", [], kwargs, actual_span)
+
+
+# ============================================================================
+# Mutex (Buffer-ID Token) — A5 only
+# ----------------------------------------------------------------------------
+# Alternative to event-id based sync_src/sync_dst: uses a buffer-id token
+# (MutexID, range 0-31) to enforce ordering between pipes. Lowered to
+# pto.get_buf / pto.rls_buf in the PTO backend.
+# ============================================================================
+
+
+def mutex_lock(
+    pipe: PipeType,
+    mutex_id: int | Expr,
+    *,
+    mode: int = 0,
+    max_mutex_id: int = 2,
+    buf_id_values: tuple | list | None = None,
+    span: Span | None = None,
+) -> Call:
+    """Acquire a Mutex buffer-id token on ``pipe`` (A5).
+
+    Blocks the ``pipe`` instruction queue until the previous holder of
+    ``mutex_id`` releases it via :func:`mutex_unlock`.
+
+    Args:
+        pipe: PipeType for which to acquire the lock (e.g. PipeType.MTE2).
+        mutex_id: MutexID (0-31, per Ascend C Mutex ISASI spec).
+            May be a static int or a dynamic IR Expr; when dynamic, the
+            PTO codegen emits an if-chain of static `pto.get_buf` using
+            ``buf_id_values`` as the comparison targets.
+        mode: Optional mode attribute (default 0).
+        max_mutex_id: Upper bound of the unrolled range when ``mutex_id``
+            is dynamic. Defaults to 2 (ping-pong double buffering).
+        buf_id_values: Actual buf_id integer values for PTO if-chain
+            (e.g. (2, 3)). When None, defaults to (0, 1, ..., max_mutex_id-1).
+        span: Optional source span (auto-captured when omitted).
+
+    Returns:
+        Call expression for system.mutex_lock / system.mutex_lock_dyn.
+    """
+    actual_span = _get_span_or_capture(span, frame_offset=2)
+    if isinstance(mutex_id, Expr):
+        kwargs: dict = {"pipe": pipe, "mode": mode, "max_mutex_id": max_mutex_id}
+        if buf_id_values is not None:
+            kwargs["buf_id_values"] = list(buf_id_values)
+        return _ir_core.create_op_call("system.mutex_lock_dyn", [mutex_id], kwargs, actual_span)
+    kwargs = {"pipe": pipe, "mutex_id": mutex_id, "mode": mode}
+    return _ir_core.create_op_call("system.mutex_lock", [], kwargs, actual_span)
+
+
+def mutex_unlock(
+    pipe: PipeType,
+    mutex_id: int | Expr,
+    *,
+    mode: int = 0,
+    max_mutex_id: int = 2,
+    buf_id_values: tuple | list | None = None,
+    span: Span | None = None,
+) -> Call:
+    """Release a previously acquired Mutex buffer-id token on ``pipe`` (A5).
+
+    Must be paired with :func:`mutex_lock` on the same ``pipe`` and
+    ``mutex_id``.
+
+    Args:
+        pipe: PipeType for which to release the lock.
+        mutex_id: MutexID passed to the paired :func:`mutex_lock`.
+        mode: Optional mode attribute (default 0).
+        max_mutex_id: Upper bound of the unrolled range when dynamic.
+        buf_id_values: Actual buf_id integer values for PTO if-chain.
+        span: Optional source span (auto-captured when omitted).
+
+    Returns:
+        Call expression for system.mutex_unlock / system.mutex_unlock_dyn.
+    """
+    actual_span = _get_span_or_capture(span, frame_offset=2)
+    if isinstance(mutex_id, Expr):
+        kwargs: dict = {"pipe": pipe, "mode": mode, "max_mutex_id": max_mutex_id}
+        if buf_id_values is not None:
+            kwargs["buf_id_values"] = list(buf_id_values)
+        return _ir_core.create_op_call("system.mutex_unlock_dyn", [mutex_id], kwargs, actual_span)
+    kwargs = {"pipe": pipe, "mutex_id": mutex_id, "mode": mode}
+    return _ir_core.create_op_call("system.mutex_unlock", [], kwargs, actual_span)

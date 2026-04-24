@@ -23,6 +23,7 @@ _OP_TO_PIPE: dict[str, PipeType] = {
     # Memory
     "load": PipeType.MTE2,
     "load_tile": PipeType.MTE2,
+    "insert": PipeType.MTE3,  # TINSERT: UB → L1 via MTE3 on A5
     # "store" and "store_tile" are handled by get_store_pipe() — see below
     # Matrix
     "matmul": PipeType.M,
@@ -115,11 +116,14 @@ def get_move_pipe(
     """Determine the pipeline for a ``move`` operation.
 
     Rules from hardware documentation:
-    - Mat → Left / Right  →  MTE1
-    - Mat → Vec           →  V
+    - Mat → Left / Right  →  MTE1 (TMOV_M2L / TMOV_M2B)
+    - Acc → Vec           →  FIX  (TMOV_V2M, L0C → UB on Cube side)
+    - Mat → Vec           →  V    (TMOV_M2V, on Vector side)
     - Vec → Mat           →  FIX
     - Mat → S / other     →  FIX
     """
+    if src_memory == MemorySpace.Acc and target_memory == MemorySpace.Vec:
+        return PipeType.FIX
     if src_memory == MemorySpace.Mat:
         if target_memory in (MemorySpace.Left, MemorySpace.Right):
             return PipeType.MTE1
@@ -152,6 +156,8 @@ _OP_TILE_ACCESS: dict[str, TileAccessPattern] = {
     # Memory  – load(out, tensor, offsets, ...)  [ir_op.manual handler]
     "load":      TileAccessPattern([], [0]),
     "load_tile": TileAccessPattern([], [0]),
+    # insert(dst, src, index_row, index_col[, offset]) — DSL arg0=dst, arg1=src
+    "insert":    TileAccessPattern([1], [0]),
     # store(tensor, tile, offsets, ...)  [ir_op.manual handler]
     "store":      TileAccessPattern([1], []),
     "store_tile": TileAccessPattern([1], []),

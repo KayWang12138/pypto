@@ -62,6 +62,18 @@ class CodeContext {
   void RegisterVar(const ir::VarPtr& var, const std::string& cpp_name);
 
   /**
+   * @brief Register a variable with a C++ name that persists across section boundaries.
+   *
+   * Used for Vars bound to hoisted array/event-id declarations emitted at function
+   * prologue, so that the same IR Var can be referenced correctly from both Cube
+   * and Vector sections (e.g. cross-core event IDs, auto-rotate tile arrays).
+   *
+   * @param var The IR variable
+   * @param cpp_name The C++ name to associate (persists across RestoreSnapshot)
+   */
+  void RegisterVarPersistent(const ir::VarPtr& var, const std::string& cpp_name);
+
+  /**
    * @brief Register a tensor variable's underlying pointer
    *
    * Associates a tensor variable (e.g., "outputGlobal" or "output_iter") with its
@@ -157,6 +169,8 @@ class CodeContext {
  private:
 
   std::unordered_map<std::string, std::string> name_to_cpp_;  ///< Mapping from IR var name to C++ name
+  std::unordered_map<std::string, std::string>
+      persistent_name_to_cpp_;  ///< Var bindings that persist across section RestoreSnapshot
   std::unordered_map<std::string, std::string>
       tensor_to_pointer_;  ///< Mapping from tensor var to raw pointer
   std::unordered_map<std::string, std::string>
