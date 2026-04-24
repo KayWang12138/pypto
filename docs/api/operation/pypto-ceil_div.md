@@ -38,6 +38,7 @@ ceil_div(self: Tensor, other: Tensor) -> Tensor
 
 1.  input 和 other 类型应该相同。
 2. 只支持单轴广播。
+3. input 和 other 中的值域范围需要在 [-2^24+1, 2^24] 范围内，超出该范围精度不保证正确。
 
 ## 调用示例
 
