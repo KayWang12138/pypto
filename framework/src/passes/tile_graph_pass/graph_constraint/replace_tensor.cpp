@@ -298,9 +298,14 @@ Status ReplaceTensor::FindBaseTensor(
         baseTensor = group.front();
         int64_t baseShape = abs(baseTensor->tensor->GetRawDataSize());
         for (auto& curTensor : group) {
-            auto &inOp = *curTensor->GetProducers().begin();
-            auto &outOp = *curTensor->GetConsumers().begin();
-            if (inOp != nullptr && outOp != nullptr && inOp->GetSubgraphID() != outOp->GetSubgraphID()) {
+            std::set<int> boundTensorIDs;
+            for (auto &inOp : curTensor->GetProducers()) {
+                boundTensorIDs.insert(inOp->GetSubgraphID());
+            }
+            for (auto &outOp : curTensor->GetConsumers()) {
+                boundTensorIDs.insert(outOp->GetSubgraphID());
+            }
+            if (boundTensorIDs.size() > 1) {
                 baseTensor = curTensor;
                 break;
             }
