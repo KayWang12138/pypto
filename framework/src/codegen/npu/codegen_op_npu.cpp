@@ -858,7 +858,8 @@ std::string CodeGenOpNPU::GetLastUse() const
     if (!opAttrs.count(OpAttributeKey::lastUse)) {
         return "";
     }
-    std::vector<int64_t> val = GetVectorIntAttribute(OpAttributeKey::lastUse);
+    std::vector<int64_t> val;
+    GetAttr(OpAttributeKey::lastUse, val);
     int valSize = val.size();
     ASSERT(OperErr::ATTRIBUTE_INVALID, valSize != 0) << "GetLastUse error!!!";
     std::ostringstream oss;

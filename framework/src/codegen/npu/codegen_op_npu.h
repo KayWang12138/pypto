@@ -254,22 +254,6 @@ protected:
         return GetAttrFromMap(tensorAttrs[idx], key, value);
     }
 
-    template <typename T = int64_t>
-    std::vector<T> GetVectorIntAttribute(const std::string& key) const
-    {
-        ASSERT(GenCodeErr::DATA_TYPE_UNSUPPORTED, std::is_integral_v<T>) << "T must be integral type";
-        std::vector<int64_t> val;
-        GetAttr(key, val);
-        if constexpr (std::is_same_v<T, int64_t>) {
-            return val;
-        }
-        std::vector<T> ret;
-        for (auto& x : val) {
-            ret.emplace_back(static_cast<T>(x));
-        }
-        return ret;
-    }
-
     std::string GetLastUse() const;
 
     virtual TileTensor BuildTileTensor(int paramIdx, const std::string& usingType, const ShapeInLoop& shapeInLoop = {});
