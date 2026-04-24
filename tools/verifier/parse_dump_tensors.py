@@ -89,11 +89,11 @@ class VerifyRes:
             verify_tshape = tensor_info["valid_shape"]
             tensor_infos[i]["A>PHASE_NAME"] = tensor_info["PHASE_NAME"] 
             tensor_infos[i]["A>validshape"] = verify_tshape
-            tensor_infos[i]["A>dataType"] = tensor_info["dataType"]
+            tensor_infos[i]["A>datatype"] = tensor_info["datatype"]
             tensor_infos[i]["A>FILENAME"] = tensor_info["verify_dup_tensor"]
 
             if os.path.exists(verify_tensor_info) and len(verify_tshape) == len(dump_tshape):
-                dtype = _get_data_type(tensor_info["B>dataType"])[1]
+                dtype = _get_data_type(tensor_info["B>datatype"])[1]
 
                 verify_tensor_data = np.fromfile(verify_tensor_info, dtype)
                 verify_tensor_data = verify_tensor_data.reshape(verify_tshape)
@@ -162,7 +162,7 @@ class VerifyRes:
                     verify_dup_tensor = op_info.get("FILENAME")
                     valid_shape = json.loads(op_info.get(":validshape"))
                     loop_info = op_info.get("LOOP_INFO")
-                    dtype = op_info.get(":dataType")
+                    dtype = op_info.get(":datatype")
                     break
             elif "output" in ioflag and op_info.get(":opcode") in ["COPY_OUT"]:
                 verify_op_offset = json.loads(op_info.get("OP_ATTR_SYM_OFFSET"))
@@ -171,14 +171,14 @@ class VerifyRes:
                     verify_dup_tensor = op_info.get("INPUT_FILENAMES")   # COPY_OUT的op只会有一个输入
                     valid_shape = json.loads(op_info.get(":inputValidShape"))
                     loop_info = op_info.get("LOOP_INFO")
-                    dtype = op_info.get(":dataType")
+                    dtype = op_info.get(":datatype")
                     break
 
         if verify_dup_tensor:
             verify_dup_tensor = os.path.join(self.verify_path, op_info.get("PHASE_NAME"), verify_dup_tensor)
         tensor_info["verify_dup_tensor"] = verify_dup_tensor
         tensor_info["valid_shape"], tensor_info["loop_info"], tensor_info["PHASE_NAME"] = valid_shape, loop_info, op_info.get("PHASE_NAME")
-        tensor_info["dataType"] = dtype
+        tensor_info["datatype"] = dtype
 
     def process_single_task(self, tensor_infos, op_info_list_callop):
         tensor_infos_new = copy.deepcopy(tensor_infos)
