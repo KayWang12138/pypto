@@ -100,10 +100,10 @@ struct TypeInfo {
             } else if (type == "object") {
                 parse_object_type(jData, prefix);
             } else {
-                FUNCTION_LOGE_E(FError::INVALID_TYPE, "invalid type: %s at %s", type.c_str(), prefix.c_str());
+                FUNCTION_LOGE(FError::INVALID_TYPE, "invalid type: %s at %s", type.c_str(), prefix.c_str());
             }
         } else {
-            FUNCTION_LOGE_E(
+            FUNCTION_LOGE(
                 FError::NOT_EXIST, "Label<%s> field['type', 'properties'] not found in tile_fwk_config_schema.json",
                 prefix.c_str());
         }
@@ -430,7 +430,7 @@ struct ConfigManagerImpl {
                 root->AddValue(it.first, it.second);
                 FUNCTION_LOGD("Set option successfully, Key: %s", it.first.c_str());
             } catch (const std::exception& e) {
-                FUNCTION_LOGE_E(
+                FUNCTION_LOGE(
                     FError::INVALID_VAL, "Failed to set option. Key: %s, Error: %s", it.first.c_str(), e.what());
             }
         }
@@ -583,7 +583,7 @@ bool ConfigManagerNg::IsWithinRange(const std::string& properties, Any& value) c
             return impl_->IsWithinRange(properties, AnyCast<int64_t>(value));
         }
     } catch (const std::out_of_range& e) {
-        FUNCTION_LOGE_E(
+        FUNCTION_LOGE(
             FError::INVALID_VAL, "key[%s] has been not loaded form tile_fwk_config_schema.json.", properties.c_str());
         return false;
     }
