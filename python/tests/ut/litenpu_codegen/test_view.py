@@ -789,7 +789,16 @@ def view_kernel_dtype_fp32_int8(
     out_tensor: pypto.Tensor([...], pypto.DT_INT8),
 ):
     pypto.set_vec_tile_shapes(1, 8)
-    out_tensor[:] = input_tensor.view(pyto.DT_INT8)
+    out_tensor[:] = input_tensor.view(pypto.DT_INT8, offsets=[0, 0])
+
+
+@pypto.frontend.jit(codegen_options={"soc_version": "Kirin9030"}, runtime_options={"run_mode": pypto.RunMode.NPU})
+def view_kernel_dtype_fp32_int8_002(
+    input_tensor: pypto.Tensor([...], pypto.DT_FP32),
+    out_tensor: pypto.Tensor([...], pypto.DT_INT8),
+):
+    pypto.set_vec_tile_shapes(8)
+    out_tensor[:] = input_tensor.view(pypto.DT_INT8, offsets=[0])
 
 
 @pypto.frontend.jit(codegen_options={"soc_version": "Kirin9030"}, runtime_options={"run_mode": pypto.RunMode.NPU})
@@ -798,7 +807,7 @@ def view_kernel_dtype_fp32_fp16(
     out_tensor: pypto.Tensor([...], pypto.DT_FP16),
 ):
     pypto.set_vec_tile_shapes(1, 8)
-    out_tensor[:] = input_tensor.view(pyto.DT_FP16)
+    out_tensor[:] = input_tensor.view(pypto.DT_FP16, offsets=[0, 0])
 
 
 class TestLiteNPUViewDtype(unittest.TestCase):
@@ -838,7 +847,7 @@ class TestLiteNPUViewDtype(unittest.TestCase):
         input_tensor = torch.rand(shape, dtype=dtype, device=device)
         out_tensor = torch.randint(-128, 127, shape, dtype=torch.int8, device=device)
 
-        view_kernel_dtype_fp32_int8(input_tensor, out_tensor)
+        view_kernel_dtype_fp32_int8_002(input_tensor, out_tensor)
 
         golden_out = pypto_view_in_torch(input_tensor, dtype=torch.int8)
         cos_value = compare_cos(np.array(out_tensor.cpu()), np.array(golden_out.cpu()))
