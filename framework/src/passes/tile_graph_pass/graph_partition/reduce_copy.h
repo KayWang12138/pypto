@@ -29,24 +29,21 @@
 #include <utility>
 
 namespace npu::tile_fwk {
-struct EstimateInput
-{
+struct EstimateInput {
     std::vector<int> execTime;
     std::vector<bool> isCube;
     std::vector<std::set<int>> outGraph;
     std::vector<std::set<int>> inGraph;
-    int betweenSubgraphScheduleTime;
+    int betweenSubgraphScheduleTime{1500};  // estimated task issuance time
 };
 
-struct EstimateCoreState
-{
+struct EstimateCoreState {
     int aic;
     int aiv0;
     int aiv1;
 };
 
-struct MixScheduleContext
-{
+struct MixScheduleContext {
     std::vector<int> subgraphToMix;
     std::unordered_set<int> candidateSet;
     std::vector<std::set<int>> mixDeps;
@@ -58,8 +55,7 @@ struct MixScheduleContext
     int numSubgraph;
 };
 
-struct SubgraphScheduleContext
-{
+struct SubgraphScheduleContext {
     std::vector<int> finishTime;
     std::vector<int> inDegree;
     std::queue<int> readyQueue;
@@ -69,8 +65,7 @@ struct SubgraphScheduleContext
     int numSubgraph;
 };
 
-class EstimateExecTime
-{
+class EstimateExecTime {
 public:
     int Estimate(const EstimateInput& input, const std::vector<std::set<int>>& estimateCandidate);
 private:
@@ -146,10 +141,15 @@ private:
     Status BuildGraph(Function &function, MergeInput& mergeInput);
     Status BuildMergeGroup(Function &function, MergeInput& mergeInput);
     Status MarkNoMergeSubgraph(Function &function);
+    void UpdateConnectRecord(Function &function);
     bool IsEnforceMergeBoundary(LogicalTensorPtr &tensor);
     Status RunOnFunction(Function &function) override;
     Status PostCheck(Function &function) override;
     std::unordered_set<int> noMergeSubgraph;
+    std::map<std::vector<int>, int> mergeGroupToPriority;
+    std::set<std::vector<int>> enforceMergeGroup;
+    std::vector<int> subgraphInputSize;
+    std::vector<int> subgraphOutputSize;
 };
 
 }
