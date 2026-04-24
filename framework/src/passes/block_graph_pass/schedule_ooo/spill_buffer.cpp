@@ -1157,6 +1157,27 @@ Status OoOScheduler::GetSpillInfo(Operation* allocOp, int spillMemId, bool isGen
     return SUCCESS;
 }
 
+bool OoOScheduler::IsPartialWrite(const Operation &op) const
+  {
+      const auto opcode = op.GetOpcode();
+      if (opcode != Opcode::OP_ASSEMBLE && opcode != Opcode::OP_L0C_TO_L1) {
+          return false;
+      }
+      if (opcode == Opcode::OP_L0C_TO_L1 &&
+          Platform::Instance().GetSoc().GetNPUArch() == NPUArch::DAV_3510) {
+          return false;
+      }
+      const auto &inShape = op.GetInputOperand(0)->shape;
+      const auto &outShape = op.GetOutputOperand(0)->shape;
+      const size_t dims = std::min(inShape.size(), outShape.size());
+      for (size_t i = 0; i < dims; ++i) {
+          if (outShape[i] > inShape[i]) {
+              return true;
+          }
+      }
+      return false;
+  }
+
 Status OoOScheduler::SpillMultiBuffer(Operation* allocOp, std::vector<int> spillGroup, size_t &pcIdx,
     LocalBufferPtr allocBuffer, bool isGenSpill) {
     for (auto &spillMemId : spillGroup) {
@@ -1166,16 +1187,16 @@ Status OoOScheduler::SpillMultiBuffer(Operation* allocOp, std::vector<int> spill
             return FAILED;
         }
         if (spillInfo.spillOp_->GetOpcode() == Opcode::OP_ASSEMBLE &&
-            Platform::Instance().GetSoc().GetNPUArch() == NPUArch::DAV_3510 && allocOp->GetOpcodeStr().find("L1_ALLOC") != std::string::npos) {
+            Platform::Instance().GetSoc().GetNPUArch() == NPUArch::DAV_3510 &&
+            allocOp->GetOpcodeStr().find("L1_ALLOC") != std::string::npos) {
                 APASS_LOG_ERROR_F(Elements::Operation, "Failed to spill %d in L1 spill. SpillIssue is assemble op.", spillMemId);
                 return FAILED;
         }
-        if (spillInfo.spillOp_->GetOpcode() == Opcode::OP_ASSEMBLE) {
+        if (IsPartialWrite(*spillInfo.spillOp_)) {
             if (SpillAssembleBuffer(spillInfo, allocOp, pcIdx, allocBuffer, isGenSpill) != SUCCESS) {
                 APASS_LOG_ERROR_F(Elements::Operation, "SpillAssembleBuffer[%d] failed.", spillMemId);
                 return FAILED;
             }
-        // TODO Opcode::OP_L0C_TO_L1+A3+小搬大: SpillAssembleBuffer
         } else {
             if (SpillBuffer(spillInfo, allocOp, pcIdx, allocBuffer, isGenSpill) != SUCCESS) {
                 APASS_LOG_ERROR_F(Elements::Operation, "SpillBuffer[%d] failed. %s", spillMemId, GetFormatBacktrace(*spillInfo.spillOp_).c_str());

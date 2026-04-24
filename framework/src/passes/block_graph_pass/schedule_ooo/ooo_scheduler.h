@@ -215,6 +215,7 @@ private:
     bool IsBelongSpillBlackList(Operation* spillOp, Operation* op);
     void FindFilterLtags(Operation* allocOp, std::set<Operation*> &filterLtags);
     Status SpillAllBuffer(Operation* allocOp, size_t &pcIdx, bool isGenSpill, LocalBufferPtr allocBuffer);
+    bool IsPartialWrite(const Operation &op) const;
     Status SpillMultiBuffer(Operation* allocOp, std::vector<int> spillGroup, size_t &pcIdx,
         LocalBufferPtr allocBuffer, bool isGenSpill);
     Status GetSpillInfo(Operation* allocOp, int spillMemId, bool isGenSpill, SpillInfo &spillInfo);
