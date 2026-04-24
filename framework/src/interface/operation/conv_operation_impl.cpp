@@ -1165,10 +1165,10 @@ void ConstructTileGraph(
 }
 Tensor Conv(
     DataType outType, const Tensor& inputTensor, const Tensor& weightTensor, const std::vector<int64_t>& strides,
-    const std::vector<int64_t>& paddings, const std::vector<int64_t>& dilations, const ConvExtendParam& extendParam,
-    const int64_t groups)
+    const std::vector<SymbolicScalar>& paddings, const std::vector<int64_t>& dilations,
+    const ConvExtendParam& extendParam, const int64_t groups)
 {
-    std::vector<int64_t> finalPaddings = paddings;
+    std::vector<SymbolicScalar> finalPaddings = paddings;
     std::vector<int64_t> finalDilations = dilations;
     std::vector<int64_t> finalStrides = strides;
     if (dilations.size() == CONV3D_INPUT_DIM - 2 && strides.size() == CONV3D_INPUT_DIM - 2 &&
