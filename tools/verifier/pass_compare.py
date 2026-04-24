@@ -179,34 +179,51 @@ class PassComparator:
         record[":datatype"] = a[":datatype"]
         record["OP_ATTR_SYM_OFFSET"] = a["OP_ATTR_SYM_OFFSET"]
         record["OP_IO_FLAG"] = a["OP_IO_FLAG"]
-        record["A>PHASE_NAME"] = b["PHASE_NAME"] if b else None
         record["B>PHASE_NAME"] = a["PHASE_NAME"]
-        record["A>TIMESTAMP"] = b["TIMESTAMP"] if b else None
         record["B>TIMESTAMP"] = a["TIMESTAMP"]
-        record["A>FILENAME"] = b["FILENAME"] if b else None
         record["B>FILENAME"] = a["FILENAME"]
-        record["A>FUNC:hash"] = b["FUNC:hash"] if b else None
-        record["A>FUNC:funcmagic"] = b["FUNC:funcmagic"] if b else None
         record["B>FUNC:hash"] = a["FUNC:hash"]
         record["B>FUNC:funcmagic"] = a["FUNC:funcmagic"]
-        record["A>ROOT_CALL:opmagic"] = b["ROOT_CALL:opmagic"] if b else None
         record["B>ROOT_CALL:opmagic"] = a["ROOT_CALL:opmagic"]
-        record["A>ROOT_CALL:rawmagic"] = b["ROOT_CALL:rawmagic"] if b else None
         record["B>ROOT_CALL:rawmagic"] = a["ROOT_CALL:rawmagic"]
-        record["A>:opmagic"] = b[":opmagic"] if b else None
         record["B>:opmagic"] = a[":opmagic"]
-        record["A>:opcode"] = b[":opcode"] if b else None
         record["B>:opcode"] = a[":opcode"]
-        record["A>:rawmagic"] = b[":rawmagic"] if b else None
-        record["A>:rawshape"] = b[":rawshape"] if b else None
-        record["A>:format"] = b[":format"] if b else None
         record["B>:rawmagic"] = a[":rawmagic"]
         record["B>:rawshape"] = a[":rawshape"]
         record["B>:format"] = a[":format"]
-        record["A>:shape"] = b[":shape"] if b else None
         record["B>:shape"] = a[":shape"]
-        record["A>EVAL:dynvalidshape"] = b["EVAL:dynvalidshape"] if b else None
         record["B>EVAL:dynvalidshape"] = a["EVAL:dynvalidshape"]
+        
+        if b:
+            record["A>PHASE_NAME"] = b["PHASE_NAME"]
+            record["A>TIMESTAMP"] = b["TIMESTAMP"]
+            record["A>FILENAME"] = b["FILENAME"]
+            record["A>FUNC:hash"] = b["FUNC:hash"]
+            record["A>FUNC:funcmagic"] = b["FUNC:funcmagic"]
+            record["A>ROOT_CALL:opmagic"] = b["ROOT_CALL:opmagic"]
+            record["A>ROOT_CALL:rawmagic"] = b["ROOT_CALL:rawmagic"]
+            record["A>:opmagic"] = b[":opmagic"]
+            record["A>:opcode"] = b[":opcode"]
+            record["A>:rawmagic"] = b[":rawmagic"]
+            record["A>:rawshape"] = b[":rawshape"]
+            record["A>:format"] = b[":format"]
+            record["A>:shape"] = b[":shape"]
+            record["A>EVAL:dynvalidshape"] = b["EVAL:dynvalidshape"]
+        else:
+            record["A>PHASE_NAME"] = None
+            record["A>TIMESTAMP"] = None
+            record["A>FILENAME"] = None
+            record["A>FUNC:hash"] = None
+            record["A>FUNC:funcmagic"] = None
+            record["A>ROOT_CALL:opmagic"] = None
+            record["A>ROOT_CALL:rawmagic"] = None
+            record["A>:opmagic"] = None
+            record["A>:opcode"] = None
+            record["A>:rawmagic"] = None
+            record["A>:rawshape"] = None
+            record["A>:format"] = None
+            record["A>:shape"] = None
+            record["A>EVAL:dynvalidshape"] = None
         
         if compare_result is None:
             record["AB>RESULT"] = "Skip"
