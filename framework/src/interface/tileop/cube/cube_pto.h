@@ -638,7 +638,7 @@ TILEOP void TExtractMX(T& dst, U& src, const Coord& coord)
 
 template <typename tileUBTensor, typename tileL0CTensor>
 TILEOP void TExtractL0CToUB(
-    tileUBTensor& ubTile, tileL0CTensor& l0cTile, int64_t l0cOffset0, int64_t l0cOffset1, int16_t subblockId = 0)
+    tileUBTensor& ubTile, tileL0CTensor& l0cTile, int64_t l0cOffset0, int64_t l0cOffset1, int16_t subblockId)
 {
     if (subblockId == 0) {
         pto::TEXTRACT<tileUBTensor, tileL0CTensor, pto::AccToVecMode::SingleModeVec0>(
@@ -651,7 +651,7 @@ TILEOP void TExtractL0CToUB(
 
 template <typename tileUBTensor, typename tileL0CTensor>
 TILEOP void TInsertL0CToUB(
-    tileUBTensor& ubTile, tileL0CTensor& l0cTile, int64_t ubOffset0, int64_t ubOffset1, int16_t subblockId = 0)
+    tileUBTensor& ubTile, tileL0CTensor& l0cTile, int64_t ubOffset0, int64_t ubOffset1, int16_t subblockId)
 {
     if (subblockId == 0) {
         pto::TINSERT<tileUBTensor, tileL0CTensor, pto::AccToVecMode::SingleModeVec0>(
@@ -698,9 +698,9 @@ TILEOP void TExtract(T& dst, U& src, const Coord& dstCoord, const Coord& srcCoor
         pto::TASSIGN(ubTile, (uint64_t)dst.GetAddr());
         pto::TASSIGN(l0cTile, (uint64_t)src.GetAddr());
         if (dstShape0 < srcShape0 || dstShape1 < srcShape1) {
-            TExtractL0CToUB<tileUBTensor, tileL0CTensor>(ubTile, l0cTile, srcOffset0, srcOffset1);
+            TExtractL0CToUB<tileUBTensor, tileL0CTensor>(ubTile, l0cTile, srcOffset0, srcOffset1, subblockId);
         } else {
-            TInsertL0CToUB<tileUBTensor, tileL0CTensor>(ubTile, l0cTile, dstOffset0, dstOffset1);
+            TInsertL0CToUB<tileUBTensor, tileL0CTensor>(ubTile, l0cTile, dstOffset0, dstOffset1, subblockId);
         }
     }
 }
