@@ -6,16 +6,15 @@
 #include <cstdlib>
 #include <cstring>
 #include <ctime>
+#include <memory>
 #include <mutex>
 #include <string>
 #include <vector>
 #include <sys/stat.h>
 
-namespace npu::tile_fwk::interpreter_log {
-namespace {
-constexpr size_t LOG_BUFFER_SIZE = 4096;
-}
+#include "tilefwk/pypto_fwk_log.h"
 
+namespace npu::tile_fwk::interpreter_log {
 inline std::mutex& LogMutex()
 {
     static std::mutex logMutex;
@@ -45,6 +44,12 @@ inline bool ShouldWriteLevel(const char* level)
     return std::strcmp(level, "ERROR") == 0 || std::strcmp(level, "EVENT") == 0;
 }
 
+inline bool ShouldPrintToStdout()
+{
+    const char* value = std::getenv("ASCEND_SLOG_PRINT_TO_STDOUT");
+    return value != nullptr && std::strcmp(value, "1") == 0;
+}
+
 inline void WriteLine(const char* level, const char* fmt, va_list args) __attribute__((format(gnu_printf, 2, 0)));
 inline void WriteLine(const char* level, const char* fmt, va_list args)
 {
@@ -59,9 +64,18 @@ inline void WriteLine(const char* level, const char* fmt, va_list args)
         return;
     }
 
-    char msgBuf[LOG_BUFFER_SIZE] = {0};
-    int written = vsnprintf(msgBuf, sizeof(msgBuf), fmt, args);
+    va_list argsCopy;
+    va_copy(argsCopy, args);
+    int written = vsnprintf(nullptr, 0, fmt, argsCopy);
+    va_end(argsCopy);
     if (written < 0) {
+        fclose(fp);
+        return;
+    }
+    size_t msgSize = static_cast<size_t>(written) + 1;
+    std::unique_ptr<char[]> msgBuf = std::make_unique<char[]>(msgSize);
+    int written2 = vsnprintf(msgBuf.get(), msgSize, fmt, args);
+    if (written2 < 0) {
         fclose(fp);
         return;
     }
@@ -72,7 +86,11 @@ inline void WriteLine(const char* level, const char* fmt, va_list args)
     char timeBuf[32] = {0};
     (void)std::strftime(timeBuf, sizeof(timeBuf), "%Y-%m-%d %H:%M:%S", &localTm);
 
-    fprintf(fp, "[%s][%s] %s\n", timeBuf, level, msgBuf);
+    fprintf(fp, "[%s][%s] %s\n", timeBuf, level, msgBuf.get());
+    if (ShouldPrintToStdout()) {
+        fprintf(stdout, "[%s][%s] %s\n", timeBuf, level, msgBuf.get());
+        fflush(stdout);
+    }
     fclose(fp);
 }
 
@@ -86,9 +104,9 @@ inline void Log(const char* level, const char* fmt, ...)
 }
 } // namespace npu::tile_fwk::interpreter_log
 
-#define INTERPRETER_LOGD(...) npu::tile_fwk::interpreter_log::Log("DEBUG", __VA_ARGS__)
-#define INTERPRETER_LOGI(...) npu::tile_fwk::interpreter_log::Log("INFO", __VA_ARGS__)
-#define INTERPRETER_LOGW(...) npu::tile_fwk::interpreter_log::Log("WARN", __VA_ARGS__)
+#define INTERPRETER_LOGD(...) VERIFY_LOGD(__VA_ARGS__)
+#define INTERPRETER_LOGI(...) VERIFY_LOGI(__VA_ARGS__)
+#define INTERPRETER_LOGW(...) VERIFY_LOGW(__VA_ARGS__)
 #define INTERPRETER_EVENT(...) npu::tile_fwk::interpreter_log::Log("EVENT", __VA_ARGS__)
 
 #define INTERPRETER_LOGE(errCode, fmt, ...)                                                                  \
