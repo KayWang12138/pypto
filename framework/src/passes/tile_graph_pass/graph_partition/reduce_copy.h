@@ -35,7 +35,7 @@ struct EstimateInput
     std::vector<bool> isCube;
     std::vector<std::set<int>> outGraph;
     std::vector<std::set<int>> inGraph;
-    int betweenSubgraphScheduleTime;
+    int betweenSubgraphScheduleTime{1500};  // estimated task issuance time
 };
 
 struct EstimateCoreState
