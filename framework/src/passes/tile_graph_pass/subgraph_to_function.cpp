@@ -420,7 +420,7 @@ void SubgraphToFunction::ProcessCopyOutOperand(
 
 void SubgraphToFunction::ProcessSymbolOfReshape(Function& function, Operation& op) const
 {
-    // ddr -> reshape -> ddr -> copin
+    // ddr -> reshape -> ddr -> copyin
     if (op.GetOpcode() == Opcode::OP_RESHAPE) {
         if (function.IsFromInCast(op.GetOOperands().front())) {
             op.GetOOperands().front()->tensor->SetSymbol(op.GetIOperands().front()->tensor->GetSymbol());
@@ -430,7 +430,7 @@ void SubgraphToFunction::ProcessSymbolOfReshape(Function& function, Operation& o
     auto nextOp = *(op.GetOOperands().front()->GetConsumers().begin());
     if (nextOp != nullptr && nextOp->GetOpcode() == Opcode::OP_RESHAPE) {
         if (function.IsFromOutCast(op.GetOOperands().front())) {
-            op.GetOOperands().front()->tensor->SetSymbol(op.GetOOperands().front()->tensor->GetSymbol());
+            op.GetOOperands().front()->tensor->SetSymbol(nextOp->GetOOperands().front()->tensor->GetSymbol());
         }
     }
 }
