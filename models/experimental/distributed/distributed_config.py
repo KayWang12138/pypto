@@ -11,6 +11,8 @@
 """
 DistributedConfig
 """
+from __future__ import annotations
+
 import multiprocessing as mp
 import os
 
