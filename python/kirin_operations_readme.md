@@ -3023,7 +3023,7 @@ void TiledAssemble(Function &function, const TileShape &tileShape,
 | assemble_int16_003 | (4) | (6) | [1] | (16) | int16 | 1d张量组装到(6)张量，w切分 |
 | assemble_int16_004 | (2, 4) | (3, 6) | [0, 2] | (1, 16) | int16 | 2d张量组装到(3,6)张量，h,w切分 |
 | assemble_list_fp32_001 | [(2,2),(2,2)] | (4, 4) | [[0, 0], [2, 2]] | (1, 8) | fp32 | list输入多张量组装，串行执行，h切分 |
-| assemble_list_fp32_002 | [(4),(4)] | (6) | [[1], [3]] | (8) | fp32 | list输入1d多张量组装，w切分 |
+| assemble_list_fp32_002 | [(2),(2)] | (8) | [[1], [3]] | (8) | fp32 | list输入1d多张量组装，w切分 |
 | assemble_list_fp32_003 | [(2,2,2),(2,2,2)] | (3, 3, 3) | [[0, 0, 0], [1, 1, 1]] | (1, 1, 8) | fp32 | list输入3d多张量组装，c,h切分 |
 | assemble_list_multi_shape_001 | [(2,2),(2,3)] | (4, 6) | [[0, 0], [2, 2]] | (1, 8) | fp32 | list输入多张量组装，assemble轴shape不同，h切分 |
 | assemble_list_multi_shape_002 | [(3,2),(3,2)] | (5, 4) | [[0, 0], [2, 0]] | (1, 8) | fp32 | list输入多张量组装，assemble轴shape相同，h切分 |

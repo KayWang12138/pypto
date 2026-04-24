@@ -18,15 +18,27 @@ import numpy as np
 import unittest
 
 
-def compare_cos(a, b):
-    a = a.flatten()
-    b = b.flatten()
-    dot_product = np.dot(a, b)
-    norm_a = np.linalg.norm(a)
-    norm_b = np.linalg.norm(b)
-    if norm_a == 0 or norm_b == 0:
-        return 0.0
-    return dot_product / (norm_a * norm_b)
+def compare_cos(davinci1_input, davinci2_input):
+    davinci1_input = davinci1_input.reshape(-1).astype(np.float64)
+    davinci2_input = davinci2_input.reshape(-1).astype(np.float64)
+    print(davinci1_input.shape)
+    print(davinci2_input.shape)
+    print("NPU_out:",davinci1_input)
+    print("CPU_out:",davinci2_input)
+    print("max diff: ", np.max(np.abs(davinci1_input-davinci2_input)))
+    index = np.argmax(np.abs(davinci1_input-davinci2_input))
+    print("max diff index = ", index, " dav1 value: ", davinci1_input[index], "dav2 value: ", davinci2_input[index])
+    print("average diff: ", np.mean(np.abs(davinci1_input - davinci2_input)))
+    ab = np.sum(np.multiply(davinci1_input, davinci2_input))
+    aa = np.sqrt(np.sum(np.multiply(davinci1_input, davinci1_input)))
+    bb = np.sqrt(np.sum(np.multiply(davinci2_input, davinci2_input)))
+    if aa*bb == 0 and ab == 0:
+        cos = 1.0
+    else:
+        cos = ab / (aa*bb)
+    print(cos)
+    print()
+    return cos
 
 
 @pypto.frontend.jit(codegen_options={"soc_version": "Kirin9030"}, runtime_options={"run_mode": pypto.RunMode.NPU})
@@ -131,7 +143,9 @@ class TestLiteNPUReshapeFP16(unittest.TestCase):
 
         reshape_kernel_fp16(input_tensor, out_tensor)
 
-        self.assertEqual(1, 1)
+        golden_out = input_tensor.reshape(shape_out)
+        cos_value = compare_cos(np.array(out_tensor.cpu()), np.array(golden_out.cpu()))
+        self.assertGreaterEqual(cos_value, 0.9999)
 
     def test_reshape_fp16_002(self):
         device = "cpu"
@@ -144,7 +158,9 @@ class TestLiteNPUReshapeFP16(unittest.TestCase):
 
         reshape_kernel_fp16_002(input_tensor, out_tensor)
 
-        self.assertEqual(1, 1)
+        golden_out = input_tensor.reshape(shape_out)
+        cos_value = compare_cos(np.array(out_tensor.cpu()), np.array(golden_out.cpu()))
+        self.assertGreaterEqual(cos_value, 0.9999)
 
     def test_reshape_fp16_003(self):
         device = "cpu"
@@ -157,7 +173,9 @@ class TestLiteNPUReshapeFP16(unittest.TestCase):
 
         reshape_kernel_fp16_003(input_tensor, out_tensor)
 
-        self.assertEqual(1, 1)
+        golden_out = input_tensor.reshape(shape_out)
+        cos_value = compare_cos(np.array(out_tensor.cpu()), np.array(golden_out.cpu()))
+        self.assertGreaterEqual(cos_value, 0.9999)
 
     def test_reshape_fp16_004(self):
         device = "cpu"
@@ -170,7 +188,9 @@ class TestLiteNPUReshapeFP16(unittest.TestCase):
 
         reshape_kernel_fp16_004(input_tensor, out_tensor)
 
-        self.assertEqual(1, 1)
+        golden_out = input_tensor.reshape(shape_out)
+        cos_value = compare_cos(np.array(out_tensor.cpu()), np.array(golden_out.cpu()))
+        self.assertGreaterEqual(cos_value, 0.9999)
 
     def test_reshape_fp16_005(self):
         device = "cpu"
@@ -183,7 +203,9 @@ class TestLiteNPUReshapeFP16(unittest.TestCase):
 
         reshape_kernel_fp16_005(input_tensor, out_tensor)
 
-        self.assertEqual(1, 1)
+        golden_out = input_tensor.reshape(shape_out)
+        cos_value = compare_cos(np.array(out_tensor.cpu()), np.array(golden_out.cpu()))
+        self.assertGreaterEqual(cos_value, 0.9999)
 
     def test_reshape_fp16_006(self):
         device = "cpu"
@@ -196,7 +218,9 @@ class TestLiteNPUReshapeFP16(unittest.TestCase):
 
         reshape_kernel_fp16_006(input_tensor, out_tensor)
 
-        self.assertEqual(1, 1)
+        golden_out = input_tensor.reshape(shape_out)
+        cos_value = compare_cos(np.array(out_tensor.cpu()), np.array(golden_out.cpu()))
+        self.assertGreaterEqual(cos_value, 0.9999)
 
     def test_reshape_fp16_007(self):
         device = "cpu"
@@ -209,7 +233,9 @@ class TestLiteNPUReshapeFP16(unittest.TestCase):
 
         reshape_kernel_fp16_007(input_tensor, out_tensor)
 
-        self.assertEqual(1, 1)
+        golden_out = input_tensor.reshape(shape_out)
+        cos_value = compare_cos(np.array(out_tensor.cpu()), np.array(golden_out.cpu()))
+        self.assertGreaterEqual(cos_value, 0.9999)
 
     def test_reshape_fp16_008(self):
         device = "cpu"
@@ -222,7 +248,9 @@ class TestLiteNPUReshapeFP16(unittest.TestCase):
 
         reshape_kernel_fp16_008(input_tensor, out_tensor)
 
-        self.assertEqual(1, 1)
+        golden_out = input_tensor.reshape(shape_out)
+        cos_value = compare_cos(np.array(out_tensor.cpu()), np.array(golden_out.cpu()))
+        self.assertGreaterEqual(cos_value, 0.9999)
 
     def test_reshape_fp16_009(self):
         device = "cpu"
@@ -235,7 +263,9 @@ class TestLiteNPUReshapeFP16(unittest.TestCase):
 
         reshape_kernel_fp16_009(input_tensor, out_tensor)
 
-        self.assertEqual(1, 1)
+        golden_out = input_tensor.reshape(shape_out)
+        cos_value = compare_cos(np.array(out_tensor.cpu()), np.array(golden_out.cpu()))
+        self.assertGreaterEqual(cos_value, 0.9999)
 
     def test_reshape_fp16_010(self):
         device = "cpu"
@@ -248,7 +278,9 @@ class TestLiteNPUReshapeFP16(unittest.TestCase):
 
         reshape_kernel_fp16_010(input_tensor, out_tensor)
 
-        self.assertEqual(1, 1)
+        golden_out = input_tensor.reshape(shape_out)
+        cos_value = compare_cos(np.array(out_tensor.cpu()), np.array(golden_out.cpu()))
+        self.assertGreaterEqual(cos_value, 0.9999)
 
 
 @pypto.frontend.jit(codegen_options={"soc_version": "Kirin9030"}, runtime_options={"run_mode": pypto.RunMode.NPU})
@@ -353,7 +385,9 @@ class TestLiteNPUReshapeFP32(unittest.TestCase):
 
         reshape_kernel_fp32(input_tensor, out_tensor)
 
-        self.assertEqual(1, 1)
+        golden_out = input_tensor.reshape(shape_out)
+        cos_value = compare_cos(np.array(out_tensor.cpu()), np.array(golden_out.cpu()))
+        self.assertGreaterEqual(cos_value, 0.9999)
 
     def test_reshape_fp32_002(self):
         device = "cpu"
@@ -366,7 +400,9 @@ class TestLiteNPUReshapeFP32(unittest.TestCase):
 
         reshape_kernel_fp32_002(input_tensor, out_tensor)
 
-        self.assertEqual(1, 1)
+        golden_out = input_tensor.reshape(shape_out)
+        cos_value = compare_cos(np.array(out_tensor.cpu()), np.array(golden_out.cpu()))
+        self.assertGreaterEqual(cos_value, 0.9999)
 
     def test_reshape_fp32_003(self):
         device = "cpu"
@@ -379,7 +415,9 @@ class TestLiteNPUReshapeFP32(unittest.TestCase):
 
         reshape_kernel_fp32_003(input_tensor, out_tensor)
 
-        self.assertEqual(1, 1)
+        golden_out = input_tensor.reshape(shape_out)
+        cos_value = compare_cos(np.array(out_tensor.cpu()), np.array(golden_out.cpu()))
+        self.assertGreaterEqual(cos_value, 0.9999)
 
     def test_reshape_fp32_004(self):
         device = "cpu"
@@ -392,7 +430,9 @@ class TestLiteNPUReshapeFP32(unittest.TestCase):
 
         reshape_kernel_fp32_004(input_tensor, out_tensor)
 
-        self.assertEqual(1, 1)
+        golden_out = input_tensor.reshape(shape_out)
+        cos_value = compare_cos(np.array(out_tensor.cpu()), np.array(golden_out.cpu()))
+        self.assertGreaterEqual(cos_value, 0.9999)
 
     def test_reshape_fp32_005(self):
         device = "cpu"
@@ -405,7 +445,9 @@ class TestLiteNPUReshapeFP32(unittest.TestCase):
 
         reshape_kernel_fp32_005(input_tensor, out_tensor)
 
-        self.assertEqual(1, 1)
+        golden_out = input_tensor.reshape(shape_out)
+        cos_value = compare_cos(np.array(out_tensor.cpu()), np.array(golden_out.cpu()))
+        self.assertGreaterEqual(cos_value, 0.9999)
 
     def test_reshape_fp32_006(self):
         device = "cpu"
@@ -418,7 +460,9 @@ class TestLiteNPUReshapeFP32(unittest.TestCase):
 
         reshape_kernel_fp32_006(input_tensor, out_tensor)
 
-        self.assertEqual(1, 1)
+        golden_out = input_tensor.reshape(shape_out)
+        cos_value = compare_cos(np.array(out_tensor.cpu()), np.array(golden_out.cpu()))
+        self.assertGreaterEqual(cos_value, 0.9999)
 
     def test_reshape_fp32_007(self):
         device = "cpu"
@@ -431,7 +475,9 @@ class TestLiteNPUReshapeFP32(unittest.TestCase):
 
         reshape_kernel_fp32_007(input_tensor, out_tensor)
 
-        self.assertEqual(1, 1)
+        golden_out = input_tensor.reshape(shape_out)
+        cos_value = compare_cos(np.array(out_tensor.cpu()), np.array(golden_out.cpu()))
+        self.assertGreaterEqual(cos_value, 0.9999)
 
     def test_reshape_fp32_008(self):
         device = "cpu"
@@ -444,7 +490,9 @@ class TestLiteNPUReshapeFP32(unittest.TestCase):
 
         reshape_kernel_fp32_008(input_tensor, out_tensor)
 
-        self.assertEqual(1, 1)
+        golden_out = input_tensor.reshape(shape_out)
+        cos_value = compare_cos(np.array(out_tensor.cpu()), np.array(golden_out.cpu()))
+        self.assertGreaterEqual(cos_value, 0.9999)
 
     def test_reshape_fp32_009(self):
         device = "cpu"
@@ -457,7 +505,9 @@ class TestLiteNPUReshapeFP32(unittest.TestCase):
 
         reshape_kernel_fp32_009(input_tensor, out_tensor)
 
-        self.assertEqual(1, 1)
+        golden_out = input_tensor.reshape(shape_out)
+        cos_value = compare_cos(np.array(out_tensor.cpu()), np.array(golden_out.cpu()))
+        self.assertGreaterEqual(cos_value, 0.9999)
 
     def test_reshape_fp32_010(self):
         device = "cpu"
@@ -470,7 +520,9 @@ class TestLiteNPUReshapeFP32(unittest.TestCase):
 
         reshape_kernel_fp32_010(input_tensor, out_tensor)
 
-        self.assertEqual(1, 1)
+        golden_out = input_tensor.reshape(shape_out)
+        cos_value = compare_cos(np.array(out_tensor.cpu()), np.array(golden_out.cpu()))
+        self.assertGreaterEqual(cos_value, 0.9999)
 
 
 @pypto.frontend.jit(codegen_options={"soc_version": "Kirin9030"}, runtime_options={"run_mode": pypto.RunMode.NPU})
@@ -530,7 +582,9 @@ class TestLiteNPUReshapeInplaceFP32(unittest.TestCase):
 
         reshape_kernel_inplace_fp32(input_tensor, out_tensor)
 
-        self.assertEqual(1, 1)
+        golden_out = input_tensor.reshape(shape_out)
+        cos_value = compare_cos(np.array(out_tensor.cpu()), np.array(golden_out.cpu()))
+        self.assertGreaterEqual(cos_value, 0.9999)
 
     def test_reshape_inplace_fp32_002(self):
         device = "cpu"
@@ -543,7 +597,9 @@ class TestLiteNPUReshapeInplaceFP32(unittest.TestCase):
 
         reshape_kernel_inplace_fp32_002(input_tensor, out_tensor)
 
-        self.assertEqual(1, 1)
+        golden_out = input_tensor.reshape(shape_out)
+        cos_value = compare_cos(np.array(out_tensor.cpu()), np.array(golden_out.cpu()))
+        self.assertGreaterEqual(cos_value, 0.9999)
 
     def test_reshape_inplace_fp32_003(self):
         device = "cpu"
@@ -556,7 +612,9 @@ class TestLiteNPUReshapeInplaceFP32(unittest.TestCase):
 
         reshape_kernel_inplace_fp32_003(input_tensor, out_tensor)
 
-        self.assertEqual(1, 1)
+        golden_out = input_tensor.reshape(shape_out)
+        cos_value = compare_cos(np.array(out_tensor.cpu()), np.array(golden_out.cpu()))
+        self.assertGreaterEqual(cos_value, 0.9999)
 
     def test_reshape_inplace_fp32_004(self):
         device = "cpu"
@@ -569,7 +627,9 @@ class TestLiteNPUReshapeInplaceFP32(unittest.TestCase):
 
         reshape_kernel_inplace_fp32_004(input_tensor, out_tensor)
 
-        self.assertEqual(1, 1)
+        golden_out = input_tensor.reshape(shape_out)
+        cos_value = compare_cos(np.array(out_tensor.cpu()), np.array(golden_out.cpu()))
+        self.assertGreaterEqual(cos_value, 0.9999)
 
     def test_reshape_inplace_fp32_005(self):
         device = "cpu"
@@ -582,7 +642,9 @@ class TestLiteNPUReshapeInplaceFP32(unittest.TestCase):
 
         reshape_kernel_inplace_fp32_005(input_tensor, out_tensor)
 
-        self.assertEqual(1, 1)
+        golden_out = input_tensor.reshape(shape_out)
+        cos_value = compare_cos(np.array(out_tensor.cpu()), np.array(golden_out.cpu()))
+        self.assertGreaterEqual(cos_value, 0.9999)
 
 
 @pypto.frontend.jit(codegen_options={"soc_version": "Kirin9030"}, runtime_options={"run_mode": pypto.RunMode.NPU})
@@ -642,7 +704,9 @@ class TestLiteNPUReshapeInt8(unittest.TestCase):
 
         reshape_kernel_int8(input_tensor, out_tensor)
 
-        self.assertEqual(1, 1)
+        golden_out = input_tensor.reshape(shape_out)
+        cos_value = compare_cos(np.array(out_tensor.cpu()), np.array(golden_out.cpu()))
+        self.assertGreaterEqual(cos_value, 0.9999)
 
     def test_reshape_int8_002(self):
         device = "cpu"
@@ -655,7 +719,9 @@ class TestLiteNPUReshapeInt8(unittest.TestCase):
 
         reshape_kernel_int8_002(input_tensor, out_tensor)
 
-        self.assertEqual(1, 1)
+        golden_out = input_tensor.reshape(shape_out)
+        cos_value = compare_cos(np.array(out_tensor.cpu()), np.array(golden_out.cpu()))
+        self.assertGreaterEqual(cos_value, 0.9999)
 
     def test_reshape_int8_003(self):
         device = "cpu"
@@ -668,7 +734,9 @@ class TestLiteNPUReshapeInt8(unittest.TestCase):
 
         reshape_kernel_int8_003(input_tensor, out_tensor)
 
-        self.assertEqual(1, 1)
+        golden_out = input_tensor.reshape(shape_out)
+        cos_value = compare_cos(np.array(out_tensor.cpu()), np.array(golden_out.cpu()))
+        self.assertGreaterEqual(cos_value, 0.9999)
 
     def test_reshape_int8_004(self):
         device = "cpu"
@@ -681,7 +749,9 @@ class TestLiteNPUReshapeInt8(unittest.TestCase):
 
         reshape_kernel_int8_004(input_tensor, out_tensor)
 
-        self.assertEqual(1, 1)
+        golden_out = input_tensor.reshape(shape_out)
+        cos_value = compare_cos(np.array(out_tensor.cpu()), np.array(golden_out.cpu()))
+        self.assertGreaterEqual(cos_value, 0.9999)
 
     def test_reshape_int8_005(self):
         device = "cpu"
@@ -694,7 +764,9 @@ class TestLiteNPUReshapeInt8(unittest.TestCase):
 
         reshape_kernel_int8_005(input_tensor, out_tensor)
 
-        self.assertEqual(1, 1)
+        golden_out = input_tensor.reshape(shape_out)
+        cos_value = compare_cos(np.array(out_tensor.cpu()), np.array(golden_out.cpu()))
+        self.assertGreaterEqual(cos_value, 0.9999)
 
 
 @pypto.frontend.jit(codegen_options={"soc_version": "Kirin9030"}, runtime_options={"run_mode": pypto.RunMode.NPU})
@@ -754,7 +826,9 @@ class TestLiteNPUReshapeInt16(unittest.TestCase):
 
         reshape_kernel_int16(input_tensor, out_tensor)
 
-        self.assertEqual(1, 1)
+        golden_out = input_tensor.reshape(shape_out)
+        cos_value = compare_cos(np.array(out_tensor.cpu()), np.array(golden_out.cpu()))
+        self.assertGreaterEqual(cos_value, 0.9999)
 
     def test_reshape_int16_002(self):
         device = "cpu"
@@ -767,7 +841,9 @@ class TestLiteNPUReshapeInt16(unittest.TestCase):
 
         reshape_kernel_int16_002(input_tensor, out_tensor)
 
-        self.assertEqual(1, 1)
+        golden_out = input_tensor.reshape(shape_out)
+        cos_value = compare_cos(np.array(out_tensor.cpu()), np.array(golden_out.cpu()))
+        self.assertGreaterEqual(cos_value, 0.9999)
 
     def test_reshape_int16_003(self):
         device = "cpu"
@@ -780,7 +856,9 @@ class TestLiteNPUReshapeInt16(unittest.TestCase):
 
         reshape_kernel_int16_003(input_tensor, out_tensor)
 
-        self.assertEqual(1, 1)
+        golden_out = input_tensor.reshape(shape_out)
+        cos_value = compare_cos(np.array(out_tensor.cpu()), np.array(golden_out.cpu()))
+        self.assertGreaterEqual(cos_value, 0.9999)
 
     def test_reshape_int16_004(self):
         device = "cpu"
@@ -793,7 +871,9 @@ class TestLiteNPUReshapeInt16(unittest.TestCase):
 
         reshape_kernel_int16_004(input_tensor, out_tensor)
 
-        self.assertEqual(1, 1)
+        golden_out = input_tensor.reshape(shape_out)
+        cos_value = compare_cos(np.array(out_tensor.cpu()), np.array(golden_out.cpu()))
+        self.assertGreaterEqual(cos_value, 0.9999)
 
     def test_reshape_int16_005(self):
         device = "cpu"
@@ -806,7 +886,9 @@ class TestLiteNPUReshapeInt16(unittest.TestCase):
 
         reshape_kernel_int16_005(input_tensor, out_tensor)
 
-        self.assertEqual(1, 1)
+        golden_out = input_tensor.reshape(shape_out)
+        cos_value = compare_cos(np.array(out_tensor.cpu()), np.array(golden_out.cpu()))
+        self.assertGreaterEqual(cos_value, 0.9999)
 
 
 @pypto.frontend.jit(codegen_options={"soc_version": "Kirin9030"}, runtime_options={"run_mode": pypto.RunMode.NPU})
@@ -866,7 +948,9 @@ class TestLiteNPUReshapeInt32(unittest.TestCase):
 
         reshape_kernel_int32(input_tensor, out_tensor)
 
-        self.assertEqual(1, 1)
+        golden_out = input_tensor.reshape(shape_out)
+        cos_value = compare_cos(np.array(out_tensor.cpu()), np.array(golden_out.cpu()))
+        self.assertGreaterEqual(cos_value, 0.9999)
 
     def test_reshape_int32_002(self):
         device = "cpu"
@@ -879,7 +963,9 @@ class TestLiteNPUReshapeInt32(unittest.TestCase):
 
         reshape_kernel_int32_002(input_tensor, out_tensor)
 
-        self.assertEqual(1, 1)
+        golden_out = input_tensor.reshape(shape_out)
+        cos_value = compare_cos(np.array(out_tensor.cpu()), np.array(golden_out.cpu()))
+        self.assertGreaterEqual(cos_value, 0.9999)
 
     def test_reshape_int32_003(self):
         device = "cpu"
@@ -892,7 +978,9 @@ class TestLiteNPUReshapeInt32(unittest.TestCase):
 
         reshape_kernel_int32_003(input_tensor, out_tensor)
 
-        self.assertEqual(1, 1)
+        golden_out = input_tensor.reshape(shape_out)
+        cos_value = compare_cos(np.array(out_tensor.cpu()), np.array(golden_out.cpu()))
+        self.assertGreaterEqual(cos_value, 0.9999)
 
     def test_reshape_int32_004(self):
         device = "cpu"
@@ -905,7 +993,9 @@ class TestLiteNPUReshapeInt32(unittest.TestCase):
 
         reshape_kernel_int32_004(input_tensor, out_tensor)
 
-        self.assertEqual(1, 1)
+        golden_out = input_tensor.reshape(shape_out)
+        cos_value = compare_cos(np.array(out_tensor.cpu()), np.array(golden_out.cpu()))
+        self.assertGreaterEqual(cos_value, 0.9999)
 
     def test_reshape_int32_005(self):
         device = "cpu"
@@ -918,7 +1008,9 @@ class TestLiteNPUReshapeInt32(unittest.TestCase):
 
         reshape_kernel_int32_005(input_tensor, out_tensor)
 
-        self.assertEqual(1, 1)
+        golden_out = input_tensor.reshape(shape_out)
+        cos_value = compare_cos(np.array(out_tensor.cpu()), np.array(golden_out.cpu()))
+        self.assertGreaterEqual(cos_value, 0.9999)
 
 
 if __name__ == '__main__':

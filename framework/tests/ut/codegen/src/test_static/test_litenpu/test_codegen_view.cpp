@@ -352,7 +352,7 @@ TEST_F(LiteNPUCodeGenView, test_view_dtype_fp32_001)
         TileShape::Current().SetVecTile({1, 8});
         Tensor operand(DT_FP32, {2, 2}, "operand");
         Tensor result;
-        FUNCTION("VIEW_DTYPE_FP32_001") { result = View(operand, DT_INT8); }
+        FUNCTION("VIEW_DTYPE_FP32_001") { result = View(operand, {2, 2}, {0, 0}, DT_INT8); }
     }
     auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + "VIEW_DTYPE_FP32_001");
     npu::tile_fwk::CodeGenCtx ctx;
@@ -367,7 +367,7 @@ TEST_F(LiteNPUCodeGenView, test_view_dtype_fp32_002)
         TileShape::Current().SetVecTile({1, 8});
         Tensor operand(DT_FP32, {2, 2}, "operand");
         Tensor result;
-        FUNCTION("VIEW_DTYPE_FP32_002") { result = View(operand, DT_FP16); }
+        FUNCTION("VIEW_DTYPE_FP32_002") { result = View(operand, {2, 2}, {0, 0}, DT_FP16); }
     }
     auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + "VIEW_DTYPE_FP32_002");
     npu::tile_fwk::CodeGenCtx ctx;
@@ -382,7 +382,7 @@ TEST_F(LiteNPUCodeGenView, test_view_dtype_fp32_003)
         TileShape::Current().SetVecTile({8});
         Tensor operand(DT_FP32, {4}, "operand");
         Tensor result;
-        FUNCTION("VIEW_DTYPE_FP32_003") { result = View(operand, DT_INT8); }
+        FUNCTION("VIEW_DTYPE_FP32_003") { result = View(operand, {4}, {0}, DT_INT8); }
     }
     auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + "VIEW_DTYPE_FP32_003");
     npu::tile_fwk::CodeGenCtx ctx;
@@ -397,7 +397,7 @@ TEST_F(LiteNPUCodeGenView, test_view_dtype_fp32_004)
         TileShape::Current().SetVecTile({1, 8});
         Tensor operand(DT_FP32, {2, 4}, "operand");
         Tensor result;
-        FUNCTION("VIEW_DTYPE_FP32_004") { result = View(operand, DT_FP16); }
+        FUNCTION("VIEW_DTYPE_FP32_004") { result = View(operand, {2, 4}, {0, 0}, DT_FP16); }
     }
     auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + "VIEW_DTYPE_FP32_004");
     npu::tile_fwk::CodeGenCtx ctx;
@@ -412,7 +412,7 @@ TEST_F(LiteNPUCodeGenView, test_view_dtype_fp32_005)
         TileShape::Current().SetVecTile({1, 8});
         Tensor operand(DT_FP32, {3, 3}, "operand");
         Tensor result;
-        FUNCTION("VIEW_DTYPE_FP32_005") { result = View(operand, DT_INT8); }
+        FUNCTION("VIEW_DTYPE_FP32_005") { result = View(operand, {3, 3}, {0, 0}, DT_INT8); }
     }
     auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + "VIEW_DTYPE_FP32_005");
     npu::tile_fwk::CodeGenCtx ctx;
