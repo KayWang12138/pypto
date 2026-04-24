@@ -496,7 +496,6 @@ TILEOP void TLoad3D(
 
     pto::TASSIGN(l1, static_cast<uint64_t>(src.GetAddr()));
     pto::TASSIGN(l0, static_cast<uint64_t>(dst.GetAddr()));
-    pto::TSETFMATRIX(l1);
     pto::TIMG2COL<dstTensor, srcTensor, pto::SetFmatrixMode::FMATRIX_A_AUTO>(l0, l1, mPos, kPos);
 }
 
