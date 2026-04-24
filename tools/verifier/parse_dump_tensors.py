@@ -162,6 +162,7 @@ class VerifyRes:
                     verify_dup_tensor = op_info.get("FILENAME")
                     valid_shape = json.loads(op_info.get(":validshape"))
                     loop_info = op_info.get("LOOP_INFO")
+                    dtype = op_info.get(":dataType")
                     break
             elif "output" in ioflag and op_info.get(":opcode") in ["COPY_OUT"]:
                 verify_op_offset = json.loads(op_info.get("OP_ATTR_SYM_OFFSET"))
@@ -170,7 +171,7 @@ class VerifyRes:
                     verify_dup_tensor = op_info.get("INPUT_FILENAMES")   # COPY_OUT的op只会有一个输入
                     valid_shape = json.loads(op_info.get(":inputValidShape"))
                     loop_info = op_info.get("LOOP_INFO")
-                    dtype = op_info.get("dataType")
+                    dtype = op_info.get(":dataType")
                     break
 
         if verify_dup_tensor:
@@ -233,26 +234,30 @@ class VerifyRes:
 
         verify_dup_tensor = ""
         valid_shape = []
+        phase_name = ""
+        dtype = ""
 
         # verify_tensorgraph_op_info_list
         if self.verify_tensorgraph_op_info_list is None or self.verify_tensorgraph_op_info_list.empty:
-            return verify_dup_tensor, valid_shape
+            return verify_dup_tensor, valid_shape, phase_name, dtype
 
         # 按rawTensorMagic过滤
         filtered_df = self.verify_tensorgraph_op_info_list[
             self.verify_tensorgraph_op_info_list[":rawmagic"] == raw_magic
         ]
         if filtered_df.empty:
-            return verify_dup_tensor, valid_shape
+            return verify_dup_tensor, valid_shape, phase_name, dtype
 
         sorted_df = filtered_df.sort_values(by="NO.", ascending=True)
         last_op_info = sorted_df.iloc[-1]
         verify_dup_tensor = last_op_info.get("FILENAME")
         valid_shape = json.loads(last_op_info.get(":validshape"))
+        phase_name = last_op_info.get("PHASE_NAME")
+        dtype = last_op_info.get(":dataType")
         if verify_dup_tensor:
             verify_dup_tensor = os.path.join(self.verify_path, last_op_info.get("PHASE_NAME"), verify_dup_tensor)
 
-        return verify_dup_tensor, valid_shape
+        return verify_dup_tensor, valid_shape, phase_name, dtype
 
 _verify_res = VerifyRes()
 
@@ -333,13 +338,17 @@ class CompactDumpTensorInfoParser:
 
     @staticmethod
     def _verify_merged_tensor(merge_tensor_info, raw_data):
-        verify_tensor_info, verify_tshape = _verify_res.get_verify_tensor_graph_res(merge_tensor_info)
+        verify_tensor_info, verify_tshape, phase_name, dtype = _verify_res.get_verify_tensor_graph_res(merge_tensor_info)
         dump_tshape = merge_tensor_info.get("B>rawShape")
+
+        merge_tensor_info["A>validshape"] = verify_tshape
+        merge_tensor_info["A>FILENAME"] = verify_tensor_info
+        merge_tensor_info["A>PHASE_NAME"] = phase_name
+        merge_tensor_info["A>dataType"] = dtype
 
         if os.path.exists(verify_tensor_info) and len(verify_tshape) == len(dump_tshape) and \
                 all(vdim == ddim for vdim, ddim in zip(verify_tshape, dump_tshape)):
 
-            merge_tensor_info["verify_tensor_file"] = verify_tensor_info
             dtype = _get_data_type(merge_tensor_info["B>dataType"])[1]
 
             verify_tensor_data = np.fromfile(verify_tensor_info, dtype)
