@@ -32,6 +32,31 @@ import pypto
 from distributed_config import DistributedConfig
 
 
+def collect_process_errors(
+    processes: list,
+    error_queue: mp.Queue | None,
+) -> None:
+    failed_indices = [i for i, p in enumerate(processes) if p.exitcode != 0]
+    if not failed_indices:
+        return
+
+    errors = []
+    if error_queue is not None:
+        while not error_queue.empty():
+            try:
+                rank, error_msg, trace = error_queue.get_nowait()
+                errors.append(f"Process {rank} failed: {error_msg}\n{trace}")
+            except Exception:
+                break
+
+    if errors:
+        error_msg = "\n\n".join(errors)
+    else:
+        exit_codes = [processes[i].exitcode for i in failed_indices]
+        error_msg = f"Processes {failed_indices} failed with exit codes: {exit_codes}"
+    raise AssertionError(f"Test failed:\n{error_msg}")
+
+
 @pypto.frontend.jit(
     runtime_options={"stitch_function_max_num": 128},
 )
@@ -185,7 +210,7 @@ def matmul_allreduce_add_rmsnorm_worker(
     input_data: list,
     output_data: list,
     logical_rank_id: int,
-    error_queue: mp.Queue = None,
+    error_queue: mp.Queue | None = None,
 ):
     try:
         groups = config.init_hccl_comm(logical_rank_id)
@@ -267,22 +292,7 @@ def test_matmul_allreduce_add_rmsnorm():
     for p in processes:
         p.join()
 
-    failed_indices = [i for i, p in enumerate(processes) if p.exitcode != 0]
-
-    if failed_indices:
-        errors = []
-        while not error_queue.empty():
-            try:
-                rank, error_msg, trace = error_queue.get_nowait()
-                errors.append(f"Process {rank} failed: {error_msg}\n{trace}")
-            except Exception:
-                break
-
-        if errors:
-            error_msg = "\n\n".join(errors)
-        else:
-            error_msg = f"Processes {failed_indices} failed with exit codes: {[processes[i].exitcode for i in failed_indices]}"
-        raise AssertionError(f"Test failed:\n{error_msg}")
+    collect_process_errors(processes, error_queue)
 
 
 def main():

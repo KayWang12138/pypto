@@ -40,6 +40,31 @@ np.random.seed(0)
 torch.manual_seed(0)
 
 
+def collect_process_errors(
+    processes: list,
+    error_queue: mp.Queue | None,
+) -> None:
+    failed_indices = [i for i, p in enumerate(processes) if p.exitcode != 0]
+    if not failed_indices:
+        return
+
+    errors = []
+    if error_queue is not None:
+        while not error_queue.empty():
+            try:
+                rank, error_msg, trace = error_queue.get_nowait()
+                errors.append(f"Process {rank} failed: {error_msg}\n{trace}")
+            except Exception:
+                break
+
+    if errors:
+        error_msg = "\n\n".join(errors)
+    else:
+        exit_codes = [processes[i].exitcode for i in failed_indices]
+        error_msg = f"Processes {failed_indices} failed with exit codes: {exit_codes}"
+    raise AssertionError(f"Test failed:\n{error_msg}")
+
+
 def check_cond(cond: bool, msg: str) -> None:
     if not cond:
         raise ValueError(msg)
@@ -882,7 +907,7 @@ def moe_distributed_dispatch_combine(
     moe_case: MoeCase,
     operands: MoeDispatchCombineOperands,
     logical_rank_id: int,
-    error_queue: mp.Queue = None,
+    error_queue: mp.Queue | None = None,
 ) -> None:
     try:
         groups = config.init_hccl_comm(logical_rank_id)
@@ -908,7 +933,10 @@ def moe_distributed_dispatch_combine(
         recv_counts_actual = create_tensor_on_npu(recv_counts_golden, physical_device_id)
 
         kernel = moe_distributed_dispatch_kernel(moe_case=moe_case, group_name=groups[0])
-        kernel(x, expert_ids, expand_x_actual, assist_info_for_combine_actual, expert_token_nums_actual, recv_counts_actual)
+        kernel(
+            x, expert_ids, expand_x_actual, assist_info_for_combine_actual,
+            expert_token_nums_actual, recv_counts_actual
+        )
 
         assist_info_for_combine = assist_info_for_combine_actual[:, -3:].cpu()
         assist_info_for_combine = assist_info_for_combine.to(f'npu:{physical_device_id}')
@@ -926,6 +954,7 @@ def moe_distributed_dispatch_combine(
         if error_queue is not None:
             error_queue.put((logical_rank_id, str(e), traceback.format_exc()))
         raise
+
 
 @pytest.mark.world_size(4)
 def test_moe_distributed_dispatch_combine() -> None:
@@ -975,23 +1004,7 @@ def test_moe_distributed_dispatch_combine() -> None:
     for p in processes:
         p.join()
 
-    failed_indices = [i for i, p in enumerate(processes) if p.exitcode != 0]
-
-    if failed_indices:
-        errors = []
-        while not error_queue.empty():
-            try:
-                rank, error_msg, trace = error_queue.get_nowait()
-                errors.append(f"Process {rank} failed: {error_msg}\n{trace}")
-            except Exception:
-                break
-
-        if errors:
-            error_msg = "\n\n".join(errors)
-        else:
-            error_msg = f"Processes {failed_indices} failed with exit codes: {[processes[i].exitcode for i in failed_indices]}"
-        raise AssertionError(f"Test failed:\n{error_msg}")
-
+    collect_process_errors(processes, error_queue)
 
 
 if __name__ == '__main__':
