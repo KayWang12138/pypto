@@ -86,6 +86,7 @@ public:
     void GapMinSchedule(TaskGraph& taskGraph, std::vector<int>& topoSeq);
     void GapMinForwardPass(TaskGraph& taskGraph, std::vector<int>& topoSeq);
     void GapMinBackwardShift(TaskGraph& taskGraph, std::vector<int>& topoSeq);
+    void GapMinBackwardShiftByExecOrder(TaskGraph& taskGraph);
     int64_t SumCrossCoreGap(const TaskGraph& g) const;
     void ScheduleOneTask(
         TaskGraph& taskGraph, int taskId,
