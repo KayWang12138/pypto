@@ -882,7 +882,7 @@ def moe_distributed_dispatch_combine(
     moe_case: MoeCase,
     operands: MoeDispatchCombineOperands,
     logical_rank_id: int,
-    error_queue: mp.Queue | None = None,
+    error_queue: mp.Queue,
 ) -> None:
     try:
         groups = config.init_hccl_comm(logical_rank_id)

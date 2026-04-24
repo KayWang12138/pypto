@@ -23,7 +23,7 @@ import torch_npu
 
 def collect_process_errors(
     processes: list,
-    error_queue: mp.Queue | None,
+    error_queue: mp.Queue,
 ) -> None:
     failed_indices = [i for i, p in enumerate(processes) if p.exitcode != 0]
     if not failed_indices:
