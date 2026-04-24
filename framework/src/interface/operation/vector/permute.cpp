@@ -277,6 +277,7 @@ Tensor PermuteWithTranspose(const Tensor& self, const std::vector<int>& perm)
 
 Tensor PermuteDecomposeTail(const Tensor& self, const std::vector<int>& perm)
 {
+    std::cout << "\n PermuteDecomposeTail" << std::endl;
     const int shapeSize = static_cast<int>(perm.size());
     bool lastAxisInvolved = (perm[shapeSize - 1] != shapeSize - 1);
     if (!lastAxisInvolved) {
@@ -288,6 +289,12 @@ Tensor PermuteDecomposeTail(const Tensor& self, const std::vector<int>& perm)
     Tensor transposed = Transpose(self, {tailOutputAxis, tailInputAxis});
     auto newVecTileShapes = oldVecTileShapes;
     std::swap(newVecTileShapes[tailOutputAxis], newVecTileShapes[tailInputAxis]);
+    // int64_t bytesPerElement = BytesOf(self.GetDataType());
+    // int64_t alignElements = BLOCK_SIZE / bytesPerElement;
+    // int64_t lastDimTile = newVecTileShapes[shapeSize - 1];
+    // int64_t alignedLastDim = AlignUp(lastDimTile, alignElements);
+    // int64_t maxLastDim = transposed.GetShape()[shapeSize - 1];
+    // newVecTileShapes[shapeSize - 1] = std::min(alignedLastDim, maxLastDim);
     TileShape::Current().SetVecTile(newVecTileShapes);
     std::vector<int> newPerm(perm);
     for (auto& p : newPerm) {
@@ -296,10 +303,6 @@ Tensor PermuteDecomposeTail(const Tensor& self, const std::vector<int>& perm)
         } else if (p == tailInputAxis) {
             p = tailOutputAxis;
         }
-    }
-    if (IsIdentityPermutation(newPerm)) {
-        TileShape::Current().SetVecTile(oldVecTileShapes);
-        return transposed;
     }
     Tensor result = CALL(PermuteOperation, *Program::GetInstance().GetCurrentFunction(), 
                          transposed.GetStorage(), newPerm);
@@ -314,20 +317,15 @@ Tensor Permute(const Tensor& self, std::vector<int> perm)
     std::unordered_set<DataType> supportedTypes = {DT_FP16, DT_BF16, DT_INT16, DT_UINT16, DT_FP32, DT_INT32, DT_UINT32};
     CheckTensorDataType(self.GetStorage(), supportedTypes, "PERMUTE");
     CheckTensorDimRange(self.GetStorage(), 1, 5, "PERMUTE");
-    ASSERT(VectorErrorCode::ERR_PARAM_INVALID, perm.size() == static_cast<size_t>(shapeSize))
-        << "Permute dim num should match input dim num. Expected: " << shapeSize << ", Got: " << perm.size();
     
     const int shapeSize = static_cast<int>(self.GetShape().size());
+    NormalizePermutation(perm, shapeSize);
+    ValidatePermutation(perm, shapeSize);
     if (IsIdentityPermutation(perm) || shapeSize == 1) {
         return self;
     }
-    NormalizePermutation(perm, shapeSize);
-    ValidatePermutation(perm, shapeSize);
-    if (shapeSize <= 3) {
-        return PermuteWithTranspose(self, perm);
-    }
     int transposeCount = CalculateTransposeCount(perm);
-    if (transposeCount == 1) {
+    if (shapeSize <= SHAPE_DIM_NUM_3 || transposeCount == 1) {
         return PermuteWithTranspose(self, perm);
     }
     return PermuteDecomposeTail(self, perm);
