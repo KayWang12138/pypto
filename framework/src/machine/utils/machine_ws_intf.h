@@ -118,7 +118,9 @@ struct LockableQueueGeneric : public QueueGeneric<T> {
 
     __attribute__((always_inline)) inline void unsafe_enqueue(T x)
     {
-        this->elem[__atomic_fetch_add(&this->tail, 1, std::memory_order_release)] = x;
+        const uint32_t t = __atomic_fetch_add(&this->tail, 1, std::memory_order_release);
+        DEV_ASSERT(SchedErr::READY_QUEUE_OVERFLOW, t < this->capacity());
+        this->elem[t] = x;
     }
 
     __attribute__((always_inline)) inline void unsafe_enqueue(T* x, uint32_t count)
