@@ -13,6 +13,7 @@
 import os
 import json
 import copy
+import time
 import struct
 import argparse
 import logging
@@ -161,7 +162,6 @@ class VerifyRes:
                     verify_dup_tensor = op_info.get("FILENAME")
                     valid_shape = json.loads(op_info.get(":validshape"))
                     loop_info = op_info.get("LOOP_INFO")
-                    dtype = op_info.get("dataType")
                     break
             elif "output" in ioflag and op_info.get(":opcode") in ["COPY_OUT"]:
                 verify_op_offset = json.loads(op_info.get("OP_ATTR_SYM_OFFSET"))
@@ -604,9 +604,14 @@ def main():
     df["B>execEnd"] = df["B>execEnd"].apply(lambda x: f"{x:.0f}'")
     df["B>TIMESTAMP"] = df["B>TIMESTAMP"].apply(lambda x: f"{x:.0f}'")
 
+    timestamp = int(time.time())
+    save_dir = os.path.dirname(os.path.dirname(args.dump_tensor_path))
+    csv_path = os.path.join(save_dir, f"verify_task_result_cmp~{timestamp}.csv")
+
     logging.info(df)
 
-    df.to_csv(os.path.join(args.dump_tensor_path, "tensor_info.csv"), index=False, encoding="utf-8")
+    df.to_csv(csv_path, index=False, encoding="utf-8")
+    logging.info(f"Verify result saved to: {csv_path}")
 
 
 if __name__ == "__main__":
