@@ -163,7 +163,7 @@ void TiledBinaryOperation(
                 op->SetAttribute(OpAttributeKey::brcpIdx, brcOperand[shapeSize - NUM2]);
             }
         }
-        if constexpr (T == BinaryOpType::DIV) {
+        if constexpr (T == BinaryOpType::DIV || T == BinaryOpType::MOD) {
             op->SetAttribute(OpAttributeKey::precisionType, precisionType);
         }
         return;
@@ -515,7 +515,7 @@ void TiledBinaryOperationScalar(
         auto& op = function.AddOperation(opNameCode, {inputTile1}, {resultTile});
         op.SetAttribute(OpAttributeKey::scalar, value);
         op.SetAttribute(OP_ATTR_PREFIX + "reverseOperand", reverseOperand);
-        if constexpr (T == BinaryOpType::DIV) {
+        if constexpr (T == BinaryOpType::DIV || T == BinaryOpType::MOD) {
             op.SetAttribute(OpAttributeKey::precisionType, precisionType);
         }
         return;
@@ -1026,7 +1026,7 @@ void BinaryOperationTileFunc(
 {
     BinaryOperationOperandCheck(iOperand, oOperand);
     int64_t precisionType = static_cast<int64_t>(DivAlgorithm::DEFAULT);
-    if constexpr (T == BinaryOpType::DIV) {
+    if constexpr (T == BinaryOpType::DIV || T == BinaryOpType::MOD) {
         if (op.HasAttr(OpAttributeKey::precisionType)) {
             precisionType = op.GetIntAttribute(OpAttributeKey::precisionType);
         }
@@ -1041,7 +1041,7 @@ void BinaryOperationScalarTileFunc(
     const std::vector<LogicalTensorPtr>& oOperand, [[maybe_unused]] const Operation& op)
 {
     int64_t precisionType = static_cast<int64_t>(DivAlgorithm::DEFAULT);
-    if constexpr (T == BinaryOpType::DIV) {
+    if constexpr (T == BinaryOpType::DIV || T == BinaryOpType::MOD) {
         if (op.HasAttr(OpAttributeKey::precisionType)) {
             precisionType = op.GetIntAttribute(OpAttributeKey::precisionType);
         }
@@ -1057,7 +1057,7 @@ void BinaryOperationScalarResTileFunc(
     const std::vector<LogicalTensorPtr>& oOperand, [[maybe_unused]] const Operation& op)
 {
     int64_t precisionType = static_cast<int64_t>(DivAlgorithm::DEFAULT);
-    if constexpr (T == BinaryOpType::DIV) {
+    if constexpr (T == BinaryOpType::DIV || T == BinaryOpType::MOD) {
         if (op.HasAttr(OpAttributeKey::precisionType)) {
             precisionType = op.GetIntAttribute(OpAttributeKey::precisionType);
         }
