@@ -18,6 +18,8 @@
 
 #include <string>
 #include <chrono>
+#include <cstdarg>
+#include <cstdio>
 #include "interface/operation/operation.h"
 #include "interface/function/function.h"
 #include "passes/pass_interface/pass.h"
@@ -49,6 +51,29 @@ inline const char* toString(Elements elem)
 
     auto it = passElementName.find(elem);
     return (it != passElementName.end()) ? it->second : "Unknown";
+}
+
+__attribute__((format(gnu_printf, 3, 4)))
+inline void ApassLogErrorDispatch(const char* moduleName, Elements opEnum, const char* fmt, ...)
+{
+    char message[2048] = {0};
+    va_list args;
+    va_start(args, fmt);
+    (void)vsnprintf(message, sizeof(message), fmt, args);
+    va_end(args);
+    PYPTO_HOST_LOG(DLOG_ERROR, PASS, "[%s.%s]:%s", moduleName, toString(opEnum), message);
+}
+
+template <typename ErrCode>
+__attribute__((format(gnu_printf, 4, 5)))
+inline void ApassLogErrorDispatch(const char* moduleName, ErrCode errCode, Elements opEnum, const char* fmt, ...)
+{
+    char message[2048] = {0};
+    va_list args;
+    va_start(args, fmt);
+    (void)vsnprintf(message, sizeof(message), fmt, args);
+    va_end(args);
+    PYPTO_HOST_LOGE(PASS, errCode, "[%s.%s]:%s", moduleName, toString(opEnum), message);
 }
 
 class ScopeTimer {
@@ -129,8 +154,10 @@ private:
     PYPTO_HOST_LOG(DLOG_WARN, PASS, "[%s.%s]:" fmt, MODULE_NAME, toString(opEnum), ##__VA_ARGS__)
 #define APASS_LOG_ERROR_F(opEnum, fmt, ...) \
     PYPTO_HOST_LOG(DLOG_ERROR, PASS, "[%s.%s]:" fmt, MODULE_NAME, toString(opEnum), ##__VA_ARGS__)
-#define APASS_LOG_ERROR_C(errCode, opEnum, fmt, ...) \
+#define APASS_LOG_ERROR_C(errCode, opEnum, ...) APASS_LOG_ERROR_C_IMPL(errCode, opEnum, __VA_ARGS__)
+#define APASS_LOG_ERROR_C_IMPL(errCode, opEnum, fmt, ...) \
     PYPTO_HOST_LOGE(PASS, errCode, "[%s.%s]:" fmt, MODULE_NAME, toString(opEnum), ##__VA_ARGS__)
+#define APASS_LOG_ERROR(...) ::npu::tile_fwk::ApassLogErrorDispatch(MODULE_NAME, __VA_ARGS__)
 #define APASS_LOG_EVENT_F(opEnum, fmt, ...) \
     PYPTO_HOST_LOG_WITHOUT_LEVEL_CHECK(DLOG_INFO, PASS, "[%s.%s]:" fmt, MODULE_NAME, toString(opEnum), ##__VA_ARGS__)
 
