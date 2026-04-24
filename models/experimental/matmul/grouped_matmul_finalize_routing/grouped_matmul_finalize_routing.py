@@ -219,36 +219,13 @@ def combine_func(x, logits, residual, resid_scale, source_row, output_bs, offset
     Returns:
         最终输出 [output_bs, N] (torch.Tensor)
     """
-    top_k = x.shape[0] // output_bs
     
-    # 裁剪 logits（使其长度是 top_k 的倍数）
-    remain_logits = len(logits) % top_k
-    if remain_logits:
-        logits = logits[:len(logits) - remain_logits]
-    
-    # logit 加权：[M, N] * [M, 1] -> [M, N]
-    out = x * logits.unsqueeze(1)
-    
-    # 裁剪 source_row（使其长度是 top_k 的倍数）
-    remain_sr = len(source_row) % top_k
-    if remain_sr:
-        source_row = source_row[:len(source_row) - remain_sr]
-    
-    # argsort：按 row_index 排序
-    index = torch.argsort(source_row)
-    
-    # reorder：按 argsort 结果重新排序
-    out = out[index]
-    
-    # reshape 成 [output_bs, top_k, N]
-    out = out.reshape(output_bs, top_k, x.shape[-1])
-    
-    # sum：对每个 batch row 的 top_k 个 token 求和
-    out = out.sum(dim=1)
-    
-    # shared_input 融合（可选）
+    weighted = x * logits.unsqueeze(1)
+    out = torch.zeros((output_bs, x.shape[-1]), dtype=torch.float32)
+    out.index_add_(0, source_row.to(torch.int64), weighted.to(torch.float32))
+
     if residual is not None:
-        residual_fp32 = residual.float()  # bfloat16 -> float32
+        residual_fp32 = residual.float()
         out[offset:offset + residual.shape[0], :] += resid_scale * residual_fp32
     
     return out
@@ -405,6 +382,8 @@ def grouped_matmul_finalize_routing_pypto(m, k, n, e, batch, tile_config, transp
         pertoken_scale: pypto.Tensor(pertoken_scale_shape, pypto.DT_FP8E8M0),
         logits: pypto.Tensor(logit_shape, pypto.DT_FP32),
         intermediate: pypto.Tensor(intermediate_shape, pypto.DT_FP32),
+        routing_out: pypto.Tensor(out_shape, pypto.DT_FP32),
+        shared_out: pypto.Tensor(out_shape, pypto.DT_FP32),
         out: pypto.Tensor(out_shape, pypto.DT_FP32),
         row_index: pypto.Tensor(row_index_shape, pypto.DT_INT64),
         bias: pypto.Tensor(bias_shape, pypto.DT_BF16),
@@ -432,6 +411,8 @@ def grouped_matmul_finalize_routing_pypto(m, k, n, e, batch, tile_config, transp
             pertoken_scale: Token缩放因子 [M, Ceil(K/64), 2], FLOAT8_E8M0
             logit: MoE logit [M], FP32
             intermediate: GMM 输出 [M, N], FP32
+            routing_out: routing聚合输出 [batch, N], FP32
+            shared_out: shared专家分支输出 [batch, N], FP32
             out: 最终输出 [batch, N], FP32
             row_index: 路由索引 [M], INT64
             bias: 专家偏置 [E, N], BF16
@@ -497,17 +478,17 @@ def grouped_matmul_finalize_routing_pypto(m, k, n, e, batch, tile_config, transp
             tile_config.vector_tile_shape[2]
         )
         weighted = pypto.mul(intermediate, logits.unsqueeze(1))
-        pypto.index_add_(out, 0, row_index, weighted)
+        pypto.index_add_(routing_out, 0, row_index, weighted)
 
         # Step 3: shared_input融合（可选）
         if has_shared:
             shared_fp32 = pypto.cast(shared_input, pypto.DT_FP32)
             shared_scaled = pypto.mul(shared_fp32, shared_input_weight)
             shared_end = shared_input_offset + shared_input.shape[0]
-            out[shared_input_offset:shared_end, :] = pypto.add(
-                out[shared_input_offset:shared_end, :],
-                shared_scaled
-            )
+            shared_out[shared_input_offset:shared_end, :] = shared_scaled
+
+        # Step 4: 合并 routing 分支和 shared 分支
+        out[:] = pypto.add(routing_out, shared_out)
 
 
     return grouped_matmul_finalize_routing_kernel
@@ -583,6 +564,8 @@ def gen_mxfp8(inputs: GmmFRInputs) -> torch.Tensor:
 
     # 初始化输出tensor
     intermediate = torch.zeros((m, n), dtype=torch.float32).npu()
+    routing_out = torch.zeros((batch, n), dtype=torch.float32).npu()
+    shared_out = torch.zeros((batch, n), dtype=torch.float32).npu()
     out = torch.zeros((batch, n), dtype=torch.float32).npu()
 
     # 创建 kernel
@@ -593,7 +576,7 @@ def gen_mxfp8(inputs: GmmFRInputs) -> torch.Tensor:
     # 调用 kernel（全 NPU 实现）
     kernel(
         x1, x2, scale, pertoken_scale, logit, 
-        intermediate, out, row_index,
+        intermediate, routing_out, shared_out, out, row_index,
         bias, shared_input,
         shared_input_weight, shared_input_offset,
         group_list, has_bias, has_shared
@@ -693,8 +676,8 @@ def test_gmm_fr_full_config(tile_config: TileConfig = DEFAULT_TILE_CONFIG, devic
     print("Test: GroupedMatmulFinalizeRoutingV3 - Full Config")
     print("=" * 60)
 
-    m, k, n, e, batch = 16, 512, 7168, 2, 8
-    group_list = [7, 9]
+    m, k, n, e, batch = 256, 512, 512, 4, 8
+    group_list = [64, 64, 64, 64]
 
     print(f"Config: m={m}, k={k}, n={n}, e={e}, batch={batch}")
     print(f"group_list: {group_list}, bias=True, shared_input=True")
@@ -749,6 +732,8 @@ def test_gmm_fr_full_config(tile_config: TileConfig = DEFAULT_TILE_CONFIG, devic
             tile_config=tile_config,
         ))
 
+        print(result)
+        print(result.shape)
         max_diff = np.abs(result.cpu().numpy() - golden.cpu().numpy()).max()
         print(f"Max diff: {max_diff:.6e}")
 
