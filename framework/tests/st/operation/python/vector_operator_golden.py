@@ -3034,31 +3034,38 @@ def _quantmx_parse_int_list(value):
     return [int(v) for v in value]
 
 
-# Safe exponent ranges for values generated as mantissa in [1, 2) times 2^exp.
-# These bounds intentionally keep QuantMX golden inputs in the normal-number range only.
-_QUANTMX_SAFE_EXP_RANGE = {
-    "fp16": (-14, 15),
-    "bf16": (-126, 127),
-    "fp32": (-126, 127),
+# Exponent ranges for values generated as mantissa in [1, 2) times 2^exp.
+# Bounds include subnormal and one overflow exponent so tests can explicitly cover
+# subnormal and Inf input generation through exp_range when requested.
+_QUANTMX_EXP_RANGE = {
+    "fp16": (-24, 16),
+    "bf16": (-133, 128),
+    "fp32": (-149, 128),
+}
+
+_QUANTMX_SUBNORMAL_EXP = {
+    "fp16": -24,
+    "bf16": -133,
+    "fp32": -149,
 }
 
 
 def _quantmx_validate_dtype(dtype_name: str):
-    assert dtype_name in _QUANTMX_SAFE_EXP_RANGE, f"QuantMX golden does not support dtype {dtype_name}."
+    assert dtype_name in _QUANTMX_EXP_RANGE, f"QuantMX golden does not support dtype {dtype_name}."
 
 
 def _quantmx_resolve_exp_range(dtype_name: str, params: dict) -> list:
     _quantmx_validate_dtype(dtype_name)
-    safe_lo, safe_hi = _QUANTMX_SAFE_EXP_RANGE[dtype_name]
+    valid_lo, valid_hi = _QUANTMX_EXP_RANGE[dtype_name]
     exp_range = _quantmx_parse_int_list(params.get("exp_range"))
     if exp_range is not None:
         assert len(exp_range) == 2, "QuantMX exp_range must contain [min_exp, max_exp]."
         assert exp_range[0] <= exp_range[1], "QuantMX exp_range min must be <= max."
-        assert safe_lo <= exp_range[0] <= safe_hi, (
-            f"QuantMX exp_range min {exp_range[0]} is out of safe range [{safe_lo}, {safe_hi}] for {dtype_name}."
+        assert valid_lo <= exp_range[0] <= valid_hi, (
+            f"QuantMX exp_range min {exp_range[0]} is out of valid range [{valid_lo}, {valid_hi}] for {dtype_name}."
         )
-        assert safe_lo <= exp_range[1] <= safe_hi, (
-            f"QuantMX exp_range max {exp_range[1]} is out of safe range [{safe_lo}, {safe_hi}] for {dtype_name}."
+        assert valid_lo <= exp_range[1] <= valid_hi, (
+            f"QuantMX exp_range max {exp_range[1]} is out of valid range [{valid_lo}, {valid_hi}] for {dtype_name}."
         )
         return [int(exp_range[0]), int(exp_range[1])]
 
@@ -3068,7 +3075,7 @@ def _quantmx_resolve_exp_range(dtype_name: str, params: dict) -> list:
         "fp16": [-20, 15],
     }
     default_lo, default_hi = default_ranges[dtype_name]
-    return [max(safe_lo, default_lo), min(safe_hi, default_hi)]
+    return [max(valid_lo, default_lo), min(valid_hi, default_hi)]
 
 
 def _quantmx_has_exp_range_override(params: dict) -> bool:
@@ -3168,6 +3175,64 @@ def _quantmx_inject_special_values(base: np.ndarray, dtype_name: str, exp_range:
         flat[pos] = value
 
 
+def _quantmx_special_value_count(size: int) -> int:
+    if size <= 0:
+        return 0
+    return max(1, math.ceil(size / 10000))
+
+
+def _quantmx_positions(size: int, count: int, offset: int, occupied: set) -> list:
+    if size <= 0 or count <= 0:
+        return []
+    stride = max(1, size // count)
+    positions = []
+    for idx in range(count):
+        pos = (offset + idx * stride + idx * idx * 17) % size
+        probe = 0
+        while pos in occupied and probe < size:
+            pos = (pos + 1) % size
+            probe += 1
+        if pos in occupied:
+            break
+        occupied.add(pos)
+        positions.append(pos)
+    return positions
+
+
+def _quantmx_inject_requested_values(casted: np.ndarray, dtype_name: str, params: dict):
+    enable_subnormal = str_to_bool(params.get("enable_subnormal"))
+    enable_inf = str_to_bool(params.get("enable_inf"))
+    enable_nan = str_to_bool(params.get("enable_nan"))
+    if not (enable_subnormal or enable_inf or enable_nan):
+        return casted
+
+    flat = casted.reshape(-1)
+    count = _quantmx_special_value_count(flat.size)
+    occupied = set()
+
+    if enable_subnormal:
+        positions = _quantmx_positions(flat.size, count, 0, occupied)
+        subnormal = np.float32(math.ldexp(1.0, _QUANTMX_SUBNORMAL_EXP[dtype_name]))
+        for idx, pos in enumerate(positions):
+            flat[pos] = subnormal if idx % 2 == 0 else -subnormal
+
+    if enable_inf:
+        positions = _quantmx_positions(flat.size, count, flat.size // 3, occupied)
+        for idx, pos in enumerate(positions):
+            flat[pos] = np.inf if idx % 2 == 0 else -np.inf
+
+    if enable_nan:
+        positions = _quantmx_positions(flat.size, count, (flat.size * 2) // 3, occupied)
+        for pos in positions:
+            flat[pos] = np.nan
+
+    return casted
+
+
+def _quantmx_allow_non_finite(params: dict) -> bool:
+    return str_to_bool(params.get("enable_inf")) or str_to_bool(params.get("enable_nan"))
+
+
 def _generate_quantmx_input(input_tensor: dict, config: dict) -> np.ndarray:
     params = config.get("params", {}) or {}
     dtype_name = input_tensor["dtype"]
@@ -3181,14 +3246,16 @@ def _generate_quantmx_input(input_tensor: dict, config: dict) -> np.ndarray:
     if not explicit_exp_range:
         reshaped = _generate_quantmx_input_from_datarange(shape, data_range)
         casted = reshaped.astype(np_dtype)
+        casted = _quantmx_inject_requested_values(casted, dtype_name, params)
         casted_fp32 = casted.astype(np.float32)
-        assert np.isfinite(casted_fp32).all(), f"QuantMX golden generated non-finite {dtype_name} inputs."
-        if dtype_name == "fp16":
+        if not _quantmx_allow_non_finite(params):
+            assert np.isfinite(casted_fp32).all(), f"QuantMX golden generated non-finite {dtype_name} inputs."
+        if dtype_name == "fp16" and not _quantmx_allow_non_finite(params):
             dtype_finfo = np.finfo(np.float16)
             assert np.max(np.abs(casted_fp32), initial=0.0) <= dtype_finfo.max, (
                 "QuantMX golden generated fp16 inputs that overflow dtype range."
             )
-        elif dtype_name == "fp32":
+        elif dtype_name == "fp32" and not _quantmx_allow_non_finite(params):
             dtype_finfo = np.finfo(np.float32)
             assert np.max(np.abs(casted_fp32), initial=0.0) <= dtype_finfo.max, (
                 "QuantMX golden generated fp32 inputs that overflow dtype range."
@@ -3253,15 +3320,17 @@ def _generate_quantmx_input(input_tensor: dict, config: dict) -> np.ndarray:
     _quantmx_inject_special_values(base, dtype_name, exp_range)
     reshaped = base.reshape(shape)
     casted = reshaped.astype(np_dtype)
+    casted = _quantmx_inject_requested_values(casted, dtype_name, params)
     casted_fp32 = casted.astype(np.float32)
-    assert np.isfinite(casted_fp32).all(), f"QuantMX golden generated non-finite {dtype_name} inputs."
+    if not _quantmx_allow_non_finite(params):
+        assert np.isfinite(casted_fp32).all(), f"QuantMX golden generated non-finite {dtype_name} inputs."
 
-    if dtype_name == "fp16":
+    if dtype_name == "fp16" and not _quantmx_allow_non_finite(params):
         dtype_finfo = np.finfo(np.float16)
         assert np.max(np.abs(casted_fp32), initial=0.0) <= dtype_finfo.max, (
             "QuantMX golden generated fp16 inputs that overflow dtype range."
         )
-    elif dtype_name == "fp32":
+    elif dtype_name == "fp32" and not _quantmx_allow_non_finite(params):
         dtype_finfo = np.finfo(np.float32)
         assert np.max(np.abs(casted_fp32), initial=0.0) <= dtype_finfo.max, (
             "QuantMX golden generated fp32 inputs that overflow dtype range."
@@ -3277,6 +3346,9 @@ def params_quantmx_func(params: dict):
     params["performance_mode"] = str_to_bool(params.get("performance_mode"))
     params["use_exp_range"] = str_to_bool(params.get("use_exp_range"))
     params["exp_range"] = _quantmx_parse_int_list(params.get("exp_range")) if params["use_exp_range"] else None
+    params["enable_subnormal"] = str_to_bool(params.get("enable_subnormal"))
+    params["enable_inf"] = str_to_bool(params.get("enable_inf"))
+    params["enable_nan"] = str_to_bool(params.get("enable_nan"))
     return params
 
 
