@@ -275,7 +275,7 @@ def test_matmul_allreduce_add_rmsnorm():
             try:
                 rank, error_msg, trace = error_queue.get_nowait()
                 errors.append(f"Process {rank} failed: {error_msg}\n{trace}")
-            except:
+            except Exception:
                 break
 
         if errors:

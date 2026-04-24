@@ -983,7 +983,7 @@ def test_moe_distributed_dispatch_combine() -> None:
             try:
                 rank, error_msg, trace = error_queue.get_nowait()
                 errors.append(f"Process {rank} failed: {error_msg}\n{trace}")
-            except:
+            except Exception:
                 break
 
         if errors:
