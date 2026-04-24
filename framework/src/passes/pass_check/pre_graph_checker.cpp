@@ -112,19 +112,6 @@ Status PreGraphProcessChecker::DoPostCheck(Function& function)
 
 Status PreGraphProcessChecker::PostCheckHelpFunc(const LogicalTensor& singleTensor)
 {
-    int tensorSubgraphID = NOT_IN_SUBGRAPH;
-    if (singleTensor.GetProducers().size() > 0) {
-        tensorSubgraphID = (*singleTensor.GetProducers().begin())->GetSubgraphID();
-    } else if (singleTensor.GetConsumers().size() > 0) {
-        tensorSubgraphID = (*singleTensor.GetConsumers().begin())->GetSubgraphID();
-    }
-    if (tensorSubgraphID == NOT_IN_SUBGRAPH) {
-        // tensor 的子图编号是否被设置过
-        APASS_LOG_ERROR_F(
-            Elements::Graph, "Tensor magic: %d, its subgraph id should not be %d.", singleTensor.GetMagic(),
-            NOT_IN_SUBGRAPH);
-        return FAILED;
-    }
     if (singleTensor.GetMemoryTypeOriginal() == MemoryType::MEM_DEVICE_DDR &&
         singleTensor.isSubGraphBoundary == false) {
         // gm tensor 是否被标记为boundary
