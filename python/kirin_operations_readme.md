@@ -2480,7 +2480,7 @@ __参数说明__
 | input      | 输入      | 源操作数。 <br> 支持的类型为：Tensor。 <br> Tensor支持的数据类型为：DT_FP32，DT_FP16，DT_INT8，DT_UINT8，DT_INT16，DT_INT32。 <br> 不支持空Tensor；Shape仅支持1-4维；Shape Size不大于2147483647（即INT32_MAX）。 |
 | dtype      | 输入      | 精度转换后的数据类型。 <br> 支持的数据类型为：DT_FP32，DT_FP16，DT_INT8，DT_UINT8，DT_INT16，DT_INT32。 |
 | CastMode   | 输入      | 源操作数枚举类型，用以控制精度转换处理模式，具体定义为：[CastMode](../docs\api\datatype\CastMode.md) 。<br> 默认为 CAST_NONE，常见类型之间的转换，框架会自动转换，与torch对齐，详见约束说明。 |
-
+| SaturationMode    | 输入      | 饱和模式枚举类型，用以控制浮点数转整数时的溢出处理方式，具体定义为：[SaturationMode](../datatype/SaturationMode.md) 。<br> 默认为 OFF（截断模式），当设置为 ON 时，超出目标类型范围的数值会被截断到最大值或最小值（饱和截断），详见约束说明。 |
 __约束说明__
 
 1.  目的操作数是整型且源操作数的数值超过整型的数据表示范围进行精度转换结果为目的操作数的最大值或者最小值。例如DT\_FP16转DT\_INT8时，若输入是130.0，将会输出127（DT\_INT8的上界）
@@ -2584,25 +2584,26 @@ TStore(gm_y, ub_y)
 * 切分：n,c,h,w全量组合
 * 输入/输出数据类型：FP16->(FP32/INT8/Uint8/INT16/INT32)、(FP32/INT8/Uint8/INT16)->FP16、
 FP32->(FP16/INT16/INT32)、(FP16/INT16/INT32)->FP32
+* 饱和模式设置(SaturationMode)：ON、OFF
 * 转换类型：CAST_NONE、CAST_RINT、CAST_ROUND、CAST_FLOOR、CAST_CEIL、CAST_TRUNC、CAST_ODD
 
-| 用例名称  | 输入维度 | 切分 | 输入dtype | 输出dtype | 处理模式 | 说明 |
+| 用例名称  | 输入维度 | 切分 | 输入dtype | 输出dtype | 饱和模式设置 | 处理模式 | 说明 |
 |----------|---------|-----------|------|------|------|------|
-| cast_001  | (112) | (50) | FP16 | FP32 | CAST_NONE | 1d尾轴对齐，w切分 |
-| cast_002  | (100) | (100) | INT32 | FP32 | CAST_RINT | 1d尾轴不对齐，无切分 |
-| cast_003  | (4,128) | (2,32) | INT16 | FP32 | CAST_ROUND | 2d尾轴对齐，h,w切分 |
-| cast_004  | (4,130) | (1,130) | FP32 | FP16 | CAST_FLOOR | 2d尾轴不对齐，h切分 |
-| cast_005  | (2,4,160) | (1,2,32) | INT8 | FP16 | CAST_CEIL | 3d尾轴对齐，c,h,w切分 |
-| cast_006  | (2,4,140) | (1,2,140) | Uint8 | FP16 | CAST_TRUNC | 3d尾轴不对齐，c,h切分 |
-| cast_007  | (2,5,152) | (1,5,32) | INT16 | FP16| CAST_ODD | 3d尾轴不对齐，c,w切分 |
-| cast_008  | (2,3,170) | (1,3,170) | FP32 | INT16 | CAST_NONE | 3d尾轴不对齐，c切分 |
-| cast_009  | (5,2,4,176) | (2,1,2,16) | FP32 | INT32 | CAST_NONE | 4d尾轴对齐，n,c,h,w切分 |
-| cast_010  | (5,2,4,130) | (1,1,1,130) | FP16 | INT8 | CAST_NONE | 4d尾轴不对齐，n,c,h切分 |
-| cast_011  | (2,3,5,134) | (1,1,5,32) | FP16 | Uint8 | CAST_NONE | 4d尾轴不对齐，n,c,w切分 |
-| cast_012  | (4,2,6,135) | (2,2,3,32) | FP16 | INT16 | CAST_NONE | 4d尾轴不对齐，n,h,w切分 |
-| cast_013  | (6,2,4,130) | (1,1,4,130) | FP16 | INT32 | CAST_NONE | 4d尾轴不对齐，n,c切分 |
-| cast_014  | (3,2,3,139) | (1,2,1,139) | FP16 | FP32 | CAST_NONE | 4d尾轴不对齐，n,h切分 |
-| cast_015  | (6,3,5,141) | (3,3,5,32) | FP16 | FP32 | CAST_NONE | 4d尾轴不对齐，n,w切分 |
+| cast_001  | (112) | (50) | FP16 | FP32 | OFF | CAST_NONE | 1d尾轴对齐，w切分 |
+| cast_002  | (100) | (100) | INT32 | FP32 | ON | CAST_RINT | 1d尾轴不对齐，无切分 |
+| cast_003  | (4,128) | (2,32) | INT16 | FP32 | ON | CAST_ROUND | 2d尾轴对齐，h,w切分 |
+| cast_004  | (4,130) | (1,130) | FP32 | FP16 | OFF | CAST_FLOOR | 2d尾轴不对齐，h切分 |
+| cast_005  | (2,4,160) | (1,2,32) | INT8 | FP16 | OFF | CAST_CEIL | 3d尾轴对齐，c,h,w切分 |
+| cast_006  | (2,4,140) | (1,2,140) | Uint8 | FP16 | OFF | CAST_TRUNC | 3d尾轴不对齐，c,h切分 |
+| cast_007  | (2,5,152) | (1,5,32) | INT16 | FP16| OFF | CAST_ODD | 3d尾轴不对齐，c,w切分 |
+| cast_008  | (2,3,170) | (1,3,170) | FP32 | INT16 | OFF | CAST_NONE | 3d尾轴不对齐，c切分 |
+| cast_009  | (5,2,4,176) | (2,1,2,16) | FP32 | INT32 | OFF | CAST_NONE | 4d尾轴对齐，n,c,h,w切分 |
+| cast_010  | (5,2,4,130) | (1,1,1,130) | FP16 | INT8 | OFF | CAST_NONE | 4d尾轴不对齐，n,c,h切分 |
+| cast_011  | (2,3,5,134) | (1,1,5,32) | FP16 | Uint8 | OFF | CAST_NONE | 4d尾轴不对齐，n,c,w切分 |
+| cast_012  | (4,2,6,135) | (2,2,3,32) | FP16 | INT16 | OFF | CAST_NONE | 4d尾轴不对齐，n,h,w切分 |
+| cast_013  | (6,2,4,130) | (1,1,4,130) | FP16 | INT32 | OFF | CAST_NONE | 4d尾轴不对齐，n,c切分 |
+| cast_014  | (3,2,3,139) | (1,2,1,139) | FP16 | FP32 | OFF | CAST_NONE | 4d尾轴不对齐，n,h切分 |
+| cast_015  | (6,3,5,141) | (3,3,5,32) | FP16 | FP32 | OFF | CAST_NONE | 4d尾轴不对齐，n,w切分 |
 
 ## 6. 视图操作
 

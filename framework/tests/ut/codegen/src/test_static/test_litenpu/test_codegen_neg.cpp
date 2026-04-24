@@ -343,40 +343,40 @@ TEST_F(LiteNPUCodegenNeg, test_Neg_fp16_015)
 }
 
 // Unary_int16_001
-TEST_F(LiteNPUCodegenNeg, test_Neg_int16_001)
+TEST_F(LiteNPUCodegenNeg, test_Neg_int16_016)
 {
-    PROGRAM("Neg_int16_015")
+    PROGRAM("Neg_int16_016")
     {
-        Tensor input(DataType::DT_INT16, {6, 3, 5, 141}, "input");
-        auto output = Tensor(DataType::DT_INT16, {6, 3, 5, 141}, "output");
-        FUNCTION("Neg_int16_015")
+        Tensor input(DataType::DT_INT16, {4,128}, "input");
+        auto output = Tensor(DataType::DT_INT16, {4,128}, "output");
+        FUNCTION("Neg_int16_016")
         {
-            TileShape::Current().SetVecTile({3, 3, 5, 32});
+            TileShape::Current().SetVecTile({2, 32});
             output = Neg(input);
         }
     }
 
-    auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + "Neg_int16_015");
+    auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + "Neg_int16_016");
     npu::tile_fwk::CodeGenCtx ctx;
     npu::tile_fwk::CodeGenLiteNPU codeGen(ctx);
     codeGen.GenCode(*function, {});
 }
 
 // Unary_int32_002
-TEST_F(LiteNPUCodegenNeg, test_Neg_int32_002)
+TEST_F(LiteNPUCodegenNeg, test_Neg_int32_017)
 {
-    PROGRAM("Neg_int32_015")
+    PROGRAM("Neg_int32_017")
     {
-        Tensor input(DataType::DT_INT32, {6, 3, 5, 141}, "input");
-        auto output = Tensor(DataType::DT_INT32, {6, 3, 5, 141}, "output");
-        FUNCTION("Neg_int32_015")
+        Tensor input(DataType::DT_INT32, {4,130}, "input");
+        auto output = Tensor(DataType::DT_INT32, {4,130}, "output");
+        FUNCTION("Neg_int32_017")
         {
-            TileShape::Current().SetVecTile({3, 3, 5, 32});
+            TileShape::Current().SetVecTile({1, 130});
             output = Neg(input);
         }
     }
 
-    auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + "Neg_int32_015");
+    auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + "Neg_int32_017");
     npu::tile_fwk::CodeGenCtx ctx;
     npu::tile_fwk::CodeGenLiteNPU codeGen(ctx);
     codeGen.GenCode(*function, {});
