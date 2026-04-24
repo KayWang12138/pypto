@@ -35,7 +35,7 @@ struct EstimateInput
     std::vector<bool> isCube;
     std::vector<std::set<int>> outGraph;
     std::vector<std::set<int>> inGraph;
-    int betweenSubgraphScheduleTime;
+    int betweenSubgraphScheduleTime{1500};  // estimated task issuance time
 };
 
 struct EstimateCoreState
@@ -146,10 +146,15 @@ private:
     Status BuildGraph(Function &function, MergeInput& mergeInput);
     Status BuildMergeGroup(Function &function, MergeInput& mergeInput);
     Status MarkNoMergeSubgraph(Function &function);
+    void UpdateConnectRecord(Function &function);
     bool IsEnforceMergeBoundary(LogicalTensorPtr &tensor);
     Status RunOnFunction(Function &function) override;
     Status PostCheck(Function &function) override;
     std::unordered_set<int> noMergeSubgraph;
+    std::map<std::vector<int>, int> mergeGroupToPriority;
+    std::set<std::vector<int>> enforceMergeGroup;
+    std::vector<int> subgraphInputSize;
+    std::vector<int> subgraphOutputSize;
 };
 
 }
