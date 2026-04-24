@@ -709,6 +709,44 @@ static void FillL2PrefetchInfo(std::shared_ptr<DyndevFunctionAttribute> attr)
     return;
 }
 
+static bool FindLiteNPUKernel(const std::map<uint64_t, Function*>& leafDict,
+    const std::shared_ptr<DyndevFunctionAttribute>& attr, std::string& kernelPath)
+{
+    for (auto& [hash, leaf] : leafDict) {
+        (void)hash;
+        auto leafAttr = leaf->GetLeafFuncAttribute();
+        if (leafAttr && !leafAttr->binPath.empty()) {
+            kernelPath = leafAttr->binPath;
+            attr->kernelName = leafAttr->magicName;
+            return true;
+        }
+    }
+    return false;
+}
+
+static void SetLiteDevBinary(Function* function)
+{
+    if (function == nullptr || function->GetDyndevAttribute() == nullptr) {
+        return;
+    }
+    auto dynAttrPtr = function->GetDyndevAttribute();
+
+    dynamic::DevAscendProgram devProg = {};
+    devProg.devArgs.nrAic = 1;
+    devProg.devArgs.nrAiv = 1;
+    devProg.devArgs.nrValidAic = 1;
+    devProg.devArgs.nrAicpu = 0;
+    devProg.devArgs.enableCtrl = 0;
+    devProg.devArgs.enableEslModel = false;
+    devProg.devArgs.scheCpuNum = 0;
+
+    size_t size = sizeof(dynamic::DevAscendProgram);
+    dynAttrPtr->devProgBinary.resize(size);
+    memcpy_s(dynAttrPtr->devProgBinary.data(), size, &devProg, size);
+
+    MACHINE_LOGI("Lite dev prog binary size is:%zu\n", dynAttrPtr->devProgBinary.size());
+}
+
 static void SetDyndevProgBinary(Function* function)
 {
     if (function == nullptr || function->GetDyndevAttribute() == nullptr) {
@@ -1060,21 +1098,27 @@ static void CompileDyndevFunction(Function* function, FunctionCache& cache, [[ma
 
     std::string kernelPath;
 #ifdef BUILD_WITH_CANN
-    bool enableCompile = config::GetRuntimeOption<int64_t>(CFG_RUN_MODE) == CFG_RUN_MODE_NPU ||
-                         ((config::GetSimConfig(KEY_ACCURACY_LEVEL, 2) == 2) &&
-                          config::GetRuntimeOption<int64_t>(CFG_RUN_MODE) == CFG_RUN_MODE_SIM);
-    if (enableCompile && config::GetHostOption<int64_t>(COMPILE_STAGE) != CS_CODEGEN_INSTRUCTION) {
-        int ret = CompileAICoreKernel(
-            leafDict, encodeDevAscendFunctionParam, ccePath, function->GetFunctionHash().Data(), kernelPath);
-        if (ret != 0) {
-            MACHINE_LOGE(HostBackEndErr::COMPILE_AICORE_FAILED, "Compile dynamic aicore.o failed.");
-            return;
+    bool enableCompile = (config::GetRuntimeOption<int64_t>(CFG_RUN_MODE) == CFG_RUN_MODE_NPU ||
+        ((config::GetSimConfig(KEY_ACCURACY_LEVEL, 2) == 2) &&
+        config::GetRuntimeOption<int64_t>(CFG_RUN_MODE) == CFG_RUN_MODE_SIM)) &&
+        config::GetHostOption<int64_t>(COMPILE_STAGE) != CS_CODEGEN_INSTRUCTION;
+    if (enableCompile) {
+        if (IsLiteNPU(Platform::Instance().GetSoc().GetNPUArch())) {
+            ASSERT(HostBackEndErr::COMPILE_AICORE_FAILED, !FindLiteNPUKernel(leafDict, attr, kernelPath))
+                << "Leaf binary found for lite npu, but it is unexpected.";
+        } else {
+            int ret = CompileAICoreKernel(
+                leafDict, encodeDevAscendFunctionParam, ccePath, function->GetFunctionHash().Data(), kernelPath);
+            if (ret != 0) {
+                MACHINE_LOGE(HostBackEndErr::COMPILE_AICORE_FAILED, "Compile dynamic aicore.o failed.");
+                return;
+            }
         }
     }
 #endif
 
     attr->kernelBinary = LoadFile(kernelPath);
-    MACHINE_LOGD("KernelBinary size[%zu].", attr->kernelBinary.size());
+    MACHINE_LOGD("KernelBinary size[%zu] KernelName[%s].", attr->kernelBinary.size(), attr->kernelName.c_str());
 
     attr->devEncodeList.resize(attr->funcGroup.devRootList.size());
     for (auto& devRoot : attr->funcGroup.devRootList) {
@@ -1113,8 +1157,10 @@ static void CompileDyndevFunction(Function* function, FunctionCache& cache, [[ma
         }
     }
 
-    // save dev prog binary
-    SetDyndevProgBinary(function);
+    if (IsLiteNPU(Platform::Instance().GetSoc().GetNPUArch())) {
+        return SetLiteDevBinary(function);
+    }
+    return SetDyndevProgBinary(function);
 }
 
 MachineTask* GenCode(MachineTask* task, FunctionCache& cache)
