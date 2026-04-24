@@ -184,7 +184,7 @@ TEST_F(FunctionMixParallelTest, MixGlobalTensorDictThreadSyncWithCallOps)
     calleeOut1->UpdateDynValidShape(dynShape);
     calleeFunc1->inCasts_ = {calleeIn1};
     calleeFunc1->outCasts_ = {calleeOut1};
-    calleeFunc1->AddRawOperation(Opcode::OP_UB_COPY_L1, {calleeIn1}, {calleeOut1}, false);
+    calleeFunc1->AddRawOperation(Opcode::OP_L0C_COPY_UB, {calleeIn1}, {calleeOut1}, false);
 
     auto calleeIn2 = std::make_shared<LogicalTensor>(*calleeFunc2, DT_FP32, shape);
     auto calleeOut2 = std::make_shared<LogicalTensor>(*calleeFunc2, DT_FP32, shape);
@@ -192,8 +192,7 @@ TEST_F(FunctionMixParallelTest, MixGlobalTensorDictThreadSyncWithCallOps)
     calleeOut2->UpdateDynValidShape(dynShape);
     calleeFunc2->inCasts_ = {calleeIn2};
     calleeFunc2->outCasts_ = {calleeOut2};
-    // Keep this case focused on mixGlobalTensorDict thread sync; avoid OP_L0C_COPY_UB runtime prerequisites.
-    calleeFunc2->AddRawOperation(Opcode::OP_UB_COPY_L1, {calleeIn2}, {calleeOut2}, false);
+    calleeFunc2->AddRawOperation(Opcode::OP_L0C_COPY_UB, {calleeIn2}, {calleeOut2}, false);
 
     auto leafAttr1 = std::make_shared<LeafFuncAttribute>();
     auto leafAttr2 = std::make_shared<LeafFuncAttribute>();
