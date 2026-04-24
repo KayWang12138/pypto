@@ -46,6 +46,8 @@ private:
     void ProcessAmulBInput(Operation& operation, LogicalTensorPtr& tensor);
     void ProcessAssemblewithSpecificMem(Operation& operation);
     bool CheckConsumerRequirements(const LogicalTensorPtr &output, MemoryType targetMemType) const;
+    bool CheckConsumerRequirements(const LogicalTensorPtr &output, MemoryType targetMemType,
+                                   std::unordered_set<const LogicalTensor*> &visited) const;
     void SetupAssembleMapping(Operation &operation, const LogicalTensorPtr &input,
                                const LogicalTensorPtr &output, MemoryType targetMemType);
     void ProcessViewwithSpecificMem(Operation& operation);

@@ -274,6 +274,20 @@ void AssignMemoryType::ProcessAssemblewithSpecificMem(Operation& operation)
 // 检查所有 consumer 是否都需要指定的内存类型
 bool AssignMemoryType::CheckConsumerRequirements(const LogicalTensorPtr &output,
                                                    MemoryType targetMemType) const {
+    std::unordered_set<const LogicalTensor*> visited;
+    return CheckConsumerRequirements(output, targetMemType, visited);
+}
+
+bool AssignMemoryType::CheckConsumerRequirements(const LogicalTensorPtr &output,
+                                                   MemoryType targetMemType,
+                                                   std::unordered_set<const LogicalTensor*> &visited) const {
+    // 环路检测：如果该 tensor 已经在访问路径上，跳过以避免无限递归
+    if (!visited.insert(output.get()).second) {
+        APASS_LOG_INFO_F(Elements::Operation,
+            "  tensor[%d] already visited, skip to avoid infinite recursion", output->magic);
+        return true;
+    }
+
     for (const auto &consumerOp : output->GetConsumers()) {
         auto consumerOpAttribute = std::dynamic_pointer_cast<ViewOpAttribute>(consumerOp->GetOpAttribute());
         // 大包搬运场景：assemble后接view且view的toAttr为目标类型
@@ -287,7 +301,7 @@ bool AssignMemoryType::CheckConsumerRequirements(const LogicalTensorPtr &output,
                 "  consumer Op[%d] is VIEW, attrToType=MEM_UNKNOWN, recursively checking output tensor[%d]",
                 consumerOp->GetOpMagic(), consumerOp->GetOOperands().front()->magic);
             auto viewOut = consumerOp->GetOOperands().front();
-            if (!CheckConsumerRequirements(viewOut, targetMemType)) {
+            if (!CheckConsumerRequirements(viewOut, targetMemType, visited)) {
                 return false;
             }
         }

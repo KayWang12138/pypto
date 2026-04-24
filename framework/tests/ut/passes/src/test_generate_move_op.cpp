@@ -13,6 +13,7 @@
  * \brief Unit test for Generate Move Op pass.
  */
 
+#define private public
 #include <gtest/gtest.h>
 #include "interface/function/function.h"
 #include "tilefwk/tilefwk.h"
