@@ -1127,7 +1127,6 @@ Status GlobalMemoryReuse::RunOnFunction(Function& function)
         APASS_LOG_ERROR_F(Elements::Function, "rootFunc_ is nullptr.");
         return FAILED;
     }
-    function.rootFunc_->Operations();
     Allocator allocator(function.rootFunc_);
     allocator.Init();
     Status status = allocator.Allocate();

@@ -298,6 +298,12 @@ Status ReplaceTensor::FindBaseTensor(
         baseTensor = group.front();
         int64_t baseShape = abs(baseTensor->tensor->GetRawDataSize());
         for (auto& curTensor : group) {
+            auto &inOp = *curTensor->GetProducers().begin();
+            auto &outOp = *curTensor->GetConsumers().begin();
+            if (inOp != nullptr && outOp != nullptr && inOp->GetSubGraphID() != outOp->GetSubGraphID()) {
+                baseTensor = curTensor;
+                break;
+            }
             int64_t curShape = abs(curTensor->tensor->GetRawDataSize());
             if (curShape > baseShape) {
                 APASS_LOG_INFO_F(
