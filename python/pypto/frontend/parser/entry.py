@@ -516,6 +516,7 @@ class JitCallableWrapper:
             source_torch_tensors is not None
             and len(source_torch_tensors) == len(pto_tensors)
             and all(isinstance(t, torch.Tensor) for t in source_torch_tensors)
+            and all(pt.forma)
         )
 
         if use_torch_host_snapshot:
