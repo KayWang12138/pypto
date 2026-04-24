@@ -709,6 +709,33 @@ static void FillL2PrefetchInfo(std::shared_ptr<DyndevFunctionAttribute> attr)
     return;
 }
 
+static void FindLiteNPUKernel(const std::map<uint64_t, Function*>& leafDict, std::string& kernelPath)
+{
+    for (auto& [hash, leaf] : leafDict) {
+        (void)hash;
+        auto leafAttr = leaf->GetLeafFuncAttribute();
+        if (leafAttr && !leafAttr->binPath.empty()) {
+            kernelPath = leafAttr->binPath;
+            return;
+        }
+    }
+}
+
+static void SetLiteDevBinary(Function* function)
+{
+    if (function == nullptr || function->GetDyndevAttribute() == nullptr) {
+        return;
+    }
+    auto dynAttrPtr = function->GetDyndevAttribute();
+
+    dynamic::DevAscendProgram devProg = {};
+    size_t size = sizeof(dynamic::DevAscendProgram);
+    dynAttrPtr->devProgBinary.resize(size);
+    memcpy_s(dynAttrPtr->devProgBinary.data(), size, &devProg, size);
+
+    MACHINE_LOGI("Lite dev prog binary size is:%zu\n", dynAttrPtr->devProgBinary.size());
+}
+
 static void SetDyndevProgBinary(Function* function)
 {
     if (function == nullptr || function->GetDyndevAttribute() == nullptr) {
@@ -859,7 +886,7 @@ static bool IsNeedDumpAicpuKernel(const std::string& inputFile)
         // force dump, default is true
         return true;
     }
-    // not force dump
+    // not force dumprootTileDict
     if (npu::tile_fwk::FileExist(inputFile)) {
         return false;
     }
@@ -1060,15 +1087,20 @@ static void CompileDyndevFunction(Function* function, FunctionCache& cache, [[ma
 
     std::string kernelPath;
 #ifdef BUILD_WITH_CANN
-    bool enableCompile = config::GetRuntimeOption<int64_t>(CFG_RUN_MODE) == CFG_RUN_MODE_NPU ||
-                         ((config::GetSimConfig(KEY_ACCURACY_LEVEL, 2) == 2) &&
-                          config::GetRuntimeOption<int64_t>(CFG_RUN_MODE) == CFG_RUN_MODE_SIM);
-    if (enableCompile && config::GetHostOption<int64_t>(COMPILE_STAGE) != CS_CODEGEN_INSTRUCTION) {
-        int ret = CompileAICoreKernel(
-            leafDict, encodeDevAscendFunctionParam, ccePath, function->GetFunctionHash().Data(), kernelPath);
-        if (ret != 0) {
-            MACHINE_LOGE(HostBackEndErr::COMPILE_AICORE_FAILED, "Compile dynamic aicore.o failed.");
-            return;
+    bool enableCompile = (config::GetRuntimeOption<int64_t>(CFG_RUN_MODE) == CFG_RUN_MODE_NPU ||
+        ((config::GetSimConfig(KEY_ACCURACY_LEVEL, 2) == 2) &&
+        config::GetRuntimeOption<int64_t>(CFG_RUN_MODE) == CFG_RUN_MODE_SIM)) &&
+        config::GetHostOption<int64_t>(COMPILE_STAGE) != CS_CODEGEN_INSTRUCTION;
+    if (enableCompile) {
+        if (IsLiteNPU(Platform::Instance().GetSoc().GetNPUArch())) {
+            FindLiteNPUKernel(leafDict, kernelPath);
+        } else {
+            int ret = CompileAICoreKernel(
+                leafDict, encodeDevAscendFunctionParam, ccePath, function->GetFunctionHash().Data(), kernelPath);
+            if (ret != 0) {
+                MACHINE_LOGE(HostBackEndErr::COMPILE_AICORE_FAILED, "Compile dynamic aicore.o failed.");
+                return;
+            }
         }
     }
 #endif
@@ -1112,9 +1144,11 @@ static void CompileDyndevFunction(Function* function, FunctionCache& cache, [[ma
             OverCallOpMaxNum(devRoot, funcBin);
         }
     }
-
-    // save dev prog binary
-    SetDyndevProgBinary(function);
+    if (IsLiteNPU(Platform::Instance().GetSoc().GetNPUArch())) {
+        SetLiteDevBinary(function);
+        return;
+    }
+    return SetDyndevProgBinary(function);
 }
 
 MachineTask* GenCode(MachineTask* task, FunctionCache& cache)
