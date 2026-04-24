@@ -120,7 +120,9 @@ struct LockableQueueGeneric : public QueueGeneric<T> {
 
     __attribute__((always_inline)) inline void unsafe_enqueue(T* x, uint32_t count)
     {
-        std::copy(x, x + count, this->elem + __atomic_fetch_add(&this->tail, count, std::memory_order_release));
+        const uint32_t t = __atomic_fetch_add(&this->tail, count, std::memory_order_release);
+        // Faster analog of std::copy(x, x + count, this->elem + t);
+        memcpy_s(this->elem + t, sizeof(T) * (this->capacity() - t), x, sizeof(T) * count);
     }
 
     __attribute__((always_inline)) inline bool try_enqueue(T x)
@@ -143,7 +145,8 @@ struct LockableQueueGeneric : public QueueGeneric<T> {
             __atomic_store_n(&this->tail, t, __ATOMIC_RELAXED);
             return false;
         }
-        std::copy(x, x + count, this->elem + t);
+        // Faster analog of std::copy(x, x + count, this->elem + t);
+        memcpy_s(this->elem + t, sizeof(T) * (this->capacity() - t), x, sizeof(T) * count);
         return true;
     }
 
@@ -178,7 +181,8 @@ struct LockableQueueGeneric : public QueueGeneric<T> {
             return datarange(nullptr, nullptr);
         }
         __atomic_store_n(&this->tail, t - cnt, __ATOMIC_RELAXED);
-        std::copy(this->elem + t - cnt, this->elem + t, out);
+        // Faster analog og std::copy(this->elem + t - cnt, this->elem + t, out);
+        memcpy_s(out, sizeof(T) * max_count, this->elem + t - cnt, sizeof(T) * cnt);
         return datarange(out, out + cnt);
     }
 
