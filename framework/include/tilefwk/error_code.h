@@ -350,6 +350,7 @@ enum class DistributedErrorCode : uint32_t {
     HCCL_ALLOC_RESOURCE_FAILED = 0xA4000,
     INVALID_HCCL_TOPO = 0xA4001,
     CONTEXT_CONFIGURE_FAILED = 0xA4002,
+    UNKNOW_ERROR = 0xAFFFF
 };
 
 // =============================================================================
