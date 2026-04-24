@@ -118,8 +118,6 @@ public:
         DevControlFlowCache** outCtrlFlowCache, EmulationMemoryUtils& memUtils,
         const DeviceLauncherConfig& config = DeviceLauncherConfig());
 
-#define CONTROL_FLOW_CACHE_BASE_ADDR 0x100000000
-#define CONTROL_FLOW_CACHE_TENSOR_SIZE 0x100000000
     static int BuildControlFlowCache(
         Function* function, EmulationMemoryUtils& memUtils, const std::vector<DeviceTensorData>& inputList = {},
         const std::vector<DeviceTensorData>& outputList = {}, DevControlFlowCache** outCtrlFlowCache = nullptr,
