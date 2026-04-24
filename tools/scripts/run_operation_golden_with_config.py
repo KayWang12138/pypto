@@ -21,7 +21,7 @@ import logging
 import subprocess
 import sys
 from pathlib import Path
-from typing import Any, Dict, Iterable, List, Tuple
+from typing import Any, Dict, Iterable, List, Optional, Tuple, Union
 
 
 ROOT_PATH = Path(__file__).resolve().parents[2]
@@ -119,7 +119,7 @@ def parse_args() -> argparse.Namespace:
     return parser.parse_args()
 
 
-def resolve_input_file(op: str, input_file: str | None) -> Path:
+def resolve_input_file(op: str, input_file: Optional[str]) -> Path:
     if input_file:
         return Path(input_file).resolve()
     if is_batch_op(op):
@@ -130,13 +130,13 @@ def resolve_input_file(op: str, input_file: str | None) -> Path:
     return (DEFAULT_OPERATION_CASE_DIR / f"{ops[0]}_st_test_cases.csv").resolve()
 
 
-def resolve_json_path(json_path: str | None) -> Path:
+def resolve_json_path(json_path: Optional[str]) -> Path:
     if json_path:
         return Path(json_path).resolve()
     return DEFAULT_OPERATION_CASE_DIR.resolve()
 
 
-def resolve_impl_paths(impl_paths: List[str] | None) -> List[Path]:
+def resolve_impl_paths(impl_paths: Optional[List[str]]) -> List[Path]:
     if not impl_paths:
         return [DEFAULT_GOLDEN_IMPL_DIR.resolve()]
     return [Path(path).resolve() for path in impl_paths]
@@ -214,14 +214,14 @@ def is_number(input_str: str) -> bool:
         return False
 
 
-def parse_number(input_str: str) -> int | float:
+def parse_number(input_str: str) -> Union[int, float]:
     try:
         return int(input_str)
     except ValueError:
         return float(input_str)
 
 
-def parse_list_str(input_str: str | None) -> Any:
+def parse_list_str(input_str: Optional[str]) -> Any:
     if input_str is None:
         return None
     text = str(input_str).strip().replace(" ", "")
@@ -252,7 +252,7 @@ def parse_list_str(input_str: str | None) -> Any:
     return ret_list
 
 
-def parse_dict_str(input_str: str | None) -> Dict[str, Any] | None:
+def parse_dict_str(input_str: Optional[str]) -> Optional[Dict[str, Any]]:
     if input_str is None:
         return None
     text = str(input_str).strip().replace(" ", "")
@@ -277,7 +277,7 @@ def parse_dict_str(input_str: str | None) -> Dict[str, Any] | None:
     return result
 
 
-def parse_bool_str(input_str: str | None) -> bool:
+def parse_bool_str(input_str: Optional[str]) -> bool:
     if input_str is None:
         return False
     return str(input_str).strip().upper() in {"TRUE", "1"}
