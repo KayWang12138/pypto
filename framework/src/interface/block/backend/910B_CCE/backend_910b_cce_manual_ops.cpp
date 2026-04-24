@@ -789,11 +789,33 @@ static std::string MakeManualTransposeCodegenCCE(const ir::CallPtr& op, codegen:
   CHECK(op->args_.size() == 2) << "manual.transpose: expected 2 args (src, dst), got " << op->args_.size();
   std::string src = codegen.GetExprAsCode(op->args_[0]);
   std::string dst = codegen.GetExprAsCode(op->args_[1]);
-  codegen.Emit("TTRANS(" + dst + ", " + src + ");");
+  // A5 CCE builtin requires the explicit tmp operand for TTRANS.
+  // Reuse the source tile as the temporary buffer, matching PTO ISA demos.
+  codegen.Emit("TTRANS(" + dst + ", " + src + ", " + src + ");");
   return "";
 }
 
 // manual.cmp — args = [lhs, rhs, dst] + cmp_type kwarg
+static std::string GetCmpModeEnumCCE(int cmp_type) {
+  switch (cmp_type) {
+    case 0:
+      return "CmpMode::EQ";
+    case 1:
+      return "CmpMode::NE";
+    case 2:
+      return "CmpMode::LT";
+    case 3:
+      return "CmpMode::LE";
+    case 4:
+      return "CmpMode::GT";
+    case 5:
+      return "CmpMode::GE";
+    default:
+      CHECK(false) << "Unsupported cmp_type for CCE codegen: " << cmp_type;
+      return "CmpMode::EQ";
+  }
+}
+
 static std::string MakeManualCmpCodegenCCE(const ir::CallPtr& op, codegen::CodegenBase& codegen_base) {
   auto& codegen = dynamic_cast<codegen::CCECodegen&>(codegen_base);
   CHECK(op->args_.size() == 3) << "manual.cmp: expected 3 args (lhs, rhs, dst), got " << op->args_.size();
@@ -801,7 +823,7 @@ static std::string MakeManualCmpCodegenCCE(const ir::CallPtr& op, codegen::Codeg
   std::string rhs = codegen.GetExprAsCode(op->args_[1]);
   std::string dst = codegen.GetExprAsCode(op->args_[2]);
   int cmp_type = op->GetKwarg<int>("cmp_type");
-  codegen.Emit("TCMP(" + dst + ", " + lhs + ", " + rhs + ", " + std::to_string(cmp_type) + ");");
+  codegen.Emit("TCMP(" + dst + ", " + lhs + ", " + rhs + ", " + GetCmpModeEnumCCE(cmp_type) + ");");
   return "";
 }
 
@@ -814,7 +836,7 @@ static std::string MakeManualCmpsCodegenCCE(const ir::CallPtr& op, codegen::Code
   std::string scalar = codegen.GetExprAsCode(op->args_[1]);
   std::string dst = codegen.GetExprAsCode(op->args_[2]);
   int cmp_type = op->GetKwarg<int>("cmp_type");
-  codegen.Emit("TCMPS(" + dst + ", " + tile + ", " + scalar + ", " + std::to_string(cmp_type) + ");");
+  codegen.Emit("TCMPS(" + dst + ", " + tile + ", " + scalar + ", " + GetCmpModeEnumCCE(cmp_type) + ");");
   return "";
 }
 
@@ -1586,7 +1608,7 @@ REGISTER_BACKEND_OP(Backend910B_CCE, "manual.subsc")
 REGISTER_BACKEND_OP(Backend910B_CCE, "manual.sel")
     .set_pipe(ir::PipeType::V)
     .f_codegen([](const ir::CallPtr& op, codegen::CodegenBase& codegen) {
-      return MakeManualTernaryCodegenCCE("TSEL", op, codegen);
+      return MakeManualQuaternaryCodegenCCE("TSEL", op, codegen);
     });
 
 REGISTER_BACKEND_OP(Backend910B_CCE, "manual.sels")

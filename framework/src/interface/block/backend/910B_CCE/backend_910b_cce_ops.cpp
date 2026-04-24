@@ -706,6 +706,26 @@ static std::string MakeBlockCastCodegenCCE(const ir::CallPtr& op, codegen::Codeg
 }
 
 // Helper for block.cmp/cmps - extract cmp_type from kwargs and use TCMP
+static std::string GetCmpModeEnumCCE(int cmp_type) {
+  switch (cmp_type) {
+    case 0:
+      return "CmpMode::EQ";
+    case 1:
+      return "CmpMode::NE";
+    case 2:
+      return "CmpMode::LT";
+    case 3:
+      return "CmpMode::LE";
+    case 4:
+      return "CmpMode::GT";
+    case 5:
+      return "CmpMode::GE";
+    default:
+      CHECK(false) << "Unsupported cmp_type for CCE codegen: " << cmp_type;
+      return "CmpMode::EQ";
+  }
+}
+
 static std::string MakeBlockCmpCodegenCCE(const std::string& cce_op_name, const ir::CallPtr& op,
                                           codegen::CodegenBase& codegen_base) {
   auto& codegen = dynamic_cast<codegen::CCECodegen&>(codegen_base);
@@ -716,7 +736,7 @@ static std::string MakeBlockCmpCodegenCCE(const std::string& cce_op_name, const 
   int cmp_type = op->GetKwarg<int>("cmp_type");
   // signature: TCMP/TCMPS(dst, src0, src1, cmpMode)
   // cmpMode: EQ=0, NE=1, LT=2, LE=3, GT=4, GE=5
-  codegen.Emit(cce_op_name + "(" + dst + ", " + lhs + ", " + rhs + ", " + std::to_string(cmp_type) + ");");
+  codegen.Emit(cce_op_name + "(" + dst + ", " + lhs + ", " + rhs + ", " + GetCmpModeEnumCCE(cmp_type) + ");");
   return "";
 }
 
@@ -1683,13 +1703,19 @@ static std::string MakeTensorGetValCodegenCCE(const ir::CallPtr& op, codegen::Co
 
   auto tensor_var = ir::As<ir::Var>(op->args_[0]);
   INTERNAL_CHECK(tensor_var) << "tensor.getval requires tensor to be a Var";
+  auto tensor_type = ir::As<ir::TensorType>(tensor_var->GetType());
+  INTERNAL_CHECK(tensor_type) << "tensor.getval requires TensorType";
   std::string tensor_name = codegen.GetVarName(tensor_var);
   std::string offset = codegen.GetExprAsCode(op->args_[1]);
+  std::string dtype_str = codegen.GetTypeString(tensor_type->dtype_);
 
   std::string tensor_ptr = codegen.GetPointer(tensor_name);
+  if (tensor_ptr.empty()) {
+    tensor_ptr = tensor_name + ".data()";
+  }
 
   // Return the expression, framework will handle assignment
-  return "*((__gm__ half*)" + tensor_ptr + " + " + offset + ")";
+  return "*((__gm__ " + dtype_str + "*)" + tensor_ptr + " + " + offset + ")";
 }
 
 static std::string MakeTensorSetValCodegenCCE(const ir::CallPtr& op, codegen::CodegenBase& codegen_base) {
@@ -1708,6 +1734,9 @@ static std::string MakeTensorSetValCodegenCCE(const ir::CallPtr& op, codegen::Co
   std::string dtype_str = codegen.GetTypeString(tensor_type->dtype_);
 
   std::string tensor_ptr = codegen.GetPointer(tensor_name);
+  if (tensor_ptr.empty()) {
+    tensor_ptr = tensor_name + ".data()";
+  }
 
   codegen.Emit("*((__gm__ " + dtype_str + "*)" + tensor_ptr + " + " + offset + ") = " + value + ";");
 
@@ -1724,6 +1753,49 @@ REGISTER_BACKEND_OP(Backend910B_CCE, "tensor.setval")
     .set_pipe(ir::PipeType::S)
     .f_codegen([](const ir::CallPtr& op, codegen::CodegenBase& codegen) {
       return MakeTensorSetValCodegenCCE(op, codegen);
+    });
+
+static std::string MakeTensorReadCodegenCCE(const ir::CallPtr& op, codegen::CodegenBase& codegen_base) {
+  auto& codegen = dynamic_cast<codegen::CCECodegen&>(codegen_base);
+  CHECK(op->args_.size() == 2) << "tensor.read requires 2 arguments (tensor, indices)";
+
+  auto tensor_var = ir::As<ir::Var>(op->args_[0]);
+  CHECK(tensor_var) << "tensor.read first argument must be a Var";
+  auto tensor_type = ir::As<ir::TensorType>(tensor_var->GetType());
+  CHECK(tensor_type) << "tensor.read first argument must be TensorType";
+
+  auto indices_tuple = ir::As<ir::MakeTuple>(op->args_[1]);
+  CHECK(indices_tuple) << "tensor.read second argument must be a MakeTuple of indices";
+
+  std::string tensor_name = codegen.GetVarName(tensor_var);
+  std::string base_ptr = codegen.GetPointer(tensor_name);
+  if (base_ptr.empty()) {
+    base_ptr = tensor_name + ".data()";
+  }
+
+  const auto& indices = indices_tuple->elements_;
+  const auto& shape = tensor_type->shape_;
+
+  std::ostringstream idx_oss;
+  for (size_t i = 0; i < indices.size(); ++i) {
+    if (i > 0) idx_oss << " + ";
+    idx_oss << codegen.GetExprAsCode(indices[i]);
+    for (size_t j = i + 1; j < shape.size(); ++j) {
+      idx_oss << " * " << codegen.GetExprAsCode(shape[j]);
+    }
+  }
+  std::string idx_expr = idx_oss.str();
+
+  // Return expression value (let AssignStmt handle the declaration)
+  // In single-file mode, base_ptr is already a __gm__ pointer parameter.
+  // Directly index into it without casting (casting from __gm__ to local is not allowed).
+  return base_ptr + "[" + idx_expr + "]";
+}
+
+REGISTER_BACKEND_OP(Backend910B_CCE, "tensor.read")
+    .set_pipe(ir::PipeType::S)
+    .f_codegen([](const ir::CallPtr& op, codegen::CodegenBase& codegen) {
+      return MakeTensorReadCodegenCCE(op, codegen);
     });
 
 }  // namespace backend
