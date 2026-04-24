@@ -422,6 +422,9 @@ Status RemoveRedundantAssemble::RemoveViewMultiReshape(
                 GetFormatBacktrace(viewOp).c_str());
             return FAILED;
         }
+        if (viewOp->GetIOperands()[0] != viewOp->GetOOperands()[0]) {
+            continue;
+        }
         auto consumers = viewOp->GetOutputOperand(0)->GetConsumers();
         if (consumers.empty()) {
             APASS_LOG_ERROR_F(
