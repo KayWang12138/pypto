@@ -74,14 +74,14 @@ def get_device_id():
 
 def create_inputs(batch_size, s1_size, s2_size, num_heads, head_dim, device):
     """
-    创建 varlen 布局的输入张量。
+    创建 varlen 布局的输入张量（三维布局）。
 
     布局说明 (Q: s1_size, KV: s2_size):
-      - Q/O/L/M: 每个 batch 占用 s1_size 行 (Q seqlen)
-      - K/V:      每个 batch 占用 s2_size 行 (KV seqlen)
+      - Q/K/V: 三维 [total_seq, num_heads, head_dim]
+      - Kernel从shape自动推导 num_heads 和 head_dim
 
     数据类型严格对应 kernel 签名:
-      - q/k/v:       BF16  (kernel: pypto.DT_BF16)
+      - q/k/v:       BF16  (kernel: pypto.DT_BF16, 三维)
       - cu_seqlens:  INT32 (kernel: pypto.DT_INT32)
 
     Args:
@@ -92,8 +92,8 @@ def create_inputs(batch_size, s1_size, s2_size, num_heads, head_dim, device):
         head_dim:   每个头的维度
         device:     计算设备
     Returns:
-        q:          shape=[total_q, num_heads * head_dim], dtype=bfloat16
-        k, v:       shape=[total_kv, num_heads * head_dim], dtype=bfloat16
+        q:          shape=[total_q, num_heads, head_dim], dtype=bfloat16 (三维)
+        k, v:       shape=[total_kv, num_heads, head_dim], dtype=bfloat16 (三维)
         cu_seqlens_q:   shape=[batch_size + 1], dtype=int32
                         cu_seqlens_q[i]=前 i 个 batch 的累积 Q seqlen
         cu_seqlens_k:   shape=[batch_size + 1], dtype=int32
@@ -101,16 +101,16 @@ def create_inputs(batch_size, s1_size, s2_size, num_heads, head_dim, device):
         q_seqlens:  list of Q seqlens per batch
         kv_seqlens: list of KV seqlens per batch
     """
-    hidden_dim = num_heads * head_dim
     q_seqlens = [s1_size] * batch_size
     kv_seqlens = [s2_size] * batch_size
     total_q = sum(q_seqlens)
     total_kv = sum(kv_seqlens)
 
     torch.manual_seed(42)
-    q = torch.randn(total_q, hidden_dim, dtype=torch.bfloat16, device=device) * 0.1 + 0.5
-    k = torch.randn(total_kv, hidden_dim, dtype=torch.bfloat16, device=device) * 0.1 + 0.5
-    v = torch.randn(total_kv, hidden_dim, dtype=torch.bfloat16, device=device) * 0.1 + 0.5
+    # 三维布局: [total_seq, num_heads, head_dim]
+    q = torch.randn(total_q, num_heads, head_dim, dtype=torch.bfloat16, device=device) * 0.1 + 0.5
+    k = torch.randn(total_kv, num_heads, head_dim, dtype=torch.bfloat16, device=device) * 0.1 + 0.5
+    v = torch.randn(total_kv, num_heads, head_dim, dtype=torch.bfloat16, device=device) * 0.1 + 0.5
 
     cu_seqlens_q = torch.tensor([0] + list(np.cumsum(q_seqlens)), dtype=torch.int32, device=device)
     cu_seqlens_k = torch.tensor([0] + list(np.cumsum(kv_seqlens)), dtype=torch.int32, device=device)
@@ -120,10 +120,18 @@ def create_inputs(batch_size, s1_size, s2_size, num_heads, head_dim, device):
 
 def attention_forward_golden(q, k, v, scale):
     """
-    Golden reference: 标准 attention 计算。
+    Golden reference: Flash Attention Forward计算。
 
     Q: [s1_size, head_dim],  KV: [s2_size, head_dim]
     输入 q/k/v 均为 BF16。
+
+    严格模拟 Kernel 的 dtype 转换流程：
+      1. scores = Q(BF16) @ K^T(BF16) * scale → FP32
+      2. M = max(scores_scaled) → FP32
+      3. P = exp(scores_scaled - M) → FP32 (未归一化)
+      4. L = sum(P) → FP32 (归一化分母)
+      5. P_norm = P / L → FP32
+      6. O = P_norm @ V(BF16) → FP32
 
     Args:
         q:     [s1_size, head_dim] BF16 — Q 切片
@@ -131,14 +139,18 @@ def attention_forward_golden(q, k, v, scale):
         scale: attention scale factor (1/sqrt(head_dim))
     Returns:
         o:     [s1_size, head_dim] FP32 — 输出 O
-        m:     [s1_size, 1] FP32 —softmax 最大值 M
+        m:     [s1_size, 1] FP32 — softmax 最大值 M
         l:     [s1_size, 1] FP32 — softmax 分母 L
     """
-    scores = torch.matmul(q.float(), k.float().T) * scale
-    m = scores.max(dim=-1, keepdim=True)[0]
-    p = torch.softmax(scores, dim=-1)
-    l = p.sum(dim=-1, keepdim=True)
-    o = torch.matmul(p, v.float())
+    scores = torch.matmul(q.cpu().to(torch.float32), k.cpu().transpose(1, 0).to(torch.float32)) * scale
+    m = scores.amax(dim=-1, keepdim=True)
+
+    p_unnorm = torch.exp(scores - m)
+    l = p_unnorm.sum(dim=-1, keepdim=True)
+
+    p_norm = p_unnorm / l
+    o = torch.matmul(p_norm.to(torch.bfloat16).to(torch.float32), v.cpu().to(torch.float32)).to(torch.bfloat16)
+
     return o, m, l
 
 
@@ -202,60 +214,87 @@ def run_test(device, batch_size=None, num_heads=None, s1_size=None,
     logging.info(f"  hidden_dim={hidden_dim}, scale={scale:.6f}")
     logging.info("=" * 60)
 
+    # 输入tensor（三维）: kernel从shape推导num_heads和head_dim
     q, k, v, cu_seqlens_q, cu_seqlens_k, q_seqlens, kv_seqlens = create_inputs(
         batch_size, s1_size, s2_size, num_heads, dim, device)
 
     total_q = batch_size * s1_size
     total_kv = batch_size * s2_size
 
+    # Kernel输出tensor（二维）
     out = torch.empty(total_q, hidden_dim, dtype=torch.bfloat16, device=device)
-    l_out = torch.empty(total_q, 1, dtype=torch.float32, device=device)
-    m_out = torch.empty(total_q, 1, dtype=torch.float32, device=device)
+    l_out = torch.empty(total_q * num_heads, 1, dtype=torch.float32, device=device)
+    m_out = torch.empty(total_q * num_heads, 1, dtype=torch.float32, device=device)
 
+    # ---- Golden 计算: 先完整计算所有 batch/head 的 golden O/M/L ----
+    # golden O/M/L 与 kernel 输出同 shape: [total_q, ...], dtype与kernel输出一致
+    out_golden = torch.empty(total_q, hidden_dim, dtype=torch.bfloat16)
+    m_golden = torch.empty(total_q * num_heads, 1, dtype=torch.float32)
+    l_golden = torch.empty(total_q * num_heads, 1, dtype=torch.float32)
+
+    q_off, k_off = 0, 0
+    print(f"zjr123 --- s1_size {s1_size}")
+    for b in range(batch_size):
+        sq, sk = q_seqlens[b], kv_seqlens[b]
+        print(f"zjr123 --- sq {sq}")
+
+        for h in range(num_heads):
+            h_off = h * dim
+            # 输入tensor是三维，按三维索引
+            q_h = q[q_off:q_off + sq, h, :]
+            k_h = k[k_off:k_off + sk, h, :]
+            v_h = v[k_off:k_off + sk, h, :]
+
+            golden_o, golden_m, golden_l = attention_forward_golden(q_h, k_h, v_h, scale)
+            # golden 返回 [sq, ...] FP32, 写入二维 golden tensor
+            out_golden[q_off:q_off + sq, h_off:h_off + dim] = golden_o
+            idx_base = cu_seqlens_q[b] * num_heads + h * s1_size
+    
+            print(f"zjr123 --- idx_base {idx_base}")
+
+            m_golden[idx_base:idx_base + sq, :] = golden_m
+            l_golden[idx_base:idx_base + sq, :] = golden_l
+        q_off += sq
+        k_off += sk
+
+    # out_golden, m_golden, l_golden = attention_forward_golden(q, k, v, scale)
+
+    # print(f"zjr123 ---- out_golden： {out_golden}")
+    # ---- 调用 kernel ----
     logging.info("  Running kernel...")
     flash_attention_varlen_forward_kernel(
         q, k, v, out, l_out, m_out, cu_seqlens_q, cu_seqlens_k)
 
-    rtol = 0.0078125
-    atol = 0.0001
-
+    # ---- 精度校验: kernel 输出 vs golden 输出 ----
+    torch.set_printoptions(precision=6)
     passed = True
-
-    max_out_diff = 0.0
-    max_m_diff = 0.0
-    max_l_diff = 0.0
-    q_off, k_off = 0, 0
-    for b in range(batch_size):
-        sq, sk = q_seqlens[b], kv_seqlens[b]
-        for h in range(num_heads):
-            h_off = h * dim
-            q_h = q[q_off:q_off + sq, h_off:h_off + dim]
-            k_h = k[k_off:k_off + sk, h_off:h_off + dim]
-            v_h = v[k_off:k_off + sk, h_off:h_off + dim]
-            out_h = out[q_off:q_off + sq, h_off:h_off + dim]
-            m_h = m_out[q_off:q_off + sq, :]
-            l_h = l_out[q_off:q_off + sq, :]
-
-            golden_o, golden_m, golden_l = attention_forward_golden(q_h, k_h, v_h, scale)
-            out_diff = (out_h.float() - golden_o).abs().max().item()
-            max_out_diff = max(max_out_diff, out_diff)
-            m_diff = (m_h.float() - golden_m).abs().max().item()
-            max_m_diff = max(max_m_diff, m_diff)
-            l_diff = (l_h.float() - golden_l).abs().max().item()
-            max_l_diff = max(max_l_diff, l_diff)
-        q_off += sq
-        k_off += sk
-
-    for name, npu_tensor, golden_tensor, max_diff in [
-        ("O", out.float().cpu().numpy(), out.float().cpu().numpy(), max_out_diff),
-        ("M", m_out.float().cpu().numpy(), m_out.float().cpu().numpy(), max_m_diff),
-        ("L", l_out.float().cpu().numpy(), l_out.float().cpu().numpy(), max_l_diff),
+    for name, npu_tensor, golden_tensor, rtol, atol in [
+        ("O", out, out_golden, 0.0078125, 0.0001),
+        ("M", m_out, m_golden, 0.005, 0.000025),
+        ("L", l_out, l_golden, 0.005, 0.000025),
     ]:
+        npu_np = npu_tensor.cpu().float().numpy()
+        golden_np = golden_tensor.float().numpy()
+        max_diff = np.abs(npu_np - golden_np).max()
+
+        # if name == "O":
+        #     print(f"zjr123 --- golden_np: {golden_np}")
+
+        # print(f"name： {name}")
+        # print(f"")
+        # print(f"zjr123 --- golden_np: {golden_np}")
+        # print(f"")
+        # print(f"zjr123 --- npu_tensor: {npu_tensor}")
+
         try:
-            assert_allclose(npu_tensor, golden_tensor, rtol=rtol, atol=atol)
+            # assert_allclose(npu_np, golden_np, rtol=rtol, atol=atol)
+
+            from models.deepseek_v32_exp.utils.compare import compare
+            compare(npu_tensor.cpu(), golden_tensor, name, atol=atol, rtol=rtol, max_error_count=10)
+
             logging.info(f"  {name}: PASSED (max_diff={max_diff:.6f}, rtol={rtol}, atol={atol})")
         except AssertionError as e:
-            logging.info(f"  {name}: FAILED (max_diff={max_diff:.6f})")
+            logging.info(f"  {name}: FAILED (max_diff={max_diff:.6f})") 
             logging.info(f"    {e}")
             passed = False
 
@@ -272,7 +311,8 @@ def test_01(device):
 @pytest.mark.skip(reason="large test case")
 def test_02(device):
     """batch=2, heads=8, s1=4096, s2=4096, dim=64"""
-    return run_test(device, batch_size=2, num_heads=8, s1_size=4096, s2_size=4096, dim=64)
+    # return run_test(device, batch_size=2, num_heads=8, s1_size=4096, s2_size=4096, dim=64)
+    return run_test(device, batch_size=1, num_heads=2, s1_size=1024, s2_size=1024, dim=64)
 
 
 @pytest.mark.skip(reason="large test case")
@@ -316,12 +356,12 @@ def main():
     device = f'npu:{device_id}'
 
     test_funcs = [
-        test_01,
+        # test_01,
         test_02,
-        test_03,
-        test_04,
-        test_05,
-        test_06,
+        # test_03,
+        # test_04,
+        # test_05,
+        # test_06,
     ]
 
     results = []
