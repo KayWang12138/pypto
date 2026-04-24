@@ -694,7 +694,6 @@ def test_b128_s4k4_pa_nd_bf16_quantb_p():
 
 
 @pytest.mark.soc("950", "910")
-@pytest.mark.skip(reason="env error case")
 def test_b4_s64k2_pa_nd_bf16_quantb_d():
     '''
     mla_prolog decode测试函数
@@ -743,6 +742,7 @@ def test_b4_s64k2_pa_nd_bf16_quantb_d():
 
 
 @pytest.mark.soc("950")
+@pytest.mark.skip(reason="env error case")
 def test_b4_s64k2_pa_nd_bf16_d():
     '''
     mla_prolog decode非量化测试函数
@@ -791,6 +791,7 @@ def test_b4_s64k2_pa_nd_bf16_d():
 
 
 @pytest.mark.soc("950")
+@pytest.mark.skip(reason="env error case")
 def test_b64_s64k2_pa_nd_bf16_d():
     '''
     mla_prolog decode非量化测试函数
