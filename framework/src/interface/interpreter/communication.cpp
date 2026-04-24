@@ -145,7 +145,7 @@ RawTensorDataPtr SimulationCommContext::Alloc(DataType dataType, const Shape& sh
     dataShmSize_.store(shmSize);
     std::cout << "round " << round_ << " alloc " << slotSize << "B for rank " << rank_ << std::endl;
 
-    return RawTensorData::CreateTensor(dataType, shape, dataBase_ + slotSize);
+    return RawTensorData::CreateTensor(dataType, shape, dataBase_ + beforeSize);
 }
 
 RawTensorDataPtr SimulationCommContext::AllocSignal(DataType dataType, const Shape& shape) {
@@ -163,7 +163,7 @@ RawTensorDataPtr SimulationCommContext::AllocSignal(DataType dataType, const Sha
     ctrlShmSize_.store(shmSize);
     std::cout << "round " << round_ << " allocSignal " << slotSize << "B for rank " << rank_ << std::endl;
 
-    return RawTensorData::CreateTensor(dataType, shape, ctrlBase_ + slotSize);
+    return RawTensorData::CreateTensor(dataType, shape, ctrlBase_ + beforeSize);
 }
 
 uint8_t *SimulationCommContext::GetRemoteRank(int dstRank, bool isSignal) {
