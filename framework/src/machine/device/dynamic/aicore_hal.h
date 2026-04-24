@@ -327,12 +327,14 @@ public:
         }
 
         TimeoutState timeoutState;
-        while (metric->isMetricStop != 1) {
+        volatile int stopFlag = metric->isMetricStop;
+        while (stopFlag != 1) {
             __PYPTO_TIMEOUT_CHECK(timeoutState, TIMEOUT_NS_10SEC, NSEC_PER_SEC,
                 DevCommonErr::NULLPTR,
                 return nullptr,
                 "#sche.prof.aicore.wait_finish: wait metrics done still waiting.",
                 "#sche.prof.aicore.wait_finish: wait metrics done timeout.");
+            stopFlag = metric->isMetricStop;
         }
 
         return reinterpret_cast<Metrics*>(arg->shakeBuffer[SHAK_BUF_DFX_DATA_INDEX]);

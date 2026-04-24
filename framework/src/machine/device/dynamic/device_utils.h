@@ -324,16 +324,6 @@ struct TimeoutState {
 // 支持分别指定 warning 和 error 的格式化字符串
 // warn_fmt 和 error_fmt 使用不同的格式，但共用相同的参数 args
 // warning 和 error 都会自动追加已等待时间（如 "elapsed 30 sec"）
-// 用法示例：
-//   __PYPTO_TIMEOUT_CHECK(state, TIMEOUT_NS_1MIN, TIMEOUT_NS_10SEC,
-//       DistributedErrorCode::AICPU_TASK_TIMEOUT,  // error_code (错误码)
-//       return DEVICE_MACHINE_ERROR,
-//       "Still waiting: thread=%d",      // warn_fmt (等待过程中的提示)
-//       "Timeout exceeded: thread=%d",   // error_fmt (超时后的错误提示)
-//       threadIdx);                      // args (两个 fmt 共用)
-// 输出效果：
-//     warning: "Still waiting: thread=1, elapsed 30 sec"
-//     error:   "Timeout exceeded: thread=1, elapsed 60 sec"
 #define __PYPTO_TIMEOUT_CHECK(state, timeout_ns, warn_interval_ns, error_code, action, \
                               warn_fmt, error_fmt, ...) \
     do { \

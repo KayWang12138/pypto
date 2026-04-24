@@ -170,6 +170,22 @@ struct DynMachineManager {
         }
     }
 
+    // Common helper function for waiting CPU mask readiness with timeout check
+    int WaitForCpuMaskReady(DeviceArgs* devArgs, int cpu, int curThreadIdx)
+    {
+        TimeoutState state;
+        while (__builtin_popcount(cpumask_.load(std::memory_order_acquire)) != static_cast<int>(devArgs->nrAicpu)) {
+            __PYPTO_TIMEOUT_CHECK(state, TIMEOUT_NS_20MIN, TIMEOUT_NS_10SEC,
+                ThreadErr::THREAD_CPU_ALLOC_FAILED,
+                return DEVICE_MACHINE_ERROR,
+                "#sche.thread.init: Thread alloc still waiting, threadIdx=%d, physicalCpu=%d.",
+                "#sche.thread.init: Thread alloc timeout, threadIdx=%d, physicalCpu=%d.",
+                curThreadIdx, cpu);
+            sched_yield();
+        }
+        return npu::tile_fwk::dynamic::DEVICE_MACHINE_OK;
+    }
+
     int AllocThreadIdxForDav3510(DeviceArgs* devArgs, int cpu, int& curThreadIdx, std::atomic<int>& threadIdx)
     {
         int die0MaxCpuid = static_cast<int>(devArgs->maxAicpuNum >> 1);
@@ -185,16 +201,9 @@ struct DynMachineManager {
 
         cpumask_.fetch_or(1 << cpu, std::memory_order_release);
         
-        TimeoutState state;
-        
-        while (__builtin_popcount(cpumask_.load(std::memory_order_acquire)) != static_cast<int>(devArgs->nrAicpu)) {
-            __PYPTO_TIMEOUT_CHECK(state, TIMEOUT_NS_20MIN, TIMEOUT_NS_10SEC,
-                ThreadErr::THREAD_CPU_ALLOC_FAILED,
-                return DEVICE_MACHINE_ERROR,
-                "#sche.thread.init: Thread alloc still waiting, threadIdx=%d, physicalCpu=%d.",
-                "#sche.thread.init: Thread alloc timeout, threadIdx=%d, physicalCpu=%d.",
-                curThreadIdx, cpu);
-            sched_yield();
+        int ret = WaitForCpuMaskReady(devArgs, cpu, curThreadIdx);
+        if (ret != npu::tile_fwk::dynamic::DEVICE_MACHINE_OK) {
+            return ret;
         }
 
         DEV_INFO("Thread alloc success: physicalCpu=%d, threadIdx=%d.", cpu, curThreadIdx);
@@ -206,16 +215,9 @@ struct DynMachineManager {
     {
         cpumask_.fetch_or(1 << cpu, std::memory_order_release);
         
-        TimeoutState state;
-
-        while (__builtin_popcount(cpumask_.load(std::memory_order_acquire)) != static_cast<int>(devArgs->nrAicpu)) {
-            __PYPTO_TIMEOUT_CHECK(state, TIMEOUT_NS_20MIN, TIMEOUT_NS_10SEC,
-                ThreadErr::THREAD_CPU_ALLOC_FAILED,
-                return DEVICE_MACHINE_ERROR,
-                "#sche.thread.init: Thread alloc still waiting, threadIdx=%d, physicalCpu=%d.",
-                "#sche.thread.init: Thread alloc timeout, threadIdx=%d, physicalCpu=%d.",
-                curThreadIdx, cpu);
-            sched_yield();
+        int ret = WaitForCpuMaskReady(devArgs, cpu, curThreadIdx);
+        if (ret != npu::tile_fwk::dynamic::DEVICE_MACHINE_OK) {
+            return ret;
         }
 
         auto maskval = cpumask_.load(std::memory_order_relaxed);
