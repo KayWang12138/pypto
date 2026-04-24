@@ -24,7 +24,8 @@ def compare_cos(davinci1_input, davinci2_input):
     davinci2_input = davinci2_input.reshape(-1).astype(np.float64)
     print(davinci1_input.shape)
     print(davinci2_input.shape)
-
+    print("NPU_out:",davinci1_input)
+    print("CPU_out:",davinci2_input)
     print("max diff: ", np.max(np.abs(davinci1_input-davinci2_input)))
     index = np.argmax(np.abs(davinci1_input-davinci2_input))
     print("max diff index = ", index, " dav1 value: ", davinci1_input[index], "dav2 value: ", davinci2_input[index])
