@@ -343,9 +343,9 @@ private:
     bool HasCvSyncDstAfter(const std::vector<IndexOp>& syncedOpLog, int srcIdx, const Operation& srcOp) const;
     void FillCvDepInfoEntry(std::unordered_map<PipePair, DataDepInfo, PipePairHash>& cvDepInfoMap,
                             const std::vector<IndexOp>& syncedOpLog, int idx, int eventId);
-    void FindCvSyncSrcInfo(std::vector<IndexOp>& syncedOpLog, std::vector<int>& eventIdVec, const CorePair& corePair,
+    void FindCvSyncSrcInfo(const std::vector<IndexOp>& syncedOpLog, std::vector<int>& eventIdVec, const CorePair& corePair,
                            std::unordered_map<PipePair, DataDepInfo, PipePairHash>& cvDepInfoMap);
-    bool FindMaxOverLapForCV(PipePair& targetPp, int& maxOverlapIdx,
+    bool FindMaxOverlapForCV(PipePair& targetPp, int& maxOverlapIdx,
                              std::unordered_map<PipePair, DataDepInfo, PipePairHash>& cvDepInfoMap);
     std::string DumpMergeCVInfo(PipePair targetPp, int maxOverlapIdx,
                                 std::unordered_map<PipePair, DataDepInfo, PipePairHash> cvDepInfoMap);

@@ -170,6 +170,8 @@ public:
         j["core_type"] = static_cast<int>(coreType_);
         j["tri_core_type"] = static_cast<int>(trigCoreType_);
         j["event_id"] = eventId_;
+        j["set_aiv_core"] = setAivCore_;
+        j["wait_aiv_core"] = waitAivCore_;
         j["gm_buf_id"] = gMBufId;
         j["offset"] = offset_;
         return j;
@@ -182,6 +184,8 @@ public:
         coreType_ = static_cast<CoreType>(j["core_type"].get<int>());
         trigCoreType_ = static_cast<CoreType>(j["tri_core_type"].get<int>());
         eventId_ = j["event_id"].get<int>();
+        setAivCore_ = static_cast<AIVCore>(j["set_aiv_core"].get<int>());
+        waitAivCore_ = static_cast<AIVCore>(j["wait_aiv_core"].get<int>());
         gMBufId = j["gm_buf_id"].get<int>();
         offset_ = j["offset"].get<std::vector<int>>();
     }

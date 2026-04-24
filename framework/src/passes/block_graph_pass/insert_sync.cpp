@@ -679,7 +679,7 @@ Status PipeSync::HandleEventID(DepOp& op, IssueQueue& issueQ, IssueNum& issuenum
             CorePair setwaitCoreType{{op.selfPipeCore.core, op.selfPipeCore.aivCore}, {depOps_[ele].selfPipeCore.core, depOps_[ele].selfPipeCore.aivCore}};
             extraCount = corePairMap[setwaitCoreType]++;
         }
-        CorePair cp;
+        CorePair cp{{CoreType::AIV, AIVCore::UNSPECIFIED}, {CoreType::AIV, AIVCore::UNSPECIFIED}};
         issuenum.maxIssueNum.emplace(pp, GetFreeEventIdQueue(pp, op.idx, ele, cp).size());
         issuenum.currIssueNum.emplace(pp, 0);
 
@@ -1262,7 +1262,7 @@ void PipeSync::FillCvDepInfoEntry(std::unordered_map<PipePair, DataDepInfo, Pipe
     }
 }
 
-void PipeSync::FindCvSyncSrcInfo(std::vector<IndexOp>& syncedOpLog, std::vector<int>& eventIdVec, const CorePair& corePair,
+void PipeSync::FindCvSyncSrcInfo(const std::vector<IndexOp>& syncedOpLog, std::vector<int>& eventIdVec, const CorePair& corePair,
                                  std::unordered_map<PipePair, DataDepInfo, PipePairHash>& cvDepInfoMap) {
     for (int i = syncedOpLog.size() - 1; i >= 0; i--) {
         auto& op = syncedOpLog[i].second;
@@ -1293,7 +1293,7 @@ void PipeSync::FindCvSyncSrcInfo(std::vector<IndexOp>& syncedOpLog, std::vector<
     }
 }
 
-bool PipeSync::FindMaxOverLapForCV(PipePair& targetPp, int& maxOverlapIdx, 
+bool PipeSync::FindMaxOverlapForCV(PipePair& targetPp, int& maxOverlapIdx, 
                                    std::unordered_map<PipePair, DataDepInfo, PipePairHash>& cvDepInfoMap) {
     int maxOverlap = -1;
     for (auto& [pp, depinfo] : cvDepInfoMap) {
@@ -1383,7 +1383,7 @@ Status PipeSync::RelaxCvEventId(std::vector<IndexOp>& syncedOpLog) {
         PipeCoreReal pp2(PIPE_S, CoreType::AIV);
         PipePair targetPp{pp1, pp2};
         int maxOverlapIdx = -1;
-        if (!(FindMaxOverLapForCV(targetPp, maxOverlapIdx, cvDepInfoMap))) {
+        if (!(FindMaxOverlapForCV(targetPp, maxOverlapIdx, cvDepInfoMap))) {
             APASS_LOG_DEBUG_F(Elements::Operation, "Cannot find mergeable setwait pair");
             continue;
         }
