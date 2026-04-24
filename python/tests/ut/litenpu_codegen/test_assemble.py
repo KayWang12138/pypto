@@ -18,8 +18,8 @@ import numpy as np
 import unittest
 
 def compare_cos(davinci1_input, davinci2_input):
-    davinci1_input = davinci1_input.reshape(-1).astype(np.float64)
-    davinci2_input = davinci2_input.reshape(-1).astype(np.float64)
+    davinci1_input = davinci1_input.reshape(-1).cpu().numpy().astype(np.float64)
+    davinci2_input = davinci2_input.reshape(-1).cpu().numpy().astype(np.float64)
     print(davinci1_input.shape)
     print(davinci2_input.shape)
     print("NPU_out:",davinci1_input)
@@ -39,25 +39,25 @@ def compare_cos(davinci1_input, davinci2_input):
     print()
     return cos
 
- def pypto_assemble_in_torch(source, target, offsets=None):	 
-     """	 
-     source: 可以是 (tensor, offset) 的列表，或者是单个 tensor	 
-     target: 目标 tensor (out)	 
-     offsets: 如果 source 是单个 tensor，则需要指定偏移	 
-     """	 
-     if isinstance(source, list):	 
-         for s_tensor, s_off in source:	 
-             # 生成切片索引	 
-             slices = []	 
-             for i, off in enumerate(s_off):	 
-                 slices.append(slice(off, off + s_tensor.shape[i]))	 
-             target[tuple(slices)] = s_tensor	 
-     else:	 
-         # 生成切片索引	 
-         slices = []	 
-         for i, off in enumerate(offsets):	 
-             slices.append(slice(off, off + source.shape[i]))	 
-         target[tuple(slices)] = source
+def pypto_assemble_in_torch(source, target, offsets=None):
+    """
+    source: 可以是 (tensor, offset) 的列表，或者是单个 tensor
+    target: 目标 tensor (out)
+    offsets: 如果 source 是单个 tensor，则需要指定偏移
+    """
+    if isinstance(source, list):
+        for s_tensor, s_off in source:
+            # 生成切片索引
+            slices = []
+            for i, off in enumerate(s_off):
+                slices.append(slice(off, off + s_tensor.shape[i]))
+            target[tuple(slices)] = s_tensor
+    else:
+        # 生成切片索引
+        slices = []
+        for i, off in enumerate(offsets):
+            slices.append(slice(off, off + source.shape[i]))
+        target[tuple(slices)] = source
 
 @pypto.frontend.jit(codegen_options={"soc_version": "Kirin9030"}, runtime_options={"run_mode": pypto.RunMode.NPU})
 def assemble_kernel_fp16(
