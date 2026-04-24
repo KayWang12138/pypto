@@ -767,7 +767,8 @@ void CCECodegen::EmitSingleGlobalTensors(const ir::FunctionPtr& func,
   }
 
   // Helper lambda to emit GlobalTensor declarations for a set of tensors
-  auto emit_global_tensors = [&](const std::map<std::string, std::vector<ir::ExprPtr>>& shapes) {
+  auto emit_global_tensors = [&](const std::map<std::string, std::vector<ir::ExprPtr>>& shapes,
+                                 const std::map<std::string, std::vector<int>>& tile_dims) {
     for (const auto& [param, global_name] : tensor_params) {
       auto tensor_type = std::dynamic_pointer_cast<const ir::TensorType>(param->GetType());
       if (!tensor_type) continue;
@@ -776,21 +777,26 @@ void CCECodegen::EmitSingleGlobalTensors(const ir::FunctionPtr& func,
       const std::string param_name = context_.SanitizeName(param);
       std::optional<std::vector<ir::ExprPtr>> access_shape = it->second;
       force_dn_layout_ = (dn_tensors_.count(param->name_) > 0);
+      auto tile_dims_it = tile_dims.find(param->name_);
+      current_tile_dims_ = tile_dims_it == tile_dims.end()
+                               ? std::optional<std::vector<int>>()
+                               : std::optional<std::vector<int>>(tile_dims_it->second);
       GenerateGlobalTensorTypeDeclaration(global_name, tensor_type, param_name, std::nullopt, access_shape);
       force_dn_layout_ = false;
+      current_tile_dims_.reset();
       emitter_.EmitLine("");
     }
   };
 
   // Emit GlobalTensors for tensors only accessed outside any section (common area)
   if (!section_shapes.common_shapes.empty()) {
-    emit_global_tensors(section_shapes.common_shapes);
+    emit_global_tensors(section_shapes.common_shapes, section_shapes.common_tile_dims);
   }
 
   // Emit GlobalTensors for tensors accessed in Cube section (with Cube access shapes)
   if (!section_shapes.cube_shapes.empty()) {
     emitter_.EmitLine("#if defined(__DAV_CUBE__)");
-    emit_global_tensors(section_shapes.cube_shapes);
+    emit_global_tensors(section_shapes.cube_shapes, section_shapes.cube_tile_dims);
     emitter_.EmitLine("#endif");
     emitter_.EmitLine("");
   }
@@ -798,7 +804,7 @@ void CCECodegen::EmitSingleGlobalTensors(const ir::FunctionPtr& func,
   // Emit GlobalTensors for tensors accessed in Vector section (with Vector access shapes)
   if (!section_shapes.vec_shapes.empty()) {
     emitter_.EmitLine("#if defined(__DAV_VEC__)");
-    emit_global_tensors(section_shapes.vec_shapes);
+    emit_global_tensors(section_shapes.vec_shapes, section_shapes.vec_tile_dims);
     emitter_.EmitLine("#endif");
     emitter_.EmitLine("");
   }
@@ -2642,6 +2648,9 @@ class TensorAccessShapeCollector : public ir::IRVisitor {
   std::map<std::string, std::vector<ir::ExprPtr>> access_shapes_;
   std::map<std::string, std::vector<ir::ExprPtr>> cube_access_shapes_;
   std::map<std::string, std::vector<ir::ExprPtr>> vec_access_shapes_;
+  std::map<std::string, std::vector<int>> access_tile_dims_;
+  std::map<std::string, std::vector<int>> cube_access_tile_dims_;
+  std::map<std::string, std::vector<int>> vec_access_tile_dims_;
   std::set<std::string> dn_tensors_;  // tensor names loaded with layout="dn"
 
   void VisitStmt_(const ir::SectionStmtPtr& op) override {
@@ -2683,6 +2692,9 @@ class TensorAccessShapeCollector : public ir::IRVisitor {
       auto& target_map = current_section_.has_value()
           ? (*current_section_ == ir::SectionKind::Cube ? cube_access_shapes_ : vec_access_shapes_)
           : access_shapes_;
+      auto& target_tile_dims_map = current_section_.has_value()
+          ? (*current_section_ == ir::SectionKind::Cube ? cube_access_tile_dims_ : vec_access_tile_dims_)
+          : access_tile_dims_;
 
       if (tensor_var && target_map.find(tensor_var->name_) == target_map.end()) {
         bool found = false;
@@ -2707,6 +2719,10 @@ class TensorAccessShapeCollector : public ir::IRVisitor {
             dn_tensors_.insert(tensor_var->name_);
           }
         }
+      }
+      if (tensor_var && op->HasKwarg("tile_dims") &&
+          target_tile_dims_map.find(tensor_var->name_) == target_tile_dims_map.end()) {
+        target_tile_dims_map[tensor_var->name_] = op->GetKwarg<std::vector<int>>("tile_dims");
       }
     }
 
@@ -2929,6 +2945,9 @@ CCECodegen::SectionAccessShapes CCECodegen::CollectTensorAccessShapesPerSection(
   result.common_shapes = std::move(collector.access_shapes_);
   result.cube_shapes = std::move(collector.cube_access_shapes_);
   result.vec_shapes = std::move(collector.vec_access_shapes_);
+  result.common_tile_dims = std::move(collector.access_tile_dims_);
+  result.cube_tile_dims = std::move(collector.cube_access_tile_dims_);
+  result.vec_tile_dims = std::move(collector.vec_access_tile_dims_);
   return result;
 }
 
@@ -3087,19 +3106,21 @@ void CCECodegen::GenerateTileTypeDeclaration(const std::string& var_name, const 
 std::string CCECodegen::GenerateSingleFileStrideType(const std::vector<int64_t>& shape_dims,
                                                      const std::vector<int64_t>& tensor_dims,
                                                      bool all_static,
-                                                     bool needs_dynamic_stride) const {
+                                                     bool needs_dynamic_stride,
+                                                     bool needs_tile_dims_stride) const {
   std::ostringstream oss;
   oss << "pto::Stride<";
   const size_t target_dims = 5;
   size_t n = shape_dims.size();
 
-  if (needs_dynamic_stride && n == 2) {
-    // Dynamic tensor with access window: use Stride<-1, -1, -1, -1, 1>
-    // The actual stride values will be set via constructor args at runtime
-    for (size_t i = 0; i < target_dims - 1; ++i) {
-      oss << "-1, ";
+  if ((needs_dynamic_stride || needs_tile_dims_stride) && n == 2) {
+    // Dynamic tensor with access window: allow all five stride slots to be
+    // provided at runtime. This is required for tile_dims=[1, 3] BSND views,
+    // where the row stride is N*D/N*Skv instead of the access-window column.
+    for (size_t i = 0; i < target_dims; ++i) {
+      oss << "-1";
+      if (i < target_dims - 1) oss << ", ";
     }
-    oss << "1";
   } else if (force_dn_layout_ && n == 2) {
     // DN (column-major) strides for 2D: [1, dim0] (column-stride=1, row-stride=dim0)
     for (size_t i = 0; i < target_dims - n; ++i) {
@@ -3135,6 +3156,8 @@ void CCECodegen::EmitGlobalTensorInstance(const std::string& var_name,
                                           const ir::TensorTypePtr& tensor_type,
                                           const std::vector<int64_t>& shape_dims,
                                           bool needs_dynamic_stride,
+                                          bool needs_tile_dims_stride,
+                                          const std::optional<std::vector<int>>& tile_dims,
                                           const std::optional<std::string>& base_pointer,
                                           const std::optional<std::string>& tensor_struct_ptr,
                                           bool use_runtime_tensor_struct) {
@@ -3143,22 +3166,45 @@ void CCECodegen::EmitGlobalTensorInstance(const std::string& var_name,
   if (base_pointer.has_value()) {
     global_instance << base_pointer.value();
   }
-  if (needs_dynamic_stride && base_pointer.has_value()) {
+  if ((needs_dynamic_stride || needs_tile_dims_stride) && base_pointer.has_value()) {
     // Dynamic stride: tensor has dynamic dims but access_shape overrides Shape<>.
     // The row stride must use the tensor's actual last dim (e.g., Skv), not access shape col (e.g., 128).
+    auto dim_expr = [this](const ir::ExprPtr& dim, int64_t fallback) -> std::string {
+      if (auto ci = std::dynamic_pointer_cast<const ir::ConstInt>(dim)) {
+        return std::to_string(ci->value_);
+      }
+      if (auto var = std::dynamic_pointer_cast<const ir::Var>(dim)) {
+        return context_.GetVarName(std::const_pointer_cast<ir::Var>(var));
+      }
+      return std::to_string(fallback);
+    };
+    auto full_stride_expr = [&](int dim_idx) -> std::string {
+      std::string expr = "1";
+      for (size_t i = static_cast<size_t>(dim_idx) + 1; i < tensor_type->shape_.size(); ++i) {
+        std::string dim = dim_expr(tensor_type->shape_[i], 1);
+        expr = (expr == "1") ? dim : expr + "*" + dim;
+      }
+      return expr;
+    };
+
+    std::string row_stride_expr;
     std::string col_stride_expr;
-    auto last_dim = tensor_type->shape_.back();
-    if (auto ci = std::dynamic_pointer_cast<const ir::ConstInt>(last_dim)) {
-      col_stride_expr = std::to_string(ci->value_);
-    } else if (auto var = std::dynamic_pointer_cast<const ir::Var>(last_dim)) {
-      col_stride_expr = context_.GetVarName(std::const_pointer_cast<ir::Var>(var));
+    if (needs_tile_dims_stride && tile_dims.has_value() && tile_dims->size() == 2) {
+      row_stride_expr = full_stride_expr((*tile_dims)[0]);
+      col_stride_expr = full_stride_expr((*tile_dims)[1]);
     } else {
-      // Fallback: use access shape (may be incorrect but avoids crash)
-      col_stride_expr = std::to_string(shape_dims.back());
+      row_stride_expr = dim_expr(tensor_type->shape_.back(), shape_dims.back());
+      col_stride_expr = "1";
     }
-    std::string batch_stride = std::to_string(shape_dims[0]) + "*" + col_stride_expr;
+    std::string leading_stride = std::to_string(shape_dims[0]) + "*" + row_stride_expr;
     global_instance << ", " << shape_type_name << "(), " << stride_type_name << "(";
-    global_instance << batch_stride << ", " << batch_stride << ", " << batch_stride << ", " << col_stride_expr;
+    if (force_dn_layout_) {
+      global_instance << leading_stride << ", " << leading_stride << ", " << leading_stride
+                      << ", " << col_stride_expr << ", " << row_stride_expr;
+    } else {
+      global_instance << leading_stride << ", " << leading_stride << ", " << leading_stride
+                      << ", " << row_stride_expr << ", " << col_stride_expr;
+    }
     global_instance << ")";
   } else if (use_runtime_tensor_struct && tensor_struct_ptr.has_value()) {
     // Use original tensor ndim for stride indices (strides come from the full tensor struct)
@@ -3246,12 +3292,16 @@ void CCECodegen::GenerateGlobalTensorTypeDeclaration(
   emitter_.EmitLine(shape_alias.str());
 
   // Generate Stride type alias
+  bool needs_tile_dims_stride = !all_static && access_shape.has_value() &&
+                                current_tile_dims_.has_value() &&
+                                current_tile_dims_->size() == 2 && !is_nz_layout;
   bool needs_dynamic_stride = !all_static && access_shape.has_value() && !force_dn_layout_ && !is_nz_layout;
   std::string stride_type;
   if (is_nz_layout) {
-    stride_type = GenerateSingleFileStrideType(emitted_shape_dims, emitted_shape_dims, true, false);
+    stride_type = GenerateSingleFileStrideType(emitted_shape_dims, emitted_shape_dims, true, false, false);
   } else if (single_file_mode_) {
-    stride_type = GenerateSingleFileStrideType(shape_dims, tensor_dims, all_static, needs_dynamic_stride);
+    stride_type = GenerateSingleFileStrideType(shape_dims, tensor_dims, all_static,
+                                               needs_dynamic_stride, needs_tile_dims_stride);
   } else {
     stride_type = type_converter_.GenerateStrideType(shape_dims);
   }
@@ -3275,8 +3325,8 @@ void CCECodegen::GenerateGlobalTensorTypeDeclaration(
 
   // Generate GlobalTensor instance and register mappings
   EmitGlobalTensorInstance(var_name, global_type_name, shape_type_name, stride_type_name, tensor_type,
-                           emitted_shape_dims, needs_dynamic_stride, base_pointer, tensor_struct_ptr,
-                           tensor_struct_ptr.has_value() && !is_nz_layout);
+                           emitted_shape_dims, needs_dynamic_stride, needs_tile_dims_stride, current_tile_dims_,
+                           base_pointer, tensor_struct_ptr, tensor_struct_ptr.has_value() && !is_nz_layout);
 }
 
 }  // namespace codegen
