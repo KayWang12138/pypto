@@ -74,7 +74,7 @@ LogicalTensorPtr RemoveUnalignedReshape::InsertIOTensor(
     (void)op;
     if (rawIO.count(ioTensor->tensor->rawmagic) == 0) {
         auto reshapeRawTensor =
-            std::make_shared<RawTensor>(ioTensor->Datatype(), ioTensor->tensor->rawshape, ioTensor->Format());
+            std::make_shared<RawTensor>(ioTensor->Datatype(), ioTensor->oriShape, ioTensor->Format());
         rawIO.insert({ioTensor->tensor->rawmagic, reshapeRawTensor});
     }
     auto newReshapeIO = std::make_shared<LogicalTensor>(
@@ -87,7 +87,25 @@ LogicalTensorPtr RemoveUnalignedReshape::InsertIOTensor(
 
 bool RemoveUnalignedReshape::CheckUnaligned(Operation& op)
 {
-    (void)op;
+    int lastIdx;
+    for (const auto& input : op.GetIOperands()) {
+        if (input != nullptr && input->tensor != nullptr) {
+            lastIdx = input->shape.size() - 1;
+            if (input->oriShape.size() == input->tensor->rawshape.size() &&
+                input->oriShape[lastIdx] != input->tensor->rawshape[lastIdx]) {
+                return true;
+            }
+        }
+    }
+    for (const auto& output : op.GetOOperands()) {
+        if (output != nullptr && output->tensor != nullptr) {
+            lastIdx = output->shape.size() - 1;
+            if (output->oriShape.size() == output->tensor->rawshape.size() &&
+                output->oriShape[lastIdx] != output->tensor->rawshape[lastIdx]) {
+                return true;
+            }
+        }
+    }
     return false;
 }
 
