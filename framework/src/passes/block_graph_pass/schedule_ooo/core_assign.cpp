@@ -436,7 +436,7 @@ void CoreScheduler::GapMinForwardPass(TaskGraph& taskGraph, std::vector<int>& to
     }
 }
 
-// 轮 2：反向 ALAP 位移 —— 把每个任务右移到 "同核右邻 start" 与 "所有后继最早 start" 的下界，收敛 outbound gap
+// 轮 2.方案1：按拓扑序反向 ALAP 位移 —— 把每个任务右移到 "同核右邻 start" 与 "所有后继最早 start" 的下界，收敛 outbound gap
 void CoreScheduler::GapMinBackwardShift(TaskGraph& taskGraph, std::vector<int>& topoSeq)
 {
     // 1. 按核分组并按 startTimeCandidate 排序，建立同核右邻映射
@@ -484,6 +484,63 @@ void CoreScheduler::GapMinBackwardShift(TaskGraph& taskGraph, std::vector<int>& 
     }
 }
 
+// 轮 2.方案2：按一轮调度顺序反向位移 —— 把每个任务右移到 "同核右邻 start" 与 "所有后继最早 start" 的下界，收敛 outbound gap
+void CoreScheduler::GapMinBackwardShiftByExecOrder(TaskGraph& taskGraph)
+{
+    // 1. 按核分组并按 startTimeCandidate 排序，建立同核右邻映射
+    std::unordered_map<TargetCoreType, std::vector<int>> coreGroups;
+    for (auto& t : taskGraph.tasks) {
+        coreGroups[t.targetCoreTypeCandidate].push_back(t.idx);
+    }
+    std::unordered_map<int, int> sameCoreNext; // taskId -> next taskId on same core (-1 if none)
+    for (auto& pr : coreGroups) {
+        auto& ids = pr.second;
+        std::sort(ids.begin(), ids.end(), [&](int i, int j) {
+            return taskGraph.tasks[i].startTimeCandidate < taskGraph.tasks[j].startTimeCandidate;
+        });
+        for (size_t i = 0; i + 1 < ids.size(); i++) {
+            sameCoreNext[ids[i]] = ids[i + 1];
+        }
+        if (!ids.empty()) {
+            sameCoreNext[ids.back()] = -1;
+        }
+    }
+
+    // 2. 按第一阶段调度完成顺序（endTimeCandidate）从大到小排序
+    std::vector<int> execOrderSeq;
+    execOrderSeq.reserve(taskGraph.tasks.size());
+    for (auto& t : taskGraph.tasks) {
+        execOrderSeq.push_back(t.idx);
+    }
+    std::sort(execOrderSeq.begin(), execOrderSeq.end(), [&](int i, int j) {
+        return taskGraph.tasks[i].endTimeCandidate > taskGraph.tasks[j].endTimeCandidate;
+    });
+
+    // 3. 按执行顺序逆序（从右向左）shift
+    for (auto taskId : execOrderSeq) {
+        auto& t = taskGraph.tasks[taskId];
+        if (t.outTasks.empty()) {
+            continue;
+        }
+        int minSuccStart = INT32_MAX;
+        for (int s : t.outTasks) {
+            minSuccStart = std::min(minSuccStart, taskGraph.tasks[s].startTimeCandidate);
+        }
+        int sameCoreCap = INT32_MAX;
+        auto sit = sameCoreNext.find(taskId);
+        if (sit != sameCoreNext.end() && sit->second >= 0) {
+            sameCoreCap = taskGraph.tasks[sit->second].startTimeCandidate;
+        }
+        int newEnd = std::min(minSuccStart, sameCoreCap);
+        if (newEnd <= t.endTimeCandidate) {
+            continue;
+        }
+        int delta = newEnd - t.endTimeCandidate;
+        t.startTimeCandidate += delta;
+        t.endTimeCandidate = newEnd;
+    }
+}
+
 // 统计所有 AIC<->AIV 双向跨核边的等待间隔之和
 int64_t CoreScheduler::SumCrossCoreGap(const TaskGraph& g) const
 {
@@ -506,7 +563,7 @@ int64_t CoreScheduler::SumCrossCoreGap(const TaskGraph& g) const
 void CoreScheduler::GapMinSchedule(TaskGraph& taskGraph, std::vector<int>& topoSeq)
 {
     GapMinForwardPass(taskGraph, topoSeq);
-    GapMinBackwardShift(taskGraph, topoSeq);
+    GapMinBackwardShiftByExecOrder(taskGraph);
     taskGraph.ApplyCandidateUnconditional();
     APASS_LOG_INFO_F(
         Elements::Operation, "GapMinSchedule total cross-core gap=%lld, endTime(max)=%d.",
@@ -520,7 +577,6 @@ void CoreScheduler::Schedule(TaskGraph& taskGraph, int bruteForceThreshold)
     APASS_LOG_INFO_F(Elements::Operation, "Start schedule with brute force threshold %d.", bruteForceThreshold);
     if (static_cast<int>(taskGraph.tasks.size()) > bruteForceThreshold) {
         std::vector<int> topoSeq = GetDFSTopoSeq(taskGraph);
-        // EFTWithInsertSchedule(taskGraph, topoSeq);
         GapMinSchedule(taskGraph, topoSeq);
     } else {
         std::vector<bool> visited(taskGraph.tasks.size(), false);
