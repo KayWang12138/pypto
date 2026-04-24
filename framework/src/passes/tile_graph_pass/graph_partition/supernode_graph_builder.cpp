@@ -754,6 +754,9 @@ SuperNodeGraphBuilder::ScopeCollectResult SuperNodeGraphBuilder::CollectScopeInf
         if (scopeInfo.scopeId == -1) {
             continue;
         }
+        if (nodeScopeSkipCode.count(operationInfo_->opList_[opIdx]->GetOpcode()) > 0) {
+            continue;
+        }
         bool isCube = operationInfo_->opList_[opIdx]->HasAttr(OpAttributeKey::isCube) &&
                       operationInfo_->opList_[opIdx]->GetBoolAttribute(OpAttributeKey::isCube);
         if (isCube) {
