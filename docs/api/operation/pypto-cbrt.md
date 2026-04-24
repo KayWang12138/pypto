@@ -1,4 +1,4 @@
-# pypto.cbrt
+﻿# pypto.cbrt
 
 ## 产品支持情况
 
@@ -10,7 +10,11 @@
 
 ## 功能说明
 
-计算输入Tensor中每个元素的 e 的指数，逐元素运算，返回与输入形状相同的Tensor。
+计算输入Tensor中每个元素的立方根，逐元素运算，返回与输入形状相同的Tensor。计算公式为：
+
+$$
+y_i = \sqrt[3]{x_i}
+$$
 
 ## 函数原型
 
@@ -23,7 +27,7 @@ cbrt(input: Tensor) -> Tensor
 
 | 参数名 | 输入/输出 | 说明                                                                 |
 |--------|-----------|----------------------------------------------------------------------|
-| input  | 输入      | 源操作数。 <br> 支持的类型为：Tensor。 <br> Tensor支持的数据类型为：DT_FP32, DT_FP16， DT_BF16。 <br> 不支持空Tensor；Shape仅支持2-4维；Shape Size不大于2147483647（即INT32_MAX）。 |
+| input  | 输入      | 源操作数。 <br> 支持的类型为：Tensor。 <br> Tensor支持的数据类型为：DT_FP32, DT_FP16， DT_BF16。 <br> 不支持空Tensor；Shape仅支持1-4维；Shape Size不大于2147483647（即INT32_MAX）。 |
 
 ## 返回值说明
 
