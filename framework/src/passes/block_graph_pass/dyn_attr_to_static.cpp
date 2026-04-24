@@ -476,7 +476,7 @@ void UpdateTensorParamAddr(std::shared_ptr<LogicalTensor> &tensor)
 {
     std::map<int, SymbolicScalar> paramAddrMap;
     tensor->GetAttr<std::map<int, SymbolicScalar>>(TensorAttributeKey::tensorAddr, paramAddrMap);
-    for (auto &[opMagic, paramAddr] : paramAddrMap) {
+    for (auto &[_, paramAddr] : paramAddrMap) {
         auto paramArgs = ParseRuntimeGetParamAddr(paramAddr.Dump());
         int aiCpuFlag{3};
         if (paramAddr.IsExpression()) {
