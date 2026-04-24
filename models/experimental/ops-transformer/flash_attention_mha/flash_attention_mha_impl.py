@@ -38,6 +38,7 @@ SCALE = 1.0 / (HEAD_DIM ** 0.5)
 @pypto.frontend.jit(
     debug_options={
         "runtime_debug_mode": 1,
+        "compile_debug_mode": 1,
     },
     runtime_options={
         "device_sched_mode": 0,
@@ -50,20 +51,34 @@ SCALE = 1.0 / (HEAD_DIM ** 0.5)
     },
 )
 def flash_attention_varlen_forward_kernel(
-    q: pypto.Tensor([pypto.DYNAMIC, HIDDEN_DIM], pypto.DT_BF16),
-    k: pypto.Tensor([pypto.DYNAMIC, HIDDEN_DIM], pypto.DT_BF16),
-    v: pypto.Tensor([pypto.DYNAMIC, HIDDEN_DIM], pypto.DT_BF16),
-    output: pypto.Tensor([pypto.DYNAMIC, HIDDEN_DIM], pypto.DT_BF16),
+    # Q侧输入: shape=[total_q, N, D], total_q=DYNAMIC, N=num_heads, D=head_dim
+    q: pypto.Tensor([pypto.DYNAMIC, ...], pypto.DT_BF16),
+    # KV侧输入: shape=[total_kv, N, D]
+    k: pypto.Tensor([pypto.DYNAMIC, ...], pypto.DT_BF16),
+    v: pypto.Tensor([pypto.DYNAMIC, ...], pypto.DT_BF16),
+    # Q侧输出: shape=[total_q, hidden_dim] (二维)
+    output: pypto.Tensor([pypto.DYNAMIC, pypto.STATIC], pypto.DT_BF16),
+    # Q侧: softmax中间量L, shape=[total_q, n] (二维)
     l_output: pypto.Tensor([pypto.DYNAMIC, pypto.STATIC], pypto.DT_FP32),
+    # Q侧: softmax中间量M, shape=[total_q, n] (二维)
     m_output: pypto.Tensor([pypto.DYNAMIC, pypto.STATIC], pypto.DT_FP32),
+    # 累积序列长度: shape=[batch_size + 1]
     cu_seqlens_q: pypto.Tensor([pypto.DYNAMIC], pypto.DT_INT32),
     cu_seqlens_k: pypto.Tensor([pypto.DYNAMIC], pypto.DT_INT32),
 ):
     """
     Flash Attention Forward - 4 loops (batch + head + q_tile + kv_tile).
 
-    输入张量为二维 [total_seq, hidden_dim] (total_seq=DYNAMIC),
-    通过 cu_seqlens_q/cu_seqlens_k 指定各 batch 的序列长度边界。
+    输入张量为三维 [total_seq, N, D] (total_seq=DYNAMIC, N=num_heads, D=head_dim),
+    输出张量为二维 [total_seq, hidden_dim] (hidden_dim = N*D)。
+    
+    Kernel入口处从输入tensor shape 获取 num_heads 和 head_dim:
+      num_heads = q.shape[1]
+      head_dim = q.shape[2]
+      hidden_dim = num_heads * head_dim
+    
+    然后 reshape inplace 输入为二维 [total_seq, hidden_dim] 以便按 head 做 view 切片，
+    输出保持二维布局。
 
     张量布局 (Q: s1_size, KV: s2_size):
       Q 侧: Q/O/L/M — 每个 batch 占用 s1 行 (通过 cu_seqlens_q 定位)
@@ -95,6 +110,22 @@ def flash_attention_varlen_forward_kernel(
       9. O = P_bf16 @ V(BF16) → BF16              (matmul out_dtype=BF16)
      10. L, M 保持 FP32 写回
     """
+    # ---- 从三维输入获取 N(num_heads) 和 D(head_dim), 然后 reshape 为二维 ----
+    num_heads = q.shape[1]
+    head_dim = q.shape[2]
+    hidden_dim = num_heads * head_dim
+    total_q = q.shape[0]
+    total_kv = k.shape[0]
+    scale = 1.0 / (head_dim ** 0.5)
+
+    # reshape inplace: q/k/v [total_seq, N, D] → [total_seq, N*D]
+    q_2d = pypto.reshape(q, [total_q, hidden_dim], inplace=True)
+    k_2d = pypto.reshape(k, [total_kv, hidden_dim], inplace=True)
+    v_2d = pypto.reshape(v, [total_kv, hidden_dim], inplace=True)
+    # output/l/m 保持二维，无需 reshape
+
+    hidden_dim = num_heads * head_dim
+    scale = 1.0 / (head_dim ** 0.5)
 
     v1_tile = [64, 512]
     v2_tile = [512, 64]
@@ -122,34 +153,38 @@ def flash_attention_varlen_forward_kernel(
         q_tile_count = (seq_len_q + q_tile - 1) // q_tile
         k_tile_count = (seq_len_k + k_tile - 1) // k_tile
 
-        oi_update = pypto.tensor([q_tile, HEAD_DIM], pypto.DT_FP32, "oi_update")
-        li_update = pypto.tensor([q_tile, 1], pypto.DT_FP32, "li_update")
-        mi_update = pypto.tensor([q_tile, 1], pypto.DT_FP32, "mi_update")
+        # batch_base = cu_seqlens_q[b_idx] * num_heads
 
-        for h_idx in pypto.loop(NUM_HEADS, name="head_loop"):
-            h_offset = h_idx * HEAD_DIM
+        for h_idx in pypto.loop(num_heads, name="head_loop"):
+            h_offset = h_idx * head_dim
+
+            # row_base = batch_base + h_idx * seq_len_q
 
             for q_tile_idx in pypto.loop(q_tile_count, name="q_tile_loop"):
+                oi_update = pypto.tensor([q_tile, head_dim], pypto.DT_FP32, "oi_update")
+                li_update = pypto.tensor([q_tile, 1], pypto.DT_FP32, "li_update")
+                mi_update = pypto.tensor([q_tile, 1], pypto.DT_FP32, "mi_update")
+
                 q_tile_start = q_tile_idx * q_tile
                 q_tile_end = pypto.min(q_tile_start + q_tile, seq_len_q)
                 q_tile_len = q_tile_end - q_tile_start
 
-                for k_tile_idx in pypto.loop(0, k_tile_count, 1, name="k_tile_loop"):
+                for k_tile_idx in pypto.loop(k_tile_count, name="k_tile_loop"):
                     k_tile_size = k_tile
                     k_tile_start = k_tile_idx * k_tile_size
                     k_tile_end = pypto.min(k_tile_start + k_tile_size, seq_len_k)
                     k_tile_len = k_tile_end - k_tile_start
 
-                    q_tile_view = pypto.view(q, [q_tile, HEAD_DIM],
+                    q_tile_view = pypto.view(q_2d, [q_tile, head_dim],
                                         [q_start + q_tile_start, h_offset],
-                                        valid_shape=[q_tile_len, HEAD_DIM])
+                                        valid_shape=[q_tile_len, head_dim])
 
-                    k_tile_view = pypto.view(k, [k_tile_size, HEAD_DIM],
+                    k_tile_view = pypto.view(k_2d, [k_tile_size, head_dim],
                                         [k_start + k_tile_start, h_offset],
-                                        valid_shape=[k_tile_len, HEAD_DIM])
-                    v_tile_view = pypto.view(v, [k_tile_size, HEAD_DIM],
+                                        valid_shape=[k_tile_len, head_dim])
+                    v_tile_view = pypto.view(v_2d, [k_tile_size, head_dim],
                                         [k_start + k_tile_start, h_offset],
-                                        valid_shape=[k_tile_len, HEAD_DIM])
+                                        valid_shape=[k_tile_len, head_dim])
 
                     pypto.set_cube_tile_shapes([64, 512], [64, 64], [512, 512])
 
@@ -159,7 +194,7 @@ def flash_attention_varlen_forward_kernel(
 
                     pypto.set_pass_options(sg_set_scope=1)
 
-                    scores_scaled = pypto.mul(scores, SCALE)
+                    scores_scaled = pypto.mul(scores, scale)
                     mij = pypto.amax(scores_scaled, dim=-1, keepdim=True)
                     s_shifted = pypto.sub(scores_scaled, mij)
                     pij = pypto.exp(s_shifted)
@@ -176,9 +211,11 @@ def flash_attention_varlen_forward_kernel(
 
                             oij = pypto.matmul(pij_bf16, v_tile_view, out_dtype=pypto.DT_BF16)
 
+                            # row_base = b_idx * seq_len_q * num_heads + h_idx * seq_len_q
+                            # row_base = cu_seqlens_q[b_idx] * num_heads + h_idx * seq_len_q
                             pypto.assemble(oij, [q_start + q_tile_start, h_offset], output)
-                            pypto.assemble(lij, [q_start + q_tile_start, 0], l_output)
-                            pypto.assemble(mij, [q_start + q_tile_start, 0], m_output)
+                            pypto.assemble(lij, [q_start + q_tile_start, h_idx], l_output)
+                            pypto.assemble(mij, [q_start + q_tile_start, h_idx], m_output)
                         else:
                             pypto.set_vec_tile_shapes(v1_tile[0], v1_tile[1])
                             pij_bf16 = pypto.cast(pij, pypto.DT_BF16)
@@ -213,9 +250,11 @@ def flash_attention_varlen_forward_kernel(
 
                         out_fp32 = pypto.div(oi_tmp, li_new, precision_type=pypto.DivAlgorithm.INTRINSIC)
                         out_bf16 = pypto.cast(out_fp32, pypto.DT_BF16)
+
+                        # row_base = b_idx * seq_len_q * num_heads + h_idx * seq_len_q
                         pypto.assemble(out_bf16, [q_start + q_tile_start, h_offset], output)
-                        pypto.assemble(li_new, [q_start + q_tile_start, 0], l_output)
-                        pypto.assemble(mi_new, [q_start + q_tile_start, 0], m_output)
+                        pypto.assemble(li_new, [q_start + q_tile_start, h_idx], l_output)
+                        pypto.assemble(mi_new, [q_start + q_tile_start, h_idx], m_output)
                     else:
                         pypto.set_vec_tile_shapes(v1_tile[0], v1_tile[1])
 
