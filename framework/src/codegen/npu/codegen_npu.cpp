@@ -282,6 +282,7 @@ void CodeGenNPU::UpdateSubFunc(std::pair<uint64_t, Function*> subFuncPair, const
         attr->kernelName = compileInfo.GetKernelName();
         attr->binPath = compileInfo.GetBinAbsPath();
         attr->kernelDeclare = compileInfo.GetFuncDeclare();
+        attr->magicName = compileInfo.GetMagicName();
     }
     CoreType coreType = compileInfo.IsCube() ? CoreType::AIC : CoreType::AIV;
     attr->coreType = coreType;

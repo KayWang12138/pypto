@@ -62,7 +62,9 @@ public:
     std::string GetBinAbsPath() const { return binAbsPath_; }
     void SetBinAbsPath(const std::string& binAbsPath) { binAbsPath_ = binAbsPath; }
     void SetKernelName(const std::string& kernelName) { kernelName_ = kernelName; }
+    void SetMagicName(const std::string& magicName) { magicName_ = magicName; }
     std::string GetKernelName() const { return kernelName_; }
+    std::string GetMagicName() const { return magicName_; }
     void SetFuncDeclare(const std::string& funcDeclare) { funcDeclare_ = funcDeclare; }
     std::string GetFuncDeclare() const { return funcDeclare_; }
     bool IsCube() const { return isCube_; }
@@ -116,6 +118,7 @@ protected:
     std::string binAbsPath_;
     std::string kernelName_;
     std::string funcDeclare_;
+    std::string magicName_;
     std::shared_ptr<LeafFuncAttribute> attr_{nullptr};
     bool isMainBlock_{false};
 };
