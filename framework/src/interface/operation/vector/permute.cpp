@@ -222,6 +222,94 @@ void PermuteElementOperationTileFunc(
     TiledPermuteElementOperation(function, tileShape, 0, input, oOperand[0], perm);
 }
 
+int FindTargetPosition(const std::vector<int>& invPerm, int targetIndex, int startSearch)
+{
+    for (int j = startSearch; j < static_cast<int>(invPerm.size()); ++j) {
+        if (invPerm[j] == targetIndex) {
+            return j;
+        }
+    }
+    return -1;
+}
+
+int CalculateTransposeCount(const std::vector<int>& perm)
+{
+    const int shapeSize = static_cast<int>(perm.size());
+    std::vector<int> invPerm(shapeSize);
+    for (int i = 0; i < shapeSize; ++i) {
+        invPerm[perm[i]] = i;
+    }
+    int count = 0;
+    for (int i = 0; i < shapeSize; ++i) {
+        int targetPos = FindTargetPosition(invPerm, i, i);
+        if (targetPos != i && targetPos != -1) {
+            std::swap(invPerm[i], invPerm[targetPos]);
+            count++;
+        }
+    }
+    return count;
+}
+
+Tensor PermuteWithTranspose(const Tensor& self, const std::vector<int>& perm)
+{
+    const int shapeSize = static_cast<int>(perm.size());
+    std::vector<int> invPerm(shapeSize);
+    for (int i = 0; i < shapeSize; ++i) {
+        invPerm[perm[i]] = i;
+    }
+    auto oldVecTileShapes = TileShape::Current().GetVecTile();
+    Tensor result = self;
+    for (int i = 0; i < shapeSize; ++i) {
+        int targetPos = FindTargetPosition(invPerm, i, i);
+        if (targetPos != i && targetPos != -1) {
+            result = Transpose(result, {i, targetPos});
+            
+            auto curVecTileShapes = TileShape::Current().GetVecTile();
+            std::swap(curVecTileShapes[i], curVecTileShapes[targetPos]);
+            TileShape::Current().SetVecTile(curVecTileShapes);
+            
+            std::swap(invPerm[i], invPerm[targetPos]);
+        }
+    }
+    TileShape::Current().SetVecTile(oldVecTileShapes);
+    return result;
+}
+
+Tensor PermuteDecomposeTail(const Tensor& self, const std::vector<int>& perm)
+{
+    std::cout << "\n PermuteDecomposeTail" << std::endl;
+    const int shapeSize = static_cast<int>(perm.size());
+    bool lastAxisInvolved = (perm[shapeSize - 1] != shapeSize - 1);
+    if (!lastAxisInvolved) {
+        RETURN_CALL(PermuteOperation, *Program::GetInstance().GetCurrentFunction(), self.GetStorage(), perm);
+    }
+    int tailOutputAxis = perm[shapeSize - 1];
+    int tailInputAxis = shapeSize - 1;
+    auto oldVecTileShapes = TileShape::Current().GetVecTile();
+    Tensor transposed = Transpose(self, {tailOutputAxis, tailInputAxis});
+    auto newVecTileShapes = oldVecTileShapes;
+    std::swap(newVecTileShapes[tailOutputAxis], newVecTileShapes[tailInputAxis]);
+    // int64_t bytesPerElement = BytesOf(self.GetDataType());
+    // int64_t alignElements = BLOCK_SIZE / bytesPerElement;
+    // int64_t lastDimTile = newVecTileShapes[shapeSize - 1];
+    // int64_t alignedLastDim = AlignUp(lastDimTile, alignElements);
+    // int64_t maxLastDim = transposed.GetShape()[shapeSize - 1];
+    // newVecTileShapes[shapeSize - 1] = std::min(alignedLastDim, maxLastDim);
+    TileShape::Current().SetVecTile(newVecTileShapes);
+    std::vector<int> newPerm(perm);
+    for (auto& p : newPerm) {
+        if (p == tailOutputAxis) {
+            p = tailInputAxis;
+        } else if (p == tailInputAxis) {
+            p = tailOutputAxis;
+        }
+    }
+    Tensor result = CALL(PermuteOperation, *Program::GetInstance().GetCurrentFunction(), 
+                         transposed.GetStorage(), newPerm);
+    TileShape::Current().SetVecTile(oldVecTileShapes);
+    return result;
+}
+
 Tensor Permute(const Tensor& self, std::vector<int> perm)
 {
     DECLARE_TRACER();
@@ -229,29 +317,18 @@ Tensor Permute(const Tensor& self, std::vector<int> perm)
     std::unordered_set<DataType> supportedTypes = {DT_FP16, DT_BF16, DT_INT16, DT_UINT16, DT_FP32, DT_INT32, DT_UINT32};
     CheckTensorDataType(self.GetStorage(), supportedTypes, "PERMUTE");
     CheckTensorDimRange(self.GetStorage(), 1, 5, "PERMUTE");
-
+    
     const int shapeSize = static_cast<int>(self.GetShape().size());
-
-    ASSERT(VectorErrorCode::ERR_PARAM_INVALID, perm.size() == static_cast<size_t>(shapeSize))
-        << "Permute dim num should match input dim num. Expected: " << shapeSize << ", Got: " << perm.size();
-
-    if (shapeSize == 1) {
-        return self;
-    }
-
     NormalizePermutation(perm, shapeSize);
     ValidatePermutation(perm, shapeSize);
-
-    if (IsIdentityPermutation(perm)) {
+    if (IsIdentityPermutation(perm) || shapeSize == 1) {
         return self;
     }
-
-    bool lastAxisInvolved = (perm[shapeSize - 1] != shapeSize - 1);
-    if (lastAxisInvolved) {
-        RETURN_CALL(ElementPermuteOperation, *Program::GetInstance().GetCurrentFunction(), self.GetStorage(), perm);
+    int transposeCount = CalculateTransposeCount(perm);
+    if (shapeSize <= SHAPE_DIM_NUM_3 || transposeCount == 1) {
+        return PermuteWithTranspose(self, perm);
     }
-
-    RETURN_CALL(PermuteOperation, *Program::GetInstance().GetCurrentFunction(), self.GetStorage(), perm);
+    return PermuteDecomposeTail(self, perm);
 }
 
 REGISTER_OPERATION_TILED_FUNC(OP_PERMUTE, Opcode::OP_PERMUTE, PermuteOperationTileFunc);
