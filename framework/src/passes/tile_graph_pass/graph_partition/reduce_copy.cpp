@@ -40,8 +40,8 @@ Status ReduceCopyMerge::RunOnFunction(Function &function)
         return SUCCESS;
     }
     MergeInput mergeInput;
-    mergeInput.maxLatency = 10000000;
-    mergeInput.aivRatio = {0.00005, 20000.0};
+    mergeInput.maxLatency = 1000;  
+    mergeInput.aivRatio = {0.5, 2.0};
     APASS_LOG_DEBUG_F(Elements::Operation, "Subgraph Info before ReduceCopy Pass:");
     BuildGraph(function, mergeInput);
     MarkNoMergeSubgraph(function);
@@ -138,20 +138,20 @@ bool ReduceCopyMerge::IsEnforceMergeBoundary(LogicalTensorPtr &tensor)
 {
     std::unordered_set<int> boundaryScopeIds;
     for (auto &op : tensor->GetProducers()) {
-        APASS_LOG_DEBUG_F(Elements::Operation, "Boundary tensor %d has produce %d with scopeIdUpper %d.",
-                          tensor->GetMagic(), op->GetOpMagic(), op->GetScopeIdUpper());
-        if (op->GetScopeIdUpper() == -1) {
+        APASS_LOG_DEBUG_F(Elements::Operation, "Boundary tensor %d has produce %d with scopeInfoCvFuseId %d.",
+                          tensor->GetMagic(), op->GetOpMagic(), op->GetCvFuseId());
+        if (op->GetCvFuseId() == -1) {
             return false;
         }
-        boundaryScopeIds.insert(op->GetScopeIdUpper());
+        boundaryScopeIds.insert(op->GetCvFuseId());
     }
     for (auto &op : tensor->GetConsumers()) {
-        APASS_LOG_DEBUG_F(Elements::Operation, "Boundary tensor %d has consumer %d with scopeIdUpper %d.",
-                          tensor->GetMagic(), op->GetOpMagic(), op->GetScopeIdUpper());
-        if (op->GetScopeIdUpper() == -1) {
+        APASS_LOG_DEBUG_F(Elements::Operation, "Boundary tensor %d has consumer %d with scopeInfoCvFuseId %d.",
+                          tensor->GetMagic(), op->GetOpMagic(), op->GetCvFuseId());
+        if (op->GetCvFuseId() == -1) {
             return false;
         }
-        boundaryScopeIds.insert(op->GetScopeIdUpper());
+        boundaryScopeIds.insert(op->GetCvFuseId());
     }
     if (boundaryScopeIds.size() == 1) {
         return true;
@@ -183,38 +183,70 @@ static bool IsValidMergeGroup(const std::vector<int> &mergeGroup, const std::uno
     return true;
 }
 
-Status ReduceCopyMerge::BuildMergeGroup(Function &function, MergeInput& mergeInput)
+static void UpdateConnectRecord(Function &function, std::map<std::vector<int>, int> &mergeGroupToPriority,
+    std::set<std::vector<int>> &enforceMergeGroup, std::unordered_map<int, int> &subgraphInputSize,
+    std::unordered_map<int, int> &subgraphOutputSize)
 {
-    APASS_LOG_DEBUG_F(Elements::Operation, "Build merge group before mix subgraph merge start.");
-    std::map<std::vector<int>, int> mergeGroupToPriority;
-    std::set<std::vector<int>> enforceMergeGroup;
     for (const auto &item : function.GetTensorMap().inverseMap_) {
         LogicalTensorPtr tensor = item.second;
-        if (item.second->GetProducers().size() == 0 || item.second->GetConsumers().size() == 0) {
+        int tensorSize = tensor->MemorySize();
+        if (tensor->GetProducers().size() == 0 || tensor->GetConsumers().size() == 0) {
             continue;
         }
         std::set<int> connectGraphs;
-        for (auto &op : item.second->GetProducers()) {
+        for (auto &op : tensor->GetProducers()) {
             connectGraphs.insert(op->GetSubgraphID());
         }
-        for (auto &op : item.second->GetConsumers()) {
+        for (auto &op : tensor->GetConsumers()) {
             connectGraphs.insert(op->GetSubgraphID());
         }
         if (connectGraphs.size() <= 1) {
             continue;
         }
+        for (auto &op : tensor->GetProducers()) {
+            subgraphOutputSize[op->GetSubgraphID()] += tensorSize;
+        }
+        for (auto &op : tensor->GetConsumers()) {
+            subgraphInputSize[op->GetSubgraphID()] += tensorSize;
+        }
         std::vector<int> mergeGroup(connectGraphs.begin(), connectGraphs.end());
         APASS_LOG_DEBUG_F(Elements::Operation, "Found boundary tensor %d of subgraphs %s.",
             tensor->GetMagic(), IntVecToString(mergeGroup).c_str());
-        mergeGroupToPriority[mergeGroup] += tensor->MemorySize();
+        mergeGroupToPriority[mergeGroup] += tensorSize;
         if (IsEnforceMergeBoundary(tensor)) {
             APASS_LOG_DEBUG_F(Elements::Operation, "----boundary tensor %d is marked as enforced.", tensor->GetMagic());
-            // enforceMergeGroup.insert(mergeGroup);
+            enforceMergeGroup.insert(mergeGroup);
         }
     }
+}
+
+Status ReduceCopyMerge::BuildMergeGroup(Function &function, MergeInput& mergeInput)
+{
+    APASS_LOG_DEBUG_F(Elements::Operation, "Build merge group before mix subgraph merge start.");
+    std::map<std::vector<int>, int> mergeGroupToPriority;
+    std::set<std::vector<int>> enforceMergeGroup;
+    std::unordered_map<int, int> subgraphInputSize;
+    std::unordered_map<int, int> subgraphOutputSize;
+    UpdateConnectRecord(function, mergeGroupToPriority, enforceMergeGroup, subgraphInputSize, subgraphOutputSize);
     std::multimap<int, std::vector<int>> sortedMergeGroup;
     for (auto &pair : mergeGroupToPriority) {
         sortedMergeGroup.insert({pair.second, pair.first});
+    }
+    for (int subIdx = 0; subIdx < mergeInput.numSubgraph; subIdx++) {
+        if (mergeInput.subGraphInGraph[subIdx].size() <= 1) {
+            continue;
+        }
+        std::vector<int> inputGroup{subIdx};
+        inputGroup.insert(inputGroup.end(), mergeInput.subGraphInGraph[subIdx].begin(), mergeInput.subGraphInGraph[subIdx].end());
+        sortedMergeGroup.insert({subgraphInputSize[subIdx], inputGroup});
+    }
+    for (int subIdx = 0; subIdx < mergeInput.numSubgraph; subIdx++) {
+        if (mergeInput.subGraphOutGraph[subIdx].size() <= 1) {
+            continue;
+        }
+        std::vector<int> outputGroup{subIdx};
+        outputGroup.insert(outputGroup.end(), mergeInput.subGraphOutGraph[subIdx].begin(), mergeInput.subGraphOutGraph[subIdx].end());
+        sortedMergeGroup.insert({subgraphOutputSize[subIdx], outputGroup});
     }
     mergeInput.mergeGroup.clear();
     mergeInput.isEnforceMergeGroup.clear();
@@ -290,7 +322,6 @@ void MixGraphMerger::Initialize(const MergeInput& input)
     estimateInput.isCube.resize(input.numSubgraph);
     estimateInput.outGraph = input.subGraphOutGraph;
     estimateInput.inGraph = input.subGraphInGraph;
-    estimateInput.betweenSubgraphScheduleTime = 500;
     for (int i = 0; i < input.numSubgraph; ++i) {
         estimateInput.execTime[i] = input.subgraphAICLatency[i] + input.subgraphAIVLatency[i];
         estimateInput.isCube[i] = (input.subgraphAICLatency[i] > 0 ? true : false);
