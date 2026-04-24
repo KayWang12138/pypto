@@ -52,24 +52,24 @@ logging.basicConfig(
 def _get_data_type(data_type: int):
     """数据类型数值转可读字符串"""
     _data_type_full_mapping = {
-        0: ("DT_INT4", ml_dtypes.int4),
-        1: ("DT_INT8", np.int8),
-        2: ("DT_INT16", np.int16),
-        3: ("DT_INT32", np.int32),
-        4: ("DT_INT64", np.int64),
-        5: ("DT_FP8", ml_dtypes.float8_e4m3fn),
-        6: ("DT_FP16", np.float16),
-        7: ("DT_FP32", np.float32),
-        8: ("DT_BF16", ml_dtypes.bfloat16),
-        9: ("DT_HF4", None),                    # 暂不支持解析
-        10: ("DT_HF8", None),                   # 暂不支持解析
-        11: ("DT_UINT8", np.uint8),
-        12: ("DT_UINT16", np.uint16),
-        13: ("DT_UINT32", np.uint32),
-        14: ("DT_UINT64", np.uint64),
-        15: ("DT_BOOL", np.bool_),
-        16: ("DT_DOUBLE", np.float64),
-        17: ("DT_BOTTOM", None)
+        0: ("INT4", ml_dtypes.int4),
+        1: ("INT8", np.int8),
+        2: ("INT16", np.int16),
+        3: ("INT32", np.int32),
+        4: ("INT64", np.int64),
+        5: ("FP8", ml_dtypes.float8_e4m3fn),
+        6: ("FP16", np.float16),
+        7: ("FP32", np.float32),
+        8: ("BF16", ml_dtypes.bfloat16),
+        9: ("HF4", None),                    # 暂不支持解析
+        10: ("HF8", None),                   # 暂不支持解析
+        11: ("UINT8", np.uint8),
+        12: ("UINT16", np.uint16),
+        13: ("UINT32", np.uint32),
+        14: ("UINT64", np.uint64),
+        15: ("BOOL", np.bool_),
+        16: ("DOUBLE", np.float64),
+        17: ("BOTTOM", None)
     }
     return _data_type_full_mapping.get(data_type, f"UNKNOWN({data_type})")
 
@@ -93,7 +93,7 @@ class VerifyRes:
             tensor_infos[i]["A>FILENAME"] = tensor_info["verify_dup_tensor"]
 
             if os.path.exists(verify_tensor_info) and len(verify_tshape) == len(dump_tshape):
-                dtype = _get_data_type(tensor_info["B>datatype"])[1]
+                dtype = _get_data_type(tensor_info["datatype"])[1]
 
                 verify_tensor_data = np.fromfile(verify_tensor_info, dtype)
                 verify_tensor_data = verify_tensor_data.reshape(verify_tshape)
@@ -274,7 +274,7 @@ class CompactDumpTensorInfoParser:
             ("B>taskId", "uint32_t"),
             ("ROOT_CALL:opmagic", "uint32_t"),
             ("blockIdx", "int32_t"),
-            ("B>datatype", "int32_t"),
+            ("datatype", "int32_t"),
             ("ROOT_CALL:rawmagic", "int32_t"),
             ("dims", "int32_t"),
             ("B>execStart", "int64_t"),
@@ -349,7 +349,7 @@ class CompactDumpTensorInfoParser:
         if os.path.exists(verify_tensor_info) and len(verify_tshape) == len(dump_tshape) and \
                 all(vdim == ddim for vdim, ddim in zip(verify_tshape, dump_tshape)):
 
-            dtype = _get_data_type(merge_tensor_info["B>datatype"])[1]
+            dtype = _get_data_type(merge_tensor_info["datatype"])[1]
 
             verify_tensor_data = np.fromfile(verify_tensor_info, dtype)
             verify_tensor_data = verify_tensor_data.reshape(verify_tshape)
@@ -394,7 +394,7 @@ class CompactDumpTensorInfoParser:
             result["B>rawShape"] = result["B>rawShape"][:dims]
 
         # 衍生字段（可选）
-        result["B>datatypeStr"] = _get_data_type(result.get("B>datatype", 17))[0]
+        result["B>datatype"] = _get_data_type(result.get("datatype", 17))[0]
 
         return result
 
@@ -407,7 +407,7 @@ class CompactDumpTensorInfoParser:
             bin_data = f.read()
 
         tensor_info = self.parse_single(bin_data, 0)
-        dtype = _get_data_type(tensor_info["B>datatype"])[1]
+        dtype = _get_data_type(tensor_info["datatype"])[1]
         data = np.frombuffer(bin_data, dtype, offset=tensor_info["B>headSize"])
         bin_file = f"{file_path[:-6]}.data"
         data.tofile(bin_file)
@@ -504,7 +504,7 @@ class CompactDumpTensorInfoParser:
         # 创建合并张量的基础信息
         merge_tensor_info = {}
         merge_tensor_info["ROOT_CALL:rawmagic"] = raw_magic
-        merge_tensor_info["B>datatypeStr"] = tensor_infos[0]["B>datatypeStr"]
+        merge_tensor_info["datatype"] = tensor_infos[0]["datatype"]
         merge_tensor_info["ioflag"] = tensor_infos[0]["ioflag"]
         merge_tensor_info["B>rawShape"] = tensor_infos[0]["B>rawShape"]
         merge_tensor_info["B>datatype"] = tensor_infos[0]["B>datatype"]
@@ -515,7 +515,7 @@ class CompactDumpTensorInfoParser:
 
         # 生成保存路径
         file_path = os.path.join(self.dump_tensor_path,
-                                f"raw_{raw_magic}_{tensor_infos[0]['B>datatypeStr']}_{tensor_infos[0]['ioflag']}.data")
+                                f"raw_{raw_magic}_{tensor_infos[0]['B>datatype']}_{tensor_infos[0]['ioflag']}.data")
         merge_tensor_info["B>FILENAME"] = file_path
 
         # 按offset排序张量
@@ -527,7 +527,7 @@ class CompactDumpTensorInfoParser:
             return merge_tensor_info, None
 
         # 执行合并操作
-        dtype = _get_data_type(merge_tensor_info["B>datatype"])[1]
+        dtype = _get_data_type(merge_tensor_info["datatype"])[1]
         raw_data = np.zeros(merge_tensor_info["B>rawShape"], dtype)
 
         for tensor_info in tensor_infos:
@@ -606,6 +606,11 @@ def main():
     merge_tensor_infos = parser.merge_raw_tensor()
     tensor_infos.extend(merge_tensor_infos)
     df = pd.DataFrame(tensor_infos, dtype=object)
+    
+    # 处理 datatype 列：删除数值列，保留字符串列并重命名
+    if "datatype" in df.columns:
+        df.drop("datatype", axis=1, inplace=True)
+    
     # 转成字符串，防止用excel打开后显示为科学计算法，导致数据截断
     df["ROOT_FUNC:hash"] = df["ROOT_FUNC:hash"].apply(lambda x: f"{x:.0f}'")
     df["FUNC:hash"] = df["FUNC:hash"].apply(lambda x: f"{x:.0f}'")
