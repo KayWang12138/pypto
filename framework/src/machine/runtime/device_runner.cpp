@@ -12,9 +12,9 @@
  * \file device_runner.cpp
  * \brief
  */
-#ifdef BUILD_WITH_CANN
-#include <cstdint>
+
 #include "machine/runtime/device_runner.h"
+#include <cstdint>
 #include <algorithm>
 #include <cstdint>
 #include <cstdlib>
@@ -34,7 +34,7 @@
 #include "load_aicpu_op.h"
 #include "tilefwk/platform.h"
 #include "tilefwk/pypto_fwk_log.h"
-#include "machine/utils/machine_error.h"
+#include "interface/utils/error_code.h"
 #include "machine/platform/platform_manager.h"
 #include "machine/runtime/device_error_tracking.h"
 #include "nlohmann/json.hpp"
@@ -840,21 +840,5 @@ DeviceRunner::~DeviceRunner()
     }
     perfData_.clear();
 }
-
 } // namespace npu::tile_fwk
 
-#else // stub
-
-#include "machine/runtime/device_runner.h"
-
-namespace npu::tile_fwk {
-DeviceRunner& DeviceRunner::Get()
-{
-    static DeviceRunner runner;
-    return runner;
-}
-void DeviceRunner::InitMetaData(DeviceArgs& devArgs) { (void)devArgs; }
-bool DeviceRunner::GetValidGetPgMask() const { return true; }
-} // namespace npu::tile_fwk
-
-#endif // BUILD_WITH_CANN
