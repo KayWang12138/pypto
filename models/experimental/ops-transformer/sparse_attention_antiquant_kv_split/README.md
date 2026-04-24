@@ -1,15 +1,17 @@
-# Sparse Attention Anti-Quantization A8FW32FC16
+# Sparse Attention Anti-Quantization FP8
 
-## 算子概述
+## 产品支持情况
 
-本算子实现了面向 **DeepSeek V32 Multi-head Latent Attention (MLA)** 架构的 **Sparse Flash Attention with FP8 Anti-Quantization (反量化)**，运行于华为昇腾 NPU 上。
+|产品      | 是否支持 |
+|:----------------------------|:-----------:|
+|<term>Ascend 950PR/Ascend 950DT</term>|      √     |
+|<term>Atlas A3 训练系列产品/Atlas A3 推理系列产品</term>|    √     |
+|<term>Atlas A2 训练系列产品/Atlas A2 推理系列产品</term>|    √     |
 
 核心功能：
 1. 基于 PagedAttention 机制，通过 top-k 索引从分页 KV cache 中 gather 选定的 KV 条目
 2. 对 FP8 量化的 key-nope 进行在线反量化（per-group FP32 scales）
 3. 组装完整的 Q/K 并执行标准 Attention 计算：`O = softmax(Q @ K^T / sqrt(d)) @ V`
-
-本算子专为 DeepSeek V32 的 MLA 架构设计，其中 KV cache 存储压缩的 latent 表示，value 复用反量化后的 key-nope。
 
 ## 核心参数
 
@@ -26,21 +28,23 @@
 ## 文件结构
 
 ```
-sparse_attention_antiquant_fp8/
+sparse_attention_antiquant_kv_split/
 ├── README.md
-├── sparse_attention_antiquant_fp8_impl.py        # 算子实现
-└── deepseekv32_sparse_attention_antiquant_fp8.py  # Golden 参考实现 + 测试
+├── sparse_attention_antiquant_kv_split_impl.py        # 算子实现
+└── deepseekv32_sparse_attention_antiquant_kv_split.py  # Golden 参考实现 + 测试
 ```
 
 ## API 签名
 
-算子提供两个入口：`sparse_attention_antiquant_d`（Decode）和 `sparse_attention_antiquant_p`（Prefill），签名一致：
+算子提供两个入口：`sparse_attention_antiquant_kv_split_d`（Decode）和 `sparse_attention_antiquant_kv_split_p`（Prefill），签名一致：
 
 ```python
-sparse_attention_antiquant_d(
+sparse_attention_antiquant_kv_split_d(
     query_nope,    # (t*nq, 512)           BF16   query nope 部分
     query_rope,    # (t*nq, 64)            BF16   query rope 部分
-    nope_cache,    # (block_num*bs, 672)   FP8    分页 KV cache（含 kn + kr + scales）
+    kn_quant,      # (block_num*bs, 512)   FP8    分页 KV cache（含 kn）
+    kr,            # (block_num*bs, 64)   BF16    分页 KV cache（含 kr ）
+    kn_scales,     # (block_num*bs, 4)   FP32    分页 KV cache（含scales）
     topk_indices,  # (t, n_kv*topk)        INT32  top-k 选取的 token 索引
     block_table,   # (b, max_blocknum)     INT32  PagedAttention block 映射表
     kv_act_seqs,   # (b,)                  INT32  每个 batch 的实际序列长度
@@ -57,15 +61,7 @@ sparse_attention_antiquant_d(
 | `cube_l1_reuse_setting` | `{-1: 2}` | `{-1: 4}` |
 | `device_sched_mode` | `3` | 未设置 |
 
-## KV Cache 布局（nope_cache）
-
-每个 token 在 `nope_cache` 中占 656 字节（padding 至 672 字节对齐），FP8 视角的数据编排：
-
-| 字节偏移 | 内容 | 逻辑 dtype | 维度 |
-|---|---|---|---|
-| `[0:512]` | kv_nope（量化后） | FP8_E4M3 | 512 |
-| `[512:640]` | key_rope | BF16（以 FP8 视角存储） | 64（128 bytes） |
-| `[640:656]` | dequant scales | FP32（以 FP8 视角存储） | 4（16 bytes） |
+## 反量化方式
 
 反量化方式：将 512 维 kv_nope 按 4 组（每组 128 个元素）分组，每组乘以对应的 FP32 scale。
 
@@ -83,8 +79,8 @@ L0: batch_idx      — 遍历 batch
 
 每次 L4 迭代的计算步骤：
 
-1. **V0 Gather**：通过 `gather_in_ub` 根据 topk_indices + block_table 从 nope_cache 中取出选定的 KV 条目
-2. **Dequant**：提取 FP8 kn -> cast FP32 -> 乘以 per-group scales -> cast BF16
+1. **V0 Gather**：通过 `gather_in_ub` 根据 topk_indices + block_table 从 kn_quant, kr, kn_scales中取出选定的 KV 条目
+2. **Dequant**：提取 FP8 kn_quant -> cast FP32 -> 乘以 per-group scales -> cast BF16
 3. **组装 K**：拼接 kn(512) + kr(64) -> kj(576)
 4. **组装 Q**：拼接 qn(512) + qr(64) -> qi(576)
 5. **C1 MatMul**：`sij = qi @ kj^T`，FP32 累加，shape (g_tile, s2_tile)
@@ -114,7 +110,7 @@ class SaTileShapeConfig:
 ### 运行方式
 
 ```bash
-pytest deepseekv32_sparse_attention_antiquant_fp8.py -v
+pytest deepseekv32_sparse_attention_antiquant_kv_split.py -v
 ```
 
 ### 测试矩阵
@@ -139,6 +135,5 @@ pytest deepseekv32_sparse_attention_antiquant_fp8.py -v
 ## 约束与注意事项
 
 1. Golden 参考实现使用 per-tile softmax（非 flash/online softmax），当 topk 超过单个 s2_tile 时精度对齐可能存在偏差
-2. nope_cache 的 672 字节 padding 对齐是硬编码要求
-3. 算子专为 DeepSeek V32 MLA 架构定制，kv_lora_rank=512 和 qk_rope_dim=64 为固定参数
-4. Value 复用反量化后的 key-nope（kv_lora_rank=512 维），这是 MLA 架构的特性
+2. 算子专为 DeepSeek V32 MLA 架构定制，kv_lora_rank=512 和 qk_rope_dim=64 为固定参数
+3. Value 复用反量化后的 key-nope（kv_lora_rank=512 维）
