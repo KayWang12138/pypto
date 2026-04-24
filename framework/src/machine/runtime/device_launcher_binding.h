@@ -44,6 +44,7 @@ public:
     {}
 
     void* GetAddr() const { return addr_; }
+    void SetAddr(void* addr) { addr_ = addr; }
 
     const std::vector<int64_t>& GetShape() const { return shape_; }
 

@@ -14,6 +14,8 @@
  */
 
 #pragma once
+#include <unordered_set>
+
 #include "interface/machine/host/machine_task.h"
 #include "interface/cache/function_cache.h"
 namespace npu::tile_fwk {
@@ -127,4 +129,7 @@ struct ValDependTensorMeta {
     std::unordered_map<std::string, bool> tensorNameToDependCore;
     std::unordered_map<RawSymbolicScalarPtr, bool> valDependMap;
 };
+
+/** Input tensor indices listed in runtime option [ready_on_host_tensors]. */
+void GetReadyOnHostTensorsSet(Function* func, std::unordered_set<int>& readyOnHostTensorsSet);
 } // namespace npu::tile_fwk
