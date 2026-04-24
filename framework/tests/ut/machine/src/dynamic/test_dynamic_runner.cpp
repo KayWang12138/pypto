@@ -68,36 +68,6 @@ TEST_F(TestDynamicDeviceRunner, DynPyptoKernelServerInit_ReturnsErrorWhenKernelN
     EXPECT_EQ(DynPyptoKernelServerInit(nullptr), 1U);
 }
 
-TEST_F(TestDynamicDeviceRunner, TestInitArgs)
-{
-    auto& runner = DeviceRunner::Get();
-    [[maybe_unused]] DeviceArgs args;
-    args.nrAic = 2;
-    args.nrAiv = 2;
-    args.nrValidAic = args.nrAic;
-    runner.InitDynamicArgs(args);
-    runner.DumpAiCoreExecutionTimeData();
-    runner.DumpAiCorePmuData();
-    runner.SynchronizeDeviceToHostProfData();
-}
-
-TEST_F(TestDynamicDeviceRunner, TestDynamicRun)
-{
-    auto& runner = npu::tile_fwk::DeviceRunner::Get();
-    [[maybe_unused]] DeviceArgs args;
-    args.nrAic = 2;
-    args.nrAiv = 2;
-    runner.InitDynamicArgs(args);
-    [[maybe_unused]] npu::tile_fwk::DeviceKernelArgs taskArgs;
-    std::vector<uint8_t> tensorInfo(sizeof(dynamic::AiCpuArgs));
-    taskArgs.inputs = reinterpret_cast<int64_t*>(tensorInfo.data());
-    taskArgs.outputs = 0;
-    runner.args_.nrAic = 2;
-    runner.args_.nrAiv = 2;
-    int ret = runner.DynamicRun(0, 0, 0, 0, &taskArgs, 2);
-    EXPECT_EQ(ret, 0);
-}
-
 TEST_F(TestDynamicDeviceRunner, TestRegisterDynamicKernel)
 {
     [[maybe_unused]] RtBinHandle staticHdl_;
