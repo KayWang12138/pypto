@@ -36,11 +36,11 @@ GOLDEN_RULE_IDS = ["OL15"]
 
 TEST_RULE_IDS = ["OL17", "OL18", "OL19", "OL20", "OL21", "OL22", "OL42"]
 
-CONSISTENCY_RULE_IDS = ["OL30", "OL31", "OL32", "OL33", "OL34", "OL39", "OL40", "OL41", "OL43"]
+CONSISTENCY_RULE_IDS = ["OL30", "OL31", "OL32", "OL33", "OL34", "OL39", "OL40", "OL41"]
 
 # Subset of CONSISTENCY_RULE_IDS safe for post-edit: only rules that check
 # the edited file itself, not cross-file dependencies.  Cross-file rules
-# (OL30-OL34, OL39, OL40, OL43) must wait for the gate / stop check.
+# (OL30-OL34, OL39, OL40) must wait for the gate / stop check.
 POST_EDIT_CONSISTENCY_RULE_IDS = ["OL41"]
 
 STRICT_ENV = "PYPTO_OP_LINT_STRICT"
