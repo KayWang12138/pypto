@@ -253,7 +253,7 @@ class VerifyRes:
         verify_dup_tensor = last_op_info.get("FILENAME")
         valid_shape = json.loads(last_op_info.get(":validshape"))
         phase_name = last_op_info.get("PHASE_NAME")
-        dtype = last_op_info.get(":dataType")
+        dtype = last_op_info.get(":datatype")
         if verify_dup_tensor:
             verify_dup_tensor = os.path.join(self.verify_path, last_op_info.get("PHASE_NAME"), verify_dup_tensor)
 
@@ -274,7 +274,7 @@ class CompactDumpTensorInfoParser:
             ("B>taskId", "uint32_t"),
             ("ROOT_CALL:opmagic", "uint32_t"),
             ("blockIdx", "int32_t"),
-            ("B>dataType", "int32_t"),
+            ("B>datatype", "int32_t"),
             ("ROOT_CALL:rawmagic", "int32_t"),
             ("dims", "int32_t"),
             ("B>execStart", "int64_t"),
@@ -344,12 +344,12 @@ class CompactDumpTensorInfoParser:
         merge_tensor_info["A>validshape"] = verify_tshape
         merge_tensor_info["A>FILENAME"] = verify_tensor_info
         merge_tensor_info["A>PHASE_NAME"] = phase_name
-        merge_tensor_info["A>dataType"] = dtype
+        merge_tensor_info["A>datatype"] = dtype
 
         if os.path.exists(verify_tensor_info) and len(verify_tshape) == len(dump_tshape) and \
                 all(vdim == ddim for vdim, ddim in zip(verify_tshape, dump_tshape)):
 
-            dtype = _get_data_type(merge_tensor_info["B>dataType"])[1]
+            dtype = _get_data_type(merge_tensor_info["B>datatype"])[1]
 
             verify_tensor_data = np.fromfile(verify_tensor_info, dtype)
             verify_tensor_data = verify_tensor_data.reshape(verify_tshape)
@@ -394,7 +394,7 @@ class CompactDumpTensorInfoParser:
             result["B>rawShape"] = result["B>rawShape"][:dims]
 
         # 衍生字段（可选）
-        result["B>dataTypeStr"] = _get_data_type(result.get("B>dataType", 17))[0]
+        result["B>datatypeStr"] = _get_data_type(result.get("B>datatype", 17))[0]
 
         return result
 
@@ -407,7 +407,7 @@ class CompactDumpTensorInfoParser:
             bin_data = f.read()
 
         tensor_info = self.parse_single(bin_data, 0)
-        dtype = _get_data_type(tensor_info["B>dataType"])[1]
+        dtype = _get_data_type(tensor_info["B>datatype"])[1]
         data = np.frombuffer(bin_data, dtype, offset=tensor_info["B>headSize"])
         bin_file = f"{file_path[:-6]}.data"
         data.tofile(bin_file)
@@ -504,10 +504,10 @@ class CompactDumpTensorInfoParser:
         # 创建合并张量的基础信息
         merge_tensor_info = {}
         merge_tensor_info["ROOT_CALL:rawmagic"] = raw_magic
-        merge_tensor_info["B>dataTypeStr"] = tensor_infos[0]["B>dataTypeStr"]
+        merge_tensor_info["B>datatypeStr"] = tensor_infos[0]["B>datatypeStr"]
         merge_tensor_info["ioflag"] = tensor_infos[0]["ioflag"]
         merge_tensor_info["B>rawShape"] = tensor_infos[0]["B>rawShape"]
-        merge_tensor_info["B>dataType"] = tensor_infos[0]["B>dataType"]
+        merge_tensor_info["B>datatype"] = tensor_infos[0]["B>datatype"]
         merge_tensor_info["ROOT_FUNC:hash"] = 0
         merge_tensor_info["FUNC:hash"] = 0
         merge_tensor_info["B>execStart"] = 0
@@ -515,7 +515,7 @@ class CompactDumpTensorInfoParser:
 
         # 生成保存路径
         file_path = os.path.join(self.dump_tensor_path,
-                                f"raw_{raw_magic}_{tensor_infos[0]['B>dataTypeStr']}_{tensor_infos[0]['ioflag']}.data")
+                                f"raw_{raw_magic}_{tensor_infos[0]['B>datatypeStr']}_{tensor_infos[0]['ioflag']}.data")
         merge_tensor_info["B>FILENAME"] = file_path
 
         # 按offset排序张量
@@ -527,7 +527,7 @@ class CompactDumpTensorInfoParser:
             return merge_tensor_info, None
 
         # 执行合并操作
-        dtype = _get_data_type(merge_tensor_info["B>dataType"])[1]
+        dtype = _get_data_type(merge_tensor_info["B>datatype"])[1]
         raw_data = np.zeros(merge_tensor_info["B>rawShape"], dtype)
 
         for tensor_info in tensor_infos:
@@ -614,7 +614,7 @@ def main():
     df["B>TIMESTAMP"] = df["B>TIMESTAMP"].apply(lambda x: f"{x:.0f}'")
 
     timestamp = int(time.time())
-    save_dir = os.path.dirname(os.path.dirname(args.dump_tensor_path))
+    save_dir = os.path.dirname(os.path.dirname(args.dump_tensor_path.rstrip(os.sep)))
     csv_path = os.path.join(save_dir, f"verify_task_result_cmp~{timestamp}.csv")
 
     logging.info(df)
