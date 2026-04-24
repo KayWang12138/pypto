@@ -40,9 +40,9 @@ Status ReduceCopyMerge::RunOnFunction(Function &function)
         return SUCCESS;
     }
     MergeInput mergeInput;
-    mergeInput.maxLatency = 10000000;
-    mergeInput.aivRatio = {0.00005, 20000.0};
-    APASS_LOG_DEBUG_F(Elements::Operation, "Subgraph Info before ReduceCopy Pass:");
+    mergeInput.maxLatency = 1000;
+    mergeInput.aivRatio = {0.5, 2.0};
+    APASS_LOG_INFO_F(Elements::Operation, "Subgraph Info before ReduceCopy Pass:");
     BuildGraph(function, mergeInput);
     MarkNoMergeSubgraph(function);
     BuildMergeGroup(function, mergeInput);
@@ -128,8 +128,8 @@ Status ReduceCopyMerge::BuildGraph(Function &function, MergeInput& mergeInput)
         }
     }
     for (int i = 0; i < subgraphNum; i++) {
-        APASS_LOG_DEBUG_F(Elements::Operation, "Subgraph %d : AIC Latency %d, AIV Latency %d.", i,
-                          mergeInput.subgraphAICLatency[i], mergeInput.subgraphAIVLatency[i]);
+        APASS_LOG_INFO_F(Elements::Operation, "Subgraph %d : AIC Latency %d, AIV Latency %d.", i,
+                         mergeInput.subgraphAICLatency[i], mergeInput.subgraphAIVLatency[i]);
     }
     return SUCCESS;
 }
@@ -138,20 +138,20 @@ bool ReduceCopyMerge::IsEnforceMergeBoundary(LogicalTensorPtr &tensor)
 {
     std::unordered_set<int> boundaryScopeIds;
     for (auto &op : tensor->GetProducers()) {
-        APASS_LOG_DEBUG_F(Elements::Operation, "Boundary tensor %d has produce %d with scopeIdUpper %d.",
-                          tensor->GetMagic(), op->GetOpMagic(), op->GetScopeIdUpper());
-        if (op->GetScopeIdUpper() == -1) {
+        APASS_LOG_DEBUG_F(Elements::Operation, "Boundary tensor %d has produce %d with scopeInfoCvFuseId %d.",
+                          tensor->GetMagic(), op->GetOpMagic(), op->GetCvFuseId());
+        if (op->GetCvFuseId() == -1) {
             return false;
         }
-        boundaryScopeIds.insert(op->GetScopeIdUpper());
+        boundaryScopeIds.insert(op->GetCvFuseId());
     }
     for (auto &op : tensor->GetConsumers()) {
-        APASS_LOG_DEBUG_F(Elements::Operation, "Boundary tensor %d has consumer %d with scopeIdUpper %d.",
-                          tensor->GetMagic(), op->GetOpMagic(), op->GetScopeIdUpper());
-        if (op->GetScopeIdUpper() == -1) {
+        APASS_LOG_DEBUG_F(Elements::Operation, "Boundary tensor %d has consumer %d with scopeInfoCvFuseId %d.",
+                          tensor->GetMagic(), op->GetOpMagic(), op->GetCvFuseId());
+        if (op->GetCvFuseId() == -1) {
             return false;
         }
-        boundaryScopeIds.insert(op->GetScopeIdUpper());
+        boundaryScopeIds.insert(op->GetCvFuseId());
     }
     if (boundaryScopeIds.size() == 1) {
         return true;
@@ -183,38 +183,70 @@ static bool IsValidMergeGroup(const std::vector<int> &mergeGroup, const std::uno
     return true;
 }
 
-Status ReduceCopyMerge::BuildMergeGroup(Function &function, MergeInput& mergeInput)
+void ReduceCopyMerge::UpdateConnectRecord(Function &function)
 {
-    APASS_LOG_DEBUG_F(Elements::Operation, "Build merge group before mix subgraph merge start.");
-    std::map<std::vector<int>, int> mergeGroupToPriority;
-    std::set<std::vector<int>> enforceMergeGroup;
     for (const auto &item : function.GetTensorMap().inverseMap_) {
         LogicalTensorPtr tensor = item.second;
-        if (item.second->GetProducers().size() == 0 || item.second->GetConsumers().size() == 0) {
+        int tensorSize = tensor->MemorySize();
+        if (tensor->GetProducers().size() == 0 || tensor->GetConsumers().size() == 0) {
             continue;
         }
         std::set<int> connectGraphs;
-        for (auto &op : item.second->GetProducers()) {
+        for (auto &op : tensor->GetProducers()) {
             connectGraphs.insert(op->GetSubgraphID());
         }
-        for (auto &op : item.second->GetConsumers()) {
+        for (auto &op : tensor->GetConsumers()) {
             connectGraphs.insert(op->GetSubgraphID());
         }
         if (connectGraphs.size() <= 1) {
             continue;
         }
+        for (auto &op : tensor->GetProducers()) {
+            subgraphOutputSize[op->GetSubgraphID()] += tensorSize;
+        }
+        for (auto &op : tensor->GetConsumers()) {
+            subgraphInputSize[op->GetSubgraphID()] += tensorSize;
+        }
         std::vector<int> mergeGroup(connectGraphs.begin(), connectGraphs.end());
         APASS_LOG_DEBUG_F(Elements::Operation, "Found boundary tensor %d of subgraphs %s.",
             tensor->GetMagic(), IntVecToString(mergeGroup).c_str());
-        mergeGroupToPriority[mergeGroup] += tensor->MemorySize();
+        mergeGroupToPriority[mergeGroup] += tensorSize;
         if (IsEnforceMergeBoundary(tensor)) {
             APASS_LOG_DEBUG_F(Elements::Operation, "----boundary tensor %d is marked as enforced.", tensor->GetMagic());
-            // enforceMergeGroup.insert(mergeGroup);
+            enforceMergeGroup.insert(mergeGroup);
         }
     }
+}
+
+Status ReduceCopyMerge::BuildMergeGroup(Function &function, MergeInput& mergeInput)
+{
+    APASS_LOG_DEBUG_F(Elements::Operation, "Build merge group before mix subgraph merge start.");
+    subgraphInputSize.clear();
+    subgraphInputSize.resize(mergeInput.numSubgraph, 0);
+    subgraphOutputSize.clear();
+    subgraphOutputSize.resize(mergeInput.numSubgraph, 0);
+    UpdateConnectRecord(function);
     std::multimap<int, std::vector<int>> sortedMergeGroup;
     for (auto &pair : mergeGroupToPriority) {
         sortedMergeGroup.insert({pair.second, pair.first});
+    }
+    for (int subIdx = 0; subIdx < mergeInput.numSubgraph; subIdx++) {
+        if (mergeInput.subGraphInGraph[subIdx].size() <= 1) {
+            continue;
+        }
+        std::vector<int> inputGroup{subIdx};
+        inputGroup.insert(inputGroup.end(), mergeInput.subGraphInGraph[subIdx].begin(),
+                          mergeInput.subGraphInGraph[subIdx].end());
+        sortedMergeGroup.insert({subgraphInputSize[subIdx], inputGroup});
+    }
+    for (int subIdx = 0; subIdx < mergeInput.numSubgraph; subIdx++) {
+        if (mergeInput.subGraphOutGraph[subIdx].size() <= 1) {
+            continue;
+        }
+        std::vector<int> outputGroup{subIdx};
+        outputGroup.insert(outputGroup.end(), mergeInput.subGraphOutGraph[subIdx].begin(),
+                           mergeInput.subGraphOutGraph[subIdx].end());
+        sortedMergeGroup.insert({subgraphOutputSize[subIdx], outputGroup});
     }
     mergeInput.mergeGroup.clear();
     mergeInput.isEnforceMergeGroup.clear();
@@ -290,7 +322,6 @@ void MixGraphMerger::Initialize(const MergeInput& input)
     estimateInput.isCube.resize(input.numSubgraph);
     estimateInput.outGraph = input.subGraphOutGraph;
     estimateInput.inGraph = input.subGraphInGraph;
-    estimateInput.betweenSubgraphScheduleTime = 500;
     for (int i = 0; i < input.numSubgraph; ++i) {
         estimateInput.execTime[i] = input.subgraphAICLatency[i] + input.subgraphAIVLatency[i];
         estimateInput.isCube[i] = (input.subgraphAICLatency[i] > 0 ? true : false);
@@ -409,7 +440,7 @@ bool MixGraphMerger::CanMergeWithoutCycle(const std::vector<int>& actualGroup)
     inGraph[root].erase(root);
     outGraph[root].erase(root);
     if (HasCycle(outGraph, inGraph)) {
-        APASS_LOG_INFO_F(Elements::Operation, "Merge failed: detect cycle.");
+        APASS_LOG_DEBUG_F(Elements::Operation, "Merge failed: detect cycle.");
         return false;
     }
     return true;
@@ -428,19 +459,19 @@ bool MixGraphMerger::CheckLatencyConstraint(const std::vector<int>& actualGroup)
         }
     }
     if (totalAIC == 0 || totalAIV == 0) {
-        APASS_LOG_INFO_F(Elements::Operation,
+        APASS_LOG_DEBUG_F(Elements::Operation,
             "Merge failed: merged subgraph must be mixed (both AIC and AIV non-zero).");
         return false;
     }
     int totalLatency = totalAIC + totalAIV;
     if (totalLatency > mInput.maxLatency) {
-        APASS_LOG_INFO_F(Elements::Operation, "Merge failed: total latency %d exceeds max latency %d.",
+        APASS_LOG_DEBUG_F(Elements::Operation, "Merge failed: total latency %d exceeds max latency %d.",
             totalLatency, mInput.maxLatency);
         return false;
     }
     double ratio = (double)totalAIV / (double)totalAIC;
     if (ratio < mInput.aivRatio.first || ratio > mInput.aivRatio.second) {
-        APASS_LOG_INFO_F(Elements::Operation,
+        APASS_LOG_DEBUG_F(Elements::Operation,
             "Merge failed: AIV/AIC ratio %.2f out of range [%.2f, %.2f]",
             ratio, mInput.aivRatio.first, mInput.aivRatio.second);
         return false;
@@ -472,11 +503,11 @@ bool MixGraphMerger::CheckMergeBenefit(const std::vector<int>& actualGroup)
     EstimateExecTime mergedTimeEstimator;
     int mergedTime = mergedTimeEstimator.Estimate(estimateInput, mergedGroup);
 
-    APASS_LOG_INFO_F(Elements::Operation,
+    APASS_LOG_DEBUG_F(Elements::Operation,
         "Estimate exec time before merge: %d, after merge: %d.", originalTime, mergedTime);
 
     if (mergedTime > originalTime) {
-        APASS_LOG_INFO_F(Elements::Operation,
+        APASS_LOG_DEBUG_F(Elements::Operation,
             "Merge failed: estimate merged exec time > original exec time.");
         return false;
     }
@@ -486,7 +517,7 @@ bool MixGraphMerger::CheckMergeBenefit(const std::vector<int>& actualGroup)
 bool MixGraphMerger::CanMergeWithConstraints(const std::vector<int>& actualGroup)
 {
     if (actualGroup.size() <= 1) {
-        APASS_LOG_INFO_F(Elements::Operation, "Merge failed: already merged.");
+        APASS_LOG_DEBUG_F(Elements::Operation, "Merge failed: already merged.");
         return false;
     }
     if (!CanMergeWithoutCycle(actualGroup)) {
@@ -551,28 +582,28 @@ static bool ValidateOutput(const MergeOutput& output, int numSubgraph)
 MergeOutput MixGraphMerger::Merge(const MergeInput& input)
 {
     if (!ValidateInput(input)) {
-        APASS_LOG_INFO_F(Elements::Operation, "Invalid input parameters");
+        APASS_LOG_DEBUG_F(Elements::Operation, "Invalid input parameters");
         return mOutput;
     }
     Initialize(input);
     const int mergeLoopNum = 5;
     for (int mergeLoopStep = 0; mergeLoopStep < mergeLoopNum; mergeLoopStep++) {
-        APASS_LOG_INFO_F(Elements::Operation, "Enter merge loop %d.", mergeLoopStep);
+        APASS_LOG_DEBUG_F(Elements::Operation, "Enter merge loop %d.", mergeLoopStep);
         bool hasUpdated = false;
         for (size_t i = 0; i < input.mergeGroup.size(); ++i) {
             const auto& group = input.mergeGroup[i];
             std::vector<int> actualGroup = GetActualGroup(group);
             if (actualGroup.size() <= 1) {
-                APASS_LOG_INFO_F(Elements::Operation, "Skip enforce merge group %zu: already merged", i);
+                APASS_LOG_DEBUG_F(Elements::Operation, "Skip enforce merge group %zu: already merged", i);
                 continue;
             }
             if ((input.isEnforceMergeGroup[i] && CanMergeWithoutCycle(actualGroup)) ||
                 (mergeLoopStep != 0 && CanMergeWithConstraints(actualGroup))) {
-                APASS_LOG_INFO_F(Elements::Operation, "Merge group %zu succeeded", i);
+                APASS_LOG_DEBUG_F(Elements::Operation, "Merge group %zu succeeded", i);
                 PerformMerge(actualGroup);
                 hasUpdated = true;
             } else if (input.isEnforceMergeGroup[i] || mergeLoopStep != 0) {
-                APASS_LOG_INFO_F(Elements::Operation, "Merge group %zu skipped due to constraints.", i);
+                APASS_LOG_DEBUG_F(Elements::Operation, "Merge group %zu skipped due to constraints.", i);
             }
         }
         if (mergeLoopStep > 0 && !hasUpdated) {
@@ -581,7 +612,7 @@ MergeOutput MixGraphMerger::Merge(const MergeInput& input)
     }
     UpdateOutput();
     if (!ValidateOutput(mOutput, input.numSubgraph)) {
-        APASS_LOG_INFO_F(Elements::Operation, "Invalid output detected");
+        APASS_LOG_DEBUG_F(Elements::Operation, "Invalid output detected");
     }
     return mOutput;
 }
@@ -634,7 +665,8 @@ int EstimateExecTime::CalcMixStartTime(int mixId, const MixScheduleContext& ctx,
     return startTime;
 }
 
-void EstimateExecTime::InitSubgraphContext(SubgraphScheduleContext& subCtx, const MixScheduleContext& ctx, const EstimateInput& input)
+void EstimateExecTime::InitSubgraphContext(SubgraphScheduleContext& subCtx,
+    const MixScheduleContext& ctx, const EstimateInput& input)
 {
     subCtx.numSubgraph = ctx.numSubgraph;
     subCtx.finishTime.resize(ctx.numSubgraph, 0);
@@ -658,7 +690,8 @@ void EstimateExecTime::InitSubgraphContext(SubgraphScheduleContext& subCtx, cons
     }
 }
 
-void EstimateExecTime::ScheduleOneSubgraph(int current, SubgraphScheduleContext& subCtx, const MixScheduleContext& ctx, const EstimateInput& input)
+void EstimateExecTime::ScheduleOneSubgraph(int current, SubgraphScheduleContext& subCtx,
+    const MixScheduleContext& ctx, const EstimateInput& input)
 {
     int earliestStart = subCtx.mixStartTime;
     for (int pred : input.inGraph[current]) {
@@ -668,8 +701,7 @@ void EstimateExecTime::ScheduleOneSubgraph(int current, SubgraphScheduleContext&
     }
     
     bool isAic = input.isCube[current];
-    int startTime = isAic ? 
-        std::max(earliestStart, subCtx.coreState.aic) :
+    int startTime = isAic ? std::max(earliestStart, subCtx.coreState.aic) :
         std::max(earliestStart, std::min(subCtx.coreState.aiv0, subCtx.coreState.aiv1));
     
     subCtx.finishTime[current] = startTime + input.execTime[current];
@@ -683,7 +715,8 @@ void EstimateExecTime::ScheduleOneSubgraph(int current, SubgraphScheduleContext&
     }
 }
 
-void EstimateExecTime::ProcessSubgraphConsumers(int current, SubgraphScheduleContext& subCtx, const MixScheduleContext& ctx, const EstimateInput& input)
+void EstimateExecTime::ProcessSubgraphConsumers(int current, SubgraphScheduleContext& subCtx,
+    const MixScheduleContext& ctx, const EstimateInput& input)
 {
     for (int consumer : input.outGraph[current]) {
         if (ctx.candidateSet.count(consumer) > 0 && ctx.subgraphToMix[consumer] == subCtx.mixId) {
@@ -770,4 +803,4 @@ int EstimateExecTime::Estimate(const EstimateInput& input, const std::vector<std
     return result;
 }
 
-}
+} // namespace npu::tile_fwk
