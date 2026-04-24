@@ -175,15 +175,19 @@ class _RunCfg:
 async def run_one_case(case_path: Path, device_id: int, cfg: _RunCfg,
                        semaphore: asyncio.Semaphore) -> CaseRunRecord:
     started_at = dt.datetime.now().isoformat(timespec="seconds")
+    logger.info("[%s] case start: device=%s source=%s", case_path.stem, device_id, case_path)
 
+    logger.info("[%s] loading case + probing inputs", case_path.stem)
     case = case_loader.load_case(case_path, case_id=case_path.stem)
     op_name = case.op_name
     op_workdir = cfg.pypto_repo_root / cfg.workdir_root
     op_dir = op_workdir / op_name
     case_report_dir = cfg.report_dir / op_name
     case_report_dir.mkdir(parents=True, exist_ok=True)
+    logger.info("[%s] case loaded: op=%s report_dir=%s", case.case_id, op_name, case_report_dir)
 
     # 1) 写 SPEC + task_desc
+    logger.info("[%s] writing SPEC/task_desc into %s", case.case_id, op_workdir)
     case_loader.write_spec(case, op_workdir)
     case_loader.write_task_desc(case, op_workdir)
 
@@ -195,8 +199,11 @@ async def run_one_case(case_path: Path, device_id: int, cfg: _RunCfg,
         started_at=started_at,
     )
 
+    logger.info("[%s] waiting for execution slot (concurrency gate)", case.case_id)
     async with semaphore:
+        logger.info("[%s] acquired execution slot", case.case_id)
         if cfg.skip_pypto_gen:
+            logger.info("[%s] skip pypto generation (--skip-pypto-gen)", case.case_id)
             pypto_result = PyptoRunResult(
                 op_name=op_name,
                 status=PyptoRunStatus.SKIPPED,
@@ -205,6 +212,7 @@ async def run_one_case(case_path: Path, device_id: int, cfg: _RunCfg,
             )
         else:
             pypto_log = case_report_dir / "pypto_run.log"
+            logger.info("[%s] launching pypto workflow; log=%s", case.case_id, pypto_log)
             pypto_result = await asyncio.to_thread(
                 run_pypto_workflow,
                 op_name=op_name,
@@ -224,6 +232,9 @@ async def run_one_case(case_path: Path, device_id: int, cfg: _RunCfg,
                 case_forward_source=case.forward_source,
                 skip_stage7_perf_tune=cfg.skip_stage7_perf_tune,
             )
+            logger.info("[%s] pypto workflow finished: status=%s duration=%.1fs message=%s",
+                        case.case_id, pypto_result.status.value,
+                        pypto_result.duration_sec, pypto_result.message)
 
         record.pypto_status = pypto_result.status.value
         record.pypto_message = pypto_result.message
@@ -235,11 +246,15 @@ async def run_one_case(case_path: Path, device_id: int, cfg: _RunCfg,
             record.overall_status = "pypto_failed"
             record.finished_at = dt.datetime.now().isoformat(timespec="seconds")
             write_case_result(record, cfg.report_dir)
+            logger.warning("[%s] case stop after pypto failure: status=%s",
+                           case.case_id, record.pypto_status)
             return record
 
         # 3) KernelVerifier (仍占设备号槽位避免冲突)
         verifier_log = case_report_dir / "verifier.log"
         try:
+            logger.info("[%s] launching verifier; mode=%s log=%s",
+                        case.case_id, cfg.verifier_mode, verifier_log)
             verifier_result = await run_verifier(
                 op_name=op_name,
                 op_dir=op_dir,
@@ -260,7 +275,11 @@ async def run_one_case(case_path: Path, device_id: int, cfg: _RunCfg,
                 validator_agent=cfg.validator_agent,
                 skill_timeout_sec=cfg.skill_timeout_sec,
             )
+            logger.info("[%s] verifier finished: status=%s duration=%.1fs correctness=%s",
+                        case.case_id, verifier_result.status.value,
+                        verifier_result.duration_sec, verifier_result.correctness)
         except Exception as e:
+            logger.exception("[%s] verifier raised exception: %s", case.case_id, e)
             verifier_result = VerifierResult(
                 op_name=op_name,
                 status=VerifierStatus.ERROR,
@@ -285,6 +304,9 @@ async def run_one_case(case_path: Path, device_id: int, cfg: _RunCfg,
     )
     record.finished_at = dt.datetime.now().isoformat(timespec="seconds")
     write_case_result(record, cfg.report_dir)
+    logger.info("[%s] case finished: overall=%s pypto=%s verifier=%s",
+                case.case_id, record.overall_status,
+                record.pypto_status, record.verifier_status)
     return record
 
 
@@ -308,6 +330,7 @@ async def run_batch(case_paths: List[Path], devices: List[int], concurrency: int
     async def _wrapper(idx: int, path: Path) -> CaseRunRecord:
         device_id = devices[idx % len(devices)]
         try:
+            logger.info("[%s] scheduled on device %s", path.stem, device_id)
             return await run_one_case(path, device_id, cfg, semaphore)
         except Exception as e:
             logger.exception(f"[{path.name}] run_one_case 异常: {e}")

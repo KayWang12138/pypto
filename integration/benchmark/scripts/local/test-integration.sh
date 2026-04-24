@@ -56,48 +56,30 @@ REPORT_DIR="${BENCHMARK_LOG_DIR}/report"
 LOG_DIR="${BENCHMARK_LOG_DIR}/logs"
 mkdir -p "${REPORT_DIR}" "${LOG_DIR}"
 
-cmd=(
-  python3 -m integration.benchmark.run_kernelbench
-  --cases "${CASES}"
-  --mode "${MODE}"
-  --devices "${TILE_FWK_DEVICE_ID}"
-  --concurrency "${CONCURRENCY}"
-  --verifier-mode "${VERIFIER_MODE}"
-  --skill-timeout "${SKILL_TIMEOUT}"
-  --timeout-sec "${PYPTO_TIMEOUT}"
-  --report-dir "${REPORT_DIR}"
-  --log-dir "${LOG_DIR}"
-  --log-level INFO
-)
-
-if [ -n "${OPENCODE_MODEL}" ]; then
-  cmd+=( --opencode-model "${OPENCODE_MODEL}" )
-fi
-
-if [ "${SKIP_STAGE7_PERF_TUNE}" = "1" ]; then
-  cmd+=( --skip-stage7-perf-tune )
-fi
-
-if [ -n "${VERIFY_RTOL}" ]; then
-  cmd+=( --verify-rtol "${VERIFY_RTOL}" )
-fi
-if [ -n "${VERIFY_ATOL}" ]; then
-  cmd+=( --verify-atol "${VERIFY_ATOL}" )
-fi
-
 if [ "${FULL}" = "0" ]; then
-  cmd+=( --skip-pypto-gen )
   section "test-integration: ${CASES} concurrency=${CONCURRENCY} (cheap, --skip-pypto-gen, verifier=${VERIFIER_MODE})"
 else
   section "test-integration: ${CASES} concurrency=${CONCURRENCY} (FULL, pypto 7-stage + verifier=${VERIFIER_MODE})"
   echo "  WARN: 单 case 约 50 min (含 Stage 7 性能调优 + LLM 调用)" >&2
 fi
 
+export CASES FULL VERIFIER_MODE SKILL_TIMEOUT PYPTO_TIMEOUT MODE OPENCODE_MODEL
+export SKIP_STAGE7_PERF_TUNE VERIFY_RTOL VERIFY_ATOL CONCURRENCY
+export BENCHMARK_MONITOR_DIR="${BENCHMARK_LOG_DIR}/monitor_state"
+MONITOR_CMD="BENCHMARK_MONITOR_DIR=${BENCHMARK_MONITOR_DIR} python3 -m integration.benchmark.monitor monitor"
+
 echo "  command:"
-printf '    %s\n' "${cmd[@]}"
+printf '    %s\n' python3 -m integration.benchmark.monitor
+echo
+echo "============================================================"
+echo "  MONITOR COMMAND"
+echo "============================================================"
+echo "  ${MONITOR_CMD}"
+echo "============================================================"
+echo
 
 # 真跑
-"${cmd[@]}" 2>&1 | tee "${BENCHMARK_LOG_DIR}/batch.log"
+python3 -m integration.benchmark.monitor 2>&1 | tee "${BENCHMARK_LOG_DIR}/batch.log"
 
 # 验报告
 section "解读 summary.json"
