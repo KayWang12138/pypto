@@ -198,9 +198,10 @@ void OoOScheduler::UpdateOpInternalSubgraphID(Operation &op, Operation* srcOp) {
 }
 
 // A5 中：L1 发生 spill 时， copy_in的rawshape属性来源于实际spill的tensor，offset属性来源于spill op
-void OoOScheduler::GetActualSpillInfo(Operation* spillOp)
+void OoOScheduler::GetActualSpillInfo(Operation* spillOp, std::pair<LogicalTensorPtr, Operation*>& actualInfo)
 {
     auto actualSpillTensor = spillOp->GetInputOperand(0);
+    auto copyOp = spillOp;
     Operation* actualSpillOp = nullptr;
     for (auto &op : depManager_.GetPredecessors(spillOp)) {
         if (!opIsAllocMap[op]) {
@@ -209,8 +210,9 @@ void OoOScheduler::GetActualSpillInfo(Operation* spillOp)
     }
     if (spillOp->GetOpcode() == Opcode::OP_RESHAPE) {
         actualSpillTensor = actualSpillOp->GetInputOperand(0);
+        copyOp = actualSpillOp;
     }
-    return actualSpillTensor;
+    actualInfo = std::make_pair(actualSpillTensor, copyOp);
 }
 
 void OoOScheduler::UpdateOpAttr(Operation &op, int opLatency, LogicalTensorPtr spillTensor,
@@ -236,10 +238,13 @@ void OoOScheduler::UpdateOpAttr(Operation &op, int opLatency, LogicalTensorPtr s
                 OpImmediate::Specified(spillTensor->tensor->GetDynRawShape())));
         } else {
             op.SetAttr(OpAttributeKey::workspaceBaseOffset, workspaceBaseOffset);
+            std::pair<LogicalTensorPtr, Operation*> actualInfo;
+            GetActualSpillInfo(spillOp, actualInfo);
+            auto attr = std::dynamic_pointer_cast<CopyOpAttribute>(actualInfo.second->GetOpAttribute());
             op.SetOpAttribute(std::make_shared<CopyOpAttribute>(
-                OpImmediate::Specified(offset), spillTensor->GetMemoryTypeOriginal(),
+                attr->GetFromOffset(), spillTensor->GetMemoryTypeOriginal(),
                 OpImmediate::Specified(spillTensor->GetShape()),
-                OpImmediate::Specified(GetActualSpillTensor(spillOp)->tensor->GetDynRawShape())));
+                OpImmediate::Specified(actualInfo.first->tensor->GetDynRawShape())));
         }
     }
     op.UpdateLatency(opLatency);
@@ -1165,7 +1170,7 @@ Status OoOScheduler::SpillMultiBuffer(Operation* allocOp, std::vector<int> spill
                 APASS_LOG_ERROR_F(Elements::Operation, "Failed to spill %d in L1 spill. SpillIssue is assemble op.", spillMemId);
                 return FAILED;
         }
-        if (spillInfo.spillOp_->GetOpcode() == Opcode::OP_ASSEMBLE || bool) {
+        if (spillInfo.spillOp_->GetOpcode() == Opcode::OP_ASSEMBLE) {
             if (SpillAssembleBuffer(spillInfo, allocOp, pcIdx, allocBuffer, isGenSpill) != SUCCESS) {
                 APASS_LOG_ERROR_F(Elements::Operation, "SpillAssembleBuffer[%d] failed.", spillMemId);
                 return FAILED;

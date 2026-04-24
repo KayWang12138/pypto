@@ -267,7 +267,7 @@ private:
     void ReplaceTensorMemId(Operation* op, int oldMemId, int newMemId);
     void ReplaceViewOpChainMemId(LogicalTensorPtr startTensor, int oldMemId, int newMemId);
     void UpdateOpInternalSubgraphID(Operation &op, Operation* srcOp);
-    LogicalTensorPtr GetActualSpillTensor(Operation* spillOp);
+    void GetActualSpillInfo(Operation* spillOp, std::pair<LogicalTensorPtr, Operation*>& actualInfo);
     void UpdateOpAttr(Operation &op, int opLatency, LogicalTensorPtr spillTensor, std::vector<int64_t> offset,
         Operation* spillOp, int64_t workspaceBaseOffset, bool isSpecialL1);
     Status UpdateTensorAttr(LogicalTensorPtr tensor, MemoryType memType, LogicalTensorPtr spillTensor, int spillMemId);
