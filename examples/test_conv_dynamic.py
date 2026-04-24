@@ -37,11 +37,13 @@ Conv1D (3D tensors: [batch, cin, win]):
 - wout轴：前端循环（两种Conv统一模式）
 
 Usage:
-    python test_conv_dynamic.py --test conv2d        # Run conv2d test
-    python test_conv_dynamic.py --test conv1d        # Run conv1d test
-    python test_conv_dynamic.py --test all           # Run all tests
-    python test_conv_dynamic.py --device_id 0        # Specify NPU device
-    python test_conv_dynamic.py --run_mode sim       # Use simulation mode
+    python test_conv_dynamic.py --test conv2d_bias    # Run conv2d with bias test
+    python test_conv_dynamic.py --test conv2d_no_bias # Run conv2d without bias test
+    python test_conv_dynamic.py --test conv1d_bias    # Run conv1d with bias test
+    python test_conv_dynamic.py --test conv1d_no_bias # Run conv1d without bias test
+    python test_conv_dynamic.py --test all            # Run all tests
+    python test_conv_dynamic.py --device_id 0         # Specify NPU device
+    python test_conv_dynamic.py --run_mode sim        # Use simulation mode
 """
 
 import argparse
@@ -50,6 +52,7 @@ import sys
 import pypto
 import torch
 import numpy as np
+import time
 global_run_mode = pypto.RunMode.NPU
 
 
@@ -176,11 +179,11 @@ def cal_win_idxoffset(wout_idx, tile_wout, wo, win, kw, stridew, dilationw, pad_
 
 
 # ============================================================================
-# Unified Conv Dynamic Kernel (supports Conv1D and Conv2D)
+# Unified Conv Dynamic Kernel (supports Conv1D and Conv2D, with/without bias)
 # ============================================================================
 
 @pypto.frontend.jit(runtime_options={"run_mode": global_run_mode},
-                    debug_options={"compile_debug_mode": 0, "runtime_debug_mode": 1})
+                    debug_options={"compile_debug_mode": 1, "runtime_debug_mode": 1})
 def conv_dynamic_kernel(
     input_a_tensor: pypto.Tensor([pypto.DYNAMIC, pypto.DYNAMIC, pypto.DYNAMIC]),
     input_b_tensor: pypto.Tensor([pypto.DYNAMIC, pypto.DYNAMIC, pypto.DYNAMIC]),
@@ -189,142 +192,103 @@ def conv_dynamic_kernel(
     params: dict):
     """
     Unified convolution kernel with dynamic tiling.
-    Automatically adapts to Conv1D (3D) or Conv2D (4D) based on tensor dimensions.
+    Supports Conv1D/Conv2D and with/without bias via params["use_bias"].
+    
+    Args:
+        params["use_bias"]: True to use bias, False to skip bias (default: True)
     
     Dynamic tiling axes:
     Conv2D (4D):
-      - batch: tile_batch = 2 (前端循环，TileShape.tileBatch=1 固定)
-      - cout: tile_cout = 32 (TileShape动态)
-      - hout: tile_hout = 3 (TileShape动态)
+      - batch: tile_batch = 1 (前端循环)
+      - cout: tile_cout = 64 (TileShape动态)
+      - hout: tile_hout = 16 (TileShape动态)
       - wout: tile_wout = 16 (前端循环)
     
     Conv1D (3D):
-      - batch: tile_batch = 2 (前端循环，TileShape.tileBatch=1 固定)
+      - batch: tile_batch = 1 (前端循环)
       - cout: tile_cout = 16 (TileShape动态)
-      - wout: tile_wout = 1024 (TileShape动态)
-    
-    注意：tileBatch 必须为 1，batch轴通过前端循环切分
+      - wout: tile_wout = 16 (前端循环)
     """
-    is_conv2d = len(params["shape"][0]) == 4  # 判断是否为 Conv2D
+    use_bias = params.get("use_bias", True)
+    is_conv2d = len(params["shape"][0]) == 4
 
-    # 解析 shape 参数
     if is_conv2d:
         _, _, hin, win = params["shape"][0]
         _, cin, kh, kw = params["shape"][1]
         batch, cout, ho, wo = params["shape"][2]
-        hin_dim = hin
-        kh_dim = kh
         stride_h = params.get("strides", [1, 1])[0]
         dilation_h = params.get("dilations", [1, 1])[0]
-        pad_h = params.get("padding", [0, 0, 0, 0])[:2]  # top, bottom
+        pad_h = params.get("padding", [0, 0, 0, 0])[:2]
     else:
         _, cin, win = params["shape"][0]
-        _, cin_weight, kw = params["shape"][1]
+        _, _, kw = params["shape"][1]
         batch, cout, wo = params["shape"][2]
-        hin = 1  # Conv1D 没有 h 维度
-        hin_dim = None
+        hin = 1
         kh = 1
-        kh_dim = None
         ho = 1
         stride_h = 1
         dilation_h = 1
         pad_h = [0, 0]
 
-    # 通用参数
     stride_w = params.get("strides", [1] if not is_conv2d else [1, 1])[-1]
     dilation_w = params.get("dilations", [1] if not is_conv2d else [1, 1])[-1]
-    pad_w = params.get("padding", [1, 1] if not is_conv2d else [0, 0, 0, 0])[-2:]  # left, right
+    pad_w = params.get("padding", [1, 1] if not is_conv2d else [0, 0, 0, 0])[-2:]
 
-    # TileShape 配置（根据 Conv 类型）
     if is_conv2d:
         tile_l1_config = pypto.pypto_impl.TileL1Info(
-            tileHin=4,
-            tileHout=4,
-            tileWin=16,
-            tileWout=16,
-            tileCinFmap=32,
-            tileCinWeight=32,
-            tileN=32,
-            tileBatch=1  # 必须为 1
+            tileHin=16, tileHout=16, tileWin=16, tileWout=16,
+            tileCinFmap=64, tileCinWeight=64, tileN=256, tileBatch=1
         )
         tile_l0_config = pypto.pypto_impl.TileL0Info(
-            tileH=4,
-            tileW=16,
-            tileK=288,
-            tileN=32
+            tileH=16, tileW=16, tileK=64, tileN=256
         )
-        vec_tile_config = (1, 32, 16, 16)
-
+        vec_tile_config = (1, 256, 16, 16)
         tile_batch = pypto.symbolic_scalar(1)
-        tile_cout = pypto.symbolic_scalar(64)
+        tile_cout = pypto.symbolic_scalar(256)
         tile_hout = pypto.symbolic_scalar(16)
         tile_wout = pypto.symbolic_scalar(16)
     else:
-        # Conv1D: 与 Conv2D 保持一致的动态切分模式
-        # batch: 前端循环，cout: TileShape，wout: 前端循环
-
         tile_l1_config = pypto.pypto_impl.TileL1Info(
-            tileHin=1,
-            tileHout=1,
-            tileWin=16,
-            tileWout=16,
-            tileCinFmap=16,
-            tileCinWeight=16,
-            tileN=16,
-            tileBatch=1  # 必须为 1
+            tileHin=1, tileHout=1, tileWin=16, tileWout=16,
+            tileCinFmap=16, tileCinWeight=16, tileN=16, tileBatch=1
         )
         tile_l0_config = pypto.pypto_impl.TileL0Info(
-            tileH=1,
-            tileW=16,
-            tileK=16,
-            tileN=16
+            tileH=1, tileW=16, tileK=16, tileN=16
         )
         vec_tile_config = (1, 16, 16)
-
-        # 前端循环切分大小
-        tile_batch = pypto.symbolic_scalar(1)     # batch 前端循环
-        tile_cout = pypto.symbolic_scalar(16)     # cout TileShape 切分
-        tile_hout = pypto.symbolic_scalar(1)      # hout 固定为 1（Conv1D无h维度）
-        tile_wout = pypto.symbolic_scalar(16)  # wout 前端循环
-        
-        # 计算前端循环切分需要的 win 尺寸
-        tile_win = (tile_wout - 1) * stride_w + (kw - 1) * dilation_w + 1
+        tile_batch = pypto.symbolic_scalar(1)
+        tile_cout = pypto.symbolic_scalar(16)
+        tile_hout = pypto.symbolic_scalar(1)
+        tile_wout = pypto.symbolic_scalar(16)
 
     pypto.set_conv_tile_shapes(tile_l1_config, tile_l0_config)
     pypto.set_vec_tile_shapes(*vec_tile_config)
 
-    # 计算循环次数
     batch_loop = (batch + tile_batch - 1) // tile_batch
     cout_loop = (cout + tile_cout - 1) // tile_cout
     hout_loop = (ho + tile_hout - 1) // tile_hout if is_conv2d else 1
     wout_loop = (wo + tile_wout - 1) // tile_wout
 
-    # 计算输入 tile 大小
     if is_conv2d:
         tile_hin = (tile_hout - 1) * stride_h + (kh - 1) * dilation_h + 1
         tile_win = (tile_wout - 1) * stride_w + (kw - 1) * dilation_w + 1
     else:
         tile_win = (tile_wout - 1) * stride_w + (kw - 1) * dilation_w + 1
 
-    # 嵌套循环（根据 Conv 类型调整）
     for batch_idx in pypto.loop(0, batch_loop, 1, name="LOOP_L1_batchIdx", idx_name="batch_idx"):
         for cout_idx in pypto.loop(0, cout_loop, 1, name="LOOP_L1_nIdx", idx_name="n_idx"):
             for hout_idx in (pypto.loop(0, hout_loop, 1, name="LOOP_L1_houtIdx", idx_name="hout_idx") 
                              if is_conv2d else pypto.loop(0, 1, 1, name="LOOP_L1_houtIdx", idx_name="hout_idx")):
                 for wout_idx in pypto.loop(0, wout_loop, 1, name="LOOP_L1_woutIdx", idx_name="wout_idx"):
-
-                    # 计算偏移量
                     batch_offset = batch_idx * tile_batch
                     cout_offset = cout_idx * tile_cout
                     hout_offset = hout_idx * tile_hout if is_conv2d else 0
                     wout_offset = wout_idx * tile_wout
 
-                    # 计算 win 区域
                     cal_flag_w, win_offset, win_current, update_pad_w = \
                         cal_win_idxoffset(wout_idx, tile_wout, wo, win, kw,
                                          stride_w, dilation_w, pad_w[0], pad_w[1])
 
-                    # 计算 hin 区域（仅 Conv2D）
                     if is_conv2d:
                         cal_flag_h, hin_offset, hin_current, update_pad_h = \
                             cal_hin_idxoffset(hout_idx, tile_hout, ho, hin, kh,
@@ -333,8 +297,9 @@ def conv_dynamic_kernel(
                     else:
                         cal_flag = cal_flag_w
 
+                    print("lxwxxxxxxxxxxxxxxxxx ===", update_pad_h, update_pad_w)
+
                     if cal_flag:
-                        # 创建输入视图
                         if is_conv2d:
                             input_a_view = pypto.view(
                                 input_a_tensor,
@@ -343,8 +308,7 @@ def conv_dynamic_kernel(
                                 valid_shape=[tile_batch, cin, hin_current, win_current]
                             )
                             input_b_view = input_b_tensor[cout_offset:cout_offset + tile_cout, 0:cin, 0:kh, 0:kw]
-                            # padding = (update_pad_h[0], update_pad_h[1], update_pad_w[0], update_pad_w[1])
-                            padding = (0, 0, 0, 0)
+                            padding = (update_pad_h[0], update_pad_h[1], update_pad_w[0], update_pad_w[1])
                             strides = [stride_h, stride_w]
                             dilations = [dilation_h, dilation_w]
                         else:
@@ -358,119 +322,119 @@ def conv_dynamic_kernel(
                             padding = (update_pad_w[0], update_pad_w[1])
                             strides = [stride_w]
                             dilations = [dilation_w]
-                        
-                        input_c_view = input_c_tensor[cout_offset:cout_offset + tile_cout]
 
-                        # 执行 conv
+                        extend_params = {"bias_tensor": input_c_tensor[cout_offset:cout_offset + tile_cout]} if use_bias else {}
+
                         output_view = pypto.conv(
                             input_a_view, input_b_view,
                             pypto.DT_FP16,
                             strides,
                             padding,
                             dilations,
-                            extend_params={"bias_tensor": input_c_view},
+                            extend_params=extend_params,
                             groups=1
                         )
 
-                        # 组装结果
                         if is_conv2d:
-                            pypto.assemble(
-                                output_view,
-                                [batch_offset, cout_offset, hout_offset, wout_offset],
-                                output_c_tensor
-                            )
+                            pypto.assemble(output_view, [batch_offset, cout_offset, hout_offset, wout_offset], output_c_tensor)
                         else:
-                            pypto.assemble(
-                                output_view,
-                                [batch_offset, cout_offset, wout_offset],
-                                output_c_tensor
-                            )
+                            pypto.assemble(output_view, [batch_offset, cout_offset, wout_offset], output_c_tensor)
 
 
 # ============================================================================
 # Test Functions
 # ============================================================================
 
-def test_conv2d(device_id: int = None):
-    """Test Conv2D with unified dynamic kernel"""
+def run_conv_test(is_conv2d: bool, use_bias: bool, device_id: int = None):
+    """
+    Generic convolution test runner.
+    
+    Args:
+        is_conv2d: True for Conv2D, False for Conv1D
+        use_bias: True to use bias, False to skip bias
+        device_id: NPU device ID
+    """
+    conv_type = "Conv2D" if is_conv2d else "Conv1D"
+    bias_type = "with bias" if use_bias else "without bias"
     print("=" * 60)
-    print("Test: Conv2D (Unified Dynamic Kernel)")
+    print(f"Test: {conv_type} {bias_type} (Dynamic Kernel)")
     print("=" * 60)
 
     device = f'npu:{device_id}' if global_run_mode == pypto.RunMode.NPU and device_id is not None else 'cpu'
-
     dtype = torch.float16
 
-    fmap_shape = (4, 32, 34, 34)
-    weight_shape = (128, 32, 3, 3)
-    bias_shape = (128,)
-    out_shape = (4, 128, 32, 32)
+    if is_conv2d:
+        fmap_shape = (1, 64, 64, 64)
+        weight_shape = (256, 64, 3, 3)
+        bias_shape = (256,)
+        out_shape = (1, 256, 64, 64)
+        # fmap_shape = (1, 512, 512, 512)
+        # weight_shape = (128, 512, 1, 1)
+        # bias_shape = (128,)
+        # out_shape = (1, 128, 512, 512)
+        strides = [1, 1]
+        padding = [1, 1, 1, 1]
+        dilations = [1, 1]
+        torch_padding = (1, 1)
+    else:
+        fmap_shape = (2, 16, 2048)
+        weight_shape = (16, 16, 3)
+        bias_shape = (16,)
+        out_shape = (2, 16, 2048)
+        strides = [1]
+        padding = [1, 1]
+        dilations = [1]
+        torch_padding = 1
 
     a = torch.randn(fmap_shape, dtype=dtype, device=device)
     b = torch.randn(weight_shape, dtype=dtype, device=device)
-    c = torch.randn(bias_shape, dtype=dtype, device=device)
+    c = torch.randn(bias_shape, dtype=dtype, device=device) if use_bias else torch.zeros(bias_shape, dtype=dtype, device=device)
 
-    expected = torch.conv2d(a, b, bias=c, padding=(0, 0), stride=(1, 1), dilation=1, groups=1)
+    bias_tensor = c if use_bias else None
+    if is_conv2d:
+        expected = torch.conv2d(a, b, bias=bias_tensor, padding=torch_padding, stride=1, dilation=1, groups=1)
+    else:
+        expected = torch.conv1d(a, b, bias=bias_tensor, padding=torch_padding, stride=1, dilation=1, groups=1)
 
     out = torch.empty(out_shape, dtype=dtype, device=device)
+    start_time = time.time()
     conv_dynamic_kernel(a, b, c, out, {
         "shape": [fmap_shape, weight_shape, out_shape],
-        "strides": [1, 1],
-        "padding": [0, 0, 0, 0],
-        "dilations": [1, 1]
+        "strides": strides,
+        "padding": padding,
+        "dilations": dilations,
+        "use_bias": use_bias
     })
-
+    end_time = time.time()
+    print(f"Kernel execution time: {end_time - start_time:.4f} seconds")
     print(f"Input shape: {fmap_shape}")
     print(f"Weight shape: {weight_shape}")
+    if use_bias:
+        print(f"Bias shape: {bias_shape}")
     print(f"Output shape: {out_shape}")
     
     if global_run_mode == pypto.RunMode.NPU:
         all_pass = compare_precision(out, expected, rtol=1e-3, atol=1e-3, max_errors=100)
         if all_pass:
-            print("✓ Conv2D test completed successfully - All points passed!")
+            print(f"✓ {conv_type} {bias_type} test completed successfully - All points passed!")
         else:
-            print("✗ Conv2D test failed - Some points did not match tolerance")
+            print(f"✗ {conv_type} {bias_type} test failed - Some points did not match tolerance")
 
 
-def test_conv1d(device_id: int = None):
-    """Test Conv1D with unified dynamic kernel"""
-    print("=" * 60)
-    print("Test: Conv1D (Unified Dynamic Kernel)")
-    print("=" * 60)
+def test_conv2d_with_bias(device_id: int = None):
+    run_conv_test(is_conv2d=True, use_bias=True, device_id=device_id)
 
-    device = f'npu:{device_id}' if global_run_mode == pypto.RunMode.NPU and device_id is not None else 'cpu'
 
-    dtype = torch.float16
-    fmap_shape = (2, 16, 2048)
-    weight_shape = (16, 16, 3)
-    bias_shape = (16,)
-    out_shape = (2, 16, 2048)
+def test_conv2d_no_bias(device_id: int = None):
+    run_conv_test(is_conv2d=True, use_bias=False, device_id=device_id)
 
-    a = torch.randn(fmap_shape, dtype=dtype, device=device)
-    b = torch.randn(weight_shape, dtype=dtype, device=device)
-    c = torch.zeros(bias_shape, dtype=dtype, device=device)
 
-    expected = torch.conv1d(a, b, bias=c, padding=1, stride=1, dilation=1, groups=1)
+def test_conv1d_with_bias(device_id: int = None):
+    run_conv_test(is_conv2d=False, use_bias=True, device_id=device_id)
 
-    out = torch.empty(out_shape, dtype=dtype, device=device)
-    conv_dynamic_kernel(a, b, c, out, {
-        "shape": [fmap_shape, weight_shape, out_shape],
-        "strides": [1],
-        "padding": [1, 1],
-        "dilations": [1]
-    })
 
-    print(f"Input shape: {fmap_shape}")
-    print(f"Weight shape: {weight_shape}")
-    print(f"Output shape: {out_shape}")
-    
-    if global_run_mode == pypto.RunMode.NPU:
-        all_pass = compare_precision(out, expected, rtol=1e-3, atol=1e-3, max_errors=100)
-        if all_pass:
-            print("✓ Conv1D test completed successfully - All points passed!")
-        else:
-            print("✗ Conv1D test failed - Some points did not match tolerance")
-
+def test_conv1d_no_bias(device_id: int = None):
+    run_conv_test(is_conv2d=False, use_bias=False, device_id=device_id)
 
 
 # ============================================================================
@@ -483,11 +447,13 @@ def main():
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
-  %(prog)s --test conv2d         Run conv2d test
-  %(prog)s --test conv1d         Run conv1d test
-  %(prog)s --test all            Run all tests
-  %(prog)s --device_id 0         Use NPU device 0
-  %(prog)s --run_mode sim        Use simulation mode
+  %(prog)s --test conv2d_bias     Run conv2d with bias test
+  %(prog)s --test conv2d_no_bias  Run conv2d without bias test
+  %(prog)s --test conv1d_bias     Run conv1d with bias test
+  %(prog)s --test conv1d_no_bias  Run conv1d without bias test
+  %(prog)s --test all             Run all tests
+  %(prog)s --device_id 0          Use NPU device 0
+  %(prog)s --run_mode sim         Use simulation mode
 
 重要约束：
   - TileL1Info.tileBatch 必须为 1（硬件约束）
@@ -498,8 +464,8 @@ Examples:
     parser.add_argument('--device_id', type=int, default=0, help='NPU device ID')
     parser.add_argument('--run_mode', type=str, default='npu', choices=['npu', 'sim'],
                        help='Run mode: npu or sim')
-    parser.add_argument('--test', type=str, default='conv2d', 
-                       choices=['conv2d', 'conv1d', 'all'],
+    parser.add_argument('--test', type=str, default='conv2d_bias', 
+                       choices=['conv2d_bias', 'conv2d_no_bias', 'conv1d_bias', 'conv1d_no_bias', 'all'],
                        help='Test case to run')
     
     args = parser.parse_args()
@@ -517,14 +483,22 @@ Examples:
     print()
     
     try:
-        if args.test == 'conv2d':
-            test_conv2d(args.device_id)
-        elif args.test == 'conv1d':
-            test_conv1d(args.device_id)
+        if args.test == 'conv2d_bias':
+            test_conv2d_with_bias(args.device_id)
+        elif args.test == 'conv2d_no_bias':
+            test_conv2d_no_bias(args.device_id)
+        elif args.test == 'conv1d_bias':
+            test_conv1d_with_bias(args.device_id)
+        elif args.test == 'conv1d_no_bias':
+            test_conv1d_no_bias(args.device_id)
         elif args.test == 'all':
-            test_conv2d(args.device_id)
+            test_conv2d_with_bias(args.device_id)
             print("\n" + "=" * 60 + "\n")
-            test_conv1d(args.device_id)
+            test_conv2d_no_bias(args.device_id)
+            print("\n" + "=" * 60 + "\n")
+            test_conv1d_with_bias(args.device_id)
+            print("\n" + "=" * 60 + "\n")
+            test_conv1d_no_bias(args.device_id)
         
         print("\n" + "=" * 60)
         print("✓ All tests completed successfully!")

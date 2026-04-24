@@ -281,7 +281,7 @@ enum class CopyOutMode : int {
 };
 
 struct ConvAttrParam {
-    std::vector<int64_t> paddings = {0, 0, 0, 0};
+    std::vector<SymbolicScalar> paddings = {0, 0, 0, 0};
     std::vector<int64_t> strides = {1, 1};
     std::vector<int64_t> dilations = {1, 1};
     std::vector<int64_t> oriFmapShape = {0, 0, 0, 0};
