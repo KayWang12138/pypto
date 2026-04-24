@@ -460,13 +460,19 @@ Status DynAttrToStatic::TryRemoveDynAttr(Function* leafFunc, std::vector<Operati
 }
 
 std::pair<int, int> ParseRuntimeGetParamAddr(const std::string& input) {
-    std::pair<int, int> paramArgs;
-    // 正则表达式匹配：RUNTIME_GET_PARAM_ADDR(参数1, 参数2, 参数3)
-    std::regex pattern(R"(RUNTIME_GET_PARAM_ADDR\s*\(\s*([^,]+)\s*,\s*(\d+)\s*,\s*(\d+)\s*\))");
+    // 默认返回 {-1, -1} 表示不匹配
+    std::pair<int, int> paramArgs = {-1, -1};
+    // 正则：严格匹配 RUNTIME_GET_PARAM_ADDR(xxx, 数字, 数字)
+    std::regex pattern(R"(RUNTIME_GET_PARAM_ADDR\s*\(\s*[^,]+,\s*(\d+)\s*,\s*(\d+)\s*\))");
     std::smatch matches;
-    if (std::regex_match(input, matches, pattern)) {
-        paramArgs.first = std::stoi(matches[2].str());  // 第二个参数（1）
-        paramArgs.second = std::stoi(matches[3].str());  // 第三个参数（18）
+    if (std::regex_search(input, matches, pattern)) {
+        try {
+            paramArgs.first = std::stoi(matches[1].str());
+            paramArgs.second = std::stoi(matches[2].str());
+        } catch (...) {
+            // 解析失败也返回 {-1,-1}
+            return { -1, -1 };
+        }
     }
     return paramArgs;
 }
@@ -479,7 +485,7 @@ void UpdateTensorParamAddr(std::shared_ptr<LogicalTensor> &tensor)
     for (auto &[_, paramAddr] : paramAddrMap) {
         auto paramArgs = ParseRuntimeGetParamAddr(paramAddr.Dump());
         int aiCpuFlag{3};
-        if (paramAddr.IsExpression()) {
+        if (paramAddr.IsExpression() && paramArgs.first != -1 && paramArgs.second != -1) {
             paramAddr = GET_PARAM_ADDR_MAYBE_CONST(
                 SymbolicScalar(static_cast<int64_t>(aiCpuFlag)),
                 SymbolicScalar(static_cast<int64_t>(0)),
@@ -497,6 +503,7 @@ void DynAttrToStatic::BuildParamAddr(Operation &op) {
         }
         if (iOperand->HasAttr(TensorAttributeKey::tensorAddr)) {
             UpdateTensorParamAddr(iOperand);
+            visitedTensors_.insert(iOperand);
         }
     }
     for (auto &oOperand : op.GetOOperands()) {
@@ -505,6 +512,7 @@ void DynAttrToStatic::BuildParamAddr(Operation &op) {
         }
         if (oOperand->HasAttr(TensorAttributeKey::tensorAddr)) {
             UpdateTensorParamAddr(oOperand);
+            visitedTensors_.insert(oOperand);
         }
     }
 }
