@@ -300,7 +300,7 @@ Status ReplaceTensor::FindBaseTensor(
         for (auto& curTensor : group) {
             auto &inOp = *curTensor->GetProducers().begin();
             auto &outOp = *curTensor->GetConsumers().begin();
-            if (inOp != nullptr && outOp != nullptr && inOp->GetSubGraphID() != outOp->GetSubGraphID()) {
+            if (inOp != nullptr && outOp != nullptr && inOp->GetSubgraphID() != outOp->GetSubgraphID()) {
                 baseTensor = curTensor;
                 break;
             }
