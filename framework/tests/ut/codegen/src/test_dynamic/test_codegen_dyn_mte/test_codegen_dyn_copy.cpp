@@ -447,9 +447,9 @@ std::string TestCopyL1Body(Opcode opcode, MemoryType inputType, MemoryType outpu
     if (opcode == Opcode::OP_UB_COPY_L1) {
         auto shapeImme = OpImmediate::Specified(shape);
         op.SetOpAttribute(
-            std::make_shared<CopyOpAttribute>(MEM_UB, OpImmediate::Specified({0, 0}), shapeImme, shapeImme));
+            std::make_shared<CopyOpAttribute>(OpImmediate::Specified({0, 0}), MEM_L1, shapeImme, shapeImme));
         auto copyAttr = std::static_pointer_cast<CopyOpAttribute>(op.GetOpAttribute());
-        copyAttr->SetFromOffset(OpImmediate::Specified({0, 0}));
+        copyAttr->SetToOffset(OpImmediate::Specified({0, 0}));
     }
 
     std::shared_ptr<SymbolManager> symbolManager = std::make_shared<SymbolManager>();
