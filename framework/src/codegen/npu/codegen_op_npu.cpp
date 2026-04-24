@@ -440,13 +440,38 @@ SymbolicScalar CodeGenOpNPU::GetOperandStartOffset(int operandIdx) const
     return resOffset;
 }
 
+std::string CodeGenOpNPU::GetGmTensorAddrByAttr(unsigned gmParamIdx) const
+{
+    std::map<int, SymbolicScalar> addrs;
+    bool ret = GetTensorAttr(gmParamIdx, TensorAttributeKey::tensorAddr, addrs);
+    if (!ret || addrs.empty()) {
+        CODEGEN_LOGW(
+            "gmParamIdx: %u, tensorAddr is not found in attr !! op: %s", gmParamIdx, originalOp.Dump().c_str());
+        return "";
+    }
+    auto iter = addrs.find(originalOp.GetOpMagic());
+    ASSERT(OperErr::ATTRIBUTE_INVALID, iter != addrs.end())
+        << "add is not found by opMagic: " << originalOp.GetOpMagic() << ", gmParamIdx: " << gmParamIdx
+        << ", op: " << originalOp.Dump();
+    std::string gmParamVar = SymbolicExpressionTable::BuildExpression(iter->second);
+    CODEGEN_LOGI("gmParamVar from attr is : %s", gmParamVar.c_str());
+    return gmParamVar;
+}
+
 std::string CodeGenOpNPU::GenGmParamVar(unsigned gmParamIdx) const
 {
     if (isUnderDynamicFunction) {
+        std::string gmParamVar = GetGmTensorAddrByAttr(gmParamIdx);
+        if (!gmParamVar.empty()) {
+            return gmParamVar;
+        }
+        // Use CodeGen generation as the fallback
         std::ostringstream os;
         os << "GET_PARAM_ADDR(" << GM_TENSOR_PARAM_STR << ", " << GmTensorParamIdxInCallFunc << ", "
            << paramLocation[gmParamIdx] << ")";
-        return os.str();
+        gmParamVar = os.str();
+        CODEGEN_LOGI("gmParamVar by codegen: %s", gmParamVar.c_str());
+        return gmParamVar;
     }
 
     auto paramLoc = paramLocation[gmParamIdx];
@@ -524,7 +549,7 @@ void CodeGenOpNPU::UpdateTileTensorShapeAndStride(
     tileTensor.rawShape = newRawShape;
 
     // ---- static or "main block" ----
-    if (tileTensor.isConstant) {
+    if (functionType == FunctionType::STATIC) {
         for (auto s : newOriginShape) {
             tileTensor.shape.emplace_back(std::to_string(s));
         }
@@ -533,13 +558,13 @@ void CodeGenOpNPU::UpdateTileTensorShapeAndStride(
     }
 
     // ---- dynamic ----
-    // gm tensor
+    // gm tensor use raw shape
     if (tileTensor.bufType == OperandType::BUF_DDR) {
         if (isSpillToGm) {
-            for (auto s : shapeFromAttr[paramIdx]) {
+            for (auto s : newRawShape) {
                 tileTensor.shape.emplace_back(std::to_string(s));
             }
-            tileTensor.stride = BuildStride(shapeFromAttr[paramIdx]);
+            tileTensor.stride = BuildStride(newRawShape);
         } else {
             tileTensor.shape = GenGetParamMacroPacked(paramIdx, tileTensor.dim, PREFIX_STR_RAW_SHAPE);
             tileTensor.stride = GenGetParamMacroPacked(paramIdx, tileTensor.dim, PREFIX_STR_STRIDE);
@@ -548,9 +573,14 @@ void CodeGenOpNPU::UpdateTileTensorShapeAndStride(
     }
 
     // local tensor
-
-    for (const auto& s : newDynValidShape) {
-        tileTensor.shape.emplace_back(SymbolicExpressionTable::BuildExpression(s));
+    if (tileTensor.isConstant) {
+        for (const auto& s : newOriginShape) {
+            tileTensor.shape.emplace_back(std::to_string(s));
+        }
+    } else {
+        for (const auto& s : newDynValidShape) {
+            tileTensor.shape.emplace_back(SymbolicExpressionTable::BuildExpression(s));
+        }
     }
     tileTensor.stride = BuildStride(newRawShape);
 }

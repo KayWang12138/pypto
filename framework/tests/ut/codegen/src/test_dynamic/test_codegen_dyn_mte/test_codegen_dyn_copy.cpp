@@ -68,7 +68,7 @@ std::string TestL0COutBody(const std::string& funcName, bool isDynamicAligned = 
     op.SetOpAttribute(std::make_shared<CopyOpAttribute>(MEM_L0C, OpImmediate::Specified({0, 0}), shapeImme, shapeImme));
     auto copyAttr = std::static_pointer_cast<CopyOpAttribute>(op.GetOpAttribute());
     op.SetOOpAttrOffset(0, 0);
-    op.SetAttribute("GmTensorParamIdxInCallFunc", 0);
+    op.SetAttribute(OpAttributeKey::gmTensorParamIdxInCall, 0);
     if (!isDynamicAligned) {
         op.SetAttribute(OpAttributeKey::copyIsNZ, 1);
     }
@@ -116,7 +116,7 @@ TEST_F(TestCodegenDynCopy, L1ToFB)
 
     auto& op = function->AddOperation(Opcode::OP_L1_TO_FIX_QUANT_PRE, {localInTensor}, {localOutTensor});
     op.SetOpAttribute(std::make_shared<CopyOpAttribute>(OpImmediate::Specified({0, 0}), MEM_FIX, shapeImme, shapeImme));
-    op.SetAttribute("GmTensorParamIdxInCallFunc", 0);
+    op.SetAttribute(OpAttributeKey::gmTensorParamIdxInCall, 0);
 
     std::shared_ptr<SymbolManager> symbolManager = std::make_shared<SymbolManager>();
     CodeGenCtx ctx;
@@ -152,7 +152,7 @@ std::string TestL1CopyInBody(
     op.SetOpAttribute(std::make_shared<CopyOpAttribute>(MEM_L1, OpImmediate::Specified({0, 0}), shapeImme, shapeImme));
     auto copyAttr = std::static_pointer_cast<CopyOpAttribute>(op.GetOpAttribute());
     op.SetIOpAttrOffset(0, 0);
-    op.SetAttribute("GmTensorParamIdxInCallFunc", 0);
+    op.SetAttribute(OpAttributeKey::gmTensorParamIdxInCall, 0);
 
     if (isNz) {
         op.SetAttribute(OP_ATTR_PREFIX + "is_nz", 1);
@@ -185,7 +185,7 @@ TEST_F(TestCodegenDynCopy, L1CopyInTileTensor)
 {
     std::string res = TestL1CopyInBody("L1CopyInTileTensor", false, 0, 0, true);
     std::string expect =
-        R"!!!(TLoad<CopyInMode::NZ2NZ, PaddingMode::NO_PADDING>(l1Tensor_0, gmTensor_1, Coord2Dim(GET_PARAM_OFFSET_2(param, 0, 0)), GET_PARAM_RAWSHAPE_BY_IDX(param, 0, 0, 2, 0), GET_PARAM_RAWSHAPE_BY_IDX(param, 0, 0, 2, 1));
+        R"!!!(TLoad<CopyInMode::NZ2NZ, PaddingMode::NO_PADDING>(l1Tensor_0, gmTensor_1, Coord2Dim(0, 0), Coord2Dim(GET_PARAM_OFFSET_2(param, 0, 0)), GET_PARAM_RAWSHAPE_BY_IDX(param, 0, 0, 2, 0), GET_PARAM_RAWSHAPE_BY_IDX(param, 0, 0, 2, 1));
 )!!!";
     EXPECT_EQ(res, expect);
 }
@@ -241,7 +241,7 @@ TEST_F(TestCodegenDynCopy, TestGatherInL1TileTensor)
     LogicalTensors outputs = {localOutTensor};
 
     auto& gatherL1Op = function->AddOperation(Opcode::OP_GATHER_IN_L1, inputs, outputs);
-    gatherL1Op.SetAttribute("GmTensorParamIdxInCallFunc", 0);
+    gatherL1Op.SetAttribute(OpAttributeKey::gmTensorParamIdxInCall, 0);
     int64_t blocksize{0};
     gatherL1Op.SetAttribute("op_attr_blocksize", blocksize);
     gatherL1Op.SetAttribute(OpAttributeKey::startOffset, blocksize);
@@ -274,7 +274,7 @@ TEST_F(TestCodegenDynCopy, L1ToBt)
     auto& op = function->AddOperation(Opcode::OP_L1_TO_BT, {localTensor}, {localOutTensor});
     auto shapeImme = OpImmediate::Specified(shape);
     op.SetOpAttribute(std::make_shared<CopyOpAttribute>(OpImmediate::Specified({0, 0}), MEM_BT, shapeImme, shapeImme));
-    op.SetAttribute("GmTensorParamIdxInCallFunc", 0);
+    op.SetAttribute(OpAttributeKey::gmTensorParamIdxInCall, 0);
 
     std::shared_ptr<SymbolManager> symbolManager = std::make_shared<SymbolManager>();
     CodeGenCtx ctx;
@@ -316,7 +316,7 @@ std::string TestMatmulMteBody(
     }
     auto& op = function->AddOperation(opcode, inputs, outputs);
 
-    op.SetAttribute("GmTensorParamIdxInCallFunc", 0);
+    op.SetAttribute(OpAttributeKey::gmTensorParamIdxInCall, 0);
     if (opcode == Opcode::OP_COPY_OUT) {
         op.SetOpAttribute(
             std::make_shared<CopyOpAttribute>(MEM_L0C, OpImmediate::Specified({0, 0}), shapeImme, shapeImme));
@@ -348,7 +348,7 @@ TEST_F(TestCodegenDynCopy, L1CopyInTensor)
     std::string res =
         TestMatmulMteBody("L1CopyInTensor", Opcode::OP_L1_COPY_IN, MemoryType::MEM_DEVICE_DDR, MemoryType::MEM_L1);
     std::string expect =
-        R"!!!(TLoad<CopyInMode::ND2NZ, PaddingMode::NO_PADDING>(l1Tensor_0, gmTensor_1, Coord2Dim(GET_PARAM_OFFSET_2(param, 0, -1)), GET_PARAM_RAWSHAPE_BY_IDX(param, 0, -1, 2, 0), GET_PARAM_RAWSHAPE_BY_IDX(param, 0, -1, 2, 1));
+        R"!!!(TLoad<CopyInMode::ND2NZ, PaddingMode::NO_PADDING>(l1Tensor_0, gmTensor_1, Coord2Dim(0, 0), Coord2Dim(GET_PARAM_OFFSET_2(param, 0, -1)), GET_PARAM_RAWSHAPE_BY_IDX(param, 0, -1, 2, 0), GET_PARAM_RAWSHAPE_BY_IDX(param, 0, -1, 2, 1));
 )!!!";
     EXPECT_EQ(res, expect);
 }
@@ -434,7 +434,7 @@ std::string TestCopyL1Body(Opcode opcode, MemoryType inputType, MemoryType outpu
         inputs.emplace_back(localTensor1);
     }
     auto& op = function->AddOperation(opcode, inputs, outputs);
-    op.SetAttribute("GmTensorParamIdxInCallFunc", 0);
+    op.SetAttribute(OpAttributeKey::gmTensorParamIdxInCall, 0);
     if (opcode == Opcode::OP_L0C_TO_L1) {
         auto shapeImme = OpImmediate::Specified(shape);
         op.SetOpAttribute(
@@ -492,7 +492,7 @@ void TestUBCopyInBody(const std::string funcName, const std::string& expect)
     op.SetOpAttribute(std::make_shared<CopyOpAttribute>(MEM_UB, OpImmediate::Specified({0, 0}), shapeImme, shapeImme));
     auto copyAttr = std::static_pointer_cast<CopyOpAttribute>(op.GetOpAttribute());
     op.SetIOpAttrOffset(0, 0);
-    op.SetAttribute("GmTensorParamIdxInCallFunc", 0);
+    op.SetAttribute(OpAttributeKey::gmTensorParamIdxInCall, 0);
 
     std::shared_ptr<SymbolManager> symbolManager = std::make_shared<SymbolManager>();
     CodeGenCtx ctx;
@@ -536,7 +536,7 @@ TEST_F(TestCodegenDynCopy, L0CToL1)
     auto copyAttr = std::static_pointer_cast<CopyOpAttribute>(op.GetOpAttribute());
     copyAttr->SetFromOffset(OpImmediate::Specified({0, 0}));
     copyAttr->SetToDynValidShape(OpImmediate::Specified(shape));
-    op.SetAttribute("GmTensorParamIdxInCallFunc", 0);
+    op.SetAttribute(OpAttributeKey::gmTensorParamIdxInCall, 0);
 
     std::shared_ptr<SymbolManager> symbolManager = std::make_shared<SymbolManager>();
     CodeGenCtx ctx;

@@ -24,7 +24,7 @@
 #include "passes/pass_check/subgraph_to_function_checker.h"
 #include "passes/pass_utils/graph_utils.h"
 #include "passes/pass_log/pass_log.h"
-#include "interface/utils/error_code.h"
+#include "tilefwk/error_code.h"
 
 #undef MODULE_NAME
 #define MODULE_NAME "SubgraphToFunction"
@@ -780,7 +780,7 @@ Status SubgraphToFunction::GetTensorDataDependencyInsert(Function& function)
             if (callList.size() == 0) {
                 APASS_LOG_ERROR_F(
                     Elements::Function,
-                    "Call list is empty in funciton %s. Please check whether the input graph is complete.",
+                    "Call list is empty in function %s. Please check whether the input graph is complete.",
                     function.GetRawName().c_str());
                 return FAILED;
             }

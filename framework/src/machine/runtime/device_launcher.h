@@ -32,7 +32,7 @@
 #include "machine/device/dynamic/device_common.h"
 #include "machine/runtime/device_memory_utils.h"
 #include "machine/runtime/distributed/distributed_context.h"
-#include "interface/utils/error_code.h"
+#include "tilefwk/error_code.h"
 
 namespace npu::tile_fwk::dynamic {
 struct AiCpuArgs {
@@ -422,12 +422,11 @@ public:
     static int RunWithProfile(RtStream aicoreStream, RtStream aicpuStream, bool isCapture);
     static int DeviceLaunchOnceWithDeviceTensorData(
         Function* function, const std::vector<DeviceTensorData>& inputList,
-        const std::vector<DeviceTensorData>& outputList, RtStream aicpuStream, RtStream aicoreStream,
-        bool streamSynchronize, CachedOperator* cachedOperator, DevControlFlowCache* ctrlCache = nullptr,
-        const DeviceLauncherConfig& config = DeviceLauncherConfig());
+        const std::vector<DeviceTensorData>& outputList, RtStream aicpuStream, RtStream ctrlStream,
+        RtStream aicoreStream, bool streamSynchronize, CachedOperator* cachedOperator, 
+        DevControlFlowCache* ctrlCache = nullptr, const DeviceLauncherConfig& config = DeviceLauncherConfig());
 
     static int DeviceSynchronize(RtStream aicpuStream, RtStream aicoreStream);
-
     static void FillDeviceKernelArgs(
         std::vector<uint8_t>& devProgData, DeviceKernelArgs& kargs, const std::vector<std::string>& groupNames);
     static int64_t GetL2Offset();

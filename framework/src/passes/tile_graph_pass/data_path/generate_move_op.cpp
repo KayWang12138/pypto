@@ -23,7 +23,7 @@
 #include "passes/pass_check/generate_move_op_checker.h"
 #include "passes/pass_utils/dead_operation_eliminate.h"
 #include "passes/pass_log/pass_log.h"
-#include "interface/utils/error_code.h"
+#include "tilefwk/error_code.h"
 
 #define MODULE_NAME "GenerateMoveOp"
 
@@ -238,6 +238,7 @@ void GenerateMoveOp::SetL0C2L1CopyAttr(
         OpImmediate::Specified(op.iOperand.front()->tensor->GetDynRawShape()), OpImmediate::Specified(validShape));
     copyAttr->SetToOffset(toOffset);
     op.SetOpAttribute(copyAttr);
+    op.SetAttr(OpAttributeKey::copyIsNZ, static_cast<int64_t>(1));
 }
 
 Status GenerateMoveOp::SetOpcodeByMemPath(Operation& op, MemoryType from, MemoryType to) const
