@@ -39,25 +39,25 @@ def compare_cos(davinci1_input, davinci2_input):
     print()
     return cos
 
-def pypto_assemble_in_torch(source, target, offsets=None):
-    """
-    source: 可以是 (tensor, offset) 的列表，或者是单个 tensor
-    target: 目标 tensor (out)
-    offsets: 如果 source 是单个 tensor，则需要指定偏移
-    """
-    if isinstance(source, list):
-        for s_tensor, s_off in source:
-            # 生成切片索引
-            slices = []
-            for i, off in enumerate(s_off):
-                slices.append(slice(off, off + s_tensor.shape[i]))
-            target[tuple(slices)] = s_tensor
-    else:
-        # 生成切片索引
-        slices = []
-        for i, off in enumerate(offsets):
-            slices.append(slice(off, off + source.shape[i]))
-        target[tuple(slices)] = source
+ def pypto_assemble_in_torch(source, target, offsets=None):	 
+     """	 
+     source: 可以是 (tensor, offset) 的列表，或者是单个 tensor	 
+     target: 目标 tensor (out)	 
+     offsets: 如果 source 是单个 tensor，则需要指定偏移	 
+     """	 
+     if isinstance(source, list):	 
+         for s_tensor, s_off in source:	 
+             # 生成切片索引	 
+             slices = []	 
+             for i, off in enumerate(s_off):	 
+                 slices.append(slice(off, off + s_tensor.shape[i]))	 
+             target[tuple(slices)] = s_tensor	 
+     else:	 
+         # 生成切片索引	 
+         slices = []	 
+         for i, off in enumerate(offsets):	 
+             slices.append(slice(off, off + source.shape[i]))	 
+         target[tuple(slices)] = source
 
 @pypto.frontend.jit(codegen_options={"soc_version": "Kirin9030"}, runtime_options={"run_mode": pypto.RunMode.NPU})
 def assemble_kernel_fp16(
@@ -147,7 +147,7 @@ def assemble_kernel_fp16_010(
     out_tensor: pypto.Tensor([...], pypto.DT_FP16),
 ):
     pypto.set_vec_tile_shapes(1, 16)
-    pypto.assemble([(input1, [0, 0]), (input2, [2, 2])], out_tensor, True)
+    pypto.assemble([(input1, [0, 0]), (input2, [2, 2])], out_tensor, parallel=True)
 
 
 class TestLiteNPUAssembleFP16(unittest.TestCase):
@@ -412,7 +412,7 @@ def assemble_kernel_fp32_010(
     out_tensor: pypto.Tensor([...], pypto.DT_FP32),
 ):
     pypto.set_vec_tile_shapes(1, 8)
-    pypto.assemble([(input1, [0, 0]), (input2, [2, 2])], out_tensor, True)
+    pypto.assemble([(input1, [0, 0]), (input2, [2, 2])], out_tensor, parallel=True)
 
 
 class TestLiteNPUAssembleFP32(unittest.TestCase):
@@ -632,7 +632,7 @@ def assemble_kernel_int8_005(
     out_tensor: pypto.Tensor([...], pypto.DT_INT8),
 ):
     pypto.set_vec_tile_shapes(1, 32)
-    pypto.assemble([(input1, [0, 0]), (input2, [2, 2])], out_tensor, True)
+    pypto.assemble([(input1, [0, 0]), (input2, [2, 2])], out_tensor, parallel=True)
 
 
 class TestLiteNPUAssembleInt8(unittest.TestCase):
@@ -767,7 +767,7 @@ def assemble_kernel_int16_005(
     out_tensor: pypto.Tensor([...], pypto.DT_INT16),
 ):
     pypto.set_vec_tile_shapes(1, 16)
-    pypto.assemble([(input1, [0, 0]), (input2, [2, 2])], out_tensor, True)
+    pypto.assemble([(input1, [0, 0]), (input2, [2, 2])], out_tensor, parallel=True)
 
 
 class TestLiteNPUAssembleInt16(unittest.TestCase):
@@ -902,7 +902,7 @@ def assemble_kernel_int32_005(
     out_tensor: pypto.Tensor([...], pypto.DT_INT32),
 ):
     pypto.set_vec_tile_shapes(1, 8)
-    pypto.assemble([(input1, [0, 0]), (input2, [2, 2])], out_tensor, True)
+    pypto.assemble([(input1, [0, 0]), (input2, [2, 2])], out_tensor, parallel=True)
 
 
 class TestLiteNPUAssembleInt32(unittest.TestCase):
@@ -1001,7 +1001,7 @@ def assemble_kernel_list_fp32_001(
     out_tensor: pypto.Tensor([...], pypto.DT_FP32),
 ):
     pypto.set_vec_tile_shapes(1, 8)
-    pypto.assemble([(input1, [0, 0]), (input2, [2, 2])], out_tensor, False)
+    pypto.assemble([(input1, [0, 0]), (input2, [2, 2])], out_tensor, parallel=True)
 
 
 @pypto.frontend.jit(codegen_options={"soc_version": "Kirin9030"}, runtime_options={"run_mode": pypto.RunMode.NPU})
@@ -1011,7 +1011,7 @@ def assemble_kernel_list_fp32_002(
     out_tensor: pypto.Tensor([...], pypto.DT_FP32),
 ):
     pypto.set_vec_tile_shapes(8)
-    pypto.assemble([(input1, [1]), (input2, [3])], out_tensor, False)
+    pypto.assemble([(input1, [1]), (input2, [3])], out_tensor, parallel=True)
 
 
 @pypto.frontend.jit(codegen_options={"soc_version": "Kirin9030"}, runtime_options={"run_mode": pypto.RunMode.NPU})
@@ -1021,7 +1021,7 @@ def assemble_kernel_list_fp32_003(
     out_tensor: pypto.Tensor([...], pypto.DT_FP32),
 ):
     pypto.set_vec_tile_shapes(1, 1, 8)
-    pypto.assemble([(input1, [0, 0, 0]), (input2, [1, 1, 1])], out_tensor, False)
+    pypto.assemble([(input1, [0, 0, 0]), (input2, [1, 1, 1])], out_tensor, parallel=True)
 
 
 @pypto.frontend.jit(codegen_options={"soc_version": "Kirin9030"}, runtime_options={"run_mode": pypto.RunMode.NPU})
@@ -1031,7 +1031,7 @@ def assemble_kernel_list_multi_shape_001(
     out_tensor: pypto.Tensor([...], pypto.DT_FP32),
 ):
     pypto.set_vec_tile_shapes(1, 8)
-    pypto.assemble([(input1, [0, 0]), (input2, [2, 2])], out_tensor, False)
+    pypto.assemble([(input1, [0, 0]), (input2, [2, 2])], out_tensor, parallel=True)
 
 
 @pypto.frontend.jit(codegen_options={"soc_version": "Kirin9030"}, runtime_options={"run_mode": pypto.RunMode.NPU})
@@ -1041,7 +1041,7 @@ def assemble_kernel_list_multi_shape_002(
     out_tensor: pypto.Tensor([...], pypto.DT_FP32),
 ):
     pypto.set_vec_tile_shapes(1, 8)
-    pypto.assemble([(input1, [0, 0]), (input2, [2, 0])], out_tensor, False)
+    pypto.assemble([(input1, [0, 0]), (input2, [2, 0])], out_tensor, parallel=True)
 
 
 @pypto.frontend.jit(codegen_options={"soc_version": "Kirin9030"}, runtime_options={"run_mode": pypto.RunMode.NPU})
@@ -1051,7 +1051,7 @@ def assemble_kernel_list_multi_shape_003(
     out_tensor: pypto.Tensor([...], pypto.DT_FP32),
 ):
     pypto.set_vec_tile_shapes(10, 80)
-    pypto.assemble([(input1, [0, 0]), (input2, [2, 0])], out_tensor, False)
+    pypto.assemble([(input1, [0, 0]), (input2, [2, 0])], out_tensor, parallel=True)
 
 
 class TestLiteNPUAssembleList(unittest.TestCase):
@@ -1077,9 +1077,9 @@ class TestLiteNPUAssembleList(unittest.TestCase):
     def test_assemble_list_fp32_002(self):
         device = "cpu"
         dtype = torch.float32
-        shape_input1 = (4,)
-        shape_input2 = (4,)
-        shape_out = (6,)
+        shape_input1 = (2,)
+        shape_input2 = (2,)
+        shape_out = (8,)
 
         input1 = torch.rand(shape_input1, dtype=dtype, device=device)
         input2 = torch.rand(shape_input2, dtype=dtype, device=device)

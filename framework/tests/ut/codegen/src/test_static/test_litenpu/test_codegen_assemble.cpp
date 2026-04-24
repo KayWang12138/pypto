@@ -599,9 +599,9 @@ TEST_F(LiteNPUCodeGenAssemble, test_assemble_list_fp32_002)
     PROGRAM("ASSEMBLE_LIST_FP32_002")
     {
         TileShape::Current().SetVecTile({8});
-        Tensor input1(DT_FP32, {4}, "input1");
-        Tensor input2(DT_FP32, {4}, "input2");
-        Tensor out(DT_FP32, {6}, "out");
+        Tensor input1(DT_FP32, {2}, "input1");
+        Tensor input2(DT_FP32, {2}, "input2");
+        Tensor out(DT_FP32, {8}, "out");
         FUNCTION("ASSEMBLE_LIST_FP32_002") { Assemble({{input1, {1}}, {input2, {3}}}, out, false); }
     }
     auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + "ASSEMBLE_LIST_FP32_002");
