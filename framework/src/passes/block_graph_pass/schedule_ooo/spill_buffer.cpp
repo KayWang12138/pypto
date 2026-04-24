@@ -208,7 +208,7 @@ void OoOScheduler::GetActualSpillInfo(Operation* spillOp, std::pair<LogicalTenso
             actualSpillOp = op;
         }
     }
-    if (spillOp->GetOpcode() == Opcode::OP_RESHAPE) {
+    if (spillOp->GetOpcode() == Opcode::OP_RESHAPE && actualSpillOp) {
         actualSpillTensor = actualSpillOp->GetInputOperand(0);
         copyOp = actualSpillOp;
     }
@@ -241,6 +241,10 @@ void OoOScheduler::UpdateOpAttr(Operation &op, int opLatency, LogicalTensorPtr s
             std::pair<LogicalTensorPtr, Operation*> actualInfo;
             GetActualSpillInfo(spillOp, actualInfo);
             auto attr = std::dynamic_pointer_cast<CopyOpAttribute>(actualInfo.second->GetOpAttribute());
+            if (attr == nullptr) {
+                APASS_LOG_INFO_F(Elements::Tensor, "Op %s attribute is nullptr", GetOpInfo(actualInfo.second).c_str());
+                return;
+            }
             op.SetOpAttribute(std::make_shared<CopyOpAttribute>(
                 attr->GetFromOffset(), spillTensor->GetMemoryTypeOriginal(),
                 OpImmediate::Specified(spillTensor->GetShape()),
