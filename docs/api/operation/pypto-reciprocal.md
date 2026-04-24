@@ -2,8 +2,7 @@
 
 ## 功能说明
 
-计算输入张量的元素级倒数，即 `out = 1 / input`。
-
+计算输入张量的元素级倒数，即 `out = 1 / input`�?
 ## 接口原型
 
 ```python
@@ -14,19 +13,17 @@ pypto.reciprocal(input, precision_type=pypto.RecipAlgorithm.INTRINSIC) -> Tensor
 
 | 参数 | 类型 | 说明 |
 |:-----|:-----|:-----|
-| input | Tensor | 输入张量。<br>支持的数据类型为：DT_FP16、DT_BF16、DT_FP32。<br>不支持空Tensor；支持的维度：1-4维；Shape Size不大于2147483647（即INT32_MAX）。 |
-| precision_type | RecipAlgorithm, 可选 | 倒数操作的精度模式。默认值为 `RecipAlgorithm.INTRINSIC`。<br>**INTRINSIC**：直接使用芯片指令进行计算，速度更快。<br>**HIGH_PRECISION**：使用更高精度的计算方式，减少精度损失。 |
+| input | Tensor | 输入张量�?br>支持的数据类型为：DT_FP16、DT_BF16、DT_FP32�?br>不支持空Tensor；支持的维度�?-4维；Shape Size不大�?147483647（即INT32_MAX）�?|
+| precision_type | RecipAlgorithm, 可�?| 倒数操作的精度模式。默认值为 `RecipAlgorithm.INTRINSIC`�?br>**INTRINSIC**：直接使用芯片指令进行计算，速度更快�?br>**HIGH_PRECISION**：使用更高精度的计算方式，减少精度损失�?|
 
-## 返回值
-
+## 返回�?
 | 类型 | 说明 |
 |:-----|:-----|
-| Tensor | 包含输入张量元素级倒数的新张量。 |
+| Tensor | 包含输入张量元素级倒数的新张量�?|
 
 ## 代码示例
 
-### 示例 1：基本使用
-
+### 示例 1：基本使�?
 ```python
 import pypto
 
@@ -42,7 +39,7 @@ y = pypto.reciprocal(x)
 ```python
 import pypto
 
-# 使用高精度模式进行 FP16 计算
+# 使用高精度模式进�?FP16 计算
 x = pypto.tensor([4], pypto.DT_FP16)
 y = pypto.reciprocal(x, pypto.RecipAlgorithm.HIGH_PRECISION)
 
@@ -50,8 +47,7 @@ y = pypto.reciprocal(x, pypto.RecipAlgorithm.HIGH_PRECISION)
 # Output y: [0.25]
 ```
 
-### 示例 3：使用指令模式
-
+### 示例 3：使用指令模�?
 ```python
 import pypto
 
@@ -65,5 +61,4 @@ y = pypto.reciprocal(x, pypto.RecipAlgorithm.INTRINSIC)
 
 ## 相关接口
 
-- [pypto.rsqrt](pypto-rsqrt.md)：计算输入张量的元素级平方根的倒数。
-- [pypto.div](pypto-div.md)：计算两个张量的元素级除法。
+- [pypto.rsqrt](pypto-rsqrt.md)：计算输入张量的元素级平方根的倒数�?- [pypto.div](pypto-div.md)：计算两个张量的元素级除法�

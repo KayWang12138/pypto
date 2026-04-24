@@ -4,13 +4,13 @@
 
 | 产品             | 是否支持 |
 |:-----------------|:--------:|
-| Ascend 950PR/Ascend 950DT |    √     |
-| Atlas A3 训练系列产品/Atlas A3 推理系列产品 |    √     |
-| Atlas A2 训练系列产品/Atlas A2 推理系列产品 |    √     |
+| Ascend 950PR/Ascend 950DT |    �?    |
+| Atlas A3 训练系列产品/Atlas A3 推理系列产品 |    �?    |
+| Atlas A2 训练系列产品/Atlas A2 推理系列产品 |    �?    |
 
 ## 功能说明
 
-将 input 的每个元素除以 other 中对应位置的元素，计算公式如下：
+�?input 的每个元素除�?other 中对应位置的元素，计算公式如下：
 
 $$
 res_i = input_i \div other_i
@@ -25,61 +25,46 @@ div(input: Tensor, other: Union[Tensor, float], precision_type: DivAlgorithm = D
 ## 参数说明
 
 
-| 参数名 | 输入/输出 | 说明                                                                 |
+| 参数�?| 输入/输出 | 说明                                                                 |
 |--------|-----------|----------------------------------------------------------------------|
-| input  | 输入      | 源操作数。 <br> 支持的类型为：Tensor。 <br> Tensor支持的数据类型为：DT_FP16，DT_BF16，DT_FP32。 <br> 不支持空Tensor；支持的维度：1-4维；支持多维度广播到相同形状；Shape Size不大于2147483647（即INT32_MAX）。 |
-| other  | 输入      | 源操作数。 <br> 支持的类型为float以及Tensor类型。 <br> Tensor支持的数据类型为：DT_FP16，DT_BF16，DT_FP32。 <br> 不支持空Tensor；支持的维度：1-4维；支持多维度广播到相同形状；Shape Size不大于2147483647（即INT32_MAX）。 |
-| precision_type | 输入 | 精度模式枚举类型，用以控制除法计算的精度模式，具体定义为：[DivAlgorithm](../datatype/DivAlgorithm.md) 。<br> 默认为 HIGH_PRECISION（高精度模式）。 |
+| input  | 输入      | 源操作数�?<br> 支持的类型为：Tensor�?<br> Tensor支持的数据类型为：DT_FP16，DT_BF16，DT_FP32�?<br> 不支持空Tensor；支持的维度�?-4维；支持多维度广播到相同形状；Shape Size不大�?147483647（即INT32_MAX）�?|
+| other  | 输入      | 源操作数�?<br> 支持的类型为float以及Tensor类型�?<br> Tensor支持的数据类型为：DT_FP16，DT_BF16，DT_FP32�?<br> 不支持空Tensor；支持的维度�?-4维；支持多维度广播到相同形状；Shape Size不大�?147483647（即INT32_MAX）�?|
+| precision_type | 输入 | 精度模式枚举类型，用以控制除法计算的精度模式，具体定义为：[DivAlgorithm](../datatype/DivAlgorithm.md) �?br> 默认�?HIGH_PRECISION（高精度模式）�?|
 
-## 返回值说明
-
-返回输出Tensor，Tensor的数据类型和input、other相同，Shape为input和other广播后大小。
-
+## 返回值说�?
+返回输出Tensor，Tensor的数据类型和input、other相同，Shape为input和other广播后大小�?
 ## 约束说明
 
-1.  input 和 other 类型应该相同。
-2.  other 为数字的时候，不支持隐式转化。
-3.  other 不支持nan、inf等特殊值
-4.  **精度模式说明**：
-    - **HIGH_PRECISION（高精度模式）**：默认模式，在底层实现中会使用更高精度的计算方式。
-    - **INTRINSIC（指令模式）**：直接使用芯片指令进行计算。
-
+1.  input �?other 类型应该相同�?2.  other 为数字的时候，不支持隐式转化�?3.  other 不支持nan、inf等特殊�?4.  **精度模式说明**�?    - **HIGH_PRECISION（高精度模式�?*：默认模式，在底层实现中会使用更高精度的计算方式�?    - **INTRINSIC（指令模式）**：直接使用芯片指令进行计算�?
 ## 调用示例
 
 ### TileShape设置示例
 
-调用该operation接口前，应通过set_vec_tile_shapes设置TileShape。
-
-TileShape维度应和输出一致。
-
-如非广播场景，输入intput shape为[m, n]，other为[m, n]，输出为[m, n]，TileShape设置为[m1, n1]，则m1, n1分别用于切分m, n轴。
-
-广播场景，输入intput shape为[m, n]，other为[m, 1]，输出为[m, n]，TileShape设置为[m1, n1]，则m1, n1分别用于切分m, n轴。
-
+调用该operation接口前，应通过set_vec_tile_shapes设置TileShape�?
+TileShape维度应和输出一致�?
+如非广播场景，输入input shape为[m, n]，other为[m, n]，输出为[m, n]，TileShape设置为[m1, n1]，则m1, n1分别用于切分m, n轴�?
+广播场景，输入input shape为[m, n]，other为[m, 1]，输出为[m, n]，TileShape设置为[m1, n1]，则m1, n1分别用于切分m, n轴�?
 ```python
 pypto.set_vec_tile_shapes(4, 16)
 ```
 
 ### 接口调用示例
 
-#### 基本用法（默认使用高精度模式）
-
+#### 基本用法（默认使用高精度模式�?
 ```python
 a = pypto.tensor([1, 3], pypto.DT_FP32)
 b = pypto.tensor([1, 3], pypto.DT_FP32)
 out = pypto.div(a, b)  # 默认使用 HIGH_PRECISION 模式
 ```
 
-结果示例如下：
-
+结果示例如下�?
 ```python
 输入数据a:    [[2.0 4.0 6.0]]
 输入数据b:    [[2.0 2.0 2.0]]
 输出数据out:  [[1.0 2.0 3.0]]
 ```
 
-#### 显式指定高精度模式
-
+#### 显式指定高精度模�?
 ```python
 a = pypto.tensor([1, 3], pypto.DT_FP16)
 b = pypto.tensor([1, 3], pypto.DT_FP16)

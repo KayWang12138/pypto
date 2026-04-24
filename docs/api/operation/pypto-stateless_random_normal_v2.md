@@ -4,12 +4,11 @@
 
 | 产品             | 是否支持 |
 |:-----------------|:--------:|
-| Ascend 950PR/Ascend 950DT |    √     |
+| Ascend 950PR/Ascend 950DT |    �?    |
 
 ## 功能说明
 
-生成指定shape的正态分布（高斯分布）随机数，其元素服从均值为0，方差为1。
-$$
+生成指定shape的正态分布（高斯分布）随机数，其元素服从均值为0，方差为1�?$$
 x_i \sim N(0, 1)
 $$
 
@@ -22,33 +21,25 @@ stateless_random_normal_v2(shape: List[int], key: List[int], counter: List[int],
 ## 参数说明
 
 
-| 参数名  | 输入/输出 | 说明                                                                 |
+| 参数�? | 输入/输出 | 说明                                                                 |
 |---------|-----------|--------------------------------------------------------------------|
-| shape   | 输入      | 输出Tensor的形状。 <br> 长度支持1-4维。                                        |
-| key     | 输入      | 随机数生成器的seed。 <br> 长度仅支持为1。                                         |
-| counter | 输入      | 随机数生成器的计数器。 <br> 长度仅支持为2。                                          |
-| alg     | 输入      | 随机数生成算法，当前仅支持值1（Philox算法），3（auto_select，选择Philox算法）。 <br> 长度仅支持为1。 |
-| dtype   | 输入      | 输出Tensor的数据类型。 <br> 支持的数据类型为：DT_FP32, DT_FP16, DT_BF16。            |
+| shape   | 输入      | 输出Tensor的形状�?<br> 长度支持1-4维�?                                       |
+| key     | 输入      | 随机数生成器的seed�?<br> 长度仅支持为1�?                                        |
+| counter | 输入      | 随机数生成器的计数器�?<br> 长度仅支持为2�?                                         |
+| alg     | 输入      | 随机数生成算法，当前仅支持�?（Philox算法），3（auto_select，选择Philox算法）�?<br> 长度仅支持为1�?|
+| dtype   | 输入      | 输出Tensor的数据类型�?<br> 支持的数据类型为：DT_FP32, DT_FP16, DT_BF16�?           |
 
 ## 约束说明
-- 只在A5上支持。
-- 不支持shape切分多个view shape，view shape必须和输入的shape一致。
-- 不支持shape切分多个tile shape，tile shape必须和输入的shape一致。
-
-## 返回值说明
-
-返回一个指定shape、数据类型为dtype的Tensor，其元素服从均值为0，方差为1的正态分布。
-
+- 只在A5上支持�?- 不支持shape切分多个view shape，view shape必须和输入的shape一致�?- 不支持shape切分多个tile shape，tile shape必须和输入的shape一致�?
+## 返回值说�?
+返回一个指定shape、数据类型为dtype的Tensor，其元素服从均值为0，方差为1的正态分布�?
 ## 调用示例
 
 ### TileShape设置示例
 
-调用该operation接口前，应通过set_vec_tile_shapes设置TileShape。
-
-TileShape维度应和输入一致，且必须和输入的shape一致。
-
-如输入shape为[m, n]，输出为[m, n]，TileShape设置为[m, n]。
-
+调用该operation接口前，应通过set_vec_tile_shapes设置TileShape�?
+TileShape维度应和输入一致，且必须和输入的shape一致�?
+如输入shape为[m, n]，输出为[m, n]，TileShape设置为[m, n]�?
 ```python
 pypto.set_vec_tile_shapes(4, 4)
 ```
@@ -65,8 +56,7 @@ dtype = pypto.DT_FP32
 y = pypto.stateless_random_normal_v2(shape, key, counter, alg, dtype)
 ```
 
-结果示例如下：
-
+结果示例如下�?
 ```python
 输出数据y: [[-0.32364845  1.8577391   0.39556974  0.2311697 ]
             [ 0.24243996 -1.9485782  -0.12983137  2.7137496 ]
