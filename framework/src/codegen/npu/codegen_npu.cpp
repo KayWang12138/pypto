@@ -543,21 +543,21 @@ void CodeGenNPU::BuildIncludes(std::ostringstream& oss) const
 {
     // used for compiling cce
     std::string includePath = GetIncludePathForCompileCCE();
-    oss << "-I" << includePath << "/tilefwk "
-        << "-I" << includePath << "/tileop "
-        << "-I" << includePath << "/tileop/arch32 "
-        << "-I" << includePath << " ";
+    oss << "-I" << includePath << "/tilefwk ";
 
     std::string ptoTileLibPath = GetPtoTileLibPathByEnv();
     if (!ptoTileLibPath.empty()) {
         oss << "-I" << ptoTileLibPath << " ";
     }
+
+    oss << "-I" << includePath << "/tileop "
+        << "-I" << includePath << "/tileop/arch32 "
+        << "-I" << includePath << " ";
 }
 
 void CodeGenNPU::AppendVFOptions(NPUArch platform, std::ostringstream& oss)
 {
     if (platform != NPUArch::DAV_3510) {
-        
         return;
     }
 
