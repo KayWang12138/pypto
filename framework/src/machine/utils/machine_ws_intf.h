@@ -19,6 +19,8 @@
 #include "tilefwk/aicpu_common.h"
 #include "interface/utils/common.h"
 #include "tilefwk/core_func_data.h"
+#include "tilefwk/error_code.h"
+#include "machine/utils/device_log.h"
 #include <string>
 #include <sstream>
 #include <mutex>
@@ -46,6 +48,7 @@ struct QueueGeneric {
         if (capacity() == 0) {
             return *this;
         }
+        DEV_ASSERT(SchedErr::READY_QUEUE_OVERFLOW, rhs.size() <= capacity());
         std::copy(rhs.elem + rhs.head, rhs.elem + rhs.tail, elem);
         return *this;
     }
@@ -122,7 +125,8 @@ struct LockableQueueGeneric : public QueueGeneric<T> {
     {
         const uint32_t t = __atomic_fetch_add(&this->tail, count, std::memory_order_release);
         // Faster analog of std::copy(x, x + count, this->elem + t);
-        memcpy_s(this->elem + t, sizeof(T) * (this->capacity() - t), x, sizeof(T) * count);
+        auto err = memcpy_s(this->elem + t, sizeof(T) * (this->capacity() - t), x, sizeof(T) * count);
+        DEV_ASSERT(SchedErr::READY_QUEUE_OVERFLOW, !err);
     }
 
     __attribute__((always_inline)) inline bool try_enqueue(T x)
@@ -146,7 +150,7 @@ struct LockableQueueGeneric : public QueueGeneric<T> {
             return false;
         }
         // Faster analog of std::copy(x, x + count, this->elem + t);
-        memcpy_s(this->elem + t, sizeof(T) * (this->capacity() - t), x, sizeof(T) * count);
+        memcpy(this->elem + t, x, sizeof(T) * count);
         return true;
     }
 
@@ -182,7 +186,7 @@ struct LockableQueueGeneric : public QueueGeneric<T> {
         }
         __atomic_store_n(&this->tail, t - cnt, __ATOMIC_RELAXED);
         // Faster analog og std::copy(this->elem + t - cnt, this->elem + t, out);
-        memcpy_s(out, sizeof(T) * max_count, this->elem + t - cnt, sizeof(T) * cnt);
+        memcpy(out, this->elem + t - cnt, sizeof(T) * cnt);
         return datarange(out, out + cnt);
     }
 

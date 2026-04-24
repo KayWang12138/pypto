@@ -46,7 +46,7 @@ public:
     inline void TaskEnqueue(uint64_t taskId)
     {
         bool res = readyQueue_->try_enqueue(taskId);
-        DEV_ASSERT(0, res);
+        DEV_ASSERT(SchedErr::READY_QUEUE_OVERFLOW, res); // fail on queue overflow
     }
 
     // 仅AICPU_0会调用
