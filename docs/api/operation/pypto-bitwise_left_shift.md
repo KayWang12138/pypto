@@ -13,7 +13,7 @@
 逐元素地将input左移other位。计算公式如下：
 
 $$
-res_i = input_i >> other_i
+res_i = input_i << other_i
 $$
 
 ## 函数原型
