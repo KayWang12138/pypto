@@ -39,6 +39,7 @@
 #include <dlfcn.h>
 #include "tilefwk/pypto_fwk_log.h"
 #include "tilefwk/error_code.h"
+#include "interface/tensor/symbolic_scalar.h"
 
 using namespace npu::tile_fwk::dynamic;
 namespace npu::tile_fwk {
@@ -396,7 +397,7 @@ static void InsertWaitCoreStart(
     const auto& primaryExprs = exprTable->GetPrimaryExpressionSet();
     for (const auto& expr : primaryExprs) {
         if (exprTable->CheckExprDependCore(
-                expr, valDependTensorMeta.tensorNameToDependCore, valDependTensorMeta.valDependMap)) {
+                expr, valDependTensorMeta.tensorNameToDependCore, valDependTensorMeta.c)) {
             needSync = true;
             break;
         }
@@ -417,6 +418,49 @@ static void GenerateExpression(
     ExprBatchGenerator generator(outputDir, devRootKey, totalExprs);
     generator.GenerateBatchFile(
         exprTable, controlFlowOss, exprHeaderOss, expName, primaryExprs, exprSrcFiles, indent, devRootKey);
+}
+
+static bool ValueDependNeedsCacheStopInterrupt(
+    Function* keyFunc, bool isDynLoop, const DyndevFunctionAttribute::ValueDependDesc& desc,
+    const ValDependTensorMeta& meta)
+{
+    if (desc.getInputDataCount + desc.getTensorDataCount == 0) {
+        return false;
+    }
+    if (desc.getTensorDataCount > 0) {
+        return true;
+    }
+
+    auto checkOne = [&](const SymbolicScalar& ss) -> bool {
+        std::unordered_map<RawSymbolicScalarPtr, bool> freshMap;
+        return SymbolicExpressionTable::CheckExprDependCore(ss.Raw(), meta.tensorNameToDependCore, freshMap);
+    };
+
+    if (isDynLoop) {
+        auto loopAttr = keyFunc->GetDynloopAttribute();
+        ASSERT(DevCommonErr::PARAM_CHECK_FAILED, loopAttr != nullptr) << "loop attr is nullptr";
+        if (checkOne(loopAttr->Begin()) || checkOne(loopAttr->End()) || checkOne(loopAttr->Step())) {
+            return true;
+        }
+        for (const auto& path : loopAttr->GetPathList()) {
+            for (const auto& cond : path.GetPathCondList()) {
+                if (checkOne(cond.GetCond())) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
+    for (auto& op : keyFunc->Operations(false)) {
+        std::vector<std::reference_wrapper<SymbolicScalar>> attrList = op.GetDynamicAttributeList();
+        for (auto& attr : attrList) {
+            if (checkOne(attr.get())) {
+                return true;
+            }
+        }
+    }
+    return false;
 }
 
 void GetReadyOnHostTensorsSet(std::unordered_set<int>& readyOnHostTensorsSet)
@@ -553,7 +597,8 @@ static void BuildControlFlow(
         auto currDynFuncAttr = Program::GetInstance().GetCurrentDynamicFunction()->GetDyndevAttribute();
         if (currDynFuncAttr->valueDependDescDict.count(func)) {
             auto valueDependDesc = currDynFuncAttr->valueDependDescDict[func];
-            if (valueDependDesc.getInputDataCount + valueDependDesc.getTensorDataCount != 0) {
+            if (valueDependDesc.getInputDataCount + valueDependDesc.getTensorDataCount != 0 &&
+                ValueDependNeedsCacheStopInterrupt(func, true, valueDependDesc, valDependTensorMeta)) {
                 controlFlowOss << std::setw(indent * TABSIZE) << ' '
                                << "RUNTIME_RootStitch(RUNTIME_FUNCKEY_CACHESTOP); // force stop cache due to value "
                                   "depend in control\n";
@@ -631,7 +676,8 @@ static void BuildControlFlow(
         Function* tile = rootTileDict[func];
         if (currDynFuncAttr->valueDependDescDict.count(tile)) {
             auto valueDependDesc = currDynFuncAttr->valueDependDescDict[tile];
-            if (valueDependDesc.getInputDataCount + valueDependDesc.getTensorDataCount != 0) {
+            if (valueDependDesc.getInputDataCount + valueDependDesc.getTensorDataCount != 0 &&
+                ValueDependNeedsCacheStopInterrupt(tile, false, valueDependDesc, valDependTensorMeta)) {
                 controlFlowOss << std::setw(indent * TABSIZE) << ' '
                                << "RUNTIME_RootStitch(RUNTIME_FUNCKEY_CACHESTOP); // force stop cache due to value "
                                   "depend in data\n";

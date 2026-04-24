@@ -15,7 +15,12 @@
 
 #include "machine/runtime/emulation_launcher.h"
 
+#include <cstdlib>
+#include <list>
+#include <memory>
 #include <thread>
+#include <unordered_set>
+
 #include "machine/host/backend.h"
 #include "machine/runtime/device_launcher.h"
 #include "tilefwk/error_code.h"
@@ -159,7 +164,40 @@ int EmulationLauncher::BuildControlFlowCacheWithEmulationTensorData(
     DeviceKernelArgs kArgs;
     DeviceLauncher::DeviceInitDistributedContext(memUtils, dynAttr->commGroupNames, kArgs);
     DeviceLauncher::DeviceInitTilingData(memUtils, kArgs, dynAttr->devProgBinary, hostCtrlFlowCache, config, nullptr);
-    DeviceLauncher::DeviceInitKernelInOuts(memUtils, kArgs, inputList, outputList, dynAttr->disableL2List);
+
+    std::list<std::unique_ptr<uint8_t, void (*)(uint8_t*)>> d2hHostAllocs;
+    std::vector<DeviceTensorData> inputsForCache(inputList.begin(), inputList.end());
+    std::unordered_set<int> readyOnHostIndices;
+    npu::tile_fwk::GetReadyOnHostTensorsSet(readyOnHostIndices);
+    for (int idx : readyOnHostIndices) {
+        if (idx < 0 || static_cast<size_t>(idx) >= inputsForCache.size()) {
+            continue;
+        }
+        DeviceTensorData& td = inputsForCache[static_cast<size_t>(idx)];
+        void* src = td.GetAddr();
+        if (src == nullptr) {
+            continue;
+        }
+        const int64_t sz = td.GetDataSize();
+        if (sz <= 0) {
+            continue;
+        }
+        auto* host = static_cast<uint8_t*>(malloc(static_cast<size_t>(sz)));
+        if (host == nullptr) {
+            MACHINE_LOGE(DevCommonErr::NULLPTR, "D2H malloc failed for host cache build, input index %d", idx);
+            return -1;
+        }
+        if (RuntimeMemcpy(host, static_cast<size_t>(sz), src, static_cast<size_t>(sz), RtMemcpyKind::DEVICE_TO_HOST) !=
+            0) {
+            free(host);
+            MACHINE_LOGE(DevCommonErr::NULLPTR, "D2H RuntimeMemcpy failed for host cache build, input index %d", idx);
+            return -1;
+        }
+        d2hHostAllocs.push_back(std::unique_ptr<uint8_t, void (*)(uint8_t*)>(host, [](uint8_t* p) { std::free(p); }));
+        td = DeviceTensorData(td.GetDataType(), host, td.GetShape(), td.Format());
+    }
+
+    DeviceLauncher::DeviceInitKernelInOuts(memUtils, kArgs, inputsForCache, outputList, dynAttr->disableL2List);
     int rc = EmulationBuildControlFlowCache(kArgs);
 
     hostCtrlFlowCache->isRecording = false;
