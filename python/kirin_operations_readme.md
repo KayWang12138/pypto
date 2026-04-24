@@ -2837,7 +2837,6 @@ view(input: Tensor, shape: List[int] = None, offsets: List[Union[int, SymbolicSc
 | shape       | 输入      | 获取出视图的大小。<br> Shape Size不大于2147483647（即INT32_MAX） |
 | offsets     | 输入      | 获取视图时每个维度相对于input的偏移。<br> 需要保证offsets小于input的Shape |
 | valid_shape | 输入      | 取出示意图块的有效数据大小。<br> 需要保证valid_shape小于input的Shape |
-| dtype       | 输入      | 返回值的数据类型，允许将输入数据解读为不同数据类型 |
 
 ##### 返回值说明
 
@@ -2910,11 +2909,6 @@ void TiledViewTypeOperation(Function &function, const TileShape &tileShape,
 | view_fp32_008 | (2, 2, 2, 4) | (2, 2, 2, 2) | [0, 0, 0, 2] | (1, 1, 1, 8) | fp32 | 4d视图，形状(2,2,2,2)，n,c,h,w切分 |
 | view_fp32_009 | (6) | (4) | [2] | (8) | fp32 | 1d视图，形状(4)，w切分 |
 | view_fp32_010 | (2, 8) | (2, 4) | [0, 4] | (1, 8) | fp32 | 2d视图，形状(2,4)，h,w切分 |
-| view_dtype_fp32_001 | (2, 2) | (2, 2) | [0, 0] | (1, 8) | fp32 | 2d视图，转换为int8，h切分 |
-| view_dtype_fp32_002 | (2, 2) | (2, 2) | [0, 0] | (1, 8) | fp32 | 2d视图，转换为fp16，h切分 |
-| view_dtype_fp32_003 | (4) | (4) | [0] | (8) | fp32 | 1d视图，转换为int8，w切分 |
-| view_dtype_fp32_004 | (2, 4) | (2, 4) | [0, 0] | (1, 8) | fp32 | 2d视图，转换为fp16，h,w切分 |
-| view_dtype_fp32_005 | (3, 3) | (3, 3) | [0, 0] | (1, 8) | fp32 | 2d视图，转换为int8，h,w切分 |
 | view_int8_001 | (4, 8) | (4, 4) | [0, 4] | (2, 32) | int8 | 2d视图，形状(4,4)，h,w切分 |
 | view_int8_002 | (8) | (4) | [4] | (32) | int8 | 1d视图，形状(4)，w切分 |
 | view_int8_003 | (2, 4, 8) | (2, 4, 4) | [0, 0, 4] | (1, 2, 32) | int8 | 3d视图，形状(2,4,4)，c,h,w切分 |
