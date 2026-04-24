@@ -461,10 +461,7 @@ void MonitorManager::EndStageInternal(
         return;
     }
     if (timeout_sec_.load() != 0) {
-        stage_timeout_flag_["Prepare"] = false;
-        stage_timeout_flag_["Pass"] = false;
-        stage_timeout_flag_["CodeGen"] = false;
-        stage_timeout_flag_[STAGE_FUNC_TO_BIN] = false;
+        stage_timeout_flag_[name] = false;
     }
     impl_->StopMonitoring();
     auto now = std::chrono::steady_clock::now();
