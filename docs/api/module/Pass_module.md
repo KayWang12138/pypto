@@ -6,15 +6,15 @@
 
 ## 1. Pass 总体介绍
 
-PyPTO 编译流程通过一系列 Pass 模块将用户代码转换为可执行的 NPU 代码。这些 Pass 模块按照执行顺序分为三个主要阶段：
+Pass 模块对计算图进行多阶段优化，逐步完善图结构并提升资源利用效率。这些 Pass 模块按照执行顺序分为三个主要阶段：
 
 ### 1.1 Pass 阶段说明
 
 | 阶段 | 说明 | 主要目标 |
 |------|------|----------|
-| Tensor Graph Pass | 处理 Tensor Graph 层面的优化 | 冗余操作消除、类型转换、内存冲突推断、图展开 |
-| Tile Graph Pass | 处理 Tile Graph 层面的优化 | 操作合并、内存分配、图划分、子图转换 |
-| Block Graph Pass | 处理 Block Graph 层面的优化 | 参数推断、内存复用、调度优化、同步插入、代码生成准备 |
+| Tensor Graph Pass | 处理 Tensor Graph 层面的优化 | 规范化计算图结构，为图展开做准备 |
+| Tile Graph Pass | 处理 Tile Graph 层面的优化 | 细化图结构并组织为可执行子图 |
+| Block Graph Pass | 处理 Block Graph 层面的优化 | 优化执行效率与资源利用 |
 
 ---
 
@@ -58,67 +58,57 @@ Block Graph Pass 阶段处理 Block Graph 层面的优化，主要关注：
 
 | Pass 名称 | 简要描述 | 主要功能 |
 |-----------|----------|----------|
-| RemoveRedundantReshape | 删除冗余的 Reshape 操作 | 识别并删除输入输出形状相同或消费者都是 Reshape 的冗余操作 |
-| AutoCast | 自动插入和优化类型转换操作 | 根据硬件架构和操作数据类型支持，自动插入必要的 Cast 操作并优化冗余 Cast 链 |
-| InferMemoryConflict | 推断和解决内存冲突 | 通过前向和后向传播分析 tensor 内存使用，检测冲突并插入 Register Copy 操作 |
-| RemoveUndrivenView | 删除未被驱动的 View 操作 | 处理 OP_ASSEMBLE_SSA，删除未驱动的 View 并降级为 OP_ASSEMBLE |
-| ExpandFunction | 将 Tensor Graph 展开为 Tile Graph | 将高层操作展开为具体的 Tile 操作，从抽象到底层实现的关键转换 |
+| RemoveRedundantReshape | 删除冗余 Reshape 操作 | 识别并删除输入输出形状相同或连续 Reshape 的冗余操作 |
+| AutoCast | 自动插入类型转换操作 | 根据 FP16/BF16/INT32 等类型支持，插入必要 Cast 操作并缩短冗余 Cast 链 |
+| InferMemoryConflict | 推断内存冲突 | 通过前向和后向传播分析 tensor 内存使用，检测冲突并插入 Copy 操作 |
+| RemoveUndrivenView | 删除未被驱动的 View | 为 AssembleSSA 删除未驱动的 View 并降级为 Assemble |
+| ExpandFunction | 展开 Tensor Graph | 将高层操作展开为 Tile 操作，是 Tensor Graph 到 Tile Graph 的关键转换 |
 
 ### 3.2 Tile Graph Pass 阶段
 
 | Pass 名称 | 简要描述 | 主要功能 |
 |-----------|----------|----------|
-| MergeViewAssemble | 合并连续的 View 和 Assemble 操作 | 将多个连续的 View/Assemble 合并为一个，减少操作数量 |
-| SplitReshape | 拆分 Reshape 操作 | 当输入输出存在重叠时，拆分为多个 View 和 Assemble 操作 |
-| SplitRawTensor | 拆分 RawTensor | 当 LogicalTensor shape 小于 RawTensor shape 时，创建新的 RawTensor 以匹配 |
-| SplitLargeFanoutTensor | 处理大扇出 tensor 的拆分 | 将被多个消费者消费的大 tensor 拆分为多个小 tensor，提高并行度 |
-| DuplicateOp | 复制 View 和 GatherIn 操作 | 为多个消费者创建新的操作，避免操作共享问题 |
-| AssignMemoryType | 为操作和 tensor 分配内存类型 | 根据操作需求和硬件限制，分配合适的内存类型并插入 Convert 操作 |
-| InferDiscontinuousInput | 推断非连续输入的内存访问模式 | 从 InCast 出发前向传播，检测冲突并插入 Copy 操作 |
-| InsertOpForViewAssemble | 在 View 和 Assemble 之间插入 Copy 操作 | 处理内存类型差异，插入必要的 Copy 操作 |
-| RemoveRedundantOp | 消除重复的操作 | 识别并删除重复的操作，减少计算量 |
-| SplitK | 消除 ReduceAcc 操作 | 优化 K 轴归约计算，将多个 A_MUL_B 的 CopyOut 直接连接到最终 GM |
-| GraphPartition | 图划分和优化 | 复合 Pass，整合图划分、NBuffer 合并、L1 Copy 复用等子 Pass |
-| ReduceCopyMerge | 合并 Reduce Copy 操作 | 将多个连续的 Reduce Acc 操作合并为一个，减少操作数量 |
-| NBufferMerge | NBuffer 合并优化 | 通过着色算法将子图分组合并，减少子图切换开销 |
-| L1CopyInReuseMerge | L1 Copy In 复用优化 | 合并重复的 L1 Copy In 操作，减少内存访问 |
-| IntraSubgraphAdapter | 适配子图间的边界 tensor | 处理跨子图的 tensor 传递，插入必要的 ASSEMBLE 和 VIEW 操作 |
-| GenerateMoveOp | 生成搬运操作 | 将 VIEW/ASSEMBLE/CONVERT/DUPLICATE 转换为具体的搬运操作 |
-| CommonOperationEliminate | 消除重复的计算操作 | 通过哈希操作特征识别相同计算，用一操作替换多个相同操作 |
-| AxisCombine | 对齐广播操作的输入 | 插入 BRCB 或 EXPAND 操作确保输入最后一维对齐 |
-| PadLocalBuffer | 对齐本地缓冲区的 tensor shape | 通过 padding 确保 tensor 满足硬件对齐要求 |
-| RemoveUnalignedReshape | 删除未对齐的 Reshape 操作 | 删除输入输出不对齐的 Reshape 操作以避免性能问题 |
-| ReplaceTensor | 替换 tensor | 识别 inplace 操作并用一个 tensor 替换多个 tensor，减少内存使用 |
-| PreGraphProcess | 预处理图结构 | 设置子图颜色、边界、Cube 操作属性，优化 View 和 Assemble 操作 |
-| InferDynShape | 推断动态 shape | 通过拓扑排序遍历操作并调用 infer shape 函数 |
-| SubgraphToFunction | 将子图转换为 Execute Graph | 构建子图调用关系，处理 Incast/Outcast 和符号化 |
+| MergeViewAssemble | 合并 View 和 Assemble | 将连续的 View/Assemble 合并为一个，减少操作数量 |
+| SplitReshape | 拆分 Reshape | 当输入输出存在重叠时，拆分为多个 View 和 Assemble |
+| SplitRawTensor | 拆分 RawTensor | 当 LogicalTensor shape 小于 RawTensor shape 时创建新 RawTensor |
+| SplitLargeFanoutTensor | 拆分大扇出 tensor | 将多消费者消费的大 tensor 拆分为小 tensor，提高并行度 |
+| DuplicateOp | 复制 View 和 GatherIn | 为多消费者创建新操作，避免操作共享 |
+| AssignMemoryType | 分配内存类型 | 根据操作需求和硬件限制分配合适内存类型（UB/L1/L0 等） |
+| InferDiscontinuousInput | 推断非连续输入 | 从 InCast 前向传播，检测冲突并插入 Copy |
+| InsertOpForViewAssemble | 插入 Copy 操作 | 在 View 和 Assemble 间处理内存类型差异 |
+| RemoveRedundantOp | 消除冗余操作 | 识别并删除冗余的 View/Assemble/Register Copy |
+| SplitK | 消除 ReduceAcc | 优化 K 轴归约，将多个 A_MUL_B 的 CopyOut 直连到 GM |
+| GraphPartition | 图划分 | 通过同构子图分组和合并算法进行图划分 |
+| ReduceCopyMerge | 合并 Reduce Copy | 将连续的 Reduce Acc 合并为一个 |
+| NBufferMerge | NBuffer 合并 | 通过着色算法将同构子图分组合并，减少切换开销 |
+| L1CopyInReuseMerge | L1 Copy In 复用 | 合并重复的 L1 Copy In 操作 |
+| IntraSubgraphAdapter | 适配边界 tensor | 处理跨子图 tensor 传递，插入 ASSEMBLE 和 VIEW |
+| GenerateMoveOp | 生成搬运操作 | 将 VIEW/ASSEMBLE/CONVERT 转换为 CopyIn/CopyOut 等搬运操作 |
+| CommonOperationEliminate | 消除重复计算 | 通过哈希特征识别相同计算，用一操作替换多个 |
+| AxisCombine | 对齐广播输入 | 插入 BRCB 或 EXPAND 确保输入最后一维对齐 |
+| PadLocalBuffer | 对齐 tensor shape | 通过 padding 确保 tensor 满足 32B 等硬件对齐要求 |
+| RemoveUnalignedReshape | 删除未对齐 Reshape | 移除尾轴非对齐的 reshape，插入 CopyOut/CopyIn |
+| ReplaceTensor | 内存复用 | 针对 inplace 操作等进行 tensor 内存复用 |
+| PreGraphProcess | 预处理图结构 | 设置子图颜色、边界、Cube 操作属性 |
+| InferDynShape | 推断动态 shape | 通过拓扑排序遍历操作并调用 infer shape |
+| SubgraphToFunction | 转换子图为函数 | 构建子图调用关系，处理 Incast/Outcast 和符号化 |
 
 ### 3.3 Block Graph Pass 阶段
 
 | Pass 名称 | 简要描述 | 主要功能 |
 |-----------|----------|----------|
-| InferParamIndex | 推断参数索引 | 为子函数推断参数索引，处理动态形状，更新子函数参数信息 |
-| SrcDstBufferMerge | 合并源目标 buffer | 通过 inplace 语义和 L0 内存复用，减少内存分配 |
-| AddAlloc | 添加内存分配操作 | 为需要分配内存的 tensor 插入 alloc 操作 |
-| OoOSchedule | 执行乱序调度 | 分析操作依赖关系，使用调度算法优化执行顺序，提升并行度 |
-| TuneTileOpSeqForVF | 针对 Vector Fusion 优化 TileOp 序列 | 调整 Pipe V 操作的执行顺序，优化同步开销 |
-| RemoveAlloc | 移除 alloc 操作 | 清理不需要的内存分配操作，简化图结构 |
-| CopyOutResolve | 解析 CopyOut 操作 | 为每个 Outcast 插入 AICPU_CALL 操作以触发 copy out resolve |
-| InsertSync | 插入同步操作 | 在 Operation 之间插入 SYNC_SRC 和 SYNC_DST 操作，确保数据依赖正确 |
-| TuneSyncForVF | 针对 Vector Fusion 优化同步操作 | 调整 SetFlag 和 WaitFlag 的位置，优化同步开销 |
-| MixSubgraphSplit | 混合子图拆分 | 将 Mix 子图拆分为多个独立的 Cube 和 Vector 子图，并重新分配 subgraphID |
-| GlobalMemoryReuse | 全局内存复用 | 通过 TensorBucket 机制实现跨操作的内存复用，支持 leaf 内和 leaf 间的复用 |
-| LoopAxesProc | 循环轴处理 | 处理 Loop Axes，为支持 Vector Fusion 的操作标记 loopGroup 和 loopAxes 属性 |
-| CodegenPreproc | 代码生成预处理 | 为代码生成阶段进行预处理和准备，包括类型转换、参数索引保存、axis 合并等 |
+| InferParamIndex | 推断参数索引 | 为子函数推断参数索引，处理动态形状 |
+| SrcDstBufferMerge | 合并源目标 buffer | 通过 inplace 语义和 L0 内存复用减少分配 |
+| AddAlloc | 添加 Alloc 操作 | 为需要分配内存的 tensor 插入 Alloc |
+| OoOSchedule | 乱序调度 | 分析依赖关系，优化执行顺序，提升并行度 |
+| TuneTileOpSeqForVF | 优化 TileOp 序列 | 调整 Pipe V 操作执行顺序，优化同步开销 |
+| RemoveAlloc | 移除 Alloc | 清理不需要的内存分配操作 |
+| CopyOutResolve | 解析 CopyOut | 为 Outcast 插入操作触发 copy out resolve |
+| InsertSync | 插入同步操作 | 插入 SetFlag 和 WaitFlag 确保数据依赖正确 |
+| TuneSyncForVF | 优化同步操作 | 调整 SetFlag 和 WaitFlag 位置，优化同步开销 |
+| MixSubgraphSplit | 拆分 Mix 子图 | 将 Mix 子图拆分为独立的 Cube 和 Vector 子图 |
+| GlobalMemoryReuse | 全局内存复用 | 通过 TensorBucket 实现跨操作内存复用 |
+| LoopAxesProc | 处理循环轴 | 为 Vector Fusion 操作标记 loopGroup 和 loopAxes |
+| CodegenPreproc | 代码生成预处理 | 保存 GM tensor 参数索引、强制 axis 合并 |
 
 ---
-
-## 4. 总结
-
-PyPTO 编译流程通过 Pass 模块实现了从用户代码到可执行 NPU 代码的完整转换。这些 Pass 模块按照 Tensor Graph、Tile Graph、Block Graph 三个阶段组织，每个阶段专注于不同层次的优化：
-
-- **Tensor Graph 阶段**: 专注于高层图结构的优化，包括冗余操作消除、类型转换、内存冲突处理、图展开
-- **Tile Graph 阶段**: 专注于中层图结构的优化，包括操作合并、内存分配、图划分、子图转换等
-- **Block Graph 阶段**: 专注于底层执行优化的优化，包括调度、同步、内存复用、代码生成准备
-
-通过这些 Pass 的协同工作，PyPTO 编译器能够生成高效、正确的 NPU 可执行代码。
