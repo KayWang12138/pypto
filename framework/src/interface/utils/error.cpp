@@ -18,11 +18,18 @@
 #include <functional>
 #include <cxxabi.h>
 #include <securec.h>
+#include <algorithm>
 
 #include "error.h"
 #include "interface/utils/string_utils.h"
+#include "tilefwk/pypto_fwk_log.h"
 
 namespace npu::tile_fwk {
+
+namespace {
+    /* Max frames appended to Error::what() (ASSERT/CHECK/TILEFWK_ERROR, signal handler, etc.). */
+    constexpr size_t kBacktraceDisplayFrameLimit = 6;
+}
 
 class BacktraceImpl : public LazyValue<std::string> {
 public:
@@ -73,7 +80,8 @@ public:
             }
             std::stringstream ss;
             bool isPyptoFrame = false;
-            for (size_t i = 0; i < callStack_.size(); i++) {
+            const size_t displayLimit = std::min(callStack_.size(), kBacktraceDisplayFrameLimit);
+                for (size_t i = 0; i < displayLimit; i++) {
                 ParseFrame(ss, strings[i], isPyptoFrame);
             }
             free(strings);
@@ -91,18 +99,36 @@ Backtrace GetBacktrace(size_t skipFrames, size_t maxFrames)
     return std::make_shared<BacktraceImpl>(BacktraceImpl{skipFrames, maxFrames});
 }
 
+std::string Error::DiagnosticWithBacktrace() const
+{
+    std::stringstream ss;
+    ss << msg_ << ", func " << func_ << ", file " << StringUtils::BaseName(file_) << ", line " << line_ << "\n";
+    if (backtrace_) {
+        ss << backtrace_->Get();
+    }
+    return ss.str();
+}
+
 const char* Error::what() const noexcept
 {
     return what_
         .Ensure([this]() -> std::string {
             std::stringstream ss;
-            ss << msg_ << ", func " << func_ << ", file " << StringUtils::BaseName(file_) << ", line " << line_ << "\n";
-            if (backtrace_) {
-                ss << backtrace_->Get();
-            }
+            ss << msg_ << ", func " << func_ << ", file " << StringUtils::BaseName(file_) << ", line " << line_;
             return ss.str();
         })
         .c_str();
+}
+
+int Error::operator=(ErrorMessage& msg)
+{
+    msg_ = msg.Message();
+    what_.Reset();
+    if (std::uncaught_exceptions() == 0) {
+        FUNCTION_LOGE_FULL("%s", DiagnosticWithBacktrace().c_str());
+        throw *this;
+    }
+    return 0;
 }
 
 static struct TerminateHandler terminateHandler;

@@ -14,7 +14,6 @@
 #include <signal.h>
 #include <exception>
 #include <execinfo.h>
-#include <iostream>
 
 #include "tilefwk/error.h"
 #include "tilefwk/pypto_fwk_log.h"
@@ -38,9 +37,10 @@ struct TerminateHandler {
                 if (eptr) {
                     std::rethrow_exception(eptr);
                 }
+            } catch (const npu::tile_fwk::Error& e) {
+ 	                 FUNCTION_LOGE_FULL("Caught uncaught exception:\n%s", e.DiagnosticWithBacktrace().c_str());
             } catch (const std::exception& e) {
-                FUNCTION_LOGE("Caught exception: %s", e.what());
-                std::cerr << "Caught exception: '" << e.what() << "'\n";
+                FUNCTION_LOGE_FULL("Caught uncaught exception:\n%s", e.what());
             }
             fflush(nullptr);
             _Exit(1);
@@ -57,7 +57,7 @@ struct TerminateHandler {
         } else if (signo == SIGFPE) {
             msg = "floating point exception !!!";
         }
-        FUNCTION_LOGE("%s\n%s", msg, backtrace.c_str());
+        FUNCTION_LOGE_FULL("%s\n%s", msg, backtrace.c_str());
         std::cerr << msg << "\n" << backtrace << std::endl;
         fflush(nullptr);
         _Exit(1);
