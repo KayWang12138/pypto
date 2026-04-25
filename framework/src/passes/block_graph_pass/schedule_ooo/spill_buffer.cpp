@@ -225,7 +225,7 @@ void OoOScheduler::UpdateOpAttr(Operation &op, int opLatency, LogicalTensorPtr s
             OpImmediate::Specified(spillTensor->GetShape()),
             OpImmediate::Specified(spillTensor->GetRawTensor()->GetDynRawShape())));
     } else if (op.GetOpcodeStr().find("ALLOC") == std::string::npos) {
-        if (spillOp->GetOpcode() == Opcode::OP_COPY_IN) {
+        if (spillOp->GetOpcode() == Opcode::OP_COPY_IN || spillOp->GetOpcode() == Opcode::OP_L1_COPY_IN_CONV) {
             op.SetOpAttribute(spillOp->GetOpAttribute()->Clone());
             op.inParamLocation_ = spillOp->inParamLocation_;
         } else if (!isSpecialL1) {
@@ -456,11 +456,11 @@ Status OoOScheduler::CreateSpillReloadIssue(LogicalTensorPtr spillOutTensor,
     // 创建spill搬出数据搬回OP_COPY_IN/OP_ALLOC
     Opcode allocOp = memType == MemoryType::MEM_UB ? Opcode::OP_UB_ALLOC : Opcode::OP_L1_ALLOC;
     auto &spillAllocOp = function_.AddRawOperation(allocOp, {}, {localTensor});
-    auto &spillCopyInOp = (spillOp->GetOpcode() == Opcode::OP_COPY_IN) ?
+    auto &spillCopyInOp = (spillOp->GetOpcode() == Opcode::OP_COPY_IN || spillOp->GetOpcode() == Opcode::OP_L1_COPY_IN_CONV) ?
         spillOp->CloneOperation(function_, {spillOutTensor}, {localTensor}) :
         function_.AddRawOperation(Opcode::OP_COPY_IN, {spillOutTensor}, {localTensor});
 
-    if (spillOp->GetOpcode() == Opcode::OP_COPY_IN) {
+    if (spillOp->GetOpcode() == Opcode::OP_COPY_IN || spillOp->GetOpcode() == Opcode::OP_L1_COPY_IN_CONV) {
         spillCopyInOp.SetIOpAttrOffset(0, spillOp->GetIOpAttrOffset(0));
     }
     int64_t base = 0;
@@ -469,7 +469,7 @@ Status OoOScheduler::CreateSpillReloadIssue(LogicalTensorPtr spillOutTensor,
     UpdateOpAttr(spillAllocOp, 1, localTensor, {}, spillOp, 0, isSpecialL1);
     UpdateOpAttr(spillCopyInOp, DEFAULT_LATENCY, localTensor, spillOutTensor->GetOffset(), spillOp, base, isSpecialL1);
     // DDR->COPY_IN->spillTensor 场景不标记 copy_in_mode
-    if (spillOp->GetOpcode() != Opcode::OP_COPY_IN && UpdateCopyInMode(spillCopyInOp) != SUCCESS) {
+    if (spillOp->GetOpcode() != Opcode::OP_COPY_IN && spillOp->GetOpcode() != Opcode::OP_L1_COPY_IN_CONV && UpdateCopyInMode(spillCopyInOp) != SUCCESS) {
         APASS_LOG_ERROR_F(Elements::Operation, "UpdateCopyInMode failed!");
         return FAILED;
     }
