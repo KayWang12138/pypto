@@ -23,6 +23,7 @@
 #include "passes/pass_utils/parallel_tool.h"
 #include "passes/pass_check/subgraph_to_function_checker.h"
 #include "passes/pass_utils/graph_utils.h"
+#include "passes/pass_utils/subgraph_utils.h"
 #include "passes/pass_log/pass_log.h"
 #include "tilefwk/error_code.h"
 
@@ -141,7 +142,7 @@ void SubgraphToFunction::RecordIncastInfo(Function& function, RecordInfo recordI
     }
     // 这里逻辑可能有一些问题，期望是尽可能不要把inplace语义的COPY_OUT的输出变成leaf的incast
     if (op.HasAttribute(OpAttributeKey::inplaceIdx) && !iOperand->GetProducers().empty()) {
-        if (!iOperand->isSubGraphBoundary) {
+        if (!SubgraphUtils::IsBoundary(iOperand)) {
             return;
         }
     }
@@ -151,7 +152,7 @@ void SubgraphToFunction::RecordIncastInfo(Function& function, RecordInfo recordI
             iOperand, nLIST[i][j]->opmagic);
         return;
     }
-    if (!iOperand->isSubGraphBoundary || iOperand->GetMemoryTypeOriginal() != MemoryType::MEM_DEVICE_DDR) {
+    if (!SubgraphUtils::IsBoundary(iOperand) || iOperand->GetMemoryTypeOriginal() != MemoryType::MEM_DEVICE_DDR) {
         return;
     }
     auto producers = iOperand->GetProducers();
@@ -218,7 +219,7 @@ void SubgraphToFunction::RecordOutcastInfo(Function& function, RecordInfo record
     // boundary outCasts_
     int refCount = 0;
     typename SubfuncInvokeInfoTy::SuccessorIncastInfoTy relatedIncastList;
-    if (!oOperand->isSubGraphBoundary || oOperand->GetMemoryTypeOriginal() != MemoryType::MEM_DEVICE_DDR) {
+    if (!SubgraphUtils::IsBoundary(oOperand) || oOperand->GetMemoryTypeOriginal() != MemoryType::MEM_DEVICE_DDR) {
         return;
     }
     auto consumers = oOperand->GetConsumers();
@@ -322,7 +323,7 @@ void SubgraphToFunction::ProcessInputOperands(
         auto offset = iOperand->offset;
         auto shape = iOperand->shape;
         if (tileOp.HasAttribute(OpAttributeKey::inplaceIdx) && !iOperand->GetProducers().empty()) {
-            if (!iOperand->isSubGraphBoundary) {
+            if (!SubgraphUtils::IsBoundary(iOperand)) {
                 continue;
             }
         }
@@ -339,7 +340,7 @@ void SubgraphToFunction::ProcessInputOperands(
             tParamLoc++;
             continue;
         }
-        if (!iOperand->isSubGraphBoundary || iOperand->GetMemoryTypeOriginal() != MemoryType::MEM_DEVICE_DDR) {
+        if (!SubgraphUtils::IsBoundary(iOperand) || iOperand->GetMemoryTypeOriginal() != MemoryType::MEM_DEVICE_DDR) {
             continue;
         }
         pSgParamInfo.AppendIncastParam(
@@ -374,7 +375,7 @@ void SubgraphToFunction::ProcessOutputOperands(
             tParamLoc++;
             continue;
         }
-        if (!oOperand->isSubGraphBoundary || oOperand->GetMemoryTypeOriginal() != MemoryType::MEM_DEVICE_DDR) {
+        if (!SubgraphUtils::IsBoundary(oOperand) || oOperand->GetMemoryTypeOriginal() != MemoryType::MEM_DEVICE_DDR) {
             continue;
         }
         pSgParamInfo.AppendOutcastParam(
@@ -429,6 +430,23 @@ void SubgraphToFunction::ProcessCopyOutOperand(
     }
 }
 
+void SubgraphToFunction::ProcessSymbolOfReshape(Function& function, Operation& op) const
+{
+    // ddr -> reshape -> ddr -> copyin
+    if (op.GetOpcode() == Opcode::OP_RESHAPE) {
+        if (function.IsFromInCast(op.GetOOperands().front())) {
+            op.GetOOperands().front()->tensor->SetSymbol(op.GetIOperands().front()->tensor->GetSymbol());
+        }
+    }
+    // copyout -> ddr -> reshape -> ddr
+    auto nextOp = *(op.GetOOperands().front()->GetConsumers().begin());
+    if (nextOp != nullptr && nextOp->GetOpcode() == Opcode::OP_RESHAPE) {
+        if (function.IsFromOutCast(op.GetOOperands().front())) {
+            op.GetOOperands().front()->tensor->SetSymbol(nextOp->GetOOperands().front()->tensor->GetSymbol());
+        }
+    }
+}
+
 void SubgraphToFunction::SymbolizeEachFunction(
     Function& rootFunc, std::vector<Function*>& mergedFuncList1, size_t i) const
 {
@@ -441,6 +459,7 @@ void SubgraphToFunction::SymbolizeEachFunction(
     auto& leafFunc = mergedFuncList1[i];
     for (auto& tileOp : leafFunc->Operations()) {
         // symbolic
+        ProcessSymbolOfReshape(rootFunc, tileOp);
         ProcessInputOperands(rootFunc, tileOp, pSgParamInfo, tParamLoc, iParamLoc);
         ProcessOutputOperands(rootFunc, tileOp, pSgParamInfo, tParamLoc, oParamLoc);
     }
