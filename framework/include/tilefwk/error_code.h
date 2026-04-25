@@ -380,6 +380,7 @@ enum class ControlFlowScene : uint32_t {
     FUNC_SLOT_IO_COUNT_MISMATCH = 0xB100DU,
     FUNC_SLOT_MISSING = 0xB100EU,
     FUNC_UNKNOWN_IO_TYPE = 0xB100FU,
+    MIX_GLOBAL_TENSOR_WAIT_TIMEOUT = 0xB1010U,
 };
 
 enum class ExecuteOperationScene : uint32_t {
