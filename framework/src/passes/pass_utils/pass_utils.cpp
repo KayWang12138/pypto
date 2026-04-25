@@ -132,7 +132,9 @@ std::unordered_map<MemoryType, int64_t> CommonUtils::GetLocalMemorySize()
     return localMemorySize;
 }
 
-int CommonUtils::GetTensorSubgraphID(const LogicalTensorPtr& tensor)
+int CommonUtils::GetTensorSubgraphID(const LogicalTensorPtr& tensor) { return GetTensorSubgraphID(tensor.get()); }
+
+int CommonUtils::GetTensorSubgraphID(const LogicalTensor* tensor)
 {
     if (tensor == nullptr) {
         return NOT_IN_SUBGRAPH;

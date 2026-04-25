@@ -26,6 +26,7 @@
 #include "passes/tile_graph_pass/graph_constraint/pre_graph/pre_graph.h"
 #include "ut_json/ut_json_tool.h"
 #include "computational_graph_builder.h"
+#include "passes/pass_utils/pass_utils.h"
 #define private public
 
 using namespace npu::tile_fwk;

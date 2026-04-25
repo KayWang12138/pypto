@@ -105,5 +105,6 @@ public:
     }
 
     static int GetTensorSubgraphID(const LogicalTensorPtr& tensor);
+    static int GetTensorSubgraphID(const LogicalTensor* tensor);
 };
 } // namespace npu::tile_fwk

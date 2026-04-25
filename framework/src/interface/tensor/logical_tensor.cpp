@@ -16,6 +16,7 @@
 #include "interface/configs/config_manager.h"
 #include "logical_tensor.h"
 
+#include "passes/pass_utils/pass_utils.h"
 #include "raw_tensor.h"
 #include "tilefwk/data_type.h"
 #include "tilefwk/symbolic_scalar.h"
@@ -324,14 +325,8 @@ std::string LogicalTensor::DumpSSA([[maybe_unused]] bool showFrom, bool showMem,
         }
         oss << ")";
     }
-    int tensorSubgraphID = NOT_IN_SUBGRAPH;
-    if (GetProducers().size() > 0) {
-        tensorSubgraphID = (*GetProducers().begin())->GetSubgraphID();
-    } else if (GetConsumers().size() > 0) {
-        tensorSubgraphID = (*GetConsumers().begin())->GetSubgraphID();
-    }
     oss << "#"
-        << "(" << tensorSubgraphID << ")";
+        << "(" << CommonUtils::GetTensorSubgraphID(this) << ")";
     if (showMem) {
         oss << MemoryTypeToString(GetMemoryTypeOriginal()) << "::" << MemoryTypeToString(GetMemoryTypeToBe());
         if (IsDummy()) {
