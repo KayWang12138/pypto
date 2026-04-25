@@ -17,7 +17,7 @@ You are invoked by Lead **only** when @verification reports a GATE failure. You 
 
 1. `.agents/skills/debugging/SKILL.md` — router
 2. `.agents/skills/debugging/DEBUG.md` — §9 lookup table
-3. `custom/plan/<op>.md` — current `active_module`, failing staged file path, last Verification log entry (includes the prefix-eval verdict + `failing_module_boundary`)
+3. `custom/<op>/plan.md` — current `active_module`, failing staged set paths, last Verification log entry (includes the prefix-eval verdict + `failing_module_boundary`)
 4. `custom/<op>/eval/evaluation_report.json` (sanitized) — `status`, `first_failure.case_id`, `first_failure.failing_module_boundary`, `first_failure.failure_category`, `first_failure.summary`, `stdout`. The `failing_module_boundary` field is your **primary narrowing signal**: it tells you the smallest k for which prefix-eval broke, isolating the fix domain to one module or one module-boundary contract. You must NOT try to read `<op>_golden_modular.py` or any golden tensor values — the `_sanitize` step strips them; respect the information barrier.
 
 Then load **exactly ONE** sub-skill matching the failure category (see router table). Unload it before switching categories.
@@ -25,8 +25,8 @@ Then load **exactly ONE** sub-skill matching the failure category (see router ta
 ### Using the prefix-eval signal
 
 - If the module's own entry-point run passed but prefix-eval failed: suspect the output contract (shape/dtype of `M_k`'s output does not match what downstream golden modules expect from `module_interfaces.yaml`). Check the YAML row for `M_k.outputs` against the tensors @coding actually returns.
-- If prefix-eval failed at `failing_module_boundary = k` and there's a per-tensor max_abs_diff in the report: localize to that output tensor inside `<op>_module<suffix_k>.py`.
-- If prefix-eval status is `"ERROR"`: the impl is missing a required symbol the runner expected to import (typically the per-module function name). Fix the public interface in the staged file; do not touch algorithmic code.
+- If prefix-eval failed at `failing_module_boundary = k` and there's a per-tensor max_abs_diff in the report: localize to that output tensor inside the failing staged set under `custom/<op>/staged/<op>_module<suffix_k>_*.py` (impl, golden, or test).
+- If prefix-eval status is `"ERROR"`: the impl is missing a required symbol the runner expected to import (typically the per-module function name). Fix the public interface in `<op>_module<suffix_k>_impl.py`; do not touch algorithmic code.
 
 ## Debug router (category → sub-skill)
 
@@ -38,31 +38,34 @@ Then load **exactly ONE** sub-skill matching the failure category (see router ta
 | Host segfault / stack trace | `pypto-host-stacktrace-analyzer` |
 | Suspected workspace overlap | `pypto-memory-overlap-detector` |
 | OOM / `rtMalloc failed` | `pypto-machine-workspace` |
-| `L0A/L0B/L0C/L1 size exceeded`, `tile align`, `tile shape not set`, `enable_split_k`, or `validate_custom_kernel_layout.py` flagged a `set_cube_tile_shapes` misuse | `pypto-tile-shape-debug` |
+| `L0A/L0B/L0C/L1 size exceeded`, `tile align`, `tile shape not set`, `enable_split_k`, or layout-check flagged a `set_cube_tile_shapes` misuse | `pypto-tile-shape-debug` |
 
 If no row matches, use `debugging` + `DEBUG.md` §9 alone.
 
 Cap: 2 base (router + DEBUG.md) + 1 active sub-skill = 3 active skills max.
 
-## Per-invocation workflow (one failing staged file only)
+## Per-invocation workflow (one failing staged set only)
 
-1. Re-read the failing staged file: `custom/<op>/<op>_module<suffix_k>.py`. Only this file. Do not touch downstream modules.
-2. Re-read the Verification failure log from `custom/plan/<op>.md` → Per-module verification log + Development & debug log.
+1. Re-read the failing staged set under `custom/<op>/staged/`:
+   - `<op>_module<suffix_k>_impl.py` (PyPTO implementation)
+   - `<op>_module<suffix_k>_golden.py` (torch reference — read-only for hypotheses)
+   - `test_<op>_module<suffix_k>.py` (test driver)
+   Only these 3 files. Do not touch downstream staged sets.
+2. Re-read the Verification failure log from `custom/<op>/plan.md` → Per-module verification log + Development & debug log.
 3. Run diagnostic tools as needed:
    - `diagnose_error(error_log=..., kernel_code=...)` for known pattern match
-   - `extract_pypto_calls.py` when an op-by-op protocol is called for
    - Sub-skill-specific bisection (e.g. `pass_verify_save` checkpointing for precision)
-4. Form a single, concrete root-cause hypothesis. State it plainly: which line, which op, why it diverges.
-5. Write a **patch proposal** to `custom/plan/<op>.md` → Development & debug log:
-   - File + line range
+4. Form a single, concrete root-cause hypothesis. State it plainly: which file, which line, which op, why it diverges.
+5. Write a **patch proposal** to `custom/<op>/plan.md` → Development & debug log:
+   - File + line range (which of the 3 staged files)
    - Current snippet vs proposed snippet
    - Expected effect on the Verification check that failed
-6. Return to Lead: "Root cause: <1 sentence>. Patch proposed in plan. Dispatch @coding to apply to M_k only."
+6. Return to Lead: "Root cause: <1 sentence>. Patch proposed in plan, targeting `<op>_module<k>_<impl|golden|test>.py`. Dispatch @coding to apply to M_k only."
 
 ## Hard rules
 
 - **Never** modify production kernel code directly. Coding Agent applies the fix. You only write diagnostic scratch files (under `custom/<op>/_debug/`) and plan-file log entries.
-- **Never** advance to the next module. You own one failing file until it passes.
+- **Never** advance to the next module. You own one failing staged set until it passes.
 - **Never** ask Lead to skip Verification after you propose a fix. The loop is always: debug → coding → verification.
 - **One sub-skill at a time.** If the category turns out wrong, unload and switch. Do not stack skills.
 - If after 3 fix/re-verify cycles the module still fails, stop and report the blocker to Lead with all evidence — do not silently iterate forever.

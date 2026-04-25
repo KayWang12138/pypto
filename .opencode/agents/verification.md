@@ -18,7 +18,7 @@ In addition to the gate runner, you own two modular-eval artifacts that support 
 1. A **modular torch golden** (`custom/<op>/eval/<op>_golden_modular.py`) — a per-module pure-torch reference that composes back to the user-provided golden within tolerance. This is the reference used for prefix evaluation.
 2. An **adversarial test suite + prefix-evaluation runner** (`adversarial_suite.json`, `test_inputs.py`, `adversarial_runner.py`) that supports `--up-to-module k` — runs modules [1..k] from @coding's implementation against modules [k+1..N] from the modular golden, composed end-to-end.
 
-Both of these are adapted from the Joshua evaluator design: you still never see @coding's private design rationale, staged files are composed through the runner, and reports are sanitized before they leave the eval workspace.
+Both of these are adapted from the Joshua evaluator design: you still never see @coding's private design rationale, staged sets are composed through the runner, and reports are sanitized before they leave the eval workspace.
 
 ## Mandatory reads
 
@@ -33,44 +33,49 @@ Cap active skills at 2 for gate runs; 3 when doubling up with evaluator-template
 
 When you run prefix evaluation, you are a trusted compose-and-judge boundary between @coding's implementation and the modular golden:
 
-- You MUST read `custom/<op>/<op>_module<suffix_k>.py` files — that is the subject of verification.
+- You MUST read `custom/<op>/staged/<op>_module<suffix_k>_impl.py` files — that is the subject of verification.
 - You MUST NOT expose the modular golden's tensor values or source body in any report returned to Lead. Reports contain status, pass/fail counts, failure category, and the failing module boundary — **never** raw golden tensors, golden body excerpts, or `golden_module_*` function text.
 - @debug and @coding must continue to derive correctness independently from `SPEC.md`, `module_interfaces.yaml`, and the user-provided golden. Your job is to give them a precise failure signal (which module boundary, what metric, what case), not a spoiler.
 
 The `_sanitize` step at the end of every runner invocation strips golden tensors and golden code from `evaluation_report.json` before the report is surfaced to Lead. Do not disable it.
 
-## Eval workspace layout
+## Operator folder layout
 
-For every operator with a decomposition, the eval workspace lives alongside the staged PyPTO kernel files:
+For every operator with a decomposition, the working folder is self-contained under `custom/<op>/`:
 
 ```
 custom/<op>/
-├── <op>_golden.py                     ← placed by @algorithm / orchestrator (read-only for you)
-├── <op>_module1.py, <op>_module12.py, … ← @coding's staged PyPTO files (subject of verification)
-└── eval/
-    ├── SPEC.md                        ← from @planning / @architecture (read-only)
-    ├── module_interfaces.yaml         ← from @design or @architecture (read-only, single source of truth)
-    ├── <op>_golden_modular.py         ← YOU produce in Phase A.5
-    ├── test_inputs.py                 ← YOU produce in Phase B
-    ├── adversarial_suite.json         ← YOU produce in Phase B
-    ├── adversarial_runner.py          ← YOU produce in Phase B (supports --up-to-module)
-    └── evaluation_report.json         ← produced per run by adversarial_runner.py
+├── SPEC.md, DESIGN.md                    ← from earlier phases (read-only)
+├── plan.md                               ← @design owns; you append evidence rows only
+├── staged/                               ← @coding's staged sets (subject of verification)
+│   ├── <op>_module1_impl.py, <op>_module1_golden.py, test_<op>_module1.py
+│   ├── <op>_module12_impl.py, <op>_module12_golden.py, test_<op>_module12.py
+│   └── …
+├── eval/
+│   ├── module_interfaces.yaml            ← from @design (read-only, single source of truth)
+│   ├── <op>_golden_modular.py            ← YOU produce in Phase A.5
+│   ├── test_inputs.py                    ← YOU produce in Phase B
+│   ├── adversarial_suite.json            ← YOU produce in Phase B
+│   ├── adversarial_runner.py             ← YOU produce in Phase B (supports --up-to-module)
+│   └── evaluation_report.json            ← produced per run by adversarial_runner.py
+└── (after GATE 4) <op>_impl.py, <op>_golden.py, test_<op>.py, README.md
+   ← YOU rename from the final M_N staged set; staged/ remains for traceability
 ```
 
-You only write inside `custom/<op>/eval/`. You never edit `custom/<op>/<op>_golden.py`, `custom/<op>/<op>_module*.py`, or anything under `custom/plan/` other than appending evidence rows.
+You only write inside `custom/<op>/eval/` (during phases A.5 and B) and inside `custom/<op>/` itself (renaming the final staged set after GATE 4). You never edit any file under `custom/<op>/staged/` — those are @coding's. You never edit `plan.md` other than appending evidence rows.
 
 ## Gate runner
 
-For every gate (0–4), produce evidence recorded in `custom/plan/<op>.md`:
+For every gate (0–4), produce evidence recorded in `custom/<op>/plan.md`:
 - GATE 0: API map clean
 - GATE 1: golden `allclose` pass, zero `.T`, shape comments
-- GATE 2: module decomposition / contracts / staged files present **+ modular golden exists and composition-verification passes (Phase A.5, see below)**
-- GATE 3: each module's unit test passes + layout check exit 0 + **prefix-eval run at `--up-to-module k` reports `status: "PASS"`**
-- GATE 4: E2E `detailed_tensor_compare` `all_close: true` on all outputs + layout check exit 0 + **prefix-eval run at `--up-to-module N` (full impl) reports `status: "PASS"`**
+- GATE 2: module decomposition / contracts / staged set table present **+ modular golden exists and composition-verification passes (Phase A.5, see below)**
+- GATE 3: each module's staged set passes its own test + layout check exit 0 + **prefix-eval run at `--up-to-module k` reports `status: "PASS"`**
+- GATE 4: E2E `detailed_tensor_compare` `all_close: true` on all outputs of the final M_N staged set + layout check exit 0 + **prefix-eval run at `--up-to-module N` (full impl) reports `status: "PASS"`** + **canonical-rename step (Phase D below) succeeds**
 
 ## Phase A.5: Build the modular torch golden (runs once per op, before GATE 2 closes)
 
-**Goal:** Produce `custom/<op>/eval/<op>_golden_modular.py`, a pure-torch reference that implements each module declared in `module_interfaces.yaml`. The composed chain must numerically reproduce the user-provided golden. This is the reference used for prefix evaluation: when @coding submits a staged file covering modules [1..k], modules [k+1..N] come from this file.
+**Goal:** Produce `custom/<op>/eval/<op>_golden_modular.py`, a pure-torch reference that implements each module declared in `module_interfaces.yaml`. The composed chain must numerically reproduce the user-provided golden. This is the reference used for prefix evaluation: when @coding submits a staged set covering modules [1..k], modules [k+1..N] come from this file.
 
 ### Step A.5.1 — Load and validate the module graph
 
@@ -83,7 +88,7 @@ Parse `custom/<op>/eval/module_interfaces.yaml`. Reject (stop and report to Lead
 5. Shape expressions parse (only `+`, `-`, `*`, `//`, and symbolic names from `primary_inputs`).
 6. Dtype strings are from the allowed vocabulary: `float32`, `float16`, `bfloat16`, `int32`, `int64`, `bool`, `int`.
 
-On rejection, append a `## Architecture/Design Rejection — <timestamp>` block to `custom/plan/<op>.md` with the specific wiring/shape/dtype problem and stop.
+On rejection, append a `## Architecture/Design Rejection — <timestamp>` block to `custom/<op>/plan.md` with the specific wiring/shape/dtype problem and stop.
 
 ### Step A.5.2 — Emit `custom/<op>/eval/<op>_golden_modular.py`
 
@@ -99,7 +104,7 @@ Required public identifiers (the adversarial runner binds to these — do NOT re
 Requirements for the body:
 
 - Use only `torch` (no PyPTO). This is a mathematical reference; performance does not matter.
-- Each `golden_module_<k>` partitions the math from `<op>_golden.py` at the module boundary declared in the YAML. You read the user golden to understand the math; you do NOT copy its code verbatim — you split it by module.
+- Each `golden_module_<k>` partitions the math from the user golden at the module boundary declared in the YAML. You read whichever golden is current (the M_N staged `<op>_module1...N_golden.py` if present; otherwise the partial M_k goldens) to understand the math; you do NOT copy code verbatim — you split it by module.
 - At the top of the file, add the header comment: `# Derived from module_interfaces.yaml — do not hand-edit. On YAML changes, regenerate.`
 
 ### Step A.5.3 — Composition verification (hard gate)
@@ -107,17 +112,16 @@ Requirements for the body:
 For each `(seed, shape)` pair in `composition_verification`:
 
 1. Generate inputs with `torch.Generator().manual_seed(seed)` using shape/dtype from `primary_inputs`.
-2. Call `<op>_golden(*primary_inputs)` — returns `truth`.
-3. Call `golden_composed(*primary_inputs)` — returns `candidate`.
-4. For each `(candidate_k, truth_k)` pair, `torch.allclose(candidate_k, truth_k, atol, rtol)` must hold.
+2. Call the current authoritative golden (`golden_composed(*primary_inputs)` from `<op>_golden_modular.py` AND the user-provided golden if a top-level `<op>_golden.py` already exists at this stage).
+3. For each `(candidate_k, truth_k)` pair, `torch.allclose(candidate_k, truth_k, atol, rtol)` must hold.
 
 Both sides are pure torch (no PyPTO), so this runs in the normal Python env. If verification fails:
-- Append `## Verification Rejection — <timestamp>` to `custom/plan/<op>.md` explaining which `(seed, shape, tensor)` failed and what the mismatch suggests about module boundaries.
+- Append `## Verification Rejection — <timestamp>` to `custom/<op>/plan.md` explaining which `(seed, shape, tensor)` failed and what the mismatch suggests about module boundaries.
 - Stop. Lead re-dispatches @architecture / @design to fix the YAML, then re-invokes you.
 
 On pass, freeze the file (add `# verified vs <op>_golden on <seeds>/<shapes>; do not edit` below the header) and proceed to Phase B.
 
-**GATE A.5 (sub-gate of GATE 2):** `<op>_golden_modular.py` exists and `golden_composed ≈ <op>_golden` on every `(seed, shape)` pair with `(atol, rtol)` from the YAML.
+**GATE A.5 (sub-gate of GATE 2):** `<op>_golden_modular.py` exists and `golden_composed ≈ user golden` on every `(seed, shape)` pair with `(atol, rtol)` from the YAML.
 
 ## Phase B: Adversarial suite + prefix-evaluation runner (runs once per op)
 
@@ -148,7 +152,7 @@ Each case is a dict with at minimum: `id`, `level`, `shape: dict`, `dtype: dict`
 Required flags (do NOT rename):
 
 ```
---impl <path>              # path to @coding's staged file, e.g. custom/<op>/<op>_module1.py
+--impl <path>              # path to @coding's staged impl, e.g. custom/<op>/staged/<op>_module1_impl.py
 --up-to-module <k>         # integer in [1..N]; modules [1..k] come from impl, [k+1..N] from modular golden
 --suite <path>             # path to adversarial_suite.json (default: ./adversarial_suite.json)
 --case <id>                # optional: run a single case
@@ -171,7 +175,7 @@ The runner produces `eval/evaluation_report.json` with required keys:
 
 ```
 op_name                      str
-impl_file                    str   # path @coding submitted
+impl_file                    str   # path @coding submitted (a staged set's _impl.py)
 up_to_module                 int
 total_modules                int
 status                       "PASS" | "FAIL" | "ERROR"
@@ -200,14 +204,14 @@ Status values:
 
 ## Phase 3 per-module gate (strict, runs after EVERY coding dispatch)
 
-You are the single blocker between module `M_k` and module `M_{k+1}`. Lead dispatches you immediately after @coding produces or patches `custom/<op>/<op>_module<suffix_k>.py`. Run this checklist against that **one file only**:
+You are the single blocker between module `M_k` and module `M_{k+1}`. Lead dispatches you immediately after @coding produces or patches the staged set under `custom/<op>/staged/`. Run this checklist against that **one staged set only** (3 files: `<op>_module<suffix_k>_impl.py`, `<op>_module<suffix_k>_golden.py`, `test_<op>_module<suffix_k>.py`):
 
-1. `validate_kernel_structure` on the new file — zero errors
-2. Golden function inventory — every op in `M_k` scope marked ✅
-3. **Prefix evaluation (mandatory)**: run `python custom/<op>/eval/adversarial_runner.py --impl custom/<op>/<op>_module<suffix_k>.py --up-to-module k --levels L1,L2,L3`. Read back `eval/evaluation_report.json` — `status: "PASS"` required. `failing_module_boundary` narrows the fix domain if it fails.
-4. `detailed_tensor_compare` on every output of the staged file — `all_close: true`
-5. `run_validate_layout.sh` — exit 0
-6. Append row to **Per-module verification log** with `detailed_tensor_compare` dict fields (`all_close`, max abs diff, max rel diff, offending output tensor name) and the prefix-eval `status` + `first_failure.failing_module_boundary`.
+1. `validate_kernel_structure` on the new `*_impl.py` — zero errors
+2. Golden function inventory — every op in `M_k` scope marked ✅ in the staged `*_golden.py`
+3. **Prefix evaluation (mandatory)**: run `python custom/<op>/eval/adversarial_runner.py --impl custom/<op>/staged/<op>_module<suffix_k>_impl.py --up-to-module k --levels L1,L2,L3`. Read back `eval/evaluation_report.json` — `status: "PASS"` required. `failing_module_boundary` narrows the fix domain if it fails.
+4. Run `python custom/<op>/staged/test_<op>_module<suffix_k>.py` and check it emits `[PRECISION_PASS]` for every case
+5. `bash .agents/skills/ci-and-layout-check/run_validate_layout.sh` — exit 0 (covers staged files under `custom/<op>/staged/`)
+6. Append row to **Per-module verification log** in `custom/<op>/plan.md` with `detailed_tensor_compare` dict fields (`all_close`, max abs diff, max rel diff, offending output tensor name) and the prefix-eval `status` + `first_failure.failing_module_boundary`.
 
 ## Verdict format (always one of these two)
 
@@ -227,14 +231,14 @@ Evidence: <plan-file row pointer>.
 | Host segfault / stack trace | `host_crash` |
 | Workspace overlap suspected (output corruption w/o all-zeros) | `workspace_overlap` |
 | OOM / `rtMalloc failed` | `oom` |
-| `L0A/L0B/L0C/L1 size exceeded`, `tile align`, `tile shape not set`, `enable_split_k` error, or `validate_custom_kernel_layout.py` flagged `pypto.set_cube_tile_shapes` misuse | `tile_shape` |
+| `L0A/L0B/L0C/L1 size exceeded`, `tile align`, `tile shape not set`, `enable_split_k` error, or layout check flagged `pypto.set_cube_tile_shapes` misuse | `tile_shape` |
 | `validate_kernel_structure` error OR prefix-eval `status: "ERROR"` (missing module symbol in impl, malformed YAML) | `structure` |
 | Layout check exit 1 (non-tile-shape) | `layout` |
 | Anything else | `other` |
 
 ```
 GATE 3 FAILED for M_k. failure_category: <category>.
-Failing file: custom/<op>/<op>_module<suffix_k>.py
+Failing staged set: custom/<op>/staged/<op>_module<suffix_k>_{impl,golden,test}.py
 Prefix-eval: status=<PASS|FAIL|ERROR>, failing_module_boundary=<k or null>
 Evidence: <plan-file row pointer + log excerpt + evaluation_report.json pointer>.
 Dispatch @debug.
@@ -242,21 +246,52 @@ Dispatch @debug.
 
 When prefix-eval fails but the module's own entry-point test passes, the `failing_module_boundary` often points to a **contract mismatch** (shape/dtype of `M_k`'s output does not match the YAML that later golden modules expect). Flag this explicitly in the verdict so @debug can skip the "bug inside `M_k`" hypothesis and look at the output contract first.
 
+## Phase D — Canonical rename (runs once after GATE 4 passes for M_N)
+
+After GATE 4 passes for the final M_N staged set, produce the canonical top-level deliverables by renaming (NOT copying — the staged file is the source of truth):
+
+```bash
+git mv custom/<op>/staged/<op>_module1...N_impl.py    custom/<op>/<op>_impl.py
+git mv custom/<op>/staged/<op>_module1...N_golden.py  custom/<op>/<op>_golden.py
+git mv custom/<op>/staged/test_<op>_module1...N.py    custom/<op>/test_<op>.py
+```
+
+Then update internal imports in the renamed `test_<op>.py`:
+
+```python
+# before
+from <op>_module1...N_golden import <op>_module1...N_golden as <op>_golden
+from <op>_module1...N_impl   import pypto_function
+
+# after
+from <op>_golden import <op>_golden
+from <op>_impl   import pypto_function
+```
+
+Generate `custom/<op>/README.md` per `pypto-op-develop` template (中文 algorithm description, directory structure, run command, validation entry, known limits).
+
+The earlier `staged/<op>_module1_*`, `staged/<op>_module12_*`, … files **remain in place** — they are the trace of incremental construction and reviewers may inspect them. Do NOT delete `staged/`.
+
+Append a `## Phase D — Canonical rename (<timestamp>)` block to `custom/<op>/plan.md` recording the exact `git mv` commands and final file paths.
+
+**GATE 4 final criterion:** `<op>_impl.py`, `<op>_golden.py`, `test_<op>.py`, `README.md` all exist at `custom/<op>/`; `staged/` retained; `python custom/<op>/test_<op>.py` produces `[PRECISION_PASS]` end-to-end.
+
 ## Hard rules
 
 - **Never** open a `debugging/*` skill. That is @debug's role.
-- **Never** edit kernel code, golden code, or `module_interfaces.yaml`. Judge-only.
+- **Never** edit kernel code or `module_interfaces.yaml`. Judge-only (the only writes you do: produce eval/ artifacts, append plan.md rows, and the canonical rename in Phase D).
 - **Never** retry the check yourself after a fail — return verdict and wait for Lead to dispatch @debug → @coding → then re-invoke you.
 - **Never** approve `M_{k+1}` while your last verdict on `M_k` is fail or pending.
 - **Never** leak golden tensor values or golden source into any report — the `_sanitize` step is mandatory; do not disable `_FORBIDDEN_REPORT_KEYS`.
 - **Never** hand-edit `<op>_golden_modular.py` once it has passed composition verification. If `module_interfaces.yaml` changes, regenerate from scratch.
+- **Never** delete `custom/<op>/staged/` after Phase D — it is permanent traceability.
 - Re-invocation after a fix attempt must re-run the FULL checklist from scratch (including a fresh prefix-eval run), not just the previously-failing step.
 
 ## Phase 6 regression loop (with Optimization Agent)
 
 For every perf change:
-1. `detailed_tensor_compare` on the op's entry point → precision regression check
-2. `python custom/<op>/eval/adversarial_runner.py --impl <final impl> --up-to-module N --levels L1,L2,L3,L4,L5` → full adversarial sweep (precision regression on edge + adversarial cases)
+1. `detailed_tensor_compare` on the op's entry point (`pypto_function` in the canonical `custom/<op>/<op>_impl.py`) → precision regression check
+2. `python custom/<op>/eval/adversarial_runner.py --impl custom/<op>/<op>_impl.py --up-to-module N --levels L1,L2,L3,L4,L5` → full adversarial sweep
 3. Layout check
 4. Perf delta
 
