@@ -21,6 +21,56 @@ file(GLOB_RECURSE _Compiler_Srcs
         utils/*.cpp
         cache_manager/*.cpp)
 
+set(PTO_SUPPORTED_ARCHES "2210" "3510")
+
+function(pto_add_compiler_target ARCH)
+    set(TARGET_NAME tile_fwk_compiler_${ARCH})
+    add_library(${TARGET_NAME} SHARED)
+    target_sources(${TARGET_NAME} PRIVATE ${_Compiler_Srcs})
+    target_include_directories(${TARGET_NAME}
+            PUBLIC
+                $<BUILD_INTERFACE:$<$<BOOL:${BUILD_WITH_CANN}>:${ASCEND_CANN_PACKAGE_PATH}/include>>
+                $<BUILD_INTERFACE:$<$<BOOL:${BUILD_WITH_CANN}>:${ASCEND_CANN_PACKAGE_PATH}/include/experiment>>
+                $<BUILD_INTERFACE:$<$<BOOL:${BUILD_WITH_CANN}>:${ASCEND_CANN_PACKAGE_PATH}/include/experiment/msprof>>
+                $<BUILD_INTERFACE:$<$<BOOL:${BUILD_WITH_CANN}>:${ASCEND_CANN_PACKAGE_PATH}/pkg_inc/base>>
+            PRIVATE
+                ${CMAKE_CURRENT_SOURCE_DIR}
+    )
+    target_compile_definitions(${TARGET_NAME}
+            PRIVATE
+                DAV_ARCH=${ARCH}
+                $<BUILD_INTERFACE:$<$<BOOL:${BUILD_WITH_CANN}>:PROCESSOR_SUBPATH="${CMAKE_SYSTEM_PROCESSOR}-linux">>
+                $<BUILD_INTERFACE:$<$<BOOL:${BUILD_WITH_CANN}>:BUILD_WITH_CANN>>
+                $<BUILD_INTERFACE:$<$<BOOL:${ENABLE_STEST_INTERPRETER_CONFIG}>:ENABLE_STEST_INTERPRETER_CONFIG>>
+    )
+    target_link_directories(${TARGET_NAME}
+            PUBLIC
+                $<BUILD_INTERFACE:$<$<BOOL:${BUILD_WITH_CANN}>:${ASCEND_CANN_PACKAGE_PATH}/lib64>>
+    )
+    target_link_libraries(${TARGET_NAME}
+            PRIVATE
+                $<$<BOOL:${ENABLE_COMPILE_DEPENDENCY_CHECK}>:tile_fwk_utils>
+                $<$<BOOL:${ENABLE_COMPILE_DEPENDENCY_CHECK}>:tile_fwk_interface>
+                $<$<BOOL:${ENABLE_COMPILE_DEPENDENCY_CHECK}>:tile_fwk_codegen>
+                json
+            PRIVATE
+                intf_pub_cxx17
+                tile_fwk_intf_pub
+                dl
+                c_sec
+    )
+    if (BUILD_WITH_CANN)
+        add_dependencies(${TARGET_NAME} pypto_ctrl_server)
+    endif ()
+    set_target_properties(${TARGET_NAME} PROPERTIES OUTPUT_NAME tilefwk_compiler_${ARCH})
+    PTO_Fwk_AnalysisTargetHeaderFiles(TARGET ${TARGET_NAME})
+    PTO_Fwk_AnalysisTargetSymbols(TARGET ${TARGET_NAME})
+endfunction()
+
+foreach(ARCH IN LISTS PTO_SUPPORTED_ARCHES)
+    pto_add_compiler_target(${ARCH})
+endforeach()
+
 add_library(tile_fwk_compiler SHARED)
 target_sources(tile_fwk_compiler PRIVATE ${_Compiler_Srcs})
 target_include_directories(tile_fwk_compiler
@@ -29,6 +79,7 @@ target_include_directories(tile_fwk_compiler
 )
 target_compile_definitions(tile_fwk_compiler
         PRIVATE
+            DAV_ARCH=2210
             $<BUILD_INTERFACE:$<$<BOOL:${BUILD_WITH_CANN}>:PROCESSOR_SUBPATH="${CMAKE_SYSTEM_PROCESSOR}-linux">>
             $<BUILD_INTERFACE:$<$<BOOL:${BUILD_WITH_CANN}>:BUILD_WITH_CANN>>
             $<BUILD_INTERFACE:$<$<BOOL:${ENABLE_STEST_INTERPRETER_CONFIG}>:ENABLE_STEST_INTERPRETER_CONFIG>>
@@ -48,6 +99,11 @@ target_link_libraries(tile_fwk_compiler
 if (BUILD_WITH_CANN)
     add_dependencies(tile_fwk_compiler pypto_ctrl_server)
 endif ()
-
 PTO_Fwk_AnalysisTargetHeaderFiles(TARGET tile_fwk_compiler)
 PTO_Fwk_AnalysisTargetSymbols(TARGET tile_fwk_compiler)
+
+if (NOT ENABLE_FEATURE_PYTHON_FRONT_END)
+    foreach(ARCH IN LISTS PTO_SUPPORTED_ARCHES)
+        install(TARGETS tile_fwk_compiler_${ARCH} LIBRARY DESTINATION lib OPTIONAL)
+    endforeach()
+endif()

@@ -15,6 +15,13 @@
 #include "dump_device_perf.h"
 
 #include <cstdlib>
+#include "tilefwk/arch_config.h"
+#include "interface/machine/device/tilefwk/aicpu_common.h"
+#include "runtime/mem.h"
+#include "interface/utils/file_utils.h"
+#include "machine/device/dynamic/device_utils.h"
+#include "interface/configs/config_manager.h"
+#include "machine/device/distributed/common.h"
 #include "tilefwk/pypto_fwk_log.h"
 #include "adapter/api/runtime_api.h"
 #include "interface/machine/device/tilefwk/aicpu_common.h"
@@ -30,8 +37,11 @@ uint32_t g_last_round_num = 0;
 extern "C" void DumpDevTaskPerfData(DeviceArgs& args, const std::vector<void*>& perfData, bool isLast)
 {
     if (GetEnvVar("DUMP_DEVICE_PERF") == "true" && !perfData.empty()) {
-        uint64_t freq = (args.archInfo == ArchInfo::DAV_2201) ? npu::tile_fwk::dynamic::FREQ_DAV_2201 :
-                                                                npu::tile_fwk::dynamic::FREQ_DAV_3510;
+#if PTO_ARCH_DAV_3510
+        uint64_t freq = npu::tile_fwk::dynamic::FREQ_DAV_3510;
+#else
+        uint64_t freq = npu::tile_fwk::dynamic::FREQ_DAV_2201;
+#endif
         npu::tile_fwk::dynamic::DumpAicpuPerfInfo(args, perfData, freq, isLast);
     }
 }
@@ -125,7 +135,11 @@ void DumpAicoreTaskExectInfo(DeviceArgs& args, const std::vector<void*>& perfDat
     std::string draw_swim_lane_py_path = GetCurrentSharedLibPath() + "/scripts/draw_swim_lane.py";
     npu::tile_fwk::config::SetRunDataOption(
         KEY_SWIM_GRAPH_PATH, npu::tile_fwk::config::GetAbsoluteTopFolder() + "/merged_swimlane.json");
-    uint64_t freq = (args.archInfo == ArchInfo::DAV_2201) ? FREQ_DAV_2201 : FREQ_DAV_3510;
+#if PTO_ARCH_DAV_3510
+    uint64_t freq = FREQ_DAV_3510;
+#else
+    uint64_t freq = FREQ_DAV_2201;
+#endif
 
     if (FileExist(program_json_path) && FileExist(topo_txt_path)) {
         MACHINE_LOGI("The files program.json and dyn_topo.txt exist. Start merging the swimlane.");

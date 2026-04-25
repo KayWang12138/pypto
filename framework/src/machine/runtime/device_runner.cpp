@@ -15,6 +15,7 @@
 
 #include "machine/runtime/device_runner.h"
 #include <cstdint>
+#include "tilefwk/arch_config.h"
 #include <algorithm>
 #include <cstdint>
 #include <cstdlib>
@@ -269,45 +270,36 @@ int DeviceRunner::InitDeviceArgs(DeviceArgs& args)
 {
     hostProf_.RegHostProf();
 
-    addressMappingTable_[ArchInfo::DAV_2201] = [&args](std::vector<int64_t>& regs, std::vector<int64_t>& regsPmu) {
-        std::vector<int64_t> aiv;
-        std::vector<int64_t> aic;
-        std::vector<int64_t> aivPmu;
-        std::vector<int64_t> aicPmu;
-        if (machine::GetRA()->GetAicoreRegInfo(aic, aiv, ADDR_MAP_TYPE_REG_AIC_CTRL) != 0) {
-            return -1;
-        }
-        if (machine::GetRA()->GetAicoreRegInfo(aicPmu, aivPmu, ADDR_MAP_TYPE_REG_AIC_PMU_CTRL) != 0) {
-            return 0;
-        }
-        regs.insert(regs.end(), aic.begin(), aic.end());
-        regs.insert(regs.end(), aiv.begin(), aiv.end());
-        regsPmu.insert(regsPmu.end(), aicPmu.begin(), aicPmu.end());
-        regsPmu.insert(regsPmu.end(), aivPmu.begin(), aivPmu.end());
-        return 0;
-    };
-
-    addressMappingTable_[ArchInfo::DAV_3510] = [](std::vector<int64_t>& regs, std::vector<int64_t>& regsPmu) {
-        return machine::GetRA()->GetAicoreRegInfoForDAV3510(regs, regsPmu);
-    };
-
     memset_s(&args, sizeof(args), 0, sizeof(args));
     std::vector<int64_t> regs;
     std::vector<int64_t> regsPmu;
 
-    args.archInfo = static_cast<ArchInfo>(Platform::Instance().GetSoc().GetNPUArch());
-    if (args.archInfo == ArchInfo::DAV_3510) {
-        aicpuNum_ = npu::tile_fwk::dynamic::DEVICE_MAX_AICPU_NUM;
+#if PTO_ARCH_DAV_3510
+    args.archInfo = ArchInfo::DAV_3510;
+    aicpuNum_ = npu::tile_fwk::dynamic::DEVICE_MAX_AICPU_NUM;
+    if (machine::GetRA()->GetAicoreRegInfoForDAV3510(regs, regsPmu) != 0) {
+        return -1;
     }
+#else
+    args.archInfo = ArchInfo::DAV_2201;
+    std::vector<int64_t> aiv;
+    std::vector<int64_t> aic;
+    std::vector<int64_t> aivPmu;
+    std::vector<int64_t> aicPmu;
+    if (machine::GetRA()->GetAicoreRegInfo(aic, aiv, ADDR_MAP_TYPE_REG_AIC_CTRL) != 0) {
+        return -1;
+    }
+    if (machine::GetRA()->GetAicoreRegInfo(aicPmu, aivPmu, ADDR_MAP_TYPE_REG_AIC_PMU_CTRL) != 0) {
+        return 0;
+    }
+    regs.insert(regs.end(), aic.begin(), aic.end());
+    regs.insert(regs.end(), aiv.begin(), aiv.end());
+    regsPmu.insert(regsPmu.end(), aicPmu.begin(), aicPmu.end());
+    regsPmu.insert(regsPmu.end(), aivPmu.begin(), aivPmu.end());
+#endif
     int cpuNum = static_cast<int>(Platform::Instance().GetSoc().GetAICPUNum());
     args.maxAicpuNum = cpuNum;
     aicpuNum_ = aicpuNum_ < cpuNum ? aicpuNum_ : cpuNum;
-    auto it = addressMappingTable_.find(args.archInfo);
-    if (it != addressMappingTable_.end()) {
-        if (it->second(regs, regsPmu) != 0) {
-            return -1;
-        }
-    }
     InitAiCpuSoBin(args);
     return InitDeviceArgsCore(args, regs, regsPmu);
 }
