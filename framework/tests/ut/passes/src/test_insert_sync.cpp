@@ -543,10 +543,8 @@ TEST_F(InsertSyncTest, TestHandleEventID)
     PipeSync::CoreTypeDetail setCore = {CoreType::AIC, AIVCore::UNSPECIFIED};
     PipeSync::CoreTypeDetail waitCore = {CoreType::AIV, AIVCore::AIV1};
     PipeSync::CorePair corePair = {setCore, waitCore};
-    PipeSync::CorePair corePairReverse = {waitCore, setCore};
-    ps.InitCVEventIdQ(true, corePair, corePairReverse);
-    EXPECT_EQ(ps.crossCoreFreeEventId_[corePair].size(), IS_NUM16);
-    EXPECT_EQ(ps.crossCoreFreeEventId_[corePairReverse].size(), IS_NUM16);
+    ps.InitCVEventIdQ(corePair);
+    EXPECT_EQ(ps.crossCoreFreeEventId_[corePair].size(), IS_NUM8);
 }
 
 TEST_F(InsertSyncTest, TestRelaxFakeDataDep)
