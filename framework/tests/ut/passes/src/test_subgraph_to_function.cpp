@@ -244,16 +244,17 @@ static void BuildSameOffsetSubgraph0(const std::shared_ptr<Function>& func,
     auto shape2Imme = OpImmediate::Specified({16, 32});
 
     auto inner_tensor1 = std::make_shared<LogicalTensor>(*func, DT_FP32, std::vector<int64_t>{16, 32});
+    inner_tensor1->subGraphID = 0;
     inner_tensor1->SetMemoryTypeBoth(MEM_UB);
     inner_tensor1->UpdateOffset({0, 0});
-    inner_tensor1->subGraphID = 0;
     inner_tensor1->SetMagic(30);
 
     auto& copyopin1 = func->AddOperation(Opcode::OP_COPY_IN, {input_tensor}, {inner_tensor1});
-    copyopin1.SetOpAttribute(std::make_shared<CopyOpAttribute>(
-        OpImmediate::Specified({0, 0}), MEM_UB, shape2Imme, shape2Imme, std::vector<npu::tile_fwk::OpImmediate>()));
     copyopin1.UpdateSubgraphID(0);
     copyopin1.opmagic = 10021;
+    copyopin1.SetOpAttribute(std::make_shared<CopyOpAttribute>(
+        OpImmediate::Specified({0, 0}), MEM_UB, shape2Imme, shape2Imme, std::vector<npu::tile_fwk::OpImmediate>()));
+
 
     auto result_tensor1 = std::make_shared<LogicalTensor>(*func, DT_FP32, std::vector<int64_t>{16, 32});
     result_tensor1->SetMemoryTypeBoth(MEM_UB);
