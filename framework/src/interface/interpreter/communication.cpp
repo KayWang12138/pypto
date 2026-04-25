@@ -357,6 +357,19 @@ void SimulationCommContext::Wait(int srcRank, int expect, size_t slotSize, uint6
     }
 }
 
+void SimulationCommContext::CheckWaitCondition(int srcRank, int expect, size_t slotSize, uint64_t offset) {
+    volatile uint8_t *base = reinterpret_cast<volatile uint8_t *>(GetRemoteRank(srcRank, true));
+    int32_t targetValue = static_cast<int32_t>(expect);
+    if (slotSize == 0 || slotSize >= WIN_EXP_SIZE) {
+        throw std::runtime_error("Invalid slotSize in Wait operation!");
+    }
+    volatile int32_t *ctrlBase = reinterpret_cast<volatile int32_t *>(base);
+    offset = offset / (sizeof(int32_t) / sizeof(uint8_t));
+    slotSize = slotSize / (sizeof(int32_t) / sizeof(uint8_t));
+    std::atomic_thread_fence(std::memory_order_acquire);
+    return ctrlBase[offset + slotSize - 1] == targetValue;
+}
+
 LogicalTensorDataPtr SimulationCommContext::Get(int srcRank, DataType datatype, const Shape &shape, uint64_t offset) {
     uint8_t *base = GetRemoteRank(srcRank, false);
     size_t slotSize = BytesOf(datatype) * std::accumulate(shape.begin(), shape.end(), 1, std::multiplies<size_t>());

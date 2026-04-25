@@ -50,6 +50,7 @@ public:
     void Set(int dstRank, int value, size_t slotSize, uint64_t offset = 0);
     void Signal(int dstRank, int value, size_t slotSize, uint64_t offset = 0, int atomicType = 0, bool notifyAll = false);
     void Wait(int srcRank, int expect, size_t slotSize, uint64_t offset = 0, bool reset = false);
+    void CheckWaitCondition(int srcRank, int expect, size_t slotSize, uint64_t offset = 0);
     LogicalTensorDataPtr Get(int srcRank, DataType datatype, const Shape &shape, uint64_t offset = 0);
 
     SimulationCommContext() = default;

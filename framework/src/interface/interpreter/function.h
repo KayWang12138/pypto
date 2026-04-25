@@ -24,8 +24,12 @@
 #include "tilefwk/error_code.h"
 #include "communication.h"
 #include "tilefwk/comm_group_recorder.h"
+#include "interface/operation/distributed/distributed_common.h"
 #include <algorithm>
 #include <future>
+#include <queue>
+#include <unordered_map>
+#include <unordered_set>
 
 namespace npu::tile_fwk {
 
@@ -707,8 +711,18 @@ struct FunctionInterpreter {
     VerifyType verifyType{VerifyType::INVALID};
     int captureIndex{0};
     int passIndex{-1};
-    std::unordered_map<Operation*, Operation*> waitDependencies_;
-    std::vector<Operation*> waitOpQueue_;
+
+    bool CheckWaitUntilReady(Operation *op, LogicalTensorDataPtr shmData)
+    {
+        Distributed::ShmemWaitUntilAttr attr;
+        op->GetAttr(OpAttributeKey::distOpAttr, attr);
+        std::shared_ptr<SimulationCommContext> context =
+            SimulationCommManager::Instance().GetCommContext(attr.group);
+        int srcRank = context->GetRank();
+        size_t slotSize = shmData->GetSize() * BytesOf(shmData->GetDataType());
+        uint64_t offset = shmData->GetStorageOffset();
+        return context->CheckWaitCondition(srcRank, attr.expectedSum, slotSize, offset);
+    }
 
     std::vector<std::shared_ptr<LogicalTensorData>>& GetInputDataViewList()
     {
@@ -1090,15 +1104,151 @@ struct FunctionInterpreter {
 
         std::cout << "Start | execute function " << func->GetFuncMagic() << std::endl;
         ExecuteHandleFunctionBegin(func, frame);
-        for (auto& op : func->Operations()) {
-            if (op.GetOpcode() == Opcode::OP_PRINT && verifyType != VerifyType::TENSOR_GRAPH)
-                continue;
-            std::cout << "Start | execute op " << op.GetOpcodeStr() << ":" << op.GetOpMagic() << std::endl;
-            ExecuteHandleOperationBegin(&op);
-            ExecuteOperation(*frame, &op);
-            ExecuteHandleOperationEnd();
-            std::cout << "End | execute op " << op.GetOpcodeStr() << ":" << op.GetOpMagic() << std::endl;
+        auto operations = func->Operations();
+
+        //
+        bool hasWaitUntil = false;
+        for (auto &op: operations) {
+            if (op.GetOpcode() == Opcode::OP_SHMEM_WAIT_UNTIL) {
+                hasWaitUntil = true;
+                break;
+            }
         }
+        if (hasWaitUntil) {
+            std::unordered_set<Operation*> opSet;
+            for (auto &op: operations) {
+                opSet.insert(&op);
+            }
+
+            std::unordered_map<Operation*, int> inDegree;
+            std::unordered_map<Operation*, std::vector<Operation*>> consumers;
+            for (auto &op: operations) {
+                inDegree[&op] = 0;
+            }
+            for (auto &op: operations) {
+                for (auto &inputTensor: op.GetIOperands()) {
+                    for (auto *producer: inputTensor->GetProducers()) {
+                        // TODO: 这里要判断是不是同一个 function?
+                        if (opSet.count(producer)) {
+                            inDegree[&op] ++;
+                            consumers[producer].push_back(&op);
+                        }
+                    }
+                }
+                for (auto &dependTensor: op.GetDependOperands()) {
+                    for (auto *dependOp: dependTensor->GetProducers()) {
+                        // TODO: 这里要判断是不是同一个 function?
+                        if (opSet.count(dependOp)) {
+                            inDegree[&op] ++;
+                            consumers[producer].push_back(&op);
+                        }
+                    }
+                }
+            }
+
+            std::queue<Operation*> readyQueue;
+            for (auto &[op, deg]: inDegree) {
+                if (deg == 0) {
+                    readyQueue.push(op);
+                }
+            }
+
+            std::vector<Operation *> deferredWaitOps;
+            int executedCount = 0;
+            int totalOps = operations.Size();
+
+            while (executedCount < totalOps) {
+                while (!readyQueue.empty()) {
+                    Operation *op = readyQueue.front();
+                    readyQueue.pop();
+
+                    if (op->GetOpcode() == Opcode::OP_PRINT && verifyType != VerifyType::TENSOR_GRAPH) {
+                        executedCount ++;
+                        for (auto *consumer: consumers[op]) {
+                            inDegree[consumer]--;
+                            if (inDegree[consumer] == 0) {
+                                readyQueue.push(consumer);
+                            }
+                        }
+                        continue;
+                    }
+
+                    if (op->GetOpcode() == Opcode::OP_SHMEM_WAIT_UNTIL) {
+                        auto iOpDataList = frame->GetDataViewList(op->GetIOperands());
+                        LogicalTensorDataPtr shmData = iOpDataList[1];
+                        if (shmData != nullptr && CheckWaitUntilReady(op, shmData)) {
+                            std::cout << "Start | execute op " << op->GetOpcodeStr() << ":" << op->GetOpMagic() << std::endl;
+                            ExecuteHandleOperationBegin(op);
+                            ExecuteOperation(*frame, op);
+                            ExecuteHandleOperationEnd();
+                            std::cout << "End | execute op " << op->GetOpcodeStr() << ":" << op->GetOpMagic() << std::endl;
+                            executedCount ++;
+                            for (auto *consumer: consumers[op]) {
+                                inDegree[consumer] --;
+                                if (inDegree[consumer] == 0) {
+                                    readyQueue.push(consumer);
+                                }
+                            }
+                        } else {
+                            deferredWaitOps.push_back(op);
+                        }
+                    } else {
+                        std::cout << "Start | execute op " << op->GetOpcodeStr() << ":" << op->GetOpMagic() << std::endl;
+                        ExecuteHandleOperationBegin(op);
+                        ExecuteOperation(*frame, op);
+                        ExecuteHandleOperationEnd();
+                        std::cout << "End | execute op " << op->GetOpcodeStr() << ":" << op->GetOpMagic() << std::endl;
+                        executedCount ++;
+                        for (auto *consumer: consumers[op]) {
+                            inDegree[consumer] --;
+                            if (inDegree[consumer] == 0) {
+                                readyQueue.push(consumer);
+                            }
+                        }
+                    }
+                }
+                if (!deferredWaitOps.empty()) {
+                    bool anyReady = false;
+                    std::vector<Operation*> stillDeferred;
+                    for (auto *waitOp: deferredWaitOps) {
+                        auto iOpDataList = frame->GetDataViewList(op->GetIOperands());
+                        LogicalTensorDataPtr shmData = iOpDataList[1];
+                        if (shmData != nullptr && CheckWaitUntilReady(op, shmData)) {
+                            std::cout << "Start | execute op " << op->GetOpcodeStr() << ":" << op->GetOpMagic() << std::endl;
+                            ExecuteHandleOperationBegin(op);
+                            ExecuteOperation(*frame, op);
+                            ExecuteHandleOperationEnd();
+                            std::cout << "End | execute op " << op->GetOpcodeStr() << ":" << op->GetOpMagic() << std::endl;
+                            executedCount ++;
+                            for (auto *consumer: consumers[op]) {
+                                inDegree[consumer] --;
+                                if (inDegree[consumer] == 0) {
+                                    readyQueue.push(consumer);
+                                }
+                            }
+                            anyReady = true;
+                        } else {
+                            stillDeferred.push_back(waitOp);
+                        }
+                    }
+                    deferredWaitOps = std::move(stillDeferred);
+                    if (!anyReady) {
+                        std::this_thread::yield();
+                    }
+                }
+            }
+        } else {
+            for (auto& op : func->Operations()) {
+                if (op.GetOpcode() == Opcode::OP_PRINT && verifyType != VerifyType::TENSOR_GRAPH)
+                    continue;
+                std::cout << "Start | execute op " << op.GetOpcodeStr() << ":" << op.GetOpMagic() << std::endl;
+                ExecuteHandleOperationBegin(&op);
+                ExecuteOperation(*frame, &op);
+                ExecuteHandleOperationEnd();
+                std::cout << "End | execute op " << op.GetOpcodeStr() << ":" << op.GetOpMagic() << std::endl;
+            }
+        }
+
         ExecuteHandleFunctionEnd();
         std::cout << "End | execute function " << func->GetFuncMagic() << std::endl;
 
@@ -1106,22 +1256,6 @@ struct FunctionInterpreter {
 
         EraseTensorDataView(func, *frame);
         return frame;
-    }
-
-    void ResolveWaitUntilDependency(Function* func) {
-        for (auto& op : func->Operations()) {
-            if (op.GetOpcode() != Opcode::OP_SHMEM_WAIT_UNTIL) {
-                continue;
-            }
-            LogicalTensors dependencyOperands = op.GetOOperands();
-            for (auto& depend : dependencyOperands) {
-                for (auto& consumer : depend->GetConsumers()) {
-                    waitDependencies_[consumer] = &op;
-                    std::cout << consumer->GetOpcodeStr() << consumer->GetOpMagic() << " depends on " << 
-                        op.GetOpcodeStr() << op.GetOpMagic() << std::endl;
-                }
-            }
-        }
     }
 
     void CopyInplaceOutcastToIncast(Function* func, const std::shared_ptr<FunctionFrame>& frame)
