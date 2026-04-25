@@ -39,7 +39,7 @@ This skill contains the plan template that agents copy to `custom/<op>/plan.md` 
 | Golden function inventory | Phase 1 (create), Phase 3-4 (cross-check) | Yes |
 | Module contracts | Phase 2 | Yes |
 | Layer format compliance | Phase 2 | Yes |
-| DEBUG.md §9 pre-write checklist | Before Phase 3 | Yes |
+| debug-playbook.md §9 pre-write checklist | Before Phase 3 | Yes |
 | Development & debug log | Every error/fix | Yes |
 | Phase D canonical rename log | After GATE 4 | Yes |
 | Human review milestones | Optional | No |

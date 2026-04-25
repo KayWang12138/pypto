@@ -254,7 +254,7 @@ def find_pypto_view_reshape_misuse(source: str, rel_path: Path) -> list[str]:
       - len(shape) != len(valid_shape)     → clear bug when valid_shape is non-empty
 
     pypto.view extracts a same-rank sub-view. It is NOT a reshape. See
-    `docs/api/operation/pypto-view.md` and `skills/debugging/DEBUG.md` §9.4.
+    `docs/api/operation/pypto-view.md` and `skills/pypto-general-debug/references/debug-playbook.md` §9.4.
     """
     errors: list[str] = []
     try:
@@ -286,7 +286,7 @@ def find_pypto_view_reshape_misuse(source: str, rel_path: Path) -> list[str]:
                 f"(shape has {shape_len} dims, offsets has {offsets_len} dims). "
                 f"pypto.view is NOT reshape — it extracts a same-rank sub-view. "
                 f"See `docs/api/operation/pypto-view.md` and "
-                f"`skills/debugging/DEBUG.md` §9.4."
+                f"`skills/pypto-general-debug/references/debug-playbook.md` §9.4."
             )
 
         if (
@@ -369,7 +369,7 @@ def find_missing_pypto_loop(source: str, rel_path: Path) -> list[str]:
         warnings.append(
             f"{rel_path}: PyPTO kernel function detected but no `pypto.loop` calls found. "
             f"If the kernel uses iteration over dynamic axes, consider using `pypto.loop`. "
-            f"See `skills/debugging/DEBUG.md` §9.15 and "
+            f"See `skills/pypto-general-debug/references/debug-playbook.md` §9.15 and "
             f"`docs/api/controlflow/pypto-loop.md`."
         )
 

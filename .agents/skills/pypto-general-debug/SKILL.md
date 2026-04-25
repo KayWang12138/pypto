@@ -1,20 +1,20 @@
 ---
-name: pypto-kernel-debugging
-description: Overview of the debugging skill — failure history, strategy switching, op-by-op protocol, and the full debug playbook (DEBUG.md).
+name: pypto-general-debug
+description: Overview of the general debug skill — failure history, strategy switching, op-by-op protocol, and the full debug playbook (references/debug-playbook.md).
 ---
 
 # PyPTO Complex Kernel — Debugging
 
-This skill covers what to do when the agent is stuck. For the full error playbook and agent-learned patterns, read **`DEBUG.md`** (same folder).
+This skill covers what to do when the agent is stuck. For the full error playbook and agent-learned patterns, read **`references/debug-playbook.md`**.
 
 ## Contents at a glance
 
 | Document | What it covers |
 |----------|---------------|
 | **This file (SKILL.md)** | Failure history logging, strategy switching rules, op-by-op check protocol |
-| **`DEBUG.md` §1–§7** | Opaque error playbook: `FFFFF`, `UNKNOWN`, `F21004`, AICore, error-code quick reference, stop conditions |
-| **`DEBUG.md` §8** | Example kernels debug practice (global patterns, recurring failures, integration tracks) |
-| **`DEBUG.md` §9** | Agent-learned dev patterns: JIT signatures, dynamic shapes, `pypto.view`, SIM mode, matmul API, tile shapes, reduction alignment, and more |
+| **`references/debug-playbook.md` §1–§7** | Opaque error playbook: `FFFFF`, `UNKNOWN`, `F21004`, AICore, error-code quick reference, stop conditions |
+| **`references/debug-playbook.md` §8** | Example kernels debug practice (global patterns, recurring failures, integration tracks) |
+| **`references/debug-playbook.md` §9** | Agent-learned dev patterns: JIT signatures, dynamic shapes, `pypto.view`, SIM mode, matmul API, tile shapes, reduction alignment, and more |
 
 ---
 
@@ -92,21 +92,21 @@ This protocol is compatible with fully autonomous runs: the agent applies it wit
 
 ---
 
-## Before writing PyPTO code — consult DEBUG.md §9
+## Before writing PyPTO code — consult debug-playbook.md §9
 
 Read the matching subsection before writing each module's PyPTO code:
 
 | What you are about to write | Read first |
 |------------------------------|------------|
-| Any `@pypto.frontend.jit` function | `DEBUG.md` §9.1 (`from __future__ import annotations` breaks JIT) |
-| `pypto.view` / `pypto.assemble` | `DEBUG.md` §9.4 (golden rule: `len(shape)==len(offsets)`, padding, reshape) |
-| `pypto.matmul` | `DEBUG.md` §9.19 (transpose flags `a_trans`/`b_trans`, NOT `.T`; cube+vec tiles required) |
-| `.sum()` / reduction ops | `DEBUG.md` §9.19 (32-byte alignment; matmul-based workaround) |
-| Dynamic shapes / `pypto.loop` | `DEBUG.md` §9.2 (concrete loop bounds, symbolic offsets) |
-| Tensor type hints in JIT signature | `DEBUG.md` §9.13 (use `pypto.Tensor([], dtype)`, not explicit `DYNAMIC` dims) |
-| Element-wise ops inside JIT | `DEBUG.md` §9.14 (Python `*`, `+`, `.exp()` work; prefer over verbose `pypto.mul`) |
-| Tile shape configuration | `DEBUG.md` §9.15 + §9.19 (vec+cube both needed for matmul; ≥4 vec args) |
-| Any error during development | `DEBUG.md` §9.11 (common error → cause → solution quick table) |
+| Any `@pypto.frontend.jit` function | `references/debug-playbook.md` §9.1 (`from __future__ import annotations` breaks JIT) |
+| `pypto.view` / `pypto.assemble` | `references/debug-playbook.md` §9.4 (golden rule: `len(shape)==len(offsets)`, padding, reshape) |
+| `pypto.matmul` | `references/debug-playbook.md` §9.19 (transpose flags `a_trans`/`b_trans`, NOT `.T`; cube+vec tiles required) |
+| `.sum()` / reduction ops | `references/debug-playbook.md` §9.19 (32-byte alignment; matmul-based workaround) |
+| Dynamic shapes / `pypto.loop` | `references/debug-playbook.md` §9.2 (concrete loop bounds, symbolic offsets) |
+| Tensor type hints in JIT signature | `references/debug-playbook.md` §9.13 (use `pypto.Tensor([], dtype)`, not explicit `DYNAMIC` dims) |
+| Element-wise ops inside JIT | `references/debug-playbook.md` §9.14 (Python `*`, `+`, `.exp()` work; prefer over verbose `pypto.mul`) |
+| Tile shape configuration | `references/debug-playbook.md` §9.15 + §9.19 (vec+cube both needed for matmul; ≥4 vec args) |
+| Any error during development | `references/debug-playbook.md` §9.11 (common error → cause → solution quick table) |
 
 ---
 
@@ -159,7 +159,7 @@ active-skill count ≤ 4.
 - Do **not** load more than one sub-skill at once. If a new failure class
   appears, unload the current sub-skill first.
 - Do **not** pre-load sub-skills speculatively.
-- If no row matches, stay in this SKILL.md + `DEBUG.md`. Do not escalate.
+- If no row matches, stay in this SKILL.md + `references/debug-playbook.md`. Do not escalate.
 - The Debug Agent's contract (`.opencode/agents/debug.md`) takes precedence over any sub-skill guidance on conflict.
 - Log the dispatch decision to `custom/<op>/plan.md` under **Development &
   debug log** (which row matched, which sub-skill was loaded, outcome).

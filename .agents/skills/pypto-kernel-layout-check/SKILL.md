@@ -51,7 +51,7 @@ python3 .agents/skills/pypto-kernel-layout-check/scripts/extract_pypto_calls.py 
   custom/<operator_name>/<kernel_file>.py
 ```
 
-Add `--json` for machine-readable output. See `skills/debugging/SKILL.md` → op-by-op check protocol.
+Add `--json` for machine-readable output. See `skills/pypto-general-debug/SKILL.md` → op-by-op check protocol.
 
 ---
 

@@ -51,7 +51,7 @@ For complex kernels (attention-class, recurrent, fused), the per-file templates 
 
 For simple operators, the lighter `pypto-op-develop/templates/{impl,test}-template.py` may suffice.
 
-Cap active skills at 3. Do NOT load any `debugging/*` skill yourself.
+Cap active skills at 3. Do NOT load any `pypto-general-debug/*` skill yourself.
 
 ## File structure principles (apply to every staged set)
 
@@ -98,4 +98,4 @@ The 3 files in a staged set carry distinct layer responsibilities. Keep them sep
 - Never edit the canonical top-level `<op>_impl.py` / `<op>_golden.py` / `test_<op>.py` directly — those are produced by rename from the final M_N staged set after GATE 4.
 - Never comment out PyPTO lines to "bisect" inside a fused `@jit` — that is Verification's job via the debug router.
 - Every iteration logged to `custom/<op>/plan.md` → Development & debug log.
-- If you catch yourself opening a `debugging/*` skill: STOP. That is Verification's role. Hand off.
+- If you catch yourself opening a `pypto-general-debug/*` skill: STOP. That is Verification's role. Hand off.

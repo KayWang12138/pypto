@@ -15,8 +15,8 @@ You are invoked by Lead **only** when @verification reports a GATE failure. You 
 
 ## Mandatory reads (at invocation)
 
-1. `.agents/skills/debugging/SKILL.md` — router
-2. `.agents/skills/debugging/DEBUG.md` — §9 lookup table
+1. `.agents/skills/pypto-general-debug/SKILL.md` — router
+2. `.agents/skills/pypto-general-debug/references/debug-playbook.md` — §9 lookup table
 3. `custom/<op>/plan.md` — current `active_module`, failing staged set paths, last Verification log entry (includes the prefix-eval verdict + `failing_module_boundary`)
 4. `custom/<op>/eval/evaluation_report.json` (sanitized) — `status`, `first_failure.case_id`, `first_failure.failing_module_boundary`, `first_failure.failure_category`, `first_failure.summary`, `stdout`. The `failing_module_boundary` field is your **primary narrowing signal**: it tells you the smallest k for which prefix-eval broke, isolating the fix domain to one module or one module-boundary contract. You must NOT try to read `<op>_golden_modular.py` or any golden tensor values — the `_sanitize` step strips them; respect the information barrier.
 
@@ -40,9 +40,9 @@ Then load **exactly ONE** sub-skill matching the failure category (see router ta
 | OOM / `rtMalloc failed` | `pypto-machine-workspace` |
 | `L0A/L0B/L0C/L1 size exceeded`, `tile align`, `tile shape not set`, `enable_split_k`, or layout-check flagged a `set_cube_tile_shapes` misuse | `pypto-tile-shape-debug` |
 
-If no row matches, use `debugging` + `DEBUG.md` §9 alone.
+If no row matches, use `pypto-general-debug` + `debug-playbook.md` §9 alone.
 
-Cap: 2 base (router + DEBUG.md) + 1 active sub-skill = 3 active skills max.
+Cap: 2 base (router + debug-playbook.md) + 1 active sub-skill = 3 active skills max.
 
 ## Per-invocation workflow (one failing staged set only)
 

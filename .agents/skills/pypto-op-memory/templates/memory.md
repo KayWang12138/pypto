@@ -115,9 +115,9 @@ List **every operation** in the PyPTO-friendly golden. In Phase 3/4, cross-check
 - **Layer rules:** `.agents/skills/pypto-op-develop/references/kernel-layer-format.md`
 - Which layers apply, which omitted, why:
 
-## `skills/debugging/DEBUG.md` §9 — pre-write checklist
+## `skills/pypto-general-debug/references/debug-playbook.md` §9 — pre-write checklist
 
-Before writing each module's PyPTO code, review the matching subsections from `.agents/skills/debugging/DEBUG.md` §9. Check off after reading. See full lookup table in `skills/pypto-decompose-construct/SKILL.md` → **Phase 3 → Before writing PyPTO code**.
+Before writing each module's PyPTO code, review the matching subsections from `.agents/skills/pypto-general-debug/references/debug-playbook.md` §9. Check off after reading. See full lookup table in `skills/pypto-decompose-construct/SKILL.md` → **Phase 3 → Before writing PyPTO code**.
 
 | Subsection | Applies to this kernel? | Reviewed? |
 |------------|------------------------|-----------|
@@ -132,7 +132,7 @@ Before writing each module's PyPTO code, review the matching subsections from `.
 
 ## Opaque error codes (FFFFF, UNKNOWN, Errcode: F…!)
 
-**Do not** abandon the run on these alone. Follow `.agents/skills/debugging/DEBUG.md` §1–§8, capture full logs, and iterate. When debugging, also consult §9.11 (common error → cause → solution quick table). Log each attempt below.
+**Do not** abandon the run on these alone. Follow `.agents/skills/pypto-general-debug/references/debug-playbook.md` §1–§8, capture full logs, and iterate. When debugging, also consult §9.11 (common error → cause → solution quick table). Log each attempt below.
 
 ## Development & debug log
 

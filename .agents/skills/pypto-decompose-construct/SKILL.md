@@ -75,7 +75,7 @@ Goal: build each module in isolation before integration, as a **staged set of 3 
 
 **Hard rule:** In each iteration, extend the production kernel by at most one new semantic module's real PyPTO logic. Everything downstream remains stubbed or fed from golden boundary tensors. The Coding Agent is responsible for enforcing one-staged-set-per-dispatch.
 
-### Before writing PyPTO code — consult `skills/debugging/DEBUG.md` §9
+### Before writing PyPTO code — consult `skills/pypto-general-debug/references/debug-playbook.md` §9
 
 Read the relevant subsections before writing each module's PyPTO code:
 
@@ -191,7 +191,7 @@ If the module fails:
 
 ### Subskill delegation: debugging escalation
 
-When `skills/debugging/DEBUG.md` strategies and `diagnose_error` do not resolve the issue, escalate to the following subskills in order:
+When `skills/pypto-general-debug/references/debug-playbook.md` strategies and `diagnose_error` do not resolve the issue, escalate to the following subskills in order:
 
 1. **Precision workarounds**: Read `skills/pypto-precision-debug/SKILL.md` — try the workaround checklist (frontend switch, avoid inplace, unroll_list=[1], submit_before_loop, +0.0, shape adjustment).
 2. **Precision bisection**: Read `skills/pypto-precision-compare/SKILL.md` — use `pass_verify_save` or checkpoint tensors to pinpoint the diverging operation.
