@@ -16,7 +16,7 @@
 #include "axis_combine_marker.h"
 namespace npu {
 namespace tile_fwk {
-const std::unordered_set<Opcode> whiteList{Opcode::OP_RESHAPE, Opcode::OP_VEC_DUP, Opcode::OP_COPY_OUT};
+const std::unordered_set<Opcode> whiteList{Opcode::OP_RESHAPE, Opcode::OP_VEC_DUP};
 const std::unordered_set<OpCalcType> propagationCalcType{OpCalcType::ELMWISE, OpCalcType::BROADCAST, OpCalcType::CAST};
 
 void AxisCombineMarker::Run(Function& function)
@@ -170,6 +170,11 @@ void UpdateReduceStatus(Operation* op, std::unordered_map<LogicalTensorPtr, Axis
         tensorStatus[outputTensor] = AxisReorderStatus::DISABLE;
         return;
     }
+    if (inputTensor->GetShape().back() == outputTensor->GetShape().back()) { // 不变
+        tensorStatus[inputTensor] = AxisReorderStatus::DISABLE;
+        tensorStatus[outputTensor] = AxisReorderStatus::DISABLE;
+        return;
+    }
     // Reduce尾轴，默认可以
     tensorStatus[outputTensor] = AxisReorderStatus::ENABLE;
 }
@@ -228,7 +233,7 @@ void AxisCombineMarker::UpdateOpACEnableForward(uint16_t opIdx)
         UpdateViewStatus(op, tensorStatus_);
         return;
     }
-    if (op->GetOpcode() == Opcode::OP_ASSEMBLE) {
+    if (op->GetOpcode() == Opcode::OP_ASSEMBLE || op->GetOpcode() == Opcode::OP_COPY_OUT) {
         UpdateAssembleStatus(op, tensorStatus_);
         return;
     }
