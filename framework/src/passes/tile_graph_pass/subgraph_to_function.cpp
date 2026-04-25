@@ -128,10 +128,10 @@ void SubgraphToFunction::RecordConnectionWithProducers(RecordInfo recordInfo, Su
 bool isFromCast(LogicalTensorPtr &operand) {
     if (!(operand->GetConsumers().empty()) && !(operand->GetProducers().empty())) {
         std::set<int> boundTensorIDs;
-        for (auto &outOp : iOperand->GetConsumers()) {
+        for (auto &outOp : operand->GetConsumers()) {
             boundTensorIDs.insert(outOp->GetSubgraphID());
         }
-        for (auto &inOp : iOperand->GetProducers()) {
+        for (auto &inOp : operand->GetProducers()) {
             boundTensorIDs.insert(inOp->GetSubgraphID());
         }
         if (boundTensorIDs.size() == 1) {
