@@ -1745,7 +1745,7 @@ void IndexAdd(
     auto inputSelf = From(self);
     auto inputSrc = From(src);
     auto inputIndices = From(indices);
-    torch::index_add_out(tout.second, inputSelf.second, axis, inputIndices.second, inputSrc.second, From(alpha));
+    torch::index_add_out(inputSelf.second, inputSelf.second, axis, inputIndices.second, inputSrc.second, From(alpha));
     ToOperand(tout.second, tout.first, out.dtype);
 }
 

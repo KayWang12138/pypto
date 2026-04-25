@@ -108,9 +108,9 @@
             "enable_vf": true,
             "enable_vf_unroll": false,
             "default_pass_configs": {
-                "print_graph": false,
+                "print_graph": true,
                 "print_program": false,
-                "dump_graph": false,
+                "dump_graph": true,
                 "dump_pass_time_cost": true,
                 "pre_check": false,
                 "post_check": false,

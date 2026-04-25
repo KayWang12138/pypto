@@ -815,6 +815,7 @@ void ExecuteOpIndexAdd(ExecuteOperationContext* ctx)
     calc::IndexAdd(ret, self, src, indices, axis, alpha);
 }
 REGISTER_CALC_OP(OP_INDEX_ADD_UB, Opcode::OP_INDEX_ADD_UB, ExecuteOpIndexAdd);
+REGISTER_CALC_OP(OP_INDEX_ADD, Opcode::OP_INDEX_ADD, ExecuteOpIndexAdd);
 
 void ExecuteOpTri(ExecuteOperationContext* ctx)
 {

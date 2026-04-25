@@ -569,7 +569,7 @@ Status ReplaceTensor::BackwardAssemble(Operation* op, LogicalTensorPtr& rootTens
     auto& inOp = *(op->GetIOperands()[0])->GetProducers().begin();
     backRoots.push(op->GetIOperands()[0]);
     processedOp.insert(op->GetOpMagic());
-    if (inOp != nullptr && inOp->GetOpcode() == Opcode::OP_INDEX_OUTCAST) {
+    if (inOp != nullptr && (inOp->GetOpcode() == Opcode::OP_INDEX_OUTCAST || inOp->GetOpcode() == Opcode::OP_INDEX_ADD)) {
         APASS_LOG_INFO_F(
             Elements::Operation, "OP_ASSEMBLE %d parent op is OP_INDEX_OUTCAST %d, skip inplace.", op->GetOpMagic(),
             inOp->GetOpMagic());
