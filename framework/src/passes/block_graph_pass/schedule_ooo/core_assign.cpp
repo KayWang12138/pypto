@@ -363,7 +363,28 @@ void CoreScheduler::ScheduleOneTask(
         int64_t gap0 = calcGap(intervalAIV0);
         int64_t gap1 = calcGap(intervalAIV1);
 
-        if (gap0 < gap1 || (gap0 == gap1 && intervalAIV0.first <= intervalAIV1.first)) {
+        auto getLastFinishBefore = [&](TargetCoreType core, int startTime) -> int {
+            for (auto& slot : availTime[core]) {
+                if (slot.second <= startTime && slot.second < INT32_MAX) {
+                    return slot.second;
+                }
+            }
+            return 0;
+        };
+
+        bool chooseAIV0 = false;
+        if (gap0 < gap1) {
+            chooseAIV0 = true;
+        } else if (gap0 == gap1) {
+            if (intervalAIV0.first < intervalAIV1.first) {
+                chooseAIV0 = true;
+            } else if (intervalAIV0.first == intervalAIV1.first) {
+                int lastFinish0 = getLastFinishBefore(TargetCoreType::AIV0, intervalAIV0.first);
+                int lastFinish1 = getLastFinishBefore(TargetCoreType::AIV1, intervalAIV1.first);
+                chooseAIV0 = (lastFinish0 <= lastFinish1);
+            }
+        }
+        if (chooseAIV0) {
             evalCore = TargetCoreType::AIV0;
             currentIdx = idxAIV0;
             currentInterval = intervalAIV0;
