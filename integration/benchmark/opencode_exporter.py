@@ -173,13 +173,13 @@ def resolve_session_id_by_title(
         completed = subprocess.run(
             [opencode, "session", "list"],
             cwd=str(cwd) if cwd else None,
-            text=True,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             timeout=timeout_sec,
             check=False,
         )
-        for line in completed.stdout.splitlines():
+        stdout_text = _decode_process_output(completed.stdout)
+        for line in stdout_text.splitlines():
             if session_title in line:
                 ids = find_session_ids(line)
                 if ids:
@@ -202,7 +202,6 @@ def latest_session_id(
         completed = subprocess.run(
             [opencode, "session", "list"],
             cwd=str(cwd) if cwd else None,
-            text=True,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             timeout=timeout_sec,
@@ -211,7 +210,7 @@ def latest_session_id(
     except (FileNotFoundError, subprocess.SubprocessError, OSError):
         return None
 
-    ids = find_session_ids(completed.stdout)
+    ids = find_session_ids(_decode_process_output(completed.stdout))
     return ids[0] if ids else None
 
 
@@ -230,7 +229,6 @@ def export_session_to_markdown(
         completed = subprocess.run(
             [opencode, "export", session_id],
             cwd=str(cwd) if cwd else None,
-            text=True,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             timeout=timeout_sec,
@@ -256,15 +254,20 @@ def export_session_to_markdown(
         )
 
     if completed.returncode != 0:
-        detail = (completed.stderr or completed.stdout or "").strip()
+        detail = (
+            _decode_process_output(completed.stderr)
+            or _decode_process_output(completed.stdout)
+            or ""
+        ).strip()
         return OpencodeExportResult(
             session_id=session_id,
             status="error",
             message=f"opencode export 失败 code={completed.returncode}: {detail[:500]}",
         )
 
+    stdout_text = _decode_process_output(completed.stdout)
     try:
-        data = json.loads(completed.stdout)
+        data = json.loads(stdout_text)
     except json.JSONDecodeError as exc:
         return OpencodeExportResult(
             session_id=session_id,
@@ -419,6 +422,14 @@ def _fenced(text: str, lang: str = "") -> str:
     fence = "`" * max(3, longest + 1)
     suffix = lang if lang else ""
     return f"{fence}{suffix}\n{text}\n{fence}\n"
+
+
+def _decode_process_output(data: Any) -> str:
+    if data is None:
+        return ""
+    if isinstance(data, str):
+        return data
+    return bytes(data).decode("utf-8", errors="replace")
 
 
 def _stringify_block(value: Any) -> str:

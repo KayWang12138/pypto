@@ -8,11 +8,12 @@
 # See LICENSE in the root of the software repository for the full text of the License.
 # -----------------------------------------------------------------------------------------------------------
 #
-# 单元测试 — 不需要 NPU, 不烧 LLM. 跑两件事:
+# 单元测试 — 不需要 NPU, 不烧 LLM. 跑三件事:
 #   1. cheat_detector 5 类 fixture (clean / multi_jit / no_pypto / no_jit / suspicious)
 #      每类 verdict 必须与 fixtures/README.md 表格一致.
 #   2. verifier verify 子命令的静态 cheat warning: 用 multi_jit 跑 verify,
 #      必须保留 cheat_check=cheat 和 cheat_gate_warning, 后续 correctness 可继续裁定.
+#   3. opencode_exporter 必须容忍 opencode export stdout 中的非法 UTF-8 字节.
 #
 # 用法 (cwd 任意均可):
 #   bash integration/benchmark/scripts/local/test-unit.sh
@@ -34,6 +35,7 @@ for f in [
     'integration/benchmark/verifier_runner.py',
     'integration/benchmark/run_kernelbench.py',
     'integration/benchmark/case_loader.py',
+    'integration/benchmark/opencode_exporter.py',
 ]:
     ast.parse(open(f).read(), f)
 print('AST OK')
@@ -104,6 +106,66 @@ assert d["verdict_machine"] in {"failed_correctness", "pass"}, f"verdict_machine
 print("cheat warning 行为符合预期")
 PY
 pass "cheat_check=cheat, warning 已保留, correctness 已继续执行"
+
+# ---------- 4. opencode_exporter 非 UTF-8 输出容错 ----------
+section "4. opencode_exporter 非 UTF-8 输出容错"
+
+FAKE_OPENCODE="${BENCHMARK_LOG_DIR}/fake_opencode_invalid_utf8.py"
+cat > "${FAKE_OPENCODE}" <<'PY'
+#!/usr/bin/env python3
+import sys
+
+if sys.argv[1:3] == ["export", "ses_invalidutf8"]:
+    payload = (
+        b'{"info":{"id":"ses_invalidutf8","title":"invalid utf8"},'
+        b'"messages":[{"info":{"role":"assistant","time":{}},'
+        b'"parts":[{"type":"text","text":"bad byte: \xe2 end"}]}]}'
+    )
+    sys.stdout.buffer.write(payload)
+    raise SystemExit(0)
+
+if sys.argv[1:3] == ["export", "ses_truncatedutf8"]:
+    payload = (
+        b'{"info":{"id":"ses_truncatedutf8","title":"truncated utf8"},'
+        b'"messages":[{"info":{"role":"assistant","time":{}},'
+        b'"parts":[{"type":"text","text":"cut byte: \xe2'
+    )
+    sys.stdout.buffer.write(payload)
+    raise SystemExit(0)
+
+raise SystemExit(2)
+PY
+chmod +x "${FAKE_OPENCODE}"
+
+EXPORT_MD="${BENCHMARK_LOG_DIR}/invalid_utf8_session.md"
+TRUNCATED_MD="${BENCHMARK_LOG_DIR}/truncated_utf8_session.md"
+python3 - <<PY || fail "opencode_exporter 非 UTF-8 输出容错失败"
+from pathlib import Path
+
+from integration.benchmark.opencode_exporter import export_session_to_markdown
+
+result = export_session_to_markdown(
+    session_id="ses_invalidutf8",
+    output_file=Path("${EXPORT_MD}"),
+    opencode_bin="${FAKE_OPENCODE}",
+    cwd=Path("${PYPTO_ROOT}"),
+)
+assert result.ok, result.to_dict()
+text = Path("${EXPORT_MD}").read_text(encoding="utf-8")
+assert "bad byte:" in text, text
+print(result.to_dict())
+
+truncated = export_session_to_markdown(
+    session_id="ses_truncatedutf8",
+    output_file=Path("${TRUNCATED_MD}"),
+    opencode_bin="${FAKE_OPENCODE}",
+    cwd=Path("${PYPTO_ROOT}"),
+)
+assert truncated.status == "error", truncated.to_dict()
+assert "JSON" in truncated.message, truncated.to_dict()
+print(truncated.to_dict())
+PY
+pass "opencode export stdout 非法 UTF-8 不再抛 UnicodeDecodeError"
 
 section "test-unit ALL PASSED"
 echo "  详细报告: ${BENCHMARK_LOG_DIR}"
