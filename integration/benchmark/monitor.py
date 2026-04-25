@@ -37,6 +37,8 @@ import time
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
+from wcwidth import wcswidth
+
 from integration.benchmark.case_loader import derive_op_name
 from integration.benchmark.run_kernelbench import DEFAULT_CONFIG_PATH, discover_cases, load_yaml_config
 
@@ -717,8 +719,38 @@ _PHASE_LABEL = {
 }
 
 _COL_W = {
-    "idx": 4, "op": 16, "phase": 10, "pid": 11, "time": 20, "dur": 9, "status": 20,
+    "idx": 4, "op": 24, "phase": 10, "pid": 11, "time": 20, "dur": 9, "status": 22,
 }
+
+
+def _cell_width(value: Any) -> int:
+    width = wcswidth(str(value))
+    return width if width >= 0 else len(str(value))
+
+
+def _clip_cell(value: Any, width: int) -> str:
+    text = str(value)
+    if _cell_width(text) <= width:
+        return text
+    suffix = "…"
+    suffix_width = _cell_width(suffix)
+    out: List[str] = []
+    used = 0
+    for ch in text:
+        ch_width = _cell_width(ch)
+        if used + ch_width + suffix_width > width:
+            break
+        out.append(ch)
+        used += ch_width
+    return "".join(out) + suffix
+
+
+def _pad_cell(value: Any, width: int, *, align: str = "<") -> str:
+    text = _clip_cell(value, width)
+    pad = max(0, width - _cell_width(text))
+    if align == ">":
+        return " " * pad + text
+    return text + " " * pad
 
 
 def _render_dashboard(state: Dict[str, Any]) -> str:
@@ -746,15 +778,15 @@ def _render_dashboard(state: Dict[str, Any]) -> str:
     else:
         w = _COL_W
         hdr = (
-            f"  {'#':>{w['idx']}}"
-            f"  {'Operator':<{w['op']}}"
-            f"  {'Phase':<{w['phase']}}"
-            f"  {'PyPTO PID':>{w['pid']}}"
-            f"  {'Verify PID':>{w['pid']}}"
-            f"  {'Started':<{w['time']}}"
-            f"  {'Ended':<{w['time']}}"
-            f"  {'Sec':>{w['dur']}}"
-            f"  {'Status'}"
+            f"  {_pad_cell('#', w['idx'], align='>')}"
+            f"  {_pad_cell('Operator', w['op'])}"
+            f"  {_pad_cell('Phase', w['phase'])}"
+            f"  {_pad_cell('PyPTO PID', w['pid'], align='>')}"
+            f"  {_pad_cell('Verify PID', w['pid'], align='>')}"
+            f"  {_pad_cell('Started', w['time'])}"
+            f"  {_pad_cell('Ended', w['time'])}"
+            f"  {_pad_cell('Sec', w['dur'], align='>')}"
+            f"  {_pad_cell('Status', w['status'])}"
         )
         lines.append(hdr)
         lines.append("  " + "-" * (width - 2))
@@ -774,15 +806,15 @@ def _render_dashboard(state: Dict[str, Any]) -> str:
             dev_s = op.get("dev_status", "未知")
             nm = op.get("op_name", "?")
             lines.append(
-                f"  {i:>{w['idx']}}"
-                f"  {nm:<{w['op']}}"
-                f"  {phase_s:<{w['phase']}}"
-                f"  {pypto_pid:>{w['pid']}}"
-                f"  {verifier_pid:>{w['pid']}}"
-                f"  {st_s:<{w['time']}}"
-                f"  {et_s:<{w['time']}}"
-                f"  {dur_s:>{w['dur']}}"
-                f"  {dev_s}"
+                f"  {_pad_cell(i, w['idx'], align='>')}"
+                f"  {_pad_cell(nm, w['op'])}"
+                f"  {_pad_cell(phase_s, w['phase'])}"
+                f"  {_pad_cell(pypto_pid, w['pid'], align='>')}"
+                f"  {_pad_cell(verifier_pid, w['pid'], align='>')}"
+                f"  {_pad_cell(st_s, w['time'])}"
+                f"  {_pad_cell(et_s, w['time'])}"
+                f"  {_pad_cell(dur_s, w['dur'], align='>')}"
+                f"  {_pad_cell(dev_s, w['status'])}"
             )
 
     lines.append("")

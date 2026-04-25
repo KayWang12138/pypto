@@ -269,5 +269,60 @@ finally:
 PY
 pass "monitor 使用 BENCHMARK_LOG_DIR/report, 不在 monitor_state 下另建 report"
 
+# ---------- 6. monitor 看板中英文列宽对齐 ----------
+section "6. monitor 看板中英文列宽对齐"
+
+python3 - <<'PY' || fail "monitor 看板列宽未对齐"
+from wcwidth import wcswidth
+
+from integration.benchmark import monitor
+
+state = {
+    "main_pid": 734465,
+    "main_status": "正在进行",
+    "main_exit_code": None,
+    "started_at": "2026-04-25 04:02:35",
+    "updated_at": "2026-04-25 04:04:20",
+    "operators": [
+        {
+            "op_name": "Argmax_over_a_dimension",
+            "phase": "verifier",
+            "started_at": "2026-04-25T04:02:44",
+            "ended_at": None,
+            "duration_sec": 0.0,
+            "dev_status": "Verifier验证中",
+            "phases": {"pypto": {"pid": None}, "verifier": {"pid": None}},
+        },
+        {
+            "op_name": "CosineSimilarityLoss",
+            "phase": "prepare",
+            "started_at": "2026-04-25T04:03:42",
+            "ended_at": None,
+            "duration_sec": 0.0,
+            "dev_status": "准备中",
+            "phases": {"pypto": {"pid": None}, "verifier": {"pid": None}},
+        },
+        {
+            "op_name": "TripletMarginLoss",
+            "phase": "pypto",
+            "started_at": "2026-04-25T04:03:26",
+            "ended_at": None,
+            "duration_sec": 88.8,
+            "dev_status": "PyPTO生成中",
+            "phases": {"pypto": {"pid": 123456}, "verifier": {"pid": None}},
+        },
+    ],
+}
+dashboard = monitor._render_dashboard(state)
+table_lines = [
+    line for line in dashboard.splitlines()
+    if line.startswith("  ") and ("Arg" in line or "Cosine" in line or "Triplet" in line or "Operator" in line)
+]
+widths = {wcswidth(line) for line in table_lines}
+assert len(widths) == 1, (widths, "\n".join(table_lines))
+print(f"dashboard row width={widths.pop()}")
+PY
+pass "monitor 看板按终端显示宽度对齐"
+
 section "test-unit ALL PASSED"
 echo "  详细报告: ${BENCHMARK_LOG_DIR}"
