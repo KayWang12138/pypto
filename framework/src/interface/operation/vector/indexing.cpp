@@ -228,7 +228,7 @@ void CheckIndexAddParamsInvalid(
         axis < static_cast<int>(self.GetShape().size()) && axis >= -static_cast<int>(self.GetShape().size()))
         << "axis out of range of shape size";
 
-    CheckTensorDimRange(self.GetStorage(), 2, 5, "INDEXADD");
+    CheckTensorDimRange(self.GetStorage(), 1, 5, "INDEXADD");
     CheckTensorDimRange(indices.GetStorage(), 1, 1, "INDEXADD");
     CheckTensorShapeSize(self.GetStorage(), "INDEXADD");
     CheckTensorShapeSize(src.GetStorage(), "INDEXADD");
@@ -569,7 +569,7 @@ void CheckGatherParamsInvalid(const Tensor& params, const Tensor& indices, int a
     CheckTensorDataType(params.GetStorage(), supportedTypes, opName);
     std::unordered_set<DataType> indexSupportedTypes = {DT_INT32, DT_INT64};
     CheckTensorDataType(indices.GetStorage(), indexSupportedTypes, opName);
-    CheckTensorDimRange(params.GetStorage(), 2, 4, opName);
+    CheckTensorDimRange(params.GetStorage(), 1, 4, opName);
     CheckTensorDimRange(indices.GetStorage(), 1, 2, opName);
     CheckTensorShapeSize(params.GetStorage(), opName);
     CheckTensorShapeSize(indices.GetStorage(), opName);

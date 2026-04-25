@@ -223,11 +223,11 @@ protected:
     int GetCacheModeFlag(const std::string& cacheMode) const;
 
     template <typename T>
-    bool GetAttr(const std::string& key, T& value) const
+    bool GetAttrFromMap(const std::map<std::string, Any>& attrMap, const std::string& key, T& value) const
     {
-        auto it = opAttrs.find(key);
-        if (it == opAttrs.end()) {
-            CODEGEN_LOGI("can not find key: %s in opAttrs", key.c_str());
+        auto it = attrMap.find(key);
+        if (it == attrMap.end()) {
+            CODEGEN_LOGI("can not find key: %s in attrMap", key.c_str());
             return false;
         }
         if (it->second.Type() == typeid(T)) {
@@ -240,20 +240,18 @@ protected:
         return false;
     }
 
-    template <typename T = int64_t>
-    std::vector<T> GetVectorIntAttribute(const std::string& key) const
+    template <typename T>
+    bool GetOpAttr(const std::string& key, T& value) const
     {
-        ASSERT(GenCodeErr::DATA_TYPE_UNSUPPORTED, std::is_integral_v<T>) << "T must be integral type";
-        std::vector<int64_t> val;
-        GetAttr(key, val);
-        if constexpr (std::is_same_v<T, int64_t>) {
-            return val;
-        }
-        std::vector<T> ret;
-        for (auto& x : val) {
-            ret.emplace_back(static_cast<T>(x));
-        }
-        return ret;
+        return GetAttrFromMap(opAttrs, key, value);
+    }
+
+    template <typename T>
+    bool GetTensorAttr(int idx, const std::string& key, T& value) const
+    {
+        ASSERT(GenCodeErr::PARAM_IDX_INVALID, idx >= 0 && idx < MAX_OPERANDS)
+            << "idx " << idx << " is out of range [0, " << MAX_OPERANDS << ")";
+        return GetAttrFromMap(tensorAttrs[idx], key, value);
     }
 
     std::string GetLastUse() const;
@@ -280,6 +278,8 @@ protected:
 
     // get start offset in total block
     SymbolicScalar GetOperandStartOffset(int operandIdx) const;
+
+    std::string GetGmTensorAddrByAttr(unsigned gmParamIdx) const;
 
     virtual std::string GenGmParamVar(unsigned gmParamIdx) const;
 
@@ -327,7 +327,7 @@ protected:
     std::string PrintCompact(const PrintUnaryTmpBuffParam& param) const;
     std::string PrintCompactStatic(const PrintUnaryTmpBuffParam& param) const;
 
-    std::vector<std::string> GenTileOpParamForNormalCopyTileTensor(unsigned gmIdx, bool isSpillingToGM) const;
+    std::vector<std::string> GenTileOpParamForNormalCopyTileTensor(unsigned gmIdx) const;
     std::string PrintMemCopyWithL0C(const PrintMemCopyWithL0CParam& param) const;
     std::string PrintMemCopyWithL0CStatic(const PrintMemCopyWithL0CParam& param) const;
     std::string PrintMemCopyWithL0CDynamic(const PrintMemCopyWithL0CParam& param) const;
@@ -350,7 +350,7 @@ protected:
     std::string PrintMemCopyWithUBDynamic(const PrintMemCopyWithUBParam& param) const;
     std::string PrintMemCopyWithUBDynamicSupportUnaligned(const PrintMemCopyWithUBParam& param) const;
     std::string PrintMemCopyWithUBTileTensor(const PrintMemCopyWithUBParam& param) const;
-    virtual std::vector<std::string> GetGmOffsetForTileTensor(unsigned gmIdx, bool isSpillingToGM = false) const;
+    std::vector<std::string> GetGmOffsetForTileTensor(unsigned gmIdx) const;
 
     std::string PrintGather(const PrintGatherParam& param) const;
     std::string PrintGatherDynamicUnaligned(const PrintGatherParam& param) const;
