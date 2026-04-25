@@ -12,7 +12,7 @@ This skill bundles the automated validation tools and CI integration for the `cu
 | File | Purpose |
 |------|---------|
 | **`CI.md`** | Full CI documentation — commands, pre-commit hook, GitHub Actions setup |
-| **`run_validate_layout.sh`** | Agent entrypoint: run from repo root to check layout |
+| **`scripts/run_validate_layout.sh`** | Agent entrypoint: run from repo root to check layout |
 | **`scripts/validate_custom_kernel_layout.py`** | Implementation: plan file, test runner, staged naming, `for...in range` in kernel code, template layer headers |
 | **`scripts/extract_pypto_calls.py`** | List every `pypto.*` call site by line number — used for op-by-op debugging |
 
@@ -23,12 +23,12 @@ This skill bundles the automated validation tools and CI integration for the `cu
 ### Layout check (run after every `custom/` change)
 
 ```bash
-bash .agents/skills/ci-and-layout-check/run_validate_layout.sh
+bash .agents/skills/pypto-kernel-layout-check/scripts/run_validate_layout.sh
 ```
 
 Equivalent:
 ```bash
-python3 .agents/skills/ci-and-layout-check/scripts/validate_custom_kernel_layout.py \
+python3 .agents/skills/pypto-kernel-layout-check/scripts/validate_custom_kernel_layout.py \
   --repo-root "$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
 ```
 
@@ -47,7 +47,7 @@ python3 .agents/skills/ci-and-layout-check/scripts/validate_custom_kernel_layout
 ### Extract PyPTO call sites (for debugging)
 
 ```bash
-python3 .agents/skills/ci-and-layout-check/scripts/extract_pypto_calls.py \
+python3 .agents/skills/pypto-kernel-layout-check/scripts/extract_pypto_calls.py \
   custom/<operator_name>/<kernel_file>.py
 ```
 

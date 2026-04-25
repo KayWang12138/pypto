@@ -15,7 +15,7 @@ description: Validation runner requirements, detailed_tensor_compare usage, succ
 |------|-------------|
 | **Path** | `custom/<operator_name>/test_<operator_name>.py` |
 | **CWD** | Repository root |
-| **Command** | `PYTHONPATH=.agents/skills/validation-and-deliverables python custom/<operator_name>/test_<operator_name>.py` |
+| **Command** | `PYTHONPATH=.agents/skills/pypto-op-validate/scripts python custom/<operator_name>/test_<operator_name>.py` |
 | **Import** | `from detailed_tensor_compare import detailed_tensor_compare` (provided by `PYTHONPATH`; must be the bundled implementation) |
 
 ### What the runner must do
@@ -46,12 +46,12 @@ The user should not have to manually orchestrate validation. The script `test_<o
 
 Default command from repo root (after Phase D rename):
 ```bash
-PYTHONPATH=.agents/skills/validation-and-deliverables python custom/<op>/test_<op>.py
+PYTHONPATH=.agents/skills/pypto-op-validate/scripts python custom/<op>/test_<op>.py
 ```
 
 During Phase 3 (per-staged-set validation):
 ```bash
-PYTHONPATH=.agents/skills/validation-and-deliverables python custom/<op>/staged/test_<op>_module<suffix_k>.py
+PYTHONPATH=.agents/skills/pypto-op-validate/scripts python custom/<op>/staged/test_<op>_module<suffix_k>.py
 ```
 
 ---

@@ -5,13 +5,13 @@ This skill ships a **no-NPU** validator for `custom/<operator_name>/` (plan, `te
 ## Agent: run this from the repository root
 
 ```bash
-bash .agents/skills/ci-and-layout-check/run_validate_layout.sh
+bash .agents/skills/pypto-kernel-layout-check/scripts/run_validate_layout.sh
 ```
 
 Equivalent:
 
 ```bash
-python3 .agents/skills/ci-and-layout-check/scripts/validate_custom_kernel_layout.py --repo-root "$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
+python3 .agents/skills/pypto-kernel-layout-check/scripts/validate_custom_kernel_layout.py --repo-root "$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
 ```
 
 - If there is no `custom/` work yet, the script **exits 0** (nothing to validate).

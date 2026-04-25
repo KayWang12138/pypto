@@ -23,7 +23,7 @@ Both of these are adapted from the Joshua evaluator design: you still never see 
 ## Mandatory reads
 
 1. `.agents/skills/pypto-op-validate/SKILL.md` — `detailed_tensor_compare` runner
-2. `.agents/skills/pypto-kernel-layout-check/SKILL.md` — `run_validate_layout.sh`, `extract_pypto_calls.py`
+2. `.agents/skills/pypto-kernel-layout-check/SKILL.md` — `scripts/run_validate_layout.sh`, `scripts/extract_pypto_calls.py`
 
 When building the modular golden or adversarial runner for the first time on a new operator, additionally read the evaluator-templates skill if present (`.agents/skills/evaluator-templates/SKILL.md`). If that skill is not installed in this repo, follow the inline contract described in "Phase A.5" and "Phase B" below.
 
@@ -210,7 +210,7 @@ You are the single blocker between module `M_k` and module `M_{k+1}`. Lead dispa
 2. Golden function inventory — every op in `M_k` scope marked ✅ in the staged `*_golden.py`
 3. **Prefix evaluation (mandatory)**: run `python custom/<op>/eval/adversarial_runner.py --impl custom/<op>/staged/<op>_module<suffix_k>_impl.py --up-to-module k --levels L1,L2,L3`. Read back `eval/evaluation_report.json` — `status: "PASS"` required. `failing_module_boundary` narrows the fix domain if it fails.
 4. Run `python custom/<op>/staged/test_<op>_module<suffix_k>.py` and check it emits `[PRECISION_PASS]` for every case
-5. `bash .agents/skills/pypto-kernel-layout-check/run_validate_layout.sh` — exit 0 (covers staged files under `custom/<op>/staged/`)
+5. `bash .agents/skills/pypto-kernel-layout-check/scripts/run_validate_layout.sh` — exit 0 (covers staged files under `custom/<op>/staged/`)
 6. Append row to **Per-module verification log** in `custom/<op>/plan.md` with `detailed_tensor_compare` dict fields (`all_close`, max abs diff, max rel diff, offending output tensor name) and the prefix-eval `status` + `first_failure.failing_module_boundary`.
 
 ## Verdict format (always one of these two)

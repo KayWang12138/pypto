@@ -36,7 +36,7 @@
 
 ### 3a. Layout CI and pass regressions (quick pointers)
 
-- **Layout / `pypto_function` loops:** After meaningful edits under `custom/`, run `skills/pypto-kernel-layout-check/run_validate_layout.sh` from the repository root using the `bash` line in `skills/pypto-kernel-layout-check/CI.md`. **Exit 1** means fix plan / test / staged naming issues **or** remove `for ... in range(...)` inside `pypto_function` — express that iteration with `pypto.loop` in `_<op>_kernel_impl` / the JIT kernel per `skills/pypto-op-develop/references/kernel-layer-format.md` §7.1.
+- **Layout / `pypto_function` loops:** After meaningful edits under `custom/`, run `skills/pypto-kernel-layout-check/scripts/run_validate_layout.sh` from the repository root using the `bash` line in `skills/pypto-kernel-layout-check/CI.md`. **Exit 1** means fix plan / test / staged naming issues **or** remove `for ... in range(...)` inside `pypto_function` — express that iteration with `pypto.loop` in `_<op>_kernel_impl` / the JIT kernel per `skills/pypto-op-develop/references/kernel-layer-format.md` §7.1.
 - **Pass / compile failure right after a graph edit:** If logs show **PASS**-range codes (**`F4` / `F5`**, see **`docs/trouble_shooting/README.md`** → **`pass.md`**), follow **`.agents/skills/pypto-pass-error-fixer/SKILL.md`**, **bisect** the PyPTO graph (e.g. last known-good **staged** file vs current), and re-check API constraints (**`query_op_index` / `docs/`**) before large rewrites. Re-run **`extract_pypto_calls.py`** on the failing file to see whether a new op ordering triggered the pass.
 
 ---

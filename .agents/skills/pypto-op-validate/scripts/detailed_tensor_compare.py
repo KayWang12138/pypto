@@ -1,6 +1,6 @@
 """
 Bundled helper for golden vs PyPTO output comparison.
-Import from kernel validation runners: see skills/validation-and-deliverables/SKILL.md.
+Import from kernel validation runners: see skills/pypto-op-validate/SKILL.md.
 """
 import torch
 

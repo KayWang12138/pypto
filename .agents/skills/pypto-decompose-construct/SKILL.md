@@ -147,7 +147,7 @@ Every module must be verifiable before the next module begins.
 
 Validation is provided by the staged set itself: `test_<op>_module<suffix_k>.py` imports both `<op>_module<suffix_k>_golden` and `pypto_function` from `<op>_module<suffix_k>_impl`, then runs `detailed_tensor_compare` at every output boundary.
 
-Use `detailed_tensor_compare` (bundled in `skills/pypto-op-validate/detailed_tensor_compare.py`) at module boundaries. After each boundary run, append a row to the Per-module verification log in `custom/<op>/plan.md`.
+Use `detailed_tensor_compare` (bundled in `skills/pypto-op-validate/scripts/detailed_tensor_compare.py`) at module boundaries. After each boundary run, append a row to the Per-module verification log in `custom/<op>/plan.md`.
 
 ### Step 2b. Cross-check Golden function inventory (mandatory before running)
 

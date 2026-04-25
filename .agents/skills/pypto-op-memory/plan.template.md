@@ -2,7 +2,7 @@
 
 Copy to: `custom/<op>/plan.md` and keep **machine-readable** fields current every turn.
 
-**Agent:** This plan is the operator's coordination file. Do **not** skip sub-skill obligations (staged sets, all-output compare, plan logs). **Code layout:** complex kernels follow the multi-file template under `.agents/skills/pypto-op-develop/templates/complex-kernel-template/` (impl + test) plus the layer rules in `.agents/skills/pypto-op-develop/references/kernel-layer-format.md`. Document exceptions here. After `custom/` changes, run `bash .agents/skills/pypto-kernel-layout-check/run_validate_layout.sh`.
+**Agent:** This plan is the operator's coordination file. Do **not** skip sub-skill obligations (staged sets, all-output compare, plan logs). **Code layout:** complex kernels follow the multi-file template under `.agents/skills/pypto-op-develop/templates/complex-kernel-template/` (impl + test) plus the layer rules in `.agents/skills/pypto-op-develop/references/kernel-layer-format.md`. Document exceptions here. After `custom/` changes, run `bash .agents/skills/pypto-kernel-layout-check/scripts/run_validate_layout.sh`.
 
 ## Agent status (minimal)
 
@@ -34,7 +34,7 @@ blockers: []
 
 - **Per-staged-set runner:** `python custom/<op>/staged/test_<op>_module<suffix_k>.py` (after each Coding dispatch)
 - **End-to-end runner (after Phase D):** `python custom/<op>/test_<op>.py`
-- **Comparison helper:** `from detailed_tensor_compare import detailed_tensor_compare` (bundled: `.agents/skills/pypto-op-validate/detailed_tensor_compare.py`). **Do not** use `pytest` as the default for golden vs PyPTO checks unless documented under **blockers** as an exception.
+- **Comparison helper:** `from detailed_tensor_compare import detailed_tensor_compare` (bundled: `.agents/skills/pypto-op-validate/scripts/detailed_tensor_compare.py`). **Do not** use `pytest` as the default for golden vs PyPTO checks unless documented under **blockers** as an exception.
 - **All outputs:** the runner must call `detailed_tensor_compare` on **every** leaf output tensor (tuple/list/dict/nested structures — **not** only `outputs[0]`). If any output is intentionally skipped, document under **blockers** with justification.
 
 ## Module decomposition (mandatory)
