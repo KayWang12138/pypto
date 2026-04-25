@@ -25,5 +25,4 @@ void CodeGen::GenCode(Function& topFunc, const std::map<uint64_t, std::list<Invo
     auto cg = CodeGenFactory::GetCodeGenCCE(ctx_);
     cg->GenCode(topFunc, invokeParaOffset);
 }
-
 } // namespace npu::tile_fwk
