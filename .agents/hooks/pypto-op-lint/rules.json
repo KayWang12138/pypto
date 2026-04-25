@@ -482,7 +482,7 @@
         7
       ],
       "target": "gate",
-      "rule": "strict 模式下 front matter 必填字段必须完整（dynamic_axes 允许空列表表示算子无动态轴）",
+      "rule": "strict 模式下 front matter 必填字段必须完整",
       "check_function": "check_ol40"
     },
     {
