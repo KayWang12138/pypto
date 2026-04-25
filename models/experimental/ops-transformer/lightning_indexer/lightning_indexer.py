@@ -94,7 +94,9 @@ def lightning_indexer_golden(
 
 @pypto.frontend.jit(
     runtime_options={"stitch_function_max_num": 128, "device_sched_mode": 1},
-    pass_options={"cube_l1_reuse_setting": {0: 8}}
+    pass_options={"cube_l1_reuse_setting": {0: 8}},
+    debug_options={"runtime_debug_mode": 1},
+    host_options={"compile_monitor_enable": True}
 )
 def lightning_indexer_kernel(
     query: pypto.Tensor([pypto.DYNAMIC, SEQ_LEN_Q, NUM_HEADS, HEAD_DIM], pypto.DT_BF16),

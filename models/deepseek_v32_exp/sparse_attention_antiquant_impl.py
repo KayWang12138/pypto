@@ -256,6 +256,9 @@ def sparse_attention_antiquant_compute(query_nope, query_rope, nope_cache, topk_
     runtime_options={
         "stitch_function_max_num": 128,
         "device_sched_mode": 3
+    },
+    debug_options={
+        "runtime_debug_mode": 0
     }
 )
 def sparse_attention_antiquant_d(
@@ -317,6 +320,9 @@ def sparse_attention_antiquant_d(
     },
     runtime_options={
         "stitch_function_max_num": 128
+    },
+    debug_options={
+        "runtime_debug_mode": 0
     }
 )
 def sparse_attention_antiquant_p(

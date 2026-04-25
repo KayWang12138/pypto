@@ -29,7 +29,7 @@ class LightningIndexerConfigs:
     mg_copy_in_upper_bound = 2 * 1024 * 1024
     # l1 reuse merge params
     cube_l1_reuse_setting = {
-        0: 16
+        8: 16, 12: 16
     }
     # vector graph fuse optimization
     vec_merge_mode = 2
@@ -400,6 +400,6 @@ def test_lightning_indexer_topk_quant_4_b_2_s1_64k_s2_perf():
 
 
 if __name__ == "__main__":
-    test_lightning_indexer_topk_quant_4_b_2_s1_64k_s2()
+    test_lightning_indexer_topk_quant_5_b_2_s1_64k_s2()
     test_lightning_indexer_topk_quant_8_b_2_s1_64k_s2()
     test_lightning_indexer_topk_quant_4_b_2_s1_64k_s2_perf()

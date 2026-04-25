@@ -31,6 +31,7 @@
 #include "interface/configs/config_manager_ng.h"
 #include "interface/compiler_monitor/monitor_manager.h"
 #include "interface/utils/error.h"
+#include "tilefwk/platform.h"
 
 namespace npu::tile_fwk {
 const std::string PROGRAM_ENTRY_FUNCTION_NAME = "PROGRAM_ENTRY";
