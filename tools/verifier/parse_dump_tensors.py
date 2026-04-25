@@ -89,14 +89,14 @@ def _get_compare_config(dtype):
     
     # 整型数据：精确匹配
     if np.issubdtype(dtype, np.integer):
-        return IsCloseConfig(rtol=0, atol=0, calc_dtype=torch.float64)
+        return IsCloseConfig(rtol=0, atol=0, calc_dtype=torch.float64, is_detail=True)
     
     # FP32/FP64：标准容差
     if dtype in [np.float32, np.float64]:
-        return IsCloseConfig(rtol=1e-3, atol=1e-3, calc_dtype=torch.float64)
+        return IsCloseConfig(rtol=1e-3, atol=1e-3, calc_dtype=torch.float64, is_detail=True)
     
     # FP16/BF16/FP8 等低精度浮点：放宽容差
-    return IsCloseConfig(rtol=1e-2, atol=1e-2, calc_dtype=torch.float64)
+    return IsCloseConfig(rtol=1e-2, atol=1e-2, calc_dtype=torch.float64, is_detail=True)
 
 
 class VerifyRes:
