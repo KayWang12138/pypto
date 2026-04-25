@@ -216,7 +216,7 @@ void SubgraphToFunction::RecordOutcastInfo(Function& function, RecordInfo record
     auto& op = *nLIST[i][j];
     if (!isFromCast(oOperand)) {
         APASS_LOG_INFO_F(Elements::Tensor, "Tensor %d has consumer in same subgraph, cannot be outcast.", 
-            iOperand->GetMagic());
+            oOperand->GetMagic());
         return;
     }
     if (op.HasAttribute(OpAttributeKey::inplaceIdx) &&
