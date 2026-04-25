@@ -225,7 +225,6 @@ Operation* RemoveUnalignedReshape::CopyBranchBetweenCopyOut2Reshape(Function& fu
     LogicalTensorPtr preCloneTensor = nullptr;
     Operation* preOp = nullptr;
     for (auto it = toCopyProducerTensor.rbegin(); it != toCopyProducerTensor.rend(); ++it) {
-    // for (size_t i = toCopyProducerTensor.size() - 1; i >= 0; i--) {
         auto producerTensor = *it;
         auto tensor = producerTensor.second;
         curTensor = tensor->Clone(function, true);
