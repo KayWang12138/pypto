@@ -98,8 +98,7 @@ public:
     int curDie1StartCpuId_{0};
     DieId dieId_{DieId::DIE_MIX};
 
-    uint8_t* coreIdxPosition_{nullptr};
-    bool* wrapCoreAvail_{nullptr};
+    uint64_t* aicoreUsageMask_{nullptr};
     AddReadyCoreIdxFunc AddReadyCoreIdx{nullptr};
 
     WrapInfoQueue* readyWrapCoreFunctionQue_{nullptr};
@@ -196,20 +195,17 @@ public:
     inline void RemoveMixReadyCoreIdx(int coreIdx, int type)
     {
         uint32_t tail = --coreRunReadyCnt_[type];
-        uint8_t pos = coreIdxPosition_[coreIdx];
+        uint32_t pos = (coreIdx < aicValidNum_) ? 0 : ((coreIdx - aicValidNum_) / AIV_NUM_PER_AI_CORE + 1);
         if (pos != tail) {
             runReadyCoreIdx_[type][pos] = runReadyCoreIdx_[type][tail];
-            coreIdxPosition_[runReadyCoreIdx_[type][pos]] = pos;
         }
-        coreIdxPosition_[coreIdx] = INVALID_COREIDX_POSITION;
         corePendReadyCnt_[type]--;
     }
 
     inline void Init(
-        SchDeviceTaskContext* devTaskctx, DeviceTask* curDevTask, uint32_t* coreRunReadyCnt,
-        uint32_t* runReadyCoreIdxZero, uint32_t* runReadyCoreIdxOne, uint32_t* corePendReadyCnt, uint32_t* pendingIds,
-        uint32_t* runningIds, int aicValidNum, uint8_t* coreIdxPosition, bool* wrapCoreAvail, SendTaskToAiCoreFunc func,
-        AddReadyCoreIdxFunc addReadyCoreIdxFunc)
+        DeviceTask* curDevTask, uint32_t* coreRunReadyCnt, uint32_t* runReadyCoreIdxZero, uint32_t* runReadyCoreIdxOne,
+        uint32_t* corePendReadyCnt, uint32_t* pendingIds, uint32_t* runningIds, int aicValidNum,
+        uint64_t* aicoreUsageMask, SendTaskToAiCoreFunc func, AddReadyCoreIdxFunc addReadyCoreIdxFunc)
     {
         if (archInfo != ArchInfo::DAV_3510) {
             return;
@@ -225,8 +221,7 @@ public:
         runningIds_ = runningIds;
 
         aicValidNum_ = aicValidNum;
-        coreIdxPosition_ = coreIdxPosition;
-        wrapCoreAvail_ = wrapCoreAvail;
+        aicoreUsageMask_ = aicoreUsageMask;
         SendTaskToAiCore = func;
         AddReadyCoreIdx = addReadyCoreIdxFunc;
         readyWrapCoreFunctionQue_ = reinterpret_cast<WrapInfoQueue*>(curDevTask_->mixTaskData.readyWrapCoreFunctionQue);
@@ -282,10 +277,12 @@ public:
             uint32_t aicIdx = runReadyCoreIdx_[CORE_IDX_AIC][idx];
             uint32_t aivIdx0 = aicIdx * AIV_NUM_PER_AI_CORE + aicValidNum_;
             uint32_t aivIdx1 = aivIdx0 + 1;
-            if (coreIdxPosition_[aivIdx0] != INVALID_COREIDX_POSITION) {
+            int aivIdx = (aivIdx0 - aicValidNum_) / AIV_NUM_PER_AI_CORE;
+            if (!(aicoreUsageMask_[1] & (1ULL << aivIdx))) {
                 CheckCoreIdxInitStatus(aicIdx);
                 CheckCoreIdxInitStatus(aivIdx0);
-                if (coreIdxPosition_[aivIdx1] != INVALID_COREIDX_POSITION) {
+                int aivIdx1Val = (aivIdx1 - aicValidNum_) / AIV_NUM_PER_AI_CORE;
+                if (!(aicoreUsageMask_[2] & (1ULL << aivIdx1Val))) {
                     CheckCoreIdxInitStatus(aivIdx1);
                     core1c2vCnt++;
                 } else {
@@ -317,11 +314,21 @@ public:
                 uint32_t aivIdx0 = aicIdx * AIV_NUM_PER_AI_CORE + aicValidNum_;
                 uint32_t aivIdx1 = aivIdx0 + 1;
 
-                if (coreIdxPosition_[aivIdx0] != INVALID_COREIDX_POSITION &&
-                    coreIdxPosition_[aivIdx1] != INVALID_COREIDX_POSITION) {
-                    RemoveCoreIdx(aicoreIdxList, WRAP_IDX_AIC, aicIdx, CoreType::AIC);
-                    RemoveCoreIdx(aicoreIdxList, WRAP_IDX_AIV0, aivIdx0, CoreType::AIV);
-                    RemoveCoreIdx(aicoreIdxList, WRAP_IDX_AIV1, aivIdx1, CoreType::AIV);
+                int aivIdx = (aivIdx0 - aicValidNum_) / AIV_NUM_PER_AI_CORE;
+                int aivIdx1Val = (aivIdx1 - aicValidNum_) / AIV_NUM_PER_AI_CORE;
+                if (!(aicoreUsageMask_[1] & (1ULL << aivIdx)) && !(aicoreUsageMask_[2] & (1ULL << aivIdx1Val))) {
+                    CheckCoreIdxInitStatus(aicIdx);
+                    CheckCoreIdxInitStatus(aivIdx0);
+                    CheckCoreIdxInitStatus(aivIdx1);
+                    aicoreIdxList[WRAP_IDX_AIC] = aicIdx;
+                    aicoreIdxList[WRAP_IDX_AIV0] = aivIdx0;
+                    aicoreIdxList[WRAP_IDX_AIV1] = aivIdx1;
+                    RemoveMixReadyCoreIdx(aicIdx, static_cast<int>(CoreType::AIC));
+                    RemoveMixReadyCoreIdx(aivIdx0, static_cast<int>(CoreType::AIV));
+                    RemoveMixReadyCoreIdx(aivIdx1, static_cast<int>(CoreType::AIV));
+                    aicoreUsageMask_[0] |= (1ULL << aicIdx);
+                    aicoreUsageMask_[1] |= (1ULL << aivIdx);
+                    aicoreUsageMask_[2] |= (1ULL << aivIdx1Val);
                     break;
                 } else {
                     idx++;
@@ -338,9 +345,16 @@ public:
                 uint32_t aicIdx = runReadyCoreIdx_[CORE_IDX_AIC][idx];
                 uint32_t aivIdx0 = aicIdx * AIV_NUM_PER_AI_CORE + aicValidNum_;
 
-                if (coreIdxPosition_[aivIdx0] != INVALID_COREIDX_POSITION) {
-                    RemoveCoreIdx(aicoreIdxList, WRAP_IDX_AIC, aicIdx, CoreType::AIC);
-                    RemoveCoreIdx(aicoreIdxList, WRAP_IDX_AIV0, aivIdx0, CoreType::AIV);
+                int aivIdx = (aivIdx0 - aicValidNum_) / AIV_NUM_PER_AI_CORE;
+                if (!(aicoreUsageMask_[1] & (1ULL << aivIdx))) {
+                    CheckCoreIdxInitStatus(aicIdx);
+                    CheckCoreIdxInitStatus(aivIdx0);
+                    aicoreIdxList[WRAP_IDX_AIC] = aicIdx;
+                    aicoreIdxList[WRAP_IDX_AIV0] = aivIdx0;
+                    RemoveMixReadyCoreIdx(aicIdx, static_cast<int>(CoreType::AIC));
+                    RemoveMixReadyCoreIdx(aivIdx0, static_cast<int>(CoreType::AIV));
+                    aicoreUsageMask_[0] |= (1ULL << aicIdx);
+                    aicoreUsageMask_[1] |= (1ULL << aivIdx);
                     break;
                 } else {
                     idx++;
@@ -701,8 +715,19 @@ public:
             return;
         }
 
-        int32_t wrapAicoreIdx = GetWrapAicoreIdx(finishId);
-        wrapInfo->tasklist[wrapAicoreIdx] = AICORE_TASK_STOP;
+        int32_t taskIdx = GetMixTaskIdx(finishId);
+        wrapInfo->tasklist[taskIdx] = AICORE_TASK_STOP;
+
+        CoreType coreType = (taskIdx == WRAP_IDX_AIC) ? CoreType::AIC : CoreType::AIV;
+        AddRunReadyCoreIdxForWrap(wrapInfo->aicoreIdxList[taskIdx], coreType); // free wrap core
+        uint32_t coreIdx = wrapInfo->aicoreIdxList[taskIdx];
+        if (coreIdx < static_cast<uint32_t>(aicValidNum_)) {
+            aicoreUsageMask_[0] &= ~(1ULL << coreIdx);
+        } else {
+            int aivIdx = (coreIdx - aicValidNum_) / AIV_NUM_PER_AI_CORE;
+            int maskIdx = (coreIdx - aicValidNum_) % AIV_NUM_PER_AI_CORE + 1;
+            aicoreUsageMask_[maskIdx] &= ~(1ULL << aivIdx);
+        }
 
         if (IsMixTaskFinish(wrapInfo)) { // all tasks for this wrap finish
             DEV_VERBOSE_DEBUG("wrapId %u 's all tasks finish, release wrapcore", wrapId);

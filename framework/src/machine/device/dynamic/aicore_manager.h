@@ -655,8 +655,13 @@ private:
             pendingResolveIndexList_[coreIdx] = 0;
             runningIdRef = AICORE_TASK_INIT;
             runningResolveIndexList_[coreIdx] = 0;
-            context_->wrapCoreAvail_[coreIdx] = true;
-            DEV_VERBOSE_DEBUG("core %d tail task finished.", coreIdx);
+            if (coreIdx < aicValidNum_) {
+                context_->aicoreUsageMask[0] &= ~(1ULL << coreIdx);
+            } else {
+                int aivIdx = (coreIdx - aicValidNum_) / AIV_NUM_PER_AI_CORE;
+                int maskIdx = (coreIdx - aicValidNum_) % AIV_NUM_PER_AI_CORE + 1;
+                context_->aicoreUsageMask[maskIdx] &= ~(1ULL << aivIdx);
+            }
             return true;
         }
 
@@ -915,7 +920,15 @@ private:
             "  ## send task left pend ready cnt %u , last core index:%u.",
             context_->corePendReadyCnt_[static_cast<int>(type)], idx);
         while (context_->corePendReadyCnt_[static_cast<int>(type)] > 0 && sendCnt < taskCount) {
-            if (pendingIds_[idx] == AICORE_TASK_INIT && context_->wrapCoreAvail_[idx]) {
+            bool isAvailable = false;
+            if (idx < static_cast<uint32_t>(aicValidNum_)) {
+                isAvailable = !(context_->aicoreUsageMask[0] & (1ULL << idx));
+            } else {
+                int aivIdx = (idx - aicValidNum_) / AIV_NUM_PER_AI_CORE;
+                int maskIdx = (idx - aicValidNum_) % AIV_NUM_PER_AI_CORE + 1;
+                isAvailable = !(context_->aicoreUsageMask[maskIdx] & (1ULL << aivIdx));
+            }
+            if (pendingIds_[idx] == AICORE_TASK_INIT && isAvailable) {
                 DEV_VERBOSE_DEBUG("  ## send task use pendready core %u.", idx);
                 SendTaskToAiCore(devTaskCtx, type, idx, isLifo ? *newTask-- : *newTask++);
                 sendCnt++;
@@ -1067,12 +1080,19 @@ private:
 
         DEV_IF_VERBOSE_DEBUG
         {
-            uint32_t wrapId = 0;
-            sendTask_[coreIdx].push_back(TaskInfo(coreIdx, encodeTaskId, devTaskCtx->TaskId()));
-            if (devTaskCtx->GetWrapManager().IsBindedWrapId(newTask, wrapId) && context_->wrapCoreAvail_[coreIdx]) {
+            sendTask_[coreIdx].push_back(TaskInfo(coreIdx, newTask));
+            bool isAvailable = false;
+            if (coreIdx < aicValidNum_) {
+                isAvailable = !(context_->aicoreUsageMask[0] & (1ULL << coreIdx));
+            } else {
+                int aivIdx = (coreIdx - aicValidNum_) / AIV_NUM_PER_AI_CORE;
+                int maskIdx = (coreIdx - aicValidNum_) % AIV_NUM_PER_AI_CORE + 1;
+                isAvailable = !(context_->aicoreUsageMask[maskIdx] & (1ULL << aivIdx));
+            }
+            if (wrapManager_.IsBindedWrapId(newTask) && isAvailable) {
                 DEV_WARN("newTask[%lu][%lx] is mix task, but core[%d] is available!", newTask, newTask, coreIdx);
             }
-            if (!devTaskCtx->GetWrapManager().IsBindedWrapId(newTask, wrapId) && !context_->wrapCoreAvail_[coreIdx]) {
+            if (!wrapManager_.IsBindedWrapId(newTask) && !isAvailable) {
                 DEV_WARN(
                     "newTask[%lu][%lx] is not mix task, but core[%d] is not available!", newTask, newTask, coreIdx);
             }
@@ -1092,14 +1112,21 @@ private:
 
     inline void AddReadyCoreIdx(int coreIdx, int type)
     {
-        context_->coreIdxPosition_[coreIdx] = context_->coreRunReadyCnt_[type];
         context_->runReadyCoreIdx_[type][context_->coreRunReadyCnt_[type]++] = coreIdx;
+
+        if (coreIdx < static_cast<uint32_t>(aicValidNum_)) {
+            aicoreUsageMask_[0] &= ~(1ULL << coreIdx);
+        } else {
+            int aivIdx = (coreIdx - aicValidNum_) / AIV_NUM_PER_AI_CORE;
+            int maskIdx = (coreIdx - aicValidNum_) % AIV_NUM_PER_AI_CORE + 1;
+            aicoreUsageMask_[maskIdx] &= ~(1ULL << aivIdx);
+        }
     }
 
     inline void RemoveReadyCoreIdx(int coreIdx, int type)
     {
+        (void)coreIdx;
         context_->coreRunReadyCnt_[type]--;
-        context_->coreIdxPosition_[coreIdx] = INVALID_COREIDX_POSITION;
     }
 
     inline int32_t PushReadyQue(ReadyCoreFunctionQueue* readyQue, void* idList, uint32_t idCnt) const
@@ -1269,7 +1296,15 @@ private:
             }
             pendingIds_[coreIdx] = AICORE_TASK_INIT;
             pendingResolveIndexList_[coreIdx] = 0;
-            if (context_->wrapCoreAvail_[coreIdx]) {
+            bool isAvailable = false;
+            if (coreIdx < aicValidNum_) {
+                isAvailable = !(context_->aicoreUsageMask[0] & (1ULL << coreIdx));
+            } else {
+                int aivIdx = (coreIdx - aicValidNum_) / AIV_NUM_PER_AI_CORE;
+                int maskIdx = (coreIdx - aicValidNum_) % AIV_NUM_PER_AI_CORE + 1;
+                isAvailable = !(context_->aicoreUsageMask[maskIdx] & (1ULL << aivIdx));
+            }
+            if (isAvailable) {
                 context_->corePendReadyCnt_[static_cast<int>(type)]++;
                 AddReadyCoreIdx(coreIdx, static_cast<int>(type));
             }
@@ -1320,7 +1355,15 @@ private:
             runningResolveIndexBaseRef = 0;
             pendingIdRef = AICORE_TASK_INIT; // ResolveDepWithDfx depend this line
             pendingResolveIndexBaseRef = 0;
-            if (context_->wrapCoreAvail_[coreIdx]) { // wrapcore doesnt support pending & running yet
+            bool isAvailable = false;
+            if (coreIdx < aicValidNum_) {
+                isAvailable = !(context_->aicoreUsageMask[0] & (1ULL << coreIdx));
+            } else {
+                int aivIdx = (coreIdx - aicValidNum_) / AIV_NUM_PER_AI_CORE;
+                int maskIdx = (coreIdx - aicValidNum_) % AIV_NUM_PER_AI_CORE + 1;
+                isAvailable = !(context_->aicoreUsageMask[maskIdx] & (1ULL << aivIdx));
+            }
+            if (isAvailable) { // wrapcore doesnt support pending & running yet
                 AddReadyCoreIdx(coreIdx, static_cast<int>(type));
                 context_->corePendReadyCnt_[static_cast<int>(type)]++;
             }
@@ -1344,7 +1387,15 @@ private:
             runningResolveIndexBaseRef = copyOutResolveCounter + 1;
             pendingIdRef = AICORE_TASK_INIT; // ResolveDepWithDfx depend this line
             pendingResolveIndexBaseRef = 0;
-            if (context_->wrapCoreAvail_[coreIdx]) {
+            bool isAvailable = false;
+            if (coreIdx < aicValidNum_) {
+                isAvailable = !(context_->aicoreUsageMask[0] & (1ULL << coreIdx));
+            } else {
+                int aivIdx = (coreIdx - aicValidNum_) / AIV_NUM_PER_AI_CORE;
+                int maskIdx = (coreIdx - aicValidNum_) % AIV_NUM_PER_AI_CORE + 1;
+                isAvailable = !(context_->aicoreUsageMask[maskIdx] & (1ULL << aivIdx));
+            }
+            if (isAvailable) {
                 context_->corePendReadyCnt_[static_cast<int>(type)]++;
             }
             if (runningIdValueCopyout != AICORE_TASK_INIT) {
@@ -1362,7 +1413,15 @@ private:
             DEV_IF_VERBOSE_DEBUG { recvAckTask_[coreIdx].push_back(TaskInfo(coreIdx, finTaskId, 0xFFFFFFFF)); }
             uint32_t runningIdValueAck = runningIdRef;
             int runningResolveIndexBaseValueAck = runningResolveIndexBaseRef;
-            if (context_->wrapCoreAvail_[coreIdx]) {
+            bool isAvailable = false;
+            if (coreIdx < aicValidNum_) {
+                isAvailable = !(context_->aicoreUsageMask[0] & (1ULL << coreIdx));
+            } else {
+                int aivIdx = (coreIdx - aicValidNum_) / AIV_NUM_PER_AI_CORE;
+                int maskIdx = (coreIdx - aicValidNum_) % AIV_NUM_PER_AI_CORE + 1;
+                isAvailable = !(context_->aicoreUsageMask[maskIdx] & (1ULL << aivIdx));
+            }
+            if (isAvailable) {
                 runningIdRef = finTaskId;
                 runningResolveIndexBaseRef = pendingResolveIndexBaseRef;
                 pendingIdRef = AICORE_TASK_INIT; // ResolveDepWithDfx depend this line
@@ -1446,7 +1505,18 @@ private:
             startIdx = aivStart_;
             coreNum = aivEnd_ - aivStart_;
         }
-        while (pendingIds_[idx] != AICORE_TASK_INIT || !context_->wrapCoreAvail_[idx]) {
+        while (pendingIds_[idx] != AICORE_TASK_INIT) {
+            bool isAvailable = false;
+            if (idx < aicValidNum_) {
+                isAvailable = !(context_->aicoreUsageMask[0] & (1ULL << idx));
+            } else {
+                int aivIdx = (idx - aicValidNum_) / AIV_NUM_PER_AI_CORE;
+                int maskIdx = (idx - aicValidNum_) % AIV_NUM_PER_AI_CORE + 1;
+                isAvailable = !(context_->aicoreUsageMask[maskIdx] & (1ULL << aivIdx));
+            }
+            if (isAvailable) {
+                break;
+            }
             idx = startIdx + (idx - startIdx + 1) % (coreNum);
         }
         context_->lastPendReadyCoreIdx_[coreType] = static_cast<uint32_t>(startIdx + (idx - startIdx + 1) % (coreNum));

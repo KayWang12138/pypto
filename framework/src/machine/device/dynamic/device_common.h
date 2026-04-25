@@ -47,4 +47,20 @@ inline uint32_t CalcSchAicpuNumByBlockDim(uint32_t blockDim, uint32_t aiCpuNum, 
 const int DEVICE_MAX_AICPU_NUM = 7;
 const uint16_t AICPU_EXECUTE_TIMEOUT = 1080; // 18min
 
-} // namespace npu::tile_fwk
+const uint8_t INVALID_COREIDX_POSITION = 0xff;
+struct SchduleContext {
+    uint64_t waitTaskCnt_[AICORE_TYPE_NUM]{0, 0};
+    uint32_t corePendReadyCnt_[AICORE_TYPE_NUM]{0, 0};
+    uint32_t coreRunReadyCnt_[AICORE_TYPE_NUM]{0, 0};
+    uint32_t runReadyCoreIdx_[AICORE_TYPE_NUM][MAX_MANAGER_AIV_NUM];
+    uint32_t lastPendReadyCoreIdx_[AICORE_TYPE_NUM]{0, 0};
+    uint64_t resolveHubCnt_{0};
+
+    uint32_t readyIds[AICORE_TYPE_NUM][READY_ID_FIX_CACHE_NUM];
+    uint32_t readyCount[AICORE_TYPE_NUM]{0, 0};
+    uint32_t sendCnt_[AICORE_TYPE_NUM]{0, 0};
+
+    uint64_t aicoreUsageMask[3] = {0, 0, 0}; // 位上0表示没有使用，1表示已使用，依次表示aic、aiv0、aiv1
+};
+
+} // namespace npu::tile_fwk::dynamic
