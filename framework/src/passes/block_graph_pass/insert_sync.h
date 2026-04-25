@@ -114,11 +114,6 @@ public:
     PipeSync() { InitIssueQueue(); }
     Status InsertSync(Function& function, std::vector<Operation*>& syncedOpLog);
     void PhaseKernelProcess(Function& function, std::vector<Operation*> srcLog, std::vector<Operation*>& dstLog);
-    Status ProcessViewOrder(
-        Operation& op, std::vector<Operation*>& opLog, std::unordered_map<Operation*, Operation*>& changeMap);
-    Status ProcessAssembleOrder(
-        Operation& op, std::vector<Operation*>& opLog, std::unordered_map<Operation*, Operation*>& changeMap);
-    Status ProcessViewAssembleOrder(std::vector<Operation*>& opLog, std::vector<Operation*>& opListNew);
     std::vector<Operation*> GetOriOpList() { return oriOpList_; }
     std::unordered_map<Operation*, Operation*> setOpMap;
     std::unordered_map<Operation*, Operation*> waitOpMap;
@@ -356,7 +351,7 @@ private:
     bool FindDataDep(DataDepInfo& depInfo, std::vector<IndexOp>& syncedOpLog, int i);
     bool FindMaxOverlap(DataDepInfo& depInfo, int& maxOverlapDepIdx);
     bool GenSyncOp(PipeCoreRealEx set, PipeCoreRealEx wait, int eventId, bool isSet, Operation& op);
-    Status GetEventId(const PipePairEx& pp, size_t setIdx, size_t waitIdx, int& eventId);
+    Status GetEventId(const PipePairEx& pp, int& eventId);
     bool HasFreeEventId(const PipePairEx& pp);
     bool BufOverlap(const TileRange& range1, int magic1, const TileRange& range2, int magic2) const;
     bool CheckWawDependency(const Operation& opSet, const Operation& opWait, size_t k, size_t idx);
@@ -369,17 +364,10 @@ private:
         DepOp& op, const std::vector<Operation*> opLogPtr, size_t idx, DataDependencySearcher& dataDependencySearcher);
     std::pair<CoreTypeDetail, CoreTypeDetail> GetCorePairDetail(
         const PipePairEx& pp, size_t setIdx, size_t waitIdx, bool& isAIV1);
-    void InitCVEventIdQ(bool isAIV1, CorePair corePair, CorePair corePairReverse);
-    std::deque<int>& GetFreeEventIdQueue(
-        const PipePairEx& pp, size_t setIdx, size_t waitIdx, std::pair<CoreTypeDetail, CoreTypeDetail>& setWaitCoreType);
+    void InitCVEventIdQ(CorePair corePair);
+    std::deque<int>& GetFreeEventIdQueue(const PipePairEx& pp);
     int GetSyncSrcLogIdx(const std::vector<IndexOp>& syncedOpLog, int i);
     int GetMaxEventId(const PipePairEx& pp);
-    Status ProcessView(std::vector<Operation*>& opLogNew, std::pair<Operation*, Operation*> pair);
-    Status ProcessAssemble(std::vector<Operation*>& opLogNew, std::pair<Operation*, Operation*> pair);
-    Status ProcessViewAssemble(std::vector<Operation*>& opLogNew, std::pair<Operation*, Operation*> pair);
-    Status ReorderViewAssemble(
-        std::vector<Operation*>& opLog, std::vector<Operation*>& opListNew,
-        const std::unordered_map<Operation*, Operation*>& changeMap);
     std::string DumpLatestPipeDepMap();
     void BuildTensorRangeMap(Operation* op);
 
@@ -396,7 +384,7 @@ private:
     static std::vector<CorePair> cvCorePair;
 
     static constexpr int EVENT_NUM = 8;
-    static constexpr int CROSS_CORE_EVENT_NUM = 16;
+    static constexpr int CROSS_CORE_EVENT_NUM = 8;
     static constexpr int EVENT_ID7 = 7;
     int minimalMergeOverlap{25};
     std::unordered_map<PipePairEx, std::vector<int>, PipePairExHash> doublePipeOp; // pipepair, opmagic

@@ -679,8 +679,7 @@ Status PipeSync::HandleEventID(DepOp& op, IssueQueue& issueQ, IssueNum& issuenum
             CorePair setwaitCoreType{{op.selfPipeCore.core, op.selfPipeCore.aivCore}, {depOps_[ele].selfPipeCore.core, depOps_[ele].selfPipeCore.aivCore}};
             extraCount = corePairMap[setwaitCoreType]++;
         }
-        CorePair cp{{CoreType::AIV, AIVCore::UNSPECIFIED}, {CoreType::AIV, AIVCore::UNSPECIFIED}};
-        issuenum.maxIssueNum.emplace(pp, GetFreeEventIdQueue(pp, op.idx, ele, cp).size());
+        issuenum.maxIssueNum.emplace(pp, GetFreeEventIdQueue(pp).size());
         issuenum.currIssueNum.emplace(pp, 0);
 
         if (issuenum.currIssueNum[pp] + extraCount >= issuenum.maxIssueNum[pp]) {
@@ -788,11 +787,7 @@ Status PipeSync::InjectWaitFlag(Function& function, size_t idx, std::vector<Inde
             GetPipeTypeDict().Find(syncOp.syncQueue_.pipeId_).c_str(),
             GetPipeTypeDict().Find(syncOp.syncQueue_.trigPipeId_).c_str(), syncOp.syncQueue_.eventId_,
             static_cast<int>(syncOp.syncQueue_.setAivCore_), static_cast<int>(syncOp.syncQueue_.waitAivCore_));
-        std::pair<CoreTypeDetail, CoreTypeDetail> setWaitCoreType;
-        GetFreeEventIdQueue({setPipeRealEx, currPipeRealEx}, ele, idx, setWaitCoreType).push_back(eventId);
-        if (setPipeRealEx.core != currPipeRealEx.core) {
-            crossCoreFreeEventId_[{setWaitCoreType.second, setWaitCoreType.first}].push_back(eventId);
-        }
+        GetFreeEventIdQueue({setPipeRealEx, currPipeRealEx}).push_back(eventId);
         // 记录 set op 和 waitflag的对应关系
         waitOpMap.emplace(&syncOp, oriOpList_[ele]);
     }
@@ -808,7 +803,7 @@ Status PipeSync::InjectSetFlag(Function& function, size_t idx, std::vector<Index
         PipeCoreRealEx waitPipeRealEx(waitPipe.pipeStart, waitPipe.core, waitPipe.aivCore);
         PipeCoreRealEx currPipeRealEx(currPipe.pipeEnd, currPipe.core, currPipe.aivCore);
         int eventId{0};
-        if (GetEventId({currPipeRealEx, waitPipeRealEx}, idx, ele, eventId) != SUCCESS) {
+        if (GetEventId({currPipeRealEx, waitPipeRealEx}, eventId) != SUCCESS) {
             APASS_LOG_ERROR_F(Elements::Operation, "InjectSetFlag failed at function GetEventId.");
             return FAILED;
         }
@@ -1139,15 +1134,7 @@ Status PipeSync::SynDependency(
         APASS_LOG_ERROR_F(Elements::Operation, "RelaxFakeDataDep failed at function AddOpDep.");
         return FAILED;
     }
-    if (pipePairEx.first.core != pipePairEx.second.core) {
-        CorePair corePair = {{pipePairEx.first.core, pipePairEx.first.aivCore}, {pipePairEx.second.core, pipePairEx.second.aivCore}};
-        CorePair corePairReverse = {{pipePairEx.second.core, pipePairEx.second.aivCore}, {pipePairEx.first.core, pipePairEx.first.aivCore}};
-        crossCoreFreeEventId_[corePair].push_back(eventId1);
-        crossCoreFreeEventId_[corePairReverse].push_back(eventId1);
-    } else {
-        std::pair<CoreTypeDetail, CoreTypeDetail> setWaitCoreType;
-        GetFreeEventIdQueue(pipePairEx, set1, wait1, setWaitCoreType).push_back(eventId1);
-    }
+    GetFreeEventIdQueue(pipePairEx).push_back(eventId1);
     setWaitPairMap_[{set2, wait1}] = eventId2;
     // 将靠前的一对有依赖关系op中插入的SYNC_SRC op删除
     syncedOpLog[syncOpIdx1].second.get().SetAsDeleted();
@@ -1484,7 +1471,7 @@ bool PipeSync::GenSyncOp(PipeCoreRealEx set, PipeCoreRealEx wait, int eventId, b
     return true;
 }
 
-Status PipeSync::GetEventId(const PipePairEx& pp, size_t setIdx, size_t waitIdx, int& eventId)
+Status PipeSync::GetEventId(const PipePairEx& pp, int& eventId)
 {
     if (pp.first.pipe == pp.second.pipe && pp.first.core == pp.second.core) {
         // Pipe Barrier
@@ -1492,8 +1479,7 @@ Status PipeSync::GetEventId(const PipePairEx& pp, size_t setIdx, size_t waitIdx,
         return SUCCESS;
     }
 
-    std::pair<CoreTypeDetail, CoreTypeDetail> setWaitCoreType;
-    auto& eventQ = GetFreeEventIdQueue(pp, setIdx, waitIdx, setWaitCoreType);
+    auto& eventQ = GetFreeEventIdQueue(pp);
     if (eventQ.empty()) {
         APASS_LOG_ERROR_F(Elements::Operation, "Eventid exhausted, GetEventId failed.");
         return FAILED;
@@ -1501,21 +1487,12 @@ Status PipeSync::GetEventId(const PipePairEx& pp, size_t setIdx, size_t waitIdx,
 
     eventId = eventQ.front();
     eventQ.pop_front();
-    if (pp.first.core != pp.second.core) {
-        auto& eventQReverse = crossCoreFreeEventId_[{setWaitCoreType.second, setWaitCoreType.first}];
-        eventQReverse.pop_front();
-        if (eventQ.size() != eventQReverse.size()) {
-            APASS_LOG_ERROR_F(Elements::Operation, "CV eventId queue size is not equal, GetEventId failed.");
-            return FAILED;
-        }
-    }
     return SUCCESS;
 }
 
 bool PipeSync::HasFreeEventId(const PipePairEx& pp)
 {
-    std::pair<CoreTypeDetail, CoreTypeDetail> setWaitCoreType;
-    std::deque<int>& eventQ = GetFreeEventIdQueue(pp, SIZE_MAX, SIZE_MAX, setWaitCoreType);
+    std::deque<int>& eventQ = GetFreeEventIdQueue(pp);
     return !eventQ.empty();
 }
 
@@ -1753,32 +1730,41 @@ std::pair<PipeSync::CoreTypeDetail, PipeSync::CoreTypeDetail> PipeSync::GetCoreP
     return {setCoreType, waitCoreType};
 }
 
-void PipeSync::InitCVEventIdQ(bool isAIV1, CorePair corePair, CorePair corePairReverse)
+void PipeSync::InitCVEventIdQ(CorePair corePair)
 {
-    if (!isAIV1) {
+    if (corePair.first.second == AIVCore::AIV0) {
         for (int i = 0; i < CROSS_CORE_EVENT_NUM; i++) {
             crossCoreFreeEventId_[corePair].push_back(i);
-            crossCoreFreeEventId_[corePairReverse].push_back(i);
         }
-    } else {
-        for (int i = CROSS_CORE_EVENT_NUM; i < CROSS_CORE_EVENT_NUM * NUM2; i++) {
+        return;
+    }
+    if (corePair.second.second == AIVCore::AIV0) {
+        for (int i = CROSS_CORE_EVENT_NUM; i < CROSS_CORE_EVENT_NUM * 2; i++) {
             crossCoreFreeEventId_[corePair].push_back(i);
-            crossCoreFreeEventId_[corePairReverse].push_back(i);
         }
+        return;
+    }
+    if (corePair.first.second == AIVCore::AIV1) {
+        for (int i = CROSS_CORE_EVENT_NUM * 2; i < CROSS_CORE_EVENT_NUM * 3; i++) {
+            crossCoreFreeEventId_[corePair].push_back(i);
+        }
+        return;
+    }
+    if (corePair.second.second == AIVCore::AIV1) {
+        for (int i = CROSS_CORE_EVENT_NUM * 3; i < CROSS_CORE_EVENT_NUM * 4; i++) {
+            crossCoreFreeEventId_[corePair].push_back(i);
+        }
+        return;
     }
 }
 
-std::deque<int>& PipeSync::GetFreeEventIdQueue(
-    const PipePairEx& pp, size_t setIdx, size_t waitIdx, std::pair<CoreTypeDetail, CoreTypeDetail>& setWaitCoreType)
+std::deque<int>& PipeSync::GetFreeEventIdQueue(const PipePairEx& pp)
 {
-    // 若coretype不同，所有CV同步共享16个eventid
+    // 若coretype不同，单向所有pipe类型共8个 CV eventid
     if (pp.first.core != pp.second.core) {
-        bool isAIV1{false};
-        setWaitCoreType = GetCorePairDetail(pp, setIdx, waitIdx, isAIV1);
-        CorePair corePair = {setWaitCoreType.first, setWaitCoreType.second};
-        CorePair corePairReverse = {setWaitCoreType.second, setWaitCoreType.first};
+        CorePair corePair{{pp.first.core, pp.first.aivCore}, {pp.second.core, pp.second.aivCore}};
         if (crossCoreFreeEventId_.count(corePair) == 0) {
-            InitCVEventIdQ(isAIV1, corePair, corePairReverse);
+            InitCVEventIdQ(corePair);
         }
         return crossCoreFreeEventId_[corePair];
     }
@@ -1841,173 +1827,6 @@ void PipeSync::PhaseKernelProcess(Function& function, std::vector<Operation*> sr
     for (; i < srcLog.size(); i++) {
         dstLog.emplace_back(srcLog[i]);
     }
-}
-
-Status PipeSync::ProcessView(std::vector<Operation*>& opLogNew, std::pair<Operation*, Operation*> pair)
-{
-    auto it1 = std::find(opLogNew.begin(), opLogNew.end(), pair.second);
-    auto it2 = std::find(opLogNew.begin(), opLogNew.end(), pair.first);
-    if (it1 == opLogNew.end()) {
-        if (it2 == opLogNew.end()) {
-            opLogNew.emplace_back(pair.first);
-            opLogNew.emplace_back(pair.second);
-            return SUCCESS;
-        }
-        opLogNew.insert(it2 + 1, pair.second);
-        return SUCCESS;
-    }
-    if (it2 == opLogNew.end()) {
-        opLogNew.insert(it1, pair.first);
-    }
-    return SUCCESS;
-}
-
-Status PipeSync::ProcessAssemble(std::vector<Operation*>& opLogNew, std::pair<Operation*, Operation*> pair)
-{
-    auto it1 = std::find(opLogNew.begin(), opLogNew.end(), pair.first);
-    auto it2 = std::find(opLogNew.begin(), opLogNew.end(), pair.second);
-    if (it1 == opLogNew.end()) {
-        if (it2 == opLogNew.end()) {
-            opLogNew.emplace_back(pair.second);
-            opLogNew.emplace_back(pair.first);
-            return SUCCESS;
-        }
-        opLogNew.insert(it2 + 1, pair.first);
-        return SUCCESS;
-    }
-    if (it2 == opLogNew.end()) {
-        opLogNew.insert(it1, pair.second);
-    }
-    return SUCCESS;
-}
-
-Status PipeSync::ProcessViewAssemble(std::vector<Operation*>& opLogNew, std::pair<Operation*, Operation*> pair)
-{
-    if (pair.first->GetOpcode() == Opcode::OP_VIEW) {
-        if (ProcessView(opLogNew, pair) != SUCCESS) {
-            APASS_LOG_ERROR_F(Elements::Operation, "ProcessView failed.");
-            return FAILED;
-        }
-        return SUCCESS;
-    }
-    if (pair.first->GetOpcode() != Opcode::OP_ASSEMBLE) {
-        APASS_LOG_ERROR_F(Elements::Operation, "ProcessViewAssemble failed, this op should be ASSEMBLE.");
-        return FAILED;
-    }
-    if (ProcessAssemble(opLogNew, pair) != SUCCESS) {
-        APASS_LOG_ERROR_F(Elements::Operation, "ProcessAssemble failed.");
-        return FAILED;
-    }
-    return SUCCESS;
-}
-
-Status PipeSync::ReorderViewAssemble(
-    std::vector<Operation*>& opLog, std::vector<Operation*>& opListNew,
-    const std::unordered_map<Operation*, Operation*>& changeMap)
-{
-    std::unordered_set<Operation*> toBeInsert;
-    for (auto pair : changeMap) {
-        toBeInsert.insert(pair.first);
-        toBeInsert.insert(pair.second);
-    }
-    for (auto opPtr : opLog) {
-        auto it = toBeInsert.find(opPtr);
-        if (it == toBeInsert.end()) {
-            opListNew.emplace_back(opPtr);
-            continue;
-        }
-        for (auto pair : changeMap) {
-            if (pair.second == opPtr && (ProcessViewAssemble(opListNew, pair) != SUCCESS)) {
-                APASS_LOG_ERROR_F(Elements::Operation, "ReorderViewAssemble failed at function ProcessViewAssemble.");
-                return FAILED;
-            }
-        }
-    }
-    return SUCCESS;
-}
-
-Status PipeSync::ProcessViewOrder(
-    Operation& op, std::vector<Operation*>& opLog, std::unordered_map<Operation*, Operation*>& changeMap)
-{
-    auto consumers = op.ConsumerOps();
-    if (consumers.empty()) {
-        APASS_LOG_ERROR_F(
-            Elements::Operation, "%d VIEW op doesn't have consumer, ProcessViewAssembleOrder failed.%s",
-            op.GetOpMagic(), GetFormatBacktrace(op).c_str());
-        return FAILED;
-    }
-    auto minIt = opLog.end();
-    for (auto& consumer : consumers) {
-        auto it = std::find(opLog.begin(), opLog.end(), consumer);
-        if (it == opLog.end()) {
-            APASS_LOG_ERROR_F(
-                Elements::Operation,
-                "Consumer of VIEW op: %d %s is not in the subgraph, ProcessViewAssembleOrder failed",
-                consumer->GetOpMagic(), consumer->GetOpcodeStr().c_str());
-            return FAILED;
-        }
-        if (it < minIt) {
-            minIt = it;
-        }
-    }
-    changeMap[&op] = *minIt;
-    APASS_LOG_DEBUG_F(Elements::Operation, "%d VIEW consumer: %d", op.GetOpMagic(), (*minIt)->GetOpMagic());
-    return SUCCESS;
-}
-
-Status PipeSync::ProcessAssembleOrder(
-    Operation& op, std::vector<Operation*>& opLog, std::unordered_map<Operation*, Operation*>& changeMap)
-{
-    auto producers = op.ProducerOps();
-    if (producers.empty()) {
-        APASS_LOG_ERROR_F(
-            Elements::Operation, "%d ASSEMBLE op doesn't have producer, ProcessViewAssembleOrder failed.%s",
-            op.GetOpMagic(), GetFormatBacktrace(op).c_str());
-        return FAILED;
-    }
-    auto maxIt = opLog.begin();
-    for (auto& producer : producers) {
-        auto it = std::find(opLog.begin(), opLog.end(), producer);
-        if (it == opLog.end()) {
-            APASS_LOG_ERROR_F(
-                Elements::Operation,
-                "Producer of ASSEMBLE op: %d %s is not in the subgraph, ProcessViewAssembleOrder failed.%s",
-                producer->GetOpMagic(), producer->GetOpcodeStr().c_str(), GetFormatBacktrace(*producer).c_str());
-            return FAILED;
-        }
-        if (it != opLog.begin() && it > maxIt) {
-            maxIt = it;
-        }
-    }
-    changeMap[&op] = *maxIt;
-    APASS_LOG_DEBUG_F(Elements::Operation, "%d ASSEMBLE producer: %d", op.GetOpMagic(), (*maxIt)->GetOpMagic());
-    return SUCCESS;
-}
-
-Status PipeSync::ProcessViewAssembleOrder(std::vector<Operation*>& opLog, std::vector<Operation*>& opListNew)
-{
-    std::unordered_map<Operation*, Operation*> changeMap;
-    for (auto& opPtr : opLog) {
-        if (opPtr->GetOpcode() == Opcode::OP_VIEW) {
-            if (ProcessViewOrder(*opPtr, opLog, changeMap)) {
-                APASS_LOG_ERROR_F(Elements::Operation, "ProcessViewOrder failed.");
-                return FAILED;
-            }
-            continue;
-        }
-        if (opPtr->GetOpcode() != Opcode::OP_ASSEMBLE) {
-            break;
-        }
-        if (ProcessAssembleOrder(*opPtr, opLog, changeMap)) {
-            APASS_LOG_ERROR_F(Elements::Operation, "ProcessAssembleOrder failed.");
-            return FAILED;
-        }
-    }
-    if (ReorderViewAssemble(opLog, opListNew, changeMap) != SUCCESS) {
-        APASS_LOG_ERROR_F(Elements::Operation, "ProcessViewAssembleOrder failed at function ReorderViewAssemble.");
-        return FAILED;
-    }
-    return SUCCESS;
 }
 
 void InsertSync::InsertPipeAll(Function* subGraphFunc)
