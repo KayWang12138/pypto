@@ -116,6 +116,44 @@ public:
     ReadyCoreFunctionQueue* selectReadyDieAicFunctionQue_{nullptr};
     ReadyCoreFunctionQueue* selectReadyDieAivFunctionQue_{nullptr};
 
+    struct WrapIdTaskGroup {
+        uint32_t wrapId;
+        uint8_t taskMask;
+        uint8_t mixResourceType;
+        uint32_t taskIds[MAX_WRAP_TASK_NUM];
+    };
+
+    static constexpr uint32_t MAX_WRAPID_GROUP_NUM = 32;
+
+    struct MixCoreDepBatchContext {
+        WrapIdTaskGroup groups[MAX_WRAPID_GROUP_NUM];
+        uint32_t groupCount = 0;
+
+        bool AddTask(uint32_t taskId, uint32_t wrapId, const DevCceBinary* cceBinary)
+        {
+            WrapIdTaskGroup* targetGroup = nullptr;
+            for (uint32_t i = 0; i < groupCount; i++) {
+                if (groups[i].wrapId == wrapId) {
+                    targetGroup = &groups[i];
+                    break;
+                }
+            }
+            if (targetGroup == nullptr) {
+                if (groupCount >= MAX_WRAPID_GROUP_NUM) {
+                    return false;
+                }
+                targetGroup = &groups[groupCount++];
+                targetGroup->wrapId = wrapId;
+                targetGroup->taskMask = 0;
+                targetGroup->mixResourceType = cceBinary->mixResourceType;
+            }
+            uint32_t wrapAicoreIdx = WrapManager::GetWrapAicoreIdx(cceBinary->coreType, cceBinary->wrapVecId);
+            targetGroup->taskIds[wrapAicoreIdx] = taskId;
+            targetGroup->taskMask |= 1 << wrapAicoreIdx;
+            return true;
+        }
+    };
+
     inline void InitDeviceInfo(DeviceArgs* deviceArgs, int schedIdx)
     {
         archInfo = deviceArgs->archInfo;
@@ -204,6 +242,38 @@ public:
     }
 
     inline bool GetIsMixarch() { return archInfo == ArchInfo::DAV_3510; }
+
+    inline bool GetAvailableWrapCoreIdx(
+        uint8_t mixResourceType, uint32_t aicReadyCnt, uint32_t& startIdx, uint32_t& coreIdx, uint32_t& v0Idx)
+    {
+        for (uint32_t idx = startIdx; idx < aicReadyCnt; idx++) {
+            uint32_t aicIdx = runReadyCoreIdx_[CORE_IDX_AIC][idx];
+            uint32_t aivIdx0 = aicIdx * AIV_NUM_PER_AI_CORE + aicValidNum_;
+            switch (mixResourceType) {
+                case static_cast<uint8_t>(MixResourceType::MIX_1C1V):
+                    if (coreIdxPosition_[aivIdx0] != INVALID_COREIDX_POSITION) {
+                        startIdx = idx + 1;
+                        coreIdx = aicIdx;
+                        v0Idx = aivIdx0;
+                        return true;
+                    }
+                    break;
+                case static_cast<uint8_t>(MixResourceType::MIX_1C2V):
+                    if (coreIdxPosition_[aivIdx0] != INVALID_COREIDX_POSITION &&
+                        coreIdxPosition_[aivIdx0 + 1] != INVALID_COREIDX_POSITION) {
+                        startIdx = idx + 1;
+                        coreIdx = aicIdx;
+                        v0Idx = aivIdx0;
+                        return true;
+                    }
+                    break;
+                default:
+                    break;
+            }
+        }
+        startIdx = aicReadyCnt - 1;
+        return false;
+    }
 
     inline uint32_t GetAvailableWrapCoreCnt(uint32_t& core1c1vCnt, uint32_t& core1c2vCnt, uint32_t maxCoreCnt)
     {
@@ -459,7 +529,7 @@ public:
         return cceBinary[callList[opIndex]].mixResourceType;
     }
 
-    inline int32_t GetWrapAicoreIdx(uint32_t coreType, int32_t wrapVecId)
+    inline static int32_t GetWrapAicoreIdx(uint32_t coreType, int32_t wrapVecId)
     {
         if (coreType == static_cast<uint32_t>(CoreType::AIC)) {
             return WRAP_IDX_AIC;
@@ -544,6 +614,85 @@ public:
         DEV_VERBOSE_DEBUG("taskId = %u, wrapId = %u", taskId, wrapId);
         int32_t wrapAicoreIdx = GetWrapAicoreIdx(cceBinary->coreType, cceBinary->wrapVecId);
         PushTaskToTasklist(wrapId, taskId, wrapAicoreIdx, cceBinary->mixResourceType);
+        return;
+    }
+
+    inline void BatchResolveDepForMixCore(MixCoreDepBatchContext& batchCtx)
+    {
+        uint32_t startIdx = 0u;
+        uint32_t aicReadyCnt = coreRunReadyCnt_[CORE_IDX_AIC];
+        uint32_t coreIdx = 0;
+        uint32_t aivIdx0 = 0;
+        for (uint32_t g = 0; g < batchCtx.groupCount; g++) {
+            auto& group = batchCtx.groups[g];
+            uint8_t taskCount = __builtin_popcount(group.taskMask);
+            if (taskCount == 0) {
+                continue;
+            }
+
+            if (likely(taskCount == GetTaskNumByMixResType(group.mixResourceType))) {
+                if (GetAvailableWrapCoreIdx(group.mixResourceType, aicReadyCnt, startIdx, coreIdx, aivIdx0)) {
+                    auto taskIds = group.taskIds;
+                    if (group.mixResourceType == static_cast<uint8_t>(MixResourceType::MIX_1C1V)) {
+                        SendTaskToAiCore(schDevTaskCtx, CoreType::AIC, coreIdx, taskIds[WRAP_IDX_AIC]);
+                        SendTaskToAiCore(schDevTaskCtx, CoreType::AIV, aivIdx0, taskIds[WRAP_IDX_AIV0]);
+                        RemoveMixReadyCoreIdx(coreIdx, static_cast<int>(CoreType::AIC));
+                        wrapCoreAvail_[coreIdx] = false;
+                        RemoveMixReadyCoreIdx(aivIdx0, static_cast<int>(CoreType::AIV));
+                        wrapCoreAvail_[aivIdx0] = false;
+                    } else {
+                        SendTaskToAiCore(schDevTaskCtx, CoreType::AIC, coreIdx, taskIds[WRAP_IDX_AIC]);
+                        SendTaskToAiCore(schDevTaskCtx, CoreType::AIV, aivIdx0, taskIds[WRAP_IDX_AIV0]);
+                        uint32_t aivIdx1 = aivIdx0 + 1;
+                        SendTaskToAiCore(schDevTaskCtx, CoreType::AIV, aivIdx1, taskIds[WRAP_IDX_AIV1]);
+                        RemoveMixReadyCoreIdx(coreIdx, static_cast<int>(CoreType::AIC));
+                        wrapCoreAvail_[coreIdx] = false;
+                        RemoveMixReadyCoreIdx(aivIdx0, static_cast<int>(CoreType::AIV));
+                        wrapCoreAvail_[aivIdx0] = false;
+                        RemoveMixReadyCoreIdx(aivIdx1, static_cast<int>(CoreType::AIV));
+                        wrapCoreAvail_[aivIdx1] = false;
+                    }
+                } else {
+                    WrapInfoQueueLock(readyWrapCoreFunctionQue_);
+                    WrapInfo* wrapInfo = &readyWrapCoreFunctionQue_->elem[readyWrapCoreFunctionQue_->tail++];
+                    WrapInfoQueueUnLock(readyWrapCoreFunctionQue_);
+                    wrapInfo->mixResourceType = group.mixResourceType;
+                    constexpr uint32_t copySize = MAX_WRAPID_GROUP_NUM * sizeof(uint32_t);
+                    memcpy_s(wrapInfo->tasklist, copySize, group.taskIds, copySize);
+                }
+            } else {
+                PushTaskByTaskMask(group);
+            }
+        }
+    }
+
+    void PushTaskByTaskMask(const WrapIdTaskGroup& group)
+    {
+        switch (group.taskMask) { // 0-7
+            case 1:
+                PushTaskToTasklist(group.wrapId, group.taskIds[WRAP_IDX_AIC], WRAP_IDX_AIC, group.mixResourceType);
+                break;
+            case 2:
+                PushTaskToTasklist(group.wrapId, group.taskIds[WRAP_IDX_AIV0], WRAP_IDX_AIV0, group.mixResourceType);
+                break;
+            case 3:
+                PushTaskToTasklist(group.wrapId, group.taskIds[WRAP_IDX_AIC], WRAP_IDX_AIC, group.mixResourceType);
+                PushTaskToTasklist(group.wrapId, group.taskIds[WRAP_IDX_AIV0], WRAP_IDX_AIV0, group.mixResourceType);
+                break;
+            case 4:
+                PushTaskToTasklist(group.wrapId, group.taskIds[WRAP_IDX_AIV1], WRAP_IDX_AIV1, group.mixResourceType);
+                break;
+            case 5:
+                PushTaskToTasklist(group.wrapId, group.taskIds[WRAP_IDX_AIC], WRAP_IDX_AIC, group.mixResourceType);
+                PushTaskToTasklist(group.wrapId, group.taskIds[WRAP_IDX_AIV1], WRAP_IDX_AIV1, group.mixResourceType);
+                break;
+            case 6:
+                PushTaskToTasklist(group.wrapId, group.taskIds[WRAP_IDX_AIV0], WRAP_IDX_AIV0, group.mixResourceType);
+                PushTaskToTasklist(group.wrapId, group.taskIds[WRAP_IDX_AIV1], WRAP_IDX_AIV1, group.mixResourceType);
+                break;
+            default:
+                break;
+        }
     }
 
     inline void UpdateFinishIdForMixCore(uint32_t finishId, CoreType coreType, uint32_t coreIdx)
@@ -553,6 +702,10 @@ public:
         if (id == -1) {
             return;
         }
+
+        AddRunReadyCoreIdxForWrap(coreIdx, coreType); // free wrap core
+        wrapCoreAvail_[coreIdx] = true;
+
         uint32_t wrapId = id;
         WrapInfo* wrapInfo = nullptr;
         uint32_t wrapIdx = 0;
@@ -566,16 +719,12 @@ public:
         }
 
         if (unlikely(wrapInfo == nullptr)) {
-            DEV_ERROR(
-                DevCommonErr::NULLPTR, "#sche.task.run.wrap.dep.resolve: cant find wrapInfo in wrapQueueForThread!");
+            // 没有走全局WrapQueue，走的本地直接下发
             return;
         }
 
         int32_t wrapAicoreIdx = GetWrapAicoreIdx(finishId);
         wrapInfo->tasklist[wrapAicoreIdx] = AICORE_TASK_STOP;
-
-        AddRunReadyCoreIdxForWrap(coreIdx, coreType); // free wrap core
-        wrapCoreAvail_[coreIdx] = true;
 
         if (IsMixTaskFinish(wrapInfo)) { // all tasks for this wrap finish
             DEV_VERBOSE_DEBUG("wrapId %u 's all tasks finish, release wrapcore", wrapId);
