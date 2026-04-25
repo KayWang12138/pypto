@@ -46,8 +46,8 @@ TILEOP void TInsertL0CToUB(
 
 // Copy data from L0C to UB
 template <CopyOutMode mode, typename Coord, typename DstTileData, typename SrcTileData>
-INLINE void TExtractL0C2UBImpl(DstTileData &dst, SrcTileData &src, const Coord &dstCoord, const Coord &srcCoord,
-    int16_t subblockId)
+INLINE void TExtractL0C2UBImpl(
+    DstTileData& dst, SrcTileData& src, const Coord& dstCoord, const Coord& srcCoord, int16_t subblockId)
 {
     constexpr uint64_t shapeSize = Std::tuple_size<typename DstTileData::Shape>::value;
     constexpr int64_t c0Size = BLOCK_ALIGN_BYTE / sizeof(typename SrcTileData::Type);

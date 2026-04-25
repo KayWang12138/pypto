@@ -59,7 +59,7 @@ INLINE void TExtractUB2L1Impl(DstTileData& dst, SrcTileData& src, const Coord& d
         pto::TINSERT(l1Tile, UBTile, dstOffset0, dstOffset1);
     }
     using tileL1PadTensor = pto::Tile<
-        pto::TileType::Mat, typename T::Type, staticL1H, staticL1W, pto::BLayout::ColMajor, -1, -1,
+        pto::TileType::Mat, typename DstTileData::Type, staticL1H, staticL1W, pto::BLayout::ColMajor, -1, -1,
         pto::SLayout::RowMajor>;
     tileL1PadTensor l1PadTile(dstShape0, dstShape1);
     pto::TFILLPAD(l1PadTile, l1PadTile);
