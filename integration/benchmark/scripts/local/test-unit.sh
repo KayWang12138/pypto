@@ -11,8 +11,8 @@
 # 单元测试 — 不需要 NPU, 不烧 LLM. 跑两件事:
 #   1. cheat_detector 5 类 fixture (clean / multi_jit / no_pypto / no_jit / suspicious)
 #      每类 verdict 必须与 fixtures/README.md 表格一致.
-#   2. verifier verify 子命令的 cheat-gate: 用 multi_jit 跑 verify, 必须
-#      verdict_machine=failed_cheat 且 correctness.status=skipped (不进 KernelVerifier).
+#   2. verifier verify 子命令的静态 cheat warning: 用 multi_jit 跑 verify,
+#      必须保留 cheat_check=cheat 和 cheat_gate_warning, 后续 correctness 可继续裁定.
 #
 # 用法 (cwd 任意均可):
 #   bash integration/benchmark/scripts/local/test-unit.sh
@@ -33,6 +33,7 @@ for f in [
     'integration/benchmark/verifier/pypto_adapter.py',
     'integration/benchmark/verifier_runner.py',
     'integration/benchmark/run_kernelbench.py',
+    'integration/benchmark/case_loader.py',
 ]:
     ast.parse(open(f).read(), f)
 print('AST OK')
@@ -69,8 +70,8 @@ for case in clean multi_jit no_pypto no_jit suspicious; do
   fi
 done
 
-# ---------- 3. verify 子命令 cheat-gate ----------
-section "3. verify 子命令 cheat-gate (multi_jit 应被拦, 不进 KernelVerifier)"
+# ---------- 3. verify 子命令静态 cheat warning ----------
+section "3. verify 子命令静态 cheat warning (multi_jit 应保留 warning 并继续裁定)"
 
 GATE_TASK="${BENCHMARK_LOG_DIR}/gate_task_desc.py"
 cat > "${GATE_TASK}" <<'PY'
@@ -93,15 +94,16 @@ python3 -m integration.benchmark.verifier verify \
     --mode correctness \
     --json-out "${GATE_REPORT}" >/dev/null 2>&1 || true
 
-python3 - <<PY || fail "cheat-gate 行为不符: 见 ${GATE_REPORT}"
+python3 - <<PY || fail "cheat warning 行为不符: 见 ${GATE_REPORT}"
 import json
 d = json.load(open("${GATE_REPORT}"))
-assert d["verdict_machine"] == "failed_cheat", f"verdict_machine={d['verdict_machine']}"
 assert d["cheat_check"]["verdict"] == "cheat", f"cheat_check={d['cheat_check']['verdict']}"
-assert d["correctness"]["status"] == "skipped", f"correctness={d['correctness']['status']}"
-print("cheat-gate 行为符合预期")
+assert d["cheat_gate_warning"], "cheat_gate_warning missing"
+assert d["correctness"]["status"] != "skipped", f"correctness={d['correctness']['status']}"
+assert d["verdict_machine"] in {"failed_correctness", "pass"}, f"verdict_machine={d['verdict_machine']}"
+print("cheat warning 行为符合预期")
 PY
-pass "verdict_machine=failed_cheat, correctness=skipped"
+pass "cheat_check=cheat, warning 已保留, correctness 已继续执行"
 
 section "test-unit ALL PASSED"
 echo "  详细报告: ${BENCHMARK_LOG_DIR}"

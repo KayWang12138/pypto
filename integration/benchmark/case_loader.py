@@ -44,7 +44,7 @@ import sys
 import textwrap
 from dataclasses import dataclass, field, asdict
 from pathlib import Path
-from typing import List, Optional
+from typing import Dict, List, Optional
 
 
 logger = logging.getLogger(__name__)
@@ -74,6 +74,11 @@ class CaseSpec:
     forward_source: str = ""               # Model.forward / __call__ 的源码片段
     init_args_repr: str = "[]"             # get_init_inputs() 的 repr
     inputs: List[TensorSpec] = field(default_factory=list)
+    supported_dtypes: List[str] = field(default_factory=lambda: ["float32"])
+    p0_shapes: List[List[int]] = field(default_factory=list)
+    tolerance: Dict[str, float] = field(
+        default_factory=lambda: {"rtol": 1e-3, "atol": 1e-3}
+    )
 
 
 # ────────────────────────────────────────────────────────────
@@ -279,6 +284,7 @@ def load_case(case_path: Path, op_name: Optional[str] = None,
     init_src = _extract_model_method_source(tree, source, "__init__")
     forward_src = _extract_model_method_source(tree, source, "__call__", "forward")
     inputs, init_repr = _probe_inputs(case_path, timeout_sec=probe_timeout_sec)
+    supported_dtypes, p0_shapes, tolerance = _derive_front_matter_fields(inputs)
 
     return CaseSpec(
         op_name=op_name,
@@ -290,6 +296,9 @@ def load_case(case_path: Path, op_name: Optional[str] = None,
         forward_source=forward_src,
         init_args_repr=init_repr,
         inputs=inputs,
+        supported_dtypes=supported_dtypes,
+        p0_shapes=p0_shapes,
+        tolerance=tolerance,
     )
 
 
@@ -298,6 +307,14 @@ def load_case(case_path: Path, op_name: Optional[str] = None,
 # ────────────────────────────────────────────────────────────
 
 _SPEC_TEMPLATE = """\
+---
+schema_version: 1
+op_name: {op_name}
+supported_dtypes: {supported_dtypes_json}
+p0_shapes: {p0_shapes_json}
+tolerance: {tolerance_json}
+---
+
 # {op_name} 算子需求规格 (派生自上游 KernelBench)
 
 > 本 SPEC 由 ``integration.benchmark.case_loader`` 自动生成, 用于驱动
@@ -383,10 +400,60 @@ def _render_inputs_section(inputs: List[TensorSpec]) -> str:
     return "\n".join(lines) + "\n"
 
 
+def _normalize_dtype(dtype: str) -> str:
+    """把 ``torch.float32`` / ``numpy.float32`` 等归一成 front matter dtype."""
+    value = str(dtype or "").strip()
+    if not value:
+        return ""
+    value = value.replace("torch.", "")
+    value = value.replace("mindspore.", "")
+    value = value.replace("numpy.", "")
+    match = re.search(
+        r"float(?:16|32|64)|bfloat16|int(?:8|16|32|64)|uint8|bool",
+        value,
+    )
+    return match.group(0) if match else value
+
+
+def _derive_front_matter_fields(
+    inputs: List[TensorSpec],
+) -> tuple[List[str], List[List[int]], Dict[str, float]]:
+    """从探针输入规格派生 SPEC.md YAML front matter 字段."""
+    supported_dtypes: List[str] = []
+    seen_dtypes = set()
+    for spec in inputs:
+        dtype = _normalize_dtype(spec.dtype)
+        if dtype and dtype not in seen_dtypes:
+            seen_dtypes.add(dtype)
+            supported_dtypes.append(dtype)
+    if not supported_dtypes:
+        supported_dtypes = ["float32"]
+
+    p0_shapes = [
+        [int(dim) for dim in spec.shape]
+        for spec in inputs
+        if spec.shape
+    ]
+
+    has_low_precision = any(dt in ("float16", "bfloat16") for dt in supported_dtypes)
+    tolerance = (
+        {"rtol": 4e-3, "atol": 4e-3}
+        if has_low_precision else
+        {"rtol": 1e-3, "atol": 1e-3}
+    )
+    return supported_dtypes, p0_shapes, tolerance
+
+
 def render_spec_md(case: CaseSpec) -> str:
     """把 ``CaseSpec`` 渲染成 SPEC.md 文本."""
+    supported_dtypes, p0_shapes, tolerance = _derive_front_matter_fields(
+        case.inputs
+    )
     return _SPEC_TEMPLATE.format(
         op_name=case.op_name,
+        supported_dtypes_json=json.dumps(supported_dtypes, ensure_ascii=False),
+        p0_shapes_json=json.dumps(p0_shapes, ensure_ascii=False),
+        tolerance_json=json.dumps(tolerance, ensure_ascii=False),
         case_id=case.case_id,
         source_file=case.source_file,
         framework=case.framework_module,
