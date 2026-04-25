@@ -134,9 +134,16 @@ void SubgraphToFunction::RecordIncastInfo(Function& function, RecordInfo recordI
     Offset offset = recordInfo.offset;
     Shape shape = recordInfo.shape;
     auto& op = *nLIST[i][j];
-    for (auto &producerOp : iOperand->GetProducers()) {
-        if (producerOp->GetSubgraphID() == op.GetSubgraphID()) {
-            APASS_LOG_INFO_F(Elements::Tensor, "Tensor %d has producer in same subgraph, cannot be incast.", iOperand->GetMagic());
+    if (!(iOperand->GetConsumers().empty()) && !(iOperand->GetProducers().empty())) {
+        std::set<int> boundTensorIDs;
+        for (auto &outOp : iOperand->GetConsumers()) {
+            boundTensorIDs.insert(outOp->GetSubgraphID());
+        }
+        for (auto &inOp : iOperand->GetProducers()) {
+            boundTensorIDs.insert(inOp->GetSubgraphID());
+        }
+        if (boundTensorIDs.size() == 1) {
+            APASS_LOG_INFO_F(Elements::Tensor, "Tensor %d has consumer in same subgraph, cannot be outcast.", iOperand->GetMagic());
             return;
         }
     }
@@ -199,8 +206,15 @@ void SubgraphToFunction::RecordOutcastInfo(Function& function, RecordInfo record
     Offset offset = recordInfo.offset;
     Shape shape = recordInfo.shape;
     auto& op = *nLIST[i][j];
-    for (auto &consumerOp : oOperand->GetConsumers()) {
-        if (consumerOp->GetSubgraphID() == op.GetSubgraphID()) {
+    if (!(oOperand->GetConsumers().empty()) && !(oOperand->GetProducers().empty())) {
+        std::set<int> boundTensorIDs;
+        for (auto &outOp : oOperand->GetConsumers()) {
+            boundTensorIDs.insert(outOp->GetSubgraphID());
+        }
+        for (auto &inOp : oOperand->GetProducers()) {
+            boundTensorIDs.insert(inOp->GetSubgraphID());
+        }
+        if (boundTensorIDs.size() == 1) {
             APASS_LOG_INFO_F(Elements::Tensor, "Tensor %d has consumer in same subgraph, cannot be outcast.", oOperand->GetMagic());
             return;
         }
