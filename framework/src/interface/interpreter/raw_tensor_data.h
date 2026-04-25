@@ -359,7 +359,7 @@ struct RawTensorData : public std::vector<uint8_t, AlignedAllocator<uint8_t, 64>
         return shmOffset_;
     }
 
-    size_t SetShmOffset(size_t offset) {
+    void SetShmOffset(size_t offset) {
         shmOffset_ = offset;
     }
 
@@ -437,6 +437,10 @@ struct LogicalTensorData {
             offset += strides[i] * offset_[i];
         }
         return offset;
+    }
+
+    size_t GetShmOffset() {
+        return data_->GetShmOffset();
     }
 
     int ViewIndexToDataIndex(int viewIndex) const

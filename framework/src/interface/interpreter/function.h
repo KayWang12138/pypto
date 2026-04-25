@@ -946,7 +946,6 @@ struct FunctionInterpreter {
         std::vector<uint64_t> parameters = UnBind(attr);
         uint64_t groupIndex = parameters[0];
         uint64_t memType = parameters[1];
-        uint64_t slotSize = parameters[2];
         const auto &groupNames = Distributed::CommGroupRecorder::GetInstance().Output();
         ASSERT(groupIndex < static_cast<uint64_t>(groupNames.size()));
         const std::string &groupName = groupNames[groupIndex];
