@@ -357,7 +357,7 @@ void SimulationCommContext::Wait(int srcRank, int expect, size_t slotSize, uint6
     }
 }
 
-void SimulationCommContext::CheckWaitCondition(int srcRank, int expect, size_t slotSize, uint64_t offset) {
+bool SimulationCommContext::CheckWaitCondition(int srcRank, int expect, size_t slotSize, uint64_t offset) {
     volatile uint8_t *base = reinterpret_cast<volatile uint8_t *>(GetRemoteRank(srcRank, true));
     int32_t targetValue = static_cast<int32_t>(expect);
     if (slotSize == 0 || slotSize >= WIN_EXP_SIZE) {

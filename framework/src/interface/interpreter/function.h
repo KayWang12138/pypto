@@ -1140,7 +1140,7 @@ struct FunctionInterpreter {
                         // TODO: 这里要判断是不是同一个 function?
                         if (opSet.count(dependOp)) {
                             inDegree[&op] ++;
-                            consumers[producer].push_back(&op);
+                            consumers[dependOp].push_back(&op);
                         }
                     }
                 }
@@ -1155,7 +1155,7 @@ struct FunctionInterpreter {
 
             std::vector<Operation *> deferredWaitOps;
             int executedCount = 0;
-            int totalOps = operations.Size();
+            int totalOps = operations.size();
 
             while (executedCount < totalOps) {
                 while (!readyQueue.empty()) {
@@ -1211,16 +1211,16 @@ struct FunctionInterpreter {
                     bool anyReady = false;
                     std::vector<Operation*> stillDeferred;
                     for (auto *waitOp: deferredWaitOps) {
-                        auto iOpDataList = frame->GetDataViewList(op->GetIOperands());
+                        auto iOpDataList = frame->GetDataViewList(waitOp->GetIOperands());
                         LogicalTensorDataPtr shmData = iOpDataList[1];
-                        if (shmData != nullptr && CheckWaitUntilReady(op, shmData)) {
-                            std::cout << "Start | execute op " << op->GetOpcodeStr() << ":" << op->GetOpMagic() << std::endl;
-                            ExecuteHandleOperationBegin(op);
-                            ExecuteOperation(*frame, op);
+                        if (shmData != nullptr && CheckWaitUntilReady(waitOp, shmData)) {
+                            std::cout << "Start | execute op " << waitOp->GetOpcodeStr() << ":" << waitOp->GetOpMagic() << std::endl;
+                            ExecuteHandleOperationBegin(waitOp);
+                            ExecuteOperation(*frame, waitOp);
                             ExecuteHandleOperationEnd();
-                            std::cout << "End | execute op " << op->GetOpcodeStr() << ":" << op->GetOpMagic() << std::endl;
+                            std::cout << "End | execute op " << waitOp->GetOpcodeStr() << ":" << waitOp->GetOpMagic() << std::endl;
                             executedCount ++;
-                            for (auto *consumer: consumers[op]) {
+                            for (auto *consumer: consumers[waitOp]) {
                                 inDegree[consumer] --;
                                 if (inDegree[consumer] == 0) {
                                     readyQueue.push(consumer);
@@ -1238,7 +1238,7 @@ struct FunctionInterpreter {
                 }
             }
         } else {
-            for (auto& op : func->Operations()) {
+            for (auto& op : operations) {
                 if (op.GetOpcode() == Opcode::OP_PRINT && verifyType != VerifyType::TENSOR_GRAPH)
                     continue;
                 std::cout << "Start | execute op " << op.GetOpcodeStr() << ":" << op.GetOpMagic() << std::endl;
