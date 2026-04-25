@@ -780,7 +780,7 @@ std::string CodeGenOpNPU::PrintMemCopyWithL1Static(const PrintMemCopyWithL1Param
     if (ret && nzValue == 1) {
         opName = "TileOp::L1CopyInNZ2NZ";
         std::string curAddrBuffer =
-            "((__gm__ GMTensorInfo*)(oriAddrParam) + " + std::to_string(paramLocation[gmIdx]) + ")->Addr";
+            "((__gm__ GMTensorInfo*)(param) + " + std::to_string(paramLocation[gmIdx]) + ")->Addr";
         printRet = sprintf_s(
             oriAddrBuffer, BUFFER_SIZE_1024, "(__gm__ %s*)%s", dataTypeExpr[ID1].c_str(), curAddrBuffer.c_str());
         ASSERT(GenCodeErr::PRINT_FAILED, printRet >= 0)
@@ -1089,10 +1089,9 @@ std::string CodeGenOpNPU::GenMemL1ToFB() const
 
 std::string CodeGenOpNPU::GenGMAddrExprWithOffset(unsigned gmParamIdx, const std::string& addrExpr) const
 {
-    // gm offset of spilling workspace is calculated by pass, the value is saved in dim 0.
-    int64_t gmOffset = 0;
-    // gmOffset Default to 0 when the attribute is not set
-    GetOpAttr(OpAttributeKey::workspaceBaseOffset, gmOffset);
+    // gm offset of spilling workspace is calculated by pass.
+    int64_t gmOffset{0};
+    GetTensorAttr(gmParamIdx, OpAttributeKey::workspaceBaseOffset, gmOffset);
     std::ostringstream oss;
     if (gmOffset == 0) {
         oss << addrExpr;

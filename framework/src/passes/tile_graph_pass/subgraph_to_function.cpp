@@ -23,6 +23,7 @@
 #include "passes/pass_utils/parallel_tool.h"
 #include "passes/pass_check/subgraph_to_function_checker.h"
 #include "passes/pass_utils/graph_utils.h"
+#include "passes/pass_utils/subgraph_utils.h"
 #include "passes/pass_log/pass_log.h"
 #include "tilefwk/error_code.h"
 
@@ -133,6 +134,7 @@ void SubgraphToFunction::RecordIncastInfo(Function& function, RecordInfo recordI
     Offset offset = recordInfo.offset;
     Shape shape = recordInfo.shape;
     auto& op = *nLIST[i][j];
+<<<<<<< HEAD
     auto platform = Platform::Instance().GetSoc().GetNPUArch();
     if (platform == NPUArch::DAV_3510) {
         for (auto &producerOp : iOperand->GetProducers()) {
@@ -140,11 +142,17 @@ void SubgraphToFunction::RecordIncastInfo(Function& function, RecordInfo recordI
                 APASS_LOG_INFO_F(Elements::Tensor, "Tensor %d has producer in same subgraph, cannot be incast.", iOperand->GetMagic());
                 return;
             }
+=======
+    for (auto &producerOp : iOperand->GetProducers()) {
+        if (producerOp->GetSubgraphID() == op.GetSubgraphID()) {
+            APASS_LOG_INFO_F(Elements::Tensor, "Tensor %d has producer in same subgraph, cannot be incast.", iOperand->GetMagic());
+            return;
+>>>>>>> f716e790151cedf4f83009c507a75b95755855f9
         }
     }
     // 这里逻辑可能有一些问题，期望是尽可能不要把inplace语义的COPY_OUT的输出变成leaf的incast
     if (op.HasAttribute(OpAttributeKey::inplaceIdx) && !iOperand->GetProducers().empty()) {
-        if (!iOperand->isSubGraphBoundary) {
+        if (!SubgraphUtils::IsBoundary(iOperand)) {
             return;
         }
     }
@@ -154,7 +162,7 @@ void SubgraphToFunction::RecordIncastInfo(Function& function, RecordInfo recordI
             iOperand, nLIST[i][j]->opmagic);
         return;
     }
-    if (!iOperand->isSubGraphBoundary || iOperand->GetMemoryTypeOriginal() != MemoryType::MEM_DEVICE_DDR) {
+    if (!SubgraphUtils::IsBoundary(iOperand) || iOperand->GetMemoryTypeOriginal() != MemoryType::MEM_DEVICE_DDR) {
         return;
     }
     auto producers = iOperand->GetProducers();
@@ -201,6 +209,7 @@ void SubgraphToFunction::RecordOutcastInfo(Function& function, RecordInfo record
     Offset offset = recordInfo.offset;
     Shape shape = recordInfo.shape;
     auto& op = *nLIST[i][j];
+<<<<<<< HEAD
     auto platform = Platform::Instance().GetSoc().GetNPUArch();
     if (platform == NPUArch::DAV_3510) {
         for (auto &consumerOp : oOperand->GetConsumers()) {
@@ -208,6 +217,12 @@ void SubgraphToFunction::RecordOutcastInfo(Function& function, RecordInfo record
                 APASS_LOG_INFO_F(Elements::Tensor, "Tensor %d has consumer in same subgraph, cannot be outcast.", oOperand->GetMagic());
                 return;
             }
+=======
+    for (auto &consumerOp : oOperand->GetConsumers()) {
+        if (consumerOp->GetSubgraphID() == op.GetSubgraphID()) {
+            APASS_LOG_INFO_F(Elements::Tensor, "Tensor %d has consumer in same subgraph, cannot be outcast.", oOperand->GetMagic());
+            return;
+>>>>>>> f716e790151cedf4f83009c507a75b95755855f9
         }
     }
     if (op.HasAttribute(OpAttributeKey::inplaceIdx) &&
@@ -224,7 +239,7 @@ void SubgraphToFunction::RecordOutcastInfo(Function& function, RecordInfo record
     // boundary outCasts_
     int refCount = 0;
     typename SubfuncInvokeInfoTy::SuccessorIncastInfoTy relatedIncastList;
-    if (!oOperand->isSubGraphBoundary || oOperand->GetMemoryTypeOriginal() != MemoryType::MEM_DEVICE_DDR) {
+    if (!SubgraphUtils::IsBoundary(oOperand) || oOperand->GetMemoryTypeOriginal() != MemoryType::MEM_DEVICE_DDR) {
         return;
     }
     auto consumers = oOperand->GetConsumers();
@@ -328,7 +343,7 @@ void SubgraphToFunction::ProcessInputOperands(
         auto offset = iOperand->offset;
         auto shape = iOperand->shape;
         if (tileOp.HasAttribute(OpAttributeKey::inplaceIdx) && !iOperand->GetProducers().empty()) {
-            if (!iOperand->isSubGraphBoundary) {
+            if (!SubgraphUtils::IsBoundary(iOperand)) {
                 continue;
             }
         }
@@ -345,7 +360,7 @@ void SubgraphToFunction::ProcessInputOperands(
             tParamLoc++;
             continue;
         }
-        if (!iOperand->isSubGraphBoundary || iOperand->GetMemoryTypeOriginal() != MemoryType::MEM_DEVICE_DDR) {
+        if (!SubgraphUtils::IsBoundary(iOperand) || iOperand->GetMemoryTypeOriginal() != MemoryType::MEM_DEVICE_DDR) {
             continue;
         }
         pSgParamInfo.AppendIncastParam(
@@ -380,7 +395,7 @@ void SubgraphToFunction::ProcessOutputOperands(
             tParamLoc++;
             continue;
         }
-        if (!oOperand->isSubGraphBoundary || oOperand->GetMemoryTypeOriginal() != MemoryType::MEM_DEVICE_DDR) {
+        if (!SubgraphUtils::IsBoundary(oOperand) || oOperand->GetMemoryTypeOriginal() != MemoryType::MEM_DEVICE_DDR) {
             continue;
         }
         pSgParamInfo.AppendOutcastParam(
