@@ -19,18 +19,18 @@
 | F-1 | 任务粒度检查 | ⭐⭐⭐ | 含 Matmul 算子 | tune-frontend §1.2 |
 | F-2 | 循环体计算量 | ⭐⭐⭐ | 含内层 loop | tune-frontend §1.2 |
 | F-3 | 循环次数优化 | ⭐⭐⭐ | loop 次数 > 100 | tune-frontend §1.2 |
-| F-4 | 输入合轴 | ⭐⭐⭐ | shape > 2D | tune-frontend §5 |
+| F-4 | 输入合轴 | ⭐⭐⭐ | shape > 2D | tune-frontend 局部性能优化 §5 |
 | F-5 | 静态轴改 Python for | ⭐⭐ | 有静态轴用 pypto.loop | tune-frontend §1.1 |
 | F-6 | 合并独立 loop | ⭐⭐ | 有多个独立 loop | tune-frontend §1.3 |
 | F-7 | 外层动态轴切块 | ⭐⭐ | 外层动态轴范围大 | tune-frontend §1.2.1 |
 | F-8 | 内层 unroll | ⭐⭐ | 内层动态轴范围大 | tune-frontend §1.2.2 |
 | F-9 | Cube TileShape 设置 | ⭐⭐ | 含 Matmul | tune-frontend §2.2 |
 | F-10 | Vector TileShape 设置 | ⭐⭐ | 含 Vector 计算 | tune-frontend §2.3 |
-| F-11 | 常量配置调整 | ⭐ | 算子有 BLOCK_SIZE 等常量 | tune-frontend §3 |
-| F-12 | 输入矩阵 NZ 格式 | ⭐ | 权重矩阵较大 | tune-frontend §3.1 |
-| F-13 | Transpose 优化 | ⭐ | 含 transpose+matmul | tune-frontend §3.2 |
-| F-14 | 原始输入 reshape 优化 | ⭐ | 有 loop 前的 reshape | tune-frontend §3.3 |
-| F-15 | 冗余搬运消除 | ⭐ | 有 concat/reshape 搬运 | tune-frontend §3.4 |
+| F-11 | 常量配置调整 | ⭐ | 算子有 BLOCK_SIZE 等常量 | tune-frontend 关键启发 §3 |
+| F-12 | 输入矩阵 NZ 格式 | ⭐ | 权重矩阵较大 | tune-frontend 局部性能优化 §1 |
+| F-13 | Transpose 优化 | ⭐ | 含 transpose+matmul | tune-frontend 局部性能优化 §2 |
+| F-14 | 原始输入 reshape 优化 | ⭐ | 有 loop 前的 reshape | tune-frontend 局部性能优化 §3 |
+| F-15 | 冗余搬运消除 | ⭐ | 有 concat/reshape 搬运 | tune-frontend 局部性能优化 §4 |
 
 ### 深度调优（tune-swimlane）
 
@@ -149,7 +149,7 @@
 - **优先级**: ⭐⭐⭐ P0
 - **适用条件**: 计算 tensor 的 shape 维度超过 2D
 - **检查方法**: 检查循环体内参与计算的 tensor shape 维度
-- **操作指南**: tune-frontend SKILL.md §5
+- **操作指南**: tune-frontend SKILL.md 局部性能优化 §5（合轴优化）
 - **典型收益**: 5-30%
 - **约束**: 只有原始输入（函数参数）可用 `reshape(inplace=True)`，中间结果和输出 tensor 不能 inplace reshape
 - **关联优化**: F-14（原始输入 reshape）
@@ -224,7 +224,7 @@
 - **优先级**: ⭐ P3
 - **适用条件**: 算子中有 BLOCK_SIZE 等硬编码常量
 - **检查方法**: 搜索算子代码中的常量定义（如 BLOCK_SIZE_KV、TILE_SIZE 等）
-- **操作指南**: tune-frontend SKILL.md §3（性能优化三要素，常量配置属于第三要素）
+- **操作指南**: tune-frontend SKILL.md §3（关键启发：性能优化三要素）
 - **典型收益**: 3-15%
 - **常见调整值**: BLOCK_SIZE 可尝试 16/32/64/128
 
@@ -234,7 +234,7 @@
 - **优先级**: ⭐ P4
 - **适用条件**: 权重矩阵 Shape 较大
 - **检查方法**: 检查输入矩阵是否可以提前以 NZ 格式存储
-- **操作指南**: tune-frontend SKILL.md §3.1
+- **操作指南**: tune-frontend SKILL.md 局部性能优化 §1（输入矩阵格式优化）
 - **典型收益**: 5-15%
 - **原理**: NZ 格式的数据搬运到 L1 的带宽更高
 
@@ -244,7 +244,7 @@
 - **优先级**: ⭐ P4
 - **适用条件**: 含 transpose + matmul 结构
 - **检查方法**: 搜索 transpose 操作后紧跟 matmul 的模式
-- **操作指南**: tune-frontend SKILL.md §3.2
+- **操作指南**: tune-frontend SKILL.md 局部性能优化 §2（Transpose 优化）
 - **典型收益**: 3-10%
 - **解决方案**: 通过 matmul 的 `a_trans` / `b_trans` 参数融合 transpose，当 M 轴较大 N 轴较小时更换左右矩阵并使用转置配置
 
@@ -254,7 +254,7 @@
 - **优先级**: ⭐ P4
 - **适用条件**: loop 内部对原始输入执行 reshape
 - **检查方法**: 搜索 loop 内部的 `pypto.reshape` 调用，检查是否对原始输入操作
-- **操作指南**: tune-frontend SKILL.md §3.3
+- **操作指南**: tune-frontend SKILL.md 局部性能优化 §3（原始输入 reshape）
 - **典型收益**: 3-10%
 - **约束**: 只有原始输入可用 `inplace=True`，中间结果和输出 tensor 不能 inplace reshape
 - **解决方案**: 将 reshape 提取到 loop 最外层之前，统一用 `pypto.reshape(tensor, [...], inplace=True)` 处理
@@ -265,7 +265,7 @@
 - **优先级**: ⭐ P4
 - **适用条件**: 有 concat / reshape 等数据搬运操作
 - **检查方法**: 检查是否有不合理数据操作导致的冗余搬运
-- **操作指南**: tune-frontend SKILL.md §3.4
+- **操作指南**: tune-frontend SKILL.md 局部性能优化 §4（冗余搬运优化）
 - **典型收益**: 3-10%
 - **解决方案**: 更换 concat 为 assemble；对 reshape 配置 `inplace=True`
 

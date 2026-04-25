@@ -216,11 +216,6 @@ description: 将 PyPTO 融合算子集成到整网中，替代多个小算子组
 - tensor 信息记录文件（`tensor_info.md`）
 - 基于真实数据构造的测试用例代码
 
-**验证检查点：**
-- ✅ `tensor_info.md` 文件已创建，包含至少一个 Tensor 的 Shape/Dtype 信息
-- ✅ 表格格式符合规范（Tensor / Shape / Dtype / 说明 四列）
-- ✅ 测试用例代码已生成并使用 `tensor_info.md` 中记录的真实 shape/dtype
-
 **关键原则：**
 - 基于真实网络采集的数据构造的测试用例是**必须 pass 的基准用例**
 - 如果这些用例失败，说明算子实现有问题，不能进入集成阶段
@@ -313,23 +308,6 @@ description: 将 PyPTO 融合算子集成到整网中，替代多个小算子组
 参考 `models/glm_v4_5/` 目录下的现有算子设计文档，完成 API 映射分析和 Tiling 策略设计。
 
 **推荐 Skill：** `pypto-op-design`
-
-**输出物：**
-- `DESIGN.md`（含 API 映射设计、数据规格、Tiling 策略、Loop 结构）
-
-**DESIGN.md 必选章节：**
-1. 概述（算子名称、数学公式、计算类型判定）
-2. API 映射设计（每个子操作对应的 PyPTO API）
-3. 数据规格设计（输入输出 Tensor 的 shape、dtype、对齐要求）
-4. Tiling 策略（TileShape 推导、UB 容量估算）
-5. Loop 结构设计（动态轴处理、循环嵌套结构）
-6. 验证方案（测试用例级别、精度标准）
-7. 风险点与交付清单
-
-**验证检查点：**
-- ✅ `DESIGN.md` 已生成且包含全部必选章节
-- ✅ API 映射与 `tensor_info.md` 中的 dtype 一致
-- ✅ Tiling 策略中的 UB 容量估算不超过硬件上限
 
 ---
 

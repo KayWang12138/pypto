@@ -13,18 +13,6 @@
 
 import pypto
 import torch
-import os
-import sys
-
-
-def _peek_run_mode_from_argv():
-    for i, arg in enumerate(sys.argv):
-        if arg in ("--run_mode", "--run-mode") and i + 1 < len(sys.argv):
-            return sys.argv[i + 1]
-    return os.environ.get("RUN_MODE", "npu")
-
-
-global_run_mode = _peek_run_mode_from_argv()
 
 # ─────────────────────────────────────────────
 # 1. 核心计算函数（可选，复杂算子拆分用）
@@ -55,7 +43,7 @@ def {op}_core(x: pypto.Tensor) -> pypto.Tensor:
 # 2. JIT Kernel
 # ─────────────────────────────────────────────
 
-@pypto.frontend.jit(runtime_options={"run_mode": global_run_mode})
+@pypto.frontend.jit
 def {op}_kernel(
     input_tensor: pypto.Tensor(),
     output_tensor: pypto.Tensor(),

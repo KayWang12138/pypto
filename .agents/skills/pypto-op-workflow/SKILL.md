@@ -17,53 +17,9 @@ description: PyPTO 算子开发工作流程。用于开发华为昇腾 AI 处理
 
 ### 本 Skill 不负责什么
 
+- 不维护外部状态文件。
+- 不定义全局重试策略、恢复入口或结束态。
 - 不替代 `pypto-op-develop`、`pypto-precision-debug`、`pypto-op-perf-tune` 等阶段型 Skills 的细节职责。
-
-## 状态管理
-
-使用 `.workflow_state.json` 记录工作流进度，支持中断恢复和多轮对话。
-
-```json
-{
-  "op_name": "{op}",
-  "current_stage": 5,
-  "completed_stages": [1, 2, 3, 4],
-  "artifact_paths": {
-    "spec": "SPEC.md",
-    "api_report": "API_REPORT.md",
-    "golden": "{op}_golden.py",
-    "design": "DESIGN.md",
-    "impl": "{op}_impl.py",
-    "test": "test_{op}.py"
-  },
-  "retry_counts": {
-    "stage_5": 0,
-    "stage_6": 0,
-    "stage_7": 0
-  },
-  "stage_5_retry_log": []
-}
-```
-
-**状态管理规则**：
-- 每完成一个 Stage，更新 `current_stage` 和 `completed_stages`
-- 每次 Stage 5/6/7 重试，递增对应 `retry_counts` 并记录原因
-- 中断恢复时：读取 `.workflow_state.json`，从 `current_stage` 继续
-- 状态文件位于算子工作目录根
-
-## 门禁量化标准
-
-各阶段完成标准必须有量化判定依据：
-
-| 阶段 | 完成标准 | 量化判定 |
-|------|---------|---------|
-| Stage 1 | SPEC.md 完整 | 包含算子名、公式、≥1组输入输出规格（shape+dtype）、精度要求，共4项全部存在 |
-| Stage 2 | API_REPORT.md 完整 | 每个原子操作有 API 映射或标记 unsupported；约束清单条目数 ≥ 原子操作数 |
-| Stage 3 | golden 可运行 | `python3 {op}_golden.py` 执行成功，输出 shape/dtype 与 spec 声明一致 |
-| Stage 4 | DESIGN.md 完整 | 包含全部 7 个必选章节（概述/API映射/数据规格/Tiling/Loop/验证方案/风险点） |
-| Stage 5 | 首跑三态判定 | 得到 `[PRECISION_PASS]` 或 `[PRECISION_FAIL]` 或 exit≠0 之一 |
-| Stage 6 | 精度通过 | `test_{op}.py` 输出 `[PRECISION_PASS]`，max_diff 在 dtype 对应容差范围内 |
-| Stage 7 | 性能达标 | 调优前后有实测数据对比；精度复验仍通过；迭代轮次 ≤ 10 |
 
 ## 核心原则
 
