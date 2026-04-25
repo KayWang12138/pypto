@@ -15,6 +15,7 @@
 
 #pragma once
 #include <cstdint>
+#include "tilefwk/arch_config.h"
 #include "aicore_constants.h"
 #include "machine/utils/machine_ws_intf.h"
 #include "machine/device/tilefwk/core_func_data.h"
@@ -172,7 +173,7 @@ public:
         uint32_t* runningIds, int aicValidNum, uint8_t* coreIdxPosition, bool* wrapCoreAvail, SendTaskToAiCoreFunc func,
         AddReadyCoreIdxFunc addReadyCoreIdxFunc)
     {
-        if (archInfo != ArchInfo::DAV_3510) {
+        if (!PTO_SUPPORT_WRAP) {
             return;
         }
         schDevTaskCtx = devTaskctx;
@@ -215,7 +216,7 @@ public:
         }
     }
 
-    inline bool GetIsMixarch() { return archInfo == ArchInfo::DAV_3510; }
+    inline bool GetIsMixarch() { return PTO_SUPPORT_MIX_ARCH; }
 
     inline uint32_t GetAvailableWrapCoreCnt(uint32_t& core1c1vCnt, uint32_t& core1c2vCnt, uint32_t maxCoreCnt)
     {

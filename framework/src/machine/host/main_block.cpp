@@ -16,6 +16,7 @@
 #include "main_block.h"
 #include "codegen/codegen.h"
 #include "tilefwk/platform.h"
+#include "tilefwk/arch_config.h"
 #include "tilefwk/pypto_fwk_log.h"
 
 namespace npu::tile_fwk {
@@ -85,7 +86,7 @@ bool MainBlockCondBulider::GetValidShapeFromCoa(
 
 void MainBlockCondBulider::CollectCallopMainBlockConds(Function* func)
 {
-    bool enableVF = Platform::Instance().GetSoc().GetNPUArch() == NPUArch::DAV_3510;
+    bool enableVF = PTO_SUPPORT_VF_FUSION;
     enableVF = enableVF && config::GetPassGlobalConfig(KEY_ENABLE_VF, false);
     if (config::GetRuntimeOption<int64_t>(CFG_VALID_SHAPE_OPTIMIZE) != 1 && !enableVF) {
         AddUniqueCondition(SymbolicScalar(false));
@@ -118,7 +119,7 @@ void MainBlockCondBulider::CollectCallopMainBlockConds(Function* func)
 
 void MainBlockCondBulider::CollectCoaMainBlockConds(const std::vector<std::vector<SymbolicScalar>>& argList)
 {
-    bool enableVF = Platform::Instance().GetSoc().GetNPUArch() == NPUArch::DAV_3510;
+    bool enableVF = PTO_SUPPORT_VF_FUSION;
     enableVF = enableVF && config::GetPassGlobalConfig(KEY_ENABLE_VF, false);
     if (config::GetRuntimeOption<int64_t>(CFG_VALID_SHAPE_OPTIMIZE) != 1 && !enableVF) {
         AddUniqueCondition(SymbolicScalar(false));
@@ -162,7 +163,7 @@ SymbolicScalar MainBlockCondBulider::BuildMainBlockExpression()
 
 void MainBlockCondBulider::Gencode(Function* function)
 {
-    bool enableVF = Platform::Instance().GetSoc().GetNPUArch() == NPUArch::DAV_3510;
+    bool enableVF = PTO_SUPPORT_VF_FUSION;
     enableVF = enableVF && config::GetPassGlobalConfig(KEY_ENABLE_VF, false);
     if (config::GetRuntimeOption<int64_t>(CFG_VALID_SHAPE_OPTIMIZE) == 1 || enableVF) {
         bool isDynamicAligned = function->paramConfigs_.dynamicAlignedOps;

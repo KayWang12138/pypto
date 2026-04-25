@@ -14,6 +14,7 @@
  */
 
 #include "machine/device/dynamic/context/device_task_context.h"
+#include "tilefwk/arch_config.h"
 
 namespace npu::tile_fwk::dynamic {
 
@@ -78,11 +79,11 @@ WrapInfoQueue* DeviceTaskContext::AllocWrapQueue(DynDeviceTask* dyntask)
     return q;
 }
 
-bool DeviceTaskContext::IsMixArch(DevAscendProgram* devProg) { return devProg->devArgs.archInfo == ArchInfo::DAV_3510; }
+bool DeviceTaskContext::IsMixArch([[maybe_unused]] DevAscendProgram* devProg) { return PTO_SUPPORT_MIX_ARCH; }
 
-bool DeviceTaskContext::IsMultiDie(DevAscendProgram* devProg)
+bool DeviceTaskContext::IsMultiDie([[maybe_unused]] DevAscendProgram* devProg)
 {
-    return devProg->devArgs.archInfo == ArchInfo::DAV_3510;
+    return PTO_SUPPORT_MULTI_DIE;
 }
 bool DeviceTaskContext::IsNeedWrapProcess(DynDeviceTask* dyntask, DevAscendProgram* devProg)
 {

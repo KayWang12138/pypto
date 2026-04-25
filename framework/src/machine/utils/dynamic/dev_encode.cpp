@@ -13,6 +13,7 @@
  * \brief
  */
 #include "tilefwk/platform.h"
+#include "tilefwk/arch_config.h"
 #include "machine/utils/dynamic/dev_encode.h"
 #include "machine/utils/dynamic/dev_workspace.h"
 #include "machine/host/main_block.h"
@@ -45,8 +46,7 @@ namespace dynamic {
 
 constexpr int32_t CALLOP_ARG_ATTR_BASE_INDEX = 1;
 constexpr int32_t MINI_TILE_LIST_SIZE_THRESHOLD = 16;
-constexpr int32_t MAX_AICORE_NUM_2210 = 75;
-constexpr int32_t MAX_AICORE_NUM_3510 = 108;
+
 constexpr int32_t SLOTS_NEED_ALLOC_SIZE = 2;
 constexpr int64_t MAX_SHAPE_WARN_THRESHOLE = 512 * 512;
 constexpr int64_t DEFAULT_CACHE_DEVICE_TASK_NUM = 10000;
@@ -512,7 +512,7 @@ static int GetCceIndex(
     const std::unordered_map<uint64_t, int>& calleeHashIndexDict, const std::shared_ptr<CallOpAttribute>& callop)
 {
     int cceIndex = calleeHashIndexDict.at(callop->GetCalleeHash().GetHash());
-    bool enableVF = Platform::Instance().GetSoc().GetNPUArch() == NPUArch::DAV_3510;
+    bool enableVF = PTO_SUPPORT_VF_FUSION;
     enableVF = enableVF && config::GetPassGlobalConfig(KEY_ENABLE_VF, false);
     if (config::GetRuntimeOption<int64_t>(CFG_VALID_SHAPE_OPTIMIZE) == 1 || enableVF) {
         cceIndex = std::max(0, cceIndex * MAIN_BLOCK_SIZE - 1);
@@ -779,7 +779,7 @@ void DevAscendFunction::VerifyOperationEncodedContent(
 
 void DevAscendFunction::InitWrapInfo(uintdevptr_t& initOffset, const OrderedSet<Operation*>& callList, bool fillContent)
 {
-    if (Platform::Instance().GetSoc().GetNPUArch() != NPUArch::DAV_3510) {
+    if (!PTO_SUPPORT_WRAP) {
         return;
     }
     opWrapList_.HostInitDataSizeOffset(initOffset, callList.size());
@@ -2277,7 +2277,7 @@ struct EncodeDevAscendProgramInfo {
 
     bool GetEnableVFFusion()
     {
-        bool enableVFFusion = Platform::Instance().GetSoc().GetNPUArch() == NPUArch::DAV_3510;
+        bool enableVFFusion = PTO_SUPPORT_VF_FUSION;
         enableVFFusion = enableVFFusion && config::GetPassGlobalConfig(KEY_ENABLE_VF, false);
         return (config::GetRuntimeOption<int64_t>(CFG_VALID_SHAPE_OPTIMIZE) == 1 || enableVFFusion);
     };
@@ -2285,7 +2285,11 @@ struct EncodeDevAscendProgramInfo {
     void Init(DevAscendProgram* devProg, bool fillContent)
     {
         uintdevptr_t initOffset = reinterpret_cast<uintdevptr_t>(devProg->data);
-        devProg->devArgs.archInfo = static_cast<ArchInfo>(Platform::Instance().GetSoc().GetNPUArch());
+#if PTO_ARCH_DAV_3510
+        devProg->devArgs.archInfo = ArchInfo::DAV_3510;
+#else
+        devProg->devArgs.archInfo = ArchInfo::DAV_2201;
+#endif
         devProg->devArgs.enableVFFusion = GetEnableVFFusion();
         devProg->slotSize = dyndevAttr->inoutLink.totalSlot;
         devProg->runtimeOutcastPoolSize =
@@ -2707,8 +2711,7 @@ void EncodeDevAscendProgram(Function* func, uint64_t& offset, DevAscendProgram* 
         base->memBudget.tensor.maxStaticOutcastMem = tensorWsRes.maxStaticOutcastMem;
         base->memBudget.tensor.devTaskBoundaryOutcastNum = tensorWsRes.devTaskBoundaryOutcastNum;
 
-        int32_t maxCoreNum =
-            Platform::Instance().GetSoc().GetNPUArch() == NPUArch::DAV_3510 ? MAX_AICORE_NUM_3510 : MAX_AICORE_NUM_2210;
+        int32_t maxCoreNum = PTO_MAX_AICORE_NUM;
         base->memBudget.aicoreSpilled = tensorWsRes.perCoreSpilledMem * maxCoreNum;
         base->devArgs.machineConfig = func->paramConfigs_.machineConfig_;
         base->stitchMaxFunctionNum = ExpectedMaxCachedNum();

@@ -18,6 +18,7 @@
 #include <signal.h>
 #include <sys/ucontext.h>
 #include "device_sche_context.h"
+#include "tilefwk/arch_config.h"
 #include "device_common.h"
 #include "aicore_manager.h"
 #include "aicore_constants.h"
@@ -249,13 +250,11 @@ struct DynMachineManager {
 #else
         int cpu = ++simCpuId_;
 #endif
-        if (devArgs->archInfo == ArchInfo::DAV_3510) {
-            ret = AllocThreadIdxForDav3510(devArgs, cpu, curThreadIdx, threadIdx);
-        } else if (devArgs->archInfo == ArchInfo::DAV_2201) {
-            ret = AllocThreadIdxForDav2201(devArgs, cpu, curThreadIdx, threadIdx);
-        } else {
-            curThreadIdx = ++threadIdx;
-        }
+#if PTO_ARCH_DAV_3510
+        ret = AllocThreadIdxForDav3510(devArgs, cpu, curThreadIdx, threadIdx);
+#else
+        ret = AllocThreadIdxForDav2201(devArgs, cpu, curThreadIdx, threadIdx);
+#endif
         return ret;
     }
 

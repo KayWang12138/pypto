@@ -16,7 +16,7 @@
 #include "machine/runtime/runtime.h"
 #include "tilefwk/platform.h"
 #include "adapter/api/hal_api.h"
-
+#include "tilefwk/arch_config.h"
 namespace {
 const int32_t MODULE_TYPE_AI_CORE = 4;
 const int32_t INFO_TYPE_OCCUPY = 8;
@@ -97,7 +97,7 @@ int RuntimeAgentMemory::GetAicoreRegInfo(std::vector<int64_t>& aic, std::vector<
 
 int RuntimeAgentMemory::GetAicoreRegInfoForDAV3510(std::vector<int64_t>& regs, std::vector<int64_t>& regsPmu)
 {
-    if (Platform::Instance().GetSoc().GetNPUArch() != NPUArch::DAV_3510) {
+    if (!PTO_ARCH_DAV_3510) {
         return 0;
     }
     constexpr uint32_t AICORE_PER_DIE = 18;
