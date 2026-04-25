@@ -654,9 +654,9 @@ bool SuperNodeGraphBuilder::AssembleToCopyoutScene(Operation* op)
     return true;
 }
 
-inline void UpdateConsumerScopeId(Operation* op, int targetScope)
+inline void UpdateConsumerScopeId(Operation* op, Operation::ScopeInfo targetScope)
 {
-    op->SetScopeId(targetScope);
+    op->SetScopeInfo(targetScope);
     for (auto& consumer : op->ConsumerOps()) {
         if (consumer->GetScopeId() == -1 && consumer->GetOpcode() == Opcode::OP_ASSEMBLE) {
             UpdateConsumerScopeId(consumer, targetScope);
@@ -664,29 +664,9 @@ inline void UpdateConsumerScopeId(Operation* op, int targetScope)
     }
 }
 
-inline void UpdateProducerScopeId(Operation* op, int targetScope)
+inline void UpdateProducerScopeId(Operation* op, Operation::ScopeInfo targetScope)
 {
-    op->SetScopeId(targetScope);
-    for (auto& producer : op->ProducerOps()) {
-        if (producer->GetScopeId() == -1 && producer->GetOpcode() == Opcode::OP_VIEW) {
-            UpdateProducerScopeId(producer, targetScope);
-        }
-    }
-}
-
-inline void UpdateConsumerScopeId(Operation* op, int targetScope)
-{
-    op->SetScopeId(targetScope);
-    for (auto& consumer : op->ConsumerOps()) {
-        if (consumer->GetScopeId() == -1 && consumer->GetOpcode() == Opcode::OP_ASSEMBLE) {
-            UpdateConsumerScopeId(consumer, targetScope);
-        }
-    }
-}
-
-inline void UpdateProducerScopeId(Operation* op, int targetScope)
-{
-    op->SetScopeId(targetScope);
+    op->SetScopeInfo(targetScope);
     for (auto& producer : op->ProducerOps()) {
         if (producer->GetScopeId() == -1 && producer->GetOpcode() == Opcode::OP_VIEW) {
             UpdateProducerScopeId(producer, targetScope);
@@ -698,12 +678,12 @@ inline void PropagateScopeInfo(std::vector<Operation*>& opList)
 {
     for (size_t i = 0; i < opList.size(); i++) {
         if (opList[i]->GetOpcode() == Opcode::OP_VIEW || opList[i]->GetOpcode() == Opcode::OP_ASSEMBLE) {
-            opList[i]->SetScopeId(DEFAULT_SCOPE_ID);
+            opList[i]->SetScopeInfo(Operation::ScopeInfo());
         }
     }
     for (size_t i = 0; i < opList.size(); i++) {
-        int targetScope = opList[i]->GetScopeId();
-        if (targetScope == DEFAULT_SCOPE_ID) {
+        auto targetScope = opList[i]->GetScopeInfo();
+        if (targetScope.scopeId == DEFAULT_SCOPE_ID) {
             continue;
         }
         for (auto& consumer : opList[i]->ConsumerOps()) {
