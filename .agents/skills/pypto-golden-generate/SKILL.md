@@ -104,6 +104,94 @@ def layer_norm_golden(
 - 所有 spec 中定义的参数都要实现，包括可选参数
 - dtype 不作为参数，计算精度跟随输入张量
 
+### 实现策略：全量 vs 分块
+
+Golden 函数有两种等价的实现策略：
+
+#### 1. 全量实现（默认，推荐用于简单算子）
+
+一次性对整个输入 tensor 进行计算，示例：
+```python
+def relu_golden(x: torch.Tensor) -> torch.Tensor:
+    return torch.relu(x)
+
+def softmax_golden(x: torch.Tensor, dim: int = -1) -> torch.Tensor:
+    return torch.softmax(x, dim=dim)
+```
+
+**适用场景**：逐元素操作、标准 PyTorch API 可直接实现。
+
+#### 2. 分块实现（可选，推荐用于复杂算子以验证 PyPTO kernel 的边界/累积逻辑）
+
+使用 `for` loop 将输入分切成小 tile，逐 tile 计算，最后组合结果。这种实现方式更贴近 PyPTO kernel 的实际执行方式（PyPTO kernel 也是 tile-by-tile 处理），能更好地验证 PyPTO kernel 边界处理、累积逻辑、padding 等细节。
+
+**示例模式 1：按单一维度分块（如 batch）**
+```python
+def attention_golden(q, k, v, window_size=None):
+    """分块 attention（模拟 PyPTO kernel 的 tile-by-tile 处理）。"""
+    outputs = []
+    for b in range(q.shape[0]):
+        q_tile = q[b:b+1, ...]        # 切出一个 batch tile
+        k_tile = k[b:b+1, ...]
+        v_tile = v[b:b+1, ...]
+        # 计算该 tile 的 attention
+        out_tile = _compute_attention_single_batch(q_tile, k_tile, v_tile, window_size)
+        outputs.append(out_tile)
+    return torch.cat(outputs, dim=0)
+```
+
+**示例模式 2：按多维分块（如 seq 和 head）**
+```python
+def matmul_golden(a, b, tile_m=64, tile_n=64):
+    """分块矩阵乘法（积累每个 tile 的贡献）。"""
+    output = torch.zeros([a.shape[0], a.shape[1], b.shape[2]], dtype=a.dtype)
+    for i in range(0, a.shape[1], tile_m):
+        for j in range(0, b.shape[2], tile_n):
+            i_end = min(i + tile_m, a.shape[1])
+            j_end = min(j + tile_n, b.shape[2])
+            
+            a_tile = a[:, i:i_end, :]           # [batch, tile_m, k]
+            b_tile = b[:, :, j:j_end]           # [batch, k, tile_n]
+            
+            out_tile = torch.matmul(a_tile, b_tile)  # [batch, tile_m, tile_n]
+            output[:, i:i_end, j:j_end] = out_tile
+    return output
+```
+
+**示例模式 3：分块累加（如 FlashAttention）**
+```python
+def flash_attention_golden(q, k, v, window_size=None):
+    """分块累加 attention（演示中间状态管理）。"""
+    m = q.shape[1]
+    output = torch.zeros_like(q)
+    lse = torch.full([q.shape[0], q.shape[1]], float('-inf'), dtype=q.dtype)
+    
+    for t in range(0, m, tile_size):
+        t_end = min(t + tile_size, m)
+        q_t = q[:, t:t_end, :]
+        
+        # 对所有 kv 逐 tile 累加
+        for s in range(0, m, tile_size):
+            s_end = min(s + tile_size, m)
+            k_s = k[:, s:s_end, :]
+            v_s = v[:, s:s_end, :]
+            
+            # 计算 score 并累加
+            scores = torch.matmul(q_t, k_s.transpose(-2, -1))
+            # ... (rescale by lse, accumulate) ...
+    return output
+```
+
+**何时选择分块实现**：
+- 算子涉及 loop 或分块累加（如 attention、matmul、reduce）
+- 需要验证 PyPTO kernel 的边界、padding、累积逻辑
+- 想提前暴露 tile size 选择的数值影响
+
+**两种实现的等价性**：
+- 两种实现必须产生数值相同的结果（允许数值精度偏差 1e-5）
+- 单元测试会验证两者等价性
+- 优先用全量实现，除非有特定原因选择分块实现
+
 ### 边界条件映射
 
 根据规格信息中的边界条件定义生成对应代码逻辑：
@@ -143,22 +231,6 @@ def safe_div_golden(x: torch.Tensor, y: torch.Tensor) -> torch.Tensor:
 ---
 
 ## 6. 验证机制
-
-### 验证执行方式
-
-生成文件后，**必须通过直接执行脚本完成验证**：
-
-```bash
-python3 {op}_golden.py
-```
-
-脚本内含 `if __name__ == "__main__": _validate()` 入口，会自动运行全部检查项（典型 case、泛化 case、值域、数值稳定性等）并输出验证报告。
-
-**禁止**使用以下方式替代直接执行：
-- `exec(open(...).read())` — 绕过脚本的独立执行环境
-- 手动构造测试数据单独调用 golden 函数 — 与脚本内置验证逻辑重复且不完整
-
-**门禁判定依据**：以 `python3 {op}_golden.py` 的 exit code（0 = 通过）和验证报告输出为准。
 
 ### 验证 shape 来源
 
