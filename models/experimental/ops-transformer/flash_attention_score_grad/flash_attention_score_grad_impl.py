@@ -65,11 +65,14 @@ def compute_tile(q_i, k_j, v_j, dy_i, smax_i, ssum_i, d_i,
         "device_sched_mode": 1,
     },
     pass_options={
-        "cube_l1_reuse_setting": {0: 8},
-        "cube_nbuffer_setting": {0: 4},
+        "cube_l1_reuse_setting": {2: 8, 32: 8},
+        "cube_nbuffer_setting": {2: 4, 32: 4}
     },
     debug_options={
         "runtime_debug_mode": 1,
+    },
+    host_options={
+        "compile_monitor_enable": False
     }
 )
 def flash_attention_score_grad_kernel_profile(
@@ -228,8 +231,11 @@ def flash_attention_score_grad_kernel_profile(
         "device_sched_mode": 1,
     },
     pass_options={
-        "cube_l1_reuse_setting": {0: 8},
-        "cube_nbuffer_setting": {0: 4},
+        "cube_l1_reuse_setting": {2: 8, 32: 8},
+        "cube_nbuffer_setting": {2: 4, 32: 4}
+    },
+    debug_options={
+        "runtime_debug_mode": 1
     }
 )
 def flash_attention_score_grad_kernel(
