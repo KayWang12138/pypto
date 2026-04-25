@@ -190,6 +190,8 @@ void SubgraphToFunction::RecordEsgIncast(Function& function, size_t i, size_t j,
     RecordIncastInfo(function, recordInfo, iter);
 }
 
+bool isCast(LogicalTensorPtr& operand)
+
 void SubgraphToFunction::RecordOutcastInfo(Function& function, RecordInfo recordInfo, SubfuncInvokeInfoTy& iter)
 {
     size_t i = recordInfo.i;
