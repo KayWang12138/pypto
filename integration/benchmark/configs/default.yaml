@@ -78,6 +78,10 @@ verifier:
   validator_agent: "pypto-kernel-validator"
   # opencode 模式 — skill agent 子进程硬超时, 秒.
   skill_timeout_sec: 1800
+  # opencode/API 层超时后的重试次数; 业务验证失败不重试.
+  skill_retry: 2
+  # opencode/API 层超时重试间隔, 秒.
+  skill_retry_interval_sec: 600
   # KernelVerifier 工作目录根.
   log_dir: "~/pypto_bench_logs"
 

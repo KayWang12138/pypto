@@ -29,6 +29,8 @@ SRC_FIX="${FIXTURES_DIR}/pypto_op_cheat"
 OP_DIR="${PYPTO_ROOT}/custom/${OP_NAME}"
 TASK_DESC="${OP_DIR}/task_desc.py"
 SKILL_TIMEOUT="${SKILL_TIMEOUT:-1500}"
+SKILL_RETRY="${SKILL_RETRY:-2}"
+SKILL_RETRY_INTERVAL="${SKILL_RETRY_INTERVAL:-600}"
 
 section "test-skill-cheat: ${OP_NAME} (期望 final_verdict=FAIL_CHEAT)"
 
@@ -50,7 +52,9 @@ python3 -m integration.benchmark.verifier_runner "${OP_NAME}" \
     --mode correctness \
     --device "${TILE_FWK_DEVICE_ID}" \
     --log-file "${RUNNER_LOG}" \
-    --skill-timeout "${SKILL_TIMEOUT}" >"${BENCHMARK_LOG_DIR}/${OP_NAME}_skill_stdout.log" 2>&1 \
+    --skill-timeout "${SKILL_TIMEOUT}" \
+    --skill-retry "${SKILL_RETRY}" \
+    --skill-retry-interval "${SKILL_RETRY_INTERVAL}" >"${BENCHMARK_LOG_DIR}/${OP_NAME}_skill_stdout.log" 2>&1 \
   || true
 
 REPORT="${OP_DIR}/.skill_validate/skill_report.json"

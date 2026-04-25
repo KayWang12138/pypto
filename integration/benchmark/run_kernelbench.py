@@ -200,6 +200,8 @@ class _RunCfg:
     verifier_mode: str             # opencode / direct
     validator_agent: str           # opencode 模式: agent 名
     skill_timeout_sec: int         # opencode 模式: skill 子进程硬超时
+    skill_retry: int               # opencode/API 层失败后的重试次数
+    skill_retry_interval_sec: int  # opencode/API 层重试间隔秒数
 
 
 async def run_one_case(case_path: Path, device_id: int, cfg: _RunCfg,
@@ -364,6 +366,8 @@ async def run_one_case(case_path: Path, device_id: int, cfg: _RunCfg,
                 opencode_model=cfg.opencode_model,
                 validator_agent=cfg.validator_agent,
                 skill_timeout_sec=cfg.skill_timeout_sec,
+                skill_retry=cfg.skill_retry,
+                skill_retry_interval_sec=cfg.skill_retry_interval_sec,
             )
             logger.info("[%s] verifier finished: status=%s duration=%.1fs correctness=%s",
                         case.case_id, verifier_result.status.value,
@@ -509,6 +513,12 @@ def _build_cfg(args: argparse.Namespace, yaml_cfg: Dict[str, Any]) -> _RunCfg:
             "validator_agent", "pypto-kernel-validator"
         ),
         skill_timeout_sec=args.skill_timeout or verifier_yaml.get("skill_timeout_sec", 1800),
+        skill_retry=args.skill_retry if args.skill_retry is not None else verifier_yaml.get("skill_retry", 2),
+        skill_retry_interval_sec=(
+            args.skill_retry_interval
+            if args.skill_retry_interval is not None
+            else verifier_yaml.get("skill_retry_interval_sec", 600)
+        ),
     )
 
 
@@ -580,6 +590,10 @@ def _build_arg_parser() -> argparse.ArgumentParser:
                    help="opencode 模式 agent 名 (默认 pypto-kernel-validator)")
     p.add_argument("--skill-timeout", type=int, default=0,
                    help="opencode 模式 skill 子进程硬超时 (秒, 默认 1800)")
+    p.add_argument("--skill-retry", type=int, default=None,
+                   help="opencode/API 层失败后的重试次数; 业务验证失败不重试 (默认 2)")
+    p.add_argument("--skill-retry-interval", type=int, default=None,
+                   help="opencode/API 层重试间隔秒数 (默认 600)")
     p.add_argument("--skip-pypto-gen", action="store_true",
                    help="跳过 pypto 生成, 仅复跑验证 (要求产物已就绪)")
     p.add_argument("--force-regen", action="store_true",

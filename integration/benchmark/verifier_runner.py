@@ -221,6 +221,8 @@ async def run_verifier(
     opencode_model: str = "",
     validator_agent: str = _DEFAULT_VALIDATOR_AGENT,
     skill_timeout_sec: int = 1800,
+    skill_retry: int = 2,
+    skill_retry_interval_sec: int = 600,
     output_dir: Optional[Path] = None,
 ) -> VerifierResult:
     """异步入口: 跑一次精度 (+ 可选性能 + 反作弊) 验证.
@@ -247,6 +249,8 @@ async def run_verifier(
         opencode_model: 显式传给 ``opencode run -m`` 的模型名; 空则沿用默认配置. (仅 opencode 模式)
         validator_agent: opencode agent 名. (仅 opencode 模式)
         skill_timeout_sec: skill agent 子进程硬超时. (仅 opencode 模式)
+        skill_retry: opencode/API 层失败后的重试次数; 业务验证失败不重试. (仅 opencode 模式)
+        skill_retry_interval_sec: opencode/API 层重试间隔秒数. (仅 opencode 模式)
         output_dir: skill 报告输出目录. None 时自动取 ``op_dir/.skill_validate``.
             注意必须在 pypto 仓内或 op_dir 内, 否则 opencode sandbox 会以
             ``external_directory`` 拒绝写入. (仅 opencode 模式)
@@ -284,6 +288,8 @@ async def run_verifier(
             opencode_model=opencode_model,
             validator_agent=validator_agent,
             skill_timeout_sec=skill_timeout_sec,
+            skill_retry=skill_retry,
+            skill_retry_interval_sec=skill_retry_interval_sec,
             output_dir=output_dir,
         )
 
@@ -556,13 +562,27 @@ _FINAL_VERDICT_TO_STATUS = {
     "ERROR": VerifierStatus.ERROR,
 }
 
-
 def _excerpt(text: str, max_chars: int = 4000) -> str:
     if not text or len(text) <= max_chars:
         return text or ""
     head = max_chars // 2
     tail = max_chars - head
     return text[:head] + f"\n... [truncated {len(text) - max_chars} chars] ...\n" + text[-tail:]
+
+
+def _attempt_log_file(log_file: Optional[Path], attempt_index: int) -> Optional[Path]:
+    if log_file is None or attempt_index <= 1:
+        return log_file
+    return log_file.with_name(f"{log_file.stem}.attempt{attempt_index}{log_file.suffix}")
+
+
+def _is_opencode_retryable(result: VerifierResult) -> bool:
+    if result.status != VerifierStatus.ERROR:
+        return False
+    return bool(
+        result.extra.get("opencode_no_skill_report")
+        and result.extra.get("opencode_timed_out")
+    )
 
 
 def _skill_report_to_result(
@@ -607,6 +627,86 @@ def _skill_report_to_result(
 
 
 async def _run_via_opencode_skill(
+    *,
+    op_name: str,
+    op_dir: Path,
+    task_desc: str,
+    arch: str,
+    device_id: int,
+    verify_timeout: int,
+    extra_config: Optional[Dict[str, Any]],
+    log_file: Optional[Path],
+    mode: str,
+    opencode_bin: str,
+    opencode_model: str,
+    validator_agent: str,
+    skill_timeout_sec: int,
+    skill_retry: int,
+    skill_retry_interval_sec: int,
+    output_dir: Optional[Path],
+) -> VerifierResult:
+    max_attempts = max(1, int(skill_retry) + 1)
+    retry_interval = max(0, int(skill_retry_interval_sec))
+    attempts: List[Dict[str, Any]] = []
+    total_duration = 0.0
+
+    for attempt_index in range(1, max_attempts + 1):
+        attempt_log = _attempt_log_file(log_file, attempt_index)
+        logger.info(
+            "[%s] launching opencode validator attempt %s/%s; timeout=%ss",
+            op_name, attempt_index, max_attempts, skill_timeout_sec,
+        )
+        result = await _run_via_opencode_skill_once(
+            op_name=op_name,
+            op_dir=op_dir,
+            task_desc=task_desc,
+            arch=arch,
+            device_id=device_id,
+            verify_timeout=verify_timeout,
+            extra_config=extra_config,
+            log_file=attempt_log,
+            mode=mode,
+            opencode_bin=opencode_bin,
+            opencode_model=opencode_model,
+            validator_agent=validator_agent,
+            skill_timeout_sec=skill_timeout_sec,
+            output_dir=output_dir,
+        )
+        total_duration += result.duration_sec
+        attempts.append({
+            "attempt": attempt_index,
+            "status": result.status.value,
+            "timeout": bool(result.extra.get("opencode_timed_out")),
+            "retryable": _is_opencode_retryable(result),
+            "log_file": str(result.log_file) if result.log_file else None,
+            "session_id": result.opencode_session_id,
+            "message": result.message,
+        })
+        result.extra["opencode_attempts"] = attempts
+        result.extra["opencode_retry_count"] = attempt_index - 1
+        result.duration_sec = total_duration
+
+        if not _is_opencode_retryable(result) or attempt_index >= max_attempts:
+            if attempt_index > 1:
+                result.message = (
+                    f"opencode validator attempts={attempt_index}/{max_attempts}; "
+                    f"{result.message}"
+                )
+            return result
+
+        logger.warning(
+            "[%s] opencode validator attempt %s/%s failed with retryable API/timeout error; "
+            "sleep %ss before retry",
+            op_name, attempt_index, max_attempts, retry_interval,
+        )
+        if retry_interval > 0:
+            await asyncio.sleep(retry_interval)
+            total_duration += retry_interval
+
+    return result
+
+
+async def _run_via_opencode_skill_once(
     *,
     op_name: str,
     op_dir: Path,
@@ -769,6 +869,11 @@ async def _run_via_opencode_skill(
                 f"opencode validator 未产出 skill_report.json (timeout={timed_out}, "
                 f"returncode={proc.returncode}); 检查 log_file 排错."
             ),
+            extra={
+                "opencode_no_skill_report": True,
+                "opencode_timed_out": timed_out,
+                "opencode_returncode": proc.returncode,
+            },
             opencode_session_id=session_id,
             opencode_session_md_file=session_md_file,
             opencode_session_export_message=session_export_message,
@@ -837,6 +942,10 @@ def _main_cli() -> int:
                         help="opencode agent 名 (仅 opencode 模式)")
     parser.add_argument("--skill-timeout", type=int, default=1800,
                         help="opencode validator 子进程硬超时, 秒 (仅 opencode 模式)")
+    parser.add_argument("--skill-retry", type=int, default=2,
+                        help="opencode/API 层失败后的重试次数; 业务验证失败不重试 (仅 opencode 模式)")
+    parser.add_argument("--skill-retry-interval", type=int, default=600,
+                        help="opencode/API 层重试间隔, 秒 (仅 opencode 模式)")
     parser.add_argument("--skill-output-dir", type=Path, default=None,
                         help="skill_report.json 落盘目录; 缺省取 log-file.parent (仅 opencode 模式)")
     args = parser.parse_args()
@@ -862,6 +971,8 @@ def _main_cli() -> int:
         opencode_bin=args.opencode_bin,
         validator_agent=args.validator_agent,
         skill_timeout_sec=args.skill_timeout,
+        skill_retry=args.skill_retry,
+        skill_retry_interval_sec=args.skill_retry_interval,
         output_dir=args.skill_output_dir,
     )
     sys.stdout.write(json.dumps(result.to_dict(), indent=2, ensure_ascii=False) + "\n")
