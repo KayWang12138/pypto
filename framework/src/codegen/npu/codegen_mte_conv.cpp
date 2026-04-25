@@ -142,6 +142,10 @@ std::string CodeGenOpNPU::GenMemL1CopyOutConv() const
         offsetH = dynOffset[ID2].Concrete();
         offsetW = dynOffset[ID3].Concrete();
     }
+    int64_t repeatTime = 0, wStride = 0;
+    GetOpAttr(Conv::L12L0ConvOpAttributeKey::repeatTime, repeatTime);
+    GetOpAttr(Conv::L12L0ConvOpAttributeKey::wStride, wStride);
+
     std::vector<std::string> tileOpParamList = {
         dstTensor,
         srcTensor,
@@ -151,7 +155,9 @@ std::string CodeGenOpNPU::GenMemL1CopyOutConv() const
         std::to_string(offsetH),
         std::to_string(offsetW),
         std::to_string(realM),
-        std::to_string(realN)};
+        std::to_string(realN),
+        std::to_string(repeatTime),
+        std::to_string(wStride)};
 
     std::ostringstream oss;
     oss << tileOpName << WrapParamByAngleBrackets({copyOutModeStr, std::to_string(isConv3D)});
@@ -211,6 +217,14 @@ std::string CodeGenOpNPU::GenMemL1ToL0Load3D() const
     CODEGEN_LOGI("GenMemL1ToL0Load3D %s, fmapL0Shape is %s", tileOpName.c_str(), IntVecToStr(fmapL0Shape).c_str());
     ASSERT(ConvCodenGenError::CODEGEN_CHECK_DIM_INVALID, fmapL0Shape.size() == SHAPE_DIM2)
         << "GenMemL1ToL0Load3D L0 fmap only support 2-dim!";
+
+    int64_t repeatStride = 0, repeatTime = 0, wStride = 0;
+    GetOpAttr(Conv::L12L0ConvOpAttributeKey::repeatStride, repeatStride);
+    GetOpAttr(Conv::L12L0ConvOpAttributeKey::repeatTime, repeatTime);
+    GetOpAttr(Conv::L12L0ConvOpAttributeKey::wStride, wStride);
+    paramList.emplace_back(repeatStride);
+    paramList.emplace_back(repeatTime);
+    paramList.emplace_back(wStride);
 
     bool isConv3D = false;
     GetOpAttr(Conv::LoadStoreConvOpAttributeKey::isConv3D, isConv3D);

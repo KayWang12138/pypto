@@ -245,7 +245,7 @@ std::string TestConvLoad3DBody(const std::string& funcName, const bool& isConv3D
 TEST_F(TestCodegenDynConv, Load3DConv2D)
 {
     std::string res = TestConvLoad3DBody("Load3DConv2D", false);
-    std::string expect = R"!!!(TLoad3D<0>(l0aTensor_0, l1Tensor_1, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1);
+    std::string expect = R"!!!(TLoad3D<0>(l0aTensor_0, l1Tensor_1, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 0, 0, 0);
 )!!!";
     EXPECT_EQ(res, expect);
 }
@@ -253,7 +253,7 @@ TEST_F(TestCodegenDynConv, Load3DConv2D)
 TEST_F(TestCodegenDynConv, Load3DConv3D)
 {
     std::string res = TestConvLoad3DBody("Load3DConv3D", true);
-    std::string expect = R"!!!(TLoad3D<1>(l0aTensor_0, l1Tensor_1, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1);
+    std::string expect = R"!!!(TLoad3D<1>(l0aTensor_0, l1Tensor_1, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 0, 0, 0);
 )!!!";
     EXPECT_EQ(res, expect);
 }
