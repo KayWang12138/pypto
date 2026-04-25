@@ -53,7 +53,7 @@ std::string CodeGenOpNPU::GenCastOp() const
         return PrintCastDynamicUnaligned({s0Var, dVar, srcDtypeStr, dstDtypeStr});
     }
     int64_t modeEnum = 0;
-    GetAttr(OP_ATTR_PREFIX + "mode", modeEnum);
+    GetOpAttr(OP_ATTR_PREFIX + "mode", modeEnum);
     ret = sprintf_s(
         buffer, sizeof(buffer),
         "%s_<%s, %s, %u, %u, %u, %u, %u, %u, %u, %u, %u, %u, %lld>((__ubuf__ %s *)%s,  (__ubuf__ %s *)%s);\n",
@@ -808,6 +808,39 @@ std::string CodeGenOpNPU::PrintRangeTileTensor(
     auto dstValidShape = dynamicValidShape[ToUnderlying(MISOIdx::DST_IDX)];
     std::vector<std::string> paramList = {
         dstTensor, SymbolicExpressionTable::BuildExpression(dstValidShape[ID0]), startVal, stepVal, tileIdxExpr};
+    std::ostringstream oss;
+    oss << tileOpName;
+    oss << PrintParams({"(", ")"}, paramList, ", ");
+    oss << STMT_END;
+    return oss.str();
+}
+
+std::string CodeGenOpNPU::GenUniformOp() const
+{
+    auto scalarsAttr = opAttrs.at(OpAttributeKey::vectorScalar);
+    auto counter0Attr = opAttrs.at(OpAttributeKey::dynScalar);
+    auto shapeAttr = opAttrs.at(OP_ATTR_PREFIX + "SHAPE");
+
+    auto scalars = AnyCast<std::vector<Element>>(scalarsAttr);
+    uint64_t key = scalars[0].Cast<uint64_t>();
+    uint64_t counter1 = scalars[1].Cast<uint64_t>();
+    uint16_t rounds = scalars[2].Cast<uint16_t>();
+
+    SymbolicScalar counter0 = AnyCast<SymbolicScalar>(counter0Attr);
+
+    std::vector<int64_t> randomShape;
+    if (shapeAttr.HasValue()) {
+        randomShape = AnyCast<std::vector<int64_t>>(shapeAttr);
+    }
+
+    std::string keyStr = std::to_string(key) + "ULL";
+    std::string counter0Str = "(uint64_t)(" + SymbolicExpressionTable::BuildExpression(counter0) + ")";
+    std::string counter1Str = std::to_string(counter1) + "ULL";
+    std::string roundsStr = std::to_string(rounds);
+
+    std::string dstTensor = QueryTileTensorNameByIdx(ToUnderlying(MIMOIdx::DST_IDX));
+    std::string tmpTensor = QueryTileTensorNameByIdx(ToUnderlying(MIMOIdx::TMP_IDX));
+    std::vector<std::string> paramList = {dstTensor, tmpTensor, keyStr, counter0Str, counter1Str, roundsStr};
     std::ostringstream oss;
     oss << tileOpName;
     oss << PrintParams({"(", ")"}, paramList, ", ");
@@ -1750,7 +1783,7 @@ std::string CodeGenOpNPU::PrintPreluTileTensor() const
     std::string src1Tensor = QueryTileTensorNameByIdx(ToUnderlying(MIMOIdx::SRC1_IDX));
 
     int64_t axis = 1;
-    GetAttr(OP_ATTR_PREFIX + "axis", axis);
+    GetOpAttr(OP_ATTR_PREFIX + "axis", axis);
 
     std::vector<std::string> tileOpParamList = {dstTensor, src0Tensor, src1Tensor, tmpTensor};
 

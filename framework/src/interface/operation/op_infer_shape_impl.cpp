@@ -18,8 +18,9 @@
 #include "interface/operation/operation.h"
 #include "interface/tensor/symbolic_scalar.h"
 #include "interface/utils/common.h"
-#include "interface/utils/vector_error.h"
-#include "interface/utils/matmul_error.h"
+#include "tilefwk/error_code.h"
+#include "tilefwk/error_code.h"
+#include "tilefwk/error_code.h"
 
 namespace npu::tile_fwk {
 const std::string COPY_OUT_FORCE_INFER_SHAPE = "copy_out_force_infer_shape";
@@ -323,18 +324,21 @@ REGISTER_INFER_SHAPE_FUNC(OP_SCATTER, Opcode::OP_SCATTER, ScatterInferFunc);
 
 void IndexAddInferFunc(Operation* op, std::vector<std::vector<SymbolicScalar>>& outValidShapes)
 {
-    std::vector<SymbolicScalar> outValidShape;
+    auto selfValidShape = op->GetIOperands()[0]->GetDynValidShape();
+    auto srcValidShape = op->GetIOperands()[1]->GetDynValidShape();
+    outValidShapes.push_back(selfValidShape);
+    outValidShapes.push_back({1, srcValidShape[srcValidShape.size() - 1]});
+}
+REGISTER_INFER_SHAPE_FUNC(OP_INDEX_ADD, Opcode::OP_INDEX_ADD, IndexAddInferFunc);
+
+void IndexAddUBInferFunc(Operation* op, std::vector<std::vector<SymbolicScalar>>& outValidShapes)
+{
     auto inValidShape = op->GetIOperands()[0]->GetDynValidShape();
-
-    for (size_t i = 0; i < inValidShape.size(); ++i) {
-        outValidShape.push_back(inValidShape[i]);
-    }
-
     for (auto output : op->GetOOperands()) {
-        outValidShapes.push_back(outValidShape);
+        outValidShapes.push_back(inValidShape);
     }
 }
-REGISTER_INFER_SHAPE_FUNC(OP_INDEX_ADD_UB, Opcode::OP_INDEX_ADD_UB, IndexAddInferFunc);
+REGISTER_INFER_SHAPE_FUNC(OP_INDEX_ADD_UB, Opcode::OP_INDEX_ADD_UB, IndexAddUBInferFunc);
 
 void LogicalNotInferFunc(Operation* op, std::vector<std::vector<SymbolicScalar>>& outValidShapes)
 {
@@ -475,6 +479,18 @@ void RangeInferFunc(Operation* op, std::vector<std::vector<SymbolicScalar>>& out
     }
 }
 REGISTER_INFER_SHAPE_FUNC(OP_RANGE, Opcode::OP_RANGE, RangeInferFunc);
+
+void UniformInferFunc(Operation *op, std::vector<std::vector<SymbolicScalar>> &outValidShapes) {
+    std::vector<SymbolicScalar> outValidShape;
+    auto shapeAttr = op->GetVectorIntAttribute(OP_ATTR_PREFIX + "SHAPE");
+    for (auto dim : shapeAttr) {
+        outValidShape.push_back(SymbolicScalar(static_cast<int64_t>(dim)));
+    }
+    for (auto output : op->GetOOperands()) {
+        outValidShapes.push_back(outValidShape);
+    }
+}
+REGISTER_INFER_SHAPE_FUNC(OP_UNIFORM, Opcode::OP_UNIFORM, UniformInferFunc);
 
 // reduce infer shape func
 void ReduceInferFunc(Operation* op, std::vector<std::vector<SymbolicScalar>>& outValidShapes)

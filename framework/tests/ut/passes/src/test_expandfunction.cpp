@@ -27,6 +27,7 @@
 #include "interface/operation/operation.h"
 #include "passes/tensor_graph_pass/expand_function.h"
 #include "computational_graph_builder.h"
+#include "passes/pass_check/inplace_conflict_checker.h"
 
 namespace npu {
 namespace tile_fwk {
@@ -71,6 +72,39 @@ void MakeExpandGrpah(std::shared_ptr<Function>& currFunctionPtr, LogicalTensorPt
     currFunctionPtr->SetGraphType(GraphType::TENSOR_GRAPH);
 }
 
+struct ScopeCfg {
+    std::string op;
+    int id;
+    bool parMerge;
+    bool crossMerge;
+};
+
+void RunScopeInfoTest(
+    const std::vector<std::string>& tensors, size_t numInputs, const std::vector<Opcode>& opcodes,
+    const std::vector<std::vector<std::string>>& inputs, const std::vector<std::vector<std::string>>& outputs,
+    const std::vector<std::string>& opNames, const Status status, const std::vector<ScopeCfg>& scopes = {})
+{
+    ComputationalGraphBuilder G;
+    std::vector<int64_t> shape{kNumExpSix, kNumExpSix};
+    EXPECT_EQ(G.AddTensors(DataType::DT_FP32, shape, tensors), true);
+    EXPECT_EQ(G.AddOps(opcodes, inputs, outputs, opNames, true), true);
+    for (const auto& s : scopes) {
+        Operation::ScopeInfo info(s.id);
+        info.allowParallelMerge = s.parMerge;
+        info.allowCrossScopeMerge = s.crossMerge;
+        auto op = G.GetOp(s.op);
+        op->SetScopeInfo(info);
+        if (op->GetCoreType() == CoreType::AIV)
+            op->tileShape_.SetVecTile(kNumExpSix, kNumExpSix);
+    }
+    EXPECT_EQ(G.SetInCast({tensors.begin(), tensors.begin() + numInputs}), true);
+    EXPECT_EQ(G.SetOutCast({tensors.begin() + numInputs, tensors.end()}), true);
+    G.GetFunction()->SetGraphType(GraphType::TENSOR_GRAPH);
+    TileShape::Current().SetVecTile(kNumExpFive, kNumExpFive);
+    ExpandFunction expandfunctionpass;
+    EXPECT_EQ(expandfunctionpass.RunOnFunction(*G.GetFunction()), status);
+}
+
 class TestExpandFunctionPass : public ::testing::Test {
 public:
     static void SetUpTestCase() {}
@@ -85,7 +119,7 @@ public:
         config::SetHostConfig(KEY_STRATEGY, "ExpandFunctionTestStrategy");
         config::SetPlatformConfig(KEY_ENABLE_COST_MODEL, false);
     }
-    void TearDown() override {}
+    void TearDown() override { Platform::Instance().GetSoc().SetNPUArch(NPUArch::DAV_UNKNOWN); }
 };
 
 /*
@@ -601,6 +635,37 @@ TEST_F(TestExpandFunctionPass, DisableCombineAxisOnA5)
     EXPECT_EQ(currFunctionPtr->paramConfigs_.combineAxis, true);
 }
 
+TEST_F(TestExpandFunctionPass, TestScopeIdMinusOneWithMergeFlag)
+{
+    RunScopeInfoTest(
+        {"in1", "in2", "out1"}, 2, {Opcode::OP_ADD}, {{"in1", "in2"}}, {{"out1"}}, {"add1"}, FAILED,
+        {{"add1", -1, true, false}});
+}
+
+TEST_F(TestExpandFunctionPass, TestConflictingScopeInfoSettings)
+{
+    RunScopeInfoTest(
+        {"in1", "in2", "in3", "out1", "out2"}, 3, {Opcode::OP_ADD, Opcode::OP_ADD}, {{"in1", "in2"}, {"in2", "in3"}},
+        {{"out1"}, {"out2"}}, {"add1", "add2"}, FAILED, {{"add1", 1, true, false}, {"add2", 1, false, true}});
+}
+
+TEST_F(TestExpandFunctionPass, TestPassScopeInfoSettingsVerify)
+{
+    RunScopeInfoTest(
+        {"in1", "in2", "in3", "out1", "out2"}, 3, {Opcode::OP_ADD, Opcode::OP_ADD}, {{"in1", "in2"}, {"in2", "in3"}},
+        {{"out1"}, {"out2"}}, {"add1", "add2"}, SUCCESS, {{"add1", 1, true, false}, {"add2", 1, true, false}});
+}
+
+TEST_F(TestExpandFunctionPass, TestCVMixPlatformMergeFlagMustBeFalse)
+{
+    Platform::Instance().GetSoc().SetNPUArch(NPUArch::DAV_3510);
+    EXPECT_TRUE(GraphUtils::IsCVMixPlatform());
+    RunScopeInfoTest(
+        {"in1", "in2", "in3", "in4", "out1", "out2"}, 4, {Opcode::OP_ADD, Opcode::OP_A_MUL_B},
+        {{"in1", "in2"}, {"in3", "in4"}}, {{"out1"}, {"out2"}}, {"add1", "matmul1"}, FAILED,
+        {{"add1", 1, true, false}, {"matmul1", 1, true, false}});
+}
+
 TEST_F(TestExpandFunctionPass, PreCheckForDisorderIndexOutcast)
 {
     ComputationalGraphBuilder G;
@@ -627,6 +692,120 @@ TEST_F(TestExpandFunctionPass, PreCheckForDisorderIndexOutcast)
 
     ExpandFunction expandfunctionpass;
     EXPECT_EQ(expandfunctionpass.PreRun(*function), SUCCESS);
+}
+
+/*
+    Tensor is used by both OP_VIEW and another operation (conflict scenario)
+    tensor -> view -> ...
+    tensor -> add -> ...
+    This should fail CheckInplaceOperationConflict because tensor serves both view and other operations
+*/
+TEST_F(TestExpandFunctionPass, PreCheckForViewConflict)
+{
+    ComputationalGraphBuilder G;
+    std::vector<int64_t> tileShape{32, 32};
+    EXPECT_EQ(
+        G.AddTensors(DataType::DT_FP32, tileShape, {"tensor", "view_output", "add_output1", "add_output2", "other_input"}),
+        true);
+    
+    std::vector<Opcode> opLists{Opcode::OP_VIEW, Opcode::OP_ADD};
+    std::vector<std::vector<std::string>> iOperands{{"tensor"}, {"tensor", "other_input"}};
+    std::vector<std::vector<std::string>> oOperands{{"view_output"}, {"add_output1"}};
+    std::vector<std::string> opNames{"OP_VIEW_1", "OP_ADD_1"};
+    EXPECT_EQ(G.AddOps(opLists, iOperands, oOperands, opNames, true), true);
+
+    EXPECT_EQ(G.SetInCast({"tensor", "other_input"}), true);
+    EXPECT_EQ(G.SetOutCast({"view_output", "add_output1"}), true);
+
+    Function* function = G.GetFunction();
+    function->GetTensorMap().Insert(G.GetTensor("tensor"));
+
+    InplaceConflictChecker inplaceConflictChecker;
+    EXPECT_EQ(inplaceConflictChecker.CheckInplaceOperationConflict(*function), FAILED);
+}
+
+/*
+    Tensor is used by both OP_RESHAPE and another operation (conflict scenario)
+    tensor -> reshape -> ...
+    tensor -> mul -> ...
+    This should fail CheckInplaceOperationConflict because tensor serves both reshape and other operations
+*/
+TEST_F(TestExpandFunctionPass, PreCheckForReshapeConflict)
+{
+    ComputationalGraphBuilder G;
+    std::vector<int64_t> tileShape{32, 32};
+    EXPECT_EQ(
+        G.AddTensors(DataType::DT_FP32, tileShape, {"tensor", "reshape_output", "mul_output", "other_input"}),
+        true);
+    
+    std::vector<Opcode> opLists{Opcode::OP_RESHAPE, Opcode::OP_MUL};
+    std::vector<std::vector<std::string>> iOperands{{"tensor"}, {"tensor", "other_input"}};
+    std::vector<std::vector<std::string>> oOperands{{"reshape_output"}, {"mul_output"}};
+    std::vector<std::string> opNames{"OP_RESHAPE_1", "OP_MUL_1"};
+    EXPECT_EQ(G.AddOps(opLists, iOperands, oOperands, opNames, true), true);
+
+    EXPECT_EQ(G.SetInCast({"tensor", "other_input"}), true);
+    EXPECT_EQ(G.SetOutCast({"reshape_output", "mul_output"}), true);
+
+    Function* function = G.GetFunction();
+    function->GetTensorMap().Insert(G.GetTensor("tensor"));
+
+    InplaceConflictChecker inplaceConflictChecker;
+    EXPECT_EQ(inplaceConflictChecker.CheckInplaceOperationConflict(*function), FAILED);
+}
+
+/*
+    Tensor is used only by OP_VIEW (no conflict scenario)
+    tensor -> view -> adds
+    This should succeed because tensor only serves view operation (tensor has only one consumer)
+*/
+TEST_F(TestExpandFunctionPass, PreCheckForViewNoConflict)
+{
+    ComputationalGraphBuilder G;
+    std::vector<int64_t> tileShape{32, 32};
+    EXPECT_EQ(G.AddTensors(DataType::DT_FP32, tileShape, {"tensor", "view_output", "final_output"}), true);
+    
+    std::vector<Opcode> opLists{Opcode::OP_VIEW, Opcode::OP_ADDS};
+    std::vector<std::vector<std::string>> iOperands{{"tensor"}, {"view_output"}};
+    std::vector<std::vector<std::string>> oOperands{{"view_output"}, {"final_output"}};
+    std::vector<std::string> opNames{"OP_VIEW_1", "OP_ADDS_1"};
+    EXPECT_EQ(G.AddOps(opLists, iOperands, oOperands, opNames, true), true);
+
+    EXPECT_EQ(G.SetInCast({"tensor"}), true);
+    EXPECT_EQ(G.SetOutCast({"final_output"}), true);
+
+    Function* function = G.GetFunction();
+    function->GetTensorMap().Insert(G.GetTensor("tensor"));
+
+    InplaceConflictChecker inplaceConflictChecker;
+    EXPECT_EQ(inplaceConflictChecker.CheckInplaceOperationConflict(*function), SUCCESS);
+}
+
+/*
+    Tensor is used only by OP_RESHAPE (no conflict scenario)
+    tensor -> reshape -> exp
+    This should succeed because tensor only serves reshape operation (tensor has only one consumer)
+*/
+TEST_F(TestExpandFunctionPass, PreCheckForReshapeNoConflict)
+{
+    ComputationalGraphBuilder G;
+    std::vector<int64_t> tileShape{32, 32};
+    EXPECT_EQ(G.AddTensors(DataType::DT_FP32, tileShape, {"tensor", "reshape_output", "final_output"}), true);
+    
+    std::vector<Opcode> opLists{Opcode::OP_RESHAPE, Opcode::OP_EXP};
+    std::vector<std::vector<std::string>> iOperands{{"tensor"}, {"reshape_output"}};
+    std::vector<std::vector<std::string>> oOperands{{"reshape_output"}, {"final_output"}};
+    std::vector<std::string> opNames{"OP_RESHAPE_1", "OP_EXP_1"};
+    EXPECT_EQ(G.AddOps(opLists, iOperands, oOperands, opNames, true), true);
+
+    EXPECT_EQ(G.SetInCast({"tensor"}), true);
+    EXPECT_EQ(G.SetOutCast({"final_output"}), true);
+
+    Function* function = G.GetFunction();
+    function->GetTensorMap().Insert(G.GetTensor("tensor"));
+
+    InplaceConflictChecker inplaceConflictChecker;
+    EXPECT_EQ(inplaceConflictChecker.CheckInplaceOperationConflict(*function), SUCCESS);
 }
 } // namespace tile_fwk
 } // namespace npu

@@ -25,7 +25,9 @@
 #include "passes/pass_utils/parallel_tool.h"
 #include "passes/pass_check/subgraph_to_function_checker.h"
 #include "passes/pass_utils/graph_utils.h"
+#include "passes/pass_utils/subgraph_utils.h"
 #include "passes/pass_log/pass_log.h"
+#include "tilefwk/error_code.h"
 
 #undef MODULE_NAME
 #define MODULE_NAME "SubgraphToFunction"
@@ -136,7 +138,7 @@ void SubgraphToFunction::RecordIncastInfo(Function& function, RecordInfo recordI
     auto& op = *nLIST[i][j];
     // 这里逻辑可能有一些问题，期望是尽可能不要把inplace语义的COPY_OUT的输出变成leaf的incast
     if (op.HasAttribute(OpAttributeKey::inplaceIdx) && !iOperand->GetProducers().empty()) {
-        if (!iOperand->isSubGraphBoundary) {
+        if (!SubgraphUtils::IsBoundary(iOperand)) {
             return;
         }
     }
@@ -146,7 +148,7 @@ void SubgraphToFunction::RecordIncastInfo(Function& function, RecordInfo recordI
             iOperand, nLIST[i][j]->opmagic);
         return;
     }
-    if (!iOperand->isSubGraphBoundary || iOperand->GetMemoryTypeOriginal() != MemoryType::MEM_DEVICE_DDR) {
+    if (!SubgraphUtils::IsBoundary(iOperand) || iOperand->GetMemoryTypeOriginal() != MemoryType::MEM_DEVICE_DDR) {
         return;
     }
     auto producers = iOperand->GetProducers();
@@ -207,7 +209,7 @@ void SubgraphToFunction::RecordOutcastInfo(Function& function, RecordInfo record
     // boundary outCasts_
     int refCount = 0;
     typename SubfuncInvokeInfoTy::SuccessorIncastInfoTy relatedIncastList;
-    if (!oOperand->isSubGraphBoundary || oOperand->GetMemoryTypeOriginal() != MemoryType::MEM_DEVICE_DDR) {
+    if (!SubgraphUtils::IsBoundary(oOperand) || oOperand->GetMemoryTypeOriginal() != MemoryType::MEM_DEVICE_DDR) {
         return;
     }
     auto consumers = oOperand->GetConsumers();
@@ -311,7 +313,7 @@ void SubgraphToFunction::ProcessInputOperands(
         auto offset = iOperand->offset;
         auto shape = iOperand->shape;
         if (tileOp.HasAttribute(OpAttributeKey::inplaceIdx) && !iOperand->GetProducers().empty()) {
-            if (!iOperand->isSubGraphBoundary) {
+            if (!SubgraphUtils::IsBoundary(iOperand)) {
                 continue;
             }
         }
@@ -328,7 +330,7 @@ void SubgraphToFunction::ProcessInputOperands(
             tParamLoc++;
             continue;
         }
-        if (!iOperand->isSubGraphBoundary || iOperand->GetMemoryTypeOriginal() != MemoryType::MEM_DEVICE_DDR) {
+        if (!SubgraphUtils::IsBoundary(iOperand) || iOperand->GetMemoryTypeOriginal() != MemoryType::MEM_DEVICE_DDR) {
             continue;
         }
         pSgParamInfo.AppendIncastParam(
@@ -363,7 +365,7 @@ void SubgraphToFunction::ProcessOutputOperands(
             tParamLoc++;
             continue;
         }
-        if (!oOperand->isSubGraphBoundary || oOperand->GetMemoryTypeOriginal() != MemoryType::MEM_DEVICE_DDR) {
+        if (!SubgraphUtils::IsBoundary(oOperand) || oOperand->GetMemoryTypeOriginal() != MemoryType::MEM_DEVICE_DDR) {
             continue;
         }
         pSgParamInfo.AppendOutcastParam(
@@ -733,13 +735,14 @@ static std::unordered_map<int, GetTensorDataOutcastDesc> GetTensorDataBuildOutca
     }
     for (auto& [index, desc] : getTensorDataOutcastDescDict) {
         (void)index;
-        ASSERT(desc.opListDict[Opcode::OP_ADDS].size() == 1) << "Expect the size is 1 for opListDict, but we get "
-                                                             << desc.opListDict[Opcode::OP_ADDS].size() << "OP_ADDS";
+        ASSERT(OperationErr::OP_SPECIAL_CONSTRAINT, desc.opListDict[Opcode::OP_ADDS].size() == 1)
+            << "Expect the size is 1 for opListDict, but we get " << desc.opListDict[Opcode::OP_ADDS].size()
+            << "OP_ADDS";
         auto mark = desc.opListDict[Opcode::OP_ADDS][0];
 
         std::shared_ptr<LogicalTensor> addsOpOut = mark->GetOOperands()[0];
         auto copyout = *addsOpOut->GetConsumers().begin();
-        ASSERT(copyout->GetOpcode() == Opcode::OP_COPY_OUT)
+        ASSERT(OperationErr::OP_SPECIAL_CONSTRAINT, copyout->GetOpcode() == Opcode::OP_COPY_OUT)
             << "Expect Opcode OP_COPY_OUT, but we get " << copyout->GetOpcodeStr() << " at operation["
             << copyout->GetOpMagic() << "].";
         ;
@@ -819,7 +822,7 @@ static std::vector<GetTensorDataUsageDesc> GetTensorDataBuildUsageDesc(Function&
         }
         // subgraphTensor should be the same subgraph to the copyin.
         std::shared_ptr<LogicalTensor> subgraphTensor = GetTensorDataSubgraphTensor(refOp);
-        ASSERT(subgraphTensor != nullptr)
+        ASSERT(TensorErr::TENSOR_NULL_POINTER, subgraphTensor != nullptr)
             << "Expect operation[" << refOp.GetOpMagic()
             << "] has valid IOperand/OOperand, but we get nullptr. Please check the operation.";
         MemoryType subgraphMemoryType = subgraphTensor->GetMemoryTypeToBe();
@@ -841,7 +844,7 @@ Status SubgraphToFunction::GetTensorDataDependencyInsert(Function& function)
             if (callList.size() == 0) {
                 APASS_LOG_ERROR_F(
                     Elements::Function,
-                    "Call list is empty in funciton %s. Please check whether the input graph is complete.",
+                    "Call list is empty in function %s. Please check whether the input graph is complete.",
                     function.GetRawName().c_str());
                 return FAILED;
             }

@@ -49,7 +49,43 @@ def matmul_kernel(a, b, out):
 
 **效果**：从 500us 优化到 40us
 
-### 2. 增加冗余计算避免冗余依赖
+### 2. L2 Cache 策略
+
+通过 `set_cache_policy` 控制 Tensor 是否经过 L2 Cache，减少 Cache 争用，提升数据搬运效率。
+
+#### 2.1 API 说明
+
+```python
+tensor.set_cache_policy(pypto.CachePolicy.NONE_CACHEABLE, True)
+```
+
+- **API 文档**：`docs/api/tensor/pypto-Tensor-set_cache_policy.md`
+- **当前 Python 可用策略**：仅 `CachePolicy.NONE_CACHEABLE`（C++ 层还有 `PREFETCH`，但 Python API 未暴露）
+- **效果**：标记后该 Tensor 的数据访问将绕过 L2 Cache，直接访问主存（HBM）
+
+#### 2.2 适用场景
+
+根据官方文档，以下两类数据适合设置 `NONE_CACHEABLE`：
+
+1. **只读一次的权重矩阵**：类似于 weight 这种常量，算子仅从内存读取一次、不复用，没有必要占用 L2 Cache 空间
+2. **过大的输出 Tensor**：输出 shape 过大时，下层算子最先使用的内存不是上层最后的输出结果，进 L2 后反而触发回写导致性能恶化
+
+#### 2.3 调优策略
+
+**逐个尝试法（适用于简单算子）**：对候选 Tensor 逐个设置 NONE_CACHEABLE，每次实测对比。
+
+**批量设置法（适用于融合算子）**：当算子包含多个大型权重矩阵时，应考虑**同时对所有权重设置 NONE_CACHEABLE**。单独对某个权重设置可能因 L2 Cache 争用反而恶化，但全部绕过 L2 后可释放 Cache 容量给 KV Cache、中间激活等频繁访问的数据。
+
+#### 2.4 ⛔ 注意事项
+
+1. **输入 Tensor（hidden_states、residual 等）通常不适合 NONE_CACHEABLE**：这些 Tensor 虽然只读一次，但数据量小，L2 Cache 的硬件预取已经足够高效，绕过反而增加延迟
+2. **输出 Tensor（output、residual_out）不适合 NONE_CACHEABLE**：输出需要写入主存，绕过 L2 会增加写回开销
+3. **单独对某个大权重设置可能无效甚至恶化**：在融合算子中，单独绕过某个权重可能打破 L2 Cache 的整体平衡，导致其他权重访问变慢
+4. **必须实测验证**：Cache 策略的效果高度依赖算子的数据访问模式和硬件状态，无法仅凭理论判断
+
+**🔥 案例**：[权重矩阵批量 NONE_CACHEABLE](cases/weight-none-l2-cacheable.md)（Pangu 7B Fused Layer，5 个权重同时设置，437→354 us，-19.1%，含 5 轮迭代失败分析）
+
+### 3. 增加冗余计算避免冗余依赖
 
 通过增加冗余计算来避免冗余依赖和搬运。
 
@@ -66,22 +102,13 @@ for tmp_idx in range(tile_batch):
 e_score_bias_2d_cast = pypto.cast(e_score_bias_2d_tile, tile_logits_fp32.dtype)
 ```
 
-### 3. 尾轴长度优化
+### 4. 尾轴长度优化
 
 尽量避免处理尾轴长度较小的 Tensor。
 
 **解决方案**：
 - 使用 concat、transpose 或 reshape 等 Operation 来增大尾轴
 - 设置较大的 TileShape
-
-### 4. L2 Cache 策略
-
-设置合理的 L2 Cache Mode，对于只访问一次的 Global Memory 数据设置其访问状态为不进入 L2 Cache。
-
-```python
-# 设置 L2 Cache 策略
-tensor.set_cache_policy(...)
-```
 
 ### 5. TileOperation 实现检查
 
@@ -92,91 +119,27 @@ tensor.set_cache_policy(...)
 2. 与 Ascend C 小算子的性能对比
 3. 确认性能较差后检查是否使用了更优的指令
 
-## 性能优化建议库
+## 调优检查清单
 
-### 建议 1：小 Shape 矩阵乘
+**⛔ 必须按以下清单逐项执行。每项标记为 ✅已尝试 或 ❌已失败（附原因），禁止跳过。完整优化点信息参考 [shared/optimization_catalog.md](../shared/optimization_catalog.md)。**
 
-**问题**：矩阵 Shape 特殊，性能较差
+**优化优先级**：
+1. ⭐⭐⭐ **P0 - 特殊 Shape 处理** → 详见 [I-1]
+2. ⭐⭐ **P1 - L2 Cache + 依赖与搬运优化** → 详见 [I-2][I-3][I-4]
+3. ⭐ **P2 - 实现检查** → 详见 [I-5]
 
-**解决方案**：
-- 使用 Vector 操作提前处理输入矩阵
-- 通过 concat/reshape 调整 Shape
+**🔥 P0 - 特殊 Shape [I-1]**：
+- [ ] [I-1] Matmul 的 Shape 是否特殊（如 M 很大 N 很小）
+- [ ] 是否可以用 Vector 预处理构造标准 Shape
 
-**代码示例**：
-```python
-# 构造标准 Shape 的矩阵
-c = pypto.concat([...], ...)
-a = pypto.reshape(a, [new_shape])
-```
+**🔥 P1 - L2 Cache + 依赖与搬运 [I-2~I-4]**：
+- [ ] [I-2] 只读一次的大型权重矩阵是否设置了 L2 Cache 策略（`NONE_CACHEABLE`）；融合算子中应对所有权重同时设置，避免 L2 争用失衡 → **🔥 案例**：[权重矩阵批量 NONE_CACHEABLE](cases/weight-none-l2-cacheable.md)（-19.1%）
+- [ ] [I-3] 是否存在一对多的子图依赖（可通过冗余计算消除）
+- [ ] [I-4] 尾轴是否过小（< 32B 对齐）
 
-### 建议 2：尾轴过小
+**P2 - 实现检查 [I-5]**：
+- [ ] [I-5] 单个 Operation 是否与 Ascend C 对比过性能
 
-**问题**：Operation 输入 Tensor 尾轴较小
-
-**解决方案**：
-- 使用 concat 增大尾轴
-- 使用 transpose 调整轴顺序
-- 使用 reshape 调整 Shape
-
-### 建议 3：冗余依赖
-
-**问题**：一对多的子图依赖，增加调度开销
-
-**解决方案**：
-- 增加冗余计算使每个分支独立
-- 使用 `sg_set_scope` 合并子图
-
-### 建议 4：L2 Cache 效率低
-
-**问题**：L2 Cache 命中率低
-
-**解决方案**：
-- 使用 L2 亲和调度
-- 设置合理的 L2 Cache Mode
-
-### 建议 5：Operation 实现效率低
-
-**问题**：TileOperation 本身实现较差
-
-**解决方案**：
-- 与 Ascend C 小算子性能对比
-- 检查是否使用更优指令
-- 考虑使用其他 Operation 组合替代
-
-## 调优流程
-
-```
-┌────────────────────────────────────────────┐
-│                核内性能调优流程            │
-├────────────────────────────────────────────┤
-│                                            │
-│  1. 定位瓶颈 task                          │
-│     └─ 通过泳道图找到耗时最长的 task       │
-│                                            │
-│  2. 分析 task 特征                         │
-│     ├─ 输入输出 Shape                      │
-│     ├─ Operation 类型                      │
-│     └─ 依赖关系                            │
-│                                            │
-│  3. 选择优化策略                           │
-│     ├─ 特殊 Shape → Vector 预处理          │
-│     ├─ 尾轴过小 → concat/transpose/reshape │
-│     ├─ 冗余依赖 → 增加冗余计算             │
-│     ├─ L2 Cache → Cache 策略优化           │
-│     └─ Operation → 检查实现/替代方案       │
-│                                            │
-│  4. 应用优化                               │
-│     └─ 每次只修改一个参数                  │
-│                                            │
-│  5. 验证                                   │
-│     ├─ 重新编译运行                        │
-│     ├─ 检查精度                            │
-│     └─ 对比性能数据                        │
-│                                            │
-│  6. 迭代直到达到目标性能                   │
-│                                            │
-└────────────────────────────────────────────┘
-```
 
 ## 常见问题
 
@@ -194,24 +157,6 @@ A:
 ### Q3: 增加冗余计算会影响精度吗？
 
 A: 不会。冗余计算是指增加一些不影响最终结果的计算（如复制数据），目的是优化调度和合图，不会改变计算逻辑。
-
-## L2 Cache 策略优化
-
-L2 Cache 命中率直接影响核内数据搬运效率，尤其对 Cube 类算子（matmul）影响显著。
-
-**优化策略**：
-
-1. **数据预取**：对连续访问的大块数据，确保访问模式为顺序访问以利用硬件预取
-2. **TileShape 对齐**：将 TileShape 的内积轴（K 轴）设置为 L2 Cache 行大小的整数倍（通常 256B 或 512B）
-3. **双缓冲**：对前后依赖的计算步骤使用 ping-pong buffer 隐藏搬运延迟
-
-**代码示例**：
-
-```python
-# 设置 cube tile shapes 使 K 轴对齐 256B
-# FP16: 256B = 128 elements, BF16: 256B = 128 elements
-pypto.set_cube_tile_shapes([128, 128], [128, 128], [128, 128])
-```
 
 ## TileOperation 检查流程
 
@@ -239,6 +184,9 @@ for i in pypto.loop(range(total_tiles)):
 
 ## 参考资料
 
+- [set_cache_policy API 文档](../../../../docs/api/tensor/pypto-Tensor-set_cache_policy.md)
+- [CachePolicy 数据类型](../../../../docs/api/datatype/CachePolicy.md)
 - [性能调优文档](../../../../docs/tutorials/debug/performance.md)
 - [GLM MoE Fusion 案例](../../../../models/glm_v4_5/glm_moe_fusion.py)
 - [MLA Prolog Quant 案例](../../../../models/deepseek_v32_exp/mla_prolog_quant_impl.py)
+- [典型案例库](cases/README.md)

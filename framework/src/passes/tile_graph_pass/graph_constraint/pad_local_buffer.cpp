@@ -15,6 +15,7 @@
 
 #include "pad_local_buffer.h"
 #include "passes/pass_log/pass_log.h"
+#include "passes/pass_utils/alignment_utils.h"
 #include "passes/pass_utils/reschedule_utils.h"
 
 #define MODULE_NAME "PadLocalBuffer"
@@ -220,16 +221,6 @@ void PadLocalBuffer::PadMatmul(Operation& op, LogicalTensorPtr& in)
         IntVecToStr(in->tensor->rawshape).c_str());
 }
 
-size_t GetPaddingValue(LogicalTensorPtr& in)
-{
-    auto bytes = BytesOf(in->Datatype());
-    auto paddingIter = BLOCK_PADDING_DIM.find(bytes);
-    if (paddingIter == BLOCK_PADDING_DIM.end()) {
-        return 1;
-    }
-    return paddingIter->second;
-}
-
 size_t GetLastDimBytes(const LogicalTensorPtr& tensor)
 {
     if (tensor->shape.empty()) {
@@ -309,7 +300,7 @@ void PadLocalBuffer::PadVector(
         return;
     }
     OpCalcType calcType = OpcodeManager::Inst().GetOpCalcType(op.GetOpcode());
-    size_t paddingValue = GetPaddingValue(in); // 根据数据类型，判断需要pad到几个元素
+    size_t paddingValue = AlignmentUtils::GetLastDimAlignBase(in); // 根据数据类型，判断需要pad到几个元素
     size_t lastIdx = in->shape.size() - 1;
     if (noPadding) {
         in->oriShape = in->shape;
@@ -348,9 +339,12 @@ void PadLocalBuffer::PadVector(
 
 bool PadLocalBuffer::IsExpandLastDim(const Operation& op)
 {
-    int axis = op.GetIntAttribute(OP_ATTR_PREFIX + "EXPANDDIM");
-    if (axis == static_cast<int>(op.GetOOperands()[0]->shape.size() - 1)) {
-        return true;
+    auto axes = op.GetVectorIntAttribute(OpAttributeKey::expandDims);
+    int lastDim = static_cast<int>(op.GetOOperands()[0]->shape.size() - 1);
+    for (auto axis : axes) {
+        if (axis == lastDim) {
+            return true;
+        }
     }
     return false;
 }
@@ -739,7 +733,7 @@ int64_t AlignedRawTensorIfNeed(LogicalTensorPtr& in, int64_t pos, const int64_t 
         return -1;
     }
     int64_t padDim = Pad(in->tensor->rawshape[pos], base);
-    int64_t paddingValue = GetPaddingValue(in);
+    int64_t paddingValue = AlignmentUtils::GetLastDimAlignBase(in);
     if (paddingValue != 0 && padDim % paddingValue != 0) {
         padDim = Lcm(padDim, paddingValue);
     }
@@ -802,6 +796,8 @@ void PadLocalBuffer::DoBrcbOpPadding(
             AlignedRawTensorIfNeed(out, lastIdx, paddingValue);
             visitedRaw.emplace(out->tensor);
         }
+    } else {
+        AlignedRawTensorIfNeed(in, lastIdx, paddingValue);
     }
 }
 
@@ -838,7 +834,7 @@ void PadLocalBuffer::PadVectorForAxisCombine(
     if (visitedRaw.count(in->tensor)) return;
     visitedRaw.emplace(in->tensor);
     OpCalcType calcType = OpcodeManager::Inst().GetOpCalcType(op.GetOpcode());
-    size_t paddingValue = GetPaddingValue(in);
+    size_t paddingValue = AlignmentUtils::GetLastDimAlignBase(in);
     size_t lastIdx = in->shape.size() - 1;
     in->oriShape = in->shape;
     in->tensor->oriRawshape = in->tensor->rawshape;

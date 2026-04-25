@@ -29,11 +29,6 @@ namespace npu::tile_fwk {
 
 #define DEBUG_SWITCH 0
 
-/* The DFX swimlane performance statistics use host pre-allocated memory mode, which avoids data collection during
-   AICPU scheduling to minimize scheduling interference. However, each AICore only supports tracking up to
-   MAX_DFX_TASK_NUM_PER_CORE tasks, with excess tasks being discarded.
-*/
-#define PROF_DFX_HOST_PREPARE_MEMORY_MODE 1
 __gm__ static bool g_is_open_dump_perf_trace_data = false;
 } // namespace npu::tile_fwk
 // device switch head file end
@@ -194,7 +189,7 @@ INLINE void SendRegAck(uint32_t taskIdx) { set_cond(taskIdx); }
 INLINE void PerfTraceRecord(
     uint32_t devTaskId, __gm__ Metrics* metric, AicorePerfTrace type, __gm__ KernelArgs* args, uint64_t cycle = 0)
 {
-    if (unlikely(npu::tile_fwk::g_is_open_dump_perf_trace_data == 1) && metric->turnNum < MAX_TURN_NUM) {
+    if (unlikely(npu::tile_fwk::g_is_open_dump_perf_trace_data == 1) && metric->turnNum < MAX_ROUND_NUM) {
         uint32_t turn = metric->turnNum;
         uint32_t cnt = metric->perfTraceCnt[turn][type];
         if (cnt < PERF_TRACE_INST_MAX_NUM_EVERY_TYPE) {
@@ -206,26 +201,8 @@ INLINE void PerfTraceRecord(
     (void)args;
 }
 
-INLINE void SetTaskStatistic(
-    __gm__ KernelArgs* args, int32_t& dfxPose, int32_t taskId, int32_t subGraphId, int64_t tStart, uint16_t seqNo = 0)
-{
-    __gm__ volatile TaskStat* stat = &args->taskStat[dfxPose];
-    stat->subGraphId = subGraphId;
-    stat->taskId = taskId;
-    stat->execStart = tStart;
-    stat->execEnd = get_sys_cnt();
-    stat->seqNo = seqNo;
-    dcci(stat, SINGLE_CACHE_LINE, CACHELINE_OUT);
-}
-
 INLINE void AddMetricStatistic(ExecuteContext* ctx, uint32_t seqNo, uint32_t taskId, int32_t subGraphId, int64_t t1)
 {
-    UNUSED(ctx);
-    UNUSED(seqNo);
-    UNUSED(taskId);
-    UNUSED(subGraphId);
-    UNUSED(t1);
-#if PROF_DFX_HOST_PREPARE_MEMORY_MODE
     auto m = (__gm__ Metrics*)(ctx->args->shakeBuffer[SHAK_BUF_DFX_DATA_INDEX]);
     if (m && m->taskCount < MAX_DFX_TASK_NUM_PER_CORE) {
         m->tasks[m->taskCount].subGraphId = subGraphId;
@@ -236,7 +213,6 @@ INLINE void AddMetricStatistic(ExecuteContext* ctx, uint32_t seqNo, uint32_t tas
         m->tasks[m->taskCount].execEnd = ctx->lastTaskFinishCycle;
         m->taskCount++;
     }
-#endif
 }
 
 INLINE void FlushMetricStatistic(__gm__ volatile KernelArgs* args)
@@ -311,8 +287,8 @@ INLINE volatile __gm__ ParallelDevTask* GetCoreFuncionData(ExecuteContext *ctx, 
                 uint32_t idx = i % npu::tile_fwk::SCH_DEVTASK_MAX_PARALLELISM;
                 int64_t elemPtr = 0;
                 do {
-                    dcci(&parallelDevTask->elements[idx], SINGLE_CACHE_LINE, CACHELINE_OUT);
-                    elemPtr = parallelDevTask->elements[idx];
+                    dcci(&parallelDevTask->ptrElements[idx], SINGLE_CACHE_LINE, CACHELINE_OUT);
+                    elemPtr = parallelDevTask->ptrElements[idx];
 
                     ++loop_count;
                     if ((loop_count % 1000 == 0) && (get_sys_cnt() - t0 > AICORE_DEVICE_TASK_WAIT_TIME_OUT)) {
@@ -392,10 +368,20 @@ INLINE void ExecDynCoreFunctionKernel(ExecuteContext* ctx, uint32_t taskId)
     int64_t gmStackAddr = funcData->stackWorkSpaceAddr + ctx->blockIdx * funcData->stackWorkSpaceSize;
 #endif
 
+    __gm__ TaskStat* taskStat = nullptr;
+#ifdef __DAV_V310
+    if (ctx->args->taskEntry.reserved[0] == PRO_LEVEL2 || ctx->args->taskEntry.reserved[0] == PRO_LEVEL1) {
+        auto m = (__gm__ Metrics*)(ctx->args->shakeBuffer[SHAK_BUF_DFX_DATA_INDEX]);
+        taskStat = &m->tasks[m->taskCount];
+        taskStat->waitEventIdx = 0;
+        taskStat->setEventIdx = 0;
+    }
+#endif
+
     CallSubFuncTask(
         opAttrs[0] + funcData->exprTbl[0], &param,
         gmStackAddr,
-        (__gm__ int64_t*)funcData->startArgs->commContexts);
+        (__gm__ int64_t*)funcData->startArgs->commContexts, taskStat);
     SetStatus(ctx->args, STAGE_FINISH_EXEC_COREFUNC_KERNEL);
     PipeSync();
     SetStatus(ctx->args, STAGE_FINISH_PIPE_SYNC);
@@ -405,11 +391,6 @@ INLINE void ExecDynCoreFunctionKernel(ExecuteContext* ctx, uint32_t taskId)
     if (unlikely(npu::tile_fwk::g_is_open_dump_perf_trace_data)) {
         ctx->lastTaskFinishCycle = get_sys_cnt();
     }
-
-#if PROF_DFX_HOST_PREPARE_MEMORY_MODE != 1
-    static int32_t taskDfxPos = REG_LOW_TASK_PING;
-    SetTaskStatistic(ctx->args, taskDfxPos, taskId, opAttrs[0], t1, ctx->SeqNo());
-#endif
 }
 #endif
 
@@ -458,29 +439,48 @@ INLINE uint32_t RefreshParallelDevTaskByModifyFlag(ExecuteContext *ctx, uint32_t
 {
     uint32_t curLeafDevTaskId = npu::tile_fwk::DevTaskId(highRegValue);
     uint32_t mask = npu::tile_fwk::ParallelDevTaskModifyFlag(highRegValue);
+    int32_t modifyCnt = __builtin_popcount(mask);
     while (mask) {
         int idx = __builtin_ffs(mask) - 1;
+
+        // dcci read new devtask id
+        uint32_t newDevTaskId;
+        if (modifyCnt == 1) { // un-parallel devtask scene
+            newDevTaskId = curLeafDevTaskId;
+        } else {
+            uint32_t oldDevTaskId = ctx->cachedDevTasks[idx].seqNo;
+            uint64_t t0 = get_sys_cnt();
+            do {
+                dcci(&ctx->parallelDevTask->idElements[idx], SINGLE_CACHE_LINE, CACHELINE_OUT);
+                newDevTaskId = ctx->parallelDevTask->idElements[idx];
+                if ((get_sys_cnt() - t0 > AICORE_GM_DCCI_TIMEOUT)) {
+                    return AICORE_TASK_STOP;
+                }
+            } while (newDevTaskId == oldDevTaskId);
+        }
+
+        // dcci read new devtask ptr
         int64_t newElemPtr;
         __gm__ DynFuncHeader *oldHeader = ctx->cachedDevTasks[idx].header;
         uint64_t t0 = get_sys_cnt();
         do {
-            dcci(&ctx->parallelDevTask->elements[idx], SINGLE_CACHE_LINE, CACHELINE_OUT);
-            newElemPtr = ctx->parallelDevTask->elements[idx];
+            dcci(&ctx->parallelDevTask->ptrElements[idx], SINGLE_CACHE_LINE, CACHELINE_OUT);
+            newElemPtr = ctx->parallelDevTask->ptrElements[idx];
             if ((get_sys_cnt() - t0 > AICORE_GM_DCCI_TIMEOUT)) {
                 return AICORE_TASK_STOP;
             }
+
             if (newElemPtr != (int64_t)oldHeader) {
                 dcci((__gm__ void *)newElemPtr, SINGLE_CACHE_LINE, CACHELINE_OUT);
                 break;
             }
-            dcci((__gm__ void *)newElemPtr, SINGLE_CACHE_LINE, CACHELINE_OUT);
-        } while (newElemPtr == 0 || ((__gm__ DynFuncHeader *)newElemPtr)->seqNo == ctx->cachedDevTasks[idx].seqNo);
+
+            if (newElemPtr) {
+                dcci((__gm__ void *)newElemPtr, SINGLE_CACHE_LINE, CACHELINE_OUT);
+            } 
+        } while (newElemPtr == 0 || (((__gm__ DynFuncHeader *)newElemPtr)->seqNo != newDevTaskId));
         UpdateCacheDevTask(ctx, idx, newElemPtr);
         mask &= (mask - 1);
-    }
-
-    if (curLeafDevTaskId !=  ctx->SeqNo()) {
-        return AICORE_TASK_STOP;
     }
 
     return 0;
@@ -553,8 +553,8 @@ INLINE void KernelEntry(
         }
         lastTaskIdx = AICORE_TASK_INIT;
         if (bIsExit) {
-            DfxProcWhenCoreExit(&ctx, args, metric);
             WaitWaveSignal(args); // no data exit
+            DfxProcWhenCoreExit(&ctx, args, metric);
             return;
         }
         parallelDevTask = GetCoreFuncionData(&ctx, args, parallelDevTask);
@@ -600,7 +600,7 @@ INLINE void KernelEntry(
             ctx.curLeafTaskParallelIdx = npu::tile_fwk::ParallelIndex(curTaskIdx);
   
             if (isFirstTask) {
-                PerfTraceRecord(ctx.seqNo, metric, PERF_TRACE_CORE_DEV_TASK_WAIT_RCV_FIRST_LEAF_TASK, args);
+                PerfTraceRecord(ctx.SeqNo(), metric, PERF_TRACE_CORE_DEV_TASK_WAIT_RCV_FIRST_LEAF_TASK, args);
                 isFirstTask = false;
             }
 

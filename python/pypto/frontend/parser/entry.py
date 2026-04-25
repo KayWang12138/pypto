@@ -29,7 +29,7 @@ from pypto.cost_model import _cost_model_run_once_data_from_host
 from pypto.frontend.parser.diagnostics import Source
 from pypto.frontend.parser.parser import NestedFunctionMarker, Parser
 from pypto.runtime import _pto_verify_datas
-from pypto._utils import BuildOnlineManager
+from pypto._utils import BuildOnlineManager, get_torch_npu, get_npu_tensor_format
 
 
 def _default_globals() -> dict[str, Any]:
@@ -687,7 +687,7 @@ class JitCallableWrapper:
             # Run kernel on esl
             cann_is_configed: bool = bool(os.environ.get("ASCEND_HOME_PATH"))
             if (pypto.get_global_config("simulation.accuracy_level") == 2 and cann_is_configed):
-                import torch_npu
+                get_torch_npu()
                 pypto_impl.LaunchKernelTorch(
                     self, _current_stream(), torch_tensors, tensor_defs
                 )
@@ -705,10 +705,7 @@ class JitCallableWrapper:
         """Check if the input tensor definitions match the input tensors.
         """
         def get_format(tensor):
-            import torch_npu
-            if torch_npu.get_npu_format(tensor) == 29:
-                return "NZ"
-            return "ND"
+            return get_npu_tensor_format(tensor)
 
         # Check the number of input tensors and input tensor definitions
         if len(in_tensors) != len(input_tensor_defs):
@@ -727,10 +724,11 @@ class JitCallableWrapper:
             # Skip checking if the input tensor definition is None or（shape len is 0 && shape object is not list）
             if len(input_tensor_def.shape) != 0 or input_tensor_def.status_shape is not None:
 
+                filtered_shape = len([dim for dim in input_tensor_def.shape if dim is not Ellipsis])
                 # def shape len must <= tensor shape len
                 is_diff_shape = len(in_tensor.shape) != len(input_tensor_def.shape) \
                     if input_tensor_def.status_shape is None \
-                    else len(in_tensor.shape) < len(input_tensor_def.shape)
+                    else len(in_tensor.shape) < filtered_shape
 
                 # Check the shape of input tensors and input tensor definitions
                 if is_diff_shape:
@@ -1070,7 +1068,7 @@ class JitCallableWrapper:
             If device type is not NPU or if execution fails.
         """
         if device.type == "npu":
-            import torch_npu  # pylint: disable=import-outside-toplevel, unused-import
+            get_torch_npu()
 
             in_tensor_data = _pto_to_tensor_data(in_tensors)
             out_tensor_data = _pto_to_tensor_data(out_tensors)

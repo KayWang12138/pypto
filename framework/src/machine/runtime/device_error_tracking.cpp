@@ -14,7 +14,6 @@
  */
 
 #include <iostream>
-#ifdef BUILD_WITH_CANN
 #include "adapter/api/acl_api.h"
 
 namespace npu::tile_fwk {
@@ -60,4 +59,3 @@ void InitializeErrorCallback()
 #endif
 }
 } // namespace npu::tile_fwk
-#endif

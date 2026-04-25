@@ -38,9 +38,8 @@
 #include "interface/compiler_monitor/monitor_stage_scope.h"
 #include <dlfcn.h>
 #include "tilefwk/pypto_fwk_log.h"
-#include "machine/utils/machine_error.h"
-#include "tilefwk/platform.h"
-
+#include "tilefwk/error_code.h"
+#include "mix_info.h"
 using namespace npu::tile_fwk::dynamic;
 namespace npu::tile_fwk {
 
@@ -454,7 +453,8 @@ static void BuildControlFlow(
     std::ostringstream& expressionOss, std::ostringstream& exprHeaderOss, int indent, const std::string& expName,
     std::vector<std::string>& exprSrcFiles, ValDependTensorMeta& valDependTensorMeta)
 {
-    bool supportParallelLoop = false; // enable by the parallism option
+    bool supportParallelLoop =
+        (config::GetRuntimeOption<uint16_t>(DEVICE_SCHED_PARALLELISM) > 1); // enable by the parallism option
     auto funcType = func->GetFunctionType();
     if (funcType == FunctionType::DYNAMIC) {
         controlFlowOss << "#define __TILE_FWK_AICPU__ 1\n"
@@ -709,27 +709,16 @@ static void FillL2PrefetchInfo(std::shared_ptr<DyndevFunctionAttribute> attr)
     return;
 }
 
-static void SetLiteDevBinary(Function* function)
+static void FindLiteNPUKernel(const std::map<uint64_t, Function*>& leafDict, std::string& kernelPath)
 {
-    if (function == nullptr || function->GetDyndevAttribute() == nullptr) {
-        return;
+    for (auto& [hash, leaf] : leafDict) {
+        (void)hash;
+        auto leafAttr = leaf->GetLeafFuncAttribute();
+        if (leafAttr && !leafAttr->binPath.empty()) {
+            kernelPath = leafAttr->binPath;
+            return;
+        }
     }
-    auto dynAttrPtr = function->GetDyndevAttribute();
-
-    dynamic::DevAscendProgram devProg = {};
-    devProg.devArgs.nrAic = 1;
-    devProg.devArgs.nrAiv = 1;
-    devProg.devArgs.nrValidAic = 1;
-    devProg.devArgs.nrAicpu = 0;
-    devProg.devArgs.enableCtrl = 0;
-    devProg.devArgs.enableEslModel = false;
-    devProg.devArgs.scheCpuNum = 0;
-
-    size_t size = sizeof(dynamic::DevAscendProgram);
-    dynAttrPtr->devProgBinary.resize(size);
-    memcpy(dynAttrPtr->devProgBinary.data(), &devProg, size);
-
-    MACHINE_LOGI("Lite dev prog binary size is:%zu\n", dynAttrPtr->devProgBinary.size());
 }
 
 static void SetDyndevProgBinary(Function* function)
@@ -882,7 +871,7 @@ static bool IsNeedDumpAicpuKernel(const std::string& inputFile)
         // force dump, default is true
         return true;
     }
-    // not force dump
+    // not force dumprootTileDict
     if (npu::tile_fwk::FileExist(inputFile)) {
         return false;
     }
@@ -891,7 +880,7 @@ static bool IsNeedDumpAicpuKernel(const std::string& inputFile)
 static void OverCallOpMaxNum(Function* devRoot, DevAscendFunction* funcBin)
 {
     uint32_t CallOpSize = funcBin->GetOperationSize();
-    uint32_t CallOpmaxSize = config::GetRuntimeOption<uint32_t>(STITCH_FUNCTION_SIZE);
+    uint32_t CallOpmaxSize = MAX_STITCH_LEAFFUNC_NUM;
     auto funcMagicName = devRoot->GetRawName() + "_" + std::to_string(devRoot->GetFuncMagic());
     MACHINE_LOGE(
         DevCommonErr::PARAM_CHECK_FAILED,
@@ -933,12 +922,26 @@ static void CompileControlFlow(
 #endif
 }
 
+int GetRootFuncNum(std::shared_ptr<DyndevFunctionAttribute> attr)
+{
+    bool enableVF = Platform::Instance().GetSoc().GetNPUArch() == NPUArch::DAV_3510 &&
+                    config::GetPassGlobalConfig(KEY_ENABLE_VF, false);
+    int rootFuncNum = static_cast<int>(attr->funcGroup.devRootList.size());
+    if (enableVF) {
+        rootFuncNum *= 2; // codegen with main block and tail block
+    }
+    return rootFuncNum;
+}
+
 static void CompileDyndevFunction(Function* function, FunctionCache& cache, [[maybe_unused]] const std::string& ccePath)
 {
     ASSERT(
         HostBackEndErr::RUN_PASS_FAILED,
         (PassManager::Instance().RunPass(Program::GetInstance(), *function, "ExecuteGraph") == SUCCESS));
-
+    if (Platform::Instance().GetSoc().GetNPUArch() == NPUArch::DAV_3510 &&
+        config::GetDebugOption<int64_t>(CFG_RUNTIME_DBEUG_MODE) == CFG_DEBUG_ALL) {
+        mix_info::DumpMixInfo(function);
+    }
     std::shared_ptr<DyndevFunctionAttribute> attr = function->GetDyndevAttribute();
     ASSERT(DevCommonErr::PARAM_CHECK_FAILED, attr != nullptr) << "DyndevFunctionAttribute is nullptr\n";
     Linker linker(attr->symbolTable, attr->funcGroup, attr->exprTableDictGroup);
@@ -1005,37 +1008,33 @@ static void CompileDyndevFunction(Function* function, FunctionCache& cache, [[ma
     }
 
     std::string funcHash = function->GetFunctionHash().Data();
-    if (Platform::Instance().GetSoc().GetNPUArch() == NPUArch::DAV_3113) {
-        attr->hostControlFlowBinary = {};
-        attr->devControlFlowBinary = {0xd4, 0x20, 0x00, 0x00};
+    std::string controlFlowHostFilePath = aicpuDirPath + "/controlFlow_host_" + funcHash + ".cpp";
+    attr->hostControlFlowBinary = CompileAndLoadSection(
+        controlFlowSource, controlFlowHostFilePath, aicpuDirPath, exprSrcFiles, "g++", "ld", "objcopy", ".pypto",
+        IsNeedDumpAicpuKernel(controlFlowHostFilePath), cflags);
+    AlignUpTo(attr->hostControlFlowBinary, 0x8, 0);
+    std::string funcName = function->GetMagicName() + function->GetFunctionHash().Data();
+    CompileControlFlow(aicpuDirPath, funcName, controlFlowSource, expressionSource);
+    std::string arm64TargetToolPath = Arm64TargetTool("g++");
+    if (FileExist(arm64TargetToolPath)) {
+        static const std::string BISHENG_LD_CMD = "ld.lld";
+        std::string controlFlowDevFilePath = aicpuDirPath + "/controlFlow_dev_" + funcHash + ".cpp";
+        MACHINE_LOGI(
+            "Compile control flow src file[%s] with arm64 target tool[%s].", controlFlowDevFilePath.c_str(),
+            arm64TargetToolPath.c_str());
+        attr->devControlFlowBinary = CompileAndLoadSection(
+            controlFlowSource, controlFlowDevFilePath, aicpuDirPath, exprSrcFiles, arm64TargetToolPath, BISHENG_LD_CMD,
+            Arm64TargetTool("objcopy"), ".pypto", IsNeedDumpAicpuKernel(controlFlowDevFilePath));
     } else {
-        std::string controlFlowHostFilePath = aicpuDirPath + "/controlFlow_host_" + funcHash + ".cpp";
-        attr->hostControlFlowBinary = CompileAndLoadSection(
-            controlFlowSource, controlFlowHostFilePath, aicpuDirPath, exprSrcFiles, "g++", "ld", "objcopy", ".pypto",
-            IsNeedDumpAicpuKernel(controlFlowHostFilePath), cflags);
-        AlignUpTo(attr->hostControlFlowBinary, 0x8, 0);
-        std::string funcName = function->GetMagicName() + function->GetFunctionHash().Data();
-        CompileControlFlow(aicpuDirPath, funcName, controlFlowSource, expressionSource);
-        std::string arm64TargetToolPath = Arm64TargetTool("g++");
-        if (FileExist(arm64TargetToolPath)) {
-            static const std::string BISHENG_LD_CMD = "ld.lld";
-            std::string controlFlowDevFilePath = aicpuDirPath + "/controlFlow_dev_" + funcHash + ".cpp";
-            MACHINE_LOGI(
-                "Compile control flow src file[%s] with arm64 target tool[%s].", controlFlowDevFilePath.c_str(),
-                arm64TargetToolPath.c_str());
-            attr->devControlFlowBinary = CompileAndLoadSection(
-                controlFlowSource, controlFlowDevFilePath, aicpuDirPath, exprSrcFiles, arm64TargetToolPath,
-                BISHENG_LD_CMD, Arm64TargetTool("objcopy"), ".pypto", IsNeedDumpAicpuKernel(controlFlowDevFilePath));
-        } else {
-            // brk #0
-            MACHINE_LOGW("Arm64 target tool is not found.");
-            attr->devControlFlowBinary = std::vector<uint8_t>{0xd4, 0x20, 0x00, 0x00};
-        }
+        // brk #0
+        MACHINE_LOGW("Arm64 target tool is not found.");
+        attr->devControlFlowBinary = std::vector<uint8_t>{0xd4, 0x20, 0x00, 0x00};
     }
-
     AlignUpTo(attr->devControlFlowBinary, 0x8, 0);
     std::map<uint64_t, Function*> leafDict;
     std::mutex leafDictMutex;
+
+    MonitorManager::Instance().SetRootFuncCount(GetRootFuncNum(attr));
 
     std::deque<std::function<void(void)>> tasks;
     for (auto& devRoot : attr->funcGroup.devRootList) {
@@ -1075,25 +1074,14 @@ static void CompileDyndevFunction(Function* function, FunctionCache& cache, [[ma
     encodeDevAscendFunctionParam.inoutLink = &attr->inoutLink;
 
     std::string kernelPath;
-    std::string kernelName;
 #ifdef BUILD_WITH_CANN
-    bool enableCompile = config::GetRuntimeOption<int64_t>(CFG_RUN_MODE) == CFG_RUN_MODE_NPU ||
-                         ((config::GetSimConfig(KEY_ACCURACY_LEVEL, 2) == 2) &&
-                          config::GetRuntimeOption<int64_t>(CFG_RUN_MODE) == CFG_RUN_MODE_SIM);
-    if (enableCompile && config::GetHostOption<int64_t>(COMPILE_STAGE) != CS_CODEGEN_INSTRUCTION) {
-        if (Platform::Instance().GetSoc().GetNPUArch() == NPUArch::DAV_3113) {
-            for (auto& [hash, leaf] : leafDict) {
-                auto leafAttr = leaf->GetLeafFuncAttribute();
-                if (leafAttr && !leafAttr->binPath.empty()) {
-                    kernelPath = leafAttr->binPath;
-                    kernelName = leafAttr->magicName;
-                    break;
-                }
-            }
-            if (kernelPath.empty()) {
-                MACHINE_LOGE(HostBackEndErr::COMPILE_AICORE_FAILED, "No leaf binary found for lite npu.");
-                return;
-            }
+    bool enableCompile = (config::GetRuntimeOption<int64_t>(CFG_RUN_MODE) == CFG_RUN_MODE_NPU ||
+                          ((config::GetSimConfig(KEY_ACCURACY_LEVEL, 2) == 2) &&
+                           config::GetRuntimeOption<int64_t>(CFG_RUN_MODE) == CFG_RUN_MODE_SIM)) &&
+                         config::GetHostOption<int64_t>(COMPILE_STAGE) != CS_CODEGEN_INSTRUCTION;
+    if (enableCompile) {
+        if (IsLiteNPU(Platform::Instance().GetSoc().GetNPUArch())) {
+            FindLiteNPUKernel(leafDict, kernelPath);
         } else {
             int ret = CompileAICoreKernel(
                 leafDict, encodeDevAscendFunctionParam, ccePath, function->GetFunctionHash().Data(), kernelPath);
@@ -1105,9 +1093,7 @@ static void CompileDyndevFunction(Function* function, FunctionCache& cache, [[ma
     }
 #endif
 
-    MACHINE_LOGD("LoadFile kernelPath[%s], kernelName[%s].", kernelPath.c_str(), kernelName.c_str());
     attr->kernelBinary = LoadFile(kernelPath);
-    attr->kernelName = kernelName;
     MACHINE_LOGD("KernelBinary size[%zu].", attr->kernelBinary.size());
 
     attr->devEncodeList.resize(attr->funcGroup.devRootList.size());
@@ -1139,7 +1125,7 @@ static void CompileDyndevFunction(Function* function, FunctionCache& cache, [[ma
         funcBin->getTensorDataCount = 0;
         EncodeDevAscendFunction(function, encodeDevAscendFunctionParam, size, funcBin);
         funcBin->Reloc(-reinterpret_cast<int64_t>(funcBin), true);
-        uint32_t CallOpmaxSize = config::GetRuntimeOption<uint32_t>(STITCH_FUNCTION_SIZE);
+        uint32_t CallOpmaxSize = MAX_STITCH_LEAFFUNC_NUM;
         ASSERT(DevCommonErr::PARAM_CHECK_FAILED, CallOpmaxSize <= STITCH_FUNCTION_MAX_SIZE)
             << " CallOpmaxSize set: " << CallOpmaxSize << "exceeds the maximum allowed value of 65535.";
         if (funcBin->GetOperationSize() > CallOpmaxSize) {
@@ -1147,12 +1133,7 @@ static void CompileDyndevFunction(Function* function, FunctionCache& cache, [[ma
         }
     }
 
-    // save dev prog binary
-    if (Platform::Instance().GetSoc().GetNPUArch() == NPUArch::DAV_3113) {
-        SetLiteDevBinary(function);
-    } else {
-        SetDyndevProgBinary(function);
-    }
+    return SetDyndevProgBinary(function);
 }
 
 MachineTask* GenCode(MachineTask* task, FunctionCache& cache)
@@ -1165,6 +1146,7 @@ MachineTask* GenCode(MachineTask* task, FunctionCache& cache)
      * the filepath of the object file is updated to the binPath_ member.
      */
     if (function->GetGraphType() == GraphType::TILE_GRAPH) {
+        MonitorManager::Instance().SetRootFuncCount(1);
         MonitorStageScope codeGenScope("CodeGen");
         COMPILER_LOGI("Start (TILE_GRAPH) CodeGen stage...");
         std::map<uint64_t, std::list<InvokeParaOffset>> invokeParaOffset;

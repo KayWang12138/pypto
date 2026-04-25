@@ -19,7 +19,7 @@
 #include "tilefwk/data_type.h"
 #include "interface/operation/operation.h"
 #include "interface/operation/vector/unary.h"
-#include "interface/utils/vector_error.h"
+#include "interface/utils/error.h"
 #include "distributed/distributed_expand.h"
 #include "interface/function/function.h"
 #include "tilefwk/symbolic_scalar.h"
@@ -1412,9 +1412,6 @@ Tensor Reshape(
 {
     DECLARE_TRACERX(lr);
     CHECK_OP(!inplace) << "The 'inplace' parameter must be false !!!";
-    if (operand.GetShape() == dstshape) {
-        return operand;
-    }
     std::vector<SymbolicScalar> validShapeDefault = validShape;
     auto newShape = CheckAndInferShape(operand.GetShape(), dstshape);
     if (validShape.empty()) {

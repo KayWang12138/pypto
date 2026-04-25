@@ -22,7 +22,7 @@
 #include "interface/tensor/logical_tensor.h"
 #include "interface/operation/opcode.h"
 #include "interface/utils/source_location.h"
-#include "interface/utils/vector_error.h"
+#include "tilefwk/error_code.h"
 
 namespace npu::tile_fwk {
 #define CALL(n, ...) Tensor##n(__VA_ARGS__)
@@ -50,6 +50,10 @@ constexpr int32_t NUM_VALUE_64 = 64;
 constexpr double NUM_VALUE_0_5 = 0.5;
 constexpr double NUM_VALUE_EPS = 1e-9;
 
+// Tensor dimension limits
+constexpr size_t MIN_TENSOR_DIM = 1;
+constexpr size_t MAX_TENSOR_DIM = 4;
+
 struct TileInfo {
     std::vector<int64_t> shape;
     std::vector<int64_t> offset;
@@ -67,12 +71,30 @@ struct Input {
     TileInfo tileInfo;
 };
 
-void CheckTensorShape(const LogicalTensorPtr& tensor, const std::string& op);
 void CheckTensorDynamicShape(const LogicalTensors iOperands, const Opcode opCode);
 
 std::vector<int> GetBroadCastShape(LogicalTensorPtr& operand1, LogicalTensorPtr& operand2);
 std::vector<int> GetBroadcastAxes(const Shape& shape1, const Shape& shape2);
 void CheckAxisRange(const Tensor& tensor, int& axis);
+
+void CheckTensorDimRange(const LogicalTensorPtr& tensor, size_t minDim, size_t maxDim, const std::string& opName);
+void CheckDstShapeDimRange(const std::vector<int64_t>& shape, size_t minDim, size_t maxDim, const std::string& opName);
+void CheckTensorsDimConsistency(const std::vector<LogicalTensorPtr>& tensors, const std::string& opName);
+void CheckTensorShapeSize(const LogicalTensorPtr& tensor, const std::string& opName);
+void CheckDstShapeSize(const std::vector<int64_t>& shape, const std::string& opName);
+void CheckTensorsShapeConsistencyOrBroadcast(const std::vector<LogicalTensorPtr>& tensors, const std::string& opName);
+void CheckTensorDataType(
+    const LogicalTensorPtr& tensor, const std::unordered_set<DataType>& supportedTypes, const std::string& opName);
+void CheckTensorDataType(DataType dtype, const std::unordered_set<DataType>& supportedTypes, const std::string& opName);
+void CheckTensorsDataTypeConsistency(
+    const LogicalTensorPtr& tensor1, const LogicalTensorPtr& tensor2, const std::string& opName);
+void CheckTensorsDataTypeConsistency(const LogicalTensorPtr& tensor, const Element& element, const std::string& opName);
+void CheckTensorsDataTypeConsistency(const std::vector<LogicalTensorPtr>& tensors, const std::string& opName);
+void CheckTensorsFormatConsistency(
+    const LogicalTensorPtr& tensor1, const LogicalTensorPtr& tensor2, const std::string& opName);
+void CheckTensorsFormatConsistency(const std::vector<LogicalTensorPtr>& tensors, const std::string& opName);
+void CheckBinaryInputTensors(
+    const LogicalTensorPtr& tensor1, const LogicalTensorPtr& tensor2, const std::string& opName);
 
 using TiledFuncType = std::function<void(
     Function& function, const TileShape& tileShape, const std::vector<LogicalTensorPtr>& iOperand,
@@ -116,8 +138,14 @@ enum class AIVCore;
 class OpSyncQueue {
 public:
     OpSyncQueue() {}
-    OpSyncQueue(PipeType pipeId, PipeType trigPipeId, CoreType coreType, CoreType tirgCoreType, int evid, AIVCore aivCore)
-        : pipeId_(pipeId), trigPipeId_(trigPipeId), coreType_(coreType), trigCoreType_(tirgCoreType), eventId_(evid), aivCore_(aivCore)
+    OpSyncQueue(PipeType pipeId, PipeType trigPipeId, CoreType coreType, CoreType tirgCoreType, int evid, AIVCore setAivCore, AIVCore waitAivCore)
+        : pipeId_(pipeId),
+          trigPipeId_(trigPipeId),
+          coreType_(coreType),
+          trigCoreType_(tirgCoreType),
+          eventId_(evid),
+          setAivCore_(setAivCore),
+          waitAivCore_(waitAivCore)
     {}
 
     OpSyncQueue(int bufid, const std::vector<int>& offset, CoreType coreType, CoreType tirgCoreType)
@@ -129,7 +157,8 @@ public:
     CoreType coreType_{CoreType::AIV};
     CoreType trigCoreType_{CoreType::AIV};
     int eventId_{0};
-    AIVCore aivCore_;
+    AIVCore setAivCore_;
+    AIVCore waitAivCore_;
     int gMBufId{0};
     std::vector<int> offset_;
 
@@ -141,6 +170,8 @@ public:
         j["core_type"] = static_cast<int>(coreType_);
         j["tri_core_type"] = static_cast<int>(trigCoreType_);
         j["event_id"] = eventId_;
+        j["set_aiv_core"] = setAivCore_;
+        j["wait_aiv_core"] = waitAivCore_;
         j["gm_buf_id"] = gMBufId;
         j["offset"] = offset_;
         return j;
@@ -153,6 +184,8 @@ public:
         coreType_ = static_cast<CoreType>(j["core_type"].get<int>());
         trigCoreType_ = static_cast<CoreType>(j["tri_core_type"].get<int>());
         eventId_ = j["event_id"].get<int>();
+        setAivCore_ = static_cast<AIVCore>(j["set_aiv_core"].get<int>());
+        waitAivCore_ = static_cast<AIVCore>(j["wait_aiv_core"].get<int>());
         gMBufId = j["gm_buf_id"].get<int>();
         offset_ = j["offset"].get<std::vector<int>>();
     }

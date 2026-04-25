@@ -261,6 +261,9 @@ int64_t RuntimeGetViewValidShapeDim(int64_t validshape, int64_t viewOffset, int6
 #define RUNTIME_GetViewValidShapeDim(validShape, viewOffset, viewShape) \
     RuntimeGetViewValidShapeDim(validShape, viewOffset, viewShape)
 
+#define RUNTIME_GET_PARAM_ADDR GET_PARAM_ADDR
+#define RUNTIME_param param
+
 #define GET_PARAM_ADDR(param, n, base) GetTensorAddr(param, base)
 
 #define GET_PARAM_OFFSET_BY_IDX(param, n, base, dim, idx) GetCoa(param, ((base) + 1) + 0 * (dim) + idx)
@@ -380,7 +383,7 @@ INLINE uint32_t GetTensorDataInt32(CoreFuncParam* ctx, uint64_t address)
 
 #define RT_FUNCTION(name)         \
     extern "C"[aicore] void name( \
-        CoreFuncParam* param, int64_t GMStackBase, __gm__ int64_t* hcclContext, __gm__ GMTensorInfo* oriAddrParam)
+        CoreFuncParam* param, int64_t GMStackBase, __gm__ int64_t* hcclContext, __gm__ TaskStat* taskStat)
 #define RT_OPERATION(opcode, ...) RT_OPERATION_##opcode(__VA_ARGS__)
 #define RT_OPERATION_MACRO(opcode, ...) RT_OPERATION_MACRO_##opcode(__VA_ARGS__)
 #define RT_DECL_TYPE_TILE(name, primType, space, dim, ...) \

@@ -15,11 +15,11 @@
 
 #ifndef TILEOP_TILE_OPERATOR_BINARY_SCALAR__H
 #define TILEOP_TILE_OPERATOR_BINARY_SCALAR__H
-#include "pto_tile.h"
-#include "utils/layout.h"
-#include "utils/tile_tensor.h"
+#include "binary.h"
 
-template <BinaryScalarOp op, typename LastUse, typename T0, typename T1, typename Scalar>
+template <
+    BinaryScalarOp op, pto::DivAlgorithm PrecisionType = pto::DivAlgorithm::DEFAULT, typename LastUse, typename T0,
+    typename T1, typename Scalar>
 TILEOP void BinaryScalarComputeImpl(T0 dst, T1 src0, Scalar src1)
 {
     constexpr auto n1 = Std::tuple_element<DIM_1ST, LastUse>::type::value;
@@ -45,7 +45,7 @@ TILEOP void BinaryScalarComputeImpl(T0 dst, T1 src0, Scalar src1)
     }
 
     if constexpr (op == BinaryScalarOp::DIV) {
-        PTO_WITH_LAST_USE(pto::TDIVS(dst, src0, src1), n1, n2);
+        PTO_WITH_LAST_USE(pto::TDIVS<PrecisionType>(dst, src0, src1), n1, n2);
         return;
     }
 
@@ -78,14 +78,11 @@ TILEOP void BinaryScalarComputeImpl(T0 dst, T1 src0, Scalar src1)
         pto::TLRELU(dst, src0, src1);
         return;
     }
-
-    if constexpr (op == BinaryScalarOp::REM) {
-        pto::TREMS(dst, src0, src1);
-        return;
-    }
 }
 
-template <BinaryScalarOp op, typename LastUse, typename T0, typename T1, typename Scalar>
+template <
+    BinaryScalarOp op, pto::DivAlgorithm PrecisionType = pto::DivAlgorithm::DEFAULT, typename LastUse, typename T0,
+    typename T1, typename Scalar>
 TILEOP void BinaryScalarCompute(T0 dst, T1 src0, Scalar src1)
 {
     const auto dstLayout = dst.GetLayout();
@@ -101,30 +98,31 @@ TILEOP void BinaryScalarCompute(T0 dst, T1 src0, Scalar src1)
                 auto tileOffsets = TileOffset(n0Index, n1Index, n2Index);
                 dstTile.Assign(dst, tileOffsets);
                 src0Tile.Assign(src0, tileOffsets);
-                BinaryScalarComputeImpl<op, LastUse>(dstTile.Data(), src0Tile.Data(), src1);
+                BinaryScalarComputeImpl<op, PrecisionType, LastUse>(dstTile.Data(), src0Tile.Data(), src1);
             }
         }
     }
 }
+
 #define OP_TILE_OP_ADDS TAddS
 template <typename LastUse = LastUse2Dim<0, 0>, typename Scalar, typename T0, typename T1>
 TILEOP void TAddS(T0 dst, T1 src0, Scalar src1)
 {
-    BinaryScalarCompute<BinaryScalarOp::ADD, LastUse>(dst, src0, src1);
+    BinaryScalarCompute<BinaryScalarOp::ADD, pto::DivAlgorithm::DEFAULT, LastUse>(dst, src0, src1);
 }
 
 #define OP_TILE_OP_SUBS TSubS
 template <typename LastUse = LastUse2Dim<0, 0>, typename Scalar, typename T0, typename T1>
 TILEOP void TSubS(T0 dst, T1 src0, Scalar src1)
 {
-    BinaryScalarCompute<BinaryScalarOp::SUB, LastUse>(dst, src0, src1);
+    BinaryScalarCompute<BinaryScalarOp::SUB, pto::DivAlgorithm::DEFAULT, LastUse>(dst, src0, src1);
 }
 
 #define OP_TILE_OP_MULS TMulS
 template <typename LastUse = LastUse2Dim<0, 0>, typename Scalar, typename T0, typename T1>
 TILEOP void TMulS(T0 dst, T1 src0, Scalar src1)
 {
-    BinaryScalarCompute<BinaryScalarOp::MUL, LastUse>(dst, src0, src1);
+    BinaryScalarCompute<BinaryScalarOp::MUL, pto::DivAlgorithm::DEFAULT, LastUse>(dst, src0, src1);
 }
 
 #define OP_TILE_OP_DIVS TDivS
@@ -133,49 +131,42 @@ template <
     typename T0, typename T1>
 TILEOP void TDivS(T0 dst, T1 src0, Scalar src1)
 {
-    BinaryScalarCompute<BinaryScalarOp::DIV, LastUse>(dst, src0, src1);
+    BinaryScalarCompute<BinaryScalarOp::DIV, PrecisionType, LastUse>(dst, src0, src1);
 }
 
 #define OP_TILE_OP_MAXS TMaxS
 template <typename LastUse = LastUse2Dim<0, 0>, typename Scalar, typename T0, typename T1>
 TILEOP void TMaxS(T0 dst, T1 src0, Scalar src1)
 {
-    BinaryScalarCompute<BinaryScalarOp::MAX, LastUse>(dst, src0, src1);
+    BinaryScalarCompute<BinaryScalarOp::MAX, pto::DivAlgorithm::DEFAULT, LastUse>(dst, src0, src1);
 }
 
 #define OP_TILE_OP_MINS TMinS
 template <typename LastUse = LastUse2Dim<0, 0>, typename Scalar, typename T0, typename T1>
 TILEOP void TMinS(T0 dst, T1 src0, Scalar src1)
 {
-    BinaryScalarCompute<BinaryScalarOp::MIN, LastUse>(dst, src0, src1);
+    BinaryScalarCompute<BinaryScalarOp::MIN, pto::DivAlgorithm::DEFAULT, LastUse>(dst, src0, src1);
 }
 
 #define OP_TILE_OP_LRELU TLReLU
 template <typename LastUse = LastUse2Dim<0, 0>, typename Scalar, typename T0, typename T1>
 TILEOP void TLReLU(T0 dst, T1 src0, Scalar src1)
 {
-    BinaryScalarCompute<BinaryScalarOp::LRELU, LastUse>(dst, src0, src1);
-}
-
-#define OP_TILE_OP_REMS TRemainderS
-template <typename Scalar, typename T0, typename T1>
-TILEOP void TRemainderS(T0 dst, T1 src0, Scalar src1)
-{
-    BinaryScalarCompute<BinaryScalarOp::REM, LastUse2Dim<0, 0>>(dst, src0, src1);
+    BinaryScalarCompute<BinaryScalarOp::LRELU, pto::DivAlgorithm::DEFAULT, LastUse>(dst, src0, src1);
 }
 
 #define OP_TILE_OP_BITWISEANDS TBitwiseAndS
 template <typename LastUse = LastUse2Dim<0, 0>, typename Scalar, typename T0, typename T1>
 TILEOP void TBitwiseAndS(T0 dst, T1 src0, Scalar src1)
 {
-    BinaryScalarCompute<BinaryScalarOp::BITWISEAND, LastUse>(dst, src0, src1);
+    BinaryScalarCompute<BinaryScalarOp::BITWISEAND, pto::DivAlgorithm::DEFAULT, LastUse>(dst, src0, src1);
 }
 
 #define OP_TILE_OP_BITWISEORS TBitwiseOrS
 template <typename LastUse = LastUse2Dim<0, 0>, typename Scalar, typename T0, typename T1>
 TILEOP void TBitwiseOrS(T0 dst, T1 src0, Scalar src1)
 {
-    BinaryScalarCompute<BinaryScalarOp::BITWISEOR, LastUse>(dst, src0, src1);
+    BinaryScalarCompute<BinaryScalarOp::BITWISEOR, pto::DivAlgorithm::DEFAULT, LastUse>(dst, src0, src1);
 }
 
 TILEOP int gcds(int a, int b)
@@ -235,7 +226,7 @@ TILEOP void TGcdS(T0 dst, T1 src0, Scalar src1)
 template <typename LastUse = LastUse2Dim<0, 0>, typename Scalar, typename T0, typename T1>
 TILEOP void TModS(T0 dst, T1 src0, Scalar src1)
 {
-    BinaryScalarCompute<BinaryScalarOp::MOD, LastUse>(dst, src0, src1);
+    BinaryScalarCompute<BinaryScalarOp::MOD, pto::DivAlgorithm::DEFAULT, LastUse>(dst, src0, src1);
 }
 
 template <BinaryScalarOp op, typename T0, typename T1, typename Scalar, typename T2>
@@ -243,6 +234,10 @@ TILEOP void BinaryScalarTmpComputeImpl(T0 dst, T1 src0, Scalar src1, T2 tmp)
 {
     if constexpr (op == BinaryScalarOp::BITWISEXOR) {
         pto::TXORS(dst, src0, src1, tmp);
+        return;
+    }
+    if constexpr (op == BinaryScalarOp::REM) {
+        pto::TREMS(dst, src0, src1, tmp);
         return;
     }
 }
@@ -278,6 +273,13 @@ TILEOP void TBitwiseXorS(T0 dst, T1 src0, Scalar src1, T2 tmp)
     BinaryScalarTmpCompute<BinaryScalarOp::BITWISEXOR>(dst, src0, src1, tmp);
 }
 
+#define OP_TILE_OP_REMS TRemainderS
+template <typename Scalar, typename T0, typename T1, typename T2>
+TILEOP void TRemainderS(T0 dst, T1 src0, Scalar src1, T2 tmp)
+{
+    BinaryScalarTmpCompute<BinaryScalarOp::REM>(dst, src0, src1, tmp);
+}
+
 #define OP_TILE_OP_REMRS TRemainderRS
 template <typename Scalar, typename T0, typename T1, typename T2>
 TILEOP void TRemainderRS(T0 dst, T1 src0, Scalar src1, T2 tmp)
@@ -286,21 +288,135 @@ TILEOP void TRemainderRS(T0 dst, T1 src0, Scalar src1, T2 tmp)
     auto shape0 = dstLayout.template GetShapeDim<DIM_1ST, MAX_DIMS>();
     auto shape1 = dstLayout.template GetShapeDim<DIM_2ND, MAX_DIMS>();
     auto shape2 = dstLayout.template GetShapeDim<DIM_3RD, MAX_DIMS>();
+    auto shape3 = dstLayout.template GetShapeDim<DIM_4TH, MAX_DIMS>();
+    auto shape4 = dstLayout.template GetShapeDim<DIM_5TH, MAX_DIMS>();
     auto dstTile = PtoTile<T0>(dst);
     auto src0Tile = PtoTile<T1>(src0);
-    auto tmpTile = PtoTile<T2>(tmp);
+    constexpr auto tmpTileH = TileOp::GetTensorTileShapeDim<T2, 3, 5>();
+    constexpr auto tmpTileW = TileOp::GetTensorTileShapeDim<T2, 4, 5>();
+    using tmpTileDefine =
+        pto::Tile<pto::TileType::Vec, typename T2::Type, tmpTileH, tmpTileW, pto::BLayout::RowMajor, -1, -1>;
+    tmpTileDefine tmp0Tile(shape3, shape4);
+    tmpTileDefine tmp1Tile(shape3, shape4);
+
     for (LoopVar n0Index = 0; n0Index < shape0; ++n0Index) {
         for (LoopVar n1Index = 0; n1Index < shape1; ++n1Index) {
             for (LoopVar n2Index = 0; n2Index < shape2; ++n2Index) {
                 auto tileOffsets = TileOffset(n0Index, n1Index, n2Index);
                 dstTile.Assign(dst, tileOffsets);
                 src0Tile.Assign(src0, tileOffsets);
-                tmpTile.Assign(tmp, tileOffsets);
-                pto::TEXPANDS(tmpTile.Data(), src1);
+                pto::TASSIGN(tmp0Tile, (uint64_t)(tmp.GetAddr()));
+                pto::TASSIGN(tmp1Tile, (uint64_t)(tmp.GetAddr() + tmpTileH * tmpTileW / 2 * sizeof(typename T2::Type)));
+                pto::TEXPANDS(tmp0Tile, src1);
 #ifdef __DAV_V220
                 pipe_barrier(PIPE_V);
 #endif
-                pto::TREM(dstTile.Data(), tmpTile.Data(), src0Tile.Data());
+                pto::TREM(dstTile.Data(), tmp0Tile, src0Tile.Data(), tmp1Tile);
+            }
+        }
+    }
+}
+
+#define OP_TILE_OP_FLOORDIVS TFloorDivS
+template <typename Scalar, typename T0, typename T1, typename T2>
+TILEOP void TFloorDivS(T0 dst, T1 src0, Scalar src1, T2 tmp)
+{
+    static_assert(std::is_same_v<typename T1::Type, int32_t>);
+
+    const auto dstLayout = dst.GetLayout();
+    auto dstShape0 = dstLayout.template GetShapeDim<DIM_1ST, MAX_DIMS>();
+    auto dstShape1 = dstLayout.template GetShapeDim<DIM_2ND, MAX_DIMS>();
+    auto dstShape2 = dstLayout.template GetShapeDim<DIM_3RD, MAX_DIMS>();
+    auto dstShape3 = dstLayout.template GetShapeDim<DIM_4TH, MAX_DIMS>();
+    auto dstShape4 = dstLayout.template GetShapeDim<DIM_5TH, MAX_DIMS>();
+
+    if (dstShape0 == 0 || dstShape1 == 0 || dstShape2 == 0 || dstShape3 == 0 || dstShape4 == 0) {
+        return;
+    }
+
+    auto dstStride0 = dstLayout.template GetStrideDim<DIM_1ST, MAX_DIMS>();
+    auto dstStride1 = dstLayout.template GetStrideDim<DIM_2ND, MAX_DIMS>();
+    auto dstStride2 = dstLayout.template GetStrideDim<DIM_3RD, MAX_DIMS>();
+    auto dstStride3 = dstLayout.template GetStrideDim<DIM_4TH, MAX_DIMS>();
+
+    constexpr auto tileW = TileOp::GetTensorTileShapeDim<T0, DIM_5TH, MAX_DIMS>();
+    constexpr auto dstTypeSize = sizeof(typename T0::Type);
+
+    for (LoopVar n0Index = 0; n0Index < dstShape0; n0Index++) {
+        for (LoopVar n1Index = 0; n1Index < dstShape1; n1Index++) {
+            for (LoopVar n2Index = 0; n2Index < dstShape2; n2Index++) {
+                for (LoopVar n3Index = 0; n3Index < dstShape3; n3Index++) {
+                    auto offset =
+                        n0Index * dstStride0 + n1Index * dstStride1 + n2Index * dstStride2 + n3Index * dstStride3;
+#ifdef __DAV_V220
+                    using IntTileDefine =
+                        pto::Tile<pto::TileType::Vec, typename T0::Type, 1, tileW, pto::BLayout::RowMajor, -1, -1>;
+                    using FloatTileDefine =
+                        pto::Tile<pto::TileType::Vec, float, 1, tileW, pto::BLayout::RowMajor, -1, -1>;
+
+                    IntTileDefine src0Tile(1, dstShape4);
+                    IntTileDefine dstTile(1, dstShape4);
+                    FloatTileDefine tmp0Tile(1, dstShape4);
+                    FloatTileDefine tmp1Tile(1, dstShape4);
+
+                    pto::TASSIGN(tmp0Tile, (uint64_t)(tmp.GetAddr()));
+                    pto::TASSIGN(tmp1Tile, (uint64_t)(tmp.GetAddr() + tileW * dstTypeSize));
+                    pto::TASSIGN(src0Tile, (uint64_t)(src0.GetAddr() + offset * dstTypeSize));
+                    pto::TASSIGN(dstTile, (uint64_t)(dst.GetAddr() + offset * dstTypeSize));
+
+                    pto::TCVT(tmp0Tile, src0Tile, pto::RoundMode::CAST_NONE, pto::SaturationMode::OFF);
+                    pipe_barrier(PIPE_V);
+                    pto::TDIVS(tmp1Tile, tmp0Tile, static_cast<float>(src1));
+                    pipe_barrier(PIPE_V);
+                    pto::TCVT(dstTile, tmp1Tile, pto::RoundMode::CAST_FLOOR);
+                    pipe_barrier(PIPE_V);
+#else
+                    using DataTileDefine =
+                        pto::Tile<pto::TileType::Vec, typename T0::Type, 1, tileW, pto::BLayout::RowMajor, -1, -1>;
+                    using MaskTileDefine =
+                        pto::Tile<pto::TileType::Vec, uint8_t, 1, tileW * 4, pto::BLayout::RowMajor, -1, -1>;
+
+                    DataTileDefine src0Tile(1, dstShape4);
+                    DataTileDefine dstTile(1, dstShape4);
+                    DataTileDefine tmp0DataTile(1, dstShape4);
+                    DataTileDefine tmp1DataTile(1, dstShape4);
+
+                    MaskTileDefine tmp0MaskTile(1, dstShape4);
+                    MaskTileDefine tmp1MaskTile(1, dstShape4);
+
+                    pto::TASSIGN(tmp0DataTile, (uint64_t)(tmp.GetAddr()));
+                    pto::TASSIGN(tmp1DataTile, (uint64_t)(tmp.GetAddr() + tileW * dstTypeSize));
+                    pto::TASSIGN(src0Tile, (uint64_t)(src0.GetAddr() + offset * dstTypeSize));
+                    pto::TASSIGN(dstTile, (uint64_t)(dst.GetAddr() + offset * dstTypeSize));
+
+                    // Reuse the same tmp as packed mask storage
+                    pto::TASSIGN(tmp0MaskTile, (uint64_t)(tmp.GetAddr()));
+                    pto::TASSIGN(tmp1MaskTile, (uint64_t)(tmp.GetAddr() + tileW * dstTypeSize));
+
+                    if (src1 == 0) {
+                        constexpr int32_t pos = 0x7FFF7F7F, neg = 0x80008080;
+                        pto::TCMPS(tmp0MaskTile, src0Tile, 0, CmpMode::LT);
+                        pto::TSELS(dstTile, tmp0MaskTile, dstTile, tmp1DataTile, pos);
+                        pto::TCMPS(tmp0MaskTile, src0Tile, 0, CmpMode::GE);
+                        pto::TSELS(dstTile, tmp0MaskTile, dstTile, tmp1DataTile, neg);
+                    } else {
+                        uint8_t src1Mask = 0;
+                        if (src1 < 0) {
+                            src1Mask = 0xff;
+                        }
+                        pto::TCMPS(tmp0MaskTile, src0Tile, 0, CmpMode::LT);
+                        pto::TXORS(tmp1MaskTile, tmp0MaskTile, src1Mask, dstTile); // packed mask of sign_differ
+                        pto::TDIVS(dstTile, src0Tile, src1);                       // quot
+                        pto::TMULS(tmp0DataTile, dstTile, -src1);
+                        pto::TADD(src0Tile, tmp0DataTile, src0Tile);               // rem
+
+                        pto::TCMPS(tmp0MaskTile, src0Tile, 0, CmpMode::NE);
+                        pto::TAND(tmp0MaskTile, tmp1MaskTile, tmp0MaskTile);
+                        pto::TADDS(src0Tile, dstTile, -1);
+                        pto::TSEL(dstTile, tmp0MaskTile, src0Tile, dstTile, tmp1DataTile);
+                    }
+#endif
+                }
             }
         }
     }

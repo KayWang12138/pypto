@@ -21,7 +21,7 @@ cd output/bin
 # ./tile_fwk_utest --gtest_filter=LiteNPUCodeGenMatmul.test_matmul_011
 # ./tile_fwk_utest --gtest_filter=LiteNPUCodeGenMatmul.test_matmul_s8s8_004
 
-# ./tile_fwk_utest --gtest_filter=LiteNPUCodeGenSigmoid.test_sigmoid_002
+# ./tile_fwk_utest --gtest_filter=LiteNPUCodeGenSigmoid.test_sigmoid_fp16_001
 # ./tile_fwk_utest --gtest_filter=LiteNPUCodeGenIndexPut.*
 
 # ./tile_fwk_utest --gtest_filter=LiteNPUCodeGenIndexPut.test_index_put_012

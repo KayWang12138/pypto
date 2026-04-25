@@ -385,6 +385,10 @@ bool ConvertInserter::FitL0C2L1(const LogicalTensorPtr& tensor)
 // 规避问题： L0C2L1的输入存在validShape时，即便输出同样存在validShape也会导致精度问题，此场景暂时走DDR规避。
 bool ConvertInserter::FitL0C2L1(const Operation& op)
 {
+    // pto-isa不支持TLOAD NZ格式的stride跳变，在此做场景规避
+    if (op.iOperand.front()->GetShape()[0] != op.oOperand.front()->GetShape()[0]) {
+        return false;
+    }
     for (const auto &input : op.GetIOperands()) {
         const auto &dynValidShape = input->GetDynValidShape();
         for (const auto &dim : dynValidShape) {
@@ -588,7 +592,7 @@ bool ConvertInserter::CreateMoveOpForConvert(Operation& op)
             op.iOperand.front()->GetDynValidShape()));
         auto childOp = *op.oOperand.front()->GetConsumers().begin();
         op.UpdateSubgraphID(childOp->GetSubgraphID());
-        op.SetScopeId(childOp->GetScopeId());
+        op.SetScopeInfo(childOp->GetScopeInfo());
         return true;
     }
 
@@ -599,7 +603,7 @@ bool ConvertInserter::CreateMoveOpForConvert(Operation& op)
             op.iOperand.front()->GetDynValidShape()));
         auto parentOp = *op.iOperand.front()->GetProducers().begin();
         op.UpdateSubgraphID(parentOp->GetSubgraphID());
-        op.SetScopeId(parentOp->GetScopeId());
+        op.SetScopeInfo(parentOp->GetScopeInfo());
         return true;
     }
     return false;
@@ -614,8 +618,8 @@ void ConvertInserter::InsertConvertOps(Function& function)
         auto& convertOp = function.AddRawOperation(Opcode::OP_CONVERT, {c.input}, {c.output});
         convertOp.SetOpAttribute(std::make_shared<ConvertOpAttribute>(c.from, c.to));
         if (!CreateMoveOpForConvert(convertOp)) {
-            auto producerScopeId = (*(c.input->GetProducers().begin()))->GetScopeId();
-            convertOp.SetScopeId(producerScopeId); // convert 是拷贝出操作，和producer一个子图
+            auto producerScopeInfo = (*(c.input->GetProducers().begin()))->GetScopeInfo();
+            convertOp.SetScopeInfo(producerScopeInfo); // convert 是拷贝出操作，和producer一个子图
         }
     }
 }

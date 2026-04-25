@@ -18,6 +18,7 @@
 #include <deque>
 #include <functional>
 #include <map>
+#include <sstream>
 #include <tuple>
 #include <cstdint>
 #include <string>
@@ -27,7 +28,7 @@
 #include "interface/utils/common.h"
 #include "interface/tensor/logical_tensor.h"
 #include "codegen/utils/codegen_utils.h"
-#include "codegen/utils/codegen_error.h"
+#include "tilefwk/error_code.h"
 #include "symbol_id_gen.h"
 
 namespace npu::tile_fwk {
@@ -58,7 +59,8 @@ inline std::string GetLayoutType(BufferType bufType, int dim, bool isConst = fal
 // UBTileTensorFP32Dim2 ubTile_0((__ubuf__ float*)UB_S0_E16384, DimLayout2(Shape<int, int>(sym_18_dim_0, sym_18_dim_1),
 // Stride<int, int>(64, 1)));
 struct TileTensor {
-    TileTensor(bool pIsConstant, int pMagic, int pDim, DataType pDtype, BufferType pBufType, std::string pBufVar,
+    TileTensor(
+        bool pIsConstant, int pMagic, int pDim, DataType pDtype, BufferType pBufType, std::string pBufVar,
         std::string pUsingType, std::string pTensorName, std::vector<std::string> pShape,
         std::vector<std::string> pStride, std::vector<int64_t> pRawShape, std::vector<int64_t> pLocalBufOffset,
         ShapeInLoop pShapeInLoop)
@@ -74,7 +76,8 @@ struct TileTensor {
           stride(pStride),
           rawShape(pRawShape),
           localBufOffset(pLocalBufOffset),
-          shapeInLoop(pShapeInLoop) {}
+          shapeInLoop(pShapeInLoop)
+    {}
     TileTensor() = default;
 
     bool isConstant;
@@ -112,7 +115,7 @@ struct TileTensor {
                 // only calc linear offset in the outermost loop, tensor in loop use base addr from tensor out of loop
                 linearOffset = CalcLinearOffset(rawShape, localBufOffset);
             }
-            if (linearOffset != 0) {
+            if (linearOffset != 0 && bufType != BUF_L1) {
                 // append linear offset, e.g. UBTileTensorFP32Dim2_1 ubTensor_1((uint64_t)((float *)UB_S0_E4096 + 32))
                 oss << "((" << DataType2CCEStr(dtype) << " *)" << bufVar << " + " << linearOffset << ")";
             } else {
@@ -139,7 +142,8 @@ struct TileTensor {
         return WrapParamByParentheses(params);
     }
 
-    std::string ToString() const {
+    std::string ToString() const
+    {
         std::ostringstream oss;
         oss << usingType << " " << tensorName << GenInitParam() << STMT_END;
         return oss.str();
@@ -169,6 +173,15 @@ struct TileTensorKey {
     {
         return dim == other.dim && bufVar == other.bufVar && shape == other.shape && dtype == other.dtype &&
                localBufOffset == other.localBufOffset && rawShape == other.rawShape;
+    }
+
+    std::string ToString() const
+    {
+        std::ostringstream oss;
+        oss << "dim=" << dim << ", dtype=" << ToUnderlying(dtype) << ", bufVar=" << bufVar
+            << ", shape=" << IntVecToStr(shape) << ", rawShape=" << IntVecToStr(rawShape)
+            << ", localBufOffset=" << IntVecToStr(localBufOffset);
+        return oss.str();
     }
 };
 
@@ -205,14 +218,16 @@ struct TileTensorMagicKeyHash {
 };
 
 struct TileTensorUsing {
-    TileTensorUsing(bool pIsConstant, DataType pDtype, BufferType pBufType, int pDim, std::vector<int64_t> pOriginShape,
+    TileTensorUsing(
+        bool pIsConstant, DataType pDtype, BufferType pBufType, int pDim, std::vector<int64_t> pOriginShape,
         std::vector<int64_t> pRawShape)
         : isConstant(pIsConstant),
           dtype(pDtype),
           bufType(pBufType),
           dim(pDim),
           originShape(pOriginShape),
-          rawShape(pRawShape) {}
+          rawShape(pRawShape)
+    {}
     TileTensorUsing() = default;
 
     bool isConstant;
@@ -237,7 +252,8 @@ struct TileTensorUsing {
 
     // dynamic shape: e.g. "TileTensor<__gm__ float, DynLayout4Dim, Hardware::GM>"
     // static shape: e.g. "TileTensor<float, LocalLayout4Dim<16, 16>, Hardware::UB>"
-    std::string ToString() const {
+    std::string ToString() const
+    {
         std::ostringstream ss;
         ss << TILE_TENSOR << "<";
         if (bufType == BUF_DDR) {

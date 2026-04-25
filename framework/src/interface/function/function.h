@@ -455,10 +455,10 @@ struct DynParamInfo {
 };
 struct ParamConfigs {
     bool dynamicAlignedOps;
-    int sgPgUpperBound{1};
     int sgPgLowerBound{1};
     int sgParallelNum{1};
     int sgMgCopyInUpperBound{2 * 1024 * 1024};
+    std::string sgPartitionAlgorithm{"Iso"};
     uint8_t machineConfig_{0}; // machine config
     std::map<int64_t, int64_t> cubeL1ReuseSetting;
     std::map<int64_t, int64_t> cubeNBufferSetting;
@@ -466,6 +466,9 @@ struct ParamConfigs {
     int mgVecParallelLb{48};
     bool pgSkipPartition{false};
     std::map<int64_t, int64_t> vecNBufferSetting;
+    std::map<std::string, int64_t> cubeL1ReuseSettingByLabel;
+    std::map<std::string, int64_t> cubeNBufferSettingByLabel;
+    std::map<std::string, int64_t> vecNBufferSettingByLabel;
     int copyOutResolveCoalescing{0};
     bool forceCombineAxis{false};
     bool combineAxis{false};

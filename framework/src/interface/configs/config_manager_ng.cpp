@@ -34,7 +34,7 @@
 #include "config_manager_ng.h"
 #include "tilefwk/tile_shape.h"
 #include "tilefwk/pypto_fwk_log.h"
-#include "interface/utils/function_error.h"
+#include "interface/utils/error.h"
 
 namespace npu::tile_fwk {
 
@@ -136,6 +136,8 @@ struct TypeInfo {
             typeInfos.insert({prefix, typeid(std::map<int64_t, int64_t>)});
             parse_range_info(jData, prefix + "_key", "key_minimum", "key_maximum");
             parse_range_info(jData, prefix + "_val", "value_minimum", "value_maximum");
+        } else if (typeHints == "stringmap") {
+            typeInfos.insert({prefix, typeid(std::map<std::string, int64_t>)});
         }
     }
 
@@ -480,6 +482,14 @@ private:
                 }
             }
             root->AddValue(prefix, mapJson);
+        } else if (typeInfo.Type(prefix) == typeid(std::map<std::string, int64_t>)) {
+            std::map<std::string, int64_t> mapJson;
+            if (jData.is_object()) {
+                for (auto& it : jData.items()) {
+                    mapJson[it.key()] = it.value().get<int64_t>();
+                }
+            }
+            root->AddValue(prefix, mapJson);
         } else if (jData.is_array()) {
             if (typeInfo.Type(prefix) == typeid(std::vector<int64_t>)) {
                 root->AddValue(prefix, jData.get<std::vector<int64_t>>());
@@ -618,6 +628,7 @@ template void SetOptionsNg<std::map<long, long>>(const std::string& key, const s
 template void SetOptionsNg<std::vector<int>>(const std::string& key, const std::vector<int>& value);
 template void SetOptionsNg<std::vector<std::string>>(const std::string& key, const std::vector<std::string>& value);
 template void SetOptionsNg<std::vector<double>>(const std::string& key, const std::vector<double>& value);
+template void SetOptionsNg<std::vector<int64_t>>(const std::string& key, const std::vector<int64_t>& value);
 
 std::shared_ptr<ConfigScope> Duplicate() { return ConfigManagerNg::CurrentScope(); }
 

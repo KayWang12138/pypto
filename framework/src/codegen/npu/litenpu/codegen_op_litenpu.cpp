@@ -14,6 +14,7 @@
  */
 
 #include "codegen_op_litenpu.h"
+#include "codegen/npu/litenpu/codegen_litenpu.h"
 
 namespace npu::tile_fwk {
 
@@ -51,22 +52,6 @@ std::string CodeGenOpLiteNPU::GenGmParamVar(unsigned gmParamIdx) const
     return std::string("RealizedGM") + std::to_string(paramLocation[gmParamIdx]) + ".Addr";
 }
 
-std::string CodeGenOpLiteNPU::GenGMAddrExprWithOffset(const std::string& /* addrExpr */) const
-{
-    // gm offset of spilling workspace is calculated by pass, the value is saved in dim 0.
-    int64_t gmOffset = 0;
-    // gmOffset Default to 0 when the attribute is not set
-    GetAttr(OpAttributeKey::workspaceBaseOffset, gmOffset);
-    std::ostringstream oss;
-    if (gmOffset == 0) {
-        oss << "workspace";
-    } else {
-        oss << "((__gm__ uint8_t*)" << "workspace" << " + " << gmOffset << ")";
-    }
-
-    return oss.str();
-}
-
 TileTensor CodeGenOpLiteNPU::BuildTileTensor(int paramIdx, const std::string& usingType, const ShapeInLoop& shapeInLoop)
 {
     bool isSpillToGm = operand[paramIdx] == SYMBOL_STACK_BASE;
@@ -86,7 +71,7 @@ TileTensor CodeGenOpLiteNPU::BuildTileTensor(int paramIdx, const std::string& us
     tileTensor.bufType = operandType[paramIdx];
 
     if (tileTensor.bufType == OperandType::BUF_DDR) {
-        tileTensor.bufVar = isSpillToGm ? GenGMAddrExprWithOffset(GM_STACK_BASE) : GenGmParamVar(paramIdx);
+        tileTensor.bufVar = isSpillToGm ? GenGMAddrExprWithOffset(CODEGEN_LITENPU_WORKSPACE) : GenGmParamVar(paramIdx);
     } else {
         tileTensor.bufVar = sm->QueryVarNameByTensorMagic(tileTensor.magic, true);
     }
@@ -124,13 +109,9 @@ void CodeGenOpLiteNPU::UpdateTileTensorShapeAndStride(
     }
 }
 
-std::vector<std::string> CodeGenOpLiteNPU::GetGmOffsetForTileTensor(unsigned gmIdx, bool isSpillingToGM) const
+std::vector<std::string> CodeGenOpLiteNPU::GetGmOffsetForTileTensor(unsigned gmIdx) const
 {
     int dim = static_cast<int>(rawShape[gmIdx].size());
-    std::vector<std::string> gmOffsetExpr;
-    if (isSpillingToGM) {
-        return std::vector<std::string>(dim, "0");
-    }
 
     if (offsetFromAttr[gmIdx][ID0].IsValid()) {
         return GenSymbolicArgument(offsetFromAttr[gmIdx]);

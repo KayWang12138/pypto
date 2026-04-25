@@ -15,7 +15,7 @@
 
 #include "distributed_expand.h"
 #include "distributed_common.h"
-#include "interface/utils/distributed_error.h"
+#include "tilefwk/error_code.h"
 
 namespace npu::tile_fwk::Distributed {
 namespace {

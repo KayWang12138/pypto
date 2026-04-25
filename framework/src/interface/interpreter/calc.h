@@ -22,7 +22,7 @@
 #include "tilefwk/data_type.h"
 #include "tilefwk/element.h"
 #include "raw_tensor_data.h"
-#include "interface/interpreter/verify_error.h"
+#include "tilefwk/error_code.h"
 #include "calculator/calc_api.h"
 
 namespace npu::tile_fwk::calc {
@@ -154,6 +154,11 @@ inline void Range(LogicalTensorDataPtr out, const Element& start, const Element&
 {
     GetCalcOps()->Range(Trans(out), start, end, step);
 }
+inline void Uniform(LogicalTensorDataPtr out, const Element &key,
+                    const Element &counter0, const Element &counter1, const Element &rounds, DataType dtype = DT_FP32) {
+    GetCalcOps()->Uniform(Trans(out), key, counter0, counter1, rounds, dtype);
+}
+
 inline void Compare(
     LogicalTensorDataPtr out, LogicalTensorDataPtr self, LogicalTensorDataPtr other, CmpOperationType operation,
     CmpModeType mode)

@@ -23,6 +23,8 @@
 #include "interface/utils/file_utils.h"
 #include "interface/tensor/logical_tensor.h"
 #include "interface/function/function.h"
+#include "interface/compiler_monitor/monitor_stage_scope.h"
+#include "interface/compiler_monitor/monitor_manager.h"
 #include "interface/configs/config_manager.h"
 #include "interface/utils/op_info_manager.h"
 #include "interface/operation/distributed/distributed_common.h"
@@ -95,7 +97,8 @@ void CodeGenNPU::GenInclude(const Function& topFunc, std::ostringstream& oss) co
         oss << "#define __TILE_FWK_AICORE__ 1\n#include \"" << expFileName << "\"\n";
     }
 
-    oss << "#include \"TileOpImpl.h\"\n\n";
+    oss << "#include \"TileOpImpl.h\"\n";
+    oss << "#include \"tilefwk/aicpu_common.h\"\n\n";
 }
 
 void CodeGenNPU::GenCommentBeforeFuncHeader(Function& subFunc, std::ostringstream& oss) const
@@ -124,7 +127,7 @@ std::string CodeGenNPU::GenFuncHeader(uint64_t programId, Function& topFunc, Com
     // kernel func param
     std::string paramType = GetParamType(topFunc, compileInfo.isUnderDyn());
     funcHeader << "(" << paramType
-               << "* param, int64_t GMStackBase, __gm__ int64_t *hcclContext, __gm__ GMTensorInfo* oriAddrParam)";
+               << "* param, int64_t GMStackBase, __gm__ int64_t *hcclContext, __gm__ TaskStat* taskStat)";
     auto funcDec = funcHeader.str() + ";";
     compileInfo.SetFuncDeclare(funcDec);
     funcHeader << " {\n";
@@ -229,7 +232,7 @@ void CodeGenNPU::GenCode(
         "Start Generate AI_CORE code for topFunc: %s, hash: %s", topFunc.GetMagicName().c_str(),
         topFunc.GetFunctionHash().c_str());
 
-    compileTasks_.clear();
+    Prepare(topFunc);
 
     std::deque<std::function<void(void)>> tasks;
     for (auto& subFuncPair : topFunc.rootFunc_->programs_) {
@@ -522,6 +525,11 @@ void CodeGenNPU::BuildArchOptions(std::ostringstream& oss, const CompileInfo& co
     if (ConfigManager::Instance().GetCodeGenConfig(KEY_CODEGEN_SUPPORT_TILE_TENSOR, false)) {
         compileOpts.emplace_back("-DSUPPORT_TILE_TENSOR");
     }
+    if (config::GetPlatformConfig(KEY_ENABLE_PROF_AICORE_TIME, false) ||
+        config::GetDebugOption<int64_t>(CFG_RUNTIME_DBEUG_MODE) == CFG_DEBUG_ALL) {
+        compileOpts.emplace_back("-DOPEN_MIX_PERF");
+    }
+
     if (platform_ == NPUArch::DAV_2201) {
         compileOpts.emplace_back("-D__DAV_V220");
         compileOpts.emplace_back("-DMEMORY_BASE");
@@ -541,25 +549,35 @@ void CodeGenNPU::BuildArchOptions(std::ostringstream& oss, const CompileInfo& co
 void CodeGenNPU::BuildIncludes(std::ostringstream& oss) const
 {
     // used for compiling cce
+    std::string ptoTileLibPath = GetPtoTileLibPathByEnv();
+    if (!ptoTileLibPath.empty()) {
+        oss << "-I" << ptoTileLibPath << " ";
+    }
+
     std::string includePath = GetIncludePathForCompileCCE();
     oss << "-I" << includePath << "/tilefwk "
         << "-I" << includePath << "/tileop "
         << "-I" << includePath << "/tileop/arch32 "
         << "-I" << includePath << " ";
-
-    std::string ptoTileLibPath = GetPtoTileLibPathByEnv();
-    if (!ptoTileLibPath.empty()) {
-        oss << "-I" << ptoTileLibPath << " ";
-    }
 }
 
 void CodeGenNPU::AppendVFOptions(NPUArch platform, std::ostringstream& oss)
 {
-    if (platform == NPUArch::DAV_3510 && config::GetPassGlobalConfig(KEY_ENABLE_VF, false)) {
-        oss << "--enable-pto-tile-fusion "
-            << "-mllvm --tile-fusion-skip-shape-inference=true "
-            << "-mllvm --tile-fusion-skip-reduceop-fusion=false "
-            << "-mllvm --tile-fusion-skip-legality-check=false ";
+    if (platform != NPUArch::DAV_3510) {
+        return;
+    }
+
+    if (!config::GetPassGlobalConfig(KEY_ENABLE_VF, true)) {
+        oss << "--cce-simd-vf-fusion=false ";
+        return;
+    }
+
+    oss << "--enable-pto-tile-fusion "
+        << "-mllvm --tile-fusion-skip-shape-inference=true "
+        << "-mllvm --tile-fusion-skip-reduceop-fusion=false "
+        << "-mllvm --tile-fusion-skip-legality-check=false ";
+    if (config::GetPassGlobalConfig(KEY_ENABLE_VF_UNROLL, false)) {
+        oss << "-mllvm -enable-unroll-after-fused=true ";
     }
 }
 
@@ -590,13 +608,23 @@ int CodeGenNPU::DoCompileCmd(const std::string& compileCmd) const
     ASSERT(CmpCodeErr::CMD_CHECK_FAILED, ret == 0)
         << "CheckInjectStr failed. errCode = " << ret << ", compileCmd is " << compileCmd;
 
-    ret = std::system(compileCmd.c_str());
+    int rootFuncIdx = MonitorManager::Instance().PrepareNextRootFunc();
+    {
+        MonitorStageScope compileCmdScope(STAGE_FUNC_TO_BIN, rootFuncIdx, rootFuncName_);
+        ret = std::system(compileCmd.c_str());
+    }
     if (ret != 0) {
         CODEGEN_LOGE_E(
             CmpCodeErr::COMPILE_CODE_FAILED, "kernel compilation failed, ret = %d\ncompile cmd is:\n %s", ret,
             compileCmd.c_str());
     }
     return ret;
+}
+
+void CodeGenNPU::Prepare(const Function& topFunc)
+{
+    compileTasks_.clear();
+    rootFuncName_ = topFunc.GetMagicName();
 }
 
 void EncodeWaitUntilInfo(const Operation& op, std::vector<int32_t>& code)

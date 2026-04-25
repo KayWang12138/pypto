@@ -33,9 +33,9 @@ public:
     PassManager(const PassManager&) = delete;
     void operator=(const PassManager&) = delete;
 
-    static void ResetStaticVariables();
-
     Status RunPass(Program& program, Function& function, const std::string& strategy) const;
+    // 重置所有已注册的 Pass
+    void ResetAllPasses();
     std::string GetResumePath(const std::string& strategy);
 
     struct PassEntry {

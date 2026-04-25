@@ -9,13 +9,12 @@
  */
 
 #include "machine/runtime/host_prof.h"
-#include "interface/tensor/logical_tensor.h"
-#ifdef BUILD_WITH_CANN
-#include <array>
+
 #include <sys/syscall.h>
 #include "tilefwk/pypto_fwk_log.h"
 #include "adapter/api/msprof_api.h"
 #include "adapter/api/acl_api.h"
+#include "interface/tensor/logical_tensor.h"
 
 #define CCECPU 25
 
@@ -308,4 +307,3 @@ void HostProf::SetProfFunction(Function* function)
     inputsSize_ = profFunction_->inCasts_.size();
 }
 } // namespace npu::tile_fwk
-#endif

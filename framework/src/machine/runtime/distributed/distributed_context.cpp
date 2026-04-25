@@ -20,7 +20,7 @@
 #include "adapter/api/hcomm_api.h"
 #include "adapter/api/acl_api.h"
 #include "interface/utils/common.h"
-#include "interface/utils/distributed_error.h"
+#include "tilefwk/error_code.h"
 #include "machine/runtime/runtime.h"
 #include "machine/device/dynamic/device_utils.h"
 
@@ -39,7 +39,7 @@ namespace npu::tile_fwk::dynamic {
 uint8_t* AllocHostAddr(size_t size)
 {
     if (size == 0 || size > 0x500000000) {
-        DISTRIBUTED_LOGE("AllocHostAddr failed size %zu", size);
+        DISTRIBUTED_LOGE_E(DistributedErrorCode::CONTEXT_CONFIGURE_FAILED, "AllocHostAddr failed size %zu", size);
         return nullptr;
     }
     auto hostPtr = (uint8_t*)malloc(size);
@@ -150,7 +150,6 @@ uint64_t DistributedContext::AllocCommContext(
     return 0;
 }
 
-#if defined(BUILD_WITH_CANN) && !defined(BUILD_WITH_CANN_MOBILE)
 uint64_t AllocateAndSetupCommContext(
     void* paramHost, uint32_t rankNum, const std::string& groupName,
     std::function<void(TileOp::CommContext*, void*)> fillAttrFunc,
@@ -175,13 +174,11 @@ uint64_t AllocateAndSetupCommContext(
     g_context[groupName] = std::make_pair(reinterpret_cast<uint64_t>(ctxDevice), reinterpret_cast<uint64_t>(ctxHost));
     return reinterpret_cast<uint64_t>(ctxDevice);
 }
-#endif
 
 template <>
 uint64_t DistributedContext::AllocCommContext<ResType::MESH_A5>(
     [[maybe_unused]] const uint64_t ctxAddr, [[maybe_unused]] const std::string& groupName)
 {
-#if defined(BUILD_WITH_CANN) && !defined(BUILD_WITH_CANN_MOBILE)
     npu::tile_fwk::HcclCombinOpParamA5* hcclParamDevice = (npu::tile_fwk::HcclCombinOpParamA5*)ctxAddr;
     npu::tile_fwk::HcclCombinOpParamA5* hcclParamhost =
         (npu::tile_fwk::HcclCombinOpParamA5*)AllocHostAddr(sizeof(npu::tile_fwk::HcclCombinOpParamA5));
@@ -202,15 +199,12 @@ uint64_t DistributedContext::AllocCommContext<ResType::MESH_A5>(
             auto* p = static_cast<npu::tile_fwk::HcclCombinOpParamA5*>(param);
             FillCommCtxWinArr(i, ctx, p);
         });
-#endif
-    return 0;
 }
 
 template <>
 uint64_t DistributedContext::AllocCommContext<ResType::MESH_A3>(
     [[maybe_unused]] const uint64_t ctxAddr, [[maybe_unused]] const std::string& groupName)
 {
-#if defined(BUILD_WITH_CANN) && !defined(BUILD_WITH_CANN_MOBILE)
     npu::tile_fwk::HcclCombinOpParam* hcclParamDevice = (npu::tile_fwk::HcclCombinOpParam*)ctxAddr;
     npu::tile_fwk::HcclCombinOpParam* hcclParamhost =
         (npu::tile_fwk::HcclCombinOpParam*)AllocHostAddr(sizeof(npu::tile_fwk::HcclCombinOpParam));
@@ -238,15 +232,12 @@ uint64_t DistributedContext::AllocCommContext<ResType::MESH_A3>(
             auto* p = static_cast<npu::tile_fwk::HcclCombinOpParam*>(param);
             FillCommCtxWinArr(i, ctx, p);
         });
-#endif
-    return 0;
 }
 
 template <>
 uint64_t DistributedContext::AllocCommContext<ResType::RING_A2>(
     [[maybe_unused]] const uint64_t ctxAddr, [[maybe_unused]] const std::string& groupName)
 {
-#if defined(BUILD_WITH_CANN) && !defined(BUILD_WITH_CANN_MOBILE)
     npu::tile_fwk::HcclOpResParam* hcclParam = (npu::tile_fwk::HcclOpResParam*)ctxAddr;
     HcclOpResParamHead* hcclParamhost = (HcclOpResParamHead*)AllocHostAddr(sizeof(HcclOpResParamHead));
     ASSERT(DistributedErrorCode::CONTEXT_CONFIGURE_FAILED, hcclParamhost != nullptr) << "hcclParamhost malloc failed";
@@ -296,13 +287,10 @@ uint64_t DistributedContext::AllocCommContext<ResType::RING_A2>(
     g_context[groupName].first = (uint64_t)ctxDevice;
     g_context[groupName].second = (uint64_t)ctxHost;
     return (uint64_t)ctxDevice;
-#endif
-    return 0;
 }
 
 std::vector<uint64_t> DistributedContext::GetCommContext([[maybe_unused]] const std::vector<std::string>& groupNames)
 {
-#if defined(BUILD_WITH_CANN) && !defined(BUILD_WITH_CANN_MOBILE)
     if (groupNames.size() == 0) {
         return {};
     }
@@ -348,14 +336,11 @@ std::vector<uint64_t> DistributedContext::GetCommContext([[maybe_unused]] const 
         }
     }
     return commContext;
-#endif
-    return {};
 }
 
 std::vector<uint64_t> DistributedContext::GetCommContextToHost(
     [[maybe_unused]] const std::vector<std::string>& groupNames)
 {
-#if defined(BUILD_WITH_CANN) && !defined(BUILD_WITH_CANN_MOBILE)
     std::vector<uint64_t> devAddrs = GetCommContext(groupNames);
     std::vector<uint64_t> hostContext;
     ASSERT(DistributedErrorCode::INVALID_WORLD_SIZE, groupNames.size() <= DIST_COMM_GROUP_NUM)
@@ -365,7 +350,5 @@ std::vector<uint64_t> DistributedContext::GetCommContextToHost(
         hostContext.push_back((uint64_t)g_context[groupName].second);
     }
     return hostContext;
-#endif
-    return {};
 }
 } // namespace npu::tile_fwk::dynamic

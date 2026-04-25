@@ -159,6 +159,8 @@ protected:
     int DoCompileCmd(const std::string& compileCmd) const;
 
     virtual void BuildArchOptions(std::ostringstream& oss, const CompileInfo& compileInfo) const;
+    void Prepare(const Function& topFunc);
+
     void BuildIncludes(std::ostringstream& oss) const;
     virtual void BuildExtraOptions(std::ostringstream& oss, const std::string& compileOptions) const;
 
@@ -185,6 +187,7 @@ protected:
     mutable std::mutex compileTasksMutex_;
     mutable std::vector<CompileTaskInfo> compileTasks_;
     NPUArch platform_;
+    std::string rootFuncName_;
 };
 
 class FloatSpecValMgr {

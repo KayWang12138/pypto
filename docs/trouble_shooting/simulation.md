@@ -6,7 +6,7 @@
 
 ## 错误码定义与使用说明
 
-相关错误码的统一定义，参见 `framework/src/cost_model/simulation/utils/simulation_error.h` 文件。
+相关错误码的枚举与码值统一定义在 `framework/include/tilefwk/error_code.h`（仿真侧见 `CostModel` 命名空间下各枚举）。
 
 
 ## 排查建议
@@ -54,9 +54,6 @@
 #### DEAD_LOCK
 1. 请在`output/output_xxx/CostModelSimulationOutput/graphs`下的找到报错对应的dot文件进行分析
 2. 如果还无法定位到根因请联系管理员解决
-
-#### FUNC_NOT_SUPPORT
-1. 请在`framework/src/cost_model/simulation_ca/A2A3/model/def.h`的GetProgram中增加新的cce指令
 
 
 

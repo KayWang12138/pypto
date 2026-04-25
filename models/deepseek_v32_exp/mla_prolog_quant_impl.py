@@ -67,7 +67,6 @@ class MlaTileConfig:
         self.k_vec_tile0 = 16
         self.k_vec_tile1 = 16
         self.cube_l1_reuse_setting = {-1: 4}
-        self.pg_upper_bound = 8192
         self.cube_nbuffer_setting = {3: 4}
         self.dynamic_unaligned_enable = False
 
@@ -206,7 +205,7 @@ def quant(
     else:
         max_value = pypto.amax(input_fp32, -1, keepdim=True)
         min_value = pypto.amin(input_fp32, -1, keepdim=True)
-        scale_de_quant = pypto.max(pypto.div(pypto.sub(max_value, min_value), 255.0), 1e-12)
+        scale_de_quant = max(pypto.div(pypto.sub(max_value, min_value), 255.0), 1e-12)
         offset = pypto.sub(127.0, pypto.div(max_value, scale_de_quant))
         scale_quant = scalar_div(max_value, 1.0, True)
         out_fp32 = pypto.mul(input_fp32, scale_quant)

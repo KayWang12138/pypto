@@ -96,11 +96,15 @@ enum class PipeSeq {
     AIC_MTE1,
     AIC_M,
     AIC_FIX,
-    AIV_MTE2,
-    AIV_V,
-    AIV_MTE3,
+    AIV0_MTE2,
+    AIV1_MTE2,
+    AIV0_V,
+    AIV1_V,
+    AIV0_MTE3,
+    AIV1_MTE3,
     AIC_MTE3,
-    AIV_S,
+    AIV0_S,
+    AIV1_S,
     AIC_S,
     PIPE_END
 };
@@ -173,14 +177,15 @@ private:
     };
 
     struct PipeCore {
-        PipeCore(PipeType ps, PipeType pe, CoreType c) : pipeStart(ps), pipeEnd(pe), core(c) {}
+        PipeCore(PipeType ps, PipeType pe, CoreType c, AIVCore a) : pipeStart(ps), pipeEnd(pe), core(c), aivCore(a) {}
         PipeType pipeStart;
         PipeType pipeEnd;
         CoreType core;
+        AIVCore aivCore;
 
         bool operator==(const PipeCore& t) const
         {
-            return (this->pipeStart == t.pipeStart && this->pipeEnd == t.pipeEnd && this->core == t.core);
+            return (this->pipeStart == t.pipeStart && this->pipeEnd == t.pipeEnd && this->core == t.core && this->aivCore == t.aivCore);
         }
 
         bool operator!=(const PipeCore& t) const { return !(*this == t); }
@@ -189,12 +194,14 @@ private:
     struct PipeCoreCompare {
         bool operator()(const PipeCore& lhs, const PipeCore& rhs) const
         {
-            return ((static_cast<uint64_t>(lhs.core) << LEFT_OFFSET4) |
-                    (static_cast<uint64_t>(lhs.pipeStart) << LEFT_OFFSET2) |
-                    (static_cast<uint64_t>(lhs.pipeEnd) << LEFT_OFFSET3)) <
-                   ((static_cast<uint64_t>(rhs.core) << LEFT_OFFSET4) |
-                    (static_cast<uint64_t>(rhs.pipeStart) << LEFT_OFFSET2) |
-                    (static_cast<uint64_t>(rhs.pipeEnd) << LEFT_OFFSET3));
+            return ((static_cast<uint64_t>(lhs.core) << LEFT_OFFSET1) |
+                    (static_cast<uint64_t>(lhs.pipeStart) << LEFT_OFFSET4) |
+                    (static_cast<uint64_t>(lhs.pipeEnd) << LEFT_OFFSET2) |
+                    (static_cast<uint64_t>(lhs.aivCore) << LEFT_OFFSET3)) <
+                   ((static_cast<uint64_t>(rhs.core) << LEFT_OFFSET1) |
+                    (static_cast<uint64_t>(rhs.pipeStart) << LEFT_OFFSET4) |
+                    (static_cast<uint64_t>(rhs.pipeEnd) << LEFT_OFFSET2) |
+                    (static_cast<uint64_t>(rhs.aivCore) << LEFT_OFFSET3));
         }
     };
 
@@ -264,8 +271,8 @@ private:
     };
 
     struct IssueQueue {
-        explicit IssueQueue(PipeCoreReal pipe) : selfPipeCore(pipe) {}
-        PipeCoreReal selfPipeCore;
+        explicit IssueQueue(PipeCoreRealEx pipe) : selfPipeCore(pipe) {}
+        PipeCoreRealEx selfPipeCore;
         size_t currOp{0};
         std::vector<size_t> ops;
         std::string DumpIssueQueue(std::vector<Operation*> opLogPtr = {});
@@ -282,10 +289,13 @@ private:
         CoreType setc;
         PipeType waitp;
         CoreType waitc;
-        AIVCore aivc;
-        std::vector<int> setOpIdList{};
-        std::vector<int> setOpEventIdList{};
+        AIVCore setaivc;
+        AIVCore waitaivc;
+        std::vector<int> setOpIdList{}; // 对应sync_src/cv_sync_src在syncedOpLog中的idx
+        std::vector<int> setOpEventIdList{}; // eventid
+        // sync_src/cv_sync_src对应的setop和waitop的idx pair {setop idx, waitop idx}
         std::vector<std::pair<int, int>> opDepList{};
+        std::string DumpDataDepInfo(const std::vector<IndexOp>& syncedOpLog, std::vector<Operation*>& oriOpList);
     };
 
     struct IssueNum {
@@ -296,8 +306,8 @@ private:
     };
 
     std::string PipeSeqName(PipeSeq seq) const;
-    PipeSeq GetPipeSeq(PipeCoreReal pipe);
-    PipeCoreReal GetPipeFromSeq(PipeSeq seq);
+    PipeSeq GetPipeSeq(PipeCoreRealEx pipe);
+    PipeCoreRealEx GetPipeFromSeq(PipeSeq seq);
     Status PipeDispatch(const std::vector<Operation*> opLogPtr, std::vector<IndexOp>& syncedOpLog);
     Status AdjustCopyInCfg(TileOpCfg& opcfg, const Operation& op);
     Status AdjustCopyOutCfg(TileOpCfg& opcfg, const Operation& op);
@@ -329,6 +339,18 @@ private:
         int maxOverlapDepIdx, const DataDepInfo& depInfo, const PipePairEx& pipePairEx, std::vector<IndexOp>& syncedOpLog);
     Status GetDepInfo(std::vector<IndexOp>& syncedOpLog, const PipePairEx& pipePairEx, DataDepInfo& depInfo);
     Status RelaxFakeDataDep(std::vector<IndexOp>& syncedOpLog);
+    Status RelaxCvEventId(std::vector<IndexOp>& syncedOpLog);
+    bool HasCvSyncDstAfter(const std::vector<IndexOp>& syncedOpLog, int srcIdx, const Operation& srcOp) const;
+    void FillCvDepInfoEntry(std::unordered_map<PipePair, DataDepInfo, PipePairHash>& cvDepInfoMap,
+                            const std::vector<IndexOp>& syncedOpLog, int idx, int eventId);
+    void FindCvSyncSrcInfo(const std::vector<IndexOp>& syncedOpLog, std::vector<int>& eventIdVec, const CorePair& corePair,
+                           std::unordered_map<PipePair, DataDepInfo, PipePairHash>& cvDepInfoMap);
+    bool FindMaxOverlapForCV(PipePair& targetPp, int& maxOverlapIdx,
+                             std::unordered_map<PipePair, DataDepInfo, PipePairHash>& cvDepInfoMap);
+    std::string DumpMergeCVInfo(PipePair targetPp, int maxOverlapIdx,
+                                std::unordered_map<PipePair, DataDepInfo, PipePairHash> cvDepInfoMap);
+    std::string DumpDepInfoMap(const std::vector<IndexOp>& syncedOpLog,
+                               std::unordered_map<PipePair, DataDepInfo, PipePairHash>& cvDepInfoMap);
     bool CheckIssuedOp(const DepOp& op);
     bool ConstructDepInfo(DataDepInfo& depInfo, std::vector<IndexOp>& syncedOpLog, int i);
     bool FindDataDep(DataDepInfo& depInfo, std::vector<IndexOp>& syncedOpLog, int i);
@@ -350,7 +372,7 @@ private:
     void InitCVEventIdQ(bool isAIV1, CorePair corePair, CorePair corePairReverse);
     std::deque<int>& GetFreeEventIdQueue(
         const PipePairEx& pp, size_t setIdx, size_t waitIdx, std::pair<CoreTypeDetail, CoreTypeDetail>& setWaitCoreType);
-    int GetSyncSrcLogIdx(std::vector<IndexOp>& syncedOpLog, int i);
+    int GetSyncSrcLogIdx(const std::vector<IndexOp>& syncedOpLog, int i);
     int GetMaxEventId(const PipePairEx& pp);
     Status ProcessView(std::vector<Operation*>& opLogNew, std::pair<Operation*, Operation*> pair);
     Status ProcessAssemble(std::vector<Operation*>& opLogNew, std::pair<Operation*, Operation*> pair);
@@ -368,9 +390,10 @@ private:
     std::unordered_map<CorePair, std::deque<int>, CorePairHash> crossCoreFreeEventId_;
     std::unordered_map<std::pair<size_t, size_t>, int, IndexVecHash> setWaitPairMap_;
     std::map<PipeCoreRealEx, PipeDepInfo, PipeCoreRealExCompare> latestPipeDep_;
-    static std::map<PipeCoreReal, PipeSeq, PipeCoreRealCompare> pipe2Seq;
-    static std::map<PipeSeq, PipeCoreReal> seq2pipe;
+    static std::map<PipeCoreRealEx, PipeSeq, PipeCoreRealExCompare> pipe2Seq;
+    static std::map<PipeSeq, PipeCoreRealEx> seq2pipe;
     static std::vector<PipePair> dataDepPair;
+    static std::vector<CorePair> cvCorePair;
 
     static constexpr int EVENT_NUM = 8;
     static constexpr int CROSS_CORE_EVENT_NUM = 16;

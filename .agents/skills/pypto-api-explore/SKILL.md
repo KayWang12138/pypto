@@ -1,6 +1,6 @@
 ---
 name: pypto-api-explore
-description: 探索 PyPTO API，为算子开发提供 API 映射、约束检查和 Tiling 需求分析。当需要查找 PyPTO 是否支持某个操作、验证 API 约束、分析算子可行性时使用。Triggers: API 探索、查找 API、PyPTO 有没有 xxx、支持什么 dtype、约束是什么、tiling 怎么配、API 映射、可行性分析、这个算子能做吗。
+description: 探索 PyPTO API，为算子开发提供 API 映射、约束检查和 Tiling 需求分析。当需要查找 PyPTO 是否支持某个操作、验证 API 约束、分析算子可行性时使用。触发词：API 探索、查找 API、PyPTO 有没有 xxx、支持什么 dtype、约束是什么、tiling 怎么配、API 映射、可行性分析、这个算子能做吗。
 ---
 
 # pypto-api-explore
@@ -178,10 +178,11 @@ description: 探索 PyPTO API，为算子开发提供 API 映射、约束检查�
 
 验证 API_REPORT.md 的门禁条件：
 1. 文件存在
-2. 以下 5 个章节存在且内容不为空：
+2. 以下 6 个章节存在且内容不为空：
    - `## 1. 概述`
    - `## 3. API 映射`
    - `## 6. 参考实现`（可标注「无匹配」但不可缺失）
+   - `## 7. 风险评估`
    - `## 8. 证据索引`
    - `## 9. 结论`
 

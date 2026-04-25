@@ -15,7 +15,7 @@
 
 #include "interface/interpreter/function.h"
 #include "interface/interpreter/operation.h"
-#include "interface/interpreter/verify_error.h"
+#include "tilefwk/error_code.h"
 
 namespace npu::tile_fwk {
 
@@ -684,6 +684,27 @@ void ExecuteOpRange(ExecuteOperationContext* ctx)
     calc::Range(oop, curStart, end, step);
 }
 REGISTER_CALC_OP(OP_RANGE, Opcode::OP_RANGE, ExecuteOpRange);
+
+void ExecuteOpUniform(ExecuteOperationContext *ctx) {
+    auto oop = ctx->ooperandInplaceDataViewList->at(0);
+    
+    auto scalars = ctx->op->GetVectorElementAttribute(OpAttributeKey::vectorScalar);
+    Element key = scalars[0];
+    Element counter1 = scalars[1];
+    Element rounds = scalars[2];
+    DataType dtype = static_cast<DataType>(scalars[3].Cast<int32_t>());
+    
+    Element counter0(DT_UINT64, static_cast<uint64_t>(0));
+    if (ctx->op->HasAttr(OpAttributeKey::dynScalar)) {
+        SymbolicScalar dynScalar = ctx->op->GetSymbolicScalarAttribute(OpAttributeKey::dynScalar);
+        if (dynScalar.ConcreteValid()) {
+            counter0 = Element(DT_UINT64, static_cast<uint64_t>(dynScalar.Concrete()));
+        }
+    }
+    
+    calc::Uniform(oop, key, counter0, counter1, rounds, dtype);
+}
+REGISTER_CALC_OP(OP_UNIFORM, Opcode::OP_UNIFORM, ExecuteOpUniform);
 
 void ExecuteOpLog1p(ExecuteOperationContext* ctx)
 {

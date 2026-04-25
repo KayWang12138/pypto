@@ -24,7 +24,6 @@
 #include "interface/interpreter/raw_tensor_data.h"
 
 namespace npu::tile_fwk::dynamic {
-#ifdef BUILD_WITH_CANN
 struct MmapRecord {
     void* addr;
     size_t size;
@@ -179,7 +178,7 @@ struct EslModelMemoryUtils {
         }
     }
 };
-#endif
+
 class EslModelLauncher {
 public:
     static int EslModelRunOnce(void *kernel, const DeviceLauncherConfig &config = DeviceLauncherConfig());
@@ -190,5 +189,6 @@ public:
     static int DynamicKernelLaunchEsl(DeviceKernelArgs *kArgs, AclRtStream aicoreStream, void *kernel);
     static int EslModelLaunchAicore(AclRtStream aicoreStream, void *kernel, DeviceKernelArgs *kernelArgs);
     static void CopyInputOutputData();
+    static int EslModelLiteRunOnce(Function *function, std::vector<DeviceTensorData> &tensors);
 };
 }

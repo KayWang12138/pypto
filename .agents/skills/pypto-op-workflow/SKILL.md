@@ -1,6 +1,6 @@
 ---
 name: pypto-op-workflow
-description: PyPTO 算子开发工作流程。用于开发华为昇腾 AI 处理器自定义算子。在接到算子开发任务时使用，确保开发过程规范、高效、符合官方最佳实践。Triggers: 开发算子、算子开发流程、全流程开发、算子开发工作流、operator workflow。
+description: PyPTO 算子开发工作流程。用于开发华为昇腾 AI 处理器自定义算子。在接到算子开发任务时使用，确保开发过程规范、高效、符合官方最佳实践。触发词：开发算子、算子开发流程、全流程开发、算子开发工作流、operator workflow。
 ---
 
 # PyPTO 算子开发工作流程
@@ -106,6 +106,17 @@ description: PyPTO 算子开发工作流程。用于开发华为昇腾 AI 处理
 | **核心动作** | 解析输入 → 分类（标准参考 / 外部材料 / 自定义 / 直接规格）→ 提取并确认规格 → 生成结构化文档 |
 | **输出工件** | `SPEC.md`（含算子名、公式、输入输出规格、精度要求、典型配置） |
 | **完成标准** | `SPEC.md` 包含算子名称、数学公式、输入输出规格（shape + dtype）、精度要求 |
+
+**阶段产出文件对应关系**：
+
+| 阶段 | 产出文件 | 存放位置 | 下游消费方式 |
+|------|---------|---------|------------|
+| Stage 1 | `SPEC.md` | 算子工作目录根 | Stage 2/3/4 读取规格信息 |
+| Stage 2 | `API_REPORT.md` | 算子工作目录根 | Stage 4 读取 API 映射和约束 |
+| Stage 3 | `{op}_golden.py` | 算子工作目录根 | Stage 5 test 文件 import golden 函数 |
+| Stage 4 | `DESIGN.md` | 算子工作目录根 | Stage 5 读取 tiling/loop 设计 |
+| Stage 5 | `{op}_impl.py` + `test_{op}.py` + `README.md` | 算子工作目录根 | Stage 6/7 读取 impl 和 test |
+| Stage 7 | 性能分析报告 | `output/` 子目录 | 交付物 |
 
 **关键决策**：
 - 信息完整 → 展示确认后直接生成

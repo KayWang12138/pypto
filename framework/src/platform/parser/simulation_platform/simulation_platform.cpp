@@ -22,6 +22,7 @@
 namespace npu {
 namespace tile_fwk {
 const std::string PLATFORM_INFO_RELATIVE_PATH = "/configs/";
+const std::string DEFAULT_SOC_VERSION = "A2A3";
 const std::string INI_EXTENSION = ".ini";
 const uint32_t PLATFORM_FAILED = 0xFFFFFFFF;
 const uint32_t PLATFORM_SUCCESS = 0;
@@ -40,10 +41,14 @@ std::string SimulationPlatform::GetCurrentSharedLibPath()
     return currentLibPath;
 }
 
-bool SimulationPlatform::GetCostModelPlatformRealPath(std::string& realPath)
+bool SimulationPlatform::GetCostModelPlatformRealPath(const std::string& socVersion, std::string& realPath)
 {
-    std::string socVersion = PlatformSocVersionManager::Instance().GetPlatformSocVersion();
-    realPath = RealPath(GetCurrentSharedLibPath() + PLATFORM_INFO_RELATIVE_PATH + socVersion + INI_EXTENSION);
+    std::string platformSocVersion = socVersion;
+    if (platformSocVersion.empty()) {
+        platformSocVersion = DEFAULT_SOC_VERSION;
+    }
+
+    realPath = RealPath(GetCurrentSharedLibPath() + PLATFORM_INFO_RELATIVE_PATH + platformSocVersion + INI_EXTENSION);
     if (realPath.empty()) {
         return false;
     }

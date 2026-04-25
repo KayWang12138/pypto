@@ -23,7 +23,7 @@
 #include "tilefwk/tilefwk.h"
 #include "interface/inner/tilefwk.h"
 #include "interface/inner/tile_shape.h"
-#include "interface/utils/function_error.h"
+#include "interface/utils/error.h"
 #include "interface/program/program.h"
 #include "interface/operation/cycles.h"
 #include "interface/function/function.h"
@@ -52,6 +52,7 @@ const std::string OpAttributeKey::dontTouch = "DONT_TOUCH";
 const std::string OpAttributeKey::tag = "TAG";
 const std::string OpAttributeKey::distTilingInfo = "DIST_TILING_INFO";
 const std::string OpAttributeKey::sameInOut = "SAME_IN_OUT";
+const std::string OpAttributeKey::expandDims = "op_attr_expand_dims";
 const std::string OpAttributeKey::inputCombineAxis = "op_attr_input_combine_axis";
 const std::string OpAttributeKey::outputCombineAxis = "op_attr_output_combine_axis";
 const std::string OpAttributeKey::inplaceIdx = "INPLACE_IDX";
@@ -90,6 +91,7 @@ const std::string OpAttributeKey::ownerRank = "owner_rank";
 const std::string OpAttributeKey::maxTileNum = "max_tile_num";
 const std::string OpAttributeKey::precisionType = "precision_type";
 const std::string OpAttributeKey::perm = "perm";
+const std::string OpAttributeKey::gmTensorParamIdxInCall = "gm_tensor_param_idx_in_call";
 
 const std::string ConvOpAttributeKey::cin = "CIN";
 const std::string ConvOpAttributeKey::cout = "COUT";
@@ -127,6 +129,9 @@ const std::string FixpOpAttributeKey::fbAddrSpace = "FIX_BUFFER_ADDR_SPACE";
 
 const std::string PoolOpAttributeKey::poolh = "POOL_WIN_H";
 const std::string PoolOpAttributeKey::poolw = "POOL_WIN_W";
+
+const std::string TensorAttributeKey::tensorAddr = "tensorAddr";
+
 bool OperationCmp::operator()(const Operation* lhs, const Operation* rhs) const
 {
     return lhs->GetOpMagic() < rhs->GetOpMagic();
@@ -882,6 +887,7 @@ Operation& Operation::CloneOperation(
     Function& func, const LogicalTensors& iOperandList, const LogicalTensors& oOperandList) const
 {
     Operation& op = func.AddRawOperation(opcode_, iOperandList, oOperandList);
+    op.SetScopeInfo(scopeInfo_);
     if (opAttribute_) {
         op.opAttribute_ = opAttribute_->Clone();
     }
@@ -1165,19 +1171,19 @@ std::vector<std::reference_wrapper<SymbolicScalar>> Operation::GetDynamicAttribu
                 }
                 dynamicAttributeList.push_back(std::reference_wrapper<SymbolicScalar>(shape.GetSpecifiedValue()));
             }
-            for (auto &shape : copyAttr->GetFromDynValidShape()) {
+            for (auto& shape : copyAttr->GetFromDynValidShape()) {
                 if (!shape.IsSpecified()) {
                     continue;
                 }
                 dynamicAttributeList.push_back(std::reference_wrapper<SymbolicScalar>(shape.GetSpecifiedValue()));
             }
-            for (auto &offset : copyAttr->GetToOffset()) {
+            for (auto& offset : copyAttr->GetToOffset()) {
                 if (!offset.IsSpecified()) {
                     continue;
                 }
                 dynamicAttributeList.push_back(std::reference_wrapper<SymbolicScalar>(offset.GetSpecifiedValue()));
             }
-            for (auto &offset : copyAttr->GetFromOffset()) {
+            for (auto& offset : copyAttr->GetFromOffset()) {
                 if (!offset.IsSpecified()) {
                     continue;
                 }

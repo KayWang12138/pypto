@@ -26,7 +26,7 @@
 #include "adapter/api/acl_define.h"
 #include "adapter/api/runtime_define.h"
 #include "interface/interpreter/raw_tensor_data.h"
-#include "interface/interpreter/verify_error.h"
+#include "tilefwk/error_code.h"
 #include "interface/utils/op_info_manager.h"
 #include "interface/compiler_monitor/monitor_manager.h"
 #include "interface/compiler_monitor/monitor_stage_scope.h"
@@ -36,21 +36,35 @@
 #include "machine/runtime/device_launcher.h"
 #include "machine/utils/dynamic/dev_start_args.h"
 #include "machine/host/perf_analysis.h"
+#include "tilefwk/platform.h"
 #include "bindings/torch_tensor_converter.h"
-
-#ifdef BUILD_WITH_CANN
-#include "acl/acl.h"
-#include "runtime/rt.h"
-#endif
 
 using namespace npu::tile_fwk;
 using namespace npu::tile_fwk::dynamic;
 
 namespace pypto {
 
+static bool IsUint8GoldenAndHf8InOut(const DeviceTensorData& inOutTensor, const DeviceTensorData& goldenTensor)
+{
+    return inOutTensor.GetDataType() == DT_HF8 && goldenTensor.GetDataType() == DT_UINT8;
+}
+
 static void ValidateVerifyOutputAndGolden(
     const std::vector<DeviceTensorData>& inOutTensors, const std::vector<DeviceTensorData>& goldens)
 {
+    auto ShapeToString = [](const std::vector<int64_t>& shape) {
+        std::ostringstream oss;
+        oss << "[";
+        for (size_t i = 0; i < shape.size(); ++i) {
+            if (i != 0) {
+                oss << ", ";
+            }
+            oss << shape[i];
+        }
+        oss << "]";
+        return oss.str();
+    };
+
     if (inOutTensors.size() != goldens.size()) {
         return;
     }
@@ -62,14 +76,21 @@ static void ValidateVerifyOutputAndGolden(
             continue;
         }
 
-        ASSERT(VerifyResultScene::VERIFY_RESULT_DTYPE_DIFF, inOutTensors[i].GetDataType() == goldens[i].GetDataType())
-            << "dtype mismatch at index " << i;
+        ASSERT(
+            VerifyResultScene::VERIFY_RESULT_DTYPE_DIFF, inOutTensors[i].GetDataType() == goldens[i].GetDataType() ||
+                                                             IsUint8GoldenAndHf8InOut(inOutTensors[i], goldens[i]))
+            << "dtype mismatch at index " << i << ", output dtype: " << DataType2String(inOutTensors[i].GetDataType())
+            << ", golden dtype: " << DataType2String(goldens[i].GetDataType());
 
         auto& outputShape = inOutTensors[i].GetShape();
         auto& goldenShape = goldens[i].GetShape();
-        ASSERT(VerifyResultScene::VERIFY_RESULT_SHAPE_DIFF, outputShape.size() == goldenShape.size());
+        ASSERT(VerifyResultScene::VERIFY_RESULT_SHAPE_DIFF, outputShape.size() == goldenShape.size())
+            << "shape rank mismatch at golden index " << i << ", output rank: " << outputShape.size()
+            << ", golden rank: " << goldenShape.size();
         for (size_t dim = 0; dim < outputShape.size(); dim++) {
-            ASSERT(VerifyResultScene::VERIFY_RESULT_SHAPE_DIFF, outputShape[dim] == goldenShape[dim]);
+            ASSERT(VerifyResultScene::VERIFY_RESULT_SHAPE_DIFF, outputShape[dim] == goldenShape[dim])
+                << "shape mismatch at golden index " << i << ", dim " << dim
+                << ", output shape: " << ShapeToString(outputShape) << ", golden shape: " << ShapeToString(goldenShape);
         }
     }
 }
@@ -118,9 +139,12 @@ void SetVerifyData(
         if (goldens[i].GetAddr() == 0) {
             ProgramData::GetInstance().AppendGolden(nullptr);
         } else {
-            auto logicalShape = ToLogicalShape(goldens[i].GetDataType(), goldens[i].GetShape());
-            auto rawData =
-                RawTensorData::CreateTensor(goldens[i].GetDataType(), logicalShape, (uint8_t*)goldens[i].GetAddr());
+            auto goldenType = goldens[i].GetDataType();
+            if (i < inOutTensors.size() && IsUint8GoldenAndHf8InOut(inOutTensors[i], goldens[i])) {
+                goldenType = DT_HF8;
+            }
+            auto logicalShape = ToLogicalShape(goldenType, goldens[i].GetShape());
+            auto rawData = RawTensorData::CreateTensor(goldenType, logicalShape, (uint8_t*)goldens[i].GetAddr());
             ProgramData::GetInstance().AppendGolden(rawData);
         }
     }
@@ -144,6 +168,19 @@ static std::string ValidateFunctionAndIO(
         return "mismatch input/output";
     }
     return "";
+}
+
+static ExportedOperator* GetValidatedOperator(uintptr_t opAddr)
+{
+    if (opAddr == 0) {
+        return nullptr;
+    }
+
+    if (opAddr % alignof(ExportedOperator) != 0) {
+        MACHINE_LOGE(DevCommonErr::PARAM_INVALID, "Invalid operator address alignment");
+        return nullptr;
+    }
+    return reinterpret_cast<ExportedOperator*>(opAddr);
 }
 
 static void InitializeInputOutputData(
@@ -177,11 +214,9 @@ std::string DeviceRunOnceDataFromHost(
 
     DevControlFlowCache* hostCache = nullptr;
     EmulationMemoryUtils memUtils;
-    if (config::GetRuntimeOption<int64_t>(STITCH_CFGCACHE_SIZE) != 0) {
-        DeviceLauncherConfig config;
-        DeviceLauncher::DeviceLauncherConfigFillDeviceInfo(config);
-        EmulationLauncher::BuildControlFlowCache(func, memUtils, inputs, outputs, &hostCache, config);
-    }
+    DeviceLauncherConfig config;
+    DeviceLauncher::DeviceLauncherConfigFillDeviceInfo(config);
+    EmulationLauncher::BuildControlFlowCache(func, memUtils, inputs, outputs, &hostCache, config);
 
     if (config::GetDebugOption<int>(CFG_RUNTIME_DBEUG_MODE) == 1 &&
         EmulationLauncher::EmulationRunOnce(func, hostCache) != 0) {
@@ -222,8 +257,10 @@ std::string OperatorDeviceRunOnceDataFromDevice(
     if (opAddr == 0) {
         return "invalid operator";
     }
-
-    ExportedOperator* op = reinterpret_cast<ExportedOperator*>(opAddr);
+    ExportedOperator* op = GetValidatedOperator(opAddr);
+    if (op == nullptr) {
+        return "invalid operator";
+    }
     Function* func = op->GetFunction();
     auto errorMsg = ValidateFunctionAndIO(func, inputs, outputs);
     if (!errorMsg.empty()) {
@@ -233,7 +270,7 @@ std::string OperatorDeviceRunOnceDataFromDevice(
     if (config::GetDebugOption<int>(CFG_RUNTIME_DBEUG_MODE) == 1) {
         DeviceLauncherConfig config;
         DeviceLauncher::DeviceLauncherConfigFillDeviceInfo(config);
-        if (EmulationLauncher::EmulationLaunchDeviceTensorData(func, inputs, outputs, config) != 0) {
+        if (EmulationLauncher::EmulationLaunchDeviceTensorData(func, inputs, outputs, config, nullptr) != 0) {
             return "emulation run failed";
         }
     }
@@ -245,10 +282,11 @@ std::string OperatorDeviceRunOnceDataFromDevice(
 
     auto aicoreStream = incomingStream;
     auto aicpuStream = DeviceGetAicpuStream();
+    auto ctrlStream = DeviceGetCtrlStream();
     auto workspaceDataAddr = static_cast<uintptr_t>(workspaceData);
     auto ctrlCache = static_cast<uintptr_t>(devCtrlCache);
     int rc = ExportedOperatorDeviceLaunchOnceWithDeviceTensorData(
-        op, inputs, outputs, aicpuStream, aicoreStream, false, reinterpret_cast<uint8_t*>(ctrlCache),
+        op, inputs, outputs, aicpuStream, ctrlStream, aicoreStream, false, reinterpret_cast<uint8_t*>(ctrlCache),
         DeviceLauncherConfig::CreateConfigWithWorkspaceAddr(workspaceDataAddr));
     if (rc < 0) {
         return "device run failed";
@@ -262,7 +300,7 @@ std::string OperatorDeviceRunOnceDataFromDevice(
 uint64_t GetWorkSpaceSize(
     uintptr_t opAddr, const std::vector<DeviceTensorData>& inputs, const std::vector<DeviceTensorData>& outputs)
 {
-    ExportedOperator* op = reinterpret_cast<ExportedOperator*>(opAddr);
+    ExportedOperator* op = GetValidatedOperator(opAddr);
     if (op) {
         return op->GetWorkSpaceSize(inputs, outputs);
     }
@@ -298,7 +336,10 @@ uintptr_t OperatorBegin()
 
 std::string OperatorEnd(uintptr_t opAddr)
 {
-    ExportedOperator* op = reinterpret_cast<ExportedOperator*>(opAddr);
+    ExportedOperator* op = GetValidatedOperator(opAddr);
+    if (op == nullptr) {
+        return "invalid operator";
+    }
     ExportedOperatorEnd(op);
     return "";
 }
@@ -307,48 +348,46 @@ int64_t BuildCache(
     uintptr_t opAddr, const std::vector<DeviceTensorData>& inputList, const std::vector<DeviceTensorData>& outputList,
     [[maybe_unused]] bool isCapturing)
 {
-    ExportedOperator* op = reinterpret_cast<ExportedOperator*>(opAddr);
-    if (config::GetRuntimeOption<int64_t>(STITCH_CFGCACHE_SIZE) != 0) {
-        DeviceLauncherConfig config;
-        DeviceLauncher::DeviceLauncherConfigFillDeviceInfo(config);
-        uint8_t* ctrlCache = op->FindCtrlFlowCache(inputList, outputList);
-        EmulationMemoryUtils memUtils;
-        if (ctrlCache == nullptr) {
-            HOST_PERF_EVT_BEGIN(EventPhase::BuildCtrlFlowCache);
-            DevControlFlowCache* hostCache = nullptr;
-            if (EmulationLauncher::BuildControlFlowCache(
-                    op->GetFunction(), memUtils, inputList, outputList, &hostCache, config) != 0) {
-                return 0;
-            }
-
-#ifdef BUILD_WITH_CANN
-            if (isCapturing) {
-                ChangeCaptureModeRelax();
-            }
-
-            if (hostCache) {
-                ctrlCache = CopyHostToDev(
-                    reinterpret_cast<uint8_t*>(hostCache),
-                    reinterpret_cast<DevControlFlowCache*>(hostCache)->usedCacheSize);
-            }
-
-            if (isCapturing) {
-                ChangeCaptureModeGlobal();
-            }
-#else
-            ctrlCache = reinterpret_cast<uint8_t*>(hostCache);
-#endif
-
-            if (ctrlCache) {
-                op->InsertCtrlFlowCache(inputList, outputList, ctrlCache);
-            }
-            HOST_PERF_EVT_END(EventPhase::BuildCtrlFlowCache);
+    ExportedOperator* op = GetValidatedOperator(opAddr);
+    if (op == nullptr) {
+        return -1;
+    }
+    DeviceLauncherConfig config;
+    DeviceLauncher::DeviceLauncherConfigFillDeviceInfo(config);
+    uint8_t* ctrlCache = op->FindCtrlFlowCache(inputList, outputList);
+    EmulationMemoryUtils memUtils;
+    if (ctrlCache == nullptr) {
+        HOST_PERF_EVT_BEGIN(EventPhase::BuildCtrlFlowCache);
+        DevControlFlowCache* hostCache = nullptr;
+        if (EmulationLauncher::BuildControlFlowCache(
+                op->GetFunction(), memUtils, inputList, outputList, &hostCache, config) != 0) {
+            return 0;
         }
 
-        return ctrlCache == nullptr ? 0 : reinterpret_cast<int64_t>(ctrlCache);
-    }
+#ifdef BUILD_WITH_CANN
+        if (isCapturing) {
+            ChangeCaptureModeRelax();
+        }
 
-    return 0;
+        if (hostCache) {
+            ctrlCache = CopyHostToDev(
+                reinterpret_cast<uint8_t*>(hostCache),
+                reinterpret_cast<DevControlFlowCache*>(hostCache)->usedCacheSize);
+        }
+
+        if (isCapturing) {
+            ChangeCaptureModeGlobal();
+        }
+#else
+        ctrlCache = reinterpret_cast<uint8_t*>(hostCache);
+#endif
+
+        if (ctrlCache) {
+            op->InsertCtrlFlowCache(inputList, outputList, ctrlCache);
+        }
+        HOST_PERF_EVT_END(EventPhase::BuildCtrlFlowCache);
+    }
+    return ctrlCache == nullptr ? 0 : reinterpret_cast<int64_t>(ctrlCache);
 }
 
 #ifdef BUILD_WITH_CANN
@@ -399,10 +438,8 @@ public:
         kernelBin = DeviceLauncher::RegisterKernelBin(dynAttr->kernelBinary);
         workspaceSize = devProg->memBudget.Total();
         InitCachedArgs();
-        if (Platform::Instance().GetSoc().GetNPUArch() != NPUArch::DAV_3113) {
-            auto aicpuArgs = (AiCpuArgs*)aicpuArgBuf.data();
-            DeviceLauncher::FillDeviceKernelArgs(dynAttr->devProgBinary, aicpuArgs->kArgs, dynAttr->commGroupNames);
-        }
+        auto aicpuArgs = (AiCpuArgs*)aicpuArgBuf.data();
+        DeviceLauncher::FillDeviceKernelArgs(dynAttr->devProgBinary, aicpuArgs->kArgs, dynAttr->commGroupNames);
     }
 
     uint8_t* FindCtrlFlowCache(std::vector<std::vector<int64_t>>& inputs, bool isOriginShape)
@@ -429,13 +466,12 @@ public:
         return nullptr;
     }
 
-    uint8_t* BuildControlFlowCache(std::vector<DeviceTensorData>& inputs, int64_t cfgCacheSize, bool isOriginShape)
+    uint8_t* BuildControlFlowCache(std::vector<DeviceTensorData>& inputs, bool isOriginShape)
     {
         DeviceLauncherConfig config;
         DeviceLauncher::DeviceLauncherConfigFillDeviceInfo(config);
         DevControlFlowCache* ctrlCache = nullptr;
-
-        devProg->ctrlFlowCacheSize = cfgCacheSize;
+        devProg->ctrlFlowCacheSize = DEFAULT_STITCH_CFGCACHE_SIZE;
         config.isCacheOriginShape = isOriginShape;
         EmulationMemoryUtils memUtils;
         int ret = EmulationLauncher::BuildControlFlowCache(dynFunc.get(), memUtils, inputs, {}, &ctrlCache, config);
@@ -613,21 +649,17 @@ public:
 
     uint8_t* FindCtrlFlowCache(KernelBinary* kernel, py::object& module, std::vector<DeviceTensorData>& tensors)
     {
-        if (!IsCacheEnabled()) {
-            return nullptr;
-        }
-
         auto devCache = kernel->FindCtrlFlowCache(tensors, true);
         if (devCache == nullptr) {
             std::vector<std::vector<int64_t>> shape;
             if (DeviceLauncher::IsCaptureMode()) {
                 AclModeGuard guard(AclMdlRICaptureMode::RELAXED);
-                devCache = kernel->BuildControlFlowCache(tensors, stitchCfgCacheSize, true);
+                devCache = kernel->BuildControlFlowCache(tensors, true);
             } else if (InferCacheShape(module, tensors, shape)) {
                 devCache = kernel->FindCtrlFlowCache(shape, false);
             } else {
                 AclModeGuard guard(AclMdlRICaptureMode::RELAXED);
-                devCache = kernel->BuildControlFlowCache(tensors, stitchCfgCacheSize, true);
+                devCache = kernel->BuildControlFlowCache(tensors, true);
             }
         }
 #if ENABALE_VERBOSE_LOG
@@ -734,15 +766,41 @@ public:
         ASSERT(ret == RT_SUCCESS) << "launch aicore failed: " << ret;
     }
 
-    void EmulationLaunch(KernelBinary* kernel, std::vector<DeviceTensorData>& tensors)
+    DevControlFlowCache* GetHostCtrlFlowCache(
+        KernelBinary* kernel, std::vector<DeviceTensorData>& tensors, uint8_t* devCache,
+        std::vector<uint8_t>& hostCache)
+    {
+        DevControlFlowCache* ctrlCache = FindHostCtrlFlowCache(tensors, hostCache);
+        if (ctrlCache == nullptr && devCache != nullptr) {
+            auto devProg =
+                reinterpret_cast<DevAscendProgram*>(kernel->GetFunction()->GetDyndevAttribute()->devProgBinary.data());
+            size_t ctrlCacheSize = devProg->ctrlFlowCacheSize;
+            std::vector<uint8_t> hostCacheVec;
+            hostCacheVec.resize(ctrlCacheSize);
+            AclModeGuard guard(AclMdlRICaptureMode::RELAXED);
+            if (RuntimeMemcpy(
+                    hostCacheVec.data(), ctrlCacheSize, devCache, ctrlCacheSize, RtMemcpyKind::DEVICE_TO_HOST) !=
+                RT_SUCCESS) {
+                ASSERT(false) << "RuntimeMemcpy cache failed!";
+                return nullptr;
+            }
+            AddHostCtrlFlowCache(tensors, std::move(hostCacheVec));
+            ctrlCache = FindHostCtrlFlowCache(tensors, hostCache);
+        }
+        return ctrlCache;
+    }
+
+    void EmulationLaunch(KernelBinary* kernel, std::vector<DeviceTensorData>& tensors, uint8_t* devCache)
     {
         if (!isDebugMode) {
             return;
         }
-
         DeviceLauncherConfig config;
         DeviceLauncher::DeviceLauncherConfigFillDeviceInfo(config);
-        int ret = EmulationLauncher::EmulationLaunchDeviceTensorData(kernel->GetFunction(), tensors, {}, config);
+        std::vector<uint8_t> hostCache;
+        DevControlFlowCache* ctrlCache = GetHostCtrlFlowCache(kernel, tensors, devCache, hostCache);
+        int ret =
+            EmulationLauncher::EmulationLaunchDeviceTensorData(kernel->GetFunction(), tensors, {}, config, ctrlCache);
         ASSERT(ret == RT_SUCCESS) << "emulation run failed: " << ret;
     }
 
@@ -759,90 +817,10 @@ public:
         ASSERT(ret == RT_SUCCESS) << "EslModelLaunch run failed: " << ret;
     }
 
-    void LiteKernelLaunch(KernelBinary* kernel, std::vector<DeviceTensorData>& tensors)
+    void EslModelLiteLaunch(KernelBinary* kernel, std::vector<DeviceTensorData>& tensors)
     {
-#ifdef BUILD_WITH_CANN
-        ProgramData::GetInstance().Reset();
-
-        std::vector<uint8_t*> deviceAddrs;
-        for (size_t i = 0; i < tensors.size(); i++) {
-            uint8_t* deviceAddr;
-            aclrtMalloc((void**)&deviceAddr, tensors[i].GetDataSize(), ACL_MEM_MALLOC_HUGE_FIRST);
-            aclrtMemcpy(
-                deviceAddr, tensors[i].GetDataSize(), (uint8_t*)tensors[i].GetAddr(), tensors[i].GetDataSize(),
-                ACL_MEMCPY_HOST_TO_DEVICE);
-            deviceAddrs.push_back(deviceAddr);
-        }
-
-        MACHINE_LOGI("###### aclInit start");
-        aclInit(nullptr);
-        MACHINE_LOGI("###### aclInit end");
-
-        MACHINE_LOGI("###### aclrtSetDevice start");
-        int32_t deviceId = 0;
-        aclrtSetDevice(deviceId);
-        MACHINE_LOGI("###### aclrtSetDevice end");
-
-        aclrtStream stream = nullptr;
-        MACHINE_LOGI("###### aclrtCreateStream start");
-        aclrtCreateStream(&stream);
-        MACHINE_LOGI("###### aclrtCreateStream end");
-
-        rtArgsEx_t rtArgs = {};
-        rtArgs.args = deviceAddrs.data();
-        rtArgs.argsSize = deviceAddrs.size() * sizeof(void*);
-
-        MACHINE_LOGI("###### rtDevBinaryRegister start");
-        void* hdl = nullptr;
-        std::vector<uint8_t>& kernelBinary = kernel->GetFunction()->GetDyndevAttribute().get()->kernelBinary;
-        MACHINE_LOGI(
-            "###### kernelBinary, data[%p], size[%zu]",
-            kernel->GetFunction()->GetDyndevAttribute().get()->kernelBinary.data(),
-            kernel->GetFunction()->GetDyndevAttribute().get()->kernelBinary.size());
-        MACHINE_LOGI("###### kernelBinary, data[%p], size[%zu]", kernelBinary.data(), kernelBinary.size());
-        rtDevBinary_t binary = {
-            .magic = RT_DEV_BINARY_MAGIC_ELF,
-            .version = 0,
-            .data = kernelBinary.data(),
-            .length = kernelBinary.size(),
-        };
-
-        int ret = rtDevBinaryRegister(&binary, &hdl);
-        if (ret != RT_ERROR_NONE) {
-            MACHINE_LOGE(HostLauncherErr::REGISTER_KERNEL_FAILED, "register kernel failed, ret: %d", ret);
-        }
-        MACHINE_LOGI("###### stubFunc: %p", hdl);
-        MACHINE_LOGI("###### rtDevBinaryRegister end");
-        int stubFunc = 1;
-        std::string kernelName = kernel->GetFunction()->GetDyndevAttribute().get()->kernelName;
-        MACHINE_LOGI("###### rtFunctionRegister start");
-        rtFunctionRegister(hdl, &stubFunc, kernelName.c_str(), kernelName.c_str(), 0);
-        MACHINE_LOGI("###### rtFunctionRegister end");
-
-        MACHINE_LOGI("###### rtKernelLaunch start");
-        ret = rtKernelLaunch(&stubFunc, 1, rtArgs.args, rtArgs.argsSize, nullptr, stream);
-        MACHINE_LOGI("###### rtKernelLaunch end");
-
-        ASSERT(ret == RT_ERROR_NONE) << "LiteKernelLaunch failed: " << ret;
-        MACHINE_LOGI("###### aclrtSynchronizeStream start");
-        ret = aclrtSynchronizeStream(stream);
-        MACHINE_LOGI("###### aclrtSynchronizeStream end");
-
-        ASSERT(ret == RT_ERROR_NONE) << "Stream sync failed: " << ret;
-
-        for (size_t i = 0; i < tensors.size(); i++) {
-            aclrtMemcpy(
-                (uint8_t*)tensors[i].GetAddr(), tensors[i].GetDataSize(), deviceAddrs[i], tensors[i].GetDataSize(),
-                ACL_MEMCPY_DEVICE_TO_HOST);
-            aclrtFree(deviceAddrs[i]);
-        }
-        aclrtDestroyStream(stream);
-        aclrtResetDevice(deviceId);
-        aclFinalize();
-#else
-        (void)kernel;
-        (void)tensors;
-#endif
+        int ret = EslModelLauncher::EslModelLiteRunOnce(kernel->GetFunction(), tensors);
+        ASSERT(ret == RT_SUCCESS) << "EslModelLiteLaunch run failed: " << ret;
     }
 
 private:
@@ -868,9 +846,6 @@ private:
     void InitConfigOptions(py::object& module)
     {
         auto options = module.attr("_runtime_options").cast<py::dict>();
-        if (options.contains("stitch_cfgcache_size")) {
-            stitchCfgCacheSize = options["stitch_cfgcache_size"].cast<int64_t>();
-        }
         if (!module.attr("_debug_options").is_none()) {
             auto debugOptions = module.attr("_debug_options").cast<py::dict>();
             if (debugOptions.contains("runtime_debug_mode")) {
@@ -903,7 +878,7 @@ private:
             }
         }
 #if ENABALE_VERBOSE_LOG
-        COMPILER_LOGE("stitch_cfgcache_size: %ld, infer_cache_shape: %d", stitchCfgCacheSize, inferCacheShape);
+        COMPILER_LOGE("infer_cache_shape: %d", inferCacheShape);
 #endif
     }
 
@@ -923,7 +898,7 @@ private:
                 inputs.emplace_back(tensors[i].GetDataType(), nullptr, inputShapes[i]);
             }
             if (kernel->CheckArgs(inputs)) {
-                kernel->BuildControlFlowCache(inputs, stitchCfgCacheSize, false);
+                kernel->BuildControlFlowCache(inputs, false);
             } else {
                 COMPILER_LOGE("Invalid cache shape, skip it");
             }
@@ -949,12 +924,37 @@ private:
         return true;
     }
 
-    bool IsCacheEnabled() { return stitchCfgCacheSize != 0; }
+    DevControlFlowCache* FindHostCtrlFlowCache(std::vector<DeviceTensorData>& tensors, std::vector<uint8_t>& hostCache)
+    {
+        int64_t hash = ControlFlowCache::Hash(tensors);
+        for (auto& cache : hostCtrlFlowCaches) {
+            if (cache.hash == hash) {
+                hostCache = cache.hostCache; // Copy new backup
+                return reinterpret_cast<DevControlFlowCache*>(hostCache.data());
+            }
+        }
+        return nullptr;
+    }
+
+    void AddHostCtrlFlowCache(std::vector<DeviceTensorData>& tensors, std::vector<uint8_t>&& hostCache)
+    {
+        hostCtrlFlowCaches.emplace_back(tensors, std::move(hostCache));
+    }
 
 private:
+    struct HostControlFlowCache {
+        int64_t hash;
+        std::vector<uint8_t> hostCache;
+
+        HostControlFlowCache(std::vector<DeviceTensorData>& datas, std::vector<uint8_t>&& hcache)
+            : hostCache(std::move(hcache))
+        {
+            hash = ControlFlowCache::Hash(datas);
+        }
+    };
+
     bool inferCacheShape{false};
     bool isDebugMode{false};
-    int64_t stitchCfgCacheSize{0};
     bool compileStageAllComplete{true};
     bool compileMonitorEnable{true};
     int intervalSec{60};
@@ -968,6 +968,7 @@ private:
     RtTaskCfgInfo rtTaskCfg;
     std::vector<void*> kernelArgs;
     std::vector<KernelBinary*> kernels;
+    std::vector<HostControlFlowCache> hostCtrlFlowCaches;
 
     static std::atomic<int64_t> sequence;
 };
@@ -1040,15 +1041,14 @@ private:
 
     void DoLaunch(KernelBinary* kbinary)
     {
-        if (Platform::Instance().GetSoc().GetNPUArch() == NPUArch::DAV_3113) {
-            kmodule->LiteKernelLaunch(kbinary, tensors);
-            return;
-        }
         if (config::GetSimConfig(KEY_ACCURACY_LEVEL, 2) == 2) {
-            kmodule->EslModelLaunch(kbinary, tensors);
+            if (IsLiteNPU(Platform::Instance().GetSoc().GetNPUArch())) {
+                kmodule->EslModelLiteLaunch(kbinary, tensors);
+            } else {
+                kmodule->EslModelLaunch(kbinary, tensors);
+            }
             return;
         }
-        kmodule->EmulationLaunch(kbinary, tensors);
 
         int64_t* wsAddr = nullptr;
         int64_t wsSize = kmodule->GetWorkspaceSize(kbinary, tensors);
@@ -1066,6 +1066,8 @@ private:
 
         uint8_t* ctrlFlowCache = kmodule->FindCtrlFlowCache(kbinary, module, tensors);
         HOST_PERF_TRACE(TracePhase::FindCtrlFlowCache);
+
+        kmodule->EmulationLaunch(kbinary, tensors, ctrlFlowCache);
 
         kmodule->Launch(kbinary, aicoreStream, tensors, ctrlFlowCache, wsAddr);
         HOST_PERF_TRACE(TracePhase::Launch);

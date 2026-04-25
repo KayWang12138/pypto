@@ -20,7 +20,7 @@
 #include "tilefwk/pypto_fwk_log.h"
 #include "adapter/api/acl_api.h"
 #include "adapter/api/runtime_api.h"
-#include "machine/utils/machine_error.h"
+#include "tilefwk/error_code.h"
 #include "machine/runtime/memory_pool.h"
 
 constexpr int ADDR_MAP_TYPE_REG_AIC_CTRL = 2;
@@ -61,9 +61,6 @@ struct res_map_info {
 };
 
 namespace npu::tile_fwk {
-
-#ifdef BUILD_WITH_CANN
-
 inline void CheckDeviceId()
 {
 #if !defined(BUILD_WITH_CANN_MOBILE)
@@ -276,7 +273,4 @@ private:
 namespace machine {
 inline npu::tile_fwk::RuntimeAgent* GetRA() { return npu::tile_fwk::RuntimeAgent::GetAgent(); }
 } // namespace machine
-#else
-
-#endif
 } // namespace npu::tile_fwk

@@ -30,7 +30,7 @@ message(STATUS "PTO_FWK_BIN_ROOT=${PTO_FWK_BIN_ROOT}")
 
 # 公开编译开关(build)
 option(BUILD_WITH_CANN "Build with CANN." ON)  # Need to install CANN package and set corresponding environment variables.
-option(BUILD_WITH_CANN_MOBILE "Build with CANN Mobile" ON) # pure x86 compile
+option(BUILD_WITH_CANN_MOBILE "Build with CANN Mobile." ON)
 option(ENABLE_ASAN "Enable AddressSanitizer" OFF)
 option(ENABLE_UBSAN "Enable UndefinedBehaviorSanitizer" OFF)
 option(ENABLE_GCOV "Enable GNU Coverage Instrumentation Tool" OFF)
@@ -96,9 +96,7 @@ if (ENABLE_FEATURE_PYTHON_FRONT_END)
             tile_fwk_codegen
             tile_fwk_compiler
             tile_fwk_runtime
-            tile_fwk_runtime_stub
             tile_fwk_simulation
-            tile_fwk_simulation_ca
             tile_fwk_simulation_pv
     )
     if (BUILD_WITH_CANN)
@@ -154,13 +152,6 @@ if (ENABLE_FEATURE_PYTHON_FRONT_END)
     endif ()
     install(DIRECTORY framework/src/interface/tileop/
             DESTINATION ${PyPTO_WhlName}/lib/include/tileop
-            PATTERN "*.h"
-            PATTERN "*.hpp"
-            PATTERN ".svn" EXCLUDE
-            PATTERN ".git" EXCLUDE
-    )
-    install(DIRECTORY framework/src/cost_model/simulation_ca/mock/
-            DESTINATION ${PyPTO_WhlName}/lib/include/mock
             PATTERN "*.h"
             PATTERN "*.hpp"
             PATTERN ".svn" EXCLUDE

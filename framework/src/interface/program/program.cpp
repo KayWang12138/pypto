@@ -30,7 +30,7 @@
 #include "interface/program/program.h"
 #include "interface/configs/config_manager_ng.h"
 #include "interface/compiler_monitor/monitor_manager.h"
-#include "interface/utils/function_error.h"
+#include "interface/utils/error.h"
 #include "passes/pass_mgr/pass_manager.h"
 
 namespace npu::tile_fwk {
@@ -75,7 +75,7 @@ void Program::Reset()
     CreateInitFunction();
     tensorSlotManager_ = nullptr;
     currentFunctionPtr_ = functionmap_[currentFunctionMagicName_].get();
-    PassManager::ResetStaticVariables();
+    HostMachine::GetInstance().ResetAllPasses();
 }
 
 Function* Program::GetFunctionByRawName(const std::string& rawName) const
@@ -176,9 +176,10 @@ void Program::ClearEmptyHiddenFunction()
 void SetParamConfig(Function* currentFuncPtr)
 {
     std::shared_ptr<ConfigScope> currentScope = ConfigManagerNg::GetInstance().CurrentScope();
-    currentFuncPtr->paramConfigs_.sgPgUpperBound = currentScope->GetPassConfig<int>(SG_PG_UPPER_BOUND);
     currentFuncPtr->paramConfigs_.sgPgLowerBound = currentScope->GetPassConfig<int>(SG_PG_LOWER_BOUND);
     currentFuncPtr->paramConfigs_.sgParallelNum = currentScope->GetPassConfig<int>(SG_PARALLEL_NUM);
+    currentFuncPtr->paramConfigs_.sgPartitionAlgorithm =
+        currentScope->GetPassConfig<std::string>(SG_PARTITION_ALGORITHM);
     currentFuncPtr->paramConfigs_.sgMgCopyInUpperBound = currentScope->GetPassConfig<int>(MG_COPYIN_UPPER_BOUND);
     currentFuncPtr->paramConfigs_.machineConfig_ = currentScope->GetRuntimeConfig<uint8_t>(DEVICE_SCHED_MODE);
     currentFuncPtr->paramConfigs_.cubeL1ReuseSetting =
@@ -187,6 +188,18 @@ void SetParamConfig(Function* currentFuncPtr)
         currentScope->GetPassConfig<std::map<int64_t, int64_t>>(CUBE_NBUFFER_SETTING);
     currentFuncPtr->paramConfigs_.vecNBufferSetting =
         currentScope->GetPassConfig<std::map<int64_t, int64_t>>(VEC_NBUFFER_SETTING);
+    if (currentScope->HasConfig("pass.cube_l1_reuse_setting_by_label")) {
+        currentFuncPtr->paramConfigs_.cubeL1ReuseSettingByLabel =
+            currentScope->GetPassConfig<std::map<std::string, int64_t>>("cube_l1_reuse_setting_by_label");
+    }
+    if (currentScope->HasConfig("pass.cube_nbuffer_setting_by_label")) {
+        currentFuncPtr->paramConfigs_.cubeNBufferSettingByLabel =
+            currentScope->GetPassConfig<std::map<std::string, int64_t>>("cube_nbuffer_setting_by_label");
+    }
+    if (currentScope->HasConfig("pass.vec_nbuffer_setting_by_label")) {
+        currentFuncPtr->paramConfigs_.vecNBufferSettingByLabel =
+            currentScope->GetPassConfig<std::map<std::string, int64_t>>("vec_nbuffer_setting_by_label");
+    }
     currentFuncPtr->paramConfigs_.mgVecParallelLb = currentScope->GetPassConfig<int>(MG_VEC_PARALLEL_LB);
     currentFuncPtr->paramConfigs_.pgSkipPartition = currentScope->GetPassConfig<bool>(PG_SKIP_PARTITION);
     currentFuncPtr->paramConfigs_.copyOutResolveCoalescing =

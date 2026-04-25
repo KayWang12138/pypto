@@ -18,15 +18,6 @@
                     "minimum": 0,
                     "maximum": 2147483647
                 },
-                "pg_upper_bound": {
-                    "type": "integer",
-                    "label": {
-                        "zh": "合图参数，用于配置子图大小上界。当子图大小达到上界不允许与其他子图合并。",
-                        "en": "Graph merging parameter, used to configure the upper bound of subgraph size. When the subgraph size reaches the upper bound, merging with other subgraphs is not allowed."
-                    },
-                    "minimum": 0,
-                    "maximum": 2147483647
-                },
                 "pg_lower_bound": {
                     "type": "integer",
                     "label": {
@@ -35,6 +26,38 @@
                     },
                     "minimum": 0,
                     "maximum": 2147483647
+                },
+                "pg_partition_algorithm": {
+                    "type": "string",
+                    "enum": ["Iso", "OspSarkar", "OspBsp"],
+                    "default" : "Iso",
+                    "label": {
+                        "zh": "",
+                        "en": "Graph merging parameter, used to configure the partitioning algorithm."
+                    },
+                    "options": [
+                        {
+                            "value": "Iso",
+                            "label": {
+                                "zh": "基于同构检测融合瓦片内核",
+                                "en": "Fuses tile kernels based on isomorphism detection."
+                            }
+                        },
+                        {
+                            "value": "OspSarkar",
+                            "label": {
+                                "zh": "基于关键路径缩减的瓦片内核融合。",
+                                "en": "Fuses tile kernels based on critical path reduction."
+                            }
+                        },
+                        {
+                            "value": "OspBsp",
+                            "label": {
+                                "zh": "基于 BSP 模型融合瓦片内核，用于并行计算和同构检测。",
+                                "en": "Fuses tile kernels based on the BSP model for parallel computation and isomorphism detection."
+                            }
+                        }
+                    ]
                 },
                 "cube_l1_reuse_setting": {
                     "type": "object",
@@ -82,6 +105,30 @@
                     "value_minimum": 0,
                     "value_maximum": 2147483647
                 },
+                "cube_l1_reuse_setting_by_label": {
+                    "type": "object",
+                    "typeHints": "stringmap",
+                    "label": {
+                        "zh": "合图参数，按语义标签配置L1数据复用子图的合并数量。",
+                        "en": "Graph merging parameter, used to configure the merging count of L1 data reuse subgraphs by semantic label."
+                    }
+                },
+                "cube_nbuffer_setting_by_label": {
+                    "type": "object",
+                    "typeHints": "stringmap",
+                    "label": {
+                        "zh": "合图参数，按语义标签配置相同结构AIC子图的合并数量。",
+                        "en": "Graph merging parameter, used to configure the merging count of AIC subgraphs with identical structures by semantic label."
+                    }
+                },
+                "vec_nbuffer_setting_by_label": {
+                    "type": "object",
+                    "typeHints": "stringmap",
+                    "label": {
+                        "zh": "合图参数，按语义标签配置相同结构AIV子图的合并数量。",
+                        "en": "Graph merging parameter, used to configure the merging count of AIV subgraphs with identical structures by semantic label."
+                    }
+                },
                 "mg_vec_parallel_lb": {
                     "type": "integer",
                     "label": {
@@ -108,13 +155,14 @@
                     "maximum": 1000000
                 },
                 "sg_set_scope": {
-                    "type": "integer",
+                    "type": "array",
+                    "items": {
+                        "type": "integer"
+                    },
                     "label": {
                         "zh": "手动控制合图参数。将operation赋予特定的scopeId，若相邻的operation具有相同的非-1的scopeId，则会被强制合并在一个子图之中，并且这个子图不会与其他子图合并。",
                         "en": "Parameter for manual control of graph merging. Assign a specific scopeId to an operation; if adjacent operations have the same non-1 scopeId, they will be forcibly merged into one subgraph, and this subgraph will not be merged with any other subgraphs."
-                    },
-                    "minimum": -1,
-                    "maximum": 2147483647
+                    }
                 }
             }
         },
@@ -173,15 +221,7 @@
                     "minimum": 1,
                     "maximum": 1024
                 },
-                "stitch_cfgcache_size": {
-                    "type": "integer",
-                    "label": {
-                        "zh": "指定生成controlflow缓存的大小",
-                        "en": "Specify the size of the generated controlflow cache"
-                    },
-                    "minimum": 0,
-                    "maximum": 100000000
-                },
+
                 "run_mode": {
                     "type": "integer",
                     "label": {
@@ -241,6 +281,16 @@
                         "zh": "标记在Host端准备好的Tensor名称列表",
                         "en": "Specify the list of Tensor names that are ready on Host"
                     }
+                },
+                "device_sched_parallelism": {
+                    "type": "integer",
+                    "label": {
+                        "zh": "当 pypto.loop 设置了可并行标记(parallel=True)时,此配置项用于指定 pypto.loop 调度执行时的并行度",
+                        "en": "When a pypto.loop is marked as parallelizable (parallel=True), this configuration item is used to set the degree of parallelism when the pypto.loop is scheduled and executed"
+                    },
+                    "default": 1,
+                    "minimum": 1,
+                    "maximum": 8
                 }
             }
         },
@@ -317,7 +367,7 @@
                 "soc_version": {
                     "type": "string",
                     "label": {
-                        "zh": "用于指定芯片版本，编译和推理",
+                        "zh": "用于指定芯片版本，用于编译和推理",
                         "en": "Used to specify specific soc_version for kernel compile and runtime"
                     }
                 }
@@ -747,6 +797,13 @@
                             "label": {
                                 "zh": "（不建议使用，后续收编）动态Shape场景下，用户若能确认运行时所有切分数据均能对齐到Tile块大小，即不包含非对齐的尾块，则可启用该选项，提示PTO框架尝试优化",
                                 "en": "(Deprecated)In Dynamic Shape scenarios, if the user can confirm that all data at runtime can be aligned to the tiled block size, this option can be enabled to prompt the PTO framework to attempt optimization"
+                            }
+                        },
+                        "soc_version": {
+                            "type": "string",
+                            "label": {
+                                "zh": "用于指定芯片版本，用于编译和推理",
+                                "en": "Used to specify specific soc_version for kernel compile and runtime"
                             }
                         },
                         "fixed_output_path": {
