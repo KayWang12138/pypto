@@ -317,9 +317,11 @@ def rope_3d(x: pypto.Tensor, cos: pypto.Tensor, sin: pypto.Tensor, configs: Inde
 
 
 @pypto.frontend.jit(
-    pass_options={"cube_l1_reuse_setting": {1: 4}, },
+    pass_options={"cube_l1_reuse_setting": {11: 4}},
     runtime_options={"stitch_function_max_num": 128,
-                    "device_sched_mode": 1}
+                    "device_sched_mode": 1},
+    debug_options={"runtime_debug_mode": 0},
+    host_options={"compile_monitor_enable": False}
 )
 def lightning_indexer_prolog_quant(
     x_in: pypto.Tensor([pypto.DYNAMIC, pypto.STATIC], pypto.DT_BF16),

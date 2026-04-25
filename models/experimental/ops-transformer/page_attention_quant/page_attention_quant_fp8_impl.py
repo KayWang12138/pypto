@@ -152,9 +152,9 @@ def symmetric_quantization_per_token_fp8_e4m3(input_tensor) -> Tuple:
     # 当子图大小达到上界不允许与其他子图合并
     pass_options={
         # Q常驻，0代表第一组mmad，4代表4次matmul合并
-        "cube_l1_reuse_setting": {0: 4},
-        "vec_nbuffer_setting": {-1: 4},
-        "cube_nbuffer_setting": {-1: 4}
+        "cube_l1_reuse_setting": {0: 4, 9: 4, 18: 4, 27: 4, 36: 4},
+        "cube_nbuffer_setting": {-1: 4},
+        "vec_nbuffer_setting": {-1: 4}
     },
     verify_options={
         "enable_pass_verify": False,
