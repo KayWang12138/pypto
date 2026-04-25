@@ -39,7 +39,7 @@
 #include <dlfcn.h>
 #include "tilefwk/pypto_fwk_log.h"
 #include "tilefwk/error_code.h"
-
+#include "mix_info.h"
 using namespace npu::tile_fwk::dynamic;
 namespace npu::tile_fwk {
 
@@ -709,6 +709,18 @@ static void FillL2PrefetchInfo(std::shared_ptr<DyndevFunctionAttribute> attr)
     return;
 }
 
+static void FindLiteNPUKernel(const std::map<uint64_t, Function*>& leafDict, std::string& kernelPath)
+{
+    for (auto& [hash, leaf] : leafDict) {
+        (void)hash;
+        auto leafAttr = leaf->GetLeafFuncAttribute();
+        if (leafAttr && !leafAttr->binPath.empty()) {
+            kernelPath = leafAttr->binPath;
+            return;
+        }
+    }
+}
+
 static void SetDyndevProgBinary(Function* function)
 {
     if (function == nullptr || function->GetDyndevAttribute() == nullptr) {
@@ -859,7 +871,7 @@ static bool IsNeedDumpAicpuKernel(const std::string& inputFile)
         // force dump, default is true
         return true;
     }
-    // not force dump
+    // not force dumprootTileDict
     if (npu::tile_fwk::FileExist(inputFile)) {
         return false;
     }
@@ -926,7 +938,10 @@ static void CompileDyndevFunction(Function* function, FunctionCache& cache, [[ma
     ASSERT(
         HostBackEndErr::RUN_PASS_FAILED,
         (PassManager::Instance().RunPass(Program::GetInstance(), *function, "ExecuteGraph") == SUCCESS));
-
+    if (Platform::Instance().GetSoc().GetNPUArch() == NPUArch::DAV_3510 &&
+        config::GetDebugOption<int64_t>(CFG_RUNTIME_DBEUG_MODE) == CFG_DEBUG_ALL) {
+        mix_info::DumpMixInfo(function);
+    }
     std::shared_ptr<DyndevFunctionAttribute> attr = function->GetDyndevAttribute();
     ASSERT(DevCommonErr::PARAM_CHECK_FAILED, attr != nullptr) << "DyndevFunctionAttribute is nullptr\n";
     Linker linker(attr->symbolTable, attr->funcGroup, attr->exprTableDictGroup);
@@ -1060,15 +1075,20 @@ static void CompileDyndevFunction(Function* function, FunctionCache& cache, [[ma
 
     std::string kernelPath;
 #ifdef BUILD_WITH_CANN
-    bool enableCompile = config::GetRuntimeOption<int64_t>(CFG_RUN_MODE) == CFG_RUN_MODE_NPU ||
-                         ((config::GetSimConfig(KEY_ACCURACY_LEVEL, 2) == 2) &&
-                          config::GetRuntimeOption<int64_t>(CFG_RUN_MODE) == CFG_RUN_MODE_SIM);
-    if (enableCompile && config::GetHostOption<int64_t>(COMPILE_STAGE) != CS_CODEGEN_INSTRUCTION) {
-        int ret = CompileAICoreKernel(
-            leafDict, encodeDevAscendFunctionParam, ccePath, function->GetFunctionHash().Data(), kernelPath);
-        if (ret != 0) {
-            MACHINE_LOGE(HostBackEndErr::COMPILE_AICORE_FAILED, "Compile dynamic aicore.o failed.");
-            return;
+    bool enableCompile = (config::GetRuntimeOption<int64_t>(CFG_RUN_MODE) == CFG_RUN_MODE_NPU ||
+        ((config::GetSimConfig(KEY_ACCURACY_LEVEL, 2) == 2) &&
+        config::GetRuntimeOption<int64_t>(CFG_RUN_MODE) == CFG_RUN_MODE_SIM)) &&
+        config::GetHostOption<int64_t>(COMPILE_STAGE) != CS_CODEGEN_INSTRUCTION;
+    if (enableCompile) {
+        if (IsLiteNPU(Platform::Instance().GetSoc().GetNPUArch())) {
+            FindLiteNPUKernel(leafDict, kernelPath);
+        } else {
+            int ret = CompileAICoreKernel(
+                leafDict, encodeDevAscendFunctionParam, ccePath, function->GetFunctionHash().Data(), kernelPath);
+            if (ret != 0) {
+                MACHINE_LOGE(HostBackEndErr::COMPILE_AICORE_FAILED, "Compile dynamic aicore.o failed.");
+                return;
+            }
         }
     }
 #endif
@@ -1113,8 +1133,7 @@ static void CompileDyndevFunction(Function* function, FunctionCache& cache, [[ma
         }
     }
 
-    // save dev prog binary
-    SetDyndevProgBinary(function);
+    return SetDyndevProgBinary(function);
 }
 
 MachineTask* GenCode(MachineTask* task, FunctionCache& cache)
