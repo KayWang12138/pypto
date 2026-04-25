@@ -351,7 +351,7 @@ private:
     bool FindDataDep(DataDepInfo& depInfo, std::vector<IndexOp>& syncedOpLog, int i);
     bool FindMaxOverlap(DataDepInfo& depInfo, int& maxOverlapDepIdx);
     bool GenSyncOp(PipeCoreRealEx set, PipeCoreRealEx wait, int eventId, bool isSet, Operation& op);
-    Status GetEventId(const PipePairEx& pp, size_t setIdx, size_t waitIdx, int& eventId);
+    Status GetEventId(const PipePairEx& pp, int& eventId);
     bool HasFreeEventId(const PipePairEx& pp);
     bool BufOverlap(const TileRange& range1, int magic1, const TileRange& range2, int magic2) const;
     bool CheckWawDependency(const Operation& opSet, const Operation& opWait, size_t k, size_t idx);

@@ -803,7 +803,7 @@ Status PipeSync::InjectSetFlag(Function& function, size_t idx, std::vector<Index
         PipeCoreRealEx waitPipeRealEx(waitPipe.pipeStart, waitPipe.core, waitPipe.aivCore);
         PipeCoreRealEx currPipeRealEx(currPipe.pipeEnd, currPipe.core, currPipe.aivCore);
         int eventId{0};
-        if (GetEventId({currPipeRealEx, waitPipeRealEx}, idx, ele, eventId) != SUCCESS) {
+        if (GetEventId({currPipeRealEx, waitPipeRealEx}, eventId) != SUCCESS) {
             APASS_LOG_ERROR_F(Elements::Operation, "InjectSetFlag failed at function GetEventId.");
             return FAILED;
         }
@@ -1471,7 +1471,7 @@ bool PipeSync::GenSyncOp(PipeCoreRealEx set, PipeCoreRealEx wait, int eventId, b
     return true;
 }
 
-Status PipeSync::GetEventId(const PipePairEx& pp, size_t setIdx, size_t waitIdx, int& eventId)
+Status PipeSync::GetEventId(const PipePairEx& pp, int& eventId)
 {
     if (pp.first.pipe == pp.second.pipe && pp.first.core == pp.second.core) {
         // Pipe Barrier
