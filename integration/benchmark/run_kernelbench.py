@@ -147,6 +147,35 @@ def discover_cases(level_dir: Path, requested: Optional[List[str]] = None,
 # 单 case 流水线
 # ────────────────────────────────────────────────────────────
 
+def _write_case_phase(
+    case_report_dir: Path,
+    *,
+    op_name: str,
+    case_id: str,
+    phase: str,
+    status: str,
+    message: str = "",
+    pypto_status: str = "",
+    verifier_status: str = "",
+) -> None:
+    """Write a tiny per-case phase marker for the live monitor."""
+    payload = {
+        "op_name": op_name,
+        "case_id": case_id,
+        "phase": phase,
+        "status": status,
+        "message": message,
+        "pypto_status": pypto_status,
+        "verifier_status": verifier_status,
+        "updated_at": dt.datetime.now().isoformat(timespec="seconds"),
+    }
+    case_report_dir.mkdir(parents=True, exist_ok=True)
+    out = case_report_dir / "phase_state.json"
+    tmp = out.with_suffix(".tmp")
+    tmp.write_text(json.dumps(payload, indent=2, ensure_ascii=False), encoding="utf-8")
+    tmp.replace(out)
+
+
 @dataclass
 class _RunCfg:
     pypto_repo_root: Path
@@ -184,6 +213,14 @@ async def run_one_case(case_path: Path, device_id: int, cfg: _RunCfg,
     op_dir = op_workdir / op_name
     case_report_dir = cfg.report_dir / op_name
     case_report_dir.mkdir(parents=True, exist_ok=True)
+    _write_case_phase(
+        case_report_dir,
+        op_name=op_name,
+        case_id=case.case_id,
+        phase="prepare",
+        status="running",
+        message="case loaded; writing SPEC/task_desc",
+    )
     logger.info("[%s] case loaded: op=%s report_dir=%s", case.case_id, op_name, case_report_dir)
 
     # 1) 写 SPEC + task_desc
@@ -204,6 +241,14 @@ async def run_one_case(case_path: Path, device_id: int, cfg: _RunCfg,
         logger.info("[%s] acquired execution slot", case.case_id)
         if cfg.skip_pypto_gen:
             logger.info("[%s] skip pypto generation (--skip-pypto-gen)", case.case_id)
+            _write_case_phase(
+                case_report_dir,
+                op_name=op_name,
+                case_id=case.case_id,
+                phase="pypto",
+                status="skipped",
+                message="--skip-pypto-gen",
+            )
             pypto_result = PyptoRunResult(
                 op_name=op_name,
                 status=PyptoRunStatus.SKIPPED,
@@ -213,6 +258,14 @@ async def run_one_case(case_path: Path, device_id: int, cfg: _RunCfg,
         else:
             pypto_log = case_report_dir / "pypto_run.log"
             logger.info("[%s] launching pypto workflow; log=%s", case.case_id, pypto_log)
+            _write_case_phase(
+                case_report_dir,
+                op_name=op_name,
+                case_id=case.case_id,
+                phase="pypto",
+                status="running",
+                message=f"log={pypto_log}",
+            )
             pypto_result = await asyncio.to_thread(
                 run_pypto_workflow,
                 op_name=op_name,
@@ -251,6 +304,15 @@ async def run_one_case(case_path: Path, device_id: int, cfg: _RunCfg,
         if not pypto_result.ok:
             record.overall_status = "pypto_failed"
             record.finished_at = dt.datetime.now().isoformat(timespec="seconds")
+            _write_case_phase(
+                case_report_dir,
+                op_name=op_name,
+                case_id=case.case_id,
+                phase="done",
+                status="pypto_failed",
+                message=pypto_result.message,
+                pypto_status=pypto_result.status.value,
+            )
             write_case_result(record, cfg.report_dir)
             logger.warning("[%s] case stop after pypto failure: status=%s",
                            case.case_id, record.pypto_status)
@@ -261,6 +323,15 @@ async def run_one_case(case_path: Path, device_id: int, cfg: _RunCfg,
         try:
             logger.info("[%s] launching verifier; mode=%s log=%s",
                         case.case_id, cfg.verifier_mode, verifier_log)
+            _write_case_phase(
+                case_report_dir,
+                op_name=op_name,
+                case_id=case.case_id,
+                phase="verifier",
+                status="running",
+                message=f"mode={cfg.verifier_mode}; log={verifier_log}",
+                pypto_status=pypto_result.status.value,
+            )
             verifier_result = await run_verifier(
                 op_name=op_name,
                 op_dir=op_dir,
@@ -315,6 +386,16 @@ async def run_one_case(case_path: Path, device_id: int, cfg: _RunCfg,
         correctness=verifier_result.correctness,
     )
     record.finished_at = dt.datetime.now().isoformat(timespec="seconds")
+    _write_case_phase(
+        case_report_dir,
+        op_name=op_name,
+        case_id=case.case_id,
+        phase="done",
+        status=record.overall_status,
+        message=verifier_result.message,
+        pypto_status=pypto_result.status.value,
+        verifier_status=verifier_result.status.value,
+    )
     write_case_result(record, cfg.report_dir)
     logger.info("[%s] case finished: overall=%s pypto=%s verifier=%s",
                 case.case_id, record.overall_status,

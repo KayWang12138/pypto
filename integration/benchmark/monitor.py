@@ -47,6 +47,7 @@ _DEFAULT_TIMEOUT = 5400
 _OVER_THRESHOLD = 5400
 logger = logging.getLogger("benchmark.monitor")
 
+_OP_RE_TITLE = re.compile(r"pypto-bench:(pypto|verifier):([A-Za-z0-9_.:-]+):")
 _OP_RE_WORKFLOW = re.compile(r"算子 `(\w+)`")
 _OP_RE_VERIFIER = re.compile(r"op_name\s*=\s*(\w+)")
 
@@ -130,16 +131,31 @@ def _descendants(root: int) -> List[int]:
     return result
 
 
-def _find_opencode_procs(root_pid: int) -> Dict[str, int]:
-    """扫描 root_pid 的后代, 返回 {op_name: pid} (opencode 进程)."""
-    out: Dict[str, int] = {}
+def _detect_opencode_phase(cmd: str) -> str:
+    if "pypto-bench:verifier:" in cmd or "pypto-kernel-validator" in cmd:
+        return "verifier"
+    if "pypto-bench:pypto:" in cmd or "pypto-op-orchestrator" in cmd:
+        return "pypto"
+    return "unknown"
+
+
+def _find_opencode_procs(root_pid: int) -> Dict[Tuple[str, str], int]:
+    """扫描 root_pid 的后代, 返回 {(op_name, phase): pid}."""
+    out: Dict[Tuple[str, str], int] = {}
     for pid in _descendants(root_pid):
         cmd = _read_cmdline(pid)
         if "opencode" not in cmd:
             continue
+        title_match = _OP_RE_TITLE.search(cmd)
+        if title_match:
+            phase, op_name = title_match.groups()
+            out[(op_name, phase)] = pid
+            continue
+
+        phase = _detect_opencode_phase(cmd)
         m = _OP_RE_WORKFLOW.search(cmd) or _OP_RE_VERIFIER.search(cmd)
-        if m:
-            out[m.group(1)] = pid
+        if m and phase != "unknown":
+            out[(m.group(1), phase)] = pid
     return out
 
 
@@ -197,10 +213,15 @@ def _kill_opencode_groups_from_state(state: Dict[str, Any]) -> None:
     """优先按进程组清理 state 中已记录的 opencode 进程, 避免 node 子进程残留."""
     seen: set[int] = set()
     for op in state.get("operators", []):
-        pid = op.get("opencode_pid")
-        if isinstance(pid, int) and pid > 0 and pid not in seen:
-            seen.add(pid)
-            _kill_process_group_by_pid(pid)
+        pids: List[Any] = [op.get("opencode_pid")]
+        phases = op.get("phases") or {}
+        for phase in ("pypto", "verifier"):
+            if isinstance(phases.get(phase), dict):
+                pids.append(phases[phase].get("pid"))
+        for pid in pids:
+            if isinstance(pid, int) and pid > 0 and pid not in seen:
+                seen.add(pid)
+                _kill_process_group_by_pid(pid)
 
 
 # ────────────────────────────────────────────────────────────
@@ -254,7 +275,10 @@ def _elapsed_since(ts: str) -> float:
     try:
         return (dt.datetime.now() - dt.datetime.strptime(ts, "%Y-%m-%d %H:%M:%S")).total_seconds()
     except ValueError:
-        return 0.0
+        try:
+            return (dt.datetime.now() - dt.datetime.fromisoformat(ts)).total_seconds()
+        except ValueError:
+            return 0.0
 
 
 def _compute_dev_status(op: Dict[str, Any], timeout_sec: int) -> str:
@@ -262,13 +286,44 @@ def _compute_dev_status(op: Dict[str, Any], timeout_sec: int) -> str:
     rs = op.get("result_status")
     if rs == "success":
         return "已完成"
-    if rs in ("pypto_failed", "verify_failed", "verify_error"):
+    if rs == "pypto_failed":
         if op.get("pypto_status") == "timeout":
-            return "超时"
-        return "失败"
+            return "PyPTO超时"
+        return "PyPTO失败"
+    if rs == "verify_failed":
+        return "Verifier失败"
+    if rs == "verify_error":
+        return "Verifier异常"
+
+    phases = op.get("phases") or {}
+    for phase, label in (("verifier", "Verifier验证中"), ("pypto", "PyPTO生成中")):
+        info = phases.get(phase) if isinstance(phases, dict) else None
+        if not isinstance(info, dict):
+            continue
+        pid = info.get("pid")
+        started = info.get("started_at")
+        elapsed = _elapsed_since(started) if started else 0.0
+        if pid and _pid_alive(pid):
+            if phase == "pypto" and elapsed >= timeout_sec:
+                return "PyPTO超时"
+            if phase == "pypto" and elapsed >= _OVER_THRESHOLD:
+                return "PyPTO超过5400s"
+            return label
 
     pid = op.get("opencode_pid")
     started = op.get("started_at")
+    phase = op.get("phase")
+    phase_status = op.get("phase_status")
+    if phase == "prepare" and phase_status == "running":
+        return "准备中"
+    if phase == "pypto":
+        if phase_status == "skipped":
+            return "PyPTO跳过"
+        if phase_status == "running":
+            return "PyPTO生成中"
+    if phase == "verifier" and phase_status == "running":
+        return "Verifier验证中"
+
     if not pid and not started:
         return "未开始"
 
@@ -391,6 +446,53 @@ def _scan_reports(report_dir: str, op_names: List[str]) -> Dict[str, Dict[str, A
     return out
 
 
+def _scan_phase_states(report_dir: str, op_names: List[str]) -> Dict[str, Dict[str, Any]]:
+    """扫描 report_dir 下各算子的 phase_state.json."""
+    out: Dict[str, Dict[str, Any]] = {}
+    rd = Path(report_dir)
+    if not rd.exists():
+        return out
+    for op in op_names:
+        pf = rd / op / "phase_state.json"
+        if pf.exists():
+            try:
+                out[op] = json.loads(pf.read_text("utf-8"))
+            except (json.JSONDecodeError, OSError):
+                pass
+    return out
+
+
+def _empty_phase() -> Dict[str, Any]:
+    return {
+        "pid": None,
+        "started_at": None,
+        "ended_at": None,
+        "duration_sec": 0.0,
+        "status": None,
+    }
+
+
+def _ensure_phase(op: Dict[str, Any], phase: str) -> Dict[str, Any]:
+    phases = op.setdefault("phases", {})
+    if phase not in phases or not isinstance(phases.get(phase), dict):
+        phases[phase] = _empty_phase()
+    return phases[phase]
+
+
+def _update_phase_pid(op: Dict[str, Any], phase: str, pid: int, first_seen: str) -> None:
+    info = _ensure_phase(op, phase)
+    if info.get("pid") != pid:
+        info["pid"] = pid
+        info["started_at"] = first_seen
+        info["ended_at"] = None
+        info["duration_sec"] = 0.0
+    if _pid_alive(pid):
+        info["duration_sec"] = round(_elapsed_since(info.get("started_at") or first_seen), 1)
+        info["status"] = "running"
+    elif not info.get("ended_at"):
+        info["ended_at"] = _now()
+
+
 # ────────────────────────────────────────────────────────────
 # 守护进程
 # ────────────────────────────────────────────────────────────
@@ -437,7 +539,14 @@ def _run_monitor_session(cases: str, skip_gen: bool, timeout_sec: int, *, tee_st
         operators.append({
             "case_id": item["case_id"],
             "op_name": item["op_name"],
+            "phase": "pending",
+            "phase_status": "pending",
+            "phase_message": "",
             "opencode_pid": None,
+            "phases": {
+                "pypto": _empty_phase(),
+                "verifier": _empty_phase(),
+            },
             "started_at": None,
             "ended_at": None,
             "duration_sec": 0.0,
@@ -486,7 +595,7 @@ def _run_monitor_session(cases: str, skip_gen: bool, timeout_sec: int, *, tee_st
     )
     reader.start()
 
-    seen_pids: Dict[str, Tuple[int, str]] = {}
+    seen_pids: Dict[Tuple[str, str], Tuple[int, str]] = {}
 
     try:
         while True:
@@ -494,28 +603,44 @@ def _run_monitor_session(cases: str, skip_gen: bool, timeout_sec: int, *, tee_st
 
             if rc is None:
                 oc = _find_opencode_procs(_bench_proc.pid)
-                for op_name, pid in oc.items():
-                    if op_name not in seen_pids or seen_pids[op_name][0] != pid:
-                        seen_pids[op_name] = (pid, _now())
+                for key, pid in oc.items():
+                    if key not in seen_pids or seen_pids[key][0] != pid:
+                        seen_pids[key] = (pid, _now())
 
             reports = _scan_reports(str(report_dir), op_names)
+            phase_states = _scan_phase_states(str(report_dir), op_names)
 
             for op in _daemon_state["operators"]:
                 name = op["op_name"]
-                if name in seen_pids:
-                    pid, first = seen_pids[name]
-                    op["opencode_pid"] = pid
-                    if not op["started_at"]:
-                        op["started_at"] = first
-                    if _pid_alive(pid):
-                        op["duration_sec"] = round(_elapsed_since(first), 1)
-                    elif not op["ended_at"]:
-                        op["ended_at"] = _now()
+                if name in phase_states:
+                    ps = phase_states[name]
+                    op["phase"] = ps.get("phase", op.get("phase", "pending"))
+                    op["phase_status"] = ps.get("status", op.get("phase_status", ""))
+                    op["phase_message"] = ps.get("message", "")
+                    if ps.get("updated_at") and not op["started_at"]:
+                        op["started_at"] = ps["updated_at"]
+                    if ps.get("pypto_status"):
+                        op["pypto_status"] = ps["pypto_status"]
+                    if ps.get("verifier_status"):
+                        op["verifier_status"] = ps["verifier_status"]
+
+                active_pid: Optional[int] = None
+                for phase in ("pypto", "verifier"):
+                    key = (name, phase)
+                    if key in seen_pids:
+                        pid, first = seen_pids[key]
+                        _update_phase_pid(op, phase, pid, first)
+                        if _pid_alive(pid):
+                            active_pid = pid
+                        if not op["started_at"]:
+                            op["started_at"] = first
+                op["opencode_pid"] = active_pid
 
                 if name in reports:
                     r = reports[name]
                     op["result_status"] = r.get("overall_status", "")
                     op["pypto_status"] = r.get("pypto_status", "")
+                    op["verifier_status"] = r.get("verifier_status", "")
                     if r.get("finished_at") and not op["ended_at"]:
                         op["ended_at"] = r["finished_at"]
                     if r.get("started_at") and not op["started_at"]:
@@ -523,6 +648,26 @@ def _run_monitor_session(cases: str, skip_gen: bool, timeout_sec: int, *, tee_st
                     dur = (r.get("pypto_duration_sec") or 0) + (r.get("verifier_duration_sec") or 0)
                     if dur > op["duration_sec"]:
                         op["duration_sec"] = round(dur, 1)
+                    pypto_phase = _ensure_phase(op, "pypto")
+                    verify_phase = _ensure_phase(op, "verifier")
+                    if r.get("pypto_duration_sec") is not None:
+                        pypto_phase["duration_sec"] = round(r.get("pypto_duration_sec") or 0, 1)
+                    if r.get("verifier_duration_sec") is not None:
+                        verify_phase["duration_sec"] = round(r.get("verifier_duration_sec") or 0, 1)
+                    if r.get("pypto_status"):
+                        pypto_phase["status"] = r["pypto_status"]
+                    if r.get("verifier_status"):
+                        verify_phase["status"] = r["verifier_status"]
+                    if r.get("finished_at") and r.get("overall_status"):
+                        op["phase"] = "done"
+                        op["phase_status"] = r["overall_status"]
+
+                phase_total = 0.0
+                for phase in ("pypto", "verifier"):
+                    info = _ensure_phase(op, phase)
+                    phase_total += float(info.get("duration_sec") or 0.0)
+                if phase_total > op["duration_sec"]:
+                    op["duration_sec"] = round(phase_total, 1)
 
                 op["dev_status"] = _compute_dev_status(op, timeout_sec)
 
@@ -560,14 +705,22 @@ _MAIN_STATUS_LABEL = {
     "未完成": "未完成",
 }
 
+_PHASE_LABEL = {
+    "pending": "未开始",
+    "prepare": "准备",
+    "pypto": "PyPTO",
+    "verifier": "Verifier",
+    "done": "完成",
+}
+
 _COL_W = {
-    "idx": 4, "op": 16, "pid": 13, "time": 20, "dur": 9, "status": 20,
+    "idx": 4, "op": 16, "phase": 10, "pid": 11, "time": 20, "dur": 9, "status": 20,
 }
 
 
 def _render_dashboard(state: Dict[str, Any]) -> str:
     lines: List[str] = []
-    width = 106
+    width = 132
     lines.append("")
     lines.append("=" * width)
     lines.append("  算子运行监控看板")
@@ -592,7 +745,9 @@ def _render_dashboard(state: Dict[str, Any]) -> str:
         hdr = (
             f"  {'#':>{w['idx']}}"
             f"  {'Operator':<{w['op']}}"
-            f"  {'opencode PID':>{w['pid']}}"
+            f"  {'Phase':<{w['phase']}}"
+            f"  {'PyPTO PID':>{w['pid']}}"
+            f"  {'Verify PID':>{w['pid']}}"
             f"  {'Started':<{w['time']}}"
             f"  {'Ended':<{w['time']}}"
             f"  {'Sec':>{w['dur']}}"
@@ -602,7 +757,14 @@ def _render_dashboard(state: Dict[str, Any]) -> str:
         lines.append("  " + "-" * (width - 2))
 
         for i, op in enumerate(ops, 1):
-            pid_s = str(op.get("opencode_pid") or "—")
+            phases = op.get("phases") or {}
+            pypto_pid = "—"
+            verifier_pid = "—"
+            if isinstance(phases.get("pypto"), dict):
+                pypto_pid = str(phases["pypto"].get("pid") or "—")
+            if isinstance(phases.get("verifier"), dict):
+                verifier_pid = str(phases["verifier"].get("pid") or "—")
+            phase_s = _PHASE_LABEL.get(op.get("phase", ""), op.get("phase", "—"))
             st_s = op.get("started_at") or "—"
             et_s = op.get("ended_at") or "—"
             dur_s = f"{op.get('duration_sec', 0):.1f}"
@@ -611,7 +773,9 @@ def _render_dashboard(state: Dict[str, Any]) -> str:
             lines.append(
                 f"  {i:>{w['idx']}}"
                 f"  {nm:<{w['op']}}"
-                f"  {pid_s:>{w['pid']}}"
+                f"  {phase_s:<{w['phase']}}"
+                f"  {pypto_pid:>{w['pid']}}"
+                f"  {verifier_pid:>{w['pid']}}"
                 f"  {st_s:<{w['time']}}"
                 f"  {et_s:<{w['time']}}"
                 f"  {dur_s:>{w['dur']}}"
