@@ -46,15 +46,15 @@ TILEOP void TInsertL0CToUB(
 
 // Copy data from L0C to UB
 template <CopyOutMode mode, typename Coord, typename DstTileData, typename SrcTileData>
-INLINE void TExtractL0C2UBImpl(DstTileData &dst, SrcTileData &src, const Coord &dstCoord, const Coord &srcCoord,
-    int16_t subblockId)
+INLINE void TExtractL0C2UBImpl(
+    DstTileData& dst, SrcTileData& src, const Coord& dstCoord, const Coord& srcCoord, int16_t subblockId)
 {
     constexpr uint64_t shapeSize = Std::tuple_size<typename DstTileData::Shape>::value;
     constexpr int64_t c0Size = BLOCK_ALIGN_BYTE / sizeof(typename SrcTileData::Type);
-    int64_t dstOffset0 = TileOp::GetTupleElement<Coord, 0, expect_size, 0>(dstCoord);
-    int64_t dstOffset1 = TileOp::GetTupleElement<Coord, 1, expect_size, 0>(dstCoord);
-    int64_t srcOffset0 = TileOp::GetTupleElement<Coord, 0, expect_size, 0>(srcCoord);
-    int64_t srcOffset1 = TileOp::GetTupleElement<Coord, 1, expect_size, 0>(srcCoord);
+    int64_t dstOffset0 = TileOp::GetTupleElement<Coord, 0, SHAPE_DIM2, 0>(dstCoord);
+    int64_t dstOffset1 = TileOp::GetTupleElement<Coord, 1, SHAPE_DIM2, 0>(dstCoord);
+    int64_t srcOffset0 = TileOp::GetTupleElement<Coord, 0, SHAPE_DIM2, 0>(srcCoord);
+    int64_t srcOffset1 = TileOp::GetTupleElement<Coord, 1, SHAPE_DIM2, 0>(srcCoord);
     constexpr auto staticUBH = Std::tuple_element<shapeSize - SHAPE_DIM2, typename DstTileData::TileShape>::type::value;
     constexpr auto staticUBW = Std::tuple_element<shapeSize - 1, typename DstTileData::TileShape>::type::value;
     constexpr auto staticL0CH =
