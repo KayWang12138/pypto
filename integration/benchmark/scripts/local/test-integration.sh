@@ -55,6 +55,7 @@ fi
 REPORT_DIR="${BENCHMARK_LOG_DIR}/report"
 LOG_DIR="${BENCHMARK_LOG_DIR}/logs"
 mkdir -p "${REPORT_DIR}" "${LOG_DIR}"
+export BENCHMARK_LOG_DIR
 
 if [ "${FULL}" = "0" ]; then
   section "test-integration: ${CASES} concurrency=${CONCURRENCY} (cheap, --skip-pypto-gen, verifier=${VERIFIER_MODE})"

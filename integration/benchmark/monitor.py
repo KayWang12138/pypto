@@ -66,6 +66,9 @@ def _state_dir() -> Path:
 def _benchmark_log_root() -> Optional[Path]:
     root = os.environ.get("BENCHMARK_LOG_DIR", "").strip()
     if not root:
+        state_dir = _state_dir()
+        if state_dir.name == "monitor_state":
+            return state_dir.parent
         return None
     return Path(root).expanduser()
 

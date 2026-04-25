@@ -240,5 +240,34 @@ print(sqlite_result.to_dict())
 PY
 pass "opencode export stdout 非法 UTF-8 不再抛 UnicodeDecodeError"
 
+# ---------- 5. monitor report 路径保持兼容 ----------
+section "5. monitor report 路径保持兼容"
+
+python3 - <<PY || fail "monitor report 根目录推导失败"
+import os
+from pathlib import Path
+
+from integration.benchmark import monitor
+
+old_log = os.environ.pop("BENCHMARK_LOG_DIR", None)
+old_state = os.environ.get("BENCHMARK_MONITOR_DIR")
+try:
+    os.environ["BENCHMARK_MONITOR_DIR"] = "${BENCHMARK_LOG_DIR}/monitor_state"
+    assert monitor._benchmark_log_root() == Path("${BENCHMARK_LOG_DIR}")
+
+    os.environ["BENCHMARK_LOG_DIR"] = "${BENCHMARK_LOG_DIR}"
+    assert monitor._benchmark_log_root() == Path("${BENCHMARK_LOG_DIR}")
+finally:
+    if old_log is None:
+        os.environ.pop("BENCHMARK_LOG_DIR", None)
+    else:
+        os.environ["BENCHMARK_LOG_DIR"] = old_log
+    if old_state is None:
+        os.environ.pop("BENCHMARK_MONITOR_DIR", None)
+    else:
+        os.environ["BENCHMARK_MONITOR_DIR"] = old_state
+PY
+pass "monitor 使用 BENCHMARK_LOG_DIR/report, 不在 monitor_state 下另建 report"
+
 section "test-unit ALL PASSED"
 echo "  详细报告: ${BENCHMARK_LOG_DIR}"
