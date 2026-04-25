@@ -39,7 +39,7 @@
 #include <dlfcn.h>
 #include "tilefwk/pypto_fwk_log.h"
 #include "tilefwk/error_code.h"
-
+#include "mix_info.h"
 using namespace npu::tile_fwk::dynamic;
 namespace npu::tile_fwk {
 
@@ -433,8 +433,8 @@ void GetReadyOnHostTensorsSet(std::unordered_set<int>& readyOnHostTensorsSet)
                 break;
             }
         }
-        ASSERT(DevCommonErr::PARAM_CHECK_FAILED, i < inputSize) << "Tensor " << tensorStr
-            << " not found in input list, please check [ready_on_host_tensors] config.";
+        ASSERT(DevCommonErr::PARAM_CHECK_FAILED, i < inputSize)
+            << "Tensor " << tensorStr << " not found in input list, please check [ready_on_host_tensors] config.";
     }
 }
 static bool NeedCrossDie(Function* func, bool isLoop = false)
@@ -453,7 +453,8 @@ static void BuildControlFlow(
     std::ostringstream& expressionOss, std::ostringstream& exprHeaderOss, int indent, const std::string& expName,
     std::vector<std::string>& exprSrcFiles, ValDependTensorMeta& valDependTensorMeta)
 {
-    bool supportParallelLoop = (config::GetRuntimeOption<uint16_t>(DEVICE_SCHED_PARALLELISM) > 1); // enable by the parallism option
+    bool supportParallelLoop =
+        (config::GetRuntimeOption<uint16_t>(DEVICE_SCHED_PARALLELISM) > 1); // enable by the parallism option
     auto funcType = func->GetFunctionType();
     if (funcType == FunctionType::DYNAMIC) {
         controlFlowOss << "#define __TILE_FWK_AICPU__ 1\n"
@@ -708,6 +709,18 @@ static void FillL2PrefetchInfo(std::shared_ptr<DyndevFunctionAttribute> attr)
     return;
 }
 
+static void FindLiteNPUKernel(const std::map<uint64_t, Function*>& leafDict, std::string& kernelPath)
+{
+    for (auto& [hash, leaf] : leafDict) {
+        (void)hash;
+        auto leafAttr = leaf->GetLeafFuncAttribute();
+        if (leafAttr && !leafAttr->binPath.empty()) {
+            kernelPath = leafAttr->binPath;
+            return;
+        }
+    }
+}
+
 static void SetDyndevProgBinary(Function* function)
 {
     if (function == nullptr || function->GetDyndevAttribute() == nullptr) {
@@ -858,7 +871,7 @@ static bool IsNeedDumpAicpuKernel(const std::string& inputFile)
         // force dump, default is true
         return true;
     }
-    // not force dump
+    // not force dumprootTileDict
     if (npu::tile_fwk::FileExist(inputFile)) {
         return false;
     }
@@ -867,7 +880,7 @@ static bool IsNeedDumpAicpuKernel(const std::string& inputFile)
 static void OverCallOpMaxNum(Function* devRoot, DevAscendFunction* funcBin)
 {
     uint32_t CallOpSize = funcBin->GetOperationSize();
-    uint32_t CallOpmaxSize = config::GetRuntimeOption<uint32_t>(STITCH_FUNCTION_SIZE);
+    uint32_t CallOpmaxSize = MAX_STITCH_LEAFFUNC_NUM;
     auto funcMagicName = devRoot->GetRawName() + "_" + std::to_string(devRoot->GetFuncMagic());
     MACHINE_LOGE(
         DevCommonErr::PARAM_CHECK_FAILED,
@@ -902,18 +915,33 @@ static void CompileControlFlow(
         return;
     }
 #ifdef BUILD_WITH_CANN
-        if (std::getenv("ASCEND_HOME_PATH") != nullptr) {
-            ASSERT(HostBackEndErr::GEN_DYNAMIC_OP_FAILED, TileFwkAiCpuCompile(funcName, aicpuDirPath))
-                << ": PyPto Control Flow compile failed";
-        }
+    if (std::getenv("ASCEND_HOME_PATH") != nullptr) {
+        ASSERT(HostBackEndErr::GEN_DYNAMIC_OP_FAILED, TileFwkAiCpuCompile(funcName, aicpuDirPath))
+            << ": PyPto Control Flow compile failed";
+    }
 #endif
+}
+
+int GetRootFuncNum(std::shared_ptr<DyndevFunctionAttribute> attr)
+{
+    bool enableVF = Platform::Instance().GetSoc().GetNPUArch() == NPUArch::DAV_3510 &&
+                    config::GetPassGlobalConfig(KEY_ENABLE_VF, false);
+    int rootFuncNum = static_cast<int>(attr->funcGroup.devRootList.size());
+    if (enableVF) {
+        rootFuncNum *= 2; // codegen with main block and tail block
+    }
+    return rootFuncNum;
 }
 
 static void CompileDyndevFunction(Function* function, FunctionCache& cache, [[maybe_unused]] const std::string& ccePath)
 {
-    ASSERT(HostBackEndErr::RUN_PASS_FAILED,
+    ASSERT(
+        HostBackEndErr::RUN_PASS_FAILED,
         (PassManager::Instance().RunPass(Program::GetInstance(), *function, "ExecuteGraph") == SUCCESS));
-
+    if (Platform::Instance().GetSoc().GetNPUArch() == NPUArch::DAV_3510 &&
+        config::GetDebugOption<int64_t>(CFG_RUNTIME_DBEUG_MODE) == CFG_DEBUG_ALL) {
+        mix_info::DumpMixInfo(function);
+    }
     std::shared_ptr<DyndevFunctionAttribute> attr = function->GetDyndevAttribute();
     ASSERT(DevCommonErr::PARAM_CHECK_FAILED, attr != nullptr) << "DyndevFunctionAttribute is nullptr\n";
     Linker linker(attr->symbolTable, attr->funcGroup, attr->exprTableDictGroup);
@@ -1006,7 +1034,7 @@ static void CompileDyndevFunction(Function* function, FunctionCache& cache, [[ma
     std::map<uint64_t, Function*> leafDict;
     std::mutex leafDictMutex;
 
-    MonitorManager::Instance().SetRootFuncCount(static_cast<int>(attr->funcGroup.devRootList.size()));
+    MonitorManager::Instance().SetRootFuncCount(GetRootFuncNum(attr));
 
     std::deque<std::function<void(void)>> tasks;
     for (auto& devRoot : attr->funcGroup.devRootList) {
@@ -1047,15 +1075,20 @@ static void CompileDyndevFunction(Function* function, FunctionCache& cache, [[ma
 
     std::string kernelPath;
 #ifdef BUILD_WITH_CANN
-    bool enableCompile = config::GetRuntimeOption<int64_t>(CFG_RUN_MODE) == CFG_RUN_MODE_NPU ||
+    bool enableCompile = (config::GetRuntimeOption<int64_t>(CFG_RUN_MODE) == CFG_RUN_MODE_NPU ||
         ((config::GetSimConfig(KEY_ACCURACY_LEVEL, 2) == 2) &&
-        config::GetRuntimeOption<int64_t>(CFG_RUN_MODE) == CFG_RUN_MODE_SIM);
-    if (enableCompile && config::GetHostOption<int64_t>(COMPILE_STAGE) != CS_CODEGEN_INSTRUCTION) {
-        int ret = CompileAICoreKernel(
-            leafDict, encodeDevAscendFunctionParam, ccePath, function->GetFunctionHash().Data(), kernelPath);
-        if (ret != 0) {
-            MACHINE_LOGE(HostBackEndErr::COMPILE_AICORE_FAILED, "Compile dynamic aicore.o failed.");
-            return;
+        config::GetRuntimeOption<int64_t>(CFG_RUN_MODE) == CFG_RUN_MODE_SIM)) &&
+        config::GetHostOption<int64_t>(COMPILE_STAGE) != CS_CODEGEN_INSTRUCTION;
+    if (enableCompile) {
+        if (IsLiteNPU(Platform::Instance().GetSoc().GetNPUArch())) {
+            FindLiteNPUKernel(leafDict, kernelPath);
+        } else {
+            int ret = CompileAICoreKernel(
+                leafDict, encodeDevAscendFunctionParam, ccePath, function->GetFunctionHash().Data(), kernelPath);
+            if (ret != 0) {
+                MACHINE_LOGE(HostBackEndErr::COMPILE_AICORE_FAILED, "Compile dynamic aicore.o failed.");
+                return;
+            }
         }
     }
 #endif
@@ -1092,7 +1125,7 @@ static void CompileDyndevFunction(Function* function, FunctionCache& cache, [[ma
         funcBin->getTensorDataCount = 0;
         EncodeDevAscendFunction(function, encodeDevAscendFunctionParam, size, funcBin);
         funcBin->Reloc(-reinterpret_cast<int64_t>(funcBin), true);
-        uint32_t CallOpmaxSize = config::GetRuntimeOption<uint32_t>(STITCH_FUNCTION_SIZE);
+        uint32_t CallOpmaxSize = MAX_STITCH_LEAFFUNC_NUM;
         ASSERT(DevCommonErr::PARAM_CHECK_FAILED, CallOpmaxSize <= STITCH_FUNCTION_MAX_SIZE)
             << " CallOpmaxSize set: " << CallOpmaxSize << "exceeds the maximum allowed value of 65535.";
         if (funcBin->GetOperationSize() > CallOpmaxSize) {
@@ -1100,8 +1133,7 @@ static void CompileDyndevFunction(Function* function, FunctionCache& cache, [[ma
         }
     }
 
-    // save dev prog binary
-    SetDyndevProgBinary(function);
+    return SetDyndevProgBinary(function);
 }
 
 MachineTask* GenCode(MachineTask* task, FunctionCache& cache)

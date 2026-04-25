@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2025 Huawei Technologies Co., Ltd.
+ * Copyright (c) 2026 Huawei Technologies Co., Ltd.
  * This program is free software, you can redistribute it and/or modify it under the terms and conditions of
  * CANN Open Software License Agreement Version 2.0 (the "License").
  * Please refer to the License for details. You may not use this file except in compliance with the License.
@@ -9,18 +9,30 @@
  */
 
 /*!
- * \file SimulatorAdaptor.h
+ * \file checkinject.h
  * \brief
  */
+#ifndef MACHINE_UTILS_CHECKINJECT_H
+#define MACHINE_UTILS_CHECKINJECT_H
 
-#pragma once
+#include <cstddef>
 
-#include <vector>
-#include <string>
+namespace npu::tile_fwk {
+inline int Checkinject(const char cmdStr[], size_t strLen)
+{
+    if (cmdStr == nullptr || strLen == 0) {
+        return -1;
+    }
+    const char cmdIllegalChar[] = {';', '|', '<', '>', '`'};
+    for (size_t i = 0; i < strLen; i++) {
+        for (const auto& c : cmdIllegalChar) {
+            if (cmdStr[i] == c) {
+                return -1;
+            }
+        }
+    }
+    return 0;
+}
+} // namespace npu::tile_fwk
 
-namespace CostModel {
-class SimulatorAdaptor {
-public:
-    std::vector<std::string> Rewrite(const std::vector<std::string>& program) const;
-};
-} // namespace CostModel
+#endif

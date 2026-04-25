@@ -19,9 +19,8 @@ from .._element import Element
 from ..tensor import Tensor
 
 
-# will be delated
 @op_wrapper
-def index_add__ub(
+def index_add_(
     input: Tensor, dim: int, index: Tensor, source: Tensor, *, alpha: Union[int, float] = 1
     ) -> Tensor:
     """
@@ -87,27 +86,7 @@ def index_add__ub(
     Output y:  [[2 2 2],
                 [1 1 1]]               # shape (2, 3)
     """
-
-    input.Move(pypto_impl.IndexAddUB(input, source, index, dim, pypto_impl.Element(input.dtype, alpha)))
-    return input
-
-
-# will be delated
-@op_wrapper
-def index_add_ub(
-    input: Tensor, dim: int, index: Tensor, source: Tensor, *, alpha: Union[int, float] = 1
-    ) -> Tensor:
-    """
-    The out-of-place version of index_add_()
-    """
-
-    return pypto_impl.IndexAddUB(input, source, index, dim, pypto_impl.Element(input.dtype, alpha))
-
-
-@op_wrapper
-def index_add_(
-    input: Tensor, dim: int, index: Tensor, source: Tensor, *, alpha: Union[int, float] = 1
-    ) -> Tensor:
+    
     pypto_impl.IndexAdd_(input, source, index, dim, pypto_impl.Element(input.dtype, alpha))
     return input
 
@@ -122,6 +101,29 @@ def index_add(
     input0 = input
     pypto_impl.IndexAdd_(input0, source, index, dim, pypto_impl.Element(input.dtype, alpha))
     return input0
+
+
+@op_wrapper
+def index_add__ub(
+    input: Tensor, dim: int, index: Tensor, source: Tensor, *, alpha: Union[int, float] = 1
+    ) -> Tensor:
+    """
+    The version of index_add_() in ub
+    """
+
+    input.Move(pypto_impl.IndexAddUB(input, source, index, dim, pypto_impl.Element(input.dtype, alpha)))
+    return input
+
+
+@op_wrapper
+def index_add_ub(
+    input: Tensor, dim: int, index: Tensor, source: Tensor, *, alpha: Union[int, float] = 1
+    ) -> Tensor:
+    """
+    The out-of-place version of index_add__ub()
+    """
+
+    return pypto_impl.IndexAddUB(input, source, index, dim, pypto_impl.Element(input.dtype, alpha))
 
 
 @op_wrapper
@@ -264,7 +266,7 @@ def index_select(input: Tensor, dim: int, index: Tensor) -> Tensor:
     Parameters
     ----------
     input : Tensor
-    2-4-D tensor of shape (S0, S1, …, Sn-1) that provides the source values to gather from.
+    1-4-D tensor of shape (S0, S1, …, Sn-1) that provides the source values to gather from.
 
     index : Tensor (integer type)
     1-2-D integer tensor of shape (I0, I1); every entry must satisfy 0 ≤ value < S_dim.
