@@ -16,13 +16,14 @@
 #include "machine/runtime/pmu_common.h"
 #include <string>
 #include "interface/utils/common.h"
+#include "tilefwk/arch_config.h"
 #include "tilefwk/pypto_fwk_log.h"
 
 namespace npu::tile_fwk {
 namespace {
+#if !PTO_ARCH_DAV_3510
 void SetPmuEventTypeDAV2201(int32_t profPmuType, std::vector<int64_t>& pmuEvtType)
 {
-    // 按照环境变量设置的数值，获取pmu事件类型
     switch (profPmuType) {
         case ARITHMETIC_UTILIZATION:
             pmuEvtType = {0x49, 0x4a, 0x4b, 0x4c, 0x4d, 0x4e, 0x4f, 0x0};
@@ -49,10 +50,11 @@ void SetPmuEventTypeDAV2201(int32_t profPmuType, std::vector<int64_t>& pmuEvtTyp
             MACHINE_LOGW("Invalid profPmuType %d, only support [1,2,4,5,6,7,8].\n", profPmuType);
     }
 }
+#endif
 
+#if PTO_ARCH_DAV_3510
 void SetPmuEventTypeDAV3510(int32_t profPmuType, std::vector<int64_t>& pmuEvtType)
 {
-    // 按照环境变量设置的数值，获取pmu事件类型
     switch (profPmuType) {
         case ARITHMETIC_UTILIZATION:
             pmuEvtType = {0x323, 0x324, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0};
@@ -79,13 +81,17 @@ void SetPmuEventTypeDAV3510(int32_t profPmuType, std::vector<int64_t>& pmuEvtTyp
             MACHINE_LOGW("Invalid profPmuType %d, only support [1,2,4,5,6,7,8].\n", profPmuType);
     }
 }
+#endif
 } // namespace
 
-void PmuCommon::InitPmuEventType(const ArchInfo& archInfo, std::vector<int64_t>& pmuEvtType)
+void PmuCommon::InitPmuEventType([[maybe_unused]] const ArchInfo& archInfo, std::vector<int64_t>& pmuEvtType)
 {
-    size_t pmuEvtTypeSize = archInfo == ArchInfo::DAV_2201 ? PMU_EVENT_TYPE_MAX_DAV2201 : PMU_EVENT_TYPE_MAX_DAV3510;
+#if PTO_ARCH_DAV_3510
+    size_t pmuEvtTypeSize = PMU_EVENT_TYPE_MAX_DAV3510;
+#else
+    size_t pmuEvtTypeSize = PMU_EVENT_TYPE_MAX_DAV2201;
+#endif
     pmuEvtType.resize(pmuEvtTypeSize, 0x0);
-    // 获取pmu事件类型环境变量获取方式
     std::string eventTypeStr = GetEnvVar("PROF_PMU_EVENT_TYPE");
     if (eventTypeStr.empty()) {
         MACHINE_LOGW("Dont support PROF_PMU_EVENT_TYPE env, use default pmu event type PIPE_UTILIZATION.\n");
@@ -100,11 +106,11 @@ void PmuCommon::InitPmuEventType(const ArchInfo& archInfo, std::vector<int64_t>&
             e.what());
     }
 
-    if (archInfo == ArchInfo::DAV_2201) {
-        SetPmuEventTypeDAV2201(profPmuType, pmuEvtType);
-    } else if (archInfo == ArchInfo::DAV_3510) {
-        SetPmuEventTypeDAV3510(profPmuType, pmuEvtType);
-    }
+#if PTO_ARCH_DAV_3510
+    SetPmuEventTypeDAV3510(profPmuType, pmuEvtType);
+#else
+    SetPmuEventTypeDAV2201(profPmuType, pmuEvtType);
+#endif
 }
 
 } // namespace npu::tile_fwk

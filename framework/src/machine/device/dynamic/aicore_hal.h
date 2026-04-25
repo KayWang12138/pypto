@@ -15,6 +15,7 @@
 
 #pragma once
 
+#include "tilefwk/arch_config.h"
 #include "tilefwk/aicpu_common.h"
 #include "machine/device/dynamic/aicore_constants.h"
 #include "machine/device/dynamic/aicore_prof.h"
@@ -66,17 +67,11 @@ public:
         finishRegQueues_.fill(nullptr);
         blockIdToPhyCoreId_.fill(-1);
         args_.fill(nullptr);
-        if (deviceArgs->archInfo == ArchInfo::DAV_3510) {
-            regSprDataMainBase_ = DAV_3510::REG_SPR_DATA_MAIN_BASE;
-            regSprCond_ = DAV_3510::REG_SPR_COND;
-            isNeedWriteRegForFastPath_ = false;
-        }
-        enableEslModel_ = deviceArgs->enableEslModel;
-        DEV_IF_NONDEVICE {
-            if (enableEslModel_) {
-                eslModel_.Init();
-            }
-        }
+        regSprDataMainBase_ = PTO_REG_SPR_DATA_MAIN_BASE;
+        regSprCond_ = PTO_REG_SPR_COND;
+#if PTO_ARCH_DAV_3510
+        isNeedWriteRegForFastPath_ = false;
+#endif
     }
 
     inline uint32_t GetRegSprDataMainBase() { return regSprDataMainBase_; }

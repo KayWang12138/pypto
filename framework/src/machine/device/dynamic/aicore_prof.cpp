@@ -15,6 +15,7 @@
 
 #include "aicore_prof.h"
 #include "aicore_manager.h"
+#include "tilefwk/arch_config.h"
 #include "machine/device/tilefwk/aicpu_common.h"
 namespace {
 constexpr int AICPUNUM = 6;
@@ -448,10 +449,10 @@ void AiCoreProf::FillPmuData(
     data.pmuCnt5 = *(pmuCnt5Plain_[coreIdx]);
     data.pmuCnt6 = *(pmuCnt6Plain_[coreIdx]);
     data.pmuCnt7 = *(pmuCnt7Plain_[coreIdx]);
-    if (archInfo_ == ArchInfo::DAV_3510) {
-        data.pmuCnt8 = *(pmuCnt8Plain_[coreIdx]);
-        data.pmuCnt9 = *(pmuCnt9Plain_[coreIdx]);
-    }
+#if PTO_ARCH_DAV_3510
+    data.pmuCnt8 = *(pmuCnt8Plain_[coreIdx]);
+    data.pmuCnt9 = *(pmuCnt9Plain_[coreIdx]);
+#endif
     (void)subGraphId;
 }
 

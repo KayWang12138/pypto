@@ -24,6 +24,8 @@
 #include "tilefwk/pypto_fwk_log.h"
 #include "interface/inner/tilefwk.h"
 #include "interface/interpreter/raw_tensor_data.h"
+#include "tilefwk/arch_config.h"
+#ifdef BUILD_WITH_CANN
 #include "machine/runtime/device_runner.h"
 #include "machine/runtime/device_launcher_binding.h"
 #include "interface/configs/config_manager.h"
@@ -173,14 +175,23 @@ public:
         devProg->devArgs.nrAic = kDefaultAicNum;
         devProg->devArgs.nrAiv = kDefaultAivNum;
         devProg->devArgs.nrValidAic = config.blockdim;
-        devProg->devArgs.archInfo = static_cast<ArchInfo>(Platform::Instance().GetSoc().GetNPUArch());
+#if PTO_ARCH_DAV_3510
+        devProg->devArgs.archInfo = ArchInfo::DAV_3510;
+#else
+        devProg->devArgs.archInfo = ArchInfo::DAV_2201;
+#endif
         devProg->devArgs.taskType = DEVICE_TASK_TYPE_DYN;
 
         uint32_t aiCpuNum = static_cast<uint32_t>(Platform::Instance().GetSoc().GetAICPUNum());
         devProg->devArgs.scheCpuNum = CalcSchAicpuNumByBlockDim(config.blockdim, aiCpuNum, devProg->devArgs.archInfo);
-        devProg->devArgs.maxAicpuNum = static_cast<int>(aiCpuNum);
-        config.aicpuNum = GetAiCpuNum(aiCpuNum, devProg->devArgs.scheCpuNum, devProg->devArgs.archInfo);
+        devProg->devArgs.maxAicpuNum = aiCpuNum;
+        config.aicpuNum = devProg->devArgs.scheCpuNum + dynamic::MAX_OTHER_AICPU_NUM;
+#if PTO_ARCH_DAV_3510
+        devProg->devArgs.nrAicpu =
+            GetAiCpuNumForDav3510(static_cast<uint32_t>(aiCpuNum), devProg->devArgs.scheCpuNum, config);
+#else
         devProg->devArgs.nrAicpu = config.aicpuNum;
+#endif
 
         if (IsPtoDataDumpEnabled()) { // dump tensor
             devProg->devArgs.hostPid = GetProcessId();

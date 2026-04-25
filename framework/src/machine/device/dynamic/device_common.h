@@ -17,6 +17,7 @@
 #include <atomic>
 #include <cstdint>
 #include <cstdlib>
+#include "tilefwk/arch_config.h"
 #include "aicore_constants.h"
 #include "device_utils.h"
 #include "machine/utils/dynamic/spsc_queue.h"
@@ -26,12 +27,12 @@
 
 namespace npu::tile_fwk::dynamic {
 const uint32_t MAX_DAV_2210_SCHEDULE_AICPU_NUM = 3;
-inline uint32_t CalcSchAicpuNumByBlockDim(uint32_t blockDim, uint32_t aiCpuNum, ArchInfo archInfo)
+inline uint32_t CalcSchAicpuNumByBlockDim(uint32_t blockDim, uint32_t aiCpuNum, [[maybe_unused]] ArchInfo archInfo)
 {
-    uint32_t maxScheCore = aiCpuNum - dynamic::MAX_CONTROL_FLOW_AICPU_NUM;
-    if (archInfo == ArchInfo::DAV_2201) {
-        maxScheCore = maxScheCore >= MAX_DAV_2210_SCHEDULE_AICPU_NUM ? MAX_DAV_2210_SCHEDULE_AICPU_NUM : maxScheCore;
-    }
+    uint32_t maxScheCore = aiCpuNum - dynamic::MAX_OTHER_AICPU_NUM;
+#if !PTO_ARCH_DAV_3510
+    maxScheCore = maxScheCore >= MAX_DAV_2210_SCHEDULE_AICPU_NUM ? MAX_DAV_2210_SCHEDULE_AICPU_NUM : maxScheCore;
+#endif
 
     if (blockDim > (maxScheCore - 1) * dynamic::MAX_MNG_AICORE_AVG_NUM) {
         return maxScheCore;
