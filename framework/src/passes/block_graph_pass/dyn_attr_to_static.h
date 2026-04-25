@@ -266,6 +266,7 @@ private:
     Status PrintFunction(Function& function, const std::string& logFolder, bool beforeFunction = true) override;
     void BuildParamAddr(Operation &op);
     std::set<LogicalTensorPtr> visitedTensors_;
+    std::set<int> rootInOutCast_;
 };
 } // namespace tile_fwk
 } // namespace npu

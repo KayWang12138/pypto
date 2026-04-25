@@ -436,7 +436,15 @@ Status DynAttrToStatic::TryRemoveDynAttr(Function* leafFunc, std::vector<Operati
         auto callop = std::static_pointer_cast<CallOpAttribute>(callList[i]->GetOpAttribute());
         callopArglistOneDim.push_back(callop->GetLinearArgList());
     }
-
+    for (auto& callop : callList) {
+        auto rootFunction = callop->BelongTo();
+        for (auto &inCast : rootFunction->GetIncast()) {
+            rootInOutCast_.insert(inCast->GetRawMagic());
+        }
+        for (auto &outCast : rootFunction->GetOutcast()) {
+            rootInOutCast_.insert(outCast->GetRawMagic());
+        }
+    }
     // 2. 依次为leafFunc的所有op拿到所有动态attr，为每个动态attr刷新coa宏
     auto operationViewer = leafFunc->Operations(false);
     for (size_t j = 0; j < operationViewer.size(); j++) {
@@ -478,13 +486,13 @@ std::pair<int, int> ParseRuntimeGetParamAddr(const std::string& input) {
 }
 
 // Helper function to set paramAddr attribute for a tensor
-void UpdateTensorParamAddr(std::shared_ptr<LogicalTensor> &tensor)
+void UpdateTensorParamAddr(std::shared_ptr<LogicalTensor> &tensor, const std::set<int>& inOutCast)
 {
     std::map<int, SymbolicScalar> paramAddrMap;
     tensor->GetAttr<std::map<int, SymbolicScalar>>(TensorAttributeKey::tensorAddr, paramAddrMap);
     for (auto &[_, paramAddr] : paramAddrMap) {
         auto paramArgs = ParseRuntimeGetParamAddr(paramAddr.Dump());
-        int aiCpuFlag{3};
+        int aiCpuFlag = inOutCast.count(tensor->GetRawMagic()) ? 3 : 2;
         if (paramAddr.IsExpression() && paramArgs.first != -1 && paramArgs.second != -1) {
             paramAddr = GET_PARAM_ADDR_MAYBE_CONST(
                 SymbolicScalar(static_cast<int64_t>(aiCpuFlag)),
@@ -502,7 +510,7 @@ void DynAttrToStatic::BuildParamAddr(Operation &op) {
             continue;
         }
         if (iOperand->HasAttr(TensorAttributeKey::tensorAddr)) {
-            UpdateTensorParamAddr(iOperand);
+            UpdateTensorParamAddr(iOperand, rootInOutCast_);
             visitedTensors_.insert(iOperand);
         }
     }
@@ -511,7 +519,7 @@ void DynAttrToStatic::BuildParamAddr(Operation &op) {
             continue;
         }
         if (oOperand->HasAttr(TensorAttributeKey::tensorAddr)) {
-            UpdateTensorParamAddr(oOperand);
+            UpdateTensorParamAddr(oOperand, rootInOutCast_);
             visitedTensors_.insert(oOperand);
         }
     }
@@ -520,6 +528,12 @@ void DynAttrToStatic::BuildParamAddr(Operation &op) {
 Status DynAttrToStatic::RunOnFunction(Function& function)
 {
     APASS_LOG_INFO_F(Elements::Operation, "==============> Start DynAttrToStatic.");
+    for (auto &inCast : function.GetIncast()) {
+        rootInOutCast_.insert(inCast->GetRawMagic());
+    }
+    for (auto &outCast : function.GetOutcast()) {
+        rootInOutCast_.insert(outCast->GetRawMagic());
+    }
     // 1. 遍历所有rootFunc，找到每个leaf的所有caller，生成leaf2Caller map
     if (BuildLeafToCaller(&function) != SUCCESS) {
         APASS_LOG_ERROR_F(Elements::Operation, "Failed to call BuildLeafToCaller.");
