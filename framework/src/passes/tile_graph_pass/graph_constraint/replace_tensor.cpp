@@ -297,7 +297,7 @@ Status ReplaceTensor::FindBaseTensor(
     if (baseTensor != nullptr) {
         return SUCCESS;
     }
-    std::vector<LogicalTensor> boundTensors;
+    LogicalTensors boundTensors;
     for (auto& curTensor : group) {
         std::set<int> boundTensorIDs;
         for (auto &inOp : curTensor->GetProducers()) {
