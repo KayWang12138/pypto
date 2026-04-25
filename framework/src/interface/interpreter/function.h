@@ -710,7 +710,7 @@ struct FunctionInterpreter {
     std::mutex captureFrameListMutex_;
     std::mutex mixGlobalTensorMutex_;
     std::condition_variable mixGlobalTensorCv_;
-    static constexpr int64_t MIX_GLOBAL_TENSOR_WAIT_TIMEOUT_MS = 30000; // 30s timeout to detect dead waits
+    static constexpr int64_t MIX_GLOBAL_TENSOR_WAIT_TIMEOUT_MS = 60000; // 60s timeout to detect dead waits
     inline static thread_local bool tlsSkipDump_{false};
 
     std::vector<std::shared_ptr<LogicalTensorData>>& GetInputDataViewList()
@@ -934,21 +934,20 @@ struct FunctionInterpreter {
 
     void ExecuteMixSplitCallOpGroupParallel(FunctionFrame& frame, const std::vector<Operation*>& groupedCallOps)
     {
-        std::vector<MixSplitCallTask> taskList;
+        std::vector<std::shared_ptr<MixSplitCallTask>> taskList;
         taskList.reserve(groupedCallOps.size());
         for (auto* groupedCallOp : groupedCallOps) {
-            auto inoutDataPair = BuildCallInOutDataPair(frame, groupedCallOp);
-            MixSplitCallTask task;
-            task.interpreter = this;
-            task.callee = GetCallee(groupedCallOp);
-            task.callop = groupedCallOp;
-            task.inoutDataPair = inoutDataPair;
+            auto task = std::make_shared<MixSplitCallTask>();
+            task->interpreter = this;
+            task->callee = GetCallee(groupedCallOp);
+            task->callop = groupedCallOp;
+            task->inoutDataPair = BuildCallInOutDataPair(frame, groupedCallOp);
             taskList.push_back(task);
         }
 
         auto& pool = operationInterpreter->GetPool();
         for (size_t i = 0; i < taskList.size(); i++) {
-            pool.SubmitTask(&taskList[i], MixSplitCallTask::Entry);
+            pool.SubmitTask(taskList[i].get(), MixSplitCallTask::Entry);
         }
         pool.NotifyAll();
         pool.WaitForAll();
@@ -1104,13 +1103,10 @@ struct FunctionInterpreter {
             auto it = mixGlobalTensorDict.find({iop, callopAttr->wrapId});
             return it != mixGlobalTensorDict.end() && it->second != nullptr;
         });
-        ASSERT(ControlFlowScene::INVALID_INPLACE_CHAIN, waitOk)
+        ASSERT(ControlFlowScene::MIX_GLOBAL_TENSOR_WAIT_TIMEOUT, waitOk)
             << "Timeout while waiting mixGlobalTensorDict in multithread execution, wrapId="
             << callopAttr->wrapId << ", timeoutMs=" << MIX_GLOBAL_TENSOR_WAIT_TIMEOUT_MS;
-        if (!waitOk) {
-            return nullptr;
-        }
-        return mixGlobalTensorDict[{iop, callopAttr->wrapId}];
+        return waitOk ? mixGlobalTensorDict[{iop, callopAttr->wrapId}] : nullptr;
     }
 
     void ExecuteHandleFunctionBegin(Function* func, std::shared_ptr<FunctionFrame> frame)
