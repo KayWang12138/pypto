@@ -231,7 +231,12 @@ void CoreScheduler::EFTWithInsertSchedule(TaskGraph& taskGraph, std::vector<int>
             FindEarliestSlot(
                 availTime[TargetCoreType::AIV1], evalDepTimeStart, taskGraph.tasks[taskId].latency, currentIdxAIV1,
                 currentIntervalAIV1);
-            if (currentIntervalAIV0.first <= currentIntervalAIV1.first) {
+            if (taskGraph.preCoreAssign.count(taskId) > 0 && taskGraph.preCoreAssign[taskId] == TargetCoreType::AIV1) {
+                evalCore = TargetCoreType::AIV1;
+                currentIdx = currentIdxAIV1;
+                currentInterval = currentIntervalAIV1;
+            } else if ((taskGraph.preCoreAssign.count(taskId) > 0 && taskGraph.preCoreAssign[taskId] == TargetCoreType::AIV0) ||
+                 currentIntervalAIV0.first <= currentIntervalAIV1.first) {
                 evalCore = TargetCoreType::AIV0;
                 currentIdx = currentIdxAIV0;
                 currentInterval = currentIntervalAIV0;
@@ -263,9 +268,12 @@ void CoreScheduler::EFTSchedule(TaskGraph& taskGraph, std::vector<int>& topoSeq)
         TargetCoreType evalCore = TargetCoreType::UNKNOWN;
         if (taskGraph.tasks[taskId].coreType == ScheduleCoreType::AIC) {
             evalCore = TargetCoreType::AIC;
+        } else if (taskGraph.preCoreAssign.count(taskId) > 0) {
+            evalCore = taskGraph.preCoreAssign[taskId];
+        } else if (currentTime[TargetCoreType::AIV0] <= currentTime[TargetCoreType::AIV1]) {
+            evalCore = TargetCoreType::AIV0;
         } else {
-            evalCore = currentTime[TargetCoreType::AIV0] <= currentTime[TargetCoreType::AIV1] ? TargetCoreType::AIV0 :
-                                                                                                TargetCoreType::AIV1;
+            evalCore = TargetCoreType::AIV1;
         }
         taskGraph.tasks[taskId].targetCoreTypeCandidate = evalCore;
         taskGraph.tasks[taskId].startTimeCandidate = std::max(evalDepTimeStart, currentTime[evalCore]);
@@ -619,6 +627,89 @@ void TaskSpliter::BuildInOutGraph(
     }
 }
 
+static bool HasSameValidShape2D(LogicalTensorPtr tensor1, LogicalTensorPtr tensor2)
+{
+    if (tensor1->GetDynValidShape().size() != 2 || tensor2->GetDynValidShape().size() != 2) {
+        return false;
+    }
+    if (tensor1->GetDynValidShape()[0].Dump() != tensor2->GetDynValidShape()[0].Dump() ||
+        tensor1->GetDynValidShape()[1].Dump() != tensor2->GetDynValidShape()[1].Dump()) {
+        return false;
+    }
+    return true;
+}
+
+static void DualDstProcess(LogicalTensorPtr l0cTensor, std::unordered_map<Operation*, int> &opToTaskId,
+                           std::unordered_map<int, TargetCoreType> &dualTaskCoreAssign)
+{
+    if (static_cast<int>(l0cTensor->GetShape().size()) != 2) {
+        return;
+    }
+    std::vector<LogicalTensorPtr> ubTensors;
+    for (auto consumer: l0cTensor->GetConsumers()) {
+        if (consumer->GetOpcode() != Opcode::OP_L0C_COPY_UB) {
+            continue;
+        }
+        ubTensors.push_back(consumer->GetOOperands()[0]);
+    }
+    std::vector<int64_t> firstShape = ubTensors[0]->GetShape();
+    if (static_cast<int>(firstShape.size()) != 2 || firstShape[0] == 0 || firstShape[1] == 0) {
+        return;
+    }
+    std::map<std::pair<int, int>, LogicalTensorPtr> coordToTensor;
+    int maxX = -1;
+    int maxY = -1;
+    for (auto ubTensor : ubTensors) {
+        std::vector<int64_t> shape = ubTensors[0]->GetShape();
+        std::vector<int64_t> offset = ubTensors[0]->GetOffset();
+        if (firstShape != shape) {
+            return;
+        }
+        if (offset[0] % shape[0] != 0 || offset[1] % shape[1] != 0) {
+            return;
+        }
+        int x = offset[0] / shape[0];
+        int y = offset[1] / shape[1];
+        maxX = maxX > x ? maxX : x;
+        maxY = maxY > y ? maxY : y;
+        coordToTensor[{x, y}] = ubTensor;
+    }
+    std::vector<std::pair<LogicalTensorPtr, LogicalTensorPtr>> dualPairs;
+    if (maxX % 2 == 1) {
+        for (int x = 0; x <= maxX; x += 2) {
+            for (int y = 0; y <= maxY; y += 1) {
+                if (coordToTensor.count({x, y}) == 0 || coordToTensor.count({x + 1, y}) == 0) {
+                    continue;
+                }
+                if (HasSameValidShape2D(coordToTensor[{x, y}], coordToTensor[{x + 1, y}])) {
+                    dualPairs.push_back({coordToTensor[{x, y}], coordToTensor[{x + 1, y}]});
+                }
+            } 
+        }
+    } else if (maxY %2 == 1) {
+        for (int x = 0; x <= maxX; x += 1) {
+            for (int y = 0; y <= maxY; y += 2) {
+                if (coordToTensor.count({x, y}) == 0 || coordToTensor.count({x, y + 1}) == 0) {
+                    continue;
+                }
+                if (HasSameValidShape2D(coordToTensor[{x, y}], coordToTensor[{x, y + 1}])) {
+                    dualPairs.push_back({coordToTensor[{x, y}], coordToTensor[{x, y + 1}]});
+                }
+            } 
+        }
+    }
+    for (auto &dualPair : dualPairs) {
+        Operation* aiv0Op = *(dualPair.first->GetConsumers().begin());
+        Operation* aiv1Op = *(dualPair.second->GetConsumers().begin());
+        int aiv0TaskId = opToTaskId[aiv0Op];
+        int aiv1TaskId = opToTaskId[aiv1Op];
+        if (aiv0TaskId != aiv1TaskId) {
+            dualTaskCoreAssign[aiv0TaskId] = TargetCoreType::AIV0;
+            dualTaskCoreAssign[aiv1TaskId] = TargetCoreType::AIV1;
+        }
+    }
+}
+
 // 建立TaskGraph
 TaskGraph TaskSpliter::BuildTaskGraph()
 {
@@ -635,6 +726,25 @@ TaskGraph TaskSpliter::BuildTaskGraph()
             s.AddDependency(taskId, nextTaskId);
         }
     }
+    
+    // dualCoreAssign
+    std::unordered_map<int, TargetCoreType> dualTaskCoreAssign;
+    std::unordered_map<Operation*, int> opToTaskId;
+    std::unordered_set<LogicalTensorPtr> l0cToUbSourceVisited;
+    for (auto node : s.tasks) {
+        for (auto opPtr : node.opList_) {
+            opToTaskId[opPtr] = node.idx;
+            if (opPtr->GetOpcode() == Opcode::OP_L0C_COPY_UB) {
+                LogicalTensorPtr l0cTensor = opPtr->GetIOperands()[0];
+                if (l0cToUbSourceVisited.count(l0cTensor) == 0) {
+                    l0cToUbSourceVisited.insert(l0cTensor);
+                    DualDstProcess(l0cTensor, opToTaskId, dualTaskCoreAssign);
+                }
+            }
+        }
+    }
+    s.preCoreAssign = dualTaskCoreAssign;
+
     return s;
 }
 

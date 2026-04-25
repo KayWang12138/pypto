@@ -63,6 +63,7 @@ public:
     int AddTask(const std::string& name, ScheduleCoreType coreType, int latency);
     void AddDependency(int src, int dst);
     void ClearSchedule();
+    std::unordered_map<int, TargetCoreType> preCoreAssign;
     std::vector<TaskNode> tasks;
     int makespan{-1};
 };
