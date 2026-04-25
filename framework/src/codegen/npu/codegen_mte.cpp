@@ -140,7 +140,7 @@ std::string CodeGenOpNPU::GenL0CToUBTileTensor() const
     std::string nzVar = "CopyOutMode::NZ2ND"; // current only support NZ2ND in L0C -> UB
     std::ostringstream oss;
     int64_t aivId = 0;
-    GetAttr(OpAttributeKey::subBlockIdx, aivId);
+    GetOpAttr(OpAttributeKey::subBlockIdx, aivId);
     oss << tileOpName;
     oss << WrapParamByAngleBrackets({nzVar});
     oss << WrapParamByParentheses({dstTensor, src0Tensor, coord, std::to_string(aivId)});
@@ -313,13 +313,13 @@ std::string CodeGenOpNPU::PrintL0CToL1TileTensor() const
 
     int64_t isAcc = 0;
     int64_t reluMode = 0;
-    GetAttr(OP_ATTR_PREFIX + "relu_type", reluMode);
+    GetOpAttr(OP_ATTR_PREFIX + "relu_type", reluMode);
     std::string nzVar = "CopyOutMode::NZ2NZ";
     std::vector<std::string> storeConfigList = {nzVar, std::to_string(isAcc), std::to_string(reluMode)};
     std::string storeConfig = WrapParamByAngleBrackets(storeConfigList);
     Element scaleValue = Element(DataType::DT_UINT64, 0);
 
-    GetAttr(OP_ATTR_PREFIX + "scale_value", scaleValue);
+    GetOpAttr(OP_ATTR_PREFIX + "scale_value", scaleValue);
     if ((!scaleValue.GetUnsignedData()) && ((operandDtype[ID1] == DT_INT32) && (operandDtype[ID0] == DT_FP16))) {
         src1Tensor = QueryTileTensorNameByIdx(ToUnderlying(MISOIdx::SRC1_IDX));
     }
@@ -351,7 +351,7 @@ std::string CodeGenOpNPU::GenMemL0CToL1() const
     paramList.emplace_back(dstDtypeStr);
     paramList.emplace_back(srcDtypeStr);
     int64_t reluMode = 0;
-    GetAttr(OP_ATTR_PREFIX + "relu_type", reluMode);
+    GetOpAttr(OP_ATTR_PREFIX + "relu_type", reluMode);
     paramList.emplace_back(std::to_string(reluMode));
     std::string templateParam = JoinString(paramList, CONN_COMMA);
     paramList.clear();
@@ -368,7 +368,7 @@ std::string CodeGenOpNPU::GenMemL0CToL1() const
     FillParamWithFullInput(paramList, l0COffset);
 
     Element scaleValue = Element(DataType::DT_UINT64, 0);
-    GetAttr(OP_ATTR_PREFIX + "scale_value", scaleValue);
+    GetOpAttr(OP_ATTR_PREFIX + "scale_value", scaleValue);
     paramList.emplace_back(std::to_string(scaleValue.GetUnsignedData()));
     std::string tileOpCallParam = JoinString(paramList, CONN_COMMA);
     os << tileOpName << "<" << templateParam << ">"
@@ -459,20 +459,20 @@ std::string CodeGenOpNPU::PrintMemCopyWithL0CTileTensor(const PrintMemCopyWithL0
     std::string dstTensor = QueryTileTensorNameByIdx(ToUnderlying(MISOIdx::DST_IDX));
     std::string srcTensor = QueryTileTensorNameByIdx(ToUnderlying(MISOIdx::SRC0_IDX));
     int64_t reluMode = 0;
-    GetAttr(OP_ATTR_PREFIX + "relu_type", reluMode);
+    GetOpAttr(OP_ATTR_PREFIX + "relu_type", reluMode);
     std::string src1Tensor = srcTensor;
     int64_t nzValue = 0;
     int64_t isAcc = 0;
     auto [outerValueStr, innerValueStr] = GetOuterInnerValueStr(param.gmIdx, param.gmShape);
-    GetAttr(OP_ATTR_PREFIX + "atomic_add", isAcc);
-    GetAttr(OpAttributeKey::copyIsNZ, nzValue);
+    GetOpAttr(OP_ATTR_PREFIX + "atomic_add", isAcc);
+    GetOpAttr(OpAttributeKey::copyIsNZ, nzValue);
     std::string nzVar = nzValue ? "CopyOutMode::NZ2NZ" : "CopyOutMode::NZ2ND";
     std::vector<std::string> storeConfigList = {nzVar, std::to_string(isAcc), std::to_string(reluMode)};
     std::string storeConfig = WrapParamByAngleBrackets(storeConfigList);
 
     Element scaleValue = Element(DataType::DT_UINT64, 0);
     if (!isAcc) {
-        GetAttr(OP_ATTR_PREFIX + "scale_value", scaleValue);
+        GetOpAttr(OP_ATTR_PREFIX + "scale_value", scaleValue);
     }
 
     if ((!scaleValue.GetUnsignedData()) &&
@@ -563,18 +563,18 @@ std::string CodeGenOpNPU::PrintL0CCopyOutDynamicUnalign(
     paramList.emplace_back(dataTypeExpr[localIdx]);
     int64_t nzValue = 0;
     int64_t isAcc = 0;
-    auto ret = GetAttr(OP_ATTR_PREFIX + "atomic_add", isAcc);
+    auto ret = GetOpAttr(OP_ATTR_PREFIX + "atomic_add", isAcc);
     if (ret) {
         paramList.emplace_back(std::to_string(isAcc));
     }
-    ret = GetAttr(OpAttributeKey::copyIsNZ, nzValue);
+    ret = GetOpAttr(OpAttributeKey::copyIsNZ, nzValue);
     if (ret && nzValue == 1) {
         paramList.emplace_back("false");
     } else {
         paramList.emplace_back("true");
     }
     int64_t reluMode = 0;
-    ret = GetAttr(OP_ATTR_PREFIX + "relu_type", reluMode);
+    ret = GetOpAttr(OP_ATTR_PREFIX + "relu_type", reluMode);
     paramList.emplace_back(std::to_string(reluMode));
     std::string templateParam = JoinString(paramList, CONN_COMMA);
 
@@ -589,14 +589,14 @@ std::string CodeGenOpNPU::PrintL0CCopyOutDynamicUnalign(
     paramList.emplace_back(gmShapeExpr[0]);
     paramList.emplace_back(gmOffsetExpr[0]);
     int64_t outerValue = 0, innerValue = 0;
-    ret = GetAttr("op_attr_curH", outerValue);
-    ret = GetAttr("op_attr_curW", innerValue);
+    ret = GetOpAttr("op_attr_curH", outerValue);
+    ret = GetOpAttr("op_attr_curW", innerValue);
     auto gmShapeExprByIndex = GenParamIdxExprByIndex(gmIdx, SHAPE_DIM2, PREFIX_STR_RAW_SHAPE);
     std::string outerValueStr = outerValue == 0 ? gmShapeExprByIndex[0] : std::to_string(outerValue);
     std::string innerValueStr = innerValue == 0 ? gmShapeExprByIndex[1] : std::to_string(innerValue);
     paramList.insert(paramList.end(), {outerValueStr, innerValueStr, std::to_string(param.uf)});
     Element scaleValue = Element(DataType::DT_UINT64, 0);
-    ret = GetAttr(OP_ATTR_PREFIX + "scale_value", scaleValue);
+    ret = GetOpAttr(OP_ATTR_PREFIX + "scale_value", scaleValue);
     if (!isAcc) {
         paramList.emplace_back(std::to_string(scaleValue.GetUnsignedData()));
     }
@@ -649,8 +649,8 @@ std::pair<std::string, std::string> CodeGenOpNPU::GetOuterInnerValueStr(
 {
     int64_t outerValue = 0;
     int64_t innerValue = 0;
-    GetAttr("op_attr_outer_value", outerValue);
-    GetAttr("op_attr_inner_value", innerValue);
+    GetOpAttr("op_attr_outer_value", outerValue);
+    GetOpAttr("op_attr_inner_value", innerValue);
 
     bool useStaticShape = functionType == FunctionType::STATIC || isSpillingToGM;
     auto gmShapeExprByIndex = GenParamIdxExprByIndex(gmIdx, SHAPE_DIM2, PREFIX_STR_RAW_SHAPE);
@@ -685,7 +685,7 @@ std::string CodeGenOpNPU::PrintMemCopyInWithL1TileTensor(const PrintMemCopyWithL
         std::string coord = PrintCoord(rawShape[ID0].size(), coordCp);
         tileOpParamList.insert(tileOpParamList.end() - 1, coord);
     }
-    
+
     auto [outerValueStr, innerValueStr] = GetOuterInnerValueStr(param.gmIdx, param.gmShape, param.isSpillingToGM);
     if (opCode != Opcode::OP_L1_COPY_IN_A_SCALE && opCode != Opcode::OP_L1_COPY_IN_B_SCALE) {
         tileOpParamList.insert(tileOpParamList.end(), {outerValueStr, innerValueStr});
@@ -696,14 +696,14 @@ std::string CodeGenOpNPU::PrintMemCopyInWithL1TileTensor(const PrintMemCopyWithL
     }
     auto cpMode = static_cast<Matrix::CopyInMode>(copyInMode);
     int64_t nzValue = 0;
-    auto ret = GetAttr(OpAttributeKey::copyIsNZ, nzValue);
+    auto ret = GetOpAttr(OpAttributeKey::copyIsNZ, nzValue);
     if (ret && nzValue) {
         cpMode = Matrix::CopyInMode::NZ2NZ;
     }
     std::string cpModeStr = CopyInModeToString(cpMode);
 
     int64_t paddingMode = 0;
-    GetAttr(OP_ATTR_PREFIX + "copy_in_l1_padding_mode", paddingMode);
+    GetOpAttr(OP_ATTR_PREFIX + "copy_in_l1_padding_mode", paddingMode);
     std::string padModStr = PaddingModeToString(static_cast<Matrix::PaddingMode>(paddingMode));
 
     std::ostringstream oss;
@@ -776,7 +776,7 @@ std::string CodeGenOpNPU::PrintMemCopyWithL1Static(const PrintMemCopyWithL1Param
     ASSERT(GenCodeErr::PRINT_FAILED, printRet >= 0)
         << "sprintf_s failed in PrintMemCopyWithL1Static, return value:" << printRet;
     int64_t nzValue = 0;
-    auto ret = GetAttr(OpAttributeKey::copyIsNZ, nzValue);
+    auto ret = GetOpAttr(OpAttributeKey::copyIsNZ, nzValue);
     if (ret && nzValue == 1) {
         opName = "TileOp::L1CopyInNZ2NZ";
         std::string curAddrBuffer =
@@ -835,7 +835,7 @@ std::string CodeGenOpNPU::PrintMemCopyWithL1Dynamic(const PrintMemCopyWithL1Para
     std::string addrBuffer = addrExpr[ID1];
 
     int64_t nzValue = 0;
-    auto ret = GetAttr(OpAttributeKey::copyIsNZ, nzValue);
+    auto ret = GetOpAttr(OpAttributeKey::copyIsNZ, nzValue);
     if (ret && nzValue == 1) {
         opName = tileOpName + "NZ2NZ";
         auto [outerValueStr, innerValueStr] = GetOuterInnerValueStr(gmIdx, param.gmShape);
@@ -1089,9 +1089,10 @@ std::string CodeGenOpNPU::GenMemL1ToFB() const
 
 std::string CodeGenOpNPU::GenGMAddrExprWithOffset(unsigned gmParamIdx, const std::string& addrExpr) const
 {
-    // gm offset of spilling workspace is calculated by pass.
-    int64_t gmOffset{0};
-    GetTensorAttr(gmParamIdx, OpAttributeKey::workspaceBaseOffset, gmOffset);
+    // gm offset of spilling workspace is calculated by pass, the value is saved in dim 0.
+    int64_t gmOffset = 0;
+    // gmOffset Default to 0 when the attribute is not set
+    GetOpAttr(OpAttributeKey::workspaceBaseOffset, gmOffset);
     std::ostringstream oss;
     if (gmOffset == 0) {
         oss << addrExpr;

@@ -241,7 +241,7 @@ protected:
     }
 
     template <typename T>
-    bool GetAttr(const std::string& key, T& value) const
+    bool GetOpAttr(const std::string& key, T& value) const
     {
         return GetAttrFromMap(opAttrs, key, value);
     }
@@ -252,22 +252,6 @@ protected:
         ASSERT(GenCodeErr::PARAM_IDX_INVALID, idx >= 0 && idx < MAX_OPERANDS)
             << "idx " << idx << " is out of range [0, " << MAX_OPERANDS << ")";
         return GetAttrFromMap(tensorAttrs[idx], key, value);
-    }
-
-    template <typename T = int64_t>
-    std::vector<T> GetVectorIntAttribute(const std::string& key) const
-    {
-        ASSERT(GenCodeErr::DATA_TYPE_UNSUPPORTED, std::is_integral_v<T>) << "T must be integral type";
-        std::vector<int64_t> val;
-        GetAttr(key, val);
-        if constexpr (std::is_same_v<T, int64_t>) {
-            return val;
-        }
-        std::vector<T> ret;
-        for (auto& x : val) {
-            ret.emplace_back(static_cast<T>(x));
-        }
-        return ret;
     }
 
     std::string GetLastUse() const;
@@ -294,6 +278,8 @@ protected:
 
     // get start offset in total block
     SymbolicScalar GetOperandStartOffset(int operandIdx) const;
+
+    std::string GetGmTensorAddrByAttr(unsigned gmParamIdx) const;
 
     virtual std::string GenGmParamVar(unsigned gmParamIdx) const;
 
