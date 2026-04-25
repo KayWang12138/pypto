@@ -11,7 +11,7 @@ Goal: split the kernel into semantically meaningful, verifiable blocks.
 
 ### Write decomposition into the plan (mandatory)
 
-As soon as the module split is known, write Module decomposition in `custom/<op>/plan.md`: named modules, boundary tensors, and rationale. See `skills/pypto-op-memory/plan.template.md` for log format.
+As soon as the module split is known, write Module decomposition in `custom/<op>/plan.md`: named modules, boundary tensors, and rationale. See `skills/pypto-op-memory/templates/memory.md` for log format.
 
 ### Rule: split by meaning, not by equal complexity
 

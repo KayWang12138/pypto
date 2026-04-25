@@ -27,7 +27,7 @@ description: Validation runner requirements, detailed_tensor_compare usage, succ
 
 ### Module boundaries (Phase 3)
 
-Intermediate module-boundary checks must use the same bundled `detailed_tensor_compare`. Record each run in `custom/<op>/plan.md` → Per-module verification log (see `skills/pypto-op-memory/plan.template.md`).
+Intermediate module-boundary checks must use the same bundled `detailed_tensor_compare`. Record each run in `custom/<op>/plan.md` → Per-module verification log (see `skills/pypto-op-memory/templates/memory.md`).
 
 ### `pytest`
 

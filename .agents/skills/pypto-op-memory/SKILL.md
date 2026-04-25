@@ -11,13 +11,13 @@ This skill contains the plan template that agents copy to `custom/<op>/plan.md` 
 
 | File | Purpose |
 |------|---------|
-| **`plan.template.md`** | The actual template — copy to `custom/<op>/plan.md` and fill in |
+| **`templates/memory.md`** | The actual template — copy to `custom/<op>/plan.md` and fill in |
 
 ---
 
 ## When to use
 
-- **Phase 0:** Copy `plan.template.md` to `custom/<op>/plan.md` as the first action
+- **Phase 0:** Copy `templates/memory.md` to `custom/<op>/plan.md` as the first action
 - **Every turn:** Update `active_module`, `modules_pypto_verified`, `current_staged_set`, `next_mandatory_step`
 - **Phase 1:** Fill in Golden function inventory
 - **Phase 2:** Fill in Module decomposition, Module contracts, Staged set table

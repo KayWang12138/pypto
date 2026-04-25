@@ -11,7 +11,7 @@ This skill bundles the automated validation tools and CI integration for the `cu
 
 | File | Purpose |
 |------|---------|
-| **`CI.md`** | Full CI documentation — commands, pre-commit hook, GitHub Actions setup |
+| **`references/CI.md`** | Full CI documentation — commands, pre-commit hook, GitHub Actions setup |
 | **`scripts/run_validate_layout.sh`** | Agent entrypoint: run from repo root to check layout |
 | **`scripts/validate_custom_kernel_layout.py`** | Implementation: plan file, test runner, staged naming, `for...in range` in kernel code, template layer headers |
 | **`scripts/extract_pypto_calls.py`** | List every `pypto.*` call site by line number — used for op-by-op debugging |
