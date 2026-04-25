@@ -182,23 +182,23 @@ TEST_F(TestRemoveUnalignedReshapeOp, reshaped_padded_ub)
     removeUnalignedReshapeOpTest.RunOnFunction(*currFunctionPtr);
     for (auto& op : currFunctionPtr->Operations()) {
         if (op.GetOpcode() == Opcode::OP_RESHAPE) {
-            for (auto& in : op.iOperand) {
-                EXPECT_EQ(in->GetProducers().size(), 1);
-                auto producer = *(in->GetProducers().begin());
-                EXPECT_EQ(producer->GetOpcode(), Opcode::OP_COPY_OUT);
-                if (in->oriShape == shape) {
-                    EXPECT_EQ(in->shape, shape);
-                    EXPECT_EQ(in->tensor->rawshape, shape);
-                }
-            }
             for (auto& out : op.oOperand) {
-                EXPECT_EQ(out->GetConsumers().size(), 1);
-                auto consumer = *(out->GetConsumers().begin());
-                EXPECT_EQ(consumer->GetOpcode(), Opcode::OP_COPY_IN);
                 if (out->oriShape == reshape_shape) {
                     EXPECT_EQ(out->shape, reshape_shape);
                     EXPECT_EQ(out->tensor->rawshape, reshape_shape);
                 }
+                EXPECT_EQ(out->GetConsumers().size(), 1);
+                auto consumer = *(out->GetConsumers().begin());
+                EXPECT_EQ(consumer->GetOpcode(), Opcode::OP_COPY_IN);
+            }
+            for (auto& in : op.iOperand) {
+                EXPECT_EQ(in->GetProducers().size(), 1);
+                if (in->oriShape == shape) {
+                    EXPECT_EQ(in->shape, shape);
+                    EXPECT_EQ(in->tensor->rawshape, shape);
+                }
+                auto producer = *(in->GetProducers().begin());
+                EXPECT_EQ(producer->GetOpcode(), Opcode::OP_COPY_OUT);
             }
         }
     }
@@ -250,13 +250,13 @@ TEST_F(TestRemoveUnalignedReshapeOp, reshaped_unpadded_ub)
                 }
             }
             for (auto& out : op.oOperand) {
-                EXPECT_EQ(out->GetConsumers().size(), 1);
                 auto consumer = *(out->GetConsumers().begin());
-                EXPECT_NE(consumer->GetOpcode(), Opcode::OP_COPY_IN);
+                EXPECT_EQ(out->GetConsumers().size(), 1);
                 if (out->oriShape == reshape_shape) {
                     EXPECT_EQ(out->shape, reshape_shape);
                     EXPECT_EQ(out->tensor->rawshape, reshape_shape);
                 }
+                EXPECT_NE(consumer->GetOpcode(), Opcode::OP_COPY_IN);
             }
         }
     }
