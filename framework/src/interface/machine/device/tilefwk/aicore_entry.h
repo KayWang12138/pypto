@@ -193,7 +193,7 @@ INLINE void SendRegAck(uint32_t taskIdx) { set_cond(taskIdx); }
 
 INLINE void PerfTraceRecord(
     uint32_t devTaskId, __gm__ Metrics* metric, AicorePerfTrace type, __gm__ KernelArgs* args, uint64_t cycle = 0,
-    bool flush = true, bool last = false)
+    bool flush = true)
 {
     if (unlikely(npu::tile_fwk::g_is_open_dump_perf_trace_data == 1) && metric->turnNum < MAX_ROUND_NUM) {
         uint32_t turn = metric->turnNum;
@@ -209,11 +209,13 @@ INLINE void PerfTraceRecord(
             }
         }
     }
-    if (last) {
-        metric->turnNum++;
-        dcci(metric, SINGLE_CACHE_LINE, CACHELINE_OUT);
-    }
     (void)args;
+}
+
+INLINE void FinishPerfTraceRound(__gm__ Metrics* metric)
+{
+    metric->turnNum++;
+    dcci(metric, SINGLE_CACHE_LINE, CACHELINE_OUT);
 }
 
 INLINE void SetTaskStatistic(
@@ -272,12 +274,13 @@ INLINE void DfxProcWhenCoreExit(ExecuteContext* ctx, __gm__ KernelArgs* args, __
             INVALID_DEV_TASK_ID, metric, PERF_TRACE_CORE_WAIT_ALL_DEV_TASK_LEAF_TASK_EXEC_FINISH, args,
             ctx->lastTaskFinishCycle);
     }
+    PerfTraceRecord(INVALID_DEV_TASK_ID, metric, PERF_TRACE_CORE_WAIT_EXIT_NOTIFY, args);
+    FinishPerfTraceRound(metric);
     if (unlikely(
             args->taskEntry.reserved[0] == PRO_LEVEL2 || args->taskEntry.reserved[0] == PRO_LEVEL1 ||
             npu::tile_fwk::g_is_open_dump_perf_trace_data == 1)) {
         FlushMetricStatistic(args);
     }
-    PerfTraceRecord(INVALID_DEV_TASK_ID, metric, PERF_TRACE_CORE_WAIT_EXIT_NOTIFY, args, 0, true, true);
 }
 
 INLINE void DfxProcWhenDevTaskStop(ExecuteContext *ctx, __gm__ KernelArgs *args, __gm__ Metrics* metric)
