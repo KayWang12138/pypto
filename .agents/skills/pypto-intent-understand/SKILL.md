@@ -1,6 +1,6 @@
 ---
 name: pypto-intent-understand
-description: PyPTO 算子需求意图理解。将用户的自然语言算子描述转化为结构化需求文档。当用户描述要开发、实现、创建某个算子时触发，例如：'开发一个 sinh 算子'、'实现 GELU'、'参考 PyTorch 的 F.scaled_dot_product_attention'、'根据论文实现算子'、'创建自定义算子'
+description: "PyPTO 算子需求意图理解。将用户的自然语言算子描述转化为结构化需求文档。当用户描述要开发、实现、创建某个算子时触发，例如：'开发一个 sinh 算子'、'实现 GELU'、'参考 PyTorch 的 F.scaled_dot_product_attention'、'根据论文实现算子'、'创建自定义算子'"
 ---
 
 # PyPTO 算子需求意图理解
@@ -174,12 +174,6 @@ description: PyPTO 算子需求意图理解。将用户的自然语言算子描�
 3. 统一标记为 ⚠ 中置信度
 4. **必须**让用户确认提取结果是否正确
 
-**降级策略**（WebFetch 不可用时）：
-1. 基于 AI 自身知识库中的标准定义生成规格信息
-2. 置信度降为 ⚠ 中（来源：AI 知识库推断，非原始材料）
-3. 在 SPEC.md 中标注"⚠ 原始材料无法获取，基于标准参考生成，建议人工确认"
-4. 向用户说明降级原因并展示推断依据
-
 **交互示例**：
 ```text
 用户: 参考 PyTorch 的 F.scaled_dot_product_attention
@@ -327,7 +321,7 @@ description: PyPTO 算子需求意图理解。将用户的自然语言算子描�
 对于简单算子（公式足以描述）：
 ```
 ✅ 必须信息:
-  [✓] 算子名称: {operator_name}
+  [✓] 算子名称: {name}
   [✓] 数学公式: {formula}
   [✓] 输入: {input_name}[{shape}] {dtype}, 动态轴: {dynamic_axes}
   [✓] 输出: {output_name}[{shape}] {dtype}, 动态轴: {dynamic_axes}
@@ -341,7 +335,7 @@ description: PyPTO 算子需求意图理解。将用户的自然语言算子描�
 对于复杂算子（公式无法完整表述计算流程），增加算法部分和关键特性部分：
 ```
 ✅ 必须信息:
-  [✓] 算子名称: {operator_name}
+  [✓] 算子名称: {name}
   [✓] 数学公式: {formula}
   [✓] 关键特性:
       ┌─────────────────────┬────────┬──────────────────────────┐
@@ -405,6 +399,54 @@ Algorithm: Flash Attention (Forward)
 
 ---
 
+## 2.5 Golden 参考实现策略指导
+
+在确认必须信息之后、进入可选补充前，如果算子属于**分块算子**（即涉及 loop、分块计算、累加等流程性逻辑），应向用户指导 golden 参考实现的两种可选策略：
+
+### 全量 vs 分块实现策略
+
+**Golden 函数可以采用两种等价的实现策略**：
+
+#### 1. 全量实现（默认）
+一次性对整个输入 tensor 计算，适用于简单、逐元素的算子。
+```python
+def relu_golden(x):
+    return torch.relu(x)
+```
+
+#### 2. 分块实现（可选，推荐用于复杂算子）
+使用 `for` loop 将输入分切成小 tile，逐 tile 计算，最后用 `torch.cat` 或类似方式组合结果。
+这种实现方式更贴近 PyPTO kernel 的实际执行方式（PyPTO kernel 也是 tile-by-tile 处理），能更好地：
+- 验证 PyPTO kernel 的边界处理（padding、越界访问）
+- 验证累积逻辑（多个 tile 的部分结果如何合并）
+- 验证 tile size 选择对数值精度的影响
+
+```python
+def attention_golden(q, k, v, window_size=None):
+    """分块 attention（演示如何将计算分解为多个 tile）。"""
+    outputs = []
+    for b in range(q.shape[0]):
+        q_tile = q[b:b+1, ...]  # 切出单个 batch
+        k_tile = k[b:b+1, ...]
+        v_tile = v[b:b+1, ...]
+        # 计算该 tile 的结果
+        out_tile = _compute_attention_single_tile(q_tile, k_tile, v_tile, window_size)
+        outputs.append(out_tile)
+    return torch.cat(outputs, dim=0)
+```
+
+**何时应该选择分块实现**：
+- 算子规格中包含 loop 或分块策略描述
+- 计算涉及多步骤分块累加（如 FlashAttention、分块矩阵乘法）
+- 需要提前验证 PyPTO kernel 的分块边界处理
+
+**两种实现的要求**：
+- 必须数值等价（允许浮点精度偏差 1e-5）
+- 都应该在测试中验证
+- Golden 函数选定后，PyPTO kernel 会对照该实现进行精度验证
+
+---
+
 ## 阶段 3：可选补充
 
 如果用户选择"添加更多细节"，通过 `AskUserQuestion` 展示以下可选配置项：
@@ -428,179 +470,15 @@ Algorithm: Flash Attention (Forward)
 
 ---
 
-## 输出文件生成
-
-用户确认后，生成 SPEC.md 文件：
-
-### SPEC.md 模板
-
-模板文件位于: [templates/spec-template.md](templates/spec-template.md)
-
-使用时需替换以下占位符:
-- `{operator_name}` — 算子名称
-- `{category}` — 算子分类 (element-wise / reduction / matmul / attention / custom)
-- `{formula}` — 数学公式
-- `{description}` — 功能描述
-- front matter 结构化字段：
-  - `{axes_list}` / `{axes_ranges}` / `{shape_constraints}`
-  - `{performance_target}`
-  - `{atol}` / `{rtol}`
-  - 约定：`axes_list` 必须是 YAML 可解析列表（例如 `['N']` 或 `['N','M']`）
-- `{feature_name}`, `{need_or_not}`, `{confidence}`, `{impl_note}`, `{priority}` — 关键特性表格行（复杂算子必须）
-- `{algorithm_name}` / `{带编号的伪代码步骤}` — 算法描述（可选，复杂算子需要）
-- `{ASCII数据流图}` — 数据流图
-- `{name}`, `{shape}`, `{dtype}`, `{dynamic_axes}`, `{description}` — 输入输出规格
-- `{atol}`, `{rtol}` — 精度要求
-- `{axes_list}`, `{axes_meanings}`, `{axes_ranges}` — 动态轴说明
-- `{zero_handling}`, `{inf_handling}`, `{nan_handling}` — 边界条件处理
-- `{performance_target}` — 性能目标
-- `{reference_impl}`, `{paper}`, `{similar_ops}` — 参考信息
-- `{model}`, `{layer}` — 应用场景
-- `{config_name}`, `{type}`, `{priority}`, `{params}`, `{input_shapes}`, `{output_shapes}`, `{config_desc}` — 典型配置表格行
-- `{timestamp}` — 生成时间
 
 ---
 
-## 文件冲突处理
+## Output Generation and Field Reference
 
-如果目标路径下 `SPEC.md` 已存在，**必须**通过 `AskUserQuestion` 询问用户：
-
-```
-⚠ 文件已存在:
-  - SPEC.md 路径
-
-请选择:
-  1. 覆盖 — 用新生成的内容替换已有文件
-  2. 取消 — 不生成文件，保留现有内容
-```
-
----
-
-## 字段定义与默认值
-
-### 必须字段（无默认值，用户必须提供）
-
-| 字段 | 类型 | 说明 |
-|------|------|------|
-| 算子名称 | string | 唯一标识符，小写字母开头，只能包含小写字母、数字和下划线 |
-| 数学公式 | string | 核心计算逻辑，所有算子都需要 |
-
-### 条件必须字段（特定场景下必须提供）
-
-| 字段 | 类型 | 何时必须 |
-|------|------|----------|
-| 算法描述 | string | 当公式无法完整表述计算流程时（涉及分块、循环、在线更新、状态维护等流程性逻辑） |
-
-公式描述"算什么"，算法描述"怎么算"。大多数需要算法的算子同时也有公式。简单算子（如 `y = sinh(x)`）只需公式；复杂算子（如 Flash Attention）两者兼有。
-
-### 建议字段（有默认值）
-
-| 字段 | 默认值 | 说明 |
-|------|--------|------|
-| 输入 shape | 构建典型值 | 输入张量形状 |
-| 输入 dtype | float32 | 输入数据类型 |
-| 输出 shape | 根据输入推导 | 输出张量形状 |
-| 输出 dtype | 与输入相同 | 输出数据类型 |
-| 动态轴 | batch、seq | 支持动态 shape |
-| 性能目标 | 首跑精度成功性能的 2 倍 | 性能优化指导 |
-| 精度要求 | atol=0.001, rtol=0.001 | 默认精度标准 |
-
-### 可选字段（有合理默认值，可完全跳过）
-
-| 字段 | 默认值 | 用途 |
-|------|--------|------|
-| 可选参数 | 自动推导 | 功能完整 |
-| 动态轴范围 | [1, INT32_MAX] | 性能优化 |
-| 边界条件处理 | 正常计算 (zero/inf/nan 均为 normal) | 特殊值处理 |
-| 参考实现 | 无 | 框架/论文/代码参考 |
-| 应用场景 | 建议提供典型配置（7 列表格） | 模型/层/典型配置表格，便于后续 golden 生成和设计方案 |
-
-### 默认值披露规则
-
-当以下信息未提供且允许使用默认值时，必须在确认环节明确展示，不得静默补全：
-
-- dtype 默认值
-- atol / rtol 默认值
-- 动态轴范围默认值
-- 性能目标默认值
-
-展示格式建议：
-
-```md
-⚙️ 将使用以下默认值（如不修改，将直接写入 SPEC.md）：
-- dtype: float32
-- atol/rtol: 0.001 / 0.001
-- 动态轴范围: [1, INT32_MAX]
-- 性能目标: 首跑精度成功性能的 2 倍
-```
-
-**⚠️ 默认值持久化要求**：确认环节中展示的所有默认值，必须写入生成的 SPEC.md 中对应字段（如 `default_params` frontmatter 字段、精度要求 section 等），不得仅展示而不持久化。
-
----
-
-## 可选参数深度分析
-
-当算子涉及可选参数时（如框架 API 参考场景），需从以下四个维度进行深度分析：
-
-| 维度 | 说明 | 示例 |
-|-----|------|------|
-| 代码位置 | 参数在计算流程的哪个阶段使用 | 输入预处理/核心计算/输出后处理 |
-| 计算逻辑 | 参数如何影响计算 | 条件分支/数值缩放/数据选择 |
-| 实现复杂度 | PyPTO 是否支持 | 低(直接支持)/中(需要特殊处理)/高(不支持) |
-| 依赖关系 | 是否依赖其他参数 | 独立/依赖参数X/与参数Y互斥 |
-
-**分析方法**：
-1. **定位代码位置**：在参考实现中搜索参数名，找到使用位置
-2. **理解计算逻辑**：分析参数如何影响计算流程
-3. **评估实现复杂度**：判断 PyPTO API 是否支持，实现难度如何
-4. **确定依赖关系**：分析参数间的约束和互斥关系
-
----
-
-## 功能优先级体系
-
-根据功能的重要性确定实现优先级：
-
-| 优先级 | 定义 | 说明 |
-|--------|------|------|
-| **P0（必须）** | 核心功能 | 没有就无法工作，所有场景都需要 |
-| **P1（重要）** | 常用功能 | 影响大多数使用场景，**必须在第一个版本实现** |
-| **P2（可选）** | 特殊场景功能 | 根据需求决定是否实现 |
-| **P3（暂缓）** | 不支持或成本过高 | PyPTO 不支持或实现成本过高，暂不实现 |
-
-**重要原则**：
-- **P0 和 P1 功能必须在第一个版本实现**
-- 只有 P2/P3 功能可以延后
-- 在规格确认清单中标注各功能的优先级
-
-**示例**：
-```
-✅ 必须信息:
-  [✓] 算子名称: scaled_dot_product_attention
-  [✓] 数学公式: Attention(Q,K,V) = softmax(QK^T/√d) @ V
-  [✓] 输入: Q, K, V [b, h, s, d] float32 (P0)
-  [✓] 可选参数:
-      - attn_mask: 注意力掩码 (P2)
-      - dropout_p: dropout 概率 (P3)
-      - is_causal: 因果注意力 (P1)
-      - scale: 缩放因子 (P1)
-```
-
----
-
-## 需求理解 Checklist
-
-- [ ] 当前需求信息完整度已评估（高 / 中 / 低）
-- [ ] 默认值使用情况已显式展示
-- [ ] 算子名称已确认，符合命名规范（见"字段定义"§算子名称）
-- [ ] 数学公式已确认，清晰描述核心计算逻辑
-- [ ] 复杂算子已识别关键特性并让用户确认（见"复杂度判定与关键特性识别"）
-- [ ] 复杂算子已提供算法描述（见"阶段 2"§何时需要算法描述）
-- [ ] 所有关键特性已标注实现状态（✓ 需要 / ✗ 不需要 / ? 待确认）和优先级
-- [ ] 所有信息已标注置信度（✓ 高 / ⚠ 中 / ❓ 低）
-- [ ] 输入输出 shape、dtype、动态轴已明确
-- [ ] 可选参数已列出并标注优先级（P0-P3），P0/P1 已完成四维度分析
-- [ ] P0 和 P1 功能无遗漏（见"功能优先级体系"）
-- [ ] 精度要求、边界条件、动态轴范围已明确或使用默认值
-- [ ] 性能目标、参考实现、应用场景、典型配置已询问
-- [ ] 中置信度信息已确认 1 次，确认次数未超过 2 次
+Read `references/spec-examples.md` for:
+- Output file generation rules
+- File conflict handling
+- Field definitions and default values
+- Optional parameter deep analysis
+- Feature priority system
+- Requirements understanding checklist

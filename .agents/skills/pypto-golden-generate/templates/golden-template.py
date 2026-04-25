@@ -29,6 +29,32 @@ def {op}_golden(x: torch.Tensor) -> torch.Tensor:
     Returns:
         计算结果 tensor。
         根据实际算子需求调整返回值（可多输出、可返回 tuple）。
+
+    注意（PyPTO 友好的 golden）：
+      - 全量计算实现：直接对整个 tensor 计算（最常见）。
+      - 或者：可选择用 for loop 将输入分块成小 tiles，对每个 tile 单独计算，
+        最后用 torch.cat / concatenate 组合结果。这种分块实现更接近 PyPTO kernel
+        的实际执行方式（PyPTO kernel 也是 tile-by-tile 处理），可以更好地
+        验证 PyPTO 边界处理和累积逻辑。
+
+      选择分块实现时的示例模式（如果算子支持分块累加）：
+        # 示例：按 batch 维度分块处理（如 attention、matmul 等）
+        output = []
+        for b in range(x.shape[0]):
+            tile = x[b:b+1, ...]  # 切出一个小 tile
+            result_tile = _compute_single_tile(tile, **params)  # 计算
+            output.append(result_tile)
+        return torch.cat(output, dim=0)  # 组合结果
+
+      或者按多维分块（如 seq_len 和 head 维度）：
+        output = torch.zeros_like(x)
+        for i in range(0, x.shape[1], tile_h):
+            for j in range(0, x.shape[2], tile_w):
+                h_end = min(i + tile_h, x.shape[1])
+                w_end = min(j + tile_w, x.shape[2])
+                tile = x[:, i:h_end, j:w_end, ...]
+                output[:, i:h_end, j:w_end, ...] = _compute_single_tile(tile)
+        return output
     """
     # TODO: 替换为实际 golden 逻辑
     # 示例（SiLU）:  return x * torch.sigmoid(x)
@@ -37,6 +63,14 @@ def {op}_golden(x: torch.Tensor) -> torch.Tensor:
     #   var = x.var(dim=-1, keepdim=True, unbiased=False)
     #   normalized = (x - mean) / torch.sqrt(var + eps)
     #   return normalized * gamma + beta
+    #
+    # 示例（分块实现 - 如果算子支持）:
+    #   output = []
+    #   for b in range(x.shape[0]):
+    #       tile = x[b:b+1, ...]
+    #       result_tile = _compute_tile(tile, params)
+    #       output.append(result_tile)
+    #   return torch.cat(output, dim=0)
     return x
 
 

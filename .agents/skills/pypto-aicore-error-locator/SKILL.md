@@ -1,6 +1,7 @@
 ---
 name: pypto-aicore-error-locator
 description: 定位测试案例中出现 aicore error 时的问题 CCE 文件和问题代码行。当用户说"aicore error"、"定位 aicore error 的原因"、"帮我定位 aicore error 报错"时使用此技能。
+license: 完整条款见 LICENSE.txt
 ---
 
 # AICore Error 定位器
@@ -220,8 +221,7 @@ python3 .agents/skills/pypto-aicore-error-locator/scripts/locate_source_line.py 
 
 **输出说明**:
 - 若匹配成功，将输出前端源代码文件路径和行号
-- 若精确匹配失败，尝试子序列匹配（部分操作数匹配），提供部分映射结果供用户判断
-- 若完全无法匹配，将说明原因（例如：框架自动生成代码、操作数完全不匹配等）
+- 若匹配失败，将说明原因（例如：框架自动生成代码、操作数不匹配等）
 
 ---
 

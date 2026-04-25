@@ -186,29 +186,12 @@ description: PyPTO 算子开发工作流程。用于开发华为昇腾 AI 处理
 | **输出工件** | `{op}_impl.py`、`test_{op}.py`、`README.md` |
 | **完成标准** | 首跑完成并得到明确的三态判定结果 |
 
-**输出规范清单**（调用 `pypto-op-develop` 前必须传递以下约束）：
-
-| 约束项 | 规范要求 | 验证方法 |
-|--------|---------|---------|
-| wrapper 函数名 | `{op}_wrapper(x: torch.Tensor) -> torch.Tensor` | 检查 impl 文件导出函数 |
-| 三态标记格式 | `[PRECISION_PASS]` / `[PRECISION_FAIL]`（方括号为强制格式） | 检查 test 文件 print 语句 |
-| README 语言 | 中文说明 | 检查 README.md |
-| 精度对比方法 | 必须使用 `numpy.testing.assert_allclose` | 检查 test 文件对比逻辑 |
-| 文件职责分离 | golden / impl / test 三文件分离 | 检查文件是否存在混写 |
-
-**门禁检查**：Stage 5 完成后，必须逐项验证上述输出规范清单。任何一项不满足，要求 `pypto-op-develop` 修正后重新验证。
-
 **首跑三态判定**：
 | 检测结果 | 含义 | 下一步 |
 |----------|------|--------|
 | `[PRECISION_PASS]` | 精度验证通过 | → Stage 7（性能调优） |
 | `[PRECISION_FAIL]` | 精度验证失败 | → Stage 6（精度修复） |
-| 无标记 + exit ≠ 0 | 运行失败（编译/import/runtime） | → Stage 5 内排查重试（**最多 10 次**） |
-
-**Stage 5 重试限制**：
-- 运行失败时在 Stage 5 内排查重试，**最多 10 次**
-- 10 次重试后仍失败 → 向用户报告失败原因和已尝试的排查路径，等待用户决策
-- 每次重试前必须记录失败原因和修改内容
+| 无标记 + exit ≠ 0 | 运行失败（编译/import/runtime） | → Stage 5 内排查重试 |
 
 **关键约束**：
 - impl / golden / test 必须职责分离，禁止混写
@@ -250,11 +233,6 @@ description: PyPTO 算子开发工作流程。用于开发华为昇腾 AI 处理
 - 每次只调整一组参数，确保收益可追踪
 - 性能退化或精度退化时立即回滚
 - 常用优化手段：`loop_unroll`、Stitch 调优、Tilesize 调整、L2 亲和调度
-
-**Stage 7 终止条件**：
-- **达标退出**：性能指标满足 DESIGN.md 中的性能目标
-- **最大轮次**：调优迭代**最多 10 轮**，超限后输出当前最优结果供用户决策
-- **精度退化退出**：任何优化导致精度验证失败，立即回滚并终止
 
 ## 交付检查清单
 

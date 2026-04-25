@@ -37,7 +37,7 @@
 
 ### Tile 配置
 
-- `pypto.set_vec_tile_shapes(...)` 的每个维度都必须大于 0，参数个数最多 4 个。
+- `pypto.set_vec_tile_shapes(...)` 的每个维度都必须大于 0，参数个数按文档要求。
 - TileShape 维度数必须和相关输出维度匹配；否则会在扩图阶段直接报错。
 - `pypto.set_cube_tile_shapes(...)` 是 `pypto.matmul` 的前置条件。
 
