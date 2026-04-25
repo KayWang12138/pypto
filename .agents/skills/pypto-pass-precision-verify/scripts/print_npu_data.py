@@ -7,11 +7,14 @@ Print NPU Data Tool
 import os
 import re
 import json
+import logging
 import shutil
 import argparse
 import subprocess
 from pathlib import Path
 from typing import List, Optional, Dict, Tuple
+
+logger = logging.getLogger(__name__)
 
 
 class PrintNPUDataTool:
@@ -29,67 +32,63 @@ class PrintNPUDataTool:
     def check_env(self) -> bool:
         """检查必要的文件和目录"""
         if not self.work_path.exists():
-            print(f"错误: 工作目录不存在: {self.work_path}")
+            logger.error(f"错误: 工作目录不存在: {self.work_path}")
             return False
         return True
     
     def enable_print_switch(self):
         """开启打印开关"""
-        print("=== 开启打印开关 ===")
+        logger.info("=== 开启打印开关 ===")
         
-        # 1. 修改 tile_fwk_config.json
         if self.config_file.exists():
             try:
                 with open(self.config_file, 'r') as f:
                     config = json.load(f)
                 
-                # 修改 global.codegen 配置
                 if 'global' not in config:
                     config['global'] = {}
                 if 'codegen' not in config['global']:
                     config['global']['codegen'] = {}
                 codegen = config['global']['codegen']
                 
-                # 修改现有配置
                 codegen['fixed_output_path'] = True
                 codegen['force_overwrite'] = False
                 codegen['parallel_compile'] = 1
                 
                 with open(self.config_file, 'w') as f:
                     json.dump(config, f, indent=2)
-                print(f"  [√] 已修改: {self.config_file}")
+                logger.info(f"  [√] 已修改: {self.config_file}")
             except Exception as e:
-                print(f"  [×] 修改配置失败: {e}")
+                logger.error(f"  [×] 修改配置失败: {e}")
         
-        # 2. 修改 aicore_print.h
         if self.print_header.exists():
             try:
                 content = self.print_header.read_text()
                 if '#define ENABLE_AICORE_PRINT 0' in content:
                     content = content.replace('#define ENABLE_AICORE_PRINT 0', '#define ENABLE_AICORE_PRINT 1')
                     self.print_header.write_text(content)
-                    print(f"  [√] 已修改: {self.print_header}")
+                    logger.info(f"  [√] 已修改: {self.print_header}")
                 elif 'ENABLE_AICORE_PRINT 1' in content:
-                    print(f"  [√] 已开启: {self.print_header}")
+                    logger.info(f"  [√] 已开启: {self.print_header}")
             except Exception as e:
-                print(f"  [×] 修改头文件失败: {e}")
-        print("")
+                logger.error(f"  [×] 修改头文件失败: {e}")
+        logger.info("")
         
     def rebuild_pypto(self):
         """重新编译pypto"""
-        print("=== 重新编译 PyPTO ===")
+        logger.info("=== 重新编译 PyPTO ===")
         os.chdir(self.pypto_root)
-        print(f"  执行: python3 -m pip install . -v")
+        logger.info(f"  执行: python3 -m pip install . -v")
         result = subprocess.run(
             ["python3", "-m", "pip", "install", ".", "-v"],
             capture_output=True,
             text=True
         )
         if result.returncode == 0:
-            print("  [√] 编译成功\n")
+            logger.info("  [√] 编译成功\n")
         else:
-            print(f"  [×] 编译失败")
-            print(f"  stderr: {result.stderr[:500]}")
+            logger.error(f"  [×] 编译失败")
+            logger.error(f"  stderr: {result.stderr[:500]}")
         return result.returncode == 0
     
     def find_cce_files(self) -> List[Path]:
@@ -98,18 +97,15 @@ class PrintNPUDataTool:
         if kernel_dir.exists():
             self.cce_files = sorted(kernel_dir.glob("*.cpp"), key=lambda x: x.stat().st_mtime)
         else:
-            # 查找 .cce 文件
             cce_files = list(self.output_dir.rglob("*.cce"))
-            # 查找 .cpp 文件（AICore kernel）
             cpp_files = list(self.output_dir.rglob("*_aiv.cpp"))
-            # 合并并排序
             self.cce_files = sorted(cce_files + cpp_files, key=lambda x: x.stat().st_mtime)
         
-        print(f"  找到 {len(self.cce_files)} 个CCE文件:")
+        logger.info(f"  找到 {len(self.cce_files)} 个CCE文件:")
         for i, f in enumerate(self.cce_files[:20]):
-            print(f"    [{i}] {f.name}")
+            logger.info(f"    [{i}] {f.name}")
         if len(self.cce_files) > 20:
-            print(f"    ... 共 {len(self.cce_files)} 个")
+            logger.info(f"    ... 共 {len(self.cce_files)} 个")
         return self.cce_files
     
     def find_cce_by_name_pattern(self, pattern: str) -> List[Path]:
@@ -202,7 +198,6 @@ class PrintNPUDataTool:
         content = cce_file.read_text()
         cce_info = self.parse_cce_structure(cce_file)
         
-        # 添加头文件
         if '#include "tilefwk/aicore_print.h"' not in content:
             lines = content.split('\n')
             for i, line in enumerate(lines):
@@ -211,27 +206,21 @@ class PrintNPUDataTool:
                     break
             content = '\n'.join(lines)
         
-        # 如果没有指定 shape 变量，使用解析到的
         if not shape_vars:
             shape_vars = cce_info['shape_vars']
         
         if not shape_vars:
-            print("  警告: 未找到 shape 变量")
+            logger.warning("  警告: 未找到 shape 变量")
             return
         
-        # 准备打印语句
         print_stmts = []
         
         if use_single_value:
-            # 使用 AicoreLogF 单值打印
             for var in shape_vars:
                 print_stmts.append(f'AicoreLogF(param->ctx, "{var}=%llu\\n", {var});')
         else:
-            # 使用 AiCorePrintShape 批量打印
-            # 按 dim 分组
             dim_groups = {}
             for var in shape_vars:
-                # 提取基础名称和维度
                 match = re.match(r'(\w+)_dim_(\d+)', var)
                 if match:
                     base_name = match.group(1)
@@ -240,26 +229,21 @@ class PrintNPUDataTool:
                         dim_groups[base_name] = []
                     dim_groups[base_name].append((int(dim_num), var))
             
-            # 为每个 shape 组生成打印语句
             for base_name, dims in dim_groups.items():
-                dims.sort()  # 按维度排序
+                dims.sort()
                 if len(dims) == 1:
-                    # 单维度 - 使用 Coord1Dim
                     var_name = dims[0][1]
                     print_stmts.append(f'AiCorePrintShape(param->ctx, Coord1Dim({var_name}));')
                 elif len(dims) == 2:
-                    # 二维度
                     var1 = dims[0][1]
                     var2 = dims[1][1]
                     print_stmts.append(f'AiCorePrintShape(param->ctx, Shape2Dim({var1}, {var2}));')
                 elif len(dims) == 3:
-                    # 三维度
                     var1 = dims[0][1]
                     var2 = dims[1][1]
                     var3 = dims[2][1]
                     print_stmts.append(f'AiCorePrintShape(param->ctx, Shape3Dim({var1}, {var2}, {var3}));')
                 elif len(dims) == 4:
-                    # 四维度
                     var1 = dims[0][1]
                     var2 = dims[1][1]
                     var3 = dims[2][1]
@@ -267,17 +251,15 @@ class PrintNPUDataTool:
                     print_stmts.append(f'AiCorePrintShape(param->ctx, Shape4Dim({var1}, {var2}, {var3}, {var4}));')
         
         if not print_stmts:
-            print("  警告: 无法生成 shape 打印语句")
+            logger.warning("  警告: 无法生成 shape 打印语句")
             return
         
         print_code = "\n".join([f"    {s} // DEBUG SHAPE" for s in print_stmts])
         
-        # 插入到第一个 kernel 函数开头
         if cce_info['kernels']:
             kernel = cce_info['kernels'][0]
             first_brace = content.find('{', kernel['start'])
             if first_brace != -1:
-                # 在第一个有效语句位置插入
                 pos = first_brace + 1
                 while pos < len(content) and content[pos] in ' \t\n\r':
                     pos += 1
@@ -285,9 +267,9 @@ class PrintNPUDataTool:
                 
                 cce_file.write_text(content)
                 print_method = "AicoreLogF" if use_single_value else "AiCorePrintShape"
-                print(f"  已添加 {len(print_stmts)} 条 shape 打印语句 ({print_method})")
+                logger.info(f"  已添加 {len(print_stmts)} 条 shape 打印语句 ({print_method})")
         else:
-            print("  警告: 未找到 kernel 函数")
+            logger.warning("  警告: 未找到 kernel 函数")
     
     def add_print_to_cce(self, cce_file: Path, tensor_names: List[str], 
                          print_type: str = "GM", dtype: str = "float", 
@@ -307,15 +289,13 @@ class PrintNPUDataTool:
         - kernel_end: kernel函数结尾  
         - tensor_after: 在指定tensor声明之后
         """
-        # 检查元素数量限制（元素数量 = end_offset - start_offset + 1）
         element_count = end_offset - start_offset + 1
         if element_count > 80:
-            print(f"  警告: 元素数量 {element_count} > 80，调整偏移量范围")
-            end_offset = start_offset + 79  # 最多80个元素
+            logger.warning(f"  警告: 元素数量 {element_count} > 80，调整偏移量范围")
+            end_offset = start_offset + 79
             
         content = cce_file.read_text()
         
-        # 添加头文件
         if '#include "tilefwk/aicore_print.h"' not in content:
             lines = content.split('\n')
             for i, line in enumerate(lines):
@@ -324,7 +304,6 @@ class PrintNPUDataTool:
                     break
             content = '\n'.join(lines)
         
-        # 解析修改后的内容的kernel信息（必须在添加头文件之后）
         kernels = self.find_kernel_functions(content)
         gm_tensors = re.findall(r'\bgmTensor_\w+', content)
         ub_tensors = re.findall(r'\bubTensor_\w+', content)
@@ -335,7 +314,6 @@ class PrintNPUDataTool:
             'content': content
         }
         
-        # 准备打印语句
         print_func = "AiCorePrintGmTensor" if print_type == "GM" else "AiCorePrintUbTensor"
         tensor_type = "__gm__" if print_type == "GM" else "__ub__"
         
@@ -344,60 +322,47 @@ class PrintNPUDataTool:
         print_stmts = []
         for tensor_name in tensor_list:
             if tensor_name in content:
-                print_stmts.append(f'{print_func}(param->ctx, ({tensor_type}{dtype}*){tensor_name}.GetAddr(), {end_offset}, {start_offset});')
+                print_stmts.append(f'{print_func}(param->ctx, ({tensor_type}{dtype}*){tensor_name}.Getaddr(), {end_offset}, {start_offset});')
         
         if not print_stmts:
-            print(f"  警告: 未找到tensor {tensor_list}")
+            logger.warning(f"  警告: 未找到tensor {tensor_list}")
             return
         
         print_code = "\n".join([f"    {s} // DEBUG" for s in print_stmts])
         
-        # 根据insert_pos选择插入位置
         if insert_pos == "kernel_start" and cce_info['kernels']:
-            # 插入到第一个kernel函数的开头（在 { 之后）
             kernel = cce_info['kernels'][0]
-            # 找到第一个 {
             first_brace = content.find('{', kernel['start'])
             if first_brace != -1:
-                # 在第一个有效语句位置插入（跳过空行和注释）
                 pos = first_brace + 1
-                # 跳过空行
                 while pos < len(content) and content[pos] in ' \t\n\r':
                     pos += 1
                 content = content[:pos] + "\n" + print_code + "\n" + content[pos:]
                 
         elif insert_pos == "kernel_end" and cce_info['kernels']:
-            # 插入到第一个kernel函数的结尾（在 } 之前）
             kernel = cce_info['kernels'][0]
-            # 找到 } 所在行的开始位置
             line_start = content.rfind('\n', 0, kernel['end'])
             if line_start == -1:
                 line_start = 0
-            # 检查 } 所在行的内容（包含 kernel['end'] 处的 }）
             line_content = content[line_start:kernel['end']+1]
-            # 检查 } 是否是这行唯一的非空内容
             stripped = line_content.strip()
             if stripped == '}':
-                # } 是独立行，直接在这行前插入
                 content = content[:line_start] + "\n" + print_code + content[line_start:]
             else:
-                # } 前有代码，需要在 } 前换行再插入
                 content = content[:kernel['end']] + "\n" + print_code + "\n}" + content[kernel['end']+1:]
             
         elif insert_pos == "tensor_after" and tensor_list:
-            # 在第一个tensor声明之后插入
             first_tensor = tensor_list[0]
             tensor_pos = content.find(f"= {first_tensor}")
             if tensor_pos == -1:
                 tensor_pos = content.find(first_tensor)
             if tensor_pos != -1:
-                # 找到这行的结束
                 line_end = content.find('\n', tensor_pos)
                 if line_end != -1:
                     content = content[:line_end+1] + "    " + print_code + "\n" + content[line_end+1:]
         
         cce_file.write_text(content)
-        print(f"  已添加 {len(print_stmts)} 条打印语句")
+        logger.info(f"  已添加 {len(print_stmts)} 条打印语句")
     
     def run_test(self, test_cmd: List[str]) -> Tuple[int, Optional[Path]]:
         """运行测试"""
@@ -405,7 +370,7 @@ class PrintNPUDataTool:
         env['ASCEND_WORK_PATH'] = str(self.work_path)
         env['ASCEND_GLOBAL_LOG_LEVEL'] = '0'
         
-        print(f"  运行: {' '.join(test_cmd)}")
+        logger.info(f"  运行: {' '.join(test_cmd)}")
         result = subprocess.run(test_cmd, capture_output=True, text=True, env=env)
         
         # 查找日志
@@ -686,98 +651,85 @@ AicoreLogF 示例（手动添加到CCE文件）：
     if args.init:
         if args.rebuild:
             debugger.rebuild_pypto()
-        print("配置初始化完成")
+        logger.info("配置初始化完成")
         return 0
     
-    # 列出CCE信息
     if args.list_cce:
         debugger.find_cce_files()
         for i, cce in enumerate(debugger.cce_files):
             info = debugger.parse_cce_structure(cce)
-            print(f"\n[{i}] {cce.name}")
-            print(f"  GM tensors: {info['gm_tensors']}")
-            print(f"  UB tensors: {info['ub_tensors']}")
-            print(f"  Shape variables: {info['shape_vars']}")
-            print(f"  Kernels: {[k['name'] for k in info['kernels']]}")
+            logger.info(f"\n[{i}] {cce.name}")
+            logger.info(f"  GM tensors: {info['gm_tensors']}")
+            logger.info(f"  UB tensors: {info['ub_tensors']}")
+            logger.info(f"  Shape variables: {info['shape_vars']}")
+            logger.info(f"  Kernels: {[k['name'] for k in info['kernels']]}")
         return 0
     
-    # 打印 shape 变量
     if args.print_shape is not None:
         cce_files = debugger.find_cce_files()
         if args.print_idx is not None:
             if args.print_idx >= len(cce_files):
-                print(f"错误: CCE索引 {args.print_idx} 超出范围(0-{len(cce_files)-1})")
+                logger.error(f"错误: CCE索引 {args.print_idx} 超出范围(0-{len(cce_files)-1})")
                 return 1
             cce_files = [cce_files[args.print_idx]]
         
         for cce_file in cce_files:
-            print(f"\n=== 添加 Shape 打印: {cce_file.name} ===")
+            logger.info(f"\n=== 添加 Shape 打印: {cce_file.name} ===")
             
-            # 备份
             backup = cce_file.with_suffix('.cpp.bak')
             shutil.copy(cce_file, backup)
             
-            # 解析 shape 变量
             shape_vars = [s.strip() for s in args.print_shape.split(',')] if args.print_shape else []
             
-            # 添加 shape 打印
             debugger.add_shape_print(cce_file, shape_vars, use_single_value=args.single_value)
             
-            print(f"  打印方式: {'AicoreLogF（单值打印）' if args.single_value else 'AiCorePrintShape（批量打印）'}")
-            print(f"  请运行测试后查看日志:")
-            print(f"    {args.work_path}/log/debug/device-*/DumpAicoreLog*")
+            logger.info(f"  打印方式: {'AicoreLogF（单值打印）' if args.single_value else 'AiCorePrintShape（批量打印）'}")
+            logger.info(f"  请运行测试后查看日志:")
+            logger.info(f"    {args.work_path}/log/debug/device-*/DumpAicoreLog*")
         
         return 0
     
-    # 指定CCE打印
     if args.print_idx is not None:
         cce_files = debugger.find_cce_files()
         if args.print_idx >= len(cce_files):
-            print(f"错误: CCE索引 {args.print_idx} 超出范围(0-{len(cce_files)-1})")
+            logger.error(f"错误: CCE索引 {args.print_idx} 超出范围(0-{len(cce_files)-1})")
             return 1
         
         cce_file = cce_files[args.print_idx]
-        print(f"\n=== 打印 CCE[{args.print_idx}]: {cce_file.name} ===")
+        logger.info(f"\n=== 打印 CCE[{args.print_idx}]: {cce_file.name} ===")
         
-        # 解析结构
         info = debugger.parse_cce_structure(cce_file)
-        print(f"  GM tensors: {info['gm_tensors']}")
-        print(f"  UB tensors: {info['ub_tensors']}")
+        logger.info(f"  GM tensors: {info['gm_tensors']}")
+        logger.info(f"  UB tensors: {info['ub_tensors']}")
         
-        # 备份
         backup = cce_file.with_suffix('.cce.bak')
         shutil.copy(cce_file, backup)
         
-        # 解析tensor参数
         tensors = []
         if args.tensor:
             tensors = [t.strip() for t in args.tensor.split(',')]
         
-        # 添加打印
         debugger.add_print_to_cce(cce_file, tensors, args.print_type, 
                                   args.dtype, args.end_offset, args.start_offset, args.pos)
         
         element_count = args.end_offset - args.start_offset + 1
-        print(f"\n  打印类型: {args.print_type}")
-        print(f"  数据类型: {args.dtype}")
-        print(f"  偏移量范围: {args.start_offset} ~ {args.end_offset}（共{element_count}个元素）")
-        print(f"  插入位置: {args.pos}")
-        print(f"  请运行测试后查看日志:")
-        print(f"    {args.work_path}/log/debug/device-*/DumpAicoreLog*")
+        logger.info(f"\n  打印类型: {args.print_type}")
+        logger.info(f"  数据类型: {args.dtype}")
+        logger.info(f"  偏移量范围: {args.start_offset} ~ {args.end_offset}（共{element_count}个元素）")
+        logger.info(f"  插入位置: {args.pos}")
+        logger.info(f"  请运行测试后查看日志:")
+        logger.info(f"    {args.work_path}/log/debug/device-*/DumpAicoreLog*")
         
-        # 恢复原文件（可选）
-        # shutil.copy(backup, cce_file)
         return 0
     
-    # 检测 validshape 问题
     if args.check_validshape or args.ir_file:
         ir_file = Path(args.check_validshape or args.ir_file)
         if not ir_file.exists():
-            print(f"错误: IR 文件不存在: {ir_file}")
+            logger.error(f"错误: IR 文件不存在: {ir_file}")
             return 1
         
         report = debugger.generate_validshape_report(ir_file)
-        print(report)
+        logger.info(report)
         return 0
     
     parser.print_help()
