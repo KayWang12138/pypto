@@ -37,10 +37,10 @@ PyPTO支持在具备NPU硬件的**真实环境**和仅有CPU硬件的**仿真环
 > **说明**：环境默认安装最新商发版CANN包，源码下载时注意与软件配套。更多关于开发平台的介绍请参考[LINK](https://gitcode.com/org/cann/discussions/54)。
 
 1. 进入开源项目，单击"`云开发`"按钮，使用已认证过的华为云账号登录。若未注册或认证，请根据页面提示进行注册和认证。
-![image.png](https://raw.gitcode.com/user-images/assets/8766299/6b3edd4d-1c7b-496a-82ef-278f9c67113f/image.png 'image.png')
+<img src="../tutorials/figures/webide1.png" alt="创建云开发环境" width="750px" height="90px">
 
 2. 根据页面提示创建并启动云开发环境，单击"`连接 > WebIDE`"进入算子一站式开发平台，开源项目的源码资源默认在`/mnt/workspace`目录下。
-![image.png](https://raw.gitcode.com/user-images/assets/8766299/648af2a7-1319-4518-ac97-9b2c2ccb1d17/image.png 'image.png')
+<img src="../tutorials/figures/webide2.png" alt="启动并连接 WebIDE" width="1000px" height="150px">
 
 ### 方式2：主机安装（自动安装/手动安装）
 
@@ -98,7 +98,7 @@ PyPTO支持在具备NPU硬件的**真实环境**和仅有CPU硬件的**仿真环
 
     - PyTorch及Ascend Extension for PyTorch：
         - **顺序说明**：请务必参考下文"软件包安装"章节完成对应工具包安装后，再安装`Ascend Extension for PyTorch`。
-        - 请根据实际环境的Python版本单独安装，请参考[Ascend Extension for PyTorch文档中心]（https://hiascend.com/document/redirect/pytorchuserguide）中的《软件安装》手册。
+        - 请根据实际环境的Python版本单独安装，请参考[Ascend Extension for PyTorch文档中心](https://hiascend.com/document/redirect/pytorchuserguide)中的《软件安装》手册。
         - **重要**：需确保`PyTorch`、`Ascend Extension for PyTorch`与`PyPTO`三者的Python版本一致。
         - **仿真环境说明**：在仿真环境中可跳过`Ascend Extension for PyTorch`的安装，但仍需安装`PyTorch`。
 
@@ -182,7 +182,7 @@ bash tools/prepare_env.sh --type=cann --device-type=a2 --with-install-driver=tru
 
 | 参数                    | 类型   | 是否必须 | 说明                                       |
 |:----------------------|:-----|:-----|:-----------------------------------------|
-| --type                | str  | 是    | 脚本安装类型，可选：cann, third_party, all |
+| --type                | str  | 是    | 脚本安装类型，可选：cann, all |
 | --device-type         | str  | 是    | 指定NPU型号，可选：a2, a3              |
 | --install-path        | str  | 否    | 指定CANN包安装路径                            |
 | --download-path       | str  | 否    | 指定CANN包以及三方依赖包下载路径                     |
@@ -222,7 +222,7 @@ bash tools/prepare_env.sh --type=cann --device-type=a2 --with-install-driver=tru
         - \$\{soc\_name\}：表示NPU型号名称。
         - \$\{install\_path\}：表示指定安装路径，ops包需与toolkit包安装在相同路径，root用户默认安装在`/usr/local/Ascend`目录。
 
-2. **获取pto-isa源码**
+2. **获取pto-isa**
 
     > 方法一：安装CANN pto-isa包
     > 根据实际环境下载对应的安装包，下载链接如下(如果浏览器不支持自动下载，请选择右键，"链接另存为...")：
