@@ -52,7 +52,7 @@ TEST_F(LiteNPUCodegenCast, test_Cast_001)
         FUNCTION("CAST_001")
         {
             TileShape::Current().SetVecTile({50});
-            output = Cast(input, DataType::DT_FP32, CAST_NONE, SaturationMode.OFF);
+            output = Cast(input, DataType::DT_FP32, CAST_NONE, SaturationMode::OFF);
         }
     }
 
@@ -72,7 +72,7 @@ TEST_F(LiteNPUCodegenCast, test_Cast_002)
         FUNCTION("CAST_002")
         {
             TileShape::Current().SetVecTile({100});
-            output = Cast(input, DataType::DT_FP32, CAST_RINT, SaturationMode.ON);
+            output = Cast(input, DataType::DT_FP32, CAST_RINT, SaturationMode::ON);
         }
     }
 
@@ -92,7 +92,7 @@ TEST_F(LiteNPUCodegenCast, test_Cast_003)
         FUNCTION("CAST_003")
         {
             TileShape::Current().SetVecTile({2, 32});
-            output = Cast(input, DataType::DT_FP32, CAST_ROUND, SaturationMode.ON);
+            output = Cast(input, DataType::DT_FP32, CAST_ROUND, SaturationMode::ON);
         }
     }
 
@@ -112,7 +112,7 @@ TEST_F(LiteNPUCodegenCast, test_Cast_004)
         FUNCTION("CAST_004")
         {
             TileShape::Current().SetVecTile({1, 130});
-            output = Cast(input, DataType::DT_FP16, CAST_FLOOR, SaturationMode.OFF);
+            output = Cast(input, DataType::DT_FP16, CAST_FLOOR, SaturationMode::OFF);
         }
     }
 
@@ -132,7 +132,7 @@ TEST_F(LiteNPUCodegenCast, test_Cast_005)
         FUNCTION("CAST_005")
         {
             TileShape::Current().SetVecTile({1, 2, 32});
-            output = Cast(input, DataType::DT_FP16, CAST_CEIL, SaturationMode.OFF);
+            output = Cast(input, DataType::DT_FP16, CAST_CEIL, SaturationMode::OFF);
         }
     }
 
@@ -152,7 +152,7 @@ TEST_F(LiteNPUCodegenCast, test_Cast_006)
         FUNCTION("CAST_006")
         {
             TileShape::Current().SetVecTile({1, 2, 140});
-            output = Cast(input, DataType::DT_FP16, CAST_TRUNC, SaturationMode.OFF);
+            output = Cast(input, DataType::DT_FP16, CAST_TRUNC, SaturationMode::OFF);
         }
     }
 
@@ -172,7 +172,7 @@ TEST_F(LiteNPUCodegenCast, test_Cast_007)
         FUNCTION("CAST_007")
         {
             TileShape::Current().SetVecTile({1, 5, 32});
-            output = Cast(input, DataType::DT_FP16, CAST_ODD, SaturationMode.OFF);
+            output = Cast(input, DataType::DT_FP16, CAST_ODD, SaturationMode::OFF);
         }
     }
 
@@ -192,7 +192,7 @@ TEST_F(LiteNPUCodegenCast, test_Cast_008)
         FUNCTION("CAST_008")
         {
             TileShape::Current().SetVecTile({1, 3, 170});
-            output = Cast(input, DataType::DT_INT16, CAST_NONE, SaturationMode.OFF);
+            output = Cast(input, DataType::DT_INT16, CAST_NONE, SaturationMode::OFF);
         }
     }
 
@@ -212,7 +212,7 @@ TEST_F(LiteNPUCodegenCast, test_Cast_009)
         FUNCTION("CAST_009")
         {
             TileShape::Current().SetVecTile({2, 1, 2, 16});
-            output = Cast(input, DataType::DT_INT32, CAST_NONE, SaturationMode.OFF);
+            output = Cast(input, DataType::DT_INT32, CAST_NONE, SaturationMode::OFF);
         }
     }
 
@@ -232,7 +232,7 @@ TEST_F(LiteNPUCodegenCast, test_Cast_010)
         FUNCTION("CAST_010")
         {
             TileShape::Current().SetVecTile({1, 1, 1, 130});
-            output = Cast(input, DataType::DT_INT8, CAST_NONE, SaturationMode.OFF);
+            output = Cast(input, DataType::DT_INT8, CAST_NONE, SaturationMode::OFF);
         }
     }
 
@@ -252,7 +252,7 @@ TEST_F(LiteNPUCodegenCast, test_Cast_011)
         FUNCTION("CAST_011")
         {
             TileShape::Current().SetVecTile({1, 1, 5, 32});
-            output = Cast(input, DataType::DT_UINT8, CAST_NONE, SaturationMode.OFF);
+            output = Cast(input, DataType::DT_UINT8, CAST_NONE, SaturationMode::OFF);
         }
     }
 
@@ -272,7 +272,7 @@ TEST_F(LiteNPUCodegenCast, test_Cast_012)
         FUNCTION("CAST_012")
         {
             TileShape::Current().SetVecTile({2, 2, 3, 32});
-            output = Cast(input, DataType::DT_INT16, CAST_NONE, SaturationMode.OFF);
+            output = Cast(input, DataType::DT_INT16, CAST_NONE, SaturationMode::OFF);
         }
     }
 
@@ -292,7 +292,7 @@ TEST_F(LiteNPUCodegenCast, test_Cast_013)
         FUNCTION("CAST_013")
         {
             TileShape::Current().SetVecTile({1, 1, 4, 130});
-            output = Cast(input, DataType::DT_INT32, CAST_NONE, SaturationMode.OFF);
+            output = Cast(input, DataType::DT_INT32, CAST_NONE, SaturationMode::OFF);
         }
     }
 
@@ -312,7 +312,7 @@ TEST_F(LiteNPUCodegenCast, test_Cast_014)
         FUNCTION("CAST_014")
         {
             TileShape::Current().SetVecTile({1, 2, 1, 139});
-            output = Cast(input, DataType::DT_FP32, CAST_NONE, SaturationMode.OFF);
+            output = Cast(input, DataType::DT_FP32, CAST_NONE, SaturationMode::OFF);
         }
     }
 
@@ -332,7 +332,7 @@ TEST_F(LiteNPUCodegenCast, test_Cast_015)
         FUNCTION("CAST_015")
         {
             TileShape::Current().SetVecTile({3, 3, 5, 32});
-            output = Cast(input, DataType::DT_FP32, CAST_NONE, SaturationMode.OFF);
+            output = Cast(input, DataType::DT_FP32, CAST_NONE, SaturationMode::OFF);
         }
     }
 
