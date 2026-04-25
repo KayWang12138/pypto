@@ -40,8 +40,8 @@ struct ReadyCoreFunctionQueue {
 };
 
 struct StaticReadyCoreFunctionQueue {
-    uint64_t head;
-    uint64_t tail;
+    uint32_t head;
+    uint32_t tail;
     uint64_t* elem;
     size_t lock;
 };
@@ -50,6 +50,7 @@ struct WrapInfo {
     uint32_t wrapId;
     uint32_t aicoreIdxList[MAX_WRAP_TASK_NUM]; // 顺序C、V1、V2
     uint32_t tasklist[MAX_WRAP_TASK_NUM];      // 顺序C、V1、V2
+    uint16_t queueIdx;                         // wrapQueueForThread_中的位置索引
     uint8_t mixResourceType;
 };
 

@@ -37,34 +37,31 @@ void DeviceTaskContext::ProcessWrapQueue(
 
     auto cceBinary = dyntask->cceBinary;
     auto callList = dyntask->dynFuncDataCacheList[funcIndex].calleeList;
-    for (uint32_t idx = wrapQueue->head; idx < wrapQueue->tail; idx++) {
-        if (wrapQueue->elem[idx].wrapId == wrapId) {
-            uint32_t* tasklist = wrapQueue->elem[idx].tasklist;
-            uint32_t taskIdx =
-                GetTaskIdx(cceBinary[callList[opIndex]].coreType, cceBinary[callList[opIndex]].wrapVecId);
-            tasklist[taskIdx] = MakeTaskID(funcIndex, opIndex);
-            return;
-        }
-    }
-
-    // add new wrap id to wrapQueue
-    WrapInfo* info = &wrapQueue->elem[wrapQueue->tail];
-    info->wrapId = wrapId;
-    info->mixResourceType = cceBinary[callList[opIndex]].mixResourceType;
-
     auto opWrapPtrList = reinterpret_cast<WrapInfo**>(dyntask->devTask.mixTaskData.opWrapPtrList[funcIndex]);
     auto wrapIdx = TaskID(wrapId);
-    opWrapPtrList[wrapIdx] = info;
+    WrapInfo* info = opWrapPtrList[wrapIdx];
 
     uint32_t taskIdx = GetTaskIdx(cceBinary[callList[opIndex]].coreType, cceBinary[callList[opIndex]].wrapVecId);
-    for (uint32_t idx = 0; idx < MAX_WRAP_TASK_NUM; idx++) {
-        if (idx == taskIdx) {
-            info->tasklist[idx] = MakeTaskID(funcIndex, opIndex);
-        } else {
-            info->tasklist[idx] = AICORE_TASK_INIT;
-        }
-        info->aicoreIdxList[idx] = 0;
+    uint32_t newTaskId = MakeTaskID(funcIndex, opIndex);
+
+    if (info != nullptr) {
+        info->tasklist[taskIdx] = newTaskId;
+        return;
     }
+
+    info = &wrapQueue->elem[wrapQueue->tail];
+    info->wrapId = wrapId;
+    info->mixResourceType = cceBinary[callList[opIndex]].mixResourceType;
+    opWrapPtrList[wrapIdx] = info;
+
+    info->tasklist[0] = AICORE_TASK_INIT;
+    info->tasklist[1] = AICORE_TASK_INIT;
+    info->tasklist[2] = AICORE_TASK_INIT;
+    info->aicoreIdxList[0] = 0;
+    info->aicoreIdxList[1] = 0;
+    info->aicoreIdxList[2] = 0;
+    info->queueIdx = 0;
+    info->tasklist[taskIdx] = newTaskId;
     wrapQueue->tail++;
 }
 
