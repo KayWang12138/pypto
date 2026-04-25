@@ -220,6 +220,15 @@ void OoOScheduler::GetActualSpillInfo(Operation* spillOp, std::pair<LogicalTenso
     if (spillOp->GetOpcode() == Opcode::OP_RESHAPE && actualSpillOp) {
         actualSpillTensor = actualSpillOp->GetInputOperand(0);
         copyOp = actualSpillOp;
+        for (auto &preOp : depManager_.GetPredecessors(actualSpillOp)) {
+            if (!opIsAllocMap[preOp]) {
+                actualSpillOp = preOp;
+            }
+        }
+    }
+    if (actualSpillOp->GetOpcodeStr().find("UB_COPY_ND2NZ") != std::string::npos) {
+        actualSpillTensor = actualSpillOp->GetInputOperand(0);
+        copyOp = actualSpillOp;
     }
     actualInfo = std::make_pair(actualSpillTensor, copyOp);
 }
@@ -831,6 +840,14 @@ Status OoOScheduler::CreateSpecialL1Copyout(SpillInfo &spillInfo, Operation* &sp
     if (actualSpillOp->GetOpcodeStr().find("COPY_IN") != std::string::npos) {
         APASS_LOG_ERROR_F(Elements::Operation, "A5 does not support the COPY_IN-actualSpillOp. ");
         return FAILED;
+    }
+    if (actualSpillOp->GetOpcodeStr().find("UB_COPY_ND2NZ") != std::string::npos) {
+        actualSpillTensor = actualSpillOp->GetInputOperand(0);
+        for (auto &preOp : depManager_.GetPredecessors(actualSpillOp)) {
+            if (!opIsAllocMap[preOp]) {
+                actualSpillOp = preOp;
+            }
+        }
     }
     if (CreateSpillCopyout(actualSpillOp, actualSpillTensor, actualSpillTensor->memoryrange.memId, spillCopyoutOp, spillInfo) != SUCCESS) {
         APASS_LOG_ERROR_F(Elements::Operation, "CreateSpillCopyout failed for specialL1 spill! %s", GetFormatBacktrace(*spillOp).c_str());
