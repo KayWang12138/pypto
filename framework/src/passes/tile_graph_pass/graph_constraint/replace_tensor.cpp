@@ -294,34 +294,38 @@ Status ReplaceTensor::FindBaseTensor(
             }
         }
     }
-    if (baseTensor == nullptr) {
-        baseTensor = group.front();
-        int64_t baseShape = abs(baseTensor->tensor->GetRawDataSize());
-        for (auto& curTensor : group) {
-            std::set<int> boundTensorIDs;
-            for (auto &inOp : curTensor->GetProducers()) {
-                boundTensorIDs.insert(inOp->GetSubgraphID());
-            }
-            for (auto &outOp : curTensor->GetConsumers()) {
-                boundTensorIDs.insert(outOp->GetSubgraphID());
-            }
-            if (boundTensorIDs.size() > 1) {
-                baseTensor = curTensor;
-                break;
-            }
-            int64_t curShape = abs(curTensor->tensor->GetRawDataSize());
-            if (curShape > baseShape) {
-                APASS_LOG_INFO_F(
-                    Elements::Tensor, "Replace curTensor %d size %ld to baseTensor %d size %ld.", curTensor->GetMagic(),
-                    curShape, baseTensor->GetMagic(), baseShape);
-                baseTensor = curTensor;
-                baseShape = curShape;
-            } else if (curShape == baseShape && tensorToOrderIndex.at(curTensor) < tensorToOrderIndex.at(baseTensor)) {
-                APASS_LOG_INFO_F(
-                    Elements::Tensor, "Replace curTensor %d idx %d to baseTensor %d idx %d.", curTensor->GetMagic(),
-                    tensorToOrderIndex.at(curTensor), baseTensor->GetMagic(), tensorToOrderIndex.at(baseTensor));
-                baseTensor = curTensor;
-            }
+    if (baseTensor != nullptr) {
+        return SUCCESS;
+    }
+    std::vector<LogicalTensor> boundTensors;
+    for (auto& curTensor : group) {
+        std::set<int> boundTensorIDs;
+        for (auto &inOp : curTensor->GetProducers()) {
+            boundTensorIDs.insert(inOp->GetSubgraphID());
+        }
+        for (auto &outOp : curTensor->GetConsumers()) {
+            boundTensorIDs.insert(outOp->GetSubgraphID());
+        }
+        if (boundTensorIDs.size() > 1) {
+            boundTensors.push_back(curTensor);
+        }
+    }
+    baseTensor = group.front();
+    int64_t baseShape = abs(baseTensor->tensor->GetRawDataSize());
+    LogicalTensors baseGroup = boundTensors.empty() ? group : boundTensors;
+    for (auto& curTensor : baseGroup) {
+        int64_t curShape = abs(curTensor->tensor->GetRawDataSize());
+        if (curShape > baseShape) {
+            APASS_LOG_INFO_F(
+                Elements::Tensor, "Replace curTensor %d size %ld to baseTensor %d size %ld.", curTensor->GetMagic(),
+                curShape, baseTensor->GetMagic(), baseShape);
+            baseTensor = curTensor;
+            baseShape = curShape;
+        } else if (curShape == baseShape && tensorToOrderIndex.at(curTensor) < tensorToOrderIndex.at(baseTensor)) {
+            APASS_LOG_INFO_F(
+                Elements::Tensor, "Replace curTensor %d idx %d to baseTensor %d idx %d.", curTensor->GetMagic(),
+                tensorToOrderIndex.at(curTensor), baseTensor->GetMagic(), tensorToOrderIndex.at(baseTensor));
+            baseTensor = curTensor;
         }
     }
     return SUCCESS;
