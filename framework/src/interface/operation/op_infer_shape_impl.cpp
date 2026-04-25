@@ -1304,11 +1304,17 @@ void QuantMXInferFunc(Operation* op, std::vector<std::vector<SymbolicScalar>>& o
     }
     std::vector<SymbolicScalar> groupedValidShape;
     if (op->GetIntAttribute(OpAttributeKey::mxQuantPerformanceMode) != 0) {
-        SymbolicScalar groupedSize(1);
-        for (size_t i = 0; i + 1 < inputValidShapes[0].size(); ++i) {
-            groupedSize = groupedSize * inputValidShapes[0][i];
+        if (inputValidShapes[0].size() == 1) {
+            groupedValidShape = {(inputValidShapes[0][0] + kQuantMXGroupSize - 1) / kQuantMXGroupSize};
+        } else {
+            groupedValidShape.reserve(inputValidShapes[0].size() - 1);
+            for (size_t i = 0; i + 2 < inputValidShapes[0].size(); ++i) {
+                groupedValidShape.push_back(inputValidShapes[0][i]);
+            }
+            groupedValidShape.push_back(
+                inputValidShapes[0][inputValidShapes[0].size() - 2] *
+                ((inputValidShapes[0].back() + kQuantMXGroupSize - 1) / kQuantMXGroupSize));
         }
-        groupedValidShape = {groupedSize * ((inputValidShapes[0].back() + kQuantMXGroupSize - 1) / kQuantMXGroupSize)};
     } else {
         groupedValidShape = inputValidShapes[0];
         groupedValidShape.back() = (groupedValidShape.back() + kQuantMXGroupSize - 1) / kQuantMXGroupSize;

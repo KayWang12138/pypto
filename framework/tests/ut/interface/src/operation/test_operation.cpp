@@ -146,6 +146,21 @@ TEST_F(OperationOpsTest, QuantMX_PerformanceModeKeepsPublicScaleShape)
         auto res = QuantMX(input, DT_FP8E4M3, DequantScaleRoundingMode::ROUND_DOWN, -1, true);
         EXPECT_EQ(std::get<0>(res).GetShape(), std::vector<int64_t>({2, 8, 128}));
         EXPECT_EQ(std::get<1>(res).GetShape(), std::vector<int64_t>({2, 8, 2, 2}));
+
+        const Operation* quantOp = nullptr;
+        auto* func = Program::GetInstance().GetCurrentFunction();
+        ASSERT_NE(func, nullptr);
+        for (const auto& op : func->Operations(false)) {
+            if (op.GetOpcode() == Opcode::OP_QUANT_MX) {
+                quantOp = &op;
+                break;
+            }
+        }
+
+        ASSERT_NE(quantOp, nullptr);
+        ASSERT_EQ(quantOp->GetOOperands().size(), 4U);
+        EXPECT_EQ(quantOp->GetOOperands()[1]->GetShape(), std::vector<int64_t>({2, 32}));
+        EXPECT_EQ(quantOp->GetOOperands()[2]->GetShape(), std::vector<int64_t>({2, 32}));
     }
 }
 

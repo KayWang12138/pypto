@@ -19,7 +19,7 @@
 
 namespace npu::tile_fwk {
 namespace {
-constexpr int64_t QUANT_MX_MIN_RANK = 2;
+constexpr int64_t QUANT_MX_MIN_RANK = 1;
 constexpr int64_t QUANT_MX_MAX_RANK = 4;
 constexpr int64_t QUANT_MX_GROUP_COLS = 32;
 constexpr int64_t QUANT_MX_SCALE_GROUP_COLS = 64;
@@ -95,7 +95,7 @@ void CheckQuantMXInput(const Tensor& input, DataType quantDtype, DequantScaleRou
     ASSERT(
         VectorErrorCode::ERR_PARAM_INVALID,
         QUANT_MX_MIN_RANK <= input.GetShape().size() && input.GetShape().size() <= QUANT_MX_MAX_RANK)
-        << "QuantMX only supports 2D to 4D input.";
+        << "QuantMX only supports 1D to 4D input.";
     CheckQuantMXAxis(axis, input.GetShape().size());
     const int64_t lastDimBytes = input.GetShape().back() * BytesOf(inputDtype);
     ASSERT(VectorErrorCode::ERR_PARAM_INVALID, lastDimBytes % QUANT_MX_TILE_ALIGN_BYTES == 0)
@@ -109,13 +109,53 @@ std::vector<int64_t> BuildQuantMXGroupedShape(const std::vector<int64_t>& inputS
     return groupedShape;
 }
 
-int64_t BuildQuantMXPerformanceGroupedSize(const std::vector<int64_t>& inputShape)
+std::vector<int64_t> BuildQuantMXPerformanceGroupedShape(const std::vector<int64_t>& inputShape)
 {
-    int64_t groupedSize = 1;
-    for (size_t i = 0; i + 1 < inputShape.size(); ++i) {
-        groupedSize *= inputShape[i];
+    if (inputShape.size() == 1) {
+        return {CeilDiv(inputShape[0], QUANT_MX_GROUP_COLS)};
     }
-    return groupedSize * CeilDiv(inputShape.back(), QUANT_MX_GROUP_COLS);
+
+    std::vector<int64_t> groupedShape;
+    groupedShape.reserve(inputShape.size() - 1);
+    for (size_t i = 0; i + 2 < inputShape.size(); ++i) {
+        groupedShape.push_back(inputShape[i]);
+    }
+    groupedShape.push_back(inputShape[inputShape.size() - 2] * CeilDiv(inputShape.back(), QUANT_MX_GROUP_COLS));
+    return groupedShape;
+}
+
+std::vector<int64_t> BuildQuantMXPerformanceVecTile(const std::vector<int64_t>& inputVecTile)
+{
+    if (inputVecTile.size() == 1) {
+        return {CeilDiv(inputVecTile[0], QUANT_MX_GROUP_COLS)};
+    }
+
+    std::vector<int64_t> groupedVecTile;
+    groupedVecTile.reserve(inputVecTile.size() - 1);
+    for (size_t i = 0; i + 2 < inputVecTile.size(); ++i) {
+        groupedVecTile.push_back(inputVecTile[i]);
+    }
+    groupedVecTile.push_back(
+        inputVecTile[inputVecTile.size() - 2] * CeilDiv(inputVecTile.back(), QUANT_MX_GROUP_COLS));
+    return groupedVecTile;
+}
+
+std::vector<int64_t> BuildQuantMXPerformanceGroupedOffset(
+    const std::vector<int64_t>& inputOffset, const std::vector<int64_t>& inputShape)
+{
+    if (inputOffset.size() == 1) {
+        return {inputOffset[0] / QUANT_MX_GROUP_COLS};
+    }
+
+    std::vector<int64_t> groupedOffset;
+    groupedOffset.reserve(inputOffset.size() - 1);
+    for (size_t i = 0; i + 2 < inputOffset.size(); ++i) {
+        groupedOffset.push_back(inputOffset[i]);
+    }
+    const int64_t groupCols = CeilDiv(inputShape.back(), QUANT_MX_GROUP_COLS);
+    groupedOffset.push_back(
+        inputOffset[inputOffset.size() - 2] * groupCols + inputOffset.back() / QUANT_MX_GROUP_COLS);
+    return groupedOffset;
 }
 
 std::vector<SymbolicScalar> BuildQuantMXGroupedValidShape(const std::vector<SymbolicScalar>& inputValidShape)
@@ -127,12 +167,19 @@ std::vector<SymbolicScalar> BuildQuantMXGroupedValidShape(const std::vector<Symb
 
 std::vector<SymbolicScalar> BuildQuantMXPerformanceGroupedValidShape(const std::vector<SymbolicScalar>& inputValidShape)
 {
-    SymbolicScalar groupedSize(1);
-    for (size_t i = 0; i + 1 < inputValidShape.size(); ++i) {
-        groupedSize = groupedSize * inputValidShape[i];
+    if (inputValidShape.size() == 1) {
+        return {(inputValidShape[0] + QUANT_MX_GROUP_COLS - 1) / QUANT_MX_GROUP_COLS};
     }
-    groupedSize = groupedSize * ((inputValidShape.back() + QUANT_MX_GROUP_COLS - 1) / QUANT_MX_GROUP_COLS);
-    return {groupedSize};
+
+    std::vector<SymbolicScalar> groupedValidShape;
+    groupedValidShape.reserve(inputValidShape.size() - 1);
+    for (size_t i = 0; i + 2 < inputValidShape.size(); ++i) {
+        groupedValidShape.push_back(inputValidShape[i]);
+    }
+    groupedValidShape.push_back(
+        inputValidShape[inputValidShape.size() - 2] *
+        ((inputValidShape.back() + QUANT_MX_GROUP_COLS - 1) / QUANT_MX_GROUP_COLS));
+    return groupedValidShape;
 }
 
 std::vector<int64_t> BuildQuantMXScaleShape(const std::vector<int64_t>& inputShape)
@@ -166,33 +213,57 @@ void CheckQuantMXTileShape(const LogicalTensorPtr& input, const VecTile& vecTile
 void TiledQuantMXOperation(
     Function& function, const TileShape& tileShape, size_t cur, Input& input, const LogicalTensorPtr& dst,
     const LogicalTensorPtr& exp, const LogicalTensorPtr& maxScratch, const LogicalTensorPtr& scalingScratch,
-    DequantScaleRoundingMode mode, int64_t axis, int64_t performanceMode, int64_t& performanceGroupedOffset)
+    DequantScaleRoundingMode mode, int64_t axis, int64_t performanceMode)
 {
     if (cur == input.tensor.GetShape().size()) {
         const int64_t lastDimBytes = input.tileInfo.shape.back() * BytesOf(input.tensor.GetDataType());
         ASSERT(VectorErrorCode::ERR_PARAM_INVALID, lastDimBytes % QUANT_MX_TILE_ALIGN_BYTES == 0)
             << "QuantMX tile width must be 256-byte aligned. Current last dim bytes: " << lastDimBytes;
 
-        auto groupedTileShape = input.tileInfo.shape;
-        groupedTileShape.back() = CeilDiv(groupedTileShape.back(), QUANT_MX_GROUP_COLS);
-        auto groupedTileOffset = input.tileInfo.offset;
-        groupedTileOffset.back() /= QUANT_MX_GROUP_COLS;
-        if (performanceMode != 0) {
-            const int64_t groupedTileSize = BuildQuantMXPerformanceGroupedSize(input.tileInfo.shape);
-            groupedTileShape = {groupedTileSize};
-            groupedTileOffset = {performanceGroupedOffset};
-            performanceGroupedOffset += groupedTileSize;
+        auto addQuantMXTile = [&](const std::vector<int64_t>& tileShape, const std::vector<int64_t>& tileOffset,
+                                  const std::vector<int64_t>& groupedTileShape,
+                                  const std::vector<int64_t>& groupedTileOffset) {
+            auto srcTile = input.tensor.GetStorage()->View(function, tileShape, tileOffset);
+            auto dstTile = dst->View(function, tileShape, tileOffset);
+            auto expTile = exp->View(function, groupedTileShape, groupedTileOffset);
+            auto maxTile = maxScratch->View(function, groupedTileShape, groupedTileOffset);
+            auto scalingTile = scalingScratch->View(function, tileShape, tileOffset);
+            auto& tiledOp =
+                function.AddOperation(Opcode::OP_QUANT_MX, {srcTile}, {dstTile, expTile, maxTile, scalingTile});
+            tiledOp.SetAttribute(OpAttributeKey::mxQuantMode, static_cast<int64_t>(mode));
+            tiledOp.SetAttribute(OpAttributeKey::mxQuantAxis, axis);
+            tiledOp.SetAttribute(OpAttributeKey::mxQuantPerformanceMode, performanceMode);
+        };
+
+        if (performanceMode == 0) {
+            auto groupedTileShape = input.tileInfo.shape;
+            groupedTileShape.back() = CeilDiv(groupedTileShape.back(), QUANT_MX_GROUP_COLS);
+            auto groupedTileOffset = input.tileInfo.offset;
+            groupedTileOffset.back() /= QUANT_MX_GROUP_COLS;
+            addQuantMXTile(input.tileInfo.shape, input.tileInfo.offset, groupedTileShape, groupedTileOffset);
+            return;
         }
 
-        auto srcTile = input.tensor.GetStorage()->View(function, input.tileInfo.shape, input.tileInfo.offset);
-        auto dstTile = dst->View(function, input.tileInfo.shape, input.tileInfo.offset);
-        auto expTile = exp->View(function, groupedTileShape, groupedTileOffset);
-        auto maxTile = maxScratch->View(function, groupedTileShape, groupedTileOffset);
-        auto scalingTile = scalingScratch->View(function, input.tileInfo.shape, input.tileInfo.offset);
-        auto& tiledOp = function.AddOperation(Opcode::OP_QUANT_MX, {srcTile}, {dstTile, expTile, maxTile, scalingTile});
-        tiledOp.SetAttribute(OpAttributeKey::mxQuantMode, static_cast<int64_t>(mode));
-        tiledOp.SetAttribute(OpAttributeKey::mxQuantAxis, axis);
-        tiledOp.SetAttribute(OpAttributeKey::mxQuantPerformanceMode, performanceMode);
+        const auto& fullShape = input.tensor.GetShape();
+        const bool lastDimFullTile =
+            input.tileInfo.shape.back() == fullShape.back() && input.tileInfo.offset.back() == 0;
+        if (input.tileInfo.shape.size() == 1 || lastDimFullTile) {
+            addQuantMXTile(
+                input.tileInfo.shape, input.tileInfo.offset, BuildQuantMXPerformanceGroupedShape(input.tileInfo.shape),
+                BuildQuantMXPerformanceGroupedOffset(input.tileInfo.offset, fullShape));
+            return;
+        }
+
+        const size_t rowDim = input.tileInfo.shape.size() - 2;
+        for (int64_t row = 0; row < input.tileInfo.shape[rowDim]; ++row) {
+            auto rowTileShape = input.tileInfo.shape;
+            auto rowTileOffset = input.tileInfo.offset;
+            rowTileShape[rowDim] = 1;
+            rowTileOffset[rowDim] += row;
+            addQuantMXTile(
+                rowTileShape, rowTileOffset, BuildQuantMXPerformanceGroupedShape(rowTileShape),
+                BuildQuantMXPerformanceGroupedOffset(rowTileOffset, fullShape));
+        }
         return;
     }
 
@@ -203,8 +274,7 @@ void TiledQuantMXOperation(
         input.tileInfo.shape[cur] = std::min(input.tensor.GetShape()[cur] - i, step);
         input.tileInfo.offset[cur] = i;
         TiledQuantMXOperation(
-            function, tileShape, cur + 1, input, dst, exp, maxScratch, scalingScratch, mode, axis, performanceMode,
-            performanceGroupedOffset);
+            function, tileShape, cur + 1, input, dst, exp, maxScratch, scalingScratch, mode, axis, performanceMode);
     }
 }
 
@@ -229,16 +299,8 @@ void QuantMXTileFunc(
     CheckQuantMXTileShape(src, tileShape.GetVecTile());
     TileInfo inputTileInfo(src->shape.size(), src->offset.size());
     auto input = Input{Tensor(src), inputTileInfo};
-    int64_t performanceGroupedOffset = 0;
     TiledQuantMXOperation(
-        function, tileShape, 0, input, dst, exp, maxScratch, scalingScratch, mode, axis, performanceMode,
-        performanceGroupedOffset);
-    const int64_t expectedPerformanceGroupedSize = BuildQuantMXPerformanceGroupedSize(src->GetShape());
-    ASSERT(
-        VectorErrorCode::ERR_PARAM_INVALID,
-        performanceMode == 0 || performanceGroupedOffset == expectedPerformanceGroupedSize)
-        << "QuantMX performance mode grouped tiling does not cover the raw scale buffer exactly. Covered groups: "
-        << performanceGroupedOffset << ", expected groups: " << expectedPerformanceGroupedSize;
+        function, tileShape, 0, input, dst, exp, maxScratch, scalingScratch, mode, axis, performanceMode);
 }
 } // namespace
 
@@ -250,9 +312,8 @@ std::tuple<Tensor, Tensor> QuantMX(
 
     const auto& inputShape = input.GetShape();
     const int64_t normalizedAxis = NormalizeQuantMXAxis(axis, inputShape.size());
-    const std::vector<int64_t> groupedShape = performanceMode ?
-                                                  std::vector<int64_t>{BuildQuantMXPerformanceGroupedSize(inputShape)} :
-                                                  BuildQuantMXGroupedShape(inputShape);
+    const std::vector<int64_t> groupedShape = performanceMode ? BuildQuantMXPerformanceGroupedShape(inputShape) :
+                                                                BuildQuantMXGroupedShape(inputShape);
     const std::vector<int64_t> scaleShape = BuildQuantMXScaleShape(inputShape);
 
     const auto scratchDtype = input.GetDataType();
@@ -279,7 +340,14 @@ std::tuple<Tensor, Tensor> QuantMX(
     op.SetAttribute(OpAttributeKey::mxQuantMode, static_cast<int64_t>(mode));
     op.SetAttribute(OpAttributeKey::mxQuantAxis, normalizedAxis);
     op.SetAttribute(OpAttributeKey::mxQuantPerformanceMode, static_cast<int64_t>(performanceMode ? 1 : 0));
+    const auto oldVecTile = TileShape::Current().GetVecTile();
+    if (performanceMode && !oldVecTile.tile.empty()) {
+        TileShape::Current().SetVecTile(BuildQuantMXPerformanceVecTile(oldVecTile.tile));
+    }
     auto scale = Reshape(exp, scaleShape, scaleValidShape);
+    if (performanceMode && !oldVecTile.tile.empty()) {
+        TileShape::Current().SetVecTile(oldVecTile);
+    }
     return std::tie(quantized, scale);
 }
 

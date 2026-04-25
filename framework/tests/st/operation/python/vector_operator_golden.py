@@ -3369,8 +3369,8 @@ def gen_quantmx_op_golden(case_name: str, output: Path, case_index: int = None) 
         group_size = 32
 
         x = inputs[0].astype(np.float32, copy=False)
-        if x.ndim < 2 or x.ndim > 4:
-            raise ValueError("QuantMX golden only supports 2D to 4D input.")
+        if x.ndim < 1 or x.ndim > 4:
+            raise ValueError("QuantMX golden only supports 1D to 4D input.")
 
         cols = x.shape[-1]
         rows = x.size // cols

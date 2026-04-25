@@ -252,7 +252,7 @@ def quant_mx(
     axis: int = -1,
     performance_mode: bool = False,
 ) -> Tuple[Tensor, Tensor]:
-    """Quantizes a 2D to 4D FP16/BF16/FP32 ND tensor to MX format.
+    """Quantizes a 1D to 4D FP16/BF16/FP32 ND tensor to MX format.
 
     Returns
     -------
@@ -261,8 +261,8 @@ def quant_mx(
         - `quantized` has the same shape as `input` and dtype `quant_dtype`
         - `scale` has shape `[*input.shape[:-1], ceil(input.shape[-1] / 64), 2]`
           and dtype `DT_FP8E8M0`
-        - in performance mode, the internal TQuant scale buffer is one-dimensional before
-          it is reshaped to the same public `scale` shape
+        - in performance mode, the internal TQuant scale buffer uses a grouped layout with
+          the last two input dimensions collapsed before it is reshaped to the public `scale` shape
 
     Notes
     -----

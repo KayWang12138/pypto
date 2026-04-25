@@ -2645,13 +2645,20 @@ static void QuantMX(
     auto tself = From(self);
 
     auto input = tself.second.to(torch::kFloat32).contiguous();
-    ASSERT(CalculatorErrorScene::QUANTMX_RANK_INVALID, input.dim() >= 2 && input.dim() <= 4)
-        << "QuantMX interpreter only supports 2D to 4D input.";
+    ASSERT(CalculatorErrorScene::QUANTMX_RANK_INVALID, input.dim() >= 1 && input.dim() <= 4)
+        << "QuantMX interpreter only supports 1D to 4D input.";
 
     auto quantRaw = torch::empty(input.sizes(), torch::TensorOptions().dtype(torch::kUInt8));
     auto groupedShape = input.sizes().vec();
     const int64_t cols = groupedShape.back();
     groupedShape.back() = (cols + MX_QUANT_TILE_BLOCK - 1) / MX_QUANT_TILE_BLOCK;
+    auto performanceGroupedShape = input.sizes().vec();
+    if (performanceGroupedShape.size() == 1) {
+        performanceGroupedShape.back() = groupedShape.back();
+    } else {
+        performanceGroupedShape.pop_back();
+        performanceGroupedShape.back() *= groupedShape.back();
+    }
     auto expRaw = torch::empty(groupedShape, torch::TensorOptions().dtype(torch::kUInt8));
     auto scalingTemp = torch::empty(input.sizes(), torch::TensorOptions().dtype(torch::kFloat32));
     auto maxTemp = torch::zeros(groupedShape, torch::TensorOptions().dtype(torch::kFloat32));
@@ -2705,8 +2712,8 @@ static void QuantMX(
     }
 
     tout.second.copy_(quantRaw);
-    texp.second.copy_(performanceMode ? expRaw.flatten() : expRaw);
-    tmax.second.copy_(performanceMode ? maxTemp.flatten() : maxTemp);
+    texp.second.copy_(performanceMode ? expRaw.reshape(performanceGroupedShape) : expRaw);
+    tmax.second.copy_(performanceMode ? maxTemp.reshape(performanceGroupedShape) : maxTemp);
     tscaling.second.copy_(scalingTemp);
 }
 

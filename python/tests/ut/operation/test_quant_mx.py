@@ -68,9 +68,11 @@ def test_quant_mx_performance_mode_keeps_public_scale_shape():
     with pypto.function("QUANT_MX_PERFORMANCE_MODE", x):
         pypto.set_vec_tile_shapes(1, 8, 128)
         quantized, scale = pypto.quant_mx(x, mode=pypto.ROUND_DOWN, performance_mode=True)
+        vec_tile = pypto.get_vec_tile_shapes()
 
     assert quantized.shape == [2, 8, 128]
     assert scale.shape == [2, 8, 2, 2]
+    assert vec_tile == [1, 8, 128]
 
 
 def test_quant_mx_supports_4d():
