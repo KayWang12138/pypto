@@ -711,7 +711,7 @@ struct FunctionInterpreter {
     std::mutex mixGlobalTensorMutex_;
     std::condition_variable mixGlobalTensorCv_;
     static constexpr int64_t MIX_GLOBAL_TENSOR_WAIT_TIMEOUT_MS = 60000; // 60s timeout to detect dead waits
-    inline static thread_local bool tlsSkipDump_{false};
+    std::mutex dumpStateMutex_;
 
     std::vector<std::shared_ptr<LogicalTensorData>>& GetInputDataViewList()
     {
@@ -896,10 +896,7 @@ struct FunctionInterpreter {
                 task->inoutDataPair == nullptr) {
                 return;
             }
-            bool oldSkipDump = FunctionInterpreter::tlsSkipDump_;
-            FunctionInterpreter::tlsSkipDump_ = true;
             task->interpreter->ExecuteFunctionFrame(task->callee, task->callop, task->inoutDataPair);
-            FunctionInterpreter::tlsSkipDump_ = oldSkipDump;
         }
     };
 
@@ -1082,13 +1079,11 @@ struct FunctionInterpreter {
         } else {
             TimeStamp ts;
             operationInterpreter->ExecuteOperation(&ctx);
-            if (!tlsSkipDump_) {
+            {
+                std::lock_guard<std::mutex> dumpGuard(dumpStateMutex_);
                 opUsage[op->GetOpcodeStr()] += ts.Duration();
-            }
-
-            auto* ooperandDumpList =
-                ctx.ooperandInplaceDataViewList ? ctx.ooperandInplaceDataViewList : ctx.ooperandDataViewList;
-            if (!tlsSkipDump_) {
+                auto* ooperandDumpList =
+                    ctx.ooperandInplaceDataViewList ? ctx.ooperandInplaceDataViewList : ctx.ooperandDataViewList;
                 DumpOperationTensor(ctx.op, ctx.frame, ooperandDumpList, ctx.ioperandDataViewList);
                 dumpOperationUsage += ts.Duration();
             }
@@ -1115,9 +1110,7 @@ struct FunctionInterpreter {
 
     void ExecuteHandleFunctionBegin(Function* func, std::shared_ptr<FunctionFrame> frame)
     {
-        if (tlsSkipDump_) {
-            return;
-        }
+        std::lock_guard<std::mutex> dumpGuard(dumpStateMutex_);
         TimeStamp ts;
         execDumpStack.push_back(frame);
         DumpFunctionHead(func);
@@ -1133,16 +1126,12 @@ struct FunctionInterpreter {
     }
     void ExecuteHandleFunctionEnd()
     {
-        if (tlsSkipDump_) {
-            return;
-        }
+        std::lock_guard<std::mutex> dumpGuard(dumpStateMutex_);
         execDumpStack.pop_back();
     }
     void ExecuteHandleOperationBegin(Operation* op)
     {
-        if (tlsSkipDump_) {
-            return;
-        }
+        std::lock_guard<std::mutex> dumpGuard(dumpStateMutex_);
         execDumpStack.back()->UpdateCurrentOperation(op);
         TimeStamp ts;
         DumpOperation(op);
@@ -1605,6 +1594,7 @@ public:
 
     void DumpReset()
     {
+        std::lock_guard<std::mutex> dumpGuard(dumpStateMutex_);
         execDumpLevel = 0;
         opUsage.clear();
         totalTimeUsage = 0;
@@ -1655,6 +1645,8 @@ public:
 
     std::string DumpStatistics() const
     {
+        auto& nonConstSelf = const_cast<FunctionInterpreter&>(*this);
+        std::lock_guard<std::mutex> dumpGuard(nonConstSelf.dumpStateMutex_);
         std::stringstream ss;
         const int labelWidth = 24;
         uint64_t totalOpUsage = 0;
