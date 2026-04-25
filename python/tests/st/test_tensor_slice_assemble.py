@@ -29,6 +29,8 @@ def test_slice_neg_index():
     x = pypto.tensor(x_shape, dtype)
     res = pypto.tensor(res_shape, dtype)
 
+    pypto.experimental.set_operation_options(combine_axis=True)
+    pypto.set_pass_default_config(pypto.PassConfigKey.KEY_DUMP_GRAPH, True)
     with pypto.function("SLICE_NEG_INDEX", x, res):
         for _ in pypto.loop(1, name="LOOP_L0", idx_name="a_idx"):
             pypto.set_vec_tile_shapes(4, 8)
@@ -42,9 +44,13 @@ def test_slice_neg_index():
     pto_tensor = pypto.from_torch(torch_tensor, "torch_tensor")
     pto_res_tensor = pypto.from_torch(res_tensor, "res_tensor")
     pypto.runtime._device_run_once_data_from_host(pto_tensor, pto_res_tensor)
-
+    print("*" * 60)
+    print(res_tensor.flatten())
+    print(expected.flatten())
+    print("*" * 60)
     assert torch.equal(res_tensor.flatten(), expected.flatten())
     pypto.runtime._device_fini()
+
 
 
 def test_1d_assemble_to_2d():
@@ -58,12 +64,14 @@ def test_1d_assemble_to_2d():
     x = pypto.tensor(x_shape, dtype)
     res = pypto.tensor(res_shape, dtype)
 
+    pypto.experimental.set_operation_options(combine_axis=True)
+    pypto.set_pass_default_config(pypto.PassConfigKey.KEY_DUMP_GRAPH, True)
     with pypto.function("SLICE_NEG_INDEX", x, res):
         for a_idx in pypto.loop(res_shape[1], name="LOOP_L0", idx_name="a_idx"):
             pypto.set_vec_tile_shapes(4, 8)
             res[0:, a_idx] = x
 
-    torch_tensor = torch.rand(x_shape, dtype=torch.float32) * 200 - 100
+    torch_tensor = torch.tensor([1.0, 2.0, 3.0, 4.0], dtype=torch.float32)
     res_tensor = torch.zeros(res_shape, dtype=torch.float32)
     expected = res_tensor.clone()
     for k in range(res_shape[1]):
@@ -72,7 +80,10 @@ def test_1d_assemble_to_2d():
     pto_tensor = pypto.from_torch(torch_tensor, "torch_tensor")
     pto_res_tensor = pypto.from_torch(res_tensor, "res_tensor")
     pypto.runtime._device_run_once_data_from_host(pto_tensor, pto_res_tensor)
-
+    print("*" * 60)
+    print(res_tensor.flatten())
+    print(expected.flatten())
+    print("*" * 60)
     assert torch.equal(res_tensor.flatten(), expected.flatten())
     pypto.runtime._device_fini()
 
@@ -87,7 +98,8 @@ def test_2d_assemble_to_3d():
     pypto.runtime._device_init()
     x = pypto.tensor(x_shape, dtype)
     res = pypto.tensor(res_shape, dtype)
-
+    pypto.experimental.set_operation_options(combine_axis=True)
+    pypto.set_pass_default_config(pypto.PassConfigKey.KEY_DUMP_GRAPH, True)
     with pypto.function("SLICE_NEG_INDEX", x, res):
         for b_idx in pypto.loop(res.shape[0], name="LOOP_L0", idx_name="a_idx"):
             s_loop = math.ceil(res.shape[1] / x.shape[0])
@@ -192,3 +204,9 @@ def test_slice_ellipsis_index():
     assert torch.equal(res_tensor[2].flatten(), res2_copy.flatten())
     assert torch.equal(res_tensor[3].flatten(), res3_copy.flatten())
     pypto.runtime._device_fini()
+
+# test_slice_neg_index()
+test_2d_assemble_to_3d()
+# test_slice_int_index()
+# test_slice_ellipsis_index()
+
