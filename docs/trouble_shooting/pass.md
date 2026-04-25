@@ -18,7 +18,7 @@
 
 **步骤 1：日志落盘**
 
-export ASCEND_PROCESS_LOG_PATH=$(pwd)/logs/$(date +%Y%m%d%H%M%S)
+export ASCEND_PROCESS_LOG_PATH=$(pwd)/logs/$(date +%Y%m%d%H%M%S)\
 export ASCEND_GLOBAL_LOG_LEVEL=0
 
 **步骤 2：识别错误码**
