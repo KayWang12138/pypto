@@ -187,7 +187,8 @@ INLINE void SendRegDevTaskStop(uint32_t dTaskId)
 INLINE void SendRegAck(uint32_t taskIdx) { set_cond(taskIdx); }
 
 INLINE void PerfTraceRecord(
-    uint32_t devTaskId, __gm__ Metrics* metric, AicorePerfTrace type, __gm__ KernelArgs* args, uint64_t cycle = 0)
+    uint32_t devTaskId, __gm__ Metrics* metric, AicorePerfTrace type, __gm__ KernelArgs* args, uint64_t cycle = 0,
+    bool flush = true, bool last = false)
 {
     if (unlikely(npu::tile_fwk::g_is_open_dump_perf_trace_data == 1) && metric->turnNum < MAX_ROUND_NUM) {
         uint32_t turn = metric->turnNum;
@@ -196,7 +197,16 @@ INLINE void PerfTraceRecord(
             metric->perfTrace[turn][type][cnt] = cycle == 0 ? get_sys_cnt() : cycle;
             metric->perfTraceDevTaskId[turn][type][cnt] = devTaskId;
             metric->perfTraceCnt[turn][type]++;
+            if (flush) {
+                dcci(&metric->perfTrace[turn][type][cnt], SINGLE_CACHE_LINE, CACHELINE_OUT);
+                dcci(&metric->perfTraceDevTaskId[turn][type][cnt], SINGLE_CACHE_LINE, CACHELINE_OUT);
+                dcci(&metric->perfTraceCnt[turn][type], SINGLE_CACHE_LINE, CACHELINE_OUT);
+            }
         }
+    }
+    if (last) {
+        metric->turnNum++;
+        dcci(metric, SINGLE_CACHE_LINE, CACHELINE_OUT);
     }
     (void)args;
 }
@@ -218,7 +228,7 @@ INLINE void AddMetricStatistic(ExecuteContext* ctx, uint32_t seqNo, uint32_t tas
 INLINE void FlushMetricStatistic(__gm__ volatile KernelArgs* args)
 {
     __gm__ volatile Metrics* m = (__gm__ volatile Metrics*)(args->shakeBuffer[SHAK_BUF_DFX_DATA_INDEX]);
-    if (m == nullptr) {
+    if (m == nullptr || m->taskCount == 0) {
         return;
     }
 
@@ -233,7 +243,6 @@ INLINE void FlushMetricStatistic(__gm__ volatile KernelArgs* args)
 
 INLINE void DfxProcWhenCoreExit(ExecuteContext* ctx, __gm__ KernelArgs* args, __gm__ Metrics* metric)
 {
-    PerfTraceRecord(INVALID_DEV_TASK_ID, metric, PERF_TRACE_CORE_WAIT_EXIT_NOTIFY, args);
     if (ctx->lastTaskFinishCycle > 0) {
         PerfTraceRecord(
             INVALID_DEV_TASK_ID, metric, PERF_TRACE_CORE_WAIT_ALL_DEV_TASK_LEAF_TASK_EXEC_FINISH, args,
@@ -242,9 +251,9 @@ INLINE void DfxProcWhenCoreExit(ExecuteContext* ctx, __gm__ KernelArgs* args, __
     if (unlikely(
             args->taskEntry.reserved[0] == PRO_LEVEL2 || args->taskEntry.reserved[0] == PRO_LEVEL1 ||
             npu::tile_fwk::g_is_open_dump_perf_trace_data == 1)) {
-        metric->turnNum++;
         FlushMetricStatistic(args);
     }
+    PerfTraceRecord(INVALID_DEV_TASK_ID, metric, PERF_TRACE_CORE_WAIT_EXIT_NOTIFY, args, 0, true, true);
 }
 
 INLINE void DfxProcWhenDevTaskStop(ExecuteContext *ctx, __gm__ KernelArgs *args, __gm__ Metrics* metric)
@@ -512,6 +521,7 @@ INLINE uint32_t RefreshParallelDevTask(__gm__ KernelArgs *args, ExecuteContext *
 INLINE void KernelEntry(
     int64_t ffts_addr, int64_t inputs, int64_t outputs, int64_t workspace, int64_t tilingdata, int64_t cfgdata)
 {
+    uint64_t start = get_sys_cnt();
     UNUSED(ffts_addr);
     UNUSED(inputs);
     UNUSED(outputs);
@@ -526,7 +536,7 @@ INLINE void KernelEntry(
     __gm__ KernelArgs* args = (__gm__ KernelArgs*)(devArgs->sharedBuffer + blockIdx * SHARED_BUFFER_SIZE);
     __gm__ Metrics* metric = (__gm__ Metrics*)(args->shakeBuffer[SHAK_BUF_DFX_DATA_INDEX]);
     npu::tile_fwk::g_is_open_dump_perf_trace_data = ((__gm__ DevDfxArgs*)devArgs->devDfxArgAddr)->isOpenPerfTrace;
-    PerfTraceRecord(INVALID_DEV_TASK_ID, metric, PERF_TRACE_CORE_BEGIN, args);
+    PerfTraceRecord(INVALID_DEV_TASK_ID, metric, PERF_TRACE_CORE_BEGIN, args, start);
     bool isFirstTask = true;
     SetStatus(args, STAGE_HANDSHAKE_START);
     HandshakeClient(args->shakeBuffer);
