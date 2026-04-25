@@ -1168,14 +1168,14 @@ Tensor Conv(
     const std::vector<SymbolicScalar>& paddings, const std::vector<int64_t>& dilations,
     const ConvExtendParam& extendParam, const int64_t groups)
 {
-    std::vector<SymbolicScalar> finalPaddings = paddings;
+    std::vector<int64_t> finalPaddings = SymbolicScalar::Concrete(paddings, 0);
     std::vector<int64_t> finalDilations = dilations;
     std::vector<int64_t> finalStrides = strides;
     if (dilations.size() == CONV3D_INPUT_DIM - 2 && strides.size() == CONV3D_INPUT_DIM - 2 &&
         paddings.size() == 2 * (CONV3D_INPUT_DIM - 2)) {
         finalDilations = rotateVector(dilations, 1);
         finalStrides = rotateVector(strides, 1);
-        finalPaddings = rotateVector(paddings, 2);
+        finalPaddings = rotateVector(SymbolicScalar::Concrete(paddings, 0), 2);
     }
     const Tensor& biasTensor = extendParam.biasTensor;
     // init and set attr
