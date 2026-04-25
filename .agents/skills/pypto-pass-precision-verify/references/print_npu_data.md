@@ -279,4 +279,4 @@ python3 ../scripts/print_npu_data.py \
 ## 相关文档
 
 - 主流程文档：[../SKILL.md](../SKILL.md)
-- 配置指南：[config_guide.md](./config_guide.md)
+- 常见错误案例：[error_cases.md](./error_cases.md)
