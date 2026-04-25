@@ -21,13 +21,12 @@ Main Functions:
 """
 
 import dataclasses
+import multiprocessing as mp
 from typing import Callable, Optional
 
-import multiprocessing as mp
 import numpy as np
 import pytest
 import torch
-import torch.nn.functional as F
 from torch._dynamo import allow_in_graph
 from torch._subclasses import fake_tensor
 
@@ -202,9 +201,11 @@ def generate_inputs(
 
 
 def create_tensor_on_npu(golden_tensor, device_id):
-    return torch.empty(golden_tensor.shape,
-                    dtype=golden_tensor.dtype,
-                    device=f'npu:{device_id}')
+    return torch.empty(
+        golden_tensor.shape,
+        dtype=golden_tensor.dtype,
+        device=f'npu:{device_id}',
+    )
 
 
 def get_moe_expert_num_per_rank(moe_case: MoeCase) -> int:
@@ -238,7 +239,9 @@ def dispatch_tokens(
     ]
 
     # 发送 token
-    for sending_rank_id, (x, moe_expert_ids, x_active_mask) in enumerate(zip(x_list, moe_expert_ids_list, x_active_mask_list)):
+    for sending_rank_id, (x, moe_expert_ids, x_active_mask) in enumerate(
+        zip(x_list, moe_expert_ids_list, x_active_mask_list)
+    ):
         for token_id, (token, topk_moe_expert_ids, x_active) in enumerate(zip(x, moe_expert_ids, x_active_mask)):
             if not enable_mask or x_active.item():
                 for k_offset, moe_expert_id in enumerate(topk_moe_expert_ids):
@@ -441,7 +444,7 @@ def moe_distributed_dispatch_kernel(
     check_cond(data_type == pypto.DT_BF16, f'data_type must be pypto.DT_BF16, but got {data_type}')
     check_cond(ep_world_size in (4, 8), f'ep_world_size must be 4 or 8, but got {ep_world_size}')
     check_cond(isinstance(group_name, str), f'type of group_name must be str, but got {type(group_name)}')
-    check_cond(group_name.strip(), f"group_name can't be empty string")
+    check_cond(group_name.strip(), "group_name can't be empty string")
     check_cond(
         1 <= len(group_name) < 128,
         f'the length of group_name only supports [1, 128), but got {len(group_name)}',
@@ -736,20 +739,22 @@ def moe_distributed_combine_kernel(
     allowed_str = ', '.join([f'(ep_world_size={ep}, batch_size={bs})' for ep, bs in allowed_combinations])
     check_cond(
         (ep_world_size, batch_size) in allowed_combinations,
-        f'Invalid combination: ep_world_size={ep_world_size}, batch_size={batch_size}. Allowed combinations: {allowed_str}'
+        f'Invalid combination: ep_world_size={ep_world_size}, '
+        f'batch_size={batch_size}. Allowed combinations: {allowed_str}'
     )
     check_cond(hidden_size == 5120, f'hidden_size must be 5120, but got {hidden_size}')
     check_cond(moe_expert_num == 160, f'moe_expert_num must be 160, but got {moe_expert_num}')
     check_cond(topk == 8, f'topk must be 8, but got {topk}')
     check_cond(data_type == pypto.DT_BF16, f'data_type must be pypto.DT_BF16, but got {data_type}')
     check_cond(isinstance(group_name, str), f'type of group_name must be str, but got {type(group_name)}')
-    check_cond(group_name.strip(), f"group_name can't be empty string")
+    check_cond(group_name.strip(), "group_name can't be empty string")
     check_cond(
         1 <= len(group_name) < 128,
         f'The length of group_name only supports [1, 128), but got {len(group_name)}',
     )
 
     stitch_function_max_num = 128 if batch_size in (1, 8) else 10
+
     @pypto.frontend.jit(runtime_options={"stitch_function_max_num": stitch_function_max_num})
     def kernel(
         expand_x: pypto.Tensor([row, hidden_size], data_type, format=pypto.TileOpFormat.TILEOP_ND),
