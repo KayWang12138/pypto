@@ -432,7 +432,7 @@ public:
         constexpr int cmdLen = 2048;
         char cmd[cmdLen];
         CHECK(static_cast<unsigned>(CostModel::ExternalErrorScene::INVALID_PATH), npu::tile_fwk::FileExist(objPath))
-            << ", obj file does not exist. objPath: " << objPath;
+            << "obj file does not exist. objPath: " << objPath;
         int ret = snprintf_s(
             cmd, sizeof(cmd), sizeof(cmd) - 1, "llvm-objcopy -O binary -j .text %s %s", objPath.c_str(),
             binPath.c_str());
