@@ -209,21 +209,6 @@ class PassComparator:
             record["A>:format"] = b[":format"]
             record["A>:shape"] = b[":shape"]
             record["A>EVAL:dynvalidshape"] = b["EVAL:dynvalidshape"]
-        else:
-            record["A>PHASE_NAME"] = None
-            record["A>TIMESTAMP"] = None
-            record["A>FILENAME"] = None
-            record["A>FUNC:hash"] = None
-            record["A>FUNC:funcmagic"] = None
-            record["A>ROOT_CALL:opmagic"] = None
-            record["A>ROOT_CALL:rawmagic"] = None
-            record["A>:opmagic"] = None
-            record["A>:opcode"] = None
-            record["A>:rawmagic"] = None
-            record["A>:rawshape"] = None
-            record["A>:format"] = None
-            record["A>:shape"] = None
-            record["A>EVAL:dynvalidshape"] = None
         
         if compare_result is None:
             record["AB>RESULT"] = "Skip"
