@@ -1985,7 +1985,7 @@ void RowMaxCombineOperationTileFunc(Function &function, const TileShape &tileSha
 | amax_fp16_010 | (5, 2, 4, 130) | (1, 1, 1, 128) | fp16 | 4d尾轴不对齐，n,c,h切分 |
 | amax_fp16_011 | (2, 3, 5, 134) | (1, 1, 5, 32) | fp16 | 4d尾轴不对齐，n,c,w切分 |
 | amax_fp16_012 | (4, 2, 6, 135) | (2, 2, 3, 32) | fp16 | 4d尾轴不对齐，n,h,w切分 |
-| amax_fp16_013 | (6, 2, 4, 130) | (1, 1, 4, 128) | fp16 | 4d尾轴不对齐，n,c切分 |
+| amax_fp16_013 | (6, 2, 4, 130) | (6, 2, 4, 128) | fp16 | 4d尾轴不对齐，n,c切分 |
 | amax_fp16_014 | (3, 2, 3, 139) | (1, 2, 1, 128) | fp16 | 4d尾轴不对齐，n,h切分 |
 | amax_fp16_015 | (6, 3, 5, 141) | (3, 3, 5, 32) | fp16 | 4d尾轴不对齐，n,w切分 |
 | amax_fp32_001 | (112) | (48) | fp32 | 1d尾轴对齐，w切分 |
@@ -2838,7 +2838,6 @@ view(input: Tensor, shape: List[int] = None, offsets: List[Union[int, SymbolicSc
 | shape       | 输入      | 获取出视图的大小。<br> Shape Size不大于2147483647（即INT32_MAX） |
 | offsets     | 输入      | 获取视图时每个维度相对于input的偏移。<br> 需要保证offsets小于input的Shape |
 | valid_shape | 输入      | 取出示意图块的有效数据大小。<br> 需要保证valid_shape小于input的Shape |
-| dtype       | 输入      | 返回值的数据类型，允许将输入数据解读为不同数据类型 |
 
 ##### 返回值说明
 
@@ -2911,11 +2910,6 @@ void TiledViewTypeOperation(Function &function, const TileShape &tileShape,
 | view_fp32_008 | (2, 2, 2, 4) | (2, 2, 2, 2) | [0, 0, 0, 2] | (1, 1, 1, 8) | fp32 | 4d视图，形状(2,2,2,2)，n,c,h,w切分 |
 | view_fp32_009 | (6) | (4) | [2] | (8) | fp32 | 1d视图，形状(4)，w切分 |
 | view_fp32_010 | (2, 8) | (2, 4) | [0, 4] | (1, 8) | fp32 | 2d视图，形状(2,4)，h,w切分 |
-| view_dtype_fp32_001 | (2, 2) | (2, 2) | [0, 0] | (1, 8) | fp32 | 2d视图，转换为int8，h切分 |
-| view_dtype_fp32_002 | (2, 2) | (2, 2) | [0, 0] | (1, 8) | fp32 | 2d视图，转换为fp16，h切分 |
-| view_dtype_fp32_003 | (4) | (4) | [0] | (8) | fp32 | 1d视图，转换为int8，w切分 |
-| view_dtype_fp32_004 | (2, 4) | (2, 4) | [0, 0] | (1, 8) | fp32 | 2d视图，转换为fp16，h,w切分 |
-| view_dtype_fp32_005 | (3, 3) | (3, 3) | [0, 0] | (1, 8) | fp32 | 2d视图，转换为int8，h,w切分 |
 | view_int8_001 | (4, 8) | (4, 4) | [0, 4] | (2, 32) | int8 | 2d视图，形状(4,4)，h,w切分 |
 | view_int8_002 | (8) | (4) | [4] | (32) | int8 | 1d视图，形状(4)，w切分 |
 | view_int8_003 | (2, 4, 8) | (2, 4, 4) | [0, 0, 4] | (1, 2, 32) | int8 | 3d视图，形状(2,4,4)，c,h,w切分 |
@@ -3107,7 +3101,6 @@ Tensor Unsqueeze(const Tensor &old, int unsqueezeDimNum) {
 | unsqueeze_fp32_006 | (5) | (1, 5) | (8) | fp32 | 1d张量在0维添加维度，w切分 |
 | unsqueeze_fp32_007 | (3, 4) | (1, 3, 4) | (1, 8) | fp32 | 2d张量在0维添加维度，h,w切分 |
 | unsqueeze_fp32_008 | (3, 4, 5) | (3, 1, 4, 5) | (1, 2, 8) | fp32 | 3d张量在1维添加维度，c,h,w切分 |
-| unsqueeze_fp32_009 | (2, 3, 4, 5, 6) | (2, 3, 4, 5, 1, 6) | (1, 1, 1, 1, 8) | fp32 | 5d张量在4维添加维度，n,c,h,w切分 |
 | unsqueeze_fp32_010 | (4) | (1, 4) | (8) | fp32 | 1d张量在0维添加维度，w切分 |
 | unsqueeze_int32_001 | (2) | (1, 2) | (8) | int32 | 1d张量在0维添加维度，w切分 |
 | unsqueeze_int32_002 | (2, 3) | (1, 2, 3) | (1, 8) | int32 | 2d张量在0维添加维度，h,w切分 |
