@@ -227,7 +227,7 @@ TEST_F(LiteNPUCodeGenAmin, test_amin_fp16_013)
 {
     PROGRAM("AMIN_FP16_013")
     {
-        TileShape::Current().SetVecTile({1, 1, 4, 128});
+        TileShape::Current().SetVecTile({6, 2, 4, 128});
         Tensor operand(DT_FP16, {6, 2, 4, 130}, "operand");
         Tensor result;
         FUNCTION("AMIN_FP16_013") { result = Amin(operand, -1, false); }

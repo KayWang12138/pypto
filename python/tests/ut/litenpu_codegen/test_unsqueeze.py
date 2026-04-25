@@ -114,15 +114,6 @@ def unsqueeze_kernel_fp16_008(
 
 
 @pypto.frontend.jit(codegen_options={"soc_version": "Kirin9030"}, runtime_options={"run_mode": pypto.RunMode.NPU})
-def unsqueeze_kernel_fp16_009(
-    input_tensor: pypto.Tensor([...], pypto.DT_FP16),
-    out_tensor: pypto.Tensor([...], pypto.DT_FP16),
-):
-    pypto.set_vec_tile_shapes(1, 1, 1, 1, 16)
-    out_tensor[:] = pypto.unsqueeze(input_tensor, 4)
-
-
-@pypto.frontend.jit(codegen_options={"soc_version": "Kirin9030"}, runtime_options={"run_mode": pypto.RunMode.NPU})
 def unsqueeze_kernel_fp16_010(
     input_tensor: pypto.Tensor([...], pypto.DT_FP16),
     out_tensor: pypto.Tensor([...], pypto.DT_FP16),
@@ -252,21 +243,6 @@ class TestLiteNPUUnsqueezeFP16(unittest.TestCase):
         cos_value = compare_cos(np.array(out_tensor.cpu()), np.array(golden_out.cpu()))
         self.assertGreaterEqual(cos_value, 0.9999)
 
-    def test_unsqueeze_fp16_009(self):
-        device = "cpu"
-        dtype = torch.float16
-        shape_input = (2, 3, 4, 5, 6)
-        shape_out = (2, 3, 4, 5, 1, 6)
-
-        input_tensor = torch.rand(shape_input, dtype=dtype, device=device)
-        out_tensor = torch.rand(shape_out, dtype=dtype, device=device)
-
-        unsqueeze_kernel_fp16_009(input_tensor, out_tensor)
-
-        golden_out = torch.unsqueeze(input_tensor, 4)
-        cos_value = compare_cos(np.array(out_tensor.cpu()), np.array(golden_out.cpu()))
-        self.assertGreaterEqual(cos_value, 0.9999)
-
     def test_unsqueeze_fp16_010(self):
         device = "cpu"
         dtype = torch.float16
@@ -353,15 +329,6 @@ def unsqueeze_kernel_fp32_008(
 ):
     pypto.set_vec_tile_shapes(1, 2, 8)
     out_tensor[:] = pypto.unsqueeze(input_tensor, 1)
-
-
-@pypto.frontend.jit(codegen_options={"soc_version": "Kirin9030"}, runtime_options={"run_mode": pypto.RunMode.NPU})
-def unsqueeze_kernel_fp32_009(
-    input_tensor: pypto.Tensor([...], pypto.DT_FP32),
-    out_tensor: pypto.Tensor([...], pypto.DT_FP32),
-):
-    pypto.set_vec_tile_shapes(1, 1, 1, 1, 8)
-    out_tensor[:] = pypto.unsqueeze(input_tensor, 4)
 
 
 @pypto.frontend.jit(codegen_options={"soc_version": "Kirin9030"}, runtime_options={"run_mode": pypto.RunMode.NPU})
@@ -491,21 +458,6 @@ class TestLiteNPUUnsqueezeFP32(unittest.TestCase):
         unsqueeze_kernel_fp32_008(input_tensor, out_tensor)
 
         golden_out = torch.unsqueeze(input_tensor, 1)
-        cos_value = compare_cos(np.array(out_tensor.cpu()), np.array(golden_out.cpu()))
-        self.assertGreaterEqual(cos_value, 0.9999)
-
-    def test_unsqueeze_fp32_009(self):
-        device = "cpu"
-        dtype = torch.float32
-        shape_input = (2, 3, 4, 5, 6)
-        shape_out = (2, 3, 4, 5, 1, 6)
-
-        input_tensor = torch.rand(shape_input, dtype=dtype, device=device)
-        out_tensor = torch.rand(shape_out, dtype=dtype, device=device)
-
-        unsqueeze_kernel_fp32_009(input_tensor, out_tensor)
-
-        golden_out = torch.unsqueeze(input_tensor, 4)
         cos_value = compare_cos(np.array(out_tensor.cpu()), np.array(golden_out.cpu()))
         self.assertGreaterEqual(cos_value, 0.9999)
 

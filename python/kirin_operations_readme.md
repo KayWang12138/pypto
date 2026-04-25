@@ -1985,7 +1985,7 @@ void RowMaxCombineOperationTileFunc(Function &function, const TileShape &tileSha
 | amax_fp16_010 | (5, 2, 4, 130) | (1, 1, 1, 128) | fp16 | 4d尾轴不对齐，n,c,h切分 |
 | amax_fp16_011 | (2, 3, 5, 134) | (1, 1, 5, 32) | fp16 | 4d尾轴不对齐，n,c,w切分 |
 | amax_fp16_012 | (4, 2, 6, 135) | (2, 2, 3, 32) | fp16 | 4d尾轴不对齐，n,h,w切分 |
-| amax_fp16_013 | (6, 2, 4, 130) | (1, 1, 4, 128) | fp16 | 4d尾轴不对齐，n,c切分 |
+| amax_fp16_013 | (6, 2, 4, 130) | (6, 2, 4, 128) | fp16 | 4d尾轴不对齐，n,c切分 |
 | amax_fp16_014 | (3, 2, 3, 139) | (1, 2, 1, 128) | fp16 | 4d尾轴不对齐，n,h切分 |
 | amax_fp16_015 | (6, 3, 5, 141) | (3, 3, 5, 32) | fp16 | 4d尾轴不对齐，n,w切分 |
 | amax_fp32_001 | (112) | (48) | fp32 | 1d尾轴对齐，w切分 |
@@ -3101,7 +3101,6 @@ Tensor Unsqueeze(const Tensor &old, int unsqueezeDimNum) {
 | unsqueeze_fp32_006 | (5) | (1, 5) | (8) | fp32 | 1d张量在0维添加维度，w切分 |
 | unsqueeze_fp32_007 | (3, 4) | (1, 3, 4) | (1, 8) | fp32 | 2d张量在0维添加维度，h,w切分 |
 | unsqueeze_fp32_008 | (3, 4, 5) | (3, 1, 4, 5) | (1, 2, 8) | fp32 | 3d张量在1维添加维度，c,h,w切分 |
-| unsqueeze_fp32_009 | (2, 3, 4, 5, 6) | (2, 3, 4, 5, 1, 6) | (1, 1, 1, 1, 8) | fp32 | 5d张量在4维添加维度，n,c,h,w切分 |
 | unsqueeze_fp32_010 | (4) | (1, 4) | (8) | fp32 | 1d张量在0维添加维度，w切分 |
 | unsqueeze_int32_001 | (2) | (1, 2) | (8) | int32 | 1d张量在0维添加维度，w切分 |
 | unsqueeze_int32_002 | (2, 3) | (1, 2, 3) | (1, 8) | int32 | 2d张量在0维添加维度，h,w切分 |

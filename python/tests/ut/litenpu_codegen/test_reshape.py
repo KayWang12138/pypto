@@ -39,6 +39,28 @@ def compare_cos(davinci1_input, davinci2_input):
     print(cos)
     print()
     return cos
+def compare_cos_add(davinci1_input, davinci2_input):
+    davinci1_input = davinci1_input.reshape(-1).astype(np.float64)
+    davinci2_input = davinci2_input.reshape(-1).astype(np.float64)
+    davinci1_input = davinci1_input - 1.0
+    print(davinci1_input.shape)
+    print(davinci2_input.shape)
+    print("NPU_out:",davinci1_input)
+    print("CPU_out:",davinci2_input)
+    print("max diff: ", np.max(np.abs(davinci1_input-davinci2_input)))
+    index = np.argmax(np.abs(davinci1_input-davinci2_input))
+    print("max diff index = ", index, " dav1 value: ", davinci1_input[index], "dav2 value: ", davinci2_input[index])
+    print("average diff: ", np.mean(np.abs(davinci1_input - davinci2_input)))
+    ab = np.sum(np.multiply(davinci1_input, davinci2_input))
+    aa = np.sqrt(np.sum(np.multiply(davinci1_input, davinci1_input)))
+    bb = np.sqrt(np.sum(np.multiply(davinci2_input, davinci2_input)))
+    if aa*bb == 0 and ab == 0:
+        cos = 1.0
+    else:
+        cos = ab / (aa*bb)
+    print(cos)
+    print()
+    return cos
 
 
 @pypto.frontend.jit(codegen_options={"soc_version": "Kirin9030"}, runtime_options={"run_mode": pypto.RunMode.NPU})
@@ -386,7 +408,7 @@ class TestLiteNPUReshapeFP32(unittest.TestCase):
         reshape_kernel_fp32(input_tensor, out_tensor)
 
         golden_out = input_tensor.reshape(shape_out)
-        cos_value = compare_cos(np.array(out_tensor.cpu()), np.array(golden_out.cpu()))
+        cos_value = compare_cos_add(np.array(out_tensor.cpu()), np.array(golden_out.cpu()))
         self.assertGreaterEqual(cos_value, 0.9999)
 
     def test_reshape_fp32_002(self):
@@ -531,7 +553,8 @@ def reshape_kernel_inplace_fp32(
     out_tensor: pypto.Tensor([...], pypto.DT_FP32),
 ):
     pypto.set_vec_tile_shapes(1, 8)
-    out_tensor[:] = pypto.reshape(input_tensor, [1, 2, 1, 2], True)
+    out_tensor_tmp = pypto.add(input_tensor, 1.0)
+    out_tensor[:] = pypto.reshape(out_tensor_tmp, [1, 2, 1, 2], inplace=True)
 
 
 @pypto.frontend.jit(codegen_options={"soc_version": "Kirin9030"}, runtime_options={"run_mode": pypto.RunMode.NPU})
@@ -540,7 +563,8 @@ def reshape_kernel_inplace_fp32_002(
     out_tensor: pypto.Tensor([...], pypto.DT_FP32),
 ):
     pypto.set_vec_tile_shapes(2, 8)
-    out_tensor[:] = pypto.reshape(input_tensor, [16], True)
+    out_tensor_tmp = pypto.add(input_tensor, 1.0)
+    out_tensor[:] = pypto.reshape(out_tensor_tmp, [16], True)
 
 
 @pypto.frontend.jit(codegen_options={"soc_version": "Kirin9030"}, runtime_options={"run_mode": pypto.RunMode.NPU})
@@ -549,7 +573,8 @@ def reshape_kernel_inplace_fp32_003(
     out_tensor: pypto.Tensor([...], pypto.DT_FP32),
 ):
     pypto.set_vec_tile_shapes(1, 1, 8)
-    out_tensor[:] = pypto.reshape(input_tensor, [2, 12], True)
+    out_tensor_tmp = pypto.add(input_tensor, 1.0)
+    out_tensor[:] = pypto.reshape(out_tensor_tmp, [2, 12], True)
 
 
 @pypto.frontend.jit(codegen_options={"soc_version": "Kirin9030"}, runtime_options={"run_mode": pypto.RunMode.NPU})
@@ -558,7 +583,8 @@ def reshape_kernel_inplace_fp32_004(
     out_tensor: pypto.Tensor([...], pypto.DT_FP32),
 ):
     pypto.set_vec_tile_shapes(1, 1, 1, 8)
-    out_tensor[:] = pypto.reshape(input_tensor, [4, 4], True)
+    out_tensor_tmp = pypto.add(input_tensor, 1.0)
+    out_tensor[:] = pypto.reshape(out_tensor_tmp, [4, 4], True)
 
 
 @pypto.frontend.jit(codegen_options={"soc_version": "Kirin9030"}, runtime_options={"run_mode": pypto.RunMode.NPU})
@@ -567,7 +593,8 @@ def reshape_kernel_inplace_fp32_005(
     out_tensor: pypto.Tensor([...], pypto.DT_FP32),
 ):
     pypto.set_vec_tile_shapes(8)
-    out_tensor[:] = pypto.reshape(input_tensor, [2, 4], True)
+    out_tensor_tmp = pypto.add(input_tensor, 1.0)
+    out_tensor[:] = pypto.reshape(out_tensor_tmp, [2, 4], True)
 
 
 class TestLiteNPUReshapeInplaceFP32(unittest.TestCase):
@@ -583,7 +610,7 @@ class TestLiteNPUReshapeInplaceFP32(unittest.TestCase):
         reshape_kernel_inplace_fp32(input_tensor, out_tensor)
 
         golden_out = input_tensor.reshape(shape_out)
-        cos_value = compare_cos(np.array(out_tensor.cpu()), np.array(golden_out.cpu()))
+        cos_value = compare_cos_add(np.array(out_tensor.cpu()), np.array(golden_out.cpu()))
         self.assertGreaterEqual(cos_value, 0.9999)
 
     def test_reshape_inplace_fp32_002(self):
@@ -598,7 +625,7 @@ class TestLiteNPUReshapeInplaceFP32(unittest.TestCase):
         reshape_kernel_inplace_fp32_002(input_tensor, out_tensor)
 
         golden_out = input_tensor.reshape(shape_out)
-        cos_value = compare_cos(np.array(out_tensor.cpu()), np.array(golden_out.cpu()))
+        cos_value = compare_cos_add(np.array(out_tensor.cpu()), np.array(golden_out.cpu()))
         self.assertGreaterEqual(cos_value, 0.9999)
 
     def test_reshape_inplace_fp32_003(self):
@@ -613,7 +640,7 @@ class TestLiteNPUReshapeInplaceFP32(unittest.TestCase):
         reshape_kernel_inplace_fp32_003(input_tensor, out_tensor)
 
         golden_out = input_tensor.reshape(shape_out)
-        cos_value = compare_cos(np.array(out_tensor.cpu()), np.array(golden_out.cpu()))
+        cos_value = compare_cos_add(np.array(out_tensor.cpu()), np.array(golden_out.cpu()))
         self.assertGreaterEqual(cos_value, 0.9999)
 
     def test_reshape_inplace_fp32_004(self):
@@ -628,7 +655,7 @@ class TestLiteNPUReshapeInplaceFP32(unittest.TestCase):
         reshape_kernel_inplace_fp32_004(input_tensor, out_tensor)
 
         golden_out = input_tensor.reshape(shape_out)
-        cos_value = compare_cos(np.array(out_tensor.cpu()), np.array(golden_out.cpu()))
+        cos_value = compare_cos_add(np.array(out_tensor.cpu()), np.array(golden_out.cpu()))
         self.assertGreaterEqual(cos_value, 0.9999)
 
     def test_reshape_inplace_fp32_005(self):
@@ -643,7 +670,7 @@ class TestLiteNPUReshapeInplaceFP32(unittest.TestCase):
         reshape_kernel_inplace_fp32_005(input_tensor, out_tensor)
 
         golden_out = input_tensor.reshape(shape_out)
-        cos_value = compare_cos(np.array(out_tensor.cpu()), np.array(golden_out.cpu()))
+        cos_value = compare_cos_add(np.array(out_tensor.cpu()), np.array(golden_out.cpu()))
         self.assertGreaterEqual(cos_value, 0.9999)
 
 

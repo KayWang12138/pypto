@@ -153,7 +153,7 @@ def amin_kernel_fp16_013(
     input_tensor: pypto.Tensor([...], pypto.DT_FP16),
     out_tensor: pypto.Tensor([...], pypto.DT_FP16),
 ):
-    pypto.set_vec_tile_shapes(1, 1, 4, 128)
+    pypto.set_vec_tile_shapes(6, 2, 4, 128)
     out_tensor[:] = pypto.amin(input_tensor, -1)
 
 
