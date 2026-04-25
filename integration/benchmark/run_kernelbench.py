@@ -240,6 +240,12 @@ async def run_one_case(case_path: Path, device_id: int, cfg: _RunCfg,
         record.pypto_message = pypto_result.message
         record.pypto_duration_sec = pypto_result.duration_sec
         record.pypto_log_file = str(pypto_result.log_file) if pypto_result.log_file else None
+        record.pypto_session_id = pypto_result.opencode_session_id
+        record.pypto_session_md_file = (
+            str(pypto_result.opencode_session_md_file)
+            if pypto_result.opencode_session_md_file else None
+        )
+        record.pypto_session_export_message = pypto_result.opencode_session_export_message
         record.pypto_artifacts = {k: str(v) for k, v in pypto_result.artifacts.items()}
 
         if not pypto_result.ok:
@@ -290,6 +296,12 @@ async def run_one_case(case_path: Path, device_id: int, cfg: _RunCfg,
     record.verifier_message = verifier_result.message
     record.verifier_duration_sec = verifier_result.duration_sec
     record.verifier_log_file = str(verifier_result.log_file) if verifier_result.log_file else None
+    record.verifier_session_id = verifier_result.opencode_session_id
+    record.verifier_session_md_file = (
+        str(verifier_result.opencode_session_md_file)
+        if verifier_result.opencode_session_md_file else None
+    )
+    record.verifier_session_export_message = verifier_result.opencode_session_export_message
     record.correctness = verifier_result.correctness
     record.perf_gen_time_us = verifier_result.perf_gen_time_us
     record.perf_base_time_us = verifier_result.perf_base_time_us

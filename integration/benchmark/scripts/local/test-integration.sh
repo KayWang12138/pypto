@@ -108,3 +108,5 @@ section "test-integration ALL PASSED"
 echo "  summary    : ${REPORT_DIR}/summary.md"
 echo "  json       : ${REPORT_DIR}/summary.json"
 echo "  batch log  : ${BENCHMARK_LOG_DIR}/batch.log"
+echo "  sessions   :"
+find "${REPORT_DIR}" -maxdepth 2 -type f -name '*_session.md' -print | sed 's/^/    /'

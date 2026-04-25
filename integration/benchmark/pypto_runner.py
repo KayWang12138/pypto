@@ -32,6 +32,7 @@ from __future__ import annotations
 
 import json
 import os
+import shlex
 import shutil
 import signal
 import subprocess
@@ -42,6 +43,12 @@ from dataclasses import dataclass, field
 from enum import Enum
 from pathlib import Path
 from typing import Dict, List, Optional, TextIO
+
+from integration.benchmark.opencode_exporter import (
+    append_export_result_to_log,
+    export_session_from_log,
+    make_session_title,
+)
 
 
 class PyptoRunStatus(str, Enum):
@@ -64,6 +71,9 @@ class PyptoRunResult:
     duration_sec: float = 0.0
     message: str = ""
     orchestrator_state: Optional[dict] = None
+    opencode_session_id: Optional[str] = None
+    opencode_session_md_file: Optional[Path] = None
+    opencode_session_export_message: str = ""
 
     @property
     def ok(self) -> bool:
@@ -79,6 +89,12 @@ class PyptoRunResult:
             "duration_sec": round(self.duration_sec, 2),
             "message": self.message,
             "orchestrator_state": self.orchestrator_state,
+            "opencode_session_id": self.opencode_session_id,
+            "opencode_session_md_file": (
+                str(self.opencode_session_md_file)
+                if self.opencode_session_md_file else None
+            ),
+            "opencode_session_export_message": self.opencode_session_export_message,
         }
 
 
@@ -487,10 +503,12 @@ def run_pypto_workflow(
     # 每一笔操作都以单行平铺 JSON 倒进 stdout (一行常 5000+ 字符), 单 case
     # 跑下来 log 能轻松 20MB+ 还淹没掉 agent 真正的思考输出. 去掉之后只剩
     # agent message stream, 人能读, tail -f 也清爽.
+    session_title = make_session_title(op_name, "pypto")
     cmd = [
         opencode, "run",
         "--agent", agent,
         "--format", output_format,
+        "--title", session_title,
     ]
     if opencode_model:
         cmd.extend(["-m", opencode_model])
@@ -508,7 +526,8 @@ def run_pypto_workflow(
         log_handle = log_file.open("w", encoding="utf-8", buffering=1)
         log_handle.write(f"$ cd {pypto_repo_root}\n")
         log_handle.write(f"$ TILE_FWK_DEVICE_ID={env.get('TILE_FWK_DEVICE_ID', '<unset>')} "
-                         f"{' '.join(cmd[:5])} <prompt>\n")
+                         f"{shlex.join(cmd[:-1])} <prompt>\n")
+        log_handle.write(f"# opencode session title: {session_title}\n")
         log_handle.write("# (实时 stdout 从下行起追加; tail -f 可观察 agent 进度)\n")
         log_handle.flush()
 
@@ -558,6 +577,22 @@ def run_pypto_workflow(
             log_handle.close()
 
     duration = time.monotonic() - start
+    session_md_output = (
+        log_file.parent / "pypto_session.md"
+        if log_file else Path("pypto_session.md")
+    )
+    session_export = export_session_from_log(
+        log_file=log_file,
+        output_file=session_md_output,
+        session_title=session_title,
+        opencode_bin=opencode,
+        cwd=pypto_repo_root,
+    )
+    append_export_result_to_log(log_file, session_export, label="pypto")
+
+    session_id = session_export.session_id
+    session_md_file = session_export.markdown_file if session_export.ok else None
+    session_export_message = session_export.message
     state = _read_orchestrator_state(op_dir)
     missing = all_artifacts_present(artifacts)
 
@@ -571,6 +606,9 @@ def run_pypto_workflow(
             duration_sec=duration,
             message=f"opencode run 超时 (>{timeout_sec}s); 缺失产物: {missing or '(齐全)'}",
             orchestrator_state=state,
+            opencode_session_id=session_id,
+            opencode_session_md_file=session_md_file,
+            opencode_session_export_message=session_export_message,
         )
 
     if missing:
@@ -583,6 +621,9 @@ def run_pypto_workflow(
             duration_sec=duration,
             message=f"opencode 退出 code={proc.returncode}, 缺少产物: {missing}",
             orchestrator_state=state,
+            opencode_session_id=session_id,
+            opencode_session_md_file=session_md_file,
+            opencode_session_export_message=session_export_message,
         )
 
     if proc.returncode != 0:
@@ -595,6 +636,9 @@ def run_pypto_workflow(
             duration_sec=duration,
             message=f"opencode 异常退出 code={proc.returncode}, 但产物齐全 (可能仍可用).",
             orchestrator_state=state,
+            opencode_session_id=session_id,
+            opencode_session_md_file=session_md_file,
+            opencode_session_export_message=session_export_message,
         )
 
     return PyptoRunResult(
@@ -606,6 +650,9 @@ def run_pypto_workflow(
         duration_sec=duration,
         message="产物齐全, opencode 正常退出.",
         orchestrator_state=state,
+        opencode_session_id=session_id,
+        opencode_session_md_file=session_md_file,
+        opencode_session_export_message=session_export_message,
     )
 
 

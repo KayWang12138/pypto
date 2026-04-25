@@ -357,8 +357,10 @@ pypto/.opencode/
 ├── summary.md                      # Markdown 汇总
 └── <op>/
     ├── pypto_run.log               # pypto agent (opencode) 子进程 stdout/stderr
+    ├── pypto_session.md            # pypto agent 完成后的 opencode 会话 Markdown 导出
     ├── verifier.log                # 验证日志 (opencode 模式: validator agent stdout;
     │                               #   direct 模式: KernelVerifier 子进程 stdout)
+    ├── verifier_session.md         # validator agent 完成后的 opencode 会话 Markdown 导出
     ├── skill_report.json           # opencode 模式产物: 反作弊 + 精度 + 性能综合报告
     ├── <op>_task_desc.py           # opencode 模式 skill 输入 (task_desc 副本)
     └── result.json                 # 单 case 结构化结果 (含 skill_report 摘要)

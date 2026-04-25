@@ -57,6 +57,12 @@ from enum import Enum
 from pathlib import Path
 from typing import Any, Dict, List, Optional, TextIO
 
+from integration.benchmark.opencode_exporter import (
+    append_export_result_to_log,
+    export_session_from_log,
+    make_session_title,
+)
+
 
 logger = logging.getLogger(__name__)
 
@@ -87,6 +93,9 @@ class VerifierResult:
     duration_sec: float = 0.0
     message: str = ""
     extra: Dict[str, Any] = field(default_factory=dict)
+    opencode_session_id: Optional[str] = None
+    opencode_session_md_file: Optional[Path] = None
+    opencode_session_export_message: str = ""
 
     # 性能字段 (mode=performance/full 才有数值; mode=correctness 全为 None).
     # 来源: KernelVerifier.run_profile() 返回 dict.
@@ -109,6 +118,12 @@ class VerifierResult:
             "log_file": str(self.log_file) if self.log_file else None,
             "duration_sec": round(self.duration_sec, 2),
             "message": self.message,
+            "opencode_session_id": self.opencode_session_id,
+            "opencode_session_md_file": (
+                str(self.opencode_session_md_file)
+                if self.opencode_session_md_file else None
+            ),
+            "opencode_session_export_message": self.opencode_session_export_message,
             "extra": self.extra,
             "perf": {
                 "gen_time_us": self.perf_gen_time_us,
@@ -657,7 +672,13 @@ async def _run_via_opencode_skill(
         ),
     )
 
-    cmd = [opencode, "run", "--dangerously-skip-permissions", "--agent", validator_agent]
+    session_title = make_session_title(op_name, "verifier")
+    cmd = [
+        opencode, "run",
+        "--dangerously-skip-permissions",
+        "--agent", validator_agent,
+        "--title", session_title,
+    ]
     if opencode_model:
         cmd.extend(["-m", opencode_model])
     cmd.append(prompt)
@@ -673,6 +694,7 @@ async def _run_via_opencode_skill(
         log_handle.write(
             f"$ TILE_FWK_DEVICE_ID={device_id} {shlex.join(cmd[:-1])} <prompt>\n"
         )
+        log_handle.write(f"# opencode session title: {session_title}\n")
         log_handle.flush()
 
     start = time.monotonic()
@@ -718,6 +740,22 @@ async def _run_via_opencode_skill(
             log_handle.close()
 
     duration = time.monotonic() - start
+    session_md_output = (
+        log_file.parent / "verifier_session.md"
+        if log_file else Path("verifier_session.md")
+    )
+    session_export = export_session_from_log(
+        log_file=log_file,
+        output_file=session_md_output,
+        session_title=session_title,
+        opencode_bin=opencode,
+        cwd=_PYPTO_REPO_ROOT,
+    )
+    append_export_result_to_log(log_file, session_export, label="verifier")
+    session_id = session_export.session_id
+    session_md_file = session_export.markdown_file if session_export.ok else None
+    session_export_message = session_export.message
+
     log_text = log_file.read_text(encoding="utf-8", errors="replace") if log_file else ""
 
     if not skill_report_path.exists():
@@ -731,6 +769,9 @@ async def _run_via_opencode_skill(
                 f"opencode validator 未产出 skill_report.json (timeout={timed_out}, "
                 f"returncode={proc.returncode}); 检查 log_file 排错."
             ),
+            opencode_session_id=session_id,
+            opencode_session_md_file=session_md_file,
+            opencode_session_export_message=session_export_message,
         )
 
     try:
@@ -743,15 +784,22 @@ async def _run_via_opencode_skill(
             log_file=log_file,
             duration_sec=duration,
             message=f"skill_report.json 解析失败: {e}",
+            opencode_session_id=session_id,
+            opencode_session_md_file=session_md_file,
+            opencode_session_export_message=session_export_message,
         )
 
-    return _skill_report_to_result(
+    result = _skill_report_to_result(
         op_name=op_name,
         report=report,
         log_text=_excerpt(log_text),
         log_file=log_file,
         duration=duration,
     )
+    result.opencode_session_id = session_id
+    result.opencode_session_md_file = session_md_file
+    result.opencode_session_export_message = session_export_message
+    return result
 
 
 # ────────────────────────────────────────────────────────────

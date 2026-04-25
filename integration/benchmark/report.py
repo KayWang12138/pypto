@@ -52,6 +52,9 @@ class CaseRunRecord:
     pypto_message: str = ""
     pypto_duration_sec: float = 0.0
     pypto_log_file: Optional[str] = None
+    pypto_session_id: Optional[str] = None
+    pypto_session_md_file: Optional[str] = None
+    pypto_session_export_message: str = ""
     pypto_artifacts: Dict[str, str] = field(default_factory=dict)
 
     # verifier 验证阶段
@@ -59,6 +62,9 @@ class CaseRunRecord:
     verifier_message: str = ""
     verifier_duration_sec: float = 0.0
     verifier_log_file: Optional[str] = None
+    verifier_session_id: Optional[str] = None
+    verifier_session_md_file: Optional[str] = None
+    verifier_session_export_message: str = ""
     correctness: Optional[bool] = None
 
     # 性能字段 (仅 mode=performance/full 有数值; mode=correctness 全为 None).
@@ -327,6 +333,23 @@ def _render_markdown(payload: Dict[str, Any]) -> str:
             )
         lines.append("")
 
+        has_session_exports = any(
+            c.get("pypto_session_md_file") or c.get("verifier_session_md_file")
+            for c in cases
+        )
+        if has_session_exports:
+            lines.append("## OpenCode 会话导出")
+            lines.append("")
+            lines.append("| op | pypto session | verifier session |")
+            lines.append("|----|---------------|------------------|")
+            for c in cases:
+                lines.append(
+                    f"| `{c['op_name']}` "
+                    f"| {_md_file_link(c.get('pypto_session_md_file'))} "
+                    f"| {_md_file_link(c.get('verifier_session_md_file'))} |"
+                )
+            lines.append("")
+
         # 性能明细 — 仅当至少一个 case 有 gen_time 数值时输出整张表.
         has_perf = any(c.get("perf_gen_time_us") is not None for c in cases)
         if has_perf:
@@ -356,6 +379,17 @@ def _render_markdown(payload: Dict[str, Any]) -> str:
             lines.append("")
 
     return "\n".join(lines) + "\n"
+
+
+def _md_file_link(value: Any) -> str:
+    if not value:
+        return "—"
+    path = Path(str(value))
+    label = path.name or str(value)
+    target = str(value)
+    if any(ch.isspace() for ch in target):
+        return f"[{label}](<{target}>)"
+    return f"[{label}]({target})"
 
 
 def _wall_from_record_dict(case: Dict[str, Any]) -> Optional[float]:
