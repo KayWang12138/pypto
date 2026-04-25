@@ -3096,43 +3096,7 @@ def _generate_quantmx_input_from_datarange(shape: tuple, data_range: list) -> np
     range_lo, range_hi = data_range
     if range_lo == range_hi:
         return np.full(shape, np.float32(range_lo), dtype=np.float32)
-
-    cols = shape[-1]
-    rows = math.prod(shape[:-1])
-    group_size = 32
-    group_cols = (cols + group_size - 1) // group_size
-    total_groups = max(1, rows * group_cols)
-    base = np.zeros((rows, cols), dtype=np.float32)
-    span = range_hi - range_lo
-
-    for row in range(rows):
-        for group in range(group_cols):
-            group_id = row * group_cols + group
-            start = group * group_size
-            width = min(group_size, cols - start)
-            if width <= 0:
-                continue
-
-            # Assign each 32-element group to a different sub-range so shared scales vary across groups.
-            group_lo = range_lo + span * (group_id / total_groups)
-            group_hi = range_lo + span * ((group_id + 1) / total_groups)
-            center = (group_lo + group_hi) / 2.0
-
-            values = np.linspace(group_lo, group_hi, width, dtype=np.float32)
-            permutation = (np.arange(width) * 11 + group_id * 7) % width
-            values = values[permutation]
-
-            values[0] = np.float32(group_lo)
-            if width > 1:
-                values[1] = np.float32(group_hi)
-            if width > 2:
-                values[2] = np.float32(center)
-            if range_lo <= 0.0 <= range_hi and width > 3:
-                values[3] = np.float32(0.0)
-
-            base[row, start : start + width] = values
-
-    return base.reshape(shape)
+    return np.random.uniform(range_lo, range_hi, size=shape).astype(np.float32)
 
 
 def _quantmx_special_exponents(dtype_name: str, exp_range: list) -> list:
@@ -3265,60 +3229,10 @@ def _generate_quantmx_input(input_tensor: dict, config: dict) -> np.ndarray:
     exp_range = _quantmx_resolve_exp_range(dtype_name, params)
     exp_lo, exp_hi = exp_range
 
-    cols = shape[-1]
-    rows = math.prod(shape[:-1])
-    group_size = 32
-    group_cols = (cols + group_size - 1) // group_size
-
-    base = np.zeros((rows, cols), dtype=np.float32)
-    total_groups = max(1, rows * group_cols)
-    special_exponents = _quantmx_special_exponents(dtype_name, exp_range)
-
-    for row in range(rows):
-        for group in range(group_cols):
-            group_id = row * group_cols + group
-            start = group * group_size
-            width = min(group_size, cols - start)
-            if width <= 0:
-                continue
-
-            band_span = max(1, exp_hi - exp_lo + 1)
-            exp_from_range = exp_lo + int(((group_id + 0.5) * band_span) / total_groups)
-            exp_from_range = min(exp_hi, max(exp_lo, exp_from_range))
-            exp_from_special = special_exponents[group_id % len(special_exponents)]
-            dominant_exp = exp_from_special if group_id % 5 == 0 else exp_from_range
-            dominant_mant = 1.0 + ((group_id % 7) / 8.0)
-            dominant = np.float32(math.ldexp(dominant_mant, dominant_exp))
-
-            values = np.empty(width, dtype=np.float32)
-            for inner in range(width):
-                local_exp = max(exp_lo, dominant_exp - 1 - (inner % 4))
-                local_mant = 1.0 + (((group_id + inner * 5) % 13) / 16.0)
-                sign = np.float32(1.0 if ((group_id + inner) % 2 == 0) else -1.0)
-                values[inner] = np.float32(math.ldexp(local_mant, local_exp)) * sign
-
-            dominant_idx = (group_id * 11 + width // 2) % width
-            values[dominant_idx] = dominant if group_id % 2 == 0 else -dominant
-            if width > 1:
-                neighbor_idx = (dominant_idx + width // 2 + 1) % width
-                neighbor_exp = max(exp_lo, dominant_exp - 1)
-                neighbor = np.float32(math.ldexp(1.25, neighbor_exp))
-                values[neighbor_idx] = -neighbor if values[dominant_idx] > 0 else neighbor
-            if exp_lo <= 0 <= exp_hi and width > 2 and group_id % 3 == 0:
-                values[(dominant_idx + 5) % width] = np.float32(0.0)
-                values[(dominant_idx + 13) % width] = np.float32(-0.0)
-            if width > 4 and group_id % 4 == 0:
-                boundary_idx = (dominant_idx + 9) % width
-                boundary_exp = special_exponents[(group_id * 3 + width) % len(special_exponents)]
-                values[boundary_idx] = np.float32(math.ldexp(1.0, boundary_exp))
-                if width > 2:
-                    values[(boundary_idx + 7) % width] = np.float32(-math.ldexp(1.5, boundary_exp))
-
-            permutation = (np.arange(width) * 7 + group_id * 3) % width
-            base[row, start : start + width] = values[permutation]
-
-    _quantmx_inject_special_values(base, dtype_name, exp_range)
-    reshaped = base.reshape(shape)
+    exponents = np.random.randint(exp_lo, exp_hi + 1, size=shape)
+    mantissas = np.random.uniform(1.0, 2.0, size=shape).astype(np.float32)
+    signs = np.random.choice(np.array([-1.0, 1.0], dtype=np.float32), size=shape)
+    reshaped = np.ldexp(mantissas, exponents).astype(np.float32) * signs
     casted = reshaped.astype(np_dtype)
     casted = _quantmx_inject_requested_values(casted, dtype_name, params)
     casted_fp32 = casted.astype(np.float32)
