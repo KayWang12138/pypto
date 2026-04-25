@@ -254,20 +254,6 @@ protected:
         return GetAttrFromMap(tensorAttrs[idx], key, value);
     }
 
-    template <typename T = int64_t>
-    std::vector<T> GetVectorIntAttribute(const std::string& key) const
-    {
-        return GetAttrFromMap(opAttrs, key, value);
-    }
-
-    template <typename T>
-    bool GetTensorAttr(int idx, const std::string& key, T& value) const
-    {
-        ASSERT(GenCodeErr::PARAM_IDX_INVALID, idx >= 0 && idx < MAX_OPERANDS)
-            << "idx " << idx << " is out of range [0, " << MAX_OPERANDS << ")";
-        return GetAttrFromMap(tensorAttrs[idx], key, value);
-    }
-
     std::string GetLastUse() const;
 
     virtual TileTensor BuildTileTensor(int paramIdx, const std::string& usingType, const ShapeInLoop& shapeInLoop = {});
