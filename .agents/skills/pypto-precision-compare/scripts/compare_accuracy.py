@@ -120,10 +120,23 @@ def scan_checkpoints_from_dir(tensor_dir):
     return sorted(list(checkpoints), key=get_sort_key)
 
 
-def get_tolerance_by_dtype(dtype, custom_rtol=None, custom_atol=None):
+CAST_ORIGIN_TOLERANCE = {
+    '_FP8': (1e-1, 1e-2),
+    '_FP8E4M3': (1e-1, 1e-2),
+    '_FP8E5M2': (1e-1, 1e-2),
+    '_FP8E8M0': (1e-1, 1e-2),
+    '_BOOL': (0, 1e-4),
+}
+
+
+def get_tolerance_by_dtype(dtype, custom_rtol=None, custom_atol=None, checkpoint_name=None):
     """根据数据类型返回对应的容差标准"""
     if custom_rtol is not None and custom_atol is not None:
         return custom_rtol, custom_atol
+    if checkpoint_name:
+        for suffix, tol in CAST_ORIGIN_TOLERANCE.items():
+            if checkpoint_name.endswith(suffix):
+                return tol
     return TOLERANCE_MAP.get(dtype, (1e-3, 1e-3))
 
 
@@ -180,7 +193,7 @@ def compare_with_golden(jit_data, golden_data, name, dtype=None, verbose=True, c
         return False
 
     if dtype is not None:
-        rtol, atol = get_tolerance_by_dtype(dtype, custom_rtol, custom_atol)
+        rtol, atol = get_tolerance_by_dtype(dtype, custom_rtol, custom_atol, checkpoint_name=name)
     else:
         rtol, atol = 1e-3, 1e-3
 

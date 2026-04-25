@@ -66,7 +66,7 @@ Workspace 内存分配由以下阶段组成：
 
 ```
 workspaceSize = memBudget.Total()
-             = tensor.Total() + aicoreSpilled + debug.dumpTensor + debug.leafDump + metadata.Total()
+             = tensor.Total() + aicoreSpilled + debug.dumpTensor + debug.leafDump
 
 tensor.Total() = rootInner                              -- Root Function Inner Tensor 内存
                + devTaskInnerExclusiveOutcasts           -- DeviceTask 内部 Exclusive Outcast 内存
@@ -74,7 +74,7 @@ tensor.Total() = rootInner                              -- Root Function Inner T
 
 MaxOutcastMem() = max(maxStaticOutcastMem, maxDynamicAssembleOutcastMem)
 
-metadata.Total() = general + stitchPool
+注：metadata（general + stitchPool）不计入 workspaceSize，属于独立管理的元数据内存。
 ```
 
 ### 关键日志标签
