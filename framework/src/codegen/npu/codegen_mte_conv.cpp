@@ -27,14 +27,14 @@ std::vector<std::string> CodeGenOpNPU::GetDynamicOffsetExpr(
     const std::vector<SymbolicScalar>& dynOffset, bool isConv3D, std::vector<int64_t>& staticOffsets) const
 {
     std::vector<std::string> gmOffsetExpr;
-    int64_t dimSize = isConv3D ? SHAPE_DIM5 : SHAPE_DIM4;
+    size_t dimSize = isConv3D ? SHAPE_DIM5 : SHAPE_DIM4;
 
     if (!(functionType == FunctionType::STATIC) && dynOffset[ID0].IsValid()) {
         gmOffsetExpr = GenSymbolicArgument(dynOffset);
         staticOffsets.resize(dimSize, 0);
     } else {
         staticOffsets.resize(dimSize);
-        for (int64_t i = 0; i < dimSize; i++) {
+        for (size_t i = 0; i < dimSize; i++) {
             staticOffsets[i] = dynOffset[i].Concrete();
         }
     }
@@ -127,7 +127,7 @@ std::string CodeGenOpNPU::GenMemL1CopyInConv() const
     auto dynOffset = offsetFromAttr[ToUnderlying(MISOIdx::SRC0_IDX)];
     auto srcShapeVec = shapeFromAttr[ToUnderlying(MISOIdx::SRC0_IDX)];
 
-    int64_t expectedDim = isConv3D ? SHAPE_DIM5 : SHAPE_DIM4;
+    size_t expectedDim = isConv3D ? SHAPE_DIM5 : SHAPE_DIM4;
     ASSERT(ConvCodenGenError::CODEGEN_CHECK_DIM_INVALID, dynOffset.size() == expectedDim)
         << "GenMemL1CopyInConv offset should be " << expectedDim << "-dim!";
     ASSERT(ConvCodenGenError::CODEGEN_CHECK_DIM_INVALID, srcShapeVec.size() == expectedDim)
@@ -179,7 +179,7 @@ std::string CodeGenOpNPU::GenMemL1CopyOutConv() const
     int64_t realN = realShape[ID1];
 
     auto dynOffset = offsetFromAttr[ToUnderlying(MISOIdx::DST_IDX)];
-    int64_t expectedDim = isConv3D ? SHAPE_DIM5 : SHAPE_DIM4;
+    size_t expectedDim = isConv3D ? SHAPE_DIM5 : SHAPE_DIM4;
     ASSERT(ConvCodenGenError::CODEGEN_CHECK_DIM_INVALID, dynOffset.size() == expectedDim)
         << "GenMemL1CopyOutConv offset should be " << expectedDim << "-dim!";
 
