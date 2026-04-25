@@ -64,7 +64,7 @@ inline bool ShouldPrintToStdout()
     return value != nullptr && std::strcmp(value, "1") == 0;
 }
 
-inline void WriteLine(const char* level, const char* fmt, va_list args) __attribute__((format(gnu_printf, 2, 0)));
+inline void WriteLine(const char* level, const char* fmt, va_list args) __attribute__((format(printf, 2, 0)));
 inline void WriteLine(const char* level, const char* fmt, va_list args)
 {
     if (!ShouldWriteLevel(level)) {
@@ -114,7 +114,7 @@ inline void WriteLine(const char* level, const char* fmt, va_list args)
     fclose(fp);
 }
 
-inline void Log(const char* level, const char* fmt, ...) __attribute__((format(gnu_printf, 2, 3)));
+inline void Log(const char* level, const char* fmt, ...) __attribute__((format(printf, 2, 3)));
 inline void Log(const char* level, const char* fmt, ...)
 {
     va_list args;
