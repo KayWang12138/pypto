@@ -150,8 +150,9 @@ bool AutoCast::SupportFP16(Operation* op)
     return true;
 }
 
-void AutoCast::InsertCastOp(Function& function, LogicalTensorPtr src, LogicalTensorPtr tgt, const TileShape& tileShape,
-                             const ScopeInfo& scopeInfo)
+void AutoCast::InsertCastOp(
+    Function& function, LogicalTensorPtr src, LogicalTensorPtr tgt, const TileShape& tileShape,
+    const Operation::ScopeInfo& scopeInfo)
 {
     Operation& newCast = function.AddRawOperation(Opcode::OP_CAST, {src}, {tgt});
     newCast.SetAttribute(OP_ATTR_PREFIX + "mode", CastMode::CAST_NONE);
