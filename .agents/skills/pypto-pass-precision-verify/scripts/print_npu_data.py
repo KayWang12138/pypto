@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
-CCE Print Tool
-用于在已知目标Op后，添加打印语句到CCE文件，验证上板数据
+Print NPU Data Tool
+用于在已知目标Op后，打印上板数据（tensor数据、shape值、offset值）
 """
 
 import os
@@ -14,7 +14,7 @@ from pathlib import Path
 from typing import List, Optional, Dict, Tuple
 
 
-class BinaryCCEDebugger:
+class PrintNPUDataTool:
     def __init__(self, work_path: str, pypto_root: str = "."):
         self.work_path = Path(work_path)
         self.pypto_root = Path(pypto_root)
@@ -597,36 +597,36 @@ class BinaryCCEDebugger:
 
 def main():
     parser = argparse.ArgumentParser(
-        description="CCE Print Tool - 在已知目标Op后添加打印语句",
+        description="Print NPU Data Tool - 打印上板数据（tensor/shape/offset）",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 示例:
   # 初始化配置（首次使用需执行）
-  python3 binary_cce.py --init --work-path /path/to/work
+  python3 print_npu_data.py --init --work-path /path/to/work
  
   # 列出CCE文件信息
-  python3 binary_cce.py --work-path /path/to/work --list-cce
+  python3 print_npu_data.py --work-path /path/to/work --list-cce
  
   # GM数据打印（默认偏移量0~63，共64个元素）
-  python3 binary_cce.py --work-path /path/to/work --print-idx 0
+  python3 print_npu_data.py --work-path /path/to/work --print-idx 0
   
   # GM数据打印（指定偏移量范围）
-  python3 binary_cce.py --work-path /path/to/work --print-idx 0 --end-offset 79 --start-offset 0
+  python3 print_npu_data.py --work-path /path/to/work --print-idx 0 --end-offset 79 --start-offset 0
   
   # GM数据打印（指定dtype）
-  python3 binary_cce.py --work-path /path/to/work --print-idx 0 --dtype bfloat16_t
+  python3 print_npu_data.py --work-path /path/to/work --print-idx 0 --dtype bfloat16_t
   
   # UB数据打印
-  python3 binary_cce.py --work-path /path/to/work --print-idx 0 --print-type UB
+  python3 print_npu_data.py --work-path /path/to/work --print-idx 0 --print-type UB
  
   # Shape批量打印（使用 AiCorePrintShape）
-  python3 binary_cce.py --work-path /path/to/work --print-idx 0 --print-shape sym_15_dim_0,sym_15_dim_1
+  python3 print_npu_data.py --work-path /path/to/work --print-idx 0 --print-shape sym_15_dim_0,sym_15_dim_1
   
   # Shape单值打印（使用 AicoreLogF）
-  python3 binary_cce.py --work-path /path/to/work --print-idx 0 --print-shape sym_15_dim_0 --single-value
+  python3 print_npu_data.py --work-path /path/to/work --print-idx 0 --print-shape sym_15_dim_0 --single-value
 
   # 检测 validshape 问题
-  python3 binary_cce.py --work-path /path/to/work --ir-file path/to/ir_file.tifwkgr
+  python3 print_npu_data.py --work-path /path/to/work --ir-file path/to/ir_file.tifwkgr
 
 打印方法：
   GM数据打印：--print-type GM（打印DDR/GM上的tensor数据，最常用）
@@ -675,7 +675,7 @@ AicoreLogF 示例（手动添加到CCE文件）：
     
     args = parser.parse_args()
     
-    debugger = BinaryCCEDebugger(args.work_path, args.pypto_root)
+    debugger = PrintNPUDataTool(args.work_path, args.pypto_root)
     
     if not debugger.check_env():
         return 1
