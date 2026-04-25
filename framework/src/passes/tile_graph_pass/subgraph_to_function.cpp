@@ -134,20 +134,11 @@ void SubgraphToFunction::RecordIncastInfo(Function& function, RecordInfo recordI
     Offset offset = recordInfo.offset;
     Shape shape = recordInfo.shape;
     auto& op = *nLIST[i][j];
-<<<<<<< HEAD
     auto platform = Platform::Instance().GetSoc().GetNPUArch();
-    if (platform == NPUArch::DAV_3510) {
-        for (auto &producerOp : iOperand->GetProducers()) {
-            if (producerOp->GetSubgraphID() == op.GetSubgraphID()) {
-                APASS_LOG_INFO_F(Elements::Tensor, "Tensor %d has producer in same subgraph, cannot be incast.", iOperand->GetMagic());
-                return;
-            }
-=======
     for (auto &producerOp : iOperand->GetProducers()) {
         if (producerOp->GetSubgraphID() == op.GetSubgraphID()) {
             APASS_LOG_INFO_F(Elements::Tensor, "Tensor %d has producer in same subgraph, cannot be incast.", iOperand->GetMagic());
             return;
->>>>>>> f716e790151cedf4f83009c507a75b95755855f9
         }
     }
     // 这里逻辑可能有一些问题，期望是尽可能不要把inplace语义的COPY_OUT的输出变成leaf的incast
@@ -209,20 +200,10 @@ void SubgraphToFunction::RecordOutcastInfo(Function& function, RecordInfo record
     Offset offset = recordInfo.offset;
     Shape shape = recordInfo.shape;
     auto& op = *nLIST[i][j];
-<<<<<<< HEAD
-    auto platform = Platform::Instance().GetSoc().GetNPUArch();
-    if (platform == NPUArch::DAV_3510) {
-        for (auto &consumerOp : oOperand->GetConsumers()) {
-            if (consumerOp->GetSubgraphID() == op.GetSubgraphID()) {
-                APASS_LOG_INFO_F(Elements::Tensor, "Tensor %d has consumer in same subgraph, cannot be outcast.", oOperand->GetMagic());
-                return;
-            }
-=======
     for (auto &consumerOp : oOperand->GetConsumers()) {
         if (consumerOp->GetSubgraphID() == op.GetSubgraphID()) {
             APASS_LOG_INFO_F(Elements::Tensor, "Tensor %d has consumer in same subgraph, cannot be outcast.", oOperand->GetMagic());
             return;
->>>>>>> f716e790151cedf4f83009c507a75b95755855f9
         }
     }
     if (op.HasAttribute(OpAttributeKey::inplaceIdx) &&
@@ -450,6 +431,23 @@ void SubgraphToFunction::ProcessCopyOutOperand(
     }
 }
 
+void SubgraphToFunction::ProcessSymbolOfReshape(Function& function, Operation& op) const
+{
+    // ddr -> reshape -> ddr -> copyin
+    if (op.GetOpcode() == Opcode::OP_RESHAPE) {
+        if (function.IsFromInCast(op.GetOOperands().front())) {
+            op.GetOOperands().front()->tensor->SetSymbol(op.GetIOperands().front()->tensor->GetSymbol());
+        }
+    }
+    // copyout -> ddr -> reshape -> ddr
+    auto nextOp = *(op.GetOOperands().front()->GetConsumers().begin());
+    if (nextOp != nullptr && nextOp->GetOpcode() == Opcode::OP_RESHAPE) {
+        if (function.IsFromOutCast(op.GetOOperands().front())) {
+            op.GetOOperands().front()->tensor->SetSymbol(nextOp->GetOOperands().front()->tensor->GetSymbol());
+        }
+    }
+}
+
 void SubgraphToFunction::SymbolizeEachFunction(
     Function& rootFunc, std::vector<Function*>& mergedFuncList1, size_t i) const
 {
@@ -462,6 +460,7 @@ void SubgraphToFunction::SymbolizeEachFunction(
     auto& leafFunc = mergedFuncList1[i];
     for (auto& tileOp : leafFunc->Operations()) {
         // symbolic
+        ProcessSymbolOfReshape(rootFunc, tileOp);
         ProcessInputOperands(rootFunc, tileOp, pSgParamInfo, tParamLoc, iParamLoc);
         ProcessOutputOperands(rootFunc, tileOp, pSgParamInfo, tParamLoc, oParamLoc);
     }

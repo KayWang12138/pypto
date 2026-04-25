@@ -19,11 +19,10 @@ Main Functions:
     - mla_prolog_quant_compute: Core MLA prolog computation with quantization
     - pre_compute_2d: Pre-computation for query and key-value projections
     - rms_norm: RMS normalization implementation
-    - quant: Quantization function with symmetry and smooth factor support
+    - quant_hifp8: Quantization function with symmetry and smooth factor support
     - dequant: Dequantization function
     - rope_v2: 2D RoPE implementation
     - rope_3d_v2: 3D RoPE implementation
-    - k_nope_quant: Key quantization function
 
 Example:
     See deepseekv32_mla_prolog_quant.py for usage examples.
@@ -32,28 +31,32 @@ from dataclasses import dataclass
 from typing import List, Tuple
 import pypto
 from pypto import pypto_impl
-from pypto.operation import op_wrapper
-
-
-@op_wrapper
-def scalar_div(tensor, other, is_reserve=False):
-    """Scalar division operation wrapper.
-
-    Performs element-wise division of input tensor by a scalar value.
-
-    Args:
-        tensor: Input tensor
-        other: Scalar divisor value
-        is_reserve: Whether to reserve (inverse) the operation
-
-    Returns:
-        Result tensor after scalar division
-    """
-    return pypto_impl.ScalarDivS(tensor, pypto_impl.Element(tensor.dtype, other), is_reserve)
 
 
 @dataclass
 class MlaTileConfig:
+    """Tile configuration for MLA prolog quantization operations.
+    
+    Contains tiling parameters for optimizing memory access patterns
+    and computation efficiency on NPU.
+    
+    Attributes:
+        tile_b: Batch tile size
+        tile_s: Sequence tile size
+        tile_bs: Combined batch-sequence tile size
+        m_tile: Matmul tile size
+        mv_tile: Vector matmul tile size
+        pre_quant_cube_tile: Cube tile shapes for pre-quantization matmul
+        unroll_list: List of unroll lengths for loop optimization
+        q_vec_tile0: Query vector tile dimension 0
+        q_vec_tile1: Query vector tile dimension 1
+        k_vec_tile0: Key vector tile dimension 0
+        k_vec_tile1: Key vector tile dimension 1
+        cube_l1_reuse_setting: L1 reuse configuration for cube operations
+        pg_upper_bound: Upper bound for pipeline granularity
+        cube_nbuffer_setting: N-buffer configuration for cube operations
+        dynamic_unaligned_enable: Enable dynamic unaligned processing
+    """
     def __init__(self):
         self.tile_b = 8
         self.tile_s = 1
@@ -67,12 +70,27 @@ class MlaTileConfig:
         self.k_vec_tile0 = 16
         self.k_vec_tile1 = 16
         self.cube_l1_reuse_setting = {-1: 4}
+        self.pg_upper_bound = 8192
         self.cube_nbuffer_setting = {3: 4}
         self.dynamic_unaligned_enable = False
 
 
 @dataclass
 class MlaQuantInputs:
+    """Container for quantization scale tensors.
+    
+    Encapsulates all dequantization and quantization scale tensors
+    used throughout the MLA prolog quantization computation.
+    
+    Attributes:
+        dequant_scale_x: Dequantization scale for input tensor
+        dequant_scale_w_dq: Dequantization scale for w_dq weight
+        dequant_scale_w_uq_qr: Dequantization scale for w_uq_qr weight
+        dequant_scale_w_dkv_kr: Dequantization scale for w_dkv_kr weight
+        quant_scale_ckv: Quantization scale for compressed KV
+        quant_scale_ckr: Quantization scale for compressed KR
+        smooth_scales_cq: Smooth quantization factor for query
+    """
     dequant_scale_x: pypto.Tensor = None
     dequant_scale_w_dq: pypto.Tensor = None
     dequant_scale_w_uq_qr: pypto.Tensor = None
@@ -84,40 +102,19 @@ class MlaQuantInputs:
 
 @dataclass
 class RopeTileShapeConfig:
+    """Tile shape configuration for RoPE (Rotary Position Embedding) operations.
+    
+    Defines tile shapes for different dimensional RoPE computations
+    to optimize memory access and computation patterns.
+    
+    Attributes:
+        two_dim: Tile shape for 2D RoPE operations, e.g., [32, 64]
+        three_dim: Tile shape for 3D RoPE operations, e.g., [32, 32, 128]
+        four_dim: Tile shape for 4D RoPE operations, e.g., [16, 128, 128, 128]
+    """
     two_dim: List[int]
     three_dim: List[int]
     four_dim: List[int]
-
-
-def k_nope_quant(x: pypto.Tensor) -> Tuple[pypto.Tensor, pypto.Tensor]:
-    """Quantize key tensor without RoPE to INT8.
-
-    Performs per-token quantization of key tensor to INT8 format.
-    The quantization scale is computed based on the maximum absolute value.
-
-    Args:
-        x: Input key tensor to quantize, shape (tile_bs, 4, kv_lora_rank // 4)
-
-    Returns:
-        Tuple of (quantized_tensor, dequant_scale):
-            - quantized_tensor: INT8 quantized tensor, same shape as input
-            - dequant_scale: FP32 scale factor for dequantization
-
-    Note:
-        The input is expected to be split into 4 chunks along the last dimension
-        for per-channel quantization.
-    """
-    x_fp32 = pypto.cast(x, pypto.DT_FP32)
-    abs_res = pypto.abs(x_fp32)
-    max_value = pypto.amax(abs_res, -1, keepdim=True)
-    scale_quant = pypto.div(pypto.full(max_value.shape, 127.0, pypto.DT_FP32), max_value)
-    out_fp32 = pypto.mul(x_fp32, scale_quant)
-    out_int32 = pypto.cast(out_fp32, pypto.DT_INT32, pypto.CastMode.CAST_RINT)
-    out_half = pypto.cast(out_int32, pypto.DT_FP16, pypto.CastMode.CAST_ROUND)
-    out_int8 = pypto.cast(out_half, pypto.DT_INT8, pypto.CastMode.CAST_TRUNC, satmode=pypto.SaturationMode.ON)
-
-    scale_de_quant = pypto.div(pypto.full(scale_quant.shape, 1.0, pypto.DT_FP32), scale_quant)
-    return out_int8, scale_de_quant
 
 
 def rms_norm(input_tensor: pypto.Tensor, gamma: pypto.Tensor, epsilon: float) -> pypto.Tensor:
@@ -159,60 +156,35 @@ def rms_norm(input_tensor: pypto.Tensor, gamma: pypto.Tensor, epsilon: float) ->
     return y
 
 
-def quant(
-    input_tensor: pypto.Tensor,
-    is_symmetry: bool = True,
-    has_smooth_factor: bool = False,
-    smooth_factor: pypto.Tensor = None) -> Tuple[pypto.Tensor, pypto.Tensor]:
-    """Quantize input tensor to INT8 with optional symmetry and smooth factor.
+def quant_hifp8(
+    input_tensor: pypto.Tensor) -> Tuple[pypto.Tensor, pypto.Tensor]:
+    """Quantize input tensor to HF8 format.
 
-    Performs quantization to INT8 format with support for:
-    - Symmetric quantization (centered around zero)
-    - Asymmetric quantization (with offset)
-    - Smooth quantization factor (for improved quantization quality)
+    Performs quantization to HF8 (High Fidelity 8-bit) format with
+    symmetric quantization centered around zero.
 
     Args:
         input_tensor: Input tensor to quantize
-        is_symmetry: If True, use symmetric quantization (range: [-127, 127])
-                    If False, use asymmetric quantization (range: [0, 255])
-        has_smooth_factor: Whether to apply smooth quantization factor
-        smooth_factor: Smooth factor tensor to multiply before quantization
 
     Returns:
         Tuple of (quantized_tensor, dequant_scale):
-            - quantized_tensor: INT8 quantized tensor
+            - quantized_tensor: HF8 quantized tensor
             - dequant_scale: FP32 scale factor for dequantization
 
     Note:
-        For symmetric quantization, scale = max(|input|) / 127.0
-        For asymmetric quantization, scale = (max - min) / 255.0
+        The quantization uses scale = max(|input|) / 32768.0
     """
-    input_fp32 = pypto.cast(input_tensor, pypto.DT_FP32)
-    if has_smooth_factor:
-        input_fp32 = pypto.mul(input_fp32, smooth_factor)
-    if is_symmetry:
-        abs_res = pypto.abs(input_fp32)
-        max_value = pypto.amax(abs_res, -1, keepdim=True)
-        temp127 = pypto.full(max_value.shape, 127.0, pypto.DT_FP32)
-        scale_quant = temp127 / max_value
-        out_fp32 = pypto.mul(input_fp32, scale_quant)
-        out_int32 = pypto.cast(out_fp32, pypto.DT_INT32, pypto.CastMode.CAST_RINT)
-        out_half = pypto.cast(out_int32, pypto.DT_FP16, pypto.CastMode.CAST_ROUND)
-        out_int8 = pypto.cast(out_half, pypto.DT_INT8, pypto.CastMode.CAST_TRUNC, satmode=pypto.SaturationMode.ON)
-        temp1 = pypto.full(max_value.shape, 1.0, pypto.DT_FP32)
-        scale_de_quant = temp1 / scale_quant
-        return out_int8, scale_de_quant
-    else:
-        max_value = pypto.amax(input_fp32, -1, keepdim=True)
-        min_value = pypto.amin(input_fp32, -1, keepdim=True)
-        scale_de_quant = max(pypto.div(pypto.sub(max_value, min_value), 255.0), 1e-12)
-        offset = pypto.sub(127.0, pypto.div(max_value, scale_de_quant))
-        scale_quant = scalar_div(max_value, 1.0, True)
-        out_fp32 = pypto.mul(input_fp32, scale_quant)
-        out_int32 = pypto.cast(out_fp32, pypto.DT_INT32, pypto.CastMode.CAST_RINT)
-        out_half = pypto.cast(out_int32, pypto.DT_FP16, pypto.CastMode.CAST_ROUND)
-        out_int8 = pypto.cast(out_half, pypto.DT_INT8, pypto.CastMode.CAST_TRUNC, satmode=pypto.SaturationMode.ON)
-        return out_int8, scale_de_quant
+    hif8_max_value = 32768.0
+    hif8_one_value = 1.0
+    input_fp32 = pypto.cast(input_tensor, pypto.DT_FP32, pypto.CastMode.CAST_NONE)
+
+    abs_res = pypto.abs(input_fp32)
+    max_value = pypto.amax(abs_res, dim=-1, keepdim=True)
+
+    scale_dequant = max_value * (hif8_one_value / hif8_max_value)
+    out_fp32 = pypto.div(input_fp32, scale_dequant)
+    out_hif8 = pypto.cast(out_fp32, pypto.DT_HF8)
+    return (out_hif8, scale_dequant)
 
 
 def dequant(
@@ -416,14 +388,10 @@ def pre_compute_2d(
     bs = token_x.shape[0]
     k = token_x.shape[1]
     q_lora_rank = w_dq.shape[1]
-
     dtype = token_x.dtype
-    dtype_quant_a_out = pypto.DT_INT32 if is_quant_a else dtype
-    dtype_quant_b_out = pypto.DT_INT32 if is_quant_b else dtype
     qkv_pre_res = []
 
     pypto.set_semantic_label("pre_reshape")
-
     mv = tile_config.mv_tile
 
     if is_quant_a:
@@ -431,11 +399,11 @@ def pre_compute_2d(
         pypto.set_cube_tile_shapes([tile_config.pre_quant_cube_tile[0], tile_config.pre_quant_cube_tile[1]],
                                    [256, 256], [256, 256])
         pypto.set_semantic_label("Quant_x")
-        quant_res = quant(token_x)
+        quant_res = quant_hifp8(token_x)
         input_quant = quant_res[0]
         input_quant_scale = quant_res[1]
         pypto.set_semantic_label("QuantMatmul_qa")
-        q_a_proj = pypto.matmul(input_quant, w_dq, dtype_quant_a_out)
+        q_a_proj = pypto.matmul(input_quant, w_dq, pypto.DT_FP32)
         pypto.set_semantic_label("Dequant_qa")
         q_a_proj[:] = dequant(dtype, q_a_proj, input_quant_scale, dequant_scale_w_dq)
     else:
@@ -459,16 +427,13 @@ def pre_compute_2d(
     if is_quant_b:
         pypto.set_vec_tile_shapes(mv, q_lora_rank)
         pypto.set_semantic_label("Quant_qMnRes")
-        if is_smooth:
-            quant_res = quant(norm_res, True, True, smooth_scales_cq)
-        else:
-            quant_res = quant(norm_res, True, False)
+        quant_res = quant_hifp8(norm_res)
         norm_quant = quant_res[0]
         norm_quant_scale = quant_res[1]
         pypto.set_semantic_label("QuantMatmul_qb")
         pypto.set_cube_tile_shapes([tile_config.pre_quant_cube_tile[0], tile_config.pre_quant_cube_tile[1]],
                                    [256, 256], [256, 256])
-        q_b_proj_tmp = pypto.matmul(norm_quant, w_uq_qr, dtype_quant_b_out)
+        q_b_proj_tmp = pypto.matmul(norm_quant, w_uq_qr, pypto.DT_FP32)
         pypto.set_semantic_label("Dequant_qb")
         q_b_proj = dequant(dtype, q_b_proj_tmp, norm_quant_scale, dequant_scale_w_uq_qr)
     else:
@@ -483,9 +448,10 @@ def pre_compute_2d(
     ####### kv ##########
     if is_quant_a:
         pypto.set_vec_tile_shapes(mv, q_lora_rank)
-        pypto.set_cube_tile_shapes(tile_config.m_tile, [256, 256], [256, 256])
+        pypto.set_cube_tile_shapes([tile_config.pre_quant_cube_tile[0], tile_config.pre_quant_cube_tile[1]],
+                                   [256, 256], [256, 256])
         pypto.set_semantic_label("QuantMatmul_kva")
-        compressed_kv = pypto.matmul(input_quant, w_dkv_kr, dtype_quant_a_out)
+        compressed_kv = pypto.matmul(input_quant, w_dkv_kr, pypto.DT_FP32)
         pypto.set_semantic_label("Dequant_kva")
         compressed_kv[:] = dequant(dtype, compressed_kv, input_quant_scale, dequant_scale_w_dkv_kr)
     else:
@@ -496,21 +462,19 @@ def pre_compute_2d(
         compressed_kv = pypto.matmul(token_x, w_dkv_kr, dtype)
 
     qkv_pre_res.append(compressed_kv)
-    if is_quant_b:
-        qkv_pre_res.append(norm_quant)
-        qkv_pre_res.append(norm_quant_scale)
-    else:
-        qkv_pre_res.append(norm_res)
+
     return qkv_pre_res
 
 
 def mla_prolog_quant_compute(
     token_x: pypto.Tensor,
     w_dq: pypto.Tensor,
+    w_dq_scale: pypto.Tensor,
     w_uq_qr: pypto.Tensor,
-    dequant_scale: pypto.Tensor,
+    w_uqqr_scale: pypto.Tensor,
     w_uk: pypto.Tensor,
     w_dkv_kr: pypto.Tensor,
+    w_dkvkr_scale: pypto.Tensor,
     gamma_cq: pypto.Tensor,
     gamma_ckv: pypto.Tensor,
     cos: pypto.Tensor,
@@ -518,14 +482,10 @@ def mla_prolog_quant_compute(
     cache_index: pypto.Tensor,
     kv_cache: pypto.Tensor,
     kr_cache: pypto.Tensor,
-    k_scale_cache: pypto.Tensor,
-    q_norm_out: pypto.Tensor,
-    q_norm_scale_out: pypto.Tensor,
     query_nope_out: pypto.Tensor,
     query_rope_out: pypto.Tensor,
     kv_cache_out: pypto.Tensor,
     kr_cache_out: pypto.Tensor,
-    k_scale_cache_out: pypto.Tensor,
     epsilon_cq: float,
     epsilon_ckv: float,
     cache_mode: str,
@@ -555,13 +515,15 @@ def mla_prolog_quant_compute(
 
     Args:
         token_x: Input token tensor, shape (t, h), dtype BF16
-        w_dq: Down-projection weight for query, shape (h, q_lora_rank), NZ format
+        w_dq: Down-projection weight for query, shape (h, q_lora_rank), HF8 format
+        w_dq_scale: Dequantization scale for w_dq, FP32
         w_uq_qr: Up-projection weight for query and RoPE, shape (q_lora_rank, n*q_head_dim),
-                 INT8 format if quantized, NZ format
-        dequant_scale: Dequantization scale for w_uq_qr, shape (n*q_head_dim, 1), FP32
+                 HF8 format
+        w_uqqr_scale: Dequantization scale for w_uq_qr, FP32
         w_uk: Up-projection weight for key, shape (n, qk_nope_head_dim, kv_lora_rank), BF16
         w_dkv_kr: Down-projection weight for key-value and RoPE, shape (h, kv_lora_rank+rope_dim),
-                  NZ format
+                  HF8 format
+        w_dkvkr_scale: Dequantization scale for w_dkv_kr, FP32
         gamma_cq: RMSNorm scale for query, shape (q_lora_rank,), BF16
         gamma_ckv: RMSNorm scale for key-value, shape (kv_lora_rank,), BF16
         cos: Cosine values for RoPE, shape (t, qk_rope_head_dim), BF16
@@ -571,15 +533,10 @@ def mla_prolog_quant_compute(
                   INT8, updated in-place
         kr_cache: Key RoPE cache input, shape (block_num, block_size, n_kv, rope_dim),
                    BF16, updated in-place
-        k_scale_cache: Key scale cache input, shape (block_num, block_size, n_kv, 4),
-                        FP16, updated in-place
-        q_norm_out: Output normalized query, shape (t, q_lora_rank), INT8
-        q_norm_scale_out: Output query normalization scale, shape (t, 1), FP32
         query_nope_out: Output query without RoPE, shape (t, n_q, kv_lora_rank), BF16
         query_rope_out: Output query with RoPE, shape (t, n_q, rope_dim), BF16
         kv_cache_out: Output key-value cache (updated in-place)
         kr_cache_out: Output key RoPE cache (updated in-place)
-        k_scale_cache_out: Output key scale cache (updated in-place)
         epsilon_cq: RMSNorm epsilon for query
         epsilon_ckv: RMSNorm epsilon for key-value
         cache_mode: Cache mode, must be "PA_BSND" or "PA_NZ"
@@ -602,14 +559,13 @@ def mla_prolog_quant_compute(
     q_head_dim = qk_nope_head_dim + qk_rope_head_dim
 
     t = token_x.shape[0]
-    quant_inputs = MlaQuantInputs()
+    quant_inputs = MlaQuantInputs(
+                    dequant_scale_w_dq=w_dq_scale,
+                    dequant_scale_w_uq_qr=w_uqqr_scale,
+                    dequant_scale_w_dkv_kr=w_dkvkr_scale
+                    )
 
     k_cache_index_2d = pypto.reshape(cache_index, [t, 1], inplace=True)
-    is_quant = False
-    if dequant_scale.shape[0] != 0:
-        dequant_scale_wuqr_reshape = pypto.reshape(dequant_scale, [1, n1 * q_head_dim], inplace=True)
-        quant_inputs.dequant_scale_w_uq_qr = dequant_scale_wuqr_reshape
-        is_quant = True
 
     unroll_list = tile_config.unroll_list
     for bs_offset, unroll_length in pypto.loop_unroll(0, t, 1, name="MLA_BS_LOOP", idx_name="bs_offset",
@@ -622,16 +578,6 @@ def mla_prolog_quant_compute(
         q_kv = pre_compute_2d(x_view, w_dq, w_uq_qr, w_dkv_kr, gamma_cq, epsilon_cq, quant_inputs, tile_config)
         q = q_kv[0]
         kv_tmp = q_kv[1]
-
-        ############# q_norm #############
-        pypto.set_semantic_label("Assemble_qNorm")
-        q_norm = q_kv[2]
-        pypto.set_vec_tile_shapes(tile_bs, q_lora_rank)
-        pypto.assemble(q_norm, [bs_offset, 0], q_norm_out)
-        if is_quant:
-            q_norm_scale = q_kv[3]
-            pypto.set_vec_tile_shapes(tile_bs, 1)
-            pypto.assemble(q_norm_scale, [bs_offset, 0], q_norm_scale_out)
 
         ########### q ##############
         q_tmp = pypto.reshape(q, [tile_bs, n1, q_head_dim])
@@ -679,28 +625,12 @@ def mla_prolog_quant_compute(
         pypto.set_semantic_label("ScatterUpdate_krCache")
         pypto.set_vec_tile_shapes(32, 1, 1, qk_rope_head_dim)
         kr_cache_out[:] = pypto.scatter_update(kr_cache, -2, index, k_rope_4d)
-        if is_quant:
-            pypto.set_vec_tile_shapes(32, 4, kv_lora_rank // 4)
-            k_nope_quant_res = k_nope_quant(k_nope_split)
-            k_nope_quant_tensor = k_nope_quant_res[0]
-            k_nope_scale = k_nope_quant_res[1]
-            pypto.set_vec_tile_shapes(32, 4, kv_lora_rank // 4)
-            k_nope_2d = pypto.reshape(k_nope_quant_tensor, [tile_bs, kv_lora_rank])
-            k_scale_2d = pypto.reshape(k_nope_scale, [tile_bs, 4])
-            k_nope_4d = pypto.reshape(k_nope_2d, [tile_bs, 1, 1, kv_lora_rank], inplace=True)
-            k_scale_4d = pypto.reshape(k_scale_2d, [tile_bs, 1, 1, 4], inplace=True)
-            pypto.set_semantic_label("ScatterUpdate_kvCache")
-            pypto.set_vec_tile_shapes(32, 1, 1, kv_lora_rank)
-            kv_cache_out[:] = pypto.scatter_update(kv_cache, -2, index, k_nope_4d)
-            pypto.set_semantic_label("ScatterUpdate_kScaleCache")
-            pypto.set_vec_tile_shapes(32, 1, 1, 4)
-            k_scale_cache_out[:] = pypto.scatter_update(k_scale_cache, -2, index, k_scale_4d)
-        else:
-            pypto.set_vec_tile_shapes(32, 4, kv_lora_rank // 4)
-            k_nope_4d = pypto.reshape(k_nope_split, [tile_bs, 1, 1, kv_lora_rank], inplace=True)
-            pypto.set_semantic_label("ScatterUpdate_kvCache")
-            pypto.set_vec_tile_shapes(32, 1, 1, kv_lora_rank)
-            kv_cache_out[:] = pypto.scatter_update(kv_cache, -2, index, k_nope_4d)
+
+        pypto.set_vec_tile_shapes(32, 4, kv_lora_rank // 4)
+        k_nope_4d = pypto.reshape(k_nope_split, [tile_bs, 1, 1, kv_lora_rank], inplace=True)
+        pypto.set_semantic_label("ScatterUpdate_kvCache")
+        pypto.set_vec_tile_shapes(32, 1, 1, kv_lora_rank)
+        kv_cache_out[:] = pypto.scatter_update(kv_cache, -2, index, k_nope_4d)
 
 
 
@@ -724,95 +654,18 @@ def options_list():
 
 
 @pypto.frontend.jit(
-    pass_options={
-        "cube_l1_reuse_setting": {-1: 4},
-    },
-    runtime_options={
-        "stitch_function_max_num": 128
-    }
-)
-def mla_prolog_quant_p(
-    token_x: pypto.Tensor([pypto.DYNAMIC, pypto.STATIC], pypto.DT_BF16),
-    w_dq: pypto.Tensor([pypto.STATIC, pypto.STATIC], pypto.DT_BF16, format=pypto.TileOpFormat.TILEOP_NZ),
-    w_uq_qr: pypto.Tensor([pypto.STATIC, pypto.STATIC], pypto.DT_INT8, format=pypto.TileOpFormat.TILEOP_NZ),
-    dequant_scale: pypto.Tensor([pypto.STATIC, pypto.STATIC], pypto.DT_FP32),
-    w_uk: pypto.Tensor([pypto.STATIC, pypto.STATIC, pypto.STATIC], pypto.DT_BF16),
-    w_dkv_kr: pypto.Tensor([pypto.STATIC, pypto.STATIC], pypto.DT_BF16, format=pypto.TileOpFormat.TILEOP_NZ),
-    gamma_cq: pypto.Tensor([pypto.STATIC], pypto.DT_BF16),
-    gamma_ckv: pypto.Tensor([pypto.STATIC], pypto.DT_BF16),
-    cos: pypto.Tensor([pypto.DYNAMIC, pypto.STATIC], pypto.DT_BF16),
-    sin: pypto.Tensor([pypto.DYNAMIC, pypto.STATIC], pypto.DT_BF16),
-    cache_index: pypto.Tensor([pypto.DYNAMIC], pypto.DT_INT64),
-    kv_cache: pypto.Tensor([pypto.STATIC, pypto.STATIC, pypto.STATIC, pypto.STATIC], pypto.DT_INT8),
-    kr_cache: pypto.Tensor([pypto.STATIC, pypto.STATIC, pypto.STATIC, pypto.STATIC], pypto.DT_BF16),
-    k_scale_cache: pypto.Tensor([pypto.STATIC, pypto.STATIC, pypto.STATIC, pypto.STATIC], pypto.DT_FP32),
-    q_norm_out: pypto.Tensor([pypto.DYNAMIC, pypto.STATIC], pypto.DT_INT8),
-    q_norm_scale_out: pypto.Tensor([pypto.DYNAMIC, pypto.STATIC], pypto.DT_FP32),
-    query_nope_out: pypto.Tensor([pypto.DYNAMIC, pypto.STATIC, pypto.STATIC], pypto.DT_BF16),
-    query_rope_out: pypto.Tensor([pypto.DYNAMIC, pypto.STATIC, pypto.STATIC], pypto.DT_BF16),
-    kv_cache_out: pypto.Tensor([pypto.STATIC, pypto.STATIC, pypto.STATIC, pypto.STATIC], pypto.DT_INT8),
-    kr_cache_out: pypto.Tensor([pypto.STATIC, pypto.STATIC, pypto.STATIC, pypto.STATIC], pypto.DT_BF16),
-    k_scale_cache_out: pypto.Tensor([pypto.STATIC, pypto.STATIC, pypto.STATIC, pypto.STATIC], pypto.DT_FP32),
-    epsilon_cq, epsilon_ckv, cache_mode, tile_config, rope_cfg
-):
-    """
-    JIT-compiled MLA Prolog quantization for prefill phase.
-
-    Optimized version for prefill phase with specific pass configurations.
-    Processes single or few tokens at a time for low latency.
-
-    Args:
-        token_x: Input token tensor, shape (t, h), dtype BF16
-        w_dq: Down-projection weight for query, NZ format
-        w_uq_qr: Up-projection weight for query and RoPE, NZ format
-        dequant_scale: Dequantization scale for w_uq_qr, FP32
-        w_uk: Up-projection weight for key, BF16
-        w_dkv_kr: Down-projection weight for key-value and RoPE, NZ format
-        gamma_cq: RMSNorm scale for query, BF16
-        gamma_ckv: RMSNorm scale for key-value, BF16
-        cos: Cosine values for RoPE, BF16
-        sin: Sine values for RoPE, BF16
-        cache_index: Cache index for scatter update, INT64
-        kv_cache: Key-value cache input/output, INT8
-        kr_cache: Key RoPE cache input/output, BF16
-        k_scale_cache: Key scale cache input/output, FP16
-        q_norm_out: Output normalized query, INT8
-        q_norm_scale_out: Output query normalization scale, FP32
-        query_nope_out: Output query without RoPE, BF16
-        query_rope_out: Output query with RoPE, BF16
-        kv_cache_out: Output key-value cache
-        kr_cache_out: Output key RoPE cache
-        k_scale_cache_out: Output key scale cache
-        epsilon_cq: RMSNorm epsilon for query
-        epsilon_ckv: RMSNorm epsilon for key-value
-        cache_mode: Cache mode ("PA_BSND" or "PA_NZ")
-        tile_config: MlaTileConfig object
-        rope_cfg: RopeTileShapeConfig object
-    Note:
-        Configured for decode phase with optimized memory and latency settings.
-    """
-    mla_prolog_quant_compute(
-                            token_x, w_dq, w_uq_qr, dequant_scale, w_uk,
-                            w_dkv_kr, gamma_cq, gamma_ckv, cos,
-                            sin, cache_index, kv_cache, kr_cache, k_scale_cache,
-                            q_norm_out, q_norm_scale_out, query_nope_out,
-                            query_rope_out, kv_cache_out,
-                            kr_cache_out, k_scale_cache_out, epsilon_cq,
-                            epsilon_ckv, cache_mode, tile_config, rope_cfg
-    )
-
-
-@pypto.frontend.jit(
     pass_options=options_list()["pass_options"],
     runtime_options=options_list()["runtime_options"],
 )
-def mla_prolog_quant_d(
+def mla_prolog_quant(
     token_x: pypto.Tensor([pypto.DYNAMIC, pypto.STATIC]),
-    w_dq: pypto.Tensor([pypto.STATIC, pypto.STATIC], format=pypto.TileOpFormat.TILEOP_NZ),
-    w_uq_qr: pypto.Tensor([pypto.STATIC, pypto.STATIC], format=pypto.TileOpFormat.TILEOP_NZ),
-    dequant_scale: pypto.Tensor(),
+    w_dq: pypto.Tensor([pypto.STATIC, pypto.STATIC], pypto.DT_HF8),
+    w_dq_scale: pypto.Tensor(),
+    w_uq_qr: pypto.Tensor([pypto.STATIC, pypto.STATIC], pypto.DT_HF8),
+    w_uqqr_scale: pypto.Tensor(),
     w_uk: pypto.Tensor([pypto.STATIC, pypto.STATIC, pypto.STATIC]),
-    w_dkv_kr: pypto.Tensor([pypto.STATIC, pypto.STATIC], format=pypto.TileOpFormat.TILEOP_NZ),
+    w_dkv_kr: pypto.Tensor([pypto.STATIC, pypto.STATIC], pypto.DT_HF8),
+    w_dkvkr_scale: pypto.Tensor(),
     gamma_cq: pypto.Tensor([pypto.STATIC]),
     gamma_ckv: pypto.Tensor([pypto.STATIC]),
     cos: pypto.Tensor([pypto.DYNAMIC, pypto.STATIC]),
@@ -820,14 +673,10 @@ def mla_prolog_quant_d(
     cache_index: pypto.Tensor([pypto.DYNAMIC]),
     kv_cache: pypto.Tensor([pypto.STATIC, pypto.STATIC, pypto.STATIC, pypto.STATIC]),
     kr_cache: pypto.Tensor([pypto.STATIC, pypto.STATIC, pypto.STATIC, pypto.STATIC]),
-    k_scale_cache: pypto.Tensor([pypto.STATIC, pypto.STATIC, pypto.STATIC, pypto.STATIC]),
-    q_norm_out: pypto.Tensor([pypto.DYNAMIC, pypto.STATIC]),
-    q_norm_scale_out: pypto.Tensor([pypto.DYNAMIC, pypto.STATIC]),
     query_nope_out: pypto.Tensor([pypto.DYNAMIC, pypto.STATIC, pypto.STATIC]),
     query_rope_out: pypto.Tensor([pypto.DYNAMIC, pypto.STATIC, pypto.STATIC]),
     kv_cache_out: pypto.Tensor([pypto.STATIC, pypto.STATIC, pypto.STATIC, pypto.STATIC]),
     kr_cache_out: pypto.Tensor([pypto.STATIC, pypto.STATIC, pypto.STATIC, pypto.STATIC]),
-    k_scale_cache_out: pypto.Tensor([pypto.STATIC, pypto.STATIC, pypto.STATIC, pypto.STATIC]),
     epsilon_cq, epsilon_ckv, cache_mode, tile_config, rope_cfg
 ):
     """
@@ -838,11 +687,13 @@ def mla_prolog_quant_d(
 
     Args:
         token_x: Input token tensor, shape (t, h), dtype BF16
-        w_dq: Down-projection weight for query, NZ format
-        w_uq_qr: Up-projection weight for query and RoPE, NZ format
-        dequant_scale: Dequantization scale for w_uq_qr, FP32
+        w_dq: Down-projection weight for query, HF8 format
+        w_dq_scale: Dequantization scale for w_dq, FP32
+        w_uq_qr: Up-projection weight for query and RoPE, HF8 format
+        w_uqqr_scale: Dequantization scale for w_uq_qr, FP32
         w_uk: Up-projection weight for key, BF16
-        w_dkv_kr: Down-projection weight for key-value and RoPE, NZ format
+        w_dkv_kr: Down-projection weight for key-value and RoPE, HF8 format
+        w_dkvkr_scale: Dequantization scale for w_dkv_kr, FP32
         gamma_cq: RMSNorm scale for query, BF16
         gamma_ckv: RMSNorm scale for key-value, BF16
         cos: Cosine values for RoPE, BF16
@@ -850,28 +701,24 @@ def mla_prolog_quant_d(
         cache_index: Cache index for scatter update, INT64
         kv_cache: Key-value cache input/output, INT8
         kr_cache: Key RoPE cache input/output, BF16
-        k_scale_cache: Key scale cache input/output, FP16
-        q_norm_out: Output normalized query, INT8
-        q_norm_scale_out: Output query normalization scale, FP32
         query_nope_out: Output query without RoPE, BF16
         query_rope_out: Output query with RoPE, BF16
         kv_cache_out: Output key-value cache
         kr_cache_out: Output key RoPE cache
-        k_scale_cache_out: Output key scale cache
         epsilon_cq: RMSNorm epsilon for query
         epsilon_ckv: RMSNorm epsilon for key-value
         cache_mode: Cache mode ("PA_BSND" or "PA_NZ")
         tile_config: MlaTileConfig object
         rope_cfg: RopeTileShapeConfig object
+
     Note:
         Configured for decode phase with optimized memory and latency settings.
     """
     mla_prolog_quant_compute(
-                            token_x, w_dq, w_uq_qr, dequant_scale, w_uk,
-                            w_dkv_kr, gamma_cq, gamma_ckv, cos,
-                            sin, cache_index, kv_cache, kr_cache, k_scale_cache,
-                            q_norm_out, q_norm_scale_out, query_nope_out,
+                            token_x, w_dq, w_dq_scale, w_uq_qr, w_uqqr_scale, w_uk,
+                            w_dkv_kr, w_dkvkr_scale, gamma_cq, gamma_ckv, cos,
+                            sin, cache_index, kv_cache, kr_cache, query_nope_out,
                             query_rope_out, kv_cache_out,
-                            kr_cache_out, k_scale_cache_out, epsilon_cq,
+                            kr_cache_out, epsilon_cq,
                             epsilon_ckv, cache_mode, tile_config, rope_cfg
     )
