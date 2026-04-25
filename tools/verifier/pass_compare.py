@@ -370,12 +370,12 @@ class PassComparator:
         tensor_a = torch.from_numpy(data_a.astype(np.float64)).to(torch.float64)
         tensor_b = torch.from_numpy(data_b.astype(np.float64)).to(torch.float64)
 
-        result_dict = compare_tensors_result_dict(
-            tensor_a, tensor_b,
+        config = IsCloseConfig(
             rtol=rtol, atol=atol,
             is_detail=True, shape=a_shape,
             calc_dtype=torch.float64
         )
+        result_dict = compare_tensors_result_dict(tensor_a, tensor_b, config=config)
         
         if not result_dict["AB>RESULT"]:
             comparator = TensorComparator()

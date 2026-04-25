@@ -108,9 +108,7 @@ class VerifyRes:
 
                 tensor_a = torch.from_numpy(data[tuple(slices)].astype(np.float64)).to(torch.float64)
                 tensor_b = torch.from_numpy(verify_tensor_data[tuple(slices)].astype(np.float64)).to(torch.float64)
-                cmp_result = compare_tensors_result_dict(
-                    tensor_a, tensor_b, rtol=1e-3, atol=1e-3
-                )
+                cmp_result = compare_tensors_result_dict(tensor_a, tensor_b)
                 for key, value in cmp_result.items():
                     tensor_infos[i][key] = value
             else:
@@ -178,7 +176,9 @@ class VerifyRes:
         if verify_dup_tensor:
             verify_dup_tensor = os.path.join(self.verify_path, op_info.get("PHASE_NAME"), verify_dup_tensor)
         tensor_info["verify_dup_tensor"] = verify_dup_tensor
-        tensor_info["valid_shape"], tensor_info["loop_info"], tensor_info["PHASE_NAME"] = valid_shape, loop_info, op_info.get("PHASE_NAME")
+        tensor_info["valid_shape"] = valid_shape
+        tensor_info["loop_info"] = loop_info
+        tensor_info["PHASE_NAME"] = op_info.get("PHASE_NAME")
         tensor_info["A>datatype"] = dtype
 
     def process_single_task(self, tensor_infos, op_info_list_callop):
@@ -357,9 +357,7 @@ class CompactDumpTensorInfoParser:
             
             tensor_a = torch.from_numpy(raw_data.astype(np.float64)).to(torch.float64)
             tensor_b = torch.from_numpy(verify_tensor_data.astype(np.float64)).to(torch.float64)
-            cmp_result = compare_tensors_result_dict(
-                tensor_a, tensor_b, rtol=1e-3, atol=1e-3
-            )
+            cmp_result = compare_tensors_result_dict(tensor_a, tensor_b)
             for key, value in cmp_result.items():
                 merge_tensor_info[key] = value
         else:

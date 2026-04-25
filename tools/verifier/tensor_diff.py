@@ -236,14 +236,8 @@ class TensorComparator:
 def compare_tensors_result_dict(
     tensor_a: torch.Tensor,
     tensor_b: torch.Tensor,
-    rtol: float = 1e-3,
-    atol: float = 1e-3,
-    max_precision: int = None,
-    is_detail: bool = True,
-    shape: Optional[Union[Tuple, list]] = None,
-    calc_dtype: torch.dtype = torch.float64,
-    is_ignore_bothzero: bool = True,
-    fail_factor: int = 128
+    config: Optional[IsCloseConfig] = None,
+    max_precision: int = None
 ) -> Dict[str, Any]:
     """
     独立的 tensor 对比函数，返回详细统计 dict。
@@ -251,14 +245,8 @@ def compare_tensors_result_dict(
     Args:
         tensor_a: 输入 tensor A (对应结果中的 B 字段，遵循 pass_compare 历史约定)
         tensor_b: 输入 tensor B (对应结果中的 A 字段)
-        rtol: 相对容差
-        atol: 绝对容差
+        config: 对比配置对象，默认创建 rtol=1e-3, atol=1e-3 的配置
         max_precision: 输出数值精度，默认使用 MAX_PRECISION
-        is_detail: 是否生成详细统计信息
-        shape: 用于输出索引的原始形状
-        calc_dtype: 计算精度
-        is_ignore_bothzero: 是否忽略双零位置
-        fail_factor: 失败阈值因子
     
     Returns:
         dict 包含对比结果和统计信息:
@@ -270,18 +258,10 @@ def compare_tensors_result_dict(
         - AB>mae/mre 系列指标
         - A/B>max/min/avg/aavg/zero/infnan: 各 tensor 统计值
     """
+    if config is None:
+        config = IsCloseConfig(rtol=1e-3, atol=1e-3)
     if max_precision is None:
         max_precision = MAX_PRECISION
-    
-    config = IsCloseConfig(
-        rtol=rtol,
-        atol=atol,
-        calc_dtype=calc_dtype,
-        shape=shape,
-        is_ignore_bothzero=is_ignore_bothzero,
-        is_detail=is_detail,
-        fail_factor=fail_factor
-    )
     
     comparator = TensorComparator()
     result_is_close, result_reason, result_info = comparator.check_isclose(
@@ -291,7 +271,7 @@ def compare_tensors_result_dict(
     record = {}
     record["AB>RESULT"] = result_is_close
     record["result_reason"] = result_reason
-    record["AB>rtol/atol"] = f"{rtol:.{max_precision}g}/{atol:.{max_precision}g}"
+    record["AB>rtol/atol"] = f"{config.rtol:.{max_precision}g}/{config.atol:.{max_precision}g}"
     
     diff_conf = result_info[6] if len(result_info) > 6 else None
     if diff_conf is not None:
