@@ -11,7 +11,9 @@ from ..ast_helpers import (
     _extract_shapes_from_test_ast,
     _extract_symbolic_dynamic_aliases,
     _get_func_param_count,
+    _get_jit_functions,
     _get_primary_jit_functions,
+    _has_loop_structure,
     _is_pypto_tensor_annotation,
     _shape_has_dynamic,
 )
@@ -125,6 +127,52 @@ def check_ol31(ctx: CheckContext) -> Finding:
             file=impl_file)
     return ctx.make_finding("OL31", "PASS",
         "design 动态轴声明与 impl 注解一致", file=impl_file)
+
+
+@register("OL43")
+def check_ol43(ctx: CheckContext) -> Finding:
+    """DESIGN 声明动态轴时 impl 必须包含 pypto.loop 调用"""
+    if not ctx.file_exists(DESIGN_FILE):
+        return ctx.make_finding("OL43", "SKIP", f"{DESIGN_FILE} 不存在")
+
+    design_meta = _load_doc_meta(ctx, DESIGN_FILE)
+    dynamic_axes = design_meta.get("dynamic_axes") or design_meta.get("dynamic_axis")
+
+    # 若 front matter 无声明，在正文中搜索动态轴相关关键词
+    if not dynamic_axes:
+        content = ctx.read_file(DESIGN_FILE)
+        has_dynamic_keyword = bool(
+            re.search(r'(?:pypto\.DYNAMIC|pypto\.DYN|动态轴|dynamic.{0,10}axis)', content, re.IGNORECASE)
+        )
+        if not has_dynamic_keyword:
+            return ctx.make_finding("OL43", "SKIP",
+                "DESIGN.md 未声明动态轴，无需检查 pypto.loop")
+
+    impl_file = f"{ctx.op_name}_impl.py"
+    tree = ctx.parse_file(impl_file)
+    if tree is None:
+        return ctx.make_finding("OL43", "SKIP", f"{impl_file} 不存在或无法解析")
+
+    aliases = ctx.pypto_aliases(impl_file)
+    jit_funcs = _get_jit_functions(tree, aliases)
+    if not jit_funcs:
+        return ctx.make_finding("OL43", "SKIP", "未找到 JIT 函数")
+
+    # 在 impl 中搜索 pypto.loop 调用
+    impl_source = ctx.read_file(impl_file) or ""
+    has_pypto_loop = bool(re.search(r'pypto\.loop\s*\(', impl_source))
+    if not has_pypto_loop:
+        has_pypto_loop = _has_loop_structure(jit_funcs[0])
+
+    if has_pypto_loop:
+        return ctx.make_finding("OL43", "PASS",
+            "DESIGN 声明动态轴，impl 中存在 loop 结构", file=f"{ctx.op_name}_impl.py")
+
+    return ctx.make_finding("OL43", "FAIL",
+        f"DESIGN.md 声明了动态轴，但 {ctx.op_name}_impl.py 中未找到 "
+        f"pypto.loop / pypto.lang.loop 调用。建议补充 pypto.loop 以覆盖动态轴，"
+        f"可对现有 impl 做局部修补。",
+        file=f"{ctx.op_name}_impl.py")
 
 
 @register("OL32")

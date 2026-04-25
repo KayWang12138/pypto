@@ -100,6 +100,19 @@
       "check_function": "check_ol05"
     },
     {
+      "id": "OL06",
+      "severity": "S1",
+      "dimension": "D1",
+      "stages": [
+        5,
+        6,
+        7
+      ],
+      "target": "impl",
+      "rule": "kernel 内禁用 Python 原生 min()/max()",
+      "check_function": "check_ol06"
+    },
+    {
       "id": "OL07",
       "severity": "S0",
       "dimension": "D1",
@@ -510,6 +523,19 @@
       "target": "test",
       "rule": "NPU 环境可用时，test 禁止硬编码 sim 模式（default='sim' 或 run_mode='sim'）",
       "check_function": "check_ol42"
+    },
+    {
+      "id": "OL43",
+      "severity": "S1",
+      "dimension": "D5",
+      "stages": [
+        5,
+        6,
+        7
+      ],
+      "target": "gate",
+      "rule": "DESIGN.md 声明动态轴时，impl 的 jit 函数中必须包含 pypto.loop 调用",
+      "check_function": "check_ol43"
     }
   ]
 }

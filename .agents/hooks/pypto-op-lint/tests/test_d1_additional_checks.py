@@ -1,6 +1,6 @@
 # Copyright (c) Huawei Technologies Co., Ltd. 2024-2025. All rights reserved.
 
-"""D1 框架约束合规规则（OL04-OL05, OL25, OL26）补充测试。"""
+"""D1 框架约束合规规则（OL04-OL06, OL25, OL26）补充测试。"""
 from pathlib import Path
 
 from .helpers import build_stateless_op_dir, load_lint_module, run_rule, write_file
@@ -54,6 +54,32 @@ def demo_wrapper(x, y):
 """
     write_file(op_dir / "demo_impl.py", impl)
     finding = run_rule(mod, op_dir, "OL05")
+    assert finding.status == "FAIL"
+
+
+# ── OL06: kernel 内禁用 Python 原生 min()/max() ──
+
+def test_ol06_pass_when_no_native_minmax(tmp_path: Path):
+    mod = load_lint_module()
+    op_dir = build_stateless_op_dir(tmp_path, "demo")
+    finding = run_rule(mod, op_dir, "OL06")
+    assert finding.status == "PASS"
+
+
+def test_ol06_fail_when_native_max_used(tmp_path: Path):
+    mod = load_lint_module()
+    op_dir = build_stateless_op_dir(tmp_path, "demo")
+    impl = """import pypto
+@pypto.frontend.jit
+def demo_kernel(x: pypto.Tensor([1024], pypto.DT_FP32), y: pypto.Tensor([1024], pypto.DT_FP32)):
+    pypto.set_vec_tile_shapes(32, 128)
+    y[:] = max(x, 0)
+
+def demo_wrapper(x, y):
+    return None
+"""
+    write_file(op_dir / "demo_impl.py", impl)
+    finding = run_rule(mod, op_dir, "OL06")
     assert finding.status == "FAIL"
 
 

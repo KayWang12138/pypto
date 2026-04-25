@@ -28,7 +28,7 @@ DESIGN_FILE = "DESIGN.md"
 OP_WORKSPACE_DIR = "custom"
 
 IMPL_RULE_IDS = [
-    "OL01", "OL02", "OL03", "OL04", "OL05", "OL07", "OL08",
+    "OL01", "OL02", "OL03", "OL04", "OL05", "OL06", "OL07", "OL08",
     "OL16", "OL23", "OL25", "OL26", "OL28", "OL29", "OL37",
 ]
 
@@ -36,11 +36,11 @@ GOLDEN_RULE_IDS = ["OL15"]
 
 TEST_RULE_IDS = ["OL17", "OL18", "OL19", "OL20", "OL21", "OL22", "OL42"]
 
-CONSISTENCY_RULE_IDS = ["OL30", "OL31", "OL32", "OL33", "OL34", "OL39", "OL40", "OL41"]
+CONSISTENCY_RULE_IDS = ["OL30", "OL31", "OL32", "OL33", "OL34", "OL39", "OL40", "OL41", "OL43"]
 
 # Subset of CONSISTENCY_RULE_IDS safe for post-edit: only rules that check
 # the edited file itself, not cross-file dependencies.  Cross-file rules
-# (OL30-OL34, OL39, OL40) must wait for the gate / stop check.
+# (OL30-OL34, OL39, OL40, OL43) must wait for the gate / stop check.
 POST_EDIT_CONSISTENCY_RULE_IDS = ["OL41"]
 
 STRICT_ENV = "PYPTO_OP_LINT_STRICT"

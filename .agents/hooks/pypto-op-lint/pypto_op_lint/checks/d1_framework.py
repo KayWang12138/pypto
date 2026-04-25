@@ -140,6 +140,25 @@ def check_ol05(ctx: CheckContext) -> Finding:
         "jit 函数张量参数均有 pypto.Tensor 类型注解", file=impl_file)
 
 
+@register("OL06")
+def check_ol06(ctx: CheckContext) -> Finding:
+    """kernel 内禁用 Python 原生 min()/max()"""
+    impl_file = f"{ctx.op_name}_impl.py"
+    tree = ctx.parse_file(impl_file)
+    if tree is None:
+        return ctx.make_finding("OL06", "SKIP", f"{impl_file} 不存在或无法解析")
+    aliases = ctx.pypto_aliases(impl_file)
+    for func in _get_jit_functions(tree, aliases):
+        for node in ast.walk(func):
+            if (isinstance(node, ast.Call) and isinstance(node.func, ast.Name)
+                    and node.func.id in ("min", "max")):
+                return ctx.make_finding("OL06", "FAIL",
+                    f"jit 函数内使用了 Python 原生 {node.func.id}()，"
+                    "应使用 pypto 等价函数",
+                    file=impl_file, line=node.lineno)
+    return ctx.make_finding("OL06", "PASS", "未使用原生 min/max", file=impl_file)
+
+
 @register("OL07")
 def check_ol07(ctx: CheckContext) -> Finding:
     """必须 import pypto"""

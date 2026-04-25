@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # Copyright (c) Huawei Technologies Co., Ltd. 2024-2026. All rights reserved.
 
-"""补充测试：OL28, OL29, OL37, OL42 规则覆盖。"""
+"""补充测试：OL28, OL29, OL37, OL42, OL43 规则覆盖。"""
 from pathlib import Path
 
 from .helpers import build_stateless_op_dir, load_lint_module, run_rule, write_file
@@ -84,4 +84,29 @@ def test_ol42_skip_when_no_npu(tmp_path: Path):
     op_dir = build_stateless_op_dir(tmp_path, "demo")
     finding = run_rule(mod, op_dir, "OL42")
     # 默认 fixture 无 sim 硬编码：有 NPU 时 PASS，无 NPU 时 SKIP
+    assert finding.status in ("SKIP", "PASS")
+
+
+# ─── OL43: DESIGN 声明动态轴 → impl 需有 loop ───
+
+def test_ol43_skip_when_no_dynamic_axes(tmp_path: Path):
+    """DESIGN 不声明动态轴时，OL43 应 SKIP 或 PASS。"""
+    mod = load_lint_module()
+    op_dir = build_stateless_op_dir(tmp_path, "demo")
+    # 默认 DESIGN 模板含 dynamic_axes，先改成无动态轴
+    design = """---
+schema_version: "1"
+op_name: demo
+dynamic_axes: []
+---
+# 计算图
+## 计算图
+graph
+## Tiling 策略
+tiling
+## 验证方案
+verify
+"""
+    write_file(op_dir / "DESIGN.md", design)
+    finding = run_rule(mod, op_dir, "OL43", stage=5)
     assert finding.status in ("SKIP", "PASS")
