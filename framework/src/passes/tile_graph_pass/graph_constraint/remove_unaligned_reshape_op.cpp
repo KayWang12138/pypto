@@ -333,21 +333,61 @@ void RemoveUnalignedReshape::GetPathBetweenSingleCopyOutAndReshape(
             }
 
             // 其他类型的op（包括view/assemble或其他op），继续向前追溯
-            auto inputOperands = producerOp->GetIOperands();
-            for (auto prodInput : inputOperands) {
-                GetPathBetweenSingleCopyOutAndReshape(producerOp, ToCopyProducerTensor, findCopyOut, needToCopy, index);
-                if (findCopyOut) {
-                    std::pair<Operation*, LogicalTensorPtr> producerTensor = std::make_pair(producerOp, input);
-                    ToCopyProducerTensor.push_back(producerTensor);
-                    if (input->GetConsumers().size() > 1) {
-                        needToCopy = true;
-                        index = FindConsumerIndex(input, op);
-                    }
-                    return;
+            GetPathBetweenSingleCopyOutAndReshape(producerOp, ToCopyProducerTensor, findCopyOut, needToCopy, index);
+            if (findCopyOut) {
+                std::pair<Operation*, LogicalTensorPtr> producerTensor = std::make_pair(producerOp, input);
+                ToCopyProducerTensor.push_back(producerTensor);
+                if (input->GetConsumers().size() > 1) {
+                    needToCopy = true;
+                    index = FindConsumerIndex(input, op);
                 }
+                return;
             }
         }
     }
+}
+
+void RemoveUnalignedReshape::InsertReshapeCopy(Function& function, Operation& op) {
+    auto input = op.GetIOperands().front();
+    auto output = op.GetOOperands().front();
+    //进行处理前判断，防止误修改
+    std::vector<Operation*> copyOutOps;
+    Operation* copyOutOp;
+    std::vector<std::pair<Operation*, LogicalTensorPtr>> ToCopyProducerTensor;
+    int index = -1;
+    bool findCopyOut = false;
+    bool needToCopy = false;
+    bool checkOverUbSize = false;
+    //index表示copyout到reshape之间，有多个消费者的Tensor的第几个消费者是包含需要处理的reshape的
+    FindAllProducerCopyOuts(input, copyOutOps);
+    if (copyOutOps.empty() || copyOutOps.size() > 1) {
+        auto newReshapeIo = HandleNoOrMultiCopyOutInProducer(function, op, checkOverUbSize);
+        if (!checkOverUbSize && newReshapeIo != nullptr) {
+            copyOutOp = *(newReshapeIo->GetProducers().begin());
+        }
+    } else {
+        copyOutOp = copyOutOps.front();
+        GetPathBetweenSingleCopyOutAndReshape(&op, ToCopyProducerTensor, findCopyOut, needToCopy, index);
+    }
+    std::vector<Operation*> copyInOps;
+    if (checkNonCopyInConsumerExists(output, copyInOps)) {
+        HandleNoCopyInConsumer(function, op, output, copyInOps, checkOverUbSize);
+    }
+
+    //进行处理
+    if (!checkOverUbSize) {
+        if (needToCopy) {
+            copyOutOp = CopyBranchBetweenCopyOut2Reshape(function, ToCopyProducerTensor, index);
+        }
+        ProcessCopyOutOfDDRReshape(function, op, copyOutOp);
+        ProcessCopyInOfDDRReshape(function, op, copyInOps);
+    } else {
+        APASS_LOG_WARN_F(Elements::Tensor, "Reshape[%d] on GM had processed failed, "
+            "because the size of input[%d] or output[%d] of reshape[%d] exceeded ub if copy to ub.",
+            op.GetOpMagic(), input->GetMagic(), output->GetMagic(), op.GetOpMagic());
+    }
+    APASS_LOG_DEBUG_F(Elements::Operation, "Reshape[%d] on GM had processed successfully.", op.GetOpMagic());
+    processedReshapeOps.insert(op.GetOpMagic());
 }
 
 void RemoveUnalignedReshape::ReplaceDynUnalignedReshapeOpsForDDR(Function& function, Operation& op)
@@ -369,44 +409,7 @@ void RemoveUnalignedReshape::ReplaceDynUnalignedReshapeOpsForDDR(Function& funct
         }
     }
     if (hasNonImmediate) {
-        //进行处理前判断，防止误修改
-        std::vector<Operation*> copyOutOps;
-        Operation* copyOutOp;
-        std::vector<std::pair<Operation*, LogicalTensorPtr>> ToCopyProducerTensor;
-        int index = -1;
-        bool findCopyOut = false;
-        bool needToCopy = false;
-        bool checkOverUbSize = false;
-        //index表示copyout到reshape之间，有多个消费者的Tensor的第几个消费者是包含需要处理的reshape的
-        FindAllProducerCopyOuts(input, copyOutOps);
-        if (copyOutOps.empty() || copyOutOps.size() > 1) {
-            auto newReshapeIo = HandleNoOrMultiCopyOutInProducer(function, op, checkOverUbSize);
-            if (!checkOverUbSize && newReshapeIo != nullptr) {
-                copyOutOp = *(newReshapeIo->GetProducers().begin());
-            }
-        } else {
-            copyOutOp = copyOutOps.front();
-            GetPathBetweenSingleCopyOutAndReshape(&op, ToCopyProducerTensor, findCopyOut, needToCopy, index);
-        }
-        std::vector<Operation*> copyInOps;
-        if (checkNonCopyInConsumerExists(output, copyInOps)) {
-            HandleNoCopyInConsumer(function, op, output, copyInOps, checkOverUbSize);
-        }
-
-        //进行处理
-        if (!checkOverUbSize) {
-            if (needToCopy) {
-                copyOutOp = CopyBranchBetweenCopyOut2Reshape(function, ToCopyProducerTensor, index);
-            }
-            ProcessCopyOutOfDDRReshape(function, op, copyOutOp);
-            ProcessCopyInOfDDRReshape(function, op, copyInOps);
-        } else {
-            APASS_LOG_WARN_F(Elements::Tensor, "Reshape[%d] on GM had processed failed, "
-                "because the size of input[%d] or output[%d] of reshape[%d] exceeded ub if copy to ub.",
-                op.GetOpMagic(), input->GetMagic(), output->GetMagic(), op.GetOpMagic());
-        }
-        APASS_LOG_DEBUG_F(Elements::Operation, "Reshape[%d] on GM had processed successfully.", op.GetOpMagic());
-        processedReshapeOps.insert(op.GetOpMagic());
+        InsertReshapeCopy(function, op);
     }
 }
 

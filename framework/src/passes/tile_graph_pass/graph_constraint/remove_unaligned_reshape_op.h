@@ -54,6 +54,7 @@ private:
     void ReplaceDynUnalignedReshapeOps(Function& function);
     void ReplaceDynUnalignedReshapeOpsForUB(Function& function, Operation& op);
     void ReplaceDynUnalignedReshapeOpsForDDR(Function& function, Operation& op);
+    void InsertReshapeCopy(Function& function, Operation& op);
     void ProcessCopyOutOfDDRReshape(Function& function, Operation& op, Operation* copyOutOp);
     void ProcessCopyInOfDDRReshape(Function& function, Operation& op, std::vector<Operation*>& copyInOps);
     std::unordered_set<int> processedReshapeOps;
