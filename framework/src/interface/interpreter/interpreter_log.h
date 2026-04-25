@@ -1,3 +1,18 @@
+/**
+ * Copyright (c) 2026 Huawei Technologies Co., Ltd.
+ * This program is free software, you can redistribute it and/or modify it under the terms and conditions of
+ * CANN Open Software License Agreement Version 2.0 (the "License").
+ * Please refer to the License for details. You may not use this file except in compliance with the License.
+ * THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED,
+ * INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
+ * See LICENSE in the root of the software repository for the full text of the License.
+ */
+
+/*!
+ * \file interpreter_log.h
+ * \brief Interpreter logging helpers and macros.
+ */
+
 #pragma once
 
 #include <cstdarg>
@@ -6,12 +21,11 @@
 #include <cstdlib>
 #include <cstring>
 #include <ctime>
-#include <memory>
 #include <mutex>
 #include <string>
-#include <vector>
 #include <sys/stat.h>
 
+#include "securec.h"
 #include "tilefwk/pypto_fwk_log.h"
 
 namespace npu::tile_fwk::interpreter_log {
@@ -64,20 +78,26 @@ inline void WriteLine(const char* level, const char* fmt, va_list args)
         return;
     }
 
+    constexpr int kInitialBufSize = 1024;
+    std::string msgBuf(static_cast<size_t>(kInitialBufSize), '\0');
+
     va_list argsCopy;
     va_copy(argsCopy, args);
-    int written = vsnprintf(nullptr, 0, fmt, argsCopy);
+    int msgLength = vsnprintf_s(msgBuf.data(), msgBuf.size(), msgBuf.size() - 1, fmt, argsCopy);
     va_end(argsCopy);
-    if (written < 0) {
+    if (msgLength < 0) {
         fclose(fp);
         return;
     }
-    size_t msgSize = static_cast<size_t>(written) + 1;
-    std::unique_ptr<char[]> msgBuf = std::make_unique<char[]>(msgSize);
-    int written2 = vsnprintf(msgBuf.get(), msgSize, fmt, args);
-    if (written2 < 0) {
-        fclose(fp);
-        return;
+    if (msgLength > kInitialBufSize) {
+        msgBuf.resize(static_cast<size_t>(msgLength) + 1, '\0');
+        va_copy(argsCopy, args);
+        const int ret = vsnprintf_s(msgBuf.data(), msgBuf.size(), msgBuf.size() - 1, fmt, argsCopy);
+        va_end(argsCopy);
+        if (ret < 0) {
+            fclose(fp);
+            return;
+        }
     }
 
     std::time_t now = std::time(nullptr);
@@ -86,9 +106,9 @@ inline void WriteLine(const char* level, const char* fmt, va_list args)
     char timeBuf[32] = {0};
     (void)std::strftime(timeBuf, sizeof(timeBuf), "%Y-%m-%d %H:%M:%S", &localTm);
 
-    fprintf(fp, "[%s][%s] %s\n", timeBuf, level, msgBuf.get());
+    fprintf(fp, "[%s][%s] %s\n", timeBuf, level, msgBuf.c_str());
     if (ShouldPrintToStdout()) {
-        fprintf(stdout, "[%s][%s] %s\n", timeBuf, level, msgBuf.get());
+        fprintf(stdout, "[%s][%s] %s\n", timeBuf, level, msgBuf.c_str());
         fflush(stdout);
     }
     fclose(fp);
