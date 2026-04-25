@@ -1,5 +1,0 @@
-name: pypto-pass-workflow-analyzer
-description: "Analyze pass business workflow: execution order, module responsibilities, data flow."
-triggers: ["pass workflow", "execution flow", "data flow", "pass sequence"]
-category: pass
-phase_affinity: ["any"]

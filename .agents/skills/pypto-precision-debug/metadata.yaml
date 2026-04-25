@@ -1,5 +1,0 @@
-name: pypto-precision-debug
-description: "Code-level precision workaround checklist: frontend switch, avoid inplace, unroll_list=[1], +0.0, shape adjust."
-triggers: ["precision failure", "accuracy mismatch", "numerical deviation", "precision workaround"]
-category: debugging
-phase_affinity: ["3+"]

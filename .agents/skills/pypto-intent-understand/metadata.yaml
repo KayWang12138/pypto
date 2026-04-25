@@ -1,5 +1,0 @@
-name: pypto-intent-understand
-description: "Convert natural-language operator description into structured SPEC.md with formulas, dtypes, shapes."
-triggers: ["requirements", "intent", "SPEC", "operator description", "develop operator"]
-category: development
-phase_affinity: ["0"]

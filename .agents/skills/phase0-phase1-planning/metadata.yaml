@@ -1,5 +1,0 @@
-name: phase0-phase1-planning
-description: "Phase 0 triage and API availability check. Phase 1 golden preparation: audit, normalize, build inventory, freeze."
-triggers: ["phase 0", "phase 1", "API check", "golden preparation", "plan file", "API map"]
-category: workflow
-phase_affinity: ["0", "1"]

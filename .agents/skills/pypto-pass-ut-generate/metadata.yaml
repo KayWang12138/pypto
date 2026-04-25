@@ -1,5 +1,0 @@
-name: pypto-pass-ut-generate
-description: "Generate unit tests for pass modules from business descriptions."
-triggers: ["pass UT", "unit test", "pass test generation", "test coverage"]
-category: pass
-phase_affinity: ["any"]

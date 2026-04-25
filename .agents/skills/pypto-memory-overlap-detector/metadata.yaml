@@ -1,5 +1,0 @@
-name: pypto-memory-overlap-detector
-description: "Detect and fix workspace memory overlap causing precision anomalies."
-triggers: ["memory overlap", "workspace conflict", "memory corruption", "memory reuse error"]
-category: debugging
-phase_affinity: ["3+"]

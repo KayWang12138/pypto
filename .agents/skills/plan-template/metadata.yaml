@@ -1,5 +1,0 @@
-name: plan-template
-description: "Plan template for custom/plan/<op>.md. Copy to create the mandatory plan file."
-triggers: ["plan template", "plan file", "custom/plan"]
-category: workflow
-phase_affinity: ["0"]

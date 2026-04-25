@@ -1,5 +1,0 @@
-name: validation-and-deliverables
-description: "Validation runner contract, detailed_tensor_compare, all-outputs rule, success criteria, deliverables."
-triggers: ["validation", "test runner", "detailed_tensor_compare", "deliverables", "success criteria"]
-category: workflow
-phase_affinity: ["3", "4"]

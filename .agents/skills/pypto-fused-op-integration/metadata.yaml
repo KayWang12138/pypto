@@ -1,5 +1,0 @@
-name: pypto-fused-op-integration
-description: "Integrate fused operator into model network, replacing multi-op combinations. End-to-end workflow."
-triggers: ["fused op", "model integration", "replace small ops", "end-to-end", "network integration"]
-category: development
-phase_affinity: ["post"]

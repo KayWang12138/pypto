@@ -1,5 +1,0 @@
-name: pypto-golden-generate
-description: "Generate pure PyTorch golden reference with confidence scoring and auto-repair validation."
-triggers: ["golden", "reference implementation", "golden.py", "baseline", "torch reference"]
-category: development
-phase_affinity: ["1"]

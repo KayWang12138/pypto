@@ -1,5 +1,0 @@
-name: pypto-host-stacktrace-analyzer
-description: "Analyze host-side crash stack traces. Resolve addresses to source lines, parse Python/C++ backtraces."
-triggers: ["stack trace", "crash", "backtrace", "segfault", "core dump"]
-category: debugging
-phase_affinity: ["3+"]

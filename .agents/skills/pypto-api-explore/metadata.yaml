@@ -1,5 +1,0 @@
-name: pypto-api-explore
-description: "3-layer API validation: op_index lookup, doc search, reference implementation check. Produces API_REPORT.md."
-triggers: ["API explore", "API mapping", "constraint check", "feasibility", "PyPTO support"]
-category: development
-phase_affinity: ["0"]

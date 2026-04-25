@@ -1,5 +1,0 @@
-name: pypto-op-perf-tune
-description: "Performance analysis and 3-stage tuning orchestrator: frontend, swimlane, incore."
-triggers: ["performance tuning", "perf analysis", "auto tune", "optimize kernel"]
-category: performance
-phase_affinity: ["6"]

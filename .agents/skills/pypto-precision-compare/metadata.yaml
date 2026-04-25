@@ -1,5 +1,0 @@
-name: pypto-precision-compare
-description: "Two precision comparison methods: file-based (pass_verify_save + torch.save) and binary-search checkpoint."
-triggers: ["precision bisection", "binary search", "pass_verify_save", "checkpoint compare"]
-category: debugging
-phase_affinity: ["3+"]

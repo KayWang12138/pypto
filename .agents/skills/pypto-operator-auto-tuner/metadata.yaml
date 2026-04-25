@@ -1,5 +1,0 @@
-name: pypto-operator-auto-tuner
-description: "Automation scripts: swimlane data extraction, AIV dependency chain analysis, leafhash-to-code mapping."
-triggers: ["auto tuner", "swimlane script", "AIV dependency", "leafhash"]
-category: performance
-phase_affinity: ["6"]

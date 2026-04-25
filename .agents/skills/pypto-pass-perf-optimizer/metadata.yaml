@@ -1,5 +1,0 @@
-name: pypto-pass-perf-optimizer
-description: "Measure and optimize pass compilation performance. Flamegraph analysis and profiling."
-triggers: ["pass performance", "compilation time", "pass optimization", "flamegraph"]
-category: pass
-phase_affinity: ["any"]

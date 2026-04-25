@@ -1,5 +1,0 @@
-name: pypto-environment-setup
-description: "CANN, torch_npu, build toolchain, third-party dependency setup and repair."
-triggers: ["environment setup", "CANN install", "torch_npu", "NPU driver", "build error", "import error"]
-category: development
-phase_affinity: ["0"]

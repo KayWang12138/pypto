@@ -1,5 +1,0 @@
-name: phase6-optimization
-description: "Config-level and algorithm-level optimization. Starts only after correctness is confirmed."
-triggers: ["phase 6", "optimization", "config tuning", "algorithm tuning"]
-category: workflow
-phase_affinity: ["6"]

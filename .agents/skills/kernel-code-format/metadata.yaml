@@ -1,5 +1,0 @@
-name: kernel-code-format
-description: "Layers A-L design document, naming conventions, shape annotations, pypto_kernel_template.py."
-triggers: ["code format", "template", "layers A-L", "naming convention", "shape annotation"]
-category: workflow
-phase_affinity: ["0", "3"]

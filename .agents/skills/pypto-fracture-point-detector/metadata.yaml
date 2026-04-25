@@ -1,5 +1,0 @@
-name: pypto-fracture-point-detector
-description: "Identify framework or documentation gaps from session context. Produce structured report."
-triggers: ["fracture point", "documentation gap", "framework issue", "gap detection"]
-category: ci-and-pr
-phase_affinity: ["post"]

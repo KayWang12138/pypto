@@ -1,5 +1,0 @@
-name: pypto-machine-workspace
-description: "Diagnose abnormally large workspace memory. Analyze budget layers, locate oversized tensors."
-triggers: ["workspace memory", "out of memory", "OOM", "rtMalloc failed"]
-category: debugging
-phase_affinity: ["3+"]

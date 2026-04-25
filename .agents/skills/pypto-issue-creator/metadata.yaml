@@ -1,5 +1,0 @@
-name: pypto-issue-creator
-description: "Create GitCode Issue: bug report, feature request, documentation, question, or task."
-triggers: ["create issue", "report bug", "feature request", "GitCode issue"]
-category: ci-and-pr
-phase_affinity: ["any"]

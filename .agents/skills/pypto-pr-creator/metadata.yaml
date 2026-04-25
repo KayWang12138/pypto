@@ -1,5 +1,0 @@
-name: pypto-pr-creator
-description: "Create or update PR to cann/pypto. Fork validation, git auth, upstream sync, commit conventions."
-triggers: ["create PR", "submit code", "push to remote", "pull request"]
-category: ci-and-pr
-phase_affinity: ["post"]

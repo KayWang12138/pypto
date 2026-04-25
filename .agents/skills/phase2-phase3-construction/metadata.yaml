@@ -1,5 +1,0 @@
-name: phase2-phase3-construction
-description: "Phase 2 semantic module decomposition. Phase 3 one-at-a-time module construction with DEBUG §9 lookup."
-triggers: ["phase 2", "phase 3", "module decomposition", "module construction", "staged files"]
-category: workflow
-phase_affinity: ["2", "3"]

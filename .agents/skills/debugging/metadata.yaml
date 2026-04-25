@@ -1,5 +1,0 @@
-name: debugging
-description: "Failure logging, strategy switching rules, op-by-op check protocol, DEBUG.md playbook (§1-§9)."
-triggers: ["compile error", "runtime error", "stuck", "debug protocol", "op-by-op"]
-category: debugging
-phase_affinity: ["2+"]

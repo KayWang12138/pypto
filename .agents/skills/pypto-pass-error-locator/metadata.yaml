@@ -1,5 +1,0 @@
-name: pypto-pass-error-locator
-description: "Pass module error diagnosis: locate error, analyze cause, provide fix suggestions."
-triggers: ["pass error", "pass diagnosis", "pass module error"]
-category: pass
-phase_affinity: ["any"]

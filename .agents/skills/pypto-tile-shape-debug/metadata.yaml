@@ -1,5 +1,0 @@
-name: pypto-tile-shape-debug
-description: "Diagnose and fix set_cube_tile_shapes / set_vec_tile_shapes failures. Maps 'L0 size exceeded', 'L1 size exceeded', alignment errors, and tile divisibility errors back to concrete [L0, L1] values."
-triggers: ["set_cube_tile_shapes", "set_vec_tile_shapes", "tile shape", "L0 size", "L1 size", "L0A", "L0B", "L0C", "tile align", "tile divisibility", "enable_split_k"]
-category: debugging
-phase_affinity: ["3+"]

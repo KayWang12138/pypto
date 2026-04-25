@@ -1,5 +1,0 @@
-name: pypto-op-design
-description: "Generate DESIGN.md covering API mapping, tiling strategy, loop structure, and verification plan."
-triggers: ["design", "DESIGN.md", "tiling strategy", "loop structure", "data partitioning"]
-category: development
-phase_affinity: ["2"]

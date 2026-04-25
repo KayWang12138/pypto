@@ -1,5 +1,0 @@
-name: pypto-pr-fixer
-description: "Fix CodeCheck CI failures and address reviewer comments on existing PRs."
-triggers: ["fix PR", "CodeCheck", "CI failure", "review comment", "codecheck violation"]
-category: ci-and-pr
-phase_affinity: ["post"]

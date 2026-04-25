@@ -1,5 +1,0 @@
-name: pypto-op-workflow
-description: "Reference: overall PyPTO operator development workflow with stage ordering."
-triggers: ["workflow", "development flow", "full process", "stage order"]
-category: development
-phase_affinity: ["0"]

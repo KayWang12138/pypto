@@ -1,5 +1,0 @@
-name: pypto-aicore-error-locator
-description: "Locate CCE file and problem code line for aicore errors. Map device error to frontend source."
-triggers: ["aicore error", "CCE file", "device error", "aicore"]
-category: debugging
-phase_affinity: ["3+"]

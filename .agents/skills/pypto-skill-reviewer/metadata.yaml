@@ -1,5 +1,0 @@
-name: pypto-skill-reviewer
-description: "Audit a skill directory for quality and best-practice compliance. Produce scored report."
-triggers: ["skill review", "skill audit", "quality check", "compliance"]
-category: ci-and-pr
-phase_affinity: ["any"]

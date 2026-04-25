@@ -1,5 +1,0 @@
-name: pypto-op-develop
-description: "Generate operator implementation (impl.py), test entry (test.py), and README with execution constraints."
-triggers: ["implement", "develop", "write kernel", "impl.py", "test.py", "op develop"]
-category: development
-phase_affinity: ["3"]

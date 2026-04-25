@@ -1,5 +1,0 @@
-name: phase4-phase5-integration
-description: "Phase 4 progressive integration with earliest-failing-boundary rule. Phase 5 PyPTO structural rules."
-triggers: ["phase 4", "phase 5", "integration", "structural rules", "write-back", "tile config"]
-category: workflow
-phase_affinity: ["4", "5"]

@@ -1,5 +1,0 @@
-name: ci-and-layout-check
-description: "Layout validator for custom/<op>/ structure. extract_pypto_calls.py and run_validate_layout.sh."
-triggers: ["layout check", "CI check", "validate layout", "extract calls"]
-category: ci-and-pr
-phase_affinity: ["3+"]
