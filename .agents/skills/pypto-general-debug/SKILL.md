@@ -113,7 +113,7 @@ Read the matching subsection before writing each module's PyPTO code:
 ## Subskill fallback decision tree (router policy)
 
 This skill is the **router** for all debugging sub-skills. When used by the
-Debug Agent (`.opencode/agents/debug.md`), load **exactly one** sub-skill per
+Debug Agent (`.opencode/agents/pypto-op-debugger.md`), load **exactly one** sub-skill per
 failure, and unload it before handling the next failure. This keeps the
 active-skill count ≤ 4.
 
@@ -160,6 +160,6 @@ active-skill count ≤ 4.
   appears, unload the current sub-skill first.
 - Do **not** pre-load sub-skills speculatively.
 - If no row matches, stay in this SKILL.md + `references/debug-playbook.md`. Do not escalate.
-- The Debug Agent's contract (`.opencode/agents/debug.md`) takes precedence over any sub-skill guidance on conflict.
+- The Debug Agent's contract (`.opencode/agents/pypto-op-debugger.md`) takes precedence over any sub-skill guidance on conflict.
 - Log the dispatch decision to `custom/<op>/plan.md` under **Development &
   debug log** (which row matched, which sub-skill was loaded, outcome).

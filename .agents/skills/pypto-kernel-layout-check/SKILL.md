@@ -57,6 +57,6 @@ Add `--json` for machine-readable output. See `skills/pypto-general-debug/SKILL.
 
 ## When to run
 
-- **After every meaningful edit** under `custom/` (per the Verification Agent's GATE 3 / GATE 4 contract in `.opencode/agents/verification.md`)
+- **After every meaningful edit** under `custom/` (per the Verification Agent's GATE 3 / GATE 4 contract in `.opencode/agents/pypto-op-verifier.md`)
 - **Before claiming layout is complete**
 - The same validator runs in CI (`.github/workflows/validate-custom-kernel-layout.yml`) and pre-commit (`.pre-commit-config.yaml`)

@@ -17,7 +17,7 @@ python3 .agents/skills/pypto-kernel-layout-check/scripts/validate_custom_kernel_
 - If there is no `custom/` work yet, the script **exits 0** (nothing to validate).
 - If `custom/<op>/` has `test_<op>.py` or `<op>_module*.py`, checks apply — **exit 1** on violations.
 
-**When to run:** after adding or changing files under `custom/`, and **before** claiming the layout is complete (per the Verification Agent contract in `.opencode/agents/verification.md` — GATE 3 step 5 and GATE 4).
+**When to run:** after adding or changing files under `custom/`, and **before** claiming the layout is complete (per the Verification Agent contract in `.opencode/agents/pypto-op-verifier.md` — GATE 3 step 5 and GATE 4).
 
 ## Repository integration (human / CI)
 

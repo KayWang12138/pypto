@@ -2,9 +2,9 @@
 
 **Audience:** Agents working on complex PyPTO kernels under this bundle.
 
-**Do not skip:** This file is part of the mandatory path when stuck — see the Debug Agent contract (`.opencode/agents/debug.md`).
+**Do not skip:** This file is part of the mandatory path when stuck — see the Debug Agent contract (`.opencode/agents/pypto-op-debugger.md`).
 
-**Policy:** **`Errcode: FFFFF!`**, **`UNKNOWN`**, **`0x3FFFF`**, or other opaque / scary-looking error codes are **not** a reason to end the session, report failure, or "give up" until the Debug Agent's Hard rules (`.opencode/agents/debug.md`, "If after 3 fix/re-verify cycles the module still fails, stop and report the blocker") actually apply. **Token and turn budget are not a constraint** for this workflow: keep iterating, gathering evidence, and trying the next structured strategy until the problem is resolved or a true blocker is proven.
+**Policy:** **`Errcode: FFFFF!`**, **`UNKNOWN`**, **`0x3FFFF`**, or other opaque / scary-looking error codes are **not** a reason to end the session, report failure, or "give up" until the Debug Agent's Hard rules (`.opencode/agents/pypto-op-debugger.md`, "If after 3 fix/re-verify cycles the module still fails, stop and report the blocker") actually apply. **Token and turn budget are not a constraint** for this workflow: keep iterating, gathering evidence, and trying the next structured strategy until the problem is resolved or a true blocker is proven.
 
 **What “give up” looks like (forbidden here):** stopping after only printing the error code, declaring the task impossible without consulting docs, skipping logs, or refusing to try another angle.
 
@@ -95,7 +95,7 @@
 
 ## 7. When stopping is allowed
 
-Only align with the Debug Agent's stop conditions (`.opencode/agents/debug.md` Hard rules: 3 fix/re-verify cycles exhausted, missing reference, impossible golden, fundamental framework block, missing user-provided logs when required, or proven blind speculation after exhaustive structured attempts). **A single cryptic error line is never enough.**
+Only align with the Debug Agent's stop conditions (`.opencode/agents/pypto-op-debugger.md` Hard rules: 3 fix/re-verify cycles exhausted, missing reference, impossible golden, fundamental framework block, missing user-provided logs when required, or proven blind speculation after exhaustive structured attempts). **A single cryptic error line is never enough.**
 
 ---
 

@@ -12,7 +12,7 @@ almost always a violation of one of the `set_cube_tile_shapes` constraints in
 concrete **patch proposal** (new `[L0, L1]` values) — it does NOT modify production code.
 
 The Debug Agent owns patch proposals; the Coding Agent applies them per
-`.opencode/agents/coding.md`.
+`.opencode/agents/pypto-op-coder.md`.
 
 ---
 
@@ -312,7 +312,7 @@ If the symptom didn't match §2–§10:
 6. **Re-check §5 / §6 / §9** — changes can cascade.
 7. **Write the proposal** to the plan file `custom/<op>/plan.md` under
    `## tile-shape patch proposal`. Do NOT modify any staged `*_impl.py` yourself; the Coding Agent
-   applies it per `.opencode/agents/coding.md`.
+   applies it per `.opencode/agents/pypto-op-coder.md`.
 
 ---
 
@@ -363,6 +363,6 @@ This skill produces **patch proposals**, not commits. The Debug Agent:
 
 - MUST NOT open or modify any staged set under `custom/<op>/staged/` or the canonical `custom/<op>/<op>_impl.py`.
 - MUST write the proposal to `custom/<op>/plan.md`.
-- MUST cap at 3 cycles per `.opencode/agents/debug.md`; if still failing, escalate to Lead.
+- MUST cap at 3 cycles per `.opencode/agents/pypto-op-debugger.md`; if still failing, escalate to Lead.
 
 The Coding Agent applies the patch, then Verification Agent re-judges.

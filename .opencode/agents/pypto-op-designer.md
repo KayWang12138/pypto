@@ -1,5 +1,5 @@
 ---
-name: design
+name: pypto-op-designer
 description: "Phase 2 Design Agent. Splits the kernel into semantic modules, defines module contracts, lays out staged sets. Hands to Coding Agent."
 mode: subagent
 tools:
@@ -33,12 +33,12 @@ custom/<op>/
 ├── plan.md                                 ← YOU maintain (Phase 2 sections + later logs)
 ├── eval/
 │   ├── module_interfaces.yaml              ← YOU produce (single source of truth)
-│   └── (later: <op>_golden_modular.py, adversarial_runner.py — produced by @verification)
-└── staged/                                 ← YOU create the empty dir; @coding fills it per dispatch
+│   └── (later: <op>_golden_modular.py, adversarial_runner.py — produced by @pypto-op-verifier)
+└── staged/                                 ← YOU create the empty dir; @pypto-op-coder fills it per dispatch
     └── (each staged set is 3 files: <op>_module<k>_impl.py + _golden.py + test_*.py)
 ```
 
-After GATE 4 passes, the final M_N staged set will be renamed by @verification to:
+After GATE 4 passes, the final M_N staged set will be renamed by @pypto-op-verifier to:
 - `custom/<op>/<op>_impl.py`
 - `custom/<op>/<op>_golden.py`
 - `custom/<op>/test_<op>.py`
@@ -68,14 +68,14 @@ The staged set table looks like:
 
 ### In `custom/<op>/eval/module_interfaces.yaml` (machine-readable, single source of truth)
 
-This YAML is consumed by @verification to build the modular torch golden and the prefix-evaluation runner. Its schema is fixed and it must pass wiring validation. Required top-level keys:
+This YAML is consumed by @pypto-op-verifier to build the modular torch golden and the prefix-evaluation runner. Its schema is fixed and it must pass wiring validation. Required top-level keys:
 
 - `schema_version: 1`
 - `op: <op_name>`
 - `primary_inputs: [{name, shape, dtype}, …]` — mirrors the top-level golden signature verbatim.
 - `modules: [{id, name, description, inputs: [{name, source}], outputs: [{name, shape, dtype}]}, …]` — one entry per module; `source` is either `primary` or `module_<j>` with `j < current id`. No forward refs.
 - `final_outputs: [{name, source}, …]` — every return value of the user-provided golden, keyed to the producing module.
-- `composition_verification: {atol, rtol, seeds: [...], shapes: [{...}, …]}` — tolerance and representative shapes used by @verification's modular-golden composition check.
+- `composition_verification: {atol, rtol, seeds: [...], shapes: [{...}, …]}` — tolerance and representative shapes used by @pypto-op-verifier's modular-golden composition check.
 
 Dtype vocabulary: `float32`, `float16`, `bfloat16`, `int32`, `int64`, `bool`, `int`.
 Shape vocabulary: concrete int dims, symbolic names from `primary_inputs`, or quoted expressions using `+`, `-`, `*`, `//` (e.g. `"S/BT+1"`).
@@ -90,11 +90,11 @@ Wiring rules your YAML must satisfy (verification will reject malformed files):
 
 ### Empty `staged/` directory
 
-Create `custom/<op>/staged/` as an empty directory (or with a `.gitkeep`) so @coding has a clear destination on first dispatch.
+Create `custom/<op>/staged/` as an empty directory (or with a `.gitkeep`) so @pypto-op-coder has a clear destination on first dispatch.
 
 ### Stub staged set for M_1 (optional but recommended)
 
-Optionally seed the M_1 row of the staged set table with stub files containing only the contract as docstrings — this makes @coding's first dispatch unambiguous. Stub content:
+Optionally seed the M_1 row of the staged set table with stub files containing only the contract as docstrings — this makes @pypto-op-coder's first dispatch unambiguous. Stub content:
 
 - `staged/<op>_module1_impl.py` — module docstring with M_1 contract
 - `staged/<op>_module1_golden.py` — module docstring with M_1 reference math intent
@@ -102,4 +102,4 @@ Optionally seed the M_1 row of the staged set table with stub files containing o
 
 ## Exit criterion (GATE 2 — Design's portion)
 
-All three plan sections present + `custom/<op>/eval/module_interfaces.yaml` exists and passes the wiring rules above + `custom/<op>/staged/` exists. Hand back to Lead. Lead then dispatches @verification in scaffolding mode (build `<op>_golden_modular.py` + `adversarial_runner.py` and run composition verification + `--self-test`); only when that sub-pass succeeds does GATE 2 fully close. If @verification rejects the YAML, a `## Verification Rejection — <ts>` note is appended to `custom/<op>/plan.md` and you are re-invoked to revise it.
+All three plan sections present + `custom/<op>/eval/module_interfaces.yaml` exists and passes the wiring rules above + `custom/<op>/staged/` exists. Hand back to Lead. Lead then dispatches @pypto-op-verifier in scaffolding mode (build `<op>_golden_modular.py` + `adversarial_runner.py` and run composition verification + `--self-test`); only when that sub-pass succeeds does GATE 2 fully close. If @pypto-op-verifier rejects the YAML, a `## Verification Rejection — <ts>` note is appended to `custom/<op>/plan.md` and you are re-invoked to revise it.
