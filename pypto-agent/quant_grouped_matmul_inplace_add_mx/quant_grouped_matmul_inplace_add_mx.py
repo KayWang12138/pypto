@@ -10,10 +10,8 @@
 # -----------------------------------------------------------------------------------------------------------
 
 """
-Grouped Matrix Multiplication with MXFP8 Quantization (New Frontend)
-
-This module implements grouped matrix multiplication with MXFP8 quantization using PyPTO new frontend.
-Supports grouped GEMM operations with different weight groups and MXFP8 quantization format.
+Grouped Matrix Multiplication with MXFP8 Quantization using PyPTO new frontend.
+K轴均匀切分，每个group使用不同的K轴块进行量化矩阵乘法，结果累加到输出张量。
 """
 
 import math
@@ -28,63 +26,20 @@ from numpy.testing import assert_allclose
 
 @dataclass
 class GmmGoldenInputs:
-    """
-    Input parameters for generating golden result in grouped matrix multiplication.
-
-    Attributes:
-        a: Input tensor of shape [K, M] (transposed format)
-        b: Weight tensor of shape [K, N]
-        scaled_a: Scale factors for input tensor, shape ((K//64)+g, M, 2)
-        scaled_b: Scale factors for weight tensor, shape ((K//64)+g, N, 2)
-        y: Output tensor of shape [num_groups, M, N] (初始值)
-        group_list: List of group sizes for K-axis splitting
-        group_type: Type of group_list interpretation (default: 0)
-            - 0: group_list elements are cumulative K values, last element equals K
-            - 1: group_list elements are individual group sizes, sum equals K
-        a_trans: Whether input tensor is transposed (default: True)
-        b_trans: Whether weight tensor is transposed (default: False)
-    
-    MX量化scale存储格式说明:
-        - scaled_a/scaled_b 形状: ((K//64)+g, M/N, 2)
-        - 第 i 个 group 的 scale 偏移量 = sum(K_j/64 for j<i) + i
-        - 第 i 个 group 的 scale 长度 = K_i/64
-        - 示例: K=512, g=2, group_list=[256,256]
-          - scaled_a shape: (10, M, 2)
-          - group 0: offset=0, length=4, range [0:4,:,:]
-          - group 1: offset=5, length=4, range [5:9,:,:]
-    """
+    """Golden输入参数: a[K,M]或[M,K], b[K,N]或[N,K], scaled_a/scaled_b, y[g,M,N]"""
     a: torch.Tensor
     b: torch.Tensor
     scaled_a: torch.Tensor
     scaled_b: torch.Tensor
     y: torch.Tensor
-    group_list: list
-    group_type: int = 0
+    num_groups: int
     a_trans: bool = True
     b_trans: bool = False
 
 
 @dataclass
 class GmmMxfp8Inputs:
-    """
-    Input parameters for generating MXFP8 output.
-
-    Attributes:
-        a: Input tensor of shape [K, M] (transposed format)
-        b: Weight tensor of shape [K, N]
-        scaled_a: Scale factors for input tensor, shape ((K//64)+g, M, 2)
-        scaled_b: Scale factors for weight tensor, shape ((K//64)+g, N, 2)
-        y: Output tensor of shape [num_groups, M, N] (需要在外部初始化)
-        tile_config: Tile configuration for computation (包含 group_list 和 group_type)
-    
-    MX量化scale存储格式说明:
-        - scaled_a/scaled_b 形状: ((K//64)+g, M/N, 2)
-        - 第 i 个 group 的 scale 偏移量 = sum(K_j/64 for j<i) + i = begin/64 + i
-        - 示例: K=512, g=2, group_list=[256,256]
-          - scaled_a shape: ((512/64)+2, M, 2) = (10, M, 2)
-          - group 0: scale_offset=0, scale_length=4, range [0:4,:,:]
-          - group 1: scale_offset=5, scale_length=4, range [5:9,:,:]
-    """
+    """NPU输入参数，tile_config包含num_groups和切分配置"""
     a: torch.Tensor
     b: torch.Tensor
     scaled_a: torch.Tensor
@@ -95,43 +50,13 @@ class GmmMxfp8Inputs:
 
 @dataclass
 class ShapeConfig:
-    """
-    Configuration parameters for grouped matrix multiplication with MXFP8 quantization.
-
-    Attributes:
-        ori_shape: Original shape [M, K, N]
-        group_list: List of group sizes for each weight group
-        m_tile_shape: Tile shape for M dimension in cube operation
-        k_tile_shape: Tile shape for K dimension in cube operation
-        n_tile_shape: Tile shape for N dimension in cube operation
-        vector_tile_shape: Tile shapes for vector operations
-        group_type: Type of group_list interpretation (default: 0)
-            - 0: group_list elements are cumulative K values, last element equals K
-                  Example: [256, 512] means first group K=[0,256], second group K=[256,512]
-            - 1: group_list elements are individual group sizes, sum equals K
-                  Example: [256, 256] means K=256+256=512
-        in_dtype: Input tensor data type (default: DT_FP8E4M3)
-            - DT_FP8E4M3: FP8 E4M3FN format (torch.float8_e4m3fn)
-            - DT_FP8E5M2: FP8 E5M2 format (torch.float8_e5m2)
-        a_trans: Whether input tensor is transposed (default: True, x1 is [K, M])
-        b_trans: Whether weight tensor is transposed (default: False)
-        a_format_nz: Whether input uses NZ format (default: False)
-        b_format_nz: Whether weight uses NZ format (default: False)
-        c_format_nz: Whether output uses NZ format (default: False)
-        description: Description of the test case
-    
-    约束说明：
-        - K 轴必须 64 元素对齐（MX 量化要求）
-        - 当 a_trans=True 时，M 维度（内轴）需要 32 字节对齐
-        - 当 b_trans=False 时，N 维度（内轴）需要 32 字节对齐
-    """
+    """配置参数: ori_shape[M,K,N], num_groups(分组数), tile_shapes"""
     ori_shape: list
-    group_list: list
+    num_groups: int
     m_tile_shape: list
     k_tile_shape: list
     n_tile_shape: list
     vector_tile_shape: list
-    group_type: int = 0
     in_dtype: pypto.DataType = pypto.DT_FP8E4M3
     a_trans: bool = True
     b_trans: bool = False
@@ -143,17 +68,7 @@ class ShapeConfig:
 
 @dataclass
 class GoldenComputeInputs:
-    """
-    Input parameters for computing golden result in matrix multiplication.
-
-    Attributes:
-        x: Input tensor of shape [M, K] or [K, M] if transposed
-        weight: Weight tensor of shape [K, N] or [N, K] if transposed
-        scaled_x: Scale factors for input tensor
-        scaled_weight: Scale factors for weight tensor
-        a_trans: Whether input tensor is transposed
-        b_trans: Whether weight tensor is transposed
-    """
+    """单组矩阵乘参数"""
     x: torch.Tensor
     weight: torch.Tensor
     scaled_x: torch.Tensor
@@ -163,15 +78,7 @@ class GoldenComputeInputs:
 
 
 def compute_golden_result(inputs: GoldenComputeInputs) -> torch.Tensor:
-    """
-    Compute golden (reference) result for a single group's matrix multiplication.
-
-    Args:
-        inputs: Input parameters including tensors and transposition flags
-
-    Returns:
-        torch.Tensor: Golden output tensor
-    """
+    """单组矩阵乘Golden计算: 应用scale后执行matmul"""
     x = inputs.x
     weight = inputs.weight
     scaled_x_golden = inputs.scaled_x
@@ -179,7 +86,6 @@ def compute_golden_result(inputs: GoldenComputeInputs) -> torch.Tensor:
     a_trans = inputs.a_trans
     b_trans = inputs.b_trans
 
-    # Handle input transposition
     if a_trans:
         x = torch.swapaxes(x, -1, -2)
         scaled_x_golden = torch.swapaxes(scaled_x_golden, -1, -2)
@@ -194,7 +100,6 @@ def compute_golden_result(inputs: GoldenComputeInputs) -> torch.Tensor:
                 scaled_x_golden.shape[0], scaled_x_golden.shape[1] * scaled_x_golden.shape[2]
             )
 
-    # Handle weight transposition
     if b_trans:
         weight = torch.swapaxes(weight, -1, -2)
         if len(scaled_weight_golden.shape) == 3:
@@ -211,36 +116,30 @@ def compute_golden_result(inputs: GoldenComputeInputs) -> torch.Tensor:
                 scaled_weight_golden.shape[2]
             )
 
-    # Adjust scales for K dimension alignment
     k_dim = x.shape[-1]
     if math.ceil(k_dim / 32) % 2 != 0:
         scaled_x_golden = scaled_x_golden[:, :-1]
         scaled_weight_golden = scaled_weight_golden[:-1, :]
 
-    # Broadcast scale factors
     scaled_x_golden_broadcast = torch.repeat_interleave(scaled_x_golden, repeats=32, dim=-1)
     scaled_weight_golden_broadcast = torch.repeat_interleave(scaled_weight_golden, repeats=32, dim=-2)
 
-    # Calculate padding lengths
     x1_dims = len(x.shape)
     x2_dims = len(weight.shape)
     x1_pad_len = scaled_x_golden_broadcast.shape[-1] - x.shape[-1]
     x2_pad_len = scaled_weight_golden_broadcast.shape[-2] - weight.shape[-2]
 
-    # Pad input tensor
     x1_pad = [0, x1_pad_len]
     for _ in range(x1_dims - 1):
         x1_pad += [0, 0]
     x1_golden = torch.nn.functional.pad(x, x1_pad, mode='constant', value=0)
 
-    # Pad weight tensor
     weight_pad = [0, 0]
     weight_pad += [0, x2_pad_len]
     for _ in range(x2_dims - 2):
         weight_pad += [0, 0]
     weight_golden = torch.nn.functional.pad(weight, weight_pad, mode='constant', value=0)
 
-    # Apply scaling factors
     x_fp32 = x.to(torch.float32)
     scaled_x_golden_broadcast_fp32 = scaled_x_golden_broadcast.to(torch.float32)
     x1_golden = x_fp32 * scaled_x_golden_broadcast_fp32
@@ -249,82 +148,56 @@ def compute_golden_result(inputs: GoldenComputeInputs) -> torch.Tensor:
     scaled_weight_golden_broadcast_fp32 = scaled_weight_golden_broadcast.to(torch.float32)
     weight_golden = weight_fp32 * scaled_weight_golden_broadcast_fp32
 
-    # Compute matrix multiplication
     golden = torch.matmul(x1_golden, weight_golden)
-
     return golden
 
 
 def gen_golden(inputs: GmmGoldenInputs) -> torch.Tensor:
-    """
-    Generate golden (reference) output for grouped matrix multiplication using PyTorch.
+    """分组矩阵乘Golden: K轴均匀切分，每组计算matmul后累加到y[i]
     
-    根据 a_trans 参数决定数据格式：
-    - a_trans=True: a is [K, M], scaled_a is ((K//64)+g, M, 2)
-    - a_trans=False: a is [M, K], scaled_a is ((K//64)+g, M, 2)
-    - b is always [K, N], scaled_b is ((K//64)+g, N, 2)
-
-    Args:
-        inputs: Input parameters including tensors, scales, y, group_list and group_type
-
-    Returns:
-        torch.Tensor: Golden output tensor of shape [num_groups, M, N]
+    数据格式:
+    - a_trans=True: a[K,M], 切分第一维
+    - a_trans=False: a[M,K], 切分第二维
+    - b_trans=True: b[N,K], 切分第二维
+    - b_trans=False: b[K,N], 切分第一维
     """
     a = inputs.a
     b = inputs.b
-    scaled_a = inputs.scaled_a  # ((K//64)+g, M, 2)
-    scaled_b = inputs.scaled_b  # ((K//64)+g, N, 2)
+    scaled_a = inputs.scaled_a
+    scaled_b = inputs.scaled_b
     y = inputs.y
-    group_list = inputs.group_list
-    group_type = inputs.group_type
+    num_groups = inputs.num_groups
     a_trans = inputs.a_trans
     b_trans = inputs.b_trans
 
-    round_num = len(group_list)
+    k = a.shape[0] if a_trans else a.shape[1]
+    k_block = k // num_groups
     golden_result = y.clone()
     
-    # 根据 group_type 计算 begin 和 end (K轴切分)
-    # group_type=0: group_list 各元素为累计值，最后一个元素等于 K
-    # group_type=1: group_list 各元素为单独的 group size，累加得到 K
-    begin = 0
-    end = 0
-    for i in range(round_num):
-        if group_type == 1:
-            # 累加方式: begin 指向当前组起始，end 指向当前组结束
-            begin = end
-            end = end + group_list[i]
-        else:
-            # group_list 直接给出累计值
-            begin = 0 if i == 0 else group_list[i - 1]
-            end = group_list[i]
+    for i in range(num_groups):
+        begin = i * k_block
+        end = (i + 1) * k_block
+        scale_offset = begin // 64 + i  # MX量化格式: scale偏移 = begin/64 + i
+        scale_length = k_block // 64
 
-        # 计算 scale 的偏移量
-        # MX量化存储格式: scale_i 偏移 = sum(K_j/64 for j<i) + i = begin/64 + i
-        scale_offset = begin // 64 + i
-        scale_length = (end - begin) // 64
-
-        # Extract input and weight for current group (切分 K 轴)
-        # a_trans=True: a is [K, M], 切分 K 轴 = 切分第一维 -> a[begin:end, :] -> [K_block, M]
-        # a_trans=False: a is [M, K], 切分 K 轴 = 切分第二维 -> a[:, begin:end] -> [M, K_block]
         if a_trans:
-            x = a[begin:end, :]  # [K, M] 切分 K 轴 -> [K_block, M]
-            scaled_x_golden = scaled_a[scale_offset : scale_offset + scale_length, :, :]  # [K_block//64, M, 2]
+            x = a[begin:end, :]
+            scaled_x_golden = scaled_a[scale_offset : scale_offset + scale_length, :, :]
         else:
-            x = a[:, begin:end]  # [M, K] 切分 K 轴 -> [M, K_block]
-            scaled_x_golden = scaled_a[:, scale_offset : scale_offset + scale_length, :]  # [M, K_block//64, 2]
+            x = a[:, begin:end]
+            scaled_x_golden = scaled_a[:, scale_offset : scale_offset + scale_length, :]
         
-        weight = b[begin:end, :]  # [K_block, N]
-        scaled_weight_golden = scaled_b[scale_offset : scale_offset + scale_length, :, :]  # [K_block//64, N, 2]
+        if b_trans:
+            weight = b[:, begin:end]  # b is [N, K], 切分K轴=切分第二维
+            scaled_weight_golden = scaled_b[:, scale_offset : scale_offset + scale_length, :]  # scaled_b is [N, (K//64)+g, 2]
+        else:
+            weight = b[begin:end, :]  # b is [K, N], 切分K轴=切分第一维
+            scaled_weight_golden = scaled_b[scale_offset : scale_offset + scale_length, :, :]  # scaled_b is [(K//64)+g, N, 2]
 
-        # Compute golden result for this group and inplace add
         golden_temp = compute_golden_result(
             GoldenComputeInputs(
-                x=x,
-                weight=weight,
-                scaled_x=scaled_x_golden,
-                scaled_weight=scaled_weight_golden,
-                a_trans=a_trans,
-                b_trans=b_trans,
+                x=x, weight=weight, scaled_x=scaled_x_golden, scaled_weight=scaled_weight_golden,
+                a_trans=a_trans, b_trans=b_trans,
             )
         )
         golden_result[i] = golden_result[i] + golden_temp
@@ -334,6 +207,7 @@ def gen_golden(inputs: GmmGoldenInputs) -> torch.Tensor:
 
 @pypto.frontend.jit(
     debug_options={"runtime_debug_mode": 1, "compile_debug_mode": 1},
+    pass_options={"cube_nbuffer_setting":{-1:2}}
 )
 def scaled_matmul_kernel(
     a: pypto.Tensor(),
@@ -341,321 +215,100 @@ def scaled_matmul_kernel(
     scaled_a: pypto.Tensor(),
     scaled_b: pypto.Tensor(),
     y: pypto.Tensor(),
-    mm_results: pypto.Tensor(),     # 预分配的结果存储 tensor [g, m, n]
-    index_tensor: pypto.Tensor(),   # 预分配的索引 tensor [g]，值为 [0, 1, ..., g-1]
     tile_config: ShapeConfig
 ):
+    """PyPTO Kernel: K轴均匀切分，每组执行scaled_mm后累加到y
+    
+    数据格式:
+    - a_trans=True: a[K,M], scaled_a[(K//64)+g,M,2]
+    - a_trans=False: a[M,K], scaled_a[M,(K//64)+g,2]
+    - b_trans=True: b[N,K], scaled_b[N,(K//64)+g,2]
+    - b_trans=False: b[K,N], scaled_b[(K//64)+g,N,2]
+    
+    约束: K轴64对齐(MX量化)，K可被num_groups整除，内轴32字节对齐
     """
-    Scaled matrix multiplication kernel for grouped GEMM with MXFP8 quantization.
+    num_groups = tile_config.num_groups
+    m = tile_config.ori_shape[0]
+    n = tile_config.ori_shape[2]
+    k = tile_config.ori_shape[1]
+    k_block = k // num_groups
     
-    默认处理转置格式：
-    - a: [K, M] (transposed), scaled_a: ((K//64)+g, M, 2)
-    - b: [K, N] (not transposed), scaled_b: ((K//64)+g, N, 2)
-
-    This kernel performs grouped matrix multiplication where each group uses
-    a different K-axis block from input tensors, with MXFP8 quantization.
-
-    Args:
-        a: Input tensor [K, M] (transposed format)
-        b: Weight tensor [K, N]
-        scaled_a: Scale factors for input tensor ((K//64)+g, M, 2)
-        scaled_b: Scale factors for weight tensor ((K//64)+g, N, 2)
-        y: Output tensor [num_groups, M, N]
-        tile_config: Tile configuration for computation (包含 group_list 和 group_type)
-    
-    MX量化scale存储格式说明:
-    ===========================
-    - scaled_a/scaled_b 形状: ((K//64)+g, M/N, 2)
-    - 第 i 个 group 的 scale 偏移量 = sum(K_j/64 for j<i) + i = begin/64 + i
-    - 示例: K=512, g=2, group_list=[256,256]
-      - scaled_a shape: ((512/64)+2, M, 2) = (10, M, 2)
-      - group 0: K=[0,256], scale_offset=0, scale_length=4, range [0:4,:,:]
-      - group 1: K=[256,512], scale_offset=5, scale_length=4, range [5:9,:,:]
-    
-    约束说明 (scaled_mm API 要求):
-    ================================
-    1. K 轴约束:
-       - K 轴必须 64 元素对齐 (MX 量化要求，每 64 个元素对应一个 scale)
-       - 当 mat_a 非转置时 [M, K]，外轴 M，内轴 K
-       - 当 mat_a 转置时 [K, M]，外轴 K，内轴 M
-    
-    2. 内轴 32 字节对齐约束:
-       - 内轴是矩阵乘法的累加维度，需要 32 字节对齐
-       - 当 a_trans=True 时: mat_a=[K, M]，内轴是 M，M 维度需 32 字节对齐
-         * FP8 格式: M >= 32 (因为 32 个 FP8 元素 = 32 字节)
-         * 对应的 m_tile_shape 也需满足内轴 >= 32 字节对齐
-       - 当 a_trans=False 时: mat_a=[M, K]，内轴是 K，K 维度需 32 字节对齐
-         * FP8 格式: K >= 32 (因为 32 个 FP8 元素 = 32 字节)
-         * 但由于 MX 量化已要求 K >= 64，此约束自动满足
-       - 当 b_trans=False 时: mat_b=[K, N]，内轴是 N，N 维度需 32 字节对齐
-         * FP8 格式: N >= 32
-       - 当 b_trans=True 时: mat_b=[N, K]，内轴是 K，K 维度需 32 字节对齐
-    
-    3. Tile Shape 约束:
-       - m_tile_shape: 控制 M 维度的切分大小
-         * 当 a_trans=True 时，m_tile_shape 的内轴分量需 32 字节对齐
-         * 例如: [32, 32] 表示 M 维度 tile 为 32，FP8 下 32 字节，满足对齐
-         * 错误示例: [16, 16] 表示 M 维度 tile 为 16，FP8 下 16 字节，不满足对齐
-       - k_tile_shape: 控制 K 维度的切分大小
-       - n_tile_shape: 控制 N 维度的切分大小
-         * 当 b_trans=False 时，n_tile_shape 的内轴分量需 32 字节对齐
-    
-    4. Scale 形状约束:
-       - scaled_a: ((K//64)+g, M, 2)
-       - scaled_b: ((K//64)+g, N, 2)
-    """
-    # 重要：在 jit 函数内，y.shape[0] 返回 SymbolicScalar（符号值）
-    # 因此必须从 tile_config 获取 g、m、n（编译时确定的 Python int）
-    g = len(tile_config.group_list)  # Python int，编译时确定
-    m = tile_config.ori_shape[0]     # Python int，编译时确定
-    n = tile_config.ori_shape[2]     # Python int，编译时确定
-
-    # 从 tile_config 获取 group_list, group_type 和 transposition flags
-    group_list = tile_config.group_list
-    group_type = tile_config.group_type
+    mm_result_tensor = pypto.tensor([num_groups, m, n], pypto.DT_FP32)
     a_trans = tile_config.a_trans
     b_trans = tile_config.b_trans
 
-    # 注意: 必须使用 range(g) 而非 pypto.loop
-    # 原因: group_list[i] 需要在编译时确定 tensor slicing 的 begin/end
-    #       pypto.loop 的索引是 SymbolicScalar，无法访问 Python list
-    begin = 0
-    end = 0
-    for i in range(g):
-        # 根据 group_type 计算 begin 和 end (K轴切分)
-        # group_type=0: group_list 各元素为累计值，最后一个元素等于 K
-        # group_type=1: group_list 各元素为单独的 group size，累加得到 K
-        if group_type == 1:
-            # 累加方式: begin 指向当前组起始，end 指向当前组结束
-            begin = end
-            end = end + group_list[i]
-        else:
-            # group_list 直接给出累计值
-            begin = 0 if i == 0 else group_list[i - 1]
-            end = group_list[i]
-
-        # 计算 scale 的偏移量 (MX量化存储格式)
-        # scale_i 偏移 = sum(K_j/64 for j<i) + i = begin/64 + i
+    for i in pypto.loop(num_groups):
+        begin = i * k_block
+        end = (i + 1) * k_block
         scale_offset = begin // 64 + i
-        scale_length = (end - begin) // 64
+        scale_length = k_block // 64
 
-        # Extract input for current group (切分 K 轴)
-        # 根据 a_trans 决定切分方式：
-        # - a_trans=True: a=[K, M], 切分 K 轴 = 切分第一维 -> a[begin:end, :] -> [K_block, M]
-        # - a_trans=False: a=[M, K], 切分 K 轴 = 切分第二维 -> a[:, begin:end] -> [M, K_block]
         if a_trans:
-            x = a[begin:end, :]  # [K_block, M]
+            x = a[begin:end, :]
+            scaled_x = scaled_a[scale_offset : scale_offset + scale_length, :, :]
         else:
-            x = a[:, begin:end]  # [M, K_block]
+            x = a[:, begin:end]
+            scaled_x = scaled_a[:, scale_offset : scale_offset + scale_length, :]
         
-        # b 固定为 [K, N] (b_trans=False)，切分 K 轴 = 切分第一维
-        weight = b[begin:end, :]  # [K_block, N]
-        
-        # 切分 scale tensor
-        # 根据 a_trans 和 scale_a_trans 决定切分方式：
-        # - a_trans=True: scaled_a[((K//64)+g, M, 2)], 切分第一维
-        # - a_trans=False: scaled_a[(M, (K//64)+g, 2)], 切分第二维
-        if a_trans:
-            scaled_x = scaled_a[scale_offset : scale_offset + scale_length, :, :]  # [K_block//64, M, 2]
+        if b_trans:
+            weight = b[:, begin:end]
+            scaled_weight = scaled_b[:, scale_offset : scale_offset + scale_length, :]
         else:
-            scaled_x = scaled_a[:, scale_offset : scale_offset + scale_length, :]  # [M, K_block//64, 2]
-        
-        # scaled_b 固定为 ((K//64)+g, N, 2) 格式，切分第一维
-        scaled_weight = scaled_b[scale_offset : scale_offset + scale_length, :, :]  # [K_block//64, N, 2]
+            weight = b[begin:end, :]
+            scaled_weight = scaled_b[scale_offset : scale_offset + scale_length, :, :]
 
-        # Set vector tile shapes for scale processing
         pypto.set_vec_tile_shapes(
-            tile_config.vector_tile_shape[0],
-            tile_config.vector_tile_shape[1],
-            tile_config.vector_tile_shape[2],
-            tile_config.vector_tile_shape[3]
+            tile_config.vector_tile_shape[0], tile_config.vector_tile_shape[1],
+            tile_config.vector_tile_shape[2], tile_config.vector_tile_shape[3]
         )
-
-        # Set cube tile shapes for scaled_mm
-        # 重要: tile shape 需满足内轴 32 字节对齐约束
         pypto.set_cube_tile_shapes(
-            tile_config.m_tile_shape,  # M 维度 tile
-            tile_config.k_tile_shape,  # K 维度 tile
-            tile_config.n_tile_shape   # N 维度 tile
+            tile_config.m_tile_shape, tile_config.k_tile_shape, tile_config.n_tile_shape
         )
         
-        # Cube 操作: scaled_mm (矩阵乘法)
-        # 根据 a_trans 决定 scale_a_trans:
-        # - a_trans=True: scale_a_trans=True (scale 形状 [K//64, M, 2])
-        # - a_trans=False: scale_a_trans=False (scale 形状 [M, K//64, 2])
         scale_a_trans = a_trans
-        mm_result = pypto.scaled_mm(
+        mm_result_tensor[i] = pypto.scaled_mm(
             x, weight, pypto.DT_FP32, scaled_x, scaled_weight,
             a_trans=a_trans, scale_a_trans=scale_a_trans, b_trans=b_trans
         )
-        
-        # 将 mm_result ([m, n]) 存入 mm_results ([g, m, n]) 的第 i 个位置
-        # mm_results[i] 得到 [m, n] 的 view
-        mm_results[i] = mm_result
-        
-        # Vector 操作: index_add_ (inplace 累加)
-        # 紧跟 Cube 操作，形成 Cube → Vector 流水线
-        # 
-        # 使用 pypto.view 从预分配的大 tensor 中取出当前循环的数据块：
-        #   - mm_results: [g, m, n] → view 取出 [1, m, n] 块（偏移 [i, 0, 0]）
-        #   - index_tensor: [g] → view 取出 [1] 块（偏移 [i]）
-        #
-        # pypto.index_add_ 参数说明：
-        #   - input: y [g, m, n]（目标 tensor）
-        #   - dim: 0（在第0维进行索引累加）
-        #   - index: view_index [1]（值为 [i]，指定累加位置）
-        #   - source: view_source [1, m, n]（要累加的数据）
-        #   - alpha: 1（缩放因子）
-        #
-        # 执行效果: y[i, :, :] += mm_results[i, :, :]
-        
-        # 使用 pypto.view 从预分配的 tensor 中取出当前块
-        # view_source: 从 mm_results [g, m, n] 取出 [1, m, n]，偏移 [i, 0, 0]
-        view_source = pypto.view(mm_results, [1, m, n], offsets=[i, 0, 0])
-        # view_index: 从 index_tensor [g] 取出 [1]，偏移 [i]
-        view_index = pypto.view(index_tensor, [1], offsets=[i])
-        
-        # 设置三维 tile shape（index_add_ 需要 tile shape 与 input 维度一致）
-        # 根据文档约束：dim 轴不可切，source 的 dim 轴长度为 1，所以 TileShape[0] = 1
-        pypto.set_vec_tile_shapes(1, tile_config.vector_tile_shape[2], tile_config.vector_tile_shape[3])
-        pypto.index_add_(y, dim=0, index=view_index, source=view_source, alpha=1)
+    
+    y[:,:,:] = pypto.add(y, mm_result_tensor)
 
 
 def gen_mxfp8(inputs: GmmMxfp8Inputs) -> torch.Tensor:
-    """
-    Generate MXFP8 output using PyPTO scaled matrix multiplication with new frontend.
+    """执行PyPTO kernel并返回结果"""
+    a = inputs.a.npu()
+    b = inputs.b.npu()
+    scaled_a = inputs.scaled_a.npu()
+    scaled_b = inputs.scaled_b.npu()
+    y = inputs.y.npu()
 
-    Args:
-        inputs: Input parameters including tensors, scales, y and tile config
-
-    Returns:
-        torch.Tensor: Output tensor of shape [num_groups, M, N] in FP32
-    """
-    a = inputs.a
-    b = inputs.b
-    scaled_a = inputs.scaled_a
-    scaled_b = inputs.scaled_b
-    y = inputs.y
-    tile_config = inputs.tile_config
-
-    # 获取 group 信息
-    g = len(tile_config.group_list)
-    m = tile_config.ori_shape[0]
-    n = tile_config.ori_shape[2]
-
-    # Move tensors to NPU
-    a = a.npu()
-    b = b.npu()
-    scaled_a = scaled_a.npu()
-    scaled_b = scaled_b.npu()
-    y = y.npu()
-
-    # 预分配 mm_results tensor（用于存储每个 group 的 scaled_mm 结果）
-    # shape: [g, m, n]
-    mm_results = torch.empty((g, m, n), dtype=torch.float32).npu()
-
-    # 预分配 index tensor（用于 index_add_ 的 index 参数）
-    # shape: [g]，值为 [0, 1, 2, ..., g-1]
-    index_tensor = torch.arange(g, dtype=torch.int32).npu()
-
-    # Execute scaled matrix multiplication kernel with new frontend
-    # tile_config 包含 group_list、group_type 和 tile shapes
-    scaled_matmul_kernel(a, b, scaled_a, scaled_b, y, mm_results, index_tensor, tile_config)
-
-    y = y.to(torch.float32)
-    return y
+    scaled_matmul_kernel(a, b, scaled_a, scaled_b, y, inputs.tile_config)
+    return y.to(torch.float32)
 
 
 def test_gmm_mxfp8(tile_config: ShapeConfig):
-    """
-    Test the grouped matrix multiplication with MXFP8 quantization.
-    
-    Kernel 固定处理 a_trans=True 格式：
-    - a: [K, M] (transposed), scaled_a: ((K//64)+g, M, 2)
-    - b: [K, N] (not transposed), scaled_b: ((K//64)+g, N, 2)
-
-    This function runs a complete test for a given configuration:
-    1. Generate test data with MXFP8 format
-    2. Compute golden (reference) output using PyTorch
-    3. Compute output using PyPTO
-    4. Compare results
-
-    Args:
-        tile_config: Configuration parameters for the test case
-    
-    MX量化scale存储格式说明:
-    ==========================
-    - scaled_a/scaled_b 形状: ((K//64)+g, M/N, 2)
-    - 第 i 个 group 的 scale 偏移量 = sum(K_j/64 for j<i) + i = begin/64 + i
-    - 示例: K=512, g=2, group_list=[256,256]
-      - scaled_a shape: ((512/64)+2, M, 2) = (10, M, 2)
-      - group 0: K=[0,256], scale_offset=0, scale_length=4, range [0:4,:,:]
-      - group 1: K=[256,512], scale_offset=5, scale_length=4, range [5:9,:,:]
-    
-    测试用例选择约束:
-    ==================
-    1. M 维度约束 (a_trans=True 时内轴):
-       - M >= 32 (FP8 格式下 32 字节对齐)
-       - m_tile_shape 的内轴分量 >= 32
-       - 示例: M=32, m_tile_shape=[32, 32] ✓
-       - 错误示例: M=16 或 m_tile_shape=[16, 16] ✗ (报错: ml0 memory not aligned)
-    
-    2. K 维度约束:
-       - K >= 64 且 64 对齐 (MX 量化要求)
-       - group_list 各元素之和 = K
-       - 示例: K=512, group_list=[256, 256] ✓
-    
-    3. N 维度约束 (b_trans=False 时内轴):
-       - N >= 32 (FP8 格式下 32 字节对齐)
-       - n_tile_shape 的内轴分量 >= 32
-       - 示例: N=7168 ✓
-    
-    4. Tile Shape 选择建议:
-       - m_tile_shape: 推荐 [32, 32] 或 [64, 64]，保证 M 内轴 32 字节对齐
-       - k_tile_shape: 推荐 [64, 64] 或更大，满足 MX 量化 64 对齐
-       - n_tile_shape: 推荐 [32, 32] 或更大，保证 N 内轴 32 字节对齐
-       - vector_tile_shape: 推荐 [1, 8, 256, 32]
-    """
-    # Extract configuration parameters
+    """测试函数: 生成数据、计算Golden和PyPTO结果、对比验证"""
     m = tile_config.ori_shape[0]
     k = tile_config.ori_shape[1]
     n = tile_config.ori_shape[2]
-    group_list = tile_config.group_list
-    group_type = tile_config.group_type
+    num_groups = tile_config.num_groups
     in_dtype = tile_config.in_dtype
     a_trans = tile_config.a_trans
     b_trans = tile_config.b_trans
-    num_groups = len(group_list)
 
-    # Map pypto dtype to torch dtype
     torch_dtype_map = {
         pypto.DT_FP8E4M3: torch.float8_e4m3fn,
         pypto.DT_FP8E5M2: torch.float8_e5m2,
     }
     torch_dtype = torch_dtype_map.get(in_dtype, torch.float8_e4m3fn)
 
-    # Generate input tensor in MXFP8 format
-    # 根据 a_trans 决定数据格式：
-    # - a_trans=True: a=[K, M] (transposed format)
-    # - a_trans=False: a=[M, K] (normal format)
     if a_trans:
         a = torch.randn((k, m), dtype=torch.float32).uniform_(0, 1).to(torch_dtype)
-    else:
-        a = torch.randn((m, k), dtype=torch.float32).uniform_(0, 1).to(torch_dtype)
-    
-    # Generate scaled_a in MXFP8 format
-    # 根据 a_trans 决定 scale 格式：
-    # - a_trans=True: scaled_a=((K//64)+g, M, 2) - scale_a_trans=True
-    # - a_trans=False: scaled_a=(M, (K//64)+g, 2) - scale_a_trans=False
-    # MX量化存储格式: 所有group的scale存储在一个连续tensor中
-    if a_trans:
         scaled_a = torch.randn((k // 64 + num_groups, m, 2), dtype=torch.float32).uniform_(0, 1).to(torch.float8_e8m0fnu)
     else:
+        a = torch.randn((m, k), dtype=torch.float32).uniform_(0, 1).to(torch_dtype)
         scaled_a = torch.randn((m, k // 64 + num_groups, 2), dtype=torch.float32).uniform_(0, 1).to(torch.float8_e8m0fnu)
 
-    # Generate weight tensor in MXFP8 format
-    # 当前固定使用 b_trans=False: b=[K, N]
-    # TODO: 如果需要支持 b_trans=True，需要添加对应逻辑
     if b_trans:
         b = torch.randn((n, k), dtype=torch.float32).uniform_(0, 1).to(torch_dtype)
         scaled_b = torch.randn((n, k // 64 + num_groups, 2), dtype=torch.float32).uniform_(0, 1).to(torch.float8_e8m0fnu)
@@ -663,208 +316,73 @@ def test_gmm_mxfp8(tile_config: ShapeConfig):
         b = torch.randn((k, n), dtype=torch.float32).uniform_(0, 1).to(torch_dtype)
         scaled_b = torch.randn((k // 64 + num_groups, n, 2), dtype=torch.float32).uniform_(0, 1).to(torch.float8_e8m0fnu)
 
-    # Initialize y tensor with random values (not zeros, for inplace add)
     y_init = torch.randn((num_groups, m, n), dtype=torch.float32)
     y_init_npu = y_init.clone().npu()
 
-    # Compute golden and PyPTO results
     golden = gen_golden(GmmGoldenInputs(
-        a=a,
-        b=b,
-        scaled_a=scaled_a,
-        scaled_b=scaled_b,
-        y=y_init,
-        group_list=group_list,
-        group_type=group_type,
-        a_trans=a_trans,
-        b_trans=b_trans,
+        a=a, b=b, scaled_a=scaled_a, scaled_b=scaled_b, y=y_init,
+        num_groups=num_groups, a_trans=a_trans, b_trans=b_trans,
     ))
     result = gen_mxfp8(GmmMxfp8Inputs(
-        a=a,
-        b=b,
-        scaled_a=scaled_a,
-        scaled_b=scaled_b,
-        y=y_init_npu,
-        tile_config=tile_config,
+        a=a, b=b, scaled_a=scaled_a, scaled_b=scaled_b, y=y_init_npu, tile_config=tile_config,
     ))
 
-    # Verify results
     assert_allclose(golden.cpu().numpy(), result.cpu().numpy(), rtol=1e-3, atol=1e-3)
-    print(golden)
-    print(result)
-    print(tile_config.description," PASSED")
+    print(tile_config.description, "PASSED")
 
-# pypto.jit不支持
-# scaled_mm接口k需要64对齐（pypto API限制）
-# tile配置影响精度
-# 代码初始tile配置固化（agent默认）
-
-# MDE审视文档
-
-# 0.147asendc
 
 if __name__ == "__main__":
-    # 测试用例1: 基础用例 (FP8E4M3)
-    # - M=32, K=512, N=7168 (N较大)
-    # - group_list=[256, 256], g=2
-    # 性能分析：
-    #   - M=32较小，算数强度受限
-    #   - N=7168很大，切分次数需减少
-    #   - 当前nL1=1024，切分7次 → 增大nL1减少切分
-    # 优化配置：
-    #   - mL1=M=32，消除A矩阵重复载入
-    #   - kL1=512=K_group，使能大包搬运
-    #   - nL1=2048，切分次数从7减到3.5
-    #   - nL0=256增大算数强度
-    #   - L0B: 256×64=16KB ✓
     test_gmm_mxfp8(
         ShapeConfig(
-            ori_shape=[32, 512, 7168],
-            group_list=[256, 256],
-            m_tile_shape=[32, 32],
-            k_tile_shape=[64, 256],
-            n_tile_shape=[512, 2048],
+            ori_shape=[768, 7168, 4096], num_groups=28,
+            m_tile_shape=[32, 32], k_tile_shape=[64, 256], n_tile_shape=[512, 2048],
+            vector_tile_shape=[1, 4, 4096, 2],
+            in_dtype=pypto.DT_FP8E4M3, a_trans=True, b_trans=False,
+            a_format_nz=False, b_format_nz=False, c_format_nz=False,
+            description="Case1: FP8E4M3, M=768, K=7168, N=4096, num_groups=28"
+        )
+    )
+    
+    test_gmm_mxfp8(
+        ShapeConfig(
+            ori_shape=[64, 1024, 4096], num_groups=2,
+            m_tile_shape=[64, 64], k_tile_shape=[64, 512], n_tile_shape=[512, 2048],
             vector_tile_shape=[1, 8, 2048, 2],
-            group_type=1,
-            in_dtype=pypto.DT_FP8E4M3,
-            a_trans=True,
-            b_trans=False,
-            a_format_nz=False,
-            b_format_nz=False,
-            c_format_nz=False,
-            description="Case1: FP8E4M3, K=512, g=2, group_list=[256,256]"
+            in_dtype=pypto.DT_FP8E4M3, a_trans=True, b_trans=False,
+            a_format_nz=False, b_format_nz=False, c_format_nz=False,
+            description="Case2: FP8E4M3, M=64, K=1024, N=4096, num_groups=2"
         )
     )
     
-    # 测试用例2: 更大M维度 (FP8E4M3)
-    # - M=64, K=1024, N=4096
-    # - group_list=[512, 512], g=2, K_block=512
-    # cube_tile_shapes优化（参考Case1最优配置）：
-    #   - mL1=64=M，消除A矩阵切分
-    #   - kL1=512=K_block，使能大包搬运
-    #   - nL1=2048，切分次数=4096/2048=2
-    #   - nL0=512，增大算数强度
-    #   - L0B约束: 512×64=32KB ✓ (<64KB)
-    # vector_tile_shape约束：
-    #   - dim0=1 (batch维度)
-    #   - dim1=8 (K_block//64=512//64=8，对应scale tensor第一维)
-    #   - dim2=2048 (对应nL1切分粒度)
-    #   - dim3=2 (对应scale tensor第三维，固定值)
     test_gmm_mxfp8(
         ShapeConfig(
-            ori_shape=[64, 1024, 4096],
-            group_list=[512, 512],
-            m_tile_shape=[64, 64],     # mL1=M，消除切分
-            k_tile_shape=[64, 512],    # kL0=64, kL1=512=K_block，大包搬运
-            n_tile_shape=[512, 2048],  # nL0=512, nL1=2048，切分2次
-            vector_tile_shape=[1, 8, 2048, 2],  # dim1=8 (512//64), dim3=2 匹配scale tensor第三维
-            group_type=1,
-            in_dtype=pypto.DT_FP8E4M3,
-            a_trans=True,
-            b_trans=False,
-            a_format_nz=False,
-            b_format_nz=False,
-            c_format_nz=False,
-            description="Case2: FP8E4M3, M=64, K=1024, g=2, group_list=[512,512]"
+            ori_shape=[32, 768, 2048], num_groups=3,
+            m_tile_shape=[32, 32], k_tile_shape=[64, 256], n_tile_shape=[512, 1024],
+            vector_tile_shape=[1, 4, 1024, 2],
+            in_dtype=pypto.DT_FP8E4M3, a_trans=True, b_trans=False,
+            a_format_nz=False, b_format_nz=False, c_format_nz=False,
+            description="Case3: FP8E4M3, M=32, K=768, N=2048, num_groups=3"
         )
     )
     
-    # 测试用例3: 3个分组 (FP8E4M3)
-    # - M=32, K=768, N=2048
-    # - group_list=[256, 256, 256], g=3, K_block=256
-    # cube_tile_shapes优化（参考Case1最优配置）：
-    #   - mL1=32=M，消除A矩阵切分
-    #   - kL1=256=K_block，使能大包搬运
-    #   - nL1=1024，切分次数=2048/1024=2
-    #   - nL0=512，增大算数强度
-    #   - L0B约束: 512×64=32KB ✓ (<64KB)
-    # vector_tile_shape约束：
-    #   - dim0=1 (batch维度)
-    #   - dim1=4 (K_block//64=256//64=4，对应scale tensor第一维)
-    #   - dim2=1024 (对应nL1切分粒度)
-    #   - dim3=2 (对应scale tensor第三维，固定值)
     test_gmm_mxfp8(
         ShapeConfig(
-            ori_shape=[32, 768, 2048],
-            group_list=[256, 256, 256],
-            m_tile_shape=[32, 32],     # mL1=M
-            k_tile_shape=[64, 256],    # kL0=64, kL1=256=K_block，大包搬运
-            n_tile_shape=[512, 1024],  # nL0=512, nL1=1024，切分2次
-            vector_tile_shape=[1, 4, 1024, 2],  # dim1=4 (256//64), dim3=2 匹配scale tensor第三维
-            group_type=1,
-            in_dtype=pypto.DT_FP8E4M3,
-            a_trans=True,
-            b_trans=False,
-            a_format_nz=False,
-            b_format_nz=False,
-            c_format_nz=False,
-            description="Case3: FP8E4M3, K=768, g=3, group_list=[256,256,256]"
-        )
-    )
-    
-    # 测试用例4: group_type=0 (累计值模式) (FP8E4M3)
-    # - M=32, K=512, N=1024
-    # - group_list=[256, 512] (累计值，表示group0 K=[0,256], group1 K=[256,512])
-    # - K_block: group0=256, group1=256
-    # cube_tile_shapes优化（参考Case1最优配置）：
-    #   - mL1=32=M，消除A矩阵切分
-    #   - kL1=256=K_block，使能大包搬运
-    #   - nL1=1024=N，消除B矩阵切分
-    #   - nL0=512，增大算数强度
-    #   - L0B约束: 512×64=32KB ✓ (<64KB)
-    # vector_tile_shape约束：
-    #   - dim0=1 (batch维度)
-    #   - dim1=4 (K_block//64=256//64=4，对应scale tensor第一维)
-    #   - dim2=1024 (对应nL1切分粒度)
-    #   - dim3=2 (对应scale tensor第三维，固定值)
-    test_gmm_mxfp8(
-        ShapeConfig(
-            ori_shape=[32, 512, 1024],
-            group_list=[256, 512],
-            m_tile_shape=[32, 32],     # mL1=M
-            k_tile_shape=[64, 256],    # kL0=64, kL1=256=K_block，大包搬运
-            n_tile_shape=[512, 1024],  # nL0=512, nL1=1024=N，消除切分
-            vector_tile_shape=[1, 4, 1024, 2],  # dim1=4 (256//64), dim3=2 匹配scale tensor第三维
-            group_type=0,
-            in_dtype=pypto.DT_FP8E4M3,
-            a_trans=True,
-            b_trans=False,
-            a_format_nz=False,
-            b_format_nz=False,
-            c_format_nz=False,
-            description="Case4: FP8E4M3, group_type=0, group_list=[256,512] cumulative"
+            ori_shape=[32, 512, 1024], num_groups=2,
+            m_tile_shape=[32, 32], k_tile_shape=[64, 256], n_tile_shape=[512, 1024],
+            vector_tile_shape=[1, 4, 1024, 2],
+            in_dtype=pypto.DT_FP8E4M3, a_trans=True, b_trans=False,
+            a_format_nz=False, b_format_nz=False, c_format_nz=False,
+            description="Case4: FP8E4M3, M=32, K=512, N=1024, num_groups=2"
         )
     )
 
-    # 测试用例5: FP8E5M2 数据类型
-    # - M=32, K=512, N=1024
-    # - group_list=[128, 384], g=2, K_block: 128, 384
-    # cube_tile_shapes优化（参考Case1最优配置）：
-    #   - mL1=32=M，消除A矩阵切分
-    #   - kL1=384=max(K_block)，使能大包搬运
-    #   - nL1=1024=N，消除B矩阵切分
-    #   - nL0=512，增大算数强度
-    #   - L0B约束: 512×64=32KB ✓ (<64KB)
-    # vector_tile_shape约束：
-    #   - dim0=1 (batch维度)
-    #   - dim1=6 (max(K_block)//64=384//64=6，对应scale tensor第一维)
-    #   - dim2=1024 (对应nL1切分粒度)
-    #   - dim3=2 (对应scale tensor第三维，固定值)
     test_gmm_mxfp8(
         ShapeConfig(
-            ori_shape=[32, 512, 1024],
-            group_list=[128, 384],
-            m_tile_shape=[32, 32],     # mL1=M
-            k_tile_shape=[64, 384],    # kL0=64, kL1=384=max(K_block)，大包搬运
-            n_tile_shape=[512, 1024],  # nL0=512, nL1=1024=N，消除切分
-            vector_tile_shape=[1, 6, 1024, 2],  # dim1=6 (384//64), dim3=2 匹配scale tensor第三维
-            group_type=1,
-            in_dtype=pypto.DT_FP8E5M2,
-            a_trans=True,
-            b_trans=False,
-            a_format_nz=False,
-            b_format_nz=False,
-            c_format_nz=False,
-            description="Case5: FP8E5M2, K=512, g=2, group_list=[128, 384]"
+            ori_shape=[32, 512, 1024], num_groups=2,
+            m_tile_shape=[32, 32], k_tile_shape=[64, 256], n_tile_shape=[512, 1024],
+            vector_tile_shape=[1, 4, 1024, 2],
+            in_dtype=pypto.DT_FP8E5M2, a_trans=True, b_trans=False,
+            a_format_nz=False, b_format_nz=False, c_format_nz=False,
+            description="Case5: FP8E5M2, M=32, K=512, N=1024, num_groups=2"
         )
     )
