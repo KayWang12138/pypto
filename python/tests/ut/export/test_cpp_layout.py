@@ -35,14 +35,14 @@ def test_load_cpp_layout_ok(tmp_path):
     manifest = layout_mod._build_cpp_layout_manifest(op_type="AddPyptoCustomOp")
     (base / layout_mod._CPP_LAYOUT_FILENAME).write_text(json.dumps(manifest), encoding="utf-8")
 
-    data, resolved_base = pypto.export.load_cpp_layout(tmp_path)
+    data, resolved_base = pypto.export.cpp.load_cpp_layout(tmp_path)
     assert resolved_base == base
     assert data["op_custom_def"] == manifest["op_custom_def"]
 
 
 def test_load_cpp_layout_missing_manifest(tmp_path):
     with pytest.raises(FileNotFoundError, match=layout_mod._CPP_LAYOUT_FILENAME):
-        pypto.export.load_cpp_layout(tmp_path)
+        pypto.export.cpp.load_cpp_layout(tmp_path)
 
 
 def test_load_cpp_layout_missing_file(tmp_path):
@@ -51,4 +51,4 @@ def test_load_cpp_layout_missing_file(tmp_path):
     manifest = layout_mod._build_cpp_layout_manifest(op_type="X")
     (base / layout_mod._CPP_LAYOUT_FILENAME).write_text(json.dumps(manifest), encoding="utf-8")
     with pytest.raises(FileNotFoundError, match="Layout file missing"):
-        pypto.export.load_cpp_layout(tmp_path)
+        pypto.export.cpp.load_cpp_layout(tmp_path)

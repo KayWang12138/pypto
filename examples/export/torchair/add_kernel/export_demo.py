@@ -16,7 +16,7 @@ from typing import Callable
 import pypto
 
 OP_TYPE__ADD = "AddPyptoCustomOp"
-# 4D inputs/output (elementwise add); aligned with onnx/export_add_kernel.py
+# 4D inputs/output (elementwise add).
 SHAPE = (32, 32, 1, 64)
 TILE_SHAPES = (1, 4, 1, 64)
 
@@ -164,6 +164,7 @@ def export_demo(path: str, force_cpu: bool = False, force_sim: bool = False):
         model,
         (input_data0, input_data1),
         path,
+        forward_kwargs={"run_mode": run_mode},
     )
 
 if __name__ == "__main__":

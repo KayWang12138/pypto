@@ -146,12 +146,12 @@ def test_generate_op_custom_plugin_cpp_domi_namespace_and_parse_param_shape():
         "Add", framework_type=_FRAMEWORK_TYPE__ONNX
     )
     assert "namespace domi {" in text
-    assert "Status ParseParamAdd(const Message* op_src, ge::Operator& op_dest)" in text
+    assert "Status ParseParamAdd(const ge::Operator& op_src, ge::Operator& op_dest)" in text
     assert "return SUCCESS;" in text
     assert 'REGISTER_CUSTOM_OP("Add")' in text
     assert f".FrameworkType({_FRAMEWORK_TYPE__ONNX})" in text
     assert '.OriginOpType("Add")' in text
-    assert ".ParseParamsByOperator(ParseParamAdd)" in text
+    assert ".ParseParamsByOperatorFn(ParseParamAdd)" in text
 
 
 @pytest.mark.parametrize(
@@ -165,7 +165,7 @@ def test_generate_op_custom_plugin_cpp_op_type_parameterizes_names(op_type: str)
     assert f"ParseParam{op_type}" in text
     assert f'REGISTER_CUSTOM_OP("{op_type}")' in text
     assert f'.OriginOpType("{op_type}")' in text
-    assert f".ParseParamsByOperator(ParseParam{op_type})" in text
+    assert f".ParseParamsByOperatorFn(ParseParam{op_type})" in text
 
 
 def _dummy_calc_workspace(shape0: typing.Tuple[int, int], dtype_size0: int) -> int:
@@ -217,8 +217,8 @@ def test_custom_executor_prepare_execute_structure_invariants():
     assert "GetOutputTensor(k)->GetAddr()" in full
     assert "p[outputNum + inputNum] = reinterpret_cast<int64_t>(workspaceAddr)" in full
     assert "std::vector<size_t> inputOffsets(inputNum)" in full
-    assert "SpecifyToOffset(SinkableOpIo::kInput, inputOffsets.data(), inputNum)" in full
-    assert "SpecifyToOffset(SinkableOpIo::kOutput, 0, outputNum)" in full
+    assert "SpecifyIoOffset(SinkableOpIo::kInput, inputOffsets.data(), inputNum)" in full
+    assert "SpecifyIoOffset(SinkableOpIo::kOutput, nullptr, outputNum)" in full
     assert "GetInputTensor(1)" not in full
 
 
@@ -354,7 +354,7 @@ def test_generate_op_custom_def_cpp_builds_inputs_from_dtypes():
     # Input dtypes come from dtype_mapping._torch_dtype_to_ge_dtype; output dtype matches infer_dtype (input0).
     assert '.DataType({ge::DT_FLOAT16})' in text  # input 0 and output
     assert '.DataType({ge::DT_FLOAT})' in text    # input 1
-    assert '.DataType({ge::DT_BFLOAT16})' in text  # input 2
+    assert '.DataType({ge::DT_BF16})' in text  # input 2
 
 
 def test_generate_op_custom_def_cpp_rejects_empty_dtypes():

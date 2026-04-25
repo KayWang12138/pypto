@@ -1,43 +1,22 @@
-import onnx
-import pypto
-
-from torchair.ge._ge_graph import GeGraph
-
 import argparse
 from pathlib import Path
 
-SHAPE = (32, 32, 1, 64)
+import pypto
 
 
 def load_demo(path: str, *, op_type: str, domain: str | None = None):
-    path = Path(path)
-    model_format = str(path.suffix[1:])
-
-    print(f"\nLoading {model_format} model...")
-
-    if model_format == "onnx":
-        assert domain is not None
-        m = onnx.load(path)
-        node = pypto.export.extract_node_from_onnx(
-            onnx_model=m,
-            domain=domain,
-            op_type=op_type,
-        )
-    elif model_format == "air":
-        with open(path, "rb") as f:
-            ge = GeGraph(serialized_model_def=f.read())
-            node = pypto.export.extract_node_from_ge_graph(
-                ge_graph=ge,
-                op_type=op_type,
-            )
-    else:
-        raise ValueError(f"Unsupported file type: {path.suffix}")
+    print(f"\nLoading model from: {path}")
+    model, model_format = pypto.export.load_model(path)
+    node = pypto.export.extract_node(
+        model, op_type=op_type, domain=domain or pypto.export.DEFAULT_ONNX_DOMAIN,
+    )
 
     print("\n----------------\n")
 
     kernel_format = pypto.export.extract_kernel_format(node)
     pypto_meta = pypto.export.extract_pypto_meta(node)
 
+    print(f"model_format:\t{model_format}")
     print(f"kernel_format:\t{kernel_format}")
     print(f"pypto_meta:\t{pypto_meta}")
 
@@ -51,7 +30,7 @@ def load_demo(path: str, *, op_type: str, domain: str | None = None):
 
     print("\n----------------\n")
 
-    out_dir_prefix = path.parent / f"extracted_{model_format}"
+    out_dir_prefix = Path(path).parent / f"extracted_{model_format}"
     must_contain_zip = True
 
     cpp_sources_zip_meta = pypto.export.extract_cpp_sources(
@@ -62,7 +41,7 @@ def load_demo(path: str, *, op_type: str, domain: str | None = None):
     print(f"cpp_zip:\t{cpp_sources_zip_meta}")
 
     if kernel_format == pypto.export.KERNEL_FORMAT__MULTI:
-        must_contain_zip = False # some format may not be presented and that's fine
+        must_contain_zip = False  # some format may not be presented and that's fine
 
     if kernel_format == pypto.export.KERNEL_FORMAT__SOURCE or kernel_format == pypto.export.KERNEL_FORMAT__MULTI:
         kernel_source_zip_meta = pypto.export.extract_kernel_source(
@@ -88,6 +67,7 @@ def load_demo(path: str, *, op_type: str, domain: str | None = None):
         )
         print(f"ir_zip:\t{kernel_ir_zip_meta}" if kernel_ir_zip_meta is not None else "No kernel IR or failed to unpack")
 
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("path", type=str, help="onnx or torch air model path")
@@ -100,8 +80,8 @@ if __name__ == "__main__":
     parser.add_argument(
         "--domain",
         type=str,
-        default="ai.onnx.contrib",
-        help="ONNX custom op domain (defaults to 'ai.onnx.contrib' for ONNX models)",
+        default=pypto.export.DEFAULT_ONNX_DOMAIN,
+        help=f"ONNX custom op domain (defaults to '{pypto.export.DEFAULT_ONNX_DOMAIN}' for ONNX models)",
     )
 
     args = parser.parse_args()
