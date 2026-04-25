@@ -37,9 +37,11 @@ Status RemoveUnalignedReshape::RunOnFunction(Function& function)
     for (auto& a : copyOuts) {
         GraphUtils::CopyDynStatus(a.output, a.input);
         auto& newCopyOut = function.AddRawOperation(Opcode::OP_COPY_OUT, {a.input}, {a.output});
-        newCopyOut.SetOpAttribute(std::make_shared<CopyOpAttribute>(
-            a.from, OpImmediate::Specified(a.toOffset), OpImmediate::Specified(newCopyOut.iOperand.front()->oriShape),
-            OpImmediate::Specified(newCopyOut.oOperand.front()->tensor->GetDynRawShape())));
+        newCopyOut.SetOpAttribute(
+            std::make_shared<CopyOpAttribute>(
+                a.from, OpImmediate::Specified(a.toOffset), 
+                OpImmediate::Specified(newCopyOut.iOperand.front()->oriShape),
+                OpImmediate::Specified(newCopyOut.oOperand.front()->tensor->GetDynRawShape())));
         auto producerOp = *(a.input->GetProducers().begin());
         newCopyOut.UpdateSubgraphID(producerOp->GetSubgraphID());
         APASS_LOG_INFO_F(
@@ -66,7 +68,8 @@ Status RemoveUnalignedReshape::RunOnFunction(Function& function)
 LogicalTensorPtr RemoveUnalignedReshape::InsertIOTensor(
     Function& function, Operation& op, std::unordered_map<OverlaprawMagic, std::shared_ptr<RawTensor>>& rawIO,
     LogicalTensorPtr& ioTensor)
-{
+{   
+    (void)op;
     if (rawIO.count(ioTensor->tensor->rawmagic) == 0) {
         auto reshapeRawTensor =
             std::make_shared<RawTensor>(ioTensor->Datatype(), ioTensor->tensor->oriRawshape, ioTensor->Format());
@@ -76,7 +79,6 @@ LogicalTensorPtr RemoveUnalignedReshape::InsertIOTensor(
     auto newReshapeIO = std::make_shared<LogicalTensor>(
         function, rawIO[ioTensor->tensor->rawmagic], ioTensor->offset, ioTensor->oriShape);
     newReshapeIO->SetMemoryTypeBoth(MemoryType::MEM_DEVICE_DDR, true);
-    newReshapeIO->subGraphID = op.GetSubgraphID();
     function.GetTensorMap().Insert(newReshapeIO);
     return newReshapeIO;
 }
