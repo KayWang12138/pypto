@@ -43,7 +43,7 @@ from integration.benchmark.run_kernelbench import DEFAULT_CONFIG_PATH, discover_
 
 _STATE_DIR_DEFAULT = "/tmp/pypto-benchmark-monitor"
 _POLL_SEC = 3
-_DEFAULT_TIMEOUT = 5400
+_DEFAULT_TIMEOUT = 7200
 _OVER_THRESHOLD = 5400
 logger = logging.getLogger("benchmark.monitor")
 

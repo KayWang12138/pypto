@@ -38,9 +38,9 @@ pypto:
   opencode_model: ""
   # 调用的 agent 名 (须在 pypto/.opencode/agents/ 下注册).
   agent: "pypto-op-orchestrator"
-  # 单 case 工作流超时, 秒. 7 阶段实跑可能很慢, 默认 90 min 覆盖 Stage 7
+  # 单 case 工作流超时, 秒. 7 阶段实跑可能很慢, 默认 120 min 覆盖 Stage 7
   # 性能调优 10 轮迭代; 单纯 correctness 实验可显式调小.
-  timeout_sec: 5400
+  timeout_sec: 7200
   # 是否跳过 Stage 7 的迭代性能调优. true 时仅做 Stage 7 收尾, 不跑 perf-tune 循环.
   skip_stage7_perf_tune: false
   # 失败重试次数 (子进程级, 不是 stage 级).

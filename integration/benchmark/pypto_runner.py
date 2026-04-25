@@ -45,6 +45,7 @@ from pathlib import Path
 from typing import Dict, List, Optional, TextIO
 
 from integration.benchmark.opencode_exporter import (
+    OpencodeExportResult,
     append_export_result_to_log,
     export_session_from_log,
     make_session_title,
@@ -399,7 +400,7 @@ def run_pypto_workflow(
     opencode_bin: str = "",
     opencode_model: str = "",
     agent: str = "pypto-op-orchestrator",
-    timeout_sec: int = 5400,
+    timeout_sec: int = 7200,
     device_id: Optional[int] = None,
     log_file: Optional[Path] = None,
     output_format: str = "default",
@@ -433,7 +434,7 @@ def run_pypto_workflow(
         opencode_bin: opencode 可执行路径; 留空则按 PATH 查找.
         agent: opencode agent 名.
         opencode_model: 显式传给 ``opencode run -m`` 的模型名; 留空则沿用 CLI 当前默认配置.
-        timeout_sec: 子进程整体超时 (硬墙). 默认 90 min, 覆盖 7 阶段
+        timeout_sec: 子进程整体超时 (硬墙). 默认 120 min, 覆盖 7 阶段
             含 Stage 7 性能调优 10 轮迭代.
         device_id: 注入 ``TILE_FWK_DEVICE_ID``; ``None`` 时不覆盖外部已设值.
         log_file: 子进程 stdout+stderr 落地; ``None`` 时不落盘.
@@ -461,14 +462,27 @@ def run_pypto_workflow(
         state = _read_orchestrator_state(op_dir)
         state_success = bool(state and state.get("current_stage") and state.get("stage_status"))
         if not missing and state_success:
+            session_export = OpencodeExportResult(
+                status="skipped",
+                message="PyPTO 工作流已跳过, 本次没有新的 OpenCode session 可导出.",
+            )
+            if log_file is not None:
+                log_file.parent.mkdir(parents=True, exist_ok=True)
+                log_file.write_text(
+                    "[pypto workflow skipped] 所有产物齐全, 且 .orchestrator_state.json 存在.\n",
+                    encoding="utf-8",
+                )
+                append_export_result_to_log(log_file, session_export, label="pypto")
             return PyptoRunResult(
                 op_name=op_name,
                 status=PyptoRunStatus.SKIPPED,
                 workdir=op_dir,
                 artifacts=artifacts,
+                log_file=log_file,
                 duration_sec=0.0,
                 message="所有产物齐全, 且 .orchestrator_state.json 存在; 跳过.",
                 orchestrator_state=state,
+                opencode_session_export_message=session_export.message,
             )
 
     opencode = _resolve_opencode(opencode_bin)
@@ -672,7 +686,7 @@ def _main_cli() -> int:
                         action=argparse.BooleanOptionalAction,
                         default=False,
                         help="是否跳过 Stage 7 迭代性能调优")
-    parser.add_argument("--timeout-sec", type=int, default=5400)
+    parser.add_argument("--timeout-sec", type=int, default=7200)
     parser.add_argument("--device", type=int, default=None)
     parser.add_argument("--log-file", type=Path, default=None)
     parser.add_argument("--no-skip", action="store_true",

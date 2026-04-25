@@ -46,6 +46,7 @@ import yaml
 
 from integration.benchmark import case_loader, pypto_runner, verifier_runner, report
 from integration.benchmark.case_loader import CaseSpec, derive_op_name
+from integration.benchmark.opencode_exporter import OpencodeExportResult, append_export_result_to_log
 from integration.benchmark.pypto_runner import PyptoRunResult, PyptoRunStatus, run_pypto_workflow
 from integration.benchmark.report import CaseRunRecord, derive_overall_status, write_case_result, write_summary
 from integration.benchmark.verifier_runner import VerifierResult, VerifierStatus, run_verifier
@@ -241,6 +242,16 @@ async def run_one_case(case_path: Path, device_id: int, cfg: _RunCfg,
         logger.info("[%s] acquired execution slot", case.case_id)
         if cfg.skip_pypto_gen:
             logger.info("[%s] skip pypto generation (--skip-pypto-gen)", case.case_id)
+            pypto_log = case_report_dir / "pypto_run.log"
+            pypto_log.write_text(
+                "[pypto workflow skipped] --skip-pypto-gen\n",
+                encoding="utf-8",
+            )
+            session_export = OpencodeExportResult(
+                status="skipped",
+                message="--skip-pypto-gen, 本次没有新的 OpenCode session 可导出.",
+            )
+            append_export_result_to_log(pypto_log, session_export, label="pypto")
             _write_case_phase(
                 case_report_dir,
                 op_name=op_name,
@@ -253,7 +264,9 @@ async def run_one_case(case_path: Path, device_id: int, cfg: _RunCfg,
                 op_name=op_name,
                 status=PyptoRunStatus.SKIPPED,
                 workdir=op_dir,
+                log_file=pypto_log,
                 message="--skip-pypto-gen, 跳过 pypto 生成阶段.",
+                opencode_session_export_message=session_export.message,
             )
         else:
             pypto_log = case_report_dir / "pypto_run.log"

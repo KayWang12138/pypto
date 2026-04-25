@@ -142,7 +142,10 @@ TRUNCATED_MD="${BENCHMARK_LOG_DIR}/truncated_utf8_session.md"
 python3 - <<PY || fail "opencode_exporter 非 UTF-8 输出容错失败"
 from pathlib import Path
 
-from integration.benchmark.opencode_exporter import export_session_to_markdown
+from integration.benchmark.opencode_exporter import (
+    append_export_result_to_log,
+    export_session_to_markdown,
+)
 
 result = export_session_to_markdown(
     session_id="ses_invalidutf8",
@@ -154,6 +157,10 @@ assert result.ok, result.to_dict()
 text = Path("${EXPORT_MD}").read_text(encoding="utf-8")
 assert "bad byte:" in text, text
 print(result.to_dict())
+append_export_result_to_log(Path("${BENCHMARK_LOG_DIR}/verifier.log"), result, label="verifier")
+status_file = Path("${BENCHMARK_LOG_DIR}/verifier_session_export.json")
+assert status_file.exists(), "missing verifier_session_export.json"
+assert "exported" in status_file.read_text(encoding="utf-8")
 
 truncated = export_session_to_markdown(
     session_id="ses_truncatedutf8",
@@ -164,6 +171,10 @@ truncated = export_session_to_markdown(
 assert truncated.status == "error", truncated.to_dict()
 assert "JSON" in truncated.message, truncated.to_dict()
 print(truncated.to_dict())
+append_export_result_to_log(Path("${BENCHMARK_LOG_DIR}/pypto_run.log"), truncated, label="pypto")
+error_file = Path("${BENCHMARK_LOG_DIR}/pypto_session_export.log")
+assert error_file.exists(), "missing pypto_session_export.log"
+assert "JSON" in error_file.read_text(encoding="utf-8")
 PY
 pass "opencode export stdout 非法 UTF-8 不再抛 UnicodeDecodeError"
 

@@ -334,7 +334,10 @@ def _render_markdown(payload: Dict[str, Any]) -> str:
         lines.append("")
 
         has_session_exports = any(
-            c.get("pypto_session_md_file") or c.get("verifier_session_md_file")
+            c.get("pypto_session_md_file")
+            or c.get("verifier_session_md_file")
+            or c.get("pypto_session_export_message")
+            or c.get("verifier_session_export_message")
             for c in cases
         )
         if has_session_exports:
@@ -345,8 +348,8 @@ def _render_markdown(payload: Dict[str, Any]) -> str:
             for c in cases:
                 lines.append(
                     f"| `{c['op_name']}` "
-                    f"| {_md_file_link(c.get('pypto_session_md_file'))} "
-                    f"| {_md_file_link(c.get('verifier_session_md_file'))} |"
+                    f"| {_export_cell(c, 'pypto')} "
+                    f"| {_export_cell(c, 'verifier')} |"
                 )
             lines.append("")
 
@@ -390,6 +393,33 @@ def _md_file_link(value: Any) -> str:
     if any(ch.isspace() for ch in target):
         return f"[{label}](<{target}>)"
     return f"[{label}]({target})"
+
+
+def _export_cell(case: Dict[str, Any], label: str) -> str:
+    parts: List[str] = []
+    md_file = case.get(f"{label}_session_md_file")
+    if md_file:
+        parts.append(_md_file_link(md_file))
+
+    log_file = case.get(f"{label}_log_file")
+    if log_file:
+        status_file = Path(str(log_file)).parent / f"{label}_session_export.json"
+        parts.append(_md_file_link(status_file))
+
+    message = case.get(f"{label}_session_export_message")
+    if message:
+        parts.append(_table_text(message))
+
+    return "<br>".join(parts) if parts else "—"
+
+
+def _table_text(value: Any, limit: int = 80) -> str:
+    text = str(value or "").replace("\n", " ").replace("|", "\\|").strip()
+    if not text:
+        return "—"
+    if len(text) > limit:
+        return text[: limit - 3] + "..."
+    return text
 
 
 def _wall_from_record_dict(case: Dict[str, Any]) -> Optional[float]:

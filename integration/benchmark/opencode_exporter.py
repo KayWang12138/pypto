@@ -339,6 +339,7 @@ def append_export_result_to_log(
     """Append the export status to a live runner log without affecting results."""
     if log_file is None:
         return
+    _write_export_result_sidecar(log_file, result, label=label)
     try:
         with log_file.open("a", encoding="utf-8") as handle:
             if result.ok:
@@ -352,6 +353,41 @@ def append_export_result_to_log(
                     f"session_id={result.session_id or '<unknown>'} "
                     f"message={result.message}\n"
                 )
+    except OSError:
+        pass
+
+
+def _write_export_result_sidecar(
+    log_file: Path,
+    result: OpencodeExportResult,
+    *,
+    label: str,
+) -> None:
+    """Write visible export diagnostics next to pypto/verifier logs."""
+    try:
+        payload = result.to_dict()
+        payload["label"] = label
+        payload["log_file"] = str(log_file)
+        status_json = log_file.parent / f"{label}_session_export.json"
+        status_json.write_text(
+            json.dumps(payload, indent=2, ensure_ascii=False),
+            encoding="utf-8",
+        )
+
+        status_log = log_file.parent / f"{label}_session_export.log"
+        status_log.write_text(
+            "\n".join(
+                [
+                    f"label={label}",
+                    f"status={result.status}",
+                    f"session_id={result.session_id or ''}",
+                    f"markdown_file={result.markdown_file or ''}",
+                    f"message={result.message}",
+                    "",
+                ]
+            ),
+            encoding="utf-8",
+        )
     except OSError:
         pass
 
