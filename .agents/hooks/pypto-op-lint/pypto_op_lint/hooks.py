@@ -267,7 +267,7 @@ def _rule_fix_hint(rule_id: str) -> str:
         "OL32": "在 SPEC.md front matter 的 tolerance 中填写 atol/rtol，并校准 test 断言阈值",
         "OL34": "在 SPEC.md front matter 的 p0_shapes 填写 P0 形状，并在 test 用例覆盖",
         "OL39": "为 SPEC.md/DESIGN.md/API_REPORT.md 添加 front matter 块（--- 包裹）",
-        "OL40": "补齐 front matter 必填字段并修正字段类型（list/dict）",
+        "OL40": "补齐 front matter 必填字段并修正字段类型（list/dict）；若算子无动态轴，DESIGN.md 可使用 dynamic_axes: [] 明确声明",
         "OL41": "删除代码文件中的 lint 门禁输出文本，确保仅保留可执行源码/文档内容",
     }
     return hints.get(rule_id, "参考 rules.json 中该规则说明修复")

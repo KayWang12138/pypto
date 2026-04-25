@@ -159,8 +159,8 @@ def _rule_ids_for_filename(filename: str) -> list[str]:
     """Return rule IDs for post-edit checks on a single file.
 
     Only includes rules that validate the edited file itself.  Cross-file
-    consistency rules (target=gate, D5 dimension: OL30-OL34, OL39, OL40,
-    OL43) are deferred to the gate/stop check so that half-written
+    consistency rules (target=gate, D5 dimension: OL30-OL34, OL39, OL40)
+    are deferred to the gate/stop check so that half-written
     artefacts don't cause spurious blocks during implementation.
     """
     if filename.endswith("_impl.py"):
