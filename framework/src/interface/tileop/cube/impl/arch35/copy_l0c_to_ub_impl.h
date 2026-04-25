@@ -1,4 +1,4 @@
-/* *
+/**
  * Copyright (c) 2026 Huawei Technologies Co., Ltd.
  * This program is free software, you can redistribute it and/or modify it under the terms and conditions of
  * CANN Open Software License Agreement Version 2.0 (the "License").
@@ -8,7 +8,7 @@
  * See LICENSE in the root of the software repository for the full text of the License.
  */
 
-/* !
+/*!
  * \file copy_l0c_to_ub_impl.h
  * \brief L0C to UB Data Transfer Interface Implementation (Ascend 950PR/Ascend 950DT)
  */
@@ -46,15 +46,15 @@ TILEOP void TInsertL0CToUB(
 
 // Copy data from L0C to UB
 template <CopyOutMode mode, typename Coord, typename DstTileData, typename SrcTileData>
-INLINE void TExtractL0C2UBImpl(DstTileData &dst, SrcTileData &src, const Coord &dstCoord, const Coord &srcCoord,
-    int16_t subblockId)
+INLINE void TExtractL0C2UBImpl(
+    DstTileData& dst, SrcTileData& src, const Coord& dstCoord, const Coord& srcCoord, int16_t subblockId)
 {
     constexpr uint64_t shapeSize = Std::tuple_size<typename DstTileData::Shape>::value;
     constexpr int64_t c0Size = BLOCK_ALIGN_BYTE / sizeof(typename SrcTileData::Type);
-    int64_t dstOffset0 = TileOp::GetTupleElement<Coord, 0, expect_size, 0>(dstCoord);
-    int64_t dstOffset1 = TileOp::GetTupleElement<Coord, 1, expect_size, 0>(dstCoord);
-    int64_t srcOffset0 = TileOp::GetTupleElement<Coord, 0, expect_size, 0>(srcCoord);
-    int64_t srcOffset1 = TileOp::GetTupleElement<Coord, 1, expect_size, 0>(srcCoord);
+    int64_t dstOffset0 = TileOp::GetTupleElement<Coord, 0, SHAPE_DIM2, 0>(dstCoord);
+    int64_t dstOffset1 = TileOp::GetTupleElement<Coord, 1, SHAPE_DIM2, 0>(dstCoord);
+    int64_t srcOffset0 = TileOp::GetTupleElement<Coord, 0, SHAPE_DIM2, 0>(srcCoord);
+    int64_t srcOffset1 = TileOp::GetTupleElement<Coord, 1, SHAPE_DIM2, 0>(srcCoord);
     constexpr auto staticUBH = Std::tuple_element<shapeSize - SHAPE_DIM2, typename DstTileData::TileShape>::type::value;
     constexpr auto staticUBW = Std::tuple_element<shapeSize - 1, typename DstTileData::TileShape>::type::value;
     constexpr auto staticL0CH =
