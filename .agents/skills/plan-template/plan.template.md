@@ -76,7 +76,7 @@ Every time a **module boundary** is validated (Phase 3: golden vs PyPTO at that 
 
 ## Vector tile config
 
-- **`pypto.set_vec_tile_shapes`:** use tile dimensions as required by **`docs/api/config/pypto-set_vec_tile_shapes.md`** — see **`skills/phase4-phase5-integration/SKILL.md`** **5.4b**.
+- **`pypto.set_vec_tile_shapes`:** use tile dimensions as required by **`docs/api/config/pypto-set_vec_tile_shapes.md`** — see **`skills/pypto-op-develop/SKILL.md`** §实现注意点 #7 / 常见错误 #4.
 
 ## API map (Phase 0)
 

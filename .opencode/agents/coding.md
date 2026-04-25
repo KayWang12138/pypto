@@ -29,10 +29,9 @@ When you finish writing and local-validating the single file, **stop and return 
 
 1. `.agents/skills/pypto-op-develop/SKILL.md`
 2. `.agents/skills/phase2-phase3-construction/SKILL.md` — Phase 3 + DEBUG §9 lookup table
-3. `.agents/skills/phase4-phase5-integration/SKILL.md` — Phase 4 integration, Phase 5 structural rules
-4. `.agents/skills/kernel-code-format/SKILL.md` — template, write-back patterns, tile config
+3. `.agents/skills/kernel-code-format/SKILL.md` — template, write-back patterns, tile config
 
-Cap active skills at 4. Do NOT load any `debugging/*` skill yourself.
+Cap active skills at 3. Do NOT load any `debugging/*` skill yourself.
 
 ## Per-dispatch workflow (do this once, then return)
 

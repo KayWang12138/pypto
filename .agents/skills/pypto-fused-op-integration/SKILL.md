@@ -228,7 +228,7 @@ description: 将 PyPTO 融合算子集成到整网中，替代多个小算子组
 
 采集性能数据，分析瓶颈并优化。
 
-**推荐 Skill：** `pypto-operator-auto-tuner`、`tune-frontend`、`tune-incore`、`tune-swimlane`
+**推荐 Skill：** `pypto-op-perf-tune`（包含子技能 `tune-frontend`、`tune-incore`、`tune-swimlane`）
 
 ---
 
@@ -267,7 +267,7 @@ description: 将 PyPTO 融合算子集成到整网中，替代多个小算子组
 - `pypto-op-develop`：算子实现
 - `pypto-precision-compare`：精度对比
 - `pypto-precision-debugger`：精度调试
-- `pypto-operator-auto-tuner`：性能调优
+- `pypto-op-perf-tune`：性能调优（含 `tune-frontend`/`tune-incore`/`tune-swimlane` 子技能）
 - `pypto-aicore-error-locator`：定位 aicore error
 - `pypto-host-stacktrace-analyzer`：分析堆栈信息
 - `pypto-issue-creator`：创建 Issue

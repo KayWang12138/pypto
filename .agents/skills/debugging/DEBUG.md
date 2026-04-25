@@ -71,7 +71,7 @@
 
 ### If it still fails
 
-- **Invalid args or zeros** — ensure all args are positive integers. Refer to **`docs/api/config/pypto-set_vec_tile_shapes.md`** for your PyPTO version's requirements (see **`skills/lead-orchestrator/references/rules.md`** rule 16 / **`skills/phase4-phase5-integration/SKILL.md`** 5.4b).
+- **Invalid args or zeros** — ensure all args are positive integers. Refer to **`docs/api/config/pypto-set_vec_tile_shapes.md`** for your PyPTO version's requirements (see **`skills/pypto-op-develop/SKILL.md`** §实现注意点 #7 / 常见错误 #4).
 - **Wrong order** — anything that **adds ops** (reshape, view, passes inserting copy) must run **after** **`set_vec_tile_shapes`** on that execution path.
 - **Symbolic / dynamic shapes** — ensure tile args resolve to **concrete positive integers** (see **`set_vec_tile_shapes`** + **`SymbolicScalar`** in `python/pypto/_controller.py` in your tree).
 
