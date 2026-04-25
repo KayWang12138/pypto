@@ -682,6 +682,7 @@ def detailed_tensor_compare(tensor1, tensor2, rtol=1e-3, atol=1e-3, verbose=True
 
     return result
 
+
 @pytest.mark.skip(reason="error case")
 def test_chunk_gated_delta_rule():
     device_id = int(os.environ.get('TILE_FWK_DEVICE_ID', 0))
