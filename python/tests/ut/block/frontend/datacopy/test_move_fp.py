@@ -45,7 +45,7 @@ def _decode_fp_param(value: int) -> tuple[float, int, int]:
     return scale, signed_flag, raw
 
 
-@fe.kernel(auto_sync=False)
+@fe.kernel
 def move_fp_kernel(
     q: pl.Tensor[[64, 64], pl.FP32],
     k: pl.Tensor[[64, 64], pl.FP32],

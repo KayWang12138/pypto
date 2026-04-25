@@ -69,7 +69,6 @@ class KernelDef:
         name: Optional program name.
         func_type: IR function type (Opaque, Orchestration, InCore).
         strict_ssa: Whether to enforce SSA.
-        auto_sync: Whether to enable automatic sync insertion.
         meta_data: Optional metadata.
         helper_funcs: List of ``ir.Function`` from ``@pl.func`` helpers.
         auto_mutex: Whether to enable automatic mutex lock/unlock insertion.
@@ -88,7 +87,6 @@ class KernelDef:
         name: str | None,
         func_type: ir.FunctionType,
         strict_ssa: bool,
-        auto_sync: bool,
         meta_data: Any,
         helper_funcs: list,
         auto_mutex: bool = False,
@@ -104,19 +102,12 @@ class KernelDef:
         self._name = name
         self._func_type = func_type
         self._strict_ssa = strict_ssa
-        self._auto_sync = auto_sync
         self._auto_mutex = auto_mutex
         self._meta_data = meta_data
         self._helper_funcs = helper_funcs
 
-    def parse(self, npu_arch: str | None = None) -> ir.Program:
+    def parse(self) -> ir.Program:
         """Parse the kernel AST and return an ``ir.Program``.
-
-        Args:
-            npu_arch: Target architecture (e.g. ``"a3"``, ``"a5"``).
-                Controls same-pipeline sync behaviour when ``auto_sync=True``.
-                ``"a2"``/``"a3"`` (dav-2201) require intra-pipe sync;
-                ``"a5"`` (dav-3510) does not.
 
         Returns:
             ir.Program containing the parsed kernel function.
@@ -131,9 +122,7 @@ class KernelDef:
                 self._col_offset,
                 strict_ssa=self._strict_ssa,
                 closure_vars=self._closure_vars,
-                auto_sync=self._auto_sync,
                 auto_mutex=self._auto_mutex,
-                npu_arch=npu_arch,
             )
 
             try:
@@ -189,7 +178,6 @@ def kernel(
     name: Optional[str] = None,
     type: ir.FunctionType = ir.FunctionType.Opaque,
     strict_ssa: bool = False,
-    auto_sync: bool = False,
     auto_mutex: bool = False,
 ) -> "KernelDef":
     """Decorator that captures a DSL function for deferred compilation.
@@ -197,16 +185,13 @@ def kernel(
     The decorated function becomes a :class:`KernelDef` — a lazy definition
     that records the source code, AST, and closure at decoration time but
     defers parsing until ``fe.compile()`` is called.  This allows the target
-    architecture (which controls sync behaviour) to be specified once at
-    compile time.
+    architecture to be specified once at compile time.
 
     Args:
         func: Python function to capture.
         name: Optional program name (defaults to function name).
         type: Function type (Opaque, Orchestration, or InCore).
         strict_ssa: If True, enforce SSA (single assignment per variable).
-        auto_sync: If True, enable automatic intra-pipeline synchronization
-            at compile time.
 
     Returns:
         KernelDef that can be passed to ``fe.compile()``.
@@ -219,12 +204,6 @@ def kernel(
         ...     return fe.store(result, [0], [64], x)
         >>> isinstance(my_kernel, KernelDef)
         True
-
-        >>> @fe.kernel(auto_sync=True)
-        ... def auto_sync_kernel(x: fe.Tensor[[64], fe.FP32]) -> fe.Tensor[[64], fe.FP32]:
-        ...     tile = fe.load(x, [0], [64])
-        ...     result = fe.add(tile, tile)
-        ...     return fe.store(result, [0], [64], x)
     """
 
     # Capture caller's scope so the parser can resolve names like `pl`, `plm`, etc.
@@ -274,7 +253,6 @@ def kernel(
             name=name,
             func_type=type,
             strict_ssa=strict_ssa,
-            auto_sync=auto_sync,
             meta_data=meta_data,
             helper_funcs=helper_funcs,
             auto_mutex=auto_mutex,

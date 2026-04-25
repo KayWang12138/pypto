@@ -786,11 +786,11 @@ def compile(
     """
     arch = _normalize_arch(arch)
 
-    # Deferred compilation: parse KernelDef → ir.Program with arch info
+    # Deferred compilation: parse KernelDef → ir.Program.
     from pypto_block.frontend.kernel import KernelDef
 
     if isinstance(prog, KernelDef):
-        prog = prog.parse(npu_arch=arch)
+        prog = prog.parse()
 
     # Keep artifact paths readable while isolating different program bodies,
     # arches, and codegen modes from each other.
@@ -871,8 +871,8 @@ def compile(
             [
                 "ptoas",
                 ir_path,
-                "--enable-insert-sync",
                 "--pto-level=level3",
+                "--enable-insert-sync",
                 f"--pto-arch={arch}",
                 "-o",
                 raw_cpp_path,
@@ -924,6 +924,7 @@ def compile(
 
     runtime_includes = [
         f"-I{ASCEND_HOME_PATH}/include",
+        f"-I{ASCEND_HOME_PATH}/pkg_inc",
         f"-I{ASCEND_HOME_PATH}/pkg_inc/runtime",
         f"-I{ASCEND_HOME_PATH}/pkg_inc/profiling",
         f"-I{ASCEND_HOME_PATH}/include/experiment/runtime",

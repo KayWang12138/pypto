@@ -50,7 +50,6 @@ from .type_resolver import TypeResolver
 from ..typing.tiling import ArrayFieldInfo, ScalarFieldInfo, get_tiling_fields, is_tiling_class
 
 if TYPE_CHECKING:
-    from .auto_sync_helper import AutoSyncHelper
     from .decorator import InlineFunction
 
 
@@ -128,9 +127,7 @@ class ASTParser:
         gvar_to_func: dict[ir.GlobalVar, ir.Function] | None = None,
         strict_ssa: bool = False,
         closure_vars: dict[str, Any] | None = None,
-        auto_sync: bool = False,
         auto_mutex: bool = False,
-        npu_arch: str | None = None,
     ):
         """Initialize AST parser.
 
@@ -143,10 +140,7 @@ class ASTParser:
             gvar_to_func: Optional map of GlobalVars to parsed Functions for type inference
             strict_ssa: If True, enforce SSA (single assignment). If False (default), allow reassignment.
             closure_vars: Optional variables from the enclosing scope for dynamic shape resolution
-            auto_sync: If True, automatically insert sync_src/sync_dst for cross-pipeline deps.
             auto_mutex: If True, automatically insert mutex lock/unlock around buffer-managed tile ops.
-            npu_arch: Target architecture string (e.g. ``"dav-2201"``, ``"a3"``, ``"dav-3510"``).
-                Used to determine whether same-pipeline syncs are needed.
         """
         self.span_tracker = SpanTracker(source_file, source_lines, line_offset, col_offset)
         self.scope_manager = ScopeManager(strict_ssa=strict_ssa)
@@ -194,28 +188,11 @@ class ASTParser:
         # Used by the sync-op statement expander to generate per-branch IfStmt chains.
         self._const_tuple_registry: dict[str, list[int]] = {}
 
-        # Registry mapping variable names to their tile-tuple contents.
-        # Populated when a simple assignment like `tile_buf = (ping, pong)` is parsed
-        # and all elements resolve to TileType variables in the current scope.
-        # Used by auto-sync to resolve tile_buf[buf_idx] subscript accesses.
-        self._tile_tuple_registry: dict[str, list[str]] = {}
-
         # Cache: (tuple_var_name, index_ssa_var_name) → phi ir.Var from _build_tuple_index_chain.
         # Applies to all tuple types (tile, tensor, event ID, etc.).
         # Prevents re-emitting an if-else chain when the same buf[idx] expression
         # appears multiple times in the same linear code region.
         self._tuple_select_cache: dict[tuple[str, str], ir.Var] = {}
-
-        # Auto-sync: pipeline synchronization helper (see auto_sync_helper.py)
-        if auto_sync:
-            from .auto_sync_helper import AutoSyncHelper
-            self.auto_sync: AutoSyncHelper | None = AutoSyncHelper(
-                self.builder, self.scope_manager, npu_arch,
-                parse_expr_fn=self.parse_expression,
-                tile_tuple_registry=self._tile_tuple_registry,
-            )
-        else:
-            self.auto_sync = None
 
         self._auto_mutex = auto_mutex
 
@@ -673,31 +650,13 @@ class ASTParser:
         return True
 
     def _register_assignment_metadata(self, var_name: str, var: ir.Var, stmt: ast.Assign) -> None:
-        """Register auto-sync tile, const-tuple, and tile-tuple metadata after assignment."""
-        # Auto-sync: register tile for overlap detection
-        if self.auto_sync is not None and isinstance(stmt.value, ast.Call):
-            from .auto_sync_helper import AutoSyncHelper
-            call_op_name = AutoSyncHelper._extract_plm_or_block_op_name(stmt.value)
-            if call_op_name == "make_tile":
-                self.auto_sync.register_tile_region(var_name, var)
-
+        """Register assignment metadata used by later parser lowering."""
         # Register constant-integer tuples for sync-op event_id expansion
         if isinstance(stmt.value, ast.Tuple) and all(
             isinstance(elt, ast.Constant) and isinstance(elt.value, int)
             for elt in stmt.value.elts
         ):
             self._const_tuple_registry[var_name] = [elt.value for elt in stmt.value.elts]  # type: ignore[union-attr]
-
-        # Register tile-variable tuples for DB auto-sync subscript resolution
-        if isinstance(stmt.value, ast.Tuple) and len(stmt.value.elts) >= 2:
-            tile_names: list[str] = []
-            for elt in stmt.value.elts:
-                if isinstance(elt, ast.Name):
-                    elt_var = self.scope_manager.lookup_var(elt.id)
-                    if elt_var is not None and isinstance(getattr(elt_var, "type", None), ir.TileType):
-                        tile_names.append(elt.id)
-            if len(tile_names) == len(stmt.value.elts):
-                self._tile_tuple_registry[var_name] = tile_names
 
     # ------------------------------------------------------------------
     # parse_assignment dispatcher
@@ -982,14 +941,8 @@ class ASTParser:
         prev_yield_types = getattr(self, "_current_yield_types", None)
         self._current_yield_types = {}
 
-        if self.auto_sync is not None:
-            self.auto_sync.on_loop_body_start(backward_deps, loop_var, range_args["step"], span)
-
         for body_stmt in stmt.body:
             self.parse_statement(body_stmt)
-
-        if self.auto_sync is not None:
-            self.auto_sync.on_loop_body_end(backward_deps, loop_var, range_args["step"], span)
 
         loop_output_vars = self._current_yield_vars[:]
         self._current_yield_vars = prev_yield_tracker
@@ -1028,10 +981,6 @@ class ASTParser:
         span = self.span_tracker.get_span(stmt)
 
         backward_deps: list = []
-        if self.auto_sync is not None:
-            backward_deps = self.auto_sync.on_loop_pre_enter(
-                stmt.body, self.scope_manager.lookup_var, span,
-            )
 
         with self.builder.for_loop(
             loop_var, range_args["start"], range_args["stop"], range_args["step"],
@@ -1041,9 +990,6 @@ class ASTParser:
                 stmt, loop, loop_var, loop_var_name, is_simple_for,
                 iter_args_node, range_args, backward_deps, span,
             )
-
-        if self.auto_sync is not None:
-            self.auto_sync.on_loop_exit(backward_deps, span)
 
         if not is_simple_for:
             loop_result = loop.get_result()
@@ -1496,9 +1442,6 @@ class ASTParser:
         condition = self.parse_expression(stmt.test)
         span = self.span_tracker.get_span(stmt)
 
-        if self.auto_sync is not None:
-            self.auto_sync.on_if_enter()
-
         with self.builder.if_stmt(condition, span) as if_builder:
             self.current_if_builder = if_builder
             self.in_if_stmt = True
@@ -1518,8 +1461,6 @@ class ASTParser:
             self.scope_manager.exit_scope(leak_vars=should_leak)
 
             if stmt.orelse:
-                if self.auto_sync is not None:
-                    self.auto_sync.on_else_enter()
                 self._tuple_select_cache = saved_tuple_cache
                 if_builder.else_()
                 self.scope_manager.enter_scope("else")
@@ -1540,9 +1481,6 @@ class ASTParser:
             self._current_yield_types = prev_yield_types
 
         self._tuple_select_cache = saved_tuple_cache
-
-        if self.auto_sync is not None:
-            self.auto_sync.on_if_exit()
 
         self._register_if_output_vars(if_builder, then_yield_vars)
 
@@ -2982,13 +2920,7 @@ class ASTParser:
         if hasattr(ir_op.system, op_name):
             op_func = getattr(ir_op.system, op_name)
             call_span = self.span_tracker.get_span(call)
-            result = op_func(*args, **kwargs, span=call_span)
-            # wait_cross_core acts as a pipeline fence: all local pipes
-            # complete while the core blocks waiting for the signal.
-            # Auto-sync: wait_cross_core acts as a pipeline fence
-            if op_name == "wait_cross_core" and self.auto_sync is not None:
-                self.auto_sync.on_pipeline_fence()
-            return result
+            return op_func(*args, **kwargs, span=call_span)
 
         raise InvalidOperationError(
             f"Unknown system operation: {op_name}",
@@ -3376,9 +3308,8 @@ class ASTParser:
 
     def _resolve_auto_mutex_pipe(self, op_name: str, tilerefs: list):
         """Determine the pipe for auto_mutex from op_name and tile memory spaces."""
-        from pypto_block.frontend.sync_tracker.op_metadata import (
-            _OP_TO_PIPE, get_move_pipe, get_store_pipe,
-        )
+        from .op_pipeline import _MANUAL_OP_TO_PIPE, get_move_pipe, get_store_pipe
+
         if op_name == "move":
             # move(dst, src) → DSL arg0=dst, arg1=src
             dst_mem = tilerefs[0]._memory if tilerefs[0] else None
@@ -3390,7 +3321,7 @@ class ASTParser:
             src_mem = tilerefs[1]._memory if len(tilerefs) > 1 and tilerefs[1] else None
             if src_mem is not None:
                 return get_store_pipe(src_mem)
-        return _OP_TO_PIPE.get(op_name)
+        return _MANUAL_OP_TO_PIPE.get(op_name)
 
     def _emit_auto_mutex(self, op_name: str, call: ast.Call, span: ir.Span):
         """Emit mutex_lock before and mutex_unlock after a manual op.
@@ -3469,16 +3400,9 @@ class ASTParser:
 
         # Ops with SSA block semantics — no explicit output tile needed.
         if op_name in self._MANUAL_AS_BLOCK_OPS:
-            # Auto-sync: emit forward sync before block ops
-            if self.auto_sync is not None:
-                self.auto_sync.emit_forward_syncs(op_name, call, span)
             return self._parse_block_op(op_name, call)
         if op_name in self._MANUAL_AS_DEBUG_OPS:
             return self._parse_debug_op(op_name, call)
-
-        # Auto-sync: emit forward sync_src/sync_dst before this op
-        if self.auto_sync is not None:
-            self.auto_sync.emit_forward_syncs(op_name, call, span)
 
         # Auto-mutex: emit mutex_lock before op (and queue unlock for after)
         if self._auto_mutex:

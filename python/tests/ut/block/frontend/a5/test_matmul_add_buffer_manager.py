@@ -38,7 +38,7 @@ TILE_M = 64
 TILE_N = 64
 
 
-@fe.kernel(auto_sync=False)
+@fe.kernel
 def tiled_matmul_add_db(
     a: pl.Tensor[[M_SIZE, K_SIZE], pl.FP16],
     b: pl.Tensor[[K_SIZE, N_SIZE], pl.FP16],
@@ -152,7 +152,7 @@ def tiled_matmul_add_db(
 # ============================================================================
 
 
-@fe.kernel(auto_sync=False, auto_mutex=True)
+@fe.kernel(auto_mutex=True)
 def tiled_matmul_add_db_auto(
     a: pl.Tensor[[M_SIZE, K_SIZE], pl.FP16],
     b: pl.Tensor[[K_SIZE, N_SIZE], pl.FP16],

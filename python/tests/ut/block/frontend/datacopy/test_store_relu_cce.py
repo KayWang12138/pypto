@@ -27,7 +27,7 @@ def _make_k(device: str) -> torch.Tensor:
     return (base * 3).remainder(7) - 3.0
 
 
-@fe.kernel(auto_sync=False)
+@fe.kernel
 def store_relu_cce_kernel(
     q: pl.Tensor[[64, 64], pl.FP32],
     k: pl.Tensor[[64, 64], pl.FP32],

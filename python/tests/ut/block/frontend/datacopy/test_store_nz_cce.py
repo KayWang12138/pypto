@@ -49,7 +49,7 @@ def _make_nz_int8_output(device: str) -> torch.Tensor:
     return nz
 
 
-@fe.kernel(auto_sync=False)
+@fe.kernel
 def store_nz_cce_kernel(
     q: pl.Tensor[[64, 64], pl.FP32],
     k: pl.Tensor[[64, 64], pl.FP32],

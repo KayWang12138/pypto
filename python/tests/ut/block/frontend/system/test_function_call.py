@@ -64,7 +64,7 @@ def _validate_mlir_with_ptoas(mlir: str) -> None:
     out_path = pto_path.replace(".pto", ".cpp")
     try:
         result = subprocess.run(
-            [ptoas_bin, pto_path, "--enable-insert-sync", "--pto-level=level3", "-o", out_path],
+            [ptoas_bin, pto_path, "--pto-level=level3", "-o", out_path],
             capture_output=True, text=True, check=False, timeout=30,
         )
         assert result.returncode == 0, f"ptoas validation failed:\n{result.stderr.strip()}"
@@ -259,8 +259,8 @@ def test_auto_inline_kernel(
 ) -> pl.Tensor[[64, 128], pl.FP16]:
     tile_type_a = plm.TileType(shape=[64, 128], dtype=pl.FP16, target_memory=pl.MemorySpace.Vec)
     tile_a = plm.make_tile(tile_type_a, addr=0x0000, size=16384)
-    plm.load(tile_a, a, [0, 0])
-    result: pl.Scalar[pl.INDEX] = unannotated_helper(0, 64)
+    result: pl.Scalar[pl.INDEX] = unannotated_helper(pl.block.index_cast(pl.block.get_block_idx()), 64)
+    plm.load(tile_a, a, [result, 0])
     return a
 
 

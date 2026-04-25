@@ -299,7 +299,7 @@ def generate(
                 f.write(pto_code)
 
             cpp_path = os.path.join(ptoas_dir, f"{func.name}.cpp")
-            _run_ptoas(pto_path, cpp_path, ptoas_flags=["--enable-insert-sync"])
+            _run_ptoas(pto_path, cpp_path)
 
             with open(cpp_path) as f:
                 ptoas_cpp = f.read()
