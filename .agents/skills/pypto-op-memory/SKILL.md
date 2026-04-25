@@ -1,5 +1,5 @@
 ---
-name: pypto-kernel-plan-template
+name: pypto-op-memory
 description: Template for the operator-specific plan file (custom/<op>/plan.md). Defines required sections, machine-readable fields, and update cadence for the staged-set workflow.
 ---
 

@@ -42,7 +42,7 @@ When you finish writing and local-validating the 3 files, **stop and return cont
 
 1. `.agents/skills/pypto-op-develop/SKILL.md` — primary template, execution constraints, error code troubleshooting
 2. `.agents/skills/pypto-op-develop/references/kernel-layer-format.md` — layers A–L, file-split convention, naming, shape annotation rules
-3. `.agents/skills/phase2-phase3-construction/SKILL.md` — Phase 3 staged-set workflow + DEBUG §9 lookup table
+3. `.agents/skills/pypto-decompose-construct/SKILL.md` — Phase 3 staged-set workflow + DEBUG §9 lookup table
 
 For complex kernels (attention-class, recurrent, fused), the per-file templates live at:
 - `.agents/skills/pypto-op-develop/templates/complex-kernel-template/impl-template.py` (layers G–K)

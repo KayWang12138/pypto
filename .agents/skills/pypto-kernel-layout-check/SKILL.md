@@ -1,5 +1,5 @@
 ---
-name: pypto-kernel-ci-and-layout-check
+name: pypto-kernel-layout-check
 description: Automated layout validation for custom/<operator>/ — CI, pre-commit, and agent-runnable checks. Includes extract_pypto_calls.py for op-by-op debugging.
 ---
 

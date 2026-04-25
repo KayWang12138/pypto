@@ -43,7 +43,7 @@ custom/<op>/
 
 | Layer | 角色 | 所在文件 | 典型函数名 |
 |-------|------|---------|-----------|
-| **A** | Utilities (可选) | `test_<op>.py` 顶部 import | `detailed_tensor_compare`（从 `validation-and-deliverables` import）|
+| **A** | Utilities (可选) | `test_<op>.py` 顶部 import | `detailed_tensor_compare`（从 `pypto-op-validate` import）|
 | **B** | 小数学 building blocks (pure PyTorch) | `<op>_golden.py` | `norm_fwd`, `softmax_chunk` |
 | **C** | Forward reference (可选) | `<op>_golden.py` | `forward_ref` |
 | **D** | Host-side constants (可选) | `<op>_golden.py` 或 `<op>_impl.py` | `make_chunk_constants` |

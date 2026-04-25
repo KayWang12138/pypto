@@ -28,15 +28,15 @@
 
 ## 3. Kernel-specific: narrow the blast radius
 
-1. Confirm which **staged set** is current (e.g. `staged/<op>_module12_impl.py` + `_golden.py` + `test_*.py`; see `skills/phase2-phase3-construction/SKILL.md` → Staged sets). Run `extract_pypto_calls.py` on the staged `*_impl.py` (or, after Phase D, on the canonical `custom/<op>/<op>_impl.py`).
-2. Run **`python3 .agents/skills/ci-and-layout-check/scripts/extract_pypto_calls.py <kernel.py>`** (canonical path in this repo; some checkouts document `.agents/skills/ci-and-layout-check/scripts/` — use the path that exists) and follow the **op-by-op check protocol** in `skills/debugging/SKILL.md`.
+1. Confirm which **staged set** is current (e.g. `staged/<op>_module12_impl.py` + `_golden.py` + `test_*.py`; see `skills/pypto-decompose-construct/SKILL.md` → Staged sets). Run `extract_pypto_calls.py` on the staged `*_impl.py` (or, after Phase D, on the canonical `custom/<op>/<op>_impl.py`).
+2. Run **`python3 .agents/skills/pypto-kernel-layout-check/scripts/extract_pypto_calls.py <kernel.py>`** (canonical path in this repo; some checkouts document `.agents/skills/pypto-kernel-layout-check/scripts/` — use the path that exists) and follow the **op-by-op check protocol** in `skills/debugging/SKILL.md`.
 3. Stay in **one active module** at a time; stub downstream with golden-fed tensors if needed.
 4. Re-run **module boundary** checks with **`detailed_tensor_compare`** and log results in **Per-module verification log**.
 5. After fixes, re-run the current staged set's `test_<op>_module<suffix_k>.py` (or, after Phase D, `test_<op>.py`) and confirm **every** kernel output — not only the first tensor.
 
 ### 3a. Layout CI and pass regressions (quick pointers)
 
-- **Layout / `pypto_function` loops:** After meaningful edits under `custom/`, run `skills/ci-and-layout-check/run_validate_layout.sh` from the repository root using the `bash` line in `skills/ci-and-layout-check/CI.md`. **Exit 1** means fix plan / test / staged naming issues **or** remove `for ... in range(...)` inside `pypto_function` — express that iteration with `pypto.loop` in `_<op>_kernel_impl` / the JIT kernel per `skills/pypto-op-develop/references/kernel-layer-format.md` §7.1.
+- **Layout / `pypto_function` loops:** After meaningful edits under `custom/`, run `skills/pypto-kernel-layout-check/run_validate_layout.sh` from the repository root using the `bash` line in `skills/pypto-kernel-layout-check/CI.md`. **Exit 1** means fix plan / test / staged naming issues **or** remove `for ... in range(...)` inside `pypto_function` — express that iteration with `pypto.loop` in `_<op>_kernel_impl` / the JIT kernel per `skills/pypto-op-develop/references/kernel-layer-format.md` §7.1.
 - **Pass / compile failure right after a graph edit:** If logs show **PASS**-range codes (**`F4` / `F5`**, see **`docs/trouble_shooting/README.md`** → **`pass.md`**), follow **`.agents/skills/pypto-pass-error-fixer/SKILL.md`**, **bisect** the PyPTO graph (e.g. last known-good **staged** file vs current), and re-check API constraints (**`query_op_index` / `docs/`**) before large rewrites. Re-run **`extract_pypto_calls.py`** on the failing file to see whether a new op ordering triggered the pass.
 
 ---

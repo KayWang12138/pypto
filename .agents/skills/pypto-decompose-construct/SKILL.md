@@ -1,5 +1,5 @@
 ---
-name: pypto-kernel-phase2-phase3
+name: pypto-decompose-construct
 description: Phase 2 (semantic module decomposition — split by meaning, define contracts, freeze) and Phase 3 (module construction — one staged set at a time, validate, cross-check golden inventory).
 ---
 
@@ -11,7 +11,7 @@ Goal: split the kernel into semantically meaningful, verifiable blocks.
 
 ### Write decomposition into the plan (mandatory)
 
-As soon as the module split is known, write Module decomposition in `custom/<op>/plan.md`: named modules, boundary tensors, and rationale. See `skills/plan-template/plan.template.md` for log format.
+As soon as the module split is known, write Module decomposition in `custom/<op>/plan.md`: named modules, boundary tensors, and rationale. See `skills/pypto-op-memory/plan.template.md` for log format.
 
 ### Rule: split by meaning, not by equal complexity
 
@@ -147,7 +147,7 @@ Every module must be verifiable before the next module begins.
 
 Validation is provided by the staged set itself: `test_<op>_module<suffix_k>.py` imports both `<op>_module<suffix_k>_golden` and `pypto_function` from `<op>_module<suffix_k>_impl`, then runs `detailed_tensor_compare` at every output boundary.
 
-Use `detailed_tensor_compare` (bundled in `skills/validation-and-deliverables/detailed_tensor_compare.py`) at module boundaries. After each boundary run, append a row to the Per-module verification log in `custom/<op>/plan.md`.
+Use `detailed_tensor_compare` (bundled in `skills/pypto-op-validate/detailed_tensor_compare.py`) at module boundaries. After each boundary run, append a row to the Per-module verification log in `custom/<op>/plan.md`.
 
 ### Step 2b. Cross-check Golden function inventory (mandatory before running)
 

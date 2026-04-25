@@ -53,7 +53,7 @@ These rules are mandatory.
 Run on the failing kernel file:
 
 ```bash
-python3 .agents/skills/ci-and-layout-check/scripts/extract_pypto_calls.py custom/<operator_name>/<kernel_or_impl>.py
+python3 .agents/skills/pypto-kernel-layout-check/scripts/extract_pypto_calls.py custom/<operator_name>/<kernel_or_impl>.py
 ```
 
 - Output is an ordered, numbered list: line number + call shape.
@@ -78,7 +78,7 @@ If the graph runs but outputs are wrong:
 
 Disabling arbitrary `pypto` lines inside one fused `@jit` usually invalidates the graph or hides the real bug.
 
-- Prefer module-at-a-time stubs (see `skills/phase2-phase3-construction/SKILL.md` → Phase 3 hard rule on staged sets): shrink the live region, then re-run Step 0 on the smaller file.
+- Prefer module-at-a-time stubs (see `skills/pypto-decompose-construct/SKILL.md` → Phase 3 hard rule on staged sets): shrink the live region, then re-run Step 0 on the smaller file.
 - If you must bisect inside one module, insert one intermediate checkpoint between call sites k and k+1 and binary-search k using the numbered list — do not remove ops unless the minimal repro requires it.
 
 ### Step 4 — Plan file log (handoff-safe)

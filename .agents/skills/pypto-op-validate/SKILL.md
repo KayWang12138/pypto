@@ -1,5 +1,5 @@
 ---
-name: pypto-kernel-validation
+name: pypto-op-validate
 description: Validation runner requirements, detailed_tensor_compare usage, success criteria, required deliverables, and required output structure for the PyPTO Complex Kernel Workflow.
 ---
 
@@ -27,7 +27,7 @@ description: Validation runner requirements, detailed_tensor_compare usage, succ
 
 ### Module boundaries (Phase 3)
 
-Intermediate module-boundary checks must use the same bundled `detailed_tensor_compare`. Record each run in `custom/<op>/plan.md` → Per-module verification log (see `skills/plan-template/plan.template.md`).
+Intermediate module-boundary checks must use the same bundled `detailed_tensor_compare`. Record each run in `custom/<op>/plan.md` → Per-module verification log (see `skills/pypto-op-memory/plan.template.md`).
 
 ### `pytest`
 

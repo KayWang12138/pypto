@@ -30,7 +30,7 @@ import torch
 # 简单算子可改用 numpy.testing.assert_allclose（见 ../test-template.py）。
 sys.path.insert(0, os.path.join(
     os.path.dirname(os.path.abspath(__file__)),
-    "../../../../../.agents/skills/validation-and-deliverables",
+    "../../../../../.agents/skills/pypto-op-validate",
 ))
 from detailed_tensor_compare import detailed_tensor_compare  # noqa: E402
 
