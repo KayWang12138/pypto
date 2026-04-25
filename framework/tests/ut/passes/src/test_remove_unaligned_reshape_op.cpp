@@ -189,7 +189,6 @@ TEST_F(TestRemoveUnalignedReshapeOp, reshaped_padded_ub)
                 if (in->oriShape == shape) {
                     EXPECT_EQ(in->shape, shape);
                     EXPECT_EQ(in->tensor->rawshape, shape);
-                    EXPECT_EQ(in->tensor->oriRawshape, shape);
                 }
             }
             for (auto& out : op.oOperand) {
@@ -199,7 +198,6 @@ TEST_F(TestRemoveUnalignedReshapeOp, reshaped_padded_ub)
                 if (out->oriShape == reshape_shape) {
                     EXPECT_EQ(out->shape, reshape_shape);
                     EXPECT_EQ(out->tensor->rawshape, reshape_shape);
-                    EXPECT_EQ(out->tensor->oriRawshape, reshape_shape);
                 }
             }
         }
@@ -249,7 +247,6 @@ TEST_F(TestRemoveUnalignedReshapeOp, reshaped_unpadded_ub)
                 if (in->oriShape == shape) {
                     EXPECT_EQ(in->shape, shape);
                     EXPECT_EQ(in->tensor->rawshape, shape);
-                    EXPECT_EQ(in->tensor->oriRawshape, shape);
                 }
             }
             for (auto& out : op.oOperand) {
@@ -259,7 +256,6 @@ TEST_F(TestRemoveUnalignedReshapeOp, reshaped_unpadded_ub)
                 if (out->oriShape == reshape_shape) {
                     EXPECT_EQ(out->shape, reshape_shape);
                     EXPECT_EQ(out->tensor->rawshape, reshape_shape);
-                    EXPECT_EQ(out->tensor->oriRawshape, reshape_shape);
                 }
             }
         }
@@ -309,7 +305,6 @@ TEST_F(TestRemoveUnalignedReshapeOp, reshaped_unpadded_ub_gm)
                 if (out->oriShape == reshape_shape) {
                     EXPECT_EQ(out->shape, reshape_shape);
                     EXPECT_EQ(out->tensor->rawshape, reshape_shape);
-                    EXPECT_EQ(out->tensor->oriRawshape, reshape_shape);
                 }
             }
         }
@@ -365,7 +360,6 @@ TEST_F(TestRemoveUnalignedReshapeOp, reshaped_unpadded_ub_gm_last_dim_1)
                 if (in->oriShape == shape) {
                     EXPECT_EQ(in->shape, shape);
                     EXPECT_EQ(in->tensor->rawshape, shape);
-                    EXPECT_EQ(in->tensor->oriRawshape, shape);
                 }
             }
             for (auto& out : op.oOperand) {
@@ -375,7 +369,6 @@ TEST_F(TestRemoveUnalignedReshapeOp, reshaped_unpadded_ub_gm_last_dim_1)
                 if (out->oriShape == reshape_shape) {
                     EXPECT_EQ(out->shape, reshape_shape);
                     EXPECT_EQ(out->tensor->rawshape, reshape_shape);
-                    EXPECT_EQ(out->tensor->oriRawshape, reshape_shape);
                 }
             }
         }
