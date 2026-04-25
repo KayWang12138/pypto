@@ -627,6 +627,18 @@ void TaskSpliter::BuildInOutGraph(
     }
 }
 
+static bool HasSameValidShape2D(LogicalTensorPtr tensor1, LogicalTensorPtr tensor2)
+{
+    if (tensor1->GetDynValidShape().size() != 2 || tensor2->GetDynValidShape().size() != 2) {
+        return false;
+    }
+    if (tensor1->GetDynValidShape()[0].Dump() != tensor2->GetDynValidShape()[0].Dump() ||
+        tensor1->GetDynValidShape()[1].Dump() != tensor2->GetDynValidShape()[1].Dump()) {
+        return false;
+    }
+    return true;
+}
+
 static void DualDstProcess(LogicalTensorPtr l0cTensor, std::unordered_map<Operation*, int> &opToTaskId,
                            std::unordered_map<int, TargetCoreType> &dualTaskCoreAssign)
 {
@@ -644,7 +656,6 @@ static void DualDstProcess(LogicalTensorPtr l0cTensor, std::unordered_map<Operat
     if (static_cast<int>(firstShape.size()) != 2 || firstShape[0] == 0 || firstShape[1] == 0) {
         return;
     }
-    std::vector<SymbolicScalar> firstValidShape = ubTensors[0]->GetDynValidShape();
     std::map<std::pair<int, int>, LogicalTensorPtr> coordToTensor;
     int maxX = -1;
     int maxY = -1;
@@ -652,10 +663,6 @@ static void DualDstProcess(LogicalTensorPtr l0cTensor, std::unordered_map<Operat
         std::vector<int64_t> shape = ubTensors[0]->GetShape();
         std::vector<int64_t> offset = ubTensors[0]->GetOffset();
         if (firstShape != shape) {
-            return;
-        }
-        if (firstValidShape[0].Dump() != ubTensor->GetDynValidShape()[0].Dump() ||
-            firstValidShape[1].Dump() != ubTensor->GetDynValidShape()[1].Dump() ) {
             return;
         }
         if (offset[0] % shape[0] != 0 || offset[1] % shape[1] != 0) {
@@ -674,7 +681,9 @@ static void DualDstProcess(LogicalTensorPtr l0cTensor, std::unordered_map<Operat
                 if (coordToTensor.count({x, y}) == 0 || coordToTensor.count({x + 1, y}) == 0) {
                     continue;
                 }
-                dualPairs.push_back({coordToTensor[{x, y}], coordToTensor[{x + 1, y}]});
+                if (HasSameValidShape2D(coordToTensor[{x, y}], coordToTensor[{x + 1, y}])) {
+                    dualPairs.push_back({coordToTensor[{x, y}], coordToTensor[{x + 1, y}]});
+                }
             } 
         }
     } else if (maxY %2 == 1) {
@@ -683,7 +692,9 @@ static void DualDstProcess(LogicalTensorPtr l0cTensor, std::unordered_map<Operat
                 if (coordToTensor.count({x, y}) == 0 || coordToTensor.count({x, y + 1}) == 0) {
                     continue;
                 }
-                dualPairs.push_back({coordToTensor[{x, y}], coordToTensor[{x, y + 1}]});
+                if (HasSameValidShape2D(coordToTensor[{x, y}], coordToTensor[{x, y + 1}])) {
+                    dualPairs.push_back({coordToTensor[{x, y}], coordToTensor[{x, y + 1}]});
+                }
             } 
         }
     }
