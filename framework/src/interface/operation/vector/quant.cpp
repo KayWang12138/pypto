@@ -141,7 +141,8 @@ std::vector<int64_t> BuildQuantMXPerformanceVecTile(const std::vector<int64_t>& 
 }
 
 std::vector<int64_t> BuildQuantMXPerformanceGroupedOffset(
-    const std::vector<int64_t>& inputOffset, const std::vector<int64_t>& inputShape)
+    const std::vector<int64_t>& inputOffset, const std::vector<int64_t>& inputShape,
+    const std::vector<int64_t>& inputTileShape)
 {
     if (inputOffset.size() == 1) {
         return {inputOffset[0] / QUANT_MX_GROUP_COLS};
@@ -153,8 +154,9 @@ std::vector<int64_t> BuildQuantMXPerformanceGroupedOffset(
         groupedOffset.push_back(inputOffset[i]);
     }
     const int64_t groupCols = CeilDiv(inputShape.back(), QUANT_MX_GROUP_COLS);
+    const int64_t tileRows = inputTileShape[inputTileShape.size() - 2];
     groupedOffset.push_back(
-        inputOffset[inputOffset.size() - 2] * groupCols + inputOffset.back() / QUANT_MX_GROUP_COLS);
+        inputOffset[inputOffset.size() - 2] * groupCols + tileRows * (inputOffset.back() / QUANT_MX_GROUP_COLS));
     return groupedOffset;
 }
 
@@ -244,26 +246,9 @@ void TiledQuantMXOperation(
             return;
         }
 
-        const auto& fullShape = input.tensor.GetShape();
-        const bool lastDimFullTile =
-            input.tileInfo.shape.back() == fullShape.back() && input.tileInfo.offset.back() == 0;
-        if (input.tileInfo.shape.size() == 1 || lastDimFullTile) {
-            addQuantMXTile(
-                input.tileInfo.shape, input.tileInfo.offset, BuildQuantMXPerformanceGroupedShape(input.tileInfo.shape),
-                BuildQuantMXPerformanceGroupedOffset(input.tileInfo.offset, fullShape));
-            return;
-        }
-
-        const size_t rowDim = input.tileInfo.shape.size() - 2;
-        for (int64_t row = 0; row < input.tileInfo.shape[rowDim]; ++row) {
-            auto rowTileShape = input.tileInfo.shape;
-            auto rowTileOffset = input.tileInfo.offset;
-            rowTileShape[rowDim] = 1;
-            rowTileOffset[rowDim] += row;
-            addQuantMXTile(
-                rowTileShape, rowTileOffset, BuildQuantMXPerformanceGroupedShape(rowTileShape),
-                BuildQuantMXPerformanceGroupedOffset(rowTileOffset, fullShape));
-        }
+        addQuantMXTile(
+            input.tileInfo.shape, input.tileInfo.offset, BuildQuantMXPerformanceGroupedShape(input.tileInfo.shape),
+            BuildQuantMXPerformanceGroupedOffset(input.tileInfo.offset, input.tensor.GetShape(), input.tileInfo.shape));
         return;
     }
 
