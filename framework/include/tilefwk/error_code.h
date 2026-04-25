@@ -381,6 +381,7 @@ enum class ControlFlowScene : uint32_t {
     FUNC_SLOT_MISSING = 0xB100EU,
     FUNC_UNKNOWN_IO_TYPE = 0xB100FU,
     MIX_GLOBAL_TENSOR_WAIT_TIMEOUT = 0xB1010U,
+    MIX_SPLIT_PARALLEL_LIMIT_EXCEEDED = 0xB1011U,
 };
 
 enum class ExecuteOperationScene : uint32_t {
