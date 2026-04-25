@@ -91,7 +91,7 @@ bool RemoveUnalignedReshape::CheckUnaligned(Operation& op)
     for (const auto& input : op.GetIOperands()) {
         if (input != nullptr && input->tensor != nullptr) {
             lastIdx = input->shape.size() - 1;
-            if (input->oriShape.size() == input->tensor->rawshape.size() &&
+            if (input->shape.size() == input->tensor->rawshape.size() &&
                 input->oriShape[lastIdx] != input->tensor->rawshape[lastIdx]) {
                 return true;
             }
@@ -100,7 +100,7 @@ bool RemoveUnalignedReshape::CheckUnaligned(Operation& op)
     for (const auto& output : op.GetOOperands()) {
         if (output != nullptr && output->tensor != nullptr) {
             lastIdx = output->shape.size() - 1;
-            if (output->oriShape.size() == output->tensor->rawshape.size() &&
+            if (output->shape.size() == output->tensor->rawshape.size() &&
                 output->oriShape[lastIdx] != output->tensor->rawshape[lastIdx]) {
                 return true;
             }
