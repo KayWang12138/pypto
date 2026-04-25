@@ -42,7 +42,7 @@ BLOCK_SIZE_Q = 32
     pass_options={
         "cube_l1_reuse_setting": {0: 8},
         "cube_nbuffer_setting": {0: 4},
-        "vec_nbuffer_setting": {0: 4},
+        "vec_nbuffer_setting": {0: 4, 15: 4},
     },
     runtime_options={
         "stitch_function_max_num": 128,
@@ -176,7 +176,7 @@ def flash_attention_score_kernel_with_mask_origin(
     pass_options={
         "cube_l1_reuse_setting": {0: 8},
         "cube_nbuffer_setting": {0: 4},
-        "vec_nbuffer_setting": {0: 4},
+        "vec_nbuffer_setting": {0: 4, 15: 4},
     },
     runtime_options={
         "stitch_function_max_num": 128,
@@ -362,7 +362,7 @@ def flash_attention_score_kernel_with_mask(
     pass_options={
         "cube_l1_reuse_setting": {0: 8},
         "cube_nbuffer_setting": {0: 4},
-        "vec_nbuffer_setting": {0: 4},
+        "vec_nbuffer_setting": {0: 4, 15: 4},
     },
     runtime_options={
         "stitch_function_max_num": 128,
