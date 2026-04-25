@@ -16,6 +16,7 @@
 #include "interface/configs/config_manager.h"
 #include "logical_tensor.h"
 
+#include "passes/pass_utils/pass_utils.h"
 #include "raw_tensor.h"
 #include "tilefwk/data_type.h"
 #include "tilefwk/symbolic_scalar.h"
@@ -33,7 +34,6 @@ using namespace npu::tile_fwk;
 LogicalTensor::LogicalTensor(
     Function& function, DataType t, Shape tshape, TileOpFormat format, std::string tname, NodeType tnodetype)
     : isSubGraphBoundary(false),
-      subGraphID(NOT_IN_SUBGRAPH),
       tensor(std::make_shared<RawTensor>(t, tshape, format, std::move(tname))),
       offset(Offset(tshape.size(), 0)),
       shape(tshape),
@@ -47,7 +47,6 @@ LogicalTensor::LogicalTensor(
     Function& function, DataType t, Shape tshape, std::vector<SymbolicScalar> tValidShape, TileOpFormat format,
     std::string tname, NodeType tnodetype)
     : isSubGraphBoundary(false),
-      subGraphID(NOT_IN_SUBGRAPH),
       tensor(std::make_shared<RawTensor>(t, tshape, format, std::move(tname))),
       offset(Offset(tshape.size(), 0)),
       shape(tshape),
@@ -62,7 +61,6 @@ LogicalTensor::LogicalTensor(
 LogicalTensor::LogicalTensor(
     Function& function, std::shared_ptr<RawTensor> rawTensor, Offset toffset, Shape tshape, NodeType tnodetype)
     : isSubGraphBoundary(false),
-      subGraphID(NOT_IN_SUBGRAPH),
       tensor(rawTensor),
       offset(toffset),
       shape(tshape),
@@ -81,7 +79,6 @@ LogicalTensor::LogicalTensor(
     Function& function, std::shared_ptr<RawTensor> rawTensor, Offset toffset, Shape tshape,
     std::vector<SymbolicScalar> tValidShape, NodeType tnodetype)
     : isSubGraphBoundary(false),
-      subGraphID(NOT_IN_SUBGRAPH),
       tensor(rawTensor),
       offset(toffset),
       shape(tshape),
@@ -124,7 +121,6 @@ std::shared_ptr<LogicalTensor> LogicalTensor::Clone(Function& dstFunc, bool crea
 
     std::shared_ptr<LogicalTensor> newTensor =
         std::make_shared<LogicalTensor>(dstFunc, rawTensor, offset, shape, dynValidShape_, nodetype);
-    newTensor->subGraphID = subGraphID;
     newTensor->isSubGraphBoundary = isSubGraphBoundary;
     if (!create) {
         newTensor->magic = magic;
@@ -165,10 +161,6 @@ Json LogicalTensor::DumpJson(bool dumpRawTensor) const
         result["need_alloc"] = allocValue;
     }
     result["subgraph_boundary"] = isSubGraphBoundary;
-
-    if (subGraphID != NOT_IN_SUBGRAPH) {
-        result["subgraphid"] = subGraphID;
-    }
 
     result["mem_range"] = Json(std::vector<std::size_t>({memoryrange.start, memoryrange.end}));
     result["life_range"] = Json(std::vector<int>({memoryrange.lifeStart, memoryrange.lifeEnd}));
@@ -238,9 +230,6 @@ std::shared_ptr<LogicalTensor> LogicalTensor::LoadJson(
         tensorJson->SetAttr(OpAttributeKey::needAlloc, needAlloc);
     }
 
-    if (tensorDump.count("subgraphid")) {
-        tensorJson->subGraphID = tensorDump["subgraphid"].get<int>();
-    }
     tensorJson->isSubGraphBoundary = tensorDump["subgraph_boundary"].get<bool>();
     if (tensorDump.count("mem_range")) {
         tensorJson->memoryrange =
@@ -337,7 +326,7 @@ std::string LogicalTensor::DumpSSA([[maybe_unused]] bool showFrom, bool showMem,
         oss << ")";
     }
     oss << "#"
-        << "(" << subGraphID << ")";
+        << "(" << CommonUtils::GetTensorSubgraphID(this) << ")";
     if (showMem) {
         oss << MemoryTypeToString(GetMemoryTypeOriginal()) << "::" << MemoryTypeToString(GetMemoryTypeToBe());
         if (IsDummy()) {

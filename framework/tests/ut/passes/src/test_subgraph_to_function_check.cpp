@@ -71,12 +71,9 @@ static void RunColorOutGraphCheckTest(
         EXPECT_TRUE(G.AddTensor(DataType::DT_FP32, kShape88, "d"));
         EXPECT_TRUE(G.AddOp(Opcode::OP_ADD, {"b"}, {"d"}, "add3"));
         G.GetOp("add3")->UpdateSubgraphID(2);
-        G.GetTensor("d")->subGraphID = 2;
     }
     G.GetOp("add1")->UpdateSubgraphID(0);
     G.GetOp("add2")->UpdateSubgraphID(1);
-    G.GetTensor("a")->subGraphID = G.GetTensor("b")->subGraphID = 0;
-    G.GetTensor("c")->subGraphID = 1;
     G.GetTensor("b")->isSubGraphBoundary = true;
     for (const auto& t : {"a", "b", "c"})
         G.GetTensor(t)->SetMemoryTypeBoth(MemoryType::MEM_UB);
@@ -282,7 +279,6 @@ TEST_F(SubgraphToFunctionCheckTest, CheckSubGraphTopo_EmptySubgraph)
     EXPECT_EQ(status, FAILED);
 }
 
-
 TEST_F(SubgraphToFunctionCheckTest, CheckSubGraphBoundary_Rule1_DDR_NotBoundary)
 {
     config::SetHostOption(COMPILE_STAGE, CS_EXECUTE_GRAPH);
@@ -306,30 +302,6 @@ TEST_F(SubgraphToFunctionCheckTest, CheckSubGraphBoundary_Rule1_DDR_NotBoundary)
     EXPECT_EQ(status, FAILED);
 }
 
-TEST_F(SubgraphToFunctionCheckTest, CheckSubGraphBoundary_Rule2_DifferentSubGraphId)
-{
-    config::SetHostOption(COMPILE_STAGE, CS_EXECUTE_GRAPH);
-
-    auto f = std::make_shared<Function>(Program::GetInstance(), "test_sg_boundary", "test_sg_boundary", nullptr);
-    Program::GetInstance().InsertFuncToFunctionMap("test_sg_boundary", f);
-
-    ComputationalGraphBuilder G(f.get());
-    G.AddTensor(DataType::DT_FP32, kShape88, "in");
-    G.AddTensor(DataType::DT_FP32, kShape88, "out");
-    G.AddOp(Opcode::OP_ADD, {"in"}, {"out"}, "add_op");
-
-    auto op = G.GetOp("add_op");
-    auto tensor = G.GetTensor("in");
-
-    op->UpdateSubgraphID(1);
-    tensor->subGraphID = 2;
-    tensor->isSubGraphBoundary = false;
-
-    SubGraphToFuncChecker checker;
-    auto status = checker.CheckSubGraphBoundary(*f);
-    EXPECT_EQ(status, FAILED);
-}
-
 TEST_F(SubgraphToFunctionCheckTest, CheckSubGraphBoundary_Rule3_CopyIn_NoBoundary)
 {
     config::SetHostOption(COMPILE_STAGE, CS_EXECUTE_GRAPH);
@@ -347,7 +319,6 @@ TEST_F(SubgraphToFunctionCheckTest, CheckSubGraphBoundary_Rule3_CopyIn_NoBoundar
     auto tensor = G.GetTensor("in");
 
     op->UpdateSubgraphID(0);
-    tensor->subGraphID = 0;
     tensor->isSubGraphBoundary = false;
     SubGraphToFuncChecker checker;
     auto status = checker.CheckSubGraphBoundary(*f);
@@ -371,10 +342,8 @@ TEST_F(SubgraphToFunctionCheckTest, CheckSubGraphBoundary_Output_DDR_Only)
     auto out_tensor = G.GetTensor("out");
 
     op->UpdateSubgraphID(0);
-    in_tensor->subGraphID = 0;
     in_tensor->isSubGraphBoundary = true;
 
-    out_tensor->subGraphID = 0;
     out_tensor->isSubGraphBoundary = false;
     out_tensor->SetMemoryTypeOriginal(MemoryType::MEM_DEVICE_DDR);
 

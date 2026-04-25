@@ -259,35 +259,6 @@ TEST_F(PassCheckTest, TestPreGraphCheckerAssembleViewReshapeInvalidIO)
     EXPECT_EQ(checker.DoPreCheck(*currFunctionPtr), FAILED);
 }
 
-TEST_F(PassCheckTest, TestPreGraphCheckerTensorNotInSubgraph)
-{
-    config::SetHostOption(COMPILE_STAGE, CS_EXECUTE_GRAPH);
-    auto currFunctionPtr =
-        std::make_shared<Function>(Program::GetInstance(), "PreGraphCheckerTest2", "PreGraphCheckerTest2", nullptr);
-    EXPECT_TRUE(currFunctionPtr != nullptr);
-
-    std::vector<int64_t> shape = {8, 16};
-    auto incast1 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape);
-    auto tensor1 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape);
-    auto outcast1 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape);
-
-    currFunctionPtr->AddOperation(Opcode::OP_ADD, {incast1}, {tensor1});
-    currFunctionPtr->AddOperation(Opcode::OP_ADD, {tensor1}, {outcast1});
-    currFunctionPtr->Operations()[0].UpdateSubgraphID(0);
-    currFunctionPtr->Operations()[1].UpdateSubgraphID(1);
-    incast1->subGraphID = 0;
-    outcast1->subGraphID = 1;
-    tensor1->subGraphID = NOT_IN_SUBGRAPH;
-
-    currFunctionPtr->inCasts_.push_back(incast1);
-    currFunctionPtr->outCasts_.push_back(outcast1);
-    currFunctionPtr->SetTotalSubGraphCount(2);
-
-    PreGraphProcessChecker checker;
-    EXPECT_EQ(checker.DoPreCheck(*currFunctionPtr), SUCCESS);
-    EXPECT_EQ(checker.DoPostCheck(*currFunctionPtr), FAILED);
-}
-
 TEST_F(PassCheckTest, TestCheckConsumerProducer_ProducerIsNull)
 {
     auto currFunctionPtr = std::make_shared<Function>(

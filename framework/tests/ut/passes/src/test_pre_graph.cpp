@@ -26,6 +26,7 @@
 #include "passes/tile_graph_pass/graph_constraint/pre_graph/pre_graph.h"
 #include "ut_json/ut_json_tool.h"
 #include "computational_graph_builder.h"
+#include "passes/pass_utils/pass_utils.h"
 #define private public
 
 using namespace npu::tile_fwk;
@@ -51,7 +52,7 @@ void PrintGraphInfoPreGraph(Function* func, std::set<int>& tensorMagicWithColorS
             if (input_tensor->GetMemoryTypeOriginal() == npu::tile_fwk::MemoryType::MEM_DEVICE_DDR) {
                 continue;
             }
-            int curColor = input_tensor->subGraphID;
+            int curColor = CommonUtils::GetTensorSubgraphID(input_tensor);
             std::cout << "input tensor, cur color is " << curColor << std::endl;
             if (curColor > 0) {
                 tensorMagicWithColorSet.insert(input_tensor->magic);
@@ -66,7 +67,7 @@ void PrintGraphInfoPreGraph(Function* func, std::set<int>& tensorMagicWithColorS
             if (output_tensor->GetMemoryTypeOriginal() == npu::tile_fwk::MemoryType::MEM_DEVICE_DDR) {
                 continue;
             }
-            int curColor = output_tensor->subGraphID;
+            int curColor = CommonUtils::GetTensorSubgraphID(output_tensor);
             std::cout << "output tensor, cur color is " << curColor << std::endl;
             if (curColor > 0) {
                 tensorMagicWithColorSet.insert(output_tensor->magic);
@@ -1570,13 +1571,13 @@ TEST_F(PreGraphTest, maybeCycle)
     G.AddTensor(dataType, {4, 4}, "copyInOut2");
     auto copyInOut2 = G.GetTensor("copyInOut2");
     copyInOut2->SetMemoryTypeBoth(MemoryType::MEM_UB, true);
-     G.AddTensor(dataType, {4, 8}, "copyInOut3");
+    G.AddTensor(dataType, {4, 8}, "copyInOut3");
     auto copyInOut3 = G.GetTensor("copyInOut3");
     copyInOut3->SetMemoryTypeBoth(MemoryType::MEM_UB, true);
     G.AddTensor(dataType, {4, 8}, "outCast");
     auto outCast = G.GetTensor("outCast");
     outCast->SetMemoryTypeBoth(MemoryType::MEM_DEVICE_DDR, true);
-    
+
     // add op
     G.AddOp(Opcode::OP_COPY_IN, {"inCast"}, {"copyInOut1"}, "COPYIN1");
     G.AddOp(Opcode::OP_COPY_OUT, {"copyInOut1"}, {"copyOutOut"}, "COPYOUT1");

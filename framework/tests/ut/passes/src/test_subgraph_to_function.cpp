@@ -140,7 +140,6 @@ TEST_F(SubgraphToFunctionTest, DifferentOffset)
     std::shared_ptr<LogicalTensor> tensor0 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape3);
     tensor0->SetMemoryTypeBoth(MEM_UB);
     tensor0->SetMagic(tensorMagic1);
-    tensor0->subGraphID = subGraphID0;
 
     auto& copyopin0 = currFunctionPtr->AddOperation(Opcode::OP_COPY_IN, {incast}, {tensor0});
     copyopin0.SetOpAttribute(std::make_shared<CopyOpAttribute>(
@@ -151,7 +150,6 @@ TEST_F(SubgraphToFunctionTest, DifferentOffset)
     std::shared_ptr<LogicalTensor> tensor1 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape1);
     tensor1->SetMemoryTypeBoth(MEM_UB);
     tensor1->SetMagic(tensorMagic2);
-    tensor1->subGraphID = subGraphID0;
 
     auto& reshapeop = currFunctionPtr->AddOperation(Opcode::OP_RESHAPE, {tensor0}, {tensor1});
     reshapeop.UpdateSubgraphID(subGraphID0);
@@ -161,29 +159,26 @@ TEST_F(SubgraphToFunctionTest, DifferentOffset)
     input_tensor->SetMemoryTypeBoth(MEM_DEVICE_DDR);
     input_tensor->SetMagic(tensorMagic3);
     input_tensor->isSubGraphBoundary = true;
-    input_tensor->subGraphID = subGraphID0;
 
     auto& copyoutop0 = currFunctionPtr->AddOperation(Opcode::OP_COPY_OUT, {tensor1}, {input_tensor});
     copyoutop0.SetOpAttribute(std::make_shared<CopyOpAttribute>(
-        MEM_UB, OpImmediate::Specified({0, 0}), shape1Imme, shape1Imme, std::vector<npu::tile_fwk::OpImmediate>()));
+            MEM_UB, OpImmediate::Specified({0, 0}), shape1Imme, shape1Imme, std::vector<npu::tile_fwk::OpImmediate>()));
     copyoutop0.UpdateSubgraphID(subGraphID0);
     copyoutop0.opmagic = opMagic2;
 
     std::shared_ptr<LogicalTensor> inner_tensor1 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape2);
     inner_tensor1->SetMemoryTypeBoth(MEM_UB);
     inner_tensor1->UpdateOffset({0, 0});
-    inner_tensor1->subGraphID = subGraphID1;
     inner_tensor1->SetMagic(tensorMagic4);
 
     std::shared_ptr<LogicalTensor> inner_tensor2 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape2);
     inner_tensor2->SetMemoryTypeBoth(MEM_UB);
     inner_tensor2->UpdateOffset({0, 32});
-    inner_tensor2->subGraphID = subGraphID2;
     inner_tensor2->SetMagic(tensorMagic5);
 
     auto& copyopin1 = currFunctionPtr->AddOperation(Opcode::OP_COPY_IN, {input_tensor}, {inner_tensor1});
     copyopin1.SetOpAttribute(std::make_shared<CopyOpAttribute>(
-        OpImmediate::Specified({0, 0}), MEM_UB, shape2Imme, shape2Imme, std::vector<npu::tile_fwk::OpImmediate>()));
+            OpImmediate::Specified({0, 0}), MEM_UB, shape2Imme, shape2Imme, std::vector<npu::tile_fwk::OpImmediate>()));
     copyopin1.UpdateSubgraphID(subGraphID1);
     copyopin1.opmagic = opMagic3;
 
@@ -195,11 +190,9 @@ TEST_F(SubgraphToFunctionTest, DifferentOffset)
 
     std::shared_ptr<LogicalTensor> result_tensor1 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape2);
     result_tensor1->SetMemoryTypeBoth(MEM_UB);
-    result_tensor1->subGraphID = subGraphID1;
     result_tensor1->SetMagic(tensorMagic6);
     std::shared_ptr<LogicalTensor> result_tensor2 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape2);
     result_tensor2->SetMemoryTypeBoth(MEM_UB);
-    result_tensor2->subGraphID = subGraphID2;
     result_tensor2->SetMagic(tensorMagic7);
     auto& expopin1 = currFunctionPtr->AddOperation(Opcode::OP_EXP, {inner_tensor1}, {result_tensor1});
     expopin1.UpdateSubgraphID(subGraphID1);
@@ -216,7 +209,7 @@ TEST_F(SubgraphToFunctionTest, DifferentOffset)
 
     auto& copyoutop1 = currFunctionPtr->AddOperation(Opcode::OP_COPY_OUT, {result_tensor1}, {output_tensor});
     copyoutop1.SetOpAttribute(std::make_shared<CopyOpAttribute>(
-        MEM_UB, OpImmediate::Specified({0, 0}), shape2Imme, shape2Imme, std::vector<npu::tile_fwk::OpImmediate>()));
+            MEM_UB, OpImmediate::Specified({0, 0}), shape2Imme, shape2Imme, std::vector<npu::tile_fwk::OpImmediate>()));
     copyoutop1.UpdateSubgraphID(subGraphID1);
     copyoutop1.opmagic = opMagic7;
 
@@ -297,31 +290,27 @@ TEST_F(SubgraphToFunctionTest, SameOffset)
     std::shared_ptr<LogicalTensor> inner_tensor1 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape2);
     inner_tensor1->SetMemoryTypeBoth(MEM_UB);
     inner_tensor1->UpdateOffset({0, 0});
-    inner_tensor1->subGraphID = subGraphID0;
     inner_tensor1->SetMagic(tensorMagic4);
     std::shared_ptr<LogicalTensor> inner_tensor2 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape2);
     inner_tensor2->SetMemoryTypeBoth(MEM_UB);
     inner_tensor2->UpdateOffset({0, 0});
-    inner_tensor2->subGraphID = subGraphID1;
     inner_tensor2->SetMagic(tensorMagic5);
     auto& copyopin1 = currFunctionPtr->AddOperation(Opcode::OP_COPY_IN, {input_tensor}, {inner_tensor1});
     copyopin1.SetOpAttribute(std::make_shared<CopyOpAttribute>(
-        OpImmediate::Specified({0, 0}), MEM_UB, shape2Imme, shape2Imme, std::vector<npu::tile_fwk::OpImmediate>()));
+            OpImmediate::Specified({0, 0}), MEM_UB, shape2Imme, shape2Imme, std::vector<npu::tile_fwk::OpImmediate>()));
     copyopin1.UpdateSubgraphID(subGraphID0);
     copyopin1.opmagic = opMagic3;
     auto& copyopin2 = currFunctionPtr->AddOperation(Opcode::OP_COPY_IN, {input_tensor}, {inner_tensor2});
     copyopin2.SetOpAttribute(std::make_shared<CopyOpAttribute>(
-        OpImmediate::Specified({0, 0}), MEM_UB, shape2Imme, shape2Imme, std::vector<npu::tile_fwk::OpImmediate>()));
+            OpImmediate::Specified({0, 0}), MEM_UB, shape2Imme, shape2Imme, std::vector<npu::tile_fwk::OpImmediate>()));
     copyopin2.UpdateSubgraphID(subGraphID1);
     copyopin2.opmagic = opMagic4;
 
     std::shared_ptr<LogicalTensor> result_tensor1 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape2);
     result_tensor1->SetMemoryTypeBoth(MEM_UB);
-    result_tensor1->subGraphID = subGraphID0;
     result_tensor1->SetMagic(tensorMagic6);
     std::shared_ptr<LogicalTensor> result_tensor2 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape2);
     result_tensor2->SetMemoryTypeBoth(MEM_UB);
-    result_tensor2->subGraphID = subGraphID1;
     result_tensor2->SetMagic(tensorMagic7);
     auto& expopin1 = currFunctionPtr->AddOperation(Opcode::OP_EXP, {inner_tensor1}, {result_tensor1});
     expopin1.UpdateSubgraphID(subGraphID0);
@@ -337,7 +326,7 @@ TEST_F(SubgraphToFunctionTest, SameOffset)
 
     auto& copyoutop1 = currFunctionPtr->AddOperation(Opcode::OP_COPY_OUT, {result_tensor1}, {output_tensor});
     copyoutop1.SetOpAttribute(std::make_shared<CopyOpAttribute>(
-        MEM_UB, OpImmediate::Specified({0, 0}), shape2Imme, shape2Imme, std::vector<npu::tile_fwk::OpImmediate>()));
+            MEM_UB, OpImmediate::Specified({0, 0}), shape2Imme, shape2Imme, std::vector<npu::tile_fwk::OpImmediate>()));
     copyoutop1.UpdateSubgraphID(subGraphID0);
     copyoutop1.opmagic = opMagic7;
     auto& copyoutop2 = currFunctionPtr->AddOperation(Opcode::OP_COPY_OUT, {result_tensor2}, {output_tensor});

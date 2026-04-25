@@ -32,7 +32,6 @@ void SetBoundary::InsertTemporaryCopyIn(Function& function, Operation& op) const
             tensorGM->SetMemoryTypeOriginal(MemoryType::MEM_DEVICE_DDR, true);
             tensorGM->SetMemoryTypeToBe(MemoryType::MEM_DEVICE_DDR);
             tensorGM->isSubGraphBoundary = true;
-            tensorGM->subGraphID = op.GetSubgraphID();
             operandGm.push_back(tensorGM);
             function.GetTensorMap().Insert(tensorGM);
 
@@ -41,10 +40,11 @@ void SetBoundary::InsertTemporaryCopyIn(Function& function, Operation& op) const
 
             // add UB_Alloc && UB_COPY_IN
             auto& ubCopyIn = function.AddRawOperation(Opcode::OP_COPY_IN, operandGm, operandUb);
-            ubCopyIn.SetOpAttribute(std::make_shared<CopyOpAttribute>(
-                OpImmediate::Specified(input->GetTensorOffset()), MemoryType::MEM_UB,
-                OpImmediate::Specified(input->GetShape()), OpImmediate::Specified(input->tensor->GetDynRawShape()),
-                OpImmediate::Specified(input->GetDynValidShape())));
+            ubCopyIn.SetOpAttribute(
+                std::make_shared<CopyOpAttribute>(
+                    OpImmediate::Specified(input->GetTensorOffset()), MemoryType::MEM_UB,
+                    OpImmediate::Specified(input->GetShape()), OpImmediate::Specified(input->tensor->GetDynRawShape()),
+                    OpImmediate::Specified(input->GetDynValidShape())));
             ubCopyIn.SetAttribute(OpAttributeKey::isCube, false);
             ubCopyIn.UpdateSubgraphID(op.GetSubgraphID());
         }
