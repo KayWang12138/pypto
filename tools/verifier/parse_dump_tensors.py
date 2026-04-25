@@ -23,7 +23,7 @@ import ml_dtypes
 import numpy as np
 import pandas as pd
 import torch
-from tensor_diff import compare_tensors_result_dict, IsCloseConfig
+from tensor_diff import compare_tensors_result_dict
 
 
 # ===================== 核心配置（需和C/C++端一致）=====================
@@ -52,51 +52,26 @@ logging.basicConfig(
 def _get_data_type(data_type: int):
     """数据类型数值转可读字符串"""
     _data_type_full_mapping = {
-        0: ("INT4", ml_dtypes.int4),
-        1: ("INT8", np.int8),
-        2: ("INT16", np.int16),
-        3: ("INT32", np.int32),
-        4: ("INT64", np.int64),
-        5: ("FP8", ml_dtypes.float8_e4m3fn),
-        6: ("FP16", np.float16),
-        7: ("FP32", np.float32),
-        8: ("BF16", ml_dtypes.bfloat16),
-        9: ("HF4", None),                    # 暂不支持解析
-        10: ("HF8", None),                   # 暂不支持解析
-        11: ("UINT8", np.uint8),
-        12: ("UINT16", np.uint16),
-        13: ("UINT32", np.uint32),
-        14: ("UINT64", np.uint64),
-        15: ("BOOL", np.bool_),
-        16: ("DOUBLE", np.float64),
-        17: ("BOTTOM", None)
+        0: ("DT_INT4", ml_dtypes.int4),
+        1: ("DT_INT8", np.int8),
+        2: ("DT_INT16", np.int16),
+        3: ("DT_INT32", np.int32),
+        4: ("DT_INT64", np.int64),
+        5: ("DT_FP8", ml_dtypes.float8_e4m3fn),
+        6: ("DT_FP16", np.float16),
+        7: ("DT_FP32", np.float32),
+        8: ("DT_BF16", ml_dtypes.bfloat16),
+        9: ("DT_HF4", None),                    # 暂不支持解析
+        10: ("DT_HF8", None),                   # 暂不支持解析
+        11: ("DT_UINT8", np.uint8),
+        12: ("DT_UINT16", np.uint16),
+        13: ("DT_UINT32", np.uint32),
+        14: ("DT_UINT64", np.uint64),
+        15: ("DT_BOOL", np.bool_),
+        16: ("DT_DOUBLE", np.float64),
+        17: ("DT_BOTTOM", None)
     }
     return _data_type_full_mapping.get(data_type, f"UNKNOWN({data_type})")
-
-
-def _get_compare_config(dtype):
-    """
-    根据数据类型返回合适的对比配置
-    
-    Args:
-        dtype: numpy dtype 对象，可能为 None
-    
-    Returns:
-        IsCloseConfig: 对比配置对象，或 None（表示不支持的类型）
-    """
-    if dtype is None:
-        return None
-    
-    # 整型数据：精确匹配
-    if np.issubdtype(dtype, np.integer):
-        return IsCloseConfig(rtol=0, atol=0, calc_dtype=torch.float64, is_detail=True)
-    
-    # FP32/FP64：标准容差
-    if dtype in [np.float32, np.float64]:
-        return IsCloseConfig(rtol=1e-3, atol=1e-3, calc_dtype=torch.float64, is_detail=True)
-    
-    # FP16/BF16/FP8 等低精度浮点：放宽容差
-    return IsCloseConfig(rtol=1e-2, atol=1e-2, calc_dtype=torch.float64, is_detail=True)
 
 
 class VerifyRes:
@@ -114,51 +89,30 @@ class VerifyRes:
             verify_tshape = tensor_info["valid_shape"]
             tensor_infos[i]["A>PHASE_NAME"] = tensor_info["PHASE_NAME"] 
             tensor_infos[i]["A>validshape"] = verify_tshape
-            tensor_infos[i]["A>datatype"] = tensor_info["A>datatype"]
+            tensor_infos[i]["A>dataType"] = tensor_info["dataType"]
             tensor_infos[i]["A>FILENAME"] = tensor_info["verify_dup_tensor"]
 
             if os.path.exists(verify_tensor_info) and len(verify_tshape) == len(dump_tshape):
-                dtype_result = _get_data_type(tensor_info["datatype"])
-                dtype = dtype_result[1]
-                
-                # 不支持的类型，跳过对比
-                if dtype is None:
-                    tensor_infos[i]["AB>RESULT"] = "NO_CMP"
-                    tensor_infos[i]["result_reason"] = f"unsupported dtype: {dtype_result[0]}"
-                    continue
-                
+                dtype = _get_data_type(tensor_info["B>dataType"])[1]
+
                 verify_tensor_data = np.fromfile(verify_tensor_info, dtype)
                 verify_tensor_data = verify_tensor_data.reshape(verify_tshape)
-                
+
                 data = np.fromfile(tensor_info["B>FILENAME"], dtype)
                 data = data.reshape(dump_tshape)
-                
+
                 slices = []
                 for dim in range(data.ndim):
                     stop = min(verify_tshape[dim], dump_tshape[dim])
                     slices.append(slice(0, stop))
-                
-                sliced_data = data[tuple(slices)]
-                sliced_verify = verify_tensor_data[tuple(slices)]
-                
-                # 整型数据：精确对比
-                if np.issubdtype(dtype, np.integer):
-                    cmp_result = np.array_equal(sliced_data, sliced_verify)
-                    tensor_infos[i]["AB>RESULT"] = bool(cmp_result)
-                    if not cmp_result:
-                        tensor_infos[i]["result_reason"] = "integer values not equal"
-                else:
-                    # 浮点数据：容差对比
-                    config = _get_compare_config(dtype)
-                    try:
-                        tensor_a = torch.from_numpy(sliced_data.astype(np.float64)).to(torch.float64)
-                        tensor_b = torch.from_numpy(sliced_verify.astype(np.float64)).to(torch.float64)
-                        cmp_result = compare_tensors_result_dict(tensor_a, tensor_b, config=config)
-                        for key, value in cmp_result.items():
-                            tensor_infos[i][key] = value
-                    except Exception as e:
-                        tensor_infos[i]["AB>RESULT"] = False
-                        tensor_infos[i]["result_reason"] = f"compare error: {str(e)}"
+
+                tensor_a = torch.from_numpy(data[tuple(slices)].astype(np.float64)).to(torch.float64)
+                tensor_b = torch.from_numpy(verify_tensor_data[tuple(slices)].astype(np.float64)).to(torch.float64)
+                cmp_result = compare_tensors_result_dict(
+                    tensor_a, tensor_b, rtol=1e-3, atol=1e-3
+                )
+                for key, value in cmp_result.items():
+                    tensor_infos[i][key] = value
             else:
                 tensor_infos[i]["AB>RESULT"] = "NO_CMP"
                 tensor_infos[i]["result_reason"] = "verify file not exist or shape mismatch"
@@ -186,14 +140,13 @@ class VerifyRes:
 
     def get_verify_res_single(self, tensor_info, op_info_list):
         raw_magic = tensor_info.get("ROOT_CALL:rawmagic")
-        ioflag = tensor_info.get("IO_FLAG")
+        ioflag = tensor_info.get("ioflag")
         callop_magic = tensor_info.get("ROOT_CALL:opmagic")
         tensor_info_offset_str = '_'.join(str(item) for item in tensor_info.get("B>offset"))
 
         verify_dup_tensor = ""
         valid_shape = []
         loop_info = ""
-        dtype = ""
         op_info_list.sort(key=lambda x: x.get("NO."))      # 按序号排序,序号也是执行顺序
 
         for op_info in op_info_list:
@@ -209,7 +162,7 @@ class VerifyRes:
                     verify_dup_tensor = op_info.get("FILENAME")
                     valid_shape = json.loads(op_info.get(":validshape"))
                     loop_info = op_info.get("LOOP_INFO")
-                    dtype = op_info.get(":datatype")
+                    dtype = op_info.get(":dataType")
                     break
             elif "output" in ioflag and op_info.get(":opcode") in ["COPY_OUT"]:
                 verify_op_offset = json.loads(op_info.get("OP_ATTR_SYM_OFFSET"))
@@ -218,16 +171,14 @@ class VerifyRes:
                     verify_dup_tensor = op_info.get("INPUT_FILENAMES")   # COPY_OUT的op只会有一个输入
                     valid_shape = json.loads(op_info.get(":inputValidShape"))
                     loop_info = op_info.get("LOOP_INFO")
-                    dtype = op_info.get(":datatype")
+                    dtype = op_info.get(":dataType")
                     break
 
         if verify_dup_tensor:
             verify_dup_tensor = os.path.join(self.verify_path, op_info.get("PHASE_NAME"), verify_dup_tensor)
         tensor_info["verify_dup_tensor"] = verify_dup_tensor
-        tensor_info["valid_shape"] = valid_shape
-        tensor_info["loop_info"] = loop_info
-        tensor_info["PHASE_NAME"] = op_info.get("PHASE_NAME")
-        tensor_info["A>datatype"] = dtype
+        tensor_info["valid_shape"], tensor_info["loop_info"], tensor_info["PHASE_NAME"] = valid_shape, loop_info, op_info.get("PHASE_NAME")
+        tensor_info["dataType"] = dtype
 
     def process_single_task(self, tensor_infos, op_info_list_callop):
         tensor_infos_new = copy.deepcopy(tensor_infos)
@@ -323,7 +274,7 @@ class CompactDumpTensorInfoParser:
             ("B>taskId", "uint32_t"),
             ("ROOT_CALL:opmagic", "uint32_t"),
             ("blockIdx", "int32_t"),
-            ("datatype", "int32_t"),
+            ("B>datatype", "int32_t"),
             ("ROOT_CALL:rawmagic", "int32_t"),
             ("dims", "int32_t"),
             ("B>execStart", "int64_t"),
@@ -397,37 +348,19 @@ class CompactDumpTensorInfoParser:
 
         if os.path.exists(verify_tensor_info) and len(verify_tshape) == len(dump_tshape) and \
                 all(vdim == ddim for vdim, ddim in zip(verify_tshape, dump_tshape)):
-            
-            dtype_result = _get_data_type(merge_tensor_info["datatype"])
-            dtype = dtype_result[1]
-            
-            # 不支持的类型，跳过对比
-            if dtype is None:
-                merge_tensor_info["AB>RESULT"] = "NO_CMP"
-                merge_tensor_info["result_reason"] = f"unsupported dtype: {dtype_result[0]}"
-                return merge_tensor_info
-            
+
+            dtype = _get_data_type(merge_tensor_info["B>datatype"])[1]
+
             verify_tensor_data = np.fromfile(verify_tensor_info, dtype)
             verify_tensor_data = verify_tensor_data.reshape(verify_tshape)
             
-            # 整型数据：精确对比
-            if np.issubdtype(dtype, np.integer):
-                cmp_result = np.array_equal(raw_data, verify_tensor_data)
-                merge_tensor_info["AB>RESULT"] = bool(cmp_result)
-                if not cmp_result:
-                    merge_tensor_info["result_reason"] = "integer values not equal"
-            else:
-                # 浮点数据：容差对比
-                config = _get_compare_config(dtype)
-                try:
-                    tensor_a = torch.from_numpy(raw_data.astype(np.float64)).to(torch.float64)
-                    tensor_b = torch.from_numpy(verify_tensor_data.astype(np.float64)).to(torch.float64)
-                    cmp_result = compare_tensors_result_dict(tensor_a, tensor_b, config=config)
-                    for key, value in cmp_result.items():
-                        merge_tensor_info[key] = value
-                except Exception as e:
-                    merge_tensor_info["AB>RESULT"] = False
-                    merge_tensor_info["result_reason"] = f"compare error: {str(e)}"
+            tensor_a = torch.from_numpy(raw_data.astype(np.float64)).to(torch.float64)
+            tensor_b = torch.from_numpy(verify_tensor_data.astype(np.float64)).to(torch.float64)
+            cmp_result = compare_tensors_result_dict(
+                tensor_a, tensor_b, rtol=1e-3, atol=1e-3
+            )
+            for key, value in cmp_result.items():
+                merge_tensor_info[key] = value
         else:
             merge_tensor_info["AB>RESULT"] = "NO_CMP"
             merge_tensor_info["result_reason"] = "verify file not exist or shape mismatch"
@@ -461,7 +394,7 @@ class CompactDumpTensorInfoParser:
             result["B>rawShape"] = result["B>rawShape"][:dims]
 
         # 衍生字段（可选）
-        result["B>datatype"] = _get_data_type(result.get("datatype", 17))[0]
+        result["B>datatypeStr"] = _get_data_type(result.get("B>datatype", 17))[0]
 
         return result
 
@@ -474,17 +407,17 @@ class CompactDumpTensorInfoParser:
             bin_data = f.read()
 
         tensor_info = self.parse_single(bin_data, 0)
-        dtype = _get_data_type(tensor_info["datatype"])[1]
+        dtype = _get_data_type(tensor_info["B>datatype"])[1]
         data = np.frombuffer(bin_data, dtype, offset=tensor_info["B>headSize"])
         bin_file = f"{file_path[:-6]}.data"
         data.tofile(bin_file)
 
-        tensor_info["IO_FLAG"] = bin_file.split("_")[-1][:-5]
+        tensor_info["ioflag"] = bin_file.split("_")[-1][:-5]
         tensor_info["B>seqNo"] = int(os.path.basename(bin_file).split("_")[1])
 
         tensor_info["B>FILENAME"] = bin_file
 
-        if "output" in tensor_info["IO_FLAG"]:
+        if "output" in tensor_info["ioflag"]:
             if tensor_info["ROOT_CALL:rawmagic"] not in self.raw_tensor_info:
                 self.raw_tensor_info[tensor_info["ROOT_CALL:rawmagic"]] = []
             self.raw_tensor_info[tensor_info["ROOT_CALL:rawmagic"]].append(tensor_info)
@@ -571,8 +504,8 @@ class CompactDumpTensorInfoParser:
         # 创建合并张量的基础信息
         merge_tensor_info = {}
         merge_tensor_info["ROOT_CALL:rawmagic"] = raw_magic
-        merge_tensor_info["datatype"] = tensor_infos[0]["datatype"]
-        merge_tensor_info["IO_FLAG"] = tensor_infos[0]["IO_FLAG"]
+        merge_tensor_info["B>datatypeStr"] = tensor_infos[0]["B>datatypeStr"]
+        merge_tensor_info["ioflag"] = tensor_infos[0]["ioflag"]
         merge_tensor_info["B>rawShape"] = tensor_infos[0]["B>rawShape"]
         merge_tensor_info["B>datatype"] = tensor_infos[0]["B>datatype"]
         merge_tensor_info["ROOT_FUNC:hash"] = 0
@@ -582,7 +515,7 @@ class CompactDumpTensorInfoParser:
 
         # 生成保存路径
         file_path = os.path.join(self.dump_tensor_path,
-                                f"raw_{raw_magic}_{tensor_infos[0]['B>datatype']}_{tensor_infos[0]['IO_FLAG']}.data")
+                                f"raw_{raw_magic}_{tensor_infos[0]['B>datatypeStr']}_{tensor_infos[0]['ioflag']}.data")
         merge_tensor_info["B>FILENAME"] = file_path
 
         # 按offset排序张量
@@ -594,7 +527,7 @@ class CompactDumpTensorInfoParser:
             return merge_tensor_info, None
 
         # 执行合并操作
-        dtype = _get_data_type(merge_tensor_info["datatype"])[1]
+        dtype = _get_data_type(merge_tensor_info["B>dataType"])[1]
         raw_data = np.zeros(merge_tensor_info["B>rawShape"], dtype)
 
         for tensor_info in tensor_infos:
@@ -673,11 +606,6 @@ def main():
     merge_tensor_infos = parser.merge_raw_tensor()
     tensor_infos.extend(merge_tensor_infos)
     df = pd.DataFrame(tensor_infos, dtype=object)
-    
-    # 处理 datatype 列：删除数值列，保留字符串列并重命名
-    if "datatype" in df.columns:
-        df.drop("datatype", axis=1, inplace=True)
-    
     # 转成字符串，防止用excel打开后显示为科学计算法，导致数据截断
     df["ROOT_FUNC:hash"] = df["ROOT_FUNC:hash"].apply(lambda x: f"{x:.0f}'")
     df["FUNC:hash"] = df["FUNC:hash"].apply(lambda x: f"{x:.0f}'")

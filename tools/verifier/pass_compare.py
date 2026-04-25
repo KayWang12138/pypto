@@ -167,63 +167,48 @@ class PassComparator:
                               b: Optional[Dict[str, Any]] = None,
                               compare_result: Optional[Dict[str, Any]] = None):
         """Add the comparison record to the internal list"""
-
-        record = {}
-        record["NO."] = 1
-        record["PATH_FUNC:func_magicname "] = a["PATH_FUNC:func_magicname"]
-        record["PATH_FUNC:funcmagic"] = a["PATH_FUNC:funcmagic"]
-        record["PATH_FUNC:hash"] = a["PATH_FUNC:hash"]
-        record["LOOP_INFO"] = a["LOOP_INFO"]
-        record[":symbol"] = a[":symbol"]
-        record[":validshape"] = a[":validshape"]
-        record[":datatype"] = a[":datatype"]
-        record["OP_ATTR_SYM_OFFSET"] = a["OP_ATTR_SYM_OFFSET"]
-        record["OP_IO_FLAG"] = a["OP_IO_FLAG"]
-        record["B>PHASE_NAME"] = a["PHASE_NAME"]
-        record["B>TIMESTAMP"] = a["TIMESTAMP"]
-        record["B>FILENAME"] = a["FILENAME"]
-        record["B>FUNC:hash"] = a["FUNC:hash"]
-        record["B>FUNC:funcmagic"] = a["FUNC:funcmagic"]
-        record["B>ROOT_CALL:opmagic"] = a["ROOT_CALL:opmagic"]
-        record["B>ROOT_CALL:rawmagic"] = a["ROOT_CALL:rawmagic"]
-        record["B>:opmagic"] = a[":opmagic"]
-        record["B>:opcode"] = a[":opcode"]
-        record["B>:rawmagic"] = a[":rawmagic"]
-        record["B>:rawshape"] = a[":rawshape"]
-        record["B>:format"] = a[":format"]
-        record["B>:shape"] = a[":shape"]
-        record["B>EVAL:dynvalidshape"] = a["EVAL:dynvalidshape"]
+            # Define common fields
+        common_fields = [
+            "PATH_FUNC:func_magicname",
+            "PATH_FUNC:funcmagic",
+            "PATH_FUNC:hash",
+            "LOOP_INFO",
+            ":symbol",
+            ":validshape",
+            ":datatype",
+            "OP_ATTR_SYM_OFFSET",
+            "OP_IO_FLAG"
+        ]
         
+        # Define fields with prefixes
+        prefixed_fields = [
+            "PHASE_NAME",
+            "TIMESTAMP",
+            "FILENAME",
+            "FUNC:hash",
+            "FUNC:funcmagic",
+            "ROOT_CALL:opmagic",
+            "ROOT_CALL:rawmagic",
+            ":opmagic",
+            ":opcode",
+            ":rawmagic",
+            ":rawshape",
+            ":format",
+            ":shape",
+            "EVAL:dynvalidshape"
+        ]
+
+        record = {"NO.": 1}
+        for field in common_fields:
+            record[field] = a.get(field, "")
+
+        for field in prefixed_fields:
+            record[f"B>{field}"] = a.get(field, "")
+
+        # Add prefixed fields from b (with A> prefix) if b exists
         if b:
-            record["A>PHASE_NAME"] = b["PHASE_NAME"]
-            record["A>TIMESTAMP"] = b["TIMESTAMP"]
-            record["A>FILENAME"] = b["FILENAME"]
-            record["A>FUNC:hash"] = b["FUNC:hash"]
-            record["A>FUNC:funcmagic"] = b["FUNC:funcmagic"]
-            record["A>ROOT_CALL:opmagic"] = b["ROOT_CALL:opmagic"]
-            record["A>ROOT_CALL:rawmagic"] = b["ROOT_CALL:rawmagic"]
-            record["A>:opmagic"] = b[":opmagic"]
-            record["A>:opcode"] = b[":opcode"]
-            record["A>:rawmagic"] = b[":rawmagic"]
-            record["A>:rawshape"] = b[":rawshape"]
-            record["A>:format"] = b[":format"]
-            record["A>:shape"] = b[":shape"]
-            record["A>EVAL:dynvalidshape"] = b["EVAL:dynvalidshape"]
-        else:
-            record["A>PHASE_NAME"] = None
-            record["A>TIMESTAMP"] = None
-            record["A>FILENAME"] = None
-            record["A>FUNC:hash"] = None
-            record["A>FUNC:funcmagic"] = None
-            record["A>ROOT_CALL:opmagic"] = None
-            record["A>ROOT_CALL:rawmagic"] = None
-            record["A>:opmagic"] = None
-            record["A>:opcode"] = None
-            record["A>:rawmagic"] = None
-            record["A>:rawshape"] = None
-            record["A>:format"] = None
-            record["A>:shape"] = None
-            record["A>EVAL:dynvalidshape"] = None
+            for field in prefixed_fields:
+                record[f"A>{field}"] = b.get(field, "")
         
         if compare_result is None:
             record["AB>RESULT"] = "Skip"
