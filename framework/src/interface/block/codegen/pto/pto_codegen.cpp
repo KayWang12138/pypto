@@ -65,6 +65,18 @@ using ir::TileType;
 using ir::VarPtr;
 using ir::YieldStmtPtr;
 
+namespace {
+
+std::string MakeConstantSSAName(const char* prefix, int64_t value) {
+  std::string suffix = std::to_string(value);
+  if (!suffix.empty() && suffix.front() == '-') {
+    suffix = "neg" + suffix.substr(1);
+  }
+  return "%" + std::string(prefix) + suffix;
+}
+
+}  // namespace
+
 // Helper function to convert DataType to MLIR type string
 static std::string DataTypeToMLIRImpl(::pypto::ir::DataType dtype) {
   if (dtype == ::pypto::ir::DataType::FP32) {
@@ -604,7 +616,7 @@ void PTOCodegen::EmitAllocTiles(const ir::FunctionPtr& func, const std::vector<i
 std::string PTOCodegen::GetIndent() const { return std::string(static_cast<size_t>(indent_level_) * 2, ' '); }
 
 std::string PTOCodegen::GetOrEmitIndexConstant(int64_t value) {
-  std::string name = "%c" + std::to_string(value);
+  std::string name = MakeConstantSSAName("c", value);
   if (emitted_constants_.find(value) == emitted_constants_.end()) {
     const int constants_indent_level = function_body_indent_level_ > 0 ? function_body_indent_level_ : indent_level_;
     constants_section_ << std::string(static_cast<size_t>(constants_indent_level) * 2, ' ')
@@ -615,7 +627,7 @@ std::string PTOCodegen::GetOrEmitIndexConstant(int64_t value) {
 }
 
 std::string PTOCodegen::GetOrEmitI64Constant(int64_t value) {
-  std::string name = "%addr" + std::to_string(value);
+  std::string name = MakeConstantSSAName("addr", value);
   if (emitted_i64_constants_.find(value) == emitted_i64_constants_.end()) {
     constants_section_ << GetIndent() << name << " = arith.constant " << value << " : i64\n";
     emitted_i64_constants_.insert(value);
