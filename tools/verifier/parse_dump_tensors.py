@@ -23,7 +23,7 @@ import ml_dtypes
 import numpy as np
 import pandas as pd
 import torch
-from tensor_diff import compare_tensors_result_dict
+from tensor_diff import compare_tensors_result_dict, IsCloseConfig
 
 
 # ===================== 核心配置（需和C/C++端一致）=====================
@@ -74,6 +74,31 @@ def _get_data_type(data_type: int):
     return _data_type_full_mapping.get(data_type, f"UNKNOWN({data_type})")
 
 
+def _get_compare_config(dtype):
+    """
+    根据数据类型返回合适的对比配置
+    
+    Args:
+        dtype: numpy dtype 对象，可能为 None
+    
+    Returns:
+        IsCloseConfig: 对比配置对象，或 None（表示不支持的类型）
+    """
+    if dtype is None:
+        return None
+    
+    # 整型数据：精确匹配
+    if np.issubdtype(dtype, np.integer):
+        return IsCloseConfig(rtol=0, atol=0, calc_dtype=torch.float64)
+    
+    # FP32/FP64：标准容差
+    if dtype in [np.float32, np.float64]:
+        return IsCloseConfig(rtol=1e-3, atol=1e-3, calc_dtype=torch.float64)
+    
+    # FP16/BF16/FP8 等低精度浮点：放宽容差
+    return IsCloseConfig(rtol=1e-2, atol=1e-2, calc_dtype=torch.float64)
+
+
 class VerifyRes:
     def __init__(self):
         self.verify_codegen_op_info_list = None
@@ -93,24 +118,47 @@ class VerifyRes:
             tensor_infos[i]["A>FILENAME"] = tensor_info["verify_dup_tensor"]
 
             if os.path.exists(verify_tensor_info) and len(verify_tshape) == len(dump_tshape):
-                dtype = _get_data_type(tensor_info["datatype"])[1]
-
+                dtype_result = _get_data_type(tensor_info["datatype"])
+                dtype = dtype_result[1]
+                
+                # 不支持的类型，跳过对比
+                if dtype is None:
+                    tensor_infos[i]["AB>RESULT"] = "NO_CMP"
+                    tensor_infos[i]["result_reason"] = f"unsupported dtype: {dtype_result[0]}"
+                    continue
+                
                 verify_tensor_data = np.fromfile(verify_tensor_info, dtype)
                 verify_tensor_data = verify_tensor_data.reshape(verify_tshape)
-
+                
                 data = np.fromfile(tensor_info["B>FILENAME"], dtype)
                 data = data.reshape(dump_tshape)
-
+                
                 slices = []
                 for dim in range(data.ndim):
                     stop = min(verify_tshape[dim], dump_tshape[dim])
                     slices.append(slice(0, stop))
-
-                tensor_a = torch.from_numpy(data[tuple(slices)].astype(np.float64)).to(torch.float64)
-                tensor_b = torch.from_numpy(verify_tensor_data[tuple(slices)].astype(np.float64)).to(torch.float64)
-                cmp_result = compare_tensors_result_dict(tensor_a, tensor_b)
-                for key, value in cmp_result.items():
-                    tensor_infos[i][key] = value
+                
+                sliced_data = data[tuple(slices)]
+                sliced_verify = verify_tensor_data[tuple(slices)]
+                
+                # 整型数据：精确对比
+                if np.issubdtype(dtype, np.integer):
+                    cmp_result = np.array_equal(sliced_data, sliced_verify)
+                    tensor_infos[i]["AB>RESULT"] = bool(cmp_result)
+                    if not cmp_result:
+                        tensor_infos[i]["result_reason"] = "integer values not equal"
+                else:
+                    # 浮点数据：容差对比
+                    config = _get_compare_config(dtype)
+                    try:
+                        tensor_a = torch.from_numpy(sliced_data.astype(np.float64)).to(torch.float64)
+                        tensor_b = torch.from_numpy(sliced_verify.astype(np.float64)).to(torch.float64)
+                        cmp_result = compare_tensors_result_dict(tensor_a, tensor_b, config=config)
+                        for key, value in cmp_result.items():
+                            tensor_infos[i][key] = value
+                    except Exception as e:
+                        tensor_infos[i]["AB>RESULT"] = False
+                        tensor_infos[i]["result_reason"] = f"compare error: {str(e)}"
             else:
                 tensor_infos[i]["AB>RESULT"] = "NO_CMP"
                 tensor_infos[i]["result_reason"] = "verify file not exist or shape mismatch"
@@ -349,17 +397,37 @@ class CompactDumpTensorInfoParser:
 
         if os.path.exists(verify_tensor_info) and len(verify_tshape) == len(dump_tshape) and \
                 all(vdim == ddim for vdim, ddim in zip(verify_tshape, dump_tshape)):
-
-            dtype = _get_data_type(merge_tensor_info["datatype"])[1]
-
+            
+            dtype_result = _get_data_type(merge_tensor_info["datatype"])
+            dtype = dtype_result[1]
+            
+            # 不支持的类型，跳过对比
+            if dtype is None:
+                merge_tensor_info["AB>RESULT"] = "NO_CMP"
+                merge_tensor_info["result_reason"] = f"unsupported dtype: {dtype_result[0]}"
+                return merge_tensor_info
+            
             verify_tensor_data = np.fromfile(verify_tensor_info, dtype)
             verify_tensor_data = verify_tensor_data.reshape(verify_tshape)
             
-            tensor_a = torch.from_numpy(raw_data.astype(np.float64)).to(torch.float64)
-            tensor_b = torch.from_numpy(verify_tensor_data.astype(np.float64)).to(torch.float64)
-            cmp_result = compare_tensors_result_dict(tensor_a, tensor_b)
-            for key, value in cmp_result.items():
-                merge_tensor_info[key] = value
+            # 整型数据：精确对比
+            if np.issubdtype(dtype, np.integer):
+                cmp_result = np.array_equal(raw_data, verify_tensor_data)
+                merge_tensor_info["AB>RESULT"] = bool(cmp_result)
+                if not cmp_result:
+                    merge_tensor_info["result_reason"] = "integer values not equal"
+            else:
+                # 浮点数据：容差对比
+                config = _get_compare_config(dtype)
+                try:
+                    tensor_a = torch.from_numpy(raw_data.astype(np.float64)).to(torch.float64)
+                    tensor_b = torch.from_numpy(verify_tensor_data.astype(np.float64)).to(torch.float64)
+                    cmp_result = compare_tensors_result_dict(tensor_a, tensor_b, config=config)
+                    for key, value in cmp_result.items():
+                        merge_tensor_info[key] = value
+                except Exception as e:
+                    merge_tensor_info["AB>RESULT"] = False
+                    merge_tensor_info["result_reason"] = f"compare error: {str(e)}"
         else:
             merge_tensor_info["AB>RESULT"] = "NO_CMP"
             merge_tensor_info["result_reason"] = "verify file not exist or shape mismatch"
