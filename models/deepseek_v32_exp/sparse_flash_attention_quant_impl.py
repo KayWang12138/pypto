@@ -445,8 +445,8 @@ def sparse_flash_attention_quant_compute_flash(query_nope, query_rope, key_nope_
 
 @pypto.frontend.jit(
     pass_options={
-        "vec_nbuffer_setting": {-1: 4},
-        "cube_l1_reuse_setting": {-1: 4},
+        "vec_nbuffer_setting": {-1: 4, -2: 1},
+        "cube_l1_reuse_setting": {-1: 8},
     },
     runtime_options={
         "stitch_function_max_num": 128,
