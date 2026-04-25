@@ -523,8 +523,7 @@ def _loop_function(
                             unroll_set, submit_before_loop, parallel)
         clear_source_location()
         yield rlf
-    except Exception as e:
-        logging.error("Record loop function %s failed: %s", name, e)
+    except Exception:
         raise
     finally:
         del rlf
