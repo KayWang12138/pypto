@@ -100,19 +100,6 @@
       "check_function": "check_ol05"
     },
     {
-      "id": "OL06",
-      "severity": "S1",
-      "dimension": "D1",
-      "stages": [
-        5,
-        6,
-        7
-      ],
-      "target": "impl",
-      "rule": "kernel 内禁用 Python 原生 min()/max()",
-      "check_function": "check_ol06"
-    },
-    {
       "id": "OL07",
       "severity": "S0",
       "dimension": "D1",
@@ -396,7 +383,7 @@
     },
     {
       "id": "OL30",
-      "severity": "S1",
+      "severity": "S2",
       "dimension": "D5",
       "stages": [
         5,

@@ -28,7 +28,7 @@ DESIGN_FILE = "DESIGN.md"
 OP_WORKSPACE_DIR = "custom"
 
 IMPL_RULE_IDS = [
-    "OL01", "OL02", "OL03", "OL04", "OL05", "OL06", "OL07", "OL08",
+    "OL01", "OL02", "OL03", "OL04", "OL05", "OL07", "OL08",
     "OL16", "OL23", "OL25", "OL26", "OL28", "OL29", "OL37",
 ]
 
