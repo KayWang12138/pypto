@@ -225,8 +225,9 @@ Operation* RemoveUnalignedReshape::CopyBranchBetweenCopyOut2Reshape(Function& fu
     LogicalTensorPtr preTensor = nullptr;
     LogicalTensorPtr preCloneTensor = nullptr;
     Operation* preOp = nullptr;
-    for (size_t i = toCopyProducerTensor.size() - 1; i >= 0; i--) {
-        auto producerTensor = toCopyProducerTensor[i];
+    for (auto it = toCopyProducerTensor.rbegin(); it != toCopyProducerTensor.rend(); ++it) {
+    // for (size_t i = toCopyProducerTensor.size() - 1; i >= 0; i--) {
+        auto producerTensor = *it;
         auto tensor = producerTensor.second;
         curTensor = tensor->Clone(function, true);
         if (!canToCopy && tensor->GetConsumers().size() > 1) {
@@ -267,12 +268,13 @@ LogicalTensorPtr RemoveUnalignedReshape::HandleNoOrMultiCopyOutInProducer(
 
     LogicalTensor copyInOutput(function, input->Datatype(), copyShape);
     copyInOutput.SetMemoryTypeBoth(MemoryType::MEM_UB, true);
-    const int UB_SIZE_THRESHOLD = static_cast<int>(Platform::Instance().GetDie().GetMemoryLimit(MemoryType::MEM_UB));
-    auto memType = copyInOutput.GetMemoryTypeOriginal();
     auto copyInOutputPtr = std::make_shared<LogicalTensor>(std::move(copyInOutput));
     // 为copy到Ub的Tensor进行32B对齐
     AlignmentUtils::ProcessLastDim32BAlignedOnUB(copyInOutputPtr);
-    if (copyInOutput.GetDataSize() > UB_SIZE_THRESHOLD) {
+    
+    // 要copy到UB的Tensor，进行32B对齐之后判断是否超UB
+    const int UB_SIZE_THRESHOLD = static_cast<int>(Platform::Instance().GetDie().GetMemoryLimit(MemoryType::MEM_UB));
+    if (copyInOutputPtr->GetDataSize() > UB_SIZE_THRESHOLD) {
         APASS_LOG_WARN_F(Elements::Tensor, 
             "Tensor [%d] can not copy to UB, tensor size [%ld] exceeds the UB size [%d] limit.",
             input->magic, input->GetDataSize(), UB_SIZE_THRESHOLD);
@@ -298,7 +300,7 @@ LogicalTensorPtr RemoveUnalignedReshape::HandleNoOrMultiCopyOutInProducer(
     return copyOutOutputPtr;
 }
 
-int FindConsumerIndex(LogicalTensorPtr input, Operation* consumerOp) 
+int RemoveUnalignedReshape::FindConsumerIndex(LogicalTensorPtr input, Operation* consumerOp) 
 {
     int index = 0;
     for (auto con : input->GetConsumers()) {
