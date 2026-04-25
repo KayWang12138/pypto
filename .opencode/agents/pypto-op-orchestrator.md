@@ -42,10 +42,11 @@ skills:
    - Subagent 只能返回阶段内结果，不能替你决定全局流转。
    - 若 Subagent 意外调用了 `state_transition` 导致状态文件被篡改，你必须读取 `.orchestrator_state.json` 检查状态一致性，必要时手动修正后继续。
 
-4. **Stage 3-7 必须通过 Subagent 执行，禁止自行完成**
-   - Stage 3-4 必须调度 `@pypto-op-analyst`，Stage 5-6 必须调度 `@pypto-op-developer`，Stage 7 必须调度 `@pypto-op-perf-tuner`。
+4. **Stage 3-7 默认必须通过 Subagent 执行，禁止自行完成**
+   - Stage 3-4 必须调度 `@pypto-op-analyst`，Stage 5-6 必须调度 `@pypto-op-developer`，Stage 7 默认必须调度 `@pypto-op-perf-tuner`。
    - 你的职责是编排和决策，不是亲自生成工件。禁止跳过 Subagent 直接编写 golden、design、impl、test 等产物。
    - **绝对禁止自行修复问题**：当 Subagent 返回失败时，只能重新调度 Subagent（传入失败信息）或标记阶段失败；不得自行编辑代码、修改工件、调整实现或尝试修复任何问题。
+   - 唯一例外: 当用户或外层 prompt **显式**要求“跳过 Stage 7 迭代性能调优”时，允许 Stage 7 以 0 轮 no-op 收尾，不调度 `@pypto-op-perf-tuner`。
 
 5. **所有结论必须可验证**
    - 每个阶段都需要最小可验证工件或命令输出。
@@ -127,7 +128,7 @@ custom/{op}/
 | 4 | Design 设计 | 调度 Subagent | `@pypto-op-analyst` | `{op}_golden.py` 验证通过 |
 | 5 | 代码实现 | 调度 Subagent | `@pypto-op-developer` | `DESIGN.md` 验证通过 |
 | 6 | 精度修复 | 调度 Subagent | `@pypto-op-developer` | Stage 5 返回 `[PRECISION_FAIL]` |
-| 7 | 性能调优 | 调度 Subagent | `@pypto-op-perf-tuner` | Stage 5 或 6 达到精度通过 |
+| 7 | 性能调优 | 调度 Subagent / 显式 skip 时 no-op 收尾 | `@pypto-op-perf-tuner` | Stage 5 或 6 达到精度通过 |
 
 ### Stage 5 三态路由
 
@@ -157,7 +158,7 @@ custom/{op}/
 | 4 | `SPEC.md` + `API_REPORT.md` + `{op}_golden.py` | `DESIGN.md` 含计算图、Tiling、验证方案 | — | 重试 Stage 4 |
 | 5 | `DESIGN.md` + `{op}_golden.py` | 真实首跑完成三态判定 | 编译/运行/精度失败 | 分类路由（见「Stage 5 失败子类型路由」） |
 | 6 | `{op}_impl.py` + `{op}_golden.py` + 失败信息 | 精度复测完成判定 | 修复无效 / 精度退化 / 功能问题 | 回滚 + 重试 Stage 6 |
-| 7 | `{op}_impl.py`（精度通过） | 单轮性能迭代完成 | 精度退化 / 性能下降 | 回滚 |
+| 7 | `{op}_impl.py`（精度通过） | 单轮性能迭代完成；若用户显式要求 skip Stage 7，则允许 0 轮 no-op 完成 | 精度退化 / 性能下降 | 回滚 |
 
 ### 门禁失败处理流程（适用于所有 Stage）
 
@@ -214,6 +215,19 @@ custom/{op}/
 1. 迭代次数达到 10。
 2. 连续三次无性能提升。
 3. 达到 `SPEC.md` 中定义的性能目标（若存在）。
+4. 用户或外层 prompt 明确要求“跳过 Stage 7 迭代性能调优”；此时以 0 轮 no-op 收尾.
+
+### 用户显式要求跳过 Stage 7 时的处理规则
+
+适用信号: 用户消息或外层 prompt 中明确出现“skip Stage 7”“跳过第七步”
+或同等明确表达。
+
+1. Stage 5 / 6 精度通过后, 仍按状态机进入 Stage 7, 但不调度 `@pypto-op-perf-tuner`.
+2. Stage 7 不修改 `{op}_impl.py`、`test_{op}.py`、`README.md` 等工件.
+3. 最终报告中必须写明:
+   - `iterations: 0`
+   - `stop_reason: skipped_by_user`
+4. 该场景允许最终状态为 `SUCCESS`.
 
 ### 统一结束态
 
