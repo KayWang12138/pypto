@@ -216,7 +216,7 @@ void RemoveUnalignedReshape::ReplaceDynUnalignedReshapeOpsForUB(Function& functi
 }
 
 Operation* RemoveUnalignedReshape::CopyBranchBetweenCopyOut2Reshape(Function& function,
-    const std::vector<std::pair<Operation*, LogicalTensorPtr>>& ToCopyProducerTensor, const int& consumerIndex) 
+    const std::vector<std::pair<Operation*, LogicalTensorPtr>>& toCopyProducerTensor, const int& consumerIndex) 
 {
     bool canToCopy = false;
     Operation* branchOp = nullptr;
@@ -224,8 +224,8 @@ Operation* RemoveUnalignedReshape::CopyBranchBetweenCopyOut2Reshape(Function& fu
     LogicalTensorPtr preTensor = nullptr;
     LogicalTensorPtr preCloneTensor = nullptr;
     Operation* preOp = nullptr;
-    for (int i = ToCopyProducerTensor.size() - 1; i >= 0; i--) {
-        auto producerTensor = ToCopyProducerTensor[i];
+    for (size_t i = toCopyProducerTensor.size() - 1; i >= 0; i--) {
+        auto producerTensor = toCopyProducerTensor[i];
         auto tensor = producerTensor.second;
         curTensor = tensor->Clone(function, true);
         if (!canToCopy && tensor->GetConsumers().size() > 1) {
@@ -268,16 +268,16 @@ LogicalTensorPtr RemoveUnalignedReshape::HandleNoOrMultiCopyOutInProducer(
     copyInOutput.SetMemoryTypeBoth(MemoryType::MEM_UB, true);
     const int UB_SIZE_THRESHOLD = static_cast<int>(Platform::Instance().GetDie().GetMemoryLimit(MemoryType::MEM_UB));
     auto memType = copyInOutput.GetMemoryTypeOriginal();
-    if ((memType == MemoryType::MEM_UB) && (copyInOutput.GetDataSize() > UB_SIZE_THRESHOLD)) {
+    auto copyInOutputPtr = std::make_shared<LogicalTensor>(std::move(copyInOutput));
+    // 为copy到Ub的Tensor进行32B对齐
+    AlignmentUtils::ProcessLastDim32BAlignedOnUB(copyInOutputPtr);
+    if (copyInOutput.GetDataSize() > UB_SIZE_THRESHOLD) {
         APASS_LOG_WARN_F(Elements::Tensor, 
             "Tensor [%d] can not copy to UB, tensor size [%ld] exceeds the UB size [%d] limit.",
             input->magic, input->GetDataSize(), UB_SIZE_THRESHOLD);
         checkOverUbSize = true;
         return nullptr;
     }
-    auto copyInOutputPtr = std::make_shared<LogicalTensor>(std::move(copyInOutput));
-    // 为copy到Ub的Tensor进行32B对齐
-    AlignmentUtils::ProcessLastDim32BAlignedOnUB(copyInOutputPtr);
     auto& copyInOp = function.AddOperation(Opcode::OP_COPY_IN, {input}, {copyInOutputPtr});
     copyInOp.SetOpAttribute(std::make_shared<CopyOpAttribute>(
         OpImmediate::Specified(input->GetOffset()), MemoryType::MEM_UB, OpImmediate::Specified(copyShape),
@@ -310,7 +310,7 @@ int FindConsumerIndex(LogicalTensorPtr input, Operation* consumerOp)
 }
 
 void RemoveUnalignedReshape::GetPathBetweenSingleCopyOutAndReshape(
-    Operation* op, std::vector<std::pair<Operation*, LogicalTensorPtr>>& ToCopyProducerTensor,
+    Operation* op, std::vector<std::pair<Operation*, LogicalTensorPtr>>& toCopyProducerTensor,
     bool& findCopyOut, bool& needToCopy, int& index) 
 {
     for (auto input : op->GetIOperands()) {
@@ -322,7 +322,7 @@ void RemoveUnalignedReshape::GetPathBetweenSingleCopyOutAndReshape(
             auto opcode = producerOp->GetOpcode();
             if (opcode == Opcode::OP_COPY_OUT) {
                 std::pair<Operation*, LogicalTensorPtr> producerTensor = std::make_pair(producerOp, input);
-                ToCopyProducerTensor.push_back(producerTensor);
+                toCopyProducerTensor.push_back(producerTensor);
                 if (input->GetConsumers().size() > 1) {
                     needToCopy = true;
                     index = FindConsumerIndex(input, op);
@@ -332,10 +332,10 @@ void RemoveUnalignedReshape::GetPathBetweenSingleCopyOutAndReshape(
             }
 
             // 其他类型的op（包括view/assemble或其他op），继续向前追溯
-            GetPathBetweenSingleCopyOutAndReshape(producerOp, ToCopyProducerTensor, findCopyOut, needToCopy, index);
+            GetPathBetweenSingleCopyOutAndReshape(producerOp, toCopyProducerTensor, findCopyOut, needToCopy, index);
             if (findCopyOut) {
                 std::pair<Operation*, LogicalTensorPtr> producerTensor = std::make_pair(producerOp, input);
-                ToCopyProducerTensor.push_back(producerTensor);
+                toCopyProducerTensor.push_back(producerTensor);
                 if (input->GetConsumers().size() > 1) {
                     needToCopy = true;
                     index = FindConsumerIndex(input, op);
@@ -351,8 +351,8 @@ void RemoveUnalignedReshape::InsertReshapeCopy(Function& function, Operation& op
     auto output = op.GetOOperands().front();
     //进行处理前判断，防止误修改
     std::vector<Operation*> copyOutOps;
-    Operation* copyOutOp;
-    std::vector<std::pair<Operation*, LogicalTensorPtr>> ToCopyProducerTensor;
+    Operation* copyOutOp = nullptr;
+    std::vector<std::pair<Operation*, LogicalTensorPtr>> toCopyProducerTensor;
     int index = -1;
     bool findCopyOut = false;
     bool needToCopy = false;
@@ -366,7 +366,7 @@ void RemoveUnalignedReshape::InsertReshapeCopy(Function& function, Operation& op
         }
     } else {
         copyOutOp = copyOutOps.front();
-        GetPathBetweenSingleCopyOutAndReshape(&op, ToCopyProducerTensor, findCopyOut, needToCopy, index);
+        GetPathBetweenSingleCopyOutAndReshape(&op, toCopyProducerTensor, findCopyOut, needToCopy, index);
     }
     std::vector<Operation*> copyInOps;
     if (checkNonCopyInConsumerExists(output, copyInOps)) {
@@ -376,7 +376,7 @@ void RemoveUnalignedReshape::InsertReshapeCopy(Function& function, Operation& op
     //进行处理
     if (!checkOverUbSize) {
         if (needToCopy) {
-            copyOutOp = CopyBranchBetweenCopyOut2Reshape(function, ToCopyProducerTensor, index);
+            copyOutOp = CopyBranchBetweenCopyOut2Reshape(function, toCopyProducerTensor, index);
         }
         ProcessCopyOutOfDDRReshape(function, op, copyOutOp);
         ProcessCopyInOfDDRReshape(function, op, copyInOps);
