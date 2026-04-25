@@ -57,11 +57,12 @@ private:
     void ProcessCopyOutOfDDRReshape(Function& function, Operation& op, Operation* copyOutOp);
     void ProcessCopyInOfDDRReshape(Function& function, Operation& op, std::vector<Operation*>& copyInOps);
     std::unordered_set<int> processedReshapeOps;
-    Operation* CopyBranchBetweenCopyOut2Reshape(
-        Function& function, const std::vector<std::pair<Operation*, LogicalTensorPtr>>& ToCopyProducerTensor, const int& consumerIndex);
+    Operation* CopyBranchBetweenCopyOut2Reshape(Function& function,
+        const std::vector<std::pair<Operation*, LogicalTensorPtr>>& ToCopyProducerTensor, const int& consumerIndex);
     LogicalTensorPtr HandleNoOrMultiCopyOutInProducer(Function& function, Operation& op, bool& checkOverUbSize);
     void GetPathBetweenSingleCopyOutAndReshape(
-        Operation* op, std::vector<std::pair<Operation*, LogicalTensorPtr>>& ToCopyProducerTensor, bool& findCopyOut, bool& needToCopy, int& index);
+        Operation* op, std::vector<std::pair<Operation*, LogicalTensorPtr>>& ToCopyProducerTensor,
+        bool& findCopyOut, bool& needToCopy, int& index);
     void FindAllProducerCopyOuts(LogicalTensorPtr tensor, std::vector<Operation*>& copyOutOps);
     bool checkNonCopyInConsumerExists(LogicalTensorPtr tensor, std::vector<Operation*>& copyInOps);
     void HandleNoCopyInConsumer(Function& function, Operation& op, LogicalTensorPtr output, std::vector<Operation*>& copyInOps, bool& checkOverUbSize);

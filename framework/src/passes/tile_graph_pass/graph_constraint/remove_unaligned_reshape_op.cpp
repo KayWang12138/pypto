@@ -216,8 +216,9 @@ void RemoveUnalignedReshape::ReplaceDynUnalignedReshapeOpsForUB(Function& functi
     }
 }
 
-Operation* RemoveUnalignedReshape::CopyBranchBetweenCopyOut2Reshape(
-    Function& function, const std::vector<std::pair<Operation*, LogicalTensorPtr>>& ToCopyProducerTensor, const int& consumerIndex) {
+Operation* RemoveUnalignedReshape::CopyBranchBetweenCopyOut2Reshape(Function& function,
+    const std::vector<std::pair<Operation*, LogicalTensorPtr>>& ToCopyProducerTensor, const int& consumerIndex) 
+{
     bool canToCopy = false;
     Operation* branchOp = nullptr;
     LogicalTensorPtr curTensor = nullptr;
@@ -255,7 +256,9 @@ Operation* RemoveUnalignedReshape::CopyBranchBetweenCopyOut2Reshape(
     return newCopyOutOp;
 }
 
-LogicalTensorPtr RemoveUnalignedReshape::HandleNoOrMultiCopyOutInProducer(Function& function, Operation& op, bool& checkOverUbSize) {
+LogicalTensorPtr RemoveUnalignedReshape::HandleNoOrMultiCopyOutInProducer(
+    Function& function, Operation& op, bool& checkOverUbSize) 
+{
     auto input = op.GetIOperands().front();
     auto copyShape = input->GetShape();
     auto copyRawShape = input->tensor->GetDynRawShape();
@@ -267,13 +270,14 @@ LogicalTensorPtr RemoveUnalignedReshape::HandleNoOrMultiCopyOutInProducer(Functi
     const int UB_SIZE_THRESHOLD = static_cast<int>(Platform::Instance().GetDie().GetMemoryLimit(MemoryType::MEM_UB));
     auto memType = copyInOutput.GetMemoryTypeOriginal();
     if ((memType == MemoryType::MEM_UB) && (copyInOutput.GetDataSize() > UB_SIZE_THRESHOLD)) {
-        APASS_LOG_WARN_F(Elements::Tensor, "Tensor [%d] can not copy to UB, tensor size [%ld] exceeds the UB size [%d] limit.",
+        APASS_LOG_WARN_F(Elements::Tensor, 
+            "Tensor [%d] can not copy to UB, tensor size [%ld] exceeds the UB size [%d] limit.",
             input->magic, input->GetDataSize(), UB_SIZE_THRESHOLD);
         checkOverUbSize = true;
         return nullptr;
     }
     auto copyInOutputPtr = std::make_shared<LogicalTensor>(std::move(copyInOutput));
-    //为copy到Ub的Tensor进行32B对齐
+    // 为copy到Ub的Tensor进行32B对齐
     AlignmentUtils::ProcessLastDim32BAlignedOnUB(copyInOutputPtr);
     auto& copyInOp = function.AddOperation(Opcode::OP_COPY_IN, {input}, {copyInOutputPtr});
     copyInOp.SetOpAttribute(std::make_shared<CopyOpAttribute>(
@@ -294,7 +298,8 @@ LogicalTensorPtr RemoveUnalignedReshape::HandleNoOrMultiCopyOutInProducer(Functi
     return copyOutOutputPtr;
 }
 
-int FindConsumerIndex(LogicalTensorPtr input, Operation* consumerOp) {
+int FindConsumerIndex(LogicalTensorPtr input, Operation* consumerOp) 
+{
     int index = 0;
     for (auto con : input->GetConsumers()) {
         if (con->GetOpMagic() == consumerOp->GetOpMagic()) {
@@ -306,7 +311,9 @@ int FindConsumerIndex(LogicalTensorPtr input, Operation* consumerOp) {
 }
 
 void RemoveUnalignedReshape::GetPathBetweenSingleCopyOutAndReshape(
-    Operation* op, std::vector<std::pair<Operation*, LogicalTensorPtr>>& ToCopyProducerTensor, bool& findCopyOut, bool& needToCopy, int& index) {
+    Operation* op, std::vector<std::pair<Operation*, LogicalTensorPtr>>& ToCopyProducerTensor,
+    bool& findCopyOut, bool& needToCopy, int& index) 
+{
     for (auto input : op->GetIOperands()) {
         auto producers = input->GetProducers();
         if (producers.empty()) {
@@ -394,7 +401,8 @@ void RemoveUnalignedReshape::ReplaceDynUnalignedReshapeOpsForDDR(Function& funct
             ProcessCopyOutOfDDRReshape(function, op, copyOutOp);
             ProcessCopyInOfDDRReshape(function, op, copyInOps);
         } else {
-            APASS_LOG_WARN_F(Elements::Tensor, "Reshape[%d] on GM had processed failed, because the size of input[%d] or output[%d] of reshape[%d] exceeded ub if copy to ub.",
+            APASS_LOG_WARN_F(Elements::Tensor, "Reshape[%d] on GM had processed failed, "
+                "because the size of input[%d] or output[%d] of reshape[%d] exceeded ub if copy to ub.",
                 op.GetOpMagic(), input->GetMagic(), output->GetMagic(), op.GetOpMagic());
         }
         APASS_LOG_DEBUG_F(Elements::Operation, "Reshape[%d] on GM had processed successfully.", op.GetOpMagic());
