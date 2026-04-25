@@ -68,11 +68,16 @@ std::vector<std::string> CodeGenOpNPU::BuildCopyInParamList(
         tileOpParamList.emplace_back(gmOffsetExpr[3]);
     }
 
-    for (size_t i = 0; i < srcShape.size(); i++) {
-        tileOpParamList.emplace_back(std::to_string(srcShape[i]));
-    }
-    if (!isConv3D) {
+    if (isConv3D) {
+        for (size_t i = 0; i < srcShape.size(); i++) {
+            tileOpParamList.emplace_back(std::to_string(srcShape[i]));
+        }
+    } else {
+        tileOpParamList.emplace_back(std::to_string(srcShape[0]));
+        tileOpParamList.emplace_back(std::to_string(srcShape[1]));
         tileOpParamList.emplace_back("0");
+        tileOpParamList.emplace_back(std::to_string(srcShape[2]));
+        tileOpParamList.emplace_back(std::to_string(srcShape[3]));
     }
 
     return tileOpParamList;
