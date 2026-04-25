@@ -16,6 +16,7 @@
 #include "machine/host/backend.h"
 #include "machine/host/expr_generator.h"
 #include "tilefwk/tilefwk.h"
+#include "tilefwk/arch_config.h"
 #include "codegen/codegen.h"
 #include "codegen/utils/parallel_execute.h"
 #include "codegen/utils/codegen_utils.h"
@@ -439,7 +440,7 @@ void GetReadyOnHostTensorsSet(std::unordered_set<int>& readyOnHostTensorsSet)
 }
 static bool NeedCrossDie(Function* func, bool isLoop = false)
 {
-    if ((Platform::Instance().GetSoc().GetNPUArch() == NPUArch::DAV_3510) &&
+    if (PTO_SUPPORT_MULTI_DIE &&
         (!isLoop || (GetFunctionParallelMode(func) == ParallelMode::PARALLEL))) {
         return true;
     }

@@ -24,6 +24,8 @@
 #include "tilefwk/pypto_fwk_log.h"
 #include "interface/inner/tilefwk.h"
 #include "interface/interpreter/raw_tensor_data.h"
+#include "tilefwk/arch_config.h"
+#ifdef BUILD_WITH_CANN
 #include "machine/runtime/device_runner.h"
 #include "machine/runtime/device_launcher_binding.h"
 #include "interface/configs/config_manager.h"
@@ -173,14 +175,17 @@ public:
         devProg->devArgs.nrAic = kDefaultAicNum;
         devProg->devArgs.nrAiv = kDefaultAivNum;
         devProg->devArgs.nrValidAic = config.blockdim;
-        devProg->devArgs.archInfo = static_cast<ArchInfo>(Platform::Instance().GetSoc().GetNPUArch());
+#if PTO_ARCH_DAV_3510
+        devProg->devArgs.archInfo = ArchInfo::DAV_3510;
+#else
+        devProg->devArgs.archInfo = ArchInfo::DAV_2201;
+#endif
         devProg->devArgs.taskType = DEVICE_TASK_TYPE_DYN;
 
         uint32_t aiCpuNum = static_cast<uint32_t>(Platform::Instance().GetSoc().GetAICPUNum());
         devProg->devArgs.scheCpuNum = CalcSchAicpuNumByBlockDim(config.blockdim, aiCpuNum, devProg->devArgs.archInfo);
         devProg->devArgs.maxAicpuNum = static_cast<int>(aiCpuNum);
         config.aicpuNum = GetAiCpuNum(aiCpuNum, devProg->devArgs.scheCpuNum, devProg->devArgs.archInfo);
-        devProg->devArgs.nrAicpu = config.aicpuNum;
 
         if (IsPtoDataDumpEnabled()) { // dump tensor
             devProg->devArgs.hostPid = GetProcessId();
@@ -423,7 +428,7 @@ public:
     static int DeviceLaunchOnceWithDeviceTensorData(
         Function* function, const std::vector<DeviceTensorData>& inputList,
         const std::vector<DeviceTensorData>& outputList, RtStream aicpuStream, RtStream ctrlStream,
-        RtStream aicoreStream, bool streamSynchronize, CachedOperator* cachedOperator, 
+        RtStream aicoreStream, bool streamSynchronize, CachedOperator* cachedOperator,
         DevControlFlowCache* ctrlCache = nullptr, const DeviceLauncherConfig& config = DeviceLauncherConfig());
 
     static int DeviceSynchronize(RtStream aicpuStream, RtStream aicoreStream);

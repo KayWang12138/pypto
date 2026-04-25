@@ -15,6 +15,7 @@
 
 #pragma once
 
+#include "tilefwk/arch_config.h"
 #include "tilefwk/aicpu_common.h"
 #include "machine/device/dynamic/aicore_constants.h"
 #include "machine/device/dynamic/aicore_prof.h"
@@ -66,11 +67,11 @@ public:
         finishRegQueues_.fill(nullptr);
         blockIdToPhyCoreId_.fill(-1);
         args_.fill(nullptr);
-        if (deviceArgs->archInfo == ArchInfo::DAV_3510) {
-            regSprDataMainBase_ = DAV_3510::REG_SPR_DATA_MAIN_BASE;
-            regSprCond_ = DAV_3510::REG_SPR_COND;
-            isNeedWriteRegForFastPath_ = false;
-        }
+        regSprDataMainBase_ = PTO_REG_SPR_DATA_MAIN_BASE;
+        regSprCond_ = PTO_REG_SPR_COND;
+#if PTO_ARCH_DAV_3510
+        isNeedWriteRegForFastPath_ = false;
+#endif
         enableEslModel_ = deviceArgs->enableEslModel;
         DEV_IF_NONDEVICE {
             if (enableEslModel_) {
@@ -470,7 +471,7 @@ public:
                 valToSend = AICORE_SAY_GOODBYE;
                 eslModel_.WriteEslMem(reinterpret_cast<uint64_t>(&args_[coreIdx]->waveBufferCpuToCore[CPU_TO_CORE_SHAK_BUF_GOODBYE_INDEX]), sizeof(uint64_t), &valToSend);
             }
-            
+
         }
         ResetParallelDevTask(coreIdx);
         return;
@@ -580,7 +581,7 @@ public:
                     reinterpret_cast<uint64_t>(&args_[coreIdx]->parallelDevTask.front), sizeof(u32Zero), &u32Zero);
                 eslModel_.WriteEslMem(
                     reinterpret_cast<uint64_t>(&args_[coreIdx]->parallelDevTask.front), sizeof(u32Zero), &u32Zero);
-                
+
                 int64_t i64Zereo = 0;
                 for (uint32_t i = 0; i < npu::tile_fwk::SCH_DEVTASK_MAX_PARALLELISM; i++) {
                     eslModel_.WriteEslMem(

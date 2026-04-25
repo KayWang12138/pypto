@@ -16,6 +16,7 @@
 #ifndef DEV_WORKSPACE_H
 #define DEV_WORKSPACE_H
 
+#include "tilefwk/arch_config.h"
 #include "dev_start_args.h"
 #include "device_task.h"
 #include "item_pool.h"
@@ -930,7 +931,7 @@ private:
 
     uint32_t DieReadyQueSlabMemObjSize()
     {
-        if (devProg_->devArgs.archInfo == ArchInfo::DAV_3510) {
+        if (PTO_SUPPORT_MULTI_DIE) {
             return sizeof(ReadyCoreFunctionQueue) + devProg_->stitchFunctionsize * sizeof(uint32_t);
         } else {
             return 0;
@@ -939,7 +940,7 @@ private:
 
     uint32_t WrapQueSlabMemObjSize()
     {
-        if (devProg_->devArgs.archInfo == ArchInfo::DAV_3510) {
+        if (PTO_SUPPORT_WRAP) {
             return sizeof(ReadyCoreFunctionQueue) + devProg_->stitchFunctionsize * sizeof(uint32_t);
         } else {
             return 0;
@@ -948,7 +949,7 @@ private:
 
     uint32_t WrapTasklistSlabMemObjSize()
     {
-        if (devProg_->devArgs.archInfo == ArchInfo::DAV_3510) {
+        if (PTO_SUPPORT_WRAP) {
             return devProg_->stitchFunctionsize * sizeof(uint32_t);
         } else {
             return 0;

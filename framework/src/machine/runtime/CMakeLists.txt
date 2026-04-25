@@ -10,6 +10,70 @@
 
 file(GLOB_RECURSE _Runtime_Srcs *.cpp)
 file(GLOB_RECURSE _Device_Srcs ${PTO_FWK_SRC_ROOT}/framework/src/machine/device/*.cpp)
+
+set(PTO_SUPPORTED_ARCHES "2210" "3510")
+
+function(pto_add_runtime_target ARCH)
+    set(TARGET_NAME tile_fwk_runtime_${ARCH})
+    add_library(${TARGET_NAME} SHARED)
+    target_sources(${TARGET_NAME} PRIVATE ${_Runtime_Srcs} ${_Device_Srcs})
+    target_include_directories(${TARGET_NAME}
+            PUBLIC
+                $<BUILD_INTERFACE:$<$<BOOL:${BUILD_WITH_CANN}>:${ASCEND_CANN_PACKAGE_PATH}/include>>
+                $<BUILD_INTERFACE:$<$<BOOL:${BUILD_WITH_CANN}>:${ASCEND_CANN_PACKAGE_PATH}/include/base>>
+                $<BUILD_INTERFACE:$<$<BOOL:${BUILD_WITH_CANN}>:${ASCEND_CANN_PACKAGE_PATH}/include/experiment>>
+                $<BUILD_INTERFACE:$<$<BOOL:${BUILD_WITH_CANN}>:${ASCEND_CANN_PACKAGE_PATH}/include/experiment/runtime>>
+                $<BUILD_INTERFACE:$<$<BOOL:${BUILD_WITH_CANN}>:${ASCEND_CANN_PACKAGE_PATH}/include/experiment/runtime/runtime>>
+                $<BUILD_INTERFACE:$<$<BOOL:${BUILD_WITH_CANN}>:${ASCEND_CANN_PACKAGE_PATH}/include/experiment/msprof>>
+                $<BUILD_INTERFACE:$<$<BOOL:${BUILD_WITH_CANN}>:${ASCEND_CANN_PACKAGE_PATH}/include/experiment/msprof/toolchain>>
+                $<BUILD_INTERFACE:$<$<BOOL:${BUILD_WITH_CANN}>:${ASCEND_CANN_PACKAGE_PATH}/pkg_inc>>
+                $<BUILD_INTERFACE:$<$<BOOL:${BUILD_WITH_CANN}>:${ASCEND_CANN_PACKAGE_PATH}/pkg_inc/runtime>>
+                $<BUILD_INTERFACE:$<$<BOOL:${BUILD_WITH_CANN}>:${ASCEND_CANN_PACKAGE_PATH}/pkg_inc/runtime/runtime>>
+                $<BUILD_INTERFACE:$<$<BOOL:${BUILD_WITH_CANN}>:${ASCEND_CANN_PACKAGE_PATH}/pkg_inc/hccl>>
+            PRIVATE
+                ${PTO_FWK_SRC_ROOT}/framework/src/cost_model
+    )
+    target_compile_definitions(${TARGET_NAME}
+            PUBLIC
+                DAV_ARCH=${ARCH}
+                $<BUILD_INTERFACE:$<$<BOOL:${BUILD_WITH_CANN}>:BUILD_WITH_CANN>>
+                $<BUILD_INTERFACE:$<$<BOOL:${ENABLE_STEST_INTERPRETER_CONFIG}>:ENABLE_STEST_INTERPRETER_CONFIG>>
+    )
+    target_link_directories(${TARGET_NAME}
+            PUBLIC
+                $<BUILD_INTERFACE:$<$<BOOL:${BUILD_WITH_CANN}>:${ASCEND_CANN_PACKAGE_PATH}/lib64>>
+                $<BUILD_INTERFACE:$<$<BOOL:${BUILD_WITH_CANN}>:/usr/local/Ascend/driver/lib64/driver>>
+                $<BUILD_INTERFACE:$<$<BOOL:${BUILD_WITH_CANN}>:${ASCEND_CANN_PACKAGE_PATH}/${CMAKE_SYSTEM_PROCESSOR}-linux/devlib>>
+    )
+    target_link_libraries(${TARGET_NAME}
+            PUBLIC
+                $<BUILD_INTERFACE:$<$<BOOL:${ENABLE_COMPILE_DEPENDENCY_CHECK}>:tile_fwk_utils>>
+                $<BUILD_INTERFACE:$<$<BOOL:${ENABLE_COMPILE_DEPENDENCY_CHECK}>:tile_fwk_interface>>
+                $<BUILD_INTERFACE:$<$<BOOL:${ENABLE_COMPILE_DEPENDENCY_CHECK}>:tile_fwk_compiler>>
+                $<BUILD_INTERFACE:json>
+                $<BUILD_INTERFACE:$<$<BOOL:${BUILD_WITH_CANN}>:ascendcl>>
+                $<BUILD_INTERFACE:$<$<BOOL:${BUILD_WITH_CANN}>:runtime>>
+                $<BUILD_INTERFACE:$<$<BOOL:${BUILD_WITH_CANN}>:profapi>>
+                $<BUILD_INTERFACE:$<$<AND:$<NOT:$<BOOL:${ENABLE_UTEST}>>,$<BOOL:${BUILD_WITH_CANN}>>:hcomm>>
+                $<BUILD_INTERFACE:$<$<AND:$<BOOL:${ENABLE_UTEST}>,$<BOOL:${BUILD_WITH_CANN}>>:hccl_stubs>>
+            PRIVATE
+                intf_pub_cxx17
+                tile_fwk_intf_pub
+                dl
+                c_sec
+    )
+    if (BUILD_WITH_CANN)
+        add_dependencies(${TARGET_NAME} tile_fwk_server)
+    endif ()
+    set_target_properties(${TARGET_NAME} PROPERTIES OUTPUT_NAME tilefwk_runtime_${ARCH})
+    PTO_Fwk_AnalysisTargetHeaderFiles(TARGET ${TARGET_NAME})
+    PTO_Fwk_AnalysisTargetSymbols(TARGET ${TARGET_NAME})
+endfunction()
+
+foreach(ARCH IN LISTS PTO_SUPPORTED_ARCHES)
+    pto_add_runtime_target(${ARCH})
+endforeach()
+
 add_library(tile_fwk_runtime SHARED)
 target_sources(tile_fwk_runtime PRIVATE ${_Runtime_Srcs} ${_Device_Srcs})
 target_include_directories(tile_fwk_runtime
@@ -18,6 +82,8 @@ target_include_directories(tile_fwk_runtime
 )
 target_compile_definitions(tile_fwk_runtime
         PUBLIC
+            DAV_ARCH=2210
+            $<BUILD_INTERFACE:$<$<BOOL:${BUILD_WITH_CANN}>:BUILD_WITH_CANN>>
             $<BUILD_INTERFACE:$<$<BOOL:${ENABLE_STEST_INTERPRETER_CONFIG}>:ENABLE_STEST_INTERPRETER_CONFIG>>
 )
 target_link_libraries(tile_fwk_runtime
@@ -41,3 +107,26 @@ endif ()
 PTO_Fwk_AnalysisTargetHeaderFiles(TARGET tile_fwk_runtime)
 PTO_Fwk_AnalysisTargetSymbols(TARGET tile_fwk_runtime)
 
+add_library(tile_fwk_runtime_stub SHARED)
+target_sources(tile_fwk_runtime_stub PRIVATE ${_Runtime_Srcs} ${_Device_Srcs})
+target_include_directories(tile_fwk_runtime_stub
+        PRIVATE
+            ${PTO_FWK_SRC_ROOT}/framework/src/cost_model
+)
+target_compile_definitions(tile_fwk_runtime_stub
+        PRIVATE
+            DAV_ARCH=2210
+            $<BUILD_INTERFACE:$<$<BOOL:${ENABLE_STEST_INTERPRETER_CONFIG}>:ENABLE_STEST_INTERPRETER_CONFIG>>
+)
+target_link_libraries(tile_fwk_runtime_stub
+        PUBLIC
+            $<BUILD_INTERFACE:$<$<BOOL:${ENABLE_COMPILE_DEPENDENCY_CHECK}>:tile_fwk_utils>>
+            $<BUILD_INTERFACE:$<$<BOOL:${ENABLE_COMPILE_DEPENDENCY_CHECK}>:tile_fwk_interface>>
+            $<BUILD_INTERFACE:$<$<BOOL:${ENABLE_COMPILE_DEPENDENCY_CHECK}>:tile_fwk_compiler>>
+            $<BUILD_INTERFACE:json>
+        PRIVATE
+            intf_pub_cxx17
+            tile_fwk_intf_pub
+            dl
+            c_sec
+)
