@@ -801,8 +801,8 @@ TEST_F(PreGraphTest, TestRemoveRedundantViewMultiReshape)
     G.AddOp(Opcode::OP_VIEW, {"t2"}, {"t3"}, "VIEW");
     auto view = G.GetOp("VIEW");
     auto attrA = std::make_shared<ViewOpAttribute>(
-        std::vector<int64_t>{0, 0, 0}, MemoryType::MEM_UNKNOWN,
-        OpImmediate::ToSpecified(OpImmediate::Specified(std::vector<int64_t>{0, 0, 0})));
+        std::vector<int64_t>{0, 0, 0, 0}, MemoryType::MEM_UNKNOWN,
+        OpImmediate::ToSpecified(OpImmediate::Specified(std::vector<int64_t>{0, 0, 0, 0})));
     view->SetOpAttribute(attrA);
     G.AddOp(Opcode::OP_RESHAPE, {"t3"}, {"t4"}, "RESHAPE2");
     for (size_t i = 0; i < 32; ++i) {
@@ -839,8 +839,8 @@ TEST_F(PreGraphTest, TestProcessReshape)
 {
     ComputationalGraphBuilder G;
     // add tensor
-    G.AddTensor(DataType::DT_FP16, {16, 24576}, "t1");
-    G.AddTensor(DataType::DT_FP16, {16, 1, 128, 192}, "t2");
+    G.AddTensor(DataType::DT_FP16, {16, 16384}, "t1");
+    G.AddTensor(DataType::DT_FP16, {16, 1, 128, 128}, "t2");
     G.AddTensor(DataType::DT_FP16, {16, 1, 128, 128}, "t3");
     G.AddTensor(DataType::DT_FP16, {16, 1, 128, 128}, "t4");
     G.AddTensor(DataType::DT_FP16, {16, 1, 128, 128}, "t5");
@@ -889,7 +889,7 @@ TEST_F(PreGraphTest, TestProcessReshape)
     EXPECT_NE(reshape2Op, nullptr) << "RESHAPE2 should exist";
     auto reshape2Input = reshape2Op->GetIOperands().front();
     auto reshape2Output = reshape2Op->GetOOperands().front();
-    EXPECT_EQ(reshape2Input->GetShape(), (std::vector<int64_t>{16, 24576}))
+    EXPECT_EQ(reshape2Input->GetShape(), (std::vector<int64_t>{16, 16384}))
         << "RESHAPE2 input shape should be {16, 24576}";
 
     // Verify RESHAPE1 : connect to copyin
@@ -908,7 +908,7 @@ TEST_F(PreGraphTest, TestRemoveViewMultiReshapeErrCondition)
     ComputationalGraphBuilder G;
     G.AddTensor(DataType::DT_FP16, {16, 24576}, "t1");
     G.AddTensor(DataType::DT_FP16, {16, 1, 128, 192}, "t2");
-    G.AddTensor(DataType::DT_FP16, {16, 1, 128, 128}, "t3");
+    G.AddTensor(DataType::DT_FP16, {16, 1, 128, 192}, "t3");
     G.AddOp(Opcode::OP_RESHAPE, {"t1"}, {"t2"}, "RESHAPE1");
     G.AddOp(Opcode::OP_VIEW, {"t2"}, {"t3"}, "VIEW");
 
