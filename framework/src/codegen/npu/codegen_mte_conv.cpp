@@ -50,11 +50,16 @@ std::vector<std::string> CodeGenOpNPU::BuildCopyInParamList(
     tileOpParamList.emplace_back(srcTensor);
 
     if (functionType == FunctionType::STATIC) {
-        for (size_t i = 0; i < staticOffsets.size(); i++) {
-            tileOpParamList.emplace_back(std::to_string(staticOffsets[i]));
-        }
-        if (!isConv3D) {
+        if (isConv3D) {
+            for (size_t i = 0; i < staticOffsets.size(); i++) {
+                tileOpParamList.emplace_back(std::to_string(staticOffsets[i]));
+            }
+        } else {
+            tileOpParamList.emplace_back(std::to_string(staticOffsets[ID0]));
+            tileOpParamList.emplace_back(std::to_string(staticOffsets[ID1]));
             tileOpParamList.emplace_back("0");
+            tileOpParamList.emplace_back(std::to_string(staticOffsets[ID2]));
+            tileOpParamList.emplace_back(std::to_string(staticOffsets[ID3]));
         }
     } else if (isConv3D) {
         for (size_t i = 0; i < gmOffsetExpr.size(); i++) {
@@ -92,11 +97,16 @@ std::vector<std::string> CodeGenOpNPU::BuildCopyOutParamList(
     tileOpParamList.emplace_back(srcTensor);
 
     if (functionType == FunctionType::STATIC) {
-        for (size_t i = 0; i < staticOffsets.size(); i++) {
-            tileOpParamList.emplace_back(std::to_string(staticOffsets[i]));
-        }
-        if (!isConv3D) {
+        if (isConv3D) {
+            for (size_t i = 0; i < staticOffsets.size(); i++) {
+                tileOpParamList.emplace_back(std::to_string(staticOffsets[i]));
+            }
+        } else {
+            tileOpParamList.emplace_back(std::to_string(staticOffsets[ID0]));
+            tileOpParamList.emplace_back(std::to_string(staticOffsets[ID1]));
             tileOpParamList.emplace_back("0");
+            tileOpParamList.emplace_back(std::to_string(staticOffsets[ID2]));
+            tileOpParamList.emplace_back(std::to_string(staticOffsets[ID3]));
         }
     } else if (isConv3D) {
         for (size_t i = 0; i < gmOffsetExpr.size(); i++) {
