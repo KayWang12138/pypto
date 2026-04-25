@@ -512,6 +512,12 @@ def sparse_flash_attention_quant_d_950(
     runtime_options={
         "stitch_function_max_num": 128,
         "device_sched_mode": 3
+    },
+    debug_options={
+        "runtime_debug_mode": 0
+    },
+    host_options={
+        "compile_monitor_enable": False
     }
 )
 def sparse_flash_attention_quant_d(
@@ -572,6 +578,9 @@ def sparse_flash_attention_quant_d(
     },
     runtime_options={
         "stitch_function_max_num": 128
+    },
+    debug_options={
+        "runtime_debug_mode": 0
     }
 )
 def sparse_flash_attention_quant_p(

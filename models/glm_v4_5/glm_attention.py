@@ -446,8 +446,8 @@ def ifa_func_kernel(
     # 当子图大小达到上界不允许与其他子图合并
     pass_options={
     # Q常驻，0代表第一组mmad，4代表4次matmul合并
-    "cube_l1_reuse_setting": {0: 32},
-    "cube_nbuffer_setting": {1: 4}
+    "cube_l1_reuse_setting": {0: 32, 4: 32, 6: 32, 8: 32},
+    "cube_nbuffer_setting": {1: 4, 3: 4, 5: 4, 7: 4},
     },
     host_options={"compile_monitor_enable": True},
     debug_options={"runtime_debug_mode": 1, "compile_debug_mode": 0}
@@ -832,6 +832,7 @@ def attention_for_950(
         ifa_func_kernel_for_950(*inputs)
 
 if __name__ == "__main__":
+    pypto.set_host_options(compile_monitor_enable=True)
     test_ifa()
     if pypto.platform.npuarch == 'DAV_3510':
         # 950上板

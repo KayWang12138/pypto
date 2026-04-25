@@ -212,7 +212,9 @@ def lightning_indexer_decode_compute(
     runtime_options={
         "stitch_function_max_num": 128,
         "device_sched_mode": 1
-    }
+    },
+    debug_options={"runtime_debug_mode": 0},
+    host_options={"compile_monitor_enable": False}
 )
 def lightning_indexer_decode(
     idx_query: pypto.Tensor([pypto.DYNAMIC, pypto.STATIC, pypto.STATIC], pypto.DT_INT8),

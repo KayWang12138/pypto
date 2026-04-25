@@ -852,10 +852,11 @@ def reshape_qkv_to_2d(q, k, v, kernel_params):
         "device_sched_mode": 1
     },
     pass_options={
-        "cube_l1_reuse_setting": {0: 8},
-        "vec_nbuffer_setting": {0: 2}
+        "cube_l1_reuse_setting": {0: 8, 27: 8},
+        "vec_nbuffer_setting": {0: 2, 1: 2}
     },
-    debug_options={"runtime_debug_mode": 1}
+    debug_options={"runtime_debug_mode": 0},
+    host_options={"compile_monitor_enable": False}
 )
 def ifa_func_kernel(
     q: pypto.Tensor([pypto.DYNAMIC, ...], pypto.DT_BF16),
