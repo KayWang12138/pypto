@@ -239,6 +239,28 @@ python3 custom/{op}/test_{op}.py
 
 ---
 
+## 复杂算子（attention 类、recurrent、fused）
+
+对于复杂算子，标准模板 `templates/impl-template.py`（92 行）可能不足以承载完整结构。请改用 `templates/complex-kernel-template/` 下的 multi-file 模板组合：
+
+| 文件 | 包含 layer | 来源模板 |
+|------|-----------|---------|
+| `<op>_golden.py` | B–F（math helpers, forward_ref, golden）| `pypto-golden-generate/templates/golden-template.py` |
+| `<op>_impl.py` | G–K（PyPTO 子内核, kernel impl, JIT entry, 主机包装器）| `templates/complex-kernel-template/impl-template.py` |
+| `test_<op>.py` | L（测试驱动）| `templates/complex-kernel-template/test-template.py` |
+
+详细的 layer 组织规范见 `references/kernel-layer-format.md`，包括：
+
+- **Layer F**：`<op>_golden`（精度对比的主要 oracle）
+- **Layer H**：`pypto_*` 命名的 PyPTO 子内核
+- **Layer I**：`*_kernel_impl` 中的 `pypto.loop` 嵌套
+- **Layer J**：`@pypto.frontend.jit` 入口
+- **Layer K**：`pypto_function` 主机包装器（**禁止 `for ... in range(...)`**，迭代必须用 `pypto.loop`）
+
+复杂算子推荐配合 `staged/` 目录使用渐进式开发流程，详见 `references/kernel-layer-format.md` §8。
+
+---
+
 ## 常见问题与解决方案
 
 ### 常见的 7 类错误
