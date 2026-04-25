@@ -13,7 +13,7 @@ description: 当需要编写 PyPTO 算子实现时使用此 skill。基于需求
 
 ### 需求规格信息
 
-需要以下算子规格信息：
+从 `SPEC.md` 中提取：
 
 | 字段 | 用途 |
 |------|------|
@@ -26,7 +26,7 @@ description: 当需要编写 PyPTO 算子实现时使用此 skill。基于需求
 
 ### 设计方案信息
 
-需要以下设计方案信息：
+从 `DESIGN.md` 中提取：
 
 | 字段 | 用途 |
 |------|------|
@@ -39,7 +39,7 @@ description: 当需要编写 PyPTO 算子实现时使用此 skill。基于需求
 
 ### 参考实现信息
 
-需要以下 golden 参考实现信息：
+从 `{op}_golden.py` 中提取：
 
 | 信息 | 用途 |
 |------|------|
@@ -201,7 +201,7 @@ python3 build_ci.py -f python3 --disable_auto_execute
 2. **执行算子验证**：
 检测到存在 NPU 卡时，直接使用 `run_mode=npu` 执行：
 ```bash
-python3 test_{op}.py
+python3 custom/{op}/test_{op}.py
 ```
 
 3. **验证失败处理**：
@@ -238,7 +238,29 @@ python3 test_{op}.py
 9. **动态轴必须显式标注**：所有动态 shape 输入和输出都要在 Tensor 注解中标成 `pypto.DYNAMIC` / `pypto.DYN`。
 10. **Element 用于固定标量 dtype**：当标量参与计算且 dtype 不能依赖隐式映射时，显式使用 `pypto.Element(dtype, value)`。
 11. **避免同图内回环读写**：同一 Tensor 不要在同一图里既 `view` 读取又 `assemble` 回写。
-12. 如果设计方案中已有 tiling / loop 约束，编码时优先遵循设计方案，不要临时拍脑袋改写。
+12. 如果设计中已有 tiling / loop 约束，编码时优先遵循 `DESIGN.md`，不要临时拍脑袋改写。
+
+---
+
+## 复杂算子（attention 类、recurrent、fused）
+
+对于复杂算子，标准模板 `templates/impl-template.py`（92 行）可能不足以承载完整结构。请改用 `templates/complex-kernel-template/` 下的 multi-file 模板组合：
+
+| 文件 | 包含 layer | 来源模板 |
+|------|-----------|---------|
+| `<op>_golden.py` | B–F（math helpers, forward_ref, golden）| `pypto-golden-generate/templates/golden-template.py` |
+| `<op>_impl.py` | G–K（PyPTO 子内核, kernel impl, JIT entry, 主机包装器）| `templates/complex-kernel-template/impl-template.py` |
+| `test_<op>.py` | L（测试驱动）| `templates/complex-kernel-template/test-template.py` |
+
+详细的 layer 组织规范见 `references/kernel-layer-format.md`，包括：
+
+- **Layer F**：`<op>_golden`（精度对比的主要 oracle）
+- **Layer H**：`pypto_*` 命名的 PyPTO 子内核
+- **Layer I**：`*_kernel_impl` 中的 `pypto.loop` 嵌套
+- **Layer J**：`@pypto.frontend.jit` 入口
+- **Layer K**：`pypto_function` 主机包装器（**禁止 `for ... in range(...)`**，迭代必须用 `pypto.loop`）
+
+复杂算子推荐配合 `staged/` 目录使用渐进式开发流程，详见 `references/kernel-layer-format.md` §8。
 
 ---
 
