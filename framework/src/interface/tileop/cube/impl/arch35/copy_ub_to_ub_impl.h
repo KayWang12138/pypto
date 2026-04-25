@@ -36,8 +36,9 @@ INLINE void TMoveND2NZImpl(DstTileData& dst, SrcTileData& src)
         staticNDW>;
     // staticNZH - 1 is for resolving bank conflicts
     using tileNZTensor = pto::Tile<
-        pto::TileType::Vec, typename T::Type, staticNZH, staticNZW, pto::BLayout::ColMajor, staticNZH - 1, staticNZW,
-        pto::SLayout::RowMajor, pto::TileConfig::fractalABSize, pto::PadValue::Null, pto::CompactMode::RowPlusOne>;
+        pto::TileType::Vec, typename DstTileData::Type, staticNZH, staticNZW, pto::BLayout::ColMajor, staticNZH - 1,
+        staticNZW, pto::SLayout::RowMajor, pto::TileConfig::fractalABSize, pto::PadValue::Null,
+        pto::CompactMode::RowPlusOne>;
     tileNDTensor srcTile;
     tileNZTensor dstTile;
     pto::TASSIGN(srcTile, static_cast<uint64_t>(src.GetAddr()));
