@@ -114,10 +114,12 @@ void bind_operation(py::module& m)
         py::arg("self"), py::arg("precision_type") = ExpAlgorithm::HIGH_PRECISION, "Tensor exp.");
     m.def(
         "Expm1", [](const Tensor& self) { return npu::tile_fwk::Expm1(self); }, "Tensor expm1.");
-
+    m.def(
+        "Sin", [](const Tensor& self) { return npu::tile_fwk::Sin(self); }, "Tensor sin.");
+    m.def(
+        "Cos", [](const Tensor& self) { return npu::tile_fwk::Cos(self); }, "Tensor cos.");
     m.def(
         "Exp2", [](const Tensor& self) { return npu::tile_fwk::Exp2(self); }, "Tensor exp2.");
-
     m.def(
         "Permute",
         [](const Tensor& self, const std::vector<int>& perm) { return npu::tile_fwk::Permute(self, perm); },
@@ -201,7 +203,20 @@ void bind_operation(py::module& m)
         },
         py::arg("operand"), py::arg("new_data_type"), py::arg("mode") = CAST_NONE,
         py::arg("satmode") = SaturationMode::OFF, "Tensor cast.");
-
+    m.def(
+        "Quantize",
+        [](const Tensor &input, const Tensor &scale, DataType otype, int axis, const Tensor &zeroPoints) {
+            return npu::tile_fwk::Quantize(input, scale, otype, axis, zeroPoints);
+        },
+        py::arg("input"), py::arg("scale"), py::arg("otype"), py::arg("axis"),
+        py::arg("zero_points") = Tensor(), "Tensor Quantize.");
+    m.def(
+        "Dequantize",
+        [](const Tensor &input, const Tensor &scale, DataType otype, int axis, const Tensor &zeroPoints) {
+            return npu::tile_fwk::Dequantize(input, scale, otype, axis, zeroPoints);
+        },
+        py::arg("input"), py::arg("scale"), py::arg("otype"), py::arg("axis"),
+        py::arg("zero_points") = Tensor(), "Tensor Dequantize.");
     m.def(
         "Add", [](const Tensor& self, const Element& other) { return npu::tile_fwk::Add(self, other); },
         "Tensor add scalar.");

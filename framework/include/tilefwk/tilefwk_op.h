@@ -183,6 +183,8 @@ Tensor Permute(const Tensor &self, std::vector<int> perm);
 Tensor Exp(const Tensor& self, ExpAlgorithm precisionType = ExpAlgorithm::DEFAULT);
 Tensor Exp2(const Tensor& self);
 Tensor Expm1(const Tensor& self);
+Tensor Sin(const Tensor& self);
+Tensor Cos(const Tensor& self);
 Tensor Neg(const Tensor& self);
 Tensor Round(const Tensor& self, const int& decimals = 0);
 Tensor Rsqrt(const Tensor& self, RsqrtAlgorithm precisionType = RsqrtAlgorithm::DEFAULT);
@@ -306,8 +308,6 @@ Tensor ScatterUpdate(
 
 Tensor Expand(const Tensor& self, const std::vector<int64_t>& dstShape, std::vector<SymbolicScalar> validShape = {});
 
-Tensor Sin(Tensor operand);
-Tensor Cos(Tensor operand);
 Tensor Var(const Tensor& input, const std::vector<int>& dim = {}, float correction = 1.0f, bool keepDim = false);
 Tensor Softmax(const Tensor& operand);
 Tensor RmsNorm(const Tensor& operand);
@@ -331,6 +331,11 @@ std::tuple<Tensor, Tensor> TopK(const Tensor& self, int k, int axis = -1, bool i
 Tensor ArgSort(const Tensor& self, int axis = -1, bool descending = false);
 Tensor Sort32(const Tensor& self, int idxStart = 0);
 Tensor MrgSort(const Tensor& self, int mergeSize);
+
+// support float32 -> int8/uint8
+Tensor Quantize(const Tensor &input, const Tensor &scale, DataType dtype, int axis, const Tensor &zeroPoints);
+// support int8/int16 -> float32
+Tensor Dequantize(const Tensor &input, const Tensor &scale, DataType otype, int axis, const Tensor &zeroPoints);
 
 /**
  * @brief Sort a tensor with shape (1, n) along the last dimension, n must be orders of 2.
