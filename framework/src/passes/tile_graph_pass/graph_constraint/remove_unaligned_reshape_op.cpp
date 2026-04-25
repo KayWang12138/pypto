@@ -80,7 +80,6 @@ LogicalTensorPtr RemoveUnalignedReshape::InsertIOTensor(
     auto newReshapeIO = std::make_shared<LogicalTensor>(
         function, rawIO[ioTensor->tensor->rawmagic], ioTensor->offset, ioTensor->oriShape);
     newReshapeIO->SetMemoryTypeBoth(MemoryType::MEM_DEVICE_DDR, true);
-    newReshapeIO->isSubGraphBoundary = true;
     function.GetTensorMap().Insert(newReshapeIO);
     return newReshapeIO;
 }
