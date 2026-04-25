@@ -345,13 +345,8 @@ TEST_F(SubgraphToFunctionTest, SameOffset)
     for (const auto& pair : PSgToESgMap) {
         uniquePSgIds.insert(pair.first);
     }
-<<<<<<< HEAD
     size_t mergedSubgraphCount = uniquePSgIds.size();
     EXPECT_EQ(mergedSubgraphCount, 2);
-=======
-
-    EXPECT_EQ(uniquePSgIds.size(), 1);
->>>>>>> f716e790151cedf4f83009c507a75b95755855f9
     EXPECT_TRUE(ArePsgHashesUnique(*rootFunc));
     EXPECT_TRUE(IsPSgToESgMapOneToOne(PSgToESgMap));
 }
