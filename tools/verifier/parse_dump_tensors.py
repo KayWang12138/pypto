@@ -409,25 +409,14 @@ class CompactDumpTensorInfoParser:
             
             verify_tensor_data = np.fromfile(verify_tensor_info, dtype)
             verify_tensor_data = verify_tensor_data.reshape(verify_tshape)
+
+            config = _get_compare_config(dtype)
+            tensor_a = torch.from_numpy(raw_data.astype(np.float64)).to(torch.float64)
+            tensor_b = torch.from_numpy(verify_tensor_data.astype(np.float64)).to(torch.float64)
+            cmp_result = compare_tensors_result_dict(tensor_a, tensor_b, config=config)
+            for key, value in cmp_result.items():
+                merge_tensor_info[key] = value
             
-            # 整型数据：精确对比
-            if np.issubdtype(dtype, np.integer):
-                cmp_result = np.array_equal(raw_data, verify_tensor_data)
-                merge_tensor_info["AB>RESULT"] = bool(cmp_result)
-                if not cmp_result:
-                    merge_tensor_info["result_reason"] = "integer values not equal"
-            else:
-                # 浮点数据：容差对比
-                config = _get_compare_config(dtype)
-                try:
-                    tensor_a = torch.from_numpy(raw_data.astype(np.float64)).to(torch.float64)
-                    tensor_b = torch.from_numpy(verify_tensor_data.astype(np.float64)).to(torch.float64)
-                    cmp_result = compare_tensors_result_dict(tensor_a, tensor_b, config=config)
-                    for key, value in cmp_result.items():
-                        merge_tensor_info[key] = value
-                except Exception as e:
-                    merge_tensor_info["AB>RESULT"] = False
-                    merge_tensor_info["result_reason"] = f"compare error: {str(e)}"
         else:
             merge_tensor_info["AB>RESULT"] = "NO_CMP"
             merge_tensor_info["result_reason"] = "verify file not exist or shape mismatch"
