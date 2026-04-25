@@ -310,9 +310,9 @@ Status ReplaceTensor::FindBaseTensor(
             boundTensors.push_back(curTensor);
         }
     }
-    baseTensor = group.front();
-    int64_t baseShape = abs(baseTensor->tensor->GetRawDataSize());
     LogicalTensors baseGroup = boundTensors.empty() ? group : boundTensors;
+    baseTensor = baseGroup.front();
+    int64_t baseShape = abs(baseTensor->tensor->GetRawDataSize());
     for (auto& curTensor : baseGroup) {
         int64_t curShape = abs(curTensor->tensor->GetRawDataSize());
         if (curShape > baseShape) {
