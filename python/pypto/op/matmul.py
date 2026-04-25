@@ -152,7 +152,7 @@ def matmul(
                 out_dtype, input, mat2, a_trans, b_trans, c_matrix_nz
             )
     else:
-        return pypto_impl.BatchMatmul(
+        return pypto_impl.Batch_matmul(
             out_dtype, input, mat2, a_trans, b_trans, c_matrix_nz
         )
 
