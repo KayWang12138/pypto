@@ -724,7 +724,7 @@ struct FunctionInterpreter {
         return context->CheckWaitCondition(srcRank, attr.expectedSum, slotSize, offset);
     }
 
-    std::unordered_map<Operation*, std::vector<Operation*>> ConstructOpConsumers(OperationViewer operations, std::unordered_map<Operation*, int> &inDegree) {
+    std::unordered_map<Operation*, std::vector<Operation*>> ConstructOpConsumers(OperationsViewer operations, std::unordered_map<Operation*, int> &inDegree) {
         std::unordered_map<Operation*, std::vector<Operation*>> consumers;
         std::unordered_set<Operation*> opSet;
         for (auto &op: operations) {
@@ -1161,10 +1161,10 @@ struct FunctionInterpreter {
                 if (op->GetOpcode() == Opcode::OP_SHMEM_WAIT_UNTIL) {
                     auto iopList = frame->GetDataViewList(op->GetIOperands());
                     LogicalTensorDataPtr shmData = iopList[1];
-                    if (CheckWaitCondition(op, shmData)) {
+                    if (CheckWaitUntilReady(op, shmData)) {
                         std::cout << "Start | execute op " << op->GetOpcodeStr() << ":" << op->GetOpMagic() << std::endl;
-                        ExecuteHandleOperationBegin(&op);
-                        ExecuteOperation(*frame, &op);
+                        ExecuteHandleOperationBegin(op);
+                        ExecuteOperation(*frame, op);
                         ExecuteHandleOperationEnd();
                         for (auto *consumer: consumers[op]) {
                             inDegree[consumer]--;
@@ -1176,8 +1176,8 @@ struct FunctionInterpreter {
                     }
                 } else {
                     std::cout << "Start | execute op " << op->GetOpcodeStr() << ":" << op->GetOpMagic() << std::endl;
-                    ExecuteHandleOperationBegin(&op);
-                    ExecuteOperation(*frame, &op);
+                    ExecuteHandleOperationBegin(op);
+                    ExecuteOperation(*frame, op);
                     ExecuteHandleOperationEnd();
                     std::cout << "End | execute op " << op->GetOpcodeStr() << ":" << op->GetOpMagic() << std::endl;
                     for (auto *consumer: consumers[op]) {
