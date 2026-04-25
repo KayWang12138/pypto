@@ -223,7 +223,17 @@ def export_session_to_markdown(
     raw_json_file: Optional[Path] = None,
     timeout_sec: int = DEFAULT_EXPORT_TIMEOUT_SEC,
 ) -> OpencodeExportResult:
-    """Run ``opencode export`` and render the JSON transcript as Markdown."""
+    """Render one OpenCode session transcript as Markdown."""
+    data = _load_session_export_from_db(session_id)
+    if data is not None:
+        return _write_session_markdown(
+            session_id=session_id,
+            data=data,
+            output_file=output_file,
+            raw_json_file=raw_json_file,
+            message="Markdown transcript exported from OpenCode sqlite storage.",
+        )
+
     try:
         opencode = _resolve_opencode(opencode_bin)
         completed = subprocess.run(
@@ -275,6 +285,23 @@ def export_session_to_markdown(
             message=f"opencode export JSON 解析失败: {exc}",
         )
 
+    return _write_session_markdown(
+        session_id=session_id,
+        data=data,
+        output_file=output_file,
+        raw_json_file=raw_json_file,
+        message="Markdown transcript exported.",
+    )
+
+
+def _write_session_markdown(
+    *,
+    session_id: str,
+    data: Dict[str, Any],
+    output_file: Path,
+    raw_json_file: Optional[Path],
+    message: str,
+) -> OpencodeExportResult:
     try:
         if raw_json_file is not None:
             raw_json_file.parent.mkdir(parents=True, exist_ok=True)
@@ -296,7 +323,7 @@ def export_session_to_markdown(
         session_id=session_id,
         markdown_file=output_file,
         status="exported",
-        message="Markdown transcript exported.",
+        message=message,
     )
 
 
@@ -526,15 +553,113 @@ def _resolve_opencode(opencode_bin: str = "") -> str:
     return found
 
 
+def _load_session_export_from_db(session_id: str) -> Optional[Dict[str, Any]]:
+    """Build an OpenCode export transcript from sqlite storage."""
+    for db_path in _opencode_db_paths():
+        data = _load_session_export_from_db_path(db_path, session_id)
+        if data is not None:
+            return data
+    return None
+
+
+def _load_session_export_from_db_path(
+    db_path: Path,
+    session_id: str,
+) -> Optional[Dict[str, Any]]:
+    if not db_path.exists():
+        return None
+    try:
+        with sqlite3.connect(f"file:{db_path}?mode=ro", uri=True, timeout=5.0) as conn:
+            session = conn.execute(
+                "select id, title, directory, version, time_created, time_updated "
+                "from session where id = ?",
+                (session_id,),
+            ).fetchone()
+            if session is None:
+                return None
+
+            message_rows = conn.execute(
+                "select id, data from message where session_id = ? "
+                "order by time_created asc, id asc",
+                (session_id,),
+            ).fetchall()
+            part_rows = conn.execute(
+                "select message_id, data from part where session_id = ? "
+                "order by time_created asc, id asc",
+                (session_id,),
+            ).fetchall()
+    except sqlite3.Error:
+        return None
+
+    parts_by_message: Dict[str, List[Dict[str, Any]]] = {}
+    for message_id, part_text in part_rows:
+        part_data = _loads_json_object(part_text)
+        if part_data is not None:
+            parts_by_message.setdefault(str(message_id), []).append(part_data)
+
+    messages: List[Dict[str, Any]] = []
+    for message_id, message_text in message_rows:
+        message_info = _loads_json_object(message_text)
+        if message_info is None:
+            continue
+        message_info.setdefault("id", str(message_id))
+        messages.append(
+            {
+                "info": message_info,
+                "parts": parts_by_message.get(str(message_id), []),
+            }
+        )
+
+    sid, title, directory, version, created, updated = session
+    return {
+        "info": {
+            "id": sid,
+            "title": title,
+            "directory": directory,
+            "version": version,
+            "time": {
+                "created": created,
+                "updated": updated,
+            },
+        },
+        "messages": messages,
+    }
+
+
+def _loads_json_object(text: Any) -> Optional[Dict[str, Any]]:
+    if not isinstance(text, str):
+        return None
+    try:
+        value = json.loads(text)
+    except json.JSONDecodeError:
+        return None
+    return value if isinstance(value, dict) else None
+
+
 def _resolve_session_id_by_title_from_db(
     session_title: str,
     *,
     cwd: Optional[Path],
 ) -> Optional[str]:
-    db_path = _opencode_db_path()
-    if db_path is None or not db_path.exists():
-        return None
+    for db_path in _opencode_db_paths():
+        session_id = _resolve_session_id_by_title_from_db_path(
+            db_path,
+            session_title,
+            cwd=cwd,
+        )
+        if session_id:
+            return session_id
+    return None
 
+
+def _resolve_session_id_by_title_from_db_path(
+    db_path: Path,
+    session_title: str,
+    *,
+    cwd: Optional[Path],
+) -> Optional[str]:
+    if not db_path.exists():
+        return None
     cwd_resolved = str(cwd.resolve()) if cwd else ""
     try:
         with sqlite3.connect(f"file:{db_path}?mode=ro", uri=True, timeout=5.0) as conn:
@@ -555,14 +680,30 @@ def _resolve_session_id_by_title_from_db(
     return str(rows[0][0])
 
 
-def _opencode_db_path() -> Optional[Path]:
+def _opencode_db_paths() -> List[Path]:
     explicit = os.environ.get("OPENCODE_DB")
     if explicit:
-        return Path(explicit).expanduser()
+        return [Path(explicit).expanduser()]
+
+    candidates: List[Path] = []
     data_home = os.environ.get("XDG_DATA_HOME")
     if data_home:
-        return Path(data_home).expanduser() / "opencode" / "opencode.db"
-    return Path.home() / ".local" / "share" / "opencode" / "opencode.db"
+        candidates.append(Path(data_home).expanduser() / "opencode" / "opencode.db")
+    candidates.append(Path.home() / ".local" / "share" / "opencode" / "opencode.db")
+
+    out: List[Path] = []
+    seen = set()
+    for path in candidates:
+        key = str(path)
+        if key not in seen:
+            seen.add(key)
+            out.append(path)
+    return out
+
+
+def _opencode_db_path() -> Optional[Path]:
+    paths = _opencode_db_paths()
+    return paths[0] if paths else None
 
 
 def _parse_compatible_args(

@@ -139,7 +139,12 @@ chmod +x "${FAKE_OPENCODE}"
 
 EXPORT_MD="${BENCHMARK_LOG_DIR}/invalid_utf8_session.md"
 TRUNCATED_MD="${BENCHMARK_LOG_DIR}/truncated_utf8_session.md"
+SQLITE_DB="${BENCHMARK_LOG_DIR}/opencode.db"
+SQLITE_MD="${BENCHMARK_LOG_DIR}/sqlite_session.md"
 python3 - <<PY || fail "opencode_exporter 非 UTF-8 输出容错失败"
+import json
+import os
+import sqlite3
 from pathlib import Path
 
 from integration.benchmark.opencode_exporter import (
@@ -175,6 +180,63 @@ append_export_result_to_log(Path("${BENCHMARK_LOG_DIR}/pypto_run.log"), truncate
 error_file = Path("${BENCHMARK_LOG_DIR}/pypto_session_export.log")
 assert error_file.exists(), "missing pypto_session_export.log"
 assert "JSON" in error_file.read_text(encoding="utf-8")
+
+db_path = Path("${SQLITE_DB}")
+conn = sqlite3.connect(db_path)
+conn.execute(
+    "create table session ("
+    "id text primary key, title text, directory text, version text, "
+    "time_created integer, time_updated integer)"
+)
+conn.execute(
+    "create table message ("
+    "id text primary key, session_id text, time_created integer, "
+    "time_updated integer, data text)"
+)
+conn.execute(
+    "create table part ("
+    "id text primary key, message_id text, session_id text, "
+    "time_created integer, time_updated integer, data text)"
+)
+conn.execute(
+    "insert into session values (?, ?, ?, ?, ?, ?)",
+    ("ses_sqlitestorage", "sqlite transcript", "${PYPTO_ROOT}", "test", 1, 2),
+)
+conn.execute(
+    "insert into message values (?, ?, ?, ?, ?)",
+    (
+        "msg_sqlite",
+        "ses_sqlitestorage",
+        1,
+        2,
+        json.dumps({"role": "assistant", "time": {"created": 1, "completed": 2}}),
+    ),
+)
+conn.execute(
+    "insert into part values (?, ?, ?, ?, ?, ?)",
+    (
+        "prt_sqlite",
+        "msg_sqlite",
+        "ses_sqlitestorage",
+        1,
+        2,
+        json.dumps({"type": "text", "text": "sqlite source " + "x" * 120000}),
+    ),
+)
+conn.commit()
+conn.close()
+
+os.environ["OPENCODE_DB"] = str(db_path)
+sqlite_result = export_session_to_markdown(
+    session_id="ses_sqlitestorage",
+    output_file=Path("${SQLITE_MD}"),
+    opencode_bin="/missing/opencode",
+    cwd=Path("${PYPTO_ROOT}"),
+)
+assert sqlite_result.ok, sqlite_result.to_dict()
+assert "sqlite storage" in sqlite_result.message, sqlite_result.to_dict()
+assert "sqlite source" in Path("${SQLITE_MD}").read_text(encoding="utf-8")
+print(sqlite_result.to_dict())
 PY
 pass "opencode export stdout 非法 UTF-8 不再抛 UnicodeDecodeError"
 
