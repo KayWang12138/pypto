@@ -19,6 +19,8 @@
 #include "codegen/npu/codegen_npu.h"
 
 namespace npu::tile_fwk {
+const std::string CODEGEN_LITENPU_WORKSPACE = "workspace";
+
 class CompileInfoLiteNPU : public CompileInfo {
 public:
     CompileInfoLiteNPU(

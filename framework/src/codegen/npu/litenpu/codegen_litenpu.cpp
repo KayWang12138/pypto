@@ -315,8 +315,8 @@ extern "C" __global__ [aicore] void ${FunctionName}$_main(${GlobalParams}$) {
         subParams += p + ", ";
     }
     if (subFuncPair.second->GetStackWorkespaceSize() > 0) {
-        globalParams += "__gm__ int8_t* __restrict__ workspace, ";
-        subParams += "workspace, ";
+        globalParams += "__gm__ int8_t* __restrict__ " + CODEGEN_LITENPU_WORKSPACE + ", ";
+        subParams += CODEGEN_LITENPU_WORKSPACE + ", ";
     }
 
     SubstMap substMap = {

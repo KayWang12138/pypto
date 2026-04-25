@@ -440,13 +440,38 @@ SymbolicScalar CodeGenOpNPU::GetOperandStartOffset(int operandIdx) const
     return resOffset;
 }
 
+std::string CodeGenOpNPU::GetGmTensorAddrByAttr(unsigned gmParamIdx) const
+{
+    std::map<int, SymbolicScalar> addrs;
+    bool ret = GetTensorAttr(gmParamIdx, TensorAttributeKey::tensorAddr, addrs);
+    if (!ret || addrs.empty()) {
+        CODEGEN_LOGW(
+            "gmParamIdx: %u, tensorAddr is not found in attr !! op: %s", gmParamIdx, originalOp.Dump().c_str());
+        return "";
+    }
+    auto iter = addrs.find(originalOp.GetOpMagic());
+    ASSERT(OperErr::ATTRIBUTE_INVALID, iter != addrs.end())
+        << "add is not found by opMagic: " << originalOp.GetOpMagic() << ", gmParamIdx: " << gmParamIdx
+        << ", op: " << originalOp.Dump();
+    std::string gmParamVar = SymbolicExpressionTable::BuildExpression(iter->second);
+    CODEGEN_LOGI("gmParamVar from attr is : %s", gmParamVar.c_str());
+    return gmParamVar;
+}
+
 std::string CodeGenOpNPU::GenGmParamVar(unsigned gmParamIdx) const
 {
     if (isUnderDynamicFunction) {
+        std::string gmParamVar = GetGmTensorAddrByAttr(gmParamIdx);
+        if (!gmParamVar.empty()) {
+            return gmParamVar;
+        }
+        // Use CodeGen generation as the fallback
         std::ostringstream os;
         os << "GET_PARAM_ADDR(" << GM_TENSOR_PARAM_STR << ", " << GmTensorParamIdxInCallFunc << ", "
            << paramLocation[gmParamIdx] << ")";
-        return os.str();
+        gmParamVar = os.str();
+        CODEGEN_LOGI("gmParamVar by codegen: %s", gmParamVar.c_str());
+        return gmParamVar;
     }
 
     auto paramLoc = paramLocation[gmParamIdx];
@@ -650,7 +675,7 @@ bool CodeGenOpNPU::ShouldSkipProcInLoop(int paramIdx)
 std::vector<SymbolicScalar> CodeGenOpNPU::GetLoopAxes()
 {
     std::vector<SymbolicScalar> loopAxes;
-    GetAttr(OpAttributeKey::loopAxes, loopAxes);
+    GetOpAttr(OpAttributeKey::loopAxes, loopAxes);
 
     if (!isMainBlock) {
         return loopAxes;
@@ -677,7 +702,7 @@ void CodeGenOpNPU::UpdateLoopInfo()
     }
 
     bool isLoopStart{false};
-    if (GetAttr(OpAttributeKey::loopGroupStart, isLoopStart) && isLoopStart) {
+    if (GetOpAttr(OpAttributeKey::loopGroupStart, isLoopStart) && isLoopStart) {
         forBlkMgr_->LoopStart();
         forBlkMgr_->UpdateAxesList(loopAxes);
     }
@@ -817,7 +842,7 @@ std::string CodeGenOpNPU::GenOpCode() const
     forBlkMgr_->AddOpInLoopBody(ret);
 
     bool isLoopEnd{false};
-    GetAttr(OpAttributeKey::loopGroupEnd, isLoopEnd);
+    GetOpAttr(OpAttributeKey::loopGroupEnd, isLoopEnd);
     if (!isLoopEnd) {
         return "";
     }
@@ -833,7 +858,8 @@ std::string CodeGenOpNPU::GetLastUse() const
     if (!opAttrs.count(OpAttributeKey::lastUse)) {
         return "";
     }
-    std::vector<int64_t> val = GetVectorIntAttribute(OpAttributeKey::lastUse);
+    std::vector<int64_t> val;
+    GetOpAttr(OpAttributeKey::lastUse, val);
     int valSize = val.size();
     ASSERT(OperErr::ATTRIBUTE_INVALID, valSize != 0) << "GetLastUse error!!!";
     std::ostringstream oss;

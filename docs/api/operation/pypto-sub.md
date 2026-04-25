@@ -1,4 +1,4 @@
-# pypto.sub
+﻿# pypto.sub
 
 ## 产品支持情况
 
@@ -27,8 +27,8 @@ sub(input: Tensor, other: Union[Tensor, float], *, alpha: Union[int, float] = 1)
 
 | 参数名  | 输入/输出 | 说明                                                                 |
 |---------|-----------|----------------------------------------------------------------------|
-| input   | 输入      | 源操作数。 <br> 支持的类型为：Tensor。 <br> Tensor支持的数据类型为：DT_FP16，DT_BF16, DT_INT16，DT_INT32，DT_FP32。 <br> 不支持空Tensor；Shape仅支持2-4维；支持多维度广播到相同形状；Shape Size不大于2147483647（即INT32_MAX）。 |
-| other   | 输入      | 源操作数。 <br> 支持的类型为float以及Tensor类型。 <br> Tensor支持的数据类型为：DT_FP16，DT_BF16, DT_INT16，DT_INT32，DT_FP32。 <br> 不支持空Tensor；Shape仅支持2-4维；支持多维度广播到相同形状；Shape Size不大于2147483647（即INT32_MAX）。 |
+| input   | 输入      | 源操作数。 <br> 支持的类型为：Tensor。 <br> Tensor支持的数据类型为：DT_FP16，DT_BF16, DT_INT16，DT_INT32，DT_FP32。 <br> 不支持空Tensor；Shape仅支持1-4维；支持多维度广播到相同形状；Shape Size不大于2147483647（即INT32_MAX）。 |
+| other   | 输入      | 源操作数。 <br> 支持的类型为float以及Tensor类型。 <br> Tensor支持的数据类型为：DT_FP16，DT_BF16, DT_INT16，DT_INT32，DT_FP32。 <br> 不支持空Tensor；Shape仅支持1-4维；支持多维度广播到相同形状；Shape Size不大于2147483647（即INT32_MAX）。 |
 | alpha   | 输入      | 缩放因子，用于对 other 进行缩放。 <br> 支持的类型为：int、float，默认值为1。 <br> 关键字参数，必须通过关键字传递。 |
 ## 返回值说明
 
@@ -48,13 +48,13 @@ sub(input: Tensor, other: Union[Tensor, float], *, alpha: Union[int, float] = 1)
 
 TileShape维度应和输出一致。
 
-示例1：非广播场景，输入intput shape为[m, n]，other为[m, n]，输出为[m, n]，TileShape设置为[m1, n1], 则m1, n1分别用于切分m, n轴。
+示例1：非广播场景，输入input shape为[m, n]，other为[m, n]，输出为[m, n]，TileShape设置为[m1, n1], 则m1, n1分别用于切分m, n轴。
 
 ```python
 pypto.set_vec_tile_shapes(4, 16)
 ```
 
-示例2：广播场景，输入intput shape为[m, n]，other为[m, 1]，输出为[m, n]，TileShape设置为[m1, n1], 则m1, n1分别用于切分m, n轴。
+示例2：广播场景，输入input shape为[m, n]，other为[m, 1]，输出为[m, n]，TileShape设置为[m1, n1], 则m1, n1分别用于切分m, n轴。
 
 ```python
 pypto.set_vec_tile_shapes(4, 16)
