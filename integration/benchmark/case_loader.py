@@ -79,6 +79,8 @@ class CaseSpec:
     tolerance: Dict[str, float] = field(
         default_factory=lambda: {"rtol": 1e-3, "atol": 1e-3}
     )
+    dynamic_axis: Optional[List[str]] = None
+    formula: str = ""
 
 
 # ────────────────────────────────────────────────────────────
@@ -136,6 +138,45 @@ def _has_kernelbench_layout(tree: ast.Module) -> List[str]:
     if not has_init:
         missing.append("def get_init_inputs")
     return missing
+
+
+def _extract_new_interface_globals(tree: ast.Module) -> tuple[str, Optional[List[str]]]:
+    """提取新增 KernelBench case 顶层接口: ``FORMULA`` / ``DYNAMIC_AXIS``.
+
+    旧 case 没有这两个全局变量时保持空值, SPEC.md 渲染时不会输出对应字段。
+    """
+    formula = ""
+    dynamic_axis: Optional[List[str]] = None
+    for node in tree.body:
+        targets: List[ast.expr]
+        value_node: Optional[ast.expr]
+        if isinstance(node, ast.Assign):
+            targets = list(node.targets)
+            value_node = node.value
+        elif isinstance(node, ast.AnnAssign):
+            targets = [node.target]
+            value_node = node.value
+        else:
+            continue
+        if value_node is None:
+            continue
+
+        names = [target.id for target in targets if isinstance(target, ast.Name)]
+        if not names:
+            continue
+
+        try:
+            value = ast.literal_eval(value_node)
+        except (ValueError, SyntaxError):
+            continue
+
+        if "FORMULA" in names and isinstance(value, str):
+            formula = value.strip()
+        if "DYNAMIC_AXIS" in names and isinstance(value, (list, tuple)):
+            axis = [str(item) for item in value]
+            if axis:
+                dynamic_axis = axis
+    return formula, dynamic_axis
 
 
 # ────────────────────────────────────────────────────────────
@@ -283,6 +324,7 @@ def load_case(case_path: Path, op_name: Optional[str] = None,
     framework = _detect_framework(tree)
     init_src = _extract_model_method_source(tree, source, "__init__")
     forward_src = _extract_model_method_source(tree, source, "__call__", "forward")
+    formula, dynamic_axis = _extract_new_interface_globals(tree)
     inputs, init_repr = _probe_inputs(case_path, timeout_sec=probe_timeout_sec)
     supported_dtypes, p0_shapes, tolerance = _derive_front_matter_fields(inputs)
 
@@ -299,6 +341,8 @@ def load_case(case_path: Path, op_name: Optional[str] = None,
         supported_dtypes=supported_dtypes,
         p0_shapes=p0_shapes,
         tolerance=tolerance,
+        dynamic_axis=dynamic_axis,
+        formula=formula,
     )
 
 
@@ -313,7 +357,7 @@ op_name: {op_name}
 supported_dtypes: {supported_dtypes_json}
 p0_shapes: {p0_shapes_json}
 tolerance: {tolerance_json}
----
+{dynamic_axis_front_matter}---
 
 # {op_name} 算子需求规格 (派生自上游 KernelBench)
 
@@ -329,6 +373,7 @@ tolerance: {tolerance_json}
 - **来源文件**: `{source_file}`
 - **参考框架 (framework)**: `{framework}`
 
+{formula_section}
 ## 输入规格
 
 {inputs_section}
@@ -400,6 +445,24 @@ def _render_inputs_section(inputs: List[TensorSpec]) -> str:
     return "\n".join(lines) + "\n"
 
 
+def _render_dynamic_axis_front_matter(dynamic_axis: Optional[List[str]]) -> str:
+    if not dynamic_axis:
+        return ""
+    return f"dynamic_axis: {json.dumps(dynamic_axis, ensure_ascii=False)}\n"
+
+
+def _render_formula_section(formula: str) -> str:
+    formula = textwrap.dedent(formula or "").strip()
+    if not formula:
+        return ""
+    return (
+        "### 1.3 数学公式\n\n"
+        "```text\n"
+        f"{formula}\n"
+        "```\n\n"
+    )
+
+
 def _normalize_dtype(dtype: str) -> str:
     """把 ``torch.float32`` / ``numpy.float32`` 等归一成 front matter dtype."""
     value = str(dtype or "").strip()
@@ -454,9 +517,11 @@ def render_spec_md(case: CaseSpec) -> str:
         supported_dtypes_json=json.dumps(supported_dtypes, ensure_ascii=False),
         p0_shapes_json=json.dumps(p0_shapes, ensure_ascii=False),
         tolerance_json=json.dumps(tolerance, ensure_ascii=False),
+        dynamic_axis_front_matter=_render_dynamic_axis_front_matter(case.dynamic_axis),
         case_id=case.case_id,
         source_file=case.source_file,
         framework=case.framework_module,
+        formula_section=_render_formula_section(case.formula),
         inputs_section=_render_inputs_section(case.inputs),
         init_args_repr=case.init_args_repr,
         init_source=textwrap.dedent(case.init_source).strip() or "# (未提取到 __init__ 源码)",

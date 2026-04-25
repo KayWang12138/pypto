@@ -35,6 +35,8 @@ def _parse_front_matter(markdown: str) -> dict:
     out["supported_dtypes"] = json.loads(out["supported_dtypes"])
     out["p0_shapes"] = json.loads(out["p0_shapes"])
     out["tolerance"] = json.loads(out["tolerance"])
+    if "dynamic_axis" in out:
+        out["dynamic_axis"] = json.loads(out["dynamic_axis"])
     return out
 
 
@@ -73,6 +75,27 @@ def test_render_spec_front_matter_probe_fallback() -> None:
     assert front_matter["supported_dtypes"] == ["float32"]
     assert front_matter["p0_shapes"] == []
     assert front_matter["tolerance"] == {"rtol": 0.001, "atol": 0.001}
+    assert "dynamic_axis" not in front_matter
+    assert "### 1.3 数学公式" not in render_spec_md(case)
+
+
+def test_render_spec_new_interface_globals_when_present() -> None:
+    case = CaseSpec(
+        op_name="DynamicAxisAdd",
+        case_id="101_DynamicAxisAdd",
+        source_file="/tmp/101_DynamicAxisAdd.py",
+        task_desc="FORMULA = 'out = x + bias'",
+        inputs=[TensorSpec(name="x0", shape=[2, 4, 8], dtype="float32")],
+        dynamic_axis=["B", "S"],
+        formula="out[b, s, d] = x[b, s, d] + bias[d]",
+    )
+
+    markdown = render_spec_md(case)
+    front_matter = _parse_front_matter(markdown)
+
+    assert front_matter["dynamic_axis"] == ["B", "S"]
+    assert "### 1.3 数学公式" in markdown
+    assert "out[b, s, d] = x[b, s, d] + bias[d]" in markdown
 
 
 def test_load_case_populates_front_matter_fields_and_write_spec(tmp_path) -> None:
@@ -108,3 +131,42 @@ def test_load_case_populates_front_matter_fields_and_write_spec(tmp_path) -> Non
     assert front_matter["op_name"] == "Softmax"
     assert front_matter["supported_dtypes"] == ["float32"]
     assert front_matter["p0_shapes"] == [[16, 256, 256]]
+
+
+def test_load_case_extracts_formula_and_dynamic_axis_globals(tmp_path) -> None:
+    case_file = tmp_path / "101_DynamicAxisAdd.py"
+    case_file.write_text(
+        textwrap.dedent(
+            """
+            FORMULA = "out[b, s, d] = x[b, s, d] + bias[d]"
+            DYNAMIC_AXIS = ["B", "S"]
+
+            class Model:
+                def __init__(self, hidden_size):
+                    self.hidden_size = hidden_size
+
+                def forward(self, x, bias):
+                    return x + bias
+
+            class FakeTensor:
+                shape = (2, 4, 8)
+                dtype = "float32"
+
+            def get_inputs():
+                return [FakeTensor(), FakeTensor()]
+
+            def get_init_inputs():
+                return [8]
+            """
+        ).strip(),
+        encoding="utf-8",
+    )
+
+    case = load_case(case_file, case_id="101_DynamicAxisAdd")
+    markdown = render_spec_md(case)
+    front_matter = _parse_front_matter(markdown)
+
+    assert case.formula == "out[b, s, d] = x[b, s, d] + bias[d]"
+    assert case.dynamic_axis == ["B", "S"]
+    assert front_matter["dynamic_axis"] == ["B", "S"]
+    assert "### 1.3 数学公式" in markdown

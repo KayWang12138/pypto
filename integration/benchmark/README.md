@@ -91,6 +91,10 @@ KERNELBENCH_DIR=/data/KernelBench \
 升级数据集 commit: 修改 `scripts/download_kernelbench.sh` 顶部的
 `KERNELBENCH_COMMIT` 常量 + `case_loader.py` docstring 里的 commit 引用.
 
+新增仓内自维护 case: 参考 [新增 KernelBench Case 指南](ADD_NEW_CASE.md),
+按 KernelBench 标准入口补充 `Model` / `get_inputs` / `get_init_inputs`,
+新规范 case 可在顶层声明 `FORMULA` 和 `DYNAMIC_AXIS`.
+
 ## 快速开始
 
 ### 依赖
