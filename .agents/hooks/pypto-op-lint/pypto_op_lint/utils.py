@@ -182,14 +182,25 @@ def _validate_tolerance(tol: dict[str, Any]) -> list[str]:
 
 
 def _validate_doc_schema(doc_type: str, meta: dict[str, Any]) -> list[str]:
-    required: dict[str, list[str]] = {
+    # 必填且不允许为空（空值视为缺失）
+    required_nonempty: dict[str, list[str]] = {
         "SPEC": ["schema_version", "op_name", "supported_dtypes", "p0_shapes", "tolerance"],
-        "DESIGN": ["schema_version", "op_name", "dynamic_axes"],
+        "DESIGN": ["schema_version", "op_name"],
         "API_REPORT": ["schema_version", "op_name"],
     }
+    # 必填但允许显式空值（如空列表代表“明确无此项”，例如 dynamic_axes: [] 表示
+    # 算子无动态轴；与字段完全缺失语义不同，应允许通过）
+    required_allow_empty: dict[str, list[str]] = {
+        "SPEC": [],
+        "DESIGN": ["dynamic_axes"],
+        "API_REPORT": [],
+    }
     errors: list[str] = []
-    for key in required.get(doc_type, []):
-        if key not in meta or meta[key] in (None, "", []):
+    for key in required_nonempty.get(doc_type, []):
+        if key not in meta or meta[key] in (None, "", [], {}):
+            errors.append(f"missing field: {key}")
+    for key in required_allow_empty.get(doc_type, []):
+        if key not in meta or meta[key] is None:
             errors.append(f"missing field: {key}")
     if doc_type == "SPEC":
         if "supported_dtypes" in meta and not isinstance(meta.get("supported_dtypes"), list):
