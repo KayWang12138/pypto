@@ -1897,7 +1897,6 @@ void SetCopyOpAttr(Operation* copyOp)
     std::vector<int64_t> shape = {256, 512};
     copyOp->SetOpAttribute(std::make_shared<CopyOpAttribute>(OpImmediate::Specified(offset),
         MemoryType::MEM_L1, OpImmediate::Specified(shape), OpImmediate::Specified(shape)));
-
 }
 
 void SetAttribute(ComputationalGraphBuilder &subGraph, OoOScheduler &oooSchedule, Operation* &ubCopyL1, Operation* &alloc3) {
