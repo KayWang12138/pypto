@@ -408,7 +408,7 @@ class TestLiteNPUReshapeFP32(unittest.TestCase):
         reshape_kernel_fp32(input_tensor, out_tensor)
 
         golden_out = input_tensor.reshape(shape_out)
-        cos_value = compare_cos_add(np.array(out_tensor.cpu()), np.array(golden_out.cpu()))
+        cos_value = compare_cos(np.array(out_tensor.cpu()), np.array(golden_out.cpu()))
         self.assertGreaterEqual(cos_value, 0.9999)
 
     def test_reshape_fp32_002(self):
