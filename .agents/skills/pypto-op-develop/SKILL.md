@@ -54,6 +54,7 @@ description: 当需要编写 PyPTO 算子实现时使用此 skill。基于需求
 | 文件 | 用途 | 加载时机 |
 |------|------|----------|
 | [templates/test-template.py](templates/test-template.py) | test 文件固定模板 | 生成 test_{op}.py 时读取 |
+| [templates/test_cases-template.json](templates/test_cases-template.json) | test_cases.json 固定模板 | 生成 test_cases.json 时读取 |
 | [templates/impl-template.py](templates/impl-template.py) | impl 文件固定模板 | 生成 {op}_impl.py 时读取 |
 | [references/execution-constraints.md](references/execution-constraints.md) | PyPTO 开发执行约束清单 | 进入实现阶段前必读；编码与自检时反复对照 |
 | [references/error-code-troubleshooting.md](references/error-code-troubleshooting.md) | 错误码排查流程与常见错误码速查 | 验证失败时按流程排查 |
@@ -109,13 +110,15 @@ export PTO_TILE_LIB_CODE_PATH=./pto_isa/pto-isa/
 - `references/execution-constraints.md` — 框架级约束清单
 - `templates/impl-template.py` — impl 文件模板
 - `templates/test-template.py` — test 文件模板
+- `templates/test_cases-template.json` — test_cases.json 模板
 
 **生成顺序**：
 1. 根据输入信息，先梳理 API 映射、tiling 策略、loop 结构，确认可行后再进入实现
 2. 基于约束清单和 impl 模板生成 `{op}_impl.py`
-3. `{op}_impl.py` 完成后，**并行生成** `test_{op}.py` 和 `README.md`（两者互不依赖）
+3. `{op}_impl.py` 完成后，**并行生成** `test_cases.json`、`test_{op}.py` 和 `README.md`（三者互不依赖）
 
 ⚠️ 实现代码与测试代码必须分离，禁止混写 golden / impl / test 到同一文件。
+⚠️ 测试用例信息统一放在 test_cases.json，test_{op}.py 遍历读取执行。
 
 ---
 
@@ -134,9 +137,28 @@ PyPTO kernel 函数实现，基于固定模板 `templates/impl-template.py` 生�
 | 输出写回 | `output[:] = result` 或 `pypto.assemble(result, offset, output)` |
 | 可选辅助函数 | `{op}_core()` — 复杂算子拆分核心计算逻辑 |
 
+#### 生成 test_cases.json
+
+测试用例信息文件，基于固定模板 `templates/test_cases-template.json` 生成。
+
+**结构**：
+
+| 字段 | 必填 | 说明 |
+|------|------|------|
+| `op_name` | ✅ | 算子名称 |
+| `source` | ✅ | 数据来源 |
+| `test_cases` | ✅ | 测试用例列表 |
+| `id` | ✅ | 用例唯一标识 |
+| `description` | 可选 | 用例描述 |
+| `seed` | 可选 | 随机种子（默认42） |
+| `input` | ✅ | 输入 tensor 信息（shape、dtype） |
+| `output` | ✅ | 输出 tensor 信息（shape、dtype） |
+| `rtol` | 可选 | 相对容差（默认1e-3） |
+| `atol` | 可选 | 绝对容差（默认1e-3） |
+
 #### 生成 test_{op}.py
 
-torch golden 函数精度对比测试，基于固定模板 `templates/test-template.py` 生成。
+精度对比测试文件，基于固定模板 `templates/test-template.py` 生成，遍历读取 test_cases.json。
 
 **结构**：
 
@@ -144,8 +166,9 @@ torch golden 函数精度对比测试，基于固定模板 `templates/test-templ
 |------|------|
 | Import | `from {op}_golden import {op}_golden` + `from {op}_impl import {op}_wrapper` |
 | 环境工具 | `get_device_id()` — 读取 `TILE_FWK_DEVICE_ID` |
-| 测试函数 | `test_{op}_levelN()` — 数据生成 → `{op}_wrapper(x)` → `{op}_golden(x)` → `assert_allclose` |
-| CLI 入口 | `argparse`，支持 `example_id` / `--list` / `--run_mode` |
+| 加载函数 | `load_test_cases()` — 读取 test_cases.json |
+| 测试执行 | `run_single_case()` — 构造数据 → 调用 → assert_allclose |
+| CLI 入口 | `argparse`，支持 `case_id` / `--list` / `--run_mode` / `--json` |
 
 **精度对比强制规范**：
 
@@ -155,6 +178,14 @@ torch golden 函数精度对比测试，基于固定模板 `templates/test-templ
 | 容差 | 简单算子 `rtol=1e-3, atol=1e-3`；复杂算子 `rtol=3e-3, atol=3e-3` |
 | NPU 条件对比 | `if run_mode == "npu": assert_allclose(...)` |
 | 禁止手写对比 | `assert max_diff < tolerance` / `np.allclose()` 均禁止 |
+
+**运行方式**：
+
+```bash
+python test_{op}.py              # 遍历所有用例
+python test_{op}.py case_001     # 运行单个用例
+python test_{op}.py --list       # 列出所有用例
+```
 
 #### 生成 README.md
 
@@ -168,16 +199,16 @@ torch golden 函数精度对比测试，基于固定模板 `templates/test-templ
 
 #### Design 到代码文件的映射
 
-| design 章节 | `test_{op}.py` | `{op}_impl.py` | `README.md` |
-|------------|----------------|----------------|-------------|
-| 概述 | 间接引用 | 否 | 是 |
-| API 映射设计 | 否 | 是 | 可摘要 |
-| 数据规格设计 | 是 | 是 | 可摘要 |
-| Tiling 策略 | 否 | 是 | 可摘要 |
-| Loop 结构设计 | 否 | 是 | 可摘要 |
-| 验证方案 | 是 | 否 | 是 |
-| 性能指标 | 部分 | 部分 | 是 |
-| 交付件清单 | 是 | 是 | 是 |
+| design 章节 | `test_cases.json` | `test_{op}.py` | `{op}_impl.py` | `README.md` |
+|------------|-------------------|----------------|----------------|-------------|
+| 概述 | 间接引用 | 间接引用 | 否 | 是 |
+| API 映射设计 | 否 | 否 | 是 | 可摘要 |
+| 数据规格设计 | 是 | 是 | 是 | 可摘要 |
+| Tiling 策略 | 否 | 否 | 是 | 可摘要 |
+| Loop 结构设计 | 否 | 否 | 是 | 可摘要 |
+| 验证方案 | 是 | 是 | 否 | 是 |
+| 性能指标 | 部分 | 部分 | 部分 | 是 |
+| 交付件清单 | 是 | 是 | 是 | 是 |
 
 ---
 
@@ -304,8 +335,9 @@ if __name__ == "__main__":
 
 ## Checklist
 
-1. 3 个文件（`test_{op}.py` + `{op}_impl.py` + `README.md`）全部存在
-2. `test_{op}.py` 可执行（无语法错误）
-3. 测试包含 `[PRECISION_PASS]` / `[PRECISION_FAIL]` 标记逻辑，无其他功能问题
-4. 验证失败时已确认是否有错误码：有则走错误码流程，无则跳过
-5. `{op}_impl.py` 已按 `references/execution-constraints.md` 自检：输出写回、动态轴、TileShape、valid_shape、Element、loop/cond、assemble 回环均已检查
+1. 4 个文件（`test_cases.json` + `test_{op}.py` + `{op}_impl.py` + `README.md`）全部存在
+2. `test_cases.json` 格式正确（包含 op_name、source、test_cases 字段）
+3. `test_{op}.py` 可执行（无语法错误），遍历读取 test_cases.json
+4. 测试包含 `[PRECISION_PASS]` / `[PRECISION_FAIL]` 标记逻辑，无其他功能问题
+5. 验证失败时已确认是否有错误码：有则走错误码流程，无则跳过
+6. `{op}_impl.py` 已按 `references/execution-constraints.md` 自检：输出写回、动态轴、TileShape、valid_shape、Element、loop/cond、assemble 回环均已检查
