@@ -140,25 +140,14 @@ class VerifyRes:
                 
                 sliced_data = data[tuple(slices)]
                 sliced_verify = verify_tensor_data[tuple(slices)]
+
+                config = _get_compare_config(dtype)
+                tensor_a = torch.from_numpy(sliced_data.astype(np.float64)).to(torch.float64)
+                tensor_b = torch.from_numpy(sliced_verify.astype(np.float64)).to(torch.float64)
+                cmp_result = compare_tensors_result_dict(tensor_a, tensor_b, config=config)
+                for key, value in cmp_result.items():
+                    tensor_infos[i][key] = value
                 
-                # 整型数据：精确对比
-                if np.issubdtype(dtype, np.integer):
-                    cmp_result = np.array_equal(sliced_data, sliced_verify)
-                    tensor_infos[i]["AB>RESULT"] = bool(cmp_result)
-                    if not cmp_result:
-                        tensor_infos[i]["result_reason"] = "integer values not equal"
-                else:
-                    # 浮点数据：容差对比
-                    config = _get_compare_config(dtype)
-                    try:
-                        tensor_a = torch.from_numpy(sliced_data.astype(np.float64)).to(torch.float64)
-                        tensor_b = torch.from_numpy(sliced_verify.astype(np.float64)).to(torch.float64)
-                        cmp_result = compare_tensors_result_dict(tensor_a, tensor_b, config=config)
-                        for key, value in cmp_result.items():
-                            tensor_infos[i][key] = value
-                    except Exception as e:
-                        tensor_infos[i]["AB>RESULT"] = False
-                        tensor_infos[i]["result_reason"] = f"compare error: {str(e)}"
             else:
                 tensor_infos[i]["AB>RESULT"] = "NO_CMP"
                 tensor_infos[i]["result_reason"] = "verify file not exist or shape mismatch"
@@ -387,7 +376,8 @@ class CompactDumpTensorInfoParser:
 
     @staticmethod
     def _verify_merged_tensor(merge_tensor_info, raw_data):
-        verify_tensor_info, verify_tshape, phase_name, dtype = _verify_res.get_verify_tensor_graph_res(merge_tensor_info)
+        verify_tensor_info, verify_tshape, phase_name, dtype =  \
+            _verify_res.get_verify_tensor_graph_res(merge_tensor_info)
         dump_tshape = merge_tensor_info.get("B>rawShape")
 
         merge_tensor_info["A>validshape"] = verify_tshape
