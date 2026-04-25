@@ -23,8 +23,6 @@
 #include "interface/tensor/symbolic_scalar_evaluate.h"
 #include "interface/inner/pre_def.h"
 #include "tilefwk/data_type.h"
-#include <algorithm>
-#include <thread>
 
 namespace npu::tile_fwk {
 
@@ -114,7 +112,7 @@ private:
         return instance;
     }
 
-    util::ThreadPool pool{std::max(1U, std::thread::hardware_concurrency())};
+    util::ThreadPool pool{0x3};
 };
 
 // LogTensorList 用於在執行 Operation 出錯時打印張量資訊

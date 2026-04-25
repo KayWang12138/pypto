@@ -934,6 +934,10 @@ struct FunctionInterpreter {
 
     void ExecuteMixSplitCallOpGroupParallel(FunctionFrame& frame, const std::vector<Operation*>& groupedCallOps)
     {
+        constexpr size_t kMixSplitParallelLimit = 3;
+        ASSERT(ControlFlowScene::MIX_SPLIT_PARALLEL_LIMIT_EXCEEDED, groupedCallOps.size() <= kMixSplitParallelLimit)
+            << "MixSplit grouped callops exceeds parallel limit, groupedSize=" << groupedCallOps.size()
+            << ", limit=" << kMixSplitParallelLimit;
         std::vector<std::shared_ptr<MixSplitCallTask>> taskList;
         taskList.reserve(groupedCallOps.size());
         for (auto* groupedCallOp : groupedCallOps) {
