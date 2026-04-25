@@ -29,12 +29,15 @@ Compare Verify Data Tool
 """
 
 import argparse
+import logging
 import os
 import glob
 import numpy as np
 import torch
 from pathlib import Path
 from typing import Optional
+
+logger = logging.getLogger(__name__)
 
 
 def load_tensor_data(file_path: str, dtype: str = "auto") -> dict:
@@ -343,30 +346,29 @@ def main():
     # 列出文件模式
     if args.list_files and args.verify_path:
         files = find_verify_files(args.verify_path, args.pass_name)
-        print(f"=== 验证目录: {args.verify_path} ===")
-        print(f"找到 {len(files)} 个.data文件:")
+        logger.info(f"=== 验证目录: {args.verify_path} ===")
+        logger.info(f"找到 {len(files)} 个.data文件:")
         for f in files:
             info = parse_tensor_name(f.name)
-            print(f"  {f.name}")
-            print(f"    Pass: {info.get('pass_name', 'N/A')}")
-            print(f"    Kernel: {info.get('kernel', 'N/A')}")
+            logger.info(f"  {f.name}")
+            logger.info(f"    Pass: {info.get('pass_name', 'N/A')}")
+            logger.info(f"    Kernel: {info.get('kernel', 'N/A')}")
         return 0
     
     # 必须提供对比数据
     if not args.pypto_output:
-        print("错误: 必须提供 --pypto-output 参数")
+        logger.error("错误: 必须提供 --pypto-output 参数")
         return 1
     
     if not args.verify_data and not args.verify_path:
-        print("错误: 必须提供 --verify-data 或 --verify-path 参数")
+        logger.error("错误: 必须提供 --verify-data 或 --verify-path 参数")
         return 1
     
-    # 加载pypto输出
-    print(f"=== 加载pypto输出: {args.pypto_output} ===")
+    logger.info(f"=== 加载pypto输出: {args.pypto_output} ===")
     pypto_data = load_tensor_data(args.pypto_output, args.dtype)
-    print(f"  包含 {len(pypto_data)} 个tensor:")
+    logger.info(f"  包含 {len(pypto_data)} 个tensor:")
     for name, arr in pypto_data.items():
-        print(f"    {name}: shape={arr.shape}, dtype={arr.dtype}")
+        logger.info(f"    {name}: shape={arr.shape}, dtype={arr.dtype}")
     
     # 获取要对比的文件列表
     if args.verify_data:
@@ -374,32 +376,29 @@ def main():
     else:
         verify_files = find_verify_files(args.verify_path, args.pass_name)
     
-    print(f"\n=== 对比验证数据 ===")
-    print(f"对比文件数: {len(verify_files)}")
+    logger.info(f"\n=== 对比验证数据 ===")
+    logger.info(f"对比文件数: {len(verify_files)}")
     
-    # 对比每个文件
     results = []
     for verify_file in verify_files:
-        print(f"\n--- {Path(verify_file).name} ---")
+        logger.info(f"\n--- {Path(verify_file).name} ---")
         
         info = parse_tensor_name(verify_file)
-        print(f"  Pass: {info.get('pass_name', 'N/A')}")
+        logger.info(f"  Pass: {info.get('pass_name', 'N/A')}")
         
         try:
             verify_data = load_verify_data(verify_file)
-            print(f"  Shape: {verify_data.shape}, Size: {verify_data.size}")
+            logger.info(f"  Shape: {verify_data.shape}, Size: {verify_data.size}")
             
-            # 尝试与pypto输出对比
-            # 选择第一个tensor进行对比（或根据名称匹配）
             pypto_tensor = None
             for name, arr in pypto_data.items():
                 if arr.size == verify_data.size:
                     pypto_tensor = arr
-                    print(f"  匹配pypto tensor: {name}")
+                    logger.info(f"  匹配pypto tensor: {name}")
                     break
             
             if pypto_tensor is None:
-                print(f"  [警告] 未找到size匹配的pypto tensor")
+                logger.warning(f"  [警告] 未找到size匹配的pypto tensor")
                 results.append({
                     "file": verify_file,
                     "match": False,
@@ -407,14 +406,13 @@ def main():
                 })
                 continue
             
-            # 对比
             cmp_result = compare_tensors(pypto_tensor, verify_data, args.tol, args.rtol)
             
-            print(f"  结果: {'✓ 一致' if cmp_result['match'] else '× 不一致'}")
+            logger.info(f"  结果: {'✓ 一致' if cmp_result['match'] else '× 不一致'}")
             if not cmp_result['match']:
-                print(f"    最大差异: {cmp_result['max_diff']:.6e}")
-                print(f"    平均差异: {cmp_result['mean_diff']:.6e}")
-                print(f"    差异比例: {cmp_result['diff_ratio']:.6e}")
+                logger.info(f"    最大差异: {cmp_result['max_diff']:.6e}")
+                logger.info(f"    平均差异: {cmp_result['mean_diff']:.6e}")
+                logger.info(f"    差异比例: {cmp_result['diff_ratio']:.6e}")
             
             results.append({
                 "file": verify_file,
@@ -423,7 +421,7 @@ def main():
             })
             
         except Exception as e:
-            print(f"  [错误] {e}")
+            logger.error(f"  [错误] {e}")
             results.append({
                 "file": verify_file,
                 "match": False,
@@ -431,26 +429,24 @@ def main():
             })
     
     # 输出汇总
-    print(f"\n=== 对比汇总 ===")
+    logger.info(f"\n=== 对比汇总 ===")
     matched_count = sum(1 for r in results if r.get('match', False))
-    print(f"一致文件: {matched_count}/{len(results)}")
+    logger.info(f"一致文件: {matched_count}/{len(results)}")
     
-    # 输出不一致的Pass
     mismatched_passes = [r for r in results if not r.get('match', False) and r.get('pass')]
     if mismatched_passes:
-        print(f"\n不一致的Pass:")
+        logger.info(f"\n不一致的Pass:")
         for r in mismatched_passes:
-            print(f"  - {r['pass']}: {r['file']}")
+            logger.info(f"  - {r['pass']}: {r['file']}")
             if r.get('max_diff'):
-                print(f"    最大差异: {r['max_diff']:.6e}")
+                logger.info(f"    最大差异: {r['max_diff']:.6e}")
     
-    # 输出结论
     if matched_count == len(results):
-        print("\n结论: 所有Pass输出与上板数据一致 ✓")
+        logger.info("\n结论: 所有Pass输出与上板数据一致 ✓")
     else:
-        print(f"\n结论: 存在 {len(mismatched_passes)} 个Pass输出与上板数据不一致 ×")
+        logger.info(f"\n结论: 存在 {len(mismatched_passes)} 个Pass输出与上板数据不一致 ×")
         if mismatched_passes:
-            print("建议: 问题在这些不一致的Pass中")
+            logger.info("建议: 问题在这些不一致的Pass中")
     
     return 0
 
