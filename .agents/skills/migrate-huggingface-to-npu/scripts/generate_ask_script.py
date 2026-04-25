@@ -56,8 +56,11 @@ parser.add_argument("--model-path", default="'''
     + """", help="模型权重路径")
 args = parser.parse_args()
 
-print(f"使用设备: npu:{args.device}")
-print(f"模型路径: {args.model_path}")
+import logging
+logging.basicConfig(level=logging.INFO, format='%(message)s')
+
+logging.info(f"使用设备: npu:{args.device}")
+logging.info(f"模型路径: {args.model_path}")
 
 torch.npu.set_device(args.device)
 tokenizer = AutoTokenizer.from_pretrained(args.model_path, local_files_only=True)
@@ -69,7 +72,7 @@ model = AutoModelForCausalLM.from_pretrained(
 inputs = tokenizer(args.prompt, return_tensors="pt").to(f"npu:{args.device}")
 outputs = model.generate(**inputs, max_new_tokens=512, temperature=0.7, do_sample=True)
 response = tokenizer.decode(outputs[0], skip_special_tokens=True)
-print(response)
+logging.info(response)
 """
 )
 
