@@ -9,12 +9,12 @@
 
 | API | dtype 限制 | 不满足时的后果 |
 |-----|-----------|---------------|
-| `pypto.sum` | 仅支持 FP32 输入 | 运行时错误 |
+| `pypto.sum` | 支持 FP32, BF16, INT32, INT16 | — |
 | `pypto.matmul` | 两个操作数 dtype 必须一致 | 编译失败 |
 | `pypto.amax` | FP16, BF16, FP32 | BF16 精度可能不足 |
 | `pypto.exp` | FP16, BF16, FP32 | 不支持整型 |
 
-**设计影响**：若计算链中包含 `sum`，必须在 `sum` 前插入 `cast(x, DT_FP32)`，并规划 cast 回目标 dtype 的位置。
+**设计影响**：`sum` 支持 FP32/BF16/INT32/INT16，无需额外 cast。仅当输入为 FP16 时需要先 cast 到 FP32 或 BF16。
 
 ---
 
@@ -113,7 +113,7 @@ for idx in pypto.loop(n, name="LOOP", idx_name="idx", unroll_list=[4, 2, 1]):
 
 | 冲突场景 | 表现 | 解法 |
 |----------|------|------|
-| sum 要求 FP32 + 输入为 BF16 | dtype 不匹配 | sum 前 cast，sum 后 cast 回 |
+| sum 输入为 FP16 | dtype 不匹配 | sum 前 cast 到 FP32 或 BF16 |
 | matmul 两侧 dtype 不一致 | 编译失败 | 统一 cast 到相同 dtype |
 | 动态轴参与 matmul M/K/N | tile 无法确定 | loop 外层遍历，view 提取固定大小块 |
 | view + assemble 同一 tensor | DAG 环路 | 使用两个独立 tensor 或拆分 JIT 函数 |
@@ -133,7 +133,7 @@ for idx in pypto.loop(n, name="LOOP", idx_name="idx", unroll_list=[4, 2, 1]):
 ```
 
 决策要点：
-- `pypto.sum` 强制要求 FP32 输入
+- `pypto.sum` 支持 FP32/BF16/INT32/INT16，BF16 输入可直接使用
 - 累加器（跨 loop 迭代的状态 tensor）应使用 FP32
 - matmul 可通过 `out_dtype=pypto.DT_FP32` 直接输出 FP32
 

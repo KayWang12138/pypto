@@ -237,6 +237,32 @@ python3 .agents/skills/pypto-aicore-error-locator/scripts/locate_source_line.py 
 
 ---
 
+## 步骤 10：恢复环境配置
+
+**目标：** 将步骤 3 修改的配置文件恢复为原始值，避免用户环境长期处于调试模式。
+
+**操作：**
+
+依次恢复以下配置：
+
+1. **恢复 `tile_fwk_config.json`**：
+   - 将 `"fixed_output_path"` 恢复为原始值（通常为 `false`）
+   - 将 `"force_overwrite"` 恢复为原始值（通常为 `true`）
+
+2. **恢复 `aicore_print.h`**：
+   - 将 `#define ENABLE_AICORE_PRINT` 恢复为 `0`
+
+3. **恢复 `device_switch.h`**：
+   - 将 `#define ENABLE_COMPILE_VERBOSE_LOG` 恢复为 `0`
+
+4. **重新编译并安装**（如步骤 4 所述），确保环境恢复正常。
+
+**验证：** 恢复后运行一次原始测试用例，确认编译和运行行为正常。
+
+> **注意：** 如果用户明确表示需要保留调试配置以便后续排查，可跳过此步骤，但必须告知用户当前环境处于调试模式。
+
+---
+
 ## 关键注意事项
 
 1. **fixed 模式**: 确保 `fixed` 模式启用以保持输出路径不变

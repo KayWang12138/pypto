@@ -302,6 +302,24 @@ if __name__ == "__main__":
 
 ---
 
+## 重试保护（RetryGuard）
+
+本 Skill 在 Stage 5（代码实现）中遵循 `pypto-op-workflow` 定义的重试限制。
+
+**规则**：
+- 运行失败（编译/import/runtime 错误）时在当前阶段内排查重试，**最多 10 次**
+- 每次重试前必须记录：
+  ```text
+  重试 #N/10
+  失败现象：<错误信息摘要>
+  排查结论：<根因分析>
+  修改内容：<具体代码改动>
+  ```
+- 10 次重试后仍失败 → 停止重试，向用户报告失败原因和已尝试的排查路径，等待用户决策
+- 精度失败（`[PRECISION_FAIL]`）不计入重试次数，应转交 `pypto-precision-debug`
+
+---
+
 ## Checklist
 
 1. 3 个文件（`test_{op}.py` + `{op}_impl.py` + `README.md`）全部存在

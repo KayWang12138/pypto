@@ -128,7 +128,7 @@ def softmax_kernel(
         x_max = pypto.amax(x_tile, dim=-1, keepdim=True)  # [1, 1], FP32
         x_shifted = pypto.sub(x_tile, x_max)          # [1, 128], FP32
         x_exp = pypto.exp(x_shifted)                   # [1, 128], FP32
-        x_sum = pypto.sum(x_exp, dim=-1, keepdim=True) # [1, 1], FP32（sum 仅支持 FP32）
+        x_sum = pypto.sum(x_exp, dim=-1, keepdim=True) # [1, 1], FP32
         result = pypto.div(x_exp, x_sum)               # [1, 128], FP32
         pypto.assemble(result, [b, 0], out)            # 写回 out[b, :]
 ```
@@ -141,7 +141,7 @@ def softmax_kernel(
 
 | API | 支持的 dtype | 常见陷阱 |
 |-----|-------------|---------|
-| `sum` | 仅 FP32 | BF16 输入必须先 cast |
+| `sum` | FP32, BF16, INT32, INT16 | — |
 | `softmax`/`sin`/`cos` | 仅 FP32 | — |
 | `matmul` | 两侧 dtype 一致 | 一侧 cast 后忘记另一侧 |
 | `add`/`sub`/`mul`/`div` | 两侧 dtype 一致，2-4 维 | 不存在隐式类型提升 |
