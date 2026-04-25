@@ -958,12 +958,10 @@ struct FunctionInterpreter {
             return;
         }
         if (memType == 0) {
-            std::cout << "Alloc " << slotSize << "B for " << groupName << std::endl;
             tmp = SimulationCommManager::Instance().Alloc(groupName, outOp->Datatype(), outOp->GetShape());
             out = LogicalTensorData::Create(*tmp);
         }
         if (memType == 1) {
-            std::cout << "AllocSignal " << slotSize << "B for " << groupName << std::endl;
             tmp = SimulationCommManager::Instance().AllocSignal(groupName, outOp->Datatype(), outOp->GetShape());
             out = LogicalTensorData::Create(*tmp);
         }

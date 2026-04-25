@@ -355,6 +355,14 @@ struct RawTensorData : public std::vector<uint8_t, AlignedAllocator<uint8_t, 64>
         return static_cast<size_t>((nelem + 1) / 2);
     }
 
+    size_t GetShmOffset() const {
+        return shmOffset_;
+    }
+
+    size_t SetShmOffset(size_t offset) {
+        shmOffset_ = offset;
+    }
+
 private:
     uint8_t* devPtr_{nullptr};
     DataType dataType_;
@@ -364,6 +372,7 @@ private:
     // Signed: GetDataSize(DataType) uses -1 for sub-byte dtypes; storing as size_t wrapped to huge
     // and broke vector allocation in SetVerifyData / RawTensorData::CreateTensor.
     int elemSize_;
+    size_t shmOffset_;
 };
 
 using RawTensorDataPtr = std::shared_ptr<RawTensorData>;
