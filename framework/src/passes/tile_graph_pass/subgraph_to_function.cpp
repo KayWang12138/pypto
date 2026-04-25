@@ -134,7 +134,6 @@ void SubgraphToFunction::RecordIncastInfo(Function& function, RecordInfo recordI
     Offset offset = recordInfo.offset;
     Shape shape = recordInfo.shape;
     auto& op = *nLIST[i][j];
-    auto platform = Platform::Instance().GetSoc().GetNPUArch();
     for (auto &producerOp : iOperand->GetProducers()) {
         if (producerOp->GetSubgraphID() == op.GetSubgraphID()) {
             APASS_LOG_INFO_F(Elements::Tensor, "Tensor %d has producer in same subgraph, cannot be incast.", iOperand->GetMagic());
