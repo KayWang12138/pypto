@@ -220,14 +220,14 @@ void TiledQuantMXOperation(
         ASSERT(VectorErrorCode::ERR_PARAM_INVALID, lastDimBytes % QUANT_MX_TILE_ALIGN_BYTES == 0)
             << "QuantMX tile width must be 256-byte aligned. Current last dim bytes: " << lastDimBytes;
 
-        auto addQuantMXTile = [&](const std::vector<int64_t>& tileShape, const std::vector<int64_t>& tileOffset,
+        auto addQuantMXTile = [&](const std::vector<int64_t>& quantTileShape, const std::vector<int64_t>& tileOffset,
                                   const std::vector<int64_t>& groupedTileShape,
                                   const std::vector<int64_t>& groupedTileOffset) {
-            auto srcTile = input.tensor.GetStorage()->View(function, tileShape, tileOffset);
-            auto dstTile = dst->View(function, tileShape, tileOffset);
+            auto srcTile = input.tensor.GetStorage()->View(function, quantTileShape, tileOffset);
+            auto dstTile = dst->View(function, quantTileShape, tileOffset);
             auto expTile = exp->View(function, groupedTileShape, groupedTileOffset);
             auto maxTile = maxScratch->View(function, groupedTileShape, groupedTileOffset);
-            auto scalingTile = scalingScratch->View(function, tileShape, tileOffset);
+            auto scalingTile = scalingScratch->View(function, quantTileShape, tileOffset);
             auto& tiledOp =
                 function.AddOperation(Opcode::OP_QUANT_MX, {srcTile}, {dstTile, expTile, maxTile, scalingTile});
             tiledOp.SetAttribute(OpAttributeKey::mxQuantMode, static_cast<int64_t>(mode));
