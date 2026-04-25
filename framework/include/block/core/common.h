@@ -11,53 +11,17 @@
 
 /**
  * @file common.h
- * @brief Common macros, constants, and utility definitions
- *
- * This header provides commonly used macros and constants that are shared
- * across the PyPTO codebase, including:
- * - Compiler hints and attributes
- * - Utility macros for code generation
- * - Build configuration constants
- * - pybind11 module configuration
+ * @brief Backward-compatible forwarding header for block/core/common.h
  */
 
 #ifndef PYPTO_CORE_COMMON_H_
 #define PYPTO_CORE_COMMON_H_
 
-#include <cstdint>
+#include "core/common.h"
 
-namespace pypto {
+// Keep the historical pybind11-facing macro name available for block bindings.
+#ifndef PYPTO_MODULE_DOC
+#define PYPTO_MODULE_DOC PYPTO_NANOBIND_MODULE_DOC
+#endif
 
-// ============================================================================
-// Version Information
-// ============================================================================
-
-#define PYPTO_VERSION_MAJOR 0
-#define PYPTO_VERSION_MINOR 1
-#define PYPTO_VERSION_PATCH 0
-
-// ============================================================================
-// IR Constants
-// ============================================================================
-
-// Dynamic dimension constant for tensor/tile shapes
-// Use -1 to represent dimensions that are unknown at compile time
-constexpr int64_t kDynamicDim = -1;
-
-// ============================================================================
-// pybind11 Module Configuration
-// ============================================================================
-
-// Default docstring for the pybind11 module
-#define PYPTO_MODULE_DOC "PyPTO core library"
-
-// ============================================================================
-// Compiler Hints and Attributes
-// ============================================================================
-
-#define PYPTO_ALWAYS_INLINE __attribute__((always_inline))
-#define PYPTO_UNUSED __attribute__((unused))
-#define PYPTO_STR_CONCAT_IMPL(__x, __y) __x##__y
-#define PYPTO_STR_CONCAT(__x, __y) PYPTO_STR_CONCAT_IMPL(__x, __y)
-}  // namespace pypto
 #endif  // PYPTO_CORE_COMMON_H_

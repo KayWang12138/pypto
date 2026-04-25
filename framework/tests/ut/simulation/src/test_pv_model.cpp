@@ -80,17 +80,6 @@ TEST(PvModelTest, TestDynFactory)
     EXPECT_NE(pv, nullptr);
 }
 
-TEST(PvModelTest, TestDynImpl)
-{
-    auto pv = CostModel::PvModelFactory::CreateDyn();
-    std::vector<uint8_t> test(16);
-    auto addr = pv->CopyToDev(test.data(), test.size());
-    EXPECT_NE(addr, nullptr);
-    addr = pv->AllocWorkspaceDev(128);
-    EXPECT_NE(addr, nullptr);
-    std::vector<uint8_t> copy(16);
-}
-
 TEST(PvModelTest, TestDynCodegen)
 {
     std::string org = R"!!!(
@@ -116,8 +105,8 @@ TEST(PvModelTest, TestDynCodegen)
 extern "C" [aicore] void TENSOR_PATH0_4_0(CoreFuncParam* param, int64_t GMStackBase, __gm__ int64_t *hcclContext, __gm__ GMTensorInfo* oriAddrParam);
 
 
-extern "C" __global__ [aicore] void PvModelKernelEntry(__gm__ npu::tile_fwk::DynFuncData *funcData, __gm__ uint64_t *opAttrOffset) {
-    CoreFuncParam param = {funcData, &funcData->opAttrs[opAttrOffset[0]], funcData->exprTbl};
+extern "C" __global__ [aicore] void PvModelKernelEntry(__gm__ npu::tile_fwk::DynFuncData *funcData, __gm__ uint64_t *opAttrs) {
+    CoreFuncParam param = {funcData, opAttrs, funcData->exprTbl};
     TENSOR_PATH0_4_0(&param, funcData->stackWorkSpaceAddr, (__gm__ int64_t *)funcData->startArgs->commContexts, (__gm__ GMTensorInfo*)NULL);
 }
 

@@ -15,6 +15,7 @@
 #include <utility>
 
 #include "core/dtype.h"
+#include "core/logging.h"
 #include "ir/core.h"
 #include "ir/expr.h"
 #include "ir/reflection/field_traits.h"
@@ -30,41 +31,6 @@ class IRVisitor;
 // Forward declaration for Op (defined in expr.h)
 class Op;
 using OpPtr = std::shared_ptr<const Op>;
-
-/**
- * \brief Base class for scalar expressions in the IR
- *
- * Scalar expressions represent computations that produce scalar values.
- * All expressions are immutable.
- */
-class ScalarExpr : public Expr {
-public:
-    DataType dtype_;
-
-    /**
-     * \brief Create a scalar expression
-     *
-     * \param span Source location
-     * \param dtype Data type
-     */
-    ScalarExpr(Span s, DataType dtype) : Expr(std::move(s), std::make_shared<ScalarType>(dtype)), dtype_(dtype) {}
-    ~ScalarExpr() override = default;
-
-    /**
-     * \brief Get the type name of this expression
-     *
-     * \return Human-readable type name (e.g., "Add", "Var", "ConstInt")
-     */
-    [[nodiscard]] std::string TypeName() const override { return "ScalarExpr"; }
-
-    static constexpr auto GetFieldDescriptors()
-    {
-        return std::tuple_cat(
-            Expr::GetFieldDescriptors(), std::make_tuple(reflection::UsualField(&ScalarExpr::dtype_, "dtype")));
-    }
-};
-
-using ScalarExprPtr = std::shared_ptr<const ScalarExpr>;
 
 /**
  * \brief Constant numeric expression
@@ -99,7 +65,7 @@ public:
             Expr::GetFieldDescriptors(), std::make_tuple(reflection::UsualField(&ConstInt::value_, "value")));
     }
 
-    [[nodiscard]] DataType GetDtype() const
+    [[nodiscard]] DataType dtype() const
     {
         // Note: Must use dynamic_pointer_cast here because this header is included before
         // the TypePtr overload of As<> is defined in kind_traits.h
@@ -146,7 +112,7 @@ public:
             Expr::GetFieldDescriptors(), std::make_tuple(reflection::UsualField(&ConstFloat::value_, "value")));
     }
 
-    [[nodiscard]] DataType GetDtype() const
+    [[nodiscard]] DataType dtype() const
     {
         // Note: Must use dynamic_pointer_cast here because this header is included before
         // the TypePtr overload of As<> is defined in kind_traits.h
@@ -192,7 +158,7 @@ public:
             Expr::GetFieldDescriptors(), std::make_tuple(reflection::UsualField(&ConstBool::value_, "value")));
     }
 
-    [[nodiscard]] DataType GetDtype() const { return DataType::BOOL; }
+    [[nodiscard]] DataType dtype() const { return DataType::BOOL; }
 };
 
 using ConstBoolPtr = std::shared_ptr<const ConstBool>;

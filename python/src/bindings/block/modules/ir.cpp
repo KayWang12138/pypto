@@ -22,26 +22,27 @@
 #include <vector>
 
 #include "../module.h"
-#include "block/core/any_cast.h"
-#include "block/core/common.h"
-#include "block/core/error.h"
-#include "block/ir/core.h"
-#include "block/ir/expr.h"
-#include "block/ir/function.h"
-#include "block/ir/memref.h"
-#include "block/ir/op_registry.h"
-#include "block/ir/pipe.h"
-#include "block/ir/program.h"
-#include "block/ir/reflection/field_visitor.h"
-#include "block/ir/scalar_expr.h"
-#include "block/ir/serialization/deserializer.h"
-#include "block/ir/serialization/serializer.h"
-#include "block/ir/stmt.h"
-#include "block/ir/transforms/op_conversion_registry.h"
-#include "block/ir/transforms/printer.h"
-#include "block/ir/transforms/structural_comparison.h"
-#include "block/ir/transforms/utils/parent_stmt_analysis.h"
-#include "block/ir/type.h"
+#include "core/any_cast.h"
+#include "core/common.h"
+#include "core/error.h"
+#include "ir/core.h"
+#include "ir/expr.h"
+#include "ir/function.h"
+#include "ir/memref.h"
+#include "ir/op_registry.h"
+#include "ir/pipe.h"
+#include "ir/program.h"
+#include "ir/reflection/field_visitor.h"
+#include "ir/scalar_expr.h"
+#include "ir/scalar_expr_ops.h"
+#include "ir/serialization/deserializer.h"
+#include "ir/serialization/serializer.h"
+#include "ir/stmt.h"
+#include "ir/transforms/op_conversion_registry.h"
+#include "ir/transforms/printer.h"
+#include "ir/transforms/structural_comparison.h"
+#include "ir/transforms/utils/parent_stmt_analysis.h"
+#include "ir/type.h"
 
 namespace py = pybind11;
 
@@ -49,7 +50,7 @@ namespace pypto {
 namespace python {
 
 using namespace pypto::ir;  // NOLINT(build/namespaces)
-using pypto::DataType;
+using pypto::ir::DataType;
 
 template <typename T>
 bool TryConvertAnyToPy(const std::any& value, py::object& out) {
@@ -66,13 +67,13 @@ py::object AnyToPyObject(const std::any& value, const std::string& key) {
   if ((TryConvertAnyToPy<Ts>(value, out) || ...)) {
     return out;
   }
-  throw pypto::TypeError("Attribute '" + key + "' has unsupported type");
+  throw pypto::ir::TypeError("Attribute '" + key + "' has unsupported type");
 }
 
 // Helper to bind a single field using reflection
 template <typename ClassType, typename PyClassType, typename FieldDesc>
 void BindField(PyClassType& py_class, const FieldDesc& desc) {
-  py_class.def_readonly(desc.name, desc.field_ptr);
+  py_class.def_readonly(desc.name, desc.fieldPtr);
 }
 
 // Helper to bind all fields from a tuple of field descriptors
@@ -124,7 +125,7 @@ std::vector<std::pair<std::string, std::any>> ConvertKwargsDict(const py::dict& 
     } else if (py::isinstance<py::float_>(item.second)) {
       kwargs.emplace_back(key, py::cast<double>(item.second));
     } else {
-      throw pypto::TypeError("Unsupported kwarg type for key: " + key);
+      throw pypto::ir::TypeError("Unsupported kwarg type for key: " + key);
     }
   }
   return kwargs;
@@ -175,7 +176,7 @@ void BindIR(py::module_& m) {
   auto type_class = py::class_<Type, std::shared_ptr<Type>>(ir, "Type", "Base class for type representations");
   BindFields<Type>(type_class);
   type_class.def(
-      "__str__", [](const TypePtr& self) { return PythonPrint(self, "pl"); },
+      "__str__", [](const TypePtr& self) { return PythonDslPrint(self, "pl"); },
       "Python-style string representation");
   type_class.def(
       "__eq__", [](const TypePtr& self, const TypePtr& other) { return structural_equal(self, other); },
@@ -215,13 +216,12 @@ void BindIR(py::module_& m) {
       .def(
           "__str__",
           [](const IRNodePtr& self) {
-            // Use unified PythonPrint API with default "pl" prefix
-            return PythonPrint(self, "pl");
+            return PythonDslPrint(self, "pl");
           },
           "Python-style string representation")
       .def(
           "as_python",
-          [](const IRNodePtr& self, const std::string& prefix) { return PythonPrint(self, prefix); },
+          [](const IRNodePtr& self, const std::string& prefix) { return PythonDslPrint(self, prefix); },
           py::arg("prefix") = "pl",
           "Convert to Python-style string representation.\n\n"
           "Args:\n"
@@ -619,12 +619,14 @@ void BindIR(py::module_& m) {
 #undef BIND_UNARY_EXPR
 
   // Bind structural hash and equality functions
-  ir.def("structural_hash", static_cast<uint64_t (*)(const IRNodePtr&, bool)>(&structural_hash),
+  ir.def("structural_hash",
+         static_cast<uint64_t (*)(const IRNodePtr&, bool)>(&structural_hash_with_var_identity),
          py::arg("node"), py::arg("enable_auto_mapping") = false,
          "Compute deterministic structural hash of an IR node (ignores Span). "
          "If enable_auto_mapping=True, variable names are ignored (e.g., x+1 and y+1 hash the same). "
          "If enable_auto_mapping=False (default), different variable objects produce different hashes.");
-  ir.def("structural_hash", static_cast<uint64_t (*)(const TypePtr&, bool)>(&structural_hash),
+  ir.def("structural_hash",
+         static_cast<uint64_t (*)(const TypePtr&, bool)>(&structural_hash_with_var_identity),
          py::arg("type"), py::arg("enable_auto_mapping") = false,
          "Compute deterministic structural hash of a type. "
          "enable_auto_mapping only affects variables embedded in the type (e.g., shape expressions).");
@@ -842,10 +844,10 @@ void BindIR(py::module_& m) {
 
   // FunctionType enum
   py::enum_<FunctionType>(ir, "FunctionType", "Function type classification")
-      .value("Opaque", FunctionType::Opaque, "Unspecified function type (default)")
-      .value("Orchestration", FunctionType::Orchestration, "Host/AICPU control and coordination")
-      .value("InCore", FunctionType::InCore, "AICore sub-graph execution")
-      .value("Helper", FunctionType::Helper, "Scalar helper callable from kernels (generates func.call)")
+      .value("Opaque", FunctionType::OPAQUE, "Unspecified function type (default)")
+      .value("Orchestration", FunctionType::ORCHESTRATION, "Host/AICPU control and coordination")
+      .value("InCore", FunctionType::IN_CORE, "AICore sub-graph execution")
+      .value("Helper", FunctionType::HELPER, "Scalar helper callable from kernels (generates func.call)")
       .export_values();
 
   // ParamDirection enum
@@ -871,7 +873,7 @@ void BindIR(py::module_& m) {
           if (py::isinstance<py::tuple>(item)) {
             auto tup = py::cast<py::tuple>(item);
             if (py::len(tup) != 2) {
-              throw pypto::TypeError("Each tuple in 'params' must be (Var, ParamDirection)");
+              throw pypto::ir::TypeError("Each tuple in 'params' must be (Var, ParamDirection)");
             }
             param_vars.push_back(py::cast<VarPtr>(tup[0]));
             param_dirs.push_back(py::cast<ParamDirection>(tup[1]));
@@ -884,7 +886,7 @@ void BindIR(py::module_& m) {
                                          body, span, type);
       }),
       py::arg("name"), py::arg("params"), py::arg("return_types"), py::arg("body"), py::arg("span"),
-      py::arg("type") = FunctionType::Opaque, "Create a function definition");
+      py::arg("type") = FunctionType::OPAQUE, "Create a function definition");
   BindFields<Function>(function_class);
 
   // Program - const shared_ptr
@@ -918,7 +920,7 @@ void BindIR(py::module_& m) {
   // Python-style printer function - unified API for IRNode
   ir.def(
       "python_print",
-      [](const IRNodePtr& node, const std::string& prefix) { return PythonPrint(node, prefix); },
+      [](const IRNodePtr& node, const std::string& prefix) { return PythonDslPrint(node, prefix); },
       py::arg("node"), py::arg("prefix") = "pl",
       "Print IR node (Expr, Stmt, Function, or Program) in Python IR syntax.\n\n"
       "Args:\n"
@@ -928,7 +930,7 @@ void BindIR(py::module_& m) {
   // Python-style printer function for Type objects
   ir.def(
       "python_print_type",
-      [](const TypePtr& type, const std::string& prefix) { return PythonPrint(type, prefix); },
+      [](const TypePtr& type, const std::string& prefix) { return PythonDslPrint(type, prefix); },
       py::arg("type"), py::arg("prefix") = "pl",
       "Print Type object in Python IR syntax.\n\n"
       "Args:\n"

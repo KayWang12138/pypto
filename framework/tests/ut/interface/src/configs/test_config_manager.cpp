@@ -148,14 +148,8 @@ bool RangeTest(
 TEST_F(TestConfigManager, NormalRuntimeTest)
 {
     std::unordered_map<std::string, std::vector<int64_t>> input = {
-        {DEVICE_SCHED_MODE, {0, 1, 2, 3}},
-        {STITCH_FUNCTION_INNER_MEMORY, {1, INT_MAX}},
-        {STITCH_FUNCTION_OUTCAST_MEMORY, {1, INT_MAX}},
-        {STITCH_FUNCTION_NUM_INITIAL, {1, 128}},
-        {STITCH_FUNCTION_NUM_STEP, {0, 128}},
-        {STITCH_CFGCACHE_SIZE, {0, 100000000}},
-        {STITCH_FUNCTION_SIZE, {1, 65535}},
-        {CFG_RUN_MODE, {0, 1}},
+        {DEVICE_SCHED_MODE, {0, 1, 2, 3}},      {STITCH_FUNCTION_MAX_NUM, {1, 1024}},
+        {STITCH_CFGCACHE_SIZE, {0, 100000000}}, {CFG_RUN_MODE, {0, 1}},
         {CFG_VALID_SHAPE_OPTIMIZE, {0, 1}},
     };
     bool ret = RangeTest<int64_t>(input, &(config::SetOptionsNg), "runtime");
@@ -164,18 +158,9 @@ TEST_F(TestConfigManager, NormalRuntimeTest)
 
 TEST_F(TestConfigManager, AbnormalRuntimeTest)
 {
-    int64_t outVal = INT_MAX;
-    ++outVal;
     std::unordered_map<std::string, std::vector<int64_t>> input = {
-        {DEVICE_SCHED_MODE, {-1, 4}},
-        {STITCH_FUNCTION_INNER_MEMORY, {0, outVal}},
-        {STITCH_FUNCTION_OUTCAST_MEMORY, {0, outVal}},
-        {STITCH_FUNCTION_NUM_INITIAL, {0, 129}},
-        {STITCH_FUNCTION_NUM_STEP, {-1, 129}},
-        {STITCH_CFGCACHE_SIZE, {-1, 100000001}},
-        {STITCH_FUNCTION_SIZE, {0, 65536}},
-        {CFG_RUN_MODE, {-1, 2}},
-        {CFG_VALID_SHAPE_OPTIMIZE, {-1, 2}},
+        {DEVICE_SCHED_MODE, {-1, 4}}, {STITCH_FUNCTION_MAX_NUM, {0, 1025}}, {STITCH_CFGCACHE_SIZE, {-1, 100000001}},
+        {CFG_RUN_MODE, {-1, 2}},      {CFG_VALID_SHAPE_OPTIMIZE, {-1, 2}},
     };
     bool ret = RangeTest<int64_t>(input, &(config::SetOptionsNg), "runtime");
     EXPECT_EQ(ret, true);
@@ -273,4 +258,26 @@ TEST_F(TestConfigManager, JitScopeGuardBasic)
     }
     auto scopeAfter = cm.CurrentScope();
     EXPECT_EQ(scopeAfter.get(), scopeBefore.get());
+}
+
+TEST_F(TestConfigManager, IsWithinRangeInvalidKey)
+{
+    auto& cm = ConfigManagerNg::GetInstance();
+    auto scope = cm.CurrentScope();
+    Any value = int64_t(100);
+    scope->UpdateValueWithAny("invalid.key.not.in.scope", int64_t(100));
+    EXPECT_EQ(cm.IsWithinRange("invalid.key.not.in.schema", value), false);
+}
+
+TEST_F(TestConfigManager, InvalidValue)
+{
+    auto& cm = ConfigManagerNg::GetInstance();
+    try {
+        cm.SetScope({{"pass.pg_lower_bound", "1"}});
+        FAIL() << "Expected exception was not thrown.";
+    } catch (const std::exception& e) {
+        std::string msg = e.what();
+        EXPECT_NE(msg.find("Option 'pass.pg_lower_bound' has invalid type."), std::string::npos);
+        EXPECT_NE(msg.find("Expected int64"), std::string::npos);
+    }
 }

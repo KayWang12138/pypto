@@ -14,6 +14,9 @@ file(GLOB _Interface_Srcs
         # Core infrastructure
         core/*.cpp
         ir/*.cpp
+        ir/transforms/mutator.cpp
+        ir/transforms/printer.cpp
+        ir/transforms/visitor.cpp
         # 前端框架
         schema/*.cpp
         configs/*.cpp

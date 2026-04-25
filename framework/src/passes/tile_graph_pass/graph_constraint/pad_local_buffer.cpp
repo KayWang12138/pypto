@@ -43,9 +43,12 @@ const std::vector<bool> BROADCAST_AXIS_COMBINED = {true, true};
 const std::unordered_set<DataType> b8DataSupport = {
     DataType::DT_INT8, DataType::DT_FP8E5M2, DataType::DT_FP8E4M3, DataType::DT_HF8};
 const std::unordered_set<DataType> b4DataSupport = {DataType::DT_FP4_E2M1X2, DataType::DT_FP4_E1M2X2};
+// combine_axis
 const int64_t BRCB_SECOND_LAST_BASE = 8;
 const size_t LAST_SECOND_AXIS = 2;
 const std::string REDUCE_AXIS = OP_ATTR_PREFIX + "AXIS";
+const std::unordered_set<OpCalcType> ELEMENTWISE_LIKE_TYPES{
+    OpCalcType::CAST, OpCalcType::ELMWISE, OpCalcType::MOVE_IN, OpCalcType::MOVE_OUT};
 int64_t Pad(int64_t dim, int64_t padValue) { return (dim + padValue - 1) / padValue * padValue; }
 
 bool PadLocalBuffer::IsInputDataType(
@@ -243,6 +246,30 @@ size_t GetLastDimBytes(const LogicalTensorPtr& tensor)
 
 int64_t PadRowDim(int64_t dim, int64_t padValue) { return dim + padValue - 1; }
 
+bool PadLocalBuffer::IsUb2L1CopyOp(const Operation& op)
+{
+    if (op.iOperand.empty() || op.oOperand.empty()) {
+        return false;
+    }
+    auto inputMemType = op.iOperand[0]->GetMemoryTypeOriginal();
+    auto outputMemType = op.oOperand[0]->GetMemoryTypeOriginal();
+    return (inputMemType == MemoryType::MEM_UB && outputMemType == MemoryType::MEM_L1);
+}
+
+bool PadLocalBuffer::HandleUb2L1CopyOp(Operation& op, LogicalTensorPtr& in)
+{
+    if (!IsUb2L1CopyOp(op)) {
+        return false;
+    }
+    if (op.GetOpcode() != Opcode::OP_UB_COPY_L1) {
+        APASS_LOG_ERROR_F(
+            Elements::Operation, "UB to L1 copy operation expected OP_UB_COPY_L1, but got %s. %s",
+            op.GetOpcodeStr().c_str(), GetFormatBacktrace(op).c_str());
+    }
+    PadMatmul(op, in);
+    return true;
+}
+
 // 针对OP_CMP OP_CMPS OP_PRELU特殊OP做倒数第二轴的256B扩充
 void PadLocalBuffer::PadVector256(Operation& op, LogicalTensorPtr& in, bool needRowPad)
 {
@@ -272,8 +299,7 @@ void PadLocalBuffer::PadVector256(Operation& op, LogicalTensorPtr& in, bool need
 void PadLocalBuffer::PadVector(
     Operation& op, LogicalTensorPtr& in, std::unordered_set<std::shared_ptr<RawTensor>>& visitedRaw, bool noPadding)
 {
-    if (op.GetOpcode() == Opcode::OP_UB_COPY_L1) {
-        PadMatmul(op, in);
+    if (HandleUb2L1CopyOp(op, in)) {
         return;
     }
     if (in->shape.empty()) {
@@ -750,18 +776,66 @@ void ProcessReduceForAxisCombine(Operation& op, LogicalTensorPtr& in, size_t pad
     }
 }
 
+bool PadLocalBuffer::IsElementwiseLikeOp(OpCalcType calcType, const Operation& op, Operation* producerOp) const
+{
+    if (ELEMENTWISE_LIKE_TYPES.find(calcType) != ELEMENTWISE_LIKE_TYPES.end()) {
+        return true;
+    }
+    if (op.GetOpcode() == Opcode::OP_VIEW) {
+        return true;
+    }
+    if (producerOp != nullptr &&
+        OpcodeManager::Inst().GetOpCalcType(producerOp->GetOpcode()) == OpCalcType::BROADCAST) {
+        return true;
+    }
+    return false;
+}
+
+void PadLocalBuffer::DoBrcbOpPadding(
+    Operation& op, LogicalTensorPtr& in, size_t lastIdx, size_t paddingValue,
+    std::unordered_set<std::shared_ptr<RawTensor>>& visitedRaw)
+{
+    if (lastIdx > 0 && in->tensor->rawshape[lastIdx] == 1) {
+        AlignedRawTensorIfNeed(in, lastIdx - 1, BRCB_SECOND_LAST_BASE);
+        for (auto& out : op.GetOOperands()) {
+            AlignedRawTensorIfNeed(out, lastIdx - 1, BRCB_SECOND_LAST_BASE);
+            AlignedRawTensorIfNeed(out, lastIdx, paddingValue);
+            visitedRaw.emplace(out->tensor);
+        }
+    }
+}
+
+bool PadLocalBuffer::DoElementwiseLikePadding(
+    const Operation& op, LogicalTensorPtr& in, size_t lastIdx, size_t paddingValue)
+{
+    if (!axisCombineMarker.IsTensorEnableAxisCombine(in)) {
+        AlignedRawTensorIfNeed(in, lastIdx, paddingValue);
+        return true;
+    }
+    if (op.GetOpcode() == Opcode::OP_INDEX_OUTCAST && op.GetIOperandIndex(in) == 0) {
+        AlignedRawTensorIfNeed(in, lastIdx, paddingValue);
+        return true;
+    }
+    if (lastIdx > 0 && in->tensor->rawshape[lastIdx] == 1) {
+        AlignedRawTensorIfNeed(in, lastIdx - 1, paddingValue);
+        return true;
+    }
+    return false; // pad 尾轴
+}
+
 void PadLocalBuffer::PadVectorForAxisCombine(
     Operation& op, LogicalTensorPtr& in, std::unordered_set<std::shared_ptr<RawTensor>>& visitedRaw)
 {
+    if (HandleUb2L1CopyOp(op, in)) {
+        return;
+    }
     if (in->shape.empty()) {
         APASS_LOG_ERROR_F(
             Elements::Operation, "Vector Op %d %s input %d shape size is less than 2; Please check the input size. %s",
             op.opmagic, op.GetOpcodeStr().c_str(), in->magic, GetFormatBacktrace(op).c_str());
         return;
     }
-    if (visitedRaw.count(in->tensor)) {
-        return;
-    }
+    if (visitedRaw.count(in->tensor)) return;
     visitedRaw.emplace(in->tensor);
     OpCalcType calcType = OpcodeManager::Inst().GetOpCalcType(op.GetOpcode());
     size_t paddingValue = GetPaddingValue(in);
@@ -770,9 +844,7 @@ void PadLocalBuffer::PadVectorForAxisCombine(
     in->tensor->oriRawshape = in->tensor->rawshape;
     auto producerOp = *(in->GetProducers().begin());
     if (producerOp != nullptr && producerOp->GetOpcode() == Opcode::OP_BRCB) {
-        if (lastIdx == 0 && in->tensor->rawshape[lastIdx] != 1) {
-            return;
-        }
+        if (lastIdx == 0 && in->tensor->rawshape[lastIdx] != 1) return;
         AlignedRawTensorIfNeed(in, lastIdx - 1, BRCB_SECOND_LAST_BASE);
     }
     if (calcType == OpCalcType::REDUCE) {
@@ -780,15 +852,7 @@ void PadLocalBuffer::PadVectorForAxisCombine(
         return;
     }
     if (op.GetOpcode() == Opcode::OP_BRCB) {
-        if (lastIdx == 0 && in->tensor->rawshape[lastIdx] != 1) {
-            return;
-        }
-        AlignedRawTensorIfNeed(in, lastIdx - 1, BRCB_SECOND_LAST_BASE);
-        for (auto& out : op.GetOOperands()) {
-            AlignedRawTensorIfNeed(out, lastIdx - 1, BRCB_SECOND_LAST_BASE);
-            AlignedRawTensorIfNeed(out, lastIdx, paddingValue);
-            visitedRaw.emplace(out->tensor);
-        }
+        DoBrcbOpPadding(op, in, lastIdx, paddingValue, visitedRaw);
         return;
     }
     if (calcType == OpCalcType::BROADCAST) {
@@ -805,22 +869,8 @@ void PadLocalBuffer::PadVectorForAxisCombine(
             return;
         }
     }
-    if (calcType == OpCalcType::CAST || calcType == OpCalcType::ELMWISE || calcType == OpCalcType::MOVE_IN ||
-        calcType == OpCalcType::MOVE_OUT || op.GetOpcode() == Opcode::OP_VIEW ||
-        (producerOp != nullptr &&
-         OpcodeManager::Inst().GetOpCalcType(producerOp->GetOpcode()) == OpCalcType::BROADCAST)) {
-        if (op.GetOpcode() == Opcode::OP_EXPAND || !axisCombineMarker.IsTensorEnableAxisCombine(in)) {
-            AlignedRawTensorIfNeed(in, lastIdx, paddingValue);
-            return;
-        }
-        if (op.GetOpcode() == Opcode::OP_INDEX_OUTCAST && op.GetIOperandIndex(in) == 0) {
-            AlignedRawTensorIfNeed(in, lastIdx, paddingValue);
-            return;
-        }
-        if (lastIdx > 0 && in->tensor->rawshape[lastIdx] == 1) {
-            AlignedRawTensorIfNeed(in, lastIdx - 1, paddingValue);
-            return;
-        }
+    if (IsElementwiseLikeOp(calcType, op, producerOp)) {
+        if (DoElementwiseLikePadding(op, in, lastIdx, paddingValue)) return;
     }
     AlignedRawTensorIfNeed(in, lastIdx, paddingValue);
 }

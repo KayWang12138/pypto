@@ -12,11 +12,11 @@
 #include <pybind11/pybind11.h>
 #include <pybind11/stl.h>
 
-#include "block/backend/common/backend.h"
-#include "block/codegen/cce/cce_codegen.h"
-#include "block/codegen/cce/type_converter.h"
-#include "block/codegen/orchestration/orchestration_codegen.h"
-#include "block/codegen/pto/pto_codegen.h"
+#include "backend/common/backend.h"
+#include "codegen/cce/cce_codegen.h"
+#include "codegen/cce/type_converter.h"
+#include "codegen/orchestration/orchestration_codegen.h"
+#include "codegen/pto/pto_codegen.h"
 
 namespace py = pybind11;
 

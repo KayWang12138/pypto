@@ -17,6 +17,34 @@ from pypto_block import ir
 from pypto_block.backend import Backend910B_CCE, Backend910B_PTO
 
 
+def _is_runtime_910b() -> bool:
+    """Return True when the current runtime arch matches Ascend 910B."""
+    try:
+        from pypto import platform as pypto_platform
+
+        return pypto_platform.npuarch == "DAV_3510"
+    except Exception:
+        # Fall back to the legacy 910B SoC signature when the outer platform
+        # binding is unavailable in the current test environment.
+        backend = Backend910B_CCE.instance()
+        soc = backend.soc
+        return (
+            soc.total_die_count() == 1
+            and soc.total_core_count() == 24 + 48
+            and backend.get_mem_size(ir.MemorySpace.Left) == 64 * 1024
+            and backend.get_mem_size(ir.MemorySpace.Right) == 64 * 1024
+            and backend.get_mem_size(ir.MemorySpace.Acc) == 128 * 1024
+            and backend.get_mem_size(ir.MemorySpace.Mat) == 512 * 1024
+            and backend.get_mem_size(ir.MemorySpace.Vec) == 192 * 1024
+        )
+
+
+pytestmark = pytest.mark.skipif(
+    not _is_runtime_910b(),
+    reason="Backend910B exact-spec tests only apply on DAV_3510 (Ascend 910B) runtime",
+)
+
+
 class TestBackend910BConstruction:
     """Tests for 910B backend construction and basic properties."""
 

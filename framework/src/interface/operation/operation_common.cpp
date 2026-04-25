@@ -14,6 +14,7 @@
  */
 
 #include "operation_common.h"
+#include "interface/utils/vector_error.h"
 
 namespace npu::tile_fwk {
 
@@ -33,15 +34,36 @@ void CheckTensorShape(const LogicalTensorPtr& tensor, const std::string& op)
     auto shape = tensor->shape;
     // valid input dims must in [1, 4]
     auto shape_len_limit = GetShapeLenLimit(op);
-    ASSERT(shape.size() >= shape_len_limit[0] && shape.size() <= shape_len_limit[1])
-        << "The dims of tensor out of range. shape.size(): " << shape.size()
-        << "shape_len_limit[0]: " << shape_len_limit[0] << "shape_len_limit[1]" << shape_len_limit[1];
-    size_t shapeSize = 1;
+    ASSERT(VectorErrorCode::ERR_PARAM_SHAPE_DIM_UNSUPPORTED,
+           shape.size() >= shape_len_limit[0] && shape.size() <= shape_len_limit[1])
+        << "The dims of tensor out of range.";
+    int64_t shapeSize = 1;
     for (const auto& value : shape) {
-        ASSERT(value <= INT32_MAX) << "The dim value of tensor must less than or equal to INT32_MAX(2,147,483,647)";
-        shapeSize *= static_cast<size_t>(value);
-        ASSERT(shapeSize <= INT32_MAX)
+        ASSERT(VectorErrorCode::ERR_PARAM_INVALID, value <= INT32_MAX)
+            << "The dim value of tensor must less than or equal to INT32_MAX(2,147,483,647)";
+        shapeSize *= value;
+        ASSERT(VectorErrorCode::ERR_PARAM_INVALID, shapeSize <= INT32_MAX)
             << "The shape size of tensor must less than or equal to INT32_MAX(2,147,483,647)";
+    }
+}
+
+void CheckTensorDynamicShape(const LogicalTensors iOperands, const Opcode opCode)
+{
+    const std::string opName = OpcodeManager::Inst().GetOpcodeStr(opCode);
+    const auto& inputMemType = OpcodeManager::Inst().GetInputsMemType(opCode);
+    if (inputMemType.size() != iOperands.size()) {
+        return;
+    }
+    for (size_t i = 0; i < iOperands.size(); i++) {
+        if (inputMemType[i] == MemoryType::MEM_DEVICE_DDR) {
+            continue;
+        }
+        for (size_t dimIdx = 0; dimIdx < iOperands[i]->shape.size(); ++dimIdx) {
+            ASSERT(VectorErrorCode::ERR_PARAM_INVALID, iOperands[i]->shape[dimIdx] > 0)
+                << (!opName.empty() ? "Operation: " + opName : "")
+                << " Input operand (name: " << iOperands[i]->tensor->GetSymbol() << ") "
+                << " at dimension[" << dimIdx << "] has invalid shape value: " << iOperands[i]->shape[dimIdx];
+        }
     }
 }
 
@@ -88,6 +110,7 @@ void CheckAxisRange(const Tensor& tensor, int& axis)
     if (axis < 0) {
         axis += shapeSize;
     }
-    ASSERT(axis >= 0 && axis < shapeSize) << "Axis is not in the reasonable range!";
+    ASSERT(VectorErrorCode::ERR_PARAM_INVALID, axis >= 0 && axis < shapeSize)
+        << "Axis is not in the reasonable range!";
 }
 } // namespace npu::tile_fwk

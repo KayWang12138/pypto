@@ -15,7 +15,7 @@
 #include <string>
 
 #include "block/backend/common/backend.h"
-#include "block/ir/program.h"
+#include "ir/program.h"
 
 namespace pypto {
 namespace backend {

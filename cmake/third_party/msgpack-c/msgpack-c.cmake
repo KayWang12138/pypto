@@ -27,12 +27,12 @@ get_filename_component(_TargetInstallPrefix "${PYPTO_THIRD_PARTY_PATH}/${CMAKE_B
 
 if (EXISTS "${_TargetInstallPrefix}/include/msgpack.hpp")
     add_library(msgpackc-cxx INTERFACE)
-    target_include_directories(msgpackc-cxx INTERFACE "${_TargetInstallPrefix}/include")
+    target_include_directories(msgpackc-cxx SYSTEM INTERFACE "${_TargetInstallPrefix}/include")
     target_compile_features(msgpackc-cxx INTERFACE cxx_std_17)
     target_compile_definitions(msgpackc-cxx INTERFACE MSGPACK_NO_BOOST)
     message(STATUS "Use msgpack-c from binary, prefix=${_TargetInstallPrefix}")
 else ()
-    # 查找已有源码目录（支持 msgpack-c/ 和 msgpack-c-cpp-7.0.0/ 两种命名）
+    # Find an existing source tree if one is already present.
     set(_TargetSourceDir "")
     foreach (_DirName "msgpack-c" "msgpack-c-cpp-${_TargetVersion}")
         get_filename_component(_Dir "${PYPTO_THIRD_PARTY_PATH}/${_DirName}" REALPATH)
@@ -42,7 +42,7 @@ else ()
         endif ()
     endforeach ()
 
-    # 清理残留的空目录
+    # Clean up empty leftover directories before deciding whether to clone.
     foreach (_DirName "msgpack-c" "msgpack-c-cpp-${_TargetVersion}")
         get_filename_component(_Dir "${PYPTO_THIRD_PARTY_PATH}/${_DirName}" REALPATH)
         PTO_Fwk_CleanEmptyDir(DIR ${_Dir})
@@ -50,7 +50,6 @@ else ()
 
     set(_ExtArgs)
     if ("${_TargetSourceDir}" STREQUAL "")
-        # 源码不存在，使用 git clone 自动下载（目录名 msgpack-c，与 submodule 一致）
         get_filename_component(_TargetSourceDir "${PYPTO_THIRD_PARTY_PATH}/msgpack-c" REALPATH)
         list(APPEND _ExtArgs
                 GIT_REPOSITORY "https://github.com/msgpack/msgpack-c.git"
@@ -75,7 +74,7 @@ else ()
     )
 
     add_library(msgpackc-cxx INTERFACE)
-    target_include_directories(msgpackc-cxx INTERFACE "${_TargetInstallPrefix}/include")
+    target_include_directories(msgpackc-cxx SYSTEM INTERFACE "${_TargetInstallPrefix}/include")
     target_compile_features(msgpackc-cxx INTERFACE cxx_std_17)
     target_compile_definitions(msgpackc-cxx INTERFACE MSGPACK_NO_BOOST)
     add_dependencies(msgpackc-cxx ExternalProject_msgpack_c)

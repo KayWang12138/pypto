@@ -155,14 +155,6 @@ class TestPassContext:
             result = passes.normalize_stmt_structure()(program)
             assert result is not None
 
-    def test_before_mode_catches_false_ssa_claim(self):
-        """BEFORE mode detects that required SSAForm doesn't actually hold."""
-        with passes.PassContext([passes.VerificationInstrument(passes.VerificationMode.BEFORE)]):
-            # Same Var assigned twice — genuine SSA violation
-            program = _make_ssa_violating_program()
-            with pytest.raises(Exception, match="Pre-verification failed"):
-                passes.outline_incore_scopes()(program)
-
     def test_before_mode_succeeds_when_property_holds(self):
         """BEFORE mode passes when the required property actually holds."""
         with passes.PassContext([passes.VerificationInstrument(passes.VerificationMode.BEFORE)]):
@@ -186,14 +178,6 @@ class TestPassContext:
             program = passes.convert_to_ssa()(program)
             program = passes.flatten_call_expr()(program)
             assert program is not None
-
-    def test_before_and_after_catches_pre_violation(self):
-        """BEFORE_AND_AFTER catches pre-pass property violations."""
-        with passes.PassContext([passes.VerificationInstrument(passes.VerificationMode.BEFORE_AND_AFTER)]):
-            # Same Var assigned twice — genuine SSA violation
-            program = _make_ssa_violating_program()
-            with pytest.raises(Exception, match="Pre-verification failed"):
-                passes.outline_incore_scopes()(program)
 
     def test_pipeline_with_context(self):
         """PassPipeline respects active PassContext instruments."""

@@ -1,4 +1,5 @@
-/**
+/*
+ * Copyright (c) PyPTO Contributors.
  * Copyright (c) 2026 Huawei Technologies Co., Ltd.
  * This program is free software, you can redistribute it and/or modify it under the terms and conditions of
  * CANN Open Software License Agreement Version 2.0 (the "License").
@@ -6,6 +7,7 @@
  * THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED,
  * INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
  * See LICENSE in the root of the software repository for the full text of the License.
+ * -----------------------------------------------------------------------------------------------------------
  */
 
 #include "ir/core.h"
@@ -17,39 +19,53 @@
 namespace pypto {
 namespace ir {
 
-Span::Span(std::string filename, int beginLine, int beginColumn, int endLine, int endColumn)
+Span::Span(std::string filename, int begin_line, int begin_column, int end_line, int end_column)
     : filename_(std::move(filename)),
-      beginLine_(beginLine),
-      beginColumn_(beginColumn),
-      endLine_(endLine),
-      endColumn_(endColumn)
+      begin_line_(begin_line),
+      begin_column_(begin_column),
+      end_line_(end_line),
+      end_column_(end_column)
 {}
 
-std::string Span::ToString() const
+std::string Span::to_string() const
 {
     std::ostringstream oss;
-    oss << filename_ << ":" << beginLine_ << ":" << beginColumn_;
+    oss << filename_ << ":" << begin_line_ << ":" << begin_column_;
     return oss.str();
 }
 
-bool Span::IsValid() const
+static Span kUnknownSpan = Span("", -1, -1, -1, -1);
+
+bool Span::is_valid() const
 {
-    if (beginLine_ <= 0 || (beginColumn_ <= 0 && beginColumn_ != -1)) {
+    if (begin_line_ <= 0 || (begin_column_ <= 0 && begin_column_ != -1)) {
         return false;
     }
-    if (endLine_ == -1 || endColumn_ == -1) {
+    if (end_line_ == -1 || end_column_ == -1) {
         return true;
     }
-    if (endLine_ <= 0 || (endColumn_ <= 0 && endColumn_ != -1)) {
+    if (end_line_ <= 0 || (end_column_ <= 0 && end_column_ != -1)) {
         return false;
     }
-    if (beginColumn_ == -1 || endColumn_ == -1) {
-        return endLine_ >= beginLine_;
+    if (begin_column_ == -1 || end_column_ == -1) {
+        return end_line_ >= begin_line_;
     }
-    return endLine_ >= beginLine_ && (endLine_ > beginLine_ || endColumn_ >= beginColumn_);
+    return end_line_ >= begin_line_ && (end_line_ > begin_line_ || end_column_ >= begin_column_);
 }
 
-Span Span::Unknown() { return Span("", -1, -1, -1, -1); }
+bool Span::is_unknown(const Span& span)
+{
+    return span.filename_.empty() && span.begin_line_ == -1 && span.begin_column_ == -1 && span.end_line_ == -1 &&
+           span.end_column_ == -1;
+}
+
+Span Span::unknown() { return Unknown(); }
+
+std::string Span::ToString() const { return to_string(); }
+
+bool Span::IsUnknown(const Span& span) { return is_unknown(span); }
+
+Span& Span::Unknown() { return kUnknownSpan; }
 
 } // namespace ir
 } // namespace pypto

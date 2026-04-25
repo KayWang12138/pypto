@@ -17,14 +17,15 @@
 #include <string>
 #include <vector>
 
-#include "block/core/error.h"
-#include "block/core/logging.h"
-#include "block/ir/expr.h"
-#include "block/ir/kind_traits.h"
-#include "block/ir/memref.h"
-#include "block/ir/pipe.h"
-#include "block/ir/scalar_expr.h"
-#include "block/ir/type.h"
+#include "core/error.h"
+#include "core/logging.h"
+#include "ir/expr.h"
+#include "ir/kind_traits.h"
+#include "ir/memref.h"
+#include "ir/pipe.h"
+#include "ir/scalar_expr.h"
+#include "ir/scalar_expr_ops.h"
+#include "ir/type.h"
 
 namespace pypto {
 
@@ -33,9 +34,9 @@ namespace codegen {
 namespace {
 
 // Resolve a valid_shape ExprPtr to a string for use in the Tile<> type template.
-// Only ConstInt values are supported (Var â†’ compile-time unknown, skip).
+// Only ConstInt values are supported (Var â†?compile-time unknown, skip).
 // Returns "" if the expression cannot be resolved to a constant.
-// ConstInt(-1) means "use full shape at runtime" â†’ emits "-1" in template (dynamic valid_shape).
+// ConstInt(-1) means "use full shape at runtime" â†?emits "-1" in template (dynamic valid_shape).
 std::string ResolveValidShapeDim(const ir::ExprPtr& expr, int64_t /*fallback*/) {
   if (!expr) return "-1";
   if (auto c = ir::As<ir::ConstInt>(expr)) {
@@ -56,7 +57,7 @@ std::string ConvertTilePadToPTOValue(ir::TilePad pad) {
     case ir::TilePad::min:
       return "PadValue::Min";
     default:
-      throw pypto::ValueError("Invalid TilePad value");
+      throw pypto::ir::ValueError("Invalid TilePad value");
   }
 }
 
@@ -163,9 +164,9 @@ std::string TypeConverter::ConvertMemorySpaceToTileType(ir::MemorySpace space) c
       return "TileType::Scaling";
     case ir::MemorySpace::DDR:
       // DDR is for GlobalTensor, not Tile - should not reach here
-      throw pypto::ValueError("DDR is for GlobalTensor, not Tile");
+      throw pypto::ir::ValueError("DDR is for GlobalTensor, not Tile");
     default:
-      throw pypto::ValueError("Invalid MemorySpace value");
+      throw pypto::ir::ValueError("Invalid MemorySpace value");
   }
 }
 
@@ -188,7 +189,7 @@ std::string TypeConverter::ConvertPipeType(ir::PipeType pipe) const {
     case ir::PipeType::ALL:
       return "PIPE_ALL";
     default:
-      throw pypto::ValueError("Invalid PipeType value");
+      throw pypto::ir::ValueError("Invalid PipeType value");
   }
 }
 
@@ -214,7 +215,7 @@ std::string TypeConverter::ConvertCastRoundMode(int mode) const {
     case 6:
       return "RoundMode::CAST_ODD";
     default:
-      throw pypto::ValueError("Cast round mode must be in range [0, 6], got " + std::to_string(mode));
+      throw pypto::ir::ValueError("Cast round mode must be in range [0, 6], got " + std::to_string(mode));
   }
 }
 
@@ -227,7 +228,7 @@ std::string TypeConverter::ConvertTileLayout(ir::TileLayout layout) const {
     case ir::TileLayout::col_major:
       return "ColMajor";
     default:
-      throw pypto::ValueError("Invalid TileLayout value");
+      throw pypto::ir::ValueError("Invalid TileLayout value");
   }
 }
 
@@ -290,3 +291,4 @@ std::string TypeConverter::GenerateStrideType(const std::vector<int64_t>& shape)
 }  // namespace codegen
 
 }  // namespace pypto
+

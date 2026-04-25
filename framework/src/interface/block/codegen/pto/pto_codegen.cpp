@@ -10,7 +10,7 @@
  */
 
 #include "block/codegen/pto/pto_codegen.h"
-#include "block/ir/transforms/printer.h"
+#include "ir/transforms/printer.h"
 
 #include <cstddef>
 #include <cstdint>
@@ -26,18 +26,19 @@
 
 #include "block/backend/common/backend.h"
 #include "block/backend/common/backend_config.h"
-#include "block/core/dtype.h"
-#include "block/core/error.h"
-#include "block/core/logging.h"
-#include "block/ir/expr.h"
-#include "block/ir/function.h"
-#include "block/ir/kind_traits.h"
-#include "block/ir/memref.h"
-#include "block/ir/program.h"
-#include "block/ir/scalar_expr.h"
-#include "block/ir/stmt.h"
-#include "block/ir/transforms/passes.h"
-#include "block/ir/type.h"
+#include "core/dtype.h"
+#include "core/error.h"
+#include "core/logging.h"
+#include "ir/expr.h"
+#include "ir/function.h"
+#include "ir/kind_traits.h"
+#include "ir/memref.h"
+#include "ir/program.h"
+#include "ir/scalar_expr.h"
+#include "ir/scalar_expr_ops.h"
+#include "ir/stmt.h"
+#include "ir/transforms/passes.h"
+#include "ir/type.h"
 
 namespace pypto {
 namespace codegen {
@@ -46,6 +47,7 @@ using ir::As;
 using ir::AssignStmtPtr;
 using ir::BinaryExprPtr;
 using ir::CallPtr;
+using ir::DataType;
 using ir::EvalStmtPtr;
 using ir::ExprPtr;
 using ir::ForStmtPtr;
@@ -64,35 +66,35 @@ using ir::VarPtr;
 using ir::YieldStmtPtr;
 
 // Helper function to convert DataType to MLIR type string
-static std::string DataTypeToMLIRImpl(::pypto::DataType dtype) {
-  if (dtype == ::pypto::DataType::FP32) {
+static std::string DataTypeToMLIRImpl(::pypto::ir::DataType dtype) {
+  if (dtype == ::pypto::ir::DataType::FP32) {
     return "f32";
-  } else if (dtype == ::pypto::DataType::FP16) {
+  } else if (dtype == ::pypto::ir::DataType::FP16) {
     return "f16";
-  } else if (dtype == ::pypto::DataType::BF16) {
+  } else if (dtype == ::pypto::ir::DataType::BF16) {
     return "bf16";
-  } else if (dtype == ::pypto::DataType::INT8) {
+  } else if (dtype == ::pypto::ir::DataType::INT8) {
     return "i8";
-  } else if (dtype == ::pypto::DataType::UINT8) {
+  } else if (dtype == ::pypto::ir::DataType::UINT8) {
     return "ui8";
-  } else if (dtype == ::pypto::DataType::INT16) {
+  } else if (dtype == ::pypto::ir::DataType::INT16) {
     return "i16";
-  } else if (dtype == ::pypto::DataType::UINT16) {
+  } else if (dtype == ::pypto::ir::DataType::UINT16) {
     return "ui16";
-  } else if (dtype == ::pypto::DataType::INT32) {
+  } else if (dtype == ::pypto::ir::DataType::INT32) {
     return "i32";
-  } else if (dtype == ::pypto::DataType::UINT32) {
+  } else if (dtype == ::pypto::ir::DataType::UINT32) {
     return "ui32";
-  } else if (dtype == ::pypto::DataType::INDEX) {
+  } else if (dtype == ::pypto::ir::DataType::INDEX) {
     return "index";
-  } else if (dtype == ::pypto::DataType::INT64) {
+  } else if (dtype == ::pypto::ir::DataType::INT64) {
     return "i64";
-  } else if (dtype == ::pypto::DataType::UINT64) {
+  } else if (dtype == ::pypto::ir::DataType::UINT64) {
     return "ui64";
-  } else if (dtype == ::pypto::DataType::BOOL) {
+  } else if (dtype == ::pypto::ir::DataType::BOOL) {
     return "i1";
   } else {
-    throw pypto::ValueError("Invalid DataType value");
+    throw pypto::ir::ValueError("Invalid DataType value");
   }
 }
 
@@ -113,12 +115,14 @@ static std::string MemorySpaceToMLIR(ir::MemorySpace space) {
   } else if (space == ir::MemorySpace::Acc) {
     return "acc";
   } else {
-    throw pypto::ValueError("Invalid MemorySpace value");
+    throw pypto::ir::ValueError("Invalid MemorySpace value");
   }
 }
 
 // Visitor to collect all MemRef objects from TileType variables
 class MemRefCollectorVisitor : public ir::IRVisitor {
+    using ir::IRVisitor::VisitStmt_;
+    using ir::IRVisitor::VisitExpr_;
  public:
   MemRefCollectorVisitor() = default;
 
@@ -149,7 +153,7 @@ class MemRefCollectorVisitor : public ir::IRVisitor {
 
   void VisitStmt_(const ir::SectionStmtPtr& op) override {
     auto prev = current_section_;
-    current_section_ = op->section_kind_;
+    current_section_ = op->sectionKind_;
     IRVisitor::VisitStmt_(op);
     current_section_ = prev;
   }
@@ -223,8 +227,8 @@ std::string PTOCodegen::Generate(const ProgramPtr& program) {
   indent_level_++;
 
   for (const auto& [gvar, func] : opt_program->functions_) {
-    if (func->func_type_ == ir::FunctionType::Orchestration) {
-      throw pypto::ValueError(
+    if (func->funcType_ == ir::FunctionType::ORCHESTRATION) {
+      throw pypto::ir::ValueError(
           "PTO backend does not support Orchestration functions. "
           "Function '" +
           func->name_ + "' is marked as Orchestration. ");
@@ -238,7 +242,7 @@ std::string PTOCodegen::Generate(const ProgramPtr& program) {
 }
 
 void PTOCodegen::GenerateFunction(const FunctionPtr& func) {
-  if (func->func_type_ == ir::FunctionType::Helper) {
+  if (func->funcType_ == ir::FunctionType::HELPER) {
     GenerateHelperFunction(func);
     return;
   }
@@ -403,6 +407,8 @@ void PTOCodegen::GenerateFunction(const FunctionPtr& func) {
 
 void PTOCodegen::BuildVarToMemRefMapping(const FunctionPtr& func) {
   class VarMemRefMapper : public ir::IRVisitor {
+      using ir::IRVisitor::VisitStmt_;
+      using ir::IRVisitor::VisitExpr_;
    public:
     std::map<std::string, const ir::MemRef*>& var_to_memref;
 
@@ -581,7 +587,7 @@ void PTOCodegen::EmitAllocTiles(const ir::FunctionPtr& func, const std::vector<i
     line << " : " << GetTileBufTypeString(memref.get());
     stream_ << GetIndent() << line.str() << "\n";
 
-    // Record tile → addr SSA mapping for ops that need to adjust tile address (e.g., tinsert with offset)
+    // Record tile �?addr SSA mapping for ops that need to adjust tile address (e.g., tinsert with offset)
     tile_to_addr_ssa_[tile_buf] = addr_operand;
 
     // Initialize tile→valid_shape mapping for dynamic tiles
@@ -677,7 +683,7 @@ void PTOCodegen::VisitStmt_(const AssignStmtPtr& op) {
   }
 
   current_expr_value_ = "";
-  // MakeTuple has no MLIR equivalent — store for TupleGetItemExpr resolution
+  // MakeTuple has no MLIR equivalent �?store for TupleGetItemExpr resolution
   if (auto make_tuple = As<ir::MakeTuple>(op->value_)) {
     tuple_var_to_make_tuple_[op->var_->name_] = make_tuple;
     return;
@@ -691,7 +697,7 @@ void PTOCodegen::VisitStmt_(const AssignStmtPtr& op) {
         const auto& elems = it->second->elements_;
         if (tgi->index_ >= 0 && tgi->index_ < static_cast<int>(elems.size())) {
           auto elem = elems[tgi->index_];
-          // Element is a Var pointing to another MakeTuple — propagate registration
+          // Element is a Var pointing to another MakeTuple �?propagate registration
           if (auto elem_var = As<ir::Var>(elem)) {
             auto inner_it = tuple_var_to_make_tuple_.find(elem_var->name_);
             if (inner_it != tuple_var_to_make_tuple_.end()) {
@@ -739,7 +745,7 @@ void PTOCodegen::VisitExpr_(const CallPtr& op) {
   CHECK(backend_ != nullptr) << "Backend must not be null; use PTOCodegen(backend) or default backend";
   const auto* op_info = backend_->GetOpInfo(op_name);
   if (op_info == nullptr) {
-    // Not a built-in op — treat as a user-defined function call (func.call)
+    // Not a built-in op �?treat as a user-defined function call (func.call)
     EmitFuncCall(op);
     return;
   }
@@ -1025,7 +1031,7 @@ std::string PTOCodegen::GetExprTypeAnnotation(const ir::ExprPtr& expr) {
       }
     }
   }
-  // TileOffsetExpr preserves the base tile's TileType — look it up directly
+  // TileOffsetExpr preserves the base tile's TileType �?look it up directly
   if (auto tile_off = As<ir::TileOffsetExpr>(expr)) {
     if (auto tile_type = As<TileType>(tile_off->GetType())) {
       return GetTileBufTypeStringFromTileType(tile_type);
@@ -1340,7 +1346,7 @@ void PTOCodegen::VisitStmt_(const YieldStmtPtr& op) {
         // Yield i64 addr instead of tile_buf for TileType in indirect-select scf.if.
         // If expr is a Var whose name is in indirect_addr_vars_, it was already mapped
         // directly to an addr_ssa by the inner IfStmt reconstruction (to avoid emitting
-        // a dead pto.alloc_tile). In that case, val already holds the correct i64 addr —
+        // a dead pto.alloc_tile). In that case, val already holds the correct i64 addr �?
         // don't override with the static memref addr.
         bool is_indirect_addr_var = false;
         if (auto var = As<ir::Var>(expr)) {
@@ -1356,7 +1362,7 @@ void PTOCodegen::VisitStmt_(const YieldStmtPtr& op) {
           if (addr_operand.empty()) addr_operand = GetOrEmitI64Constant(0);
           val = addr_operand;
         }
-        // else: val already holds addr_ssa (e.g., "%57") — keep as-is
+        // else: val already holds addr_ssa (e.g., "%57") �?keep as-is
       } else if (auto tensor_type = As<TensorType>(expr->GetType())) {
         // TensorType: yield index offset instead of ptr for indirect-select scf.if.
         // The scf.if yields an index (addptr offset), then IfStmt reconstruction emits
@@ -1385,7 +1391,7 @@ void PTOCodegen::VisitStmt_(const ir::SectionStmtPtr& op) {
 
   // Determine the section name based on section_kind
   std::string section_name;
-  switch (op->section_kind_) {
+  switch (op->sectionKind_) {
     case ir::SectionKind::Vector:
       section_name = "vector";
       break;
@@ -1393,7 +1399,7 @@ void PTOCodegen::VisitStmt_(const ir::SectionStmtPtr& op) {
       section_name = "cube";
       break;
     default:
-      throw pypto::ValueError("Unknown SectionKind in SectionStmt");
+      throw pypto::ir::ValueError("Unknown SectionKind in SectionStmt");
   }
 
   // Emit pto.section.{vector|cube} {
@@ -1402,9 +1408,9 @@ void PTOCodegen::VisitStmt_(const ir::SectionStmtPtr& op) {
 
   // Emit section-specific tile allocations at the top of the section
   const std::set<const ir::MemRef*>* section_memrefs = nullptr;
-  if (op->section_kind_ == ir::SectionKind::Cube && !cube_only_memrefs_.empty())
+  if (op->sectionKind_ == ir::SectionKind::Cube && !cube_only_memrefs_.empty())
     section_memrefs = &cube_only_memrefs_;
-  if (op->section_kind_ == ir::SectionKind::Vector && !vec_only_memrefs_.empty())
+  if (op->sectionKind_ == ir::SectionKind::Vector && !vec_only_memrefs_.empty())
     section_memrefs = &vec_only_memrefs_;
   if (section_memrefs)
     EmitAllocTiles(nullptr, all_memrefs_, section_memrefs);
@@ -1417,28 +1423,28 @@ void PTOCodegen::VisitStmt_(const ir::SectionStmtPtr& op) {
 void PTOCodegen::VisitStmt_(const IfStmtPtr& op) {
   INTERNAL_CHECK(op != nullptr) << "Internal error: null IfStmt";
   INTERNAL_CHECK(op->condition_ != nullptr) << "Internal error: IfStmt has null condition";
-  INTERNAL_CHECK(op->then_body_ != nullptr) << "Internal error: IfStmt has null then_body";
+  INTERNAL_CHECK(op->thenBody_ != nullptr) << "Internal error: IfStmt has null then_body";
 
   // Evaluate condition
   VisitExpr(op->condition_);
   std::string condition = current_expr_value_;
   current_expr_value_ = "";
 
-  if (op->return_vars_.empty()) {
+  if (op->returnVars_.empty()) {
     // Simple scf.if (no return values)
     auto if_entry_var_to_mlir = var_to_mlir_;
     Emit("scf.if " + condition + " {");
     indent_level_++;
     var_to_mlir_ = if_entry_var_to_mlir;
-    VisitStmt(op->then_body_);
+    VisitStmt(op->thenBody_);
     var_to_mlir_ = if_entry_var_to_mlir;
     indent_level_--;
 
-    if (op->else_body_.has_value()) {
+    if (op->elseBody_.has_value()) {
       Emit("} else {");
       indent_level_++;
       var_to_mlir_ = if_entry_var_to_mlir;
-      VisitStmt(*op->else_body_);
+      VisitStmt(*op->elseBody_);
       var_to_mlir_ = if_entry_var_to_mlir;
       indent_level_--;
     }
@@ -1450,7 +1456,7 @@ void PTOCodegen::VisitStmt_(const IfStmtPtr& op) {
     std::vector<std::string> return_var_types;
     std::vector<bool> needs_indirect_yield;  // per-return-var flag
 
-    for (const auto& return_var : op->return_vars_) {
+    for (const auto& return_var : op->returnVars_) {
       std::string ret_name = NewTemp();
       var_to_mlir_[return_var->name_] = ret_name;
       return_var_names.push_back(ret_name);
@@ -1479,7 +1485,7 @@ void PTOCodegen::VisitStmt_(const IfStmtPtr& op) {
     bool any_indirect_yield = std::any_of(needs_indirect_yield.begin(), needs_indirect_yield.end(),
                                           [](bool b) { return b; });
 
-    CHECK(op->else_body_.has_value()) << "IfStmt with return_vars requires else_body";
+    CHECK(op->elseBody_.has_value()) << "IfStmt with return_vars requires else_body";
     auto if_entry_var_to_mlir = var_to_mlir_;
 
     // Emit: %ret0, %ret1 = scf.if %cond -> (type0, type1) {
@@ -1503,7 +1509,7 @@ void PTOCodegen::VisitStmt_(const IfStmtPtr& op) {
     // Then branch
     yield_buffer_.clear();
     var_to_mlir_ = if_entry_var_to_mlir;
-    VisitStmt(op->then_body_);
+    VisitStmt(op->thenBody_);
     var_to_mlir_ = if_entry_var_to_mlir;
     if (!yield_buffer_.empty()) {
       std::ostringstream yield_oss;
@@ -1526,11 +1532,11 @@ void PTOCodegen::VisitStmt_(const IfStmtPtr& op) {
     indent_level_--;
 
     // Else branch
-    if (op->else_body_.has_value()) {
+    if (op->elseBody_.has_value()) {
       Emit("} else {");
       indent_level_++;
       var_to_mlir_ = if_entry_var_to_mlir;
-      VisitStmt(*op->else_body_);
+      VisitStmt(*op->elseBody_);
       var_to_mlir_ = if_entry_var_to_mlir;
       if (!yield_buffer_.empty()) {
         std::ostringstream yield_oss;
@@ -1559,9 +1565,9 @@ void PTOCodegen::VisitStmt_(const IfStmtPtr& op) {
     if (any_indirect_yield) indirect_select_depth_--;
 
     // For each indirect-yield return var, reconstruct the real object from the scalar returned by scf.if
-    for (size_t rv_idx = 0; rv_idx < op->return_vars_.size(); ++rv_idx) {
+    for (size_t rv_idx = 0; rv_idx < op->returnVars_.size(); ++rv_idx) {
       if (!needs_indirect_yield[rv_idx]) continue;
-      const auto& return_var = op->return_vars_[rv_idx];
+      const auto& return_var = op->returnVars_[rv_idx];
       if (auto tile_type = As<TileType>(return_var->GetType())) {
         std::string addr_ssa = return_var_names[rv_idx];
         if (indirect_select_depth_ > 0) {
@@ -1652,12 +1658,12 @@ void PTOCodegen::VisitStmt_(const IfStmtPtr& op) {
 
 void PTOCodegen::VisitStmt_(const ForStmtPtr& op) {
   INTERNAL_CHECK(op != nullptr) << "Internal error: null ForStmt";
-  INTERNAL_CHECK(op->loop_var_ != nullptr) << "Internal error: ForStmt has null loop_var";
+  INTERNAL_CHECK(op->loopVar_ != nullptr) << "Internal error: ForStmt has null loop_var";
   INTERNAL_CHECK(op->body_ != nullptr) << "Internal error: ForStmt has null body";
 
-  CHECK(op->iter_args_.size() == op->return_vars_.size())
-      << "ForStmt iter_args size (" << op->iter_args_.size() << ") must equal return_vars size ("
-      << op->return_vars_.size() << ")";
+  CHECK(op->iterArgs_.size() == op->returnVars_.size())
+      << "ForStmt iter_args size (" << op->iterArgs_.size() << ") must equal return_vars size ("
+      << op->returnVars_.size() << ")";
 
   if (op->kind_ == ir::ForKind::Unroll) {
     LOG_WARN << "ForKind::Unroll loop was not expanded before codegen; "
@@ -1679,9 +1685,9 @@ void PTOCodegen::VisitStmt_(const ForStmtPtr& op) {
 
   // Register loop variable
   std::string loop_var_name = NewTemp();
-  var_to_mlir_[op->loop_var_->name_] = loop_var_name;
+  var_to_mlir_[op->loopVar_->name_] = loop_var_name;
 
-  if (op->iter_args_.empty()) {
+  if (op->iterArgs_.empty()) {
     // Simple scf.for (no iter_args)
     Emit("scf.for " + loop_var_name + " = " + start + " to " + stop + " step " + step + " {");
     indent_level_++;
@@ -1697,7 +1703,7 @@ void PTOCodegen::VisitStmt_(const ForStmtPtr& op) {
     std::vector<std::string> iter_arg_names;
     std::vector<std::string> iter_arg_types;
 
-    for (const auto& iter_arg : op->iter_args_) {
+    for (const auto& iter_arg : op->iterArgs_) {
       VisitExpr(iter_arg->initValue_);
       init_values.push_back(current_expr_value_);
       current_expr_value_ = "";
@@ -1719,7 +1725,7 @@ void PTOCodegen::VisitStmt_(const ForStmtPtr& op) {
 
     // Register return_vars SSA names
     std::vector<std::string> return_var_names;
-    for (const auto& return_var : op->return_vars_) {
+    for (const auto& return_var : op->returnVars_) {
       std::string ret_name = NewTemp();
       var_to_mlir_[return_var->name_] = ret_name;
       return_var_names.push_back(ret_name);
@@ -1777,11 +1783,11 @@ void PTOCodegen::VisitStmt_(const ir::WhileStmtPtr& op) {
   INTERNAL_CHECK(op->condition_ != nullptr) << "Internal error: WhileStmt has null condition";
   INTERNAL_CHECK(op->body_ != nullptr) << "Internal error: WhileStmt has null body";
 
-  CHECK(op->iter_args_.size() == op->return_vars_.size())
-      << "WhileStmt iter_args size (" << op->iter_args_.size() << ") must equal return_vars size ("
-      << op->return_vars_.size() << ")";
+  CHECK(op->iterArgs_.size() == op->returnVars_.size())
+      << "WhileStmt iter_args size (" << op->iterArgs_.size() << ") must equal return_vars size ("
+      << op->returnVars_.size() << ")";
 
-  if (op->iter_args_.empty()) {
+  if (op->iterArgs_.empty()) {
     // Standard MLIR scf.while with no iter_args:
     //   scf.while : () -> () {
     //     %cond = ...
@@ -1811,10 +1817,10 @@ void PTOCodegen::VisitStmt_(const ir::WhileStmtPtr& op) {
     // Standard MLIR scf.while with iter_args:
     //   %ret0, %ret1 = scf.while (%arg0 = %init0, %arg1 = %init1)
     //       : (type0, type1) -> (type0, type1) {
-    //     %cond = ...                               ← NO ^bb0 header; args are implicit
+    //     %cond = ...                               �?NO ^bb0 header; args are implicit
     //     scf.condition(%cond) %arg0, %arg1 : type0, type1
     //   } do {
-    //   ^bb0(%arg0: type0, %arg1: type1):           ← explicit ^bb0 required
+    //   ^bb0(%arg0: type0, %arg1: type1):           �?explicit ^bb0 required
     //     ...body...
     //     scf.yield %new0, %new1 : type0, type1
     //   }
@@ -1822,7 +1828,7 @@ void PTOCodegen::VisitStmt_(const ir::WhileStmtPtr& op) {
     std::vector<std::string> iter_arg_names;
     std::vector<std::string> iter_arg_types;
 
-    for (const auto& iter_arg : op->iter_args_) {
+    for (const auto& iter_arg : op->iterArgs_) {
       VisitExpr(iter_arg->initValue_);
       init_values.push_back(current_expr_value_);
       current_expr_value_ = "";
@@ -1844,7 +1850,7 @@ void PTOCodegen::VisitStmt_(const ir::WhileStmtPtr& op) {
 
     // Register return_vars SSA names
     std::vector<std::string> return_var_names;
-    for (const auto& return_var : op->return_vars_) {
+    for (const auto& return_var : op->returnVars_) {
       std::string ret_name = NewTemp();
       var_to_mlir_[return_var->name_] = ret_name;
       return_var_names.push_back(ret_name);
@@ -1883,7 +1889,7 @@ void PTOCodegen::VisitStmt_(const ir::WhileStmtPtr& op) {
     Emit(header_oss.str());
     indent_level_++;
 
-    // "before" region: evaluate condition then scf.condition — no ^bb0 header, iter_args implicit
+    // "before" region: evaluate condition then scf.condition �?no ^bb0 header, iter_args implicit
     VisitExpr(op->condition_);
     std::string condition = current_expr_value_;
     current_expr_value_ = "";
@@ -1945,7 +1951,7 @@ void PTOCodegen::VisitStmt_(const ir::ContinueStmtPtr& op) {
 }
 
 // ========================================================================
-// Helper function generation (FunctionType::Helper)
+// Helper function generation (FunctionType::HELPER)
 // ========================================================================
 
 void PTOCodegen::GenerateHelperFunction(const FunctionPtr& func) {
@@ -2038,9 +2044,9 @@ void PTOCodegen::GenerateHelperFunction(const FunctionPtr& func) {
   }
   stream_ << ")";
 
-  if (!func->return_types_.empty()) {
+  if (!func->returnTypes_.empty()) {
     stream_ << " -> ";
-    const auto& rt = func->return_types_[0];
+    const auto& rt = func->returnTypes_[0];
     if (auto scalar_type = As<ScalarType>(rt)) {
       stream_ << GetTypeString(scalar_type->dtype_);
     } else if (auto tensor_type = As<TensorType>(rt)) {
@@ -2092,7 +2098,7 @@ void PTOCodegen::GenerateHelperFunction(const FunctionPtr& func) {
   }
 
   // Add trailing func.return for void helpers that have no explicit return statement
-  if (func->return_types_.empty()) {
+  if (func->returnTypes_.empty()) {
     bool has_explicit_return = false;
     if (auto seq = As<ir::SeqStmts>(func->body_)) {
       if (!seq->stmts_.empty()) {
@@ -2186,7 +2192,7 @@ void PTOCodegen::EmitFuncCall(const CallPtr& op) {
 void PTOCodegen::VisitStmt_(const ir::ReturnStmtPtr& op) {
   // For kernel functions (non-Helper), the trailing 'return' is emitted by
   // GenerateFunction; we skip the ReturnStmt visitor to avoid double emission.
-  if (!current_function_ || current_function_->func_type_ != ir::FunctionType::Helper) {
+  if (!current_function_ || current_function_->funcType_ != ir::FunctionType::HELPER) {
     return;
   }
   if (op->value_.empty()) {
@@ -2217,3 +2223,4 @@ void PTOCodegen::VisitStmt_(const ir::ReturnStmtPtr& op) {
 
 }  // namespace codegen
 }  // namespace pypto
+

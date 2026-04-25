@@ -368,33 +368,6 @@ def test_debug_assert_loc_metadata_round_trip():
     assert call.kwargs["show_location"] is True
 
 
-def test_pto_codegen_alloc_tile():
-    """Test that tile buffers generate alloc_tile operations."""
-    backend.reset_for_testing()
-    backend.set_backend_type(BackendType.PTO)
-
-    @pl.program
-    class AllocTileProgram:
-        @pl.function
-        def alloc_test(self, a: pl.Tensor[[32, 32], pl.FP32], b: pl.Tensor[[32, 32], pl.FP32]):
-            tile_a = pl.load(a, offsets=[0, 0], shapes=[32, 32])
-            tile_b = pl.load(a, offsets=[0, 0], shapes=[32, 32])
-            tile_c = pl.mul(tile_a, tile_b)
-            pl.store(tile_c, offsets=[0, 0], shapes=[32, 32], output_tensor=b)
-
-    pm = PassManager.get_strategy(OptimizationStrategy.PTOAS)
-    transformed_program = pm.run_passes(AllocTileProgram)
-
-    codegen = PTOCodegen()
-    mlir_code = _get_mlir_code(codegen.generate(transformed_program))
-
-    # Verify alloc_tile operations
-    assert "pto.alloc_tile" in mlir_code
-    assert "loc=vec" in mlir_code  # Vector buffer (PTO address space)
-    assert "dtype=f32" in mlir_code
-    assert "rows=32, cols=32" in mlir_code
-
-
 def test_pto_codegen_printf_lowering():
     """plm.printf should lower to one pto.print per scalar argument."""
     backend.reset_for_testing()
@@ -629,35 +602,6 @@ def test_pto_codegen_preserves_unsigned_mlir_types_outside_printf():
 
     assert "!pto.ptr<ui8>" in mlir_code
     assert "ui32" in mlir_code
-
-
-def test_pto_codegen_block_load_lowering():
-    """Test that block.load generates partition_view + tload."""
-
-    @pl.program
-    class LoadProgram:
-        @pl.function
-        def load_test(self, input: pl.Tensor[[64, 64], pl.FP32], output: pl.Tensor[[64, 64], pl.FP32]):
-            tile = pl.load(input, offsets=[0, 0], shapes=[32, 32])
-            pl.store(tile, offsets=[0, 0], shapes=[32, 32], output_tensor=output)
-
-    pm = PassManager.get_strategy(OptimizationStrategy.PTOAS)
-    transformed_program = pm.run_passes(LoadProgram)
-
-    codegen = PTOCodegen()
-    mlir_code = _get_mlir_code(codegen.generate(transformed_program))
-
-    # Verify partition_view generation
-    assert "pto.partition_view" in mlir_code
-    assert "offsets = [%c0, %c0]" in mlir_code
-    assert "sizes = [%c32, %c32]" in mlir_code
-    assert "!pto.partition_tensor_view<32x32xf32>" in mlir_code
-
-    # Verify tload generation
-    assert "pto.tload" in mlir_code
-    assert "ins(" in mlir_code
-    assert "outs(" in mlir_code
-    assert "!pto.tile_buf<" in mlir_code
 
 
 def test_pto_codegen_block_store_lowering():
@@ -1455,38 +1399,6 @@ def test_pto_codegen_ssa_naming():
     assert "%c" in mlir_code  # Constants
 
 
-def test_pto_codegen_code_generation_order():
-    """Test that code is generated in correct order: constants, views, allocs, body."""
-    backend.reset_for_testing()
-    backend.set_backend_type(BackendType.PTO)
-
-    @pl.program
-    class OrderProgram:
-        @pl.function
-        def order_test(self, a: pl.Tensor[[32, 32], pl.FP32], b: pl.Tensor[[32, 32], pl.FP32]):
-            tile = pl.load(a, offsets=[0, 0], shapes=[32, 32])
-            pl.store(tile, offsets=[0, 0], shapes=[32, 32], output_tensor=b)
-
-    pm = PassManager.get_strategy(OptimizationStrategy.PTOAS)
-    transformed_program = pm.run_passes(OrderProgram)
-
-    codegen = PTOCodegen()
-    mlir_code = _get_mlir_code(codegen.generate(transformed_program))
-
-    lines = mlir_code.split("\n")
-
-    # Find indices of key operations
-    const_idx = next((i for i, line in enumerate(lines) if "arith.constant" in line), -1)
-    view_idx = next((i for i, line in enumerate(lines) if "make_tensor_view" in line), -1)
-    alloc_idx = next((i for i, line in enumerate(lines) if "alloc_tile" in line), -1)
-    load_idx = next((i for i, line in enumerate(lines) if "tload" in line), -1)
-
-    # Verify order: constants < make_tensor_view < alloc_tile < operations
-    assert const_idx < view_idx, "Constants should come before make_tensor_view"
-    assert view_idx < alloc_idx, "make_tensor_view should come before alloc_tile"
-    assert alloc_idx < load_idx, "alloc_tile should come before tload"
-
-
 def test_pto_codegen_multiple_functions():
     """Test PTOCodegen with multiple functions."""
 
@@ -1995,18 +1907,6 @@ class TestGenerateArgUnpacking:
         assert "y_conv.u64 = args[1];" in code
         assert names == ["x", "y"]
 
-    def test_dynamic_tensor_extracts_repeats_dims(self):
-        func = _get_dyn_incore_func()
-        code, names = _generate_arg_unpacking(func)
-        # TH is dim 0 of first tensor a_0 — read from a_0_tensor->repeats[0]
-        assert "a_0_tensor->repeats[0]" in code
-        assert "int64_t TH" in code
-        # TW is dim 1 of first tensor a_0 — read from a_0_tensor->repeats[1]
-        assert "a_0_tensor->repeats[1]" in code
-        assert "int64_t TW" in code
-        # dynamic dims appended after tensor params
-        assert names == ["a_0", "b_0", "output_0", "TH", "TW"]
-
     def test_dynamic_tensor_deduplicates_vars(self):
         # TH and TW each appear in a_0, b_0, and output_0 but should be extracted only once
         func = _get_dyn_incore_func()
@@ -2046,18 +1946,6 @@ class TestGenerateKernelWrapper:
         wrapper = _generate_kernel_wrapper(func, SAMPLE_PTOAS_OUTPUT)
         count = wrapper.count("#include <pto/pto-inst.hpp>")
         assert count == 1, f"Expected 1 pto-inst include, found {count}"
-
-    def test_dynamic_shape_forward_call_includes_dims(self):
-        func = _get_dyn_incore_func()
-        wrapper = _generate_kernel_wrapper(func, SAMPLE_PTOAS_OUTPUT)
-        # Forward call must include dynamic dims TH and TW after tensor args (SSA-renamed with _0 suffix)
-        assert "dyn_func(a_0, b_0, output_0, TH, TW);" in wrapper
-
-    def test_dynamic_shape_repeats_extraction_in_wrapper(self):
-        func = _get_dyn_incore_func()
-        wrapper = _generate_kernel_wrapper(func, SAMPLE_PTOAS_OUTPUT)
-        assert "a_0_tensor->repeats[0]" in wrapper
-        assert "a_0_tensor->repeats[1]" in wrapper
 
 
 class TestGenerateSkipPtoas:

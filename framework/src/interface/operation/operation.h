@@ -80,6 +80,7 @@ public:
     static const std::string bindTensor;
     static const std::string startOffset;
     static const std::string distOpAttr;
+    static const std::string isDistCopyOut;
     static const std::string subBlockIdx;
     static const std::string accumulate;
     static const std::string indicesSize;
@@ -102,6 +103,8 @@ public:
     static const std::string rowPad;
     static const std::string ownerRank;
     static const std::string maxTileNum;
+    static const std::string precisionType;
+    static const std::string perm;
 };
 
 class ConvOpAttributeKey {
@@ -282,6 +285,25 @@ public:
     static std::shared_ptr<Operation> LoadJson(
         Function& cur, const std::unordered_map<int, std::shared_ptr<LogicalTensor>>& tensorDict, const Json& opDump);
 
+private:
+    void DumpOperandsJson(Json& opDump, bool dumpTensor) const;
+    void DumpCalleeHashJson(Json& opDump) const;
+    void DumpLocationJson(Json& opDump) const;
+    void DumpParamLocationJson(Json& opDump) const;
+    void DumpCallOpInfoJson(Json& opDump) const;
+    void DumpTileInfoJson(Json& opDump) const;
+    void DumpAttributesJson(Json& opDump) const;
+
+    static void LoadOperandsFromJson(
+        const Json& opDump, const std::unordered_map<int, std::shared_ptr<LogicalTensor>>& tensorDict,
+        std::vector<std::shared_ptr<LogicalTensor>>& ioperands, std::vector<std::shared_ptr<LogicalTensor>>& ooperands);
+    void LoadLocationFromJson(const Json& opDump);
+    void LoadBasicInfoFromJson(const Json& opDump);
+    void LoadTileInfoFromJson(const Json& opDump);
+    void LoadOpAttributeFromJson(const Json& opDump, Opcode opcode);
+    void LoadExtraInfoFromJson(const Json& opDump);
+
+public:
     [[nodiscard]] std::string DumpSSA(const std::string& prefix = "") const;
 
     [[nodiscard]] std::string Dump() const;
@@ -344,6 +366,23 @@ public:
     int scopeId_{-1};
     void SetScopeId(int scopeId) { scopeId_ = scopeId; };
     int GetScopeId() const { return scopeId_; };
+    int GetScopeIdLower() const
+    {
+        const int reduceCopyScopeBase = 10000;
+        return scopeId_ < reduceCopyScopeBase ? scopeId_ : -1;
+    };
+    int GetScopeIdUpper() const
+    {
+        const int cvSeperateScopeBase = 5000;
+        const int reduceCopyScopeBase = 10000;
+        const int groupWidth = 10;
+        if (scopeId_ < cvSeperateScopeBase) {
+            return -1;
+        } else if (scopeId_ < reduceCopyScopeBase) {
+            return scopeId_ / groupWidth;
+        }
+        return scopeId_;
+    };
 
     void AddInCtrlOperation(Operation& operation);
 
@@ -393,6 +432,7 @@ public:
             Opcode::OP_RESHAPE_COPY_OUT,
             Opcode::OP_INDEX_OUTCAST,
             Opcode::OP_INDEX_PUT,
+            Opcode::OP_INDEX_ADD,
             Opcode::OP_TRANSPOSE_MOVEIN,
             Opcode::OP_TRANSPOSE_MOVEOUT,
             Opcode::OP_FFN_SCHED,
@@ -497,6 +537,12 @@ public:
         return mixSubgraphFields_ ? mixSubgraphFields_->internalSubgraphID : NOT_IN_SUBGRAPH;
     }
     void UpdateSubgraphID(int subgraphID) { subgraphID_ = subgraphID; }
+    int GetL1ReuseHashOrder() const { return l1ReuseHashOrder_; }
+    void UpdateL1ReuseHashOrder(int hashOrder) { l1ReuseHashOrder_ = hashOrder; }
+    int GetCubeMergeHashOrder() const { return cubeMergeHashOrder_; }
+    void UpdateCubeMergeHashOrder(int hashOrder) { cubeMergeHashOrder_ = hashOrder; }
+    int GetVecMergeHashOrder() const { return vecMergeHashOrder_; }
+    void UpdateVecMergeHashOrder(int hashOrder) { vecMergeHashOrder_ = hashOrder; }
     void UpdateInternalSubgraphID(int internalSubgraphID)
     {
         ensureMixSubgraphFields();
@@ -574,6 +620,9 @@ public:
 private:
     Opcode opcode_{Opcode::OP_UNKNOWN};
     int subgraphID_{NOT_IN_SUBGRAPH};
+    int l1ReuseHashOrder_{-1};
+    int cubeMergeHashOrder_{-1};
+    int vecMergeHashOrder_{-1};
     bool isTileOp_{false};
     TileShape tileShape_;
     std::shared_ptr<OpAttribute> opAttribute_;

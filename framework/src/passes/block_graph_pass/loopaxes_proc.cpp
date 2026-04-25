@@ -21,7 +21,10 @@
 #include "passes/pass_log/pass_log.h"
 #include "passes/pass_interface/pass.h"
 #include "loopaxes_proc.h"
+#include "passes/block_graph_pass/dyn_attr_to_static.h"
+#include "passes/pass_utils/pass_error.h"
 
+#undef MODULE_NAME
 #define MODULE_NAME "LoopaxesProc"
 
 namespace npu {
@@ -65,27 +68,23 @@ bool NeedClearStatus(const Operation& op)
     auto opCode = op.GetOpcode();
     auto iter = SUPPORT_VF_FUSE_OPS.find(opCode);
     if (iter == SUPPORT_VF_FUSE_OPS.end()) {
+        APASS_LOG_DEBUG_F(
+            Elements::Operation, "%d %s doesn't support VF fuse", op.GetOpMagic(), op.GetOpcodeStr().c_str());
         return true;
-    }
-
-    if (SUPPORT_BRCINLINE.find(opCode) != SUPPORT_BRCINLINE.end()) {
-        for (const auto& oper : op.GetIOperands()) {
-            auto rawShape = oper->GetRawTensor()->GetRawShape();
-            bool hasOneAxis = std::find(rawShape.begin(), rawShape.end(), 1) != rawShape.end();
-            if (hasOneAxis) {
-                return true;
-            }
-        }
     }
 
     //  Opcode::OP_EXPAND only support last axis or second last axis in for-loop
     if (opCode == Opcode::OP_EXPAND) {
         std::string axisKey = OP_ATTR_PREFIX + "EXPANDDIM";
-        ASSERT(op.HasAttr(axisKey)) << "attr " << axisKey << "not found";
+        ASSERT(OperationErr::OP_SPECIAL_CONSTRAINT, op.HasAttr(axisKey)) << "attr " << axisKey << "not found";
         int64_t expandAxis = op.GetIntAttribute(axisKey);
         int shapeSize = static_cast<int>(op.GetOOperands().front()->GetDynValidShape().size());
         expandAxis += SHAPE_DIM4 - shapeSize;
-        return expandAxis == 0 || expandAxis == 1;
+        if (expandAxis == 0 || expandAxis == 1) {
+            APASS_LOG_DEBUG_F(
+                Elements::Operation, "%d %s expand axis 0/1", op.GetOpMagic(), op.GetOpcodeStr().c_str());
+            return true;
+        }
     }
 
     return false;
@@ -146,22 +145,24 @@ Status LoopaxesProc::UpdateOpLoopAxes(Operation& op, Function& subFunc)
 
 Status LoopaxesProc::UpdateFuncLoopAxes(Function& function)
 {
-    if (function.rootFunc_ == nullptr) {
-        return SUCCESS;
+    DynAttrToStatic dyn2Static;
+    // 遍历所有rootFunc, 找到每个leaf的所有caller, 生成leaf2Caller map
+    if (dyn2Static.BuildLeafToCaller(&function) != SUCCESS) {
+        APASS_LOG_ERROR_F(Elements::Operation, "Failed to call BuildLeafToCaller.");
+        return FAILED;
     }
-    APASS_LOG_DEBUG_F(Elements::Operation, "Function[%s] has rootFunc.", function.GetMagicName().c_str());
-    for (auto& subProgram : function.rootFunc_->programs_) {
+
+    // 遍历leaf2Caller
+    for (auto& pair : dyn2Static.leaf2Caller) {
         groupIdx = INVALID_LOOP_GROUPID;
         lastGroupIdx = groupIdx;
         lastOpInLoop.reset();
-        if (subProgram.second == nullptr) {
-            APASS_LOG_DEBUG_F(
-                Elements::Operation, "subProgram[%lu] of Function[%s] is nullptr.", subProgram.first,
-                function.GetMagicName().c_str());
+        if (pair.first == nullptr) {
+            APASS_LOG_DEBUG_F(Elements::Operation, "subProgram of Function is nullptr.");
             continue;
         }
-        for (auto& op : subProgram.second->Operations(false)) {
-            auto& subFunc = *subProgram.second;
+        for (auto& op : pair.first->Operations(false)) {
+            auto& subFunc = *pair.first;
             UpdateOpLoopAxes(op, subFunc);
         }
         if (lastGroupIdx != INVALID_LOOP_GROUPID && lastOpInLoop != nullptr) {

@@ -241,7 +241,7 @@ TEST_F(OperationImplTest, test_PReLU_FP16)
     FUNCTION("TestPReLU") { result = PReLU(operand1, weight); }
 }
 
-TEST_F(OperationImplTest, Test_IndexAdd_BF16)
+TEST_F(OperationImplTest, Test_IndexAddUB_BF16)
 {
     float scalar = 1.2f;
     int axis = 0;
@@ -252,10 +252,10 @@ TEST_F(OperationImplTest, Test_IndexAdd_BF16)
     Tensor index(DT_INT32, {8}, "operand2");
     Element alpha(DT_BF16, scalar);
     Tensor result;
-    FUNCTION("TestIndxAdd") { result = IndexAdd(self, src, index, axis, alpha); }
+    FUNCTION("TestIndxAdd") { result = IndexAddUB(self, src, index, axis, alpha); }
 }
 
-TEST_F(OperationImplTest, Test_IndexAdd_INT8)
+TEST_F(OperationImplTest, Test_IndexAddUB_INT8)
 {
     int scalar = 2;
     int axis = 1;
@@ -266,10 +266,10 @@ TEST_F(OperationImplTest, Test_IndexAdd_INT8)
     Tensor index(DT_INT32, {18}, "operand2");
     Element alpha(DT_INT8, scalar);
     Tensor result;
-    FUNCTION("TestIndxAdd") { result = IndexAdd(self, src, index, axis, alpha); }
+    FUNCTION("TestIndxAdd") { result = IndexAddUB(self, src, index, axis, alpha); }
 }
 
-TEST_F(OperationImplTest, Test_IndexAdd_INT16)
+TEST_F(OperationImplTest, Test_IndexAddUB_INT16)
 {
     int scalar = 2;
     int axis = 1;
@@ -280,7 +280,7 @@ TEST_F(OperationImplTest, Test_IndexAdd_INT16)
     Tensor index(DT_INT64, {2}, "operand2");
     Element alpha(DT_INT16, scalar);
     Tensor result;
-    FUNCTION("TestIndxAdd") { result = IndexAdd(self, src, index, axis, alpha); }
+    FUNCTION("TestIndxAdd") { result = IndexAddUB(self, src, index, axis, alpha); }
 }
 
 TEST_F(OperationImplTest, Test_IndexAdd_FP32)
@@ -293,11 +293,10 @@ TEST_F(OperationImplTest, Test_IndexAdd_FP32)
     Tensor src(DT_FP32, {15, 10, 16}, "operand1");
     Tensor index(DT_INT32, {15}, "operand2");
     Element alpha(DT_FP32, scalar);
-    Tensor result;
-    FUNCTION("TestIndxAdd") { result = IndexAdd(self, src, index, axis, alpha); }
+    FUNCTION("TestIndxAdd") { IndexAdd_(self, src, index, axis, alpha); }
 }
 
-TEST_F(OperationImplTest, Test_IndexAdd_FP16)
+TEST_F(OperationImplTest, Test_IndexAddUB_FP16)
 {
     float scalar = 1.0f;
     int axis = 0;
@@ -308,7 +307,7 @@ TEST_F(OperationImplTest, Test_IndexAdd_FP16)
     Tensor index(DT_INT64, {8}, "operand2");
     Element alpha(DT_FP16, scalar);
     Tensor result;
-    FUNCTION("TestIndxAdd") { result = IndexAdd(self, src, index, axis, alpha); }
+    FUNCTION("TestIndxAdd") { result = IndexAddUB(self, src, index, axis, alpha); }
 }
 
 void TestPow(DataType selfType, DataType otherType, DataType resultType)
@@ -683,6 +682,111 @@ TEST_F(OperationImplTest, test_Range_INT32)
     TileShape::Current().SetVecTile(NUM_Eight);
     Tensor result;
     FUNCTION("TestRange") { result = Range(start, end, step); }
+}
+
+TEST_F(OperationImplTest, Test_Uniform_UINT32) {
+    PROGRAM("Uniform") {
+        std::vector<int64_t> shape = {128};
+        TileShape::Current().SetVecTile({128});
+        uint64_t key = 12345678901234;
+        uint64_t counter0 = 0;
+        uint64_t counter1 = 0;
+        Tensor output(DT_FP32, shape, "res");
+        config::SetBuildStatic(true);
+        FUNCTION("Uniform_UINT32") {
+            output = Uniform(Element(DT_UINT64, key), SymbolicScalar(static_cast<int64_t>(counter0)), Element(DT_UINT64, counter1), shape, Element(DT_UINT16, static_cast<uint16_t>(10)), DT_FP32);
+        }
+    }
+}
+
+TEST_F(OperationImplTest, Test_Uniform_FP16) {
+    PROGRAM("Uniform") {
+        std::vector<int64_t> shape = {128};
+        TileShape::Current().SetVecTile({128});
+        uint64_t key = 12345678901234;
+        uint64_t counter0 = 0;
+        uint64_t counter1 = 0;
+        Tensor output(DT_FP16, shape, "res");
+        config::SetBuildStatic(true);
+        FUNCTION("Uniform_FP16") {
+            output = Uniform(Element(DT_UINT64, key), SymbolicScalar(static_cast<int64_t>(counter0)), Element(DT_UINT64, counter1), shape, Element(DT_UINT16, static_cast<uint16_t>(10)), DT_FP16);
+        }
+    }
+}
+
+TEST_F(OperationImplTest, Test_Uniform_BF16) {
+    PROGRAM("Uniform") {
+        std::vector<int64_t> shape = {128};
+        TileShape::Current().SetVecTile({128});
+        uint64_t key = 12345678901234;
+        uint64_t counter0 = 0;
+        uint64_t counter1 = 0;
+        Tensor output(DT_BF16, shape, "res");
+        config::SetBuildStatic(true);
+        FUNCTION("Uniform_BF16") {
+            output = Uniform(Element(DT_UINT64, key), SymbolicScalar(static_cast<int64_t>(counter0)), Element(DT_UINT64, counter1), shape, Element(DT_UINT16, static_cast<uint16_t>(10)), DT_BF16);
+        }
+    }
+}
+
+TEST_F(OperationImplTest, Test_Uniform_Rounds7) {
+    PROGRAM("Uniform") {
+        std::vector<int64_t> shape = {128};
+        TileShape::Current().SetVecTile({128});
+        uint64_t key = 12345678901234;
+        uint64_t counter0 = 0;
+        uint64_t counter1 = 0;
+        Tensor output(DT_FP32, shape, "res");
+        config::SetBuildStatic(true);
+        FUNCTION("Uniform_Rounds7") {
+            output = Uniform(Element(DT_UINT64, key), SymbolicScalar(static_cast<int64_t>(counter0)), Element(DT_UINT64, counter1), shape, Element(DT_UINT16, static_cast<uint16_t>(7)), DT_FP32);
+        }
+    }
+}
+
+TEST_F(OperationImplTest, Test_Uniform_FP16_Rounds7) {
+    PROGRAM("Uniform") {
+        std::vector<int64_t> shape = {128};
+        TileShape::Current().SetVecTile({128});
+        uint64_t key = 12345678901234;
+        uint64_t counter0 = 0;
+        uint64_t counter1 = 0;
+        Tensor output(DT_FP16, shape, "res");
+        config::SetBuildStatic(true);
+        FUNCTION("Uniform_FP16_Rounds7") {
+            output = Uniform(Element(DT_UINT64, key), SymbolicScalar(static_cast<int64_t>(counter0)), Element(DT_UINT64, counter1), shape, Element(DT_UINT16, static_cast<uint16_t>(7)), DT_FP16);
+        }
+    }
+}
+
+TEST_F(OperationImplTest, Test_Uniform_BF16_Rounds7) {
+    PROGRAM("Uniform") {
+        std::vector<int64_t> shape = {128};
+        TileShape::Current().SetVecTile({128});
+        uint64_t key = 12345678901234;
+        uint64_t counter0 = 0;
+        uint64_t counter1 = 0;
+        Tensor output(DT_BF16, shape, "res");
+        config::SetBuildStatic(true);
+        FUNCTION("Uniform_BF16_Rounds7") {
+            output = Uniform(Element(DT_UINT64, key), SymbolicScalar(static_cast<int64_t>(counter0)), Element(DT_UINT64, counter1), shape, Element(DT_UINT16, static_cast<uint16_t>(7)), DT_BF16);
+        }
+    }
+}
+
+TEST_F(OperationImplTest, Test_Uniform_LargeShape) {
+    PROGRAM("Uniform") {
+        std::vector<int64_t> shape = {256};
+        TileShape::Current().SetVecTile({128});
+        uint64_t key = 9876543210;
+        uint64_t counter0 = 100;
+        uint64_t counter1 = 200;
+        Tensor output(DT_FP32, shape, "res");
+        config::SetBuildStatic(true);
+        FUNCTION("Uniform_LargeShape") {
+            output = Uniform(Element(DT_UINT64, key), SymbolicScalar(static_cast<int64_t>(counter0)), Element(DT_UINT64, counter1), shape, Element(DT_UINT16, static_cast<uint16_t>(10)), DT_FP32);
+        }
+    }
 }
 
 TEST_F(OperationImplTest, Test_Exp2_FP16)
@@ -1362,6 +1466,54 @@ TEST_F(OperationImplTest, test_FillPad_2D)
     Tensor input(DT_FP32, {6, 6}, "input");
     Tensor result;
     FUNCTION("TestFillPad2D") { result = FillPad(input, "constant", 0.0f); }
+}
+
+TEST_F(OperationImplTest, Test_Permute_3D_FP32)
+{
+    TileShape::Current().SetVecTile(4, 8, 16);
+    Tensor input(DT_FP32, {4, 8, 16}, "input");
+    Tensor result;
+    FUNCTION("TestPermute3D") { result = Permute(input, {1, 0, 2}); }
+}
+
+TEST_F(OperationImplTest, Test_Permute_3D_FP16)
+{
+    TileShape::Current().SetVecTile(4, 8, 16);
+    Tensor input(DT_FP16, {4, 8, 16}, "input");
+    Tensor result;
+    FUNCTION("TestPermute3D_FP16") { result = Permute(input, {0, 2, 1}); }
+}
+
+TEST_F(OperationImplTest, Test_Permute_4D_FP32)
+{
+    TileShape::Current().SetVecTile(4, 4, 8, 8);
+    Tensor input(DT_FP32, {4, 4, 8, 8}, "input");
+    Tensor result;
+    FUNCTION("TestPermute4D") { result = Permute(input, {0, 2, 3, 1}); }
+}
+
+TEST_F(OperationImplTest, Test_Permute_5D_FP32)
+{
+    TileShape::Current().SetVecTile(2, 2, 4, 4, 4);
+    Tensor input(DT_FP32, {2, 2, 4, 4, 4}, "input");
+    Tensor result;
+    FUNCTION("TestPermute5D") { result = Permute(input, {4, 3, 2, 1, 0}); }
+}
+
+TEST_F(OperationImplTest, Test_Permute_Identity)
+{
+    TileShape::Current().SetVecTile(4, 8);
+    Tensor input(DT_FP32, {4, 8}, "input");
+    Tensor result;
+    FUNCTION("TestPermuteIdentity") { result = Permute(input, {0, 1}); }
+}
+
+TEST_F(OperationImplTest, Test_Permute_1D)
+{
+    TileShape::Current().SetVecTile(32);
+    Tensor input(DT_FP32, {32}, "input");
+    Tensor result;
+    FUNCTION("TestPermute1D") { result = Permute(input, {0}); }
 }
 
 TEST_F(OperationImplTest, Test_Matmul_SFA)

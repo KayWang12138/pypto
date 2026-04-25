@@ -17,7 +17,7 @@
 #include "block/backend/common/backend.h"
 #include "block/backend/common/soc.h"
 #include "block/codegen/cce/cce_codegen.h"
-#include "block/ir/program.h"
+#include "ir/program.h"
 
 namespace pypto {
 namespace backend {

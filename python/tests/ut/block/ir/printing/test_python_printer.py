@@ -504,14 +504,14 @@ def test_python_print_custom_prefix():
     assert "import pypto_block.language as pl" in prog_pi
     assert "pl.INT64" in prog_pi
 
-    # "language" prefix should use a direct import from pypto
+    # "language" prefix should use pypto_block.language with the requested alias
     prog_ir = ir.python_print(program, "language")
-    assert "from pypto import language as language" in prog_ir
+    assert "import pypto_block.language as language" in prog_ir
     assert "language.INT64" in prog_ir
 
-    # Custom prefix should use a direct import alias from pypto
+    # Custom prefix should use pypto_block.language with the requested alias
     prog_custom = ir.python_print(program, "custom")
-    assert "from pypto import language as custom" in prog_custom
+    assert "import pypto_block.language as custom" in prog_custom
     assert "custom.INT64" in prog_custom
 
 
@@ -848,7 +848,6 @@ def test_python_print_tile_shape_dims_always_bare():
 
     result = ir.python_print_type(tile_type)
     assert "pl.Tile[[16, 16], pl.FP16]" == result
-
 
 def _get_indent(line):
     """Return the number of leading spaces in a line."""

@@ -29,16 +29,17 @@
 #include "block/backend/common/backend.h"
 #include "block/codegen/cce/cce_codegen.h"
 #include "block/codegen/codegen_base.h"
-#include "block/core/error.h"
-#include "block/core/logging.h"
-#include "block/ir/expr.h"
-#include "block/ir/kind_traits.h"
-#include "block/ir/memref.h"
-#include "block/ir/pipe.h"
-#include "block/ir/type.h"
+#include "core/error.h"
+#include "core/logging.h"
+#include "ir/expr.h"
+#include "ir/kind_traits.h"
+#include "ir/memref.h"
+#include "ir/pipe.h"
+#include "ir/type.h"
 
 namespace pypto {
 namespace backend {
+using ir::DataType;
 
 // ============================================================================
 // Helper Functions for CCE Code Generation
@@ -95,13 +96,13 @@ static int64_t GetNZInnerCols(const DataType& dtype) {
   if (dtype == DataType::INT64 || dtype == DataType::UINT64) {
     return 4;
   }
-  throw pypto::ValueError("CCE NZ store does not support destination dtype " + dtype.ToString());
+  throw pypto::ir::ValueError("CCE NZ store does not support destination dtype " + dtype.ToString());
 }
 
 static int64_t GetStaticConstIntOrThrow(const ir::ExprPtr& expr, const std::string& message) {
   auto value = ir::As<ir::ConstInt>(expr);
   if (!value) {
-    throw pypto::ValueError(message);
+    throw pypto::ir::ValueError(message);
   }
   return value->value_;
 }
@@ -123,14 +124,14 @@ static void ValidateCCEStoreNZPreconditions(const std::string& op_name,
   CHECK(src_tile_type != nullptr) << op_name << ": source must be TileType";
   CHECK(src_tile_type->memref_.has_value()) << op_name << ": source tile must have an allocated memory space";
   if (src_tile_type->memref_.value()->memory_space_ != ir::MemorySpace::Acc) {
-    throw pypto::ValueError(op_name + ": CCE NZ output currently only supports Acc source tiles");
+    throw pypto::ir::ValueError(op_name + ": CCE NZ output currently only supports Acc source tiles");
   }
 
   if (dst_tensor_type->shape_.size() != 2) {
-    throw pypto::ValueError(op_name + ": CCE NZ output currently requires a 2D destination tensor");
+    throw pypto::ir::ValueError(op_name + ": CCE NZ output currently requires a 2D destination tensor");
   }
   if (offsets->elements_.size() != 2 || !IsConstZero(offsets->elements_[0]) || !IsConstZero(offsets->elements_[1])) {
-    throw pypto::ValueError(op_name + ": CCE NZ output currently requires offsets=[0, 0]");
+    throw pypto::ir::ValueError(op_name + ": CCE NZ output currently requires offsets=[0, 0]");
   }
 
   const int64_t rows = GetStaticConstIntOrThrow(
@@ -139,7 +140,7 @@ static void ValidateCCEStoreNZPreconditions(const std::string& op_name,
       dst_tensor_type->shape_[1], op_name + ": CCE NZ output currently requires a static destination column shape");
   const int64_t c0 = GetNZInnerCols(dst_tensor_type->dtype_);
   if (rows % 16 != 0 || cols % c0 != 0) {
-    throw pypto::ValueError(
+    throw pypto::ir::ValueError(
         op_name + ": CCE NZ output requires rows divisible by 16 and cols divisible by the destination C0 size");
   }
 }
@@ -170,7 +171,7 @@ static void ValidateDebugDumpNZWindowPreconditions(const ir::TensorTypePtr& tens
   CHECK(shapes != nullptr) << "debug.dump_tensor NZ lowering requires shapes tuple";
 
   if (tensor_type->shape_.size() != 2 || offsets->elements_.size() != 2 || shapes->elements_.size() != 2) {
-    throw pypto::ValueError("debug.dump_tensor: CCE NZ dump currently requires a 2D tensor and 2D offsets/shapes");
+    throw pypto::ir::ValueError("debug.dump_tensor: CCE NZ dump currently requires a 2D tensor and 2D offsets/shapes");
   }
 
   const int64_t full_rows = GetStaticConstIntOrThrow(
@@ -188,17 +189,17 @@ static void ValidateDebugDumpNZWindowPreconditions(const ir::TensorTypePtr& tens
   const int64_t c0 = GetNZInnerCols(tensor_type->dtype_);
 
   if (full_rows % 16 != 0 || full_cols % c0 != 0) {
-    throw pypto::ValueError(
+    throw pypto::ir::ValueError(
         "debug.dump_tensor: CCE NZ dump requires rows divisible by 16 and cols divisible by the destination C0 size");
   }
   if (row_offset < 0 || col_offset < 0 || rows <= 0 || cols <= 0) {
-    throw pypto::ValueError("debug.dump_tensor: CCE NZ dump requires non-negative offsets and positive shapes");
+    throw pypto::ir::ValueError("debug.dump_tensor: CCE NZ dump requires non-negative offsets and positive shapes");
   }
   if (row_offset % 16 != 0 || rows % 16 != 0 || col_offset % c0 != 0 || cols % c0 != 0) {
-    throw pypto::ValueError("debug.dump_tensor: CCE NZ dump currently only supports aligned static windows");
+    throw pypto::ir::ValueError("debug.dump_tensor: CCE NZ dump currently only supports aligned static windows");
   }
   if (row_offset + rows > full_rows || col_offset + cols > full_cols) {
-    throw pypto::ValueError("debug.dump_tensor: CCE NZ dump window must stay within tensor bounds");
+    throw pypto::ir::ValueError("debug.dump_tensor: CCE NZ dump window must stay within tensor bounds");
   }
 }
 
@@ -1541,7 +1542,7 @@ static std::string MakeSyncSrcDynCodegenCCE(const ir::CallPtr& op, codegen::Code
   std::string event_id = codegen.GetExprAsCode(op->args_[0]);
   std::string set_pipe_str = PipeTypeToCCEString(set_pipe);
   std::string wait_pipe_str = PipeTypeToCCEString(wait_pipe);
-  // EventId array access (contains '[') already returns event_t â€” no cast needed
+  // EventId array access (contains '[') already returns event_t â€?no cast needed
   if (event_id.find('[') != std::string::npos) {
     codegen.Emit("set_flag(" + set_pipe_str + ", " + wait_pipe_str + ", " + event_id + ");");
   } else {
@@ -1563,7 +1564,7 @@ static std::string MakeSyncDstDynCodegenCCE(const ir::CallPtr& op, codegen::Code
   std::string event_id = codegen.GetExprAsCode(op->args_[0]);
   std::string set_pipe_str = PipeTypeToCCEString(set_pipe);
   std::string wait_pipe_str = PipeTypeToCCEString(wait_pipe);
-  // EventId array access (contains '[') already returns event_t â€” no cast needed
+  // EventId array access (contains '[') already returns event_t â€?no cast needed
   if (event_id.find('[') != std::string::npos) {
     codegen.Emit("wait_flag(" + set_pipe_str + ", " + wait_pipe_str + ", " + event_id + ");");
   } else {
@@ -1905,3 +1906,4 @@ REGISTER_BACKEND_OP(Backend910B_CCE, "system.mutex_unlock_dyn")
 
 }  // namespace backend
 }  // namespace pypto
+

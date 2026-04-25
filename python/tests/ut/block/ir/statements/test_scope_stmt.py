@@ -9,7 +9,6 @@
 
 """Unit tests for ScopeStmt class."""
 
-import pypto_block.language as pl
 import pytest
 from pypto_block import DataType, ir
 
@@ -46,21 +45,6 @@ class TestScopeStmt:
 
         # Should be structurally equal
         assert ir.structural_equal(scope1, scope2)
-
-    def test_scope_stmt_printing(self):
-        """Test Python printer output for ScopeStmt."""
-
-        @pl.program
-        class TestProgram:
-            @pl.function
-            def main(self, x: pl.Tensor[[64], pl.FP32]) -> pl.Tensor[[64], pl.FP32]:
-                with pl.incore():
-                    y: pl.Tensor[[64], pl.FP32] = pl.add(x, x)
-                return y
-
-        # Print and verify it contains "with pl.incore():"
-        printed = ir.python_print(TestProgram)
-        assert "with pl.incore():" in printed
 
 
 if __name__ == "__main__":

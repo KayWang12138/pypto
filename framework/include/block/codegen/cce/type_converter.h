@@ -16,9 +16,9 @@
 #include <string>
 #include <vector>
 
-#include "block/ir/memref.h"
-#include "block/ir/pipe.h"
-#include "block/ir/type.h"
+#include "ir/memref.h"
+#include "ir/pipe.h"
+#include "ir/type.h"
 
 namespace pypto {
 namespace codegen {

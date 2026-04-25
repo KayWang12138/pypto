@@ -89,17 +89,20 @@ if (ENABLE_FEATURE_PYTHON_FRONT_END)
     set(InstallExport ${PROJECT_NAME}Targets)
     set(InstallTargets
             tile_fwk_utils
+            tile_fwk_adapter
             tile_fwk_cann_host_runtime
             tile_fwk_platform
             tile_fwk_interface
             tile_fwk_codegen
             tile_fwk_compiler
             tile_fwk_runtime
-            tile_fwk_runtime_stub
             tile_fwk_simulation
             tile_fwk_simulation_ca
             tile_fwk_simulation_pv
     )
+    if (TARGET tile_fwk_runtime_stub)
+        list(APPEND InstallTargets tile_fwk_runtime_stub)
+    endif ()
     if (BUILD_WITH_CANN)
         install(TARGETS tile_fwk_server LIBRARY DESTINATION "${PyPTO_WhlName}/lib")
         install(TARGETS pypto_ctrl_server ARCHIVE DESTINATION "${PyPTO_WhlName}/lib")
@@ -116,7 +119,9 @@ if (ENABLE_FEATURE_PYTHON_FRONT_END)
             TARGETS     ${InstallTargets}
     )
     install(TARGETS pypto_impl LIBRARY DESTINATION "${PyPTO_WhlName}" COMPONENT pypto_impl_lib)
-    install(TARGETS pypto_core LIBRARY DESTINATION "pypto_block" COMPONENT pypto_core_lib)
+    if (TARGET pypto_core)
+        install(TARGETS pypto_core LIBRARY DESTINATION "pypto_block" COMPONENT pypto_core_lib)
+    endif ()
 
     # 安装 配置文件
     install(FILES
@@ -137,6 +142,7 @@ if (ENABLE_FEATURE_PYTHON_FRONT_END)
                 tools/profiling/function_json_convert.py
                 tools/profiling/parse_pipe_time_trace.py
                 tools/scripts/machine_perf_trace.py
+                tools/scripts/extract_pass_log.py
             DESTINATION ${PyPTO_WhlName}/lib/scripts
     )
 

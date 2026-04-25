@@ -40,36 +40,21 @@ namespace npu::tile_fwk::dynamic {
 
 class DeviceCtrlMachine {
 public:
-    void InitTaskCtrl(int idx, int type, uint64_t taskId, DeviceTask* devTask, DeviceExecuteContext* ctx)
+    DeviceTaskCtrl* InitTaskCtrl(int idx, DeviceTask* devTask, DeviceExecuteContext* ctx)
     {
         if (ctx == nullptr) {
             DEV_ERROR(
                 CtrlErr::ROOT_ALLOC_CTX_NULL, "#ctrl.push.init_dtask: Init Task control failed, which ctx is null.");
-            return;
+            return nullptr;
         }
         auto taskCtrl = &GetTaskCtrlInPool(idx);
-        taskCtrl->taskType = type;
-        taskCtrl->devTask = devTask;
-        taskCtrl->taskId = taskId;
-        taskCtrl->initAicFuncNum = reinterpret_cast<ReadyCoreFunctionQueue*>(devTask->readyAicCoreFunctionQue)->Size();
-        taskCtrl->initAivFuncNum = reinterpret_cast<ReadyCoreFunctionQueue*>(devTask->readyAivCoreFunctionQue)->Size();
-        taskCtrl->finishedAicFunctionCnt = 0;
-        taskCtrl->finishedAivFunctionCnt = 0;
-        taskCtrl->finishedAicpuFunctionCnt = 0;
-        taskCtrl->finishedFunctionCnt.store(0, std::memory_order_relaxed);
-        taskCtrl->runFlag.store(true, std::memory_order_relaxed);
-        taskCtrl->runcnt.store(GetScheAicpuNum(), std::memory_order_relaxed);
-        taskCtrl->ctx = ctx;
-        taskCtrl->retCode = 0;
+        taskCtrl->BindTask(devTask);
+        taskCtrl->SetSchNumCnt(GetScheAicpuNum());
         devTask->aicoreModel = reinterpret_cast<uint64_t>(ctx->aicoreModel);
         if (ctx->costModelData != nullptr) {
             devTask->costModelData = reinterpret_cast<uint64_t>(ctx->costModelData);
         }
-        for (size_t i = 0; i < AICORE_TYPE_NUM; ++i) {
-            for (size_t j = 0; j < MAX_SCHEDULE_AICPU_NUM; ++j) {
-                taskCtrl->isAicpuIdle[i][j].store(true);
-            }
-        }
+        return taskCtrl;
     }
 
     int AllocNewTaskCtrl()
@@ -87,13 +72,46 @@ public:
         }
     }
 
-    int PushTask(int type, DynDeviceTask* dynTask, DeviceExecuteContext* ctx)
+    bool SameParallelIterTaskCtrl(DeviceTaskCtrl* srcTaskCtrl, DeviceTaskCtrl* dstTaskCtrl)
+    {
+        if (!srcTaskCtrl->SupportParallel() || !dstTaskCtrl->SupportParallel()) {
+            return false;
+        }
+
+        if (srcTaskCtrl->ParallelForId() != dstTaskCtrl->ParallelForId() ||
+            srcTaskCtrl->ParallelIterId() != dstTaskCtrl->ParallelIterId()) {
+            return false;
+        }
+
+        return true;
+    }
+
+    int PushTask(DynDeviceTask* dynTask, DeviceExecuteContext* ctx)
     {
         auto idx = AllocNewTaskCtrl();
-        InitTaskCtrl(idx, type, dynTask->GetIndex(), &dynTask->devTask, ctx);
-        for (uint32_t i = 0; i < GetScheAicpuNum(); ++i) {
-            GetTaskQueue(i).Enqueue(&GetTaskCtrlInPool(idx));
+        bool appendLastTaskCtrl = false;
+        DeviceTaskCtrl* newTaskCtrl = InitTaskCtrl(idx, &dynTask->devTask, ctx);
+        if (lastTaskCtrl_ && lastTaskCtrl_->SupportParallel()) {
+            if (SameParallelIterTaskCtrl(lastTaskCtrl_, newTaskCtrl)) {
+                lastTaskCtrl_->existNextSameIterTask = true;
+                lastTaskCtrl_->nextSameIterTaskCtrl = reinterpret_cast<uint64_t>(newTaskCtrl);
+                appendLastTaskCtrl = true;
+            } else {
+                lastTaskCtrl_->existNextSameIterTask = false; // Correct the flag
+            }
         }
+        lastTaskCtrl_ = newTaskCtrl;
+
+        if (dynTask->IsParallelSameIterLastDevTask()) {
+            lastTaskCtrl_->existNextSameIterTask = false;
+        }
+
+        if (!appendLastTaskCtrl) {
+            for (uint32_t i = 0; i < GetScheAicpuNum(); ++i) {
+                GetTaskQueue(i).Enqueue(newTaskCtrl);
+            }
+        }
+
         return idx;
     }
 
@@ -104,28 +122,6 @@ public:
         }
     }
 
-    int SyncTask(int idx)
-    {
-        while (GetTaskCtrlInPool(idx).IsNotFree())
-            ;
-        return GetTaskCtrlInPool(idx).retCode;
-    }
-
-    int SyncTask(DeviceTaskContext* taskContext = nullptr)
-    {
-        int ret = 0;
-        for (int idx = 0; idx < MAX_DEVICE_TASK_NUM; idx++) {
-            auto rc = SyncTask(idx);
-            if (rc != 0) {
-                ret = rc;
-            }
-            if (taskContext) {
-                taskContext->ReleaseFinishedTasks(PERF_EVT_RELEASE_FINISH_TASK_INSYNC, PERF_EVT_DEALLOCATE_TASK_INSYNC);
-            }
-        }
-        return ret;
-    }
-
     void RegisterTaskInspector(DeviceTaskInspectorEntry inspectorEntry, void* inspector)
     {
         inspectorEntry_ = inspectorEntry;
@@ -134,11 +130,6 @@ public:
 
     void InitTaskPipeWithSched(DevAscendProgram* devProg)
     {
-        for (uint32_t i = 0; i < MAX_DEVICE_TASK_NUM; i++) {
-            GetTaskCtrlInPool(i).retCode = 0;
-            GetTaskCtrlInPool(i).runFlag = 0;
-        }
-
         for (uint32_t i = 0; i < devProg->devArgs.scheCpuNum; ++i) {
             GetTaskQueue(i).ResetEmpty();
         }
@@ -246,7 +237,11 @@ public:
 
         RuntimeDataRingBufferHead* ringBufferHead = devProg->GetRuntimeDataList();
 
+        DEV_INFO(
+            "AllocatePrepare begin runtimedata: %lu, %lu %lu", ringBufferHead->GetIndexFinished(),
+            ringBufferHead->GetIndexPending(), ringBufferHead->GetRuntimeDataCount());
         DevStartArgs* devStartArgs = reinterpret_cast<DevStartArgs*>(ringBufferHead->AllocatePrepare());
+        DEV_INFO("AllocatePrepare end");
 
         devStartArgs->syncFlag = 0;
         devStartArgs->InitProgram(devProg, reinterpret_cast<uint64_t>(devStartArgs));
@@ -291,6 +286,7 @@ public:
         InitCtrlFlowCache(devProg, ctrlFlowCache, devStartArgs, firstInit);
 
         ringBufferHead->AllocateSubmit();
+        lastTaskCtrl_ = nullptr;
         DEV_INFO("AscendCppDyInitTask done.");
         return 0;
     }
@@ -311,7 +307,7 @@ public:
                 inspectorEntry_(inspector_, exeCtx, dynTask);
             }
             DEV_IF_DEBUG { DumpTask(dynTask->GetIndex(), (DeviceTask*)dynTask, true); }
-            PushTask(DEVICE_TASK_TYPE_DYN, dynTask, exeCtx);
+            PushTask(dynTask, exeCtx);
         });
         PerfEnd(PERF_EVT_CONTROL_FLOW_CALL);
         if (ret != DEVICE_MACHINE_OK) {
@@ -453,6 +449,7 @@ private:
 
 private:
     DevStartArgs* devStartArgs_{nullptr};
+    DeviceTaskCtrl* lastTaskCtrl_{nullptr};
 
     /* inspector entry */
     DeviceTaskInspectorEntry inspectorEntry_;

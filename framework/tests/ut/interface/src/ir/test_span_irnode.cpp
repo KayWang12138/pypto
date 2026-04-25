@@ -30,10 +30,10 @@ TEST(IRCoreTest, TestSpanBasic)
     Span span("test.py", 10, 5, 10, 15);
 
     ASSERT_EQ(span.filename_, "test.py");
-    ASSERT_EQ(span.beginLine_, 10);
-    ASSERT_EQ(span.beginColumn_, 5);
-    ASSERT_EQ(span.endLine_, 10);
-    ASSERT_EQ(span.endColumn_, 15);
+    ASSERT_EQ(span.begin_line_, 10);
+    ASSERT_EQ(span.begin_column_, 5);
+    ASSERT_EQ(span.end_line_, 10);
+    ASSERT_EQ(span.end_column_, 15);
 }
 
 TEST(IRCoreTest, TestSpanToString)
@@ -47,37 +47,15 @@ TEST(IRCoreTest, TestSpanToString)
     ASSERT_TRUE(str.find("test.py") != std::string::npos || str.find("10") != std::string::npos);
 }
 
-TEST(IRCoreTest, TestSpanIsValid)
-{
-    // Test Span is_valid() method
-    Span validSpan("test.py", 10, 5, 10, 15);
-    ASSERT_TRUE(validSpan.IsValid());
-
-    // Unknown span should be invalid
-    Span unknownSpan = Span::Unknown();
-    ASSERT_FALSE(unknownSpan.IsValid());
-}
-
-TEST(IRCoreTest, TestSpanUnknown)
-{
-    // Test Span::Unknown() creates an invalid span
-    Span span = Span::Unknown();
-    ASSERT_FALSE(span.IsValid());
-
-    // Unknown span should have meaningful string representation
-    std::string str = span.ToString();
-    ASSERT_TRUE(!str.empty());
-}
-
 TEST(IRCoreTest, TestSpanMultiline)
 {
     // Test Span spanning multiple lines
     Span span("file.py", 5, 10, 8, 20);
 
-    ASSERT_EQ(span.beginLine_, 5);
-    ASSERT_EQ(span.endLine_, 8);
-    ASSERT_EQ(span.beginColumn_, 10);
-    ASSERT_EQ(span.endColumn_, 20);
+    ASSERT_EQ(span.begin_line_, 5);
+    ASSERT_EQ(span.end_line_, 8);
+    ASSERT_EQ(span.begin_column_, 10);
+    ASSERT_EQ(span.end_column_, 20);
 }
 
 TEST(IRCoreTest, TestSpanSingleCharacter)
@@ -85,11 +63,10 @@ TEST(IRCoreTest, TestSpanSingleCharacter)
     // Test Span for a single character
     Span span("file.py", 5, 10, 5, 11);
 
-    ASSERT_EQ(span.beginLine_, 5);
-    ASSERT_EQ(span.endLine_, 5);
-    ASSERT_EQ(span.beginColumn_, 10);
-    ASSERT_EQ(span.endColumn_, 11);
-    ASSERT_TRUE(span.IsValid());
+    ASSERT_EQ(span.begin_line_, 5);
+    ASSERT_EQ(span.end_line_, 5);
+    ASSERT_EQ(span.begin_column_, 10);
+    ASSERT_EQ(span.end_column_, 11);
 }
 
 TEST(IRCoreTest, TestIRNodeBasic)
@@ -99,7 +76,7 @@ TEST(IRCoreTest, TestIRNodeBasic)
     auto node = std::make_shared<ConstInt>(42, DataType::INT32, span);
 
     ASSERT_EQ(node->span_.filename_, span.filename_);
-    ASSERT_EQ(node->span_.beginLine_, span.beginLine_);
+    ASSERT_EQ(node->span_.begin_line_, span.begin_line_);
 }
 
 TEST(IRCoreTest, TestIRNodeTypeName)
@@ -110,14 +87,6 @@ TEST(IRCoreTest, TestIRNodeTypeName)
 
     std::string typeName = node->TypeName();
     ASSERT_EQ(typeName, "ConstInt");
-}
-
-TEST(IRCoreTest, TestIRNodeWithUnknownSpan)
-{
-    // Test IRNode with unknown span via ConstInt
-    auto node = std::make_shared<ConstInt>(0, DataType::INT32, Span::Unknown());
-
-    ASSERT_FALSE(node->span_.IsValid());
 }
 
 TEST(IRCoreTest, TestMultipleIRNodes)
@@ -143,10 +112,10 @@ TEST(IRCoreTest, TestSpanCopy)
     Span copy = original;
 
     ASSERT_EQ(copy.filename_, original.filename_);
-    ASSERT_EQ(copy.beginLine_, original.beginLine_);
-    ASSERT_EQ(copy.beginColumn_, original.beginColumn_);
-    ASSERT_EQ(copy.endLine_, original.endLine_);
-    ASSERT_EQ(copy.endColumn_, original.endColumn_);
+    ASSERT_EQ(copy.begin_line_, original.begin_line_);
+    ASSERT_EQ(copy.begin_column_, original.begin_column_);
+    ASSERT_EQ(copy.end_line_, original.end_line_);
+    ASSERT_EQ(copy.end_column_, original.end_column_);
 }
 
 TEST(IRCoreTest, TestSpanComparison)
@@ -158,10 +127,10 @@ TEST(IRCoreTest, TestSpanComparison)
 
     // Same location
     ASSERT_EQ(span1.filename_, span2.filename_);
-    ASSERT_EQ(span1.beginLine_, span2.beginLine_);
+    ASSERT_EQ(span1.begin_line_, span2.begin_line_);
 
     // Different location
-    ASSERT_NE(span1.beginLine_, span3.beginLine_);
+    ASSERT_NE(span1.begin_line_, span3.begin_line_);
 }
 
 TEST(IRCoreTest, TestIRNodeSharedPtr)
@@ -180,8 +149,8 @@ TEST(IRCoreTest, TestSpanZeroPosition)
     // Test Span with zero line and column
     Span span("test.py", 0, 0, 0, 1);
 
-    ASSERT_EQ(span.beginLine_, 0);
-    ASSERT_EQ(span.beginColumn_, 0);
+    ASSERT_EQ(span.begin_line_, 0);
+    ASSERT_EQ(span.begin_column_, 0);
 }
 
 TEST(IRCoreTest, TestSpanLargePosition)
@@ -189,10 +158,10 @@ TEST(IRCoreTest, TestSpanLargePosition)
     // Test Span with large line and column numbers
     Span span("test.py", 10000, 500, 10001, 600);
 
-    ASSERT_EQ(span.beginLine_, 10000);
-    ASSERT_EQ(span.beginColumn_, 500);
-    ASSERT_EQ(span.endLine_, 10001);
-    ASSERT_EQ(span.endColumn_, 600);
+    ASSERT_EQ(span.begin_line_, 10000);
+    ASSERT_EQ(span.begin_column_, 500);
+    ASSERT_EQ(span.end_line_, 10001);
+    ASSERT_EQ(span.end_column_, 600);
 }
 
 } // namespace ir

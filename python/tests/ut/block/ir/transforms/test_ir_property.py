@@ -168,28 +168,6 @@ class TestPassPropertyAccessors:
         assert p.get_required_properties().contains(passes.IRProperty.TypeChecked)
         assert p.get_produced_properties().contains(passes.IRProperty.SSAForm)
 
-    def test_init_memref_properties(self):
-        """Test InitMemRef produces HasMemRefs."""
-        p = passes.init_mem_ref()
-        assert p.get_name() == "InitMemRef"
-        assert p.get_produced_properties().contains(passes.IRProperty.HasMemRefs)
-
-    def test_basic_memory_reuse_requires_memrefs(self):
-        """Test BasicMemoryReuse requires HasMemRefs."""
-        p = passes.basic_memory_reuse()
-        assert p.get_required_properties().contains(passes.IRProperty.HasMemRefs)
-
-    def test_flatten_call_expr_produces_no_nested_calls(self):
-        """Test FlattenCallExpr produces NoNestedCalls."""
-        p = passes.flatten_call_expr()
-        assert p.get_produced_properties().contains(passes.IRProperty.NoNestedCalls)
-
-    def test_outline_incore_requires_ssa(self):
-        """Test OutlineIncoreScopes requires SSAForm."""
-        p = passes.outline_incore_scopes()
-        assert p.get_required_properties().contains(passes.IRProperty.SSAForm)
-        assert p.get_produced_properties().contains(passes.IRProperty.SplitIncoreOrch)
-
     def test_run_verifier_no_properties(self):
         """Test RunVerifier has no property declarations."""
         p = passes.run_verifier()

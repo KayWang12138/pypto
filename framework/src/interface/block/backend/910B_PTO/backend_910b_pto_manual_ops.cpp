@@ -18,7 +18,7 @@
  * treating args[0..n-1] as inputs and args[n] as the outs target, rather than
  * calling GetCurrentResultTarget() for the output.
  *
- * Mapping mirrors the existing ``block.*`` â†’ ``pto.*`` mapping in
+ * Mapping mirrors the existing ``block.*`` â†?``pto.*`` mapping in
  * backend_910b_pto_ops.cpp; only the argument counting and outs-clause
  * construction differ.
  */
@@ -35,12 +35,12 @@
 #include "block/backend/common/backend.h"
 #include "block/codegen/codegen_base.h"
 #include "block/codegen/pto/pto_codegen.h"
-#include "block/core/error.h"
-#include "block/core/logging.h"
-#include "block/ir/expr.h"
-#include "block/ir/kind_traits.h"
-#include "block/ir/pipe.h"
-#include "block/ir/type.h"
+#include "core/error.h"
+#include "core/logging.h"
+#include "ir/expr.h"
+#include "ir/kind_traits.h"
+#include "ir/pipe.h"
+#include "ir/type.h"
 
 namespace pypto {
 namespace backend {
@@ -205,7 +205,7 @@ static const std::vector<std::string> kManualRoundModes = {"NONE", "RINT",  "ROU
                                                            "CEIL", "TRUNC", "ODD",   "CAST_RINT"};
 
 // ============================================================================
-// Core helper: build ins(â€¦) outs(â€¦) for manual ops
+// Core helper: build ins(â€? outs(â€? for manual ops
 //
 // n_ins:    number of leading input arguments
 // out_idx:  index of the explicit output tile argument (== n_ins)
@@ -416,7 +416,7 @@ static void RejectSameTileHandlePTO(const std::string& manual_op, const CallPtr&
   std::string src = codegen.GetExprAsCode(op->args_[0]);
   std::string dst = codegen.GetExprAsCode(op->args_[1]);
   if (src == dst) {
-    throw pypto::ValueError(manual_op + ": inplace is not supported");
+    throw pypto::ir::ValueError(manual_op + ": inplace is not supported");
   }
 }
 
@@ -613,7 +613,7 @@ static std::string MakeManualCvtPTO(const std::string& pto_op, const CallPtr& op
   auto& codegen = dynamic_cast<codegen::PTOCodegen&>(cb);
   CHECK(op->args_.size() == 2) << pto_op << ": expected 2 args (src, out)";
   const std::string& mode_str = op->GetKwarg<std::string>("mode");
-  // Map mode string â†’ enum index for PTOAS IR attribute.
+  // Map mode string â†?enum index for PTOAS IR attribute.
   static const std::vector<std::string> kModeNames = {"none", "rint",  "round", "floor",
                                                       "ceil", "trunc", "odd",   "cast_rint"};
   int mode_idx = -1;
@@ -679,7 +679,7 @@ static std::string MakeManualExpandsPTO(const std::string& pto_op, const CallPtr
   std::string out = codegen.GetExprAsCode(op->args_[1]);
   std::string out_type = codegen.GetExprTypeAnnotation(op->args_[1]);
 
-  // pto.texpands does not accept 'index' type â€” cast to i64 first.
+  // pto.texpands does not accept 'index' type â€?cast to i64 first.
   if (scalar_type == "index") {
     std::string casted = codegen.NewTemp();
     codegen.Emit(casted + " = arith.index_cast " + scalar + " : index to i64");
@@ -688,7 +688,7 @@ static std::string MakeManualExpandsPTO(const std::string& pto_op, const CallPtr
   }
 
   // pto.texpands requires scalar element type == dst element type.
-  // If types differ, insert a cast (e.g. i64 â†’ f32 for FP32 dst tiles).
+  // If types differ, insert a cast (e.g. i64 â†?f32 for FP32 dst tiles).
   auto tile_type = ir::As<ir::TileType>(op->args_[1]->GetType());
   if (tile_type) {
     std::string dst_elem_type = codegen.GetTypeString(tile_type->dtype_);
@@ -702,7 +702,7 @@ static std::string MakeManualExpandsPTO(const std::string& pto_op, const CallPtr
         codegen.Emit(casted + " = arith.sitofp " + scalar + " : " + scalar_type +
                      " to " + dst_elem_type);
       } else {
-        // Fallback: bitcast â€” may not always be correct but avoids hard failure
+        // Fallback: bitcast â€?may not always be correct but avoids hard failure
         codegen.Emit(casted + " = arith.bitcast " + scalar + " : " + scalar_type +
                      " to " + dst_elem_type);
       }
@@ -843,13 +843,13 @@ static std::string MakeManualLoadCodegenPTO(const CallPtr& op, codegen::CodegenB
     codegen.Emit(tv_line.str());
     view_for_partition = dn_view;
 
-    // Swap offsets for last two dims: user's [off_{N-2}, off_{N-1}] â†’ [off_{N-1}, off_{N-2}]
+    // Swap offsets for last two dims: user's [off_{N-2}, off_{N-1}] â†?[off_{N-1}, off_{N-2}]
     // For DN layout, the tensor_view is transposed: shape=[dim_{N-1}, dim_{N-2}]
     // So row_off = offset[N-1] (D offset), col_off = offset[N-2] (Skv offset)
     row_off = codegen.GetExprAsCode(offsets_tuple->elements_[tensor_ndim - 1]);
     col_off = codegen.GetExprAsCode(offsets_tuple->elements_[tensor_ndim - 2]);
   } else {
-    // Standard ND path â€” use the pre-existing N-D tensor_view and flatten to 2D.
+    // Standard ND path â€?use the pre-existing N-D tensor_view and flatten to 2D.
     // For 2D tensors, offsets are used directly.
     // For N-D tensors (N > 2), flatten first N-1 dims into row, last dim as col.
     view_for_partition = codegen.GetOrCreateTensorView(tensor);
@@ -1086,7 +1086,7 @@ static std::string MakeManualStoreCodegenPTO(const CallPtr& op, codegen::Codegen
     } else if (relu_str == "normal_relu") {
       relu_enum = "normal_relu";
     } else {
-      throw pypto::ValueError("Invalid relu_pre_mode: " + relu_str);
+      throw pypto::ir::ValueError("Invalid relu_pre_mode: " + relu_str);
     }
     if (!attrs.empty()) attrs += ", ";
     attrs += "reluPreMode = #pto<relu_pre_mode " + relu_enum + ">";
@@ -1135,19 +1135,19 @@ static std::string MakeManualStoreFpCodegenPTO(const CallPtr& op, codegen::Codeg
   auto tile_type = As<ir::TileType>(op->args_[0]->GetType());
   INTERNAL_CHECK(tile_type) << "manual.store_fp: first argument must be a Tile";
   if (!tile_type->memref_.has_value()) {
-    throw pypto::ValueError("manual.store_fp: source tile must have an allocated memory space");
+    throw pypto::ir::ValueError("manual.store_fp: source tile must have an allocated memory space");
   }
   if (tile_type->memref_.value()->memory_space_ != ir::MemorySpace::Acc) {
-    throw pypto::ValueError("manual.store_fp: source tile must be allocated in Acc memory");
+    throw pypto::ir::ValueError("manual.store_fp: source tile must be allocated in Acc memory");
   }
 
   auto fp_tile_type = As<ir::TileType>(op->args_[1]->GetType());
   INTERNAL_CHECK(fp_tile_type) << "manual.store_fp: second argument must be a Tile";
   if (!fp_tile_type->memref_.has_value()) {
-    throw pypto::ValueError("manual.store_fp: fp tile must have an allocated memory space");
+    throw pypto::ir::ValueError("manual.store_fp: fp tile must have an allocated memory space");
   }
   if (fp_tile_type->memref_.value()->memory_space_ != ir::MemorySpace::Scaling) {
-    throw pypto::ValueError("manual.store_fp: fp tile must be allocated in Scaling memory");
+    throw pypto::ir::ValueError("manual.store_fp: fp tile must be allocated in Scaling memory");
   }
 
   auto offsets_tuple = As<ir::MakeTuple>(op->args_[2]);
@@ -1278,7 +1278,7 @@ static std::string MakeManualStoreFpCodegenPTO(const CallPtr& op, codegen::Codeg
 // ----------------------------------------------------------------------------
 
 // ============================================================================
-// manual.move â€” args = [src, dst]
+// manual.move â€?args = [src, dst]
 // Emits: pto.tmov ins(src : src_type) outs(dst : dst_type) with optional attributes
 // ============================================================================
 static std::string MakeManualMoveCodegenPTO(const ir::CallPtr& op, codegen::CodegenBase& codegen_base) {
@@ -1305,7 +1305,7 @@ static std::string MakeManualMoveCodegenPTO(const ir::CallPtr& op, codegen::Code
     } else if (mode_str == "dual_split_n") {
       mode_enum = "dual_mode_split_n";
     } else {
-      throw pypto::ValueError("Invalid acc_to_vec_mode: " + mode_str);
+      throw pypto::ir::ValueError("Invalid acc_to_vec_mode: " + mode_str);
     }
     if (!attrs.empty()) attrs += ", ";
     attrs += "accToVecMode = #pto.acc_to_vec_mode<" + mode_enum + ">";
@@ -1319,7 +1319,7 @@ static std::string MakeManualMoveCodegenPTO(const ir::CallPtr& op, codegen::Code
     } else if (relu_str == "normal_relu") {
       relu_enum = "normal_relu";
     } else {
-      throw pypto::ValueError("Invalid relu_pre_mode: " + relu_str);
+      throw pypto::ir::ValueError("Invalid relu_pre_mode: " + relu_str);
     }
     if (!attrs.empty()) attrs += ", ";
     attrs += "reluPreMode = #pto<relu_pre_mode " + relu_enum + ">";
@@ -1363,7 +1363,7 @@ static std::string MakeManualMoveCodegenPTO(const ir::CallPtr& op, codegen::Code
 }
 
 // ============================================================================
-// manual.move_fp â€” args = [src, fp_tile, dst]
+// manual.move_fp â€?args = [src, fp_tile, dst]
 // Emits: pto.tmov ins(src : src_type, fp_tile : fp_type) outs(dst : dst_type)
 //        with optional accToVecMode / reluPreMode attributes
 // ============================================================================
@@ -1374,28 +1374,28 @@ static std::string MakeManualMoveFpCodegenPTO(const ir::CallPtr& op, codegen::Co
   auto src_tile_type = As<ir::TileType>(op->args_[0]->GetType());
   INTERNAL_CHECK(src_tile_type) << "manual.move_fp: first argument must be a Tile";
   if (!src_tile_type->memref_.has_value()) {
-    throw pypto::ValueError("manual.move_fp: source tile must have an allocated memory space");
+    throw pypto::ir::ValueError("manual.move_fp: source tile must have an allocated memory space");
   }
   if (src_tile_type->memref_.value()->memory_space_ != ir::MemorySpace::Acc) {
-    throw pypto::ValueError("manual.move_fp: source tile must be allocated in Acc memory");
+    throw pypto::ir::ValueError("manual.move_fp: source tile must be allocated in Acc memory");
   }
 
   auto fp_tile_type = As<ir::TileType>(op->args_[1]->GetType());
   INTERNAL_CHECK(fp_tile_type) << "manual.move_fp: second argument must be a Tile";
   if (!fp_tile_type->memref_.has_value()) {
-    throw pypto::ValueError("manual.move_fp: fp tile must have an allocated memory space");
+    throw pypto::ir::ValueError("manual.move_fp: fp tile must have an allocated memory space");
   }
   if (fp_tile_type->memref_.value()->memory_space_ != ir::MemorySpace::Scaling) {
-    throw pypto::ValueError("manual.move_fp: fp tile must be allocated in Scaling memory");
+    throw pypto::ir::ValueError("manual.move_fp: fp tile must be allocated in Scaling memory");
   }
 
   auto dst_tile_type = As<ir::TileType>(op->args_[2]->GetType());
   INTERNAL_CHECK(dst_tile_type) << "manual.move_fp: third argument must be a Tile";
   if (!dst_tile_type->memref_.has_value()) {
-    throw pypto::ValueError("manual.move_fp: destination tile must have an allocated memory space");
+    throw pypto::ir::ValueError("manual.move_fp: destination tile must have an allocated memory space");
   }
   if (dst_tile_type->memref_.value()->memory_space_ != ir::MemorySpace::Vec) {
-    throw pypto::ValueError("manual.move_fp: destination tile must be allocated in Vec memory");
+    throw pypto::ir::ValueError("manual.move_fp: destination tile must be allocated in Vec memory");
   }
 
   std::string src = codegen.GetExprAsCode(op->args_[0]);
@@ -1415,9 +1415,9 @@ static std::string MakeManualMoveFpCodegenPTO(const ir::CallPtr& op, codegen::Co
     } else if (mode_str == "single_vec1") {
       mode_enum = "single_mode_vec1";
     } else if (mode_str == "dual_split_m" || mode_str == "dual_split_n") {
-      throw pypto::ValueError("manual.move_fp: fp_tile only supports single-mode acc_to_vec_mode");
+      throw pypto::ir::ValueError("manual.move_fp: fp_tile only supports single-mode acc_to_vec_mode");
     } else {
-      throw pypto::ValueError("Invalid acc_to_vec_mode: " + mode_str);
+      throw pypto::ir::ValueError("Invalid acc_to_vec_mode: " + mode_str);
     }
     if (!attrs.empty()) attrs += ", ";
     attrs += "accToVecMode = #pto.acc_to_vec_mode<" + mode_enum + ">";
@@ -1431,7 +1431,7 @@ static std::string MakeManualMoveFpCodegenPTO(const ir::CallPtr& op, codegen::Co
     } else if (relu_str == "normal_relu") {
       relu_enum = "normal_relu";
     } else {
-      throw pypto::ValueError("Invalid relu_pre_mode: " + relu_str);
+      throw pypto::ir::ValueError("Invalid relu_pre_mode: " + relu_str);
     }
     if (!attrs.empty()) attrs += ", ";
     attrs += "reluPreMode = #pto<relu_pre_mode " + relu_enum + ">";
@@ -1470,7 +1470,7 @@ REGISTER_BACKEND_OP(Backend910B_PTO, "manual.store_fp")
     });
 
 // ============================================================================
-// manual.insert â€” args = [src, index_row, index_col, dst] or
+// manual.insert â€?args = [src, index_row, index_col, dst] or
 //                        [src, index_row, index_col, offset, dst]
 // Emits: pto.tinsert ins(src, row, col : src_type, index, index) outs(dst : dst_type)
 // With offset: allocates a temporary tile at (base_addr + offset) and inserts into it.
@@ -2274,7 +2274,7 @@ static std::string MakeManualMrgsort2PTO(const CallPtr& op, codegen::CodegenBase
 
   // Emit a zero-initialized vector<4xi16> constant for the excuted output operand.
   // In PTO IR format2, excuted is a DPS (destination-passing-style) operand that
-  // must be a pre-existing SSA value â€” it cannot be created inline by pto.tmrgsort.
+  // must be a pre-existing SSA value â€?it cannot be created inline by pto.tmrgsort.
   std::string executed = codegen.NewTemp();
   codegen.Emit(executed + " = arith.constant dense<0> : vector<4xi16>");
 
@@ -2306,3 +2306,4 @@ REGISTER_BACKEND_OP(Backend910B_PTO, "manual.mrgsort2")
 
 }  // namespace backend
 }  // namespace pypto
+

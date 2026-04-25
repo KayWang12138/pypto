@@ -35,7 +35,7 @@ public:
     void SetUp() override
     {
         DeviceLauncherContext::Get().DeviceInit();
-        rtSetDevice(GetDeviceIdByEnvVar());
+        RuntimeSetDevice(GetDeviceIdByEnvVar());
     }
 
     void TearDown() override { DeviceLauncherContext::Get().DeviceFini(); }
@@ -348,7 +348,6 @@ TEST_F(DynamicControlFlowCacheTest, PartialCache)
 
     // every task 4 root func
     config::SetRuntimeOption<int64_t>(STITCH_FUNCTION_MAX_NUM, 0x4);
-    config::SetRuntimeOption<int64_t>(STITCH_FUNCTION_NUM_STEP, 0);
 
     int tiling = 32;
     int n = tiling * 4;
@@ -447,7 +446,6 @@ TEST_F(DynamicControlFlowCacheTest, PartialCacheChangeWorkspaceAddress)
 
     // every task 4 root func
     config::SetRuntimeOption<int64_t>(STITCH_FUNCTION_MAX_NUM, 0x3);
-    config::SetRuntimeOption<int64_t>(STITCH_FUNCTION_NUM_STEP, 0);
 
     static constexpr int v64 = 64;
     static constexpr int v128 = 128;
@@ -535,10 +533,10 @@ TEST_F(DynamicControlFlowCacheTest, PartialCacheChangeWorkspaceAddress)
     std::vector<uint8_t> cleartGoldenList(alignSize, clearValue);
     for (int k = 0; k < 0x4; k++) {
         void* devAddr = nullptr;
-        rtMalloc((void**)&devAddr, alignSize, TWO_MB_HUGE_PAGE_FLAGS, 0);
+        RuntimeMalloc((void**)&devAddr, alignSize, TWO_MB_HUGE_PAGE_FLAGS, 0);
         devAddrList.emplace_back(devAddr);
         for (int w = 0; w <= k; w++) {
-            rtMemset(devAddrList[w], alignSize, clearValue, alignSize);
+            RuntimeMemset(devAddrList[w], alignSize, clearValue, alignSize);
         }
 
         uint64_t workspaceAddr = (uint64_t)devAddr;
@@ -551,12 +549,12 @@ TEST_F(DynamicControlFlowCacheTest, PartialCacheChangeWorkspaceAddress)
         EXPECT_TRUE(resultCmp(outputGolden, outputResult, 0.001f));
 
         for (int w = 0; w <= k - 1; w++) {
-            rtMemcpy(&clearList[0], alignSize, devAddrList[w], alignSize, RT_MEMCPY_DEVICE_TO_HOST);
+            RuntimeMemcpy(&clearList[0], alignSize, devAddrList[w], alignSize, RtMemcpyKind::DEVICE_TO_HOST);
             EXPECT_EQ(clearList, cleartGoldenList) << "Tainted iteration: " << w;
         }
     }
     for (auto& devAddr : devAddrList) {
-        rtFree(devAddr);
+        RuntimeFree(devAddr);
     }
 #endif
 }
@@ -565,7 +563,6 @@ TEST_F(DynamicControlFlowCacheTest, PartialCacheValueDependData)
 {
     config::SetRuntimeOption<int64_t>(STITCH_CFGCACHE_SIZE, 112000);
     config::SetRuntimeOption<int64_t>(STITCH_FUNCTION_MAX_NUM, 0x4);
-    config::SetRuntimeOption<int64_t>(STITCH_FUNCTION_NUM_STEP, 0);
     int tiling = 32;
     int n = tiling * 4;
     TileShape::Current().SetVecTile(tiling, tiling);
@@ -650,7 +647,6 @@ TEST_F(DynamicControlFlowCacheTest, PartialCacheValueDependControl)
 {
     config::SetRuntimeOption<int64_t>(STITCH_CFGCACHE_SIZE, 120000);
     config::SetRuntimeOption<int64_t>(STITCH_FUNCTION_MAX_NUM, 4);
-    config::SetRuntimeOption<int64_t>(STITCH_FUNCTION_NUM_STEP, 0);
 
     int tiling = 32;
     int n = tiling * 4;

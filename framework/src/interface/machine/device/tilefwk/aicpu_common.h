@@ -19,11 +19,12 @@
 #include <cstddef>
 #include <cstdint>
 #include "aicpu_perf.h"
+#include "aikernel_data.h"
 
 const uint64_t AICORE_TASK_INIT = 0xFFFFFFFF;
-const uint64_t AICORE_TASK_DISTRIBUTED = 0x7FFFFFFE;
-const uint64_t AICORE_TASK_STOP = 0x7FFFFFF0;
-const uint64_t AICORE_FUNC_STOP = 0x7FFFFFE0;
+const uint64_t AICORE_TASK_DISTRIBUTED = 0xF0000003;
+const uint64_t AICORE_TASK_STOP = 0xF0000001;
+const uint64_t AICORE_FUNC_STOP = 0xF0000002;
 const uint64_t AICORE_FIN_MASK = 0x80000000;
 const uint64_t AICORE_TASK_MAX = 0x70000000;
 
@@ -56,7 +57,7 @@ constexpr const int DEV_SHAPE_DIM_NUM_3 = 3;
 constexpr const int DEV_SHAPE_DIM_NUM_4 = 4;
 constexpr const int DEV_SHAPE_DIM_NUM_5 = 5;
 
-constexpr const uint32_t MAX_TURN_NUM = 200;
+constexpr const uint32_t MAX_ROUND_NUM = 200;
 
 enum class ArchInfo { DAV_1001 = 1001, DAV_2201 = 2201, DAV_3510 = 3510, DAV_UNKNOWN };
 
@@ -161,6 +162,7 @@ struct DeviceArgs {
     uint64_t GetBlockNum() { return nrValidAic * (nrAiv / nrAic + 1); }
     int maxAicpuNum{0};
     bool enableVFFusion = false;
+    bool enableEslModel = false;
     ArchInfo archInfo{ArchInfo::DAV_2201};
     ToSubMachineConfig toSubMachineConfig;
 };
@@ -196,16 +198,16 @@ struct DevDfxArgs {
     int32_t isOpenPerfTrace{0};
 };
 
-constexpr uint32_t PERF_TRACE_INST_MAX_NUM_EVERY_TYPE = 10;
+constexpr uint32_t PERF_TRACE_INST_MAX_NUM_EVERY_TYPE = 20;
 constexpr uint32_t INVALID_DEV_TASK_ID = 0xFFFFFFFF;
 enum AicorePerfTrace {
     PERF_TRACE_CORE_BEGIN = 0,
     PERF_TRACE_CORE_INIT,
     PERF_TRACE_CORE_DEV_TASK_RCV_MODEL,
-    PERF_TRACE_CORE_DEV_TASK_WAIT_RCV_FIRST_CALLOP_TASK,
-    PERF_TRACE_CORE_DEV_TASK_CALLOP_TASK_EXEC,
+    PERF_TRACE_CORE_DEV_TASK_WAIT_RCV_FIRST_LEAF_TASK,
+    PERF_TRACE_CORE_DEV_TASK_LEAF_TASK_EXEC,
     PERF_TRACE_CORE_DEV_TASK_WAIT_SYNC_STOP_NOTIFY,
-    PERF_TRACE_CORE_WAIT_ALL_DEV_TASK_CALLOP_EXEC_FINISH,
+    PERF_TRACE_CORE_WAIT_ALL_DEV_TASK_LEAF_TASK_EXEC_FINISH,
     PERF_TRACE_CORE_WAIT_EXIT_NOTIFY,
     PERF_TRACE_CORE_MAX
 };
@@ -214,9 +216,9 @@ struct Metrics {
     int64_t isMetricStop;
     int64_t taskCount;
     int64_t turnNum;
-    int64_t perfTrace[MAX_TURN_NUM][PERF_TRACE_CORE_MAX][PERF_TRACE_INST_MAX_NUM_EVERY_TYPE];
-    uint32_t perfTraceDevTaskId[MAX_TURN_NUM][PERF_TRACE_CORE_MAX][PERF_TRACE_INST_MAX_NUM_EVERY_TYPE];
-    uint32_t perfTraceCnt[MAX_TURN_NUM][PERF_TRACE_CORE_MAX];
+    int64_t perfTrace[MAX_ROUND_NUM][PERF_TRACE_CORE_MAX][PERF_TRACE_INST_MAX_NUM_EVERY_TYPE];
+    uint32_t perfTraceDevTaskId[MAX_ROUND_NUM][PERF_TRACE_CORE_MAX][PERF_TRACE_INST_MAX_NUM_EVERY_TYPE];
+    uint32_t perfTraceCnt[MAX_ROUND_NUM][PERF_TRACE_CORE_MAX];
     TaskStat tasks[];
 };
 
@@ -234,11 +236,21 @@ inline const char* AicorePerfTraceName[] = {
     "BEGIN",
     "INIT",
     "DEV_TASK_RCV_MODEL",
-    "DEV_TASK_WAIT_RCV_FIRST_CALLOP_TASK",
-    "DEV_TASK_ALL_CALLOP_TASK_EXEC",
+    "DEV_TASK_WAIT_RCV_FIRST_LEAF_TASK",
+    "DEV_TASK_ALL_LEAF_TASK_EXEC",
     "DEV_TASK_WAIT_SYNC_STOP_NOTIFY",
-    "WAIT_ALL_DEV_TASK_CALLOP_EXEC_FINISH",
+    "WAIT_ALL_DEV_TASK_LEAF_TASK_EXEC_FINISH",
     "WAIT_EXIT_NOTIFY"};
+
+
+// use ring buffer to control parallel multi devtask
+struct ParallelDevTask {
+    uint32_t front{0};
+    uint32_t rear{0};
+    uint32_t version;
+    uint32_t reserver;
+    int64_t elements[npu::tile_fwk::SCH_DEVTASK_MAX_PARALLELISM]; // device task ptr
+};
 
 struct TaskEntry {
     int32_t subGraphId;
@@ -256,6 +268,7 @@ struct KernelArgs {
     int64_t shakeBuffer[8];
     int64_t shakeBufferCpuToCore[8];
     int64_t waveBufferCpuToCore[8];
+    struct ParallelDevTask parallelDevTask;
     TaskEntry taskEntry;
     TaskStat taskStat[2]; // 寄存器高低32位，两个task 和 pending & running task存储： 2 * 2 个
 };
@@ -263,6 +276,7 @@ struct KernelArgs {
 union KernelSharedBuffer {
     struct KernelArgs args;
     uint8_t sharedBuffer[SHARED_BUFFER_SIZE];
+    KernelSharedBuffer() {};
 };
 
 static_assert(sizeof(KernelArgs) < SHARED_BUFFER_SIZE);

@@ -13,13 +13,14 @@
 
 #include <string>
 
-#include "block/core/dtype.h"
-#include "block/core/error.h"
-#include "block/core/logging.h"
-#include "block/ir/expr.h"
-#include "block/ir/kind_traits.h"
-#include "block/ir/scalar_expr.h"
-#include "block/ir/type.h"
+#include "core/dtype.h"
+#include "core/error.h"
+#include "core/logging.h"
+#include "ir/expr.h"
+#include "ir/kind_traits.h"
+#include "ir/scalar_expr.h"
+#include "ir/scalar_expr_ops.h"
+#include "ir/type.h"
 
 namespace pypto {
 namespace codegen {
@@ -112,11 +113,11 @@ std::string CodegenBase::GenerateExprString(const ir::ExprPtr& expr) const {
   if (auto tuple_get = As<TupleGetItemExpr>(expr)) {
     return GenerateExprString(tuple_get->tuple_) + "_" + std::to_string(tuple_get->index_);
   }
-  throw pypto::NotImplementedError("GenerateExprString not implemented for expression type: " +
-                                   expr->TypeName());
+throw NotImplementedError("GenerateExprString not implemented for expression type: " +
+                                    expr->TypeName());
 }
 
-std::string CodegenBase::GetRuntimeDataTypeString(const DataType& dtype) const {
+std::string CodegenBase::GetRuntimeDataTypeString(const ir::DataType& dtype) const {
   if (dtype == DataType::FP16) return "DataType::FLOAT16";
   if (dtype == DataType::FP32) return "DataType::FLOAT32";
   if (dtype == DataType::INT32) return "DataType::INT32";

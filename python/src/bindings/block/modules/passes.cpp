@@ -9,7 +9,7 @@
  * -----------------------------------------------------------------------------------------------------------
  */
 
-#include "block/ir/transforms/passes.h"
+#include "ir/transforms/passes.h"
 
 #include <pybind11/functional.h>
 #include <pybind11/pybind11.h>
@@ -18,12 +18,12 @@
 #include <string>
 #include <vector>
 
-#include "block/core/error.h"
-#include "block/ir/reporter/report.h"
-#include "block/ir/transforms/ir_property.h"
-#include "block/ir/transforms/pass_context.h"
-#include "block/ir/verifier/verification_error.h"
-#include "block/ir/verifier/verifier.h"
+#include "core/error.h"
+#include "ir/reporter/report.h"
+#include "ir/transforms/ir_property.h"
+#include "ir/transforms/pass_context.h"
+#include "ir/verifier/verification_error.h"
+#include "ir/verifier/verifier.h"
 
 namespace py = pybind11;
 
@@ -232,14 +232,14 @@ void BindPass(py::module_& m) {
 
   // Bind DiagnosticSeverity enum
   py::enum_<DiagnosticSeverity>(passes, "DiagnosticSeverity", "Severity level for diagnostics")
-      .value("Error", DiagnosticSeverity::Error, "Error that must be fixed")
-      .value("Warning", DiagnosticSeverity::Warning, "Warning that should be reviewed");
+      .value("Error", DiagnosticSeverity::ERROR, "Error that must be fixed")
+      .value("Warning", DiagnosticSeverity::WARNING, "Warning that should be reviewed");
 
   // Bind Diagnostic structure
   py::class_<Diagnostic>(passes, "Diagnostic", "Single diagnostic message from verification")
       .def_readonly("severity", &Diagnostic::severity, "Severity level (Error or Warning)")
-      .def_readonly("rule_name", &Diagnostic::rule_name, "Name of the verification rule")
-      .def_readonly("error_code", &Diagnostic::error_code, "Specific error code")
+      .def_readonly("rule_name", &Diagnostic::ruleName, "Name of the verification rule")
+      .def_readonly("error_code", &Diagnostic::errorCode, "Specific error code")
       .def_readonly("message", &Diagnostic::message, "Human-readable error message")
       .def_readonly("span", &Diagnostic::span, "Source location of the issue");
 

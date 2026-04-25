@@ -14,6 +14,7 @@
  */
 
 #include "interface/utils/string_utils.h"
+#include "tilefwk/platform.h"
 
 #include "test_machine_common.h"
 
@@ -28,7 +29,6 @@ std::string GetDeclName(const std::string& name)
 TEST_F(ControlFlowTest, RunDeviceContext)
 {
     config::SetRuntimeOption<int64_t>(STITCH_FUNCTION_MAX_NUM, 0x4);
-    config::SetRuntimeOption<int64_t>(STITCH_FUNCTION_NUM_STEP, 0);
 
     int tiling = 32;
     TileShape::Current().SetVecTile(tiling, tiling);
@@ -150,7 +150,6 @@ TEST_F(ControlFlowTest, TestDD)
 TEST_F(ControlFlowTest, TensorRecycleDestruct)
 {
     config::SetRuntimeOption<int64_t>(STITCH_FUNCTION_MAX_NUM, 100);
-    config::SetRuntimeOption<int64_t>(STITCH_FUNCTION_NUM_STEP, 0);
 
     int tiling = 32;
     TileShape::Current().SetVecTile(tiling, tiling);
@@ -248,7 +247,6 @@ TEST_F(ControlFlowTest, CtrlFlowPartialCache)
 
     // every task 4 root func
     config::SetRuntimeOption<int64_t>(STITCH_FUNCTION_MAX_NUM, 0x4);
-    config::SetRuntimeOption<int64_t>(STITCH_FUNCTION_NUM_STEP, 0);
 
     int tiling = 32;
     int n = tiling * 4;
@@ -368,4 +366,61 @@ TEST_F(ControlFlowTest, TestMainBlock)
     DeviceLauncherConfig config;
     config.blockdim = 25; // 25: block dim
     EXPECT_EQ(0, EmulationLauncher::EmulationRunOnce(Program::GetInstance().GetLastFunction(), nullptr, config));
+}
+
+TEST_F(ControlFlowTest, TestParallelLoop)
+{
+    Platform::Instance().GetSoc().SetNPUArch(NPUArch::DAV_3510);
+
+    int parallel_tile_size = 32;
+    TileShape::Current().SetVecTile(parallel_tile_size, parallel_tile_size);
+    int parallel_tensor_dim = parallel_tile_size * 4;
+
+    Tensor input_tensor_x(DT_INT32, {parallel_tensor_dim, parallel_tensor_dim}, "X");
+    Tensor input_tensor_y(DT_INT32, {parallel_tensor_dim, parallel_tensor_dim}, "Y");
+    Tensor result_tensor(DT_INT32, {parallel_tensor_dim, parallel_tensor_dim}, "R");
+
+    ProgramData::GetInstance().AppendInputs({
+        RawTensorData::CreateConstantTensor<int32_t>(input_tensor_x, 1),
+        RawTensorData::CreateConstantTensor<int32_t>(input_tensor_y, 2),
+    });
+    ProgramData::GetInstance().AppendOutputs({
+        RawTensorData::CreateConstantTensor<int32_t>(result_tensor, 0),
+    });
+
+    FUNCTION("main", {input_tensor_x, input_tensor_y}, {result_tensor})
+    {
+        LOOP("L0", FunctionType::DYNAMIC_LOOP, outer_iter, LoopRange(0x2), {}, false, true)
+        {
+            Tensor accum_tensor(DT_INT32, {parallel_tensor_dim, parallel_tensor_dim}, "A");
+            LOOP("s0", FunctionType::DYNAMIC_LOOP, row_iter, LoopRange(0x4))
+            {
+                LOOP("s1", FunctionType::DYNAMIC_LOOP, col_iter, LoopRange(0x4))
+                {
+                    Tensor view_x = View(
+                        input_tensor_x, {parallel_tile_size, parallel_tile_size},
+                        {row_iter * parallel_tile_size, col_iter * parallel_tile_size});
+                    Tensor view_y = View(
+                        input_tensor_y, {parallel_tile_size, parallel_tile_size},
+                        {row_iter * parallel_tile_size, col_iter * parallel_tile_size});
+                    Tensor add_result = Add(view_x, view_y);
+                    Assemble(add_result, {row_iter * parallel_tile_size, col_iter * parallel_tile_size}, accum_tensor);
+                }
+            }
+
+            LOOP("sum", FunctionType::DYNAMIC_LOOP, _, LoopRange(1))
+            {
+                (void)_;
+                IF(outer_iter == 0) { result_tensor = Add(accum_tensor, Element(DT_INT32, 0)); }
+                else
+                {
+                    result_tensor = Add(result_tensor, accum_tensor);
+                }
+            }
+        }
+    }
+    DeviceLauncherConfig config;
+    config.blockdim = 25; // 25: block dim
+    EXPECT_EQ(0, EmulationLauncher::EmulationRunOnce(Program::GetInstance().GetLastFunction(), nullptr, config));
+    Platform::Instance().GetSoc().SetNPUArch(NPUArch::DAV_UNKNOWN);
 }

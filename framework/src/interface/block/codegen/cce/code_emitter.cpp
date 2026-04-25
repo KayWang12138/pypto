@@ -14,7 +14,7 @@
 #include <cstddef>
 #include <string>
 
-#include "block/core/logging.h"
+#include "core/logging.h"
 
 namespace pypto {
 

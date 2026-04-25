@@ -12,13 +12,28 @@
 #include <pybind11/pybind11.h>
 #include <pybind11/stl.h>
 
+#include <cstddef>
+
 #include "../module.h"
-#include "block/core/dtype.h"
+#include "core/dtype.h"
 
 namespace py = pybind11;
 
 namespace pypto {
 namespace python {
+
+using pypto::ir::DataType;
+
+namespace {
+
+size_t GetBlockDataTypeBit(const DataType& dtype) {
+  if (dtype == DataType::BOOL) {
+    return 1;
+  }
+  return dtype.GetBit();
+}
+
+}  // namespace
 
 void BindCore(py::module_& m) {
   // Bind DataType class
@@ -46,12 +61,12 @@ void BindCore(py::module_& m) {
       .def_readonly_static(
           "INDEX", &DataType::INDEX,
           "Machine-word sized integer type for index computations (loop variables, dimensions, valid shapes)")
-      .def_readonly_static("DEFAULT_CONST_INT", &DataType::DEFAULT_CONST_INT,
+      .def_readonly_static("DEFAULT_CONST_INT", &DataType::INT64,
                            "Default dtype for bare integer constant literals (= INT64)")
-      .def_readonly_static("DEFAULT_CONST_FLOAT", &DataType::DEFAULT_CONST_FLOAT,
+      .def_readonly_static("DEFAULT_CONST_FLOAT", &DataType::FP32,
                            "Default dtype for bare float constant literals (= FP32)")
       // Member methods
-      .def("get_bit", &DataType::GetBit,
+      .def("get_bit", &GetBlockDataTypeBit,
            "Get the size in bits of this data type. Returns the actual bit size for sub-byte types (e.g., 4 "
            "bits "
            "for INT4).")

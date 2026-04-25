@@ -20,6 +20,7 @@
 #include <list>
 #include <stack>
 #include <mutex>
+#include <typeindex>
 #include <climits>
 #include <utility>
 
@@ -39,7 +40,28 @@ namespace npu::tile_fwk {
 
 namespace {
 std::mutex mtx;
+
+std::string GetReadableTypeName(const std::type_info& type)
+{
+    static const std::unordered_map<std::type_index, std::string> kTypeNames = {
+        {typeid(void), "unknown"},
+        {typeid(bool), "bool"},
+        {typeid(int64_t), "int64"},
+        {typeid(double), "double"},
+        {typeid(std::string), "string"},
+        {typeid(std::vector<int64_t>), "list[int64]"},
+        {typeid(std::vector<double>), "list[double]"},
+        {typeid(std::vector<std::string>), "list[string]"},
+        {typeid(std::map<int64_t, int64_t>), "dict[int64, int64]"},
+        {typeid(CubeTile), "CubeTile"},
+        {typeid(ConvTile), "ConvTile"},
+        {typeid(DistTile), "DistTile"},
+    };
+
+    auto it = kTypeNames.find(std::type_index(type));
+    return it != kTypeNames.end() ? it->second : type.name();
 }
+} // namespace
 
 struct TypeInfo {
     TypeInfo() = default;
@@ -142,13 +164,17 @@ const Any& ConfigScope::GetAnyConfig(const std::string& key) const
 
 bool ConfigScope::HasConfig(const std::string& key) const
 {
+    if (key == "matrix_size" || key == "vec_tile_shapes" || key == "conv_tile_shapes" || key == "cube_tile_shapes") {
+        return true;
+    }
+
     return values_.find(key) != values_.end() || (parent_ && parent_->HasConfig(key));
 }
 
 void ConfigScope::Clear()
 {
     values_.clear();
-    FUNCTION_LOGD("Clear config scope successfully");
+    FUNCTION_LOGD("Clear config scope successfully.");
 }
 
 const std::type_info& ConfigScope::Type(const std::string& key) const
@@ -242,6 +268,19 @@ void DumpRange(
     }
 }
 
+void ValidateConfigValueType(const std::string& key, const Any& value)
+{
+    const auto& expectedType = ConfigManagerNg::GetInstance().Type(key);
+    if (expectedType == typeid(void) || value.Type() == expectedType) {
+        return;
+    }
+
+    std::stringstream os;
+    os << "Option '" << key << "' has invalid type. Expected " << GetReadableTypeName(expectedType) << ", but got "
+       << GetReadableTypeName(value.Type());
+    FUNCTION_ASSERT(FError::INVALID_TYPE, false) << os.str();
+}
+
 std::string ConfigScope::ToString() const
 {
     auto values = GetAllConfig();
@@ -274,7 +313,9 @@ void ConfigScope::AddValue(const std::string& key, Any value)
 
 void ConfigScope::UpdateValueWithAny(const std::string& key, Any value)
 {
-    if (!ConfigManagerNg::GetInstance().IsWithinRange(key, value)) {
+    ValidateConfigValueType(key, value);
+    if (ConfigManagerNg::GetInstance().Range().count(key) != 0 &&
+        !ConfigManagerNg::GetInstance().IsWithinRange(key, value)) {
         std::stringstream os("Option:");
         std::map<std::string, Any> node;
         node[key] = value;
@@ -312,7 +353,7 @@ struct ConfigManagerImpl {
     void PushScope(ConfigScopePtr scope)
     {
         // Ensure the provided scope is not null
-        FUNCTION_ASSERT(scope != nullptr) << "Cannot push a null scope";
+        FUNCTION_ASSERT(scope != nullptr) << "Cannot push a null scope.";
         scopes.push(scope);
     }
 
@@ -352,7 +393,7 @@ struct ConfigManagerImpl {
     void EndScope(const char* file, int lino)
     {
         /* at least default and global two levels */
-        FUNCTION_ASSERT(scopes.size() >= 0x2) << "No scope to pop";
+        FUNCTION_ASSERT(scopes.size() >= 0x2) << "No scope to pop.";
         auto& scope = scopes.top();
         scope->end_file_ = file;
         scope->end_lino_ = lino;
@@ -370,6 +411,8 @@ struct ConfigManagerImpl {
             scope = scopes.top();
         }
         for (auto& it : values) {
+            FUNCTION_ASSERT(FError::INVALID_VAL, scope->HasConfig(it.first))
+                << "key: " << it.first.c_str() << " does not exist.";
             scope->UpdateValueWithAny(it.first, it.second);
         }
     }
@@ -383,7 +426,7 @@ struct ConfigManagerImpl {
         for (auto& it : values) {
             try {
                 root->AddValue(it.first, it.second);
-                FUNCTION_LOGD("Set option successfully. Key: %s", it.first.c_str());
+                FUNCTION_LOGD("Set option successfully, Key: %s", it.first.c_str());
             } catch (const std::exception& e) {
                 FUNCTION_LOGE_E(
                     FError::INVALID_VAL, "Failed to set option. Key: %s, Error: %s", it.first.c_str(), e.what());
@@ -464,7 +507,7 @@ private:
             confPath = GetConfDir() + "tile_fwk_config.json";
         }
         std::ifstream ifs(confPath);
-        CHECK(ifs.is_open()) << "Open file " << confPath << " failed";
+        CHECK(ifs.is_open()) << "Open file: " << confPath << " failed";
         nlohmann::json jData;
         ifs >> jData;
         LoadConf(jData, "");

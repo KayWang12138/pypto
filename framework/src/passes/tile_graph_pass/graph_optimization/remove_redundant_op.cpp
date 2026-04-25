@@ -63,12 +63,7 @@ bool RemoveRedundantOp::ProcessRedundantOpWithDynShape(Operation& op) const
     if (!EqualInOut(op)) {
         APASS_LOG_DEBUG_F(
             Elements::Operation, "op[%d]'s input and output has unequal shape and dynshape, skip removing.",
-            op.opmagic);
-        return false;
-    }
-    if (op.HasAttr("op_attr_remain_redundant_op_flag")) {
-        APASS_LOG_DEBUG_F(
-            Elements::Operation, "op[%d] has attribute op_attr_remain_redundant_op_flag, skip removing.", op.opmagic);
+            op.GetOpMagic());
         return false;
     }
     return true;
@@ -82,13 +77,28 @@ bool RemoveRedundantOp::ProcessRedundantOpWithoutDynShape(Operation& op) const
         return false;
     }
     if (op.GetOpcode() == Opcode::OP_ASSEMBLE) {
-        auto assembleOut = op.GetOOperands().front();
-        if (assembleOut->GetProducers().size() > 1) {
-            APASS_LOG_DEBUG_F(
-                Elements::Operation, "assembleOut[%d] has more than one producer, skip removing.",
-                assembleOut->GetMagic());
+        auto assembleOutput = op.GetOOperands().front();
+        if (assembleOutput->GetProducers().size() > 1) {
+            APASS_LOG_DEBUG_F(Elements::Operation, "assembleOutput[%d] has more than one producer, skip removing.",
+                assembleOutput->GetMagic());
             return false;
         }
+        auto assembleInput = op.GetIOperands().front();
+        bool hasParallelAssemble = false;
+        for (const auto& consumer : assembleInput->GetConsumers()) {
+            if (consumer->GetOpcode() == Opcode::OP_ASSEMBLE && consumer->GetOpMagic() != op.GetOpMagic()) {
+                hasParallelAssemble = true;
+                break;
+            }
+        }
+        bool hasReshapeConsumer = false;
+        for (const auto& consumer : assembleOutput->GetConsumers()) {
+            if (consumer->GetOpcode() == Opcode::OP_RESHAPE) {
+                hasReshapeConsumer = true;
+                break;
+            }
+        }
+        if (hasParallelAssemble && hasReshapeConsumer) return false;
     }
     return true;
 }
@@ -166,15 +176,16 @@ Status RemoveRedundantOp::RemoveDummyOps(Function& function)
 
 Status RemoveRedundantOp::ProcessViewAssemble(Function& function)
 {
-    for (auto& op : function.Operations()) {
-        auto opcode = op.GetOpcode();
+    auto opList = function.Operations().DuplicatedOpList();
+    for (auto& op : opList) {
+        auto opcode = op->GetOpcode();
         if (opcode != Opcode::OP_VIEW) {
             // 跳过非view的op
             continue;
         }
-        auto& startTensor = op.iOperand.front();
+        auto& startTensor = op->iOperand.front();
         auto inputMemtype = startTensor->GetMemoryTypeOriginal();
-        auto consumers = op.oOperand.front()->GetConsumers();
+        auto consumers = op->oOperand.front()->GetConsumers();
         // 获取view级联的assemble消费者
         for (const auto& consumer : consumers) {
             if (consumer->GetOpcode() != Opcode::OP_ASSEMBLE) {
@@ -197,7 +208,7 @@ Status RemoveRedundantOp::ProcessViewAssemble(Function& function)
                 //                            ---> view2  ---> tempTensor2  --->  assemble2
                 APASS_LOG_DEBUG_F(
                     Elements::Operation,
-                    "CASE1: Process OP_VIEW[%d]'s input and OP_ASSEMBLE[%d]'s output perfectMatch.", op.opmagic,
+                    "CASE1: Process OP_VIEW[%d]'s input and OP_ASSEMBLE[%d]'s output perfectMatch.", op->opmagic,
                     consumer->GetOpMagic());
                 ProcessPerfectMatch(function, startTensor, endTensor);
             } else {
@@ -212,8 +223,8 @@ Status RemoveRedundantOp::ProcessViewAssemble(Function& function)
                 //                             ---> view2  ---> tempTensor2  --->  assemble2
                 APASS_LOG_DEBUG_F(
                     Elements::Operation, "CASE2: Process OP_VIEW[%d]'s input is a part of OP_ASSEMBLE[%d]'s output.",
-                    op.opmagic, consumer->GetOpMagic());
-                GenerateNewView(function, op, startTensor, endTensor);
+                    op->opmagic, consumer->GetOpMagic());
+                GenerateNewView(function, *op, startTensor, endTensor);
             }
         }
     }

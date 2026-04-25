@@ -23,14 +23,15 @@
 
 #include "block/backend/common/backend.h"
 #include "block/codegen/codegen_base.h"
-#include "block/core/dtype.h"
-#include "block/ir/expr.h"
-#include "block/ir/function.h"
-#include "block/ir/memref.h"
-#include "block/ir/program.h"
-#include "block/ir/scalar_expr.h"
-#include "block/ir/stmt.h"
-#include "block/ir/type.h"
+#include "core/dtype.h"
+#include "ir/expr.h"
+#include "ir/function.h"
+#include "ir/memref.h"
+#include "ir/program.h"
+#include "ir/scalar_expr.h"
+#include "ir/scalar_expr_ops.h"
+#include "ir/stmt.h"
+#include "ir/type.h"
 
 namespace pypto {
 
@@ -44,6 +45,10 @@ namespace codegen {
  * Automatically generates make_tensor_view, partition_view, and alloc_tile instructions.
  */
 class PTOCodegen : public CodegenBase {
+ protected:
+    using CodegenBase::VisitStmt_;
+    using CodegenBase::VisitExpr_;
+
  public:
   /** @brief Default constructor (backend is always PTO) */
   PTOCodegen();
@@ -67,7 +72,7 @@ class PTOCodegen : public CodegenBase {
   [[nodiscard]] std::string GetCurrentResultTarget() const override;
   void Emit(const std::string& line) override;
   std::string GetExprAsCode(const ir::ExprPtr& expr) override;
-  [[nodiscard]] std::string GetTypeString(const DataType& dtype) const override;
+  [[nodiscard]] std::string GetTypeString(const ir::DataType& dtype) const override;
   int64_t GetConstIntValue(const ir::ExprPtr& expr) override;
   std::string GetVarName(const ir::VarPtr& var) override;
 

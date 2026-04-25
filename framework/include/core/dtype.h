@@ -51,6 +51,7 @@ public:
     static constexpr uint8_t kInt16Code = 0x12;
     static constexpr uint8_t kInt32Code = 0x13;
     static constexpr uint8_t kInt64Code = 0x14;
+    static constexpr uint8_t kIndexCode = 0x15;
     static constexpr uint8_t kSignedIntRangeEnd = 0x1F;
     // 0x15-0x1F reserved for future signed integer types
 
@@ -105,6 +106,7 @@ public:
     static const DataType BF16;      // 16-bit brain floating point
     static const DataType HF4;       // 4-bit Hisilicon float
     static const DataType HF8;       // 8-bit Hisilicon float
+    static const DataType INDEX;     // 32-bit index type
 
     /**
      * \brief Default constructor, initializes to BOOL type
@@ -129,7 +131,7 @@ public:
     {
         switch (code_) {
             case kBoolCode:
-                return 1;
+                return 8;
             case kHf4Code:
             case kFp4Code:
             case kUInt4Code:
@@ -152,6 +154,7 @@ public:
                 return 32;
             case kUInt64Code:
             case kInt64Code:
+            case kIndexCode:
                 return 64;
             default:
                 return 0;
@@ -176,6 +179,8 @@ public:
                 return "int32";
             case kInt64Code:
                 return "int64";
+            case kIndexCode:
+                return "index";
             case kUInt4Code:
                 return "uint4";
             case kUInt8Code:
@@ -216,7 +221,7 @@ public:
      * Covers all DataType variants: signed/unsigned integers (incl. INT4/UINT4),
      * IEEE float (FP16, FP32, FP64), FP4/FP8, BF16, HF4/HF8, and BOOL.
      *
-     * \return C style type string (e.g. "float", "int32_t", "half", "bfloat16")
+     * \return C style type string (e.g. "float", "int32_t", "half", "bfloat16_t")
      */
     [[nodiscard]] std::string ToCTypeString() const
     {
@@ -230,6 +235,7 @@ public:
             case kInt32Code:
                 return "int32_t";
             case kInt64Code:
+            case kIndexCode:
                 return "int64_t";
             case kUInt8Code:
                 return "uint8_t";
@@ -246,7 +252,7 @@ public:
             case kFp64Code:
                 return "double";
             case kBf16Code:
-                return "bfloat16";
+                return "bfloat16_t";
             default:
                 return "unknown";
         }
@@ -336,6 +342,70 @@ inline constexpr DataType DataType::FP32 = DataType(kFp32Code);
 inline constexpr DataType DataType::BF16 = DataType(kBf16Code);
 inline constexpr DataType DataType::HF4 = DataType(kHf4Code);
 inline constexpr DataType DataType::HF8 = DataType(kHf8Code);
+inline constexpr DataType DataType::INDEX = DataType(kIndexCode);
 
+/**
+ * @brief Convert DataType to its canonical enum name string
+ *
+ * Returns the uppercase enum-style name for a DataType, suitable for use
+ * as a suffix in code generation (e.g., "FP32", "BF16", "INT32").
+ *
+ * Callers compose the full qualified name:
+ *   - Python printer: prefix + "." + DataTypeToString(dtype)
+ *   - C++ codegen:    "DataType::" + DataTypeToString(dtype)
+ *
+ * @param dtype The data type to convert
+ * @return Uppercase enum name string
+ */
+inline std::string DTypeToString(const DataType& dtype)
+{
+    if (dtype == DataType::BOOL)
+        return "BOOL";
+    if (dtype == DataType::INT4)
+        return "INT4";
+    if (dtype == DataType::INT8)
+        return "INT8";
+    if (dtype == DataType::INT16)
+        return "INT16";
+    if (dtype == DataType::INT32)
+        return "INT32";
+    if (dtype == DataType::INDEX)
+        return "INDEX";
+    if (dtype == DataType::INT64)
+        return "INT64";
+    if (dtype == DataType::UINT4)
+        return "UINT4";
+    if (dtype == DataType::UINT8)
+        return "UINT8";
+    if (dtype == DataType::UINT16)
+        return "UINT16";
+    if (dtype == DataType::UINT32)
+        return "UINT32";
+    if (dtype == DataType::UINT64)
+        return "UINT64";
+    if (dtype == DataType::FP4)
+        return "FP4";
+    if (dtype == DataType::FP8E4M3FN)
+        return "FP8E4M3FN";
+    if (dtype == DataType::FP8E5M2)
+        return "FP8E5M2";
+    if (dtype == DataType::FP16)
+        return "FP16";
+    if (dtype == DataType::FP32)
+        return "FP32";
+    if (dtype == DataType::BF16)
+        return "BF16";
+    if (dtype == DataType::HF4)
+        return "HF4";
+    if (dtype == DataType::HF8)
+        return "HF8";
+    return "UnknownType";
+}
+
+// Compatibility alias for migrated call sites that use the newer helper name.
+inline std::string DataTypeToString(const DataType& dtype)
+{
+    return DTypeToString(dtype);
+}
 } // namespace ir
 } // namespace pypto

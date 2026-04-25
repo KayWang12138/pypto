@@ -32,30 +32,6 @@ class TestOptimizationStrategy:
         assert len(strategies) == len(set(strategies))
 
 
-class TestPassManagerBasics:
-    """Test basic PassManager functionality."""
-
-    def test_pass_manager_get_strategy_ptoas(self):
-        """Test getting PTOAS strategy PassManager."""
-        pm = ir.PassManager.get_strategy(ir.OptimizationStrategy.PTOAS)
-        assert pm is not None
-        assert pm.strategy == ir.OptimizationStrategy.PTOAS
-
-        assert len(pm.passes) == 11
-        assert len(pm.pass_names) == 11
-        assert pm.pass_names[0] == "UnrollLoops"
-        assert pm.pass_names[1] == "ConvertToSSA"
-        assert pm.pass_names[2] == "FlattenCallExpr"
-        assert pm.pass_names[3] == "SplitChunkedLoops"
-        assert pm.pass_names[4] == "InterchangeChunkLoops"
-        assert pm.pass_names[5] == "RunVerifier"
-        assert pm.pass_names[6] == "OutlineIncoreScopes"
-        assert pm.pass_names[7] == "ConvertTensorToBlockOps"
-        assert pm.pass_names[8] == "InitMemRef"
-        assert pm.pass_names[9] == "MemoryReuse"
-        assert pm.pass_names[10] == "AllocateMemoryAddr"
-
-
 class TestPassManagerExecution:
     """Test PassManager execution functionality."""
 

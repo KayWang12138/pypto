@@ -23,14 +23,15 @@
 #include "block/backend/common/backend.h"
 #include "block/codegen/cce/cce_codegen.h"
 #include "block/codegen/codegen_base.h"
-#include "block/core/logging.h"
-#include "block/ir/expr.h"
-#include "block/ir/kind_traits.h"
-#include "block/ir/pipe.h"
-#include "block/ir/type.h"
+#include "core/logging.h"
+#include "ir/expr.h"
+#include "ir/kind_traits.h"
+#include "ir/pipe.h"
+#include "ir/type.h"
 
 namespace pypto {
 namespace backend {
+using ir::DataType;
 
 // ============================================================================
 // Scope markers

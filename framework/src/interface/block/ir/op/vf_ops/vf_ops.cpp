@@ -23,10 +23,10 @@
 #include <utility>
 #include <vector>
 
-#include "block/core/logging.h"
-#include "block/ir/kind_traits.h"
-#include "block/ir/op_registry.h"
-#include "block/ir/type.h"
+#include "core/logging.h"
+#include "ir/kind_traits.h"
+#include "ir/op_registry.h"
+#include "ir/type.h"
 
 namespace pypto {
 namespace ir {

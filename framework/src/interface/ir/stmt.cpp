@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2026 Huawei Technologies Co., Ltd.
+ * Copyright (c) PyPTO Contributors.
  * This program is free software, you can redistribute it and/or modify it under the terms and conditions of
  * CANN Open Software License Agreement Version 2.0 (the "License").
  * Please refer to the License for details. You may not use this file except in compliance with the License.
@@ -11,26 +11,27 @@
 
 #include "ir/stmt.h"
 
+#include <cstddef>
 #include <utility>
+#include <vector>
 
-#include "core/error.h"
 #include "core/logging.h"
+#include "ir/core.h"
+#include "ir/span.h"
 
 namespace pypto {
 namespace ir {
 
-OpStmts::OpStmts(std::vector<StmtPtr> stmts, Span span) : Stmt(std::move(span)), stmts_(std::move(stmts))
-{
-    // Validate that all statements are AssignStmt or EvalStmt
-    for (size_t i = 0; i < stmts_.size(); ++i) {
-        const auto& stmt = stmts_[i];
-        INTERNAL_CHECK(stmt) << "OpStmts has null statement at index " << i << " at " << span_.ToString();
-        auto kind = stmt->GetKind();
-        INTERNAL_CHECK(kind == ObjectKind::AssignStmt || kind == ObjectKind::EvalStmt)
-            << "OpStmts only accepts AssignStmt or EvalStmt, but got " << stmt->TypeName() << " at index " << i
-            << " at " << span_.ToString();
-    }
+OpStmts::OpStmts(std::vector<StmtPtr> stmts, Span span) : Stmt(std::move(span)), stmts_(std::move(stmts)) {
+  // Validate that all statements are AssignStmt or EvalStmt
+  for (size_t i = 0; i < stmts_.size(); ++i) {
+    const auto& stmt = stmts_[i];
+    INTERNAL_CHECK(stmt) << "OpStmts has null statement at index " << i;
+    auto kind = stmt->GetKind();
+    INTERNAL_CHECK(kind == ObjectKind::AssignStmt || kind == ObjectKind::EvalStmt)
+        << "OpStmts only accepts AssignStmt or EvalStmt, but got " << stmt->TypeName() << " at index " << i;
+  }
 }
 
-} // namespace ir
-} // namespace pypto
+}  // namespace ir
+}  // namespace pypto
