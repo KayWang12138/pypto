@@ -341,90 +341,21 @@ def scaled_matmul_kernel(
     scaled_a: pypto.Tensor(),
     scaled_b: pypto.Tensor(),
     y: pypto.Tensor(),
-    mm_results: pypto.Tensor(),     # 预分配的结果存储 tensor [g, m, n]
-    index_tensor: pypto.Tensor(),   # 预分配的索引 tensor [g]，值为 [0, 1, ..., g-1]
     tile_config: ShapeConfig
 ):
-    """
-    Scaled matrix multiplication kernel for grouped GEMM with MXFP8 quantization.
-    
-    默认处理转置格式：
-    - a: [K, M] (transposed), scaled_a: ((K//64)+g, M, 2)
-    - b: [K, N] (not transposed), scaled_b: ((K//64)+g, N, 2)
+    g = y.shape[0]
+    m = y.shape[1]
+    n = y.shape[2]
+    mm_result_tensor = pypto.tensor([g, m, n], pypto.DT_FP32)
 
-    This kernel performs grouped matrix multiplication where each group uses
-    a different K-axis block from input tensors, with MXFP8 quantization.
-
-    Args:
-        a: Input tensor [K, M] (transposed format)
-        b: Weight tensor [K, N]
-        scaled_a: Scale factors for input tensor ((K//64)+g, M, 2)
-        scaled_b: Scale factors for weight tensor ((K//64)+g, N, 2)
-        y: Output tensor [num_groups, M, N]
-        tile_config: Tile configuration for computation (包含 group_list 和 group_type)
-    
-    MX量化scale存储格式说明:
-    ===========================
-    - scaled_a/scaled_b 形状: ((K//64)+g, M/N, 2)
-    - 第 i 个 group 的 scale 偏移量 = sum(K_j/64 for j<i) + i = begin/64 + i
-    - 示例: K=512, g=2, group_list=[256,256]
-      - scaled_a shape: ((512/64)+2, M, 2) = (10, M, 2)
-      - group 0: K=[0,256], scale_offset=0, scale_length=4, range [0:4,:,:]
-      - group 1: K=[256,512], scale_offset=5, scale_length=4, range [5:9,:,:]
-    
-    约束说明 (scaled_mm API 要求):
-    ================================
-    1. K 轴约束:
-       - K 轴必须 64 元素对齐 (MX 量化要求，每 64 个元素对应一个 scale)
-       - 当 mat_a 非转置时 [M, K]，外轴 M，内轴 K
-       - 当 mat_a 转置时 [K, M]，外轴 K，内轴 M
-    
-    2. 内轴 32 字节对齐约束:
-       - 内轴是矩阵乘法的累加维度，需要 32 字节对齐
-       - 当 a_trans=True 时: mat_a=[K, M]，内轴是 M，M 维度需 32 字节对齐
-         * FP8 格式: M >= 32 (因为 32 个 FP8 元素 = 32 字节)
-         * 对应的 m_tile_shape 也需满足内轴 >= 32 字节对齐
-       - 当 a_trans=False 时: mat_a=[M, K]，内轴是 K，K 维度需 32 字节对齐
-         * FP8 格式: K >= 32 (因为 32 个 FP8 元素 = 32 字节)
-         * 但由于 MX 量化已要求 K >= 64，此约束自动满足
-       - 当 b_trans=False 时: mat_b=[K, N]，内轴是 N，N 维度需 32 字节对齐
-         * FP8 格式: N >= 32
-       - 当 b_trans=True 时: mat_b=[N, K]，内轴是 K，K 维度需 32 字节对齐
-    
-    3. Tile Shape 约束:
-       - m_tile_shape: 控制 M 维度的切分大小
-         * 当 a_trans=True 时，m_tile_shape 的内轴分量需 32 字节对齐
-         * 例如: [32, 32] 表示 M 维度 tile 为 32，FP8 下 32 字节，满足对齐
-         * 错误示例: [16, 16] 表示 M 维度 tile 为 16，FP8 下 16 字节，不满足对齐
-       - k_tile_shape: 控制 K 维度的切分大小
-       - n_tile_shape: 控制 N 维度的切分大小
-         * 当 b_trans=False 时，n_tile_shape 的内轴分量需 32 字节对齐
-    
-    4. Scale 形状约束:
-       - scaled_a: ((K//64)+g, M, 2)
-       - scaled_b: ((K//64)+g, N, 2)
-    """
-    # 重要：在 jit 函数内，y.shape[0] 返回 SymbolicScalar（符号值）
-    # 因此必须从 tile_config 获取 g、m、n（编译时确定的 Python int）
-    g = len(tile_config.group_list)  # Python int，编译时确定
-    m = tile_config.ori_shape[0]     # Python int，编译时确定
-    n = tile_config.ori_shape[2]     # Python int，编译时确定
-
-    # 从 tile_config 获取 group_list, group_type 和 transposition flags
     group_list = tile_config.group_list
     group_type = tile_config.group_type
     a_trans = tile_config.a_trans
     b_trans = tile_config.b_trans
-
-    # 注意: 必须使用 range(g) 而非 pypto.loop
-    # 原因: group_list[i] 需要在编译时确定 tensor slicing 的 begin/end
-    #       pypto.loop 的索引是 SymbolicScalar，无法访问 Python list
+    
     begin = 0
     end = 0
     for i in range(g):
-        # 根据 group_type 计算 begin 和 end (K轴切分)
-        # group_type=0: group_list 各元素为累计值，最后一个元素等于 K
-        # group_type=1: group_list 各元素为单独的 group size，累加得到 K
         if group_type == 1:
             # 累加方式: begin 指向当前组起始，end 指向当前组结束
             begin = end
@@ -484,41 +415,12 @@ def scaled_matmul_kernel(
         # - a_trans=True: scale_a_trans=True (scale 形状 [K//64, M, 2])
         # - a_trans=False: scale_a_trans=False (scale 形状 [M, K//64, 2])
         scale_a_trans = a_trans
-        mm_result = pypto.scaled_mm(
+        mm_result_tensor[i] = pypto.scaled_mm(
             x, weight, pypto.DT_FP32, scaled_x, scaled_weight,
             a_trans=a_trans, scale_a_trans=scale_a_trans, b_trans=b_trans
         )
         
-        # 将 mm_result ([m, n]) 存入 mm_results ([g, m, n]) 的第 i 个位置
-        # mm_results[i] 得到 [m, n] 的 view
-        mm_results[i] = mm_result
-        
-        # Vector 操作: index_add_ (inplace 累加)
-        # 紧跟 Cube 操作，形成 Cube → Vector 流水线
-        # 
-        # 使用 pypto.view 从预分配的大 tensor 中取出当前循环的数据块：
-        #   - mm_results: [g, m, n] → view 取出 [1, m, n] 块（偏移 [i, 0, 0]）
-        #   - index_tensor: [g] → view 取出 [1] 块（偏移 [i]）
-        #
-        # pypto.index_add_ 参数说明：
-        #   - input: y [g, m, n]（目标 tensor）
-        #   - dim: 0（在第0维进行索引累加）
-        #   - index: view_index [1]（值为 [i]，指定累加位置）
-        #   - source: view_source [1, m, n]（要累加的数据）
-        #   - alpha: 1（缩放因子）
-        #
-        # 执行效果: y[i, :, :] += mm_results[i, :, :]
-        
-        # 使用 pypto.view 从预分配的 tensor 中取出当前块
-        # view_source: 从 mm_results [g, m, n] 取出 [1, m, n]，偏移 [i, 0, 0]
-        view_source = pypto.view(mm_results, [1, m, n], offsets=[i, 0, 0])
-        # view_index: 从 index_tensor [g] 取出 [1]，偏移 [i]
-        view_index = pypto.view(index_tensor, [1], offsets=[i])
-        
-        # 设置三维 tile shape（index_add_ 需要 tile shape 与 input 维度一致）
-        # 根据文档约束：dim 轴不可切，source 的 dim 轴长度为 1，所以 TileShape[0] = 1
-        pypto.set_vec_tile_shapes(1, tile_config.vector_tile_shape[2], tile_config.vector_tile_shape[3])
-        pypto.index_add_(y, dim=0, index=view_index, source=view_source, alpha=1)
+        y[:, :, :] = pypto.add(y, mm_result_tensor)
 
 
 def gen_mxfp8(inputs: GmmMxfp8Inputs) -> torch.Tensor:
@@ -537,12 +439,7 @@ def gen_mxfp8(inputs: GmmMxfp8Inputs) -> torch.Tensor:
     scaled_b = inputs.scaled_b
     y = inputs.y
     tile_config = inputs.tile_config
-
-    # 获取 group 信息
-    g = len(tile_config.group_list)
-    m = tile_config.ori_shape[0]
-    n = tile_config.ori_shape[2]
-
+    
     # Move tensors to NPU
     a = a.npu()
     b = b.npu()
@@ -550,17 +447,9 @@ def gen_mxfp8(inputs: GmmMxfp8Inputs) -> torch.Tensor:
     scaled_b = scaled_b.npu()
     y = y.npu()
 
-    # 预分配 mm_results tensor（用于存储每个 group 的 scaled_mm 结果）
-    # shape: [g, m, n]
-    mm_results = torch.empty((g, m, n), dtype=torch.float32).npu()
-
-    # 预分配 index tensor（用于 index_add_ 的 index 参数）
-    # shape: [g]，值为 [0, 1, 2, ..., g-1]
-    index_tensor = torch.arange(g, dtype=torch.int32).npu()
-
     # Execute scaled matrix multiplication kernel with new frontend
     # tile_config 包含 group_list、group_type 和 tile shapes
-    scaled_matmul_kernel(a, b, scaled_a, scaled_b, y, mm_results, index_tensor, tile_config)
+    scaled_matmul_kernel(a, b, scaled_a, scaled_b, y, tile_config)
 
     y = y.to(torch.float32)
     return y
