@@ -66,7 +66,8 @@ Shape& PadLocalBuffer::GetOriRawshape(LogicalTensorPtr& in)
 {
     int rawmagic = in->tensor->rawmagic;
     if (oriRawshapeMap_.find(rawmagic) == oriRawshapeMap_.end()) {
-        // 如果没有保存过，返回当前 rawshape（作为 fallback）
+        APASS_LOG_WARN_F(
+            Elements::Tensor, "oriRawshape not set for tensor %d, fallback to current rawshape", in->tensor->rawmagic);
         oriRawshapeMap_[rawmagic] = in->tensor->rawshape;
     }
     return oriRawshapeMap_[rawmagic];
