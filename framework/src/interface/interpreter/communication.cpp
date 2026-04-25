@@ -167,7 +167,6 @@ RawTensorDataPtr SimulationCommContext::AllocSignal(DataType dataType, const Sha
 }
 
 uint8_t *SimulationCommContext::GetRemoteRank(int dstRank, bool isSignal) {
-    std::cout << "dstRank is " << dstRank << " current rank is " << rank_ << ". IsSignal: " << isSignal << std::endl;
     if (dstRank == rank_) {
         uint8_t *result = isSignal ? ctrlBase_ : dataBase_;
         CheckNotNullPtr(result, "base is nullptr!");
