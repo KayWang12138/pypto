@@ -244,26 +244,9 @@ void TiledQuantMXOperation(
             return;
         }
 
-        const auto& fullShape = input.tensor.GetShape();
-        const bool lastDimFullTile =
-            input.tileInfo.shape.back() == fullShape.back() && input.tileInfo.offset.back() == 0;
-        if (input.tileInfo.shape.size() == 1 || lastDimFullTile) {
-            addQuantMXTile(
-                input.tileInfo.shape, input.tileInfo.offset, BuildQuantMXPerformanceGroupedShape(input.tileInfo.shape),
-                BuildQuantMXPerformanceGroupedOffset(input.tileInfo.offset, fullShape));
-            return;
-        }
-
-        const size_t rowDim = input.tileInfo.shape.size() - 2;
-        for (int64_t row = 0; row < input.tileInfo.shape[rowDim]; ++row) {
-            auto rowTileShape = input.tileInfo.shape;
-            auto rowTileOffset = input.tileInfo.offset;
-            rowTileShape[rowDim] = 1;
-            rowTileOffset[rowDim] += row;
-            addQuantMXTile(
-                rowTileShape, rowTileOffset, BuildQuantMXPerformanceGroupedShape(rowTileShape),
-                BuildQuantMXPerformanceGroupedOffset(rowTileOffset, fullShape));
-        }
+        addQuantMXTile(
+            input.tileInfo.shape, input.tileInfo.offset, BuildQuantMXPerformanceGroupedShape(input.tileInfo.shape),
+            BuildQuantMXPerformanceGroupedOffset(input.tileInfo.offset, input.tensor.GetShape()));
         return;
     }
 
