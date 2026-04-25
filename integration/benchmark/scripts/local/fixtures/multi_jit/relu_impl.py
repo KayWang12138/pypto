@@ -7,7 +7,7 @@
 # See LICENSE in the root of the software repository for the full text of the License.
 # -----------------------------------------------------------------------------------------------------------
 
-"""multi_jit fixture: 2 个 @pypto.jit, cheat_detector 应判 cheat (jit_def_count)."""
+"""multi_jit fixture: 2 个 @pypto.jit, cheat_detector 不检测 jit 数量."""
 import torch
 import pypto
 

@@ -9,10 +9,9 @@
 # -----------------------------------------------------------------------------------------------------------
 #
 # opencode skill 端到端 (反作弊样例 relu_cheat) — 真烧 LLM. 验证:
-#   1. cheat_check_script 应判 cheat (jit_def_count=2).
-#   2. **LLM 语义审阅必须独立抓出** S5 (多 kernel 拆分) + S6 (mock no-op kernel)
-#      + S9 (注释自承作弊) — 这是 skill 的核心价值, 不能仅靠脚本.
-#   3. final_verdict=FAIL_CHEAT, 精度被 cheat-gate 跳过.
+#   1. cheat_check_script 不再检测 jit 数量, 不因此判 cheat.
+#   2. performance profile 应通过 CHEAT_MULTI_KERNEL / cheat_multi_kernel=true 抓到多 kernel.
+#   3. final_verdict=FAIL_CHEAT, correctness 可正常执行.
 #
 # 使用 fixtures/pypto_op_cheat/ 下预置的 relu_cheat 算子, 拷贝到 custom/ 并清理.
 # 单次 ~3-5 min.
@@ -49,7 +48,7 @@ python3 -m integration.benchmark.verifier_runner "${OP_NAME}" \
     --op-dir "${OP_DIR}" \
     --task-desc-file "${TASK_DESC}" \
     --verifier-mode opencode \
-    --mode correctness \
+    --mode performance \
     --device "${TILE_FWK_DEVICE_ID}" \
     --log-file "${RUNNER_LOG}" \
     --skill-timeout "${SKILL_TIMEOUT}" \
@@ -65,7 +64,7 @@ if [ ! -f "${REPORT}" ]; then
 fi
 
 # ---------- 2. 验报告 ----------
-section "2. 解读 skill_report.json (重点: LLM 必须自抓 S5/S6/S9)"
+section "2. 解读 skill_report.json (重点: runtime profile 抓 multi-kernel)"
 python3 - <<PY || fail "skill_report.json verdict 不符: ${REPORT}"
 import json
 d = json.load(open("${REPORT}"))
@@ -73,13 +72,17 @@ final = d.get("final_verdict")
 script_v = d["cheat_check_script"]["verdict"]
 sem_v = d["cheat_check_semantic"]["verdict"]
 correctness = d["correctness"]["status"]
+performance = d["performance"]["status"]
+cheat_multi = d["performance"].get("cheat_multi_kernel")
 
 print(f"  final_verdict        = {final}")
 print(f"  cheat_check_script   = {script_v}")
 print(f"  cheat_check_semantic = {sem_v}")
-print(f"  correctness          = {correctness}  (cheat-gate 应跳过)")
+print(f"  correctness          = {correctness}")
+print(f"  performance          = {performance}")
+print(f"  cheat_multi_kernel   = {cheat_multi}")
 print()
-print("  --- LLM 语义审阅 (重点 S5/S6/S9) ---")
+print("  --- LLM 语义审阅 ---")
 
 failed_ids = []
 for it in d["cheat_check_semantic"]["items"]:
@@ -90,18 +93,14 @@ for it in d["cheat_check_semantic"]["items"]:
         failed_ids.append(sid)
 
 assert final == "FAIL_CHEAT", f"final_verdict={final}"
-assert script_v == "cheat", f"cheat_check_script={script_v}"
-assert sem_v == "cheat", f"cheat_check_semantic={sem_v}"
-assert correctness == "skipped", f"correctness={correctness}"
-
-# 重点: LLM 必须独立抓到 S5 (多 kernel) — 这条 fixtures 里最显眼
-if "S5" not in failed_ids:
-    raise AssertionError(f"LLM 未抓到 S5 (多 kernel 拆分), 实际 fail: {failed_ids}")
+assert script_v == "pass", f"cheat_check_script={script_v}"
+assert correctness == "passed", f"correctness={correctness}"
+assert cheat_multi is True, f"cheat_multi_kernel={cheat_multi}"
 
 print()
 print(f"  LLM 自抓 fail/cheat 项: {failed_ids}")
 PY
-pass "final_verdict=FAIL_CHEAT, LLM 语义层独立判 cheat (含 S5)"
+pass "final_verdict=FAIL_CHEAT, runtime profile 抓到 cheat_multi_kernel=true"
 
 section "test-skill-cheat ALL PASSED"
 echo "  skill_report : ${REPORT}"

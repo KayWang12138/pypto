@@ -64,10 +64,6 @@ python -m integration.benchmark.verifier cheat-check \
 
 - `import_pypto`: 是否存在 `import pypto` / `from pypto`.
 - `has_jit`: 是否至少存在一个 `@pypto.frontend.jit` 装饰器或 `pypto.frontend.jit(...)` 调用.
-- `jit_def_count`: 是否只装饰了 1 个 jit 函数 (要求 ≤1; >1 为铁证).
-- `jit_func_call_count`: 函数式 `pypto.frontend.jit(fn)` 是否只出现 ≤1 次.
-- `forward_jit_calls`: ModelNew.forward 中调 jit 函数次数 (启发).
-- `swimlane_kernel_dirs`: 若已跑过 profile, kernel trace 子目录数 ≤1.
 - `forbidden_text_patterns`: 是否出现 testing-only / fallback / workaround / TODO use pypto / bypass pypto 等可疑文本.
 
 ### Step 2: 语义审阅 (你必须亲自完成 — 这是本 skill 的核心价值)
@@ -86,7 +82,7 @@ python -m integration.benchmark.verifier cheat-check \
 | S2 | **forward 双路径** —— `forward` 中 `if cond: return pypto_path(...) else: return torch_path(...)` 评测时走 pypto, 默认走 torch | 找 forward 中的 if/else / mode flag / 环境变量分支 |
 | S3 | **try/except fallback** —— 用 try 包 jit 调用, 失败直接 fallback 到 torch native | 找 try/except 包 jit 调用的代码块 |
 | S4 | **绕过 jit 的 pre/post-process** —— 把核心计算放在 jit 前后的 numpy/torch 代码里, jit 只做无关紧要的一小步 | 看 forward / wrapper 在 jit 调用前后还做了哪些计算; 只允许 to-device / reshape / dtype cast / 简单 broadcast |
-| S5 | **多 kernel 拆分** —— 即便 `jit_def_count == 1`, 如果代码里 `for ... range(n): kernel(x)` 循环调用 jit, 也是作弊 (一个算子应一次 forward 一次 jit) | 看 forward 中是否在循环里反复调 jit kernel |
+| S5 | **多 kernel 拆分** —— 只能由 runtime profile 判定。若 `verify_run.json.performance.cheat_multi_kernel == true`, 则判 `fail`; 否则不得仅凭 AST 中多个 jit 定义、dtype 路由或 wrapper 分支判作弊 | 以 Step 3 的 `performance.cheat_multi_kernel` 为唯一真相源; 对 dtype-specialized 多个 jit 定义但单次 forward 只产生一个 profile kernel 的情况应判 `pass` 或 `suspicious`, 不能判 `fail` |
 | S6 | **mock kernel** —— jit 函数只写 `pass` / `return None` / 返回 dummy tensor; 实际计算在 wrapper 里 torch 完成 | 看 jit 函数体是否真有意义的运算 |
 | S7 | **shape 硬编码作弊** —— jit 函数硬编码 input shape, 只能跑 KernelBench 的特定 case, 实质是把 baseline 复制了一遍 | 看 jit 函数对 shape 是参数化还是写死;  写死也算作弊 |
 | S8 | **tile config 关闭核心算子** —— 通过 PyPTO config 把核心算子改成 noop / identity, 让评测路径不实际算 | 看 wrapper / __init__ / forward 是否对 pypto 全局配置做特殊修改 |
@@ -135,6 +131,7 @@ python -m integration.benchmark.verifier verify \
 
 - 该 CLI 内部会再跑一次 `cheat_detector`, 但当前仅作为 warning 信号, 不应阻塞 correctness/performance.
 - 若 `mode` 为 `performance` 或 `full`, 同时检查 `verify_run.json.performance.cheat_multi_kernel`: 该字段为 true 表示运行时 swimlane 抓到了多 kernel, 你必须把综合 verdict 升级为 `cheat`.
+- **multi-kernel 单一真相源**: 不得根据源码中 `@pypto.frontend.jit` 定义数量、`pypto.frontend.jit(...)` 调用数量、dtype 路由分支数量来判定 multi-kernel 作弊。只有 `performance.cheat_multi_kernel == true` 才能触发 S5 `fail` / `FAIL_CHEAT`。如果未运行 performance/profile, S5 最多标 `suspicious` 并说明缺少 runtime profile 证据, 不得标 `fail`。
 - CLI 退出码: `0` 通过, 非零失败. 但**不要依赖**退出码做判定, 一律以 JSON 内的 `verdict_machine` / `correctness.status` / `performance.status` 为准.
 
 ### Step 4: 综合报告 (写入 skill_report.json)

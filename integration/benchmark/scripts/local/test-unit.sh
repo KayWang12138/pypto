@@ -11,8 +11,8 @@
 # 单元测试 — 不需要 NPU, 不烧 LLM. 跑三件事:
 #   1. cheat_detector 5 类 fixture (clean / multi_jit / no_pypto / no_jit / suspicious)
 #      每类 verdict 必须与 fixtures/README.md 表格一致.
-#   2. verifier verify 子命令的静态 cheat warning: 用 multi_jit 跑 verify,
-#      必须保留 cheat_check=cheat 和 cheat_gate_warning, 后续 correctness 可继续裁定.
+#   2. verifier verify 子命令不再把 multi_jit 静态计数当成 multi-kernel gate;
+#      multi-kernel 只由 performance profile 的 cheat_multi_kernel 判定.
 #   3. opencode_exporter 必须容忍 opencode export stdout 中的非法 UTF-8 字节.
 #
 # 用法 (cwd 任意均可):
@@ -49,7 +49,7 @@ pass "AST + import"
 section "2. cheat_detector 5 类 fixture 分类"
 
 EXPECT_CLEAN_VERDICT=pass
-EXPECT_MULTI_JIT_VERDICT=cheat
+EXPECT_MULTI_JIT_VERDICT=pass
 EXPECT_NO_PYPTO_VERDICT=cheat
 EXPECT_NO_JIT_VERDICT=cheat
 EXPECT_SUSPICIOUS_VERDICT=suspicious
@@ -72,8 +72,8 @@ for case in clean multi_jit no_pypto no_jit suspicious; do
   fi
 done
 
-# ---------- 3. verify 子命令静态 cheat warning ----------
-section "3. verify 子命令静态 cheat warning (multi_jit 应保留 warning 并继续裁定)"
+# ---------- 3. verify 子命令静态 multi-jit 不再触发 cheat ----------
+section "3. verify 子命令静态 multi_jit 不再触发 cheat warning"
 
 GATE_TASK="${BENCHMARK_LOG_DIR}/gate_task_desc.py"
 cat > "${GATE_TASK}" <<'PY'
@@ -96,16 +96,16 @@ python3 -m integration.benchmark.verifier verify \
     --mode correctness \
     --json-out "${GATE_REPORT}" >/dev/null 2>&1 || true
 
-python3 - <<PY || fail "cheat warning 行为不符: 见 ${GATE_REPORT}"
+python3 - <<PY || fail "multi_jit 静态 gate 行为不符: 见 ${GATE_REPORT}"
 import json
 d = json.load(open("${GATE_REPORT}"))
-assert d["cheat_check"]["verdict"] == "cheat", f"cheat_check={d['cheat_check']['verdict']}"
-assert d["cheat_gate_warning"], "cheat_gate_warning missing"
+assert d["cheat_check"]["verdict"] == "pass", f"cheat_check={d['cheat_check']['verdict']}"
+assert not d["cheat_gate_warning"], f"unexpected cheat_gate_warning={d['cheat_gate_warning']}"
 assert d["correctness"]["status"] != "skipped", f"correctness={d['correctness']['status']}"
 assert d["verdict_machine"] in {"failed_correctness", "pass"}, f"verdict_machine={d['verdict_machine']}"
-print("cheat warning 行为符合预期")
+print("multi_jit 静态检查不再作为 multi-kernel 真相源")
 PY
-pass "cheat_check=cheat, warning 已保留, correctness 已继续执行"
+pass "multi_jit 静态检查不再触发 cheat warning, correctness 已继续执行"
 
 # ---------- 4. opencode_exporter 非 UTF-8 输出容错 ----------
 section "4. opencode_exporter 非 UTF-8 输出容错"

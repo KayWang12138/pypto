@@ -42,17 +42,18 @@ KernelBench/<level>/{N}_{name}.py   (上游 PyTorch case 文件)
 反作弊设计 (脚本 + LLM 双层):
 
 - **脚本机械层** (`verifier/cheat_detector.py`):
-  AST 检 `import pypto`, `@pypto.frontend.jit` 装饰器/调用数量, forward 中 jit 调用数;
-  文件系统检 `prof_generation_output_*` 下的 jit kernel 子目录数;
+  AST 检 `import pypto`, 是否存在 `@pypto.frontend.jit` / `pypto.frontend.jit(...)`;
   字符串检 `for testing only` / `TODO use pypto` / `fallback` / `workaround` 等可疑文本.
-  确定性, 无 LLM 开销, 抓最显眼的作弊.
+  确定性, 无 LLM 开销, 抓最显眼的作弊. 注意 multi-kernel 不再由 AST 中 jit
+  数量判定, 统一以运行时 profile 结果为准.
 - **LLM 语义层** (`.opencode/skills/pypto-kernel-validate/SKILL.md`):
   S1 空壳 jit kernel, S2 forward 双路径, S3 try/except fallback, S4 绕过 jit 的预/后处理,
-  S5 多 kernel 拆分, S6 mock kernel, S7 shape 硬编码, S8 tile config 关闭核心算子, S9 可疑注释.
+  S5 多 kernel 拆分 (以 runtime profile 为唯一真相源), S6 mock kernel, S7 shape 硬编码,
+  S8 tile config 关闭核心算子, S9 可疑注释.
   非确定性但能识别脚本抓不到的隐性作弊形态. 这是本桥接层向外团队贡献 skill 的核心价值.
 - **运行时层** (`verifier/pypto_adapter.py:get_swimlane_benchmark_body`):
   swimlane trace 抓到 >1 个 kernel 时直接 stdout 打 `CHEAT_MULTI_KERNEL`, perf=inf,
-  不再做"多 trace span 累加"作弊兜底.
+  不再做"多 trace span 累加"作弊兜底. 这是 multi-kernel 判定的唯一真相源.
 
 工件契约 (与 pypto 内部工作流解耦):
 
@@ -267,7 +268,7 @@ python -m integration.benchmark.run_kernelbench \
    走 `--verifier-mode direct`, 跑 `KernelVerifier` 的 correctness + performance.
 3. **test-skill (legit / cheat)** — 需 NPU + 烧 LLM (~3-5 min/case).
    走 `--verifier-mode opencode`, spawn `pypto-kernel-validator` subagent + 加载 `pypto-kernel-validate` skill;
-   `legit` 用现成 `custom/ReLU/`, `cheat` 自动部署 `relu_cheat` fixture (多 jit + mock kernel).
+   `legit` 用现成 `custom/ReLU/`, `cheat` 自动部署 `relu_cheat` fixture (runtime 多 kernel + mock kernel).
 4. **test-integration** — 真 7 阶段 + skill (~50 min/case, FULL 模式).
    不带 `--skip-pypto-gen`, 让 `pypto-op-orchestrator` 真跑 Stage 1-7 算子开发, 再走 verifier.
    开发期可 `FULL=0` 走 cheap 模式 (~3 min) 复用产物.
@@ -398,8 +399,8 @@ pypto/.opencode/
   `--verifier-mode direct` 跳过 LLM 语义层.
 - **`skill_report.json 未产出`**: 看 `<report-dir>/<op>/verifier.log` 排查 validator agent
   的执行情况; 子进程超时 / LLM 调用失败 / SKILL 未被 discover 都会触发.
-- **`final_verdict=FAIL_CHEAT`**: 看 `skill_report.json` 的 `cheat_check_script` (脚本机械层)
-  与 `cheat_check_semantic` (LLM 语义层) 的 evidence 字段, 算子产物违反"一个算子=一个融合 kernel"
-  约定 / 没真正用 PyPTO / 用了占位实现 / forward 走 fallback 路径等.
+- **`final_verdict=FAIL_CHEAT`**: 看 `skill_report.json` 的 `performance.cheat_multi_kernel`
+  和 `cheat_check_semantic` evidence 字段. multi-kernel 只以 runtime profile 为准;
+  其它 cheat 原因包括没真正用 PyPTO / 用了占位实现 / forward 走 fallback 路径等.
 - **KernelVerifier 失败 (direct 模式)**: 看 `<report-dir>/<op>/verifier.log`; 若 `ModelNew` 找不到,
   说明产物没有正确生成 `{op}_pypto_impl.py`, 由 verifier 子包的 wrapper-only fallback 兜底.

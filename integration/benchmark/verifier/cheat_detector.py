@@ -10,7 +10,7 @@
 # -----------------------------------------------------------------------------------------------------------
 """PyPTO 算子产物的机械层反作弊检测.
 
-仅做**确定性**检查 — AST 计数 + 文件系统枚举 + 字符串匹配, 不依赖 LLM.
+仅做**确定性**检查 — AST 基础结构 + 字符串匹配, 不依赖 LLM.
 语义层的隐性作弊判定 (jit 函数体是 pass-through, forward 走 if-branch
 绕开 pypto, 等等) 由 ``.opencode/skills/pypto-kernel-validate`` 让 LLM
 亲自审阅, 与本检测互补不替代.
@@ -18,10 +18,6 @@
 机械检查项:
     - ``import_pypto``       源码中存在 ``import pypto`` 或 ``from pypto``.
     - ``has_jit``            源码中至少有一个 ``@pypto.jit`` (装饰器或函数式调用).
-    - ``jit_def_count``      ``@pypto.jit`` 装饰器数量必须 ≤ 1 (融合算子约定).
-    - ``jit_call_count``     ``forward`` 中 jit 函数调用次数 ≤ 1 (best-effort 启发).
-    - ``swimlane_dirs``      若已跑过 profile, ``prof_generation_output_*`` 下的
-                             ``output_*`` 子目录数 ≤ 1.
     - ``forbidden_patterns`` 注释/字符串里出现 "for testing", "TODO use pypto",
                              "fallback to torch", "workaround" 等可疑文本时
                              标记为 SUSPICIOUS (不直接判 CHEAT, 让 LLM 复核).
@@ -30,6 +26,7 @@
     - ``pass``       —— 检查通过.
     - ``suspicious`` —— 触发软警告, 需要 LLM 进一步审阅.
     - ``cheat``      —— 触发硬铁证, 直接判作弊.
+      注意: multi-kernel 的唯一真相源是 runtime profile 的 ``CHEAT_MULTI_KERNEL``.
 
 CLI 用法:
     python -m integration.benchmark.verifier.cheat_detector \\
@@ -53,10 +50,8 @@ from __future__ import annotations
 
 import argparse
 import ast
-import glob
 import json
 import logging
-import os
 import re
 import sys
 from dataclasses import asdict, dataclass, field
@@ -138,26 +133,18 @@ def _is_pypto_jit_attr(node: ast.AST) -> bool:
     return False
 
 
-def _count_jit_decorators(tree: ast.Module) -> List[str]:
-    """枚举所有以 @pypto.jit / @pypto.frontend.jit 装饰的函数名."""
-    names: List[str] = []
+def _has_jit_usage(tree: ast.Module) -> bool:
+    """Return whether source uses PyPTO jit in decorator or function-call form."""
     for node in ast.walk(tree):
         if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
             for deco in node.decorator_list:
                 target = deco.func if isinstance(deco, ast.Call) else deco
                 if _is_pypto_jit_attr(target):
-                    names.append(node.name)
-                    break
-    return names
-
-
-def _count_jit_function_calls(tree: ast.Module) -> int:
-    """统计 ``pypto.jit(fn)`` 这种函数式调用的出现次数 (非装饰器形式)."""
-    count = 0
+                    return True
     for node in ast.walk(tree):
         if isinstance(node, ast.Call) and _is_pypto_jit_attr(node.func):
-            count += 1
-    return count
+            return True
+    return False
 
 
 def _has_pypto_import(tree: ast.Module) -> bool:
@@ -173,25 +160,6 @@ def _has_pypto_import(tree: ast.Module) -> bool:
     return False
 
 
-def _find_forward_jit_calls(tree: ast.Module, jit_func_names: List[str]) -> int:
-    """启发式: 数 ``ModelNew.forward`` (或任何叫 forward 的方法) 里调用 jit
-    装饰过的函数名出现次数."""
-    if not jit_func_names:
-        return 0
-    target = set(jit_func_names)
-    count = 0
-    for node in ast.walk(tree):
-        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)) and node.name == "forward":
-            for sub in ast.walk(node):
-                if isinstance(sub, ast.Call):
-                    fn = sub.func
-                    if isinstance(fn, ast.Name) and fn.id in target:
-                        count += 1
-                    elif isinstance(fn, ast.Attribute) and fn.attr in target:
-                        count += 1
-    return count
-
-
 def _scan_forbidden_text(src: str) -> List[str]:
     hits: List[str] = []
     for pat in _FORBIDDEN_TEXT_PATTERNS:
@@ -199,23 +167,6 @@ def _scan_forbidden_text(src: str) -> List[str]:
         if m:
             hits.append(m.group(0))
     return hits
-
-
-# ────────────────────────────────────────────────────────────
-# 文件系统检查
-# ────────────────────────────────────────────────────────────
-
-def _list_swimlane_kernel_dirs(op_dir: Path) -> List[Path]:
-    """枚举 op_dir 下任何 ``prof_generation_output_*`` 内的 ``output_*`` 子目录.
-
-    PyPTO profile 在 runtime_debug_mode=1 下, 每个 jit kernel 写一个独立子目录.
-    """
-    found: List[Path] = []
-    for prof in glob.glob(str(op_dir / "prof_generation_output_*")):
-        for sub in glob.glob(os.path.join(prof, "output_*")):
-            if os.path.isdir(sub):
-                found.append(Path(sub))
-    return found
 
 
 # ────────────────────────────────────────────────────────────
@@ -272,9 +223,7 @@ def detect_cheats(op_dir: Path, op_name: str) -> CheatReport:
     ))
 
     has_pypto_import = False
-    jit_decorated_funcs: List[str] = []
-    jit_call_count = 0
-    forward_jit_calls = 0
+    has_jit = False
     forbidden_hits: List[str] = []
 
     for path in sources:
@@ -291,10 +240,7 @@ def detect_cheats(op_dir: Path, op_name: str) -> CheatReport:
             report.verdict = "cheat"
             continue
         has_pypto_import = has_pypto_import or _has_pypto_import(tree)
-        decorated = _count_jit_decorators(tree)
-        jit_decorated_funcs.extend(decorated)
-        jit_call_count += _count_jit_function_calls(tree)
-        forward_jit_calls += _find_forward_jit_calls(tree, decorated)
+        has_jit = has_jit or _has_jit_usage(tree)
 
     if has_pypto_import:
         report.checks.append(CheckResult(
@@ -315,8 +261,7 @@ def detect_cheats(op_dir: Path, op_name: str) -> CheatReport:
         ))
         report.verdict = "cheat"
 
-    total_jit = len(jit_decorated_funcs) + jit_call_count
-    if total_jit == 0:
+    if not has_jit:
         report.checks.append(CheckResult(
             name="has_jit",
             status="fail",
@@ -332,96 +277,7 @@ def detect_cheats(op_dir: Path, op_name: str) -> CheatReport:
             name="has_jit",
             status="pass",
             level="info",
-            detail=f"发现 jit 装饰器 {len(jit_decorated_funcs)} 个 + 函数式调用 {jit_call_count} 次.",
-            extra={"decorated_funcs": jit_decorated_funcs},
-        ))
-
-    if len(jit_decorated_funcs) > 1:
-        report.checks.append(CheckResult(
-            name="jit_def_count",
-            status="fail",
-            level="fatal",
-            detail=(
-                f"@pypto.jit 装饰函数有 {len(jit_decorated_funcs)} 个: "
-                f"{jit_decorated_funcs}. PyPTO 算子要求融合 kernel, "
-                f"多 jit 定义 = 多 kernel = 没融合 = CHEAT."
-            ),
-            extra={"jit_funcs": jit_decorated_funcs},
-        ))
-        report.verdict = "cheat"
-    else:
-        report.checks.append(CheckResult(
-            name="jit_def_count",
-            status="pass",
-            level="info",
-            detail=f"@pypto.jit 装饰函数: {len(jit_decorated_funcs)} 个 (≤1 OK).",
-        ))
-
-    if jit_call_count > 1:
-        report.checks.append(CheckResult(
-            name="jit_func_call_count",
-            status="fail",
-            level="fatal",
-            detail=(
-                f"pypto.jit(...) 函数式调用出现 {jit_call_count} 次. "
-                f"约定 ≤1; 多次调用 = 多 kernel = CHEAT."
-            ),
-        ))
-        report.verdict = "cheat"
-    else:
-        report.checks.append(CheckResult(
-            name="jit_func_call_count",
-            status="pass",
-            level="info",
-            detail=f"pypto.jit(...) 函数式调用: {jit_call_count} 次.",
-        ))
-
-    if forward_jit_calls > 1:
-        report.checks.append(CheckResult(
-            name="forward_jit_calls",
-            status="warn",
-            level="warn",
-            detail=(
-                f"forward 中调用 jit 函数 {forward_jit_calls} 次 (启发式). "
-                f"可能算子被拆分; 请 LLM 语义层复核."
-            ),
-        ))
-        if report.verdict == "pass":
-            report.verdict = "suspicious"
-    else:
-        report.checks.append(CheckResult(
-            name="forward_jit_calls",
-            status="pass",
-            level="info",
-            detail=f"forward 中调用 jit 函数: {forward_jit_calls} 次 (启发式).",
-        ))
-
-    swimlane_dirs = _list_swimlane_kernel_dirs(op_dir)
-    if not swimlane_dirs:
-        report.checks.append(CheckResult(
-            name="swimlane_kernel_dirs",
-            status="skip",
-            level="info",
-            detail="尚未跑过 profile (无 prof_generation_output_*); 跳过运行时多 kernel 检查.",
-        ))
-    elif len(swimlane_dirs) > 1:
-        report.checks.append(CheckResult(
-            name="swimlane_kernel_dirs",
-            status="fail",
-            level="fatal",
-            detail=(
-                f"profile 产物中发现 {len(swimlane_dirs)} 个 jit kernel 子目录: "
-                f"{[str(d.name) for d in swimlane_dirs]}. CHEAT."
-            ),
-            extra={"dirs": [str(d) for d in swimlane_dirs]},
-        ))
-        report.verdict = "cheat"
-    else:
-        report.checks.append(CheckResult(
-            name="swimlane_kernel_dirs",
-            status="pass",
-            level="info",
-            detail=f"profile 产物中只有 1 个 jit kernel 子目录 ({swimlane_dirs[0].name}).",
+            detail="源码中存在 @pypto.jit / pypto.jit(...) 调用.",
         ))
 
     if forbidden_hits:

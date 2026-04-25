@@ -11,7 +11,7 @@
 """relu_cheat: 故意拆成两个 jit kernel + 第二个 kernel 是 mock no-op + 0.0.
 
 只是供 ``scripts/local/test-skill-cheat.sh`` 端到端验证 ``pypto-kernel-validator``
-能识别多 kernel 拆分 (S5) + mock kernel (S6) + 自承注释 (S9).
+能通过 runtime profile 识别单次 forward 触发多个 kernel.
 
 不要复用到生产 — pypto 算子要求一个 forward 一个融合 kernel.
 """
