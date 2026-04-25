@@ -310,20 +310,20 @@ If the symptom didn't match §2–§10:
 4. **Identify the first invariant violated**; propose the minimum change that restores it.
 5. **Re-derive §3** (divisibility, ordering) after any change.
 6. **Re-check §5 / §6 / §9** — changes can cascade.
-7. **Write the proposal** to the plan file `custom/plan/<op>.md` under
-   `## tile-shape patch proposal`. Do NOT modify `_moduleN.py` yourself; Coding Agent
+7. **Write the proposal** to the plan file `custom/<op>/plan.md` under
+   `## tile-shape patch proposal`. Do NOT modify any staged `*_impl.py` yourself; the Coding Agent
    applies it per `.opencode/agents/coding.md`.
 
 ---
 
 ## 12. Output format — patch proposal
 
-Write the proposal to `custom/plan/<op>.md`:
+Write the proposal to `custom/<op>/plan.md`:
 
 ```markdown
 ## tile-shape patch proposal (cycle N)
 
-- File:   custom/<op>/<op>_module<suffix>.py
+- File:   custom/<op>/staged/<op>_module<suffix>_impl.py
 - Line:   <lineno of the failing set_cube_tile_shapes call>
 - Before:
     pypto.set_cube_tile_shapes([256, 256], [256, 256], [256, 256])
@@ -361,8 +361,8 @@ error message and update your math accordingly.
 
 This skill produces **patch proposals**, not commits. The Debug Agent:
 
-- MUST NOT open or modify `custom/<op>/<op>_module*.py`.
-- MUST write the proposal to `custom/plan/<op>.md`.
+- MUST NOT open or modify any staged set under `custom/<op>/staged/` or the canonical `custom/<op>/<op>_impl.py`.
+- MUST write the proposal to `custom/<op>/plan.md`.
 - MUST cap at 3 cycles per `.opencode/agents/debug.md`; if still failing, escalate to Lead.
 
 The Coding Agent applies the patch, then Verification Agent re-judges.

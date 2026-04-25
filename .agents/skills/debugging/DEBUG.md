@@ -2,9 +2,9 @@
 
 **Audience:** Agents working on complex PyPTO kernels under this bundle.
 
-**Do not skip:** This file is part of the mandatory path when stuck — see **`skills/lead-orchestrator/references/rules.md` → Zero tolerance**.
+**Do not skip:** This file is part of the mandatory path when stuck — see the Debug Agent contract (`.opencode/agents/debug.md`).
 
-**Policy:** **`Errcode: FFFFF!`**, **`UNKNOWN`**, **`0x3FFFF`**, or other opaque / scary-looking error codes are **not** a reason to end the session, report failure, or “give up” until the **Stop Conditions** in `skills/lead-orchestrator/references/rules.md` actually apply. **Token and turn budget are not a constraint** for this workflow: keep iterating, gathering evidence, and trying the next structured strategy until the problem is resolved or a true blocker is proven.
+**Policy:** **`Errcode: FFFFF!`**, **`UNKNOWN`**, **`0x3FFFF`**, or other opaque / scary-looking error codes are **not** a reason to end the session, report failure, or "give up" until the Debug Agent's Hard rules (`.opencode/agents/debug.md`, "If after 3 fix/re-verify cycles the module still fails, stop and report the blocker") actually apply. **Token and turn budget are not a constraint** for this workflow: keep iterating, gathering evidence, and trying the next structured strategy until the problem is resolved or a true blocker is proven.
 
 **What “give up” looks like (forbidden here):** stopping after only printing the error code, declaring the task impossible without consulting docs, skipping logs, or refusing to try another angle.
 
@@ -14,7 +14,7 @@
 
 1. **Capture the full message** — stderr, Python traceback, and any **`pypto-log*.log`** / device log lines. Search for `Errcode`, `ErrCode`, `F` + digits, `aicore`.
 2. **Route the error code** — read `docs/trouble_shooting/README.md` and open the component doc for that prefix (e.g. FUNCTION / `docs/trouble_shooting/function.md` for many `F2xxxx`-style codes). For **`F21004`** / **`REGISTER_COPY`** / invalid vector tile, see **§4** below first.
-3. **Append to `custom/plan/<operator_name>.md` → Development & debug log** — what failed, command, hypothesis, next step. No empty “stopped” endings.
+3. **Append to `custom/<op>/plan.md` → Development & debug log** — what failed, command, hypothesis, next step. No empty "stopped" endings.
 
 ---
 
@@ -28,15 +28,15 @@
 
 ## 3. Kernel-specific: narrow the blast radius
 
-1. Confirm which **staged file** is current (`<op>_module12.py`, etc. — see **`skills/lead-orchestrator/references/rules.md`** rule 14). Run **`extract_pypto_calls.py`** on **that** file (or the final kernel).
+1. Confirm which **staged set** is current (e.g. `staged/<op>_module12_impl.py` + `_golden.py` + `test_*.py`; see `skills/phase2-phase3-construction/SKILL.md` → Staged sets). Run `extract_pypto_calls.py` on the staged `*_impl.py` (or, after Phase D, on the canonical `custom/<op>/<op>_impl.py`).
 2. Run **`python3 .agents/skills/ci-and-layout-check/scripts/extract_pypto_calls.py <kernel.py>`** (canonical path in this repo; some checkouts document `.agents/skills/ci-and-layout-check/scripts/` — use the path that exists) and follow the **op-by-op check protocol** in `skills/debugging/SKILL.md`.
 3. Stay in **one active module** at a time; stub downstream with golden-fed tensors if needed.
 4. Re-run **module boundary** checks with **`detailed_tensor_compare`** and log results in **Per-module verification log**.
-5. After fixes, re-run the **current staged file** and/or **`test_<operator_name>.py`** and confirm **every** kernel output (see **`skills/lead-orchestrator/references/rules.md`** rule 10 / **`skills/lead-orchestrator/references/rules.md`** rule 10) — not only the first tensor.
+5. After fixes, re-run the current staged set's `test_<op>_module<suffix_k>.py` (or, after Phase D, `test_<op>.py`) and confirm **every** kernel output — not only the first tensor.
 
 ### 3a. Layout CI and pass regressions (quick pointers)
 
-- **Layout / `pypto_function` loops:** After meaningful edits under **`custom/`**, run **`skills/ci-and-layout-check/run_validate_layout.sh`** from the repository root using the **`bash`** line in **`skills/ci-and-layout-check/CI.md`** (also referenced in **`skills/lead-orchestrator/references/rules.md`**). **Exit 1** means fix plan / `test_<op>.py` / staged naming issues **or** remove **`for ... in range(...)` inside `pypto_function`** — express that iteration with **`pypto.loop`** in **`_your_op_kernel_impl`** / the JIT kernel per **`skills/lead-orchestrator/references/rules.md`** Prohibition B / rule 18.
+- **Layout / `pypto_function` loops:** After meaningful edits under `custom/`, run `skills/ci-and-layout-check/run_validate_layout.sh` from the repository root using the `bash` line in `skills/ci-and-layout-check/CI.md`. **Exit 1** means fix plan / test / staged naming issues **or** remove `for ... in range(...)` inside `pypto_function` — express that iteration with `pypto.loop` in `_<op>_kernel_impl` / the JIT kernel per `skills/pypto-op-develop/references/kernel-layer-format.md` §7.1.
 - **Pass / compile failure right after a graph edit:** If logs show **PASS**-range codes (**`F4` / `F5`**, see **`docs/trouble_shooting/README.md`** → **`pass.md`**), follow **`.agents/skills/pypto-pass-error-fixer/SKILL.md`**, **bisect** the PyPTO graph (e.g. last known-good **staged** file vs current), and re-check API constraints (**`query_op_index` / `docs/`**) before large rewrites. Re-run **`extract_pypto_calls.py`** on the failing file to see whether a new op ordering triggered the pass.
 
 ---
@@ -95,7 +95,7 @@
 
 ## 7. When stopping is allowed
 
-Only align with the **Stop Conditions** in `skills/lead-orchestrator/references/rules.md` (missing reference, impossible golden, fundamental framework block, **missing** user-provided logs when required, or **proven** blind speculation after exhaustive structured attempts). **A single cryptic error line is never enough.**
+Only align with the Debug Agent's stop conditions (`.opencode/agents/debug.md` Hard rules: 3 fix/re-verify cycles exhausted, missing reference, impossible golden, fundamental framework block, missing user-provided logs when required, or proven blind speculation after exhaustive structured attempts). **A single cryptic error line is never enough.**
 
 ---
 
@@ -106,8 +106,8 @@ This section condenses **`.agents/pypto-example-debug-practice/DEBUG_PRACTICE.md
 ### 8.1 Global patterns (deduplicated)
 
 - **Run mode and decorators:** Most examples set `global_run_mode = pypto.RunMode.NPU` then override from **`_peek_run_mode_from_argv`** so module-level `@pypto.frontend.jit(runtime_options={"run_mode": global_run_mode})` sees **`sim`** when `python3 script.py --run_mode sim`. Parsing **`--run_mode`** only inside **`main()`** leaves the decorator bound to import-time mode — wrong or surprising behavior. When **`--run_mode sim` seems ignored**, compare your pattern to **`examples/README.md`** and the **`_peek_run_mode_from_argv`** idiom in beginner examples.
-- **Vector tile before AIV / implicit copy:** Call **`pypto.set_vec_tile_shapes`** with positive integers as required by your PyPTO version's `docs/api/config/pypto-set_vec_tile_shapes.md` before ops that may trigger AIV / **`REGISTER_COPY`** (see **§4** / **`F21004`** in `docs/trouble_shooting/function.md`). When expanding shapes or hitting cryptic vec-tile errors, consult the documentation for your version and **`skills/lead-orchestrator/references/rules.md`** rule 16.
-- **`pypto.loop` vs host `for`:** Graph iteration belongs in **`pypto.loop`**; do not drive tile/batch work with plain Python **`for range`** inside the traced kernel in ways that violate layout rules (see **`skills/lead-orchestrator/references/rules.md`** / **`skills/lead-orchestrator/references/rules.md`** Prohibition B). Official transform/loop examples nest **`pypto.loop`** and use **`view` / `assemble`**.
+- **Vector tile before AIV / implicit copy:** Call `pypto.set_vec_tile_shapes` with positive integers as required by your PyPTO version's `docs/api/config/pypto-set_vec_tile_shapes.md` before ops that may trigger AIV / `REGISTER_COPY` (see §4 / `F21004` in `docs/trouble_shooting/function.md`). When expanding shapes or hitting cryptic vec-tile errors, consult the documentation for your version and `skills/pypto-op-develop/SKILL.md` §实现注意点 #7.
+- **`pypto.loop` vs host `for`:** Graph iteration belongs in `pypto.loop`; do not drive tile/batch work with plain Python `for range` inside the traced kernel in ways that violate layout rules (see `skills/pypto-op-develop/references/kernel-layer-format.md` §7.1 — Layer K forbids host loops driving algorithmic iteration). Official transform/loop examples nest `pypto.loop` and use `view` / `assemble`.
 - **`out.move(...)` vs slicing assign:** Many kernels use **`out.move(pypto.op(...))`** instead of **`out[:] = ...`**. Both appear in-tree; when debugging shape/dtype mismatches, check which pattern the reference uses and match it.
 - **Cube vs vec:** **`set_cube_tile_shapes`** for matmul-like cube ops; still set vec tiles when vector ops or compiler-inserted copies participate.
 - **Error routing:** Map **`Errcode: F2…`** → `docs/trouble_shooting/function.md`, **`F4/F5`** → `pass.md`, **`F9`** → `simulation.md`, etc. (`docs/trouble_shooting/README.md` table).

@@ -1,6 +1,6 @@
 ---
 name: pypto-kernel-phase2-phase3
-description: Phase 2 (semantic module decomposition — split by meaning, define contracts, freeze) and Phase 3 (module construction — one module at a time, validate, cross-check golden inventory).
+description: Phase 2 (semantic module decomposition — split by meaning, define contracts, freeze) and Phase 3 (module construction — one staged set at a time, validate, cross-check golden inventory).
 ---
 
 # PyPTO Complex Kernel — Phase 2–3: Decomposition and Construction
@@ -11,7 +11,7 @@ Goal: split the kernel into semantically meaningful, verifiable blocks.
 
 ### Write decomposition into the plan (mandatory)
 
-As soon as the module split is known, write Module decomposition in `custom/plan/<operator_name>.md`: named modules, boundary tensors, and rationale. See `skills/plan-template/plan.template.md` for log format.
+As soon as the module split is known, write Module decomposition in `custom/<op>/plan.md`: named modules, boundary tensors, and rationale. See `skills/plan-template/plan.template.md` for log format.
 
 ### Rule: split by meaning, not by equal complexity
 
@@ -41,7 +41,7 @@ query_op(names=["<op1>", "<op2>"])
 
 CLI fallback:
 ```bash
-python3 .agents/skills/pypto-api-explorer/scripts/query_op_index.py --op <op1> --op <op2>
+python3 .agents/skills/pypto-api-explore/scripts/query_op_index.py --op <op1> --op <op2>
 ```
 
 For constraint details not captured in the index:
@@ -71,9 +71,9 @@ To produce a standalone design document with API mapping, tiling strategy, loop 
 
 ## Phase 3: Module Construction
 
-Goal: build each module in isolation before integration.
+Goal: build each module in isolation before integration, as a **staged set of 3 files** (impl + golden + test) per dispatch.
 
-**Hard rule:** In each iteration, extend the production kernel by at most one new semantic module's real PyPTO logic. Everything downstream remains stubbed or fed from golden boundary tensors (see `skills/lead-orchestrator/references/rules.md` → Module-at-a-time enforcement).
+**Hard rule:** In each iteration, extend the production kernel by at most one new semantic module's real PyPTO logic. Everything downstream remains stubbed or fed from golden boundary tensors. The Coding Agent is responsible for enforcing one-staged-set-per-dispatch.
 
 ### Before writing PyPTO code — consult `skills/debugging/DEBUG.md` §9
 
@@ -93,11 +93,35 @@ Read the relevant subsections before writing each module's PyPTO code:
 
 ### Subskill reference: implementation templates and execution constraints
 
-When writing module code, consult `skills/pypto-op-develop/SKILL.md` for additional implementation constraints and templates (`references/execution-constraints.md`, `references/impl-template.py`, `references/test-template.py`). **Kernel-complex overrides apply:** Layer A–L template (`skills/kernel-code-format/pypto_kernel_template.py`), staged file chain, and module-at-a-time enforcement take precedence over the subskill's single-file approach.
+When writing module code, the **canonical reference is `skills/pypto-op-develop/SKILL.md`** (templates, execution-constraints, error code troubleshooting).
 
-### Staged module files (mandatory — do this in code)
+For complex kernels (attention-class, recurrent, fused), use the multi-file template set:
+- Layers G–K (impl): `skills/pypto-op-develop/templates/complex-kernel-template/impl-template.py`
+- Layer L (test): `skills/pypto-op-develop/templates/complex-kernel-template/test-template.py`
+- Layers B–F (golden): `skills/pypto-golden-generate/templates/golden-template.py`
 
-Materialize each step as `custom/<op>/<op>_module1.py` → `…_module12.py` → … → `…_module1…N.py` (see `skills/lead-orchestrator/references/rules.md` rule 14). Each file is the artifact for that milestone: golden + PyPTO + runnable compare. Suffix = concatenated module indices (`1`, `12`, `123`, …).
+Layer organization rules: `skills/pypto-op-develop/references/kernel-layer-format.md`.
+
+The staged-set file convention (3 files per dispatch) and module-at-a-time enforcement override the simple single-file approach for complex kernels.
+
+### Staged sets (mandatory — do this in code)
+
+Materialize each step as a **staged set of 3 files** under `custom/<op>/staged/`:
+
+```
+staged/<op>_module<suffix_k>_impl.py     ← cumulative PyPTO implementation
+staged/<op>_module<suffix_k>_golden.py   ← cumulative torch reference
+staged/test_<op>_module<suffix_k>.py     ← test driver (uses detailed_tensor_compare)
+```
+
+Suffix progression: `1` → `12` → `123` → … → `1...N`. Each staged set is the milestone artifact for that cumulative scope.
+
+After GATE 4 passes for the final M_N staged set, the Verification Agent renames the 3 files to canonical top-level names:
+- `staged/<op>_module1...N_impl.py` → `custom/<op>/<op>_impl.py`
+- `staged/<op>_module1...N_golden.py` → `custom/<op>/<op>_golden.py`
+- `staged/test_<op>_module1...N.py` → `custom/<op>/test_<op>.py`
+
+The `staged/` directory is **retained after delivery** for incremental-build traceability.
 
 ### Step 1. Express the module as kernel semantics
 
@@ -115,21 +139,21 @@ retrieve_docs(query="<op_name> tile shape alignment constraint", chunk_type="api
 
 Allowed forms: semantic pseudocode, helper functions, temporary checkpoint logic, optional temporary validation kernels.
 
-Disallowed as default: separate production `@jit` kernel per semantic module.
+Disallowed as default: separate production `@jit` kernel per semantic module. The final M_N staged set contains exactly **one** production `@pypto.frontend.jit` entry.
 
 ### Step 2. Build a module-level validation path
 
 Every module must be verifiable before the next module begins.
 
-Validation may use temporary checkpoint outputs, temporary progressive kernels, or host golden extraction for the module boundary. But the validation path must clearly map back to the intended final integrated kernel.
+Validation is provided by the staged set itself: `test_<op>_module<suffix_k>.py` imports both `<op>_module<suffix_k>_golden` and `pypto_function` from `<op>_module<suffix_k>_impl`, then runs `detailed_tensor_compare` at every output boundary.
 
-Use `detailed_tensor_compare` (bundled) at module boundaries. After each boundary run, append a row to the Per-module verification log in the plan.
+Use `detailed_tensor_compare` (bundled in `skills/validation-and-deliverables/detailed_tensor_compare.py`) at module boundaries. After each boundary run, append a row to the Per-module verification log in `custom/<op>/plan.md`.
 
 ### Step 2b. Cross-check Golden function inventory (mandatory before running)
 
-Before executing the module for the first time, open `custom/plan/<operator_name>.md` → Golden function inventory and cross-check every operation in this module's scope:
+Before executing the staged set's test for the first time, open `custom/<op>/plan.md` → Golden function inventory and cross-check every operation in this module's scope:
 
-- For each golden operation belonging to the current module, mark ✅ with the PyPTO call and line number, or ❌ if not yet implemented.
+- For each golden operation belonging to the current module, mark ✅ with the PyPTO call and line number (in `<op>_module<suffix_k>_impl.py`), or ❌ if not yet implemented.
 - **If any ❌ remains, do not run the test.** Implement the missing operation first.
 
 This step is the primary defense against precision errors caused by forgotten operations.
@@ -138,19 +162,19 @@ This step is the primary defense against precision errors caused by forgotten op
 
 **Run AST lint first — before compiling or executing:**
 ```
-validate_kernel_structure(source_code=<full module source>)
+validate_kernel_structure(source_code=<full impl source>)
 ```
 
 Fix all `error`-severity findings before proceeding.
 
-Then validate: compile/structural, shape, dtype, and boundary tensor comparison against golden (using `detailed_tensor_compare`).
+Then validate: compile/structural, shape, dtype, and boundary tensor comparison against golden (via the staged `test_*.py` running `detailed_tensor_compare`).
 
 ### Step 4. Freeze and log
 
 If the module passes:
-- freeze it,
+- freeze the staged set (it is now part of `modules_pypto_verified`),
 - log the passing boundary in Per-module verification log,
-- move to the next module.
+- move to the next module (Coding Agent will produce the M_{k+1} staged set on next dispatch).
 
 If the module fails:
 
@@ -161,7 +185,7 @@ If the module fails:
    If a match is found, apply the fix and re-run.
 
 2. If no pattern matched:
-   - inspect shape/dtype/interface,
+   - inspect shape/dtype/interface in the staged `*_impl.py`,
    - inspect internal intermediate checkpoints,
    - switch to binary-search-style debugging.
 

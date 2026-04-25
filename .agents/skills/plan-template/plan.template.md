@@ -1,17 +1,21 @@
-# Plan: `<operator_name>`
+# Plan: `<op>`
 
-Copy to: `custom/plan/<operator_name>.md` and keep **machine-readable** fields current every turn.
+Copy to: `custom/<op>/plan.md` and keep **machine-readable** fields current every turn.
 
-**Agent:** Do **not** skip **`skills/lead-orchestrator/references/rules.md`** or sub-skill obligations (staged files, all-output compare, plan logs). See **`.agents/skills/lead-orchestrator/references/rules.md`** — *Zero tolerance*. **Code layout:** every staged file and the full kernel **must** follow **`.agents/skills/kernel-code-format/pypto_kernel_template.py`** (layers A–L); document exceptions here. After **`custom/`** changes, run **`bash .agents/skills/ci-and-layout-check/run_validate_layout.sh`** (see **`skills/ci-and-layout-check/CI.md`**).
+**Agent:** This plan is the operator's coordination file. Do **not** skip sub-skill obligations (staged sets, all-output compare, plan logs). **Code layout:** complex kernels follow the multi-file template under `.agents/skills/pypto-op-develop/templates/complex-kernel-template/` (impl + test) plus the layer rules in `.agents/skills/pypto-op-develop/references/kernel-layer-format.md`. Document exceptions here. After `custom/` changes, run `bash .agents/skills/ci-and-layout-check/run_validate_layout.sh`.
 
 ## Agent status (minimal)
 
 ```yaml
 phase: 0|1|2|3|4|5|6
 active_module: M1   # or M2, …, none
-current_staged_file: custom/<operator_name>/<operator_name>_module1.py   # update each milestone
+current_staged_set:
+  impl:   custom/<op>/staged/<op>_module1_impl.py
+  golden: custom/<op>/staged/<op>_module1_golden.py
+  test:   custom/<op>/staged/test_<op>_module1.py
 modules_pypto_verified:
   - id: M1
+    suffix: "1"
     evidence: "<command or pointer to Per-module verification log row>"
     detailed_tensor_compare_ok: true   # false until boundary passes
 next_mandatory_step: "<one concrete step>"
@@ -28,14 +32,14 @@ blockers: []
 
 ## Validation (mandatory)
 
-- **Runner:** `custom/<operator_name>/test_<operator_name>.py`
-- **Command (repo root):** `PYTHONPATH=.agents/skills/validation-and-deliverables python custom/<operator_name>/test_<operator_name>.py`
-- **Comparison:** `from detailed_tensor_compare import detailed_tensor_compare` (bundled: `.agents/skills/validation-and-deliverables/detailed_tensor_compare.py`). **Do not** use `pytest` as the default for this golden vs PyPTO check unless documented under **blockers** as an exception.
-- **All outputs:** the runner must call **`detailed_tensor_compare`** on **every** leaf output tensor (tuple/list/dict/nested structures — **not** only `outputs[0]`). If any output is intentionally skipped, document under **blockers** with justification.
+- **Per-staged-set runner:** `python custom/<op>/staged/test_<op>_module<suffix_k>.py` (after each Coding dispatch)
+- **End-to-end runner (after Phase D):** `python custom/<op>/test_<op>.py`
+- **Comparison helper:** `from detailed_tensor_compare import detailed_tensor_compare` (bundled: `.agents/skills/validation-and-deliverables/detailed_tensor_compare.py`). **Do not** use `pytest` as the default for golden vs PyPTO checks unless documented under **blockers** as an exception.
+- **All outputs:** the runner must call `detailed_tensor_compare` on **every** leaf output tensor (tuple/list/dict/nested structures — **not** only `outputs[0]`). If any output is intentionally skipped, document under **blockers** with justification.
 
 ## Module decomposition (mandatory)
 
-Document **how** the kernel is split into semantic modules and **why** (not “equal-sized chunks”). Keep this aligned with **Module contracts** below.
+Document **how** the kernel is split into semantic modules and **why** (not "equal-sized chunks"). Keep this aligned with **Module contracts** below.
 
 ### Modules (overview)
 
@@ -48,35 +52,37 @@ Document **how** the kernel is split into semantic modules and **why** (not “e
 
 - **Semantic boundaries:** (e.g. matmul vs norm vs recurrence — what meaning each block carries)
 - **Why this order:** (dependency / debuggability)
-- **Alternatives considered and rejected:** (optional; e.g. “single fused block rejected until boundaries stable”)
+- **Alternatives considered and rejected:** (optional; e.g. "single fused block rejected until boundaries stable")
 
-## Staged module files (mandatory)
+## Staged set table (mandatory)
 
-Development progress is **materialized as Python files** under **`custom/<operator_name>/`**. Suffix after `_module` is **concatenated module indices** (`1` → M1 only, `12` → M1+M2 in one JIT, `1234` → M1–M4 for N=4). Each file contains **golden + PyPTO** for that cumulative scope in **one** `@jit`, and must pass **`detailed_tensor_compare`** on **all** outputs before creating the next file. The **last** row’s file is the **full** end-to-end PyPTO kernel.
+Development progress is **materialized as 3-file staged sets** under `custom/<op>/staged/`. Suffix after `_module` is **concatenated module indices** (`1` → M1 only, `12` → M1+M2 cumulative, `1234` → M1–M4 for N=4). Each set must pass `detailed_tensor_compare` on **all** outputs before creating the next set. The **last** row's set is renamed to canonical top-level files in Phase D.
 
-| Staged file | Modules in one `@jit` | Golden + PyPTO verified (all outputs) |
-|-------------|------------------------|--------------------------------------|
-| `<operator_name>_module1.py` | M1 | ☐ |
-| `<operator_name>_module12.py` | M1, M2 | ☐ |
-| `<operator_name>_module123.py` | M1, M2, M3 | ☐ |
-| `<operator_name>_module1234.py` | M1–M4 (example N=4) | ☐ — **full kernel** |
+| Suffix | impl | golden | test | All outputs verified |
+|--------|------|--------|------|----------------------|
+| `1` | `staged/<op>_module1_impl.py` | `staged/<op>_module1_golden.py` | `staged/test_<op>_module1.py` | ☐ |
+| `12` | `staged/<op>_module12_impl.py` | `staged/<op>_module12_golden.py` | `staged/test_<op>_module12.py` | ☐ |
+| `123` | `staged/<op>_module123_impl.py` | `staged/<op>_module123_golden.py` | `staged/test_<op>_module123.py` | ☐ |
+| `1234` | `staged/<op>_module1234_impl.py` | `staged/<op>_module1234_golden.py` | `staged/test_<op>_module1234.py` | ☐ — **full kernel** |
 
-*Add or remove rows to match **N** modules. Command example for a stage:*  
-`PYTHONPATH=.agents/skills/validation-and-deliverables python custom/<operator_name>/<operator_name>_module12.py`
+*Add or remove rows to match **N** modules. Per-set test command:*
+`python custom/<op>/staged/test_<op>_module12.py`
+
+After GATE 4, the M_N row's 3 files are renamed to canonical top-level (see "Phase D canonical rename" section).
 
 ## Per-module verification log (mandatory)
 
-Every time a **module boundary** is validated (Phase 3: golden vs PyPTO at that checkpoint), **append** a row. Comparisons **must** use **`detailed_tensor_compare`** (same helper as E2E). Record enough that a reviewer can see **pass/fail** without re-running.
+Every time a **module boundary** is validated (Phase 3: golden vs PyPTO at that checkpoint), **append** a row. Comparisons **must** use `detailed_tensor_compare` (same helper as E2E). Record enough that a reviewer can see **pass/fail** without re-running.
 
-| When | Module | Staged file (e.g. `<op>_module12.py`) | Tensors compared (name / role) | rtol | atol | `all_close` | Key stats (e.g. `out_of_tolerance_ratio`, `max_diff` from return dict) | Command or script |
-|------|--------|----------------------------------------|-------------------------------|------|------|-------------|------------------------------------------------------------------------|-------------------|
-| | M1 | `<operator_name>_module1.py` | | 1e-3 | 1e-3 | | | |
+| When | Module | Suffix | Tensors compared (name / role) | rtol | atol | `all_close` | Key stats (`out_of_tolerance_ratio`, `max_diff`) | Command |
+|------|--------|--------|-------------------------------|------|------|-------------|--------------------------------------------------|---------|
+| | M1 | `1` | | 1e-3 | 1e-3 | | | `python custom/<op>/staged/test_<op>_module1.py` |
 
 *On failure:* add a **Development & debug log** entry and keep the failed row or add a follow-up row after fix.
 
 ## Vector tile config
 
-- **`pypto.set_vec_tile_shapes`:** use tile dimensions as required by **`docs/api/config/pypto-set_vec_tile_shapes.md`** — see **`skills/pypto-op-develop/SKILL.md`** §实现注意点 #7 / 常见错误 #4.
+- `pypto.set_vec_tile_shapes`: use tile dimensions as required by `docs/api/config/pypto-set_vec_tile_shapes.md` — see `skills/pypto-op-develop/SKILL.md` §实现注意点 #7 / 常见错误 #4.
 
 ## API map (Phase 0)
 
@@ -84,38 +90,34 @@ Every time a **module boundary** is validated (Phase 3: golden vs PyPTO at that 
 
 ## Golden function inventory (Phase 1 — cross-check)
 
-List **every operation** in the PyPTO-friendly golden. In Phase 3/4, cross-check line-by-line against the PyPTO implementation and mark ✅/❌. **Do not run tests or advance modules while any ❌ remains.**
+List **every operation** in the PyPTO-friendly golden. In Phase 3/4, cross-check line-by-line against the staged `*_impl.py` and mark ✅/❌. **Do not run tests or advance modules while any ❌ remains.**
 
-| # | Golden operation | Shape transformation | PyPTO implementation | Line | Status |
-|---|------------------|----------------------|------------------------|------|--------|
-| 1 | `torch.matmul(q, k^T)` | `[B,H,T,K]@[B,H,K,T]->[B,H,T,T]` | `pypto.matmul(q, k, dtype, b_trans=True)` | L.42 | ✅ |
-| 2 | `torch.softmax(scores, -1)` | `[B,H,T,T]->[B,H,T,T]` | | | ❌ |
-| … | | | | | |
+| # | Golden operation | Shape transformation | PyPTO implementation (file:line) | Status |
+|---|------------------|----------------------|----------------------------------|--------|
+| 1 | `torch.matmul(q, k^T)` | `[B,H,T,K]@[B,H,K,T]->[B,H,T,T]` | `staged/<op>_module1_impl.py:42` | ✅ |
+| 2 | `torch.softmax(scores, -1)` | `[B,H,T,T]->[B,H,T,T]` | | ❌ |
+| … | | | | |
 
 **When to cross-check:**
-- Phase 3 (GATE 3): every row in the current module’s scope must be ✅
+- Phase 3 (GATE 3): every row in the current staged set's scope must be ✅
 - Phase 4 (GATE 4): every row must be ✅
 
 ## Module contracts (Phase 2)
 
 | Module | Inputs | Outputs | PyPTO APIs | Verified? |
 
-## Design format compliance
+## Layer format compliance
 
-- **Template:** `.agents/skills/kernel-code-format/pypto_kernel_template.py` — **mandatory** skeleton for each `*_module*.py` and the integrated kernel (same layers; trim unused sections only with justification below).
-- Layers A–L from `docs/pypto-kernel-design-format.md` (copy in this bundle: `.agents/skills/kernel-code-format/pypto-kernel-design-format.md`): which apply, which omitted, why.
-
-## PyPTO call-site checklist (when debugging)
-
-Paste output of:
-
-`python3 .agents/skills/ci-and-layout-check/scripts/extract_pypto_calls.py custom/<operator_name>/<operator_name>_module1234.py` *(or current staged / final kernel file)*
-
-| # | Line | Call | doc OK? | notes |
+- **Templates:**
+  - golden (Layers B–F): `.agents/skills/pypto-golden-generate/templates/golden-template.py`
+  - impl (Layers G–K): `.agents/skills/pypto-op-develop/templates/complex-kernel-template/impl-template.py`
+  - test (Layer L): `.agents/skills/pypto-op-develop/templates/complex-kernel-template/test-template.py`
+- **Layer rules:** `.agents/skills/pypto-op-develop/references/kernel-layer-format.md`
+- Which layers apply, which omitted, why:
 
 ## `skills/debugging/DEBUG.md` §9 — pre-write checklist
 
-Before writing each module's PyPTO code, review the matching subsections from **`.agents/skills/debugging/DEBUG.md` §9**. Check off after reading. See full lookup table in **`skills/phase2-phase3-construction/SKILL.md`** → **Phase 3 → Before writing PyPTO code**.
+Before writing each module's PyPTO code, review the matching subsections from `.agents/skills/debugging/DEBUG.md` §9. Check off after reading. See full lookup table in `skills/phase2-phase3-construction/SKILL.md` → **Phase 3 → Before writing PyPTO code**.
 
 | Subsection | Applies to this kernel? | Reviewed? |
 |------------|------------------------|-----------|
@@ -130,11 +132,25 @@ Before writing each module's PyPTO code, review the matching subsections from **
 
 ## Opaque error codes (FFFFF, UNKNOWN, Errcode: F…!)
 
-**Do not** abandon the run on these alone. Follow **`.agents/skills/debugging/DEBUG.md`** §1–§8, capture full logs, and iterate (token budget is not a limit). When debugging, also consult **§9.11** (common error → cause → solution quick table). Log each attempt below.
+**Do not** abandon the run on these alone. Follow `.agents/skills/debugging/DEBUG.md` §1–§8, capture full logs, and iterate. When debugging, also consult §9.11 (common error → cause → solution quick table). Log each attempt below.
 
 ## Development & debug log
 
 | When | Action | Result | Next |
+
+## Phase D canonical rename log (after GATE 4)
+
+Record the rename commands the Verification Agent ran to produce canonical top-level files:
+
+| When | Command | Result |
+|------|---------|--------|
+| | `git mv custom/<op>/staged/<op>_module1...N_impl.py custom/<op>/<op>_impl.py` | |
+| | `git mv custom/<op>/staged/<op>_module1...N_golden.py custom/<op>/<op>_golden.py` | |
+| | `git mv custom/<op>/staged/test_<op>_module1...N.py custom/<op>/test_<op>.py` | |
+| | (update imports in `test_<op>.py`) | |
+| | (generate `README.md`) | |
+
+After Phase D, `staged/` is **retained** for traceability — never delete.
 
 ## Human review milestones (optional)
 

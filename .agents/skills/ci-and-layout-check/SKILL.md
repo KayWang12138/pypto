@@ -39,11 +39,10 @@ python3 .agents/skills/ci-and-layout-check/scripts/validate_custom_kernel_layout
 
 | Check | Failure means |
 |-------|---------------|
-| `custom/plan/<op>.md` exists | Missing plan file |
-| `custom/<op>/test_<op>.py` exists and imports `detailed_tensor_compare` | Missing or incomplete E2E runner |
-| Staged files use cumulative suffixes (`1`, `12`, `123`, …) | Wrong naming convention |
-| No `for ... in range(...)` in `pypto_function` / kernel functions | Use `pypto.loop` instead (`skills/lead-orchestrator/references/rules.md` rule 18, Prohibition B) |
-| Template `# Layer A`–`L` / `# Appendix` headers keep `LOCKED` contract | Don't strip template headers |
+| `custom/<op>/plan.md` exists | Missing plan file |
+| `custom/<op>/test_<op>.py` (after Phase D) or `custom/<op>/staged/test_<op>_module<k>.py` (during Phase 3) exists and imports `detailed_tensor_compare` | Missing or incomplete runner |
+| Staged sets use cumulative suffixes (`1`, `12`, `123`, …) and the 3-file naming (`*_impl.py`, `*_golden.py`, `test_*`) | Wrong naming convention |
+| No `for ... in range(...)` in `pypto_function` / kernel functions | Use `pypto.loop` instead (`skills/pypto-op-develop/references/kernel-layer-format.md` §7.1) |
 
 ### Extract PyPTO call sites (for debugging)
 
@@ -58,6 +57,6 @@ Add `--json` for machine-readable output. See `skills/debugging/SKILL.md` → op
 
 ## When to run
 
-- **After every meaningful edit** under `custom/` (`skills/lead-orchestrator/references/rules.md` rule 15)
+- **After every meaningful edit** under `custom/` (per the Verification Agent's GATE 3 / GATE 4 contract in `.opencode/agents/verification.md`)
 - **Before claiming layout is complete**
 - The same validator runs in CI (`.github/workflows/validate-custom-kernel-layout.yml`) and pre-commit (`.pre-commit-config.yaml`)

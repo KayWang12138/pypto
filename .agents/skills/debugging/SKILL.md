@@ -78,12 +78,12 @@ If the graph runs but outputs are wrong:
 
 Disabling arbitrary `pypto` lines inside one fused `@jit` usually invalidates the graph or hides the real bug.
 
-- Prefer module-at-a-time stubs (see `skills/lead-orchestrator/references/rules.md` → Module-at-a-time enforcement): shrink the live region, then re-run Step 0 on the smaller file.
+- Prefer module-at-a-time stubs (see `skills/phase2-phase3-construction/SKILL.md` → Phase 3 hard rule on staged sets): shrink the live region, then re-run Step 0 on the smaller file.
 - If you must bisect inside one module, insert one intermediate checkpoint between call sites k and k+1 and binary-search k using the numbered list — do not remove ops unless the minimal repro requires it.
 
 ### Step 4 — Plan file log (handoff-safe)
 
-Append to `custom/plan/<operator_name>.md`:
+Append to `custom/<op>/plan.md`:
 - Path to `extract_pypto_calls.py` output (or paste the table),
 - First doc mismatch or first diverging checkpoint index,
 - Hypothesis and patch; re-run validation.
@@ -113,7 +113,7 @@ Read the matching subsection before writing each module's PyPTO code:
 ## Subskill fallback decision tree (router policy)
 
 This skill is the **router** for all debugging sub-skills. When used by the
-Verification Agent (see `skills/lead-orchestrator/references/agents.md`), load **exactly one** sub-skill per
+Debug Agent (`.opencode/agents/debug.md`), load **exactly one** sub-skill per
 failure, and unload it before handling the next failure. This keeps the
 active-skill count ≤ 4.
 
@@ -160,6 +160,6 @@ active-skill count ≤ 4.
   appears, unload the current sub-skill first.
 - Do **not** pre-load sub-skills speculatively.
 - If no row matches, stay in this SKILL.md + `DEBUG.md`. Do not escalate.
-- `skills/lead-orchestrator/references/rules.md` takes precedence over any sub-skill guidance on conflict.
-- Log the dispatch decision to `custom/plan/<op>.md` under **Development &
+- The Debug Agent's contract (`.opencode/agents/debug.md`) takes precedence over any sub-skill guidance on conflict.
+- Log the dispatch decision to `custom/<op>/plan.md` under **Development &
   debug log** (which row matched, which sub-skill was loaded, outcome).
