@@ -210,6 +210,8 @@ def attention(
     runtime_options={"stitch_function_max_num": 128,
                      "ready_on_host_tensors": ["block_table", "kv_act_seqs"]
                     },
+    debug_options={"runtime_debug_mode": 1},
+    host_options={"compile_monitor_enable": True}
 )
 def ifa_func_kernel(
     block_table: pypto.Tensor(),

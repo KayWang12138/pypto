@@ -708,16 +708,16 @@ def options_list():
     if pypto.platform.npuarch == 'DAV_3510':
         return {
             "pass_options": {
-                "cube_l1_reuse_setting": {-1: 4, 0: 1, 1: 1, 2: 1},
-                "cube_nbuffer_setting": {-1: 4, 0: 1, 1: 1, 2: 1, 3: 3},
+                "cube_l1_reuse_setting": {-1: 1, 0: 1, 1: 1, 2: 1, 4: 4},
+                "cube_nbuffer_setting": {-1: 1, 0: 1, 1: 1, 2: 1, 3: 3, 4: 4}
             },
             "runtime_options": {"device_sched_mode": 2},
             }
     else:
         return {
             "pass_options": {
-                "cube_l1_reuse_setting": {-1: 4, 0: 1, 1: 1},
-                "cube_nbuffer_setting": {-1: 4, 0: 1, 1: 1},
+                "cube_l1_reuse_setting": {-1: 4, 0: 1, 1: 1, 12: 1, 13: 1},
+                "cube_nbuffer_setting": {-1: 4, 0: 1, 1: 1, 12: 1, 13: 1},
             },
             "runtime_options": {"device_sched_mode": 1},
         }
@@ -805,6 +805,8 @@ def mla_prolog_quant_p(
 @pypto.frontend.jit(
     pass_options=options_list()["pass_options"],
     runtime_options=options_list()["runtime_options"],
+    debug_options={"runtime_debug_mode": 0},
+    host_options={"compile_monitor_enable": False}
 )
 def mla_prolog_quant_d(
     token_x: pypto.Tensor([pypto.DYNAMIC, pypto.STATIC]),
