@@ -364,9 +364,8 @@ private:
         DepOp& op, const std::vector<Operation*> opLogPtr, size_t idx, DataDependencySearcher& dataDependencySearcher);
     std::pair<CoreTypeDetail, CoreTypeDetail> GetCorePairDetail(
         const PipePairEx& pp, size_t setIdx, size_t waitIdx, bool& isAIV1);
-    void InitCVEventIdQ(bool isAIV1, CorePair corePair, CorePair corePairReverse);
-    std::deque<int>& GetFreeEventIdQueue(
-        const PipePairEx& pp, size_t setIdx, size_t waitIdx, std::pair<CoreTypeDetail, CoreTypeDetail>& setWaitCoreType);
+    void InitCVEventIdQ(CorePair corePair);
+    std::deque<int>& GetFreeEventIdQueue(const PipePairEx& pp);
     int GetSyncSrcLogIdx(const std::vector<IndexOp>& syncedOpLog, int i);
     int GetMaxEventId(const PipePairEx& pp);
     std::string DumpLatestPipeDepMap();
@@ -385,7 +384,7 @@ private:
     static std::vector<CorePair> cvCorePair;
 
     static constexpr int EVENT_NUM = 8;
-    static constexpr int CROSS_CORE_EVENT_NUM = 16;
+    static constexpr int CROSS_CORE_EVENT_NUM = 8;
     static constexpr int EVENT_ID7 = 7;
     int minimalMergeOverlap{25};
     std::unordered_map<PipePairEx, std::vector<int>, PipePairExHash> doublePipeOp; // pipepair, opmagic
