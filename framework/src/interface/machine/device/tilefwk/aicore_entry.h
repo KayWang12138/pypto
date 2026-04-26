@@ -196,6 +196,7 @@ INLINE void SetTaskStatistic(__gm__ KernelArgs *args, int32_t& dfxPose,
     dcci(stat, SINGLE_CACHE_LINE, CACHELINE_OUT);
 }
 
+
 INLINE void AddMetricStatistic(ExecuteContext *ctx, uint32_t seqNo, uint32_t taskId, int32_t subGraphId, int64_t t1) {
     UNUSED(ctx); UNUSED(seqNo); UNUSED(taskId); UNUSED(subGraphId); UNUSED(t1);
 #if PROF_DFX_HOST_PREPARE_MEMORY_MODE
