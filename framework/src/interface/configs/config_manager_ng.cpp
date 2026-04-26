@@ -280,7 +280,7 @@ void ValidateConfigValueType(const std::string& key, const Any& value)
     std::stringstream os;
     os << "Option '" << key << "' has invalid type. Expected " << GetReadableTypeName(expectedType) << ", but got "
        << GetReadableTypeName(value.Type());
-    FUNCTION_ASSERT(FError::INVALID_TYPE, false) << os.str();
+    CHECK(FError::INVALID_TYPE, false) << os.str();
 }
 
 std::string ConfigScope::ToString() const
@@ -325,7 +325,7 @@ void ConfigScope::UpdateValueWithAny(const std::string& key, Any value)
         os << ", its value doesn't within the value range.";
         DumpRange(os, value.Type(), key, ConfigManagerNg::GetInstance().Range());
         os << "\n";
-        FUNCTION_ASSERT(FError::INVALID_VAL, false) << os.str();
+        CHECK(FError::INVALID_VAL, false) << os.str();
     }
     std::stringstream oss;
     DumpValue(oss, key, value, "");
@@ -413,8 +413,7 @@ struct ConfigManagerImpl {
             scope = scopes.top();
         }
         for (auto& it : values) {
-            FUNCTION_ASSERT(FError::INVALID_VAL, scope->HasConfig(it.first))
-                << "key: " << it.first.c_str() << " does not exist.";
+            CHECK(FError::INVALID_VAL, scope->HasConfig(it.first)) << "key: " << it.first.c_str() << " does not exist.";
             scope->UpdateValueWithAny(it.first, it.second);
         }
     }
