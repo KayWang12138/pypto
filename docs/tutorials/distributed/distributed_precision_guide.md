@@ -21,120 +21,213 @@ PyPTO 通信算子用于实现多卡间的数据传输与同步，是分布式�
 ## 精度定位整体流程
 
 ```
-精度问题发现
+精度问题定位流程
     │
     ├─ 第一阶段：基础预检
-    │   ├─ 问题确认与可复现性验证
-    │   ├─ 环境与版本检查
-    │   └─ 算子代码逻辑审查
+    │   └─ 基础预检
     │
-    ├─ 第二阶段：通信配置检查
-    │   ├─ 切块策略检查
-    │   ├─ 通信依赖关系检查
-    │   ├─ 信号量配置检查
-    │   └─ valid_shape 检查
+    ├─ 第二阶段：常见场景排查
+    │   ├─ 切块语义不匹配
+    │   ├─ 多轮通信需 data_clear
+    │   ├─ 依赖关系配置错误
+    │   ├─ Golden 计算逻辑不一致
+    │   └─ 数据类型不一致
     │
-    ├─ 第三阶段：中间结果定位
-    │   ├─ 上板执行 tensor dump
+    ├─ 第三阶段：精度定位方法
     │   ├─ 数据对比分析
-    │   └─ 问题定位到具体算子
+    │   └─ 问题定位技巧
     │
-    └─ 第四阶段：问题修复与验证
-        ├─ 修复方案实施
+    └─ 第四阶段：验证与回归
         ├─ 精度验证
         └─ 回归测试
 ```
 
 ## 第一阶段：基础预检
 
-### 1.1 问题确认与可复现性验证
+在进行精度定位前，需先完成以下基础检查，确保问题确实是精度问题而非功能异常或环境问题。
 
-**检查项**：
+### 精度误差阈值检查
+- [ ] 阈值检查
 
-- [ ] 精度误差阈值是否合理（考虑 BF16 等低精度类型）
-- [ ] 问题能否稳定复现（多次执行结果一致）
-- [ ] 不同环境下问题表现是否一致
-- [ ] Device 日志无 error 报错，排除功能问题（确保是精度问题而非功能异常）
+**检查目的**：确保误差阈值设置符合数据类型的精度范围和累加操作的特性。
 
-**操作示例**：
+通信算子中使用 `shmem_put` 的 `AtomicType.ADD` 进行累加时，累加精度由 `shmem_tensor` 的 dtype 决定，阈值需根据累加方式和累加次数调整：
 
-**检查 Device 日志**：
+| 累加精度 | 建议阈值 | 说明 |
+|---------|---------|------|
+| FP32 累加 | ≤ 5e-3（千分之五） | FP32 精度较高，累加误差较小，阈值应满足千分之五 |
+| FP16 累加 | 按累加次数计算 | FP16 mantissa 10 bit，相对精度约 1/1024，需按累加次数计算阈值 |
+| BF16 累加 | 按累加次数计算 | BF16 mantissa 7 bit，相对精度约 1/128，需按累加次数计算阈值 |
+
+**低精度累加阈值计算方法**：
+
+```python
+def calculate_accumulation_threshold(
+    dtype: str, 
+    world_size: int, 
+    safety_factor: float = 2.0
+):
+    """
+    计算低精度累加的理论误差阈值
+    
+    精度特性：
+    - FP16: mantissa 10 bit，相对精度约为 1/1024 ≈ 0.001
+    - BF16: mantissa 7 bit，相对精度约为 1/128 ≈ 0.0078
+    
+    每次累加的舍入误差约为精度类型的 0.5 倍（ulp）
+    累加 N 次后，误差粗略估计为 N * 0.5 * dtype_precision
+    
+    Args:
+        dtype: 数据类型，"FP16" 或 "BF16"
+        world_size: 累加次数（通信的 rank 数量）
+        safety_factor: 安全系数，建议 2.0 以覆盖更多误差来源
+    
+    Returns:
+        建议的相对误差阈值
+    """
+    # 精度类型对应的相对精度
+    precision_map = {
+        "FP16": 1 / 1024,   # mantissa 10 bit
+        "BF16": 1 / 128,    # mantissa 7 bit
+    }
+    
+    dtype_precision = precision_map.get(dtype)
+    if dtype_precision is None:
+        raise ValueError(f"Unsupported dtype: {dtype}, only FP16/BF16 supported")
+    
+    # 单次累加误差估计
+    single_accumulation_error = 0.5 * dtype_precision
+    
+    # N 次累加后的累积误差（线性估计）
+    accumulated_error = world_size * single_accumulation_error
+    
+    # 应用安全系数
+    threshold = accumulated_error * safety_factor
+    
+    return threshold
+
+
+# 示例计算
+print("FP16 累加阈值示例：")
+for ws in [2, 4, 8, 16]:
+    threshold = calculate_accumulation_threshold("FP16", ws)
+    print(f"  world_size={ws}: {threshold:.6f}")
+
+print("\nBF16 累加阈值示例：")
+for ws in [2, 4, 8, 16]:
+    threshold = calculate_accumulation_threshold("BF16", ws)
+    print(f"  world_size={ws}: {threshold:.6f}")
+```
+
+**输出示例**：
+
+```
+FP16 累加阈值示例：
+  world_size=2: 0.001953
+  world_size=4: 0.003906
+  world_size=8: 0.007812
+  world_size=16: 0.015625
+
+BF16 累加阈值示例：
+  world_size=2: 0.015625
+  world_size=4: 0.031250
+  world_size=8: 0.062500
+  world_size=16: 0.125000
+```
+**说明**：
+
+- 以上为线性估计，实际误差可能因数据分布、数值范围等因素有所不同
+- **FP16 的动态范围有限**：最大值为 65504，累加时需注意溢出问题
+- **大数吃小数问题**：若数据数值差异较大（如大值和小值混合累加），误差可能显著高于理论值
+- 对于精度要求较高的场景，建议使用 FP32 进行累加以获得更高精度（参见 2.4.1）
+
+#### 检查要点
+- Atomic Add 累加操作需根据累加精度和累加次数调整阈值：
+  - FP32 累加：阈值应满足千分之五（≤ 5e-3）
+  - FP16 累加：阈值按累加次数计算，world_size=8 时约千分之八（~0.008）
+  - BF16 累加：阈值按累加次数计算，world_size=8 时约千分之六十二（~0.062）
+- 建议根据实际数据类型和累加方式调整阈值，避免阈值过严导致误报
+
+### Device 日志检查
+
+- [ ] plog 日志无 error 报错，排除编译问题
+- [ ] Device 日志无 error 报错，排除功能问题
+
+**检查目的**：排除编译问题和功能异常，确保是纯精度问题。
+
+**操作步骤**：
 
 ```bash
-# 检查 Device 日志（日志路径由 ASCEND_PROCESS_LOG_PATH 环境变量指定）
+# 1. 检查 plog 日志（用于检查编译阶段的错误）
+grep -i "error" $ASCEND_PROCESS_LOG_PATH/debug/plog/pypto-*.log
+
+# 2. 检查 Device 日志（日志路径由 ASCEND_PROCESS_LOG_PATH 环境变量指定）
 grep -i "error" $ASCEND_PROCESS_LOG_PATH/debug/device*/device*.log
 ```
 
-**说明**：
+**检查要点**：
 
-- Device 日志中无 error 报错表明算子功能执行正常，问题为纯精度问题
-- 若 Device 日志存在 error（如 AICore error、AICPU error），需先定位并修复功能问题
+- plog 日志中无 error 报错表明编译阶段正常
+- Device 日志中无 error 报错表明算子功能执行正常
+- 若 plog 中存在 Pass 报错，需先定位并修复编译问题
+- 若存在 AICore error、AICPU error 等错误，需先定位并修复功能问题
+- 编译问题与功能问题应优先解决，再进行精度定位
 
+### 通信算子标准测试用例检查
 
-### 1.2 环境与版本检查
+- [ ] 通信算子标准测试用例能正常执行且精度无异常
 
-**检查项**：
+**检查目的**：排除环境配置问题，确认通信基础功能正常。
 
-- [ ] CANN 软件版本正确
-- [ ] PyPTO 版本正确
-- [ ] NPU 硬件状态正常（使用 `npu-smi info` 检查）
-- [ ] MPI 环境配置正确（仅 C++ 通信用例需要，Python 通信用例无需 MPI）
-- [ ] 通信 st 用例能正常执行且精度无异常（排除环境问题）
+**操作步骤**：
 
-### 1.3 算子代码逻辑审查
+**C++ 测试用例**（需配置 mpirun）：
 
-**重点检查**：
+```bash
+# 进入测试执行目录
+cd build/output/bin
 
-- [ ] 通信流程是否符合标准范式（create → put → signal → wait → get）；多轮通信场景需在首轮前执行 clear 和 barrier
-- [ ] Golden 计算逻辑是否与算子实现一致，特别是低精度类型（BF16/FP16）的累加操作：golden 是直接累加还是先 cast 到 FP32 再累加
+# 执行 AllReduce 测试用例（world_size 为参与通信的卡数）
+mpirun -n 4 ./tile_fwk_stest_distributed run \
+    --gtest_filter=TestDistributedOps/DistributedTest.TestOps/0 \
+    --frontend=cpp
 
-**标准通信流程示例**：
-
-```python
-def standard_communication_flow(input_tensor, group_name, world_size):
-    shmem_shape = [row_size, col_size]
-    
-    shmem_tensor = pypto.distributed.create_shmem_tensor(
-        group_name, world_size, pypto.DT_FP32, shmem_shape)
-    shmem_barrier_signal = pypto.distributed.create_shmem_signal(group_name, world_size)
-    my_pe = pypto.distributed.my_symbolic_pe(group_name)
-    
-    data_clear_out = pypto.distributed.shmem_clear_data(
-        shmem_tensor, shmem_shape, [0, 0])
-    signal_clear_out = pypto.distributed.shmem_clear_signal(shmem_tensor)
-    barrier_out = pypto.distributed.shmem_barrier_all(
-        shmem_barrier_signal, [data_clear_out, signal_clear_out])
-    
-    for dyn_idx in range(world_size):
-        put_out = pypto.distributed.shmem_put(
-            input_tensor, [0, 0], shmem_tensor, dyn_idx,
-            put_op=pypto.AtomicType.ADD, pred=[barrier_out])
-        pypto.distributed.shmem_signal(
-            shmem_tensor, dyn_idx, 1, shmem_shape, [0, 0],
-            target_pe=dyn_idx, sig_op=pypto.AtomicType.ADD, pred=[put_out])
-    
-    wait_until_out = pypto.distributed.shmem_wait_until(
-        shmem_tensor, my_pe, world_size, shmem_shape, [0, 0],
-        cmp=pypto.OpType.EQ, clear_signal=True)
-    
-    output = pypto.distributed.shmem_get(
-        shmem_tensor, my_pe, shmem_shape, [0, 0],
-        pred=[wait_until_out], valid_shape=shmem_shape)
-    
-    return output
+# 执行所有通信算子测试用例
+mpirun -n 4 ./tile_fwk_stest_distributed run \
+    --gtest_filter=TestDistributedOps/DistributedTest.TestOps \
+    --frontend=cpp
 ```
 
-## 第二阶段：通信配置检查
+**Python 测试用例**：
 
-### 2.1 切块策略检查
+```bash
+# 进入测试用例目录（从 pypto 工程根目录）
+cd models/experimental/distributed
 
-切块配置是通信算子精度问题的关键因素。错误的切块配置会导致信号量语义不匹配、数据读写时机错误等问题。
+# 执行通信算子测试用例
+python3 test_matmul_allreduce_add_rmsnorm.py
+```
 
-#### 检查项一：shmem_signal 与 shmem_put 切块语义匹配
+**检查要点**：
 
-**约束**：`shmem_signal` 写入的信号量标识的数据块大小必须与 `shmem_put` 实际写入的数据块大小匹配。
+- C++ 测试用例需使用 `mpirun` 启动多进程通信
+- Python 测试用例框架内部已集成多进程启动机制，无需配置 mpirun
+- 若标准用例执行失败或精度异常，说明环境配置可能有问题
+- 若标准用例正常但当前算子异常，问题可能在于算子实现本身
 
-**问题示例**：
+上述三项检查通过后，可确认问题为纯精度问题，进入后续定位阶段。
+
+## 第二阶段：通信算子精度问题常见场景
+
+### 2.1 切块语义不匹配
+
+#### 2.1.1 shmem_signal 与 shmem_put 切块语义不匹配
+
+**问题现象**：特定位置数据错误，部分元素精度异常。
+
+**原因分析**：`shmem_signal` 写入的信号量标识的数据块大小与 `shmem_put` 实际写入的数据块大小不匹配。
+
+**错误示例**：
 
 ```python
 pypto.set_vec_tile_shapes(16, 64)
@@ -153,7 +246,7 @@ pypto.distributed.shmem_signal(shmem_tensor, 0, 1, shmem_shape,
 - `tile_shmem_signal0` 标识写入 [33, 64] 数据，实际只写入 [32, 64] 数据
 - **信号量语义不匹配，可能导致精度异常**
 
-**正确配置示例**：
+**正确配置**：
 
 ```python
 input_shape = [64, 64]
@@ -174,11 +267,13 @@ pypto.distributed.shmem_signal(shmem_tensor, 0, 1, input_shape,
 - 第 1 个 signal 块覆盖前 2 个 put 块（共 [32, 64]）
 - **信号量语义正确匹配**
 
-#### 检查项二：shmem_get 与 shmem_wait_until 切块语义匹配
+#### 2.1.2 shmem_get 与 shmem_wait_until 切块语义不匹配
 
-**约束**：`shmem_get` 读取的数据块大小必须与 `shmem_wait_until` 等待的信号量对应的数据块大小匹配。
+**问题现象**：读取数据区域超出实际写入范围，导致精度异常。
 
-**问题示例**：
+**原因分析**：`shmem_get` 读取的数据块大小与 `shmem_wait_until` 等待的信号量对应的数据块大小不匹配。
+
+**错误示例**：
 
 ```python
 pypto.set_vec_tile_shapes(16, 64)
@@ -198,7 +293,7 @@ output = pypto.distributed.shmem_get(
 - 前两个 wait_until 块对应的数据区域为 [32, 64]
 - **但 `tile_shmem_get0` 试图读取 [33, 64] 数据，超出实际写入范围**
 
-**正确配置示例**：
+**正确配置**：
 
 ```python
 pypto.set_vec_tile_shapes(16, 64)
@@ -210,528 +305,286 @@ output = pypto.distributed.shmem_get(
     shmem_tensor, my_pe, shmem_shape, [0, 0], pred=[wait_until_out], valid_shape=shmem_shape)
 ```
 
-### 2.2 通信依赖关系检查
+### 2.2 多轮通信场景需先进行 data_clear
 
-通信算子间的执行依赖关系通过 `pred` 参数和 dummy tensor 控制，正确的依赖配置确保算子按语义顺序执行：
-- **写信号量必须在写数据之后执行**：确保数据写入完成后才通知远端 rank
-- **读数据必须在等待信号量之后执行**：确保远端 rank 数据写入完成后再读取
-- **多轮通信需在首轮前执行 clear 和 barrier**：确保共享内存和信号量初始状态正确
+**问题现象**：多轮通信场景下，首轮数据影响后续轮次，精度异常。
 
-#### 检查项一：pred 参数正确传递
+**原因分析**：多轮通信需在每轮前执行 `shmem_clear_data` 清理共享内存，且 clear 之后必须进行屏障同步，确保所有 rank 清理完成后再开始通信。
 
-**标准依赖关系**：
-
-```
-shmem_clear → shmem_barrier_all → shmem_put → shmem_signal → shmem_wait_until → shmem_get
-```
-
-**检查方法**：
-
-逐个检查每个通信算子的 `pred` 参数：
+**正确配置**：
 
 ```python
-data_clear_out = pypto.distributed.shmem_clear_data(
-    shmem_tensor, shmem_shape, [0, 0], pred=[input_tensor])
+# 每轮通信前：先清理，再屏障同步
+data_clear_out = pypto.distributed.shmem_clear_data(shmem_tensor, shmem_shape, [0, 0])
+signal_clear_out = pypto.distributed.shmem_clear_signal(shmem_tensor)
 
-signal_clear_out = pypto.distributed.shmem_clear_signal(
-    shmem_tensor, pred=[input_tensor])
-
+# clear 之后必须执行 barrier，确保所有 rank 清理完成
 barrier_out = pypto.distributed.shmem_barrier_all(
     shmem_barrier_signal, [data_clear_out, signal_clear_out])
 
+# 后续通信操作需依赖 barrier_out
+put_out = pypto.distributed.shmem_put(..., pred=[barrier_out])
+```
+
+**关键说明**：
+
+- **data_clear 后必须 barrier**：若 clear 后直接开始通信，部分 rank 可能还在清理中，其他 rank 已开始写入，导致数据竞争或首轮数据残留
+- **每轮通信前执行 clear**：多轮场景需在每轮前执行 clear，避免首轮数据影响后续轮次
+
+### 2.3 依赖关系配置错误
+
+**问题现象**：精度异常，且每次执行问题表现可能不一样（随机位置异常）。
+
+**原因分析**：依赖关系配置错误或算子语义理解偏差，导致执行顺序或等待条件不符合预期。
+
+#### 常见错误类型
+
+**错误 1：pred 参数传递错误**
+
+`pred` 参数传递错误，导致通信算子执行顺序不符合语义要求，产生数据竞争：
+
+```python
+# 错误示例：shmem_get 未依赖 wait_until_out，可能在数据写入完成前读取
+output = pypto.distributed.shmem_get(
+    shmem_tensor, my_pe, shmem_shape, [0, 0],
+    pred=[barrier_out])  # 错误：未依赖 wait_until_out
+
+# 正确示例：shmem_get 必须依赖 wait_until_out
+wait_until_out = pypto.distributed.shmem_wait_until(...)
+output = pypto.distributed.shmem_get(
+    shmem_tensor, my_pe, shmem_shape, [0, 0],
+    pred=[wait_until_out])  # 正确：依赖 wait_until_out
+```
+
+**错误 2：wait_until 等待条件不正确**
+
+`shmem_wait_until` 等待条件设置错误，未等待所有 rank 完成写入，导致读取结果不完整：
+
+```python
+# 问题示例（AllReduce）：等待值设置为 1，仅等待一个 rank 完成
+wait_until_out = pypto.distributed.shmem_wait_until(
+    shmem_tensor, my_pe, 1, shmem_shape, [0, 0],  # 错误：等待值应为 world_size
+    cmp=pypto.OpType.EQ, 
+    clear_signal=True,
+    pred=[barrier_out])
+
+# 结果：仅等待一个 rank 完成，其他 rank 数据未写入，读取结果不完整
+```
+
+**等待条件根据算子语义确定**，确保与实际累加次数匹配：
+
+```python
+# 正确示例（AllReduce）：等待所有 rank 发送完成，等待值为 world_size
+wait_until_out = pypto.distributed.shmem_wait_until(
+    shmem_tensor, my_pe, world_size, shmem_shape, [0, 0],
+    cmp=pypto.OpType.EQ,
+    clear_signal=True,
+    pred=[barrier_out])
+```
+
+#### 标准通信流程依赖关系
+
+```
+shmem_clear_data → shmem_clear_signal → shmem_barrier_all → 
+    shmem_put → shmem_signal → shmem_wait_until → shmem_get
+```
+
+**关键原则**：
+
+1. **初始化阶段**：clear 和 barrier 必须在通信前执行，确保初始状态正确
+2. **写入阶段**：shmem_signal 必须依赖 shmem_put，确保数据写入完成后再通知
+3. **读取阶段**：shmem_get 必须依赖 shmem_wait_until，确保所有 rank 写入完成后再读取
+4. **等待条件**：wait_until 的等待条件应与算子语义匹配
+
+#### 正确配置示例
+
+```python
+# 1. 清理共享内存和信号量
+data_clear_out = pypto.distributed.shmem_clear_data(
+    shmem_tensor, shmem_shape, [0, 0], pred=[input_tensor])
+signal_clear_out = pypto.distributed.shmem_clear_signal(
+    shmem_tensor, pred=[input_tensor])
+
+# 2. 屏障同步，确保所有 rank 完成清理
+barrier_out = pypto.distributed.shmem_barrier_all(
+    shmem_barrier_signal, [data_clear_out, signal_clear_out])
+
+# 3. 数据写入（依赖 barrier）
 put_out = pypto.distributed.shmem_put(
     input_tensor, [0, 0], shmem_tensor, dyn_idx,
     put_op=pypto.AtomicType.ADD, pred=[barrier_out])
 
+# 4. 信号量通知（依赖 put）
 pypto.distributed.shmem_signal(
     shmem_tensor, dyn_idx, 1, shmem_shape, [0, 0],
     target_pe=dyn_idx, sig_op=pypto.AtomicType.ADD, pred=[put_out])
 
+# 5. 等待所有 rank 写入完成（依赖 barrier）
 wait_until_out = pypto.distributed.shmem_wait_until(
     shmem_tensor, my_pe, world_size, shmem_shape, [0, 0],
     cmp=pypto.OpType.EQ, clear_signal=True, pred=[barrier_out])
 
+# 6. 数据读取（依赖 wait_until）
 output = pypto.distributed.shmem_get(
     shmem_tensor, my_pe, shmem_shape, [0, 0],
     pred=[wait_until_out], valid_shape=shmem_shape)
 ```
 
-### 2.3 信号量配置检查
+### 2.4 Golden 计算逻辑不一致
 
-#### 检查项一：信号量比较值正确
+**问题现象**：精度误差存在但误差不大，累加结果与 golden 存在精度差异。
 
-`shmem_wait_until` 的比较值应与 `shmem_signal` 累加后的期望值一致。
+**原因分析**：Golden 计算逻辑与算子实现中的累加精度不一致，导致计算结果存在合理的精度差异。
 
-**正确配置**：
+#### 累加精度差异示例（AllReduce）
+
+**Golden 实现**（CPU 上计算）：
 
 ```python
-for dyn_idx in range(world_size):
-    pypto.distributed.shmem_signal(
-        shmem_tensor, dyn_idx, 1, shmem_shape, [0, 0],
-        target_pe=dyn_idx, sig_op=pypto.AtomicType.ADD)
-
-wait_until_out = pypto.distributed.shmem_wait_until(
-    shmem_tensor, my_pe, world_size, shmem_shape, [0, 0],
-    cmp=pypto.OpType.EQ, clear_signal=True)
+# Golden: 在 CPU 上对 BF16 数据进行累加
+# 注意：torch 在 CPU 上执行 BF16 算术运算时，会自动转换为 FP32 做加法，最后将结果转为bf16
+def allreduce_golden(inputs):
+    result = torch.zeros(shape, dtype=torch.bfloat16)
+    for tensor in inputs:  # inputs 为 BF16 类型
+        result += tensor  # 实际按 FP32 累加
+    return result
 ```
 
-**说明**：
-
-- 每个 rank 执行一次 `shmem_signal`，信号量值累加 1
-- `world_size` 个 rank 执行完成后，信号量值为 `world_size`
-- `shmem_wait_until` 比较值为 `world_size`，使用 `EQ` 比较操作
-
-#### 检查项二：clear_signal 参数正确
-
-`shmem_wait_until` 的 `clear_signal=True` 会在等待完成后清零信号量，为下一次通信做准备。
-
-**检查方法**：
-
-- 如果通信流程在循环中执行，确保 `clear_signal=True`
-- 如果是单次通信，可以设置 `clear_signal=False`
-
-### 2.4 valid_shape 检查
-
-动态 shape 场景下，最后一块可能小于固定块大小，需正确设置 `valid_shape` 参数。
-
-**问题示例**：
+**算子实现**（NPU 上计算）：
 
 ```python
-batch_size = pypto.DYNAMIC
-view_row_shape = 8
+# 算子: shmem_tensor dtype 为 BF16，累加在 BF16 精度下进行
+shmem_tensor = pypto.distributed.create_shmem_tensor(
+    group_name, world_size, pypto.DT_BF16, shmem_shape)  # BF16 累加
 
-for bs_idx in range((batch_size + view_row_shape - 1) // view_row_shape):
-    in_tensor_tile = pypto.view(
-        in_tensor, (view_row_shape, hidden_size), [bs_idx * view_row_shape, 0])
-    
-    output = pypto.distributed.shmem_get(
-        shmem_tensor, my_pe, shmem_shape, [0, 0])
+# shmem_put 使用 AtomicType.ADD，累加精度由 shmem_tensor dtype 决定
+put_out = pypto.distributed.shmem_put(
+    input_tensor, [0, 0], shmem_tensor, target_pe,
+    put_op=pypto.AtomicType.ADD, pred=[...])
 ```
 
 **问题分析**：
 
-- 最后一块的 `batch_size - bs_idx * view_row_shape` 可能小于 `view_row_shape`
-- 未设置 `valid_shape`，可能读取越界数据
+| 对比项 | Golden | 算子实现 |
+|-------|--------|---------|
+| 累加精度 | FP32（torch CPU 自动转换） | BF16 |
+| 精度损失 | 小 | 大（BF16 mantissa 仅 7 bit） |
+| 结果差异 | - | 累加次数越多，误差越大 |
 
-**正确配置**：
-
-```python
-for bs_idx in range((batch_size + view_row_shape - 1) // view_row_shape):
-    valid_row = (batch_size - bs_idx * view_row_shape).min(view_row_shape)
-    in_tensor_tile = pypto.view(
-        in_tensor, (view_row_shape, hidden_size), [bs_idx * view_row_shape, 0],
-        valid_shape=[valid_row, hidden_size])
-    
-    output = pypto.distributed.shmem_get(
-        shmem_tensor, my_pe, shmem_shape, [0, 0], valid_shape=[valid_row, hidden_size])
-```
-
-## 第三阶段：中间结果定位
-
-### 重要说明
-
-**精度调试工具的限制**：
-
-PyPTO 的 `enable_pass_verify` 等前端模拟计算工具**不支持集合通信场景**。通信算子的精度定位需依赖上板执行和 tensor dump。
-
-### 3.1 上板执行 tensor dump
-
-#### 启用方式
+**解决方法**：确保 Golden 与算子实现使用相同的累加精度：
 
 ```python
-import os
-
-os.environ["PTO_DATADUMP_ENABLE"] = "true"
-
-@pypto.frontend.jit(
-    runtime_options={"run_mode": pypto.RunMode.NPU},
-    verify_options={
-        "enable_pass_verify": True,
-        "pass_verify_save_tensor": True
-    }
-)
-def communication_kernel(...):
-    ...
+# 算子使用 FP32 累加（与 Golden 一致）
+shmem_tensor = pypto.distributed.create_shmem_tensor(
+    group_name, world_size, pypto.DT_FP32, shmem_shape)  # FP32 累加
 ```
 
-#### Dump 数据输出路径
+**关键检查点**：
+
+- Golden 的累加精度（CPU 上 torch 对 BF16 的处理方式）
+- 算子中 `shmem_tensor` 的 dtype（决定累加精度）
+- 确保两者一致，避免计算模式差异导致误差
+
+## 第三阶段：通信算子精度定位思路
+
+### 3.1 精度问题的可复现性分析法
+
+通过多次执行观察精度异常的表现形式，初步判断问题类型：
+
+#### 情况 1：稳定位置精度异常
+
+**特征**：多次执行后（固定随机数种子），精度异常的位置和误差值稳定一致。
+
+**问题推断**：切分或数据处理逻辑问题，而非同步问题。
+
+**定位方向**：参考第二阶段常见场景排查：
+
+- **2.1 切块语义不匹配**：检查 shmem_signal 与 shmem_put、shmem_get 与 shmem_wait_until 的 TileShape 是否匹配
+- **2.4 Golden 计算逻辑不一致**：检查累加精度是否一致
+- **数据类型处理**：检查输入输出数据类型转换是否正确
+
+#### 情况 2：随机位置精度异常
+
+**特征**：多次执行后，精度异常的位置和误差值不一致，甚至部分执行正常、部分执行异常。
+
+**问题推断**：同步问题或数据竞争，可能涉及：
+
+- **依赖关系配置错误**（参见 2.3）：pred 参数传递错误，导致执行顺序不符合语义
+- **缺少屏障同步**（参见 2.2）：clear 后未执行 barrier，导致数据竞争
+- **信号量语义不匹配**（参见 2.1）：写入和等待的数据范围不一致
+
+**定位方向**：重点检查第二阶段中的依赖关系和同步机制：
+
+- 验证 `pred` 参数是否正确传递
+- 验证 `shmem_barrier_all` 是否在首轮通信前执行
+- 验证切分逻辑是否正确，可参考 [通信算子切块设置指南](distributed_operatoion_tiling_guide.md)
+
+### 3.2 减小问题规模定位法
+
+缩小问题规模旨在简化场景，提高定位效率。缩小后可查看 Pass 图是否符合预期，分析各算子的连接关系、数据流、切分方式。需确保缩小后仍能复现原始问题。
+
+通常通过以下方法缩小问题规模：
+
+**方法 1：减小 world_size**
+
+将 world_size 从大值减小到最小可复现值（如 world_size = 2）。若 world_size = 2 正常但更大值异常，问题可能与累加次数相关（参见 2.4）。
+
+**方法 2：减少切块数量或不切块**
+
+增大 TileShape 减少切块数量，或直接使用不切分的配置。不切分时问题消失，说明切分逻辑有问题（参见 2.1）；不切分时问题仍存在，说明问题与切分无关。
+
+**方法 3：减小 Shape 规格**
+
+调小模型的 Shape 规格（如 batch_size、hidden_size），降低计算和通信规模，便于直接对计算结果进行分析。
+
+### 3.3 定位出现问题的算子
+
+定位首个出现精度问题的算子，详细方法参考 [精度调试指南](../debug/precision.md)。
+
+**核心方法**：
+
+- **二分法定位**：逐步移除尾部计算，找到首个异常算子。对于通信算子，可在 shmem_get 之后设置检查点，验证 shmem_put 写入 win 区的数据是否正确
+- **中间结果对比**：对比各算子输出与 golden 中间结果，确定差异首次出现的位置
+- **精度工具**：当前通信算子暂不支持，待支持后可通过 Pass 阶段模拟计算与基准数据对比，定位首个异常计算节点
+
+### 定位思路总结
 
 ```
-output/output_*/dump_tensor_*/device_{deviceId}/
-└── {taskId}_{seqNo}_{callopMagic}_{rootHash}_{funcHash}_{rawMagic}_{timeStamp}_{dataType}_{input/output}{index}.tdump
+定位思路：
+    │
+    ├─ 思路 1：确认可复现性
+    │   ├─ 稳定位置 → 检查切分逻辑（2.1）
+    │   └─ 随机位置 → 检查同步机制（2.2、2.3）
+    │
+    ├─ 思路 2：减小问题规模
+    │   ├─ 减小 world_size（如从 8 减到 2）
+    │   ├─ 减少切块数量或不切块
+    │   └─ 减小 Shape 规格
+    │
+    └─ 思路 3：定位出问题的算子
+        ├─ 方法 1：二分法定位
+        │   ├─ 设置检查点，逐步移除尾部计算
+        │   ├─ 执行并检查首个异常检查点
+        │   └─ 定位到具体算子后，进一步分析
+        │
+        └─ 方法 2：精度工具（当前通信算子暂不支持）
+            ├─ 待支持后，可参考 [精度调试指南](../debug/precision.md)
+            └─ 通过 Pass 阶段模拟计算与基准数据对比，定位首个异常计算节点
 ```
 
-#### 数据处理工具
+## 第四阶段：验证与回归
 
-```bash
-python3 tools/verifier/parse_dump_tensors.py \
-    --dump_tensor_path output/output_*/dump_tensor_*/device_0
-```
+修复后需验证精度并回归测试，确保问题彻底解决。
 
-#### 输出文件
+**验证要点**：
 
-```
-output/output_*/dump_tensor_*/device_0/
-├── tensor_info.csv              # 解析结果报告
-├── *.data                       # 提取的 tensor 数据文件
-└── raw_{rawMagic}_{dataType}_{ioflag}.data  # 合并后的 raw tensor
-```
+- 与 golden 数据对比，确认精度达标
+- 验证多卡一致性
+- 验证可复现性（多次执行结果一致）
 
-### 3.2 数据对比分析
+**回归测试范围**：
 
-#### 单卡数据对比
-
-对于单卡参与的计算部分（如 matmul、add、rmsnorm），可以与 golden 数据对比：
-
-```python
-import torch
-import numpy as np
-
-def compare_with_golden(dump_data_path, golden_data):
-    dump_data = torch.from_file(dump_data_path)
-    golden = golden_data.cpu()
-    
-    diff = torch.abs(dump_data - golden)
-    max_diff = diff.max()
-    mean_diff = diff.mean()
-    
-    print(f"Max difference: {max_diff}")
-    print(f"Mean difference: {mean_diff}")
-    print(f"Elements with inf/nan: {(torch.isinf(dump_data) | torch.isnan(dump_data)).sum()}")
-    
-    return max_diff < 1e-3
-```
-
-#### 多卡数据一致性检查
-
-对于通信结果，检查不同 rank 的数据一致性：
-
-```python
-import torch
-import torch_npu
-import os
-
-def check_multi_rank_consistency(rank_outputs):
-    for i in range(1, len(rank_outputs)):
-        diff = torch.abs(rank_outputs[i] - rank_outputs[0]).max()
-        print(f"Rank {i} vs Rank 0 max diff: {diff}")
-        
-        if diff > 1e-3:
-            print(f"WARNING: Rank {i} has significant difference from Rank 0")
-```
-
-### 3.3 问题定位到具体算子
-
-#### 定位方法一：二分法
-
-逐步移除尾部计算，定位首个出现精度问题的算子：
-
-```python
-def binary_search_precision_issue():
-    original_code = """
-        matmul_result = pypto.matmul(...)
-        shmem_put(...)
-        shmem_signal(...)
-        shmem_wait_until(...)
-        output = shmem_get(...)
-        add_result = pypto.add(output, residual)
-        norm_result = rms_norm(add_result)
-    """
-    
-    test_points = [
-        ("matmul", "matmul_result = pypto.matmul(...); return matmul_result"),
-        ("allreduce", "...output = shmem_get(...); return output"),
-        ("add", "...add_result = pypto.add(...); return add_result"),
-        ("rmsnorm", "...norm_result = rms_norm(...); return norm_result"),
-    ]
-    
-    for name, code in test_points:
-        result = execute_modified_kernel(code)
-        if is_precision_issue(result):
-            print(f"Precision issue found at: {name}")
-            return name
-```
-
-#### 定位方法二：中间数据保存
-
-使用 `pypto.pass_verify_save` 保存中间计算结果（仅适用于非通信部分）：
-
-```python
-@pypto.frontend.jit(verify_options={"enable_pass_verify": True, "pass_verify_save_tensor": True})
-def kernel_with_save(...):
-    matmul_result = pypto.matmul(in_tensor, weight)
-    pypto.pass_verify_save(matmul_result, "matmul_result")
-    
-    add_result = pypto.add(allreduce_out, residual)
-    pypto.pass_verify_save(add_result, "add_result")
-```
-
-**注意**：`pass_verify_save` 不支持通信算子的中间结果保存。
-
-## 第四阶段：问题修复与验证
-
-### 4.1 常见问题修复方案
-
-#### 问题 1：切块语义不匹配
-
-**修复方案**：调整 TileShape 配置，确保信号量与数据块的语义匹配
-
-```python
-input_shape = [64, 64]
-
-# 方案 A：统一切块大小
-pypto.set_vec_tile_shapes(16, 64)
-put_out = pypto.distributed.shmem_put(...)
-pypto.distributed.shmem_signal(...)
-
-pypto.set_vec_tile_shapes(16, 64)
-wait_out = pypto.distributed.shmem_wait_until(...)
-output = pypto.distributed.shmem_get(...)
-
-# 方案 B：信号量切块覆盖整数倍数据块
-pypto.set_vec_tile_shapes(16, 64)
-put_out = pypto.distributed.shmem_put(...)
-
-pypto.set_vec_tile_shapes(32, 64)
-pypto.distributed.shmem_signal(...)
-
-pypto.set_vec_tile_shapes(32, 64)
-wait_out = pypto.distributed.shmem_wait_until(...)
-output = pypto.distributed.shmem_get(...)
-```
-
-#### 问题 2：信号量等待超时
-
-**修复方案**：确保 `shmem_wait_until` 和 `shmem_signal` TileShape 一致
-
-```python
-pypto.set_vec_tile_shapes(32, 64)
-pypto.distributed.shmem_signal(...)
-
-pypto.set_vec_tile_shapes(32, 64)
-wait_out = pypto.distributed.shmem_wait_until(...)
-```
-
-#### 问题 3：valid_shape 未设置
-
-**修复方案**：为动态 shape 的通信算子设置 valid_shape
-
-```python
-valid_row = (batch_size - bs_idx * view_row_shape).min(view_row_shape)
-output = pypto.distributed.shmem_get(
-    shmem_tensor, my_pe, shmem_shape, [0, 0],
-    valid_shape=[valid_row, hidden_size])
-```
-
-#### 问题 4：数据竞争
-
-**修复方案**：增加屏障同步或调整偏移配置
-
-```python
-barrier_out = pypto.distributed.shmem_barrier_all(shmem_barrier_signal, pred=[...])
-
-for dyn_idx in range(world_size):
-    put_out = pypto.distributed.shmem_put(
-        ..., pred=[barrier_out])
-```
-
-### 4.2 精度验证
-
-#### 验证步骤
-
-1. 执行修复后的算子
-2. 与 golden 数据对比
-3. 验证多卡一致性
-4. 验证可复现性
-
-#### 验证代码示例
-
-```python
-import torch
-import torch_npu
-
-def validate_precision():
-    golden = compute_golden_reference()
-    
-    for _ in range(5):
-        torch.npu.synchronize()
-        output = execute_kernel()
-        torch.npu.synchronize()
-        
-        max_diff = torch.abs(output.cpu() - golden).max()
-        print(f"Max difference: {max_diff}")
-        
-        if max_diff > threshold:
-            print("FAILED: Precision issue persists")
-            return False
-    
-    print("PASSED: Precision validation successful")
-    return True
-```
-
-### 4.3 回归测试
-
-#### 测试范围
-
-- [ ] 原问题场景验证
-- [ ] 不同 shape 规格测试
-- [ ] 不同 world_size 测试
-- [ ] 多轮执行稳定性测试
-
-#### 测试脚本示例
-
-```python
-import torch
-import torch_npu
-
-def regression_test():
-    test_cases = [
-        {"shape": [64, 64], "world_size": 2},
-        {"shape": [128, 256], "world_size": 4},
-        {"shape": [256, 512], "world_size": 8},
-    ]
-    
-    for case in test_cases:
-        for _ in range(10):
-            output = execute_kernel(**case)
-            if not validate_output(output):
-                print(f"FAILED for case: {case}")
-                return False
-    
-    print("PASSED: All regression tests successful")
-    return True
-```
-
-## 常见问题分类与案例
-
-### 问题分类速查表
-
-| 问题类型           | 典型现象                   | 定位方法                   | 修复方案                   |
-| ------------------ | -------------------------- | -------------------------- | -------------------------- |
-| 切块语义不匹配     | 特定位置数据错误           | TileShape 配置检查         | 调整切块大小               |
-| 信号量等待超时     | 0xA3000 错误               | signal/wait TileShape 检查 | 统一切块大小               |
-| valid_shape 未设置 | 尾块数据错误               | valid_shape 参数检查       | 添加 valid_shape 参数      |
-| 数据竞争           | 结果随机异常               | pred 参数检查              | 增加屏障同步               |
-| 依赖关系错误       | 数据覆盖、时序错误         | 依赖关系流程检查           | 修正 pred 参数传递         |
-| 数据类型不一致     | 精度损失                   | dtype 检查                 | 统一数据类型               |
-
-### 案例 1：AllReduce 精度异常
-
-**问题描述**：
-
-MatmulAllReduce 算子在特定 shape 下出现精度异常，部分元素误差超过阈值。
-
-**定位过程**：
-
-1. 基础预检：环境正常，问题可复现
-2. 代码审查：发现 `shmem_signal` 与 `shmem_put` TileShape 不匹配
-   - `shmem_put` TileShape [16, 64]，数据切分为 4 块
-   - `shmem_signal` TileShape [33, 64]，信号量切分为 2 块
-3. 问题定位：第 2 个 signal 块标识数据区域 [33-64, 64]，但实际只写入 [32-64, 64] 数据
-
-**修复方案**：
-
-调整 `shmem_signal` TileShape 为 [32, 64]，确保信号量语义与实际写入数据匹配。
-
-**验证结果**：
-
-精度验证通过，回归测试通过。
-
-### 案例 2：信号量等待超时
-
-**问题描述**：
-
-执行 `shmem_wait_until` 时出现错误码 0xA3000 AICPU_TASK_TIMEOUT。
-
-**定位过程**：
-
-1. 错误码查询：0xA3000 表示 AICPU 等待超时
-2. 配置检查：发现 `shmem_signal` TileShape [32, 64]，`shmem_wait_until` TileShape [16, 64]
-3. 问题定位：信号量切块数量与等待切块数量不匹配，导致等待操作无法找到对应的信号量块
-
-**修复方案**：
-
-统一 `shmem_signal` 和 `shmem_wait_until` 的 TileShape 为 [32, 64]。
-
-**验证结果**：
-
-超时错误消除，通信流程正常执行。
-
-### 案例 3：动态 shape 尾块精度异常
-
-**问题描述**：
-
-动态 batch_size 场景下，最后一块数据出现精度异常。
-
-**定位过程**：
-
-1. 数据分析：发现问题集中在 batch_size 的尾块位置
-2. 配置检查：发现 `shmem_get` 未设置 `valid_shape` 参数
-3. 问题定位：尾块实际数据量小于固定块大小，未设置 `valid_shape` 导致读取越界数据
-
-**修复方案**：
-
-为 `shmem_get` 添加 `valid_shape` 参数：
-
-```python
-valid_row = (batch_size - bs_idx * view_row_shape).min(view_row_shape)
-output = pypto.distributed.shmem_get(
-    ..., valid_shape=[valid_row, hidden_size])
-```
-
-**验证结果**：
-
-尾块精度问题解决，整体精度验证通过。
-
-## 注意事项
-
-### 1. 工具限制
-
-- `enable_pass_verify` 等前端模拟计算工具**不支持集合通信场景**
-- 通信算子精度定位需依赖上板执行和 tensor dump
-- `pass_verify_save` 不支持通信算子的中间结果保存
-
-### 2. 切块配置原则
-
-- `shmem_signal` 与 `shmem_put` 切块需满足语义匹配
-- `shmem_wait_until` 与 `shmem_signal` TileShape 必须一致
-- `shmem_get` 与 `shmem_wait_until` 切块需满足语义匹配
-
-### 3. 通信流程规范
-
-- 遵循标准通信流程：create → clear → barrier → put → signal → wait → get
-- 确保依赖关系正确传递（pred 参数）
-- 多 rank 通信使用屏障同步避免数据竞争
-
-### 4. 数据类型一致性
-
-- 通信算子数据类型需与计算算子一致
-- 低精度类型（BF16）需使用合理的误差阈值
-- 注意累加操作的数据类型影响
-
-## 参考资料
-
-### 官方文档
-
-| 文档名称                                        | 路径                                                         | 说明                       |
-| ----------------------------------------------- | ------------------------------------------------------------ | -------------------------- |
-| 分布式算子开发指南                              | [docs/tutorials/distributed](../tutorials/distributed)      | 通信算子开发教程           |
-| 通信算子切块设置指南                            | [distributed_operatoion_tiling_guide.md](../tutorials/distributed/distributed_operatoion_tiling_guide.md) | 切块策略详细说明           |
-| MatmulAllReduce 融合算子示例                    | [matmul_allreduce_rmsnorm.md](../tutorials/distributed/matmul_allreduce_rmsnorm.md) | AllReduce 融合算子示例     |
-| 精度调试指南                                    | [precision.md](../tutorials/debug/precision.md)             | 通用精度调试方法           |
-| DISTRIBUTED 错误码                               | [distributed.md](distributed.md)                             | 分布式错误码定义           |
-
-### API 文档
-
-| API 名称                                         | 文档路径                                                     | 说明                       |
-| ----------------------------------------------- | ------------------------------------------------------------ | -------------------------- |
-| pypto.distributed.create_shmem_tensor           | [docs/api/distributed/pypto-distributed-create_shmem_tensor.md](../api/distributed/pypto-distributed-create_shmem_tensor.md) | 创建共享数据缓冲区         |
-| pypto.distributed.shmem_put                     | [docs/api/distributed/pypto-distributed-shmem_put.md](../api/distributed/pypto-distributed-shmem_put.md) | 数据写入                   |
-| pypto.distributed.shmem_get                     | [docs/api/distributed/pypto-distributed-shmem_get.md](../api/distributed/pypto-distributed-shmem_get.md) | 数据读取                   |
-| pypto.distributed.shmem_signal                  | [docs/api/distributed/pypto-distributed-shmem_signal.md](../api/distributed/pypto-distributed-shmem_signal.md) | 信号量写入                 |
-| pypto.distributed.shmem_wait_until              | [docs/api/distributed/pypto-distributed-shmem_wait_until.md](../api/distributed/pypto-distributed-shmem_wait_until.md) | 信号量等待                 |
-| pypto.set_vec_tile_shapes                       | [docs/api/config/pypto-set_vec_tile_shapes.md](../api/config/pypto-set_vec_tile_shapes.md) | Vector 算子切块设置        |
-
-### 已知问题
-
-参见 [docs/tutorials/appendix/issue.md](../tutorials/appendix/issue.md)。
+- 原问题场景验证
+- 不同 shape 规格测试
+- 不同 world_size 测试
+- 多轮执行稳定性测试
