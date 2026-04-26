@@ -474,6 +474,12 @@ void OpcodeManager::RegisterVectorSort()
         Opcode::OP_TOPK_EXTRACT, OpCoreType::AIV, "TOPK_EXTRACT", {MemoryType::MEM_UB}, {MemoryType::MEM_UB},
         {"TileOp::TopKExtract", PIPE_V, PIPE_V, CoreType::AIV}, OpCalcType::OTHER,
         {OP_ATTR_PREFIX + "is_index", OP_ATTR_PREFIX + "k"});
+    RegisterInfo(
+        Opcode::OP_QUANT_MX, OpCoreType::AIV, "QUANT_MX", {MemoryType::MEM_UB},
+        {MemoryType::MEM_UB, MemoryType::MEM_UB, MemoryType::MEM_UB, MemoryType::MEM_UB},
+        {"TileOp::TQuantMX", PIPE_V, PIPE_V, CoreType::AIV}, OpCalcType::OTHER,
+        {OpAttributeKey::excludeBufferReuse, OpAttributeKey::mxQuantMode, OpAttributeKey::mxQuantAxis,
+         OpAttributeKey::mxQuantPerformanceMode});
 }
 
 void OpcodeManager::RegisterVectorReduction()
@@ -1219,6 +1225,8 @@ OpcodeManager::OpcodeManager()
 std::unordered_map<Opcode, std::string> SUPPORT_TILETENSOR_OPS{
     {Opcode::OP_UB_COPY_IN, "TLoad"},
     {Opcode::OP_UB_COPY_OUT, "TStore"},
+    {Opcode::OP_RESHAPE_COPY_IN, "TLoad"},
+    {Opcode::OP_RESHAPE_COPY_OUT, "TStore"},
     {Opcode::OP_TRANSPOSE_VNCHWCONV, "TTrans"},
     {Opcode::OP_TRANSPOSE_MOVEIN, "TTransMoveIn"},
     {Opcode::OP_TRANSPOSE_MOVEOUT, "TTransMoveOut"},
@@ -1253,6 +1261,7 @@ std::unordered_map<Opcode, std::string> SUPPORT_TILETENSOR_OPS{
     {Opcode::OP_TWOTILEMRGSORT, "TTwoTileMrgSort"},
     {Opcode::OP_EXTRACT_SINGLE, "TExtractSingle"},
     {Opcode::OP_GATHER_MASK, "TGatherMask"},
+    {Opcode::OP_QUANT_MX, "TQuantMX"},
     {Opcode::OP_CAST, "TCast"},
     {Opcode::OP_ROWSUM_SINGLE, "TRowSumSingle"},
     {Opcode::OP_ROWARGMAX_SINGLE, "TRowArgMaxSingle"},
