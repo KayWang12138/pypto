@@ -229,9 +229,9 @@ struct DynMachineManager {
         cpu = simCpuId_++;
 #endif
         if (devArgs->archInfo == ArchInfo::DAV_3510) {
-            return AllocThreadIdxForDav3510(devArgs, cpu, curThreadIdx, threadIdx);
-        } else if (devArgs->archInfo == ArchInfo::DAV_2201) {
-            return AllocThreadIdxForDav2201(devArgs, cpu, curThreadIdx, threadIdx);
+            ret = AllocThreadIdxForDav3510(devArgs, cpu, curThreadIdx, threadIdx);
+        } else {
+            curThreadIdx = ++threadIdx;
         }
 #ifndef __DEVICE__
         --simCpuId_;
@@ -525,7 +525,7 @@ struct DynMachineManager {
                 ret = DEVICE_MACHINE_OK;
             }
         }
-        if (++exitNum_ == devArgs.nrAicpu) {
+        if (++exitNum_ == devArgs.scheCpuNum) {
             DeInit();
             DEV_INFO("All sche cpu exited.");
         }
