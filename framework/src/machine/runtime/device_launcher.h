@@ -178,7 +178,7 @@ public:
         devProg->devArgs.taskType = DEVICE_TASK_TYPE_DYN;
 
         int aiCpuNum = static_cast<int>(Platform::Instance().GetSoc().GetAICPUNum()) - 1;
-        devProg->devArgs.scheCpuNum = CalcSchAicpuNumByBlockDim(config.blockdim, aiCpuNum, devProg->devArgs.archInfo);
+        devProg->devArgs.scheCpuNum = 3;
         devProg->devArgs.maxAicpuNum = aiCpuNum;
         config.aicpuNum = devProg->devArgs.scheCpuNum + dynamic::MAX_OTHER_AICPU_NUM;
         if (devProg->devArgs.archInfo == ArchInfo::DAV_3510) {
