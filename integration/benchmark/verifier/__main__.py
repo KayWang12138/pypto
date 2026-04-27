@@ -179,6 +179,8 @@ async def _run_verify_async(args: argparse.Namespace) -> Dict[str, Any]:
     config = load_config("pypto", backend=args.backend)
     if args.log_dir:
         config["log_dir"] = str(args.log_dir.resolve())
+    if args.keep_artifacts is not None:
+        config["keep_artifacts"] = bool(args.keep_artifacts)
     config["verify_timeout"] = args.verify_timeout
     if args.verify_rtol is not None:
         config["verify_rtol"] = float(args.verify_rtol)
@@ -352,6 +354,10 @@ def _build_arg_parser() -> argparse.ArgumentParser:
     v.add_argument("--profile-run", type=int, default=None)
     v.add_argument("--log-dir", type=Path, default=None,
                    help="KernelVerifier 工作目录根; 缺省 ~/pypto_bench_logs/Task_<rand>.")
+    v.add_argument("--keep-artifacts",
+                   action=argparse.BooleanOptionalAction,
+                   default=None,
+                   help="保留 verify/profile 临时工作目录; 默认运行后自动清理.")
     v.add_argument("--json-out", type=Path, default=None,
                    help="统一 JSON 报告输出路径; 缺省仅打印到 stdout.")
     v.add_argument("--no-cheat-gate", action="store_true",

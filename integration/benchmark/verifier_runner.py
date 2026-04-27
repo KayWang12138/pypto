@@ -504,6 +504,7 @@ _VALIDATOR_PROMPT_TEMPLATE = """\
 - verify_timeout = {verify_timeout}
 - verify_rtol = {verify_rtol}
 - verify_atol = {verify_atol}
+- keep_artifacts = {keep_artifacts}
 
 立即调用 skill({{ name: "{skill_name}" }}) 加载完整指引, 严格按 SKILL 4 步执行,
 最终把 `skill_report.json` 写到 `{output_dir}/skill_report.json`.
@@ -772,6 +773,11 @@ async def _run_via_opencode_skill_once(
             if extra_config and extra_config.get("verify_atol") is not None
             else "default"
         ),
+        keep_artifacts=(
+            bool(extra_config.get("keep_artifacts"))
+            if extra_config and extra_config.get("keep_artifacts") is not None
+            else False
+        ),
     )
 
     session_title = make_session_title(op_name, "verifier")
@@ -950,6 +956,10 @@ def _main_cli() -> int:
                         help="opencode/API 层重试间隔, 秒 (仅 opencode 模式)")
     parser.add_argument("--skill-output-dir", type=Path, default=None,
                         help="skill_report.json 落盘目录; 缺省取 log-file.parent (仅 opencode 模式)")
+    parser.add_argument("--keep-artifacts",
+                        action=argparse.BooleanOptionalAction,
+                        default=None,
+                        help="保留 KernelVerifier verify/profile 临时工作目录; 默认运行后自动清理")
     args = parser.parse_args()
 
     task_desc = args.task_desc_file.read_text(encoding="utf-8")
@@ -968,6 +978,10 @@ def _main_cli() -> int:
         mode=args.mode,
         profile_warmup_times=args.profile_warmup,
         profile_run_times=args.profile_run,
+        extra_config=(
+            {"keep_artifacts": args.keep_artifacts}
+            if args.keep_artifacts is not None else None
+        ),
         verifier_mode=args.verifier_mode,
         opencode_model=args.opencode_model,
         opencode_bin=args.opencode_bin,
