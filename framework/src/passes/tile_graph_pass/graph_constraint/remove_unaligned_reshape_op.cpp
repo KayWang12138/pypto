@@ -39,9 +39,9 @@ Status RemoveUnalignedReshape::RunOnFunction(Function& function)
         auto& newCopyOut = function.AddRawOperation(Opcode::OP_COPY_OUT, {a.input}, {a.output});
         newCopyOut.SetOpAttribute(
             std::make_shared<CopyOpAttribute>(
-                a.from, OpImmediate::Specified(a.toOffset), 
+            a.from, OpImmediate::Specified(a.toOffset), 
                 OpImmediate::Specified(newCopyOut.iOperand.front()->oriShape),
-                OpImmediate::Specified(newCopyOut.oOperand.front()->tensor->GetDynRawShape())));
+            OpImmediate::Specified(newCopyOut.oOperand.front()->tensor->GetDynRawShape())));
         auto producerOp = *(a.input->GetProducers().begin());
         newCopyOut.UpdateSubgraphID(producerOp->GetSubgraphID());
         APASS_LOG_INFO_F(
