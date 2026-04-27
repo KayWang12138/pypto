@@ -19,6 +19,7 @@
 #include <algorithm>
 
 #include "machine/utils/device_log.h"
+#include "machine/device/dynamic/device_utils.h"
 #include "ws_allocator_basics.h"
 
 namespace npu::tile_fwk::dynamic {
@@ -214,6 +215,53 @@ public:
         return static_cast<uint8_t*>(obj) + sizeof(void*);
     }
 
+    void ProcessKeepTailCase(uint32_t cacheIdx, StageAllocInfo& info)
+    {
+        SlabCache& cache = caches_[cacheIdx];
+        if (cache.stageAllocHead == cache.stageAllocTail) {
+            info.heads[cacheIdx] = nullptr;
+            info.tails[cacheIdx] = nullptr;
+            info.objCnt[cacheIdx] = 0;
+            return;
+        }
+
+        void* temp = cache.stageAllocHead;
+        if (temp == nullptr) {
+            DEV_ERROR(
+                WsErr::SLAB_STAGE_LIST_INCONSISTENT,
+                "workspace.slab.stage: stageAllocHead is null for cacheIndex=%u\n", cacheIdx);
+        }
+        DEV_ASSERT(WsErr::SLAB_STAGE_LIST_INCONSISTENT, temp != nullptr);
+
+        TimeoutState stageAllocTimeoutState;
+        void* targetTail = cache.stageAllocTail;
+        while (*static_cast<void**>(temp) != targetTail) {
+            __PYPTO_TIMEOUT_CHECK(stageAllocTimeoutState, TIMEOUT_NS_INFINITE, TIMEOUT_NS_10MIN,
+                WsErr::SLAB_STAGE_LIST_INCONSISTENT,
+                ,
+                "#workspace.slab.stage: Stage alloc traversal still waiting for cacheIndex=%u.",
+                "#workspace.slab.stage: Stage alloc traversal timeout for cacheIndex=%u.",
+                cacheIdx);
+            temp = *static_cast<void**>(temp);
+        }
+
+        if (temp == nullptr) {
+            DEV_ERROR(
+                WsErr::SLAB_STAGE_LIST_INCONSISTENT,
+                "workspace.slab.stage: stageAllocHead is null after loop for cacheIndex=%u, "
+                "stageAllocTail=%p\n",
+                cacheIdx, targetTail);
+        }
+        DEV_ASSERT(WsErr::SLAB_STAGE_LIST_INCONSISTENT, temp != nullptr);
+
+        *static_cast<void**>(temp) = nullptr;
+        info.tails[cacheIdx] = temp;
+        DEV_VERBOSE_DEBUG("Keep tail not pop %p \n", cache.stageAllocTail);
+        cache.stageAllocHead = cache.stageAllocTail;
+        info.objCnt[cacheIdx] = cache.allocatedObjCount - 1;
+        cache.unPopAllocatedObjCount = 1;
+    }
+
     StageAllocInfo PopStageAllocMem(bool keepTail, uint32_t memType)
     {
         StageAllocInfo info;
@@ -221,44 +269,13 @@ public:
             info.heads[i] = caches_[i].stageAllocHead;
             info.tails[i] = caches_[i].stageAllocTail;
             if (!keepTail || i != memType) {
-                // Reset cache tracking
                 caches_[i].stageAllocHead = nullptr;
                 caches_[i].stageAllocTail = nullptr;
                 info.objCnt[i] = caches_[i].allocatedObjCount;
                 caches_[i].unPopAllocatedObjCount = 0;
                 continue;
             }
-
-            if (caches_[i].stageAllocHead == caches_[i].stageAllocTail) {
-                info.heads[i] = nullptr;
-                info.tails[i] = nullptr;
-                info.objCnt[i] = 0;
-            } else {
-                void* temp = caches_[i].stageAllocHead;
-                if (temp == nullptr) {
-                    DEV_ERROR(
-                        WsErr::SLAB_STAGE_LIST_INCONSISTENT,
-                        "workspace.slab.stage: stageAllocHead is null for cacheIndex=%u\n", i);
-                }
-                DEV_ASSERT(WsErr::SLAB_STAGE_LIST_INCONSISTENT, temp != nullptr);
-                while (*static_cast<void**>(temp) != caches_[i].stageAllocTail) {
-                    temp = *static_cast<void**>(temp);
-                }
-                if (temp == nullptr) {
-                    DEV_ERROR(
-                        WsErr::SLAB_STAGE_LIST_INCONSISTENT,
-                        "workspace.slab.stage: stageAllocHead is null after loop for cacheIndex=%u, "
-                        "stageAllocTail=%p\n",
-                        i, caches_[i].stageAllocTail);
-                }
-                DEV_ASSERT(WsErr::SLAB_STAGE_LIST_INCONSISTENT, temp != nullptr);
-                *static_cast<void**>(temp) = nullptr;
-                info.tails[i] = temp;
-                DEV_VERBOSE_DEBUG("Keep tail not pop %p \n", caches_[i].stageAllocTail);
-                caches_[i].stageAllocHead = caches_[i].stageAllocTail;
-                info.objCnt[i] = caches_[i].allocatedObjCount - 1;
-                caches_[i].unPopAllocatedObjCount = 1;
-            }
+            ProcessKeepTailCase(i, info);
         }
 
         return info;

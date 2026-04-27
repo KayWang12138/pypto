@@ -170,8 +170,16 @@ public:
 
     void AllocateWait()
     {
+        TimeoutState state;
+        
         while (Full()) {
             RuntimeYield();
+            
+            __PYPTO_TIMEOUT_CHECK(state, TIMEOUT_NS_INFINITE, TIMEOUT_NS_10MIN,
+                WsErr::WORKSPACE_CAPACITY_INSUFFICIENT,
+                ,
+                "#ringbuffer.alloc: AllocateWait still waiting, ring buffer full.",
+                "#ringbuffer.alloc: AllocateWait timeout, ring buffer full.");
         }
     }
 

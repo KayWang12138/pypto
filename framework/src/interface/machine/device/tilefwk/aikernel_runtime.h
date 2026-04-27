@@ -17,9 +17,23 @@
 #define AIKERNEL_RUNTIME_H
 
 #include "tilefwk/aikernel_data.h"
+#include "tilefwk/error_code.h"
+
+#ifdef __DEVICE__
+#include "machine/utils/device_log.h"
+#endif
 
 constexpr int MAIN_BLOCK_INDEX = 1;
-constexpr uint64_t SYNC_TIMEOUT = 48000000000;
+
+constexpr uint64_t NSEC_PER_SEC = 1000000000ULL;
+
+#ifdef __DAV_V310
+    constexpr uint64_t SYNC_TIMEOUT = 960000000000ULL;
+#else
+    constexpr uint64_t SYNC_TIMEOUT = 48000000000ULL;
+#endif
+
+constexpr uint64_t SYNC_WARN_INTERVAL = SYNC_TIMEOUT / 4ULL;
 
 __always_inline uint64_t GetCycles()
 {
@@ -32,13 +46,39 @@ __always_inline uint64_t GetCycles()
 #endif
 }
 
+__always_inline uint64_t GetFreq()
+{
+#if defined(__aarch64__) && defined(__DEVICE__)
+    uint64_t freq;
+    asm volatile("mrs %0, cntfrq_el0" : "=r"(freq));
+    return freq;
+#else
+    return NSEC_PER_SEC;
+#endif
+}
+
 __always_inline void WaitAicoreStart([[maybe_unused]] npu::tile_fwk::DevStartArgsBase* startArgs)
 {
 #if defined(__aarch64__) && defined(__DEVICE__)
+    using namespace npu::tile_fwk;
+    
     uint64_t start = GetCycles();
+    uint64_t lastWarnCycles = 0;
+    
     while (startArgs->syncFlag != 1) {
-        if (GetCycles() - start > SYNC_TIMEOUT) {
+        uint64_t elapsedCycles = GetCycles() - start;
+        
+        if (elapsedCycles > SYNC_TIMEOUT) {
+            uint64_t elapsedSec = (elapsedCycles * NSEC_PER_SEC) / GetFreq();
+            DEV_ERROR(SchedErr::TASK_WAIT_TIMEOUT,
+                      "#aicore.start: WaitAicoreStart timeout, elapsed %lu sec.", elapsedSec);
             break;
+        }
+        
+        if (elapsedCycles > lastWarnCycles + SYNC_WARN_INTERVAL) {
+            uint64_t elapsedSec = (elapsedCycles * NSEC_PER_SEC) / GetFreq();
+            DEV_WARN("#aicore.start: WaitAicoreStart still waiting, elapsed %lu sec.", elapsedSec);
+            lastWarnCycles = elapsedCycles;
         }
     }
 #endif
