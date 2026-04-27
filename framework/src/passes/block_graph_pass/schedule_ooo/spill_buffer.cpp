@@ -198,11 +198,8 @@ void OoOScheduler::UpdateOpInternalSubgraphID(Operation &op, Operation* srcOp) {
 }
 
 void OoOScheduler::UpdateOpIsCube(Operation &op, Operation* srcOp) {
-    std::cout << "new op " <<  op.GetOpcodeStr().c_str() << " " << op.GetOpMagic() << std::endl;
-    std::cout << "srcOp op iscube: " <<  srcOp->GetOpcodeStr().c_str() << " " << srcOp->GetOpMagic() << " has cube: " << srcOp->HasAttribute(OpAttributeKey::isCube) << std::endl;
     if (srcOp->HasAttribute(OpAttributeKey::isCube)) {
         op.SetAttribute(OpAttributeKey::isCube, srcOp->GetBoolAttribute(OpAttributeKey::isCube));
-        std::cout << "new inset op " <<  op.GetOpcodeStr().c_str() << " " << op.GetOpMagic() << " isCube: " << srcOp->GetBoolAttribute(OpAttributeKey::isCube) << std::endl;
     }
 }
 
@@ -1066,7 +1063,7 @@ Status OoOScheduler::SpillParticalBuffer(SpillInfo &spillInfo, Operation* allocO
     assembleOp.UpdateLatency(1);
     UpdateIssueAttr(assembleOp, {assembleTensor->memoryrange.memId, assembleTensor->memoryrange.memId},
         allocOp, bufNextUseOrder, isGenSpill);
-    UpdateOpIsCube(newAssembleOp, spillInfo.spillOp_);
+    UpdateOpIsCube(assembleOp, spillInfo.spillOp_);
     numTotalIssues += TWO_ISSUE;
     return SUCCESS;
 }
