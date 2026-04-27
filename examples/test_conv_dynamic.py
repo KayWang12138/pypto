@@ -54,6 +54,7 @@ import pypto
 import torch
 import numpy as np
 import time
+import toolss
 global_run_mode = pypto.RunMode.NPU
 
 
@@ -725,8 +726,11 @@ def run_conv_test(
     print(f"Output shape: {out_shape}")
     
     if global_run_mode == pypto.RunMode.NPU:
-        all_pass = compare_precision(out, expected, rtol=1e-3, atol=1e-3, max_errors=100)
-        if all_pass:
+        # all_pass = compare_precision(out, expected, rtol=1e-3, atol=1e-3, max_errors=100)
+        golden = expected.cpu().to(torch.float32).numpy()
+        pto_res = out.cpu().to(torch.float32).numpy()
+        result = toolss.dataCompare(pto_res, golden, 0.001, 0.001)
+        if result == "Pass":
             print(f"✓ Test case '{case_name}' passed - All points matched tolerance!")
         else:
             print(f"✗ Test case '{case_name}' failed - Some points did not match tolerance")
