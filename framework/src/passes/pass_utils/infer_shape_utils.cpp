@@ -24,16 +24,16 @@ Status InferShapeUtils::InferShape(Function& function, const std::vector<Operati
     std::vector<Operation*> opList;
     std::unordered_set<Operation*> targetOpSet;
 
-    std::vector<Operation*> mutableTargetOps = targetOps;
-    mutableTargetOps.erase(std::remove_if(mutableTargetOps.begin(), mutableTargetOps.end(),
-        [](Operation* op) {return op == nullptr || op->IsDeleted();}), mutableTargetOps.end());
-    if (mutableTargetOps.empty()) {
+    if (targetOps.empty()) {
         opList = function.Operations().DuplicatedOpList();
     } else {
-        // 去重并保留顺序，同时构建 targetOpSet
-        opList.reserve(mutableTargetOps.size());
-        for (const auto op : mutableTargetOps) {
-            if (targetOpSet.insert(op).second) {
+        std::unordered_set<Operation*> validOps;
+        for (auto& op : function.Operations()) {
+            validOps.insert(&op);
+        }
+        opList.reserve(targetOps.size());
+        for (const auto op : targetOps) {
+            if (op != nullptr && validOps.find(op) != validOps.end() && targetOpSet.insert(op).second) {
                 opList.push_back(op);
             }
         }

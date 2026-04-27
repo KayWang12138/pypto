@@ -42,17 +42,17 @@ Status MergeViewAssembleUtils::Process(Function& function)
         APASS_LOG_ERROR_F(Elements::Function, "Processing operations failed.");
         return status;
     }
+    status = CleanUp(function);
+    if (status != SUCCESS) {
+        APASS_LOG_ERROR_F(Elements::Function, "Cleanup phase failed.");
+        return status;
+    }
     if (!newOps_.empty()) {
         status = InferShapeUtils::InferShape(function, newOps_);
         if (status != SUCCESS) {
             APASS_LOG_ERROR_F(Elements::Function, "InferShape for new operations failed.");
             return status;
         }
-    }
-    status = CleanUp(function);
-    if (status != SUCCESS) {
-        APASS_LOG_ERROR_F(Elements::Function, "Cleanup phase failed.");
-        return status;
     }
     return SUCCESS;
 }
