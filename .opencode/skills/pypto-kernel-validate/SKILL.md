@@ -155,7 +155,7 @@ python -m integration.benchmark.verifier verify \
   },
   "correctness": { /* verify_run.json.correctness, status 之外补 reasoning */ },
   "performance": { /* verify_run.json.performance, 同上 */ },
-  "final_verdict": "PASS | FAIL_CHEAT | FAIL_CORRECTNESS | FAIL_PERFORMANCE | ERROR",
+  "final_verdict": "PASS | FAIL_CHEAT | FAIL_CORRECTNESS | FAIL_PERFORMANCE | BASELINE_FAILED | ERROR",
   "final_reasoning": "<60-200 字的综合判定论述, 引用以上字段做依据>"
 }
 ```
@@ -163,11 +163,12 @@ python -m integration.benchmark.verifier verify \
 `final_verdict` 决定规则 (按优先级从上到下):
 
 1. `cheat_check_semantic.verdict == "cheat"` 或 `performance.cheat_multi_kernel == true` → `FAIL_CHEAT`
-2. `correctness.status != "passed"` → `FAIL_CORRECTNESS`
-3. mode 含性能且 `performance.status == "failed"` 或 `"error"` → `FAIL_PERFORMANCE`
-4. `cheat_check_script.verdict == "cheat"` 或 `cheat_check_script` / `cheat_check_semantic` 任一为 `suspicious` → 仍 `PASS`, 但 `final_reasoning` 必须明确列出未消的 warning / suspicious 项, 让调用方自行评估
-5. 其余 → `PASS`
-6. 任何 step 因技术性原因失败 (CLI 异常, 文件不可读, etc.) → `ERROR`
+2. `correctness.status != "passed"` 且 Step 3 日志明确显示 **KernelBench/PyTorch baseline 或 framework model 自身无法执行**（例如 torch_npu/aclnn 报参数不支持、baseline 在调用生成实现前失败、PyPTO 实现未被实际测试到）→ `BASELINE_FAILED`
+3. `correctness.status != "passed"` → `FAIL_CORRECTNESS`
+4. mode 含性能且 `performance.status == "failed"` 或 `"error"` → `FAIL_PERFORMANCE`
+5. `cheat_check_script.verdict == "cheat"` 或 `cheat_check_script` / `cheat_check_semantic` 任一为 `suspicious` → 仍 `PASS`, 但 `final_reasoning` 必须明确列出未消的 warning / suspicious 项, 让调用方自行评估
+6. 其余 → `PASS`
+7. 任何 step 因技术性原因失败 (CLI 异常, 文件不可读, etc.) → `ERROR`
 
 ## 输出契约
 

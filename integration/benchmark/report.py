@@ -76,7 +76,7 @@ class CaseRunRecord:
     perf_message: str = ""                         # perf 阶段独立消息 (如 "skipped: correctness failed")
 
     # 合并视角
-    overall_status: str = ""         # success / pypto_failed / verify_failed / verify_error
+    overall_status: str = ""         # success / pypto_failed / verify_failed / baseline_failed / verify_error
     started_at: str = ""
     finished_at: str = ""
 
@@ -112,6 +112,8 @@ def derive_overall_status(pypto_ok: bool, verifier_status: Optional[str],
         return "pypto_failed"
     if verifier_status == "passed" and correctness is True:
         return "success"
+    if verifier_status == "baseline_failed":
+        return "baseline_failed"
     if verifier_status == "failed":
         return "verify_failed"
     return "verify_error"
@@ -241,6 +243,7 @@ _STATUS_BADGE = {
     "success": "PASS",
     "pypto_failed": "FAIL (pypto)",
     "verify_failed": "FAIL (verify)",
+    "baseline_failed": "FAIL (baseline)",
     "verify_error": "ERROR",
 }
 
@@ -436,6 +439,15 @@ def _wall_from_record_dict(case: Dict[str, Any]) -> Optional[float]:
     return max(0.0, (t1 - t0).total_seconds())
 
 
+def _case_sort_key(record: CaseRunRecord) -> tuple:
+    """按 KernelBench case_id 前缀数字排序, 无数字时退化到字符串排序."""
+    head = (record.case_id or "").split("_", 1)[0]
+    try:
+        return (int(head), record.case_id)
+    except ValueError:
+        return (sys.maxsize, record.case_id)
+
+
 # ────────────────────────────────────────────────────────────
 # CLI (调试用)
 # ────────────────────────────────────────────────────────────
@@ -457,7 +469,20 @@ def _main_cli() -> int:
         except (json.JSONDecodeError, TypeError) as e:
             logger.warning("skip %s: %s", result_file, e)
 
-    paths = write_summary(records, args.report_dir)
+    records.sort(key=_case_sort_key)
+
+    meta = None
+    summary_json = args.report_dir / "summary.json"
+    if summary_json.is_file():
+        try:
+            existing = json.loads(summary_json.read_text(encoding="utf-8"))
+            existing_meta = existing.get("meta")
+            if isinstance(existing_meta, dict):
+                meta = existing_meta
+        except json.JSONDecodeError:
+            logger.warning("ignore invalid existing summary metadata: %s", summary_json)
+
+    paths = write_summary(records, args.report_dir, meta=meta)
     for k, p in paths.items():
         logger.info("%s: %s", k, p)
     return 0

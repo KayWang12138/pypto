@@ -297,6 +297,8 @@ def _compute_dev_status(op: Dict[str, Any], timeout_sec: int) -> str:
         return "PyPTO失败"
     if rs == "verify_failed":
         return "Verifier失败"
+    if rs == "baseline_failed":
+        return "Baseline失败"
     if rs == "verify_error":
         return "Verifier异常"
 
