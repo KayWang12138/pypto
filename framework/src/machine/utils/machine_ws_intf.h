@@ -127,8 +127,8 @@ struct LockableQueueGeneric : public QueueGeneric<T> {
     {
         const uint32_t t = __atomic_fetch_add(&this->tail, count, std::memory_order_release);
         // Faster analog of std::copy(x, x + count, this->elem + t);
-        auto err = memcpy_s(this->elem + t, sizeof(T) * (this->capacity() - t), x, sizeof(T) * count);
-        ASSERT(ProgEncodeErr::RANGE_VERIFY_FAILED, !err);
+        errno_t err = memcpy_s(this->elem + t, sizeof(T) * (this->capacity() - t), x, sizeof(T) * count);
+        ASSERT(ProgEncodeErr::RANGE_VERIFY_FAILED, err == 0);
     }
 
     __attribute__((always_inline)) inline bool try_enqueue(T x)
