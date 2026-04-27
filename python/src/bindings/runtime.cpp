@@ -105,12 +105,6 @@ void CopyToDev(const DeviceTensorData& devTensor, DeviceTensorData& hostTensor)
     CopyHostToDev(devTensor, hostTensor);
 }
 
-static bool ShouldDumpLaunchTensors()
-{
-    const char* flag = std::getenv("PYPTO_DEBUG_PRINT_TENSORS");
-    return flag != nullptr && std::string(flag) == "1";
-}
-
 static py::object GetTorchDtype(py::module_& torch, DataType dtype)
 {
     switch (dtype) {
@@ -152,42 +146,39 @@ static py::object GetTorchDtype(py::module_& torch, DataType dtype)
     }
 }
 
-static py::object MaterializeTorchTensor(const DeviceTensorData& tensor, py::handle sourceTorchTensor)
+static py::object MaterializeTorchTensor(const DeviceTensorData& tensor)
 {
     py::module_ torch = py::module_::import("torch");
     py::object dtype = GetTorchDtype(torch, tensor.GetDataType());
     if (dtype.is_none()) {
         throw std::runtime_error(
-            "Unsupported dtype for tensor dump: " + DataType2String(tensor.GetDataType()));
+            std::string("Unsupported dtype for tensor dump: ") + DataType2String(tensor.GetDataType()));
     }
 
-    const std::string deviceType = py::cast<std::string>(sourceTorchTensor.attr("device").attr("type"));
     const auto& shape = tensor.GetShape();
     const auto sizeInBytes = static_cast<py::ssize_t>(tensor.GetDataSize());
-
-    if (deviceType == "npu") {
-        std::vector<uint8_t> hostBuffer(static_cast<size_t>(sizeInBytes));
-        DeviceTensorData hostTensor(tensor.GetDataType(), hostBuffer.data(), shape, tensor.Format());
-        CopyToHost(tensor, hostTensor);
-
-        py::object view = torch.attr("frombuffer")(
-            py::memoryview::from_memory(hostBuffer.data(), sizeInBytes), py::arg("dtype") = dtype);
-        return view.attr("reshape")(py::cast(shape)).attr("clone")();
-    }
-
+    std::vector<uint8_t> hostBuffer(static_cast<size_t>(sizeInBytes));
+    DeviceTensorData hostTensor(tensor.GetDataType(), hostBuffer.data(), shape, tensor.Format());
+    CopyToHost(tensor, hostTensor);
     py::object view = torch.attr("frombuffer")(
-        py::memoryview::from_memory(tensor.GetAddr(), sizeInBytes), py::arg("dtype") = dtype);
-    return view.attr("reshape")(py::cast(shape));
+        py::memoryview::from_memory(hostBuffer.data(), sizeInBytes), py::arg("dtype") = dtype);
+    return view.attr("reshape")(py::cast(shape)).attr("clone")();
 }
 
-static void DumpLaunchTensors(py::sequence& torchTensors, const std::vector<DeviceTensorData>& tensors)
+static void DumpLaunchTensors(
+    const std::vector<DeviceTensorData>& tensors, std::optional<size_t> tensorIndex = std::nullopt)
 {
-    if (!ShouldDumpLaunchTensors()) {
+    if (tensorIndex.has_value() && tensorIndex.value() >= tensors.size()) {
+        py::print(
+            "[LaunchKernelTorch] tensor index out of range:", tensorIndex.value(),
+            "tensor_count=", tensors.size());
         return;
     }
 
     py::print("[LaunchKernelTorch] tensor dump begin");
-    for (size_t i = 0; i < tensors.size(); ++i) {
+    const size_t begin = tensorIndex.value_or(0);
+    const size_t end = tensorIndex.has_value() ? (begin + 1) : tensors.size();
+    for (size_t i = begin; i < end; ++i) {
         const auto& tensor = tensors[i];
         if (tensor.GetAddr() == nullptr) {
             py::print(
@@ -197,7 +188,7 @@ static void DumpLaunchTensors(py::sequence& torchTensors, const std::vector<Devi
         }
 
         try {
-            py::object materialized = MaterializeTorchTensor(tensor, torchTensors[py::int_(i)]);
+            py::object materialized = MaterializeTorchTensor(tensor);
             py::print(
                 "[LaunchKernelTorch] tensor", i, "shape=", tensor.GetShape(),
                 "dtype=", DataType2String(tensor.GetDataType()));
@@ -1172,7 +1163,7 @@ void LaunchKernelTorch(py::object& module, int64_t stream, py::sequence& torchTe
 
     std::vector<DeviceTensorData> tensors;
     int devId = TorchTensorConverter::Convert(torchTensors, tensorDefs, tensors);
-    DumpLaunchTensors(torchTensors, tensors);
+    DumpLaunchTensors(tensors, 0);
 
     KernelLauncher(module, stream, torchTensors, tensorDefs, tensors, devId).Execute();
 }
