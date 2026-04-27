@@ -115,6 +115,8 @@ public:
 
     std::string GenScatterElementSOp() const;
     std::string GenScatterOp() const;
+ 
+    std::string PrintScatterDynamicUnaligned() const;
 
     std::string GenIndexAddUBOp() const;
     std::string GenIndexAddOp() const;
@@ -455,11 +457,9 @@ protected:
     std::string PrintTmove() const;
     std::string PrintL0CToL1TileTensor() const;
 
-    std::string PrintScatterElementSOpStatic(const PrintScatterElemParam& param) const;
-    std::string PrintScatterElementSOpDynamicUnaligned(const PrintScatterElemParam& param) const;
-    std::string PrintScatterElementSTileTensor(const PrintScatterElemParam& param) const;
-    std::string PrintScatterOpDynamicUnaligned(const PrintScatterParam& param) const;
-    std::string PrintScatterTileTensor(const PrintScatterParam& param) const;
+    std::string PrintScatterElementSOpStatic(const PrintScatterElemParam &param) const;
+    std::string PrintScatterElementSOpDynamicUnaligned(const PrintScatterElemParam &param) const;
+    std::string PrintScatterElementSTileTensor(const PrintScatterElemParam &param) const;
 
     std::string PrintIndexAddUBDynamicUnaligned(const PrintIndexAddParam& param) const;
     std::string PrintIndexAddUBTileTensor(const PrintIndexAddParam& param) const;

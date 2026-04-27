@@ -600,6 +600,7 @@ void Operation::LoadOpAttributeFromJson(const Json& opDump, Opcode opcode)
             case Opcode::OP_TRANSPOSE_MOVEOUT:
             case Opcode::OP_INDEX_PUT:
             case Opcode::OP_INDEX_ADD:
+            case Opcode::OP_SCATTER: 
             case Opcode::OP_INDEX_OUTCAST:
                 opAttribute = DeserializeFrom<CopyOpAttribute>(attrJson);
                 break;

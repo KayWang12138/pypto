@@ -195,7 +195,7 @@ void SubgraphToFunction::RecordOutcastInfo(Function& function, RecordInfo record
     auto& op = *nLIST[i][j];
     if (op.HasAttribute(OpAttributeKey::inplaceIdx) &&
         (op.GetOpcode() != Opcode::OP_COPY_OUT && op.GetOpcode() != Opcode::OP_INDEX_PUT &&
-         op.GetOpcode() != Opcode::OP_INDEX_ADD)) {
+         op.GetOpcode() != Opcode::OP_INDEX_ADD && op.GetOpcode() != Opcode::OP_SCATTER)) {
         return;
     }
     if (function.IsFromOutCast(oOperand) || function.IsFromInCast(oOperand)) {
@@ -349,7 +349,7 @@ void SubgraphToFunction::ProcessOutputOperands(
         auto shape = oOperand->shape;
         if (tileOp.HasAttribute(OpAttributeKey::inplaceIdx) &&
             (tileOp.GetOpcode() != Opcode::OP_COPY_OUT && tileOp.GetOpcode() != Opcode::OP_INDEX_PUT) &&
-            tileOp.GetOpcode() != Opcode::OP_INDEX_ADD) {
+            tileOp.GetOpcode() != Opcode::OP_INDEX_ADD && tileOp.GetOpcode() != Opcode::OP_SCATTER) {
             return;
         }
         if (IsCopyOut(tileOp.GetOpcode())) {

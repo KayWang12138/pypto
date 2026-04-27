@@ -2498,7 +2498,7 @@ def scatter_tensor_golden_func(inputs, config: dict):
     # 当前A5 vscatter指令在index索引重复的情况下并不保证，计算时序，生成golden时需要保证index数据不重复。
     # 仅axis为尾轴时，会出现此问题，因为pto内部处理时，单次只处理index的一行数据，axis为其他值时单次处理并不会导致
     # 其他场景，例如reduce为add，当前还是用标量场景
-    is_regen_index = (axis == dims - 1 or axis + dims == dims - 1) and (len(reduceop) == 0 or reduceop == "None") and \
+    is_regen_index = (axis == dims - 1 or axis + dims == dims - 1) and (len(reduceop) == 0 or reduceop == "None" or reduceop == "add") and \
         (data_max >= shape[-1])
     if is_regen_index:
         if dims == 2:
