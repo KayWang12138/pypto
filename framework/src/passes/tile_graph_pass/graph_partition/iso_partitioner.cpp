@@ -33,7 +33,7 @@ Status IsoPartitioner::PartitionGraph(Function& function)
         for (auto& op : function.Operations()) {
             op.UpdateSubgraphID(0);
         }
-        function.SetTotalSubGraphCount(1);
+        function.SetTotalSubGraphCount(1); // only one subgraph
         APASS_LOG_INFO_F(Elements::Operation, "Graph Partition is skipped.");
         return SUCCESS;
     }
