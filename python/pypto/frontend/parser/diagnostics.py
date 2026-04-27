@@ -327,9 +327,12 @@ class Diagnostics:
         RenderedParserError
             Always raises RenderedParserError after displaying the diagnostic.
         """
-        self.emit(node, message, DiagnosticLevel.BUG)
-        self._render()
-        raise RenderedParserError(node, message)
+        # Keep bug details in exception message, but avoid extra diagnostic screen output.
+        # This removes the duplicated "INTERNAL BUG + source context" layer and leaves
+        # the normal Python exception chain as the primary output.
+        # Suppress exception chaining context to avoid duplicated traceback blocks:
+        # "During handling of the above exception, another exception occurred".
+        raise RenderedParserError(node, message) from None
 
     def error(self, node: ast.AST, message: str) -> NoReturn:
         """Generate an error-level diagnostic and raise an exception.
