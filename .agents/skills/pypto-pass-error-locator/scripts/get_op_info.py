@@ -27,8 +27,11 @@ PyPTO OP 信息查询工具
 import sys
 import os
 import json
+import logging
 import argparse
 from typing import Dict, List, Any, Optional
+
+logger = logging.getLogger(__name__)
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from ir_parser import IRParser, create_response, ERROR_CODES
@@ -124,7 +127,7 @@ class OpInfoExtractor:
             return []
         
         ops_list = []
-        for op_id, op in sorted(ir_file.operations.items()):
+        for _, op in sorted(ir_file.operations.items()):
             op_summary = {
                 "op_magic": op.op_id,
                 "opcode": op.opcode,
@@ -136,7 +139,8 @@ class OpInfoExtractor:
         
         return ops_list
     
-    def format_as_text(self, op_info: Dict[str, Any]) -> str:
+    @staticmethod
+    def format_as_text(op_info: Dict[str, Any]) -> str:
         """格式化为文本输出
         
         Args:
@@ -166,7 +170,9 @@ class OpInfoExtractor:
         
         lines.append("=== Input Tensors ===")
         for input_tensor in op_info['inputs']:
-            lines.append(f"[{input_tensor['index']}] Logic ID: {input_tensor['logic_id']}, Raw ID: {input_tensor['raw_id']}")
+            logic_id = input_tensor['logic_id']
+            raw_id = input_tensor['raw_id']
+            lines.append(f"[{input_tensor['index']}] Logic ID: {logic_id}, Raw ID: {raw_id}")
             if 'shape' in input_tensor:
                 lines.append(f"    Shape: {input_tensor['shape']}")
                 lines.append(f"    Valid Shape: {input_tensor['valid_shape']}")
@@ -203,7 +209,8 @@ class OpInfoExtractor:
         
         return "\n".join(lines)
     
-    def format_as_json(self, op_info: Dict[str, Any]) -> str:
+    @staticmethod
+    def format_as_json(op_info: Dict[str, Any]) -> str:
         """格式化为 JSON 输出
         
         Args:
@@ -214,7 +221,8 @@ class OpInfoExtractor:
         """
         return json.dumps(op_info, indent=2)
     
-    def format_ops_list_as_text(self, ops_list: List[Dict[str, Any]]) -> str:
+    @staticmethod
+    def format_ops_list_as_text(ops_list: List[Dict[str, Any]]) -> str:
         """格式化 OP 列表为文本输出
         
         Args:
@@ -233,7 +241,8 @@ class OpInfoExtractor:
         
         return "\n".join(lines)
     
-    def format_ops_list_as_json(self, ops_list: List[Dict[str, Any]]) -> str:
+    @staticmethod
+    def format_ops_list_as_json(ops_list: List[Dict[str, Any]]) -> str:
         """格式化 OP 列表为 JSON 输出
         
         Args:
@@ -272,7 +281,8 @@ class OpInfoExtractor:
         
         return None
     
-    def _extract_dtype_from_shape(self, shape: List[int]) -> str:
+    @staticmethod
+    def _extract_dtype_from_shape(shape: List[int]) -> str:
         """从 shape 中提取数据类型"""
         if not shape:
             return ""
@@ -297,7 +307,8 @@ Examples:
   python3 get_op_info.py --ir-file output/output_*/Pass_XX_Name/After_XX_PassName_funcname.tifwkgr --list-ops
   
   # Query operation with JSON output
-  python3 get_op_info.py --ir-file output/output_*/Pass_XX_Name/After_XX_PassName_funcname.tifwkgr --op-magic 10003 --format json
+  python3 get_op_info.py --ir-file output/output_*/Pass_XX_Name/After_XX_PassName_funcname.tifwkgr \
+    --op-magic 10003 --format json
         """
     )
     
@@ -316,24 +327,24 @@ Examples:
     if args.list_ops:
         ops_list = extractor.list_all_ops(args.ir_file)
         if not ops_list:
-            print(f"Error: Failed to parse IR file or no operations found: {args.ir_file}", file=sys.stderr)
+            logger.error(f"Failed to parse IR file or no operations found: {args.ir_file}")
             sys.exit(1)
         
         if args.format == 'json':
-            print(extractor.format_ops_list_as_json(ops_list))
+            logger.info(extractor.format_ops_list_as_json(ops_list))
         else:
-            print(extractor.format_ops_list_as_text(ops_list))
+            logger.info(extractor.format_ops_list_as_text(ops_list))
     
     else:
         op_info = extractor.get_op_info(args.ir_file, args.op_magic)
         if op_info is None:
-            print(f"Error: Operation with magic {args.op_magic} not found in IR file: {args.ir_file}", file=sys.stderr)
+            logger.error(f"Operation with magic {args.op_magic} not found in IR file: {args.ir_file}")
             sys.exit(1)
         
         if args.format == 'json':
-            print(extractor.format_as_json(op_info))
+            logger.info(extractor.format_as_json(op_info))
         else:
-            print(extractor.format_as_text(op_info))
+            logger.info(extractor.format_as_text(op_info))
 
 
 if __name__ == '__main__':
