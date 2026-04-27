@@ -49,6 +49,69 @@ class PrintNPUDataTool:
         self.print_header = self.pypto_root / "framework/src/interface/machine/device/tilefwk/aicore_print.h"
         
         self.cce_files: List[Path] = []
+    
+    @staticmethod
+    def parse_log(log_file: Path) -> Dict:
+        """解析日志获取打印数据"""
+        if not log_file or not log_file.exists():
+            return {}
+        
+        content = log_file.read_text(errors='ignore')
+        data = {
+            'tensor_data': [],
+            'shape_data': [],
+            'other_logs': []
+        }
+        
+        lines = content.split('\n')
+        for line in lines:
+            if 'tensor data, range=' in line:
+                data['tensor_data'].append(line)
+            elif 'shape' in line and ('dim' in line or '[' in line):
+                data['shape_data'].append(line)
+            elif 'AiCorePrintShape' in line or 'AiCoreLogF' in line or 'DumpAicoreLog' in line:
+                data['other_logs'].append(line)
+        
+        return data
+    
+    @staticmethod
+    def find_kernel_functions(cce_content: str) -> List[Dict]:
+        """解析CCE中的kernel函数结构"""
+        kernels = []
+        
+        pattern = r'\[aicore\]\s+void\s+(\w+)\s*\((.*?)\)\s*\{'
+        
+        for match in re.finditer(pattern, cce_content):
+            func_name = match.group(1)
+            params = match.group(2)
+            start_pos = match.start()
+            
+            brace_count = 0
+            end_pos = start_pos
+            for i in range(start_pos, len(cce_content)):
+                if cce_content[i] == '{':
+                    brace_count += 1
+                elif cce_content[i] == '}':
+                    brace_count -= 1
+                    if brace_count == 0:
+                        end_pos = i
+                        break
+            
+            kernels.append({
+                'name': func_name,
+                'start': start_pos,
+                'end': end_pos,
+                'params': params
+            })
+        
+        return kernels
+    
+    @staticmethod
+    def parse_shape_variables(content: str) -> List[str]:
+        """解析 CCE 中的 shape 变量"""
+        pattern = r'int64_t\s+(\w+_dim_\d+)\s*='
+        shape_vars = re.findall(pattern, content)
+        return shape_vars
         
     def check_env(self) -> bool:
         """检查必要的文件和目录"""
@@ -504,69 +567,6 @@ class PrintNPUDataTool:
                 report_lines.append("")
         
         return "\n".join(report_lines)
-    
-    @staticmethod
-    def find_kernel_functions(cce_content: str) -> List[Dict]:
-        """解析CCE中的kernel函数结构"""
-        kernels = []
-        
-        pattern = r'\[aicore\]\s+void\s+(\w+)\s*\((.*?)\)\s*\{'
-        
-        for match in re.finditer(pattern, cce_content):
-            func_name = match.group(1)
-            params = match.group(2)
-            start_pos = match.start()
-            
-            brace_count = 0
-            end_pos = start_pos
-            for i in range(start_pos, len(cce_content)):
-                if cce_content[i] == '{':
-                    brace_count += 1
-                elif cce_content[i] == '}':
-                    brace_count -= 1
-                    if brace_count == 0:
-                        end_pos = i
-                        break
-            
-            kernels.append({
-                'name': func_name,
-                'start': start_pos,
-                'end': end_pos,
-                'params': params
-            })
-        
-        return kernels
-    
-    @staticmethod
-    def parse_shape_variables(content: str) -> List[str]:
-        """解析 CCE 中的 shape 变量"""
-        pattern = r'int64_t\s+(\w+_dim_\d+)\s*='
-        shape_vars = re.findall(pattern, content)
-        return shape_vars
-    
-    @staticmethod
-    def parse_log(log_file: Path) -> Dict:
-        """解析日志获取打印数据"""
-        if not log_file or not log_file.exists():
-            return {}
-        
-        content = log_file.read_text(errors='ignore')
-        data = {
-            'tensor_data': [],
-            'shape_data': [],
-            'other_logs': []
-        }
-        
-        lines = content.split('\n')
-        for line in lines:
-            if 'tensor data, range=' in line:
-                data['tensor_data'].append(line)
-            elif 'shape' in line and ('dim' in line or '[' in line):
-                data['shape_data'].append(line)
-            elif 'AiCorePrintShape' in line or 'AiCoreLogF' in line or 'DumpAicoreLog' in line:
-                data['other_logs'].append(line)
-        
-        return data
 
 
 def main():

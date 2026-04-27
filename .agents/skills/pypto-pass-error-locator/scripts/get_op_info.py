@@ -43,6 +43,132 @@ class OpInfoExtractor:
     def __init__(self):
         self.parser = IRParser()
     
+    @staticmethod
+    def _extract_dtype_from_shape(shape: List[int]) -> str:
+        """从 shape 中提取数据类型"""
+        if not shape:
+            return ""
+        
+        for item in shape:
+            if isinstance(item, str) and item.startswith('DT_'):
+                return item
+        
+        return ""
+    
+    @staticmethod
+    def format_as_text(op_info: Dict[str, Any]) -> str:
+        """格式化为文本输出
+        
+        Args:
+            op_info: OP 信息字典
+            
+        Returns:
+            格式化后的文本字符串
+        """
+        lines = []
+        
+        lines.append("=== Operation Information ===")
+        lines.append(f"OP Magic: {op_info['op_magic']}")
+        lines.append(f"Opcode: {op_info['opcode']}")
+        lines.append(f"Line: {op_info['line']}")
+        lines.append("")
+        
+        lines.append("=== Output Tensor ===")
+        output = op_info['output']
+        lines.append(f"Logic Tensor ID: {output['logic_id']}")
+        lines.append(f"Raw Tensor ID: {output['raw_id']}")
+        lines.append(f"Shape: {output['shape']}")
+        lines.append(f"Valid Shape: {output['valid_shape']}")
+        lines.append(f"Data Type: {output['data_type']}")
+        lines.append(f"Memory Type: {output['memory_type']['read']}::{output['memory_type']['write']}")
+        lines.append(f"Subgraph ID: {output['subgraph_id']}")
+        lines.append("")
+        
+        lines.append("=== Input Tensors ===")
+        for input_tensor in op_info['inputs']:
+            logic_id = input_tensor['logic_id']
+            raw_id = input_tensor['raw_id']
+            lines.append(f"[{input_tensor['index']}] Logic ID: {logic_id}, Raw ID: {raw_id}")
+            if 'shape' in input_tensor:
+                lines.append(f"    Shape: {input_tensor['shape']}")
+                lines.append(f"    Valid Shape: {input_tensor['valid_shape']}")
+                lines.append(f"    Data Type: {input_tensor['data_type']}")
+            lines.append(f"    Memory Type: {input_tensor['memory_type']}")
+            lines.append(f"    Subgraph ID: {input_tensor['subgraph_id']}")
+        lines.append("")
+        
+        lines.append("=== Attributes ===")
+        if op_info['attributes']:
+            for attr_name, attr_value in op_info['attributes'].items():
+                lines.append(f"{attr_name}: {attr_value}")
+        else:
+            lines.append("(none)")
+        lines.append("")
+        
+        lines.append("=== Offset Information ===")
+        offset_info = op_info['offset_info']
+        if offset_info['offset'] or offset_info['dynoffset'] or offset_info['dynvalidshape']:
+            if offset_info['offset'] and offset_info['offset_direction']:
+                lines.append(f"{offset_info['offset_direction']} offset: {offset_info['offset']}")
+            if offset_info['dynoffset'] and offset_info['dynoffset_direction']:
+                lines.append(f"{offset_info['dynoffset_direction']} dynoffset: {offset_info['dynoffset']}")
+            if offset_info['dynvalidshape'] and offset_info['dynvalidshape_direction']:
+                lines.append(f"{offset_info['dynvalidshape_direction']} dynvalidshape: {offset_info['dynvalidshape']}")
+        else:
+            lines.append("(none)")
+        lines.append("")
+        
+        lines.append("=== Context ===")
+        context = op_info['context']
+        lines.append(f"Graph ID: {context['graph_id']}")
+        lines.append(f"Scope ID: {context['scope_id']}")
+        
+        return "\n".join(lines)
+    
+    @staticmethod
+    def format_as_json(op_info: Dict[str, Any]) -> str:
+        """格式化为 JSON 输出
+        
+        Args:
+            op_info: OP 信息字典
+            
+        Returns:
+            JSON 字符串
+        """
+        return json.dumps(op_info, indent=2)
+    
+    @staticmethod
+    def format_ops_list_as_text(ops_list: List[Dict[str, Any]]) -> str:
+        """格式化 OP 列表为文本输出
+        
+        Args:
+            ops_list: OP 列表
+            
+        Returns:
+            格式化后的文本字符串
+        """
+        lines = []
+        lines.append(f"Total Operations: {len(ops_list)}")
+        lines.append("")
+        
+        for op in ops_list:
+            lines.append(f"OP Magic: {op['op_magic']}, Opcode: {op['opcode']}, Line: {op['line']}")
+            lines.append(f"  Input Count: {op['input_count']}, Output Shape: {op['output_shape']}")
+        
+        return "\n".join(lines)
+    
+    @staticmethod
+    def format_ops_list_as_json(ops_list: List[Dict[str, Any]]) -> str:
+        """格式化 OP 列表为 JSON 输出
+        
+        Args:
+            ops_list: OP 列表
+            
+        Returns:
+            JSON 字符串
+        """
+        return json.dumps(ops_list, indent=2)
+        
     def get_op_info(self, ir_file_path: str, op_magic: int) -> Optional[Dict[str, Any]]:
         """获取指定 OP 的信息
         
@@ -166,132 +292,6 @@ class OpInfoExtractor:
                 }
         
         return None
-    
-    @staticmethod
-    def format_as_text(op_info: Dict[str, Any]) -> str:
-        """格式化为文本输出
-        
-        Args:
-            op_info: OP 信息字典
-            
-        Returns:
-            格式化后的文本字符串
-        """
-        lines = []
-        
-        lines.append("=== Operation Information ===")
-        lines.append(f"OP Magic: {op_info['op_magic']}")
-        lines.append(f"Opcode: {op_info['opcode']}")
-        lines.append(f"Line: {op_info['line']}")
-        lines.append("")
-        
-        lines.append("=== Output Tensor ===")
-        output = op_info['output']
-        lines.append(f"Logic Tensor ID: {output['logic_id']}")
-        lines.append(f"Raw Tensor ID: {output['raw_id']}")
-        lines.append(f"Shape: {output['shape']}")
-        lines.append(f"Valid Shape: {output['valid_shape']}")
-        lines.append(f"Data Type: {output['data_type']}")
-        lines.append(f"Memory Type: {output['memory_type']['read']}::{output['memory_type']['write']}")
-        lines.append(f"Subgraph ID: {output['subgraph_id']}")
-        lines.append("")
-        
-        lines.append("=== Input Tensors ===")
-        for input_tensor in op_info['inputs']:
-            logic_id = input_tensor['logic_id']
-            raw_id = input_tensor['raw_id']
-            lines.append(f"[{input_tensor['index']}] Logic ID: {logic_id}, Raw ID: {raw_id}")
-            if 'shape' in input_tensor:
-                lines.append(f"    Shape: {input_tensor['shape']}")
-                lines.append(f"    Valid Shape: {input_tensor['valid_shape']}")
-                lines.append(f"    Data Type: {input_tensor['data_type']}")
-            lines.append(f"    Memory Type: {input_tensor['memory_type']}")
-            lines.append(f"    Subgraph ID: {input_tensor['subgraph_id']}")
-        lines.append("")
-        
-        lines.append("=== Attributes ===")
-        if op_info['attributes']:
-            for attr_name, attr_value in op_info['attributes'].items():
-                lines.append(f"{attr_name}: {attr_value}")
-        else:
-            lines.append("(none)")
-        lines.append("")
-        
-        lines.append("=== Offset Information ===")
-        offset_info = op_info['offset_info']
-        if offset_info['offset'] or offset_info['dynoffset'] or offset_info['dynvalidshape']:
-            if offset_info['offset'] and offset_info['offset_direction']:
-                lines.append(f"{offset_info['offset_direction']} offset: {offset_info['offset']}")
-            if offset_info['dynoffset'] and offset_info['dynoffset_direction']:
-                lines.append(f"{offset_info['dynoffset_direction']} dynoffset: {offset_info['dynoffset']}")
-            if offset_info['dynvalidshape'] and offset_info['dynvalidshape_direction']:
-                lines.append(f"{offset_info['dynvalidshape_direction']} dynvalidshape: {offset_info['dynvalidshape']}")
-        else:
-            lines.append("(none)")
-        lines.append("")
-        
-        lines.append("=== Context ===")
-        context = op_info['context']
-        lines.append(f"Graph ID: {context['graph_id']}")
-        lines.append(f"Scope ID: {context['scope_id']}")
-        
-        return "\n".join(lines)
-    
-    @staticmethod
-    def format_as_json(op_info: Dict[str, Any]) -> str:
-        """格式化为 JSON 输出
-        
-        Args:
-            op_info: OP 信息字典
-            
-        Returns:
-            JSON 字符串
-        """
-        return json.dumps(op_info, indent=2)
-    
-    @staticmethod
-    def format_ops_list_as_text(ops_list: List[Dict[str, Any]]) -> str:
-        """格式化 OP 列表为文本输出
-        
-        Args:
-            ops_list: OP 列表
-            
-        Returns:
-            格式化后的文本字符串
-        """
-        lines = []
-        lines.append(f"Total Operations: {len(ops_list)}")
-        lines.append("")
-        
-        for op in ops_list:
-            lines.append(f"OP Magic: {op['op_magic']}, Opcode: {op['opcode']}, Line: {op['line']}")
-            lines.append(f"  Input Count: {op['input_count']}, Output Shape: {op['output_shape']}")
-        
-        return "\n".join(lines)
-    
-    @staticmethod
-    def format_ops_list_as_json(ops_list: List[Dict[str, Any]]) -> str:
-        """格式化 OP 列表为 JSON 输出
-        
-        Args:
-            ops_list: OP 列表
-            
-        Returns:
-            JSON 字符串
-        """
-        return json.dumps(ops_list, indent=2)
-    
-    @staticmethod
-    def _extract_dtype_from_shape(shape: List[int]) -> str:
-        """从 shape 中提取数据类型"""
-        if not shape:
-            return ""
-        
-        for item in shape:
-            if isinstance(item, str) and item.startswith('DT_'):
-                return item
-        
-        return ""
 
 
 def main():
