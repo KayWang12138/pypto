@@ -84,13 +84,9 @@ Status SplitReshape::RunOnFunction(Function& function)
         return FAILED;
     }
     if (!addedOps_.empty()) {
-        addedOps_.erase(std::remove_if(addedOps_.begin(), addedOps_.end(),
-            [](Operation* op) { return op == nullptr || op->IsDeleted(); }), addedOps_.end());
-        if (!addedOps_.empty()) {
-            if (InferShapeUtils::InferShape(function, addedOps_) != SUCCESS) {
-                APASS_LOG_ERROR_F(Elements::Function, "InferShape for added ops failed.");
-                return FAILED;
-            }
+        if (InferShapeUtils::InferShape(function, addedOps_) != SUCCESS) {
+            APASS_LOG_ERROR_F(Elements::Function, "InferShape for added ops failed.");
+            return FAILED;
         }
     }
     APASS_LOG_INFO_F(Elements::Function, "===> End SplitReshapeOp.");

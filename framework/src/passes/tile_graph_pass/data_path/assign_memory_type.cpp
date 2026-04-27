@@ -13,7 +13,6 @@
  * \brief
  */
 
-#include <algorithm>
 #include "assign_memory_type.h"
 
 #include <unordered_set>
@@ -82,7 +81,16 @@ Status AssignMemoryType::RunOnFunction(Function& function)
     ProcesSmallTileToLargeTile(function);
     ProcessLargeTileToSamllTile(function);
 
-    // 插入convert op
+    Status insertStatus = InsertConvertOpsAndInferShape(function);
+    if (insertStatus != SUCCESS) {
+        return insertStatus;
+    }
+    APASS_LOG_INFO_F(Elements::Function, "===> End AssignMemoryType.");
+    return SUCCESS;
+}
+
+Status AssignMemoryType::InsertConvertOpsAndInferShape(Function& function)
+{
     std::unordered_set<Operation*> existingOps;
     for (auto& op : function.Operations()) {
         existingOps.insert(&op);
@@ -91,24 +99,18 @@ Status AssignMemoryType::RunOnFunction(Function& function)
     if (insertionStatus != SUCCESS) {
         return insertionStatus;
     }
+    addedOps_.clear();
     for (auto& op : function.Operations()) {
         if (existingOps.find(&op) == existingOps.end()) {
             addedOps_.push_back(&op);
         }
     }
-    // 对插入的convert op进行dynValidShape推导
     if (!addedOps_.empty()) {
-        addedOps_.erase(std::remove_if(addedOps_.begin(), addedOps_.end(),
-            [](Operation* op) { return op == nullptr || op->IsDeleted(); }), addedOps_.end());
-        if (!addedOps_.empty()) {
-            if (InferShapeUtils::InferShape(function, addedOps_) != SUCCESS) {
-                APASS_LOG_ERROR_F(Elements::Function, "InferShape for added ops failed.");
-                return FAILED;
-            }
+        if (InferShapeUtils::InferShape(function, addedOps_) != SUCCESS) {
+            APASS_LOG_ERROR_F(Elements::Function, "InferShape for added ops failed.");
+            return FAILED;
         }
-        addedOps_.clear();
     }
-    APASS_LOG_INFO_F(Elements::Function, "===> End AssignMemoryType.");
     return SUCCESS;
 }
 

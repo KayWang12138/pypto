@@ -1974,19 +1974,20 @@ TEST_F(SplitLargeFanoutTensorTest, TestSimplifyOverlapDualOverlap)
         EXPECT_EQ(countResultAfter[1], expectAssembleCount);
     }
 }
-TEST_F(SplitLargeFanoutTensorTest, InferShape_NewOpsHaveDynValidShape)
+
+
+Function* BuildInferShapeTestGraph(SplitLargeFanoutTensorTest& testObj)
 {
     int N = 2;
     int T = 8;
     std::vector<int64_t> shape0{N * T, N * T};
     std::vector<int64_t> shape1{T, T};
-    std::vector<int64_t> shape2{N * T, T};
     ComputationalGraphBuilder G;
     G.AddTensor(DataType::DT_FP32, shape0, "a");
     G.AddTensor(DataType::DT_FP32, shape0, "b");
     G.AddTensor(DataType::DT_FP32, shape1, "out");
     G.AddTensor(DataType::DT_FP32, shape0, "sub_out");
-    TileExpandSub(G, N, T);
+    testObj.TileExpandSub(G, N, T);
     auto subOut = G.GetTensor("sub_out");
     subOut->SetMemoryTypeBoth(MemoryType::MEM_UNKNOWN, true);
 
@@ -2030,12 +2031,30 @@ TEST_F(SplitLargeFanoutTensorTest, InferShape_NewOpsHaveDynValidShape)
 
     G.SetInCast({"a", "b"});
     G.SetOutCast({"out"});
-    Function* function = G.GetFunction();
+    return G.GetFunction();
+}
+
+TEST_F(SplitLargeFanoutTensorTest, InferShape_NewOpsHaveDynValidShape)
+{
+    Function* function = BuildInferShapeTestGraph(*this);
+    ASSERT_NE(function, nullptr);
 
     npu::tile_fwk::SplitLargeFanoutTensor splitLargeFanoutTensor;
     EXPECT_EQ(SUCCESS, splitLargeFanoutTensor.PreCheck(*function));
     EXPECT_EQ(SUCCESS, splitLargeFanoutTensor.RunOnFunction(*function));
     EXPECT_EQ(SUCCESS, splitLargeFanoutTensor.PostCheck(*function));
+
+    bool hasAssembleWithDynValidShape = false;
+    for (auto& op : function->Operations()) {
+        if (op.GetOpcode() == Opcode::OP_ASSEMBLE) {
+            auto outputDynShape = op.GetOOperands().front()->GetDynValidShape();
+            if (!outputDynShape.empty()) {
+                hasAssembleWithDynValidShape = true;
+                break;
+            }
+        }
+    }
+    EXPECT_TRUE(hasAssembleWithDynValidShape) << "At least one ASSEMBLE op output should have DynValidShape";
 }
 
 } // namespace tile_fwk

@@ -48,6 +48,7 @@ private:
     void AssignOpViewTypeMemtype(Operation& op);
     void AssignOpNopMemtype(Operation& op);
     void AssignMemtypeForSplitReshape(Operation& op, const LogicalTensorPtr& input, const LogicalTensorPtr& output);
+    Status InsertConvertOpsAndInferShape(Function& function);
     void UpdateOverSizedLocalBufferForAssemble(Operation& operation);
     void UpdateOverSizedLocalBufferForView(Operation& operation);
     void ProcesSmallTileToLargeTile(Function& function);
