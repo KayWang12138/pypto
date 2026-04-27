@@ -365,7 +365,7 @@ void CoreScheduler::ScheduleOneTask(
 
         auto getLastFinishBefore = [&](TargetCoreType core, std::pair<int, int> intervalAIV) -> int {
             for (auto& slot : availTime[core]) {
-                if (slot.second >= intervalAIV.first) {
+                if (slot.second >= intervalAIV.first && slot.first <= intervalAIV.first) {
                     return slot.first;
                 }
             }
