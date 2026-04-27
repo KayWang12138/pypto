@@ -718,7 +718,11 @@ Status IsoPartitioner::SetParameter(
     int32_t parallelNum, int32_t pgLowerBound, bool useReduceBalanceHash, bool skipPartition)
 {
     skipPartition_ = skipPartition;
-    if (skipPartition) {
+    auto platform = Platform::Instance().GetSoc().GetNPUArch();
+    if (platform == NPUArch::DAV_3113) {
+        skipPartition_ = true;
+    }
+    if (skipPartition_) {
         return SUCCESS;
     }
     if (parallelNum < 0) {
