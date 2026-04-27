@@ -168,6 +168,7 @@ enum class Opcode {
     OP_BITWISEXOR,
     OP_FLOORDIV,
     OP_FLOORDIVS,
+    OP_QUANT_MX,
 
     // Cube
     OP_A_MUL_B,

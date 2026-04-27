@@ -16,7 +16,7 @@ from .._element import Element
 from .._op_wrapper import op_wrapper
 from ..error import PyptoError
 from ..tensor import Tensor
-from ..enum import DataType, DivAlgorithm, ExpAlgorithm, SqrtAlgorithm, RsqrtAlgorithm, LogAlgorithm, RecipAlgorithm
+from ..enum import DataType, DivAlgorithm, ExpAlgorithm, SqrtAlgorithm, RsqrtAlgorithm, LogAlgorithm, RecipAlgorithm, DequantScaleRoundingMode
 from ..symbolic_scalar import SymbolicScalar, SymInt
 
 
@@ -242,6 +242,41 @@ def div(
         return pypto_impl.Div(input, other, precision_type)
     else:
         return pypto_impl.Div(input, pypto_impl.Element(input.dtype, other), precision_type)
+
+
+@op_wrapper
+def quant_mx(
+    input: Tensor,
+    quant_dtype: DataType = DataType.DT_FP8E4M3,
+    mode: DequantScaleRoundingMode = DequantScaleRoundingMode.ROUND_DOWN,
+    axis: int = -1,
+    performance_mode: bool = False,
+) -> Tuple[Tensor, Tensor]:
+    """Quantizes a 1D to 4D FP16/BF16/FP32 ND tensor to MX format.
+
+    Returns
+    -------
+    tuple
+        A tuple of `(quantized, scale)` where:
+        - `quantized` has the same shape as `input` and dtype `quant_dtype`
+        - `scale` has shape `[*input.shape[:-1], ceil(input.shape[-1] / 64), 2]`
+          and dtype `DT_FP8E8M0`
+        - in performance mode, the internal TQuant scale buffer uses a grouped layout with
+          the last two input dimensions collapsed before it is reshaped to the public `scale` shape
+
+    Notes
+    -----
+    `axis` may be specified as the last dimension using either a positive or negative index.
+    `mode` defaults to `ROUND_DOWN`, the OCP-standard mode currently implemented by QuantMX.
+    `performance_mode` uses a performance-oriented internal TQuant layout. The quantization-axis
+    tile and view width must still be 256-byte aligned, and ST coverage should choose runtime
+    last-dimension sizes whose possible view widths can be tiled without a tail tile. In practice
+    this means the runtime last dimension should be a multiple of the tail-axis tile width
+    (for example, multiples of 64 for FP32 or 128 for FP16/BF16 when using 256-byte-aligned tiles).
+    """
+
+    return pypto_impl.QuantMX(input, quant_dtype, mode, axis, performance_mode)
+
 
 
 @op_wrapper
