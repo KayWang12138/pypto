@@ -47,6 +47,7 @@ from __future__ import annotations
 import logging
 import os
 import re
+import shutil
 from pathlib import Path
 from typing import Any, Dict, Optional
 
@@ -183,6 +184,7 @@ class KernelVerifier:
             return False, log
         finally:
             await self._release_device(actual_device_id)
+            self._cleanup_verify_dir(verify_dir)
 
     async def run_profile(
         self,
@@ -271,6 +273,7 @@ class KernelVerifier:
             }
         finally:
             await self._release_device(actual_device_id)
+            self._cleanup_verify_dir(verify_dir)
 
     # ---------- 工件落盘 ----------
 
@@ -280,6 +283,32 @@ class KernelVerifier:
         d = Path(expanded) / self.op_name / unique
         d.mkdir(parents=True, exist_ok=True)
         return d
+
+    def _keep_artifacts(self) -> bool:
+        value = self.config.get("keep_artifacts", False)
+        if isinstance(value, str):
+            return value.strip().lower() in ("1", "true", "yes", "on")
+        return bool(value)
+
+    def _cleanup_verify_dir(self, verify_dir: Path) -> None:
+        if self._keep_artifacts():
+            logger.info("[%s] keeping verifier artifacts: %s", self.op_name, verify_dir)
+            return
+        try:
+            shutil.rmtree(verify_dir)
+            self._cleanup_empty_op_dir(verify_dir.parent)
+            logger.debug("[%s] cleaned verifier artifacts: %s", self.op_name, verify_dir)
+        except FileNotFoundError:
+            return
+        except Exception:
+            logger.warning("[%s] failed to clean verifier artifacts: %s", self.op_name, verify_dir,
+                           exc_info=True)
+
+    def _cleanup_empty_op_dir(self, op_dir: Path) -> None:
+        try:
+            op_dir.rmdir()
+        except OSError:
+            return
 
     def _framework_filename(self) -> str:
         return f"{self.op_name}_torch.py"

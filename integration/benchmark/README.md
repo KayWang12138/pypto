@@ -376,7 +376,10 @@ pypto/.opencode/
 所有 CLI 选项都可通过 `configs/default.yaml` 设置默认值. 完整字段见配置文件注释.
 
 `verifier` 子包默认把工作目录写到 `~/pypto_bench_logs/Task_<rand>/<op>/`,
-可通过 CLI `--log-dir` 或环境变量 `PYPTO_BENCH_LOG_DIR` 覆盖.
+可通过 CLI `--log-dir` 或环境变量 `PYPTO_BENCH_LOG_DIR` 覆盖. `verify` /
+`profile` 临时脚本和源码副本默认在运行后清理; 调试时可传
+`--keep-verifier-artifacts` (批处理) / `--keep-artifacts` (verifier CLI),
+或设置 `PYPTO_BENCH_KEEP_ARTIFACTS=1` 保留.
 
 ## 已知约束
 

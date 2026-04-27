@@ -24,8 +24,9 @@ from typing import Any, Dict, Optional
 
 _DEFAULTS: Dict[str, Any] = {
     # KernelVerifier 把每次 run 的工件写到 ``log_dir/<op>/Iteration<task>_Step<step>_verify``.
-    # 桥接层一般会在 run_verifier 里覆盖成调用方传入的 log_dir.
+    # 默认运行后清理这些临时工件; 调试时设置 keep_artifacts=True 保留.
     "log_dir": "~/pypto_bench_logs",
+    "keep_artifacts": False,
 
     # 单次 verify 子进程超时(秒). 默认 15 分钟, 避免较慢算子在 autotune / profile
     # 路径上过早超时. 桥接层仍可通过 CLI --timeout / verify_timeout 覆盖.
@@ -59,7 +60,7 @@ def load_config(
 
     Returns:
         dict: 包含 ``log_dir`` / ``verify_timeout`` / ``pypto_run_mode``
-              / ``profile_settings`` 的浅拷贝. ``log_dir`` 已根据
+              / ``profile_settings`` / ``keep_artifacts`` 的浅拷贝. ``log_dir`` 已根据
               ``PYPTO_BENCH_LOG_DIR`` 环境变量或默认 ``~/pypto_bench_logs``
               展开为 ``<root>/Task_<rand>``.
 
@@ -78,6 +79,7 @@ def load_config(
 
     config: Dict[str, Any] = {
         "log_dir": _DEFAULTS["log_dir"],
+        "keep_artifacts": _DEFAULTS["keep_artifacts"],
         "verify_timeout": _DEFAULTS["verify_timeout"],
         "pypto_run_mode": _DEFAULTS["pypto_run_mode"],
         "profile_settings": dict(_DEFAULTS["profile_settings"]),
@@ -87,4 +89,7 @@ def load_config(
     base_log_dir = env_dir if env_dir else config["log_dir"]
     root_dir = os.path.expanduser(base_log_dir)
     config["log_dir"] = str(Path(root_dir) / f"Task_{uuid.uuid4().hex}")
+    keep_env = (os.environ.get("PYPTO_BENCH_KEEP_ARTIFACTS") or "").strip().lower()
+    if keep_env:
+        config["keep_artifacts"] = keep_env in ("1", "true", "yes", "on")
     return config

@@ -84,6 +84,10 @@ verifier:
   skill_retry_interval_sec: 600
   # KernelVerifier 工作目录根.
   log_dir: "~/pypto_bench_logs"
+  # 是否保留 KernelVerifier verify/profile 临时工作目录.
+  # 默认 false: 子进程日志已进入报告/JSON 摘要后清理脚本和源码副本.
+  # 调试 verify/profile 脚本时可设为 true, 或 CLI 传 --keep-verifier-artifacts.
+  keep_artifacts: false
 
 # --- 报告 ---
 report:
