@@ -965,7 +965,7 @@ Status ReplaceTensor::FindNeedToCopyAssemble(
     if ((!producers.empty()) && (*producers.begin())->GetOpcode() == Opcode::OP_TRANSPOSE_MOVEOUT) {
         return FAILED;
     }
-    const int UB_SIZE_THRESHOLD = static_cast<int>(Platform::Instance().GetDie().GetMemoryLimit;
+    const int UB_SIZE_THRESHOLD = static_cast<int>(Platform::Instance().GetDie().GetMemoryLimit(MemoryType::MEM_UB));
     if (inOp->GetOpcode() == Opcode::OP_RESHAPE &&
         op.GetIOperands()[0]->tensor->GetRawDataSize() <= UB_SIZE_THRESHOLD) {
         needInsertCopyAssOps.insert(&op);
