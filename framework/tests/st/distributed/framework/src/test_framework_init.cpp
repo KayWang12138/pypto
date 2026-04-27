@@ -19,7 +19,7 @@
 #include <sstream>
 #include <mutex>
 #include <dlfcn.h>
-#include "machine/runtime/runtime.h"
+#include "machine/runtime/runtime_utils.h"
 #include "distributed_test_framework.h"
 #include "tilefwk/pypto_fwk_log.h"
 #include "adapter/api/hcomm_api.h"
