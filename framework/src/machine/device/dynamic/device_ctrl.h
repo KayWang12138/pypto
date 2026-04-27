@@ -25,6 +25,7 @@
 #include "machine/utils/machine_ws_intf.h"
 #include "machine/utils/device_log.h"
 #include "machine/utils/barrier.h"
+#include "machine/utils/perf_event_sampler.h"
 #include "machine/device/dynamic/aicore_prof.h"
 #include "device_trace.h"
 #ifdef __DEVICE__
@@ -297,6 +298,11 @@ public:
     {
         DEV_INFO("start control flow.");
         DEV_ATRACE("start control flow.");
+#ifdef __DEVICE__
+#if AICPU_PMU_EVENT_ENABLE
+        AICPU_PMU_SCOPE("ExecDyn");
+#endif
+#endif
         auto devProg = PtrToPtr<int64_t, DevAscendProgram>(args->cfgdata);
         auto devStartArgs = (DevStartArgs*)devProg->GetRuntimeDataList()->GetRuntimeDataPending();
 
