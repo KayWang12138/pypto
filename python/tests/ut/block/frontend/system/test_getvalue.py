@@ -80,7 +80,7 @@ def _verify_outputs(tag, tensor, original_values):
 
 @fe.jit()
 def test_tile_getval_setval():
-    device = "npu:5"
+    device = "npu:7"
     torch.npu.set_device(device)
 
     shape = [64, 128]

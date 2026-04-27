@@ -144,7 +144,7 @@ def test_dynamic_matmul_qb():
     compiled_lib = fe.compile(dynamic_matmul_qb_kernel, arch="a3")
     print("compiled lib path:", compiled_lib.lib_path)
 
-    device = "npu:5"
+    device = "npu:7"
     torch.npu.set_device(device)
 
     shapes = [

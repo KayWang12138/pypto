@@ -640,7 +640,7 @@ def flash_attention_ref(q, k, v, d):
 def test_fa_perf():
     compiled = fe.compile(fa_perf_tkv_preload_kernel, arch="a3", codegen_mode="cce")
     print("compiled:", compiled.lib_path)
-    device = "npu:5"
+    device = "npu:7"
     torch.npu.set_device(device)
     torch.manual_seed(42)
     for sq, skv, d, num_cores in [
