@@ -139,6 +139,34 @@ class OpInfoExtractor:
         
         return ops_list
     
+    def _find_tensor_info(self, ir_file, logic_id: int) -> Optional[Dict[str, Any]]:
+        """查找 tensor 信息"""
+        for cast in ir_file.incasts.values():
+            if cast.logic_tensor_id == logic_id:
+                return {
+                    "shape": cast.shape,
+                    "valid_shape": cast.valid_shape,
+                    "data_type": ""
+                }
+        
+        for cast in ir_file.outcasts.values():
+            if cast.logic_tensor_id == logic_id:
+                return {
+                    "shape": cast.shape,
+                    "valid_shape": cast.valid_shape,
+                    "data_type": ""
+                }
+        
+        for op in ir_file.operations.values():
+            if op.output_logic_id == logic_id:
+                return {
+                    "shape": op.output_shape,
+                    "valid_shape": op.output_valid_shape,
+                    "data_type": self._extract_dtype_from_shape(op.output_shape)
+                }
+        
+        return None
+    
     @staticmethod
     def format_as_text(op_info: Dict[str, Any]) -> str:
         """格式化为文本输出
@@ -252,34 +280,6 @@ class OpInfoExtractor:
             JSON 字符串
         """
         return json.dumps(ops_list, indent=2)
-    
-    def _find_tensor_info(self, ir_file, logic_id: int) -> Optional[Dict[str, Any]]:
-        """查找 tensor 信息"""
-        for cast in ir_file.incasts.values():
-            if cast.logic_tensor_id == logic_id:
-                return {
-                    "shape": cast.shape,
-                    "valid_shape": cast.valid_shape,
-                    "data_type": ""
-                }
-        
-        for cast in ir_file.outcasts.values():
-            if cast.logic_tensor_id == logic_id:
-                return {
-                    "shape": cast.shape,
-                    "valid_shape": cast.valid_shape,
-                    "data_type": ""
-                }
-        
-        for op in ir_file.operations.values():
-            if op.output_logic_id == logic_id:
-                return {
-                    "shape": op.output_shape,
-                    "valid_shape": op.output_valid_shape,
-                    "data_type": self._extract_dtype_from_shape(op.output_shape)
-                }
-        
-        return None
     
     @staticmethod
     def _extract_dtype_from_shape(shape: List[int]) -> str:

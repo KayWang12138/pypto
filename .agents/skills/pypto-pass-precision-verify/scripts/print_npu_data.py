@@ -138,55 +138,15 @@ class PrintNPUDataTool:
                 matched.append(cce)
         return matched
     
-    @staticmethod
-    def find_kernel_functions(cce_content: str) -> List[Dict]:
-        """解析CCE中的kernel函数结构"""
-        kernels = []
-        
-        # 匹配 kernel 函数定义
-        # 格式: [aicore] void NAME(CoreFuncParam *param, ...)
-        pattern = r'\[aicore\]\s+void\s+(\w+)\s*\((.*?)\)\s*\{'
-        
-        for match in re.finditer(pattern, cce_content):
-            func_name = match.group(1)
-            params = match.group(2)
-            start_pos = match.start()
-            
-            # 找到函数结束位置（简单的括号匹配）
-            brace_count = 0
-            end_pos = start_pos
-            for i in range(start_pos, len(cce_content)):
-                if cce_content[i] == '{':
-                    brace_count += 1
-                elif cce_content[i] == '}':
-                    brace_count -= 1
-                    if brace_count == 0:
-                        end_pos = i
-                        break
-            
-            kernels.append({
-                'name': func_name,
-                'start': start_pos,
-                'end': end_pos,
-                'params': params
-            })
-        
-        return kernels
-    
     def parse_cce_structure(self, cce_file: Path) -> Dict:
         """解析CCE文件结构"""
         content = cce_file.read_text()
         
-        # 找到所有GM/UB tensor声明（支持TileTensor格式）
-        # 格式1: GMTileTensorXXX gmTensor_N(...)
         gm_tensors = re.findall(r'\bgmTensor_\w+', content)
-        # 格式2: UBTileTensorXXX ubTensor_N(...)
         ub_tensors = re.findall(r'\bubTensor_\w+', content)
         
-        # 找到shape变量
         shape_vars = self.parse_shape_variables(content)
         
-        # 找到kernel函数
         kernels = self.find_kernel_functions(content)
         
         return {
@@ -196,19 +156,6 @@ class PrintNPUDataTool:
             'kernels': kernels,
             'content': content
         }
-    
-    @staticmethod
-    def parse_shape_variables(content: str) -> List[str]:
-        """解析 CCE 中的 shape 变量
-        
-        识别格式如:
-        - int64_t sym_15_dim_0 = ...;
-        - int64_t sym_15_dim_1 = ...;
-        """
-        # 匹配 shape 维度变量
-        pattern = r'int64_t\s+(\w+_dim_\d+)\s*='
-        shape_vars = re.findall(pattern, content)
-        return shape_vars
     
     def add_shape_print(self, cce_file: Path, shape_vars: List[str], use_single_value: bool = False):
         """添加 shape 打印语句到 CCE 文件
@@ -402,31 +349,6 @@ class PrintNPUDataTool:
         
         return result.returncode, log_file
     
-    @staticmethod
-    def parse_log(log_file: Path) -> Dict:
-        """解析日志获取打印数据"""
-        if not log_file or not log_file.exists():
-            return {}
-        
-        content = log_file.read_text(errors='ignore')
-        data = {
-            'tensor_data': [],
-            'shape_data': [],
-            'other_logs': []
-        }
-        
-        # 解析打印数据
-        lines = content.split('\n')
-        for line in lines:
-            if 'tensor data, range=' in line:
-                data['tensor_data'].append(line)
-            elif 'shape' in line and ('dim' in line or '[' in line):
-                data['shape_data'].append(line)
-            elif 'AiCorePrintShape' in line or 'AiCoreLogF' in line or 'DumpAicoreLog' in line:
-                data['other_logs'].append(line)
-        
-        return data
-    
     def detect_validshape_issues(self, ir_file: Path) -> Dict:
         """检测 validshape 问题
         
@@ -582,6 +504,69 @@ class PrintNPUDataTool:
                 report_lines.append("")
         
         return "\n".join(report_lines)
+    
+    @staticmethod
+    def find_kernel_functions(cce_content: str) -> List[Dict]:
+        """解析CCE中的kernel函数结构"""
+        kernels = []
+        
+        pattern = r'\[aicore\]\s+void\s+(\w+)\s*\((.*?)\)\s*\{'
+        
+        for match in re.finditer(pattern, cce_content):
+            func_name = match.group(1)
+            params = match.group(2)
+            start_pos = match.start()
+            
+            brace_count = 0
+            end_pos = start_pos
+            for i in range(start_pos, len(cce_content)):
+                if cce_content[i] == '{':
+                    brace_count += 1
+                elif cce_content[i] == '}':
+                    brace_count -= 1
+                    if brace_count == 0:
+                        end_pos = i
+                        break
+            
+            kernels.append({
+                'name': func_name,
+                'start': start_pos,
+                'end': end_pos,
+                'params': params
+            })
+        
+        return kernels
+    
+    @staticmethod
+    def parse_shape_variables(content: str) -> List[str]:
+        """解析 CCE 中的 shape 变量"""
+        pattern = r'int64_t\s+(\w+_dim_\d+)\s*='
+        shape_vars = re.findall(pattern, content)
+        return shape_vars
+    
+    @staticmethod
+    def parse_log(log_file: Path) -> Dict:
+        """解析日志获取打印数据"""
+        if not log_file or not log_file.exists():
+            return {}
+        
+        content = log_file.read_text(errors='ignore')
+        data = {
+            'tensor_data': [],
+            'shape_data': [],
+            'other_logs': []
+        }
+        
+        lines = content.split('\n')
+        for line in lines:
+            if 'tensor data, range=' in line:
+                data['tensor_data'].append(line)
+            elif 'shape' in line and ('dim' in line or '[' in line):
+                data['shape_data'].append(line)
+            elif 'AiCorePrintShape' in line or 'AiCoreLogF' in line or 'DumpAicoreLog' in line:
+                data['other_logs'].append(line)
+        
+        return data
 
 
 def main():

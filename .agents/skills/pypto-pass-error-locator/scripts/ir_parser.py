@@ -292,88 +292,27 @@ class IRParser:
             offset_direction=offset_info.get('offset_direction', ''),
             dynoffset_direction=offset_info.get('dynoffset_direction', ''),
             dynvalidshape_direction=offset_info.get('dynvalidshape_direction', ''),
-            line=line_num
+line=line_num
         ), None
-    
-    @staticmethod
-    def _parse_shape_and_dtype(shape_str: str) -> Tuple[List[int], str]:
-        """解析 shape 和数据类型"""
-        parts = shape_str.strip().split()
-        shape = []
-        data_type = ""
-        
-        for part in parts:
-            if part.isdigit() or (part.startswith('-') and part[1:].isdigit()):
-                shape.append(int(part))
-            elif part.startswith('DT_'):
-                data_type = part
-        
-        return shape, data_type
-    
-    @staticmethod
-    def _parse_array(array_str: str) -> List[int]:
-        """解析数组字符串 [x, y, z, ...] 或 offset:[x, y, z, ...]"""
-        # 查找 [ 和 ] 的位置
-        start_idx = array_str.find('[')
-        end_idx = array_str.rfind(']')
-        
-        if start_idx == -1 or end_idx == -1:
-            return []
-        
-        # 提取括号内的内容
-        array_content = array_str[start_idx + 1:end_idx].strip()
-        if not array_content:
-            return []
-        
-        values = []
-        for item in array_content.split(','):
-            item = item.strip()
-            if item:
-                try:
-                    values.append(int(item))
-                except ValueError:
-                    pass
-        
-        return values
     
     def _parse_array_from_tokens(self, tokens: List[str], start_idx: int) -> List[int]:
         """从tokens列表中解析数组，处理 offset:[...] 格式"""
         if start_idx >= len(tokens):
             return []
         
-        # 查找完整的数组内容
         array_content = []
         i = start_idx
         
-        # 检查是否包含 [ 开头（可能是 offset:[ 或 [）
         if '[' not in tokens[i]:
             return []
         
-        # 收集数组内容直到找到 ]
         while i < len(tokens):
             token = tokens[i]
             array_content.append(token)
-            if token.endswith(']'):
-                break
             i += 1
         
-        # 合并tokens并解析
         array_str = ' '.join(array_content)
         return self._parse_array(array_str)
-    
-    @staticmethod
-    def _skip_array_tokens(tokens: List[str], start_idx: int) -> int:
-        """跳过数组tokens，返回新的索引"""
-        if start_idx >= len(tokens):
-            return start_idx
-        
-        i = start_idx
-        while i < len(tokens):
-            if tokens[i].endswith(']'):
-                return i + 1
-            i += 1
-        
-        return i
     
     def _parse_operation_params(self, params_str: str) -> Tuple[List[Dict[str, Any]], Dict[str, Any], Dict[str, Any]]:
         """解析操作参数和属性"""
@@ -420,10 +359,8 @@ class IRParser:
                 i += 1
             
             elif token.startswith('offset:['):
-                # 处理 offset:[...] 格式，可能跨越多个token
                 offset_info['offset'] = self._parse_array_from_tokens(tokens, i)
                 offset_info['offset_direction'] = 'from' if offset_info['offset_from'] else 'to'
-                # 跳过已处理的token
                 i = self._skip_array_tokens(tokens, i)
             
             elif token.startswith('dynoffset:['):
@@ -440,6 +377,59 @@ class IRParser:
                 i += 1
         
         return input_tensors, attributes, offset_info
+    
+    @staticmethod
+    def _parse_shape_and_dtype(shape_str: str) -> Tuple[List[int], str]:
+        """解析 shape 和数据类型"""
+        parts = shape_str.strip().split()
+        shape = []
+        data_type = ""
+        
+        for part in parts:
+            if part.isdigit() or (part.startswith('-') and part[1:].isdigit()):
+                shape.append(int(part))
+            elif part.startswith('DT_'):
+                data_type = part
+        
+        return shape, data_type
+    
+    @staticmethod
+    def _parse_array(array_str: str) -> List[int]:
+        """解析数组字符串 [x, y, z, ...] 或 offset:[x, y, z, ...]"""
+        start_idx = array_str.find('[')
+        end_idx = array_str.rfind(']')
+        
+        if start_idx == -1 or end_idx == -1:
+            return []
+        
+        array_content = array_str[start_idx + 1:end_idx].strip()
+        if not array_content:
+            return []
+        
+        values = []
+        for item in array_content.split(','):
+            item = item.strip()
+            if item:
+                try:
+                    values.append(int(item))
+                except ValueError:
+                    pass
+        
+        return values
+    
+    @staticmethod
+    def _skip_array_tokens(tokens: List[str], start_idx: int) -> int:
+        """跳过数组tokens，返回新的索引"""
+        if start_idx >= len(tokens):
+            return start_idx
+        
+        i = start_idx
+        while i < len(tokens):
+            if tokens[i].endswith(']'):
+                return i + 1
+            i += 1
+        
+        return i
 
 
 def create_response(
