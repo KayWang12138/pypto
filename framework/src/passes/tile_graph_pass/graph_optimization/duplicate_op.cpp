@@ -118,8 +118,7 @@ Status DuplicateOp::ProcessView(Function& function, Operation& operation, std::v
     for (const auto& oOperand : operation.oOperand) {
         if (oOperand == nullptr) {
             APASS_LOG_ERROR_F(
-                Elements::Operation,
-                "Null output operand detected while iterating over the output operands of the operation [%d].%s",
+                Elements::Operation, "Null output operand detected while iterating over the output operands of the operation [%d].%s",
                 operation.opmagic, GetFormatBacktrace(operation).c_str());
             return FAILED;
         }
@@ -130,8 +129,7 @@ Status DuplicateOp::ProcessView(Function& function, Operation& operation, std::v
         for (auto& consumer : consumers) {
             if (consumer == nullptr) {
                 APASS_LOG_ERROR_F(
-                    Elements::Tensor,
-                    "Null consumer detected while iterating over the consumers of the output operand [%d].",
+                    Elements::Tensor, "Null consumer detected while iterating over the consumers of the output operand [%d].",
                     oOperand->magic);
                 return FAILED;
             }
