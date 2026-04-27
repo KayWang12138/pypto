@@ -12,6 +12,7 @@
 import ctypes
 import dataclasses
 import functools
+import hashlib
 import inspect
 import os
 import re
@@ -177,6 +178,45 @@ def convert(content: str) -> str:
             result += "\n"
 
     return result
+
+
+def _sanitize_artifact_component(value: str) -> str:
+    cleaned = re.sub(r"[^0-9A-Za-z_.-]+", "_", value).strip("._")
+    return cleaned or "kernel"
+
+
+def _infer_test_artifact_prefix() -> str | None:
+    frame = inspect.currentframe()
+    try:
+        frame = frame.f_back
+        while frame is not None:
+            filename = frame.f_code.co_filename
+            if filename:
+                stem = Path(filename).stem
+                if stem.startswith("test_"):
+                    suffix = stem.removeprefix("test_")
+                    return _sanitize_artifact_component(suffix or stem)
+            frame = frame.f_back
+    finally:
+        del frame
+    return None
+
+
+def _make_artifact_build_dir(prog, arch: str, codegen_mode: str) -> str:
+    prog_name = prog.name if hasattr(prog, "name") and prog.name else "kernel"
+    safe_name = _sanitize_artifact_component(str(prog_name))
+    test_prefix = _infer_test_artifact_prefix()
+    try:
+        prog_fingerprint_input = str(prog)
+    except Exception:
+        prog_fingerprint_input = safe_name
+
+    digest_input = "\n".join((safe_name, arch, codegen_mode, prog_fingerprint_input))
+    digest = hashlib.sha1(digest_input.encode("utf-8")).hexdigest()[:12]
+    readable_prefix = (
+        f"{test_prefix}__{safe_name}" if test_prefix and test_prefix != safe_name else safe_name
+    )
+    return os.path.join(".", "build", f"{readable_prefix}_{digest}")
 
 
 def _pl_dtype_to_torch(dtype: DataType):
@@ -746,22 +786,15 @@ def compile(
     """
     arch = _normalize_arch(arch)
 
-    os.environ["PYPTO_JIT_ARCH"] = arch
-    if arch in ("a2", "a3"):
-        os.environ["npu_arch"] = "dav-c220"
-    else:
-        os.environ["npu_arch"] = "dav-c310"
-
     # Deferred compilation: parse KernelDef → ir.Program with arch info
     from pypto_block.frontend.kernel import KernelDef
 
     if isinstance(prog, KernelDef):
         prog = prog.parse(npu_arch=arch)
 
-    # Use the program name as the build subdirectory so artifacts are
-    # identifiable: ./build/<program_name>/kernel.cpp, etc.
-    prog_name = prog.name if hasattr(prog, "name") and prog.name else "kernel"
-    build_dir = os.path.join(".", "build", prog_name)
+    # Keep artifact paths readable while isolating different program bodies,
+    # arches, and codegen modes from each other.
+    build_dir = _make_artifact_build_dir(prog, arch, codegen_mode)
     Path(build_dir).mkdir(parents=True, exist_ok=True)
     raw_cpp_path = os.path.join(build_dir, "kernel.cpp")
     final_kernel = os.path.join(build_dir, "call_kernel.cpp")

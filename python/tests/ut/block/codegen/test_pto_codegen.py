@@ -766,7 +766,7 @@ def test_pto_codegen_dump_tile_location_header():
 
 
 def test_pto_codegen_dump_tile_static_window_lowering():
-    """plm.dump_tile with offsets/shapes lowers to pto.subset + pto.tprint."""
+    """plm.dump_tile with offsets/shapes lowers to pto.subview + pto.tprint."""
     backend.reset_for_testing()
     backend.set_backend_type(BackendType.PTO)
 
@@ -789,8 +789,10 @@ def test_pto_codegen_dump_tile_static_window_lowering():
     mlir_code = _get_mlir_code(codegen_obj.generate(transformed_program))
 
     assert mlir_code.count("pto.tprint") == 1
-    assert "pto.subset" in mlir_code
-    assert "[%c4, %c0] sizes [8, 16]" in mlir_code
+    assert "pto.subview" in mlir_code
+    assert "pto.subset" not in mlir_code
+    assert "[%c4, %c0] sizes [8, 16] :" in mlir_code
+    assert "-> !pto.tile_buf<loc=vec, dtype=f32, rows=8, cols=16, v_row=8, v_col=16" in mlir_code
 
 
 def test_pto_codegen_dump_tensor_dynamic_shape_lowering():
@@ -888,6 +890,46 @@ def test_pto_codegen_dump_tile_dynamic_valid_shape_lowering():
     assert "pto.set_validshape" in mlir_code
     assert "pto.tprint ins(" in mlir_code
     assert "v_row=?, v_col=?" in mlir_code
+    assert "%c-1" not in mlir_code
+
+
+def test_pto_codegen_dump_tile_dynamic_valid_window_lowering():
+    """dump_tile window lowering should preserve dynamic valid operands without illegal SSA names."""
+    backend.reset_for_testing()
+    backend.set_backend_type(BackendType.PTO)
+
+    @pl.program
+    class DumpDynamicTileWindowProgram:
+        @pl.function
+        def dump_dynamic_tile_window(
+            self,
+            row_off: pl.Scalar[pl.INDEX],
+            rows: pl.Scalar[pl.INDEX],
+            cols: pl.Scalar[pl.INDEX],
+            output: pl.Tensor[[16, 16], pl.FP32],
+        ):
+            tile_type = plm.TileType(
+                shape=[16, 16],
+                dtype=pl.FP32,
+                target_memory=pl.MemorySpace.Vec,
+                valid_shape=[-1, -1],
+            )
+            tile = plm.make_tile(tile_type, addr=0x0000, size=1024)
+            plm.set_validshape(tile, rows, cols)
+            plm.dump_tile(tile, offsets=[row_off, 0], shapes=[8, 8])
+            return output
+
+    pm = PassManager.get_strategy(OptimizationStrategy.PTOAS)
+    transformed_program = pm.run_passes(DumpDynamicTileWindowProgram)
+
+    codegen_obj = PTOCodegen()
+    mlir_code = _get_mlir_code(codegen_obj.generate(transformed_program))
+
+    assert "pto.subview" in mlir_code
+    assert "valid [" in mlir_code
+    assert "sizes [8, 8] valid [" in mlir_code
+    assert "-> !pto.tile_buf<loc=vec, dtype=f32, rows=8, cols=8, v_row=?, v_col=?" in mlir_code
+    assert "%c-1" not in mlir_code
 
 
 def test_pto_codegen_manual_fillpad_updates_pad_and_valid_shape():
@@ -1262,7 +1304,7 @@ def test_manual_fillpad_expand_rejects_invalid_shape_and_pad():
 
 
 def test_pto_codegen_dump_tile_dynamic_offset_lowering():
-    """dump_tile window lowering should accept dynamic offsets while keeping static sizes."""
+    """dump_tile window lowering should emit pto.subview with explicit valid operands."""
     backend.reset_for_testing()
     backend.set_backend_type(BackendType.PTO)
 
@@ -1285,9 +1327,11 @@ def test_pto_codegen_dump_tile_dynamic_offset_lowering():
     codegen_obj = PTOCodegen()
     mlir_code = _get_mlir_code(codegen_obj.generate(transformed_program))
 
-    assert "pto.subset" in mlir_code
-    assert "sizes [8, 16]" in mlir_code
-    assert "v_row=?, v_col=16" in mlir_code
+    assert "pto.subview" in mlir_code
+    assert "pto.subset" not in mlir_code
+    assert "sizes [8, 16] valid [" in mlir_code
+    assert "-> !pto.tile_buf<loc=vec, dtype=f32, rows=8, cols=16, v_row=?, v_col=16" in mlir_code
+    assert "pto.tprint" in mlir_code
 
 
 def test_pto_codegen_block_mul():

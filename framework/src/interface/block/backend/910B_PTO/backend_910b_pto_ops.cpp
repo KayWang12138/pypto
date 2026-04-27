@@ -255,6 +255,68 @@ static std::string MakePrintCodegenPTO(const std::string& pto_op_name, const Cal
     }
     return true;
   };
+  struct WindowedTileInfo {
+    int64_t rows = 0;
+    int64_t cols = 0;
+    int64_t v_row = 0;
+    int64_t v_col = 0;
+    bool v_row_dynamic = false;
+    bool v_col_dynamic = false;
+  };
+  auto analyze_windowed_tile = [&](const TileType* tile_type, const ir::MakeTuple* shapes_tuple = nullptr,
+                                   const ir::MakeTuple* offsets_tuple = nullptr) {
+    WindowedTileInfo info;
+    INTERNAL_CHECK(tile_type) << "tile type must not be null";
+    INTERNAL_CHECK(tile_type->shape_.size() == 2) << "debug.dump_tile window currently only supports 2D tiles";
+    info.rows = get_const_or_default(tile_type->shape_[0], 32);
+    info.cols = get_const_or_default(tile_type->shape_[1], 32);
+    info.v_row = info.rows;
+    info.v_col = info.cols;
+
+    if (tile_type->tile_view_.has_value()) {
+      const auto& tile_view = tile_type->tile_view_.value();
+      if (tile_view.valid_shape.size() == 2) {
+        if (is_dynamic_dim(tile_view.valid_shape[0])) {
+          info.v_row_dynamic = true;
+        } else {
+          info.v_row = get_const_or_default(tile_view.valid_shape[0], info.v_row);
+        }
+        if (is_dynamic_dim(tile_view.valid_shape[1])) {
+          info.v_col_dynamic = true;
+        } else {
+          info.v_col = get_const_or_default(tile_view.valid_shape[1], info.v_col);
+        }
+      }
+    }
+
+    if (shapes_tuple != nullptr) {
+      info.rows = get_const_or_default(shapes_tuple->elements_[0], info.rows);
+      info.cols = get_const_or_default(shapes_tuple->elements_[1], info.cols);
+      info.v_row = info.rows;
+      info.v_col = info.cols;
+      info.v_row_dynamic = false;
+      info.v_col_dynamic = false;
+      if (offsets_tuple != nullptr && tile_type->tile_view_.has_value() &&
+          tile_type->tile_view_->valid_shape.size() == 2) {
+        auto src_valid_row = As<ir::ConstInt>(tile_type->tile_view_->valid_shape[0]);
+        auto src_valid_col = As<ir::ConstInt>(tile_type->tile_view_->valid_shape[1]);
+        auto row_off = As<ir::ConstInt>(offsets_tuple->elements_[0]);
+        auto col_off = As<ir::ConstInt>(offsets_tuple->elements_[1]);
+        if (src_valid_row && src_valid_row->value_ >= 0 && row_off) {
+          info.v_row = std::max<int64_t>(0, std::min<int64_t>(info.rows, src_valid_row->value_ - row_off->value_));
+        } else {
+          info.v_row_dynamic = true;
+        }
+        if (src_valid_col && src_valid_col->value_ >= 0 && col_off) {
+          info.v_col = std::max<int64_t>(0, std::min<int64_t>(info.cols, src_valid_col->value_ - col_off->value_));
+        } else {
+          info.v_col_dynamic = true;
+        }
+      }
+    }
+
+    return info;
+  };
   auto build_tile_buf_type = [&](const TileType* tile_type, const ir::MakeTuple* shapes_tuple = nullptr,
                                  const ir::MakeTuple* offsets_tuple = nullptr) {
     INTERNAL_CHECK(tile_type) << "tile type must not be null";
@@ -263,12 +325,7 @@ static std::string MakePrintCodegenPTO(const std::string& pto_op_name, const Cal
                           ? memory_space_to_mlir(tile_type->memref_.value()->memory_space_)
                           : "vec";
     std::string dtype_str = codegen.GetTypeString(tile_type->dtype_);
-    int64_t rows = get_const_or_default(tile_type->shape_[0], 32);
-    int64_t cols = get_const_or_default(tile_type->shape_[1], 32);
-    int64_t v_row = rows;
-    int64_t v_col = cols;
-    bool v_row_dynamic = false;
-    bool v_col_dynamic = false;
+    auto info = analyze_windowed_tile(tile_type, shapes_tuple, offsets_tuple);
     ir::TileLayout blayout = ir::TileLayout::row_major;
     ir::TileLayout slayout = ir::TileLayout::none_box;
     uint64_t fractal = 512;
@@ -276,54 +333,17 @@ static std::string MakePrintCodegenPTO(const std::string& pto_op_name, const Cal
     ir::CompactMode compact = ir::CompactMode::null;
     if (tile_type->tile_view_.has_value()) {
       const auto& tile_view = tile_type->tile_view_.value();
-      if (tile_view.valid_shape.size() == 2) {
-        if (is_dynamic_dim(tile_view.valid_shape[0])) {
-          v_row_dynamic = true;
-        } else {
-          v_row = get_const_or_default(tile_view.valid_shape[0], v_row);
-        }
-        if (is_dynamic_dim(tile_view.valid_shape[1])) {
-          v_col_dynamic = true;
-        } else {
-          v_col = get_const_or_default(tile_view.valid_shape[1], v_col);
-        }
-      }
       blayout = tile_view.blayout;
       slayout = tile_view.slayout;
       fractal = tile_view.fractal;
       pad = tile_view.pad;
       compact = tile_view.compact;
     }
-    if (shapes_tuple != nullptr) {
-      rows = get_const_or_default(shapes_tuple->elements_[0], rows);
-      cols = get_const_or_default(shapes_tuple->elements_[1], cols);
-      v_row = rows;
-      v_col = cols;
-      v_row_dynamic = false;
-      v_col_dynamic = false;
-      if (offsets_tuple != nullptr && tile_type->tile_view_.has_value() &&
-          tile_type->tile_view_->valid_shape.size() == 2) {
-        auto src_valid_row = As<ir::ConstInt>(tile_type->tile_view_->valid_shape[0]);
-        auto src_valid_col = As<ir::ConstInt>(tile_type->tile_view_->valid_shape[1]);
-        auto row_off = As<ir::ConstInt>(offsets_tuple->elements_[0]);
-        auto col_off = As<ir::ConstInt>(offsets_tuple->elements_[1]);
-        if (src_valid_row && src_valid_row->value_ >= 0 && row_off) {
-          v_row = std::max<int64_t>(0, std::min<int64_t>(rows, src_valid_row->value_ - row_off->value_));
-        } else {
-          v_row_dynamic = true;
-        }
-        if (src_valid_col && src_valid_col->value_ >= 0 && col_off) {
-          v_col = std::max<int64_t>(0, std::min<int64_t>(cols, src_valid_col->value_ - col_off->value_));
-        } else {
-          v_col_dynamic = true;
-        }
-      }
-    }
     std::ostringstream oss;
     oss << "!pto.tile_buf<loc=" << loc << ", dtype=" << dtype_str;
-    oss << ", rows=" << rows << ", cols=" << cols;
-    oss << ", v_row=" << (v_row_dynamic ? "?" : std::to_string(v_row));
-    oss << ", v_col=" << (v_col_dynamic ? "?" : std::to_string(v_col));
+    oss << ", rows=" << info.rows << ", cols=" << info.cols;
+    oss << ", v_row=" << (info.v_row_dynamic ? "?" : std::to_string(info.v_row));
+    oss << ", v_col=" << (info.v_col_dynamic ? "?" : std::to_string(info.v_col));
     oss << ", blayout=" << tile_layout_to_str(blayout);
     oss << ", slayout=" << tile_layout_to_str(slayout);
     oss << ", fractal=" << fractal << ", pad=" << static_cast<int>(pad);
@@ -332,6 +352,39 @@ static std::string MakePrintCodegenPTO(const std::string& pto_op_name, const Cal
     }
     oss << ">";
     return oss.str();
+  };
+  auto build_subview_valid_operand = [&](const std::string& src_name, const TileType* tile_type,
+                                         const ir::MakeTuple* offsets_tuple, const WindowedTileInfo& info,
+                                         size_t axis) -> std::string {
+    const bool is_dynamic = axis == 0 ? info.v_row_dynamic : info.v_col_dynamic;
+    const int64_t static_valid = axis == 0 ? info.v_row : info.v_col;
+    const int64_t size = axis == 0 ? info.rows : info.cols;
+    if (!is_dynamic) {
+      return codegen.GetIndexConstant(static_valid);
+    }
+
+    INTERNAL_CHECK(offsets_tuple) << "debug.dump_tile dynamic valid emission requires offsets";
+    INTERNAL_CHECK(tile_type->tile_view_.has_value()) << "debug.dump_tile dynamic valid emission requires tile_view";
+    INTERNAL_CHECK(tile_type->tile_view_->valid_shape.size() == 2)
+        << "debug.dump_tile dynamic valid emission requires rank-2 valid_shape";
+
+    std::string src_valid;
+    const auto& src_valid_expr = tile_type->tile_view_->valid_shape[axis];
+    if (auto c = As<ir::ConstInt>(src_valid_expr); c && c->value_ >= 0) {
+      src_valid = codegen.GetIndexConstant(c->value_);
+    } else {
+      auto [dyn_row, dyn_col] = codegen.GetTileValidShape(src_name);
+      src_valid = axis == 0 ? dyn_row : dyn_col;
+    }
+
+    std::string off = codegen.GetExprAsCode(offsets_tuple->elements_[axis]);
+    std::string remaining = codegen.NewTemp();
+    codegen.Emit(remaining + " = arith.subi " + src_valid + ", " + off + " : index");
+    std::string capped = codegen.NewTemp();
+    codegen.Emit(capped + " = arith.minsi " + remaining + ", " + codegen.GetIndexConstant(size) + " : index");
+    std::string clamped = codegen.NewTemp();
+    codegen.Emit(clamped + " = arith.maxsi " + capped + ", " + codegen.GetIndexConstant(0) + " : index");
+    return clamped;
   };
 
   std::string src = codegen.GetExprAsCode(op->args_[0]);
@@ -347,24 +400,33 @@ static std::string MakePrintCodegenPTO(const std::string& pto_op_name, const Cal
     if (src_type.empty()) {
       src_type = build_tile_buf_type(tile_type.get());
     }
-    std::string subset_type = build_tile_buf_type(tile_type.get(), shapes_tuple.get(), offsets_tuple.get());
-    std::string subset = codegen.NewTemp();
-    std::ostringstream subset_line;
-    subset_line << subset << " = pto.subset " << src << "[";
+    auto info = analyze_windowed_tile(tile_type.get(), shapes_tuple.get(), offsets_tuple.get());
+    std::string subview_type = build_tile_buf_type(tile_type.get(), shapes_tuple.get(), offsets_tuple.get());
+    std::string subview = codegen.NewTemp();
+    std::ostringstream subview_line;
+    subview_line << subview << " = pto.subview " << src << "[";
     for (size_t i = 0; i < offsets_tuple->elements_.size(); ++i) {
-      if (i > 0) subset_line << ", ";
-      subset_line << codegen.GetExprAsCode(offsets_tuple->elements_[i]);
+      if (i > 0) subview_line << ", ";
+      subview_line << codegen.GetExprAsCode(offsets_tuple->elements_[i]);
     }
-    subset_line << "] sizes [";
+    subview_line << "] sizes [";
     for (size_t i = 0; i < shapes_tuple->elements_.size(); ++i) {
-      if (i > 0) subset_line << ", ";
+      if (i > 0) subview_line << ", ";
       auto dim = As<ir::ConstInt>(shapes_tuple->elements_[i]);
       INTERNAL_CHECK(dim) << "debug.dump_tile shape must be static ConstInt at axis " << i;
-      subset_line << dim->value_;
+      subview_line << dim->value_;
     }
-    subset_line << "] : " << src_type;
-    codegen.Emit(subset_line.str());
-    codegen.Emit(pto_op_name + " ins(" + subset + " : " + subset_type + ")");
+    subview_line << "]";
+    bool need_explicit_valid =
+        info.v_row_dynamic || info.v_col_dynamic || info.v_row != info.rows || info.v_col != info.cols;
+    if (need_explicit_valid) {
+      std::string valid_row = build_subview_valid_operand(src, tile_type.get(), offsets_tuple.get(), info, 0);
+      std::string valid_col = build_subview_valid_operand(src, tile_type.get(), offsets_tuple.get(), info, 1);
+      subview_line << " valid [" << valid_row << ", " << valid_col << "]";
+    }
+    subview_line << " : " << src_type << " -> " << subview_type;
+    codegen.Emit(subview_line.str());
+    codegen.Emit(pto_op_name + " ins(" + subview + " : " + subview_type + ")");
     return "";
   }
 

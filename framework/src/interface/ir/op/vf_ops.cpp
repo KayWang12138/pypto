@@ -10,12 +10,12 @@
  */
 
 /**
- * @file vf_ops/vf_ops.cpp
- * @brief VF API IR op registration (minimum subset).
+ * @file vf_ops.cpp
+ * @brief VF API IR op registration.
  *
  * Registers VF ops with type deduction for the direct VF instruction path.
- * Ops: vf.vf_scope_enter, vf.vf_scope_exit, vf.RegTensor, vf.CreateMask,
- *      vf.Duplicate, vf.LoadAlign, vf.StoreAlign, vf.Max
+ * These ops are part of the merged shared IR surface and remain consumed by
+ * the block VF frontend/backend path.
  */
 
 #include <any>

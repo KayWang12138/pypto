@@ -64,9 +64,6 @@ file(GLOB_RECURSE PYPTO_CORE_COMPAT_SOURCES CONFIGURE_DEPENDS
         ${PTO_FWK_SRC_ROOT}/framework/src/interface/block/backend/*/*.cpp
         ${PTO_FWK_SRC_ROOT}/framework/src/interface/block/codegen/*.cpp
         ${PTO_FWK_SRC_ROOT}/framework/src/interface/block/codegen/*/*.cpp
-        ${PTO_FWK_SRC_ROOT}/framework/src/interface/block/ir/*.cpp
-        ${PTO_FWK_SRC_ROOT}/framework/src/interface/block/ir/*/*.cpp
-        ${PTO_FWK_SRC_ROOT}/framework/src/interface/block/ir/*/*/*.cpp
 )
 
 file(GLOB_RECURSE PYPTO_IR_SOURCES CONFIGURE_DEPENDS
