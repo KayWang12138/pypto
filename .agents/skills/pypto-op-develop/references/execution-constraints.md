@@ -148,9 +148,23 @@
 - `cast`：显式暴露 `CastMode` 和 `SaturationMode`，不是简单的 `to(dtype)`。
 - 浮点转整数时，`satmode=ON/OFF` 会直接改变溢出后的结果值。
 
-## 5. 多动态轴算子的实现模式（关键断点知识）
+## 5. 动态轴算子的实现模式（关键断点知识）
 
-> **核心结论**：当算子有 2 个及以上动态轴（如 Batch + SeqLen）时，不能直接在高维 tensor 上调 matmul/view，必须采用 **"2D reshape + 嵌套 loop + concrete tile"** 模式。
+> **通用原则 —— "loop 切 tile，API 只吃静态"**
+>
+> 当算子需要动态轴，但所使用的 API 不支持接收含 `DYNAMIC` 维度的 tensor 时，统一使用以下策略，**不限于 matmul**，同样适用于任何在编译期需要 concrete shape 的计算 API。
+> 
+> **如何识别 API 是否支持动态 shape**：运行时报 `dim[i] = -1, must be > 0`、`Cannot convert symbols to int`、`Not concrete value` 等错误，或文档明确说明"shape 必须在编译期确定"，均表明该 API 不支持动态 shape。
+>
+> **处理步骤**：
+> 1. **选合适的轴做动态轴**：优先选 batch / 序列长度等语义上天然变化的轴；所选轴**不能是 API 计算直接依赖的维度**（matmul 不选 K/N，归约不选归约 dim，view 的 shape 参数所对应的轴全不能选）。
+> 2. **将所选轴标为 `pypto.DYNAMIC`，其余轴标为 `pypto.STATIC` 或常量整数。** 若有多个动态轴，对每个动态轴分别走 `pypto.loop` 嵌套处理。
+> 3. **用 `pypto.loop` 沿动态轴迭代**，trip count 取自 `tensor.shape[i]` 或其符号表达式。
+> 4. **循环体内 `pypto.view` 切出固定整数大小的 tile**（shape 参数必须全是 Python int）。
+> 5. **所有受限 API 只操作静态 tile**，永远不让它们看到含 `DYNAMIC` 维度的 tensor。
+> 6. **`pypto.assemble` 写回结果**，offset 可以是 SymbolicScalar，尾块用 `valid_shape` 标记有效范围。
+>
+> **多动态轴特例**：当算子有 2 个及以上动态轴（如 Batch + SeqLen）时，不能直接在高维 tensor 上调受限 API，必须采用 **"reshape 到 2D + 嵌套 loop + concrete tile"** 模式。
 
 ### 5.1 为什么 4D 多动态轴直接 matmul 会失败
 
