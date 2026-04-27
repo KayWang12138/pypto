@@ -99,15 +99,52 @@ class TileConfig:
     k_tile_shape: List[int]
     n_tile_shape: List[int]
     vector_tile_shape: List[int]
+    post_vector_tile_shape: Optional[List[int]] = None
+    description: str = ""
 
 
-# 默认Tile配置
-DEFAULT_TILE_CONFIG = TileConfig(
+# 原始Tile配置，保留用于服务器侧回归对比。
+BASELINE_TILE_CONFIG = TileConfig(
     m_tile_shape=[9, 9],
     k_tile_shape=[256, 256],
     n_tile_shape=[256, 256],
     vector_tile_shape=[1, 8, 256, 32],
+    post_vector_tile_shape=[1, 256],
+    description="baseline",
 )
+
+# 默认调优候选：当前用例是小 M、较大 K/N 的 GMM，保持 M 不额外切分，
+# 放大 K/N 的 L1 tile 以减少 K/N 方向任务切分和调度开销。
+DEFAULT_TILE_CONFIG = TileConfig(
+    m_tile_shape=[9, 9],
+    k_tile_shape=[128, 512],
+    n_tile_shape=[256, 512],
+    vector_tile_shape=[1, 8, 512, 32],
+    post_vector_tile_shape=[16, 512],
+    description="wide_k_n_l1",
+)
+
+
+TUNING_TILE_CONFIGS = {
+    "baseline": BASELINE_TILE_CONFIG,
+    "wide_k_n_l1": DEFAULT_TILE_CONFIG,
+    "balanced_128": TileConfig(
+        m_tile_shape=[9, 9],
+        k_tile_shape=[128, 512],
+        n_tile_shape=[128, 512],
+        vector_tile_shape=[1, 8, 512, 32],
+        post_vector_tile_shape=[16, 512],
+        description="balanced_128",
+    ),
+    "small_m16": TileConfig(
+        m_tile_shape=[16, 16],
+        k_tile_shape=[128, 512],
+        n_tile_shape=[256, 512],
+        vector_tile_shape=[1, 8, 512, 32],
+        post_vector_tile_shape=[16, 512],
+        description="small_m16",
+    ),
+}
 
 
 # ─────────────────────────────────────────────
@@ -219,16 +256,100 @@ def combine_func(x, logits, residual, resid_scale, source_row, output_bs, offset
     Returns:
         最终输出 [output_bs, N] (torch.Tensor)
     """
-    
+    # 文档和 kernel 都是 scatter add 语义：
+    # out[row_index[i], :] += x[i, :] * logits[i]
     weighted = x * logits.unsqueeze(1)
     out = torch.zeros((output_bs, x.shape[-1]), dtype=torch.float32)
     out.index_add_(0, source_row.to(torch.int64), weighted.to(torch.float32))
-
+    
+    # shared_input 融合（可选）
     if residual is not None:
-        residual_fp32 = residual.float()
+        residual_fp32 = residual.float()  # bfloat16 -> float32
         out[offset:offset + residual.shape[0], :] += resid_scale * residual_fp32
     
     return out
+
+
+def gen_golden_debug(inputs: GmmFRGoldenInputs) -> dict:
+    """生成便于调试的 golden 中间结果。"""
+    x1 = inputs.x1
+    x2 = inputs.x2
+    scale = inputs.scale
+    pertoken_scale = inputs.pertoken_scale
+    group_list = inputs.group_list
+    row_index = inputs.row_index
+    logit = inputs.logit
+    batch = inputs.batch
+    n = inputs.n
+    bias = inputs.bias
+    shared_input = inputs.shared_input
+    shared_input_weight = inputs.shared_input_weight
+    shared_input_offset = inputs.shared_input_offset
+    transpose_x1 = inputs.transpose_x1
+    transpose_x2 = inputs.transpose_x2
+    group_list_type = inputs.group_list_type
+
+    if group_list_type == 0:
+        group_counts = []
+        prev = 0
+        for val in group_list:
+            group_counts.append(val - prev)
+            prev = val
+        group_list = group_counts
+
+    num_experts = x2.shape[0]
+    m_total = x1.shape[0]
+    intermediate = torch.zeros((m_total, n), dtype=torch.float32)
+    begin = 0
+    end = 0
+
+    for i in range(num_experts):
+        begin = end
+        end = end + group_list[i]
+        if group_list[i] <= 0:
+            continue
+
+        if transpose_x1:
+            x_i = x1[:, begin:end]
+            scaled_x_i = pertoken_scale[:, begin:end, :]
+        else:
+            x_i = x1[begin:end, :]
+            scaled_x_i = pertoken_scale[begin:end, :, :]
+
+        gmm_result = compute_golden_result(
+            GoldenComputeInputs(
+                x=x_i,
+                weight=x2[i],
+                scaled_x=scaled_x_i,
+                scaled_weight=scale[i],
+                a_trans=transpose_x1,
+                b_trans=transpose_x2,
+            )
+        )
+
+        if bias is not None:
+            gmm_result = gmm_result + bias[i].to(torch.float32)
+
+        intermediate[begin:end, :] = gmm_result
+
+    weighted = intermediate * logit.unsqueeze(1)
+    routing_out = torch.zeros((batch, n), dtype=torch.float32)
+    routing_out.index_add_(0, row_index.to(torch.int64), weighted)
+    shared_out = torch.zeros((batch, n), dtype=torch.float32)
+    if shared_input is not None:
+        shared_end = shared_input_offset + shared_input.shape[0]
+        shared_out[shared_input_offset:shared_end, :] = (
+            shared_input_weight * shared_input.to(torch.float32)
+        )
+
+    final_out = routing_out + shared_out
+    return {
+        "intermediate": intermediate,
+        "weighted": weighted,
+        "routing_out": routing_out,
+        "shared_out": shared_out,
+        "final_out": final_out,
+    }
 
 
 def gen_golden(inputs: GmmFRGoldenInputs) -> torch.Tensor:
@@ -373,8 +494,12 @@ def grouped_matmul_finalize_routing_pypto(m, k, n, e, batch, tile_config, transp
     row_index_shape = [m]
     bias_shape = [e, n]
     shared_input_shape = [batch // e, n]
+    debug_options = {
+        "runtime_debug_mode": int(os.environ.get("PYPTO_GMM_FR_RUNTIME_DEBUG", "0")),
+        "compile_debug_mode": int(os.environ.get("PYPTO_GMM_FR_COMPILE_DEBUG", "0")),
+    }
 
-    @pypto.frontend.jit()
+    @pypto.frontend.jit(debug_options=debug_options)
     def grouped_matmul_finalize_routing_kernel(
         x1: pypto.Tensor(x1_shape, pypto.DT_FP8E4M3),
         x2: pypto.Tensor(x2_shape, pypto.DT_FP8E4M3),
@@ -427,6 +552,19 @@ def grouped_matmul_finalize_routing_pypto(m, k, n, e, batch, tile_config, transp
         begin = 0
         end = 0
 
+        # Tile配置对每个专家相同，放在静态专家循环外，避免展开后重复设置。
+        pypto.set_vec_tile_shapes(
+            tile_config.vector_tile_shape[0],
+            tile_config.vector_tile_shape[1],
+            tile_config.vector_tile_shape[2],
+            tile_config.vector_tile_shape[3]
+        )
+        pypto.set_cube_tile_shapes(
+            tile_config.m_tile_shape,
+            tile_config.k_tile_shape,
+            tile_config.n_tile_shape
+        )
+
         # Step 1: 分组矩阵乘法（GMM）+ bias处理
         for i in range(num_experts):
             begin = end
@@ -440,23 +578,7 @@ def grouped_matmul_finalize_routing_pypto(m, k, n, e, batch, tile_config, transp
             weight = x2[i]
             scaled_x = pertoken_scale[begin:end, :, :]
 
-            # 设置 vector tile shapes
-            pypto.set_vec_tile_shapes(
-                tile_config.vector_tile_shape[0],
-                tile_config.vector_tile_shape[1],
-                tile_config.vector_tile_shape[2],
-                tile_config.vector_tile_shape[3]
-            )
-
-            # 设置完 tile shapes 后才 indexing scale tensor
             scaled_weight = scale[i]
-
-            # 设置 cube tile shapes
-            pypto.set_cube_tile_shapes(
-                tile_config.m_tile_shape,
-                tile_config.k_tile_shape,
-                tile_config.n_tile_shape
-            )
 
             # 执行 MXFP8 scaled_matmul
             gmm_result = pypto.scaled_mm(
@@ -473,9 +595,12 @@ def grouped_matmul_finalize_routing_pypto(m, k, n, e, batch, tile_config, transp
 
         # Step 2: logit加权 + routing combine
         # 文档公式对应的是按 row_index 做 scatter add，重复索引需要累加。
+        post_vector_tile_shape = tile_config.post_vector_tile_shape or [
+            tile_config.vector_tile_shape[0], tile_config.vector_tile_shape[2]
+        ]
         pypto.set_vec_tile_shapes(
-            tile_config.vector_tile_shape[0],
-            tile_config.vector_tile_shape[2]
+            post_vector_tile_shape[0],
+            post_vector_tile_shape[1]
         )
         weighted = pypto.mul(intermediate, logits.unsqueeze(1))
         pypto.index_add_(routing_out, 0, row_index, weighted)
@@ -601,6 +726,34 @@ def get_device_id():
         return None
 
 
+def get_tile_config_from_env(default: TileConfig = DEFAULT_TILE_CONFIG) -> TileConfig:
+    """从环境变量选择服务器侧性能测试使用的 tile 配置。"""
+    config_name = os.environ.get("PYPTO_GMM_FR_TILE_CONFIG", default.description)
+    if not config_name:
+        return default
+    if config_name not in TUNING_TILE_CONFIGS:
+        print(f"Unknown PYPTO_GMM_FR_TILE_CONFIG={config_name}, use default: {default.description}")
+        print(f"Available configs: {', '.join(TUNING_TILE_CONFIGS.keys())}")
+        return default
+    return TUNING_TILE_CONFIGS[config_name]
+
+
+def iter_tuning_tile_configs():
+    """按环境变量指定的顺序遍历 tile 候选，便于服务器侧 sweep。"""
+    config_names = os.environ.get("PYPTO_GMM_FR_SWEEP_CONFIGS")
+    if config_names:
+        names = [name.strip() for name in config_names.split(",") if name.strip()]
+    else:
+        names = list(TUNING_TILE_CONFIGS.keys())
+
+    for name in names:
+        config = TUNING_TILE_CONFIGS.get(name)
+        if config is None:
+            print(f"Skip unknown tile config: {name}")
+            continue
+        yield name, config
+
+
 def generate_test_data(
     m: int,
     k: int,
@@ -675,9 +828,15 @@ def test_gmm_fr_full_config(tile_config: TileConfig = DEFAULT_TILE_CONFIG, devic
     print("=" * 60)
     print("Test: GroupedMatmulFinalizeRoutingV3 - Full Config")
     print("=" * 60)
+    print(f"Tile config: {tile_config.description}")
+    print(
+        f"cube m={tile_config.m_tile_shape}, k={tile_config.k_tile_shape}, "
+        f"n={tile_config.n_tile_shape}, vec={tile_config.vector_tile_shape}, "
+        f"post_vec={tile_config.post_vector_tile_shape}"
+    )
 
-    m, k, n, e, batch = 256, 512, 512, 4, 8
-    group_list = [64, 64, 64, 64]
+    m, k, n, e, batch = 16, 512, 7168, 2, 8
+    group_list = [7, 9]
 
     print(f"Config: m={m}, k={k}, n={n}, e={e}, batch={batch}")
     print(f"group_list: {group_list}, bias=True, shared_input=True")
@@ -732,8 +891,6 @@ def test_gmm_fr_full_config(tile_config: TileConfig = DEFAULT_TILE_CONFIG, devic
             tile_config=tile_config,
         ))
 
-        print(result)
-        print(result.shape)
         max_diff = np.abs(result.cpu().numpy() - golden.cpu().numpy()).max()
         print(f"Max diff: {max_diff:.6e}")
 
@@ -761,9 +918,15 @@ if __name__ == "__main__":
 
     # 获取设备ID
     device_id = get_device_id()
+    tile_config = get_tile_config_from_env()
 
     # 运行测试
-    test_gmm_fr_full_config(DEFAULT_TILE_CONFIG, device_id)
+    if os.environ.get("PYPTO_GMM_FR_SWEEP", "0") == "1":
+        for config_name, sweep_tile_config in iter_tuning_tile_configs():
+            print(f"[SWEEP] Running tile config: {config_name}")
+            test_gmm_fr_full_config(sweep_tile_config, device_id)
+    else:
+        test_gmm_fr_full_config(tile_config, device_id)
 
     print("=" * 60)
     print("All tests completed!")
