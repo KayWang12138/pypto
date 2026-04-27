@@ -24,6 +24,7 @@
 #include "passes/pass_utils/dead_operation_eliminate.h"
 #include "passes/pass_interface/pass.h"
 #include "passes/pass_check/split_reshape_checker.h"
+#include "passes/pass_utils/infer_shape_utils.h"
 
 namespace npu::tile_fwk {
 using InputMaigc = int;
@@ -224,6 +225,7 @@ private:
     std::unordered_map<int, std::unordered_map<int, const Operation*>> assembleOpPtrs_;
     std::unordered_map<std::pair<int, int>, AlignResult, PairHash> rawToAlignCache_;
     std::unordered_map<LogicalTensorPtr, bool> sameRawInputCache_;
+    std::vector<Operation*> addedOps_;
 };
 
 } // namespace npu::tile_fwk

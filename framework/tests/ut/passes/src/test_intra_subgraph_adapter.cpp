@@ -127,4 +127,83 @@ TEST_F(IntraSubgraphAdapterTest, TestInnerConvert)
     EXPECT_EQ(function->Operations().DuplicatedOpList()[convertIdx]->GetOpcode(), Opcode::OP_CONVERT);
 }
 
+TEST_F(IntraSubgraphAdapterTest, TestBoundaryConvertWithDynValidShape)
+{
+    ComputationalGraphBuilder subGraph;
+    std::vector<std::string> tensorNames{"t1", "t2", "t3", "t4"};
+    std::vector<MemoryType> tensorMemTypes{
+        MemoryType::MEM_UB, MemoryType::MEM_UB, MemoryType::MEM_L1, MemoryType::MEM_L0A};
+    std::vector<Opcode> opCodes{Opcode::OP_ADDS, Opcode::OP_CONVERT, Opcode::OP_L1_TO_L0A};
+    std::vector<std::vector<std::string>> ioperands{{"t1"}, {"t2"}, {"t3"}};
+    std::vector<std::vector<std::string>> ooperands{{"t2"}, {"t3"}, {"t4"}};
+    std::vector<std::string> opNames{"adds", "convert", "L1ToL0A"};
+    EXPECT_EQ(subGraph.AddTensors(DataType::DT_FP32, {128, 128}, tensorMemTypes, tensorNames, 0), true);
+    EXPECT_EQ(subGraph.AddOps(opCodes, ioperands, ooperands, opNames, true), true);
+    subGraph.GetOp("adds")->UpdateSubgraphID(0);
+    subGraph.GetOp("convert")->UpdateSubgraphID(0);
+    subGraph.GetOp("convert")->SetOpAttribute(
+        std::make_shared<ConvertOpAttribute>(MemoryType::MEM_UB, MemoryType::MEM_L1));
+    subGraph.GetOp("L1ToL0A")->UpdateSubgraphID(1);
+    Function* function = subGraph.GetFunction();
+    EXPECT_NE(function, nullptr);
+    IntraSubgraphAdapter adapter;
+    EXPECT_EQ(adapter.PostCheck(*function), FAILED);
+    function->SetTotalSubGraphCount(2);
+    EXPECT_EQ(adapter.RunOnFunction(*function), SUCCESS);
+    EXPECT_EQ(adapter.PostCheck(*function), SUCCESS);
+    const int opNum = 4;
+    EXPECT_EQ(function->Operations().DuplicatedOpList().size(), opNum);
+    int copyOutCount = 0;
+    for (auto& op : function->Operations()) {
+        if (op.GetOpcode() == Opcode::OP_COPY_OUT) {
+            copyOutCount++;
+            EXPECT_EQ(op.GetIOperands().size(), 1);
+            EXPECT_EQ(op.GetOOperands().size(), 1);
+        }
+    }
+    EXPECT_GT(copyOutCount, 0) << "Should have at least one COPY_OUT op after adapter";
+}
+
+TEST_F(IntraSubgraphAdapterTest, TestBoundaryConvertCopyOutOutputConsistency)
+{
+    ComputationalGraphBuilder subGraph;
+    std::vector<std::string> tensorNames{"t1", "t2", "t3", "t4"};
+    std::vector<MemoryType> tensorMemTypes{
+        MemoryType::MEM_UB, MemoryType::MEM_UB, MemoryType::MEM_L1, MemoryType::MEM_L0A};
+    std::vector<Opcode> opCodes{Opcode::OP_ADDS, Opcode::OP_CONVERT, Opcode::OP_L1_TO_L0A};
+    std::vector<std::vector<std::string>> ioperands{{"t1"}, {"t2"}, {"t3"}};
+    std::vector<std::vector<std::string>> ooperands{{"t2"}, {"t3"}, {"t4"}};
+    std::vector<std::string> opNames{"adds", "convert", "L1ToL0A"};
+    EXPECT_EQ(subGraph.AddTensors(DataType::DT_FP32, {128, 128}, tensorMemTypes, tensorNames, 0), true);
+    EXPECT_EQ(subGraph.AddOps(opCodes, ioperands, ooperands, opNames, true), true);
+    subGraph.GetOp("adds")->UpdateSubgraphID(0);
+    subGraph.GetOp("convert")->UpdateSubgraphID(0);
+    subGraph.GetOp("convert")->SetOpAttribute(
+        std::make_shared<ConvertOpAttribute>(MemoryType::MEM_UB, MemoryType::MEM_L1));
+    subGraph.GetOp("L1ToL0A")->UpdateSubgraphID(1);
+    Function* function = subGraph.GetFunction();
+    EXPECT_NE(function, nullptr);
+    IntraSubgraphAdapter adapter;
+    function->SetTotalSubGraphCount(2);
+    adapter.RunOnFunction(*function);
+    EXPECT_EQ(adapter.PostCheck(*function), SUCCESS);
+    int copyOutCount = 0;
+    int viewCount = 0;
+    for (auto& op : function->Operations()) {
+        if (op.GetOpcode() == Opcode::OP_COPY_OUT) {
+            copyOutCount++;
+            EXPECT_EQ(op.GetIOperands().size(), 1);
+            EXPECT_EQ(op.GetOOperands().size(), 1);
+            auto input = op.GetIOperands().front();
+            auto output = op.GetOOperands().front();
+            EXPECT_EQ(input->shape, output->shape) << "COPY_OUT input and output shape should match";
+        }
+        if (op.GetOpcode() == Opcode::OP_VIEW) {
+            viewCount++;
+        }
+    }
+    EXPECT_GT(copyOutCount, 0) << "Should have at least one COPY_OUT op";
+    EXPECT_GT(viewCount, 0) << "Should have at least one VIEW op";
+}
+
 } // namespace npu::tile_fwk
