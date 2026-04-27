@@ -81,6 +81,7 @@ pypto-permute
 pypto-pow
 pypto-prelu
 pypto-prod
+pypto-quant_mx
 pypto-reciprocal
 pypto-relu
 pypto-remainder
