@@ -372,7 +372,7 @@ private:
     // Signed: GetDataSize(DataType) uses -1 for sub-byte dtypes; storing as size_t wrapped to huge
     // and broke vector allocation in SetVerifyData / RawTensorData::CreateTensor.
     int elemSize_;
-    size_t shmOffset_;
+    size_t shmOffset_ = 0;
 };
 
 using RawTensorDataPtr = std::shared_ptr<RawTensorData>;
@@ -439,8 +439,8 @@ struct LogicalTensorData {
         return offset;
     }
 
-    size_t GetShmOffset() {
-        return data_->GetShmOffset();
+    size_t GetShmStorageOffset() {
+        return GetStorageOffset() * data_->GetElementSize() + data_->GetShmOffset();
     }
 
     int ViewIndexToDataIndex(int viewIndex) const

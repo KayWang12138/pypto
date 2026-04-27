@@ -720,7 +720,7 @@ struct FunctionInterpreter {
             SimulationCommManager::Instance().GetCommContext(attr.group);
         int srcRank = context->GetRank();
         size_t slotSize = shmData->GetSize() * BytesOf(shmData->GetDataType());
-        uint64_t offset = shmData->GetStorageOffset();
+        uint64_t offset = shmData->GetShmStorageOffset();
         return context->CheckWaitCondition(srcRank, attr.expectedSum, slotSize, offset);
     }
 

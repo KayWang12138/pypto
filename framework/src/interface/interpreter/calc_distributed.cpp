@@ -44,11 +44,11 @@ void ExecuteOpShmemSet(ExecuteOperationContext *ctx) {
     std::shared_ptr<SimulationCommContext> context = SimulationCommManager::Instance().GetCommContext(attr.group);
     size_t slotSize = shm->GetSize() * BytesOf(shm->GetDataType());
     if (!attr.isSetData) {
-        std::cout << "Set rank " << context->GetRank() << "'s signal as 0 from " << shm->GetShmOffset() + shm->GetStorageOffset() << " to " << shm->GetShmOffset() + shm->GetStorageOffset() + slotSize << std::endl;
-        context->Signal(context->GetRank(), 0, slotSize, shm->GetShmOffset() + shm->GetStorageOffset());
+        std::cout << "Set rank " << context->GetRank() << "'s signal as 0 from " << shm->GetShmStorageOffset() << " to " << shm->GetShmStorageOffset() + slotSize << std::endl;
+        context->Signal(context->GetRank(), 0, slotSize, shm->GetShmStorageOffset());
     } else {
-        std::cout << "Set rank " << context->GetRank() << "'s data as 0 from " << shm->GetShmOffset() + shm->GetStorageOffset() << " to " << shm->GetShmOffset() + shm->GetStorageOffset() + slotSize << std::endl;
-        context->Set(context->GetRank(), 0, slotSize, shm->GetShmOffset() + shm->GetStorageOffset());
+        std::cout << "Set rank " << context->GetRank() << "'s data as 0 from " << shm->GetShmStorageOffset() << " to " << shm->GetShmStorageOffset() + slotSize << std::endl;
+        context->Set(context->GetRank(), 0, slotSize, shm->GetShmStorageOffset());
     }
 
     std::cout << "=== ExecuteOpShmemSet exited ..." << std::endl;
@@ -79,8 +79,8 @@ void ExecuteOpShmemPut(ExecuteOperationContext *ctx) {
     auto castedIn = LogicalTensorData::CreateEmpty(shm->GetDataType(), shm->GetShape(), shm->GetValidShape(), shm->GetShape());
     calc::Cast(castedIn, in);
 
-    std::cout << "Put data " << in <<" to dstRank " << dstRank << " from " << shm->GetShmOffset() + shm->GetStorageOffset() << " to " << shm->GetShmOffset() + shm->GetStorageOffset() + castedIn->GetSize() * BytesOf(castedIn->GetDataType()) << " , atomic type: " << atomicType << std::endl;
-    context->Put(castedIn, dstRank, shm->GetShmOffset() + shm->GetStorageOffset(), atomicType);
+    std::cout << "Put data " << in <<" to dstRank " << dstRank << " from " << shm->GetShmStorageOffset() << " to " << shm->GetShmStorageOffset() + castedIn->GetSize() * BytesOf(castedIn->GetDataType()) << " , atomic type: " << atomicType << std::endl;
+    context->Put(castedIn, dstRank, shm->GetShmStorageOffset(), atomicType);
 
     std::cout << "=== ExecuteOpShmemPut exited ..." << std::endl;
 }
@@ -108,8 +108,8 @@ void ExecuteOpShmemSignal(ExecuteOperationContext *ctx) {
     int value = attr.signalValue;
     bool notifyAll = attr.notifyAll;
     size_t slotSize = shm->GetSize() * BytesOf(shm->GetDataType());
-    std::cout << "Signal " << value << " to rank " << dstRank << " from offset " << shm->GetShmOffset() + shm->GetStorageOffset() << " to " << shm->GetShmOffset() + shm->GetStorageOffset() + slotSize << "; atomicType: " << atomicType << ", notifyAll: " << notifyAll << std::endl;
-    context->Signal(dstRank, value, slotSize, shm->GetShmOffset() + shm->GetStorageOffset(), atomicType, notifyAll);
+    std::cout << "Signal " << value << " to rank " << dstRank << " from offset " << shm->GetShmStorageOffset() << " to " << shm->GetShmStorageOffset() + slotSize << "; atomicType: " << atomicType << ", notifyAll: " << notifyAll << std::endl;
+    context->Signal(dstRank, value, slotSize, shm->GetShmStorageOffset(), atomicType, notifyAll);
 
     std::cout << "=== ExecuteOpShmemSignal exited ..." << std::endl;
 }
@@ -136,7 +136,7 @@ void ExecuteOpShmemWaitUntil(ExecuteOperationContext *ctx) {
     // std::cout << "WaitUntil add task " << taskId << std::endl;
     // // Register the WaitUntil task with the operation for dependency resolution
     // SimulationCommManager::RegisterWaitTask(ctx->op, context, taskId);
-    context->Wait(srcRank, expect, slotSize, shm->GetShmOffset() + shm->GetStorageOffset(), reset);
+    context->Wait(srcRank, expect, slotSize, shm->GetShmStorageOffset(), reset);
 
     std::cout << "=== ExecuteOpShmemWaitUntil exited ..." << std::endl;
 }
@@ -157,8 +157,8 @@ void ExecuteOpShmemGet(ExecuteOperationContext *ctx) {
     int srcRank = ctx->opInter->EvaluateSymbolicScalar(attr.ownerRank);
     size_t slotSize = out->GetSize() * BytesOf(out->GetDataType());
 
-    std::cout << "Get " << srcRank << "'s data from " << srcRank << " from " << shm->GetShmOffset() + shm->GetStorageOffset() << " to " << shm->GetShmOffset() + shm->GetStorageOffset() + slotSize << std::endl;
-    LogicalTensorDataPtr tmp = context->Get(srcRank, out->GetDataType(), out->GetShape(), shm->GetShmOffset() + shm->GetStorageOffset());
+    std::cout << "Get " << srcRank << "'s data from " << srcRank << " from " << shm->GetShmStorageOffset() << " to " << shm->GetShmStorageOffset() + slotSize << std::endl;
+    LogicalTensorDataPtr tmp = context->Get(srcRank, out->GetDataType(), out->GetShape(), shm->GetShmStorageOffset());
     calc::Copy(out, tmp);
 
     std::cout << "=== ExecuteOpShmemGet exited ..." << std::endl;
