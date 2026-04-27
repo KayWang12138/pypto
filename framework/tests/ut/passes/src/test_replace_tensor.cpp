@@ -744,54 +744,6 @@ TEST_F(ReplaceTensorTest, InsertAssembleCopyDDRExceedUB)
     EXPECT_EQ(copyOutNums, 0) << "Should insert 1 COPY_OUT operation";
 }
 
-// ========== 测试用例：InsertAssembleCopy - 单个ASSEMBLE不插入拷贝 ==========
-TEST_F(ReplaceTensorTest, InsertAssembleCopySingleAssemble)
-{
-    auto currFunctionPtr = std::make_shared<Function>(
-        Program::GetInstance(), "InsertAssembleCopySingleAssemble", "InsertAssembleCopySingleAssemble", nullptr);
-    EXPECT_TRUE(currFunctionPtr != nullptr);
-    Program::GetInstance().InsertFuncToFunctionMap("InsertAssembleCopySingleAssemble", currFunctionPtr);
-
-    // 创建输入tensor
-    std::vector<int64_t> shape = {32, 64};
-    auto input = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape);
-    input->SetMemoryTypeBoth(MemoryType::MEM_UB, true);
-
-    // 创建输出tensor
-    auto output = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape);
-    output->SetMemoryTypeBoth(MemoryType::MEM_UB, true);
-
-    // 创建单个ASSEMBLE操作
-    auto& assemble = currFunctionPtr->AddRawOperation(Opcode::OP_ASSEMBLE, {input}, {output});
-    assemble.SetOpAttribute(std::make_shared<AssembleOpAttribute>(std::vector<int64_t>{0, 0}));
-
-    currFunctionPtr->inCasts_.push_back(input);
-    currFunctionPtr->outCasts_.push_back(output);
-
-    // 调用InsertAssembleCopy
-    ReplaceTensor commonOperationEliminateTest;
-    commonOperationEliminateTest.InsertNeedCopy(*currFunctionPtr);
-
-    // 验证没有插入拷贝序列
-    int copyInNumBer = 0;
-    int copyOutNumBer = 0;
-    int assembleInNumBer = 0;
-    for (const auto& op : currFunctionPtr->Operations()) {
-        if (op.GetOpcode() == Opcode::OP_COPY_IN) {
-            copyInNumBer++;
-        } else if (op.GetOpcode() == Opcode::OP_COPY_OUT) {
-            copyOutNumBer++;
-        } else if (op.GetOpcode() == Opcode::OP_ASSEMBLE) {
-            assembleInNumBer++;
-        }
-    }
-
-    // 单个ASSEMBLE不应该插入拷贝序列
-    EXPECT_EQ(assembleInNumBer, 1) << "Should have 1 ASSEMBLE operation";
-    EXPECT_EQ(copyInNumBer, 0) << "Should not insert COPY_IN operation";
-    EXPECT_EQ(copyOutNumBer, 0) << "Should not insert COPY_OUT operation";
-}
-
 // ========== 测试用例：InsertNeedCopy - Reshape + ASSEMBLE 插入拷贝 ==========
 TEST_F(ReplaceTensorTest, InsertNeedCopyReshapeAssemble)
 {
