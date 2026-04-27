@@ -777,16 +777,13 @@ def compile(
             - "cce": Skip ptoas. Generate C++ directly via CCECodegen.
     """
     arch = _normalize_arch(arch)
-
     os.environ["PYPTO_JIT_ARCH"] = arch
     if arch in ("a2", "a3"):
         os.environ["npu_arch"] = "dav-c220"
     else:
         os.environ["npu_arch"] = "dav-c310"
 
-    # Deferred compilation: parse KernelDef → ir.Program with arch info
     from pypto_block.frontend.kernel import KernelDef
-
     if isinstance(prog, KernelDef):
         prog = prog.parse()
 
@@ -924,6 +921,7 @@ def compile(
         f"-I{ASCEND_HOME_PATH}/include",
         f"-I{ASCEND_HOME_PATH}/pkg_inc",
         f"-I{ASCEND_HOME_PATH}/pkg_inc/runtime",
+        f"-I{ASCEND_HOME_PATH}/pkg_inc/",
         f"-I{ASCEND_HOME_PATH}/pkg_inc/profiling",
         f"-I{ASCEND_HOME_PATH}/include/experiment/runtime",
         f"-I{ASCEND_HOME_PATH}/include/experiment/msprof",

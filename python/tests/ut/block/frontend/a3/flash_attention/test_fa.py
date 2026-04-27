@@ -399,7 +399,7 @@ def flash_attention_ref(q, k, v, d):
 def test_fa_k():
     compiled = fe.compile(fa_k_kernel, arch="a3", codegen_mode="cce")
     compiled_pto = fe.compile(fa_k_kernel, arch="a3", codegen_mode="pto")
-    device = "npu:5"
+    device = "npu:7"
     torch.npu.set_device(device)
     torch.manual_seed(42)
     # Test shapes: (Sq, Skv, D) — multi-core with Q tiling

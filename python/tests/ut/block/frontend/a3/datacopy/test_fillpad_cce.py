@@ -184,7 +184,7 @@ def fillpad_expand_dynamic_cce_kernel(
 @fe.jit()
 def test_fillpad_dynamic_cce():
     _print_case_header("test_fillpad_dynamic_cce")
-    _run_fillpad_cce_case("fillpad_dynamic_cce", fillpad_dynamic_cce_kernel, (8, 8), "output", "npu:5")
+    _run_fillpad_cce_case("fillpad_dynamic_cce", fillpad_dynamic_cce_kernel, (8, 8), "output", "npu:7")
 
 
 @fe.jit()
@@ -195,7 +195,7 @@ def test_fillpad_inplace_dynamic_cce():
         fillpad_inplace_dynamic_cce_kernel,
         (8, 8),
         "output",
-        "npu:5",
+        "npu:7",
     )
 
 

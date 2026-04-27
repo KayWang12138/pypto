@@ -155,7 +155,7 @@ def alloc_cube_buffer():
 
 
 # Write alloc_exp_corr_fifo to a temp .py so auto-inline can read its source.
-import tempfile as _tf, importlib.util as _ilu, os as _os
+import importlib.util as _ilu, os as _os
 def _gen_alloc_exp_corr():
     lines = ["import pypto_block.language as pl", "import pypto_block.language.op.manual as plm", ""]
     lines.append("def alloc_exp_corr_fifo():")
@@ -168,7 +168,8 @@ def _gen_alloc_exp_corr():
         names.append(f"ec{i}"); rm_names.append(f"ec{i}_rm")
     lines.append(f"    return ({', '.join(names)}), ({', '.join(rm_names)})")
     src = "\n".join(lines) + "\n"
-    tmp = _os.path.join(_tf.gettempdir(), "_alloc_exp_corr_fifo_dn.py")
+    tmp = _os.path.join("./build/tmp/", "_alloc_exp_corr_fifo.py")
+    _os.makedirs(_os.path.dirname(tmp), exist_ok=True)
     with open(tmp, "w") as f:
         f.write(src)
     spec = _ilu.spec_from_file_location("_alloc_exp_corr_fifo_dn", tmp)

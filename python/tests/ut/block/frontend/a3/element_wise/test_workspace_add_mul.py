@@ -296,7 +296,7 @@ def test_workspace_add_mul_db():
     compiled_lib = fe.compile(workspace_add_mul_db_kernel, arch="a3")
     print("compiled lib path:", compiled_lib.lib_path)
 
-    device = "npu:5"
+    device = "npu:7"
     torch.npu.set_device(device)
 
     shapes = [[64, 128], [128, 256], [1024, 1024]]
