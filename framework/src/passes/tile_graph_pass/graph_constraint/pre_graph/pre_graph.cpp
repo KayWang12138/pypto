@@ -142,7 +142,7 @@ static std::vector<HubMergeType> MarkSubgraphType(Function &function)
     return subgraphTypes;
 }
 
-static Status HubSpecialProcess(Function &function)
+[[ maybe_unused ]] static Status HubSpecialProcess(Function &function)
 {
     std::vector<HubMergeType> subgraphTypes = MarkSubgraphType(function);
     std::unordered_map<int, bool> updateIsCube;
@@ -192,10 +192,6 @@ static Status HubSpecialProcess(Function &function)
 
 Status PreGraphProcess::RunOnFunction(Function& function)
 {
-    APASS_LOG_INFO_F(Elements::Operation, "===> combine the hub subgraph to a nearby subgraph.");
-    if (function.GetTotalSubGraphCount() > 1) {
-        HubSpecialProcess(function);
-    }
     APASS_LOG_INFO_F(Elements::Operation, "===> start PreGraph.");
     ColorGraph colorGraph;
     colorGraph.PreColorSort(function);

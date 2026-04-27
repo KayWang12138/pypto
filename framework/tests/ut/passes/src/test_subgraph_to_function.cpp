@@ -376,7 +376,7 @@ TEST_F(SubgraphToFunctionTest, test_json_dump_and_load)
     config::SetPassConfig("PVC2_OOO", "OoOSchedule", KEY_DISABLE_PASS, false);
     auto programJson = Program::GetInstance().DumpJson();
     auto currentFunctionPtr = Program::GetInstance().GetCurrentFunction();
-    EXPECT_EQ(Program::GetInstance().FunctionMapSize(), 4);
+    EXPECT_EQ(Program::GetInstance().FunctionMapSize(), 6);
     ASSERT_NE(currentFunctionPtr, nullptr);
     EXPECT_EQ(currentFunctionPtr->Operations().size(), 1);
     EXPECT_EQ(currentFunctionPtr->GetRawName(), "PROGRAM_ENTRY");
@@ -387,16 +387,16 @@ TEST_F(SubgraphToFunctionTest, test_json_dump_and_load)
 #endif
 
     ASSERT_NE(batchMatmulFunc->rootFunc_, nullptr);
-    EXPECT_EQ(batchMatmulFunc->rootFunc_->Operations().size(), 1);
-    EXPECT_EQ(batchMatmulFunc->rootFunc_->programs_.size(), 1);
+    EXPECT_EQ(batchMatmulFunc->rootFunc_->Operations().size(), 4);
+    EXPECT_EQ(batchMatmulFunc->rootFunc_->programs_.size(), 3);
     auto& oriPrograms = batchMatmulFunc->rootFunc_->programs_;
-    EXPECT_EQ(oriPrograms[0]->Operations().size(), 11);
+    EXPECT_EQ(oriPrograms[0]->Operations().size(), 1);
 #ifndef PRIOR_SCHEDULING
     EXPECT_EQ(oriPrograms[1]->Operations().size(), 8);
 #endif
     auto topoBefore = batchMatmulFunc->rootFunc_->topoInfo_;
     auto& entrysBefore = topoBefore.GetTopology();
-    EXPECT_EQ(programJson["functions"].size(), 4);
+    EXPECT_EQ(programJson["functions"].size(), 6);
     SubfuncInvokeInfoTy invokeInfo10000;
     SubfuncInvokeInfoTy invokeInfo10001;
     SubfuncInvokeInfoTy invokeInfo10002;
@@ -418,12 +418,12 @@ TEST_F(SubgraphToFunctionTest, test_json_dump_and_load)
     }
 
     Program::GetInstance().LoadJson(programJson);
-    EXPECT_EQ(Program::GetInstance().FunctionMapSize(), 4);
+    EXPECT_EQ(Program::GetInstance().FunctionMapSize(), 6);
     auto newCurrFuncPtr = Program::GetInstance().GetCurrentFunction();
     ASSERT_NE(newCurrFuncPtr, nullptr);
     // 校验CallOpAttribute
     ASSERT_NE(newCurrFuncPtr->rootFunc_, nullptr);
-    EXPECT_EQ(newCurrFuncPtr->rootFunc_->Operations().size(), 1);
+    EXPECT_EQ(newCurrFuncPtr->rootFunc_->Operations().size(), 4);
 
     for (auto& op : newCurrFuncPtr->rootFunc_->Operations()) {
         EXPECT_EQ(op.GetOpcode(), Opcode::OP_CALL);
@@ -456,8 +456,8 @@ TEST_F(SubgraphToFunctionTest, test_json_dump_and_load)
     EXPECT_EQ(batchMatmulFunc->Operations().size(), 9);
 #endif
     ASSERT_NE(batchMatmulFunc->rootFunc_, nullptr);
-    EXPECT_EQ(batchMatmulFunc->rootFunc_->Operations().size(), 1);
-    EXPECT_EQ(batchMatmulFunc->rootFunc_->programs_.size(), 1);
+    EXPECT_EQ(batchMatmulFunc->rootFunc_->Operations().size(), 4);
+    EXPECT_EQ(batchMatmulFunc->rootFunc_->programs_.size(), 3);
 
     // 校验Topo
     auto& topo = newCurrFuncPtr->rootFunc_->topoInfo_;
@@ -472,8 +472,8 @@ TEST_F(SubgraphToFunctionTest, test_json_dump_and_load)
 
     // 校验rootFunc_->programs_
     auto& programs = newCurrFuncPtr->rootFunc_->programs_;
-    ASSERT_EQ(programs.size(), 1);
-    EXPECT_EQ(programs[0]->Operations().size(), 11);
+    ASSERT_EQ(programs.size(), 3);
+    EXPECT_EQ(programs[0]->Operations().size(), 1);
 #ifndef PRIOR_SCHEDULING
     EXPECT_EQ(programs[1]->Operations().size(), 8);
 #endif
