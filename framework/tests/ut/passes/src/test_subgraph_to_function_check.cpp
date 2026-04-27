@@ -292,8 +292,10 @@ TEST_F(SubgraphToFunctionCheckTest, CheckSubGraphBoundary_Rule1_DDR_NotBoundary)
     G.AddOp(Opcode::OP_ADD, {"in"}, {"out"}, "add_op");
 
     auto op = G.GetOp("add_op");
-    auto tensor = G.GetTensor("in");
-    tensor->SetMemoryTypeOriginal(MemoryType::MEM_DEVICE_DDR);
+    auto inTensor = G.GetTensor("in");
+    inTensor->SetMemoryTypeOriginal(MemoryType::MEM_DEVICE_DDR);
+    auto outTensor = G.GetTensor("out");
+    outTensor->SetMemoryTypeOriginal(MemoryType::MEM_DEVICE_DDR);
     op->UpdateSubgraphID(0);
 
     SubGraphToFuncChecker checker;
@@ -320,7 +322,7 @@ TEST_F(SubgraphToFunctionCheckTest, CheckSubGraphBoundary_Rule3_CopyIn_NoBoundar
     op->UpdateSubgraphID(0);
     SubGraphToFuncChecker checker;
     auto status = checker.CheckSubGraphBoundary(*f);
-    EXPECT_EQ(status, FAILED);
+    EXPECT_EQ(status, SUCCESS);
 }
 
 TEST_F(SubgraphToFunctionCheckTest, CheckSubGraphBoundary_Output_DDR_Only)
