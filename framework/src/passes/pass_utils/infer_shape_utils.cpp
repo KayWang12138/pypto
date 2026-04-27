@@ -27,8 +27,11 @@ Status InferShapeUtils::InferShape(Function& function, const std::vector<Operati
     if (targetOps.empty()) {
         opList = function.Operations().DuplicatedOpList();
     } else {
-        opList.reserve(targetOps.size());
-        for (const auto op : targetOps) {
+        std::vector<Operation*> mutableTargetOps = targetOps;
+        mutableTargetOps.erase(std::remove_if(mutableTargetOps.begin(), mutableTargetOps.end(), 
+            [](Operation* op) { return op == nullptr || op->IsDeleted(); }), mutableTargetOps.end());
+        opList.reserve(mutableTargetOps.size());
+        for (const auto op : mutableTargetOps) {
             if (op != nullptr && !op->IsDeleted() && targetOpSet.insert(op).second) {
                 opList.push_back(op);
             }
@@ -64,3 +67,53 @@ Status InferShapeUtils::InferShape(Function& function, const std::vector<Operati
 }
 } // namespace tile_fwk
 } // namespace npu
+
+// Status InferShapeUtils::InferShape(Function& function, const std::vector<Operation*>& targetOps, bool isParamIndex)
+// {
+//     std::vector<Operation*> opList;
+//     std::unordered_set<Operation*> targetOpSet;
+
+//     if (targetOps.empty()) {
+//         opList = function.Operations().DuplicatedOpList();
+//     } else {
+//         std::unordered_set<Operation*> validOps;
+//         for (auto& op : function.Operations()) {
+//             validOps.insert(&op);
+//         }
+//         opList.reserve(targetOps.size());
+//         for (const auto op : targetOps) {
+//             if (op != nullptr && validOps.find(op) != validOps.end() && targetOpSet.insert(op).second) {
+//                 opList.push_back(op);
+//             }
+//         }
+//     }
+
+//     // 构建 opMagic -> index 映射
+//     std::map<int, size_t> opMagic2Idx;
+//     for (size_t i = 0; i < opList.size(); ++i) {
+//         opMagic2Idx[opList[i]->GetOpMagic()] = i;
+//     }
+
+//     std::vector<std::vector<size_t>> opOutGraph(opList.size());
+//     std::vector<std::vector<size_t>> opInGraph(opList.size());
+//     for (size_t opIdx = 0; opIdx < opList.size(); ++opIdx) {
+//         const auto& op = opList[opIdx];
+//         size_t currentIdx = opMagic2Idx[op->GetOpMagic()];
+
+//         for (const auto producer : op->ProducerOpsOrdered()) {
+//             if (targetOpSet.empty() || targetOpSet.find(producer) != targetOpSet.end()) {
+//                 opInGraph[currentIdx].push_back(opMagic2Idx[producer->GetOpMagic()]);
+//             }
+//         }
+//         for (const auto consumer : op->ConsumerOpsOrdered()) {
+//             if (targetOpSet.empty() || targetOpSet.find(consumer) != targetOpSet.end()) {
+//                 opOutGraph[currentIdx].push_back(opMagic2Idx[consumer->GetOpMagic()]);
+//             }
+//         }
+//     }
+
+//     TopoProgramUtils::TopoProgram(opList, opInGraph, opOutGraph, isParamIndex);
+//     return SUCCESS;
+// }
+// } // namespace tile_fwk
+// } // namespace npu
