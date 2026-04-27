@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 # coding: utf-8
 # Copyright (c) 2025-2026 Huawei Technologies Co., Ltd.
-# This program is free software, you can redistribute it and/or modify it under the terms and conditions of
+# This program is free software, you can redistribute it and/or modify it under terms and conditions of
 # CANN Open Software License Agreement Version 2.0 (the "License").
-# Please refer to the License for details. You may not use this file except in compliance with the License.
+# Please refer to License for details. You may not use this file except in compliance with License.
 # THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED,
 # INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
 # See LICENSE in the root of the software repository for the full text of the License.
@@ -14,16 +14,28 @@ Print NPU Data Tool
 """
 
 import os
+import sys
 import re
 import json
 import logging
 import shutil
 import argparse
 import subprocess
+from dataclasses import dataclass
 from pathlib import Path
 from typing import List, Optional, Dict, Tuple
 
 logger = logging.getLogger(__name__)
+
+
+@dataclass
+class PrintConfig:
+    """打印配置"""
+    print_type: str = "GM"
+    dtype: str = "float"
+    end_offset: int = 63
+    start_offset: int = 0
+    insert_pos: str = "kernel_start"
 
 
 class PrintNPUDataTool:
@@ -87,9 +99,9 @@ class PrintNPUDataTool:
         """重新编译pypto"""
         logger.info("=== 重新编译 PyPTO ===")
         os.chdir(self.pypto_root)
-        logger.info(f"  执行: python3 -m pip install . -v")
+        logger.info(f"  执行: {sys.executable} -m pip install . -v")
         result = subprocess.run(
-            ["python3", "-m", "pip", "install", ".", "-v"],
+            [sys.executable, "-m", "pip", "install", ".", "-v"],
             capture_output=True,
             text=True
         )
@@ -126,7 +138,8 @@ class PrintNPUDataTool:
                 matched.append(cce)
         return matched
     
-    def find_kernel_functions(self, cce_content: str) -> List[Dict]:
+    @staticmethod
+    def find_kernel_functions(cce_content: str) -> List[Dict]:
         """解析CCE中的kernel函数结构"""
         kernels = []
         
@@ -184,7 +197,8 @@ class PrintNPUDataTool:
             'content': content
         }
     
-    def parse_shape_variables(self, content: str) -> List[str]:
+    @staticmethod
+    def parse_shape_variables(content: str) -> List[str]:
         """解析 CCE 中的 shape 变量
         
         识别格式如:
@@ -238,7 +252,7 @@ class PrintNPUDataTool:
                         dim_groups[base_name] = []
                     dim_groups[base_name].append((int(dim_num), var))
             
-            for base_name, dims in dim_groups.items():
+            for _, dims in dim_groups.items():
                 dims.sort()
                 if len(dims) == 1:
                     var_name = dims[0][1]
@@ -280,28 +294,23 @@ class PrintNPUDataTool:
         else:
             logger.warning("  警告: 未找到 kernel 函数")
     
-    def add_print_to_cce(self, cce_file: Path, tensor_names: List[str], 
-                         print_type: str = "GM", dtype: str = "float", 
-                         end_offset: int = 63, start_offset: int = 0, 
-                         insert_pos: str = "kernel_start"):
-        """
-        添加打印语句到CCE
+    def add_print_to_cce(
+        self, cce_file: Path, tensor_names: List[str], config: Optional[PrintConfig] = None
+    ):
+        """添加打印语句到CCE
         
         Args:
-            dtype: 数据类型（float/bfloat16_t/half/int32_t）
-            end_offset: 打印末尾偏移量（含）
-            start_offset: 打印起始偏移量
-            元素数量 = end_offset - start_offset + 1
-        
-        insert_pos 选项:
-        - kernel_start: kernel函数开头
-        - kernel_end: kernel函数结尾  
-        - tensor_after: 在指定tensor声明之后
+            cce_file: CCE文件路径
+            tensor_names: tensor名称列表
+            config: 打印配置（print_type/dtype/end_offset/start_offset/insert_pos）
         """
-        element_count = end_offset - start_offset + 1
+        if config is None:
+            config = PrintConfig()
+        
+        element_count = config.end_offset - config.start_offset + 1
         if element_count > 80:
             logger.warning(f"  警告: 元素数量 {element_count} > 80，调整偏移量范围")
-            end_offset = start_offset + 79
+            config.end_offset = config.start_offset + 79
             
         content = cce_file.read_text()
         
@@ -323,15 +332,20 @@ class PrintNPUDataTool:
             'content': content
         }
         
-        print_func = "AiCorePrintGmTensor" if print_type == "GM" else "AiCorePrintUbTensor"
-        tensor_type = "__gm__" if print_type == "GM" else "__ub__"
+        print_func = "AiCorePrintGmTensor" if config.print_type == "GM" else "AiCorePrintUbTensor"
+        tensor_type = "__gm__" if config.print_type == "GM" else "__ub__"
         
-        tensor_list = tensor_names if tensor_names else (cce_info['gm_tensors'] if print_type == "GM" else cce_info['ub_tensors'])
+        if tensor_names:
+            tensor_list = tensor_names
+        else:
+            tensor_list = cce_info['gm_tensors'] if config.print_type == "GM" else cce_info['ub_tensors']
         
         print_stmts = []
         for tensor_name in tensor_list:
             if tensor_name in content:
-                print_stmts.append(f'{print_func}(param->ctx, ({tensor_type}{dtype}*){tensor_name}.Getaddr(), {end_offset}, {start_offset});')
+                stmt = f'{print_func}(param->ctx, ({tensor_type}{config.dtype}*){tensor_name}.Getaddr(), '
+                stmt += f'{config.end_offset}, {config.start_offset});'
+                print_stmts.append(stmt)
         
         if not print_stmts:
             logger.warning(f"  警告: 未找到tensor {tensor_list}")
@@ -339,7 +353,7 @@ class PrintNPUDataTool:
         
         print_code = "\n".join([f"    {s} // DEBUG" for s in print_stmts])
         
-        if insert_pos == "kernel_start" and cce_info['kernels']:
+        if config.insert_pos == "kernel_start" and cce_info['kernels']:
             kernel = cce_info['kernels'][0]
             first_brace = content.find('{', kernel['start'])
             if first_brace != -1:
@@ -348,19 +362,19 @@ class PrintNPUDataTool:
                     pos += 1
                 content = content[:pos] + "\n" + print_code + "\n" + content[pos:]
                 
-        elif insert_pos == "kernel_end" and cce_info['kernels']:
+        elif config.insert_pos == "kernel_end" and cce_info['kernels']:
             kernel = cce_info['kernels'][0]
             line_start = content.rfind('\n', 0, kernel['end'])
             if line_start == -1:
                 line_start = 0
-            line_content = content[line_start:kernel['end']+1]
+            line_content = content[line_start:kernel['end'] + 1]
             stripped = line_content.strip()
             if stripped == '}':
                 content = content[:line_start] + "\n" + print_code + content[line_start:]
             else:
-                content = content[:kernel['end']] + "\n" + print_code + "\n}" + content[kernel['end']+1:]
+                content = content[:kernel['end']] + "\n" + print_code + "\n}" + content[kernel['end'] + 1:]
             
-        elif insert_pos == "tensor_after" and tensor_list:
+        elif config.insert_pos == "tensor_after" and tensor_list:
             first_tensor = tensor_list[0]
             tensor_pos = content.find(f"= {first_tensor}")
             if tensor_pos == -1:
@@ -368,7 +382,7 @@ class PrintNPUDataTool:
             if tensor_pos != -1:
                 line_end = content.find('\n', tensor_pos)
                 if line_end != -1:
-                    content = content[:line_end+1] + "    " + print_code + "\n" + content[line_end+1:]
+                    content = content[:line_end + 1] + "    " + print_code + "\n" + content[line_end + 1:]
         
         cce_file.write_text(content)
         logger.info(f"  已添加 {len(print_stmts)} 条打印语句")
@@ -388,7 +402,8 @@ class PrintNPUDataTool:
         
         return result.returncode, log_file
     
-    def parse_log(self, log_file: Path) -> Dict:
+    @staticmethod
+    def parse_log(log_file: Path) -> Dict:
         """解析日志获取打印数据"""
         if not log_file or not log_file.exists():
             return {}
@@ -433,7 +448,7 @@ class PrintNPUDataTool:
         try:
             # 获取所有操作列表
             result = subprocess.run(
-                ['python3', str(script_path), '--ir-file', str(ir_file), '--list-ops'],
+                [sys.executable, str(script_path), '--ir-file', str(ir_file), '--list-ops'],
                 capture_output=True,
                 text=True
             )
@@ -461,11 +476,11 @@ class PrintNPUDataTool:
             # 检查每个操作的 shape 和 validshape
             issues = []
             for op_info in ops_info:
-                result = subprocess.run(
-                    ['python3', str(script_path), '--ir-file', str(ir_file), '--op-magic', str(op_info['op_magic']), '--format', 'json'],
-                    capture_output=True,
-                    text=True
-                )
+                cmd = [
+                    sys.executable, str(script_path), '--ir-file', str(ir_file),
+                    '--op-magic', str(op_info['op_magic']), '--format', 'json'
+                ]
+                result = subprocess.run(cmd, capture_output=True, text=True)
                 
                 if result.returncode == 0:
                     try:
@@ -718,8 +733,14 @@ AicoreLogF 示例（手动添加到CCE文件）：
         if args.tensor:
             tensors = [t.strip() for t in args.tensor.split(',')]
         
-        debugger.add_print_to_cce(cce_file, tensors, args.print_type, 
-                                  args.dtype, args.end_offset, args.start_offset, args.pos)
+        config = PrintConfig(
+            print_type=args.print_type,
+            dtype=args.dtype,
+            end_offset=args.end_offset,
+            start_offset=args.start_offset,
+            insert_pos=args.pos
+        )
+        debugger.add_print_to_cce(cce_file, tensors, config)
         
         element_count = args.end_offset - args.start_offset + 1
         logger.info(f"\n  打印类型: {args.print_type}")
@@ -742,6 +763,7 @@ AicoreLogF 示例（手动添加到CCE文件）：
         return 0
     
     parser.print_help()
+    return 0
 
 
 if __name__ == "__main__":

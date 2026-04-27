@@ -111,8 +111,13 @@ class IRParser:
     def __init__(self):
         self.header_pattern = re.compile(r'^Function\s+(\S+)\[(\d+)\]\s+(-?\d+)\s+(\w+)\s+(\w+)\s+\{$')
         self.rawtensor_pattern = re.compile(r'RAWTENSOR\[\s*(\d+)\]\s+<([^>]+)>\s+@(\d+)"?([^"]*)"?')
-        self.cast_pattern = re.compile(r'(IN|OUT)CAST\[\s*(\d+)\]\s+<([^>]+)>\s+%(\d+)@(\d+)#(\([^)]+\))\s+(from|to)Slot\[(\d+)\]')
-        self.operation_pattern = re.compile(r'<([^>]+)>\s+%(\d+)@(\d+)#(\([^)]+\))(\S+)::(\S+)\s+=\s+!(\d+)\s+(\S+)\s*\(g:(-?\d+),\s*s:(-?\d+)\)(.*)')
+        self.cast_pattern = re.compile(
+            r'(IN|OUT)CAST\[\s*(\d+)\]\s+<([^>]+)>\s+%(\d+)@(\d+)#(\([^)]+\))\s+(from|to)Slot\[(\d+)\]'
+        )
+        self.operation_pattern = re.compile(
+            r'<([^>]+)>\s+%(\d+)@(\d+)#(\([^)]+\))(\S+)::(\S+)\s+=\s+!(\d+)\s+(\S+)\s*'
+            r'\(g:(-?\d+),\s*s:(-?\d+)\)(.*)'
+        )
     
     def parse_file(self, file_path: str) -> Tuple[Optional[IRFile], Optional[str]]:
         """解析 IR 文件
@@ -261,7 +266,8 @@ class IRParser:
         
         output_shape_str = match.group(1)
         output_shape, _ = self._parse_shape_and_dtype(output_shape_str.split('/')[0].strip())
-        output_valid_shape, _ = self._parse_shape_and_dtype(output_shape_str.split('/')[1].strip() if '/' in output_shape_str else output_shape_str)
+        valid_shape_part = output_shape_str.split('/')[1].strip() if '/' in output_shape_str else output_shape_str
+        output_valid_shape, _ = self._parse_shape_and_dtype(valid_shape_part)
         
         input_tensors, attributes, offset_info = self._parse_operation_params(match.group(11))
         
@@ -289,7 +295,8 @@ class IRParser:
             line=line_num
         ), None
     
-    def _parse_shape_and_dtype(self, shape_str: str) -> Tuple[List[int], str]:
+    @staticmethod
+    def _parse_shape_and_dtype(shape_str: str) -> Tuple[List[int], str]:
         """解析 shape 和数据类型"""
         parts = shape_str.strip().split()
         shape = []
@@ -303,7 +310,8 @@ class IRParser:
         
         return shape, data_type
     
-    def _parse_array(self, array_str: str) -> List[int]:
+    @staticmethod
+    def _parse_array(array_str: str) -> List[int]:
         """解析数组字符串 [x, y, z, ...] 或 offset:[x, y, z, ...]"""
         # 查找 [ 和 ] 的位置
         start_idx = array_str.find('[')
@@ -353,7 +361,8 @@ class IRParser:
         array_str = ' '.join(array_content)
         return self._parse_array(array_str)
     
-    def _skip_array_tokens(self, tokens: List[str], start_idx: int) -> int:
+    @staticmethod
+    def _skip_array_tokens(tokens: List[str], start_idx: int) -> int:
         """跳过数组tokens，返回新的索引"""
         if start_idx >= len(tokens):
             return start_idx
@@ -433,7 +442,10 @@ class IRParser:
         return input_tensors, attributes, offset_info
 
 
-def create_response(status: str, error_code: int, error_message: str, data: Dict[str, Any], file_path: str = "") -> Dict[str, Any]:
+def create_response(
+    status: str, error_code: int, error_message: str,
+    data: Dict[str, Any], file_path: str = ""
+) -> Dict[str, Any]:
     """创建标准化响应"""
     response = {
         "status": status,

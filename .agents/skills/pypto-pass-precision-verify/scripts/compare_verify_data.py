@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 # coding: utf-8
 # Copyright (c) 2025-2026 Huawei Technologies Co., Ltd.
-# This program is free software, you can redistribute it and/or modify it under the terms and conditions of
+# This program is free software, you can redistribute it and/or modify it under terms and conditions of
 # CANN Open Software License Agreement Version 2.0 (the "License").
-# Please refer to the License for details. You may not use this file except in compliance with the License.
+# Please refer to License for details. You may not use this file except in compliance with License.
 # THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED,
 # INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
 # See LICENSE in the root of the software repository for the full text of the License.
@@ -38,13 +38,14 @@ Compare Verify Data Tool
 """
 
 import argparse
+import glob
 import logging
 import os
-import glob
-import numpy as np
-import torch
 from pathlib import Path
 from typing import Optional
+
+import numpy as np
+import torch
 
 logger = logging.getLogger(__name__)
 
@@ -135,7 +136,6 @@ def _load_binary_data(data_file: str, dtype: str = "auto") -> np.ndarray:
         try:
             data = np.fromfile(data_file, dtype=dtype)
             
-            # 对于float类型，检查数据是否合理
             if dtype in [np.float16, np.float32]:
                 nan_count = np.sum(np.isnan(data))
                 inf_count = np.sum(np.isinf(data))
@@ -156,7 +156,8 @@ def _load_binary_data(data_file: str, dtype: str = "auto") -> np.ndarray:
                 if np.any(data != 0):
                     return data.astype(np.float32)
                     
-        except Exception:
+        except (ValueError, IOError, OSError) as e:
+            logger.debug(f"跳过 dtype {dtype}: {e}")
             continue
     
     # 默认使用float32
