@@ -1,0 +1,14 @@
+1、SlabAlloc中的内层循环，超时阈值20分钟（退出），每1分钟打印一次
+2、SlabAlloc外层循环，超时阈值20分钟（退出），每两分钟打印一次，
+3、AllocThreadIdxForDav2201和AllocThreadIdxForDav3510应是一个逻辑，超时阈值20分钟（退出），每10s打印一次
+4、ScheWait和AllocNewTaskCtrl，超时阈值1分钟（退出），每10s打印一次
+5、SyncAicpuTaskFinish，超时阈值10s（退出），每1s打印一次
+6、HandShakeByGmWithPreSendTask，超时阈值16分钟（退出），每1分钟打印一次
+7、SyncTaskFinish，超时阈值10s（退出），每1s打印一次
+8、RunManager，超时阈值10s（退出），每1s打印一次
+9、ProcessTaskLoop，超时阈值10s（退出），每1s打印一次
+10、GetMetrics，超时阈值10s（退出），每1s打印一次
+11、slab_ws_allocator.h，永不退出，10分钟打印一次
+12、SlabStageAllocMemSubmmit，超时阈值20分钟（退出），每1分钟打印一次
+13、ScheWait，超时阈值1分钟（退出），每10s打印一次
+14、AllocateWait，永不退出，10分钟打印一次

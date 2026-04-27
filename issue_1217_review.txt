@@ -1,0 +1,30 @@
+waitFinQueue 废弃代码，可以直接删除
+DUMPTESKPROF 废弃代码，确认方法为，直接return 测试是否有泳道图产生
+
+SlabAlloc/AllocThreadIdxForDav2201都添加一个大超时，20分钟，异常退出，A2/A3/A5超时时间一致（考虑频率系数）
+
+ScheWait/AllocNewTaskCtrl加超时一分钟，（超时可靠性）超时是N，N/2时打印warning
+
+超时检测代码要求，超时代码封装成宏，宏中有超时退出功能，并且在设定的某个时间打印一次
+
+SlabAlloc加超时，20分钟
+
+RunUnifiedCtrlInit可以删除，废弃代码
+
+allocRecord不需要改，内部使用
+device_channel.h整个文件删除，废弃代码
+
+AllocateWait加一个不退出的超时检测，10分钟打印一次
+
+Finish不用管
+
+SlabStageAllocMemSubmmit加超时退出，10分钟超时
+
+slab_ws_allocator加一个错误日志，10分钟打印一次
+
+
+A2/A3和A5的频率不一致，导致get_cycle不一致，A2/A3应该是50，而A5是1000，暂时就暂定这个，超时时间不同的芯片应该保持一致，所以针对不同平台需要有系数调整，
+
+确认一下的cycle是多少，A2/A3和A5 sleep 1s get_cycle
+确认一下频率是多少timeout_cycles为10S（在A2/A3上） 超时 a2A3 频率 50HZ A5 是1000hz 通过1s和cycle数确认 cycle=时间/频率
+验证超时检测的是否有影响，加verbose debug_runtime_mode默认值改为1，跑st，看是否超时
