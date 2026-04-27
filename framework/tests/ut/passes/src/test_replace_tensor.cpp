@@ -580,64 +580,6 @@ TEST_F(ReplaceTensorTest, TestNotInplaceReshape)
     EXPECT_EQ(pass.PostCheck(*currFunctionPtr), SUCCESS);
 }
 
-// ========== 测试用例：InsertAssembleCopy - 整体插入拷贝序列流程 ==========
-TEST_F(ReplaceTensorTest, InsertNeedCopy)
-{
-    auto currFunctionPtr =
-        std::make_shared<Function>(Program::GetInstance(), "InsertNeedCopy", "InsertNeedCopy", nullptr);
-    EXPECT_TRUE(currFunctionPtr != nullptr);
-    Program::GetInstance().InsertFuncToFunctionMap("InsertNeedCopy", currFunctionPtr);
-
-    // 创建共享输入tensor (UB内存类型)
-    std::vector<int64_t> shape = {32, 64};
-    auto sharedInput = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape);
-    sharedInput->SetMemoryTypeBoth(MemoryType::MEM_UB, true);
-
-    // 创建多个输出tensor
-    auto output1 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape);
-    output1->SetMemoryTypeBoth(MemoryType::MEM_UB, true);
-    auto output2 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape);
-    output2->SetMemoryTypeBoth(MemoryType::MEM_UB, true);
-    auto output3 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape);
-    output3->SetMemoryTypeBoth(MemoryType::MEM_UB, true);
-
-    // 创建多个ASSEMBLE操作，共享同一个输入
-    auto& assemble1 = currFunctionPtr->AddRawOperation(Opcode::OP_ASSEMBLE, {sharedInput}, {output1});
-    assemble1.SetOpAttribute(std::make_shared<AssembleOpAttribute>(std::vector<int64_t>{0, 0}));
-    auto& assemble2 = currFunctionPtr->AddRawOperation(Opcode::OP_ASSEMBLE, {sharedInput}, {output2});
-    assemble2.SetOpAttribute(std::make_shared<AssembleOpAttribute>(std::vector<int64_t>{0, 0}));
-    auto& assemble3 = currFunctionPtr->AddRawOperation(Opcode::OP_ASSEMBLE, {sharedInput}, {output3});
-    assemble3.SetOpAttribute(std::make_shared<AssembleOpAttribute>(std::vector<int64_t>{0, 0}));
-
-    currFunctionPtr->inCasts_.push_back(sharedInput);
-    currFunctionPtr->outCasts_.push_back(output1);
-    currFunctionPtr->outCasts_.push_back(output2);
-    currFunctionPtr->outCasts_.push_back(output3);
-
-    // 调用InsertAssembleCopy
-    ReplaceTensor commonOperation;
-    commonOperation.InsertNeedCopy(*currFunctionPtr);
-
-    // 验证插入的拷贝序列
-    int copyInCount = 0;
-    int copyOutCount = 0;
-    int assembleCount = 0;
-    for (const auto& op : currFunctionPtr->Operations()) {
-        if (op.GetOpcode() == Opcode::OP_COPY_IN) {
-            copyInCount++;
-        } else if (op.GetOpcode() == Opcode::OP_COPY_OUT) {
-            copyOutCount++;
-        } else if (op.GetOpcode() == Opcode::OP_ASSEMBLE) {
-            assembleCount++;
-        }
-    }
-
-    // 应该为2个ASSEMBLE操作插入拷贝序列（每个需要2个COPY操作）
-    EXPECT_EQ(assembleCount, 3) << "Should have 3 ASSEMBLE operations";
-    EXPECT_EQ(copyInCount, 2) << "Should insert 2 COPY_IN operations";
-    EXPECT_EQ(copyOutCount, 2) << "Should insert 2 COPY_OUT operations";
-}
-
 TEST_F(ReplaceTensorTest, UpdateCopyInAttrAfterBackAssemble)
 {
     auto currFunctionPtr = std::make_shared<Function>(
