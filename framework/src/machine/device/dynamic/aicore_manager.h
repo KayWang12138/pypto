@@ -1275,7 +1275,7 @@ private:
             }
 
             SchDeviceTaskContext* deviceTaskCtx = context_->ParallelDeviceTaskCtx(ParallelIndex(finTaskId));
-            deviceTaskCtx->GetWrapManager().UpdateFinishIdForMixCore(finTaskId);
+            deviceTaskCtx->GetWrapManager().UpdateFinishIdForMixCore(finTaskId, type, coreIdx);
         }
         return ret;
     }
@@ -1329,7 +1329,7 @@ private:
             }
             RecordResolveTask(ctx, finishCnt, coreIdx, pendingIdValue, pendingResolveIndexBaseValue);
             SchDeviceTaskContext* deviceTaskCtx = context_->ParallelDeviceTaskCtx(ParallelIndex(finTaskId));
-            deviceTaskCtx->GetWrapManager().UpdateFinishIdForMixCore(finTaskId);
+            deviceTaskCtx->GetWrapManager().UpdateFinishIdForMixCore(finTaskId, type, coreIdx);
         } else if (unlikely(finTaskId == pendingIdRef && aicpuCallCode != 0)) {
             // pending task is copyout, reolve both running and pending task.
             DEV_VERBOSE_DEBUG(
