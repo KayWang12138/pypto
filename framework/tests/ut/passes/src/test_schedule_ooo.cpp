@@ -1828,7 +1828,8 @@ TEST_F(ScheduleOoOTest, TestSpillOnBlockFailedAtL0)
     oooSchedule.localBufferMap_[2]->end = 33280;
     // 验证内存气泡导致L0AB卡死
     bool didSpill = false;
-    EXPECT_EQ(oooSchedule.SpillOnCoreBlock(corePair), FAILED);
+    EXPECT_EQ(oooSchedule.SpillOnCoreBlock(std::make_pair(corePair, MemoryType::MEM_L0A), FAILED);
+    EXPECT_EQ(oooSchedule.SpillOnCoreBlock(std::make_pair(corePair, MemoryType::MEM_L0B), FAILED);
     EXPECT_EQ(didSpill, false);
 }
 
