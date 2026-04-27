@@ -128,21 +128,7 @@ std::string CodeGenOpNPU::GenMemL1SpillToGM(bool isLocalToGM, unsigned uf) const
     return buffer;
 }
 
-std::string CodeGenOpNPU::GenL0CToUBTileTensor() const
-{
-    std::string dstTensor = QueryTileTensorNameByIdx(ToUnderlying(MISOIdx::DST_IDX));
-    std::string src0Tensor = QueryTileTensorNameByIdx(ToUnderlying(MISOIdx::SRC0_IDX));
-    auto [coordDst, coordSrc] = PrintDstSrcCoordFromAttr();
-    std::string nzVar = "CopyOutMode::NZ2ND"; // current only support NZ2ND in L0C -> UB
-    std::ostringstream oss;
-    int64_t aivId = 0;
-    GetAttr(OpAttributeKey::subBlockIdx, aivId);
-    oss << tileOpName;
-    oss << WrapParamByAngleBrackets({nzVar});
-    oss << WrapParamByParentheses({dstTensor, src0Tensor, coordDst, coordSrc, std::to_string(aivId)});
-    oss << STMT_END;
-    return oss.str();
-}
+std::string CodeGenOpNPU::GenL0CToUBTileTensor() const { return PrintL0CToL1UBTileTensor(); }
 
 std::string CodeGenOpNPU::PrintMemL1ToL0TileTensor() const
 {
@@ -298,7 +284,7 @@ std::string CodeGenOpNPU::GenReshapeCopyIn() const { return GenMemCopyVar(false)
 
 std::string CodeGenOpNPU::GenReshapeCopyOut() const { return GenMemCopyVar(true); }
 
-std::string CodeGenOpNPU::PrintL0CToL1TileTensor() const
+std::string CodeGenOpNPU::PrintL0CToL1UBTileTensor() const
 {
     std::string dstTensor = QueryTileTensorNameByIdx(ToUnderlying(MISOIdx::DST_IDX));
     std::string srcTensor = QueryTileTensorNameByIdx(ToUnderlying(MISOIdx::SRC0_IDX));
@@ -310,6 +296,9 @@ std::string CodeGenOpNPU::PrintL0CToL1TileTensor() const
     int64_t reluMode = 0;
     GetAttr(OP_ATTR_PREFIX + "relu_type", reluMode);
     std::string nzVar = "CopyOutMode::NZ2NZ";
+    if (opCode == Opcode::OP_L0C_COPY_UB) {
+        nzVar = "CopyOutMode::NZ2ND";
+    }
     std::vector<std::string> storeConfigList = {nzVar, std::to_string(isAcc), std::to_string(reluMode)};
     std::string storeConfig = WrapParamByAngleBrackets(storeConfigList);
     Element scaleValue = Element(DataType::DT_UINT64, 0);
@@ -330,7 +319,7 @@ std::string CodeGenOpNPU::PrintL0CToL1TileTensor() const
 std::string CodeGenOpNPU::GenMemL0CToL1() const
 {
     if (isSupportLayout) {
-        return PrintL0CToL1TileTensor();
+        return PrintL0CToL1UBTileTensor();
     }
     std::string dstVar = sm->QueryVarNameByTensorMagic(operandWithMagic[ID0]);
     std::string srcVar = sm->QueryVarNameByTensorMagic(operandWithMagic[ID1]);
