@@ -695,9 +695,41 @@ python3 scripts/computation_graph_analyzer.py \
 
 说明：
 
-- 日志来源为 `ooo_schedule` pass 的静态检查 `CheckOpBufferSize`
-- 在 Pass 执行调度逻辑前，对每个 op 的 tensor buffer size 与硬件内存上限进行校验
-- 越界问题通常由前端 tile_shape 配置过大引起，也可能是上游 pass 未正确处理内存分配
+内存越界日志来源包括以下 Pass 模块的检查：
+
+**1. OoOSchedule Pass**
+
+- 来源：`framework/src/passes/block_graph_pass/schedule_ooo/schedule_base.h:309`
+- 日志：`Alloc tensor [%d] size [%ld] exceeds %s size [%ld]!`
+- 检查函数：`CheckOpBufferSize`
+- 检查逻辑：在 Pass 执行调度逻辑前，对每个 op 的 tensor buffer size 与硬件内存上限进行校验
+- 失败处理：`return FAILED`
+
+**2. ReplaceTensor Pass**
+
+- 来源：`framework/src/passes/tile_graph_pass/graph_constraint/replace_tensor.cpp:968`
+- 日志：`Tensor [%d] can not copy to UB, tensor size [%d] exceeds the UB size [%d] limit.`
+- 检查函数：`InsertCopyDDROp`
+- 检查逻辑：检查 tensor 是否能复制到 UB 内存，判断条件为 `(memType == MEM_UB) && (GetDataSize() > UB_SIZE_THRESHOLD)`
+- 失败处理：`return FAILED`
+
+**3. InplaceProcess Pass**
+
+- 来源：`framework/src/passes/tile_graph_pass/graph_constraint/inplace_process.cpp:88`
+- 日志：`Local Buffer Assemble Result Oversized, %d, tensor: %d, size: %ld B; Please check the result size.`
+- 检查函数：`ProcessAssembleOp`
+- 检查逻辑：检查 Assemble 操作的输出 tensor 是否超过 UB 限制，判断条件为 `(memType == MEM_UB) && (GetRawDataSize() > UB_SIZE)`
+- 失败处理：`return FAILED`
+
+**4. AssignMemoryType Pass**
+
+- 来源：`framework/src/passes/tile_graph_pass/data_path/assign_memory_type.cpp:390`
+- 日志：`%s[%d] output %d is oversized, set as MEM_DEVICE_DDR.`
+- 检查函数：`AssignMoveOpForAssemble`
+- 检查逻辑：如果 Assemble 输出 tensor 超过阈值（`UB_SIZE_THRESHOLD * UB_THRESHOLD`），将其内存类型设置为 MEM_DEVICE_DDR
+- 失败处理：继续执行（INFO 级别日志，不返回失败）
+
+越界问题通常由前端 tile_shape 配置过大引起，也可能是上游 pass 未正确处理内存分配
 
 ### 分析目标
 
@@ -951,14 +983,3 @@ sed -n '<line-15>,<line+15>p' framework/src/passes/block_graph_pass/schedule_ooo
 - **修复建议**：具体的参数调整或代码修复方案
 
 ---
-
-## 输出要求
-
-最终分析结果至少包含：
-
-- 日志证据
-- 计算图证据
-- 源码位置
-- 官方文档约束
-- 可执行修复建议
-
