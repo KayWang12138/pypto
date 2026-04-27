@@ -84,17 +84,16 @@ description: PyPTO算子整网集成工作流。打点采集真实tensor→Golde
 **目标：** 从原始网络采集真实 shape/dtype，构造必须 pass 的测试用例。
 
 **操作：**
-1. 定位打点位置 → 插入打印代码：
-   ```python
-   print(f"[DEBUG] input: shape={x.shape}, dtype={x.dtype}")
-   ```
-2. 运行原始网络采集数据
-3. 创建 `test_cases.json` 记录结果
+1. 定位并插入一行 print（采集所有外部输入的 shape/dtype）
+2. 运行原始网络采集
+3. 采集完成后删除打印，恢复代码原状
+4. 创建 test_cases.json
 
-**采集流程参考：** `references/test-cases-template.md`  
-**测试格式参考：** `pypto-op-develop/templates/test-template.py`
+**完整流程 + 格式参考：** `references/test-cases-template.md`
 
-**输出物：** test_cases.json、test_{op}.py
+**输出物：** test_cases.json
+
+**存放位置：** `models/{model_name}/pto_kernels/xxx/test/test_cases.json`
 
 **关键原则：** 真实用例是必须 pass 的基准，覆盖所有调用场景。
 
@@ -230,16 +229,29 @@ def xxx_golden(query, key, value, ...):
 
 #### 步骤 10：调整目录结构
 
-**目标：** 创建 PyPTO 算子库目录结构。
+**目标：** 创建 PyPTO 算子库目录结构（按算子组织）。
 
 **典型结构：**
 ```
-xxx_pto_kernels/
-├── __init__.py      # 开关定义
-├── xxx_impl.py      # PyPTO kernel
-└── utils/
-    └── xxx_golden.py
+pto_kernels/                        # 算子库顶层
+├── __init__.py                     # USE_PTO开关 + 导入所有算子
+│
+├── xxx/                            # 算子目录（如 rms_norm、ffn、softmax）
+│   ├── __init__.py                 # 导出 xxx_wrapper
+│   ├── xxx_impl.py                 # PyPTO kernel（带前缀）
+│   ├── xxx_golden.py               # Golden参考（带前缀）
+│   ├── README.md                   # 算子文档
+│   └── test/
+│       ├── test_xxx.py             # 测试脚本（带前缀）
+│       └── test_cases.json         # 测试用例
+│
+└── utils/                          # 通用工具（可选）
+    └── DESIGN.md                   # 设计文档
 ```
+
+**命名规则：**
+- 目录名：抽象命名（如 `rms_norm`、`ffn`）
+- 文件名：带算子前缀（如 `rms_norm_impl.py`）
 
 ---
 
@@ -253,32 +265,47 @@ xxx_pto_kernels/
 
 ---
 
-#### 步骤 12：修改模型调用逻辑 + 处理缓存 ★
+#### 步骤 12：修改模型调用逻辑 + sys.modules注入 ★
 
-**目标：** 替换原始算子调用，处理 transformers 缓存。
+**目标：** 替换原始算子调用，通过 sys.modules注入绕过缓存。
 
-**修改调用逻辑：**
+**推荐方案：sys.modules注入**
+
+**原理：** Python的 `sys.modules` 是全局模块注册表。脚本预导入算子库→注入→modeling自动获取，无缓存依赖。
+
+**实施步骤：**
+
+**步骤A：脚本注入（在transformers导入前）**
 ```python
-if xxx_pto_kernels.USE_PTO:
-    output = xxx_pto_kernels.xxx_wrapper(...)
-else:
-    output = self.original_op(...)  # fallback
+parser.add_argument("--use-pto", action="store_true", help="启用PyPTO算子")
+
+if args.use_pto:
+    sys.path.insert(0, args.model_path)
+    import pto_kernels
+    sys.modules["pto_kernels"] = pto_kernels
+    print(f"[PTO] 已注入: {pto_kernels.__file__}")
+
+from transformers import AutoModelForCausalLM  # 之后加载模型
 ```
 
-**处理 transformers 缓存：**
-
-适用场景：transformers 内置模型 + `trust_remote_code=True`
-
-快速诊断：
+**步骤B：modeling获取（移除sys.path.insert和本地fallback）**
 ```python
-print(f"[Debug] __file__ = {__file__}")  # 缓存路径则有问题
-```
+import sys
 
-**完整解决方案参考：** `references/cache-sync-template.md`
+rms_pto = sys.modules.get("pto_kernels")
+RMS_PTO_AVAILABLE = rms_pto is not None
+
+def forward(self, hidden_states):
+    if RMS_PTO_AVAILABLE and rms_pto.USE_PTO:
+        return rms_pto.xxx_wrapper(hidden_states, self.weight, self.eps)
+    # 原始torch实现（fallback）
+    ...
+```
 
 **验证检查点：**
-- ✅ 本地修改自动生效
-- ✅ 缓存目录存在算子库
+- ✅ 使用 `--use-pto` → `RMS_PTO_AVAILABLE = True`（PTO生效）
+- ✅ 不使用 → `RMS_PTO_AVAILABLE = False`（torch fallback）
+- ✅ 本地修改算子库后即时生效
 
 ---
 
@@ -328,7 +355,6 @@ print(f"[Debug] __file__ = {__file__}")  # 缓存路径则有问题
 
 ### 参考模板
 - **测试集模板**：`references/test-cases-template.md`
-- **缓存处理**：`references/cache-sync-template.md`
 - **Golden验证**：`references/golden-verification.md`
 
 ### 相关 Skill
@@ -347,6 +373,6 @@ print(f"[Debug] __file__ = {__file__}")  # 缓存路径则有问题
 
 ---
 
-**Skill 版本：** v2.0
-**最后更新：** 2026-04-25
+**Skill 版本：** v2.1
+**最后更新：** 2026-04-27
 **维护者：** PyPTO Team
