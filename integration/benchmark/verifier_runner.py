@@ -79,6 +79,7 @@ _DEFAULT_VALIDATOR_SKILL = "pypto-kernel-validate"
 class VerifierStatus(str, Enum):
     PASSED = "passed"
     FAILED = "failed"
+    BASELINE_FAILED = "baseline_failed"
     ERROR = "error"
     MISSING_INPUT = "missing_input"
 
@@ -559,6 +560,7 @@ _FINAL_VERDICT_TO_STATUS = {
     "FAIL_CHEAT": VerifierStatus.FAILED,
     "FAIL_CORRECTNESS": VerifierStatus.FAILED,
     "FAIL_PERFORMANCE": VerifierStatus.FAILED,
+    "BASELINE_FAILED": VerifierStatus.BASELINE_FAILED,
     "ERROR": VerifierStatus.ERROR,
 }
 
