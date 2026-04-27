@@ -43,7 +43,7 @@ Status InferParamIndex::ResetOutputDynValidShape(const Operation& op)
     std::vector<SymbolicScalar> validShape;
     const std::set<Opcode> specifiedOps = {Opcode::OP_VEC_DUP, Opcode::OP_EXPAND,       Opcode::OP_RESHAPE,
                                            Opcode::OP_GATHER,  Opcode::OP_GATHER_IN_UB, Opcode::OP_GATHER_IN_L1,
-                                           Opcode::OP_PERMUTE, Opcode::OP_PERMUTE_ELEMENT};
+                                           Opcode::OP_PERMUTE, Opcode::OP_PERMUTE_ELEMENT, Opcode::OP_UB_COPY_L1};
     for (auto outOperand : op.GetOOperands()) {
         if (op.GetOpcode() == Opcode::OP_INDEX_ADD &&
             !Program::GetInstance().GetCurrentFunction()->IsFromOutCast(outOperand)) {
@@ -55,7 +55,7 @@ Status InferParamIndex::ResetOutputDynValidShape(const Operation& op)
                     SymbolicScalar("sym_" + std::to_string(outOperand->GetMagic()) + "_dim_" + std::to_string(dimIdx)));
             }
         }
-        if (op.GetOpcode() != Opcode::OP_ASSEMBLE) { // Assemble的oOperand保持validShape不变
+        if (op.GetOpcode() != Opcode::OP_ASSEMBLE && op.GetOpcode() != Opcode::OP_L0C_COPY_UB) { // Assemble的oOperand保持validShape不变
             outOperand->UpdateDynValidShape(validShape);
         }
     }
