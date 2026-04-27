@@ -48,6 +48,7 @@ def test_dtypes():
         (ir.FP8E5M2, 8, False, False, True, "fp8e5m2", "unknown"),
         (ir.FP16, 16, False, False, True, "fp16", "half"),
         (ir.FP32, 32, False, False, True, "fp32", "float"),
+        (ir.FP64, 64, False, False, True, "fp64", "double"),
         (ir.BF16, 16, False, False, True, "bfloat16", "bfloat16"),
         (ir.HF4, 4, False, False, True, "hf4", "unknown"),
         (ir.HF8, 8, False, False, True, "hf8", "unknown"),
