@@ -55,7 +55,7 @@ Status InferParamIndex::ResetOutputDynValidShape(const Operation& op)
                     SymbolicScalar("sym_" + std::to_string(outOperand->GetMagic()) + "_dim_" + std::to_string(dimIdx)));
             }
         }
-        if (op.GetOpcode() != Opcode::OP_ASSEMBLE) { // Assemble的oOperand保持validShape不变
+        if (op.GetOpcode() != Opcode::OP_ASSEMBLE && op.GetOpcode() != Opcode::OP_VIEW) { // Assemble和View的oOperand保持validShape不变
             outOperand->UpdateDynValidShape(validShape);
         }
     }
