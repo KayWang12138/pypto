@@ -25,17 +25,19 @@ namespace ir {
  * - Mat: Matrix/L1 buffer
  * - Left: Left matrix operand buffer
  * - Right: Right matrix operand buffer
+ * - Scaling: Scaling/FBuffer tile buffer
  * - Acc: Accumulator buffer
  * - Bias: Bias buffer
  */
 enum class MemorySpace {
-    DDR,   ///< DDR memory (off-chip)
-    Vec,   ///< Vector/unified buffer (on-chip)
-    Mat,   ///< Matrix/L1 buffer
-    Left,  ///< Left matrix operand buffer
-    Right, ///< Right matrix operand buffer
-    Acc,   ///< Accumulator buffer
-    Bias   ///< Bias buffer
+    DDR,     ///< DDR memory (off-chip)
+    Vec,     ///< Vector/unified buffer (on-chip)
+    Mat,     ///< Matrix/L1 buffer
+    Left,    ///< Left matrix operand buffer
+    Right,   ///< Right matrix operand buffer
+    Scaling, ///< Scaling/FBuffer buffer
+    Acc,     ///< Accumulator buffer
+    Bias     ///< Bias buffer
 };
 
 /**

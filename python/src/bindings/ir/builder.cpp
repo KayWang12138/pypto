@@ -55,6 +55,7 @@ void BindIRBuilder(py::module_& m)
 
         .def(
             "func_arg", &IRBuilder::FuncArg, py::arg("name"), py::arg("type"), py::arg("span"),
+            py::arg("direction") = ParamDirection::In,
             "Add a function parameter.\n\n"
             "Must be called within a function context.\n\n"
             "Args:\n"

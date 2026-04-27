@@ -29,6 +29,32 @@
 namespace pypto {
 namespace ir {
 
+namespace {
+std::string ToPythonCTypeString(const ir::DataType& dtype)
+{
+    if (dtype == ir::DataType::BF16) {
+        return "bfloat16";
+    }
+    return dtype.ToCTypeString();
+}
+
+std::shared_ptr<PtrType> GetOuterCompatPtrType()
+{
+    static auto ptr_type = std::make_shared<PtrType>(DataType::INT8);
+    return ptr_type;
+}
+
+std::vector<FunctionPtr> GetOuterProgramFunctions(const ProgramPtr& program)
+{
+    std::vector<FunctionPtr> functions;
+    functions.reserve(program->functions_.size());
+    for (const auto& [gvar, func] : program->functions_) {
+        functions.push_back(func);
+    }
+    return functions;
+}
+}  // namespace
+
 void BindDType(py::module& m)
 {
     py::class_<ir::DataType>(m, "DataType", "Enumeration of available data types")
@@ -53,7 +79,7 @@ void BindDType(py::module& m)
         .def_readonly_static("HF8", &ir::DataType::HF8)
         .def_readonly_static("INDEX", &ir::DataType::INDEX)
         .def("bits", &ir::DataType::GetBit, "Get the size in bits of this data type.")
-        .def("c_type", &ir::DataType::ToCTypeString, "Get C style type string for code generation.")
+        .def("c_type", &ToPythonCTypeString, "Get C style type string for code generation.")
         .def("is_float", &ir::DataType::IsFloat, "Check if this data type is a floating point type.")
         .def("is_signed", &ir::DataType::IsSignedInt, "Check if this data type is a signed integer type.")
         .def("is_unsigned", &ir::DataType::IsUnsignedInt, "Check if this data type is an unsigned integer type.")
@@ -71,15 +97,17 @@ void BindSpan(py::module& m)
         .def(
             py::init<std::string, int, int, int, int>(), py::arg("filename"), py::arg("begin_line"),
             py::arg("begin_column"), py::arg("end_line") = -1, py::arg("end_column") = -1, "Create a source span")
-        .def_static("is_unknown", &ir::Span::IsUnknown, "Check if the span is unknown")
-        .def_static("unknown", &ir::Span::Unknown, "Create an unknown span", py::return_value_policy::reference)
-        .def("__repr__", &ir::Span::ToString)
-        .def("__str__", &ir::Span::ToString)
+        .def("to_string", &ir::Span::to_string, "Convert span to string representation")
+        .def("is_valid", &ir::Span::is_valid, "Check if the span has valid coordinates")
+        .def_static("is_unknown", &ir::Span::is_unknown, "Check if the span is unknown")
+        .def_static("unknown", &ir::Span::unknown, "Create an unknown span")
+        .def("__repr__", &ir::Span::to_string)
+        .def("__str__", &ir::Span::to_string)
         .def_readonly("filename", &ir::Span::filename_, "Source filename")
-        .def_readonly("begin_line", &ir::Span::beginLine_, "Beginning line (1-indexed)")
-        .def_readonly("begin_column", &ir::Span::beginColumn_, "Beginning column (1-indexed)")
-        .def_readonly("end_line", &ir::Span::endLine_, "Ending line (1-indexed)")
-        .def_readonly("end_column", &ir::Span::endColumn_, "Ending column (1-indexed)");
+        .def_readonly("begin_line", &ir::Span::begin_line_, "Beginning line (1-indexed)")
+        .def_readonly("begin_column", &ir::Span::begin_column_, "Beginning column (1-indexed)")
+        .def_readonly("end_line", &ir::Span::end_line_, "Ending line (1-indexed)")
+        .def_readonly("end_column", &ir::Span::end_column_, "Ending column (1-indexed)");
 }
 
 // Helper to bind a single field using reflection
@@ -135,7 +163,7 @@ void BindExpr(py::module& m)
     auto memref = py::class_<MemRef, Expr, std::shared_ptr<MemRef>>(m, "MemRef",
             "Memory reference variable for shaped types (inherits from Var)")
         .def(py::init<MemorySpace, ExprPtr, uint64_t, Span>(),
-             py::arg("memory_space"), py::arg("offset"), py::arg("size"), py::arg("span") = Span::Unknown(),
+             py::arg("memory_space"), py::arg("offset"), py::arg("size"), py::arg("span") = Span::unknown(),
              "Create a memory reference from memory space, offset, and size")
         .def_static("same_allocation", &MemRef::SameAllocation, py::arg("a"), py::arg("b"),
                     "Check if two MemRefs share the same allocation (same base_ Ptr)")
@@ -169,7 +197,15 @@ void BindExpr(py::module& m)
     auto call = py::class_<Call, Expr, std::shared_ptr<Call>>(m, "Call", "Function call expression")
         .def(py::init<std::string, const std::vector<ExprPtr>&, const Span&>(),
              py::arg("op"), py::arg("args"), py::arg("span"),
-             "Create a function call expression");
+             "Create a function call expression")
+        .def(py::init<const OpPtr&, const std::vector<ExprPtr>&, const Span&>(),
+             py::arg("op"), py::arg("args"), py::arg("span"),
+             "Create a function call expression")
+        .def(py::init<const OpPtr&, const std::vector<ExprPtr>&, const TypePtr&, const Span&>(),
+             py::arg("op"), py::arg("args"), py::arg("type"), py::arg("span"),
+             "Create a function call expression with explicit type")
+        .def_property_readonly("name", [](const CallPtr& self) { return self->op_->name_; },
+                               "Operation/function name");
     BindFields<Call>(call);
 
     auto make_tuple = py::class_<MakeTuple, Expr, std::shared_ptr<MakeTuple>>(m, "MakeTuple",
@@ -337,14 +373,36 @@ void BindStmt(py::module& m)
 
     auto function = py::class_<Function, IRNode, std::shared_ptr<Function>>(m, "Function",
         "Function definition with name, parameters, return types, and body")
-        .def(py::init<std::string, std::vector<VarPtr>&, std::vector<TypePtr>&, StmtPtr, Span, FunctionType>(),
+        .def(py::init([](const std::string& name, const py::list& params,
+                         const std::vector<TypePtr>& return_types, const StmtPtr& body, const Span& span,
+                         FunctionType type) -> std::shared_ptr<Function> {
+                std::vector<VarPtr> param_vars;
+                std::vector<ParamDirection> param_dirs;
+                param_vars.reserve(py::len(params));
+                param_dirs.reserve(py::len(params));
+                for (auto item : params) {
+                    if (py::isinstance<py::tuple>(item)) {
+                        auto tup = py::cast<py::tuple>(item);
+                        if (py::len(tup) != 2) {
+                            throw pypto::ir::TypeError("Each tuple in 'params' must be (Var, ParamDirection)");
+                        }
+                        param_vars.push_back(py::cast<VarPtr>(tup[0]));
+                        param_dirs.push_back(py::cast<ParamDirection>(tup[1]));
+                    } else {
+                        param_vars.push_back(py::cast<VarPtr>(item));
+                        param_dirs.push_back(ParamDirection::In);
+                    }
+                }
+                return std::make_shared<Function>(
+                    name, std::move(param_vars), std::move(param_dirs), return_types, body, span, type);
+            }),
              py::arg("name"), py::arg("params"), py::arg("return_types"), py::arg("body"), py::arg("span"),
              py::arg("type") = FunctionType::OPAQUE,
              "Create a function definition");
     BindFields<Function>(function);
 
     auto program = py::class_<Program, IRNode, std::shared_ptr<Program>>(m, "Program",
-        "Program definition with functions mapped by GlobalVar references. "
+        "Program definition with functions. "
         "Functions are automatically sorted by name for deterministic ordering.")
         .def(py::init<const std::vector<FunctionPtr>&, const std::string&, const Span&>(),
              py::arg("functions"), py::arg("name"), py::arg("span"),
@@ -353,7 +411,8 @@ void BindStmt(py::module& m)
         .def("__getitem__", [](const ProgramPtr& self, const std::string& name) {
             return self->GetFunction(name);
         }, py::arg("name"), "Get function by name, returns None if not found")
-        .def_readonly("functions", &Program::functions_, "Program functions")
+        .def_property_readonly("functions", &GetOuterProgramFunctions,
+                               "Program functions as a list sorted by function name")
         .def_readonly("name", &Program::name_, "Program name")
         .def_readonly("span", &Program::span_, "Source location");
     // clang-format on
@@ -363,6 +422,16 @@ void BindType(py::module& m)
 {
     py::native_enum<FunctionType>(m, "FunctionType", "enum.IntEnum", "Function type classification")
         .value("Opaque", FunctionType::OPAQUE, "Unspecified function type (default)")
+        .value("Orchestration", FunctionType::ORCHESTRATION, "Host/AICPU orchestration function")
+        .value("InCore", FunctionType::IN_CORE, "AICore in-core function")
+        .value("Helper", FunctionType::HELPER, "Scalar helper function")
+        .export_values()
+        .finalize();
+
+    py::native_enum<ParamDirection>(m, "ParamDirection", "enum.IntEnum", "Parameter direction classification")
+        .value("In", ParamDirection::In, "Input parameter")
+        .value("Out", ParamDirection::Out, "Output parameter")
+        .value("InOut", ParamDirection::InOut, "Input/output parameter")
         .export_values()
         .finalize();
 
@@ -433,7 +502,10 @@ void BindTypeClass(py::module& m)
         .def(py::init<std::vector<TypePtr>>(), py::arg("types"))
         .def_readonly("types", &TupleType::types_);
 
-    py::class_<PtrType, Type, std::shared_ptr<PtrType>>(m, "PtrType", "Pointer type").def(py::init<>());
+    py::class_<PtrType, Type, std::shared_ptr<PtrType>>(m, "PtrType", "Pointer type")
+        .def(py::init([]() { return GetOuterCompatPtrType(); }), "Create the outer-IR compatibility pointer type")
+        .def(py::init<DataType>(), py::arg("dtype"))
+        .def_static("get", &GetOuterCompatPtrType, "Get the outer-IR compatibility pointer type singleton");
 }
 } // namespace ir
 

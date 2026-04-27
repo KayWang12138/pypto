@@ -19,24 +19,51 @@
 namespace pypto {
 namespace ir {
 
-Span::Span(std::string filename, int beginLine, int beginColumn, int endLine, int endColumn)
+Span::Span(std::string filename, int begin_line, int begin_column, int end_line, int end_column)
     : filename_(std::move(filename)),
-      beginLine_(beginLine),
-      beginColumn_(beginColumn),
-      endLine_(endLine),
-      endColumn_(endColumn)
+      begin_line_(begin_line),
+      begin_column_(begin_column),
+      end_line_(end_line),
+      end_column_(end_column)
 {}
 
-std::string Span::ToString() const
+std::string Span::to_string() const
 {
     std::ostringstream oss;
-    oss << filename_ << ":" << beginLine_ << ":" << beginColumn_;
+    oss << filename_ << ":" << begin_line_ << ":" << begin_column_;
     return oss.str();
 }
 
 static Span kUnknownSpan = Span("", -1, -1, -1, -1);
 
-bool Span::IsUnknown(const Span& span) { return &span == &kUnknownSpan; }
+bool Span::is_valid() const
+{
+    if (begin_line_ <= 0 || (begin_column_ <= 0 && begin_column_ != -1)) {
+        return false;
+    }
+    if (end_line_ == -1 || end_column_ == -1) {
+        return true;
+    }
+    if (end_line_ <= 0 || (end_column_ <= 0 && end_column_ != -1)) {
+        return false;
+    }
+    if (begin_column_ == -1 || end_column_ == -1) {
+        return end_line_ >= begin_line_;
+    }
+    return end_line_ >= begin_line_ && (end_line_ > begin_line_ || end_column_ >= begin_column_);
+}
+
+bool Span::is_unknown(const Span& span)
+{
+    return span.filename_.empty() && span.begin_line_ == -1 && span.begin_column_ == -1 && span.end_line_ == -1 &&
+           span.end_column_ == -1;
+}
+
+Span Span::unknown() { return Unknown(); }
+
+std::string Span::ToString() const { return to_string(); }
+
+bool Span::IsUnknown(const Span& span) { return is_unknown(span); }
 
 Span& Span::Unknown() { return kUnknownSpan; }
 

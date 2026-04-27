@@ -221,7 +221,7 @@ public:
      * Covers all DataType variants: signed/unsigned integers (incl. INT4/UINT4),
      * IEEE float (FP16, FP32, FP64), FP4/FP8, BF16, HF4/HF8, and BOOL.
      *
-     * \return C style type string (e.g. "float", "int32_t", "half", "bfloat16")
+     * \return C style type string (e.g. "float", "int32_t", "half", "bfloat16_t")
      */
     [[nodiscard]] std::string ToCTypeString() const
     {
@@ -252,7 +252,7 @@ public:
             case kFp64Code:
                 return "double";
             case kBf16Code:
-                return "bfloat16";
+                return "bfloat16_t";
             default:
                 return "unknown";
         }
@@ -351,8 +351,8 @@ inline constexpr DataType DataType::INDEX = DataType(kIndexCode);
  * as a suffix in code generation (e.g., "FP32", "BF16", "INT32").
  *
  * Callers compose the full qualified name:
- *   - Python printer: prefix + "." + DTypeToString(dtype)
- *   - C++ codegen:    "DataType::" + DTypeToString(dtype)
+ *   - Python printer: prefix + "." + DataTypeToString(dtype)
+ *   - C++ codegen:    "DataType::" + DataTypeToString(dtype)
  *
  * @param dtype The data type to convert
  * @return Uppercase enum name string
@@ -400,6 +400,12 @@ inline std::string DTypeToString(const DataType& dtype)
     if (dtype == DataType::HF8)
         return "HF8";
     return "UnknownType";
+}
+
+// Compatibility alias for migrated call sites that use the newer helper name.
+inline std::string DataTypeToString(const DataType& dtype)
+{
+    return DTypeToString(dtype);
 }
 } // namespace ir
 } // namespace pypto
