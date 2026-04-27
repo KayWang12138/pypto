@@ -992,7 +992,9 @@ Status ReplaceTensor::FindNeedToCopyReshape(
     std::unordered_set<Operation*>& needInsertCopyAssOps, std::unordered_set<int>& visitedReshapeOps, Operation& op)
 {
     visitedReshapeOps.insert(op.GetOpMagic());
-    if (op.GetIOperands()[0]->tensor->GetRawShapeSize() != op.GetOOperands()[0]->tensor->GetRawShapeSize()) {
+    if (op.GetIOperands()[0]->tensor->GetRawShapeSize() > 0 &&
+        op.GetOOperands()[0]->tensor->GetRawShapeSize() > 0 &&
+        op.GetIOperands()[0]->tensor->GetRawShapeSize() != op.GetOOperands()[0]->tensor->GetRawShapeSize()) {
         needInsertCopyAssOps.insert(&op);
         return SUCCESS;
     }
