@@ -44,18 +44,6 @@ class OpInfoExtractor:
         self.parser = IRParser()
     
     @staticmethod
-    def _extract_dtype_from_shape(shape: List[int]) -> str:
-        """从 shape 中提取数据类型"""
-        if not shape:
-            return ""
-        
-        for item in shape:
-            if isinstance(item, str) and item.startswith('DT_'):
-                return item
-        
-        return ""
-    
-    @staticmethod
     def format_as_text(op_info: Dict[str, Any]) -> str:
         """格式化为文本输出
         
@@ -168,6 +156,18 @@ class OpInfoExtractor:
             JSON 字符串
         """
         return json.dumps(ops_list, indent=2)
+    
+    @staticmethod
+    def _extract_dtype_from_shape(shape: List[int]) -> str:
+        """从 shape 中提取数据类型"""
+        if not shape:
+            return ""
+        
+        for item in shape:
+            if isinstance(item, str) and item.startswith('DT_'):
+                return item
+        
+        return ""
         
     def get_op_info(self, ir_file_path: str, op_magic: int) -> Optional[Dict[str, Any]]:
         """获取指定 OP 的信息
