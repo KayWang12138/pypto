@@ -83,19 +83,12 @@ Status SplitReshape::RunOnFunction(Function& function)
         APASS_LOG_ERROR_F(Elements::Function, "SetMemoryType failed!");
         return FAILED;
     }
-    if (!addedOps_.empty()) {
-        if (InferShapeUtils::InferShape(function, addedOps_) != SUCCESS) {
-            APASS_LOG_ERROR_F(Elements::Function, "InferShape for added ops failed.");
-            return FAILED;
-        }
-    }
     APASS_LOG_INFO_F(Elements::Function, "===> End SplitReshapeOp.");
     return SUCCESS;
 }
 
 Status SplitReshape::Init()
 {
-    addedOps_.clear();
     assembleOutToInput_.clear();
     reshapeSources_.clear();
     mapOffset_.clear();
@@ -1364,7 +1357,6 @@ Status SplitReshape::AddOperation(Function& function)
             return FAILED;
         }
         auto& newCopyOut = GraphUtils::AddAssembleOperation(function, a, {dynValidShape});
-        addedOps_.push_back(&newCopyOut);
         APASS_LOG_INFO_F(
             Elements::Operation,
             "ADD OP_ASSEMBLE, magic %d, IOperand tensor magic %d OOperand tensor magic %d, dynValidShape %s.",
@@ -1379,7 +1371,6 @@ Status SplitReshape::AddOperation(Function& function)
         }
         auto& newReshape =
             GraphUtils::AddReshapeOperation(function, b.second->input, b.second->output, *b.second, dynValidShape);
-        addedOps_.push_back(&newReshape);
         function.GetTensorMap().Insert(newReshape.GetOOperands()[0], false);
         APASS_LOG_INFO_F(
             Elements::Operation,
