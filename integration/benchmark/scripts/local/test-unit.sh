@@ -273,8 +273,6 @@ pass "monitor 使用 BENCHMARK_LOG_DIR/report, 不在 monitor_state 下另建 re
 section "6. monitor 看板中英文列宽对齐"
 
 python3 - <<'PY' || fail "monitor 看板列宽未对齐"
-from wcwidth import wcswidth
-
 from integration.benchmark import monitor
 
 state = {
@@ -318,7 +316,7 @@ table_lines = [
     line for line in dashboard.splitlines()
     if line.startswith("  ") and ("Arg" in line or "Cosine" in line or "Triplet" in line or "Operator" in line)
 ]
-widths = {wcswidth(line) for line in table_lines}
+widths = {monitor.wcswidth(line) for line in table_lines}
 assert len(widths) == 1, (widths, "\n".join(table_lines))
 print(f"dashboard row width={widths.pop()}")
 PY
