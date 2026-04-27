@@ -662,12 +662,95 @@ class Parser(ast.NodeVisitor):
             nested_result = self._try_nested_call(node, extra_vars)
             if nested_result is not _NESTED_CALL_UNHANDLED:
                 return nested_result
+            verify_print_result = self._try_pass_verify_print_call(node, extra_vars)
+            if verify_print_result is not _NESTED_CALL_UNHANDLED:
+                return verify_print_result
 
         var_values = self.context.get()
         if extra_vars is not None:
             for k, v in extra_vars.items():
                 var_values[k] = v
         return ExprEvaluator.eval(node, var_values, self.diag)
+
+    def _try_pass_verify_print_call(
+        self,
+        node: ast.Call,
+        extra_vars: Optional[dict[str, Any]] = None,
+    ) -> Any:
+        var_values = self.context.get()
+        if extra_vars is not None:
+            for k, v in extra_vars.items():
+                var_values[k] = v
+
+        try:
+            callee = ExprEvaluator.eval(node.func, var_values, self.diag)
+        except Exception:
+            return _NESTED_CALL_UNHANDLED
+
+        if getattr(callee, "__name__", "") != "pass_verify_print":
+            return _NESTED_CALL_UNHANDLED
+
+        call_args = []
+        slice_specs_by_arg = {}
+        for idx, arg in enumerate(node.args):
+            subscript_info = self._extract_print_subscript_info(arg)
+            if subscript_info is None:
+                call_args.append(ExprEvaluator.eval(arg, var_values, self.diag))
+                continue
+
+            base_expr, spec = subscript_info
+            call_args.append(ExprEvaluator.eval(base_expr, var_values, self.diag))
+            slice_specs_by_arg[idx] = spec
+
+        call_kwargs = {}
+        for kw in node.keywords:
+            if kw.arg is None:
+                continue
+            call_kwargs[kw.arg] = ExprEvaluator.eval(kw.value, var_values, self.diag)
+        if slice_specs_by_arg:
+            call_kwargs["__slice_specs_by_arg"] = slice_specs_by_arg
+        return callee(*call_args, **call_kwargs)
+
+    def _extract_print_subscript_info(
+        self, node: ast.expr
+    ) -> Optional[tuple[ast.expr, str]]:
+        if not isinstance(node, ast.Subscript):
+            return None
+
+        slices = []
+        cur = node
+        while isinstance(cur, ast.Subscript):
+            slices.insert(0, cur.slice)
+            cur = cur.value
+        if isinstance(cur, ast.Subscript):
+            return None
+        if not isinstance(cur, ast.expr):
+            return None
+        encoded = ",".join(self._encode_print_slice_item(s) for s in slices)
+        return cur, encoded
+
+    def _encode_print_slice_item(self, node: ast.AST) -> str:
+        if isinstance(node, ast.Tuple):
+            return "[" + ";".join(self._encode_print_slice_item(elt) for elt in node.elts) + "]"
+        if isinstance(node, ast.Constant):
+            return f"i:{node.value}"
+        if isinstance(node, ast.Slice):
+            start = self._encode_print_slice_bound(node.start)
+            stop = self._encode_print_slice_bound(node.stop)
+            step = self._encode_print_slice_bound(node.step)
+            return f"s:{start}:{stop}:{step}"
+        if isinstance(node, ast.Name):
+            return f"n:{node.id}"
+        return f"e:{ast.dump(node, annotate_fields=False)}"
+
+    def _encode_print_slice_bound(self, node: Optional[ast.AST]) -> str:
+        if node is None:
+            return ""
+        if isinstance(node, ast.Constant):
+            return str(node.value)
+        if isinstance(node, ast.Name):
+            return node.id
+        return ast.dump(node, annotate_fields=False)
 
 
     def _apply_bound_dim_values_to_context_frame(self) -> None:
