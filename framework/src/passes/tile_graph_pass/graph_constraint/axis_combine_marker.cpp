@@ -48,10 +48,10 @@ void AxisCombineMarker::Init(Function& function)
     for (size_t opIdx = 0; opIdx < opList_.size(); opIdx++) {
         const auto& op = opList_[opIdx];
         for (const auto producer : op->ProducerOpsOrdered()) {
-            opInGraph_[opMagic2Idx[op->GetOpMagic()]].push_back(opMagic2Idx[producer->GetOpMagic()]);
+            opInGraph_[opMagic2Idx[op->GetOpMagic()]].insert(opMagic2Idx[producer->GetOpMagic()]);
         }
         for (const auto consumer : op->ConsumerOpsOrdered()) {
-            opOutGraph_[opMagic2Idx[op->GetOpMagic()]].push_back(opMagic2Idx[consumer->GetOpMagic()]);
+            opOutGraph_[opMagic2Idx[op->GetOpMagic()]].insert(opMagic2Idx[consumer->GetOpMagic()]);
         }
     }
 }
@@ -217,7 +217,7 @@ void AxisCombineMarker::DisableNoneWhiteListTensor(Operation* op)
     }
 }
 
-void AxisCombineMarker::UpdateOpACEnableForward(uint16_t opIdx)
+void AxisCombineMarker::UpdateOpACEnableForward(size_t opIdx)
 {
     auto op = opList_[opIdx];
     auto outputTensor = op->GetOOperands()[0];
@@ -256,7 +256,7 @@ void AxisCombineMarker::UpdateOpACEnableForward(uint16_t opIdx)
     tensorStatus_[outputTensor] = AxisReorderStatus::UNKNOWN;
 }
 
-void AxisCombineMarker::UpdateOpACEnableBackward(uint16_t opIdx)
+void AxisCombineMarker::UpdateOpACEnableBackward(size_t opIdx)
 {
     auto op = opList_[opIdx];
     auto outputTensor = op->GetOOperands()[0];
@@ -293,6 +293,7 @@ void AxisCombineMarker::ForwardVisit()
 {
     std::queue<size_t> procOpQueue;
     std::vector<size_t> inDegree(opList_.size(), 0);
+
     for (size_t j = 0; j < opInGraph_.size(); ++j) {
         if (opInGraph_[j].empty()) {
             procOpQueue.push(j);
