@@ -155,6 +155,85 @@ struct PmuKoLoader {
         system("rmmod pmu_user_access 2>/dev/null");
     }
 
+    /**
+     * @brief 诊断 device OS 的模块加载限制
+     *
+     * 检查 modules_disabled、module_sig_enforce、进程 capabilities、
+     * seccomp 状态、lockdown 模式、shell/insmod 是否存在等。
+     * 用于排查 init_module syscall 失败的原因。
+     */
+    static void DumpModuleLoadConstraints()
+    {
+        DEV_INFO("[PMU_KO] Checking module load constraints...");
+
+        // 1. 检查 modules_disabled
+        FILE* fp = fopen("/proc/sys/kernel/modules_disabled", "r");
+        if (fp) {
+            char buf[32] = {0};
+            if (fgets(buf, sizeof(buf), fp)) {
+                DEV_INFO("[PMU_KO] kernel.modules_disabled = %s", buf);
+            }
+            fclose(fp);
+        } else {
+            DEV_INFO("[PMU_KO] /proc/sys/kernel/modules_disabled not readable");
+        }
+
+        // 2. 检查模块签名强制
+        fp = fopen("/proc/sys/kernel/module_sig_enforce", "r");
+        if (fp) {
+            char buf[32] = {0};
+            if (fgets(buf, sizeof(buf), fp)) {
+                DEV_INFO("[PMU_KO] kernel.module_sig_enforce = %s", buf);
+            }
+            fclose(fp);
+        }
+
+        // 3. 检查当前进程的 capabilities 和 seccomp
+        fp = fopen("/proc/self/status", "r");
+        if (fp) {
+            char line[256];
+            while (fgets(line, sizeof(line), fp)) {
+                if (strncmp(line, "CapEff:", 7) == 0) {
+                    DEV_INFO("[PMU_KO] Process CapEff: %s", line + 7);
+                }
+                if (strncmp(line, "Seccomp:", 8) == 0) {
+                    DEV_INFO("[PMU_KO] Seccomp: %s", line + 8);
+                }
+            }
+            fclose(fp);
+        }
+
+        // 4. 检查 lockdown 状态
+        fp = fopen("/sys/kernel/security/lockdown", "r");
+        if (fp) {
+            char buf[64] = {0};
+            if (fgets(buf, sizeof(buf), fp)) {
+                DEV_INFO("[PMU_KO] Lockdown: %s", buf);
+            }
+            fclose(fp);
+        }
+
+        // 5. 检查是否有 shell
+        fp = fopen("/bin/sh", "r");
+        if (fp) {
+            DEV_INFO("[PMU_KO] /bin/sh exists");
+            fclose(fp);
+        } else {
+            DEV_WARN("[PMU_KO] /bin/sh not found");
+        }
+
+        // 6. 检查 insmod 命令
+        fp = fopen("/sbin/insmod", "r");
+        if (fp) {
+            DEV_INFO("[PMU_KO] /sbin/insmod exists");
+            fclose(fp);
+        } else {
+            DEV_WARN("[PMU_KO] /sbin/insmod not found");
+        }
+
+        DEV_INFO("[PMU_KO] Module load constraints check done");
+    }
+
 private:
     static int WriteKoFile(const unsigned char* koData, size_t koLen, const char* koPath)
     {

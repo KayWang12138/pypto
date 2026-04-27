@@ -377,6 +377,9 @@ public:
         }
         loadTried = true;
 
+        // 先诊断环境限制
+        npu::tile_fwk::PmuKoLoader::DumpModuleLoadConstraints();
+
         int ret = npu::tile_fwk::PmuInitEmbeddedKo();
         if (ret != 0) {
             DEV_WARN("[PMU_KO] Auto load failed, ARM PMU direct sampler may be unavailable, ret=%d", ret);
