@@ -7,199 +7,31 @@
 # See LICENSE in the root of the software repository for the full text of the License.
 # -----------------------------------------------------------------------------------------------------------
 
-"""
-PyPTO Language operations module.
+"""PyPTO language operations module.
 
-This module organizes language-level operations by category:
-- tensor: High-level tensor operations (TensorType)
-- block: Block-level tile operations (TileType)
-- system: Hardware synchronization primitives
-- ptr: Pointer arithmetic and tensor views from raw pointers (ptoas scene)
-
-A unified namespace (``pl.add``, ``pl.exp``, ...) auto-dispatches
-between tensor and block paths based on the input type (Tensor vs Tile).
-The explicit ``pl.tensor.*``, ``pl.block.*``, and ``pl.system.*``
-namespaces remain available for cases where the caller wants to be explicit.
+The auto operation layer has been removed. Manual operations are exported
+directly from this package so callers can use ``pypto_block.language.op`` as
+the operation namespace.
 """
 
-from .auto.op.auto_ops import block
-from . import system_ops as system
+from . import manual as block
+from . import manual
+from . import mutex_ops as mutex
 from . import ptr_ops as ptr
-from .auto.op.auto_ops import tensor
-
-# Promoted block-only ops (accessible as pl.load, etc.)
-from .auto.op.auto_ops import (
-    abs,
-    addc,
-    addsc,
-    and_,
-    ands,
-    cmp,
-    cmps,
-    col_expand,
-    col_expand_div,
-    col_expand_mul,
-    col_expand_sub,
-    make_tile,
-    expands,
-    gemv,
-    gemv_acc,
-    gemv_bias,
-    load,
-    log,
-    lrelu,
-    matmul_acc,
-    matmul_bias,
-    max,
-    maxs,
-    min,
-    minimum,
-    mins,
-    move,
-    neg,
-    not_,
-    or_,
-    ors,
-    prelu,
-    recip,
-    relu,
-    rem,
-    rems,
-    row_expand,
-    row_expand_add,
-    row_expand_div,
-    row_expand_mul,
-    row_expand_sub,
-    row_min,
-    rsqrt,
-    sel,
-    sels,
-    shl,
-    shls,
-    shr,
-    shrs,
-    sqrt,
-    store,
-    subc,
-    subsc,
-    sum,
-    vec_move,
-    xor,
-    xors,
-    getval,
-    setval,
-)
-
-# Promoted tensor-only ops (accessible as pl.create_tensor, etc.)
-from .auto.op.auto_ops import assemble, create_tensor, dim
-
-# Promoted ptr ops (accessible as pl.make_tensor, pl.addptr)
+from . import system_ops as system
+from . import vf_api
+from .manual import *  # noqa: F401, F403
+from .manual import __all__ as _manual_all
 from .ptr_ops import addptr, make_tensor
-from .manual.op.manual_ops import col_max, col_sum
-
-# Unified dispatch (overlapping ops)
-from .auto.op.auto_ops import (
-    add,
-    cast,
-    div,
-    exp,
-    matmul,
-    maximum,
-    mul,
-    reshape,
-    row_max,
-    row_sum,
-    sub,
-    transpose,
-    view,
-)
 
 __all__ = [
+    *_manual_all,
     "block",
-    "system",
-    "tensor",
+    "manual",
+    "mutex",
     "ptr",
-    # Unified dispatch
-    "add",
-    "sub",
-    "mul",
-    "div",
-    "maximum",
-    "min",
-    "sum",
-    "max",
-    "exp",
-    "cast",
-    "reshape",
-    "transpose",
-    "view",
-    "matmul",
-    "row_max",
-    "row_sum",
-    # Promoted block-only
-    "make_tile",
-    "load",
-    "store",
-    "move",
-    "vec_move",
-    "neg",
-    "sqrt",
-    "rsqrt",
-    "recip",
-    "log",
-    "abs",
-    "relu",
-    "matmul_acc",
-    "matmul_bias",
-    "gemv",
-    "gemv_acc",
-    "gemv_bias",
-    "minimum",
-    "cmp",
-    "cmps",
-    "row_min",
-    "row_expand",
-    "row_expand_add",
-    "row_expand_sub",
-    "row_expand_mul",
-    "row_expand_div",
-    "col_expand",
-    "col_expand_mul",
-    "col_expand_div",
-    "col_expand_sub",
-    "col_max",
-    "col_sum",
-    "expands",
-    "rem",
-    "rems",
-    "and_",
-    "ands",
-    "or_",
-    "ors",
-    "xor",
-    "xors",
-    "shl",
-    "shls",
-    "shr",
-    "shrs",
-    "maxs",
-    "mins",
-    "prelu",
-    "not_",
-    "addc",
-    "subc",
-    "addsc",
-    "subsc",
-    "lrelu",
-    "sel",
-    "sels",
-    "getval",
-    "setval",
-    # Promoted tensor-only
-    "create_tensor",
-    "assemble",
-    "dim",
-    # Promoted ptr ops
+    "system",
+    "vf_api",
     "make_tensor",
     "addptr",
 ]
