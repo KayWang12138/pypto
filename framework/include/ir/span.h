@@ -37,41 +37,54 @@ namespace ir {
 class Span {
 public:
     const std::string filename_; ///< Source filename
-    const int beginLine_;        ///< Beginning line number (1-indexed)
-    const int beginColumn_;      ///< Beginning column number (1-indexed)
-    const int endLine_;          ///< Ending line number (1-indexed), -1 means unknown
-    const int endColumn_;        ///< Ending column number (1-indexed), -1 means unknown
+    const int begin_line_;       ///< Beginning line number (1-indexed)
+    const int begin_column_;     ///< Beginning column number (1-indexed)
+    const int end_line_;         ///< Ending line number (1-indexed), -1 means unknown
+    const int end_column_;       ///< Ending column number (1-indexed), -1 means unknown
 
     /**
      * \brief Construct a source span
      *
      * \param file Source filename
-     * \param beginLine Begin line (1-indexed)
-     * \param beginColumn Begin column (1-indexed)
-     * \param endLine End line (1-indexed), -1 means unknown
-     * \param endColumn End column (1-indexed), -1 means unknown
+     * \param begin_line Begin line (1-indexed)
+     * \param begin_column Begin column (1-indexed)
+     * \param end_line End line (1-indexed), -1 means unknown
+     * \param end_column End column (1-indexed), -1 means unknown
      */
-    Span(std::string file, int beginLine, int beginColumn, int endLine = -1, int endColumn = -1);
+    Span(std::string file, int begin_line, int begin_column, int end_line = -1, int end_column = -1);
 
     /**
      * \brief Convert span to string representation
      *
      * \return String in format "filename:begin_line:begin_column"
      */
-    [[nodiscard]] std::string ToString() const;
+    [[nodiscard]] std::string to_string() const;
 
     /**
      * \brief Check if the span is valid (has valid line/column numbers)
      *
-     * \return true if all line/column numbers are positive
+     * \return true if the span has valid coordinates
      */
-    static bool IsUnknown(const Span& span);
+    [[nodiscard]] bool is_valid() const;
+
+    /**
+     * \brief Check whether the span is the unknown sentinel
+     *
+     * \return true if the span matches the unknown sentinel
+     */
+    static bool is_unknown(const Span& span);
 
     /**
      * \brief Create an unknown/invalid span
      *
      * \return Span with empty filename and invalid coordinates
      */
+    static Span unknown();
+
+    // Legacy compatibility helpers retained while outer ir transitions to the
+    // block-style Span interface.
+    [[nodiscard]] std::string ToString() const;
+    static bool IsUnknown(const Span& span);
     static Span& Unknown();
 };
 

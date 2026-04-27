@@ -51,6 +51,27 @@ uint64_t structural_hash(const IRNodePtr& node, bool enable_auto_mapping = false
 uint64_t structural_hash(const TypePtr& type, bool enable_auto_mapping = false);
 
 /**
+ * @brief Compute structural hash using variable object identity when auto mapping is disabled
+ *
+ * This preserves block IR compatibility where different Var/IterArg/MemRef instances with
+ * the same name are distinct when enable_auto_mapping is false.
+ *
+ * @param node IR node to hash
+ * @param enable_auto_mapping If true, ignore variable identity and map variables by encounter order.
+ * @return Structural hash value
+ */
+uint64_t structural_hash_with_var_identity(const IRNodePtr& node, bool enable_auto_mapping = false);
+
+/**
+ * @brief Compute structural hash of a type using variable object identity in embedded expressions
+ *
+ * @param type Type to hash
+ * @param enable_auto_mapping If true, ignore variable identity and map variables by encounter order.
+ * @return Structural hash value
+ */
+uint64_t structural_hash_with_var_identity(const TypePtr& type, bool enable_auto_mapping = false);
+
+/**
  * @brief Check if two IR nodes are structurally equal
  *
  * Compares IR node tree structure, ignoring Span (source location).

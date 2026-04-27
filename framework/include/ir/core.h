@@ -9,9 +9,12 @@
  */
 
 #pragma once
+#include <cstddef>
 #include <functional>
 #include <memory>
 #include <string>
+#include <tuple>
+#include <type_traits>
 #include <utility>
 
 #include "ir/reflection/field_traits.h"
@@ -40,6 +43,7 @@ enum class ObjectKind {
     Call,
     MakeTuple,
     TupleGetItemExpr,
+    TileOffsetExpr,
     ConstInt,
     ConstFloat,
     ConstBool,
@@ -83,7 +87,10 @@ enum class ObjectKind {
     ReturnStmt,
     ForStmt,
     WhileStmt,
+    ScopeStmt,
+    SectionStmt,
     SeqStmts,
+    OpStmts,
     EvalStmt,
     BreakStmt,
     ContinueStmt,

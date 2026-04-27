@@ -1,4 +1,5 @@
-/**
+/*
+ * Copyright (c) PyPTO Contributors.
  * Copyright (c) 2026 Huawei Technologies Co., Ltd.
  * This program is free software, you can redistribute it and/or modify it under the terms and conditions of
  * CANN Open Software License Agreement Version 2.0 (the "License").
@@ -6,10 +7,13 @@
  * THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED,
  * INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
  * See LICENSE in the root of the software repository for the full text of the License.
+ * -----------------------------------------------------------------------------------------------------------
  */
 
 #pragma once
 #include <any>
+#include <atomic>
+#include <cstdint>
 #include <memory>
 #include <optional>
 #include <string>
@@ -22,17 +26,18 @@
 
 #include "core/any_cast.h"
 #include "core/dtype.h"
-#include "core/logging.h"
+#include "core/error.h"
 #include "ir/core.h"
 #include "ir/pipe.h"
 #include "ir/reflection/field_traits.h"
+#include "ir/span.h"
 #include "ir/type.h"
 
 namespace pypto {
 namespace ir {
 
 /**
- * \brief Base class for all expressions in the IR
+ * @brief Base class for all expressions in the IR
  *
  * This is the root base class for all expression types (scalar, tensor, etc).
  * Expressions represent computations that produce values.
@@ -44,25 +49,25 @@ protected:
 
 public:
     /**
-     * \brief Create an expression
+     * @brief Create an expression
      *
-     * \param span Source location
-     * \param type Type of the expression result (defaults to UnknownType)
+     * @param span Source location
+     * @param type Type of the expression result (defaults to UnknownType)
      */
     explicit Expr(Span s, TypePtr type = GetUnknownType()) : IRNode(std::move(s)), type_(std::move(type)) {}
     ~Expr() override = default;
 
     /**
-     * \brief Get the type name of this expression
+     * @brief Get the type name of this expression
      *
-     * \return Human-readable type name (e.g., "Var", "Call")
+     * @return Human-readable type name (e.g., "ScalarExpr", "Var", "Call")
      */
     [[nodiscard]] std::string TypeName() const override { return "Expr"; }
 
     /**
-     * \brief Get the type of this expression
+     * @brief Get the type of this expression
      *
-     * \return Type pointer of the expression result
+     * @return Type pointer of the expression result
      */
     [[nodiscard]] const TypePtr& GetType() const { return type_; }
 
@@ -75,8 +80,11 @@ public:
 
 using ExprPtr = std::shared_ptr<const Expr>;
 
+// Forward declaration for MemorySpace enum (defined in memory_space.h)
+enum class MemorySpace;
+
 /**
- * \brief Base class for operations/functions
+ * @brief Base class for operations/functions
  *
  * Represents callable operations in the IR.
  * Stores the schema of allowed kwargs (key -> expected type mapping).
@@ -90,16 +98,16 @@ public:
     virtual ~Op() = default;
 
     /**
-     * \brief Register an allowed kwarg with its expected type
+     * @brief Register an allowed kwarg with its expected type
      *
      * Defines that this operator accepts a kwarg with the given key and type.
      * This is used for validation when creating Call expressions.
      *
-     * Only specific types are allowed: bool, int, std::string, double, DataType
-     * This is enforced at compile-time via static_assert.
+     * Only specific types are allowed: bool, int, std::string, double, DataType, MemorySpace,
+     * std::vector<int>. This is enforced at compile-time via static_assert.
      *
-     * \tparam T Expected type of the kwarg value (must be one of the allowed types)
-     * \param key Kwarg key (string identifier)
+     * @tparam T Expected type of the kwarg value (must be one of the allowed types)
+     * @param key Kwarg key (string identifier)
      */
     template <typename T>
     void SetAttrType(const std::string& key) const
@@ -107,39 +115,41 @@ public:
         // Compile-time check: only allow specific types
         static_assert(
             std::is_same_v<T, bool> || std::is_same_v<T, int> || std::is_same_v<T, std::string> ||
-                std::is_same_v<T, double> || std::is_same_v<T, DataType>,
-            "SetAttrType only accepts: bool, int, std::string, double, DataType");
+                std::is_same_v<T, double> || std::is_same_v<T, DataType> || std::is_same_v<T, MemorySpace> ||
+                std::is_same_v<T, std::vector<int>>,
+            "SetAttrType only accepts: bool, int, std::string, double, DataType, MemorySpace, std::vector<int>");
 
         attrs_.emplace(key, std::type_index(typeid(T)));
     }
 
     /**
-     * \brief Get the expected type for a kwarg
+     * @brief Get the expected type for a kwarg
      *
-     * \param key Kwarg key
-     * \return type_index of the expected type
-     * \throws ValueError if kwarg is not registered
+     * @param key Kwarg key
+     * @return type_index of the expected type
+     * @throws pypto::ir::ValueError if kwarg is not registered
      */
-    [[nodiscard]] std::type_index GetAttrType(const std::string& key, const Span& span = Span::Unknown()) const
+    [[nodiscard]] std::type_index GetAttrType(const std::string& key) const
     {
         auto it = attrs_.find(key);
-        CHECK(it != attrs_.end()) << "Attribute '" << key << "' not found in operator '" << name_ << "'"
-                                  << " at " << span.ToString();
+        if (it == attrs_.end()) {
+            throw pypto::ir::ValueError("Attribute '" + key + "' not found in operator '" + name_ + "'");
+        }
         return it->second;
     }
 
     /**
-     * \brief Check if a kwarg is registered
+     * @brief Check if a kwarg is registered
      *
-     * \param key Kwarg key
-     * \return true if the kwarg is registered
+     * @param key Kwarg key
+     * @return true if the kwarg is registered
      */
     [[nodiscard]] bool HasAttr(const std::string& key) const { return attrs_.find(key) != attrs_.end(); }
 
     /**
-     * \brief Get all registered kwarg keys
+     * @brief Get all registered kwarg keys
      *
-     * \return Vector of all kwarg keys
+     * @return Vector of all kwarg keys
      */
     [[nodiscard]] std::vector<std::string> GetAttrKeys() const
     {
@@ -152,23 +162,23 @@ public:
     }
 
     /**
-     * \brief Get all registered kwargs as a map
+     * @brief Get all registered kwargs as a map
      *
-     * \return Map of kwarg keys to expected types
+     * @return Map of kwarg keys to expected types
      */
     [[nodiscard]] const std::unordered_map<std::string, std::type_index>& GetAttrs() const { return attrs_; }
 
     /**
-     * \brief Set the pipeline type for this operator
+     * @brief Set the pipeline type for this operator
      *
-     * \param pipe Pipeline type (e.g., MTE2, V)
+     * @param pipe Pipeline type (e.g., MTE2, V)
      */
     void SetPipe(PipeType pipe) const { pipe_ = pipe; }
 
     /**
-     * \brief Get the pipeline type for this operator
+     * @brief Get the pipeline type for this operator
      *
-     * \return Optional pipeline type (nullopt if not set)
+     * @return Optional pipeline type (nullopt if not set)
      */
     [[nodiscard]] std::optional<PipeType> GetPipe() const { return pipe_; }
 
@@ -183,7 +193,7 @@ private:
 using OpPtr = std::shared_ptr<const Op>;
 
 /**
- * \brief Global variable reference for functions in a program
+ * @brief Global variable reference for functions in a program
  *
  * Represents a reference to a function in the program's global scope.
  * Can be used as an operation in Call expressions to call functions within the same program.
@@ -200,7 +210,7 @@ public:
 using GlobalVarPtr = std::shared_ptr<const GlobalVar>;
 
 /**
- * \brief Custom comparator for ordering GlobalVarPtr by name
+ * @brief Custom comparator for ordering GlobalVarPtr by name
  *
  * Used in std::map to maintain deterministic ordering of functions in a Program.
  * Ensures consistent structural equality and hashing.
@@ -210,7 +220,7 @@ struct GlobalVarPtrLess {
 };
 
 /**
- * \brief Variable reference expression
+ * @brief Variable reference expression
  *
  * Represents a reference to a named variable.
  * Can represent both scalar and tensor variables based on its type.
@@ -220,35 +230,53 @@ public:
     std::string name_;
 
     /**
-     * \brief Create a variable reference
+     * @brief Create a variable reference
      *
-     * \param name Variable name
-     * \param type Type of the variable (ScalarType, TensorType, or TileType)
+     * @param name Variable name
+     * @param type Type of the variable (ScalarType, TensorType, or TileType)
      *             Memory reference information is stored in ShapedType for Tensor/Tile types
-     * \param span Source location
-     * \return Shared pointer to const Var expression
+     * @param span Source location
+     * @return Shared pointer to const Var expression
      */
-    Var(std::string name, TypePtr type, Span span) : Expr(std::move(span), std::move(type)), name_(std::move(name)) {}
+    Var(std::string name, TypePtr type, Span span)
+        : Expr(std::move(span), std::move(type)),
+          name_(std::move(name)),
+          unique_id_(next_unique_id_.fetch_add(1, std::memory_order_relaxed))
+    {}
+
+    /**
+     * @brief Get the unique identity of this variable
+     *
+     * Monotonically increasing ID assigned at construction, providing
+     * deterministic identity that is stable for the lifetime of the process.
+     *
+     * @return Process-unique identifier for this variable instance
+     */
+    [[nodiscard]] uint64_t UniqueId() const { return unique_id_; }
 
     [[nodiscard]] ObjectKind GetKind() const override { return ObjectKind::Var; }
     [[nodiscard]] std::string TypeName() const override { return "Var"; }
 
     /**
-     * \brief Get field descriptors for reflection-based visitation
+     * @brief Get field descriptors for reflection-based visitation
      *
-     * \return Tuple of field descriptors (name_ as IGNORE field)
+     * @return Tuple of field descriptors (name_ as IGNORE field)
      */
     static constexpr auto GetFieldDescriptors()
     {
         return std::tuple_cat(
             Expr::GetFieldDescriptors(), std::make_tuple(reflection::IgnoreField(&Var::name_, "name")));
     }
+
+private:
+    static inline std::atomic<uint64_t> next_unique_id_{0};
+    uint64_t unique_id_;
 };
 
 using VarPtr = std::shared_ptr<const Var>;
 
 /**
- * \brief Iteration argument variable
+ * @brief Iteration argument variable
  *
  * Represents an iteration argument (loop-carried value) in for loops.
  * IterArgs implement SSA-style loop-carried dependencies where values are
@@ -264,33 +292,19 @@ using VarPtr = std::shared_ptr<const Var>;
  * 2. Use in ForStmt's iter_args list
  * 3. Update via YieldStmt in loop body
  * 4. Capture final value in ForStmt's return_vars
- *
- * \example
- * // for i, (sum,) in pl.range(0, n, 1, init_values=[0]):
- * //     sum = pl.yield_(sum + i)
- * // sum_final = sum
- * auto sum_iter = std::make_shared<IterArg>("sum", type, init_val, span);
- * auto sum_final = std::make_shared<Var>("sum_final", type, span);
- * auto for_stmt = std::make_shared<ForStmt>(
- *     i, start, stop, step,
- *     std::vector{sum_iter},  // iter_args (loop-scoped)
- *     body,
- *     std::vector{sum_final}, // return_vars (accessible after loop)
- *     span
- * );
  */
 class IterArg : public Var {
 public:
     ExprPtr initValue_; // Initial value expression for first iteration
 
     /**
-     * \brief Create an iteration argument
+     * @brief Create an iteration argument
      *
-     * \param name Variable name (scoped to loop body)
-     * \param type Type of the variable (ScalarType, TensorType, or TileType)
+     * @param name Variable name (scoped to loop body)
+     * @param type Type of the variable (ScalarType, TensorType, or TileType)
      *             Memory reference information is stored in ShapedType for Tensor/Tile types
-     * \param initValue Initial value expression for first iteration
-     * \param span Source location
+     * @param initValue Initial value expression for first iteration
+     * @param span Source location
      */
     IterArg(std::string name, TypePtr type, ExprPtr initValue, Span span)
         : Var(std::move(name), std::move(type), std::move(span)), initValue_(std::move(initValue))
@@ -300,9 +314,9 @@ public:
     [[nodiscard]] std::string TypeName() const override { return "IterArg"; }
 
     /**
-     * \brief Get field descriptors for reflection-based visitation
+     * @brief Get field descriptors for reflection-based visitation
      *
-     * \return Tuple of field descriptors (initValue_ as USUAL field)
+     * @return Tuple of field descriptors (initValue_ as USUAL field)
      */
     static constexpr auto GetFieldDescriptors()
     {
@@ -313,10 +327,8 @@ public:
 
 using IterArgPtr = std::shared_ptr<const IterArg>;
 
-// MemRefPtr is already declared in memref.h, just reuse it here
-
 /**
- * \brief Function call expression
+ * @brief Function call expression
  *
  * Represents a function call with an operation and arguments.
  * Can accept any Expr as arguments, not just scalar expressions.
@@ -324,67 +336,136 @@ using IterArgPtr = std::shared_ptr<const IterArg>;
  */
 class Call : public Expr {
 public:
-    std::string name_;                                     // Name of the operation/function
-    std::vector<ExprPtr> args_;                            // Positional arguments
-    std::vector<std::pair<std::string, std::any>> kwargs_; // Keyword arguments (metadata, ordered)
+    OpPtr op_;                                             ///< Operation/function
+    std::vector<ExprPtr> args_;                            ///< Positional arguments
+    std::vector<std::pair<std::string, std::any>> kwargs_; ///< Keyword arguments (metadata, ordered)
 
     /**
-     * \brief Create a function call expression
+     * @brief Create a function call expression
      *
-     * \param op Operation/function to call
-     * \param args List of argument expressions
-     * \param span Source location
+     * @param op Operation/function to call
+     * @param args List of argument expressions
+     * @param span Source location
      */
-    Call(std::string name, std::vector<ExprPtr> args, Span span)
-        : Expr(std::move(span)), name_(std::move(name)), args_(std::move(args)), kwargs_()
+    Call(OpPtr op, std::vector<ExprPtr> args, Span span)
+        : Expr(std::move(span)), op_(std::move(op)), args_(std::move(args)), kwargs_()
+    {}
+
+    Call(std::string op_name, std::vector<ExprPtr> args, Span span)
+        : Expr(std::move(span)), op_(std::make_shared<Op>(std::move(op_name))), args_(std::move(args)), kwargs_()
     {}
 
     /**
-     * \brief Create a function call expression with explicit type
+     * @brief Create a function call expression with explicit type
      *
-     * \param op Operation/function to call
-     * \param args List of argument expressions
-     * \param type Result type of the call
-     * \param span Source location
+     * @param op Operation/function to call
+     * @param args List of argument expressions
+     * @param type Result type of the call
+     * @param span Source location
      */
-    Call(std::string name, std::vector<ExprPtr> args, TypePtr type, Span span)
-        : Expr(std::move(span), std::move(type)), name_(std::move(name)), args_(std::move(args)), kwargs_()
+    Call(OpPtr op, std::vector<ExprPtr> args, TypePtr type, Span span)
+        : Expr(std::move(span), std::move(type)), op_(std::move(op)), args_(std::move(args)), kwargs_()
     {}
+
+    /**
+     * @brief Create a function call expression with kwargs
+     *
+     * @param op Operation/function to call
+     * @param args List of argument expressions
+     * @param kwargs Keyword arguments (metadata)
+     * @param span Source location
+     */
+    Call(OpPtr op, std::vector<ExprPtr> args, std::vector<std::pair<std::string, std::any>> kwargs, Span span)
+        : Expr(std::move(span)), op_(std::move(op)), args_(std::move(args)), kwargs_(std::move(kwargs))
+    {}
+
+    /**
+     * @brief Create a function call expression with kwargs and explicit type
+     *
+     * @param op Operation/function to call
+     * @param args List of argument expressions
+     * @param kwargs Keyword arguments (metadata)
+     * @param type Result type of the call
+     * @param span Source location
+     */
+    Call(OpPtr op, std::vector<ExprPtr> args, std::vector<std::pair<std::string, std::any>> kwargs, TypePtr type,
+         Span span)
+        : Expr(std::move(span), std::move(type)),
+          op_(std::move(op)),
+          args_(std::move(args)),
+          kwargs_(std::move(kwargs))
+    {}
+
+    /**
+     * @brief Get a kwarg value with type checking
+     *
+     * @tparam T Type of the kwarg value
+     * @param key Kwarg key
+     * @param default_value Default value if key doesn't exist
+     * @return The kwarg value or default
+     */
+    template <typename T>
+    T GetKwarg(const std::string& key, const T& default_value = T{}) const
+    {
+        for (const auto& [k, v] : kwargs_) {
+            if (k == key) {
+                return AnyCast<T>(v, "kwarg key: " + key);
+            }
+        }
+        return default_value;
+    }
+
+    /**
+     * @brief Check if a kwarg exists
+     *
+     * @param key Kwarg key
+     * @return true if the kwarg exists
+     */
+    [[nodiscard]] bool HasKwarg(const std::string& key) const
+    {
+        for (const auto& [k, v] : kwargs_) {
+            if (k == key) {
+                return true;
+            }
+        }
+        return false;
+    }
 
     [[nodiscard]] ObjectKind GetKind() const override { return ObjectKind::Call; }
     [[nodiscard]] std::string TypeName() const override { return "Call"; }
 
     /**
-     * \brief Get field descriptors for reflection-based visitation
+     * @brief Get field descriptors for reflection-based visitation
      *
-     * \return Tuple of field descriptors (op, args, and kwargs as USUAL fields)
+     * @return Tuple of field descriptors (op, args, and kwargs as USUAL fields)
      */
     static constexpr auto GetFieldDescriptors()
     {
         return std::tuple_cat(
             Expr::GetFieldDescriptors(),
             std::make_tuple(
-                reflection::UsualField(&Call::name_, "name"), reflection::UsualField(&Call::args_, "args")));
+                reflection::UsualField(&Call::op_, "op"), reflection::UsualField(&Call::args_, "args"),
+                reflection::UsualField(&Call::kwargs_, "kwargs")));
     }
 };
 
 using CallPtr = std::shared_ptr<const Call>;
 
 /**
- * \brief Expression to create a tuple from multiple expressions
+ * @brief Expression to create a tuple from multiple expressions
  *
  * Takes a list of expressions and creates a tuple value.
  * The result type is TupleType containing the types of all input expressions.
  */
 class MakeTuple : public Expr {
 public:
-    std::vector<ExprPtr> elements_; // Elements of the tuple
+    std::vector<ExprPtr> elements_; ///< Elements of the tuple
 
     /**
-     * \brief Create a tuple construction expression
+     * @brief Create a tuple construction expression
      *
-     * \param elements Expressions to be tuple elements
-     * \param span Source location
+     * @param elements Expressions to be tuple elements
+     * @param span Source location
      */
     MakeTuple(std::vector<ExprPtr> elements, Span span);
 
@@ -392,9 +473,9 @@ public:
     [[nodiscard]] std::string TypeName() const override { return "MakeTuple"; }
 
     /**
-     * \brief Get field descriptors for reflection-based visitation
+     * @brief Get field descriptors for reflection-based visitation
      *
-     * \return Tuple of field descriptors
+     * @return Tuple of field descriptors
      */
     static constexpr auto GetFieldDescriptors()
     {
@@ -406,22 +487,22 @@ public:
 using MakeTuplePtr = std::shared_ptr<const MakeTuple>;
 
 /**
- * \brief Tuple element access expression
+ * @brief Tuple element access expression
  *
  * Represents accessing an element from a tuple by index.
  * The tuple must have TupleType and index must be a compile-time constant.
  */
 class TupleGetItemExpr : public Expr {
 public:
-    ExprPtr tuple_; // Tuple expression (must have TupleType)
-    int index_;     // Index of the element to access (0-based)
+    ExprPtr tuple_; ///< Tuple expression (must have TupleType)
+    int index_;     ///< Index of the element to access (0-based)
 
     /**
-     * \brief Create a tuple element access expression
+     * @brief Create a tuple element access expression
      *
-     * \param tuple Tuple expression (must have TupleType)
-     * \param index Index of the element (0-based, must be within bounds)
-     * \param span Source location
+     * @param tuple Tuple expression (must have TupleType)
+     * @param index Index of the element (0-based, must be within bounds)
+     * @param span Source location
      */
     TupleGetItemExpr(ExprPtr tuple, int index, Span span);
 
@@ -429,20 +510,57 @@ public:
     [[nodiscard]] std::string TypeName() const override { return "TupleGetItemExpr"; }
 
     /**
-     * \brief Get field descriptors for reflection-based visitation
+     * @brief Get field descriptors for reflection-based visitation
      *
-     * \return Tuple of field descriptors
+     * @return Tuple of field descriptors
      */
     static constexpr auto GetFieldDescriptors()
     {
         return std::tuple_cat(
-            Expr::GetFieldDescriptors(), std::make_tuple(
-                                             reflection::UsualField(&TupleGetItemExpr::tuple_, "tuple"),
-                                             reflection::UsualField(&TupleGetItemExpr::index_, "index")));
+            Expr::GetFieldDescriptors(),
+            std::make_tuple(
+                reflection::UsualField(&TupleGetItemExpr::tuple_, "tuple"),
+                reflection::UsualField(&TupleGetItemExpr::index_, "index")));
     }
 };
 
 using TupleGetItemExprPtr = std::shared_ptr<const TupleGetItemExpr>;
+
+/**
+ * @brief Tile element offset expression: tile[offset]
+ *
+ * Creates a view of a tile starting at element `offset`.
+ * The result has the same TileType as the original tile,
+ * but the physical address is shifted by offset * sizeof(dtype) bytes.
+ */
+class TileOffsetExpr : public Expr {
+public:
+    ExprPtr tile_;   ///< Original tile expression (must have TileType)
+    ExprPtr offset_; ///< Element offset (integer expression)
+
+    /**
+     * @brief Create a tile offset expression
+     *
+     * @param tile Original tile (must have TileType)
+     * @param offset Element offset
+     * @param span Source location
+     */
+    TileOffsetExpr(ExprPtr tile, ExprPtr offset, Span span);
+
+    [[nodiscard]] ObjectKind GetKind() const override { return ObjectKind::TileOffsetExpr; }
+    [[nodiscard]] std::string TypeName() const override { return "TileOffsetExpr"; }
+
+    static constexpr auto GetFieldDescriptors()
+    {
+        return std::tuple_cat(
+            Expr::GetFieldDescriptors(),
+            std::make_tuple(
+                reflection::UsualField(&TileOffsetExpr::tile_, "tile"),
+                reflection::UsualField(&TileOffsetExpr::offset_, "offset")));
+    }
+};
+
+using TileOffsetExprPtr = std::shared_ptr<const TileOffsetExpr>;
 
 } // namespace ir
 } // namespace pypto

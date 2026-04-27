@@ -11,12 +11,15 @@
  */
 #include "bindings.h"
 
-#include "ir/expr.h"
+#include <exception>
+#include <string>
+
 #include "core/error.h"
+#include "core/logging.h"
 
 namespace pypto {
 
-void BindError(py::module& m)
+void BindError(py::module_& m)
 {
     // Register custom exception types and map them to Python exceptions
     static py::exception<ir::Error> exc_error(m, "Error", PyExc_Exception);
@@ -59,7 +62,7 @@ void BindError(py::module& m)
     });
 }
 
-void BindLogging(py::module& m)
+void BindLogging(py::module_& m)
 {
     py::native_enum<LogLevel>(m, "LogLevel", "enum.IntEnum", "Enumeration of available log levels")
         .value("DEBUG", LogLevel::DEBUG, "Detailed information for debugging")
@@ -76,7 +79,8 @@ void BindLogging(py::module& m)
     m.def("set_log_level", &LoggerManager::SetLevel, py::arg("level"), "Set the log level threshold.");
     m.def("get_log_level", &LoggerManager::GetLevel, "Get the current log level threshold.");
     m.def(
-        "log", [](LogLevel level, std::string message) { pypto::Logger(level, __LINE__) << message; }, py::arg("level"),
+        "log", [](LogLevel level, const std::string& message) { pypto::Logger(level, __LINE__) << message; },
+        py::arg("level"),
         py::arg("message"), "Log a message at the DEBUG level");
     m.def(
         "raise_error",
@@ -104,7 +108,7 @@ void BindLogging(py::module& m)
         py::arg("error_type"), py::arg("message"), "Raise a Error from C++ for testing error handling");
 }
 
-void BindCore(py::module& m)
+void BindCore(py::module_& m)
 {
     BindError(m);
     BindLogging(m);
