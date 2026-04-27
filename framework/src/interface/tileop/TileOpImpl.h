@@ -42,6 +42,7 @@
 #include "vector/sign.h"
 #include "vector/signbit.h"
 #include "vector/reduce.h"
+#include "vector/quant.h"
 #include "vector/sort.h"
 #include "vector/mte.h"
 #include "vector/logicalnot.h"
