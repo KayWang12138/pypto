@@ -281,6 +281,8 @@ Status PassManager::RunPass(Program& program, Function& function, const std::str
         if (config::GetDebugOption<int64_t>(CFG_COMPILE_DBEUG_MODE) == CFG_DEBUG_ALL) {
             passDfxCfg.printGraph = true;
             passDfxCfg.dumpGraph = true;
+            passDfxCfg.printProgram = true;
+            passDfxCfg.dumpPassTimeCost = true;
         }
         pass->SetPassConfigs(passDfxCfg);
         APASS_LOG_INFO_F(
