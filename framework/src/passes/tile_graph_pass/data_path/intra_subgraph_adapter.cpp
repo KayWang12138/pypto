@@ -13,7 +13,6 @@
  * \brief
  */
 
-#include <algorithm>
 #include <unordered_set>
 #include "passes/pass_utils/graph_utils.h"
 #include "intra_subgraph_adapter.h"
@@ -116,13 +115,9 @@ Status IntraSubgraphAdapter::RunOnFunction(Function& function)
         }
     }
     if (!addedOps_.empty()) {
-        addedOps_.erase(std::remove_if(addedOps_.begin(), addedOps_.end(),
-            [](Operation* op) { return op == nullptr || op->IsDeleted(); }), addedOps_.end());
-        if (!addedOps_.empty()) {
-            if (InferShapeUtils::InferShape(function, addedOps_) != SUCCESS) {
-                APASS_LOG_ERROR_F(Elements::Function, "InferShape for added ops failed.");
-                return FAILED;
-            }
+        if (InferShapeUtils::InferShape(function, addedOps_) != SUCCESS) {
+            APASS_LOG_ERROR_F(Elements::Function, "InferShape for added ops failed.");
+            return FAILED;
         }
     }
     return SUCCESS;

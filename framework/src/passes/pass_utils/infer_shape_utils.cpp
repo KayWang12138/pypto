@@ -27,10 +27,9 @@ Status InferShapeUtils::InferShape(Function& function, const std::vector<Operati
     if (targetOps.empty()) {
         opList = function.Operations().DuplicatedOpList();
     } else {
-        // 去重并保留顺序，同时构建 targetOpSet
         opList.reserve(targetOps.size());
         for (const auto op : targetOps) {
-            if (targetOpSet.insert(op).second) {
+            if (op != nullptr && !op->IsDeleted() && targetOpSet.insert(op).second) {
                 opList.push_back(op);
             }
         }

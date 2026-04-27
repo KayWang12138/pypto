@@ -13,6 +13,7 @@
  * \brief Unit test for assign_memory_type pass.
  */
 
+#include <algorithm>
 #include <fstream>
 #include <vector>
 #include <gtest/gtest.h>
@@ -1712,34 +1713,26 @@ TEST_F(AssignMemoryTypeTest, TestOverSizeUb)
     }
 }
 
-TEST_F(AssignMemoryTypeTest, TestConvertOpsHaveDynValidShape)
+void BuildConvertDynShapeGraph(std::shared_ptr<Function>& currFunctionPtr)
 {
-    auto currFunctionPtr =
+    currFunctionPtr =
         std::make_shared<Function>(Program::GetInstance(), "TestConvertDynShape", "TestConvertDynShape", nullptr);
-    EXPECT_TRUE(currFunctionPtr != nullptr);
-
     Program::GetInstance().InsertFuncToFunctionMap("TestConvertDynShape", currFunctionPtr);
 
     std::vector<int64_t> shape = {16, 32};
     std::vector<int64_t> shape1 = {32, 16};
     std::shared_ptr<LogicalTensor> input_tensor1 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape);
     input_tensor1->SetMemoryTypeBoth(MEM_DEVICE_DDR);
-
     std::shared_ptr<LogicalTensor> input_tensor2 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape);
     input_tensor2->SetMemoryTypeBoth(MEM_UNKNOWN);
-
     std::shared_ptr<LogicalTensor> view_output1 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape);
     view_output1->SetMemoryTypeBoth(MEM_UNKNOWN);
-
     std::shared_ptr<LogicalTensor> view_output2 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape);
     view_output2->SetMemoryTypeBoth(MEM_UNKNOWN);
-
     std::shared_ptr<LogicalTensor> add_output = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape);
     add_output->SetMemoryTypeBoth(MEM_UNKNOWN);
-
     std::shared_ptr<LogicalTensor> reshape_output = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape1);
     reshape_output->SetMemoryTypeBoth(MEM_UNKNOWN);
-
     std::shared_ptr<LogicalTensor> assemble_output = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape1);
     assemble_output->SetMemoryTypeBoth(MEM_UNKNOWN);
 
@@ -1747,7 +1740,6 @@ TEST_F(AssignMemoryTypeTest, TestConvertOpsHaveDynValidShape)
     view_op1.SetOpAttribute(std::make_shared<ViewOpAttribute>(std::vector<int64_t>{0, 0}));
     auto& view_op2 = currFunctionPtr->AddRawOperation(Opcode::OP_VIEW, {input_tensor2}, {view_output2});
     view_op2.SetOpAttribute(std::make_shared<ViewOpAttribute>(std::vector<int64_t>{0, 0}));
-
     currFunctionPtr->AddRawOperation(Opcode::OP_ADD, {view_output1, view_output2}, {add_output});
     currFunctionPtr->AddRawOperation(Opcode::OP_RESHAPE, {add_output}, {reshape_output});
     auto& assemble_op = currFunctionPtr->AddRawOperation(Opcode::OP_ASSEMBLE, {reshape_output}, {assemble_output});
@@ -1756,6 +1748,13 @@ TEST_F(AssignMemoryTypeTest, TestConvertOpsHaveDynValidShape)
     currFunctionPtr->inCasts_.push_back(input_tensor1);
     currFunctionPtr->inCasts_.push_back(input_tensor2);
     currFunctionPtr->outCasts_.push_back(assemble_output);
+}
+
+TEST_F(AssignMemoryTypeTest, TestConvertOpsHaveDynValidShape)
+{
+    std::shared_ptr<Function> currFunctionPtr;
+    BuildConvertDynShapeGraph(currFunctionPtr);
+    EXPECT_TRUE(currFunctionPtr != nullptr);
 
     std::vector<int64_t> convertOpMagicBefore;
     for (const auto& op : currFunctionPtr->Operations()) {
