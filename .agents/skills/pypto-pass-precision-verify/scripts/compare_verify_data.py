@@ -157,7 +157,7 @@ def _load_binary_data(data_file: str, dtype: str = "auto") -> np.ndarray:
                     return data.astype(np.float32)
                     
         except (ValueError, IOError, OSError) as e:
-            logger.debug(f"跳过 dtype {dtype}: {e}")
+            logger.debug("跳过 dtype %s: %s", dtype, e)
             continue
     
     # 默认使用float32
