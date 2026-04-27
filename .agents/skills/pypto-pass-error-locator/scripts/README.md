@@ -185,7 +185,3 @@ A: 精度工具日志中会包含 OP 的信息，例如：
 ```
 
 从日志中提取 opcode（如 `TILE_ADD`），然后使用 `--list-ops` 查找对应的 OP magic。
-
-## 许可证
-
-Copyright (c) 2025-2026 Huawei Technologies Co., Ltd.
