@@ -363,9 +363,9 @@ void CoreScheduler::ScheduleOneTask(
         int64_t gap0 = calcGap(intervalAIV0);
         int64_t gap1 = calcGap(intervalAIV1);
 
-        auto getLastFinishBefore = [&](TargetCoreType core) -> int {
+        auto getLastFinishBefore = [&](TargetCoreType core, std::pair<int, int> intervalAIV) -> int {
             for (auto& slot : availTime[core]) {
-                if (slot.second == INT32_MAX) {
+                if (slot.second >= intervalAIV.first) {
                     return slot.first;
                 }
             }
@@ -379,8 +379,8 @@ void CoreScheduler::ScheduleOneTask(
             if (intervalAIV0.first < intervalAIV1.first) {
                 chooseAIV0 = true;
             } else if (intervalAIV0.first == intervalAIV1.first) {
-                int lastFinish0 = getLastFinishBefore(TargetCoreType::AIV0);
-                int lastFinish1 = getLastFinishBefore(TargetCoreType::AIV1);
+                int lastFinish0 = getLastFinishBefore(TargetCoreType::AIV0, intervalAIV0);
+                int lastFinish1 = getLastFinishBefore(TargetCoreType::AIV1, intervalAIV1);
                 chooseAIV0 = (lastFinish0 <= lastFinish1);
             }
         }
