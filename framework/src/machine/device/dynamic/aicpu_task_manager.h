@@ -100,18 +100,17 @@ public:
 
     inline int32_t SyncAicpuTaskFinish(AiCoreManager* aiCoreManager)
     {
-        int64_t start_cycles = GetCycles();
+        TimeoutState timeoutState;
         while (!Finished()) {
             auto ret = TaskPoll(aiCoreManager);
             if (unlikely(ret != DEVICE_MACHINE_OK)) {
                 return ret;
             }
-            if (GetCycles() - start_cycles > TIMEOUT_CYCLES) {
-                DEV_ERROR(
-                    DistributedErrorCode::AICPU_TASK_TIMEOUT,
-                    "#sche.task.end.sync.timeout: SyncAicpuTaskFinish timeout.");
-                return DEVICE_MACHINE_TIMEOUT_SYNC_AICPU_FINISH;
-            }
+            __PYPTO_TIMEOUT_CHECK(timeoutState, TIMEOUT_NS_10SEC, NSEC_PER_SEC,
+                DistributedErrorCode::AICPU_TASK_TIMEOUT,
+                return ToUnderlying(DistributedErrorCode::AICPU_TASK_TIMEOUT),
+                "#sche.task.end.sync: SyncAicpuTaskFinish still waiting.",
+                "#sche.task.end.sync: SyncAicpuTaskFinish timeout.");
         }
         return DEVICE_MACHINE_OK;
     }
