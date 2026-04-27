@@ -9,13 +9,14 @@
 # See LICENSE in the root of the software repository for the full text of the License.
 # -----------------------------------------------------------------------------------------------------------
 """
-GLM-4.5 MatMul AllReduce Module for performance
+GLM-4.5 MatMul AllReduce Add RmsNorm Performance Test Module
 
-This module implements a fused matmul and all-reduce operation for large-scale distributed models.
-It efficiently combines computation and communication, reducing memory overhead and accelerating training.
+This module implements performance benchmarking for fused matmul, all-reduce, add, and RMSNorm operation.
+It measures execution time across multiple runs and provides statistical analysis.
 
 Main Functions:
-    - matmul_allreduce: Main function for fused matmul and all-reduce computation
+    - perf_matmul_allreduce_add_rmsnorm_kernel: Kernel function for performance testing
+    - test_matmul_allreduce_perf: Performance benchmark test
 """
 
 import logging
@@ -51,7 +52,7 @@ def _get_soc_version():
     debug_options={"runtime_debug_mode": 1},
     runtime_options={"stitch_function_max_num": 128},
 )
-def matmul_allreduce_add_rmsnorm_kernel(
+def perf_matmul_allreduce_add_rmsnorm_kernel(
     in_tensor: pypto.Tensor([pypto.DYNAMIC, ...], pypto.DT_BF16),
     matmul_weight: pypto.Tensor(),
     residual: pypto.Tensor([pypto.DYNAMIC, ...], pypto.DT_BF16),
@@ -74,17 +75,17 @@ def matmul_allreduce_add_rmsnorm_kernel(
     gamma_2d = pypto.reshape(gamma, [1, hidden_size], inplace=True)
     bias_2d = pypto.reshape(bias, [1, hidden_size], inplace=True)
 
-    for bs_idx in pypto.loop(bs_loop, name="LOOP_MM_ALLREDUCE_ADD_RMSNORM", idx_name="bs_idx"):
+    for perf_bs_idx in pypto.loop(bs_loop, name="LOOP_MM_AR_RMSNORM_PERF", idx_name="perf_bs_idx"):
         # 1. create shmem tesnor
         shmem_shape = [view_row_shape, hidden_size]
         shmem_tensor = pypto.distributed.create_shmem_tensor(
             group_name, world_size, pypto.DT_FP32, shmem_shape)
         shmem_barrier_signal = pypto.distributed.create_shmem_signal(group_name, world_size)
         my_pe = pypto.distributed.my_symbolic_pe(group_name)
-        for _ in pypto.loop(1, name="LOOP_MM_AR_ARMS_L0", idx_name="_"):
+        for perf_inner_idx in pypto.loop(1, name="LOOP_MM_AR_RMS_PERF_L0", idx_name="perf_inner_idx"):
             in_tensor_tile = pypto.view(
-                in_tensor, (view_row_shape, in_tensor.shape[1]), [bs_idx * view_row_shape, 0],
-                valid_shape=[(batch_size - bs_idx * view_row_shape).min(view_row_shape), in_tensor.shape[1]])
+                in_tensor, (view_row_shape, in_tensor.shape[1]), [perf_bs_idx * view_row_shape, 0],
+                valid_shape=[(batch_size - perf_bs_idx * view_row_shape).min(view_row_shape), in_tensor.shape[1]])
 
             # 2. clear data
             pypto.set_vec_tile_shapes(view_row_shape, hidden_size)
@@ -111,13 +112,13 @@ def matmul_allreduce_add_rmsnorm_kernel(
             pypto.set_vec_tile_shapes(1, hidden_size)
             all_reduce_out = pypto.experimental.shmem_load(
                 shmem_tensor, my_pe, shmem_shape, [0, 0], pred=[wait_until_out],
-                valid_shape=[(batch_size - bs_idx * view_row_shape).min(view_row_shape), hidden_size]
+                valid_shape=[(batch_size - perf_bs_idx * view_row_shape).min(view_row_shape), hidden_size]
             )
 
             # 5. Add RmsNorm
             residual_tile = pypto.view(
-                residual, (view_row_shape, hidden_size), [bs_idx * view_row_shape, 0],
-                valid_shape=[(batch_size - bs_idx * view_row_shape).min(view_row_shape), hidden_size])
+                residual, (view_row_shape, hidden_size), [perf_bs_idx * view_row_shape, 0],
+                valid_shape=[(batch_size - perf_bs_idx * view_row_shape).min(view_row_shape), hidden_size])
 
             # add
             residual_tile_fp32 = pypto.cast(residual_tile, pypto.DT_FP32)
@@ -142,91 +143,92 @@ def matmul_allreduce_add_rmsnorm_kernel(
                 in_tensor_norm = pypto.cast(res_add, in_tensor.dtype)
                 hidden_bf16[tmp_idx:tmp_idx + 1] = in_tensor_norm
 
-            residual_out[bs_idx * pypto.symbolic_scalar(view_row_shape):] = residual_bf16_tmp
-            out_tensor[bs_idx * pypto.symbolic_scalar(view_row_shape):] = hidden_bf16
+            residual_out[perf_bs_idx * pypto.symbolic_scalar(view_row_shape):] = residual_bf16_tmp
+            out_tensor[perf_bs_idx * pypto.symbolic_scalar(view_row_shape):] = hidden_bf16
 
 
-def generate_golden_data(world_size: int):
+def perf_generate_golden_data(world_size: int):
     # 设置参数
-    batch_size = 8
-    attn_dim_per_tp = 1536
-    hidden_size = 5120
+    perf_batch_size = 8
+    perf_attn_dim = 1536
+    perf_hidden_dim = 5120
     torch.manual_seed(42)
 
     #构造每张卡上需要的数据
-    input_datas = []
+    perf_input_datas = []
     for _ in range(world_size):
-        in_tensor = torch.randn((batch_size, attn_dim_per_tp), dtype=torch.bfloat16).share_memory_()
-        matmul_weight = torch.randn((hidden_size, attn_dim_per_tp), dtype=torch.bfloat16).share_memory_()
-        residual = torch.randn((batch_size, hidden_size), dtype=torch.bfloat16).share_memory_()
-        gamma = torch.randn((hidden_size), dtype=torch.bfloat16).share_memory_()
-        bias = torch.randn((hidden_size), dtype=torch.bfloat16).share_memory_()
-        eps = 1e-5
-        input_data = [in_tensor, matmul_weight, residual, gamma, bias, eps]
-        input_datas.append(input_data)
-    output_datas = matmul_allreduce_add_rmsnorm_result_golden(batch_size, hidden_size, input_datas)
-    return input_datas, output_datas
+        perf_in_tensor = torch.randn((perf_batch_size, perf_attn_dim), dtype=torch.bfloat16).share_memory_()
+        perf_matmul_w = torch.randn((perf_hidden_dim, perf_attn_dim), dtype=torch.bfloat16).share_memory_()
+        perf_residual_tensor = torch.randn((perf_batch_size, perf_hidden_dim), dtype=torch.bfloat16).share_memory_()
+        perf_gamma_tensor = torch.randn((perf_hidden_dim), dtype=torch.bfloat16).share_memory_()
+        perf_bias_tensor = torch.randn((perf_hidden_dim), dtype=torch.bfloat16).share_memory_()
+        perf_eps_val = 1e-5
+        perf_input_item = [perf_in_tensor, perf_matmul_w, perf_residual_tensor, perf_gamma_tensor, perf_bias_tensor, perf_eps_val]
+        perf_input_datas.append(perf_input_item)
+    perf_output_datas = perf_compute_golden_result(perf_batch_size, perf_hidden_dim, perf_input_datas)
+    return perf_input_datas, perf_output_datas
 
 
-def matmul_allreduce_add_rmsnorm_result_golden(batch_size, num, input_datas):
-    output_datas = []
+def perf_compute_golden_result(perf_bs, perf_dim, perf_input_datas):
+    perf_output_datas = []
     # 计算 matmul & allreduce 结果， 该结果所有卡上一致
-    matmul_allreduce_result_fp32 = torch.zeros((batch_size, num), dtype=torch.float32)
-    for input_data in input_datas:
-        in_tensor, matmul_weight = input_data[:2]
-        matmul_result = torch.matmul(in_tensor.to(torch.float32), matmul_weight.to(torch.float32).T)
-        matmul_allreduce_result_fp32 += matmul_result
+    perf_mm_ar_result_fp32 = torch.zeros((perf_bs, perf_dim), dtype=torch.float32)
+    for perf_input_item in perf_input_datas:
+        perf_in_tensor, perf_matmul_w = perf_input_item[:2]
+        perf_mm_result = torch.matmul(perf_in_tensor.to(torch.float32), perf_matmul_w.to(torch.float32).T)
+        perf_mm_ar_result_fp32 += perf_mm_result
 
     # 计算各卡上add_rmsnorm之后的结果
-    for input_data in input_datas:
-        residual, gamma, bias, eps = input_data[-4:]
-        res_add = residual.to(torch.float32) + matmul_allreduce_result_fp32
-        mean_coff = 1.0 / res_add.shape[-1]
-        in_tensor_f32 = res_add
-        square = in_tensor_f32 * in_tensor_f32
-        square = square.sum(dim=-1, keepdim=True)
-        mean_res = square * mean_coff
-        reduce_sum = mean_res + eps
-        reduce_sqrt = torch.sqrt(reduce_sum)
-        res_div = in_tensor_f32 / reduce_sqrt
-        res = res_div * gamma.to(torch.float32)
-        res = res + bias.to(res.dtype)
-        output_data = [res.to(torch.bfloat16), in_tensor_f32.to(torch.bfloat16)]
-        output_datas.append(output_data)
-    return output_datas
+    for perf_input_item in perf_input_datas:
+        perf_residual_tensor, perf_gamma_tensor, perf_bias_tensor, perf_eps_val = perf_input_item[-4:]
+        perf_add_result = perf_residual_tensor.to(torch.float32) + perf_mm_ar_result_fp32
+        perf_mean_coef = 1.0 / perf_add_result.shape[-1]
+        perf_f32_tensor = perf_add_result
+        perf_square_val = perf_f32_tensor * perf_f32_tensor
+        perf_square_val = perf_square_val.sum(dim=-1, keepdim=True)
+        perf_mean_val = perf_square_val * perf_mean_coef
+        perf_sum_val = perf_mean_val + perf_eps_val
+        perf_sqrt_val = torch.sqrt(perf_sum_val)
+        perf_div_val = perf_f32_tensor / perf_sqrt_val
+        perf_res_val = perf_div_val * perf_gamma_tensor.to(torch.float32)
+        perf_res_val = perf_res_val + perf_bias_tensor.to(perf_res_val.dtype)
+        perf_output_item = [perf_res_val.to(torch.bfloat16), perf_f32_tensor.to(torch.bfloat16)]
+        perf_output_datas.append(perf_output_item)
+    return perf_output_datas
 
 
-def matmul_allreduce_add_rmsnorm_worker(
+def perf_matmul_ar_rmsnorm_worker(
     config: DistributedConfig,
-    input_data: list,
-    output_data: list,
-    logical_rank_id: int,
+    perf_input_item: list,
+    perf_output_item: list,
+    perf_rank_id: int,
 ):
-    groups = config.init_hccl_comm(logical_rank_id)
-    physical_device_id = config.get_physical_device_id(logical_rank_id)
-    device = f'npu:{physical_device_id}'
+    perf_hccl_groups = config.init_hccl_comm(perf_rank_id)
+    perf_device_id = config.get_physical_device_id(perf_rank_id)
+    perf_device_str = f'npu:{perf_device_id}'
 
-    in_tensor, matmul_weight, residual, gamma, bias, eps = input_data
-    golden_out_tensor, golden_residual = output_data
+    perf_in_tensor, perf_matmul_w, perf_residual_tensor, perf_gamma_tensor, perf_bias_tensor, perf_eps_val = perf_input_item
+    perf_golden_out, perf_golden_res = perf_output_item
 
-    out_tensor = torch.empty(residual.shape, dtype=torch.bfloat16, device=device)
-    residual_out = torch.empty(residual.shape, dtype=torch.bfloat16, device=device)
+    perf_out_tensor = torch.empty(perf_residual_tensor.shape, dtype=torch.bfloat16, device=perf_device_str)
+    perf_res_out_tensor = torch.empty(perf_residual_tensor.shape, dtype=torch.bfloat16, device=perf_device_str)
 
-    inputs = [in_tensor.to(device), matmul_weight.to(device), residual.to(device), gamma.to(device),
-        bias.to(device), out_tensor, residual_out]
+    perf_kernel_inputs = [perf_in_tensor.to(perf_device_str), perf_matmul_w.to(perf_device_str),
+        perf_residual_tensor.to(perf_device_str), perf_gamma_tensor.to(perf_device_str),
+        perf_bias_tensor.to(perf_device_str), perf_out_tensor, perf_res_out_tensor]
 
-    matmul_allreduce_add_rmsnorm_kernel(*inputs, eps, groups[0], config.world_size)
+    perf_matmul_allreduce_add_rmsnorm_kernel(*perf_kernel_inputs, perf_eps_val, perf_hccl_groups[0], config.world_size)
 
     np.testing.assert_allclose(
-        np.array(out_tensor.cpu().flatten().tolist()),
-        np.array(golden_out_tensor.cpu().flatten().tolist()),
+        np.array(perf_out_tensor.cpu().flatten().tolist()),
+        np.array(perf_golden_out.cpu().flatten().tolist()),
         rtol=8e-3,
         atol=8e-3,
     )
 
     np.testing.assert_allclose(
-        np.array(residual_out.cpu().flatten().tolist()),
-        np.array(golden_residual.cpu().flatten().tolist()),
+        np.array(perf_res_out_tensor.cpu().flatten().tolist()),
+        np.array(perf_golden_res.cpu().flatten().tolist()),
         rtol=8e-3,
         atol=8e-3,
     )
@@ -234,9 +236,9 @@ def matmul_allreduce_add_rmsnorm_worker(
 
 @pytest.mark.skip(reason="performance test case")
 @pytest.mark.world_size(4)
-def test_matmul_allreduce_add_rmsnorm_performance():
+def test_matmul_allreduce_perf_benchmark():
     logger.info("=" * 60)
-    logger.info("开始运行matmul_allreduce_add_rmsnorm性能测试")
+    logger.info("开始运行matmul_allreduce_add_rmsnorm性能基准测试")
     logger.info("=" * 60)
 
     mp.set_start_method('spawn', force=True)
@@ -248,221 +250,221 @@ def test_matmul_allreduce_add_rmsnorm_performance():
     expected_total_time = 80 if soc_version == 260 else 60
     all_min_times = []
 
-    for run_num in range(1, 11):
-        min_time = _run_single_iteration(run_num, config, expected_total_time)
-        if min_time is not None:
-            all_min_times.append(min_time)
-        if run_num < 10:
+    for perf_run_num in range(1, 11):
+        perf_min_time = _perf_run_single_iteration(perf_run_num, config, expected_total_time)
+        if perf_min_time is not None:
+            all_min_times.append(perf_min_time)
+        if perf_run_num < 10:
             time.sleep(1)
 
     if all_min_times:
-        std_dev = statistics.stdev(all_min_times) if len(all_min_times) > 1 else 0.0
-        _print_statistics(all_min_times, expected_total_time, std_dev)
-        _save_statistics_to_csv(config, all_min_times, expected_total_time, std_dev)
+        perf_std_val = statistics.stdev(all_min_times) if len(all_min_times) > 1 else 0.0
+        _perf_print_statistics(all_min_times, expected_total_time, perf_std_val)
+        _perf_save_stats_csv(config, all_min_times, expected_total_time, perf_std_val)
 
 
-def _run_single_iteration(run_num, config, expected_total_time):
-    logger.info(f"第 {run_num}/10 次运行开始")
+def _perf_run_single_iteration(perf_run_num, config, perf_expected_time):
+    logger.info(f"第 {perf_run_num}/10 次运行开始")
 
-    timestamp_dir = time.strftime('%Y-%m-%d_%H-%M-%S')
-    output_name = f"output_run_{run_num}"
-    output_dir = f"{Path.cwd()}/output/{timestamp_dir}/{output_name}"
-    os.environ["TILE_FWK_OUTPUT_DIR"] = output_dir
-    os.makedirs(output_dir, exist_ok=True)
+    perf_timestamp_dir = time.strftime('%Y-%m-%d_%H-%M-%S')
+    perf_output_name = f"output_run_{perf_run_num}"
+    perf_output_dir = f"{Path.cwd()}/output/{perf_timestamp_dir}/{perf_output_name}"
+    os.environ["TILE_FWK_OUTPUT_DIR"] = perf_output_dir
+    os.makedirs(perf_output_dir, exist_ok=True)
 
-    processes = []
-    input_datas, output_datas = generate_golden_data(config.world_size)
+    perf_processes = []
+    perf_input_datas, perf_output_datas = perf_generate_golden_data(config.world_size)
 
-    for i in range(config.world_size):
-        p = mp.Process(target=matmul_allreduce_add_rmsnorm_worker,
-                      args=(config, input_datas[i], output_datas[i], i))
-        p.start()
-        processes.append(p)
+    for perf_idx in range(config.world_size):
+        perf_process = mp.Process(target=perf_matmul_ar_rmsnorm_worker,
+                      args=(config, perf_input_datas[perf_idx], perf_output_datas[perf_idx], perf_idx))
+        perf_process.start()
+        perf_processes.append(perf_process)
 
-    for i, p in enumerate(processes):
-        p.join()
-        if p.exitcode != 0:
-            raise AssertionError(f"process {i} failed, return: {p.exitcode}")
+    for perf_join_idx, perf_join_proc in enumerate(perf_processes):
+        perf_join_proc.join()
+        if perf_join_proc.exitcode != 0:
+            raise AssertionError(f"process {perf_join_idx} failed, return: {perf_join_proc.exitcode}")
 
     try:
-        analyzer = SwimlaneAnalyzer(output_dir, expected_total_time=expected_total_time)
-        stats = analyzer.calculate_stats(config.world_size)
-        min_time = stats['min_time']
-        is_within = analyzer.check_within_expected(config.world_size)
+        perf_analyzer = SwimlaneAnalyzer(perf_output_dir, expected_total_time=perf_expected_time)
+        perf_stats = perf_analyzer.calculate_stats(config.world_size)
+        perf_min_time = perf_stats['min_time']
+        perf_is_pass = perf_analyzer.check_within_expected(config.world_size)
 
-        if not is_within:
-            logger.warning(f"第{run_num}次运行执行时间超出预期: "
-                f"实际{min_time:.3f}us > 预期{expected_total_time:.3f}us")
+        if not perf_is_pass:
+            logger.warning(f"第{perf_run_num}次运行执行时间超出预期: "
+                f"实际{perf_min_time:.3f}us > 预期{perf_expected_time:.3f}us")
         else:
-            logger.info(f"第{run_num}次运行执行时间在预期范围内: "
-                f"实际{min_time:.3f}us <= 预期{expected_total_time:.3f}us")
+            logger.info(f"第{perf_run_num}次运行执行时间在预期范围内: "
+                f"实际{perf_min_time:.3f}us <= 预期{perf_expected_time:.3f}us")
 
-        return min_time
+        return perf_min_time
 
-    except Exception as e:
-        logger.error(f"第{run_num}次运行分析失败: {e}")
+    except Exception as perf_exc:
+        logger.error(f"第{perf_run_num}次运行分析失败: {perf_exc}")
         return None
 
     finally:
-        logger.info(f"第{run_num}次运行性能数据保存在: {output_dir}")
+        logger.info(f"第{perf_run_num}次运行性能数据保存在: {perf_output_dir}")
 
 
-def _print_statistics(all_min_times, expected_total_time, std_dev):
+def _perf_print_statistics(perf_time_list, perf_expected_time, perf_std_val):
     logger.info("=" * 60)
-    logger.info("10次运行统计结果")
+    logger.info("性能基准测试统计结果")
     logger.info("=" * 60)
 
-    avg_min_time = statistics.mean(all_min_times) if len(all_min_times) > 1 else all_min_times[0]
-    min_min_time = min(all_min_times)
-    max_min_time = max(all_min_times)
+    perf_avg_time = statistics.mean(perf_time_list) if len(perf_time_list) > 1 else perf_time_list[0]
+    perf_min_time = min(perf_time_list)
+    perf_max_time = max(perf_time_list)
 
-    logger.info(f"运行次数: {len(all_min_times)}")
-    logger.info(f"平均值: {avg_min_time:.3f} us")
-    logger.info(f"最小值: {min_min_time:.3f} us")
-    logger.info(f"最大值: {max_min_time:.3f} us")
+    logger.info(f"运行次数: {len(perf_time_list)}")
+    logger.info(f"平均值: {perf_avg_time:.3f} us")
+    logger.info(f"最小值: {perf_min_time:.3f} us")
+    logger.info(f"最大值: {perf_max_time:.3f} us")
 
-    if len(all_min_times) > 1:
-        logger.info(f"标准差: {std_dev:.3f} us")
-        logger.info(f"波动范围: {max_min_time - min_min_time:.3f} us")
+    if len(perf_time_list) > 1:
+        logger.info(f"标准差: {perf_std_val:.3f} us")
+        logger.info(f"波动范围: {perf_max_time - perf_min_time:.3f} us")
 
-    if expected_total_time is not None:
-        logger.info(f"预期总时间: {expected_total_time:.3f} us")
-        all_within = all(min_time <= expected_total_time for min_time in all_min_times)
-        if all_within:
-            logger.info("[PASS] 所有10次运行的最小值都在预期时间内")
+    if perf_expected_time is not None:
+        logger.info(f"预期总时间: {perf_expected_time:.3f} us")
+        perf_all_pass = all(perf_time <= perf_expected_time for perf_time in perf_time_list)
+        if perf_all_pass:
+            logger.info("[PASS] 所有运行的最小值都在预期时间内")
         else:
-            failed_runs = [i + 1 for i, min_time in enumerate(all_min_times)
-                          if min_time > expected_total_time]
-            logger.warning(f"[FAIL] 有{len(failed_runs)}次运行的最小值超出预期: "
-                f"第{', '.join(map(str, failed_runs))}次")
+            perf_failed_runs = [perf_idx + 1 for perf_idx, perf_time in enumerate(perf_time_list)
+                          if perf_time > perf_expected_time]
+            logger.warning(f"[FAIL] 有{len(perf_failed_runs)}次运行的最小值超出预期: "
+                f"第{', '.join(map(str, perf_failed_runs))}次")
 
     logger.info("=" * 60)
 
 
-def _save_statistics_to_csv(config, all_min_times, expected_total_time, std_dev):
-    stats_csv_file = "performance_statistics_matmul_allreduce_add_rmsnorm.csv"
-    timestamp = time.strftime('%Y-%m-%d %H:%M:%S')
-    avg_min_time = statistics.mean(all_min_times) if len(all_min_times) > 1 else all_min_times[0]
-    min_min_time = min(all_min_times)
-    max_min_time = max(all_min_times)
+def _perf_save_stats_csv(config, perf_time_list, perf_expected_time, perf_std_val):
+    perf_csv_file = "perf_benchmark_matmul_ar_rmsnorm.csv"
+    perf_timestamp = time.strftime('%Y-%m-%d %H:%M:%S')
+    perf_avg_time = statistics.mean(perf_time_list) if len(perf_time_list) > 1 else perf_time_list[0]
+    perf_min_time = min(perf_time_list)
+    perf_max_time = max(perf_time_list)
 
-    stats_record = {
-        'timestamp': timestamp,
+    perf_stats_record = {
+        'timestamp': perf_timestamp,
         'world_size': config.world_size,
-        'expected_time_us': expected_total_time,
-        'min_of_mins_us': round(min_min_time, 3),
-        'avg_of_mins_us': round(avg_min_time, 3),
-        'max_of_mins_us': round(max_min_time, 3),
-        'std_dev_us': round(std_dev, 3) if len(all_min_times) > 1 else 0.0,
-        'num_runs': len(all_min_times)
+        'expected_time_us': perf_expected_time,
+        'min_of_mins_us': round(perf_min_time, 3),
+        'avg_of_mins_us': round(perf_avg_time, 3),
+        'max_of_mins_us': round(perf_max_time, 3),
+        'std_dev_us': round(perf_std_val, 3) if len(perf_time_list) > 1 else 0.0,
+        'num_runs': len(perf_time_list)
     }
 
-    with open(stats_csv_file, 'a', newline='', encoding='utf-8') as f:
-        writer = csv.DictWriter(f, fieldnames=[
+    with open(perf_csv_file, 'a', newline='', encoding='utf-8') as perf_csv_f:
+        perf_csv_writer = csv.DictWriter(perf_csv_f, fieldnames=[
             'timestamp', 'world_size', 'expected_time_us',
             'min_of_mins_us', 'avg_of_mins_us', 'max_of_mins_us',
             'std_dev_us', 'num_runs'
         ])
-        if f.tell() == 0:
-            writer.writeheader()
-        writer.writerow(stats_record)
+        if perf_csv_f.tell() == 0:
+            perf_csv_writer.writeheader()
+        perf_csv_writer.writerow(perf_stats_record)
 
-    logger.info(f"汇总统计已追加保存到: {stats_csv_file}")
+    logger.info(f"汇总统计已追加保存到: {perf_csv_file}")
 
 
-def summarize_performance_results(
-    stats_csv_file: str = "performance_statistics_matmul_allreduce_add_rmsnorm.csv"
+def perf_summarize_benchmark_results(
+    perf_csv_file: str = "perf_benchmark_matmul_ar_rmsnorm.csv"
 ):
-    """汇总并显示统计结果"""
-    if not os.path.exists(stats_csv_file):
-        logger.error(f"统计CSV文件不存在: {stats_csv_file}")
+    """汇总并显示性能基准统计结果"""
+    if not os.path.exists(perf_csv_file):
+        logger.error(f"统计CSV文件不存在: {perf_csv_file}")
         return
 
-    with open(stats_csv_file, 'r', encoding='utf-8') as f:
-        reader = csv.DictReader(f)
-        rows = list(reader)
+    with open(perf_csv_file, 'r', encoding='utf-8') as perf_csv_f:
+        perf_csv_reader = csv.DictReader(perf_csv_f)
+        perf_rows = list(perf_csv_reader)
 
-    if not rows:
+    if not perf_rows:
         logger.error("统计CSV文件为空")
         return
 
-    recent_rows = rows[-10:] if len(rows) > 10 else rows
-    _print_summary_table(recent_rows)
-    _print_overall_statistics(recent_rows)
+    perf_recent_rows = perf_rows[-10:] if len(perf_rows) > 10 else perf_rows
+    _perf_print_summary_table(perf_recent_rows)
+    _perf_print_overall_stats(perf_recent_rows)
 
 
-def _print_summary_table(recent_rows):
+def _perf_print_summary_table(perf_rows_list):
     logger.info("=" * 120)
-    logger.info(f"性能统计结果汇总 (最近{len(recent_rows)}次)")
+    logger.info(f"性能基准统计结果汇总 (最近{len(perf_rows_list)}次)")
     logger.info("=" * 120)
 
-    header_format = "{:<5} {:<20} {:<10} {:<12} {:<12} {:<12} {:<12} {:<12} {:<8}"
-    logger.info(header_format.format('序号', '时间', 'world_size', '预期时间(us)',
+    perf_header_fmt = "{:<5} {:<20} {:<10} {:<12} {:<12} {:<12} {:<12} {:<12} {:<8}"
+    logger.info(perf_header_fmt.format('序号', '时间', 'world_size', '预期时间(us)',
                                '最小值(us)', '平均值(us)', '最大值(us)',
                                '标准差(us)', '运行次数'))
     logger.info("-" * 120)
 
-    for i, row in enumerate(recent_rows, 1):
-        timestamp = row.get('timestamp', 'N/A')
-        world_size = row.get('world_size', 'N/A')
-        expected_time = row.get('expected_time_us', 'N/A')
-        min_of_mins = row.get('min_of_mins_us', 'N/A')
-        avg_of_mins = row.get('avg_of_mins_us', 'N/A')
-        max_of_mins = row.get('max_of_mins_us', 'N/A')
-        std_dev = row.get('std_dev_us', 'N/A')
-        num_runs = row.get('num_runs', 'N/A')
+    for perf_row_idx, perf_row in enumerate(perf_rows_list, 1):
+        perf_ts = perf_row.get('timestamp', 'N/A')
+        perf_ws = perf_row.get('world_size', 'N/A')
+        perf_exp_time = perf_row.get('expected_time_us', 'N/A')
+        perf_min_val = perf_row.get('min_of_mins_us', 'N/A')
+        perf_avg_val = perf_row.get('avg_of_mins_us', 'N/A')
+        perf_max_val = perf_row.get('max_of_mins_us', 'N/A')
+        perf_std_val = perf_row.get('std_dev_us', 'N/A')
+        perf_runs = perf_row.get('num_runs', 'N/A')
 
-        logger.info(header_format.format(
-            i, timestamp, world_size, expected_time,
-            min_of_mins, avg_of_mins, max_of_mins, std_dev, num_runs
+        logger.info(perf_header_fmt.format(
+            perf_row_idx, perf_ts, perf_ws, perf_exp_time,
+            perf_min_val, perf_avg_val, perf_max_val, perf_std_val, perf_runs
         ))
 
     logger.info("-" * 120)
 
 
-def _print_overall_statistics(recent_rows):
-    if len(recent_rows) <= 1:
+def _perf_print_overall_stats(perf_rows_list):
+    if len(perf_rows_list) <= 1:
         logger.info("=" * 120)
         return
 
-    all_min_of_mins = []
-    all_avg_of_mins = []
-    all_max_of_mins = []
+    perf_all_min_vals = []
+    perf_all_avg_vals = []
+    perf_all_max_vals = []
 
-    for row in recent_rows:
-        min_of_mins_str = row.get('min_of_mins_us', '')
-        avg_of_mins_str = row.get('avg_of_mins_us', '')
-        max_of_mins_str = row.get('max_of_mins_us', '')
+    for perf_row in perf_rows_list:
+        perf_min_str = perf_row.get('min_of_mins_us', '')
+        perf_avg_str = perf_row.get('avg_of_mins_us', '')
+        perf_max_str = perf_row.get('max_of_mins_us', '')
 
-        if min_of_mins_str:
-            all_min_of_mins.append(float(min_of_mins_str))
-        if avg_of_mins_str:
-            all_avg_of_mins.append(float(avg_of_mins_str))
-        if max_of_mins_str:
-            all_max_of_mins.append(float(max_of_mins_str))
+        if perf_min_str:
+            perf_all_min_vals.append(float(perf_min_str))
+        if perf_avg_str:
+            perf_all_avg_vals.append(float(perf_avg_str))
+        if perf_max_str:
+            perf_all_max_vals.append(float(perf_max_str))
 
-    if all_min_of_mins and all_avg_of_mins and all_max_of_mins:
-        logger.info(f"\n总体统计 (基于{len(recent_rows)}次统计记录):")
-        _print_stat_category("最小值统计", all_min_of_mins)
-        _print_stat_category("平均值统计", all_avg_of_mins)
-        _print_stat_category("最大值统计", all_max_of_mins)
+    if perf_all_min_vals and perf_all_avg_vals and perf_all_max_vals:
+        logger.info(f"\n总体统计 (基于{len(perf_rows_list)}次统计记录):")
+        _perf_print_stat_category("最小值统计", perf_all_min_vals)
+        _perf_print_stat_category("平均值统计", perf_all_avg_vals)
+        _perf_print_stat_category("最大值统计", perf_all_max_vals)
 
     logger.info("=" * 120)
 
 
-def _print_stat_category(category_name, values):
-    min_val = min(values)
-    avg_val = statistics.mean(values) if len(values) > 1 else values[0]
-    max_val = max(values)
-    logger.info(f"  {category_name}:")
-    logger.info(f"    平均: {avg_val:.3f} us, 最小: {min_val:.3f} us, 最大: {max_val:.3f} us")
+def _perf_print_stat_category(perf_category, perf_vals):
+    perf_category_min = min(perf_vals)
+    perf_category_avg = statistics.mean(perf_vals) if len(perf_vals) > 1 else perf_vals[0]
+    perf_category_max = max(perf_vals)
+    logger.info(f"  {perf_category}:")
+    logger.info(f"    平均: {perf_category_avg:.3f} us, 最小: {perf_category_min:.3f} us, 最大: {perf_category_max:.3f} us")
 
 
 def main():
-    test_matmul_allreduce_add_rmsnorm_performance()
+    test_matmul_allreduce_perf_benchmark()
 
     logger.info("\n")
-    summarize_performance_results()
+    perf_summarize_benchmark_results()
 
 
 if __name__ == '__main__':
