@@ -404,7 +404,7 @@ def fa_perf_tkv_kernel(
         exp_corr_fifo, exp_corr_rm_fifo = alloc_exp_corr_fifo()
 
         o_f16     = plm.make_tile(plm.TileType(shape=[TS_HALF, TD], dtype=pl.FP16, target_memory=pl.MemorySpace.Vec), addr=VA9, size=VB2)
-        tile_type_nz = plm.TileType(shape=[65, 128], dtype=pl.FP16, target_memory=pl.MemorySpace.Vec, valid_shape=[64, 128], blayout=2, slayout=1)
+        tile_type_nz = plm.TileType(shape=[64, 128], dtype=pl.FP16, target_memory=pl.MemorySpace.Vec, blayout=2, slayout=1)
         tile_nz = plm.make_tile(tile_type_nz, addr=VA10, size=VB6)
 
         ctx = pl.struct(sq_off=0, task_id=0, qi = 0, ki = 0, q_count=0, buf_idx=0, core_id=core_id, sub_id = pl.block.index_cast(pl.block.get_subblock_idx()))

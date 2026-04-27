@@ -254,8 +254,8 @@ def fa_perf_tkv_preload_nbuf_kernel(
 
         running_o_buf = pl.UBBuffer(VA7, pl.FP32, shape=(TS_HALF, TD))
         o_f16_buf = pl.UBBuffer(VA9, pl.FP16, shape=(TS_HALF, TD), buf_id=10)
-        tile_nz_buf = pl.UBBuffer(VA10, pl.FP16, shape=(65, 128), buf_id=11,
-                                  blayout=2, slayout=1, valid_shape=(64, 128))
+        tile_nz_buf = pl.UBBuffer(VA10, pl.FP16, shape=(64, 128), buf_id=11,
+                                  blayout=2, slayout=1)
 
         # Double-buffered global state (per Q tile) — use tile tuples for dynamic
         # indexing by q_count % 2, since StructArray ctx references need runtime index.
