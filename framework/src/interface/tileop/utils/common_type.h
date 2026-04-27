@@ -40,7 +40,7 @@ enum class UnaryOp : uint8_t {
     FILLPAD,
     SIGN,
     ISFINITE,
-    SIGNBIT
+    SIGNBIT,
     TANH
 };
 

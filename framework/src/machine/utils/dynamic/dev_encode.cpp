@@ -26,7 +26,6 @@
 #include "interface/program/program.h"
 #include "interface/configs/config_manager.h"
 #include "tilefwk/pypto_fwk_log.h"
-#include "machine/utils/machine_error.h"
 
 #include <algorithm>
 #include <cstddef>
