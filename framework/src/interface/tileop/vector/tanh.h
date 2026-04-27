@@ -4,7 +4,7 @@
  * CANN Open Software License Agreement Version 2.0 (the "License").
  * Please refer to the License for details. You may not use this file except in compliance with the License.
  * THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED,
- * INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
+ * INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY OR FITNESS FOR A PARTICULAR PURPOSE.
  * See LICENSE in the root of the software repository for the full text of the License.
  */
 
@@ -19,7 +19,13 @@
 #include "utils/tile_tensor.h"
 #include <type_traits>
 
-constexpr float EPSILON = 1.1754943508222875e-38f;
+constexpr float TANH_POLY_015 = 0.0157396831f;
+constexpr float TANH_POLY_NEG_052 = -0.0523039624f;
+constexpr float TANH_POLY_133 = 0.133152977f;
+constexpr float TANH_POLY_NEG_0333 = -0.333327681f;
+constexpr float TANH_THRESHOLD = 0.55f;
+constexpr float TANH_CLIP_VALUE = 20.0f;
+constexpr float TANH_TWO = 2.0f;
 
 TILEOP void SyncPipeBarrier()
 {
@@ -28,88 +34,128 @@ TILEOP void SyncPipeBarrier()
 #endif
 }
 
-template <typename LastUse, typename T, typename DstTile, typename SrcTile, typename TmpTile>
-TILEOP void TanhFP32(DstTile dstTile, SrcTile srcTile, TmpTile tmpTile)
+template <typename LastUse, typename T, typename DstTile, typename SrcTile, typename TmpTile, typename CmpTile,
+    typename AddrUBTile>
+TILEOP void TanhFP32(DstTile dstTile, SrcTile srcTile, TmpTile tmpTile, TmpTile tmpTile2, CmpTile cmpTile,
+    AddrUBTile startAddrUBTile)
 {
-    constexpr auto n1 = Std::tuple_element<DIM_1ST, LastUse>::type::value;
-    constexpr auto n2 = Std::tuple_element<DIM_2ND, LastUse>::type::value;
-
-    pto::TABS(tmpTile, srcTile);
+    pto::TMUL(tmpTile, srcTile, srcTile);
     SyncPipeBarrier();
 
-    pto::TMULS(dstTile, tmpTile, static_cast<T>(-2.0f));
+    pto::TMULS(dstTile, tmpTile, static_cast<T>(TANH_POLY_015));
     SyncPipeBarrier();
 
-    pto::TEXP(dstTile, dstTile);
+    pto::TADDS(dstTile, dstTile, static_cast<T>(TANH_POLY_NEG_052));
     SyncPipeBarrier();
 
-    pto::TMULS(tmpTile, dstTile, static_cast<T>(-1.0f));
+    pto::TMUL(dstTile, dstTile, tmpTile);
+    SyncPipeBarrier();
+    pto::TADDS(dstTile, dstTile, static_cast<T>(TANH_POLY_133));
     SyncPipeBarrier();
 
-    pto::TADDS(tmpTile, tmpTile, static_cast<T>(1.0f));
+    pto::TMUL(dstTile, dstTile, tmpTile);
+    SyncPipeBarrier();
+    pto::TADDS(dstTile, dstTile, static_cast<T>(TANH_POLY_NEG_0333));
     SyncPipeBarrier();
 
-    pto::TMUL(tmpTile, srcTile, tmpTile);
-    SyncPipeBarrier();
-
-    pto::TADDS(dstTile, dstTile, static_cast<T>(1.0f));
-    SyncPipeBarrier();
-
-    pto::TABS(srcTile, srcTile);
-    SyncPipeBarrier();
-
-    pto::TADDS(srcTile, srcTile, static_cast<T>(EPSILON));
+    pto::TMUL(dstTile, dstTile, tmpTile);
     SyncPipeBarrier();
 
     pto::TMUL(dstTile, dstTile, srcTile);
     SyncPipeBarrier();
+    pto::TADDS(dstTile, dstTile, srcTile);
+    SyncPipeBarrier();
 
-    pto::TDIV(dstTile, tmpTile, dstTile);
+    pto::TABS(tmpTile, srcTile);
+    SyncPipeBarrier();
+
+    pto::TMINS(srcTile, srcTile, static_cast<T>(TANH_CLIP_VALUE));
+    SyncPipeBarrier();
+
+    pto::TMULS(srcTile, srcTile, static_cast<T>(TANH_TWO));
+    SyncPipeBarrier();
+
+    pto::TEXP(srcTile, srcTile);
+    SyncPipeBarrier();
+
+    pto::TADDS(tmpTile2, srcTile, static_cast<T>(-1.0f));
+    SyncPipeBarrier();
+
+    pto::TADDS(srcTile, srcTile, static_cast<T>(1.0f));
+    SyncPipeBarrier();
+
+    pto::TDIV(tmpTile2, tmpTile2, srcTile);
+    SyncPipeBarrier();
+
+    pto::TCMPS(cmpTile, tmpTile, static_cast<T>(TANH_THRESHOLD), pto::CmpMode::LT);
+    SyncPipeBarrier();
+
+    pto::TSEL(dstTile, cmpTile, dstTile, tmpTile2, startAddrUBTile);
 }
 
-template <typename LastUse, typename T, typename DstTile, typename SrcTile, typename TmpTile1, typename TmpTile2, typename TmpTile3>
-TILEOP void TanhCast(DstTile dstTile, SrcTile srcTile, TmpTile1 tmpTile1, TmpTile2 tmpTile2, TmpTile3 tmpTile3)
+template <typename LastUse, typename T, typename DstTile, typename SrcTile, typename TmpTile, typename CmpTile,
+    typename AddrUBTile>
+TILEOP void TanhCast(DstTile dstTile, SrcTile srcTile, TmpTile tmpTile1, TmpTile tmpTile2, TmpTile tmpTile3,
+    TmpTile tmpTile4, CmpTile cmpTile, AddrUBTile startAddrUBTile)
 {
-    constexpr auto n1 = Std::tuple_element<DIM_1ST, LastUse>::type::value;
-    constexpr auto n2 = Std::tuple_element<DIM_2ND, LastUse>::type::value;
-
     pto::TCVT(tmpTile1, srcTile, pto::RoundMode::CAST_NONE);
+    SyncPipeBarrier();
+
+    pto::TMUL(tmpTile2, tmpTile1, tmpTile1);
+    SyncPipeBarrier();
+
+    pto::TMULS(tmpTile3, tmpTile2, static_cast<float>(TANH_POLY_015));
+    SyncPipeBarrier();
+
+    pto::TADDS(tmpTile3, tmpTile3, static_cast<float>(TANH_POLY_NEG_052));
+    SyncPipeBarrier();
+
+    pto::TMUL(tmpTile3, tmpTile3, tmpTile2);
+    SyncPipeBarrier();
+    pto::TADDS(tmpTile3, tmpTile3, static_cast<float>(TANH_POLY_133));
+    SyncPipeBarrier();
+
+    pto::TMUL(tmpTile3, tmpTile3, tmpTile2);
+    SyncPipeBarrier();
+    pto::TADDS(tmpTile3, tmpTile3, static_cast<float>(TANH_POLY_NEG_0333));
+    SyncPipeBarrier();
+
+    pto::TMUL(tmpTile3, tmpTile3, tmpTile2);
+    SyncPipeBarrier();
+
+    pto::TMUL(tmpTile3, tmpTile3, tmpTile1);
+    SyncPipeBarrier();
+    pto::TADDS(tmpTile3, tmpTile3, tmpTile1);
     SyncPipeBarrier();
 
     pto::TABS(tmpTile2, tmpTile1);
     SyncPipeBarrier();
 
-    pto::TMULS(tmpTile3, tmpTile2, static_cast<float>(-2.0f));
+    pto::TMINS(tmpTile1, tmpTile1, static_cast<float>(TANH_CLIP_VALUE));
     SyncPipeBarrier();
 
-    pto::TEXP(tmpTile3, tmpTile3);
+    pto::TMULS(tmpTile1, tmpTile1, static_cast<float>(TANH_TWO));
     SyncPipeBarrier();
 
-    pto::TMULS(tmpTile2, tmpTile3, static_cast<float>(-1.0f));
+    pto::TEXP(tmpTile1, tmpTile1);
     SyncPipeBarrier();
 
-    pto::TADDS(tmpTile2, tmpTile2, static_cast<float>(1.0f));
+    pto::TADDS(tmpTile4, tmpTile1, static_cast<float>(-1.0f));
     SyncPipeBarrier();
 
-    pto::TMUL(tmpTile2, tmpTile1, tmpTile2);
+    pto::TADDS(tmpTile1, tmpTile1, static_cast<float>(1.0f));
     SyncPipeBarrier();
 
-    pto::TADDS(tmpTile3, tmpTile3, static_cast<float>(1.0f));
+    pto::TDIV(tmpTile4, tmpTile4, tmpTile1);
     SyncPipeBarrier();
 
-    pto::TABS(tmpTile1, tmpTile1);
+    pto::TCMPS(cmpTile, tmpTile2, static_cast<float>(TANH_THRESHOLD), pto::CmpMode::LT);
     SyncPipeBarrier();
 
-    pto::TADDS(tmpTile1, tmpTile1, static_cast<float>(EPSILON));
+    pto::TSEL(tmpTile3, cmpTile, tmpTile3, tmpTile4, startAddrUBTile);
     SyncPipeBarrier();
 
-    pto::TMUL(tmpTile3, tmpTile3, tmpTile1);
-    SyncPipeBarrier();
-
-    pto::TDIV(tmpTile2, tmpTile2, tmpTile3);
-    SyncPipeBarrier();
-
-    pto::TCVT(dstTile, tmpTile2, pto::RoundMode::CAST_NONE);
+    pto::TCVT(dstTile, tmpTile3, pto::RoundMode::CAST_NONE);
 }
 
 #define OP_TILE_OP_TANH Ttanh
@@ -155,13 +201,26 @@ TILEOP void TTanh(T0 dst, T1 src, T3 tmp) {
     DstTile dstTile(dstShape3, dstShape4);
     SrcTile srcTile(srcShape3, srcShape4);
 
+    constexpr unsigned alignUint8 = 32;
+    constexpr unsigned addressUsed = 4;
+    using AddrUBTile = pto::Tile<pto::TileType::Vec, uint8_t, 1, alignUint8, pto::BLayout::RowMajor, -1, -1>;
+    AddrUBTile startAddrUBTile(1, addressUsed);
+
     if constexpr (std::is_same<typename T0::Type, float>::value) {
         constexpr auto ALIGN32FP32 = 8;
         constexpr auto tmpTileW = (srcTileW + ALIGN32FP32 - 1) / ALIGN32FP32 * ALIGN32FP32;
         using TmpTile =
             pto::Tile<pto::TileType::Vec, float, srcTileH, tmpTileW, pto::BLayout::RowMajor, -1, -1>;
-        TmpTile tmpTile(srcShape3, srcShape4);
-        pto::TASSIGN(tmpTile, (uint64_t)(tmp.GetAddr()));
+        using CmpTile = pto::Tile<pto::TileType::Vec, uint8_t, srcTileH, tmpTileW / 8, pto::BLayout::RowMajor, -1, -1>;
+
+        auto tmpOffset = srcTileH * tmpTileW;
+        TmpTile tmpTile1(srcShape3, srcShape4);
+        TmpTile tmpTile2(srcShape3, srcShape4);
+        CmpTile cmpTile(srcTileH, srcShape4 / 8);
+        pto::TASSIGN(tmpTile1, (uint64_t)(tmp.GetAddr()));
+        pto::TASSIGN(tmpTile2, (uint64_t)(tmp.GetAddr() + tmpOffset * sizeof(float)));
+        pto::TASSIGN(cmpTile, (uint64_t)(tmp.GetAddr() + 2 * tmpOffset * sizeof(float)));
+        pto::TASSIGN(startAddrUBTile, (uint64_t)(tmp.GetAddr() + 2 * tmpOffset * sizeof(float) + tmpOffset * sizeof(uint8_t)));
 
         for (LoopVar n0Index = 0; n0Index < dstShape0; ++n0Index) {
             for (LoopVar n1Index = 0; n1Index < dstShape1; ++n1Index) {
@@ -170,7 +229,8 @@ TILEOP void TTanh(T0 dst, T1 src, T3 tmp) {
                     auto srcOffset = n0Index * srcStride0 + n1Index * srcStride1 + n2Index * srcStride2;
                     pto::TASSIGN(dstTile, (uint64_t)(dst.GetAddr() + dstOffset * dstTypeSize));
                     pto::TASSIGN(srcTile, (uint64_t)(src.GetAddr() + srcOffset * srcTypeSize));
-                    TanhFP32<LastUse, typename T0::Type, DstTile, SrcTile, TmpTile>(dstTile, srcTile, tmpTile);
+                    TanhFP32<LastUse, typename T0::Type, DstTile, SrcTile, TmpTile, CmpTile, AddrUBTile>(
+                        dstTile, srcTile, tmpTile1, tmpTile2, cmpTile, startAddrUBTile);
                 }
             }
         }
@@ -179,13 +239,20 @@ TILEOP void TTanh(T0 dst, T1 src, T3 tmp) {
         constexpr auto tmpTileW = (srcTileW + ALIGN32FP32 - 1) / ALIGN32FP32 * ALIGN32FP32;
         using TmpTile =
             pto::Tile<pto::TileType::Vec, float, srcTileH, tmpTileW, pto::BLayout::RowMajor, -1, -1>;
+        using CmpTile = pto::Tile<pto::TileType::Vec, uint8_t, srcTileH, tmpTileW / 8, pto::BLayout::RowMajor, -1, -1>;
+
         auto tmpOffset = srcTileH * tmpTileW;
         TmpTile tmpTile1(srcShape3, srcShape4);
         TmpTile tmpTile2(srcShape3, srcShape4);
         TmpTile tmpTile3(srcShape3, srcShape4);
+        TmpTile tmpTile4(srcShape3, srcShape4);
+        CmpTile cmpTile(srcTileH, srcShape4 / 8);
         pto::TASSIGN(tmpTile1, (uint64_t)(tmp.GetAddr()));
         pto::TASSIGN(tmpTile2, (uint64_t)(tmp.GetAddr() + tmpOffset * sizeof(float)));
         pto::TASSIGN(tmpTile3, (uint64_t)(tmp.GetAddr() + 2 * tmpOffset * sizeof(float)));
+        pto::TASSIGN(tmpTile4, (uint64_t)(tmp.GetAddr() + 3 * tmpOffset * sizeof(float)));
+        pto::TASSIGN(cmpTile, (uint64_t)(tmp.GetAddr() + 4 * tmpOffset * sizeof(float)));
+        pto::TASSIGN(startAddrUBTile, (uint64_t)(tmp.GetAddr() + 4 * tmpOffset * sizeof(float) + tmpOffset * sizeof(uint8_t)));
 
         for (LoopVar n0Index = 0; n0Index < dstShape0; ++n0Index) {
             for (LoopVar n1Index = 0; n1Index < dstShape1; ++n1Index) {
@@ -194,7 +261,8 @@ TILEOP void TTanh(T0 dst, T1 src, T3 tmp) {
                     auto srcOffset = n0Index * srcStride0 + n1Index * srcStride1 + n2Index * srcStride2;
                     pto::TASSIGN(dstTile, (uint64_t)(dst.GetAddr() + dstOffset * dstTypeSize));
                     pto::TASSIGN(srcTile, (uint64_t)(src.GetAddr() + srcOffset * srcTypeSize));
-                    TanhCast<LastUse, typename T0::Type, DstTile, SrcTile, TmpTile, TmpTile, TmpTile>(dstTile, srcTile, tmpTile1, tmpTile2, tmpTile3);
+                    TanhCast<LastUse, typename T0::Type, DstTile, SrcTile, TmpTile, CmpTile, AddrUBTile>(
+                        dstTile, srcTile, tmpTile1, tmpTile2, tmpTile3, tmpTile4, cmpTile, startAddrUBTile);
                 }
             }
         }

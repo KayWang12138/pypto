@@ -205,19 +205,30 @@ Tensor Signbit(const Tensor& self)
     RETURN_CALL(SignbitOperation, *Program::GetInstance().GetCurrentFunction(), self.GetStorage());
 }
 
+int64_t CmpResAlign(const std::vector<int64_t>& vec) {
+    constexpr size_t ALIGN_SIZE = 32;
+    int64_t axis2 = (vec[vec.size() - 1] / 8 + ALIGN_SIZE - 1) / ALIGN_SIZE * ALIGN_SIZE;
+    return axis2 * vec[vec.size() - 2];
+}
+
 void TiledTanhOperation(
     Function &function, const TileShape &tileShape, size_t cur, Input &input, const LogicalTensorPtr &result) {
     if (cur == input.tensor.GetShape().size()) {
         auto tile = input.tensor.GetStorage()->View(function, input.tileInfo.shape, input.tileInfo.offset);
         auto resultTile = result->View(function, input.tileInfo.shape, input.tileInfo.offset);
         
+        constexpr size_t ALIGN_SIZE = 32;
         int64_t tmpSize = MultiplyLastTwoDims<float>(input.tileInfo.shape);
+        int64_t cmpsize = CmpResAlign(input.tileInfo.shape);
         if (input.tensor.GetDataType() != DT_FP32) {
-            tmpSize = 3 * tmpSize;
+            tmpSize = 4 * tmpSize * sizeof(float);
+        } else {
+            tmpSize = 2 * tmpSize * sizeof(float);
         }
+        tmpSize = tmpSize + cmpsize + ALIGN_SIZE;
 
         std::vector<int64_t> tmpShape({tmpSize});
-        auto tmpTensor = std::make_shared<LogicalTensor>(function, DT_FP32, tmpShape);
+        auto tmpTensor = std::make_shared<LogicalTensor>(function, DT_INT8, tmpShape);
         function.AddOperation(Opcode::OP_TANH, {tile}, {resultTile, tmpTensor});
 
         return;
