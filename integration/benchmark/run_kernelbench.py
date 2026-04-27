@@ -632,7 +632,7 @@ def _build_arg_parser() -> argparse.ArgumentParser:
     p.add_argument("--cases", type=str, default="",
                    help="逗号分隔的 case selector, 支持完整 stem、序号和闭区间 "
                         "(如 '19_ReLU', '19', '1:21,31,41:50'); 多 level 直接写 "
-                        "'level1=1:21;level2=31,41:50'. 未传时读取 CASE/CASES "
+                        "'level1=1:21;level2=31,41:50'. 未传时读取 CASES "
                         "环境变量; 空表示按 --limit 跑默认 level 全部")
     p.add_argument("--limit", type=int, default=None,
                    help="未指定 --cases 时, 截取前 N 个用例")
@@ -753,7 +753,7 @@ def main(argv: Optional[List[str]] = None) -> int:
         )
 
     try:
-        cases_text = args.cases or os.environ.get("CASE") or os.environ.get("CASES", "")
+        cases_text = args.cases or os.environ.get("CASES", "")
         cases_by_level = parse_cases_by_level(cases_text, default_levels)
     except ValueError as e:
         parser.error(str(e))

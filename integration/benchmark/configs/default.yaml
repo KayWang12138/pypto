@@ -19,7 +19,7 @@
 bench_dir: ""
 
 # 默认 KernelBench 难度: level1 / level2 / level3.
-# 多 level 请直接在 --cases / CASE 中写 level=case_selector.
+# 多 level 请直接在 --cases / CASES 中写 level=case_selector.
 level: "level1"
 
 # --- 设备 ---
