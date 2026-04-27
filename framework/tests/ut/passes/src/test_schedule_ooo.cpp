@@ -1828,7 +1828,7 @@ TEST_F(ScheduleOoOTest, TestSpillOnBlockFailedAtL0)
     oooSchedule.localBufferMap_[2]->end = 33280;
     // 验证内存气泡导致L0AB卡死
     bool didSpill = false;
-    EXPECT_EQ(oooSchedule.SpillOnCoreBlock(corePair, didSpill), FAILED);
+    EXPECT_EQ(oooSchedule.SpillOnCoreBlock(corePair), FAILED);
     EXPECT_EQ(didSpill, false);
 }
 
