@@ -363,19 +363,41 @@ Status NodeGraphInfo::BuildInOutGraph(const std::shared_ptr<OperationGraphInfo> 
     return SUCCESS;
 }
 
+static OpCoreType GetSupernodeCoreType(std::vector<Operation*> &opList,
+    std::vector<OpCoreType> &opCoreType, std::vector<int32_t> &supernode)
+{
+    std::unordered_set<Opcode> hubType{Opcode::OP_VIEW, Opcode::OP_ASSEMBLE, Opcode::OP_RESHAPE};
+    bool isHub = false;
+    for (int32_t opIdx : supernode) {
+        if (hubType.count(opList[opIdx]->GetOpcode()) == 0) {
+            isHub = false;
+            break;
+        }
+        if (opList[opIdx]->GetOpcode() == Opcode::OP_RESHAPE) {
+            isHub = true;
+        }
+    }
+    if (isHub) {
+        return OpCoreType::HUB;
+    }
+    OpCoreType res = OpCoreType::AIV;
+    for (int32_t opIdx : supernode) {
+        if (opCoreType[opIdx] != OpCoreType::ANY) {
+            res = opCoreType[opIdx];
+            break;
+        }
+    }
+    return res;
+}
+
 void NodeGraphInfo::SetNodeCoreTypeAndMergeable(
     const std::shared_ptr<OperationGraphInfo> operationGraphInfo, bool markIsCube)
 {
     nodeCoreType_.resize(node2Op_.size());
     nodeMergeable_.resize(node2Op_.size());
     for (size_t i = 0; i < node2Op_.size(); i++) {
-        nodeCoreType_[i] = OpCoreType::AIV;
-        for (int32_t opIdx : node2Op_[i]) {
-            if (operationGraphInfo->opCoreType_[opIdx] != OpCoreType::ANY) {
-                nodeCoreType_[i] = operationGraphInfo->opCoreType_[opIdx];
-                break;
-            }
-        }
+        nodeCoreType_[i] = GetSupernodeCoreType(operationGraphInfo->opList_,
+            operationGraphInfo->opCoreType_, node2Op_[i]);
         nodeMergeable_[i] = GetNodeMergeable(operationGraphInfo, i);
         if (!markIsCube) {
             continue;
