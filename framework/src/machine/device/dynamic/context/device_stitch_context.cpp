@@ -195,7 +195,7 @@ int DeviceStitchContext::MoveTo(DynDeviceTask* dynTask)
             funcDup.GetSource(), &funcDup.GetOperationCurrPredCount(0), funcDup.GetSource()->GetCalleeIndexAddr(),
             funcDup.DupDataForDynFuncData()};
         dynTask->devTask.mixTaskData.opWrapList[i] = PtrToValue(funcDup.GetSource()->GetOpWrapListAddr());
-        dynTask->devTask.mixTaskData.opWrapPtrList[i] = PtrToValue(funcDup.GetSource()->GetOpWrapPtrListAddr());
+        dynTask->devTask.mixTaskData.opWrapOffsetList[i] = funcDup.GetSource()->GetOpWrapOffsetListAddr();
     }
     dynTask->dynFuncDataCacheListSize = size;
     return DEVICE_MACHINE_OK;

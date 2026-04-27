@@ -555,25 +555,27 @@ public:
         auto funcId = FuncID(taskId);
         auto wrapIndex = TaskID(wrapId);
         auto dyntask = reinterpret_cast<DynDeviceTask*>(curDevTask_);
-        auto opWrapPtrList = reinterpret_cast<WrapInfo**>(dyntask->devTask.mixTaskData.opWrapPtrList[funcId]);
-        WrapInfo* wrapInfo = opWrapPtrList[wrapIndex];
-        if (wrapInfo != nullptr) {
+        auto opWrapOffsetList = reinterpret_cast<uint16_t*>(dyntask->devTask.mixTaskData.opWrapOffsetList[funcId]);
+        uint16_t offset = opWrapOffsetList[wrapIndex];
+        if (offset != INVALID_QUEUE_OFFSET) {
+            WrapInfo* wrapInfo = &readyWrapCoreFunctionQue_->elem[offset];
             wrapInfo->tasklist[wrapAicoreIdx] = taskId;
             return;
         }
 
         WrapInfoQueueLock(readyWrapCoreFunctionQue_);
-        wrapInfo = opWrapPtrList[wrapIndex];
-        if (unlikely(wrapInfo != nullptr)) {
+        offset = opWrapOffsetList[wrapIndex];
+        if (unlikely(offset != INVALID_QUEUE_OFFSET)) {
             WrapInfoQueueUnLock(readyWrapCoreFunctionQue_);
+            WrapInfo* wrapInfo = &readyWrapCoreFunctionQue_->elem[offset];
             wrapInfo->tasklist[wrapAicoreIdx] = taskId;
             return;
         }
 
         // add a new wrapinfo
-        wrapInfo = &readyWrapCoreFunctionQue_->elem[readyWrapCoreFunctionQue_->tail];
+        WrapInfo* wrapInfo = &readyWrapCoreFunctionQue_->elem[readyWrapCoreFunctionQue_->tail];
+        opWrapOffsetList[wrapIndex] = readyWrapCoreFunctionQue_->tail;
         readyWrapCoreFunctionQue_->tail += 1;
-        opWrapPtrList[wrapIndex] = wrapInfo;
         WrapInfoQueueUnLock(readyWrapCoreFunctionQue_);
 
         wrapInfo->wrapId = wrapId;
