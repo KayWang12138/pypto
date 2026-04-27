@@ -102,7 +102,7 @@ D2       = pl.DynVar('D')
 # ================================================================
 def alloc_cube_buffer():
     # Cube uses TS rows for Q, P, ACC (row halves processed sequentially)
-    q_mat_type = plm.TileType(shape=[TS, TD], dtype=pl.FP16, target_memory=pl.MemorySpace.Mat)
+    q_mat_type = plm.TileType(shape=[TS, TD], dtype=pl.FP16, target_memory=pl.MemorySpace.Mat, blayout=2, slayout=1)
     q_mat_0 = plm.make_tile(q_mat_type, addr=MA0, size=Q_F16)
     q_mat_1 = plm.make_tile(q_mat_type, addr=MA0_PONG, size=Q_F16)
 
@@ -110,16 +110,16 @@ def alloc_cube_buffer():
     k_mat_0 = plm.make_tile(k_mat_type, addr=MA1, size=KT_F16)
     k_mat_1 = plm.make_tile(k_mat_type, addr=MA1_PONG, size=KT_F16)
 
-    v_mat_type = plm.TileType(shape=[TKV, TD], dtype=pl.FP16, target_memory=pl.MemorySpace.Mat)
+    v_mat_type = plm.TileType(shape=[TKV, TD], dtype=pl.FP16, target_memory=pl.MemorySpace.Mat, blayout=2, slayout=1)
     v_mat_0 = plm.make_tile(v_mat_type, addr=MA3, size=V_F16)
     v_mat_1 = plm.make_tile(v_mat_type, addr=MA3_PONG, size=V_F16)
 
-    left_0 = plm.make_tile(plm.TileType(shape=[TS, TD], dtype=pl.FP16, target_memory=pl.MemorySpace.Left), addr=LA0, size=Q_F16)
-    left_1 = plm.make_tile(plm.TileType(shape=[TS, TD], dtype=pl.FP16, target_memory=pl.MemorySpace.Left), addr=LA1, size=Q_F16)
-    right_0 = plm.make_tile(plm.TileType(shape=[TKV, TD], dtype=pl.FP16, target_memory=pl.MemorySpace.Right), addr=RA0, size=KT_F16)
-    right_1 = plm.make_tile(plm.TileType(shape=[TKV, TD], dtype=pl.FP16, target_memory=pl.MemorySpace.Right), addr=RA1, size=KT_F16)
-    acc_0 = plm.make_tile(plm.TileType(shape=[TS, TKV], dtype=pl.FP32, target_memory=pl.MemorySpace.Acc), addr=CA0, size=QK_HALF_F32)
-    acc_1 = plm.make_tile(plm.TileType(shape=[TS, TKV], dtype=pl.FP32, target_memory=pl.MemorySpace.Acc), addr=CA1, size=PV_HALF_F32)
+    left_0 = plm.make_tile(plm.TileType(shape=[TS, TD], dtype=pl.FP16, target_memory=pl.MemorySpace.Left, blayout=2, slayout=1), addr=LA0, size=Q_F16)
+    left_1 = plm.make_tile(plm.TileType(shape=[TS, TD], dtype=pl.FP16, target_memory=pl.MemorySpace.Left, blayout=2, slayout=1), addr=LA1, size=Q_F16)
+    right_0 = plm.make_tile(plm.TileType(shape=[TKV, TD], dtype=pl.FP16, target_memory=pl.MemorySpace.Right, blayout=1, slayout=2), addr=RA0, size=KT_F16)
+    right_1 = plm.make_tile(plm.TileType(shape=[TKV, TD], dtype=pl.FP16, target_memory=pl.MemorySpace.Right, blayout=1, slayout=2), addr=RA1, size=KT_F16)
+    acc_0 = plm.make_tile(plm.TileType(shape=[TS, TKV], dtype=pl.FP32, target_memory=pl.MemorySpace.Acc, blayout=2, slayout=1, fractal=1024), addr=CA0, size=QK_HALF_F32)
+    acc_1 = plm.make_tile(plm.TileType(shape=[TS, TKV], dtype=pl.FP32, target_memory=pl.MemorySpace.Acc, blayout=2, slayout=1, fractal=1024), addr=CA1, size=PV_HALF_F32)
 
     return ((q_mat_0, q_mat_1), (k_mat_0, k_mat_1),
             (v_mat_0, v_mat_1), (left_0, left_1), (right_0, right_1), acc_0, acc_1)
@@ -466,7 +466,7 @@ def fa_perf_tkv_preload_kernel(
         exp_corr_fifo, exp_corr_rm_fifo = alloc_exp_corr_fifo()
 
         o_f16     = plm.make_tile(plm.TileType(shape=[TS_HALF, TD], dtype=pl.FP16, target_memory=pl.MemorySpace.Vec), addr=VA9, size=VB2)
-        tile_type_nz = plm.TileType(shape=[65, 128], dtype=pl.FP16, target_memory=pl.MemorySpace.Vec, valid_shape=[64, 128], blayout=2, slayout=1)
+        tile_type_nz = plm.TileType(shape=[64, 128], dtype=pl.FP16, target_memory=pl.MemorySpace.Vec, blayout=2, slayout=1)
         tile_nz = plm.make_tile(tile_type_nz, addr=VA10, size=VB6)
         task_id = 0
         q_count = 0

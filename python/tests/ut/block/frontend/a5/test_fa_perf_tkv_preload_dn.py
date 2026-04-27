@@ -526,11 +526,9 @@ def fa_perf_tkv_preload_dn_kernel(
         o_f16 = plm.make_tile(plm.TileType(shape=[TS_HALF, TD], dtype=pl.FP16,
                                             target_memory=pl.MemorySpace.Vec), addr=VA9, size=VB2)
 
-        # DN: tile_nz shape [TKV+1, TS_HALF] = [129, 64]
-        #   valid_shape=[TKV, TS_HALF]=[128,64], blayout=2(ColMajor)/slayout=1(RowMajor) — NZ format
-        tile_type_nz = plm.TileType(shape=[TKV + 1, TS_HALF], dtype=pl.FP16,
+        tile_type_nz = plm.TileType(shape=[TKV, TS_HALF], dtype=pl.FP16,
                                      target_memory=pl.MemorySpace.Vec,
-                                     valid_shape=[TKV, TS_HALF], blayout=2, slayout=1)
+                                     blayout=2, slayout=1)
         tile_nz = plm.make_tile(tile_type_nz, addr=VA10, size=VB6_DN)
 
         task_id = 0

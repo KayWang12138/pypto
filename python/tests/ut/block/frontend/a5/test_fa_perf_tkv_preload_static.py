@@ -587,7 +587,7 @@ def fa_perf_tkv_preload_kernel(
         exp_corr_rm_1 = exp_corr_rm_fifo[1]
 
         o_f16     = plm.make_tile(plm.TileType(shape=[TS_HALF, TD], dtype=pl.FP16, target_memory=pl.MemorySpace.Vec), addr=VA9, size=VB2)
-        tile_type_nz = plm.TileType(shape=[65, 128], dtype=pl.FP16, target_memory=pl.MemorySpace.Vec, valid_shape=[64, 128], blayout=2, slayout=1)
+        tile_type_nz = plm.TileType(shape=[64, 128], dtype=pl.FP16, target_memory=pl.MemorySpace.Vec, blayout=2, slayout=1)
         tile_nz = plm.make_tile(tile_type_nz, addr=VA10, size=VB6)
         task_id = 0
         q_count = 0
