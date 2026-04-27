@@ -84,7 +84,7 @@ TILEOP void TMoveND2NZ(DstTileData& dst, SrcTileData& src)
 
 // Copy data from UB to L1 with NZ -> NZ format
 template <typename Coord, typename DstTileData, typename SrcTileData>
-TILEOP void TExtract(DstTileData& dst, SrcTileData& src, const Coord& dstCoord, const Coord& srcCoord)
+TILEOP void TExtractUB2L1(DstTileData& dst, SrcTileData& src, const Coord& coord)
 {
     if (!CheckShapeValid(dst, src)) {
         return;
@@ -113,17 +113,15 @@ TILEOP void TExtractMX(DstTileData& dst, SrcTileData& src, const Coord& coord)
 }
 
 // Copy data from L0C to UB
-template <CopyOutMode mode, typename Coord, typename DstTileData, typename SrcTileData>
-TILEOP void TExtract(
-    DstTileData& dst, SrcTileData& src, const Coord& dstCoord, const Coord& srcCoord, int16_t subblockId)
+template <typename config, typename Coord, typename DstTileData, typename SrcTileData, typename FbTileData>
+TILEOP void TExtractL0C2UB(DstTileData& dst, SrcTileData& src, FbTileData fb, const Coord& coord, int16_t subblockId, uint64_t scaleValue = 0)
 {
     if (!CheckShapeValid(dst, src)) {
         return;
     }
     constexpr uint64_t shapeSize = Std::tuple_size<typename DstTileData::Shape>::value;
     static_assert(shapeSize == SHAPE_DIM2 && Std::tuple_size<Coord>::value == SHAPE_DIM2, "Shape Size should be 2 Dim");
-    static_assert(DstTileData::FORMAT == Hardware::UB && SrcTileData::FORMAT == Hardware::L0C);
-    TExtractL0C2UBImpl<mode, Coord, DstTileData, SrcTileData>(dst, src, dstCoord, srcCoord, subblockId);
+    TExtractL0C2UBImpl<config, Coord, DstTileData, SrcTileData, FbTileData>(dst, src, fb, coord, subblockId, scaleValue);
 }
 
 template <
