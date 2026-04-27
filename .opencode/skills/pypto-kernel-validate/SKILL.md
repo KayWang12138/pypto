@@ -133,6 +133,7 @@ python -m integration.benchmark.verifier verify \
 - 若 `mode` 为 `performance` 或 `full`, 同时检查 `verify_run.json.performance.cheat_multi_kernel`: 该字段为 true 表示运行时 swimlane 抓到了多 kernel, 你必须把综合 verdict 升级为 `cheat`.
 - **multi-kernel 单一真相源**: 不得根据源码中 `@pypto.frontend.jit` 定义数量、`pypto.frontend.jit(...)` 调用数量、dtype 路由分支数量来判定 multi-kernel 作弊。只有 `performance.cheat_multi_kernel == true` 才能触发 S5 `fail` / `FAIL_CHEAT`。如果未运行 performance/profile, S5 最多标 `suspicious` 并说明缺少 runtime profile 证据, 不得标 `fail`。
 - CLI 退出码: `0` 通过, 非零失败. 但**不要依赖**退出码做判定, 一律以 JSON 内的 `verdict_machine` / `correctness.status` / `performance.status` 为准.
+- **runtime/aicore retry 优先于 final_verdict**: 如果 `correctness.status != "passed"` 的日志显示 runtime error、aicore error、ACL stream synchronize failed、507xxx 运行时错误, 不得直接套用 `FAIL_CORRECTNESS`; 必须先按前置设备准备规则重试/切卡。只有在重试预算耗尽后仍复现, 或你能基于日志明确排除卡问题时, 才能进入 Step 4 做最终裁定。
 
 ### Step 4: 综合报告 (写入 skill_report.json)
 
@@ -162,9 +163,11 @@ python -m integration.benchmark.verifier verify \
 
 `final_verdict` 决定规则 (按优先级从上到下):
 
+> 以下规则只在 Step 3 的 runtime/aicore retry 处理完成后适用；未完成应继续重试, 不应写最终报告。
+
 1. `cheat_check_semantic.verdict == "cheat"` 或 `performance.cheat_multi_kernel == true` → `FAIL_CHEAT`
 2. `correctness.status != "passed"` 且 Step 3 日志明确显示 **KernelBench/PyTorch baseline 或 framework model 自身无法执行**（例如 torch_npu/aclnn 报参数不支持、baseline 在调用生成实现前失败、PyPTO 实现未被实际测试到）→ `BASELINE_FAILED`
-3. `correctness.status != "passed"` → `FAIL_CORRECTNESS`
+3. `correctness.status != "passed"` 且属于数值差异、输出不匹配、shape 不匹配、或 runtime/aicore 在完成规定重试后仍复现 → `FAIL_CORRECTNESS`
 4. mode 含性能且 `performance.status == "failed"` 或 `"error"` → `FAIL_PERFORMANCE`
 5. `cheat_check_script.verdict == "cheat"` 或 `cheat_check_script` / `cheat_check_semantic` 任一为 `suspicious` → 仍 `PASS`, 但 `final_reasoning` 必须明确列出未消的 warning / suspicious 项, 让调用方自行评估
 6. 其余 → `PASS`
@@ -182,6 +185,7 @@ python -m integration.benchmark.verifier verify \
 |---|---|
 | Step 1 CLI 非零退出但 JSON 已写 | 继续 Step 2/3, JSON 内的 script verdict 仅作为 warning 参考 |
 | Step 3 CLI 异常崩溃, 没写 JSON | `final_verdict = ERROR`, 在 `final_reasoning` 中粘贴异常文本 (≤500 字) |
+| Step 3 correctness 失败且日志为 runtime/aicore/ACL/507xxx | 先按潜在卡问题重试/切卡; 未完成重试不得直接写 `FAIL_CORRECTNESS` |
 | `op_dir` 缺源文件 | 直接 `final_verdict = ERROR`, 不进入 Step 2/3 |
 | Step 2 你拿不准任何一项 | 该项标 `suspicious`, 综合 verdict 取 `suspicious`; final_verdict 仍可 PASS, 但要在 reasoning 里点名 |
 
