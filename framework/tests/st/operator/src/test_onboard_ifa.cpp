@@ -512,8 +512,8 @@ TEST_F(OnBoardIFATest, test_32_1_signbit)
 
 // TANH (32, 1)
 TEST_F(OnBoardIFATest, test_32_1_tanh) {
-    aclInit(nullptr);
-    rtSetDevice(GetDeviceIdByEnvVar());
+    AclInit(nullptr);
+    RuntimeSetDevice(GetDeviceIdByEnvVar());
     int outCapa = 32 * 1;
     uint64_t outputSize = outCapa * sizeof(float);
     uint8_t* out_ptr = allocDevAddr(outputSize);

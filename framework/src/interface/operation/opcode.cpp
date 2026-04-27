@@ -1322,7 +1322,7 @@ std::unordered_map<Opcode, std::string> SUPPORT_TILETENSOR_OPS{
     {Opcode::OP_SQRT, "TSqrt"},
     {Opcode::OP_SIGN, "TSign"},
     {Opcode::OP_SIGNBIT, "TSignbit"},
-    {Opcode::OP_TANH, "Tanh"},
+    {Opcode::OP_TANH, "TTanh"},
     {Opcode::OP_CEIL, "TCeil"},
     {Opcode::OP_FLOOR, "TFloor"},
     {Opcode::OP_TRUNC, "TTrunc"},
