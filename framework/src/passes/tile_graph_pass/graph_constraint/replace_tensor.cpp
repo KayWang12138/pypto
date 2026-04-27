@@ -961,8 +961,13 @@ Status ReplaceTensor::FindNeedToCopyAssemble(
     visitedAssOps.insert(op.GetOpMagic());
     auto assembleIn = op.GetIOperands()[0];
     auto producers = assembleIn->GetProducers();
+    auto &inOp = *(assembleIn)->GetProducers().begin();
     if ((!producers.empty()) && (*producers.begin())->GetOpcode() == Opcode::OP_TRANSPOSE_MOVEOUT) {
         return FAILED;
+    }
+    if (inOp->GetOpcode() == Opcode::OP_RESHAPE) {
+        needInsertCopyAssOps.insert(&op);
+        return SUCCESS;
     }
     auto consumers = assembleIn->GetConsumers();
     bool sameAssembleOut = true;
@@ -983,6 +988,36 @@ Status ReplaceTensor::FindNeedToCopyAssemble(
     return SUCCESS;
 }
 
+Status ReplaceTensor::FindNeedToCopyReshape(
+    std::unordered_set<Operation*>& needInsertCopyAssOps, std::unordered_set<int>& visitedReshapeOps, Operation& op)
+{
+    visitedReshapeOps.insert(op.GetOpMagic());
+    if (op.GetIOperands()[0]->tensor->GetRawShapeSize() != op.GetOOperands()[0]->tensor->GetRawShapeSize()) {
+        needInsertCopyAssOps.insert(&op);
+        return SUCCESS;
+    }
+    auto producerOps = op.ProducerOps();
+    auto consumerOps = op.ConsumerOps();
+    bool flag = true;
+    for (auto consumerOp : consumerOps) {
+        if (consumerOp->GetOpcode() == Opcode::OP_COPY_IN) {
+            flag = false;
+            break;
+        }
+    }
+    for (auto producesOp : producerOps) {
+        if (producesOp->GetOpcode() == Opcode::OP_VIEW && flag) {
+            needInsertCopyAssOps.insert(&op);
+        }
+    }
+    for (auto consumerOp : consumerOps) {
+        if (consumerOp->GetOpcode() == Opcode::OP_ASSEMBLE && consumerOp->GetIOperands()[0]->GetMemoryTypeOriginal() == MemoryType::MEM_UB) {
+            needInsertCopyAssOps.insert(consumerOp);
+        }
+    }
+    return SUCCESS;
+}
+
 /**
  * @brief 遍历所有 ASSEMBLE 操作，为需要拷贝的操作插入拷贝序列，避免多个 ASSEMBLE 操作共享同一个输入导致的内存冲突
  * Tensor1 ---> Assemble ---> Tensor2
@@ -996,31 +1031,14 @@ Status ReplaceTensor::FindNeedToCopyAssemble(
 Status ReplaceTensor::InsertNeedCopy(Function& function)
 {
     std::unordered_set<int> visitedAssOps;
+    std::unordered_set<int> visitedReshapeOps;
     std::unordered_set<Operation*> needInsertCopyAssOps;
     for (auto& op : function.Operations()) {
         if (op.GetOpcode() == Opcode::OP_ASSEMBLE && (!visitedAssOps.count(op.GetOpMagic()))) {
             FindNeedToCopyAssemble(needInsertCopyAssOps, visitedAssOps, op);
         }
-        if (op.GetOpcode() == Opcode::OP_RESHAPE) {
-            auto producerOps = op.ProducerOps();
-            auto consumerOps = op.ConsumerOps();
-            bool flag = true;
-            for (auto consumerOp : consumerOps) {
-                if (consumerOp->GetOpcode() == Opcode::OP_COPY_IN) {
-                    flag = false;
-                    break;
-                }
-            }
-            for (auto producesOp : producerOps) {
-                if (producesOp->GetOpcode() == Opcode::OP_VIEW && flag) {
-                    needInsertCopyAssOps.insert(&op);
-                }
-            }
-            for (auto consumerOp : consumerOps) {
-                if (consumerOp->GetOpcode() == Opcode::OP_ASSEMBLE && consumerOp->GetIOperands()[0]->GetMemoryTypeOriginal() == MemoryType::MEM_UB) {
-                    needInsertCopyAssOps.insert(consumerOp);
-                }
-            }
+        if (op.GetOpcode() == Opcode::OP_RESHAPE && (!visitedReshapeOps.count(op.GetOpMagic()))) {
+            FindNeedToCopyReshape(needInsertCopyAssOps, visitedReshapeOps, op);
         }
     }
     std::vector<Operation*> sortedOps(needInsertCopyAssOps.begin(), needInsertCopyAssOps.end());
