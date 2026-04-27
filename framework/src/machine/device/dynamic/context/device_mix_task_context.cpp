@@ -17,7 +17,7 @@
 
 namespace npu::tile_fwk::dynamic {
 
-inline int32_t GetTaskIdx(uint32_t coreType, int32_t wrapVecId)
+inline int32_t GetWrapAicoreIdx(uint32_t coreType, int32_t wrapVecId)
 {
     if (coreType == static_cast<uint32_t>(CoreType::AIC)) {
         return WRAP_IDX_AIC;
@@ -37,12 +37,12 @@ void DeviceTaskContext::ProcessWrapQueue(
 
     auto cceBinary = dyntask->cceBinary;
     auto callList = dyntask->dynFuncDataCacheList[funcIndex].calleeList;
+    auto wrapLeaf = &cceBinary[callList[opIndex]];
     for (uint32_t idx = wrapQueue->head; idx < wrapQueue->tail; idx++) {
         if (wrapQueue->elem[idx].wrapId == wrapId) {
             uint32_t* tasklist = wrapQueue->elem[idx].tasklist;
-            uint32_t taskIdx =
-                GetTaskIdx(cceBinary[callList[opIndex]].coreType, cceBinary[callList[opIndex]].wrapVecId);
-            tasklist[taskIdx] = MakeTaskID(funcIndex, opIndex);
+            uint32_t wrapAicoreIdx = GetWrapAicoreIdx(wrapLeaf->coreType, wrapLeaf->wrapVecId);
+            tasklist[wrapAicoreIdx] = MakeTaskID(funcIndex, opIndex);
             return;
         }
     }
@@ -50,21 +50,18 @@ void DeviceTaskContext::ProcessWrapQueue(
     // add new wrap id to wrapQueue
     WrapInfo* info = &wrapQueue->elem[wrapQueue->tail];
     info->wrapId = wrapId;
-    info->mixResourceType = cceBinary[callList[opIndex]].mixResourceType;
+    info->mixResourceType = wrapLeaf->mixResourceType;
 
     auto opWrapOffsetList = reinterpret_cast<uint16_t*>(dyntask->devTask.mixTaskData.opWrapOffsetList[funcIndex]);
     auto wrapIdx = TaskID(wrapId);
     opWrapOffsetList[wrapIdx] = wrapQueue->tail;
 
-    uint32_t taskIdx = GetTaskIdx(cceBinary[callList[opIndex]].coreType, cceBinary[callList[opIndex]].wrapVecId);
-    for (uint32_t idx = 0; idx < MAX_WRAP_TASK_NUM; idx++) {
-        if (idx == taskIdx) {
-            info->tasklist[idx] = MakeTaskID(funcIndex, opIndex);
-        } else {
-            info->tasklist[idx] = AICORE_TASK_INIT;
-        }
-        info->aicoreIdxList[idx] = 0;
-    }
+    uint32_t wrapAicoreIdx = GetWrapAicoreIdx(wrapLeaf->coreType, wrapLeaf->wrapVecId);
+    info->tasklist[WRAP_IDX_AIC] = AICORE_TASK_INIT;
+    info->tasklist[WRAP_IDX_AIV0] = AICORE_TASK_INIT;
+    info->tasklist[WRAP_IDX_AIV1] = AICORE_TASK_INIT;
+    info->tasklist[wrapAicoreIdx] = MakeTaskID(funcIndex, opIndex);
+    info->aicCoreIdx = INVALID_UINT16_IDX;
     wrapQueue->tail++;
 }
 
@@ -76,7 +73,6 @@ WrapInfoQueue* DeviceTaskContext::AllocWrapQueue(DynDeviceTask* dyntask)
     WrapInfoQueue* q = qalloc.As<WrapInfoQueue>();
     q->head = 0;
     q->tail = 0;
-    q->lock = 0;
     q->capacity = dyntask->devTask.mixTaskData.wrapIdNum;
     q->elem = reinterpret_cast<WrapInfo*>(q + 1);
     return q;
@@ -91,7 +87,6 @@ void DeviceTaskContext::InitWrapQueueForThread(DynDeviceTask* dyntask)
         StaticReadyCoreFunctionQueue* q = qalloc.As<StaticReadyCoreFunctionQueue>();
         q->head = 0;
         q->tail = 0;
-        q->lock = 0;
         q->elem = reinterpret_cast<uint64_t*>(q + 1);
         dyntask->devTask.mixTaskData.wrapQueueForThread[i] = PtrToValue(q);
     }
