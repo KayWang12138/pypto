@@ -97,6 +97,8 @@ struct SpillInfo {
     LogicalTensorPtr ddrTensor_;
     // A5 中 L1-spill 且 前序 op 不为 COPY_IN 时 为 true
     bool isSpecialL1_{false};
+    // L0C spill 路径专用：spill 出的 CopyOut（可能是新建的，也可能是复用的消费者 CopyOut）
+    Operation* spillCopyOutOp_ = nullptr;
 };
 
 class OoOScheduler : public ScheduleBase, public ScheduleMainLoopBase {
@@ -254,6 +256,19 @@ private:
         LogicalTensorPtr assembleTensor, const std::vector<Operation*> &assembleOps, bool isGenSpill);
     Status SpillOnBlock() override;
     Status SpillOnCoreBlock(CoreLocationType targetCore, bool &didSpill);
+    Status PickSpillMemType(CoreLocationType coreLocation, MemoryType &spillMemType);
+
+    // L0C spill 路径
+    Status SpillL0CBuffer(SpillInfo &spillInfo, Operation* allocOp, size_t &pcIdx,
+        LocalBufferPtr allocBuffer, bool isGenSpill);
+    void CollectL0CConsumers(LogicalTensorPtr spillTensor, std::vector<Operation*> &consumers);
+    Operation* PickReusableCopyOut(const std::vector<Operation*> &consumers);
+    Status CreateL0CSpillOut(SpillInfo &spillInfo, Operation* allocOp, size_t &pcIdx, bool isGenSpill);
+    Status ReplaceL0CConsumer(Operation* oldCons, const SpillInfo &spillInfo);
+    Status FreeL0CAfterSpill(SpillInfo &spillInfo, LocalBufferPtr allocBuffer);
+    std::vector<int> FilterOutMemId(const std::vector<int> &memIds, int dropId);
+    void MoveDependencies(Operation* from, Operation* to);
+    void EraseSchedulerSideMaps(Operation* op);
     Operation* SkipViewChain(Operation* start, bool followProducers);
 
     // 新增：插入Operation到orderedOps
