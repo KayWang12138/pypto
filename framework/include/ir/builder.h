@@ -12,6 +12,7 @@
 #pragma once
 
 #include <any>
+#include <map>
 #include <memory>
 #include <optional>
 #include <string>
@@ -98,7 +99,9 @@ public:
      * @return Variable representing the parameter
      * @throws RuntimeError if not inside a function context
      */
-    VarPtr FuncArg(const std::string& name, const TypePtr& type, const Span& span);
+    VarPtr FuncArg(
+        const std::string& name, const TypePtr& type, const Span& span,
+        ParamDirection direction = ParamDirection::In);
 
     /**
      * @brief Add a return type to the current function
@@ -138,7 +141,9 @@ public:
      * @throws RuntimeError if not inside a function or another loop
      */
     void BeginForLoop(
-        const VarPtr& loop_var, const ExprPtr& start, const ExprPtr& stop, const ExprPtr& step, const Span& span);
+        const VarPtr& loop_var, const ExprPtr& start, const ExprPtr& stop, const ExprPtr& step, const Span& span,
+        ForKind kind = ForKind::Sequential, std::optional<ExprPtr> chunk_size = std::nullopt,
+        ChunkPolicy chunk_policy = ChunkPolicy::LeadingFull, LoopOrigin loop_origin = LoopOrigin::Original);
 
     /**
      * @brief Add an iteration argument to the current for loop
@@ -277,6 +282,14 @@ public:
      */
     StmtPtr EndIf(const Span& end_span);
 
+    // ========== Scope / Section Building ==========
+
+    void BeginScope(ScopeKind scope_kind, const Span& span);
+    StmtPtr EndScope(const Span& end_span);
+
+    void BeginSection(SectionKind section_kind, const Span& span);
+    StmtPtr EndSection(const Span& end_span);
+
     // ========== Statement Recording ==========
 
     /**
@@ -336,6 +349,9 @@ public:
      * @throws RuntimeError if not inside a valid context
      */
     ReturnStmtPtr Return(const Span& span);
+
+    BreakStmtPtr Break(const Span& span);
+    ContinueStmtPtr Continue(const Span& span);
 
     // ========== Context State Queries ==========
 
@@ -473,7 +489,7 @@ private:
  */
 class BuildContext {
 public:
-    enum class Type { FUNCTION, FOR_LOOP, WHILE_LOOP, IF_STMT, SCOPE, PROGRAM };
+    enum class Type { FUNCTION, FOR_LOOP, WHILE_LOOP, IF_STMT, SCOPE, SECTION, PROGRAM };
 
     explicit BuildContext(Type type, Span span) : type_(type), begin_span_(std::move(span)) {}
     virtual ~BuildContext() = default;
@@ -500,12 +516,17 @@ public:
         : BuildContext(Type::FUNCTION, std::move(span)), name_(std::move(name)), func_type_(func_type)
     {}
 
-    void AddParam(const VarPtr& param) { params_.push_back(param); }
+    void AddParam(const VarPtr& param, ParamDirection direction = ParamDirection::In)
+    {
+        params_.push_back(param);
+        param_directions_.push_back(direction);
+    }
     void AddReturnType(const TypePtr& type) { return_types_.push_back(type); }
 
     void AddStmt(const StmtPtr& stmt) override { stmts_.push_back(stmt); }
     [[nodiscard]] const std::string& GetName() const { return name_; }
     [[nodiscard]] const std::vector<VarPtr>& GetParams() const { return params_; }
+    [[nodiscard]] const std::vector<ParamDirection>& GetParamDirections() const { return param_directions_; }
     [[nodiscard]] const std::vector<TypePtr>& GetReturnTypes() const { return return_types_; }
     [[nodiscard]] FunctionType GetFuncType() const { return func_type_; }
     [[nodiscard]] const std::vector<std::pair<std::string, std::any>>& GetAttrs() const { return attrs_; }
@@ -515,6 +536,7 @@ private:
     FunctionType func_type_;
     std::vector<std::pair<std::string, std::any>> attrs_;
     std::vector<VarPtr> params_;
+    std::vector<ParamDirection> param_directions_;
     std::vector<TypePtr> return_types_;
 };
 
@@ -523,12 +545,19 @@ private:
  */
 class ForLoopContext : public BuildContext {
 public:
-    ForLoopContext(VarPtr loop_var, ExprPtr start, ExprPtr stop, ExprPtr step, Span span)
+    ForLoopContext(
+        VarPtr loop_var, ExprPtr start, ExprPtr stop, ExprPtr step, Span span,
+        ForKind kind = ForKind::Sequential, std::optional<ExprPtr> chunk_size = std::nullopt,
+        ChunkPolicy chunk_policy = ChunkPolicy::LeadingFull, LoopOrigin loop_origin = LoopOrigin::Original)
         : BuildContext(Type::FOR_LOOP, std::move(span)),
           loop_var_(std::move(loop_var)),
           start_(std::move(start)),
           stop_(std::move(stop)),
-          step_(std::move(step))
+          step_(std::move(step)),
+          kind_(kind),
+          chunk_size_(std::move(chunk_size)),
+          chunk_policy_(chunk_policy),
+          loop_origin_(loop_origin)
     {}
 
     void AddIterArg(const IterArgPtr& iter_arg) { iter_args_.push_back(iter_arg); }
@@ -541,6 +570,10 @@ public:
     [[nodiscard]] const ExprPtr& GetStep() const { return step_; }
     [[nodiscard]] const std::vector<IterArgPtr>& GetIterArgs() const { return iter_args_; }
     [[nodiscard]] const std::vector<VarPtr>& GetReturnVars() const { return return_vars_; }
+    [[nodiscard]] ForKind GetKind() const { return kind_; }
+    [[nodiscard]] const std::optional<ExprPtr>& GetChunkSize() const { return chunk_size_; }
+    [[nodiscard]] ChunkPolicy GetChunkPolicy() const { return chunk_policy_; }
+    [[nodiscard]] LoopOrigin GetLoopOrigin() const { return loop_origin_; }
     [[nodiscard]] const std::vector<std::pair<std::string, std::any>>& GetAttrs() const { return attrs_; }
 
 private:
@@ -548,6 +581,10 @@ private:
     ExprPtr start_;
     ExprPtr stop_;
     ExprPtr step_;
+    ForKind kind_ = ForKind::Sequential;
+    std::optional<ExprPtr> chunk_size_;
+    ChunkPolicy chunk_policy_ = ChunkPolicy::LeadingFull;
+    LoopOrigin loop_origin_ = LoopOrigin::Original;
     std::vector<std::pair<std::string, std::any>> attrs_;
     std::vector<IterArgPtr> iter_args_;
     std::vector<VarPtr> return_vars_;
@@ -608,12 +645,47 @@ private:
 };
 
 /**
+ * @brief Context for building a scope statement
+ */
+class ScopeContext : public BuildContext {
+public:
+    ScopeContext(ScopeKind scope_kind, Span span)
+        : BuildContext(Type::SCOPE, std::move(span)), scope_kind_(scope_kind)
+    {}
+
+    void AddStmt(const StmtPtr& stmt) override { stmts_.push_back(stmt); }
+    [[nodiscard]] ScopeKind GetScopeKind() const { return scope_kind_; }
+
+private:
+    ScopeKind scope_kind_;
+};
+
+/**
+ * @brief Context for building a section statement
+ */
+class SectionContext : public BuildContext {
+public:
+    SectionContext(SectionKind section_kind, Span span)
+        : BuildContext(Type::SECTION, std::move(span)), section_kind_(section_kind)
+    {}
+
+    void AddStmt(const StmtPtr& stmt) override { stmts_.push_back(stmt); }
+    [[nodiscard]] SectionKind GetSectionKind() const { return section_kind_; }
+
+private:
+    SectionKind section_kind_;
+};
+
+/**
  * @brief Context for building a program
  */
 class ProgramContext : public BuildContext {
 public:
     ProgramContext(std::string name, Span span) : BuildContext(Type::PROGRAM, std::move(span)), name_(std::move(name))
     {}
+
+    GlobalVarPtr DeclareFunction(const std::string& func_name);
+    GlobalVarPtr GetGlobalVar(const std::string& func_name) const;
 
     /**
      * @brief Add a function to the program
@@ -652,6 +724,7 @@ public:
 
 private:
     std::string name_;
+    std::map<std::string, GlobalVarPtr> global_vars_;
     std::vector<FunctionPtr> functions_;
     std::map<std::string, std::vector<TypePtr>> return_types_; // Track return types for each function
 };

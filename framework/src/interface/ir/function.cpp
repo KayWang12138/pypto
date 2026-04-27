@@ -9,26 +9,13 @@
  * -----------------------------------------------------------------------------------------------------------
  */
 
-#include "ir/type.h"
-
-#include <cstdint>
-#include <memory>
-#include <optional>
-#include <utility>
-#include <vector>
-
-#include "core/dtype.h"
-#include "ir/scalar_expr.h"
-#include "ir/span.h"
+#include "ir/function.h"
 
 namespace pypto {
 namespace ir {
 
-ShapedType::ShapedType(DataType dtype, const std::vector<int64_t>& shape, std::optional<MemRefPtr> memref)
-    : dtype_(dtype), memref_(std::move(memref)) {
-  for (int64_t dim : shape) {
-    shape_.push_back(std::make_shared<ConstInt>(dim, DataType::INDEX, Span::unknown()));
-  }
-}
+// Function constructor is implemented inline in the header file
+// No additional implementation needed here
+
 }  // namespace ir
 }  // namespace pypto

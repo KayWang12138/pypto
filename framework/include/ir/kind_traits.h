@@ -39,6 +39,7 @@ DEFINE_KIND_TRAIT(MemRef, ObjectKind::MemRef)
 DEFINE_KIND_TRAIT(Call, ObjectKind::Call)
 DEFINE_KIND_TRAIT(MakeTuple, ObjectKind::MakeTuple)
 DEFINE_KIND_TRAIT(TupleGetItemExpr, ObjectKind::TupleGetItemExpr)
+DEFINE_KIND_TRAIT(TileOffsetExpr, ObjectKind::TileOffsetExpr)
 DEFINE_KIND_TRAIT(ConstInt, ObjectKind::ConstInt)
 DEFINE_KIND_TRAIT(ConstFloat, ObjectKind::ConstFloat)
 DEFINE_KIND_TRAIT(ConstBool, ObjectKind::ConstBool)
@@ -84,6 +85,9 @@ DEFINE_KIND_TRAIT(ForStmt, ObjectKind::ForStmt)
 DEFINE_KIND_TRAIT(SeqStmts, ObjectKind::SeqStmts)
 DEFINE_KIND_TRAIT(EvalStmt, ObjectKind::EvalStmt)
 DEFINE_KIND_TRAIT(WhileStmt, ObjectKind::WhileStmt)
+DEFINE_KIND_TRAIT(ScopeStmt, ObjectKind::ScopeStmt)
+DEFINE_KIND_TRAIT(SectionStmt, ObjectKind::SectionStmt)
+DEFINE_KIND_TRAIT(OpStmts, ObjectKind::OpStmts)
 DEFINE_KIND_TRAIT(BreakStmt, ObjectKind::BreakStmt)
 DEFINE_KIND_TRAIT(ContinueStmt, ObjectKind::ContinueStmt)
 
@@ -113,11 +117,12 @@ DEFINE_KIND_TRAIT(GlobalVar, ObjectKind::GlobalVar)
 // Stmt base class - matches any statement kind
 template <>
 struct KindTrait<Stmt> {
-    static constexpr ObjectKind kinds[] = {ObjectKind::AssignStmt,  ObjectKind::IfStmt,   ObjectKind::YieldStmt,
-                                           ObjectKind::ReturnStmt,  ObjectKind::ForStmt,  ObjectKind::WhileStmt,
-                                           ObjectKind::SeqStmts,    ObjectKind::EvalStmt, ObjectKind::BreakStmt,
+    static constexpr ObjectKind kinds[] = {ObjectKind::AssignStmt,   ObjectKind::IfStmt,      ObjectKind::YieldStmt,
+                                           ObjectKind::ReturnStmt,   ObjectKind::ForStmt,     ObjectKind::WhileStmt,
+                                           ObjectKind::ScopeStmt,    ObjectKind::SectionStmt, ObjectKind::SeqStmts,
+                                           ObjectKind::OpStmts,      ObjectKind::EvalStmt,    ObjectKind::BreakStmt,
                                            ObjectKind::ContinueStmt};
-    static constexpr size_t count = 10;
+    static constexpr size_t count = 13;
 };
 
 // Expr base class - matches any expression kind
@@ -126,7 +131,8 @@ struct KindTrait<Expr> {
     static constexpr ObjectKind kinds[] = {
         // Direct expression types
         ObjectKind::Var, ObjectKind::IterArg, ObjectKind::MemRef, ObjectKind::Call, ObjectKind::MakeTuple,
-        ObjectKind::TupleGetItemExpr, ObjectKind::ConstInt, ObjectKind::ConstFloat, ObjectKind::ConstBool,
+        ObjectKind::TupleGetItemExpr, ObjectKind::TileOffsetExpr, ObjectKind::ConstInt, ObjectKind::ConstFloat,
+        ObjectKind::ConstBool,
         // Binary expressions (22 kinds)
         ObjectKind::Add, ObjectKind::Sub, ObjectKind::Mul, ObjectKind::FloorDiv, ObjectKind::FloorMod,
         ObjectKind::FloatDiv, ObjectKind::Min, ObjectKind::Max, ObjectKind::Pow, ObjectKind::Eq, ObjectKind::Ne,
@@ -135,7 +141,7 @@ struct KindTrait<Expr> {
         ObjectKind::BitShiftRight,
         // Unary expressions (5 kinds)
         ObjectKind::Abs, ObjectKind::Neg, ObjectKind::Not, ObjectKind::BitNot, ObjectKind::Cast};
-    static constexpr size_t count = 37;
+    static constexpr size_t count = 38;
 };
 
 // BinaryExpr base class - matches any binary expression kind
@@ -162,8 +168,9 @@ struct KindTrait<UnaryExpr> {
 // Type base class - matches any type kind
 template <>
 struct KindTrait<Type> {
-    static constexpr ObjectKind kinds[] = {ObjectKind::UnknownType, ObjectKind::ScalarType, ObjectKind::ShapedType,
-                                           ObjectKind::TensorType,  ObjectKind::TileType,   ObjectKind::TupleType};
+    static constexpr ObjectKind kinds[] = {ObjectKind::UnknownType, ObjectKind::ScalarType, ObjectKind::PtrType,
+                                           ObjectKind::ShapedType,  ObjectKind::TensorType, ObjectKind::TileType,
+                                           ObjectKind::TupleType};
     static constexpr size_t count = sizeof(kinds) / sizeof(ObjectKind);
 };
 
