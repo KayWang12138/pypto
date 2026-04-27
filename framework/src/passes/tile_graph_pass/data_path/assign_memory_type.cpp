@@ -32,7 +32,6 @@ namespace npu::tile_fwk {
 Status AssignMemoryType::RunOnFunction(Function& function)
 {
     APASS_LOG_INFO_F(Elements::Function, "===> Start AssignMemoryType.");
-    addedOps_.clear();
     for (auto& op : function.Operations()) {
         RunOnOperation(op);
     }
