@@ -142,7 +142,7 @@ def mul_kernel(
 
 
 # Kernel 4: unary neg
-@fe.kernel(auto_sync=True)
+@fe.kernel
 def neg_kernel(
     a: pl.Tensor[[64, 128], pl.FP16],
 ) -> pl.Tensor[[64, 128], pl.FP16]:
@@ -257,8 +257,8 @@ def test_auto_func_kernel():
         tile_type_c = plm.TileType(shape=[64, 128], dtype=pl.FP16, target_memory=pl.MemorySpace.Vec)
         tile_c = plm.make_tile(tile_type_c, addr=0x8000, size=16384)
         plm.load(tile_a, a, [0, 0])
-        plm.load(tile_b, b, [0, 0])
-        idx: pl.Scalar[pl.INDEX] = plain_offset(1, 2)
+        idx: pl.Scalar[pl.INDEX] = plain_offset(pl.block.index_cast(pl.block.get_block_idx()), 2)
+        plm.load(tile_b, b, [idx, 0])
         plm.add(tile_c, tile_a, tile_b)
         return b
 

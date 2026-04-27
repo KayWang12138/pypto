@@ -16,7 +16,7 @@ import pypto_block.language as pl
 import pypto_block.language.op.manual as plm
 
 
-@fe.kernel(auto_sync=False)
+@fe.kernel
 def matmul_add_matmul_add(
     q: pl.Tensor[[64, 64], pl.FP32],
     k: pl.Tensor[[64, 64], pl.FP32],

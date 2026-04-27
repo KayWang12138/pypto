@@ -133,7 +133,7 @@ class TestMutexLockIR:
     """pl.mutex.lock/unlock should produce system.mutex_{lock,unlock} IR calls."""
 
     def test_static_mutex_lock_unlock(self):
-        @fe.kernel(auto_sync=False)
+        @fe.kernel
         def k(x: pl.Tensor[[64], pl.FP16]) -> pl.Tensor[[64], pl.FP16]:
             tt = plm.TileType(shape=[64], dtype=pl.FP16, target_memory=pl.MemorySpace.Vec)
             t = plm.make_tile(tt, addr=0, size=128)
@@ -151,7 +151,7 @@ class TestMutexLockIR:
         )
 
     def test_keyword_form(self):
-        @fe.kernel(auto_sync=False)
+        @fe.kernel
         def k(x: pl.Tensor[[64], pl.FP16]) -> pl.Tensor[[64], pl.FP16]:
             tt = plm.TileType(shape=[64], dtype=pl.FP16, target_memory=pl.MemorySpace.Vec)
             t = plm.make_tile(tt, addr=0, size=128)
@@ -178,7 +178,7 @@ class TestNBufferWithKernel:
         tile_ping = nbuf.slots[0].tile
         tile_pong = nbuf.slots[1].tile
 
-        @fe.kernel(auto_sync=False)
+        @fe.kernel
         def k(x: pl.Tensor[[128], pl.FP16]) -> pl.Tensor[[128], pl.FP16]:
             plm.load(tile_ping, x, [0])
             plm.load(tile_pong, x, [0])
@@ -197,7 +197,7 @@ class TestNBufferWithKernel:
         tile0 = nbuf.slots[0].tile
         bid0 = nbuf.buf_ids[0]
 
-        @fe.kernel(auto_sync=False)
+        @fe.kernel
         def k(x: pl.Tensor[[64], pl.FP16]) -> pl.Tensor[[64], pl.FP16]:
             pl.mutex.lock(pl.PipeType.MTE2, bid0)
             plm.load(tile0, x, [0])
@@ -212,7 +212,7 @@ class TestNBufferWithKernel:
     def test_nbuffer_inside_kernel(self):
         """NBuffer declared inside kernel body (parser special-casing)."""
 
-        @fe.kernel(auto_sync=False)
+        @fe.kernel
         def k(x: pl.Tensor[[64], pl.FP16]) -> pl.Tensor[[64], pl.FP16]:
             nbuf = pl.NBuffer(
                 shape=[64], dtype=pl.FP16,
@@ -240,7 +240,7 @@ class TestNBufferWithKernel:
         tile_ping = nbuf.slots[0].tile
         tile_pong = nbuf.slots[1].tile
 
-        @fe.kernel(auto_sync=False)
+        @fe.kernel
         def k(
             a: pl.Tensor[[128, 128], pl.FP16],
         ) -> pl.Tensor[[128, 128], pl.FP16]:
@@ -257,7 +257,7 @@ class TestMutexCodegen:
     """Verify the PTO backend lowers system.mutex_lock/unlock to pto.get_buf/rls_buf."""
 
     def test_pto_get_rls_buf_emitted(self):
-        @fe.kernel(auto_sync=False)
+        @fe.kernel
         def k(
             x: pl.Tensor[[64], pl.FP16],
             out: pl.Tensor[[64], pl.FP16],
@@ -312,7 +312,7 @@ class TestCanndslStyleAPI:
 
     def test_canndsl_style_in_kernel(self):
         """L1NBuffer declared in kernel body — current() auto-rotates via IR cursor."""
-        @fe.kernel(auto_sync=False)
+        @fe.kernel
         def k(gm_q: pl.Tensor[[32, 32], pl.FP16]) -> pl.Tensor[[32, 32], pl.FP16]:
             q_l1_db = pl.L1NBuffer(0, pl.FP16, shape=(32, 32), buf_ids=(0, 1))
             # Each current() auto-rotates: first → slot0, second → slot1
@@ -346,7 +346,7 @@ class TestCanndslStyleAPI:
         k_tile = k_l1_db.slots[0].tile
         ub_tile = ub_db.slots[0].tile
 
-        @fe.kernel(auto_sync=False)
+        @fe.kernel
         def k(
             gm_q: pl.Tensor[[32, 32], pl.FP16],
             gm_k: pl.Tensor[[32, 32], pl.FP16],
@@ -372,7 +372,7 @@ class TestCanndslStyleAPI:
         by the struct loop-threading mechanism.
         """
 
-        @fe.kernel(auto_sync=False)
+        @fe.kernel
         def k(gm_q: pl.Tensor[[128, 32], pl.FP16]) -> pl.Tensor[[128, 32], pl.FP16]:
             q_l1_db = pl.L1NBuffer(0, pl.FP16, shape=(32, 32), buf_ids=(0, 1))
             for i in pl.range(0, 4):
@@ -394,7 +394,7 @@ class TestCanndslStyleAPI:
 
     def test_straight_line_auto_rotate(self):
         """Straight-line current() calls — each advances the IR cursor."""
-        @fe.kernel(auto_sync=False)
+        @fe.kernel
         def k(gm_q: pl.Tensor[[32, 32], pl.FP16]) -> pl.Tensor[[32, 32], pl.FP16]:
             q_l1_db = pl.L1NBuffer(0, pl.FP16, shape=(32, 32), buf_ids=(0, 1))
             # Two current() calls → cursor goes 0→1
@@ -416,7 +416,7 @@ class TestCanndslStyleAPI:
 
     def test_single_slot_nbuffer_current(self):
         """Single-slot NBuffer: current() works without struct cursor."""
-        @fe.kernel(auto_sync=False)
+        @fe.kernel
         def k(gm_q: pl.Tensor[[32, 32], pl.FP16]) -> pl.Tensor[[32, 32], pl.FP16]:
             q_l1 = pl.L1NBuffer(0, pl.FP16, shape=(32, 32), buf_ids=(5,))
             cur = q_l1.current()
@@ -434,7 +434,7 @@ class TestCanndslStyleAPI:
 
     def test_previous_in_kernel(self):
         """previous() returns the slot before current cursor position."""
-        @fe.kernel(auto_sync=False)
+        @fe.kernel
         def k(gm_q: pl.Tensor[[64, 32], pl.FP16]) -> pl.Tensor[[64, 32], pl.FP16]:
             q_l1_db = pl.L1NBuffer(0, pl.FP16, shape=(32, 32), buf_ids=(0, 1))
             # First current() → slot 0, advances cursor to 1
@@ -468,7 +468,7 @@ class TestAutoMutex:
         """Single-slot Buffer: load auto-injects lock/unlock on MTE2."""
         buf = pl.UBBuffer(0, pl.FP16, shape=(64,), buf_id=3)
 
-        @fe.kernel(auto_sync=False, auto_mutex=True)
+        @fe.kernel(auto_mutex=True)
         def k(x: pl.Tensor[[64], pl.FP16]) -> pl.Tensor[[64], pl.FP16]:
             plm.load(buf.tile, x, [0])
             plm.store(x, buf.tile, [0])
@@ -482,7 +482,7 @@ class TestAutoMutex:
 
     def test_auto_mutex_nbuffer_loop(self):
         """NBuffer in loop with auto_mutex: auto-rotate + auto lock/unlock."""
-        @fe.kernel(auto_sync=False, auto_mutex=True)
+        @fe.kernel(auto_mutex=True)
         def k(gm_q: pl.Tensor[[128, 32], pl.FP16]) -> pl.Tensor[[128, 32], pl.FP16]:
             q_l1_db = pl.L1NBuffer(0, pl.FP16, shape=(32, 32), buf_ids=(0, 1))
             for i in pl.range(0, 4):
@@ -503,7 +503,7 @@ class TestAutoMutex:
         buf_b = pl.UBBuffer(0x100, pl.FP16, shape=(64,), buf_id=1)
         buf_c = pl.UBBuffer(0x200, pl.FP16, shape=(64,), buf_id=2)
 
-        @fe.kernel(auto_sync=False, auto_mutex=True)
+        @fe.kernel(auto_mutex=True)
         def k(x: pl.Tensor[[64], pl.FP16]) -> pl.Tensor[[64], pl.FP16]:
             plm.load(buf_a.tile, x, [0])
             plm.load(buf_b.tile, x, [0])

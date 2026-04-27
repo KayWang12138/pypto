@@ -46,5 +46,5 @@ __all__ = [
     "KernelDef",
     "jit",
     "compile",
-    "launch"
+    "launch",
 ]

@@ -123,7 +123,7 @@ D2 = pl.DynVar('D')
 # ================================================================
 #  Kernel with NBuffer + auto_mutex
 # ================================================================
-@fe.kernel(auto_sync=False, auto_mutex=True)
+@fe.kernel(auto_mutex=True)
 def fa_perf_tkv_preload_nbuf_kernel(
     q: pl.Tensor[[Sq2, D2], pl.FP16],
     k: pl.Tensor[[Skv2, D2], pl.FP16],

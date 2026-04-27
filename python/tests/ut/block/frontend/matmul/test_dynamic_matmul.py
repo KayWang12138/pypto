@@ -14,7 +14,7 @@ M = pl.DynVar('M')
 K = pl.DynVar('K')
 N = pl.DynVar('N')
 
-@fe.kernel(auto_sync=True)
+@fe.kernel
 def dynamic_matmul_kernel(
     a: pl.Tensor[[M, K], pl.FP16],
     b: pl.Tensor[[K, N], pl.FP16],
@@ -81,29 +81,27 @@ def dynamic_matmul_kernel(
                 for k in pl.range(0, K_dim, 128):
                     plm.load(tile_a_load, a, [i, k])
                     plm.load(tile_b_load, b, [k, j])
-                    
-                    # pl.system.sync_src(set_pipe=pl.PipeType.MTE2, wait_pipe=pl.PipeType.MTE1, event_id=0)
-                    # pl.system.sync_dst(set_pipe=pl.PipeType.MTE2, wait_pipe=pl.PipeType.MTE1, event_id=0)
+
+                    pl.system.sync_src(set_pipe=pl.PipeType.MTE2, wait_pipe=pl.PipeType.MTE1, event_id=0)
+                    pl.system.sync_dst(set_pipe=pl.PipeType.MTE2, wait_pipe=pl.PipeType.MTE1, event_id=0)
                     
                     plm.move(tile_a, tile_a_load)
                     plm.move(tile_b, tile_b_load)
-                    
-                    # pl.system.sync_src(set_pipe=pl.PipeType.MTE1, wait_pipe=pl.PipeType.M, event_id=1)
-                    # pl.system.sync_dst(set_pipe=pl.PipeType.MTE1, wait_pipe=pl.PipeType.M, event_id=1)
+
+                    pl.system.sync_src(set_pipe=pl.PipeType.MTE1, wait_pipe=pl.PipeType.M, event_id=1)
+                    pl.system.sync_dst(set_pipe=pl.PipeType.MTE1, wait_pipe=pl.PipeType.M, event_id=1)
                     
                     if k == 0:
                         plm.matmul(tile_c, tile_a, tile_b)
                     else:
                         plm.matmul_acc(tile_c, tile_c, tile_a, tile_b)
-                    
-                    # pl.system.sync_src(set_pipe=pl.PipeType.M, wait_pipe=pl.PipeType.MTE2, event_id=2)
-                    # pl.system.sync_dst(set_pipe=pl.PipeType.M, wait_pipe=pl.PipeType.MTE2, event_id=2)
+
+                    pl.system.sync_src(set_pipe=pl.PipeType.M, wait_pipe=pl.PipeType.MTE2, event_id=2)
+                    pl.system.sync_dst(set_pipe=pl.PipeType.M, wait_pipe=pl.PipeType.MTE2, event_id=2)
                 
-                # pl.system.sync_src(set_pipe=pl.PipeType.M, wait_pipe=pl.PipeType.FIX, event_id=0)
-                # pl.system.sync_dst(set_pipe=pl.PipeType.M, wait_pipe=pl.PipeType.FIX, event_id=0)
+                pl.system.sync_src(set_pipe=pl.PipeType.M, wait_pipe=pl.PipeType.FIX, event_id=0)
+                pl.system.sync_dst(set_pipe=pl.PipeType.M, wait_pipe=pl.PipeType.FIX, event_id=0)
                 plm.store(c, tile_c, [i, j])
-                
-                # pl.system.bar_all()
 
     return c
 

@@ -38,7 +38,7 @@ N_SLOTS = 4
 TILE_BYTES_F16 = TILE * TILE * 2   # 8192 = 8 KB
 
 
-@fe.kernel(auto_sync=True)
+@fe.kernel
 def dynamic_matmul_qb_kernel(
     a: pl.Tensor[[M, K], pl.FP16],
     b: pl.Tensor[[K, N], pl.FP16],
@@ -95,6 +95,7 @@ def dynamic_matmul_qb_kernel(
     b_mat_buf = (b_mat_0, b_mat_1, b_mat_2, b_mat_3)
     a_left_buf = (a_left_0, a_left_1, a_left_2, a_left_3)
     b_right_buf = (b_right_0, b_right_1, b_right_2, b_right_3)
+    event_ids = (0, 1, 2, 3)
 
     with pl.section_cube():
         M_dim = pl.tensor.dim(a, 0)
@@ -107,12 +108,32 @@ def dynamic_matmul_qb_kernel(
                     buf_idx = (k // TILE) % N_SLOTS
                     plm.load(a_mat_buf[buf_idx], a, [i, k])
                     plm.load(b_mat_buf[buf_idx], b, [k, j])
+                    pl.system.sync_src(
+                        set_pipe=pl.PipeType.MTE2, wait_pipe=pl.PipeType.MTE1, event_id=event_ids[buf_idx]
+                    )
+                    pl.system.sync_dst(
+                        set_pipe=pl.PipeType.MTE2, wait_pipe=pl.PipeType.MTE1, event_id=event_ids[buf_idx]
+                    )
                     plm.move(a_left_buf[buf_idx], a_mat_buf[buf_idx])
                     plm.move(b_right_buf[buf_idx], b_mat_buf[buf_idx])
+                    pl.system.sync_src(
+                        set_pipe=pl.PipeType.MTE1, wait_pipe=pl.PipeType.M, event_id=event_ids[buf_idx]
+                    )
+                    pl.system.sync_dst(
+                        set_pipe=pl.PipeType.MTE1, wait_pipe=pl.PipeType.M, event_id=event_ids[buf_idx]
+                    )
                     if k == 0:
                         plm.matmul(tile_c, a_left_buf[buf_idx], b_right_buf[buf_idx])
                     else:
                         plm.matmul_acc(tile_c, tile_c, a_left_buf[buf_idx], b_right_buf[buf_idx])
+                    pl.system.sync_src(
+                        set_pipe=pl.PipeType.M, wait_pipe=pl.PipeType.MTE2, event_id=event_ids[buf_idx]
+                    )
+                    pl.system.sync_dst(
+                        set_pipe=pl.PipeType.M, wait_pipe=pl.PipeType.MTE2, event_id=event_ids[buf_idx]
+                    )
+                pl.system.sync_src(set_pipe=pl.PipeType.M, wait_pipe=pl.PipeType.FIX, event_id=0)
+                pl.system.sync_dst(set_pipe=pl.PipeType.M, wait_pipe=pl.PipeType.FIX, event_id=0)
                 plm.store(c, tile_c, [i, j])
 
     return c
