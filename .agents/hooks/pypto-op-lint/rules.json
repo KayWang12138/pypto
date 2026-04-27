@@ -344,15 +344,15 @@
     },
     {
       "id": "OL25",
-      "severity": "S2",
+      "severity": "S1",
       "dimension": "D1",
       "stages": [
         5,
         6,
         7
       ],
-      "target": "impl",
-      "rule": "Tensor 注解完整性检查：无参数或缺 dtype 时告警",
+      "target": "gate",
+      "rule": "Tensor 注解禁止空注解：pypto.Tensor() / pypto.Tensor([], dtype) 一律 FAIL；只缺 dtype 时 WARN",
       "check_function": "check_ol25"
     },
     {

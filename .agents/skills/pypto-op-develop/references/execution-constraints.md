@@ -7,8 +7,9 @@
 - 可用的输出写回方式包括 `out[:] = ...`、`out.move(...)`、`pypto.assemble(..., out)`；`out = ...` 只会绑定局部变量，不会修改出参。
 - JIT 函数中的张量参数必须写成 `pypto.Tensor([...], dtype)` 类型注解。
 - JIT 函数中张量参数在前，非张量参数在后。
-- 动态轴必须在类型注解中标成 `pypto.DYNAMIC` 或 `pypto.DYN`。
+- 动态轴必须在类型注解中标成 `pypto.DYNAMIC` 或 `pypto.DYN`。**禁止使用 `pypto.Tensor()` / `pypto.Tensor([], dtype)` 等空注解**（门禁 OL31 会直接判 FAIL）。
 - 标成 `pypto.DYNAMIC` 的轴变化时无需重编译；标成 `pypto.STATIC` 的轴变化会触发重编译。
+- DESIGN.md 声明了动态轴时，JIT 函数内必须包含遍历动态轴的 `pypto.loop(...)` 调用，trip count 必须是 `tensor.shape[i]`、函数参数或其符号表达式；**禁止**用 `pypto.loop(1)` / 常量 trip count 的空循环冒充（门禁 OL43）。
 - 固定整数轴只接受该固定大小；传入其他大小会报错（runtime_debug_mode=3 开启校验时）。
 - `...` 表示剩余轴按静态轴处理。
 - `pypto.tensor(...)` 创建的 Tensor 是未初始化随机值；使用前必须初始化。
@@ -266,7 +267,7 @@ q_2d = q   # 已经是 2D，不需要 reshape
 
 1. 需要建图执行的代码直接写成 `@pypto.frontend.jit` kernel；不要保留为普通 Python/Torch 逻辑。
 2. 用 `[:]`、`move()` 或 `assemble()` 把结果明确写回出参；不要用 `out = ...` 代替写回。
-3. 把所有动态轴显式标成 `pypto.DYNAMIC` 或 `pypto.DYN`。
+3. 把所有动态轴显式标成 `pypto.DYNAMIC` 或 `pypto.DYN`；禁止用 `pypto.Tensor()` 空注解。声明了动态轴的 kernel 必须含真实 `pypto.loop`（trip count 为符号表达式，不能是常量），不允许 `pypto.loop(1)` 这类空循环。
 4. 把依赖 Python 标量隐式 dtype 映射的写法改成显式 `Element` 或显式 dtype 转换。
 5. 把多轴广播改写成文档支持的单轴广播或等价拆分写法。
 6. 检查 TileShape 维度数、最后一维对齐和相关算子的 Tile 约束，再执行编译。

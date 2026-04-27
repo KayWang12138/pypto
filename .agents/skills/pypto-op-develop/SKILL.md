@@ -129,7 +129,7 @@ PyPTO kernel 函数实现，基于固定模板 `templates/impl-template.py` 生�
 |------|------|
 | 导出函数 | `{op}_wrapper(x: torch.Tensor) -> torch.Tensor` |
 | Kernel 装饰器 | `@pypto.frontend.jit` |
-| Tensor 描述符 | `pypto.Tensor()` 或 `pypto.Tensor([pypto.DYNAMIC, ...], pypto.DT_FP32)` |
+| Tensor 描述符 | `pypto.Tensor([pypto.DYNAMIC, ...], pypto.DT_FP32)`（动态轴必须显式标 `pypto.DYNAMIC`；禁止使用 `pypto.Tensor()` / `pypto.Tensor([], ...)`） |
 | Tiling 配置 | 必须调用 `pypto.set_vec_tile_shapes(...)` 或 `pypto.set_cube_tile_shapes(...)` |
 | 输出写回 | `output[:] = result` 或 `pypto.assemble(result, offset, output)` |
 | 可选辅助函数 | `{op}_core()` — 复杂算子拆分核心计算逻辑 |
@@ -230,10 +230,11 @@ python3 test_{op}.py
 6. **动态循环边界使用 unroll_list**：当循环次数为动态值时，需要使用 `unroll_list`；多层循环嵌套时，最内层使用 `unroll_list`。
 7. **matmul / cube 场景**：必须确认 `set_cube_tile_shapes(...)` 已正确配置。
 8. **输出写回必须显式完成**：使用 `output[:] = ...`、`output.move(...)` 或 `pypto.assemble(..., output)`；不要写 `output = ...`。
-9. **动态轴必须显式标注**：所有动态 shape 输入和输出都要在 Tensor 注解中标成 `pypto.DYNAMIC` / `pypto.DYN`。
-10. **Element 用于固定标量 dtype**：当标量参与计算且 dtype 不能依赖隐式映射时，显式使用 `pypto.Element(dtype, value)`。
-11. **避免同图内回环读写**：同一 Tensor 不要在同一图里既 `view` 读取又 `assemble` 回写。
-12. 如果设计方案中已有 tiling / loop 约束，编码时优先遵循设计方案，不要临时拍脑袋改写。
+9. **动态轴必须显式标注**：所有动态 shape 输入和输出都必须在 Tensor 注解中标成 `pypto.DYNAMIC` / `pypto.DYN`。**禁止** `pypto.Tensor()` / `pypto.Tensor([], dtype)` 这类空注解写法（门禁 OL31 会直接判 FAIL）；静态轴写常量整数，动态轴写 `pypto.DYNAMIC`，不可混淆。
+10. **声明动态轴时 kernel 必须含真实 `pypto.loop`**：DESIGN.md `dynamic_axes` 非空时，JIT 函数内必须存在遍历动态轴的 `pypto.loop(...)` 调用，trip count 必须来自动态轴（`tensor.shape[i]`、函数参数或其符号表达式）；**禁止**用 `pypto.loop(1)`、`pypto.loop(常量)` 等空循环或注释里写 `pypto.loop` 来糊弄门禁 OL43，门禁正向校验为 FAIL。
+11. **Element 用于固定标量 dtype**：当标量参与计算且 dtype 不能依赖隐式映射时，显式使用 `pypto.Element(dtype, value)`。
+12. **避免同图内回环读写**：同一 Tensor 不要在同一图里既 `view` 读取又 `assemble` 回写。
+13. 如果设计方案中已有 tiling / loop 约束，编码时优先遵循设计方案，不要临时拍脑袋改写。
 
 ---
 
