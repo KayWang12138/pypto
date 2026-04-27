@@ -840,12 +840,17 @@ async def _run_via_opencode_skill_once(
             _kill_pgid(proc)
         reader.join(timeout=5)
     finally:
+        if proc.poll() is None:
+            _kill_pgid(proc)
         if log_handle is not None:
-            log_handle.write(
-                f"\n[opencode validator finished, returncode={proc.returncode}, "
-                f"timed_out={timed_out}]\n"
-            )
-            log_handle.close()
+            try:
+                log_handle.write(
+                    f"\n[opencode validator finished, returncode={proc.returncode}, "
+                    f"timed_out={timed_out}]\n"
+                )
+                log_handle.close()
+            except (ValueError, OSError):
+                pass
 
     duration = time.monotonic() - start
     session_md_output = (

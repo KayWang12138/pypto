@@ -41,7 +41,9 @@ import datetime as dt
 import json
 import logging
 import os
+import signal
 import sys
+import threading
 import time
 from dataclasses import dataclass
 from pathlib import Path
@@ -385,6 +387,7 @@ async def run_one_case(case_path: Path, device_id: int, cfg: _RunCfg,
                 case_init_source=case.init_source,
                 case_forward_source=case.forward_source,
                 skip_stage7_perf_tune=cfg.skip_stage7_perf_tune,
+                stop_event=_stop_event,
             )
             logger.info("[%s] pypto workflow finished: status=%s duration=%.1fs message=%s",
                         case.case_id, pypto_result.status.value,
@@ -713,7 +716,28 @@ def _setup_logging(level: str) -> None:
     )
 
 
+_stop_event: Optional[threading.Event] = None
+
+
+def _signal_handler(signum: int, _frame: Any) -> None:
+    """SIGTERM/SIGHUP 转为 KeyboardInterrupt, 并通知子线程停止."""
+    global _stop_event
+    if _stop_event is not None:
+        _stop_event.set()
+    raise KeyboardInterrupt()
+
+
 def main(argv: Optional[List[str]] = None) -> int:
+    global _stop_event
+    _stop_event = threading.Event()
+
+    # SIGTERM: monitor.py _kill_tree 发送; SIGHUP: shell 在 test-integration.sh
+    # 退出时发送. 两者都转为 KeyboardInterrupt 让 asyncio.run 有机会取消.
+    # 同时 set _stop_event, 让 asyncio.to_thread 里的子线程从 sleep 中醒来.
+    signal.signal(signal.SIGTERM, _signal_handler)
+    signal.signal(signal.SIGHUP, _signal_handler)
+    # SIGINT (Ctrl+C) 默认就是 KeyboardInterrupt, 不需要注册.
+
     parser = _build_arg_parser()
     args = parser.parse_args(argv)
     _setup_logging(args.log_level)

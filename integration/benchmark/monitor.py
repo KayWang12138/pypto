@@ -231,22 +231,19 @@ def _find_opencode_procs(root_pid: int) -> Dict[Tuple[str, str], int]:
 
 
 def _kill_tree(root_pid: int, grace_sec: float = 5.0) -> None:
-    """SIGTERM root 及其全部后代, 超时则 SIGKILL."""
-    desc = _descendants(root_pid)
-    for pid in reversed(desc):
-        try:
-            os.kill(pid, signal.SIGTERM)
-        except OSError:
-            pass
+    """先给 root 发 SIGTERM 让其自己清理, 超时再 SIGKILL 整树."""
     try:
         os.kill(root_pid, signal.SIGTERM)
     except OSError:
         pass
+
     deadline = time.monotonic() + grace_sec
     while time.monotonic() < deadline:
         if not _pid_alive(root_pid):
             return
         time.sleep(0.3)
+
+    desc = _descendants(root_pid)
     for pid in reversed(desc) + [root_pid]:
         try:
             os.kill(pid, signal.SIGKILL)
@@ -602,6 +599,7 @@ def _run_monitor_session(cases: str, skip_gen: bool, timeout_sec: int, *, tee_st
     """前台启动 benchmark 并周期性采集状态."""
     global _bench_proc, _daemon_state
     signal.signal(signal.SIGTERM, _sigterm_handler)
+    signal.signal(signal.SIGHUP, _sigterm_handler)
 
     sd = _state_dir()
     bench_root = _benchmark_log_root()
