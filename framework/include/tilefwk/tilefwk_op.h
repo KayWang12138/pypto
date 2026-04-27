@@ -40,6 +40,11 @@ enum class OutType {
     BIT,
 };
 
+enum class DequantScaleRoundingMode : int64_t {
+    ROUND_UP = 0,
+    ROUND_DOWN = 1,
+};
+
 enum class SaturationMode : uint8_t {
     ON = 0,
     OFF = 1,
@@ -382,6 +387,10 @@ Tensor Sigmoid(Tensor& input);
 
 std::tuple<Tensor, Tensor> Quant(
     const Tensor& input, bool isSymmetry = true, bool hasSmoothFactor = false, const Tensor& smoothFactor = Tensor());
+std::tuple<Tensor, Tensor> QuantMX(
+    const Tensor& input, DataType quantDtype = DataType::DT_FP8E4M3,
+    DequantScaleRoundingMode mode = DequantScaleRoundingMode::ROUND_DOWN, int64_t axis = -1,
+    bool performanceMode = false);
 
 Tensor ScalarDivS(const Tensor& operand, const Element& value, bool reverseOperand = false);
 Tensor ScalarAddS(const Tensor& operand, const Element& value, bool reverseOperand = false);
