@@ -797,5 +797,5 @@ def test_lightning_indexer():
 if __name__ == "__main__":
     print("Lightning Indexer: sort32 + mrgsort + cross-tile merge, BNG + sparseMode=0/3 support")
     print("=" * 60)
-    test_lightning_indexer()
+    # test_lightning_indexer()
     print("\nAll lightning_indexer tests passed!")

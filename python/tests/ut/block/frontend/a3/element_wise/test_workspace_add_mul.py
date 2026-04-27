@@ -128,7 +128,7 @@ def workspace_add_mul_kernel(
                 pl.system.sync_src(set_pipe=pl.PipeType.MTE3, wait_pipe=pl.PipeType.MTE2, event_id=0)
 
                 plm.store(z, tile_z, [i, j])
-
+        pl.system.sync_dst(set_pipe=pl.PipeType.MTE3, wait_pipe=pl.PipeType.MTE2, event_id=0)
     return z
 
 
@@ -253,7 +253,8 @@ def workspace_add_mul_db_kernel(
                 plm.store(z, tile_z, [i, j])
 
                 buf_idx = (buf_idx + 1) % 2
-
+        pl.system.sync_dst(set_pipe=pl.PipeType.MTE3, wait_pipe=pl.PipeType.MTE2, event_id=0)
+        pl.system.sync_dst(set_pipe=pl.PipeType.MTE3, wait_pipe=pl.PipeType.MTE2, event_id=1)
     return z
 
 
