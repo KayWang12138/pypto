@@ -272,7 +272,8 @@ void GenerateMoveOp::CreateMoveOpForAssemble(Operation& op) const
         return;
     }
     if (inputMemtype == MemoryType::MEM_DEVICE_DDR || outputMemtype != MemoryType::MEM_DEVICE_DDR ||
-        parentOp->GetOpcode() == Opcode::OP_TRANSPOSE_MOVEOUT || parentOp->GetOpcode() == Opcode::OP_INDEX_OUTCAST) {
+        parentOp->GetOpcode() == Opcode::OP_TRANSPOSE_MOVEOUT || parentOp->GetOpcode() == Opcode::OP_INDEX_OUTCAST ||
+        parentOp->GetOpcode() == Opcode::OP_PERMUTE_MOVEOUT) {
         return;
     }
     op.SetOpCode(Opcode::OP_COPY_OUT);

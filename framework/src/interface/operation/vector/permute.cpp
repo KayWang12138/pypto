@@ -111,7 +111,9 @@ static LogicalTensorPtr MakePermutedLogicalTensor(
     } else {
         resultValidShape = SymbolicScalar::FromConcrete(resultShape);
     }
-    return std::make_shared<LogicalTensor>(function, self->tensor->datatype, resultShape, resultValidShape);
+    auto result = std::make_shared<LogicalTensor>(function, self->tensor->datatype, resultShape, resultValidShape);
+    result->CopyMemoryType(self);
+    return result;
 }
 
 void TiledPermuteOperation(
@@ -222,6 +224,228 @@ void PermuteElementOperationTileFunc(
     TiledPermuteElementOperation(function, tileShape, 0, input, oOperand[0], perm);
 }
 
+Tensor TensorPermuteMoveOutOperation(Function& function, LogicalTensorPtr self, const std::vector<int>& perm)
+{
+    auto result = MakePermutedLogicalTensor(function, self, perm);
+    auto& op = function.AddOperation(Opcode::OP_PERMUTE_MOVEOUT, {self}, {result});
+    op.SetAttribute(OpAttributeKey::perm, perm);
+    function.UpdateTensorDataUsage(op);
+    return result;
+}
+
+void TiledPermuteMoveOutOperation(
+    Function& function, const TileShape& tileShape, size_t cur, Input& input, const LogicalTensorPtr& result,
+    const std::vector<int>& perm)
+{
+    int shapeSize = static_cast<int>(input.tensor.GetShape().size());
+    if (cur == static_cast<size_t>(shapeSize)) {
+        auto srcTile = input.tensor.GetStorage()->View(function, input.tileInfo.shape, input.tileInfo.offset);
+        auto resultTileShape = PermuteTileVector(input.tileInfo.shape, perm);
+        auto resultTileOffset = PermuteTileVector(input.tileInfo.offset, perm);
+        auto resultTile = result->View(function, resultTileShape, resultTileOffset);
+
+        auto& op = function.AddOperation(Opcode::OP_PERMUTE_MOVEOUT, {srcTile}, {resultTile});
+        op.SetAttribute(OpAttributeKey::perm, perm);
+        op.SetAttribute(OP_ATTR_PREFIX + "validShape", resultTile->GetDynValidShape());
+        return;
+    }
+
+    auto& vecTile = tileShape.GetVecTile();
+    for (int i = 0; i < input.tensor.GetShape()[cur]; i += vecTile[cur]) {
+        input.tileInfo.shape[cur] = std::min(input.tensor.GetShape()[cur] - i, vecTile[cur]);
+        input.tileInfo.offset[cur] = i;
+        TiledPermuteMoveOutOperation(function, tileShape, cur + 1, input, result, perm);
+    }
+}
+
+void PermuteMoveOutOperationTileFunc(
+    Function& function, const TileShape& tileShape, const std::vector<LogicalTensorPtr>& iOperand,
+    const std::vector<LogicalTensorPtr>& oOperand, const Operation& op)
+{
+    PermuteOperationOperandCheck(iOperand, oOperand);
+
+    std::vector<int> perm = op.GetVectorIntAttribute<int>(OpAttributeKey::perm);
+
+    TileInfo tileInfo(iOperand[0]->shape.size(), iOperand[0]->offset.size());
+    Input input{iOperand[0], tileInfo};
+    TiledPermuteMoveOutOperation(function, tileShape, 0, input, oOperand[0], perm);
+}
+
+static void ComputeStep1Step3Perm(
+    const std::vector<int>& perm, std::vector<int>& step1Perm, std::vector<int>& step3Perm)
+{
+    int n = static_cast<int>(perm.size());
+    int tailInputAxis = n - 1;
+    int tailOutputAxis = perm[n - 1];
+
+    step1Perm.resize(n);
+    std::vector<bool> used(n, false);
+
+    used[tailInputAxis] = true;
+    step1Perm[n - 1] = tailInputAxis;
+
+    used[tailOutputAxis] = true;
+    step1Perm[n - 2] = tailOutputAxis;
+
+    std::vector<int> remaining;
+    for (int p : perm) {
+        if (p != tailOutputAxis && p != tailInputAxis) {
+            remaining.push_back(p);
+        }
+    }
+
+    int rIdx = 0;
+    for (int i = 0; i < n - 2; ++i) {
+        step1Perm[i] = remaining[rIdx++];
+    }
+
+    std::vector<int> step2Result = step1Perm;
+    std::swap(step2Result[n - 2], step2Result[n - 1]);
+
+    step3Perm.resize(n);
+    for (int i = 0; i < n; ++i) {
+        for (int j = 0; j < n; ++j) {
+            if (step2Result[j] == perm[i]) {
+                step3Perm[i] = j;
+                break;
+            }
+        }
+    }
+}
+
+static Tensor TensorTailAxisPermute(
+    Function& function, const LogicalTensorPtr& selfLogical, const std::vector<int>& perm)
+{
+    auto resultLogical = MakePermutedLogicalTensor(function, selfLogical, perm);
+    resultLogical->isSubGraphBoundary = true;
+    int n = static_cast<int>(perm.size());
+
+    std::vector<int> step1Perm;
+    std::vector<int> step3Perm;
+    ComputeStep1Step3Perm(perm, step1Perm, step3Perm);
+
+    std::vector<int64_t> step1ShapeOriginal = PermuteResultShape(selfLogical->shape, step1Perm);
+    std::vector<int64_t> step1ShapePadded = step1ShapeOriginal;
+    constexpr int64_t UB_BLOCK_SIZE = 32;
+    int64_t bytesPerElement = selfLogical->Datatype() == DT_FP32 ? 4 : 2;
+    int64_t elementAlign = UB_BLOCK_SIZE / bytesPerElement;
+    step1ShapePadded[n - 2] = (step1ShapePadded[n - 2] + elementAlign - 1) / elementAlign * elementAlign;
+    auto ubBuf1 = std::make_shared<LogicalTensor>(
+        function, selfLogical->Datatype(), step1ShapePadded, SymbolicScalar::FromConcrete(step1ShapePadded));
+    ubBuf1->SetMemoryTypeBoth(MemoryType::MEM_UB);
+
+    auto ubBuf2ShapePadded = step1ShapePadded;
+    std::swap(ubBuf2ShapePadded[n - 2], ubBuf2ShapePadded[n - 1]);
+    auto ubBuf2 = std::make_shared<LogicalTensor>(
+        function, selfLogical->Datatype(), ubBuf2ShapePadded, SymbolicScalar::FromConcrete(ubBuf2ShapePadded));
+    ubBuf2->SetMemoryTypeBoth(MemoryType::MEM_UB);
+
+    auto tmpBufShape = ubBuf2ShapePadded;
+    tmpBufShape[n - 1] = (tmpBufShape[n - 1] + elementAlign - 1) / elementAlign * elementAlign;
+    auto tmpBuf = std::make_shared<LogicalTensor>(
+        function, selfLogical->Datatype(), tmpBufShape, SymbolicScalar::FromConcrete(tmpBufShape));
+    tmpBuf->SetMemoryTypeBoth(MemoryType::MEM_UB);
+
+    LogicalTensors outOp = {resultLogical, ubBuf1, ubBuf2, tmpBuf};
+    auto& op = function.AddOperation(Opcode::OP_TAIL_AXIS_PERMUTE, {selfLogical}, outOp);
+    std::vector<int64_t> step1Perm64(step1Perm.begin(), step1Perm.end());
+    std::vector<int64_t> step3Perm64(step3Perm.begin(), step3Perm.end());
+    op.SetAttribute(OP_ATTR_PREFIX + "step1Perm", step1Perm64);
+    op.SetAttribute(OP_ATTR_PREFIX + "step3Perm", step3Perm64);
+    op.SetAttribute(OP_ATTR_PREFIX + "dimCount", static_cast<int64_t>(n));
+    op.SetAttribute(OpAttributeKey::perm, perm);
+    op.SetAttribute(OP_ATTR_PREFIX + "validShape", resultLogical->GetDynValidShape());
+    op.SetAttribute(OP_ATTR_PREFIX + "ub1ValidShape3", step1ShapeOriginal[n - 2]);
+    op.SetAttribute(OP_ATTR_PREFIX + "ub1ValidShape4", step1ShapeOriginal[n - 1]);
+    function.UpdateTensorDataUsage(op);
+
+    return Tensor(resultLogical);
+}
+
+namespace {
+inline std::vector<int> VectorInt64ToInt(const std::vector<int64_t>& v)
+{
+    std::vector<int> result;
+    result.reserve(v.size());
+    for (auto val : v) {
+        result.push_back(static_cast<int>(val));
+    }
+    return result;
+}
+} // anonymous namespace
+
+void TiledTailAxisPermuteOperation(
+    Function& function, const TileShape& tileShape, size_t cur, Input& input, const LogicalTensorPtr& result,
+    const LogicalTensorPtr& ubBuf1, const LogicalTensorPtr& ubBuf2, const LogicalTensorPtr& tmpBuf,
+    const std::vector<int64_t>& step1Perm, const std::vector<int64_t>& step3Perm, int64_t dimCount)
+{
+    int shapeSize = static_cast<int>(input.tensor.GetShape().size());
+    if (cur == static_cast<size_t>(shapeSize)) {
+        auto srcTile = input.tensor.GetStorage()->View(function, input.tileInfo.shape, input.tileInfo.offset);
+        srcTile->CopyMemoryType(input.tensor.GetStorage());
+        auto step1PermInt = VectorInt64ToInt(step1Perm);
+        auto step3PermInt = VectorInt64ToInt(step3Perm);
+        auto step1TileShape = PermuteTileVector(input.tileInfo.shape, step1PermInt);
+        auto step1TileOffset = PermuteTileVector(input.tileInfo.offset, step1PermInt);
+        auto ubBuf1Tile = ubBuf1->View(function, step1TileShape, step1TileOffset);
+        ubBuf1Tile->CopyMemoryType(ubBuf1);
+
+        auto ubBuf2TileShape = step1TileShape;
+        std::swap(ubBuf2TileShape[shapeSize - 2], ubBuf2TileShape[shapeSize - 1]);
+        auto ubBuf2TileOffset = step1TileOffset;
+        std::swap(ubBuf2TileOffset[shapeSize - 2], ubBuf2TileOffset[shapeSize - 1]);
+        auto ubBuf2Tile = ubBuf2->View(function, ubBuf2TileShape, ubBuf2TileOffset);
+        ubBuf2Tile->CopyMemoryType(ubBuf2);
+
+        auto tmpBufTileShape = ubBuf2TileShape;
+        auto tmpBufTile = tmpBuf->View(function, tmpBufTileShape, ubBuf2TileOffset);
+        tmpBufTile->CopyMemoryType(tmpBuf);
+
+        auto step2TileShape = step1TileShape;
+        std::swap(step2TileShape[shapeSize - 2], step2TileShape[shapeSize - 1]);
+        auto resultTileShape = PermuteTileVector(step2TileShape, step3PermInt);
+        auto resultTileOffset = PermuteTileVector(ubBuf2TileOffset, step3PermInt);
+        auto resultTile = result->View(function, resultTileShape, resultTileOffset);
+        resultTile->CopyMemoryType(result);
+        resultTile->isSubGraphBoundary = true;
+
+        LogicalTensors outOp = {resultTile, ubBuf1Tile, ubBuf2Tile, tmpBufTile};
+        auto& op = function.AddOperation(Opcode::OP_TAIL_AXIS_PERMUTE, {srcTile}, outOp);
+        op.SetAttribute(OP_ATTR_PREFIX + "step1Perm", step1Perm);
+        op.SetAttribute(OP_ATTR_PREFIX + "step3Perm", step3Perm);
+        op.SetAttribute(OP_ATTR_PREFIX + "dimCount", dimCount);
+        op.SetAttribute(OP_ATTR_PREFIX + "ub1ValidShape3", step1TileShape[shapeSize - 2]);
+        op.SetAttribute(OP_ATTR_PREFIX + "ub1ValidShape4", step1TileShape[shapeSize - 1]);
+        return;
+    }
+
+    auto& vecTile = tileShape.GetVecTile();
+    for (int i = 0; i < input.tensor.GetShape()[cur]; i += vecTile[cur]) {
+        input.tileInfo.shape[cur] = std::min(input.tensor.GetShape()[cur] - i, vecTile[cur]);
+        input.tileInfo.offset[cur] = i;
+        TiledTailAxisPermuteOperation(
+            function, tileShape, cur + 1, input, result, ubBuf1, ubBuf2, tmpBuf, step1Perm, step3Perm, dimCount);
+    }
+}
+
+void TailAxisPermuteOperationTileFunc(
+    Function& function, const TileShape& tileShape, const std::vector<LogicalTensorPtr>& iOperand,
+    const std::vector<LogicalTensorPtr>& oOperand, const Operation& op)
+{
+    PermuteOperationOperandCheck({iOperand[0]}, {oOperand[0]});
+
+    auto step1Perm = op.GetVectorIntAttribute<int64_t>(OP_ATTR_PREFIX + "step1Perm");
+    auto step3Perm = op.GetVectorIntAttribute<int64_t>(OP_ATTR_PREFIX + "step3Perm");
+    int64_t dimCount = 0;
+    op.GetAttr(OP_ATTR_PREFIX + "dimCount", dimCount);
+
+    TileInfo tileInfo(iOperand[0]->shape.size(), iOperand[0]->offset.size());
+    Input input{iOperand[0], tileInfo};
+    TiledTailAxisPermuteOperation(
+        function, tileShape, 0, input, oOperand[0], oOperand[1], oOperand[2], oOperand[3], step1Perm, step3Perm,
+        dimCount);
+}
+
 Tensor Permute(const Tensor& self, std::vector<int> perm)
 {
     DECLARE_TRACER();
@@ -248,7 +472,7 @@ Tensor Permute(const Tensor& self, std::vector<int> perm)
 
     bool lastAxisInvolved = (perm[shapeSize - 1] != shapeSize - 1);
     if (lastAxisInvolved) {
-        RETURN_CALL(ElementPermuteOperation, *Program::GetInstance().GetCurrentFunction(), self.GetStorage(), perm);
+        return TensorTailAxisPermute(*Program::GetInstance().GetCurrentFunction(), self.GetStorage(), perm);
     }
 
     RETURN_CALL(PermuteOperation, *Program::GetInstance().GetCurrentFunction(), self.GetStorage(), perm);
@@ -256,5 +480,7 @@ Tensor Permute(const Tensor& self, std::vector<int> perm)
 
 REGISTER_OPERATION_TILED_FUNC(OP_PERMUTE, Opcode::OP_PERMUTE, PermuteOperationTileFunc);
 REGISTER_OPERATION_TILED_FUNC(OP_PERMUTE_ELEMENT, Opcode::OP_PERMUTE_ELEMENT, PermuteElementOperationTileFunc);
+REGISTER_OPERATION_TILED_FUNC(OP_PERMUTE_MOVEOUT, Opcode::OP_PERMUTE_MOVEOUT, PermuteMoveOutOperationTileFunc);
+REGISTER_OPERATION_TILED_FUNC(OP_TAIL_AXIS_PERMUTE, Opcode::OP_TAIL_AXIS_PERMUTE, TailAxisPermuteOperationTileFunc);
 
 } // namespace npu::tile_fwk

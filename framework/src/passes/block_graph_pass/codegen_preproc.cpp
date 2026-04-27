@@ -78,6 +78,10 @@ Status CodegenPreproc::SaveGmTensorParamIdxToOp(Function& func) const
             if (op.GetOpcode() == Opcode::OP_PERMUTE || op.GetOpcode() == Opcode::OP_PERMUTE_ELEMENT) {
                 gmParamInCallFunc[op.GetIOpAttrOffset(0)].emplace_back(&op);
             }
+            if (op.GetOpcode() == Opcode::OP_TAIL_AXIS_PERMUTE) {
+                gmParamInCallFunc[op.GetOOpAttrOffset(0)].emplace_back(&op);
+                gmParamInCallFunc[op.GetIOpAttrOffset(0)].emplace_back(&op);
+            }
         }
 
         APASS_LOG_INFO_F(

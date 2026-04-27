@@ -216,6 +216,93 @@ std::string CodeGenOpNPU::PrintPermuteLayout() const
 
 std::string CodeGenOpNPU::GenPermuteOp() const { return PrintPermuteLayout(); }
 
+std::string CodeGenOpNPU::PrintPermuteMoveOutLayout() const
+{
+    size_t dstDim = rawShape[ToUnderlying(MISOIdx::DST_IDX)].size();
+    auto dstOffsetSymbol = GenGetParamMacroPacked(ToUnderlying(MISOIdx::DST_IDX), dstDim, PREFIX_STR_OFFSET);
+    std::string coordCpDst = WrapParamByParentheses(dstOffsetSymbol);
+    std::string coord4Dst = PrintCoord(dstDim, coordCpDst);
+
+    std::string srcTensor = QueryTileTensorNameByIdx(ToUnderlying(MISOIdx::SRC0_IDX));
+    std::string outputTensor = QueryTileTensorNameByIdx(ToUnderlying(MISOIdx::DST_IDX));
+
+    auto permAttr = opAttrs.at(OpAttributeKey::perm);
+    const auto& permVec = AnyCast<std::vector<int64_t>>(permAttr);
+    std::vector<int> axes(MAX_DIM + 1, -1);
+    for (size_t i = 0; i < permVec.size() && i < 5; ++i) {
+        axes[i] = static_cast<int>(permVec[i]);
+    }
+    axes[MAX_DIM] = permVec.size();
+    std::vector<std::string> tileOpParamList = {outputTensor, srcTensor, coord4Dst};
+    std::ostringstream oss;
+    oss << tileOpName << WrapParamByAngleBrackets(axes) << WrapParamByParentheses(tileOpParamList) << STMT_END;
+    return oss.str();
+}
+
+std::string CodeGenOpNPU::GenPermuteMoveOutOp() const { return PrintPermuteMoveOutLayout(); }
+
+std::string CodeGenOpNPU::GenTailAxisPermuteOp() const
+{
+    constexpr int srcParamIdx = 4;
+    constexpr int dstParamIdx = 0;
+    size_t srcDim = rawShape[srcParamIdx].size();
+    auto srcOffsetSymbol = GenGetParamMacroPacked(srcParamIdx, srcDim, PREFIX_STR_OFFSET);
+    std::string coordCpSrc = WrapParamByParentheses(srcOffsetSymbol);
+    std::string coord4Src = PrintCoord(srcDim, coordCpSrc);
+
+    size_t dstDim = rawShape[dstParamIdx].size();
+    auto dstOffsetSymbol = GenGetParamMacroPacked(dstParamIdx, dstDim, PREFIX_STR_OFFSET);
+    std::string coordCpDst = WrapParamByParentheses(dstOffsetSymbol);
+    std::string coord4Dst = PrintCoord(dstDim, coordCpDst);
+
+    std::string dstTensor = QueryTileTensorNameByIdx(dstParamIdx);
+    std::string srcTensor = QueryTileTensorNameByIdx(srcParamIdx);
+    std::string ubBuf1 = QueryTileTensorNameByIdx(1);
+    std::string ubBuf2 = QueryTileTensorNameByIdx(2);
+    std::string ubBuf3 = QueryTileTensorNameByIdx(3);
+
+    auto step1PermAttr = opAttrs.at(OP_ATTR_PREFIX + "step1Perm");
+    const auto& step1PermVec = AnyCast<std::vector<int64_t>>(step1PermAttr);
+    auto step3PermAttr = opAttrs.at(OP_ATTR_PREFIX + "step3Perm");
+    const auto& step3PermVec = AnyCast<std::vector<int64_t>>(step3PermAttr);
+    auto dimCountAttr = opAttrs.at(OP_ATTR_PREFIX + "dimCount");
+    int dimCount = static_cast<int>(AnyCast<int64_t>(dimCountAttr));
+
+    std::vector<int> axes(11, -1);
+    for (size_t i = 0; i < step1PermVec.size() && i < 5; ++i) {
+        axes[i] = static_cast<int>(step1PermVec[i]);
+    }
+    for (size_t i = 0; i < step3PermVec.size() && i < 5; ++i) {
+        axes[5 + i] = static_cast<int>(step3PermVec[i]);
+    }
+    axes[10] = dimCount;
+
+    int64_t ub1ValidShape3 = 16;
+    int64_t ub1ValidShape4 = 16;
+    auto ub1ValidShape3Attr = opAttrs.find(OP_ATTR_PREFIX + "ub1ValidShape3");
+    if (ub1ValidShape3Attr != opAttrs.end()) {
+        ub1ValidShape3 = AnyCast<int64_t>(ub1ValidShape3Attr->second);
+    }
+    auto ub1ValidShape4Attr = opAttrs.find(OP_ATTR_PREFIX + "ub1ValidShape4");
+    if (ub1ValidShape4Attr != opAttrs.end()) {
+        ub1ValidShape4 = AnyCast<int64_t>(ub1ValidShape4Attr->second);
+    }
+
+    std::vector<std::string> tileOpParamList = {
+        dstTensor,
+        srcTensor,
+        ubBuf1,
+        ubBuf2,
+        ubBuf3,
+        coord4Src,
+        coord4Dst,
+        std::to_string(ub1ValidShape3),
+        std::to_string(ub1ValidShape4)};
+    std::ostringstream oss;
+    oss << tileOpName << WrapParamByAngleBrackets(axes) << WrapParamByParentheses(tileOpParamList) << STMT_END;
+    return oss.str();
+}
+
 std::string CodeGenOpNPU::GenTransposeDataMove() const
 {
     bool isCopyLocalToGM = opCode == Opcode::OP_TRANSPOSE_MOVEOUT;
@@ -1383,7 +1470,7 @@ void CodeGenOpNPU::GetWhereVarAndType(std::vector<std::string>& varExpr, std::ve
     varExpr.reserve(paramCnt);
 
     varExpr.emplace_back(
-        sm->QueryVarNameByTensorMagic(operandWithMagic[ToUnderlying(WhereOpIdx::resIdx)]));  // 0: dstVar
+        sm->QueryVarNameByTensorMagic(operandWithMagic[ToUnderlying(WhereOpIdx::resIdx)])); // 0: dstVar
     varExpr.emplace_back(
         sm->QueryVarNameByTensorMagic(operandWithMagic[ToUnderlying(WhereOpIdx::tempIdx)])); // 1: tempVar
     varExpr.emplace_back(
@@ -1541,14 +1628,12 @@ std::string CodeGenOpNPU::PrintWhereOpTileTensor(const WhereParam& param) const
     if (opCode == Opcode::OP_WHERE_TS) {
         std::string src0Tensor = QueryTileTensorNameByIdx(ToUnderlying(WhereOpIdx::src0Idx));
         std::string scalarVar = FormatFloat(extOperandVal.GetVariantData());
-        oss << src0Tensor << ", " << dataTypeExpr[0] + "(" + scalarVar + ")"
-            << ");\n";
+        oss << src0Tensor << ", " << dataTypeExpr[0] + "(" + scalarVar + ")" << ");\n";
     }
     if (opCode == Opcode::OP_WHERE_ST) {
         std::string src0Tensor = QueryTileTensorNameByIdx(ToUnderlying(WhereOpIdx::src0Idx));
         std::string scalarVar = FormatFloat(extOperandVal.GetVariantData());
-        oss << dataTypeExpr[0] + "(" + scalarVar + ")"
-            << ", " << src0Tensor << ");\n";
+        oss << dataTypeExpr[0] + "(" + scalarVar + ")" << ", " << src0Tensor << ");\n";
     }
     if (opCode == Opcode::OP_WHERE_SS) {
         std::string src0Var = FormatFloat(extScalarVec[0].GetVariantData());

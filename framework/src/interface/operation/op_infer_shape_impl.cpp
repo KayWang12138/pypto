@@ -1093,7 +1093,7 @@ void TransposeInferFunc(Operation* op, std::vector<std::vector<SymbolicScalar>>&
             copyOpAttribute->SetToDynValidShape(OpImmediate::Specified(outValidShapes[0]));
         }
     }
-    if (op->GetOpcode() == Opcode::OP_TRANSPOSE_MOVEOUT) {
+    if (op->GetOpcode() == Opcode::OP_TRANSPOSE_MOVEOUT || op->GetOpcode() == Opcode::OP_PERMUTE_MOVEOUT) {
         auto copyOpAttribute = std::dynamic_pointer_cast<CopyOpAttribute>(op->GetOpAttribute());
         if (copyOpAttribute != nullptr) {
             copyOpAttribute->SetFromDynValidShape(OpImmediate::Specified(outValidShapes[0]));
@@ -1117,10 +1117,10 @@ REGISTER_INFER_SHAPE_FUNC(OP_TRANSPOSE_VNCHWCONV, Opcode::OP_TRANSPOSE_VNCHWCONV
 REGISTER_INFER_SHAPE_FUNC(OP_TRANSPOSE_MOVEIN, Opcode::OP_TRANSPOSE_MOVEIN, TransposeInferFunc);
 REGISTER_INFER_SHAPE_FUNC(OP_TRANSPOSE_MOVEOUT, Opcode::OP_TRANSPOSE_MOVEOUT, TransposeInferFunc);
 
-void PermuteInferFunc(Operation *op, std::vector<std::vector<SymbolicScalar>> &outValidShapes)
+void PermuteInferFunc(Operation* op, std::vector<std::vector<SymbolicScalar>>& outValidShapes)
 {
     std::vector<SymbolicScalar> validShape;
-    const auto &oOperands = op->GetOOperands();
+    const auto& oOperands = op->GetOOperands();
 
     std::vector<SymbolicScalar> inputValidShape;
     if (!op->GetIOperands().empty()) {
@@ -1151,6 +1151,7 @@ void PermuteInferFunc(Operation *op, std::vector<std::vector<SymbolicScalar>> &o
 
 REGISTER_INFER_SHAPE_FUNC(OP_PERMUTE, Opcode::OP_PERMUTE, PermuteInferFunc);
 REGISTER_INFER_SHAPE_FUNC(OP_PERMUTE_ELEMENT, Opcode::OP_PERMUTE_ELEMENT, PermuteInferFunc);
+REGISTER_INFER_SHAPE_FUNC(OP_PERMUTE_MOVEOUT, Opcode::OP_PERMUTE_MOVEOUT, PermuteInferFunc);
 
 void ViewInferFunc(Operation* op, std::vector<std::vector<SymbolicScalar>>& outValidShapes)
 {
