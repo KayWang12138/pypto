@@ -46,6 +46,31 @@ struct QuantMXOpMetaData {
     nlohmann::json test_data_;
 };
 
+static void QuantMXOperationExeFunc1D(
+    const std::vector<Tensor>& inputs, std::vector<Tensor>& outputs, const OpFuncArgs* opArgs)
+{
+    FUNCTION("main", {inputs[0]}, {outputs[0], outputs[1]})
+    {
+        auto args = static_cast<const QuantMXOpFuncArgs*>(opArgs);
+        SymbolicScalar firstDim = inputs[0].GetShape()[0];
+        const int firstViewShape = args->viewShape_[0];
+        const int firstLoop = CeilDiv(firstDim, firstViewShape);
+
+        LOOP("LOOP_L0_bIdx", FunctionType::DYNAMIC_LOOP, bIdx, LoopRange(0, firstLoop, 1))
+        {
+            std::vector<SymbolicScalar> offset = {bIdx * firstViewShape};
+            auto viewTensor = View(
+                inputs[0], args->viewShape_, {std::min(firstDim - bIdx * firstViewShape, firstViewShape)},
+                offset);
+            TileShape::Current().SetVecTile(args->tileShape_);
+            auto res = QuantMX(viewTensor, args->quantDtype_, args->mode_, -1, args->performanceMode_);
+            std::vector<SymbolicScalar> scaleOffset = {offset[0] / QUANT_MX_SCALE_GROUP_COLS, 0};
+            Assemble(std::get<0>(res), offset, outputs[0]);
+            Assemble(std::get<1>(res), scaleOffset, outputs[1]);
+        }
+    }
+}
+
 static void QuantMXOperationExeFunc2D(
     const std::vector<Tensor>& inputs, std::vector<Tensor>& outputs, const OpFuncArgs* opArgs)
 {
@@ -178,7 +203,10 @@ class QuantMXOperationTest : public npu::tile_fwk::stest::TestSuite_STest_Ops_Ai
 INSTANTIATE_TEST_SUITE_P(
     TestQuantMX, QuantMXOperationTest,
     ::testing::ValuesIn(
-        GetOpMetaData<QuantMXOpMetaData>({QuantMXOperationExeFunc2D, QuantMXOperationExeFunc3D, QuantMXOperationExeFunc4D}, "QuantMX")));
+        GetOpMetaData<QuantMXOpMetaData, 1>(
+            {QuantMXOperationExeFunc1D, QuantMXOperationExeFunc2D, QuantMXOperationExeFunc3D,
+             QuantMXOperationExeFunc4D},
+            "QuantMX")));
 
 TEST_P(QuantMXOperationTest, TestQuantMX)
 {

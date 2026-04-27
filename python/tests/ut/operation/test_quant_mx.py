@@ -40,6 +40,19 @@ def test_quant_mx_tensor_method():
     assert scale.shape == [1, 1, 2]
 
 
+def test_quant_mx_supports_1d():
+    x = pypto.tensor((128,), pypto.DT_FP32, "x")
+
+    with pypto.function("QUANT_MX_1D", x):
+        pypto.set_vec_tile_shapes(128)
+        quantized, scale = pypto.quant_mx(x, mode=pypto.ROUND_DOWN)
+
+    assert quantized.shape == [128]
+    assert scale.shape == [2, 2]
+    assert quantized.dtype == pypto.DT_FP8E4M3
+    assert scale.dtype == pypto.DT_FP8E8M0
+
+
 def test_quant_mx_accepts_positive_last_axis():
     x = pypto.tensor((8, 128), pypto.DT_FP32, "x")
 
@@ -198,15 +211,6 @@ def test_quant_mx_rejects_non_nd():
 
     with pypto.function("QUANT_MX_BAD_FORMAT", x):
         pypto.set_vec_tile_shapes(8, 128)
-        with pytest.raises(RuntimeError):
-            pypto.quant_mx(x, mode=pypto.ROUND_DOWN)
-
-
-def test_quant_mx_rejects_rank_below_2():
-    x = pypto.tensor((128,), pypto.DT_FP32, "x")
-
-    with pypto.function("QUANT_MX_BAD_RANK_LOW", x):
-        pypto.set_vec_tile_shapes(128)
         with pytest.raises(RuntimeError):
             pypto.quant_mx(x, mode=pypto.ROUND_DOWN)
 

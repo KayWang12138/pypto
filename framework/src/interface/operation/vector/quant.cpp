@@ -21,7 +21,7 @@
 
 namespace npu::tile_fwk {
 namespace {
-constexpr size_t QUANT_MX_MIN_RANK = 2;
+constexpr size_t QUANT_MX_MIN_RANK = 1;
 constexpr size_t QUANT_MX_MAX_RANK = 4;
 constexpr int64_t QUANT_MX_GROUP_COLS = 32;
 constexpr int64_t QUANT_MX_SCALE_GROUP_COLS = 64;
@@ -102,7 +102,7 @@ void CheckQuantMXInput(const Tensor& input, DataType quantDtype, DequantScaleRou
     ASSERT(
         VectorErrorCode::ERR_PARAM_SHAPE_DIM_UNSUPPORTED,
         QUANT_MX_MIN_RANK <= input.GetShape().size() && input.GetShape().size() <= QUANT_MX_MAX_RANK)
-        << "QuantMX only supports 2D to 4D input.";
+        << "QuantMX only supports 1D to 4D input.";
     CheckQuantMXAxis(axis, input.GetShape().size());
     const int64_t lastDimBytes = input.GetShape().back() * BytesOf(inputDtype);
     ASSERT(VectorErrorCode::ERR_PARAM_INVALID, lastDimBytes % QUANT_MX_TILE_ALIGN_BYTES == 0)
