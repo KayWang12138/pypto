@@ -42,7 +42,9 @@ pass() { echo "  [PASS] $*"; }
 fail() { echo "  [FAIL] $*" >&2; exit 1; }
 
 # ---- 错误位置打印 (set -u 下要给 BASH_SOURCE[1] 兜底, 否则顶层 caller 时 unbound) ----
-trap 'rc=$?; echo "[lib.sh] ERROR at ${BASH_SOURCE[1]:-${BASH_SOURCE[0]}}:${BASH_LINENO[0]:-?} (rc=${rc})" >&2; exit ${rc}' ERR
+# rc >= 128 是信号退出码 (130=SIGINT, 137=SIGKILL, 143=SIGTERM),
+# 属于用户主动中断, 不打印 ERROR.
+trap 'rc=$?; if [ $rc -ge 128 ]; then exit $rc; fi; echo "[lib.sh] ERROR at ${BASH_SOURCE[1]:-${BASH_SOURCE[0]}}:${BASH_LINENO[0]:-?} (rc=${rc})" >&2; exit ${rc}' ERR
 
 # ---- 通用前置 ----
 require_npu() {
