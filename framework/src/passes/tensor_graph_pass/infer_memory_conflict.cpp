@@ -137,6 +137,11 @@ bool InferMemoryConflict::CheckRawShapeConflict(
             outRawSize *= (outEntry->second / inEntry->second);
         }
     }
+    auto reshapeInput = reshapeOp->GetInputOperand(0);
+    auto reshapeOutput = reshapeOp->GetOutputOperand(0);
+    if (MatchReshapePattern(reshapeInput, reshapeOutput)) {
+        return false;
+    }
     for (size_t i = 0; i < inShape.size(); ++i) {
         if (inShape[i] < 0) {
             APASS_LOG_DEBUG_F(
@@ -154,11 +159,6 @@ bool InferMemoryConflict::CheckRawShapeConflict(
             return true;
         }
         outRawSize *= outShape[i];
-    }
-    auto reshapeInput = reshapeOp->GetInputOperand(0);
-    auto reshapeOutput = reshapeOp->GetOutputOperand(0);
-    if (MatchReshapePattern(reshapeInput, reshapeOutput)) {
-        return false;
     }
     if (inRawSize > 0 && outRawSize > 0 && inRawSize != outRawSize) {
         APASS_LOG_DEBUG_F(
