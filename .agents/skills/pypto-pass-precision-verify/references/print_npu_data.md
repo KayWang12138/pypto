@@ -234,9 +234,30 @@ python3 ../scripts/print_npu_data.py --work-path /path/to/work --list-cce
 ### 添加tensor打印
 
 ```bash
+# 默认打印64个元素（偏移量0~63）
 python3 ../scripts/print_npu_data.py \
     --work-path /path/to/work --print-idx 0 --tensor gmTensor_001
+
+# 指定打印范围（例如打印前80个元素）
+python3 ../scripts/print_npu_data.py \
+    --work-path /path/to/work --print-idx 0 --tensor gmTensor_001 \
+    --start-offset 0 --end-offset 79
+
+# 指定数据类型
+python3 ../scripts/print_npu_data.py \
+    --work-path /path/to/work --print-idx 0 --tensor gmTensor_001 \
+    --dtype bfloat16_t
 ```
+
+**打印参数说明**：
+
+| 参数 | 默认值 | 说明 |
+|-----|-------|------|
+| `--start-offset` | 0 | 打印起始偏移量 |
+| `--end-offset` | 63 | 打印末尾偏移量 |
+| 元素数量 | 64 | 默认打印64个元素（末尾-起始+1） |
+| 元素数量限制 | ≤80 | 单次打印最多80个元素 |
+| `--dtype` | float | 数据类型（float/bfloat16_t/half/int32_t） |
 
 ### 添加shape打印
 
