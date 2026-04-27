@@ -74,6 +74,7 @@ enum class Opcode {
     OP_BITWISEXORS,
     OP_TRIUL,
     OP_POW,
+    OP_POWS,
     OP_S_ADDS,
     OP_S_SUBS,
     OP_S_MULS,
@@ -98,6 +99,8 @@ enum class Opcode {
     OP_SBITWISELEFTSHIFT,
     OP_BITWISENOT,
     OP_COPYSIGN,
+    OP_SIN,
+    OP_COS,
     // Binary Vector
     OP_ADD,
     OP_SUB,
@@ -290,6 +293,12 @@ enum class Opcode {
     OP_BIND_TENSOR,
     OP_MOE_DISTRIBUTED_COMBINE_SEND,
     OP_MOE_DISTRIBUTED_COMBINE_RECEIVE,
+
+    // Quantization
+    OP_QUANTIZE_SYM,   // Symmetric quantization: FP32 -> INT8
+    OP_QUANTIZE_ASYM,  // Asymmetric quantization: FP32 -> UINT8
+    OP_DEQUANTIZE,
+
     // Begin: add for TOPK and ArgSort
     OP_TOPK,
     OP_TILEDMRGSORT,
@@ -374,6 +383,7 @@ public:
     void RegisterVectorUnary();
     void RegisterVectorSort();
     void RegisterVectorReduction();
+    void RegisterVectorQuant();
     void RegisterVector();
     void RegisterCube();
     void RegisterDistribute();
@@ -592,12 +602,12 @@ const std::unordered_set<Opcode> BINARY_OPS{
     Opcode::OP_EXPANDEXPDIF,
     Opcode::OP_COPYSIGN,
     Opcode::OP_FLOORDIV,
-    Opcode::OP_FLOORDIVS,
+    Opcode::OP_FLOORDIVS
 };
 
 const std::unordered_set<Opcode> BINARY_WITH_BRC_OPS{
     Opcode::OP_ADD_BRC, Opcode::OP_SUB_BRC, Opcode::OP_MUL_BRC,
-    Opcode::OP_DIV_BRC, Opcode::OP_MAX_BRC, Opcode::OP_MIN_BRC,
+    Opcode::OP_DIV_BRC, Opcode::OP_MAX_BRC, Opcode::OP_MIN_BRC
 };
 
 const std::unordered_set<Opcode> UNARY_OPS{
@@ -606,7 +616,8 @@ const std::unordered_set<Opcode> UNARY_OPS{
     Opcode::OP_EXPAND, Opcode::OP_RECIPROCAL, Opcode::OP_PAD,       Opcode::OP_FILLPAD,     Opcode::OP_ROWSUM,
     Opcode::OP_ROWMAX, Opcode::OP_ROWEXPSUM,  Opcode::OP_ROWEXPMAX, Opcode::OP_L1_TO_L1,    Opcode::OP_COPY_UB_TO_UB,
     Opcode::OP_ROUND,  Opcode::OP_ROWSUMLINE, Opcode::OP_ABS,       Opcode::OP_LN,          Opcode::OP_ISFINITE,
-    Opcode::OP_HUB,    Opcode::OP_BITWISENOT, Opcode::OP_SIGN,      Opcode::OP_ROWPRODLINE, Opcode::OP_SIGNBIT};
+    Opcode::OP_HUB,    Opcode::OP_BITWISENOT, Opcode::OP_SIGN,      Opcode::OP_ROWPRODLINE, Opcode::OP_SIGNBIT,
+    Opcode::OP_SIN,    Opcode::OP_COS};
 
 const std::unordered_set<Opcode> UNARY_OPS_WITH_TMP{
     Opcode::OP_COMPACT,
@@ -620,7 +631,9 @@ const std::unordered_set<Opcode> UNARY_OPS_WITH_TMP{
     Opcode::OP_ROWARGMINLINE,
     Opcode::OP_ROWMAX_COMBINE_AXIS_SINGLE,
     Opcode::OP_ROWSUM_COMBINE_AXIS_SINGLE,
-    Opcode::OP_ROWPROD_SINGLE};
+    Opcode::OP_ROWPROD_SINGLE,
+    Opcode::OP_SIN,
+    Opcode::OP_COS};
 
 const std::unordered_set<Opcode> VECTOR_SCALAR_OPS{
     Opcode::OP_ADDS,
@@ -715,7 +728,6 @@ const std::unordered_set<Opcode> SUPPORT_DYNAMIC_UNALIGNED_OPS{
     Opcode::OP_LOGICALNOT,
     Opcode::OP_LOGICALAND,
     Opcode::OP_ONEHOT,
-    Opcode::OP_POW,
     Opcode::OP_INDEX_PUT,
     Opcode::OP_L1_TO_L0_BT,
     Opcode::OP_L1_TO_L0B,
@@ -760,11 +772,17 @@ const std::unordered_set<Opcode> SUPPORT_DYNAMIC_UNALIGNED_OPS{
     Opcode::OP_CMPS,
     Opcode::OP_EXTRACT,
     Opcode::OP_PRELU,
+    Opcode::OP_SIN,
+    Opcode::OP_COS,
     Opcode::OP_TILEDMRGSORT,
     Opcode::OP_ROWMAXLINE,
     Opcode::OP_PAIRMIN,
     Opcode::OP_ROWMIN_SINGLE,
     Opcode::OP_ROWMINLINE,
+    Opcode::OP_QUANTIZE_SYM,
+    Opcode::OP_QUANTIZE_ASYM,
+    Opcode::OP_DEQUANTIZE,
+
     Opcode::OP_TOPK_SORT,
     Opcode::OP_TOPK_MERGE,
     Opcode::OP_TOPK_EXTRACT,

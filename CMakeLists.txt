@@ -30,6 +30,7 @@ message(STATUS "PTO_FWK_BIN_ROOT=${PTO_FWK_BIN_ROOT}")
 
 # 公开编译开关(build)
 option(BUILD_WITH_CANN "Build with CANN." ON)  # Need to install CANN package and set corresponding environment variables.
+option(BUILD_WITH_CANN_MOBILE "Build with CANN Mobile." OFF)
 option(ENABLE_ASAN "Enable AddressSanitizer" OFF)
 option(ENABLE_UBSAN "Enable UndefinedBehaviorSanitizer" OFF)
 option(ENABLE_GCOV "Enable GNU Coverage Instrumentation Tool" OFF)
@@ -122,6 +123,7 @@ if (ENABLE_FEATURE_PYTHON_FRONT_END)
                 framework/src/interface/configs/tile_fwk_config_schema.json
                 framework/src/platform/parser/platforminfo.ini
                 framework/src/platform/parser/simulation_platform/platform_config/A2A3.ini
+                framework/src/platform/parser/simulation_platform/platform_config/Kirin9030.ini
             DESTINATION ${PyPTO_WhlName}/lib/configs
     )
 
@@ -183,6 +185,7 @@ if (ENABLE_FEATURE_PYTHON_FRONT_END)
     install(FILES
                 framework/include/tilefwk/data_type.h
                 framework/include/tilefwk/error.h
+                framework/include/tilefwk/error_code.h
                 framework/include/tilefwk/lazy.h
                 framework/include/tilefwk/element.h
             DESTINATION ${PyPTO_WhlName}/lib/calculator/include/tilefwk

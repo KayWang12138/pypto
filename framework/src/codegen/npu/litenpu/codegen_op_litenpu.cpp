@@ -14,6 +14,7 @@
  */
 
 #include "codegen_op_litenpu.h"
+#include "codegen/npu/litenpu/codegen_litenpu.h"
 
 namespace npu::tile_fwk {
 
@@ -51,14 +52,15 @@ std::string CodeGenOpLiteNPU::GenGmParamVar(unsigned gmParamIdx) const
     return std::string("RealizedGM") + std::to_string(paramLocation[gmParamIdx]) + ".Addr";
 }
 
-TileTensor CodeGenOpLiteNPU::BuildTileTensor(int paramIdx, const std::string& usingType, const ShapeInLoop& shapeInLoop)
+TileTensor CodeGenOpLiteNPU::BuildTileTensor(
+    int paramIdx, const std::string& usingType, const TileTensorShape& tileTensorShape)
 {
     bool isSpillToGm = operand[paramIdx] == SYMBOL_STACK_BASE;
 
     TileTensor tileTensor;
     tileTensor.isConstant = functionType == FunctionType::STATIC || isMainBlock;
     tileTensor.magic = operandWithMagic[paramIdx];
-    tileTensor.shapeInLoop = shapeInLoop;
+    tileTensor.isInLoop = tileTensorShape.isInLoop;
 
     if (tileTensor.isConstant) {
         tileTensor.dim = originShape[paramIdx].size();
@@ -70,7 +72,7 @@ TileTensor CodeGenOpLiteNPU::BuildTileTensor(int paramIdx, const std::string& us
     tileTensor.bufType = operandType[paramIdx];
 
     if (tileTensor.bufType == OperandType::BUF_DDR) {
-        tileTensor.bufVar = isSpillToGm ? GenGMAddrExprWithOffset(GM_STACK_BASE) : GenGmParamVar(paramIdx);
+        tileTensor.bufVar = isSpillToGm ? GenGMAddrExprWithOffset(CODEGEN_LITENPU_WORKSPACE) : GenGmParamVar(paramIdx);
     } else {
         tileTensor.bufVar = sm->QueryVarNameByTensorMagic(tileTensor.magic, true);
     }
@@ -78,7 +80,7 @@ TileTensor CodeGenOpLiteNPU::BuildTileTensor(int paramIdx, const std::string& us
     tileTensor.usingType = usingType;
 
     tileTensor.tensorName = sm->GenTensorName(tileTensor.bufType);
-    UpdateTileTensorShapeAndStride(paramIdx, tileTensor, isSpillToGm, shapeInLoop);
+    UpdateTileTensorShapeAndStride(paramIdx, tileTensor, isSpillToGm, tileTensorShape);
 
     tileTensor.localBufOffset = offset[paramIdx];
 
@@ -87,11 +89,11 @@ TileTensor CodeGenOpLiteNPU::BuildTileTensor(int paramIdx, const std::string& us
 
 void CodeGenOpLiteNPU::UpdateTileTensorShapeAndStride(
     int paramIdx, TileTensor& tileTensor, [[maybe_unused]] bool isSpillToGm,
-    [[maybe_unused]] const ShapeInLoop& shapeInLoop)
+    [[maybe_unused]] const TileTensorShape& tileTensorShape)
 {
     auto newOriginShape = originShape[paramIdx];
-    auto newRawShape = shapeInLoop.loopDepth > 0 ? shapeInLoop.rawShape : rawShape[paramIdx];
-    auto newDynValidShape = shapeInLoop.loopDepth > 0 ? shapeInLoop.dynamicValidShape : dynamicValidShape[paramIdx];
+    auto newRawShape = tileTensorShape.rawShape;
+    auto newDynValidShape = tileTensorShape.dynamicValidShape;
     CODEGEN_LOGI(
         "newOriginShape is %s, newRawShape is %s, newDynValidShape is %s", IntVecToStr(newOriginShape).c_str(),
         IntVecToStr(newRawShape).c_str(), IntVecToStr(newDynValidShape).c_str());
@@ -106,6 +108,17 @@ void CodeGenOpLiteNPU::UpdateTileTensorShapeAndStride(
         tileTensor.stride = BuildStride(newRawShape);
         return;
     }
+}
+
+std::vector<std::string> CodeGenOpLiteNPU::GetGmOffsetForTileTensor(unsigned gmIdx) const
+{
+    int dim = static_cast<int>(rawShape[gmIdx].size());
+
+    if (offsetFromAttr[gmIdx][ID0].IsValid()) {
+        return GenSymbolicArgument(offsetFromAttr[gmIdx]);
+    }
+
+    return GenGetParamMacroPacked(gmIdx, dim, PREFIX_STR_OFFSET);
 }
 
 } // namespace npu::tile_fwk

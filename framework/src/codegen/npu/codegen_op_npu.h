@@ -168,6 +168,11 @@ public:
     std::string GenDynValidShape(int32_t operandIndex) const;
     std::string GenAicpuCallOp() const;
 
+    std::string GenQuantizeOp() const;
+    std::string GenDequantizeOp() const;
+    std::string PrintQuantizeTileTensor() const;
+    std::string PrintDequantizeTileTensor() const;
+
     std::string GenWhereOp() const;
 
     std::string GenOpCode() const override;
@@ -204,11 +209,11 @@ protected:
     std::string GenOffsetsAndRawShapesDefault() const;
     std::string GenTargetRankStr() const;
 
-    void AddDivPrecisionTypeParm(std::vector<std::string>& templateParamList) const;
+    void AddBinaryPrecisionTypeParm(std::vector<std::string>& templateParamList) const;
     void UpdateTileTensorInfo();
     void UpdateLoopInfo();
     std::vector<SymbolicScalar> GetLoopAxes();
-    ShapeInLoop BuildShapeInLoop(int paramIdx, size_t loopDepth);
+    TileTensorShape BuildTileTensorShapeInLoop(int paramIdx);
     bool ShouldSkipProcInLoop(int paramIdx);
 
     template <typename T = int64_t>
@@ -241,7 +246,7 @@ protected:
     }
 
     template <typename T>
-    bool GetAttr(const std::string& key, T& value) const
+    bool GetOpAttr(const std::string& key, T& value) const
     {
         return GetAttrFromMap(opAttrs, key, value);
     }
@@ -254,27 +259,12 @@ protected:
         return GetAttrFromMap(tensorAttrs[idx], key, value);
     }
 
-    template <typename T = int64_t>
-    std::vector<T> GetVectorIntAttribute(const std::string& key) const
-    {
-        ASSERT(GenCodeErr::DATA_TYPE_UNSUPPORTED, std::is_integral_v<T>) << "T must be integral type";
-        std::vector<int64_t> val;
-        GetAttr(key, val);
-        if constexpr (std::is_same_v<T, int64_t>) {
-            return val;
-        }
-        std::vector<T> ret;
-        for (auto& x : val) {
-            ret.emplace_back(static_cast<T>(x));
-        }
-        return ret;
-    }
-
     std::string GetLastUse() const;
 
-    virtual TileTensor BuildTileTensor(int paramIdx, const std::string& usingType, const ShapeInLoop& shapeInLoop = {});
+    virtual TileTensor BuildTileTensor(
+        int paramIdx, const std::string& usingType, const TileTensorShape& tileTensorShape = {});
     virtual void UpdateTileTensorShapeAndStride(
-        int paramIdx, TileTensor& tileTensor, bool isSpillToGm, const ShapeInLoop& shapeInLoop = {});
+        int paramIdx, TileTensor& tileTensor, bool isSpillToGm, const TileTensorShape& tileTensorShape = {});
     std::vector<std::string> BuildStride(const std::vector<int64_t>& input);
 
     std::string GenMemCopyVar(bool isCopyLocalToGM, bool isSpillToGm = false, unsigned uf = 0) const;
@@ -343,7 +333,7 @@ protected:
     std::string PrintCompact(const PrintUnaryTmpBuffParam& param) const;
     std::string PrintCompactStatic(const PrintUnaryTmpBuffParam& param) const;
 
-    std::vector<std::string> GenTileOpParamForNormalCopyTileTensor(unsigned gmIdx, bool isSpillingToGM) const;
+    std::vector<std::string> GenTileOpParamForNormalCopyTileTensor(unsigned gmIdx) const;
     std::string PrintMemCopyWithL0C(const PrintMemCopyWithL0CParam& param) const;
     std::string PrintMemCopyWithL0CStatic(const PrintMemCopyWithL0CParam& param) const;
     std::string PrintMemCopyWithL0CDynamic(const PrintMemCopyWithL0CParam& param) const;
@@ -366,7 +356,7 @@ protected:
     std::string PrintMemCopyWithUBDynamic(const PrintMemCopyWithUBParam& param) const;
     std::string PrintMemCopyWithUBDynamicSupportUnaligned(const PrintMemCopyWithUBParam& param) const;
     std::string PrintMemCopyWithUBTileTensor(const PrintMemCopyWithUBParam& param) const;
-    std::vector<std::string> GetGmOffsetForTileTensor(unsigned gmIdx, bool isSpillingToGM = false) const;
+    virtual std::vector<std::string> GetGmOffsetForTileTensor(unsigned gmIdx) const;
 
     std::string PrintGather(const PrintGatherParam& param) const;
     std::string PrintGatherDynamicUnaligned(const PrintGatherParam& param) const;
@@ -433,8 +423,7 @@ protected:
     std::string PrintExpm1Layout() const;
     std::string PrintRound() const;
     std::string PrintRoundLayout() const;
-    std::string PrintExp2() const;
-    std::string PrintExp2Layout() const;
+    std::string PrintUnaryOpWithTmpTwoBuff() const;
 
     DynamicParamPackMTE PrepareDynamicShapeInfoForMTE(
         int dynShapeIdx, int ShapeDim = SHAPE_DIM4, bool isGmSpill = false) const;
@@ -537,6 +526,8 @@ protected:
     const std::unordered_map<Opcode, std::function<std::string()>> gatherScatterOps_;
 
     const std::unordered_map<Opcode, std::function<std::string()>> normalVecOps_;
+
+    const std::unordered_map<Opcode, std::function<std::string()>> quantOps_;
 
     const std::unordered_map<Opcode, std::function<std::string()>> perfOps_;
 

@@ -212,6 +212,7 @@ public:
 
     void DumpAicoreLog(int coreIdx)
     {
+        DEV_INFO("core-%d ENABLE_AICORE_PRINT is true, AICORE Print start!", coreIdx);
         const int bufSize = 512;
         char buf[bufSize];
         while (logger_[coreIdx].Read(buf, bufSize)) {
@@ -394,7 +395,7 @@ public:
     {
         if (ret) {
             DEV_ERROR(
-                ret, "#sche.dtask.leave.post: execute error=%d, skip rest tasks, "
+                SchedErr::ABNOMAL_LAST_WORD, "#sche.dtask.leave.post: execute error=%d, skip rest tasks, "
                 "runreadyAiv=%u runreadyaic=%u, %u, %u",
                 ret, context_->coreRunReadyCnt_[0], context_->coreRunReadyCnt_[1],
                 context_->corePendReadyCnt_[0], context_->corePendReadyCnt_[1]);
@@ -534,9 +535,7 @@ private:
     inline void ProfStop()
     {
         if (aicoreProf_.ProfIsEnable()) {
-#if PROF_DFX_HOST_PREPARE_MEMORY_MODE
             DumpTaskProf();
-#endif
         }
 
         aicoreProf_.ProfStop();
@@ -1748,7 +1747,6 @@ private:
         pendingIds_.fill(AICORE_STATUS_INIT);
         runningResolveIndexList_.fill(0);
         pendingResolveIndexList_.fill(0);
-        taskDfxStatPos_.fill(REG_LOW_TASK_PING);
         pingPongFlag_.fill(0);
         isSendStop = false;
         taskCtrlDequeFinish = false;
@@ -2060,12 +2058,6 @@ private:
     inline int GetAllAiCoreNum() { return aicNum_ + aivNum_; }
     inline void SetDotStatus(int64_t status) { dotStatus_ = status; }
     inline CoreType AicoreType(int coreIdx) const { return coreIdx < aicEnd_ ? CoreType::AIC : CoreType::AIV; }
-     inline void SetNextDfxPos(int coreIdx) 
-     { 
-         taskDfxStatPos_[coreIdx] = 
-             taskDfxStatPos_[coreIdx] == REG_LOW_TASK_PING ? REG_LOW_TASK_PONG : REG_LOW_TASK_PING; 
-     } 
-     inline int GetDfxPos(int coreIdx) { return taskDfxStatPos_[coreIdx]; }
 
     // DFX
     inline void DfxProcAfterFinishTask(SchDeviceTaskContext* deviceTaskCtx, int coreIdx, uint64_t taskId)
@@ -2080,25 +2072,23 @@ private:
         DumpAicoreLog(coreIdx);
 #endif
 
-        volatile TaskStat* stat = aicoreHal_.GetTaskStat(coreIdx, 0);
-
-#if PROF_DFX_HOST_PREPARE_MEMORY_MODE != 1 
-         aicoreProf_.ProfGet(coreIdx, stat->subGraphId, stat->taskId, const_cast<TaskStat*>(stat)); 
+#if PMU_COLLECT
+    volatile KernelArgs* arg = reinterpret_cast<KernelArgs*>(aicoreHal_.GetSharedBuffer() + coreIdx * SHARED_BUFFER_SIZE);
+    volatile Metrics* metric = reinterpret_cast<Metrics*>(arg->shakeBuffer[SHAK_BUF_DFX_DATA_INDEX]);
+    if (metric != nullptr && metric->taskCount > 0) {
+        const TaskStat* stat = const_cast<const TaskStat*>(&metric->tasks[metric->taskCount - 1]);
+        aicoreProf_.ProfGetPmu(coreIdx, stat->subGraphId, stat->taskId, stat);
+    }
 #endif
 
 #if ENABLE_TENSOR_DUMP
         // dump output tensor
         if (unlikely(isEnableDump)) {
-            aicoreDump_.DoDump(deviceTaskCtx->GetDeviceTask(), "output", taskId, coreIdx, stat->execStart, stat->execEnd);
+            aicoreDump_.DoDump(deviceTaskCtx->GetDeviceTask(), "output", taskId, coreIdx);
         }
 #endif
 
         DEV_IF_VERBOSE_DEBUG { recvFinTask_[coreIdx].push_back(TaskInfo(coreIdx, taskId, deviceTaskCtx->TaskId())); }
-
-#if PROF_DFX_HOST_PREPARE_MEMORY_MODE != 1 
-         SetNextDfxPos(coreIdx); // pingpong 存储 
-#endif
-        (void)stat;
     }
 
     inline bool IsNeedProcAicpuTask() { return aicpuIdx_ == 2; }
@@ -2247,7 +2237,6 @@ private:
     bool isSendStop{false};
     std::array<uint8_t, MAX_AICORE_NUM> pingPongFlag_;
 
-    std::array<int, MAX_AICORE_NUM> taskDfxStatPos_;
     std::vector<TaskInfo> sendTask_[MAX_AICORE_NUM];
     std::vector<TaskInfo> recvFinTask_[MAX_AICORE_NUM];
     std::vector<TaskInfo> recvAckTask_[MAX_AICORE_NUM];

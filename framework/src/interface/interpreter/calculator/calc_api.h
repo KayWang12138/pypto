@@ -67,6 +67,8 @@ struct CalcOps {
     void (*Exp)(const TensorData&, const TensorData&);
     void (*Exp2)(const TensorData&, const TensorData&);
     void (*Expm1)(const TensorData&, const TensorData&);
+    void (*Sin)(const TensorData&, const TensorData&);
+    void (*Cos)(const TensorData&, const TensorData&);
     void (*Neg)(const TensorData&, const TensorData&);
     void (*Rsqrt)(const TensorData&, const TensorData&);
     void (*Sign)(const TensorData&, const TensorData&);
@@ -109,6 +111,7 @@ struct CalcOps {
     void (*FmodS)(const TensorData&, const TensorData&, const Element&, bool);
     void (*RemainderS)(const TensorData&, const TensorData&, const Element&, bool);
     void (*RemainderRS)(const TensorData&, const TensorData&, const Element&, bool);
+    void (*PowS)(const TensorData&, const TensorData&, const Element&, bool);
     void (*BitwiseAndS)(const TensorData&, const TensorData&, const Element&, bool);
     void (*BitwiseOrS)(const TensorData&, const TensorData&, const Element&, bool);
     void (*BitwiseXorS)(const TensorData&, const TensorData&, const Element&, bool);
@@ -182,6 +185,9 @@ struct CalcOps {
     void (*FormatNZ2ND)(const TensorData&, const TensorData&);
     void (*QuantPreCompute)(const TensorData&, const TensorData&, const TensorData*, uint64_t, int);
     void (*MatMul)(const TensorData&, const TensorData&, const TensorData&, const TensorData*, MatMulParam&);
+
+    void (*Quantize)(const TensorData&, const TensorData&, const TensorData&, const TensorData&);
+    void (*Dequantize)(const TensorData&, const TensorData&, const TensorData&, const TensorData&);
 
     void (*BitSort)(const TensorData&, const TensorData&, int64_t, bool, int64_t);
     void (*TiledMrgSort)(

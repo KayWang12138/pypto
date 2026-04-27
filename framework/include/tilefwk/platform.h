@@ -333,6 +333,11 @@ inline std::string NPUArchToString(NPUArch npu_arch)
     }
 }
 
+inline bool IsLiteNPU(NPUArch arch)
+{
+    return arch == NPUArch::DAV_3113;
+}
+
 class SoC {
 private:
     Die die_;
@@ -420,6 +425,27 @@ public:
 };
 
 class Host {};
+
+class PlatformSocVersionManager {
+private:
+    PlatformSocVersionManager() = default;
+    ~PlatformSocVersionManager() = default;
+
+    std::string platformSocVersion_;
+
+public:
+    static PlatformSocVersionManager& Instance()
+    {
+        static PlatformSocVersionManager instance;
+        return instance;
+    }
+
+    PlatformSocVersionManager(const PlatformSocVersionManager&) = delete;
+    PlatformSocVersionManager& operator=(const PlatformSocVersionManager&) = delete;
+
+    std::string GetPlatformSocVersion() const { return platformSocVersion_; }
+    void SetPlatformSocVersion(const std::string& version) { platformSocVersion_ = version; }
+};
 
 class Platform {
 private:

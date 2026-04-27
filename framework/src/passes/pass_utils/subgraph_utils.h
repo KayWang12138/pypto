@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2025 Huawei Technologies Co., Ltd.
+ * Copyright (c) 2026 Huawei Technologies Co., Ltd.
  * This program is free software, you can redistribute it and/or modify it under the terms and conditions of
  * CANN Open Software License Agreement Version 2.0 (the "License").
  * Please refer to the License for details. You may not use this file except in compliance with the License.
@@ -9,15 +9,20 @@
  */
 
 /*!
- * \file function_error.h
+ * \file subgraph_utils.h
  * \brief
- *
  */
 
 #pragma once
 
-#include <cstdint>
+#include "interface/tensor/logical_tensor.h"
 
 namespace npu::tile_fwk {
+
+class SubgraphUtils {
+public:
+    static bool IsBoundary(const LogicalTensorPtr& tensor);
+    static bool IsBoundary(const LogicalTensor& tensor);
+};
 
 } // namespace npu::tile_fwk

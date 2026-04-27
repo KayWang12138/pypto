@@ -19,6 +19,8 @@
 #include "codegen/npu/codegen_npu.h"
 
 namespace npu::tile_fwk {
+const std::string CODEGEN_LITENPU_WORKSPACE = "workspace";
+
 class CompileInfoLiteNPU : public CompileInfo {
 public:
     CompileInfoLiteNPU(
@@ -40,7 +42,7 @@ private:
 
 class CodeGenLiteNPU : public CodeGenNPU {
 public:
-    explicit CodeGenLiteNPU(const CodeGenCtx& cgCtx) : CodeGenNPU(cgCtx){};
+    explicit CodeGenLiteNPU(const CodeGenCtx& cgCtx) : CodeGenNPU(cgCtx) {};
     ~CodeGenLiteNPU() override = default;
 
     void GenCode(Function& topFunc, const std::map<uint64_t, std::list<InvokeParaOffset>>& invokeParaOffset) override;
@@ -57,7 +59,7 @@ private:
     std::string GenFuncGlobalCodeAfterReplace(
         const Function& func, std::pair<uint64_t, Function*> subFuncPair, const std::string& subProgramCode);
 
-    std::map<int, std::string> GenParamsSymbolMap(
+    std::unordered_map<int, std::string> GenParamsSymbolMap(
         const SubfuncParam& subFuncParam, std::vector<std::string>& params,
         std::map<std::string, std::string>& dTypeMap);
 

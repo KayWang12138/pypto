@@ -130,6 +130,8 @@ CodeGenOpNPU::CodeGenOpNPU(const CodeGenOpNPUCtx& ctx)
           {Opcode::OP_ROWSUM_COMBINE_AXIS_SINGLE, [this]() { return GenUnaryOpWithTmpBuff(); }},
           {Opcode::OP_SIGN, [this]() { return GenUnaryOpWithTmpBuff(); }},
           {Opcode::OP_SIGNBIT, [this]() { return GenUnaryOpWithTmpBuff(); }},
+          {Opcode::OP_SIN, [this]() { return GenUnaryOpWithTmpBuff(); }},
+          {Opcode::OP_COS, [this]() { return GenUnaryOpWithTmpBuff(); }},
       }),
       binaryOps_({
           // binary op: vector operations
@@ -186,6 +188,7 @@ CodeGenOpNPU::CodeGenOpNPU(const CodeGenOpNPUCtx& ctx)
           {Opcode::OP_MODS, [this]() { return GenVectorScalarOp(); }},
           {Opcode::OP_REMRS, [this]() { return GenRemainderSOp(); }},
           {Opcode::OP_REMS, [this]() { return GenRemainderSOp(); }},
+          {Opcode::OP_POWS, [this]() { return GenVectorScalarOpWithTmp(); }},
           {Opcode::OP_SBITWISERIGHTSHIFT, [this]() { return GenVectorScalarOpWithTmp(); }},
           {Opcode::OP_SBITWISELEFTSHIFT, [this]() { return GenVectorScalarOpWithTmp(); }},
           {Opcode::OP_BITWISEXORS, [this]() { return GenVectorScalarOpWithTmp(); }},
@@ -306,6 +309,13 @@ CodeGenOpNPU::CodeGenOpNPU(const CodeGenOpNPUCtx& ctx)
           // vector dup
           {Opcode::OP_VEC_DUP, [this]() { return GenDupOp(); }},
       }),
+      quantOps_({
+          // float -> int8/uint8
+          {Opcode::OP_QUANTIZE_SYM, [this]() { return GenQuantizeOp(); }},
+          {Opcode::OP_QUANTIZE_ASYM, [this]() { return GenQuantizeOp(); }},
+          // int8/int16 -> float
+          {Opcode::OP_DEQUANTIZE, [this]() { return GenDequantizeOp(); }},
+      }),
       perfOps_({
           // for performace optimization
           {Opcode::OP_PHASE1, []() { return "SUBKERNEL_PHASE1\n"; }},
@@ -341,6 +351,7 @@ void CodeGenOpNPU::InitVecOpsMap()
     opsGenMap_.insert(sortOps_.cbegin(), sortOps_.cend());
     opsGenMap_.insert(gatherScatterOps_.cbegin(), gatherScatterOps_.cend());
     opsGenMap_.insert(normalVecOps_.cbegin(), normalVecOps_.cend());
+    opsGenMap_.insert(quantOps_.cbegin(), quantOps_.cend());
 }
 
 void CodeGenOpNPU::InitCubeOpsMap() { opsGenMap_.insert(cubeOps_.cbegin(), cubeOps_.cend()); }
@@ -537,11 +548,11 @@ std::vector<std::string> CodeGenOpNPU::BuildStride(const std::vector<int64_t>& i
 }
 
 void CodeGenOpNPU::UpdateTileTensorShapeAndStride(
-    int paramIdx, TileTensor& tileTensor, bool isSpillToGm, const ShapeInLoop& shapeInLoop)
+    int paramIdx, TileTensor& tileTensor, bool isSpillToGm, const TileTensorShape& tileTensorShape)
 {
-    auto newOriginShape = shapeInLoop.loopDepth > 0 ? shapeInLoop.originShape : originShape[paramIdx];
-    auto newRawShape = shapeInLoop.loopDepth > 0 ? shapeInLoop.rawShape : rawShape[paramIdx];
-    auto newDynValidShape = shapeInLoop.loopDepth > 0 ? shapeInLoop.dynamicValidShape : dynamicValidShape[paramIdx];
+    auto newOriginShape = tileTensorShape.originShape;
+    auto newRawShape = tileTensorShape.rawShape;
+    auto newDynValidShape = tileTensorShape.dynamicValidShape;
     CODEGEN_LOGI(
         "newOriginShape is %s, newRawShape is %s, newDynValidShape is %s", IntVecToStr(newOriginShape).c_str(),
         IntVecToStr(newRawShape).c_str(), IntVecToStr(newDynValidShape).c_str());
@@ -585,21 +596,18 @@ void CodeGenOpNPU::UpdateTileTensorShapeAndStride(
     tileTensor.stride = BuildStride(newRawShape);
 }
 
-TileTensor CodeGenOpNPU::BuildTileTensor(int paramIdx, const std::string& usingType, const ShapeInLoop& shapeInLoop)
+TileTensor CodeGenOpNPU::BuildTileTensor(
+    int paramIdx, const std::string& usingType, const TileTensorShape& tileTensorShape)
 {
     bool isSpillToGm = operand[paramIdx] == SYMBOL_STACK_BASE;
 
     TileTensor tileTensor;
     tileTensor.isConstant = functionType == FunctionType::STATIC || isMainBlock;
     tileTensor.magic = operandWithMagic[paramIdx];
-    tileTensor.shapeInLoop = shapeInLoop;
+    tileTensor.isInLoop = tileTensorShape.isInLoop;
 
-    if (tileTensor.isConstant) {
-        tileTensor.dim = shapeInLoop.loopDepth > 0 ? shapeInLoop.originShape.size() : originShape[paramIdx].size();
-    } else {
-        tileTensor.dim =
-            shapeInLoop.loopDepth > 0 ? shapeInLoop.dynamicValidShape.size() : dynamicValidShape[paramIdx].size();
-    }
+    tileTensor.dim =
+        tileTensor.isConstant ? tileTensorShape.originShape.size() : tileTensorShape.dynamicValidShape.size();
 
     tileTensor.dtype = operandDtype[paramIdx];
     tileTensor.bufType = operandType[paramIdx];
@@ -613,14 +621,14 @@ TileTensor CodeGenOpNPU::BuildTileTensor(int paramIdx, const std::string& usingT
     tileTensor.usingType = usingType;
 
     tileTensor.tensorName = sm->GenTensorName(tileTensor.bufType);
-    if (shapeInLoop.loopDepth != 0) {
+    if (tileTensorShape.isInLoop) {
         std::string tensorName = tensorNames_[paramIdx];
         if (!tensorName.empty()) {
             tensorName.append("_low").append(std::to_string(tileTensor.dim)).append("DimInLoop");
             tileTensor.tensorName = tensorName;
         }
     }
-    UpdateTileTensorShapeAndStride(paramIdx, tileTensor, isSpillToGm, shapeInLoop);
+    UpdateTileTensorShapeAndStride(paramIdx, tileTensor, isSpillToGm, tileTensorShape);
 
     tileTensor.localBufOffset = offset[paramIdx];
 
@@ -651,7 +659,8 @@ void CodeGenOpNPU::UpdateTileTensorInfo()
             originShape[i],
             rawShape[i]};
         std::string usingType = sm->AddTileTensorUsing(tileTensorUsing);
-        TileTensor tileTensor = BuildTileTensor(i, usingType);
+        TileTensorShape tileTensorShape{false, originShape[i], rawShape[i], dynamicValidShape[i]};
+        TileTensor tileTensor = BuildTileTensor(i, usingType, tileTensorShape);
         std::string tensorName = sm->AddTileTensor(originalOp.GetOpMagic(), tileTensor);
         tensorNames_[i] = tensorName;
         CODEGEN_LOGI(
@@ -675,7 +684,7 @@ bool CodeGenOpNPU::ShouldSkipProcInLoop(int paramIdx)
 std::vector<SymbolicScalar> CodeGenOpNPU::GetLoopAxes()
 {
     std::vector<SymbolicScalar> loopAxes;
-    GetAttr(OpAttributeKey::loopAxes, loopAxes);
+    GetOpAttr(OpAttributeKey::loopAxes, loopAxes);
 
     if (!isMainBlock) {
         return loopAxes;
@@ -702,39 +711,42 @@ void CodeGenOpNPU::UpdateLoopInfo()
     }
 
     bool isLoopStart{false};
-    if (GetAttr(OpAttributeKey::loopGroupStart, isLoopStart) && isLoopStart) {
+    if (GetOpAttr(OpAttributeKey::loopGroupStart, isLoopStart) && isLoopStart) {
         forBlkMgr_->LoopStart();
         forBlkMgr_->UpdateAxesList(loopAxes);
     }
 
     // Add TileTensor info in loop
     CODEGEN_LOGI("opCode %s has loopAxes: %s", opCodeStr.c_str(), IntVecToStr(loopAxes).c_str());
-    size_t loopDepth = loopAxes.size();
     for (int i = 0; i < operandCnt; ++i) {
         if (ShouldSkipProcInLoop(i)) {
             continue;
         }
-        ShapeInLoop shapeInLoop = BuildShapeInLoop(i, loopDepth);
+        TileTensorShape tileTensorShape = BuildTileTensorShapeInLoop(i);
         CODEGEN_LOGI(
-            "shapeInLoop: loopDepth is %zu newOriginShape is %s, newRawShape is %s, newDynValidShape is %s", loopDepth,
-            IntVecToStr(shapeInLoop.originShape).c_str(), IntVecToStr(shapeInLoop.rawShape).c_str(),
-            IntVecToStr(shapeInLoop.dynamicValidShape).c_str());
+            "tileTensorShape: isInLoop is %s newOriginShape is %s, newRawShape is %s, newDynValidShape is %s",
+            tileTensorShape.isInLoop ? "true" : "false", IntVecToStr(tileTensorShape.originShape).c_str(),
+            IntVecToStr(tileTensorShape.rawShape).c_str(), IntVecToStr(tileTensorShape.dynamicValidShape).c_str());
         TileTensorUsing tileTensorUsing{
-            functionType == FunctionType::STATIC || isMainBlock, operandDtype[i],         operandType[i],
-            static_cast<int>(shapeInLoop.rawShape.size()),       shapeInLoop.originShape, shapeInLoop.rawShape};
+            functionType == FunctionType::STATIC || isMainBlock,
+            operandDtype[i],
+            operandType[i],
+            static_cast<int>(tileTensorShape.rawShape.size()),
+            tileTensorShape.originShape,
+            tileTensorShape.rawShape};
         std::string usingType = sm->AddTileTensorUsing(tileTensorUsing);
-        TileTensor tileTensor = BuildTileTensor(i, usingType, shapeInLoop);
+        TileTensor tileTensor = BuildTileTensor(i, usingType, tileTensorShape);
         forBlkMgr_->AddTensorInLoopBody(tensorNames_[i], tileTensor, originalOp.GetOpMagic(), opCode);
     }
 }
 
 // Get last 2 dim of shape
-ShapeInLoop CodeGenOpNPU::BuildShapeInLoop(int paramIdx, size_t loopDepth)
+TileTensorShape CodeGenOpNPU::BuildTileTensorShapeInLoop(int paramIdx)
 {
     auto newOriginShape = GetShapeInLoop(originShape[paramIdx]);
     auto newRawShape = GetShapeInLoop(rawShape[paramIdx]);
     auto newDynValidShape = GetShapeInLoop<SymbolicScalar>(dynamicValidShape[paramIdx]);
-    return {loopDepth, newOriginShape, newRawShape, newDynValidShape};
+    return {true, newOriginShape, newRawShape, newDynValidShape};
 }
 
 std::string CodeGenOpNPU::PrintCoord(size_t dim, const std::string& coord) const
@@ -842,7 +854,7 @@ std::string CodeGenOpNPU::GenOpCode() const
     forBlkMgr_->AddOpInLoopBody(ret);
 
     bool isLoopEnd{false};
-    GetAttr(OpAttributeKey::loopGroupEnd, isLoopEnd);
+    GetOpAttr(OpAttributeKey::loopGroupEnd, isLoopEnd);
     if (!isLoopEnd) {
         return "";
     }
@@ -858,7 +870,8 @@ std::string CodeGenOpNPU::GetLastUse() const
     if (!opAttrs.count(OpAttributeKey::lastUse)) {
         return "";
     }
-    std::vector<int64_t> val = GetVectorIntAttribute(OpAttributeKey::lastUse);
+    std::vector<int64_t> val;
+    GetOpAttr(OpAttributeKey::lastUse, val);
     int valSize = val.size();
     ASSERT(OperErr::ATTRIBUTE_INVALID, valSize != 0) << "GetLastUse error!!!";
     std::ostringstream oss;

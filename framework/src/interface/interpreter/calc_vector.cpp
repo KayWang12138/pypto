@@ -380,6 +380,12 @@ void ExecuteOpUnary(ExecuteOperationContext* ctx)
         case Opcode::OP_ISFINITE:
             calc::IsFinite(ret, iop);
             break;
+        case Opcode::OP_SIN:
+            calc::Sin(ret, iop);
+            break;
+        case Opcode::OP_COS:
+            calc::Cos(ret, iop);
+            break;
         default:
             ASSERT(ExecuteOperationScene::UNSUPPORTED_OPCODE, false);
     }
@@ -397,6 +403,8 @@ REGISTER_CALC_OP(OP_ABS, Opcode::OP_ABS, ExecuteOpUnary<Opcode::OP_ABS>);
 REGISTER_CALC_OP(OP_BRCB, Opcode::OP_BRCB, ExecuteOpUnary<Opcode::OP_BRCB>);
 REGISTER_CALC_OP(OP_LN, Opcode::OP_LN, ExecuteOpUnary<Opcode::OP_LN>);
 REGISTER_CALC_OP(OP_ISFINITE, Opcode::OP_ISFINITE, ExecuteOpUnary<Opcode::OP_ISFINITE>);
+REGISTER_CALC_OP(OP_SIN, Opcode::OP_SIN, ExecuteOpUnary<Opcode::OP_SIN>);
+REGISTER_CALC_OP(OP_COS, Opcode::OP_COS, ExecuteOpUnary<Opcode::OP_COS>);
 
 void ExecuteOpCeil(ExecuteOperationContext* ctx)
 {
@@ -907,9 +915,35 @@ void ExecuteOpTopK(ExecuteOperationContext* ctx)
 }
 REGISTER_CALC_OP(OP_TOPK, Opcode::OP_TOPK, ExecuteOpTopK);
 
-void ExecuteOpBitSort(ExecuteOperationContext* ctx)
-{
-    ASSERT(ExecuteOperationScene::CTX_INPUT_COUNT_MISMATCH, ctx->ioperandDataViewList->size() == 1);
+void ExecuteOpQuantizeSym(ExecuteOperationContext *ctx) {
+    auto &ret = ctx->ooperandInplaceDataViewList->at(0);
+    auto &input = ctx->ioperandDataViewList->at(0);
+    auto &scale = ctx->ioperandDataViewList->at(1);
+    calc::Quantize(ret, input, scale, nullptr);
+}
+REGISTER_CALC_OP(OP_QUANTIZE_SYM, Opcode::OP_QUANTIZE_SYM, ExecuteOpQuantizeSym);
+
+void ExecuteOpQuantizeAsym(ExecuteOperationContext *ctx) {
+    auto &ret = ctx->ooperandInplaceDataViewList->at(0);
+    auto &input = ctx->ioperandDataViewList->at(0);
+    auto &scale = ctx->ioperandDataViewList->at(1);
+    auto &zeropoints = ctx->ioperandDataViewList->at(2);
+    calc::Quantize(ret, input, scale, zeropoints);
+}
+REGISTER_CALC_OP(OP_QUANTIZE_ASYM, Opcode::OP_QUANTIZE_ASYM, ExecuteOpQuantizeAsym);
+
+void ExecuteOpDequantize(ExecuteOperationContext *ctx) {
+    auto &ret = ctx->ooperandInplaceDataViewList->at(0);
+    auto &input = ctx->ioperandDataViewList->at(0);
+    auto &scale = ctx->ioperandDataViewList->at(1);
+    auto &zeropoints = ctx->ioperandDataViewList->at(2);
+    calc::Dequantize(ret, input, scale, zeropoints);
+}
+REGISTER_CALC_OP(OP_DEQUANTIZE, Opcode::OP_DEQUANTIZE, ExecuteOpDequantize);
+
+void ExecuteOpBitSort(ExecuteOperationContext *ctx) {
+    ASSERT(ExecuteOperationScene::CTX_INPUT_COUNT_MISMATCH,
+           ctx->ioperandDataViewList->size() == 1);
     auto oop = ctx->ooperandInplaceDataViewList->at(0);
     auto src = ctx->ioperandDataViewList->at(0);
     auto topk_axis = ctx->op->GetIntAttribute("op_attr_axis");
@@ -991,7 +1025,7 @@ template <Opcode opcode>
 void ExecuteOpBinaryScalar(ExecuteOperationContext* ctx)
 {
     if (opcode == Opcode::OP_BITWISEXOR || opcode == Opcode::OP_REMRS || opcode == Opcode::OP_FLOORDIVS ||
-        opcode == Opcode::OP_REMS) {
+        opcode == Opcode::OP_REMS || opcode == Opcode::OP_POWS) {
         ASSERT(ExecuteOperationScene::CTX_OUTPUT_COUNT_MISMATCH, ctx->ooperandInplaceDataViewList->size() <= SIZE_TWO);
     } else {
         ASSERT(ExecuteOperationScene::CTX_OUTPUT_COUNT_MISMATCH, ctx->ooperandInplaceDataViewList->size() == 1);
@@ -1027,6 +1061,9 @@ void ExecuteOpBinaryScalar(ExecuteOperationContext* ctx)
             break;
         case Opcode::OP_REMS:
             calc::RemainderS(ret, lhs, element, reverse);
+            break;
+        case Opcode::OP_POWS:
+            calc::PowS(ret, lhs, element);
             break;
         case Opcode::OP_REMRS:
             calc::RemainderRS(ret, lhs, element, reverse);
@@ -1070,6 +1107,7 @@ REGISTER_CALC_OP(OP_BITWISEXORS, Opcode::OP_BITWISEXORS, ExecuteOpBinaryScalar<O
 REGISTER_CALC_OP(OP_GCDS, Opcode::OP_GCDS, ExecuteOpBinaryScalar<Opcode::OP_GCDS>);
 REGISTER_CALC_OP(OP_REMS, Opcode::OP_REMS, ExecuteOpBinaryScalar<Opcode::OP_REMS>);
 REGISTER_CALC_OP(OP_REMRS, Opcode::OP_REMRS, ExecuteOpBinaryScalar<Opcode::OP_REMRS>);
+REGISTER_CALC_OP(OP_POWS, Opcode::OP_POWS, ExecuteOpBinaryScalar<Opcode::OP_POWS>);
 REGISTER_CALC_OP(OP_S_ADDS, Opcode::OP_S_ADDS, ExecuteOpBinaryScalar<Opcode::OP_ADDS>);
 REGISTER_CALC_OP(OP_S_SUBS, Opcode::OP_S_SUBS, ExecuteOpBinaryScalar<Opcode::OP_SUBS>);
 REGISTER_CALC_OP(OP_S_MULS, Opcode::OP_S_MULS, ExecuteOpBinaryScalar<Opcode::OP_MULS>);

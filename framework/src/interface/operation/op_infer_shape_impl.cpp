@@ -150,6 +150,8 @@ REGISTER_INFER_SHAPE_FUNC(OP_ABS, Opcode::OP_ABS, ElewiseInferFunc);
 REGISTER_INFER_SHAPE_FUNC(OP_LN, Opcode::OP_LN, ElewiseInferFunc);
 REGISTER_INFER_SHAPE_FUNC(OP_ISFINITE, Opcode::OP_ISFINITE, ElewiseInferFunc);
 REGISTER_INFER_SHAPE_FUNC(OP_HUB, Opcode::OP_HUB, ElewiseInferFunc);
+REGISTER_INFER_SHAPE_FUNC(OP_SIN, Opcode::OP_SIN, ElewiseInferFunc);
+REGISTER_INFER_SHAPE_FUNC(OP_COS, Opcode::OP_COS, ElewiseInferFunc);
 REGISTER_INFER_SHAPE_FUNC(OP_CAST, Opcode::OP_CAST, ElewiseInferFunc);
 REGISTER_INFER_SHAPE_FUNC(OP_DIVS, Opcode::OP_DIVS, ElewiseInferFunc);
 REGISTER_INFER_SHAPE_FUNC(OP_RECIPROCAL, Opcode::OP_RECIPROCAL, ElewiseInferFunc);
@@ -467,6 +469,20 @@ void OneHotInferFunc(Operation* op, std::vector<std::vector<SymbolicScalar>>& ou
     outValidShapes.push_back(outValidShape);
 }
 REGISTER_INFER_SHAPE_FUNC(OP_ONEHOT, Opcode::OP_ONEHOT, OneHotInferFunc);
+
+// Quantize infer shape func
+void QuantizeInferFunc(Operation* op, std::vector<std::vector<SymbolicScalar>>& outValidShapes) {
+    std::vector<SymbolicScalar> outValidShape(op->GetIOperands()[0]->GetDynValidShape());
+    outValidShapes.push_back(outValidShape);
+}
+REGISTER_INFER_SHAPE_FUNC(OP_QUANTIZE_SYM, Opcode::OP_QUANTIZE_SYM, QuantizeInferFunc);
+REGISTER_INFER_SHAPE_FUNC(OP_QUANTIZE_ASYM, Opcode::OP_QUANTIZE_ASYM, QuantizeInferFunc);
+
+void DequantizeInferFunc(Operation* op, std::vector<std::vector<SymbolicScalar>>& outValidShapes) {
+    std::vector<SymbolicScalar> outValidShape(op->GetIOperands()[0]->GetDynValidShape());
+    outValidShapes.push_back(outValidShape);
+}
+REGISTER_INFER_SHAPE_FUNC(OP_DEQUANTIZE, Opcode::OP_DEQUANTIZE, DequantizeInferFunc);
 
 // Range infer shape func
 void RangeInferFunc(Operation* op, std::vector<std::vector<SymbolicScalar>>& outValidShapes)
