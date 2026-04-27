@@ -23,6 +23,7 @@
 #include "tilefwk/platform.h"
 #include "tilefwk/data_type.h"
 #include "passes/pass_check/assign_memory_type_checker.h"
+#include "passes/pass_utils/infer_shape_utils.h"
 
 namespace npu::tile_fwk {
 class AssignMemoryType : public Pass {
@@ -47,6 +48,7 @@ private:
     void AssignOpViewTypeMemtype(Operation& op);
     void AssignOpNopMemtype(Operation& op);
     void AssignMemtypeForSplitReshape(Operation& op, const LogicalTensorPtr& input, const LogicalTensorPtr& output);
+    Status InsertConvertOpsAndInferShape(Function& function);
     void UpdateOverSizedLocalBufferForAssemble(Operation& operation);
     void UpdateOverSizedLocalBufferForView(Operation& operation);
     void ProcesSmallTileToLargeTile(Function& function);
@@ -56,6 +58,7 @@ private:
     std::string PrintTensorMem(std::shared_ptr<LogicalTensor>& tensor) const;
     ConvertInserter inserter;
     AssignMemoryTypeChecker checker;
+    std::vector<Operation*> addedOps_;
 };
 static constexpr double UB_THRESHOLD_ASSEMBLE = 0.35;
 static constexpr double UB_THRESHOLD_NORMAL = 1.0;

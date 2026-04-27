@@ -13,6 +13,7 @@
  * \brief
  */
 
+#include <algorithm>
 #include "split_large_fanout_tensor.h"
 #include "passes/pass_utils/graph_utils.h"
 #include "passes/pass_utils/merge_view_assemble_utils.h"
@@ -24,6 +25,7 @@ namespace npu::tile_fwk {
 Status SplitLargeFanoutTensor::RunOnFunction(Function& function)
 {
     APASS_LOG_INFO_F(Elements::Function, "===> Start SplitLargeFanoutTensor.");
+    addedOps_.clear();
     CollectLargeTensor(function);
     SplitLargeTensor(function);
     EraseRedundantAssembleOp(function);
@@ -32,6 +34,12 @@ Status SplitLargeFanoutTensor::RunOnFunction(Function& function)
     if (status != SUCCESS) {
         APASS_LOG_ERROR_F(Elements::Function, "Merge assemble and view failed.");
         return status;
+    }
+    if (!addedOps_.empty()) {
+        if (InferShapeUtils::InferShape(function, addedOps_) != SUCCESS) {
+            APASS_LOG_ERROR_F(Elements::Function, "InferShape for added ops failed.");
+            return FAILED;
+        }
     }
     APASS_LOG_INFO_F(Elements::Function, "===> End SplitLargeFanoutTensor.");
     return SUCCESS;
@@ -197,6 +205,7 @@ void SplitLargeFanoutTensor::CreateOpFor1toM(
                 continue;
             }
             auto assembleOp = *newTensor->GetProducers().begin();
+            addedOps_.push_back(assembleOp);
             APASS_LOG_INFO_F(
                 Elements::Operation,
                 "In one-to-multiple situation, create an AssembleOp[%d], input is a "
@@ -298,6 +307,7 @@ void SplitLargeFanoutTensor::CreateOpForMtoM(
             continue;
         }
         auto assembleOp = *newTensor->GetProducers().begin();
+        addedOps_.push_back(assembleOp);
         APASS_LOG_INFO_F(
             Elements::Operation,
             "In multiple-to-multiple situation, create an AssembleOp[%d], "
@@ -380,6 +390,7 @@ void SplitLargeFanoutTensor::CreateOpForMoreSplit(
         auto& newAssembleOp = function.AddOperation(Opcode::OP_ASSEMBLE, {newGcdTensor}, {dualOverlap});
         newAssembleOp.SetOpAttribute(
             std::make_shared<AssembleOpAttribute>(largeTensor->GetMemoryTypeOriginal(), gcdTileOffset));
+        addedOps_.push_back(&newAssembleOp);
         APASS_LOG_INFO_F(
             Elements::Operation,
             "For more split situation, create an AssembleOp[%d], input is a newGcdTensor[%d], "
@@ -425,6 +436,7 @@ void SplitLargeFanoutTensor::CreateOpForMoreSplit(
                 auto& newViewOp = function.AddOperation(Opcode::OP_VIEW, {overlapGcdTile}, {newGcdTensor});
                 newViewOp.SetOpAttribute(
                     std::make_shared<ViewOpAttribute>(newViewOffset, overlap->GetMemoryTypeOriginal()));
+                addedOps_.push_back(&newViewOp);
                 APASS_LOG_INFO_F(
                     Elements::Operation,
                     "For more split situation, create an ViewOp[%d], input is a "

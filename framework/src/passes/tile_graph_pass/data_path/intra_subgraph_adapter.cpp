@@ -43,6 +43,7 @@ inline std::string IntSetToStr(const std::set<T>& colorSet)
 Status IntraSubgraphAdapter::RunOnFunction(Function& function)
 {
     LogicalTensors boundaryTensors = CollectBoundaryTensors(function);
+    addedOps_.clear();
 
     for (size_t i = 0; i < boundaryTensors.size(); i++) {
         LogicalTensorPtr tensor = boundaryTensors[i];
@@ -111,6 +112,12 @@ Status IntraSubgraphAdapter::RunOnFunction(Function& function)
                     Elements::Tensor, "Process boundary tensors failed; Please check ProcessBoundaryTensors method.");
                 return FAILED;
             }
+        }
+    }
+    if (!addedOps_.empty()) {
+        if (InferShapeUtils::InferShape(function, addedOps_) != SUCCESS) {
+            APASS_LOG_ERROR_F(Elements::Function, "InferShape for added ops failed.");
+            return FAILED;
         }
     }
     return SUCCESS;
@@ -321,6 +328,7 @@ Status IntraSubgraphAdapter::AdapteTensorProducers(Function& function, LogicalTe
                     OpImmediate::Specified(tensor->GetShape()),
                     OpImmediate::Specified(tensor->GetRawTensor()->GetDynRawShape())));
             }
+            addedOps_.push_back(producer);
             APASS_LOG_DEBUG_F(
                 Elements::Operation, "change %s[%d] opcode to OP_COPY_OUT.", producer->GetOpcodeStr().c_str(),
                 producer->GetOpMagic());
@@ -398,6 +406,7 @@ LogicalTensorPtr IntraSubgraphAdapter::InsertOpBetween(
     newTensor->AddConsumer(newOp);
     tensor->RemoveProducer(op);
     tensor->AddProducer(newOp);
+    addedOps_.push_back(newOp);
     return newTensor;
 }
 
@@ -459,6 +468,7 @@ LogicalTensorPtr IntraSubgraphAdapter::InsertOpBetween(
         tensor->RemoveConsumer(op);
     }
     tensor->AddConsumer(newOp);
+    addedOps_.push_back(newOp);
     return newTensor;
 }
 

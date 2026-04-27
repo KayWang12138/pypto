@@ -24,6 +24,7 @@
 #include "tilefwk/tilefwk.h"
 #include "interface/inner/tilefwk.h"
 #include "interface/program/program.h"
+#include "passes/pass_utils/infer_shape_utils.h"
 
 namespace npu::tile_fwk {
 class IntraSubgraphAdapter : public Pass {
@@ -50,6 +51,7 @@ private:
     void CollectConsumerColors(LogicalTensorPtr tensor, std::set<int>& colors);
     std::set<int> SetIntersection(std::set<int>& a, std::set<int>& b);
     bool IsCrossCoreMoveOps(Operation* op);
+    std::vector<Operation*> addedOps_;
 };
 } // namespace npu::tile_fwk
 #endif // PASS_INTRA_SUBGRAPH_ADAPTER_H_
