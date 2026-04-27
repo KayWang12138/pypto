@@ -60,6 +60,7 @@ protected:
     virtual R VisitExpr_(const CallPtr& op, Args... args) = 0;
     virtual R VisitExpr_(const MakeTuplePtr& op, Args... args) = 0;
     virtual R VisitExpr_(const TupleGetItemExprPtr& op, Args... args) = 0;
+    virtual R VisitExpr_(const TileOffsetExprPtr& op, Args... args) = 0;
 
     // Binary operations (22 types)
     virtual R VisitExpr_(const AddPtr& op, Args... args) = 0;
@@ -114,6 +115,7 @@ R ExprFunctor<R, Args...>::VisitExpr(const ExprPtr& expr, Args... args)
     EXPR_FUNCTOR_DISPATCH(Call);
     EXPR_FUNCTOR_DISPATCH(MakeTuple);
     EXPR_FUNCTOR_DISPATCH(TupleGetItemExpr);
+    EXPR_FUNCTOR_DISPATCH(TileOffsetExpr);
 
     // Binary operations
     EXPR_FUNCTOR_DISPATCH(Add);
@@ -187,6 +189,9 @@ protected:
     virtual R VisitStmt_(const ForStmtPtr& op, Args... args) = 0;
     virtual R VisitStmt_(const WhileStmtPtr& op, Args... args) = 0;
     virtual R VisitStmt_(const SeqStmtsPtr& op, Args... args) = 0;
+    virtual R VisitStmt_(const OpStmtsPtr& op, Args... args) = 0;
+    virtual R VisitStmt_(const ScopeStmtPtr& op, Args... args) = 0;
+    virtual R VisitStmt_(const SectionStmtPtr& op, Args... args) = 0;
     virtual R VisitStmt_(const EvalStmtPtr& op, Args... args) = 0;
     virtual R VisitStmt_(const BreakStmtPtr& op, Args... args) = 0;
     virtual R VisitStmt_(const ContinueStmtPtr& op, Args... args) = 0;
@@ -210,6 +215,9 @@ R StmtFunctor<R, Args...>::VisitStmt(const StmtPtr& stmt, Args... args)
     STMT_FUNCTOR_DISPATCH(ForStmt);
     STMT_FUNCTOR_DISPATCH(WhileStmt);
     STMT_FUNCTOR_DISPATCH(SeqStmts);
+    STMT_FUNCTOR_DISPATCH(OpStmts);
+    STMT_FUNCTOR_DISPATCH(ScopeStmt);
+    STMT_FUNCTOR_DISPATCH(SectionStmt);
     STMT_FUNCTOR_DISPATCH(EvalStmt);
     STMT_FUNCTOR_DISPATCH(BreakStmt);
     STMT_FUNCTOR_DISPATCH(ContinueStmt);

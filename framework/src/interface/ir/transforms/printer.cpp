@@ -38,26 +38,6 @@
 namespace pypto {
 namespace ir {
 
-namespace {
-
-enum class Precedence : int {
-    kOr = 1,         // or
-    kXor = 2,        // xor
-    kAnd = 3,        // and
-    kNot = 4,        // not (unary)
-    kComparison = 5, // ==, !=, <, <=, >, >=
-    kBitOr = 6,      // |
-    kBitXor = 7,     // ^
-    kBitAnd = 8,     // &
-    kBitShift = 9,   // <<, >>
-    kAddSub = 10,    // +, -
-    kMulDivMod = 11, // *, /, //, %
-    kUnary = 12,     // -(unary), ~
-    kPow = 13,       // ** (right-associative!)
-    kCall = 14,      // function calls, min(), max(), abs()
-    kAtom = 15       // variables, constants
-};
-
 Precedence GetPrecedence(const ExprPtr& expr)
 {
     static const std::unordered_map<std::type_index, Precedence> kPrecedenceMap = {
@@ -116,26 +96,23 @@ Precedence GetPrecedence(const ExprPtr& expr)
         return it->second;
     }
 
-    // Default for any other expression types.
     return Precedence::kAtom;
 }
 
 bool IsRightAssociative(const ExprPtr& expr)
 {
-    // Only ** (power) is right-associative in Python
     return IsA<Pow>(expr);
 }
 
+namespace {
+
 std::string FormatFloatLiteral(double value)
 {
-    // Check if the value is an integer (no fractional part)
     if (std::fabs(value) - std::floor(value) < 1e-10) {
-        // For integer values, format as X.0
         std::ostringstream oss;
         oss << std::fixed << std::setprecision(1) << value;
         return oss.str();
     } else {
-        // For non-integer values, use default formatting with enough precision
         std::ostringstream oss;
         oss << value;
         return oss.str();
@@ -156,6 +133,8 @@ std::string FormatFloatLiteral(double value)
  * - Program headers with # pypto.program: name
  */
 class IRPrinter : public IRVisitor {
+    using IRVisitor::VisitStmt_;
+    using IRVisitor::VisitExpr_;
 public:
     explicit IRPrinter(std::string prefix = "ir", bool concise = false) : prefix_(std::move(prefix)), concise_(concise)
     {}
@@ -171,8 +150,6 @@ public:
     std::string Print(const TypePtr& type);
 
 protected:
-    using IRVisitor::VisitExpr_;
-    using IRVisitor::VisitStmt_;
     // Expression visitors
     void VisitExpr_(const VarPtr& op) override;
     void VisitExpr_(const IterArgPtr& op) override;
@@ -295,7 +272,7 @@ std::string IRPrinter::Print(const TypePtr& type)
 {
     if (auto scalar_type = As<ScalarType>(type)) {
         // Print as pl.Scalar[pl.INT64] for proper round-trip support
-        return prefix_ + ".Scalar[" + prefix_ + "." + DTypeToString(scalar_type->dtype_) + "]";
+        return prefix_ + ".Scalar[" + prefix_ + "." + DataTypeToString(scalar_type->dtype_) + "]";
     }
 
     if (auto tensor_type = As<TensorType>(type)) {
@@ -303,7 +280,7 @@ std::string IRPrinter::Print(const TypePtr& type)
         // Subscript-style: pl.Tensor[[shape], dtype]
         oss << prefix_ << ".Tensor[[";
         PrintShapeDims(oss, tensor_type->shape_);
-        oss << "], " << prefix_ << "." << DTypeToString(tensor_type->dtype_);
+        oss << "], " << prefix_ << "." << DataTypeToString(tensor_type->dtype_);
 
         // Add optional memref as positional arg
         if (tensor_type->memref_.has_value()) {
@@ -319,7 +296,7 @@ std::string IRPrinter::Print(const TypePtr& type)
         // Subscript-style: pl.Tile[[shape], dtype]
         oss << prefix_ << ".Tile[[";
         PrintShapeDims(oss, tile_type->shape_);
-        oss << "], " << prefix_ << "." << DTypeToString(tile_type->dtype_);
+        oss << "], " << prefix_ << "." << DataTypeToString(tile_type->dtype_);
 
         // Add optional memref as positional arg
         if (tile_type->memref_.has_value()) {
@@ -374,7 +351,7 @@ void IRPrinter::VisitExpr_(const ConstBoolPtr& op) { stream_ << (op->value_ ? "T
 
 void IRPrinter::VisitExpr_(const CallPtr& op)
 {
-    stream_ << prefix_ << ".call @" << op->name_ << "(";
+    stream_ << prefix_ << ".call @" << op->op_->name_ << "(";
     for (size_t i = 0; i < op->args_.size(); ++i) {
         if (i > 0)
             stream_ << ", ";
@@ -509,7 +486,7 @@ void IRPrinter::VisitExpr_(const CastPtr& op)
     INTERNAL_CHECK_SPAN(scalar_type, op->span_) << "Cast has non-scalar type";
     stream_ << prefix_ << ".cast(";
     VisitExpr(op->operand_);
-    stream_ << ", " << prefix_ << "." << DTypeToString(scalar_type->dtype_) << ")";
+    stream_ << ", " << prefix_ << "." << DataTypeToString(scalar_type->dtype_) << ")";
 }
 
 void IRPrinter::VisitExpr_(const NotPtr& op)
@@ -905,7 +882,7 @@ void IRPrinter::VisitProgram(const ProgramPtr& program)
 {
     stream_ << "# ir.program: " << (program->name_.empty() ? "Program" : program->name_) << "\n";
     bool first = true;
-    for (const auto& func : program->functions_) {
+    for (const auto& [gv, func] : program->functions_) {
         if (!first) {
             stream_ << "\n"; // Blank line between functions
         }
@@ -939,10 +916,10 @@ std::string IRPrinter::PrintMemRef(const MemRef& memref)
 {
     std::ostringstream oss;
     oss << prefix_ << ".MemRef(";
-    oss << prefix_ << ".MemorySpace." << MemorySpaceToString(memref.memorySpace_) << ", ";
+    oss << prefix_ << ".MemorySpace." << MemorySpaceToString(memref.memory_space_) << ", ";
 
     IRPrinter temp_printer(prefix_);
-    oss << temp_printer.Print(memref.offset_);
+    oss << temp_printer.Print(memref.addr_);
     // Print size
     oss << ", " << memref.size_ << ")";
     return oss.str();

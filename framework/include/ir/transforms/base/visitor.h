@@ -59,6 +59,7 @@ protected:
     void VisitExpr_(const CallPtr& op) override;
     void VisitExpr_(const MakeTuplePtr& op) override;
     void VisitExpr_(const TupleGetItemExprPtr& op) override;
+    void VisitExpr_(const TileOffsetExprPtr& op) override;
 
     // Binary operations - visit left and right children
     void VisitExpr_(const AddPtr& op) override;
@@ -100,6 +101,9 @@ protected:
     void VisitStmt_(const ForStmtPtr& op) override;
     void VisitStmt_(const WhileStmtPtr& op) override;
     void VisitStmt_(const SeqStmtsPtr& op) override;
+    void VisitStmt_(const OpStmtsPtr& op) override;
+    void VisitStmt_(const ScopeStmtPtr& op) override;
+    void VisitStmt_(const SectionStmtPtr& op) override;
     void VisitStmt_(const EvalStmtPtr& op) override;
     void VisitStmt_(const BreakStmtPtr& op) override;
     void VisitStmt_(const ContinueStmtPtr& op) override;
