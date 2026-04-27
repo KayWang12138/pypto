@@ -180,6 +180,34 @@ Status OoOScheduler::CheckAndUpdateLifecycle()
     return SUCCESS;
 }
 
+Status OoOScheduler::PickSpillMemType(CoreLocationType coreLocation, MemoryType &spillMemType)
+{
+    if (!allocIssueQueue[coreLocation][MemoryType::MEM_UB].Empty()) {
+        spillMemType = MemoryType::MEM_UB;
+        return SUCCESS;
+    }
+    if (!allocIssueQueue[coreLocation][MemoryType::MEM_L1].Empty()) {
+        spillMemType = MemoryType::MEM_L1;
+        return SUCCESS;
+    }
+    if (coreLocation == CoreLocationType::AIC &&
+        !allocIssueQueue[coreLocation][MemoryType::MEM_L0C].Empty()) {
+        spillMemType = MemoryType::MEM_L0C;
+        return SUCCESS;
+    }
+    for (auto& memType : allocIssueQueue[coreLocation]) {
+        if (memType.second.Empty()) {
+            continue;
+        }
+        PrintSpillFailedInfo(memType.second.Front(), false);
+    }
+    APASS_LOG_ERROR_F(
+        Elements::Operation,
+        "Buffer[L0A/B] is Full. Possible causes: incorrect memory reuse, memory fragmentation. "
+        "Please check tile shape and OOO spill failed info.");
+    return FAILED;
+}
+
 Status OoOScheduler::SpillOnCoreBlock(CoreLocationType coreLocation, bool& didSpill)
 {
     bool anyNotEmpty = false;
@@ -194,21 +222,7 @@ Status OoOScheduler::SpillOnCoreBlock(CoreLocationType coreLocation, bool& didSp
     }
 
     MemoryType spillMemType;
-    if (!allocIssueQueue[coreLocation][MemoryType::MEM_UB].Empty()) {
-        spillMemType = MemoryType::MEM_UB;
-    } else if (!allocIssueQueue[coreLocation][MemoryType::MEM_L1].Empty()) {
-        spillMemType = MemoryType::MEM_L1;
-    } else {
-        for (auto& memType : allocIssueQueue[coreLocation]) {
-            if (memType.second.Empty()) {
-                continue;
-            }
-            PrintSpillFailedInfo(memType.second.Front(), false);
-        }
-        APASS_LOG_ERROR_F(
-            Elements::Operation,
-            "Buffer[L0A/B/C] is Full. Possible causes: incorrect memory reuse, memory fragmentation. "
-            "Please check tile shape and OOO spill failed info.");
+    if (PickSpillMemType(coreLocation, spillMemType) != SUCCESS) {
         return FAILED;
     }
     if (GenBufferSpill(allocIssueQueue[coreLocation][spillMemType].Front()) != SUCCESS) {
