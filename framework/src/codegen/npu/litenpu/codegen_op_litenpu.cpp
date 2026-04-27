@@ -25,7 +25,6 @@ CodeGenOpLiteNPU::CodeGenOpLiteNPU(const CodeGenOpNPUCtx& ctx) : CodeGenOpNPU(ct
     forBlkMgr_ = ctx.forBlockManager;
     CodeGenOp::Init(ctx.operation);
     UpdateTileTensorInfo();
-    UpdateLoopInfo();
 }
 
 TileTensor CodeGenOpLiteNPU::QueryTileTensorByIdx(int paramIdx) const
@@ -91,8 +90,8 @@ void CodeGenOpLiteNPU::UpdateTileTensorShapeAndStride(
     [[maybe_unused]] const ShapeInLoop& shapeInLoop)
 {
     auto newOriginShape = originShape[paramIdx];
-    auto newRawShape = shapeInLoop.loopDepth > 0 ? shapeInLoop.rawShape : rawShape[paramIdx];
-    auto newDynValidShape = shapeInLoop.loopDepth > 0 ? shapeInLoop.dynamicValidShape : dynamicValidShape[paramIdx];
+    auto newRawShape = rawShape[paramIdx];
+    auto newDynValidShape = dynamicValidShape[paramIdx];
     CODEGEN_LOGI(
         "newOriginShape is %s, newRawShape is %s, newDynValidShape is %s", IntVecToStr(newOriginShape).c_str(),
         IntVecToStr(newRawShape).c_str(), IntVecToStr(newDynValidShape).c_str());
