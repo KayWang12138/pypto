@@ -797,7 +797,7 @@ void DevAscendFunction::InitWrapInfo(uintdevptr_t& initOffset, const OrderedSet<
         for (size_t i = 0; i < callList.size(); i++) {
             auto callop = std::static_pointer_cast<CallOpAttribute>(callList[i]->GetOpAttribute());
             At(opWrapList_, i) = callop->wrapId;
-            At(opWrapOffsetList_, i) = INVALID_QUEUE_OFFSET;
+            At(opWrapOffsetList_, i) = INVALID_UINT16_IDX;
         }
     }
 }
