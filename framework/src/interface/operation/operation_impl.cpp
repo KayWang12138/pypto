@@ -248,7 +248,7 @@ Tensor Compact(const Tensor& operand)
 
 void experimental::Print(
     SymbolicScalar cond, const std::string& format, const std::vector<Tensor>& tensors,
-    const std::vector<SymbolicScalar>& scalars)
+    const std::vector<SymbolicScalar>& scalars, const std::vector<std::string>& tensorSliceSpecs)
 {
     auto function = Program::GetInstance().GetCurrentFunction();
     std::vector<LogicalTensorPtr> inputs;
@@ -258,6 +258,16 @@ void experimental::Print(
     auto& op = function->AddOperation(Opcode::OP_PRINT, inputs, {});
     op.SetAttr(OP_ATTR_PREFIX + "format", format);
     op.SetAttr(OP_ATTR_PREFIX + "scalars", scalars);
+    if (!tensorSliceSpecs.empty()) {
+        std::string joinedSpecs;
+        for (size_t i = 0; i < tensorSliceSpecs.size(); ++i) {
+            if (i > 0) {
+                joinedSpecs += "||";
+            }
+            joinedSpecs += tensorSliceSpecs[i];
+        }
+        op.SetAttr(OP_ATTR_PREFIX + "tensor_slice_specs", joinedSpecs);
+    }
     op.SetAttribute(OP_ATTR_PREFIX + "cond", cond);
     function->UpdateTensorDataUsage(op);
 }
