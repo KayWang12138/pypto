@@ -263,7 +263,7 @@ Operation* RemoveUnalignedReshape::CopyBranchBetweenCopyOut2Reshape(Function& fu
     }
     // 此时preOp 为 copyOutop preTensor为CopyOut的输出
     Operation* newCopyOutOp = &(preOp->CloneOperation(function, preOp->GetIOperands(), preOp->GetOOperands()));
-    newOps.push_back(&newCopyOutOp);
+    newOps.push_back(newCopyOutOp);
     newCopyOutOp->UpdateSubgraphID(preOp->GetSubgraphID());
     newCopyOutOp->ReplaceOutput(preCloneTensor, preTensor);
     DeadOperationEliminator::EliminateDeadOperation(function);
