@@ -374,16 +374,60 @@ TEST_F(TestDeviceTaskContext, test_build_ready_queue_core_function_mix_arch)
     EXPECT_EQ(ret, DEVICE_MACHINE_OK);
 }
 
+TEST_F(TestDeviceTaskContext, test_build_ready_queue_dupped_data)
+{
+    DeviceTaskContext taskContext;
+    DevStartArgsBase startArgs;
+    constexpr size_t kControlFlowCacheSize = 64 * 1024 * 8;
+    auto controlFlowCacheBuf = std::make_unique<uint8_t[]>(kControlFlowCacheSize);
+
+    DevAscendProgram devProg;
+    CreateMockDevAscendProgram(&devProg, ArchInfo::DAV_3510);
+    devProg.controlFlowCache.cacheData = DevRelocVector<uint8_t>(kControlFlowCacheSize, controlFlowCacheBuf.get());
+    devProg.controlFlowCache.isRecording = true;
+
+    DeviceWorkspaceAllocator workspace(&devProg);
+    taskContext.InitAllocator(&devProg, workspace, &startArgs);
+
+    auto dyntask = std::make_unique<DynDeviceTask>(workspace);
+    CreateMockDynDeviceTask(dyntask.get(), 100);
+
+    constexpr size_t kOpCount = 32;
+    constexpr size_t kFuncBufferSize = kOpCount * 1024;
+    constexpr size_t kDuppedDataBufferSize = kOpCount * 512;
+
+    std::unique_ptr<uint8_t[]> funcBuffer;
+    uint8_t* funcDataPtr;
+    DevAscendFunction* devFunc = CreateDevAscendFunctionBuffer(funcBuffer, funcDataPtr, kOpCount, kFuncBufferSize);
+
+    SetupDevAscendFunctionData(devFunc, funcDataPtr, funcBuffer.get(), kOpCount);
+
+    std::unique_ptr<uint8_t[]> duppedDataBuffer;
+    uint8_t* duppedDataPtr;
+    DevAscendFunctionDuppedData* duppedData =
+        CreateDevAscendFunctionDuppedData(duppedDataBuffer, duppedDataPtr, devFunc, kOpCount, kDuppedDataBufferSize);
+
+    devFunc->predInfo_.totalZeroPredAIV = 10;
+    devFunc->predInfo_.totalZeroPredAIC = 10;
+    devFunc->predInfo_.totalZeroPredAicpu = 0;
+
+    dyntask->dynFuncDataCacheList[0].devFunc = devFunc;
+    dyntask->dynFuncDataCacheList[0].duppedData = duppedData;
+    dyntask->dynFuncDataCacheListSize = 1;
+
+    int ret = taskContext.BuildReadyQueue(dyntask.get(), &devProg);
+
+    EXPECT_EQ(ret, DEVICE_MACHINE_OK);
+}
+
 namespace {
 
 void InitReadyQueueSlot(
     ReadyCoreFunctionQueue& q, std::array<taskid_t, 4>& elemBuf, uint32_t head, uint32_t tail, taskid_t firstId)
 {
-    q.lock = 0;
-    q.head = head;
-    q.tail = tail;
-    q.capacity = static_cast<uint32_t>(elemBuf.size());
-    q.elem = elemBuf.data();
+    new (&q) ReadyCoreFunctionQueue(elemBuf.size(), elemBuf.data());
+    q.unsafe_enqueue(&elemBuf[0], tail);
+    q.dequeue(head);
     if (tail > head) {
         elemBuf[0] = firstId;
     }
@@ -393,11 +437,10 @@ void InitReadyQueueSlotMulti(
     ReadyCoreFunctionQueue& q, std::array<taskid_t, 4>& elemBuf, uint32_t head, uint32_t tail,
     const std::vector<taskid_t>& ids)
 {
-    q.lock = 0;
-    q.head = head;
-    q.tail = tail;
-    q.capacity = static_cast<uint32_t>(elemBuf.size());
-    q.elem = elemBuf.data();
+    new (&q) ReadyCoreFunctionQueue(elemBuf.size(), elemBuf.data());
+    q.unsafe_enqueue(&elemBuf[0], tail);
+    q.dequeue(head);
+
     for (size_t i = 0; i < ids.size() && (head + i) < tail && i < elemBuf.size(); ++i) {
         elemBuf[i] = ids[i];
     }
