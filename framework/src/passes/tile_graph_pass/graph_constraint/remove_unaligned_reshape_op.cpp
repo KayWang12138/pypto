@@ -37,10 +37,8 @@ Status RemoveUnalignedReshape::RunOnFunction(Function& function)
     for (auto& a : copyOuts) {
         GraphUtils::CopyDynStatus(a.output, a.input);
         auto& newCopyOut = function.AddRawOperation(Opcode::OP_COPY_OUT, {a.input}, {a.output});
-        newCopyOut.SetOpAttribute(
-            std::make_shared<CopyOpAttribute>(
-                a.from, OpImmediate::Specified(a.toOffset), 
-                OpImmediate::Specified(newCopyOut.iOperand.front()->oriShape),
+        newCopyOut.SetOpAttribute(std::make_shared<CopyOpAttribute>(
+                a.from, OpImmediate::Specified(a.toOffset), OpImmediate::Specified(newCopyOut.iOperand.front()->oriShape),
                 OpImmediate::Specified(newCopyOut.oOperand.front()->tensor->GetDynRawShape())));
         auto producerOp = *(a.input->GetProducers().begin());
         newCopyOut.UpdateSubgraphID(producerOp->GetSubgraphID());
