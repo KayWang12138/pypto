@@ -209,11 +209,11 @@ protected:
     std::string GenOffsetsAndRawShapesDefault() const;
     std::string GenTargetRankStr() const;
 
-    void AddDivPrecisionTypeParm(std::vector<std::string>& templateParamList) const;
+    void AddBinaryPrecisionTypeParm(std::vector<std::string>& templateParamList) const;
     void UpdateTileTensorInfo();
     void UpdateLoopInfo();
     std::vector<SymbolicScalar> GetLoopAxes();
-    ShapeInLoop BuildShapeInLoop(int paramIdx, size_t loopDepth);
+    TileTensorShape BuildTileTensorShapeInLoop(int paramIdx);
     bool ShouldSkipProcInLoop(int paramIdx);
 
     template <typename T = int64_t>
@@ -261,9 +261,10 @@ protected:
 
     std::string GetLastUse() const;
 
-    virtual TileTensor BuildTileTensor(int paramIdx, const std::string& usingType, const ShapeInLoop& shapeInLoop = {});
+    virtual TileTensor BuildTileTensor(
+        int paramIdx, const std::string& usingType, const TileTensorShape& tileTensorShape = {});
     virtual void UpdateTileTensorShapeAndStride(
-        int paramIdx, TileTensor& tileTensor, bool isSpillToGm, const ShapeInLoop& shapeInLoop = {});
+        int paramIdx, TileTensor& tileTensor, bool isSpillToGm, const TileTensorShape& tileTensorShape = {});
     std::vector<std::string> BuildStride(const std::vector<int64_t>& input);
 
     std::string GenMemCopyVar(bool isCopyLocalToGM, bool isSpillToGm = false, unsigned uf = 0) const;
@@ -422,8 +423,7 @@ protected:
     std::string PrintExpm1Layout() const;
     std::string PrintRound() const;
     std::string PrintRoundLayout() const;
-    std::string PrintExp2() const;
-    std::string PrintExp2Layout() const;
+    std::string PrintUnaryOpWithTmpTwoBuff() const;
 
     DynamicParamPackMTE PrepareDynamicShapeInfoForMTE(
         int dynShapeIdx, int ShapeDim = SHAPE_DIM4, bool isGmSpill = false) const;

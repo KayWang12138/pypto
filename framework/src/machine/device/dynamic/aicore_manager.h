@@ -212,6 +212,7 @@ public:
 
     void DumpAicoreLog(int coreIdx)
     {
+        DEV_INFO("core-%d ENABLE_AICORE_PRINT is true, AICORE Print start!", coreIdx);
         const int bufSize = 512;
         char buf[bufSize];
         while (logger_[coreIdx].Read(buf, bufSize)) {
@@ -394,7 +395,7 @@ public:
     {
         if (ret) {
             DEV_ERROR(
-                ret, "#sche.dtask.leave.post: execute error=%d, skip rest tasks, "
+                SchedErr::ABNOMAL_LAST_WORD, "#sche.dtask.leave.post: execute error=%d, skip rest tasks, "
                 "runreadyAiv=%u runreadyaic=%u, %u, %u",
                 ret, context_->coreRunReadyCnt_[0], context_->coreRunReadyCnt_[1],
                 context_->corePendReadyCnt_[0], context_->corePendReadyCnt_[1]);

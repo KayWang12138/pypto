@@ -79,6 +79,8 @@ inline void QuantPreCompute(
         ops->QuantPreCompute(Trans(out), Trans(self), &scaleData, scale, relu);
     }
 }
+inline void Sin(LogicalTensorDataPtr out, LogicalTensorDataPtr self) { GetCalcOps()->Sin(Trans(out), Trans(self)); }
+inline void Cos(LogicalTensorDataPtr out, LogicalTensorDataPtr self) { GetCalcOps()->Cos(Trans(out), Trans(self)); }
 inline void Exp(LogicalTensorDataPtr out, LogicalTensorDataPtr self) { GetCalcOps()->Exp(Trans(out), Trans(self)); }
 inline void Exp2(LogicalTensorDataPtr out, LogicalTensorDataPtr self) { GetCalcOps()->Exp2(Trans(out), Trans(self)); }
 inline void Expm1(LogicalTensorDataPtr out, LogicalTensorDataPtr self) { GetCalcOps()->Expm1(Trans(out), Trans(self)); }
@@ -219,6 +221,10 @@ inline void RemainderS(LogicalTensorDataPtr out, LogicalTensorDataPtr self, cons
 inline void RemainderRS(LogicalTensorDataPtr out, LogicalTensorDataPtr self, const Element& scalar, bool reverse = true)
 {
     GetCalcOps()->RemainderRS(Trans(out), Trans(self), scalar, reverse);
+}
+inline void PowS(LogicalTensorDataPtr out, LogicalTensorDataPtr self, const Element& scalar, bool reverse = false)
+{
+    GetCalcOps()->PowS(Trans(out), Trans(self), scalar, reverse);
 }
 inline void BitwiseAndS(
     LogicalTensorDataPtr out, LogicalTensorDataPtr self, const Element& scalar, bool reverse = false)

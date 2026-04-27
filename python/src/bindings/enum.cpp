@@ -85,6 +85,11 @@ void bind_enum(py::module& m)
         .value("HIGH_PRECISION", DivAlgorithm::HIGH_PRECISION)
         .finalize();
 
+    py::native_enum<PowAlgorithm>(m, "PowAlgorithm", "enum.IntEnum")
+        .value("INTRINSIC", PowAlgorithm::DEFAULT)
+        .value("HIGH_PRECISION", PowAlgorithm::HIGH_PRECISION)
+        .finalize();
+
     py::native_enum<SqrtAlgorithm>(m, "SqrtAlgorithm", "enum.IntEnum")
         .value("INTRINSIC", SqrtAlgorithm::DEFAULT)
         .value("HIGH_PRECISION", SqrtAlgorithm::HIGH_PRECISION)
@@ -108,6 +113,11 @@ void bind_enum(py::module& m)
     py::native_enum<RecipAlgorithm>(m, "RecipAlgorithm", "enum.IntEnum")
         .value("INTRINSIC", RecipAlgorithm::DEFAULT)
         .value("HIGH_PRECISION", RecipAlgorithm::HIGH_PRECISION)
+        .finalize();
+
+    py::native_enum<FmodAlgorithm>(m, "FmodAlgorithm", "enum.IntEnum")
+        .value("INTRINSIC", FmodAlgorithm::DEFAULT)
+        .value("HIGH_PRECISION", FmodAlgorithm::HIGH_PRECISION)
         .finalize();
 
     py::native_enum<TileType>(m, "TileType", "enum.IntEnum")

@@ -51,6 +51,12 @@ enum class DivAlgorithm : uint8_t
     HIGH_PRECISION
 };
 
+enum class PowAlgorithm : uint8_t
+{
+    DEFAULT,
+    HIGH_PRECISION
+};
+
 enum class SqrtAlgorithm : uint8_t
 {
     DEFAULT,
@@ -76,6 +82,12 @@ enum class LogAlgorithm : uint8_t
 };
 
 enum class RecipAlgorithm : uint8_t
+{
+    DEFAULT,
+    HIGH_PRECISION
+};
+
+enum class FmodAlgorithm : uint8_t
 {
     DEFAULT,
     HIGH_PRECISION
@@ -183,6 +195,8 @@ Tensor Permute(const Tensor &self, std::vector<int> perm);
 Tensor Exp(const Tensor& self, ExpAlgorithm precisionType = ExpAlgorithm::DEFAULT);
 Tensor Exp2(const Tensor& self);
 Tensor Expm1(const Tensor& self);
+Tensor Sin(const Tensor& self);
+Tensor Cos(const Tensor& self);
 Tensor Neg(const Tensor& self);
 Tensor Round(const Tensor& self, const int& decimals = 0);
 Tensor Rsqrt(const Tensor& self, RsqrtAlgorithm precisionType = RsqrtAlgorithm::DEFAULT);
@@ -254,7 +268,7 @@ Tensor Sub(const Tensor& self, const Tensor& other);
 Tensor Div(const Tensor& self, const Tensor& other, DivAlgorithm precisionType = DivAlgorithm::DEFAULT);
 Tensor Mul(const Tensor& self, const Tensor& other);
 Tensor Hypot(const Tensor& self, const Tensor& other);
-Tensor Fmod(const Tensor& self, const Tensor& other);
+Tensor Fmod(const Tensor& self, const Tensor& other, FmodAlgorithm precisionType = FmodAlgorithm::DEFAULT);
 Tensor Maximum(const Tensor& operand1, const Tensor& operand2);
 Tensor Minimum(const Tensor& operand1, const Tensor& operand2);
 Tensor BitwiseAnd(const Tensor& self, const Tensor& other);
@@ -265,7 +279,7 @@ Tensor Add(const Tensor& self, const Element& other);
 Tensor Sub(const Tensor& self, const Element& other);
 Tensor Div(const Tensor& self, const Element& other, DivAlgorithm precisionType = DivAlgorithm::DEFAULT);
 Tensor Mul(const Tensor& self, const Element& other);
-Tensor Fmod(const Tensor& self, const Element& other);
+Tensor Fmod(const Tensor& self, const Element& other, FmodAlgorithm precisionType = FmodAlgorithm::DEFAULT);
 Tensor BitwiseAnd(const Tensor& self, const Element& other);
 Tensor BitwiseOr(const Tensor& self, const Element& other);
 Tensor BitwiseXor(const Tensor& self, const Element& other);
@@ -274,8 +288,8 @@ Tensor Maximum(const Tensor& operand1, const Element& operand2);
 Tensor Compare(const Tensor& self, const Tensor& other, OpType op, OutType mode);
 Tensor Compare(const Tensor& self, const Element& other, OpType op, OutType mode);
 Tensor Compare(const Element& self, const Tensor& other, OpType op, OutType mode);
-Tensor Pow(const Tensor& self, const Tensor& other);
-Tensor Pow(const Tensor& self, const Element& other);
+Tensor Pow(const Tensor& self, const Tensor& other, PowAlgorithm precisionType = PowAlgorithm::DEFAULT);
+Tensor Pow(const Tensor& self, const Element& other, PowAlgorithm precisionType = PowAlgorithm::DEFAULT);
 Tensor Remainder(const Tensor& self, const Tensor& other);
 Tensor Remainder(const Tensor& self, const Element& other);
 Tensor Remainder(const Element& self, const Tensor& other);
@@ -306,8 +320,6 @@ Tensor ScatterUpdate(
 
 Tensor Expand(const Tensor& self, const std::vector<int64_t>& dstShape, std::vector<SymbolicScalar> validShape = {});
 
-Tensor Sin(Tensor operand);
-Tensor Cos(Tensor operand);
 Tensor Var(const Tensor& input, const std::vector<int>& dim = {}, float correction = 1.0f, bool keepDim = false);
 Tensor Softmax(const Tensor& operand);
 Tensor RmsNorm(const Tensor& operand);
