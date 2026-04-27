@@ -40,14 +40,10 @@ std::string InferParamIndex::DumpParamIndex(const std::map<std::string, DynParam
 
 bool InferParamIndex::HandleCopyOpShape(const Operation& op, Function &function, bool &isCopyIn)
 {
-    auto operands = isCopyIn ? op.GetIOperands() : op.GetOOperands();
     auto &casts = isCopyIn ? function.inCasts_ : function.outCasts_;
-    auto operand = operands.front();
     if (find(casts.begin(), casts.end(), operand) == casts.end()) {
-        auto shape = OpImmediate::Specified(operand->GetShape());
-        auto validShape = OpImmediate::ToSpecified(shape);
-        std::static_pointer_cast<CopyOpAttribute>(op.GetOpAttribute())->SetShape(shape);
-        operand->UpdateDynValidShape(validShape);
+        std::vector<SymbolicScalar> validShape;
+        op.GetOOperands().front()->UpdateDynValidShape(validShape);
         return true;
     }
     return false;
