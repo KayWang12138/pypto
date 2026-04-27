@@ -234,8 +234,8 @@ def jit_module(monkeypatch):
                 sys.modules[name] = previous
 
 
-def test_compile_artifacts_are_unique_for_distinct_programs(jit_module, monkeypatch):
-    """Different programs with the same public name must not share one artifact path."""
+def test_compile_artifact_path_uses_test_kernel_arch_and_mode(jit_module, monkeypatch):
+    """Artifact paths are scoped by test name, kernel name, arch, and codegen mode."""
     _redirect_build_root(monkeypatch, jit_module)
 
     first = _DummyProgram("matmul_add_matmul_add", "program { store(workspace) }")
@@ -244,7 +244,8 @@ def test_compile_artifacts_are_unique_for_distinct_programs(jit_module, monkeypa
     first_lib = jit_module.compile(first, arch="a5", codegen_mode="cce").lib_path
     second_lib = jit_module.compile(second, arch="a5", codegen_mode="cce").lib_path
 
-    assert first_lib != second_lib
+    assert first_lib == second_lib
+    assert Path(first_lib).parent.name == "jit_artifact_paths__matmul_add_matmul_add__a5__cce"
 
 
 def test_compile_artifacts_are_scoped_by_arch(jit_module, monkeypatch):
@@ -260,7 +261,7 @@ def test_compile_artifacts_are_scoped_by_arch(jit_module, monkeypatch):
 
 
 def test_compile_artifact_path_stays_stable_for_same_program(jit_module, monkeypatch):
-    """A stable fingerprint keeps repeated compiles of the same program in one directory."""
+    """Repeated compiles of the same test/kernel/arch/mode use one directory."""
     _redirect_build_root(monkeypatch, jit_module)
 
     prog = _DummyProgram("matmul_add_matmul_add", "program { body }")
