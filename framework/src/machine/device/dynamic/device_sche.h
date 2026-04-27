@@ -190,6 +190,7 @@ struct DynMachineManager {
         return npu::tile_fwk::dynamic::DEVICE_MACHINE_OK;
     }
 
+    
     int AllocThreadIdxForDav2201(DeviceArgs *devArgs, int cpu, int &curThreadIdx, std::atomic<int> &threadIdx) {
         cpumask_.fetch_or(1 << cpu, std::memory_order_release);
         TIMEOUT_CHECK_START();
