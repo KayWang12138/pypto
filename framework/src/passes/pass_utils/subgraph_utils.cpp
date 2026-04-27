@@ -56,6 +56,12 @@ bool IsBoundaryAsInput(const LogicalTensor& tensor, const Operation& op)
         return !op.GetOOperands().empty() &&
                op.GetOOperands().front()->GetMemoryTypeOriginal() == MemoryType::MEM_DEVICE_DDR;
     }
+
+    bool isDistCopyOut = false;
+    if (op.GetAttr<bool>(OpAttributeKey::isDistCopyOut, isDistCopyOut) && !isDistCopyOut) {
+        return op.GetIOperands().size() > 1 && op.GetIOperands()[1].get() == &tensor;
+    }
+
     return false;
 }
 
@@ -73,6 +79,16 @@ bool IsBoundaryAsOutput(const LogicalTensor& tensor, const Operation& op)
                op.GetIOperands().front()->GetMemoryTypeOriginal() == MemoryType::MEM_DEVICE_DDR &&
                tensor.GetMemoryTypeOriginal() == MemoryType::MEM_DEVICE_DDR;
     }
+
+    bool isDistCopyOut = false;
+    if (op.GetAttr<bool>(OpAttributeKey::isDistCopyOut, isDistCopyOut) && isDistCopyOut) {
+        return !op.GetOOperands().empty() && op.GetOOperands().front().get() == &tensor;
+    }
+
+    if (op.GetOpcode() == Opcode::OP_SHMEM_SIGNAL) {
+        return !op.GetOOperands().empty() && op.GetOOperands().front().get() == &tensor;
+    }
+
     return false;
 }
 
