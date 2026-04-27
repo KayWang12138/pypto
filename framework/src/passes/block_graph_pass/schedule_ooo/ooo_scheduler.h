@@ -224,9 +224,19 @@ private:
         LocalBufferPtr allocBuffer, bool isGenSpill);
     Status SpillOutBuffer(SpillInfo &spillInfo, Operation* op, size_t &pcIdx, bool isGenSpill);
     Status CreateSpecialL1Copyout(SpillInfo &spillInfo, Operation* &spillCopyoutOp, int &bufLastUseOrder,
-        bool &isFinish);
+        bool &isFinish, bool isGenSpill);
     Status CreateSpillCopyout(Operation* spillOp, LogicalTensorPtr spillTensor, int spillMemId,
         Operation* &spillCopyoutOp, const SpillInfo &spillInfo);
+    Status CreateSpillCopyoutForSmallShape(SpillInfo &spillInfo, LogicalTensorPtr l1Tensor, bool &isFinish, bool isGenSpill);
+    Status TryCreateSpillCopyoutForSmallShape(SpillInfo &spillInfo, Operation* candidateOp, bool &isFinish, bool isGenSpill);
+    Status BuildSmallShapeDdrTensor(SpillInfo &spillInfo, LogicalTensorPtr l1Tensor,
+        LogicalTensorPtr &ddrTensor, int64_t &workspaceOffsetTemp);
+    Status ResolveSmallShapeActualSpill(Operation* producerOp,
+        Operation* &actualOp, LogicalTensorPtr &actualTensor);
+    Status CreateSmallShapeProducerCopyout(SpillInfo &spillInfo, Operation* producerOp,
+        LogicalTensorPtr ddrTensor, int64_t workspaceOffsetTemp, bool isGenSpill);
+    Status ConfigSmallShapeCopyoutAttrs(Operation &copyOutOp, Operation* producerOp,
+        LogicalTensorPtr actualTensor, int64_t workspaceOffsetTemp);
     Status SpillInBuffer(SpillInfo &spillInfo, Operation* allocOp, MemoryType bufferType, bool isGenSpill);
     Status SpillInReshapeBuffer(SpillInfo &spillInfo, Operation* allocOp, bool isGenSpill);
     Status SpillReshapeParticalBuffer(SpillInfo &spillInfo, Operation* allocOp, LogicalTensorPtr reshapeTensor,
