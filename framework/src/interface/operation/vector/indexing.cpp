@@ -873,9 +873,9 @@ struct ScatterTileInfoPara {
     TileInfo selfInfo;
 };
 
-void InnerTiledScatter(
-    size_t cur, Function& function, const TileShape& tileShape, const ScatterPara& scatterPara,
-    ScatterTileInfoPara& scatterTileInfo)
+void ScatterExpandFunc(
+    Function& function, const ScatterPara& scatterPara, ScatterTileInfoPara& scatterTileInfo,
+    const LogicalTensorPtr& cachedDstTile = nullptr, const LogicalTensorPtr& cachedSelfTile = nullptr)
 {
     const LogicalTensorPtr& dstTensor = scatterPara.dstTensor;
     const LogicalTensorPtr& selfInput = scatterPara.selfInput;
@@ -884,61 +884,82 @@ void InnerTiledScatter(
     const int axis = scatterPara.axis;
     const int mode = scatterPara.scatterMode;
 
+    auto idxTile = idxInput->View(function, scatterTileInfo.idxInfo.shape, scatterTileInfo.idxInfo.offset);
+    auto srcTile = srcInput->View(function, scatterTileInfo.srcInfo.shape, scatterTileInfo.srcInfo.offset);
+    auto selfTile = cachedSelfTile ?
+                        cachedSelfTile :
+                        selfInput->View(function, scatterTileInfo.selfInfo.shape, scatterTileInfo.selfInfo.offset);
+    auto dstTile = cachedDstTile ?
+                       cachedDstTile :
+                       dstTensor->View(function, scatterTileInfo.dstInfo.shape, scatterTileInfo.dstInfo.offset);
+    Shape tmpShape({idxTile->GetShape()[idxTile->GetShape().size() - 1]});
+    auto tmpBuffer = std::make_shared<LogicalTensor>(function, idxTile->Datatype(), tmpShape);
+    auto& op = function.AddOperation(Opcode::OP_SCATTER, {selfTile, idxTile, srcTile}, {dstTile, tmpBuffer});
+    op.SetAttribute(OpAttributeKey::inplaceIdx, 0);
+    op.SetAttribute(OP_ATTR_PREFIX + "axis", axis);
+    op.SetAttribute(OP_ATTR_PREFIX + "scatter_mode", mode);
+}
+
+using ScatterTileCache = std::unordered_map<int64_t, std::pair<LogicalTensorPtr, LogicalTensorPtr>>;
+
+void InnerTiledScatter(
+    size_t cur, Function& function, const TileShape& tileShape, const ScatterPara& scatterPara,
+    ScatterTileInfoPara& scatterTileInfo, ScatterTileCache& tileCache, int64_t encodeKey = 0)
+{
+    const LogicalTensorPtr& dstTensor = scatterPara.dstTensor;
+    const LogicalTensorPtr& selfInput = scatterPara.selfInput;
+    const LogicalTensorPtr& idxInput = scatterPara.idxInput;
+    const LogicalTensorPtr& srcInput = scatterPara.srcInput;
+    const int axis = scatterPara.axis;
+
     if (cur == dstTensor->shape.size()) {
-        // add Operation
-        auto selfTile = selfInput->View(function, scatterTileInfo.selfInfo.shape, scatterTileInfo.selfInfo.offset);
-        auto idxTile = idxInput->View(function, scatterTileInfo.idxInfo.shape, scatterTileInfo.idxInfo.offset);
-        auto srcTile = srcInput->View(function, scatterTileInfo.srcInfo.shape, scatterTileInfo.srcInfo.offset);
-        auto dstTile = dstTensor->View(function, scatterTileInfo.dstInfo.shape, scatterTileInfo.dstInfo.offset);
-        Shape tmpShape({idxTile->GetShape()[idxTile->GetShape().size() - 1]});
-        auto tmpBuffer = std::make_shared<LogicalTensor>(function, idxTile->Datatype(), tmpShape);
-        auto& op = function.AddOperation(Opcode::OP_SCATTER, {selfTile, idxTile, srcTile}, {dstTile, tmpBuffer});
-        op.SetAttribute(OP_ATTR_PREFIX + "axis", axis);
-        op.SetAttribute(OP_ATTR_PREFIX + "scatter_mode", mode);
+        auto it = tileCache.find(encodeKey);
+        if (it == tileCache.end()) {
+            auto selfTile = selfInput->View(function, scatterTileInfo.selfInfo.shape, scatterTileInfo.selfInfo.offset);
+            auto dstTile = dstTensor->View(function, scatterTileInfo.dstInfo.shape, scatterTileInfo.dstInfo.offset);
+            it = tileCache.emplace(encodeKey, std::make_pair(dstTile, selfTile)).first;
+        }
+        ScatterExpandFunc(function, scatterPara, scatterTileInfo, it->second.first, it->second.second);
         return;
     }
 
-    // 按照dstShape进行切分
     auto& vecTile = tileShape.GetVecTile();
-    ASSERT(VectorErrorCode::ERR_CONFIG_TILE, vecTile[axis] >= dstTensor->shape[axis])
-        << "The axis is not supported for tile splitting";
-    ASSERT(VectorErrorCode::ERR_CONFIG_TILE, vecTile[axis] >= idxInput->shape[axis])
-        << "The axis is not supported for tile splitting";
     int64_t tmpTile = vecTile[cur];
+    const auto& idxShape = idxInput->GetShape();
+    int64_t numTilesInCurDim = (idxShape[cur] + tmpTile - 1) / tmpTile;
+
     if (static_cast<int>(cur) == axis) {
-        tmpTile = std::max(dstTensor->shape[axis], idxInput->shape[axis]);
-    }
-    for (int i = 0; i < idxInput->shape[cur]; i += tmpTile) {
-        if (static_cast<int>(cur) == axis) {
-            scatterTileInfo.idxInfo.offset[cur] = 0;
-            scatterTileInfo.idxInfo.shape[cur] = idxInput->shape[cur];
-            scatterTileInfo.dstInfo.offset[cur] = 0;
-            scatterTileInfo.dstInfo.shape[cur] = dstTensor->shape[cur];
-            scatterTileInfo.srcInfo.offset[cur] = 0;
-            scatterTileInfo.srcInfo.shape[cur] = idxInput->shape[cur];
-            scatterTileInfo.selfInfo.offset[cur] = 0;
-            scatterTileInfo.selfInfo.shape[cur] = selfInput->shape[cur];
-        } else {
-            scatterTileInfo.idxInfo.offset[cur] = i % idxInput->shape[cur];
-            scatterTileInfo.idxInfo.shape[cur] =
-                std::min(idxInput->shape[cur] - scatterTileInfo.idxInfo.offset[cur], tmpTile);
-            scatterTileInfo.dstInfo.offset[cur] = i;
-            scatterTileInfo.dstInfo.shape[cur] =
-                std::min(idxInput->shape[cur] - scatterTileInfo.idxInfo.offset[cur], tmpTile);
+        scatterTileInfo.dstInfo.offset[cur] = 0;
+        scatterTileInfo.dstInfo.shape[cur] = dstTensor->shape[cur];
+        scatterTileInfo.selfInfo.offset[cur] = 0;
+        scatterTileInfo.selfInfo.shape[cur] = selfInput->shape[cur];
+        for (int i = 0; i < idxInput->GetShape()[cur]; i += tmpTile) {
+            scatterTileInfo.idxInfo.offset[cur] = i;
+            scatterTileInfo.idxInfo.shape[cur] = std::min(idxInput->GetShape()[cur] - i, tmpTile);
             scatterTileInfo.srcInfo.offset[cur] = i;
-            scatterTileInfo.srcInfo.shape[cur] =
-                std::min(idxInput->shape[cur] - scatterTileInfo.idxInfo.offset[cur], tmpTile);
-            scatterTileInfo.selfInfo.offset[cur] = i;
-            scatterTileInfo.selfInfo.shape[cur] =
-                std::min(idxInput->shape[cur] - scatterTileInfo.idxInfo.offset[cur], tmpTile);
+            scatterTileInfo.srcInfo.shape[cur] = std::min(srcInput->GetShape()[cur] - i, tmpTile);
+            InnerTiledScatter(cur + 1, function, tileShape, scatterPara, scatterTileInfo, tileCache, encodeKey);
         }
-        InnerTiledScatter(cur + 1, function, tileShape, scatterPara, scatterTileInfo);
+    } else {
+        int64_t tileIndex = 0;
+        for (int i = 0; i < idxInput->GetShape()[cur]; i += tmpTile) {
+            scatterTileInfo.dstInfo.offset[cur] = i;
+            scatterTileInfo.dstInfo.shape[cur] = std::min(dstTensor->shape[cur] - i, tmpTile);
+            scatterTileInfo.selfInfo.offset[cur] = i;
+            scatterTileInfo.selfInfo.shape[cur] = std::min(selfInput->shape[cur] - i, tmpTile);
+            scatterTileInfo.idxInfo.offset[cur] = i;
+            scatterTileInfo.idxInfo.shape[cur] = std::min(idxInput->GetShape()[cur] - i, tmpTile);
+            scatterTileInfo.srcInfo.offset[cur] = i;
+            scatterTileInfo.srcInfo.shape[cur] = std::min(srcInput->GetShape()[cur] - i, tmpTile);
+            int64_t newKey = encodeKey * numTilesInCurDim + tileIndex;
+            tileIndex++;
+            InnerTiledScatter(cur + 1, function, tileShape, scatterPara, scatterTileInfo, tileCache, newKey);
+        }
     }
 }
 
 void TiledScatter(Function& function, const TileShape& tileShape, const ScatterPara& scatterPara)
 {
-    // Check Operands Valid
     ASSERT(
         VectorErrorCode::ERR_PARAM_INVALID, scatterPara.srcInput->shape.size() == scatterPara.srcInput->offset.size())
         << "The shape size of srcInput and offset should be equal";
@@ -958,7 +979,8 @@ void TiledScatter(Function& function, const TileShape& tileShape, const ScatterP
         TileInfo(scatterPara.dstTensor->shape.size(), scatterPara.dstTensor->offset.size()),
         TileInfo(scatterPara.selfInput->shape.size(), scatterPara.selfInput->offset.size()),
     };
-    InnerTiledScatter(0, function, tileShape, scatterPara, scatterTileInfo);
+    ScatterTileCache tileCache;
+    InnerTiledScatter(0, function, tileShape, scatterPara, scatterTileInfo, tileCache);
 }
 
 void TensorScatter(Function& function, const ScatterPara& scatterPara)
@@ -968,8 +990,7 @@ void TensorScatter(Function& function, const ScatterPara& scatterPara)
         {scatterPara.dstTensor});
     op.SetAttribute(OP_ATTR_PREFIX + "axis", scatterPara.axis);
     op.SetAttribute(OP_ATTR_PREFIX + "scatter_mode", scatterPara.scatterMode);
-    std::map<int, int> inplaceInfo = {{0, 0}};
-    op.SetAttr(OpAttributeKey::inplaceInfo, inplaceInfo);
+    op.SetAttribute(OpAttributeKey::inplaceIdx, 0);
 }
 
 static void CheckScatterParamsInvalid(
@@ -1001,39 +1022,37 @@ static void CheckScatterParamsInvalid(
     CheckTensorShapeSize(src.GetStorage(), "SCATTER");
 }
 
-Tensor Scatter(const Tensor& self, const Tensor& indices, const Tensor& src, int axis, ScatterMode reduce)
+void Scatter(Tensor& self, const Tensor& indices, const Tensor& src, int axis, ScatterMode reduce)
 {
     DECLARE_TRACER();
+    ASSERT(VectorErrorCode::ERR_PARAM_INVALID, self.GetDataType() == src.GetDataType())
+        << "Datatype of self and src should be equal";
     DataType orgDtype = self.GetDataType();
-    auto operandSelfCast = Tensor(DataType::DT_FP32, self.GetShape());
-    auto operandSrcCast = Tensor(DataType::DT_FP32, src.GetShape());
-    if ((orgDtype == DataType::DT_FP16 || orgDtype == DataType::DT_BF16) &&
-        (reduce == ScatterMode::ADD || reduce == ScatterMode::MULTIPLY)) {
-        operandSelfCast = CALL(
+    Tensor operandSelf = self;
+    Tensor operandSrc = src;
+    if ((orgDtype == DataType::DT_FP16 || orgDtype == DataType::DT_BF16) && reduce == ScatterMode::MULTIPLY) {
+        operandSelf = CALL(
             CastOperation<CastOpType::CAST>, *Program::GetInstance().GetCurrentFunction(), self.GetStorage(),
             DataType::DT_FP32, CastMode::CAST_NONE);
-        operandSrcCast = CALL(
+        operandSrc = CALL(
             CastOperation<CastOpType::CAST>, *Program::GetInstance().GetCurrentFunction(), src.GetStorage(),
             DataType::DT_FP32, CastMode::CAST_NONE);
-    } else {
-        operandSelfCast = self;
-        operandSrcCast = src;
     }
-    axis = axis < 0 ? operandSelfCast.GetShape().size() + axis : axis;
-    CheckScatterParamsInvalid(operandSelfCast, indices, operandSrcCast, axis, reduce);
-    Tensor result(operandSelfCast.GetStorage()->Datatype(), operandSelfCast.GetShape());
+    axis = axis < 0 ? operandSelf.GetShape().size() + axis : axis;
+    CheckScatterParamsInvalid(operandSelf, indices, operandSrc, axis, reduce);
+    Tensor result(operandSelf.GetStorage()->Datatype(), operandSelf.GetShape());
     CALL(
         Scatter, *Program::GetInstance().GetCurrentFunction(),
-        {result.GetStorage(), operandSelfCast.GetStorage(), indices.GetStorage(), operandSrcCast.GetStorage(), axis,
+        {result.GetStorage(), operandSelf.GetStorage(), indices.GetStorage(), operandSrc.GetStorage(), axis,
          static_cast<int>(reduce)});
 
-    if ((orgDtype == DataType::DT_FP16 || orgDtype == DataType::DT_BF16) &&
-        (reduce == ScatterMode::ADD || reduce == ScatterMode::MULTIPLY)) {
-        RETURN_CALL(
-            CastOperation<CastOpType::CAST>, *Program::GetInstance().GetCurrentFunction(), result.GetStorage(),
-            orgDtype, CastMode::CAST_RINT);
+    if ((orgDtype == DataType::DT_FP16 || orgDtype == DataType::DT_BF16) && reduce == ScatterMode::MULTIPLY) {
+        Tensor castedResult = CALL(CastOperation<CastOpType::CAST>, *Program::GetInstance().GetCurrentFunction(),
+            result.GetStorage(), orgDtype, CastMode::CAST_RINT);
+        result = castedResult;
     }
-    return result;
+    Program::GetInstance().GetCurrentFunction()->SetSameMemId(self.GetStorage(), result.GetStorage());
+    self = result;
 }
 
 void TiledScatterUpdate(

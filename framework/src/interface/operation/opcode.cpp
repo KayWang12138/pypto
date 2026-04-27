@@ -665,12 +665,11 @@ void OpcodeManager::RegisterVector()
         Opcode::OP_SCATTER_ELEMENT, OpCoreType::AIV, "SCATTER_ELEMENT", {MemoryType::MEM_UB, MemoryType::MEM_UB},
         {MemoryType::MEM_UB}, {"TileOp::TscatterElementS", PIPE_S, PIPE_S, CoreType::AIV}, OpCalcType::OTHER,
         {OP_ATTR_PREFIX + "axis", OpAttributeKey::scalar, OP_ATTR_PREFIX + "scatter_mode"}, TileShapeVerifier::Verify);
-    RegisterInfo(
-        Opcode::OP_SCATTER, OpCoreType::AIV, "SCATTER", {MemoryType::MEM_UB, MemoryType::MEM_UB, MemoryType::MEM_UB},
-        {MemoryType::MEM_UB, MemoryType::MEM_UB}, {"TileOp::Tscatter", PIPE_S, PIPE_S, CoreType::AIV},
-        OpCalcType::OTHER, {OP_ATTR_PREFIX + "axis", OP_ATTR_PREFIX + "scatter_mode"}, TileShapeVerifier::Verify);
-    RegisterInfo(
-        Opcode::OP_INDEX_PUT, OpCoreType::ANY, "INDEX_PUT",
+    RegisterInfo(Opcode::OP_SCATTER, OpCoreType::ANY, "SCATTER",
+        {MemoryType::MEM_DEVICE_DDR, MemoryType::MEM_UB, MemoryType::MEM_UB}, {MemoryType::MEM_DEVICE_DDR, MemoryType::MEM_UB},
+        {"TileOp::Tscatter", PIPE_MTE3, PIPE_MTE3, CoreType::AIV}, OpCalcType::MOVE_OUT,
+        {OP_ATTR_PREFIX + "axis", OP_ATTR_PREFIX + "scatter_mode", OpAttributeKey::inplaceIdx}, TileShapeVerifier::Verify);
+    RegisterInfo(Opcode::OP_INDEX_PUT, OpCoreType::ANY, "INDEX_PUT",
         {MemoryType::MEM_DEVICE_DDR, MemoryType::MEM_UB, MemoryType::MEM_UB, MemoryType::MEM_UB, MemoryType::MEM_UB,
          MemoryType::MEM_UB},
         {MemoryType::MEM_DEVICE_DDR}, {"TileOp::TIndexPut", PIPE_MTE3, PIPE_MTE3, CoreType::AIV}, OpCalcType::MOVE_OUT,

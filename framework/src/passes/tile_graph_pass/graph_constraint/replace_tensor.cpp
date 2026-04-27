@@ -635,7 +635,14 @@ Status ReplaceTensor::ForwardProcess(Function& function)
                 if (ForwardInputIdx(consumerOp, rootTensor, function) == FAILED) {
                     return FAILED;
                 }
-            } else {
+            } else if (
+                consumerOp->GetOpcode() == Opcode::OP_SCATTER && 
+                consumerOp->HasAttribute(OpAttributeKey::inplaceIdx)) {
+                if (ForwardInputIdx(consumerOp, rootTensor, function) == FAILED) {
+                    return FAILED;
+                }
+            }
+            else {
                 continue;
             }
         }
