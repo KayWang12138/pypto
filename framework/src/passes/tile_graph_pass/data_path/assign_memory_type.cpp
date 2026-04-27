@@ -27,16 +27,7 @@
 #define MODULE_NAME "AssignMemoryType"
 
 namespace npu::tile_fwk {
-
-Status AssignMemoryType::RunOnFunction(Function& function)
-{
-    APASS_LOG_INFO_F(Elements::Function, "===> Start AssignMemoryType.");
-    for (auto& op : function.Operations()) {
-        RunOnOperation(op);
-    }
-    for (auto& op : function.Operations()) {
-        AssignMoveOp(op);
-    }
+void AssignMemoryType::SetIncastOutcastMemtype(Function& function) {
     for (auto& incast : function.inCasts_) {
         /*
         设置INCAST的memory type为DDR
@@ -58,6 +49,20 @@ Status AssignMemoryType::RunOnFunction(Function& function)
         op --> tensor --> op3 -->/
         */
         outcast->SetMemoryTypeBoth(MemoryType::MEM_DEVICE_DDR, true);
+    }
+}
+
+Status AssignMemoryType::RunOnFunction(Function& function)
+{
+    APASS_LOG_INFO_F(Elements::Function, "===> Start AssignMemoryType.");
+    // step1: 推导确定的memtype
+    SetIncastOutcastMemtype(function);
+    for (auto& op : function.Operations()) {
+        RunOnOperation(op);
+    }
+    // step2: 推导view assemble等连接op的memtype
+    for (auto& op : function.Operations()) {
+        AssignMoveOp(op);
     }
     AssignMemUnknown(function);
     bool infoBufferSize = false;
