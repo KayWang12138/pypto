@@ -48,7 +48,7 @@ struct QueueGeneric {
         if (capacity() == 0) {
             return *this;
         }
-        DEV_ASSERT(SchedErr::READY_QUEUE_OVERFLOW, rhs.size() <= capacity());
+        ASSERT(ProgEncodeErr::RANGE_VERIFY_FAILED, rhs.size() <= capacity());
         std::copy(rhs.elem + rhs.head, rhs.elem + rhs.tail, elem);
         return *this;
     }
@@ -119,7 +119,7 @@ struct LockableQueueGeneric : public QueueGeneric<T> {
     __attribute__((always_inline)) inline void unsafe_enqueue(T x)
     {
         const uint32_t t = __atomic_fetch_add(&this->tail, 1, std::memory_order_release);
-        DEV_ASSERT(SchedErr::READY_QUEUE_OVERFLOW, t < this->capacity());
+        ASSERT(ProgEncodeErr::RANGE_VERIFY_FAILED, t < this->capacity());
         this->elem[t] = x;
     }
 
@@ -128,7 +128,7 @@ struct LockableQueueGeneric : public QueueGeneric<T> {
         const uint32_t t = __atomic_fetch_add(&this->tail, count, std::memory_order_release);
         // Faster analog of std::copy(x, x + count, this->elem + t);
         auto err = memcpy_s(this->elem + t, sizeof(T) * (this->capacity() - t), x, sizeof(T) * count);
-        DEV_ASSERT(SchedErr::READY_QUEUE_OVERFLOW, !err);
+        ASSERT(ProgEncodeErr::RANGE_VERIFY_FAILED, !err);
     }
 
     __attribute__((always_inline)) inline bool try_enqueue(T x)

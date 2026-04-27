@@ -390,7 +390,7 @@ TEST_F(TestDeviceTaskContext, test_build_ready_queue_dupped_data)
     taskContext.InitAllocator(&devProg, workspace, &startArgs);
 
     auto dyntask = std::make_unique<DynDeviceTask>(workspace);
-    CreateMockDynDeviceTask(dyntask.get(), 8);
+    CreateMockDynDeviceTask(dyntask.get(), 100);
 
     constexpr size_t kOpCount = 32;
     constexpr size_t kFuncBufferSize = kOpCount * 1024;
