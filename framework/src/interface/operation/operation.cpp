@@ -381,7 +381,7 @@ void Operation::DumpCalleeHashJson(Json& opDump) const
         }
     }
     if (callee == nullptr) {
-        FUNCTION_LOGE(FeError::NOT_EXIST, "Cannot find function by calleeHash %s", calleeHash.c_str());
+        FE_LOGE(FeError::NOT_EXIST, "Cannot find function by calleeHash %s", calleeHash.c_str());
         return;
     }
     if (callee->rootFunc_ == nullptr) {

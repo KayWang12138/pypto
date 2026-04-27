@@ -115,14 +115,14 @@ void RawTensor::AddRefCount(int value)
     FE_ASSERT(value == 1 || value == -1) << "value: " << value;
     refCount_ += value;
     if (refCount_ < 0) {
-        FUNCTION_LOGI("rawmagic = %d, refCount_ is negative: %d", rawmagic, refCount_);
+        FE_LOGI("rawmagic = %d, refCount_ is negative: %d", rawmagic, refCount_);
     }
 }
 
 int64_t RawTensor::GetRawDataSize() const
 {
     if (HasNegativeNum<int64_t>(rawshape)) {
-        FUNCTION_LOGD("Raw tensor shape has negative. It has dynamic axis.");
+        FE_LOGD("Raw tensor shape has negative. It has dynamic axis.");
         return INT64_MAX;
     }
     return GetRawShapeSize() * BytesOf(datatype);

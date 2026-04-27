@@ -746,7 +746,7 @@ void Function::AddWhenNotExistOrAssert(
 {
     if (auto it = magicToRawMagic.find(tensor->magic); it != magicToRawMagic.end()) {
         if (it->second != tensor->tensor->GetRawMagic()) {
-            FUNCTION_LOGI(
+            FE_LOGI(
                 "Diff Magic Same RawMagic: %d %s %d %s", it->second,
                 magicToLogicalTensor[tensor->magic]->Dump().c_str(), tensor->tensor->GetRawMagic(),
                 tensor->Dump().c_str());
@@ -806,8 +806,8 @@ void Function::OperationLoopCheck(const std::string& errorMsg)
 
             if (states[magic] == DfsState::IN_STACK) {
                 dupOpMagic = magic;
-                FUNCTION_LOGE(FeError::EINTERNAL, "[OperationLoopCheck] Cycle detected: ");
-                FUNCTION_LOGE(FeError::EINTERNAL, "[OperationLoopCheck]     Operation: %s", curr->Dump().c_str());
+                FE_LOGE(FeError::EINTERNAL, "[OperationLoopCheck] Cycle detected: ");
+                FE_LOGE(FeError::EINTERNAL, "[OperationLoopCheck]     Operation: %s", curr->Dump().c_str());
                 return true;
             }
 
@@ -817,9 +817,9 @@ void Function::OperationLoopCheck(const std::string& errorMsg)
                 for (auto* consumer : consumers[oop.get()]) {
                     if (self(consumer, self)) {
                         if (dupOpMagic != -1) {
-                            FUNCTION_LOGE(
+                            FE_LOGE(
                                 FeError::EINTERNAL, "[OperationLoopCheck]     Tensor:    %s", oop->Dump().c_str());
-                            FUNCTION_LOGE(
+                            FE_LOGE(
                                 FeError::EINTERNAL, "[OperationLoopCheck]     Operation: %s", curr->Dump().c_str());
                             if (magic == dupOpMagic) {
                                 dupOpMagic = -1; // stop dumpping
@@ -860,13 +860,13 @@ bool Function::OperationLoopCheck()
                 visitStack.push_back(nextOp);
             }
             if (inLinkNum[nextOp] < 0) {
-                FUNCTION_LOGE(FeError::EINTERNAL, "[OperationLoopCheck]     Operation:%s", nextOp->Dump().c_str());
+                FE_LOGE(FeError::EINTERNAL, "[OperationLoopCheck]     Operation:%s", nextOp->Dump().c_str());
                 return false;
             }
         }
     }
     if (visitedOp.size() != operations_.size()) {
-        FUNCTION_LOGE(FeError::EINTERNAL, "[OperationLoopCheck]     Loop Detected.");
+        FE_LOGE(FeError::EINTERNAL, "[OperationLoopCheck]     Loop Detected.");
         return false;
     }
     return true;
@@ -937,18 +937,18 @@ auto Function::AnnotateOperation()
             << "Duplicate OpMagic found: " << op.GetOpMagic() << "\n"
             << "Operation: " << op.Dump();
         if (op.GetSubgraphID() < 0) {
-            FUNCTION_LOGD("Op magic: %d less than 0 graph: %d", op.GetOpMagic(), op.GetSubgraphID());
+            FE_LOGD("Op magic: %d less than 0 graph: %d", op.GetOpMagic(), op.GetSubgraphID());
             continue;
         }
         subgraphs[op.GetSubgraphID()].emplace_back(&op);
         opToSubgraph[op.GetOpMagic()] = op.GetSubgraphID();
-        FUNCTION_LOGD("Operation: %d Belong To subgraph: %d", op.GetOpMagic(), op.GetSubgraphID());
+        FE_LOGD("Operation: %d Belong To subgraph: %d", op.GetOpMagic(), op.GetSubgraphID());
     }
 
     for (const auto& pair : subgraphs) {
-        FUNCTION_LOGD("Subgraph ID: %d", pair.first);
+        FE_LOGD("Subgraph ID: %d", pair.first);
         for (const auto& op : pair.second) {
-            FUNCTION_LOGD("Operation: %s", op->Dump().c_str());
+            FE_LOGD("Operation: %s", op->Dump().c_str());
         }
     }
     return std::make_pair(std::move(subgraphs), std::move(opToSubgraph));
@@ -959,7 +959,7 @@ std::unordered_set<int> Function::LoopCheck()
     if (totalSubGraphCount_ == 0) {
         return {};
     }
-    FUNCTION_LOGI("LoopCheck begin.");
+    FE_LOGI("LoopCheck begin.");
 
     auto [subgraphs, opToSubgraph] = AnnotateOperation();
     std::map<LogicalTensor*, std::vector<int>> producers;
@@ -1006,8 +1006,8 @@ std::unordered_set<int> Function::LoopCheck()
 
             if (states[currSubgraph] == DfsState::IN_STACK) {
                 duplicatedSubgraphID = currSubgraph;
-                FUNCTION_LOGE(FeError::EINTERNAL, "[Cycle Detection] Cycle detected: ");
-                FUNCTION_LOGE(FeError::EINTERNAL, "[Cycle Detection]     subgraph id: %d", currSubgraph);
+                FE_LOGE(FeError::EINTERNAL, "[Cycle Detection] Cycle detected: ");
+                FE_LOGE(FeError::EINTERNAL, "[Cycle Detection]     subgraph id: %d", currSubgraph);
                 subGraphInCycle.emplace(currSubgraph);
                 return true;
             }
@@ -1018,13 +1018,13 @@ std::unordered_set<int> Function::LoopCheck()
                 for (int consumer : consumers[oop.get()]) {
                     if (self(consumer, self)) {
                         if (duplicatedSubgraphID != -2) {
-                            FUNCTION_LOGE(
+                            FE_LOGE(
                                 FeError::EINTERNAL, "[Cycle Detection]     tensor:      %s", oop->Dump().c_str());
-                            FUNCTION_LOGE(FeError::EINTERNAL, "[producer]=");
+                            FE_LOGE(FeError::EINTERNAL, "[producer]=");
                             for (const auto& producer : oop->GetProducers()) {
-                                FUNCTION_LOGE(FeError::EINTERNAL, "%d", producer->GetOpMagic());
+                                FE_LOGE(FeError::EINTERNAL, "%d", producer->GetOpMagic());
                             }
-                            FUNCTION_LOGE(FeError::EINTERNAL, "[Cycle Detection]     subgraph id: %d", currSubgraph);
+                            FE_LOGE(FeError::EINTERNAL, "[Cycle Detection]     subgraph id: %d", currSubgraph);
                             subGraphInCycle.emplace(currSubgraph);
                             if (currSubgraph == duplicatedSubgraphID) {
                                 duplicatedSubgraphID = -2; // stop dumpping
@@ -1391,7 +1391,7 @@ unsigned long Function::ComputeHashOrderless() const
     }
     std::hash<std::string> hasher;
     auto result = hasher(ss.str());
-    FUNCTION_LOGD(
+    FE_LOGD(
         "Hash for function %d %s is %s hash value is %lu\n", functionMagic_, GetMagicName().c_str(), ss.str().c_str(),
         result);
     return result;
@@ -1745,7 +1745,7 @@ void Function::UpdateLinkMap(
         if (it != outIncastLinkMap.end()) {
             outIncastLinkMap[newLogicalTensor->tensor] = it->second;
             newLogicalTensor->tensor->memoryId = it->second->memoryId;
-            FUNCTION_LOGD("UpdateLinkMap memoryId to %d  \n", it->second->memoryId);
+            FE_LOGD("UpdateLinkMap memoryId to %d  \n", it->second->memoryId);
             outIncastLinkMap.erase(it);
         }
     } else {
@@ -1923,7 +1923,7 @@ LogicalTensors Function::MakeOutcasts(const std::shared_ptr<TensorSlotScope>& sc
     std::map<std::shared_ptr<RawTensor>, std::shared_ptr<LogicalTensor>> rawToOutcast;
     size_t oOperandIndex = 0;
     for (const auto& originOutcast : originOutCasts_) {
-        FUNCTION_LOGI("originOut cast name %d %d", originOutcast->magic, originOutcast->GetRawMagic());
+        FE_LOGI("originOut cast name %d %d", originOutcast->magic, originOutcast->GetRawMagic());
         outcastWithSameRaw[originOutcast->tensor->rawmagic].emplace_back(originOutcast);
         if (appearedRawOutcasts.count(originOutcast->tensor->rawmagic) != 0) {
             ++oOperandIndex;
@@ -1940,7 +1940,7 @@ LogicalTensors Function::MakeOutcasts(const std::shared_ptr<TensorSlotScope>& sc
         ++oOperandIndex;
     }
 
-    FUNCTION_LOGI("raw out cast number %zu", rawOutcasts.size());
+    FE_LOGI("raw out cast number %zu", rawOutcasts.size());
     for (const auto& rawOutcast : rawOutcasts) {
         auto& sameRawOutcasts = outcastWithSameRaw[rawOutcast->rawmagic];
         std::vector<int64_t> nonOffsets(rawOutcast->rawshape.size(), 0);
@@ -1974,7 +1974,7 @@ LogicalTensors Function::MakeOutcasts(const std::shared_ptr<TensorSlotScope>& sc
         std::vector<std::vector<int64_t>> newOutcastOffsets;
         std::vector<std::shared_ptr<LogicalTensor>> iOperand;
         std::vector<std::shared_ptr<LogicalTensor>> oOperand = {rawSymbol};
-        FUNCTION_LOGI("same raw out cast number %zu", sameRawOutcasts.size());
+        FE_LOGI("same raw out cast number %zu", sameRawOutcasts.size());
 
         std::shared_ptr<LogicalTensor> newOutcast = nullptr;
         for (auto& originOutcast : sameRawOutcasts) {
@@ -3208,7 +3208,7 @@ bool Function::TensorReuse(const LogicalTensorPtr& dstTensor, const LogicalTenso
     }
     if (dstTensor->Datatype() != srcTensor->Datatype() ||
         dstTensor->tensor->GetRawShapeSize() != srcTensor->tensor->GetRawShapeSize()) {
-        FUNCTION_LOGI("Data type or raw shape size of src and dst tensor is not same.");
+        FE_LOGI("Data type or raw shape size of src and dst tensor is not same.");
         return false;
     }
 
@@ -3935,6 +3935,6 @@ DefineProg::DefineProg(const std::string& name) : isRecording_(true) { Program::
 DefineProg::~DefineProg()
 {
     if (isRecording_) {
-        FUNCTION_LOGI("prog.end: name=%s", Program::GetInstance().Name().c_str());
+        FE_LOGI("prog.end: name=%s", Program::GetInstance().Name().c_str());
     }
 }

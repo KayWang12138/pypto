@@ -100,10 +100,10 @@ struct TypeInfo {
             } else if (type == "object") {
                 parse_object_type(jData, prefix);
             } else {
-                FUNCTION_LOGE(FeError::INVALID_TYPE, "invalid type: %s at %s", type.c_str(), prefix.c_str());
+                FE_LOGE(FeError::INVALID_TYPE, "invalid type: %s at %s", type.c_str(), prefix.c_str());
             }
         } else {
-            FUNCTION_LOGE(
+            FE_LOGE(
                 FeError::NOT_EXIST, "Label<%s> field['type', 'properties'] not found in tile_fwk_config_schema.json",
                 prefix.c_str());
         }
@@ -176,7 +176,7 @@ bool ConfigScope::HasConfig(const std::string& key) const
 void ConfigScope::Clear()
 {
     values_.clear();
-    FUNCTION_LOGD("Clear config scope successfully.");
+    FE_LOGD("Clear config scope successfully.");
 }
 
 const std::type_info& ConfigScope::Type(const std::string& key) const
@@ -329,7 +329,7 @@ void ConfigScope::UpdateValueWithAny(const std::string& key, Any value)
     }
     std::stringstream oss;
     DumpValue(oss, key, value, "");
-    FUNCTION_LOGD("Set option successfully: %s ", oss.str().c_str());
+    FE_LOGD("Set option successfully: %s ", oss.str().c_str());
     std::lock_guard<std::mutex> lock(mtx);
     values_[key] = value;
 }
@@ -422,15 +422,15 @@ struct ConfigManagerImpl {
     void SetGlobalConfig(std::map<std::string, Any>&& values, const char* file, int lino)
     {
         if (values.empty()) {
-            FUNCTION_LOGW("No values provided to set in global config. Locations: %s:%d", file, lino);
+            FE_LOGW("No values provided to set in global config. Locations: %s:%d", file, lino);
             return;
         }
         for (auto& it : values) {
             try {
                 root->AddValue(it.first, it.second);
-                FUNCTION_LOGD("Set option successfully, Key: %s", it.first.c_str());
+                FE_LOGD("Set option successfully, Key: %s", it.first.c_str());
             } catch (const std::exception& e) {
-                FUNCTION_LOGE(
+                FE_LOGE(
                     FeError::INVALID_VAL, "Failed to set option. Key: %s, Error: %s", it.first.c_str(), e.what());
             }
         }
@@ -583,7 +583,7 @@ bool ConfigManagerNg::IsWithinRange(const std::string& properties, Any& value) c
             return impl_->IsWithinRange(properties, AnyCast<int64_t>(value));
         }
     } catch (const std::out_of_range& e) {
-        FUNCTION_LOGE(
+        FE_LOGE(
             FeError::INVALID_VAL, "key[%s] has been not loaded form tile_fwk_config_schema.json.", properties.c_str());
         return false;
     }

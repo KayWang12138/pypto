@@ -38,11 +38,11 @@ std::string CompileSourceCode(const std::string& sourceFilePath, const std::stri
     std::string cmdGcc = LD_PRELOAD + gcc + " -fPIC -fno-stack-protector -O2 " + extraCflag + " " + macro + " " +
                          " -I" + includePath + " " + " -I" + GetCurrentSharedLibPath() + "/include/" + " -I" +
                          includePath + "/tilefwk " + " -S " + sourceFilePath + " -o " + assembleFilePath;
-    FUNCTION_LOGI("[RunCmd] %s", cmdGcc.c_str());
+    FE_LOGI("[RunCmd] %s", cmdGcc.c_str());
     FE_ASSERT(system(cmdGcc.c_str()) == 0);
 
     std::string cmdAs = LD_PRELOAD + gcc + " -fno-stack-protector -O2 -c " + assembleFilePath + " -o " + objectFilePath;
-    FUNCTION_LOGI("[RunCmd] %s", cmdAs.c_str());
+    FE_LOGI("[RunCmd] %s", cmdAs.c_str());
     FE_ASSERT(system(cmdAs.c_str()) == 0);
     return objectFilePath;
 }
@@ -86,7 +86,7 @@ std::vector<uint8_t> CompileAndLoadSection(
     if (needDump) {
         FILE* fsrc = fopen(sourceFilePath.c_str(), "w");
         if (fsrc == nullptr) {
-            FUNCTION_LOGE(FeError::BAD_FD, "Fail to open source file %s", sourceFilePath.c_str());
+            FE_LOGE(FeError::BAD_FD, "Fail to open source file %s", sourceFilePath.c_str());
             return {};
         }
         fprintf(fsrc, "%s", code.c_str());
@@ -104,17 +104,17 @@ std::vector<uint8_t> CompileAndLoadSection(
         cmdAs << " " << obj;
     }
     cmdAs << " -o " << objectFilePath << " -O2 -T " << aicpuPath << "/merge.link";
-    FUNCTION_LOGI("[RunCmd] %s", cmdAs.str().c_str());
+    FE_LOGI("[RunCmd] %s", cmdAs.str().c_str());
     FE_ASSERT(system(cmdAs.str().c_str()) == 0);
     std::string binaryFilePath = sourceFilePath + ".bin";
     std::string cmdObjcopy =
         LD_PRELOAD + objcopy + " --dump-section " + sectionName + "=" + binaryFilePath + " " + objectFilePath;
-    FUNCTION_LOGI("[RunCmd] %s", cmdObjcopy.c_str());
+    FE_LOGI("[RunCmd] %s", cmdObjcopy.c_str());
     FE_ASSERT(system(cmdObjcopy.c_str()) == 0);
 
     FILE* fbin = fopen(binaryFilePath.c_str(), "rb");
     if (fbin == nullptr) {
-        FUNCTION_LOGE(FeError::BAD_FD, "open binary file name failed");
+        FE_LOGE(FeError::BAD_FD, "open binary file name failed");
         return {};
     }
 
@@ -330,7 +330,7 @@ bool SymbolicExpressionTable::CheckExprDependCore(
                 if (CallIsGetInputData(callee)) {
                     auto argExpr = operandList[1];
                     const std::string& argName = std::dynamic_pointer_cast<RawSymbolicSymbol>(argExpr)->Name();
-                    FUNCTION_LOGI("[RunCmd] Value depend tensor name:%s", argName.c_str());
+                    FE_LOGI("[RunCmd] Value depend tensor name:%s", argName.c_str());
                     auto it = tensorNameToDependCore.find(argName);
                     FE_ASSERT(FeError::NOT_EXIST, it != tensorNameToDependCore.end())
                         << "Tensor " << argName << " not found in tensorNameToDependCore";

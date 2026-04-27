@@ -627,7 +627,7 @@ std::shared_ptr<CopyOpAttribute> CopyOpAttribute::DeserializeFrom(
     if (attrJson.size() <= VALUE3) {
         std::vector<OpImmediate> vec;
         auto res = std::make_shared<CopyOpAttribute>(MemoryType::MEM_UNKNOWN, vec, vec, vec);
-        FUNCTION_LOGE(FeError::INVALID_VAL, "CopyOpAttr json shape is illegal");
+        FE_LOGE(FeError::INVALID_VAL, "CopyOpAttr json shape is illegal");
         return res;
     }
     std::vector<OpImmediate> shape;

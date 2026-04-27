@@ -382,7 +382,7 @@ SymbolicScalar GetTensorData(const Tensor& t, const std::vector<SymbolicScalar>&
     if (funcPtr) {
         auto inputTensorList = funcPtr->GetDyndevAttribute()->startArgsInputTensorList;
         if (FindTensor(t, inputTensorList) != inputTensorList.end()) {
-            FUNCTION_LOGD("Tensor[%s] already exists in inputTensorList", t.GetName().c_str());
+            FE_LOGD("Tensor[%s] already exists in inputTensorList", t.GetName().c_str());
             return GetInputData(t, offset);
         }
     }
@@ -411,7 +411,7 @@ static void DoSetTensorDataInt32(const SymbolicScalar& v, const std::vector<Symb
 void SetTensorData(const SymbolicScalar& v, const std::vector<SymbolicScalar>& off, Tensor& dst)
 {
     CHECK(FeError::INVALID_TYPE, dst.GetDataType() == DT_INT32) << "Tensor dtype must be DT_INT32.";
-    FUNCTION_LOGD("Set tensor[%s] data.", dst.GetName().c_str());
+    FE_LOGD("Set tensor[%s] data.", dst.GetName().c_str());
     return DoSetTensorDataInt32(v, off, dst);
 }
 

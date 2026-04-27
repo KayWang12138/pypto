@@ -40,7 +40,7 @@ void GetEnv(const char* const envName, std::string& envValue)
     const size_t envValueMaxLen = 1024UL * 1024UL;
     const char* const envTemp = std::getenv(envName);
     if ((envTemp == nullptr) || (strnlen(envTemp, envValueMaxLen) >= envValueMaxLen)) {
-        FUNCTION_LOGI("Env[%s] not found.\n", envName);
+        FE_LOGI("Env[%s] not found.\n", envName);
         return;
     }
     envValue = envTemp;
@@ -94,7 +94,7 @@ void Program::SetCurrentFunction(Function* function)
         currentFunctionPtr_ = function;
         currentFunctionMagicName_ = function->GetMagicName();
     }
-    FUNCTION_LOGW("Failed to set current function.");
+    FE_LOGW("Failed to set current function.");
 }
 
 void Program::CreateInitFunction()
@@ -256,7 +256,7 @@ bool Program::BeginFunction(
 
     auto funcMagicName = funcName + "_" + std::to_string(IdGen<IdType::FUNCTION>::Inst().CurId());
     if (functionmap_.find(funcMagicName) == functionmap_.end()) { // new function
-        FUNCTION_LOGD("Create a new function[%s].", funcMagicName.c_str());
+        FE_LOGD("Create a new function[%s].", funcMagicName.c_str());
         auto newFunc = std::make_unique<Function>(*this, funcMagicName, funcName, currentFunctionPtr_);
         newFunc->SetFunctionType(funcType);
         newFunc->SetGraphType(graphType);
@@ -269,7 +269,7 @@ bool Program::BeginFunction(
         functionmap_.emplace(funcMagicName, std::move(newFunc));
         currentFunctionMagicName_ = funcMagicName;
     } else {
-        FUNCTION_LOGE(FeError::IS_EXIST, "funcMagicName[%s] is already in the function map", funcMagicName.c_str());
+        FE_LOGE(FeError::IS_EXIST, "funcMagicName[%s] is already in the function map", funcMagicName.c_str());
         currentFunctionMagicName_ = funcMagicName;
         currentFunctionPtr_ = functionmap_[funcMagicName].get();
     }
@@ -308,12 +308,12 @@ Operation* Program::FinishCurrentFunction(const std::shared_ptr<TensorSlotScope>
         << "currentFunc magicName: " << currentFunctionPtr_->GetMagicName()
         << ", rawName: " << currentFunctionPtr_->GetRawName() << "funcMagic: " << currentFunctionPtr_->GetFuncMagic();
 
-    FUNCTION_LOGD("func.end.finish: name=%s", funcMagicName.c_str());
+    FE_LOGD("func.end.finish: name=%s", funcMagicName.c_str());
 
     auto funcArgs = currentFunctionPtr_->EndFunction(scope);
 
     currentFunctionPtr_->ComputeHash();
-    FUNCTION_LOGD("The hash of current func is %lu", currentFunctionPtr_->ComputeHash().GetHash());
+    FE_LOGD("The hash of current func is %lu", currentFunctionPtr_->ComputeHash().GetHash());
     if (!generateCall) {
         return nullptr;
     }
@@ -343,7 +343,7 @@ void Program::HandleTaskSubmission(Function* result)
             if (!result->IsHiddenFunction() || result->Operations().size() > 0) {
                 HostMachine::GetInstance().StashTask(result);
             } else {
-                FUNCTION_LOGI("Empty function: %s, skip stashing and removed", result->GetRawName().c_str());
+                FE_LOGI("Empty function: %s, skip stashing and removed", result->GetRawName().c_str());
                 auto& scopes = GetTensorSlotManager()->scopeList;
                 scopes.erase(
                     std::remove_if(
@@ -379,7 +379,7 @@ std::tuple<Function*, Operation*, bool> Program::EndFunction(const std::string& 
     }
     currentFunctionPtr_->SetUnderDynamicFunction(Program::GetInstance().GetCurrentDynamicFunction() != nullptr);
     if (currentFunctionPtr_->IsStatic() && funcName != currentFunctionPtr_->GetRawName()) {
-        FUNCTION_LOGE(
+        FE_LOGE(
             FeError::NOT_EXIST, "Function name not match current: %s != %s", currentFunctionPtr_->GetRawName().c_str(),
             funcName.c_str());
         return std::make_tuple(nullptr, nullptr, false);
@@ -547,7 +547,7 @@ Json Program::DumpJson(Function* mainFunc) const
                 programDump["entryhash"] = tensorGraphFunc->GetFunctionHash().c_str();
                 programDump["curr_funcmagic"] = tensorGraphFunc->GetFuncMagic();
             } else {
-                FUNCTION_LOGE(FeError::NOT_EXIST, "Failed to find main function.");
+                FE_LOGE(FeError::NOT_EXIST, "Failed to find main function.");
             }
         }
     } else {
@@ -573,7 +573,7 @@ std::shared_ptr<Function> Program::GetFunctionByMagic(int funcMagic)
             return func.second;
         }
     }
-    FUNCTION_LOGE(FeError::NOT_EXIST, "Cannot find function iter by magic %d", funcMagic);
+    FE_LOGE(FeError::NOT_EXIST, "Cannot find function iter by magic %d", funcMagic);
     return nullptr;
 }
 
@@ -642,7 +642,7 @@ void Program::DumpJsonFile(const std::string& fileName, Function* mainFunc)
     if (!fileName.empty()) {
         filePath = fileName;
     }
-    FUNCTION_LOGD("Program dump json to %s.", filePath.c_str());
+    FE_LOGD("Program dump json to %s.", filePath.c_str());
     std::ofstream file(filePath);
     FE_ASSERT(FeError::BAD_FD, file.is_open()) << "Failed to open file: " << filePath;
     file << DumpJson(mainFunc).dump(1) << std::endl;
@@ -687,7 +687,7 @@ bool Program::QueryAndUpdateCurrentFunction()
 
 void Program::VerifyTensorGraph()
 {
-    FUNCTION_LOGI("VerifyTensorGraph start.");
+    FE_LOGI("VerifyTensorGraph start.");
     Function* func = GetLastFunction();
 
     std::vector<std::shared_ptr<LogicalTensorData>> inputDataViewList;
@@ -700,21 +700,21 @@ void Program::VerifyTensorGraph()
     auto& flowVerifier = FlowVerifier::GetInstance();
     flowVerifier.VerifyTensorGraph(
         func, inputDataViewList, outputDataViewList, goldenDataViewList, GetTensorSlotManager());
-    FUNCTION_LOGI("VerifyTensorGraph end.");
+    FE_LOGI("VerifyTensorGraph end.");
 }
 
 void Program::VerifyPass(Function* func, int passIndex, const std::string& passIdentifier)
 {
     // SubgraphToFunction阶段还未进行validShape推导，会导致非尾块的计算会按照尾块大小进行计算，导致部分数据的拷贝或者计算丢失，
     // 该Pass需要与InferParamIndexPass进行“合并”后才会完成VaildShape推导，才可以完成完整功能；
-    FUNCTION_LOGI("VerifyPass start.");
+    FE_LOGI("VerifyPass start.");
     if (passIdentifier == "SubgraphToFunction") {
-        FUNCTION_LOGI("Skip verify pass [SubgraphToFunction] for interpreter!");
+        FE_LOGI("Skip verify pass [SubgraphToFunction] for interpreter!");
         return;
     }
     auto& flowVerifier = FlowVerifier::GetInstance();
     flowVerifier.VerifyPass(func, passIndex, passIdentifier);
-    FUNCTION_LOGI("VerifyPass end.");
+    FE_LOGI("VerifyPass end.");
 }
 
 std::shared_ptr<Function> Program::GetFunctionSharedPtr(Function* rawPtr)
@@ -725,7 +725,7 @@ std::shared_ptr<Function> Program::GetFunctionSharedPtr(Function* rawPtr)
             return sharedPtr;
         }
     }
-    FUNCTION_LOGW("not find function ptr in function map");
+    FE_LOGW("not find function ptr in function map");
     return nullptr;
 }
 } // namespace npu::tile_fwk

@@ -1734,7 +1734,7 @@ void ExpandOperationInto(
             break;
         }
         default: {
-            FUNCTION_LOGE(
+            FE_LOGE(
                 FeError::NOT_EXIST, "Unsupported opcode %d, opmagic is %d", static_cast<int>(opCode), op.GetOpMagic());
             FE_ASSERT(false) << "Unsupported opcode " << static_cast<int>(opCode) << ", opmagic is "
                                    << op.GetOpMagic();

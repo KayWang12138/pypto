@@ -32,7 +32,7 @@ void static MergeAllFuncDupIocast(Function* func)
         return;
     }
 
-    FUNCTION_LOGI("Merge Duplicated Iocast for function: %s", func->GetMagicName().c_str());
+    FE_LOGI("Merge Duplicated Iocast for function: %s", func->GetMagicName().c_str());
     auto calleeLists = func->GetCalleeFunctionList();
     // leaf function has no duplicated tensor
     if (calleeLists.size() == 0) {
@@ -143,7 +143,7 @@ void RecordFunc::EndFunction()
     }
 
     if (IsVerifyEnable()) {
-        FUNCTION_LOGI("FlowVerify has been enable.");
+        FE_LOGI("FlowVerify has been enable.");
         config::SetRunDataOption(KEY_FLOW_VERIFY_PATH, config::GetAbsoluteTopFolder() + "/verify");
     }
 
@@ -409,7 +409,7 @@ void RecordLoopFunc::IterationNext()
 bool RecordLoopFunc::Condition(const SymbolicScalar& cond, const std::string& file, int line)
 {
     bool result = GetLoopAttr()->AppendCond(cond, file, line);
-    FUNCTION_LOGI("[%s:%d]: %s", file.c_str(), line, result ? "true" : "false");
+    FE_LOGI("[%s:%d]: %s", file.c_str(), line, result ? "true" : "false");
     return result;
 }
 

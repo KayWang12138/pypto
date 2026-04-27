@@ -343,7 +343,7 @@ static std::string Width(const std::string& suffix, int width)
 void TensorSlotManager::LogOperation(const TensorSlot& slot, const std::string& op)
 {
     std::string ops = Width(op, 10);
-    FUNCTION_LOGD("[slotManager] %zu op:%s %s", slotIndexDict.size(), ops.c_str(), slot.Dump().c_str());
+    FE_LOGD("[slotManager] %zu op:%s %s", slotIndexDict.size(), ops.c_str(), slot.Dump().c_str());
 }
 
 void TensorSlotManager::TensorRead(const Tensor& tensor)
@@ -453,7 +453,7 @@ void TensorSlotManager::MarkInput(const Tensor& tensor)
     std::string inputName = logicalTensor ? logicalTensor->tensor->symbol : "untitled";
     AddNameSuffix(inputName, nameDict);
     inputNameList.push_back(inputName);
-    FUNCTION_LOGD("MarkInput push input name[%s].", inputName.c_str());
+    FE_LOGD("MarkInput push input name[%s].", inputName.c_str());
 
     LogOperation(slot, "input");
 }
@@ -470,7 +470,7 @@ void TensorSlotManager::MarkOutput(const Tensor& tensor)
     std::string outputName = logicalTensor ? logicalTensor->tensor->symbol : "untitled";
     AddNameSuffix(outputName, nameDict);
     outputNameList.push_back(outputName);
-    FUNCTION_LOGD("MarkOutput push output name[%s].", outputName.c_str());
+    FE_LOGD("MarkOutput push output name[%s].", outputName.c_str());
 
     LogOperation(slot, "output");
 }
@@ -483,7 +483,7 @@ void TensorSlotManager::MarkInplace(const Tensor& out, const Tensor& in)
     FE_ASSERT(inputSlotDict.count(inSlot) != 0)
         << "TensorSlot[" << inSlot.GetSymbolName() << "] not found in inputSlotDict.";
     inplaceDict[outSlot] = inSlot;
-    FUNCTION_LOGD("Slot already inplace [%s, %s].", inSlot.GetSymbolName().c_str(), outSlot.GetSymbolName().c_str());
+    FE_LOGD("Slot already inplace [%s, %s].", inSlot.GetSymbolName().c_str(), outSlot.GetSymbolName().c_str());
 }
 
 int TensorSlotManager::GetInputIndex(const Tensor& tensor)
@@ -622,7 +622,7 @@ void TensorSlotManager::UpdateReshapeInplaceSlots(IncastOutcastLink& link)
             for (std::vector<int>& slotsIdxIn : ioslot.incastSlot) {
                 for (auto& slotIdxIn : slotsIdxIn) {
                     if (slotIdxIn == slotIndexDict[slotIn]) {
-                        FUNCTION_LOGD("replace slot %d to %d.", slotIdxIn, slotIndexDict[slotOut]);
+                        FE_LOGD("replace slot %d to %d.", slotIdxIn, slotIndexDict[slotOut]);
                         slotIdxIn = slotIndexDict[slotOut];
                     }
                 }
@@ -631,7 +631,7 @@ void TensorSlotManager::UpdateReshapeInplaceSlots(IncastOutcastLink& link)
             for (std::vector<int>& slotsIdxOut : ioslot.outcastSlot) {
                 for (auto& slotIdxOut : slotsIdxOut) {
                     if (slotIdxOut == slotIndexDict[slotIn]) {
-                        FUNCTION_LOGD("replace slot %d to %d.", slotIdxOut, slotIndexDict[slotOut]);
+                        FE_LOGD("replace slot %d to %d.", slotIdxOut, slotIndexDict[slotOut]);
                         slotIdxOut = slotIndexDict[slotOut];
                     }
                 }
@@ -704,7 +704,7 @@ IncastOutcastLink TensorSlotManager::BuildIncastOutcastLink([[maybe_unused]] con
     for (auto& [func, ioslot] : link.ioslotDict) {
         for (size_t idx = 0; idx < func->GetIncast().size(); idx++) {
             if (ioslot.incastSlot[idx].empty()) {
-                FUNCTION_LOGW("!!! incast[%zu] slot not found, %s", idx, func->GetIncast()[idx]->Dump().c_str());
+                FE_LOGW("!!! incast[%zu] slot not found, %s", idx, func->GetIncast()[idx]->Dump().c_str());
             }
         }
     }

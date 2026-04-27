@@ -459,7 +459,7 @@ bool LogicalTensor::Overlap(const std::shared_ptr<LogicalTensor>& other) const
 int64_t LogicalTensor::GetDataSize() const
 {
     if (HasNegativeNum<int64_t>(shape)) {
-        FUNCTION_LOGD("Logical tensor shape has negative. It has dynamic axis.");
+        FE_LOGD("Logical tensor shape has negative. It has dynamic axis.");
         return INT64_MAX;
     }
     int64_t shapeSize = std::accumulate(shape.begin(), shape.end(), 1, std::multiplies<>());
