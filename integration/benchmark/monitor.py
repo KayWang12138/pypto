@@ -37,8 +37,6 @@ import time
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
-from wcwidth import wcswidth
-
 from integration.benchmark.case_loader import derive_op_name
 from integration.benchmark.run_kernelbench import (
     DEFAULT_CONFIG_PATH,
@@ -47,6 +45,68 @@ from integration.benchmark.run_kernelbench import (
     parse_cases_by_level,
     parse_csv_str_list,
 )
+
+
+def _load_wcswidth():
+    install_cmd = [sys.executable, "-m", "pip", "install", "wcwidth"]
+
+    def _manual_install_hint() -> str:
+        return (
+            f"请手动执行: {' '.join(install_cmd)}\n"
+            f"如果当前 Python 没有 pip, 请先执行: {sys.executable} -m ensurepip --upgrade"
+        )
+
+    try:
+        from wcwidth import wcswidth as imported_wcswidth
+        return imported_wcswidth
+    except ModuleNotFoundError as first_error:
+        print(
+            "[benchmark.monitor] Python package 'wcwidth' not found; "
+            f"trying automatic install: {' '.join(install_cmd)}",
+            file=sys.stderr,
+        )
+        try:
+            proc = subprocess.run(
+                install_cmd,
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+        except OSError as install_error:
+            raise SystemExit(
+                "缺少 Python 依赖 wcwidth, 且自动安装启动失败.\n"
+                f"{_manual_install_hint()}\n"
+                f"原始 import 错误: {first_error}\n"
+                f"自动安装错误: {install_error}"
+            ) from install_error
+
+        if proc.returncode != 0:
+            install_output = "\n".join(
+                part.strip()
+                for part in (proc.stdout, proc.stderr)
+                if part and part.strip()
+            )
+            if len(install_output) > 2000:
+                install_output = install_output[-2000:]
+            raise SystemExit(
+                "缺少 Python 依赖 wcwidth, 且自动安装失败.\n"
+                f"{_manual_install_hint()}\n"
+                f"pip 退出码: {proc.returncode}\n"
+                f"pip 输出:\n{install_output}"
+            ) from first_error
+
+        try:
+            from wcwidth import wcswidth as installed_wcswidth
+            return installed_wcswidth
+        except ModuleNotFoundError as second_error:
+            raise SystemExit(
+                "自动安装 wcwidth 已返回成功, 但当前 Python 仍无法 import.\n"
+                f"{_manual_install_hint()}\n"
+                f"import 错误: {second_error}"
+            ) from second_error
+
+
+wcswidth = _load_wcswidth()
 
 
 _STATE_DIR_DEFAULT = "/tmp/pypto-benchmark-monitor"
