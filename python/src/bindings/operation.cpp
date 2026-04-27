@@ -710,9 +710,12 @@ void bind_operation(py::module& m)
         "Tensor one hot.");
     m.def(
         "PrintIf", [](SymbolicScalar cond, const std::string& format, const std::vector<Tensor>& tensors,
-                      const std::vector<SymbolicScalar>& scalars) {
-            npu::tile_fwk::experimental::Print(cond, format, tensors, scalars);
-        });
+                      const std::vector<SymbolicScalar>& scalars,
+                      const std::vector<std::string>& tensor_slice_specs) {
+            npu::tile_fwk::experimental::Print(cond, format, tensors, scalars, tensor_slice_specs);
+        },
+        py::arg("cond"), py::arg("format"), py::arg("tensors"), py::arg("scalars"),
+        py::arg("tensor_slice_specs") = std::vector<std::string>{});
     m.def(
         "ToFile", [](const Tensor& operand, const std::string& fname, const std::vector<SymbolicScalar>& scalars,
                      SymbolicScalar cond) { npu::tile_fwk::ToFile(operand, fname, scalars, cond); });

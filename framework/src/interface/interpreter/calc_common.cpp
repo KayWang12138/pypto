@@ -14,6 +14,8 @@
  */
 
 #include "utils/string_utils.h"
+#include <algorithm>
+#include <sstream>
 #include "interface/interpreter/function.h"
 #include "interface/utils/common.h"
 #include "tilefwk/pypto_fwk_log.h"
@@ -256,6 +258,149 @@ static std::string TensorToDumpString(const LogicalTensorDataPtr& tensor)
     return castOut->ToString();
 }
 
+static std::vector<std::string> SplitString(const std::string& s, char delim)
+{
+    std::vector<std::string> out;
+    std::stringstream ss(s);
+    std::string item;
+    while (std::getline(ss, item, delim)) {
+        out.push_back(item);
+    }
+    return out;
+}
+
+static bool ParseInt64(const std::string& s, int64_t& out)
+{
+    if (s.empty()) {
+        return false;
+    }
+    try {
+        size_t idx = 0;
+        auto value = std::stoll(s, &idx);
+        if (idx != s.size()) {
+            return false;
+        }
+        out = value;
+        return true;
+    } catch (...) {
+        return false;
+    }
+}
+
+static std::vector<std::string> SplitByDoublePipe(const std::string& s)
+{
+    std::vector<std::string> out;
+    size_t start = 0;
+    while (start <= s.size()) {
+        size_t pos = s.find("||", start);
+        if (pos == std::string::npos) {
+            out.push_back(s.substr(start));
+            break;
+        }
+        out.push_back(s.substr(start, pos - start));
+        start = pos + 2;
+    }
+    return out;
+}
+
+static LogicalTensorDataPtr ApplySingleSliceToken(const LogicalTensorDataPtr& view, const std::string& token)
+{
+    if (view == nullptr || token.empty()) {
+        return view;
+    }
+    auto shape = view->GetShape();
+    auto offset = view->GetOffset();
+    if (shape.empty() || shape.size() != offset.size()) {
+        return view;
+    }
+    auto selectAxis = [&shape]() -> size_t {
+        for (size_t axis = 0; axis < shape.size(); ++axis) {
+            if (shape[axis] > 1) {
+                return axis;
+            }
+        }
+        return 0;
+    };
+
+    if (token.rfind("i:", 0) == 0) {
+        int64_t idx = 0;
+        if (!ParseInt64(token.substr(2), idx)) {
+            return view;
+        }
+        size_t axis = selectAxis();
+        int64_t dimSize = shape[axis];
+        if (idx < 0) {
+            idx += dimSize;
+        }
+        if (idx < 0 || idx >= dimSize) {
+            return view;
+        }
+        offset[axis] += idx;
+        shape[axis] = 1;
+        return view->View(shape, offset);
+    }
+    if (token.rfind("s:", 0) == 0) {
+        auto items = SplitString(token, ':');
+        if (items.size() != 5) {
+            return view;
+        }
+        size_t axis = selectAxis();
+        int64_t dimSize = shape[axis];
+        int64_t start = 0;
+        int64_t stop = dimSize;
+        int64_t step = 1;
+        int64_t tmp = 0;
+        if (!items[2].empty() && ParseInt64(items[2], tmp)) {
+            start = tmp;
+        }
+        if (!items[3].empty() && ParseInt64(items[3], tmp)) {
+            stop = tmp;
+        }
+        if (!items[4].empty() && ParseInt64(items[4], tmp)) {
+            step = tmp;
+        }
+        if (step != 1) {
+            return view;
+        }
+        if (start < 0) {
+            start += dimSize;
+        }
+        if (stop < 0) {
+            stop += dimSize;
+        }
+        start = std::max<int64_t>(0, std::min<int64_t>(start, dimSize));
+        stop = std::max<int64_t>(start, std::min<int64_t>(stop, dimSize));
+        offset[axis] += start;
+        shape[axis] = stop - start;
+        return view->View(shape, offset);
+    }
+    return view;
+}
+
+static std::vector<LogicalTensorDataPtr> ApplyTensorSliceSpecs(
+    const std::vector<LogicalTensorDataPtr>& inputs, const std::string* tensorSliceSpecsStr)
+{
+    if (tensorSliceSpecsStr == nullptr || tensorSliceSpecsStr->empty()) {
+        return inputs;
+    }
+    auto tensorSliceSpecs = SplitByDoublePipe(*tensorSliceSpecsStr);
+    std::vector<LogicalTensorDataPtr> outputs = inputs;
+    size_t count = std::min(outputs.size(), tensorSliceSpecs.size());
+    for (size_t i = 0; i < count; ++i) {
+        auto spec = tensorSliceSpecs[i];
+        if (spec.empty()) {
+            continue;
+        }
+        auto tokens = SplitString(spec, ',');
+        auto current = outputs[i];
+        for (const auto& token : tokens) {
+            current = ApplySingleSliceToken(current, token);
+        }
+        outputs[i] = current;
+    }
+    return outputs;
+}
+
 std::string FormatString(
     const std::string& s, OperationInterpreter* opInter, const std::vector<LogicalTensorDataPtr>* iopDataView,
     const std::vector<SymbolicScalar>* scalars)
@@ -295,6 +440,7 @@ std::string FormatString(
 
 void ExecutePrint(ExecuteOperationContext* ctx)
 {
+    std::cout << "ExecutePrint" << std::endl;
     auto cond = ctx->op->GetSymbolicScalarAttribute(OP_ATTR_PREFIX + "cond");
     if (!ctx->opInter->EvaluateSymbolicScalar(cond)) {
         return;
@@ -341,7 +487,13 @@ void ExecutePrint(ExecuteOperationContext* ctx)
 
     std::string format;
     if (ctx->op->GetAttr(OP_ATTR_PREFIX + "format", format)) {
-        std::cout << FormatString(format, ctx->opInter, ctx->ioperandDataViewList, scalars) << std::endl;
+        auto tensorSliceSpecs = ctx->op->GetAttr<std::string>(OP_ATTR_PREFIX + "tensor_slice_specs");
+        auto printInputs = ApplyTensorSliceSpecs(*ctx->ioperandDataViewList, tensorSliceSpecs);
+        std::string out = FormatString(format, ctx->opInter, &printInputs, scalars);
+        if (tensorSliceSpecs != nullptr) {
+            out += " [slice_specs:" + *tensorSliceSpecs + "]";
+        }
+        std::cout << out << std::endl;
     }
 }
 REGISTER_CALC_OP(OP_PRINT, Opcode::OP_PRINT, ExecutePrint);

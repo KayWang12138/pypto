@@ -10,7 +10,7 @@
 # -----------------------------------------------------------------------------------------------------------
 """Verification helpers: conditional print and tensor dump (ToFile)."""
 import re
-from typing import Union, List, Tuple
+from typing import Union, List, Tuple, Dict
 
 from .. import pypto_impl
 from .._op_wrapper import op_wrapper
@@ -20,7 +20,9 @@ from ..tensor import Tensor
 
 
 @op_wrapper
-def pass_verify_print(*values, cond: Union[int, SymbolicScalar] = 1) -> None:
+def pass_verify_print(
+    *values, cond: Union[int, SymbolicScalar] = 1, __slice_specs_by_arg: Dict[int, str] = None
+) -> None:
     """
     Conditionally print tensors / symbolic scalars during pass verify.
 
@@ -54,14 +56,18 @@ def pass_verify_print(*values, cond: Union[int, SymbolicScalar] = 1) -> None:
     fmt_parts: List[str] = []
     tensors: List[_impl.Tensor] = []
     scalars: List[_impl.SymbolicScalar] = []
+    tensor_slice_specs: List[str] = []
+    __slice_specs_by_arg = __slice_specs_by_arg or {}
 
-    for v in values:
+    for idx, v in enumerate(values):
         if isinstance(v, _impl.Tensor):
             tensors.append(v)
             fmt_parts.append("{T}")
+            tensor_slice_specs.append(__slice_specs_by_arg.get(idx, ""))
         elif isinstance(v, Tensor):
             tensors.append(v.base())
             fmt_parts.append("{T}")
+            tensor_slice_specs.append(__slice_specs_by_arg.get(idx, ""))
         elif isinstance(v, (int, _impl.SymbolicScalar, SymbolicScalar)):
             scalars.append(to_sym(v))
             fmt_parts.append("{S}")
@@ -71,7 +77,7 @@ def pass_verify_print(*values, cond: Union[int, SymbolicScalar] = 1) -> None:
     fmt = "".join(fmt_parts)
     cond_base = to_sym(cond)
 
-    _impl.PrintIf(cond_base, fmt, tensors, scalars)
+    _impl.PrintIf(cond_base, fmt, tensors, scalars, tensor_slice_specs)
 
 
 def _parse_format_string(

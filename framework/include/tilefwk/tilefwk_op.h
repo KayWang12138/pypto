@@ -111,7 +111,7 @@ struct PrintHelper {
 
 void Print(
     SymbolicScalar cond, const std::string& format, const std::vector<Tensor>& tensors,
-    const std::vector<SymbolicScalar>& scalars);
+    const std::vector<SymbolicScalar>& scalars, const std::vector<std::string>& tensorSliceSpecs = {});
 
 template <bool isB, bool isTrans>
 Tensor GatherInL1(const Tensor& src, const Tensor& offsets, const Tensor& blockTable, int blockSize, int size);
