@@ -412,6 +412,7 @@ def run_pypto_workflow(
     case_init_source: str = "# (未提取到 __init__ 源码)",
     case_forward_source: str = "# (未提取到 forward 源码)",
     skip_stage7_perf_tune: bool = False,
+    stop_event: Optional[threading.Event] = None,
 ) -> PyptoRunResult:
     """跑一次 pypto 7 阶段工作流.
 
@@ -576,7 +577,13 @@ def run_pypto_workflow(
                 _kill_process_group(proc)
                 break
 
-            time.sleep(_POLL_INTERVAL_SEC)
+            # 使用 event.wait 代替 time.sleep, 让主线程 signal handler 可以通过
+            # set event 立即中断子线程的 sleep, 从而执行 finally 清理 opencode.
+            if stop_event is not None:
+                if stop_event.wait(_POLL_INTERVAL_SEC):
+                    break
+            else:
+                time.sleep(_POLL_INTERVAL_SEC)
 
         # 等 reader 把最后一段 stdout 排干
         try:
@@ -585,10 +592,19 @@ def run_pypto_workflow(
             _kill_process_group(proc)
         reader.join(timeout=5)
     finally:
+        # 防御: 若本线程被外部中断(KeyboardInterrupt / CancelledError),
+        # 确保子进程不会变成孤儿.
+        if proc.poll() is None:
+            _kill_process_group(proc)
         if log_handle is not None:
-            log_handle.write(f"\n[run finished, returncode={proc.returncode}, "
-                             f"timed_out={timed_out}]\n")
-            log_handle.close()
+            try:
+                log_handle.write(
+                    f"\n[run finished, returncode={proc.returncode}, "
+                    f"timed_out={timed_out}]\n"
+                )
+                log_handle.close()
+            except (ValueError, OSError):
+                pass
 
     duration = time.monotonic() - start
     session_md_output = (
