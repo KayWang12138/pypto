@@ -64,14 +64,14 @@ Subgraph ID: -1
     Shape: [16, 128]
     Valid Shape: [16, 128]
     Data Type: DT_FP32
-    Memory Type: MEM_DEVICE_DDR::MEM_DEVICE_DDR
+    Memory Type: MEM_DEVICE_DDR
     Subgraph ID: -1
 
 [1] Logic ID: 8, Raw ID: 12
     Shape: [16, 128]
     Valid Shape: [16, 128]
     Data Type: DT_FP32
-    Memory Type: MEM_DEVICE_DDR::MEM_DEVICE_DDR
+    Memory Type: MEM_DEVICE_DDR
     Subgraph ID: -1
 
 === Attributes ===
