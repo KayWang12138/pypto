@@ -61,7 +61,9 @@ public:
     int AllocNewTaskCtrl()
     {
         uint32_t& taskCtrlIndex = devStartArgs_->devCtrlState.taskCtrlIndex;
-        TIMEOUT_CHECK_START();
+        
+        TIMEOUT_CHECK_START(devStartArgs_->devProg->devArgs.archInfo);
+        
         while (true) {
             if (taskCtrlIndex == MAX_DEVICE_TASK_NUM)
                 taskCtrlIndex = 0;
@@ -69,7 +71,13 @@ public:
                 return taskCtrlIndex++;
             }
             taskCtrlIndex++;
-            TIMEOUT_CHECK_AND_RESET(TIMEOUT_ONE_MINUTE, CtrlErr::CTRL_ALLOC_TIMEOUT, "Alloc new task ctrl over 1 min.");
+            
+            __PYPTO_TIMEOUT_CHECK(start, last_warn, TIMEOUT_1MIN, TIMEOUT_10SEC,
+                CtrlErr::CTRL_ALLOC_TIMEOUT,
+                return DEVICE_MACHINE_ERROR,
+                "#ctrl.alloc: AllocNewTaskCtrl still waiting, taskCtrlIndex=%u.",
+                "#ctrl.alloc: AllocNewTaskCtrl timeout, taskCtrlIndex=%u.",
+                taskCtrlIndex);
         }
     }
 
@@ -209,7 +217,7 @@ public:
 
             RuntimeDataRingBufferHead* ringBufferHead =
                 reinterpret_cast<RuntimeDataRingBufferHead*>(devProg->GetRuntimeDataList());
-            ringBufferHead->Initialize(devProg->GetDeviceRuntimeOffset().size, devProg->GetDeviceRuntimeOffset().count);
+            ringBufferHead->Initialize(devProg->GetDeviceRuntimeOffset().size, devProg->GetDeviceRuntimeOffset().count, devProg->devArgs.archInfo);
 
             devProg->runtimeDataRingBufferInited = true;
             firstInit = true;

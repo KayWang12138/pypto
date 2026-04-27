@@ -62,6 +62,7 @@ public:
         regAddrs_ = reinterpret_cast<int64_t*>(deviceArgs->coreRegAddr);
         regNum_ = deviceArgs->nrAic + deviceArgs->nrAiv;
         freq_ = GetFreq() / (NSEC_PER_SEC / NSEC_PER_USEC);
+        archInfo_ = deviceArgs->archInfo;
         readyRegQueues_.fill(nullptr);
         finishRegQueues_.fill(nullptr);
         blockIdToPhyCoreId_.fill(-1);
@@ -240,19 +241,7 @@ public:
         }
     }
 
-    inline void WaitFinQueue(int coreStart, int coreEnd, uint64_t val)
-    {
-        for (int idx = coreStart; idx < coreEnd; idx++) {
-            uint64_t startCycle = GetCycles();
-            while (*finishRegQueues_[GetPhyIdByBlockId(idx)] != val) {
-                if (GetCycles() - startCycle > TIMEOUT_CYCLES) {
-                    DEV_ERROR(
-                        SchedErr::TASK_WAIT_TIMEOUT, "#sche.aicore.wait_finish: CoreId=%d cannot get finish Flag", idx);
-                    return;
-                }
-            }
-        }
-    }
+    
 
     inline uint64_t GetFinishedTask(int coreIdx)
     {
@@ -338,13 +327,16 @@ public:
             return nullptr;
         }
 
-        uint64_t cycles_start = GetCycles();
-        while (metric->isMetricStop != 1) {
-            if (GetCycles() - cycles_start > PROF_DUMP_TIMEOUT_CYCLES) {
-                DEV_ERROR(DevCommonErr::NULLPTR, "#sche.prof.aicore.wait_finish: wait metrics done timeout !!!.");
-                return nullptr;
-            }
-        }; // wait aicore dcci metric data finish
+        TIMEOUT_CHECK_START(archInfo_);
+        volatile int stopFlag = metric->isMetricStop;
+        while (stopFlag != 1) {
+            __PYPTO_TIMEOUT_CHECK(start, last_warn, TIMEOUT_10SEC, TIMEOUT_1SEC,
+                DevCommonErr::NULLPTR,
+                return nullptr,
+                "#sche.prof.aicore.wait_finish: wait metrics done still waiting.",
+                "#sche.prof.aicore.wait_finish: wait metrics done timeout.");
+            stopFlag = metric->isMetricStop;
+        }
 
         return reinterpret_cast<Metrics*>(arg->shakeBuffer[SHAK_BUF_DFX_DATA_INDEX]);
     }
@@ -632,6 +624,7 @@ private:
     CostModel::AiCoreModel* costModel_{nullptr};
 
     bool enableEslModel_;
+    ArchInfo archInfo_{ArchInfo::DAV_2201};
     EslAicoreHal eslModel_;
 };
 } // namespace npu::tile_fwk::dynamic

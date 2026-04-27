@@ -19,7 +19,19 @@
 #include "tilefwk/aikernel_data.h"
 
 constexpr int MAIN_BLOCK_INDEX = 1;
-constexpr uint64_t SYNC_TIMEOUT = 48000000000;
+constexpr uint64_t NSEC_PER_SEC = 1000000000;
+constexpr uint64_t SYNC_TIMEOUT_NS = 960000000000;
+
+__always_inline uint64_t GetFreq()
+{
+    uint64_t freq;
+#ifdef __aarch64__
+    asm volatile("mrs %0, cntfrq_el0" : "=r"(freq));
+#else
+    freq = NSEC_PER_SEC;
+#endif
+    return freq;
+}
 
 __always_inline uint64_t GetCycles()
 {
@@ -37,7 +49,9 @@ __always_inline void WaitAicoreStart([[maybe_unused]] npu::tile_fwk::DevStartArg
 #if defined(__aarch64__) && defined(__DEVICE__)
     uint64_t start = GetCycles();
     while (startArgs->syncFlag != 1) {
-        if (GetCycles() - start > SYNC_TIMEOUT) {
+        uint64_t elapsedCycles = GetCycles() - start;
+        uint64_t elapsedNs = elapsedCycles * NSEC_PER_SEC / GetFreq();
+        if (elapsedNs > SYNC_TIMEOUT_NS) {
             break;
         }
     }
