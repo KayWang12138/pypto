@@ -133,7 +133,7 @@ def your_kernel(
 | `dump_graph` | 保存 IR 图 | 分析 Pass 处理结果 |
 | `print_graph` | 打印 IR 图 | 快速查看图结构变化 |
 
-> 大数据量时（Shape T>1000）：缩小shape参数、删除LOOP的unrolllist参数。
+> 大数据量时（Shape T>1000）：缩小shape参数、删除LOOP的unrolllist参数、增大tileshape（cube_tile_shapes、vec_tile_shapes）。
 
 ### 步骤二：编译运行
 
