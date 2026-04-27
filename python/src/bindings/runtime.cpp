@@ -15,6 +15,7 @@
 
 #include "pybind_common.h"
 
+#include <cstdlib>
 #include <cstdint>
 #include <functional>
 #include <memory>
@@ -103,6 +104,103 @@ void CopyToHost(const DeviceTensorData& devTensor, DeviceTensorData& hostTensor)
 void CopyToDev(const DeviceTensorData& devTensor, DeviceTensorData& hostTensor)
 {
     CopyHostToDev(devTensor, hostTensor);
+}
+
+static py::object GetTorchDtype(py::module_& torch, DataType dtype)
+{
+    switch (dtype) {
+        case DT_BOOL:
+            return torch.attr("bool");
+        case DT_INT8:
+            return torch.attr("int8");
+        case DT_INT16:
+            return torch.attr("int16");
+        case DT_INT32:
+            return torch.attr("int32");
+        case DT_INT64:
+            return torch.attr("int64");
+        case DT_UINT8:
+        case DT_FP8:
+        case DT_HF8:
+        case DT_FP8E5M2:
+        case DT_FP8E4M3:
+        case DT_FP8E8M0:
+        case DT_FP4_E2M1X2:
+        case DT_FP4_E1M2X2:
+            return torch.attr("uint8");
+        case DT_UINT16:
+            return py::hasattr(torch, "uint16") ? torch.attr("uint16") : torch.attr("int32");
+        case DT_UINT32:
+            return py::hasattr(torch, "uint32") ? torch.attr("uint32") : torch.attr("int64");
+        case DT_UINT64:
+            return py::hasattr(torch, "uint64") ? torch.attr("uint64") : torch.attr("int64");
+        case DT_FP16:
+            return torch.attr("float16");
+        case DT_BF16:
+            return torch.attr("bfloat16");
+        case DT_FP32:
+            return torch.attr("float32");
+        case DT_DOUBLE:
+            return torch.attr("float64");
+        default:
+            return py::none();
+    }
+}
+
+static py::object MaterializeTorchTensor(const DeviceTensorData& tensor)
+{
+    py::module_ torch = py::module_::import("torch");
+    py::object dtype = GetTorchDtype(torch, tensor.GetDataType());
+    if (dtype.is_none()) {
+        throw std::runtime_error(
+            std::string("Unsupported dtype for tensor dump: ") + DataType2String(tensor.GetDataType()));
+    }
+
+    const auto& shape = tensor.GetShape();
+    const auto sizeInBytes = static_cast<py::ssize_t>(tensor.GetDataSize());
+    std::vector<uint8_t> hostBuffer(static_cast<size_t>(sizeInBytes));
+    DeviceTensorData hostTensor(tensor.GetDataType(), hostBuffer.data(), shape, tensor.Format());
+    CopyToHost(tensor, hostTensor);
+    py::object view = torch.attr("frombuffer")(
+        py::memoryview::from_memory(hostBuffer.data(), sizeInBytes), py::arg("dtype") = dtype);
+    return view.attr("reshape")(py::cast(shape)).attr("clone")();
+}
+
+static void DumpLaunchTensors(
+    const std::vector<DeviceTensorData>& tensors, std::optional<size_t> tensorIndex = std::nullopt)
+{
+    if (tensorIndex.has_value() && tensorIndex.value() >= tensors.size()) {
+        py::print(
+            "[LaunchKernelTorch] tensor index out of range:", tensorIndex.value(),
+            "tensor_count=", tensors.size());
+        return;
+    }
+
+    py::print("[LaunchKernelTorch] tensor dump begin");
+    const size_t begin = tensorIndex.value_or(0);
+    const size_t end = tensorIndex.has_value() ? (begin + 1) : tensors.size();
+    for (size_t i = begin; i < end; ++i) {
+        const auto& tensor = tensors[i];
+        if (tensor.GetAddr() == nullptr) {
+            py::print(
+                "[LaunchKernelTorch] tensor", i, "addr=nullptr", "shape=", tensor.GetShape(),
+                "dtype=", DataType2String(tensor.GetDataType()));
+            continue;
+        }
+
+        try {
+            py::object materialized = MaterializeTorchTensor(tensor);
+            py::print(
+                "[LaunchKernelTorch] tensor", i, "shape=", tensor.GetShape(),
+                "dtype=", DataType2String(tensor.GetDataType()));
+            py::print(materialized);
+        } catch (const std::exception& e) {
+            py::print(
+                "[LaunchKernelTorch] tensor", i, "dump failed:", e.what(),
+                "shape=", tensor.GetShape(), "dtype=", DataType2String(tensor.GetDataType()));
+        }
+    }
+    py::print("[LaunchKernelTorch] tensor dump end");
 }
 
 void SetVerifyData(
@@ -1076,6 +1174,8 @@ void LaunchKernelTorch(py::object& module, int64_t stream, py::sequence& torchTe
 
     std::vector<DeviceTensorData> tensors;
     int devId = TorchTensorConverter::Convert(torchTensors, tensorDefs, tensors);
+    DumpLaunchTensors(tensors, 0);
+
     KernelLauncher(module, stream, torchTensors, tensorDefs, tensors, devId).Execute();
 }
 #else
