@@ -115,8 +115,6 @@ struct MemoryHelper {
         CopyFromDev(tensorData.data(), tensorData.GetDevPtr(), tensorData.size());
     }
 
-    uint64_t GetL2Offset() { return machine::GetRA()->GetL2Offset(); }
-
     bool isTest_{true};
     std::vector<std::shared_ptr<uint8_t>> testAllocatePtrs_;
 };
