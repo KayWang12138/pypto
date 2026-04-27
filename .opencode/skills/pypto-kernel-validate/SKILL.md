@@ -29,6 +29,7 @@ description: 校验一个声称由 PyPTO 开发的算子产物 — 反作弊 (�
 | `verify_timeout` | 否 | 单次验证子进程超时, 秒, 默认 300 |
 | `verify_rtol` | 否 | verify 精度比较 rtol; 缺省使用 verifier 默认值 |
 | `verify_atol` | 否 | verify 精度比较 atol; 缺省使用 verifier 默认值 |
+| `keep_artifacts` | 否 | 是否保留 verifier 的 verify/profile 临时工作目录; 默认 `false` 自动清理 |
 
 ## 工作流 (必须严格按以下 4 步执行, 不得跳步)
 
@@ -125,6 +126,12 @@ python -m integration.benchmark.verifier verify \
 ```bash
   --verify-rtol <verify_rtol> \
   --verify-atol <verify_atol> \
+```
+
+若 prompt 中提供 `keep_artifacts=true`, 必须继续追加:
+
+```bash
+  --keep-artifacts
 ```
 
 注意:

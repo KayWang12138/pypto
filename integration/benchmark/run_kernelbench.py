@@ -36,6 +36,7 @@ import asyncio
 import datetime as dt
 import json
 import logging
+import os
 import sys
 import time
 from dataclasses import dataclass
@@ -484,6 +485,14 @@ def _build_cfg(args: argparse.Namespace, yaml_cfg: Dict[str, Any]) -> _RunCfg:
         extra_verifier_config["verify_rtol"] = float(verify_rtol)
     if verify_atol is not None:
         extra_verifier_config["verify_atol"] = float(verify_atol)
+    keep_env = (os.environ.get("PYPTO_BENCH_KEEP_ARTIFACTS") or "").strip().lower()
+    if args.keep_verifier_artifacts is not None:
+        keep_artifacts = args.keep_verifier_artifacts
+    elif keep_env:
+        keep_artifacts = keep_env in ("1", "true", "yes", "on")
+    else:
+        keep_artifacts = bool(verifier_yaml.get("keep_artifacts", False))
+    extra_verifier_config["keep_artifacts"] = bool(keep_artifacts)
 
     return _RunCfg(
         pypto_repo_root=_resolve_pypto_repo_root(args.repo_root),
@@ -577,6 +586,10 @@ def _build_arg_parser() -> argparse.ArgumentParser:
                    help="verify 精度比较 atol; 未传则用配置/默认值")
     p.add_argument("--log-dir", type=str, default="",
                    help="KernelVerifier log 根目录")
+    p.add_argument("--keep-verifier-artifacts",
+                   action=argparse.BooleanOptionalAction,
+                   default=None,
+                   help="是否保留 KernelVerifier verify/profile 临时工作目录; 默认自动清理")
     p.add_argument("--report-dir", type=str, default="",
                    help="批处理报告输出目录")
     p.add_argument("--mode", type=str, default="",
