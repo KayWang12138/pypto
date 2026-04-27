@@ -23,15 +23,9 @@
 
 namespace npu::tile_fwk {
 
-class TestCodegenStaticUnderDyn : public ::testing::Test {
+class TestCodegenStaticUnderDyn : public CodegenTestBase {
 public:
-    static void SetUpTestCase() {}
-
-    static void TearDownTestCase() {}
-
-    void SetUp() override { Program::GetInstance().Reset(); }
-
-    void TearDown() override {}
+    TestCodegenStaticUnderDyn() : CodegenTestBase({}) {}
 };
 
 void TestStaticLoop(const Tensor& t0, const Tensor& t1, const Tensor& t2, Tensor& out, int s)
