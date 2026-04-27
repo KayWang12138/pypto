@@ -13,7 +13,6 @@
  * \brief
  */
 
-#include <algorithm>
 #include "split_reshape.h"
 #include "interface/tensor/logical_tensor.h"
 #include "passes/pass_utils/graph_utils.h"
