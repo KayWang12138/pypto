@@ -219,16 +219,100 @@ def combine_func(x, logits, residual, resid_scale, source_row, output_bs, offset
     Returns:
         最终输出 [output_bs, N] (torch.Tensor)
     """
-    
+    # 文档和 kernel 都是 scatter add 语义：
+    # out[row_index[i], :] += x[i, :] * logits[i]
     weighted = x * logits.unsqueeze(1)
     out = torch.zeros((output_bs, x.shape[-1]), dtype=torch.float32)
     out.index_add_(0, source_row.to(torch.int64), weighted.to(torch.float32))
-
+    
+    # shared_input 融合（可选）
     if residual is not None:
-        residual_fp32 = residual.float()
+        residual_fp32 = residual.float()  # bfloat16 -> float32
         out[offset:offset + residual.shape[0], :] += resid_scale * residual_fp32
     
     return out
+
+
+def gen_golden_debug(inputs: GmmFRGoldenInputs) -> dict:
+    """生成便于调试的 golden 中间结果。"""
+    x1 = inputs.x1
+    x2 = inputs.x2
+    scale = inputs.scale
+    pertoken_scale = inputs.pertoken_scale
+    group_list = inputs.group_list
+    row_index = inputs.row_index
+    logit = inputs.logit
+    batch = inputs.batch
+    n = inputs.n
+    bias = inputs.bias
+    shared_input = inputs.shared_input
+    shared_input_weight = inputs.shared_input_weight
+    shared_input_offset = inputs.shared_input_offset
+    transpose_x1 = inputs.transpose_x1
+    transpose_x2 = inputs.transpose_x2
+    group_list_type = inputs.group_list_type
+
+    if group_list_type == 0:
+        group_counts = []
+        prev = 0
+        for val in group_list:
+            group_counts.append(val - prev)
+            prev = val
+        group_list = group_counts
+
+    num_experts = x2.shape[0]
+    m_total = x1.shape[0]
+    intermediate = torch.zeros((m_total, n), dtype=torch.float32)
+    begin = 0
+    end = 0
+
+    for i in range(num_experts):
+        begin = end
+        end = end + group_list[i]
+        if group_list[i] <= 0:
+            continue
+
+        if transpose_x1:
+            x_i = x1[:, begin:end]
+            scaled_x_i = pertoken_scale[:, begin:end, :]
+        else:
+            x_i = x1[begin:end, :]
+            scaled_x_i = pertoken_scale[begin:end, :, :]
+
+        gmm_result = compute_golden_result(
+            GoldenComputeInputs(
+                x=x_i,
+                weight=x2[i],
+                scaled_x=scaled_x_i,
+                scaled_weight=scale[i],
+                a_trans=transpose_x1,
+                b_trans=transpose_x2,
+            )
+        )
+
+        if bias is not None:
+            gmm_result = gmm_result + bias[i].to(torch.float32)
+
+        intermediate[begin:end, :] = gmm_result
+
+    weighted = intermediate * logit.unsqueeze(1)
+    routing_out = torch.zeros((batch, n), dtype=torch.float32)
+    routing_out.index_add_(0, row_index.to(torch.int64), weighted)
+    shared_out = torch.zeros((batch, n), dtype=torch.float32)
+    if shared_input is not None:
+        shared_end = shared_input_offset + shared_input.shape[0]
+        shared_out[shared_input_offset:shared_end, :] = (
+            shared_input_weight * shared_input.to(torch.float32)
+        )
+
+    final_out = routing_out + shared_out
+    return {
+        "intermediate": intermediate,
+        "weighted": weighted,
+        "routing_out": routing_out,
+        "shared_out": shared_out,
+        "final_out": final_out,
+    }
 
 
 def gen_golden(inputs: GmmFRGoldenInputs) -> torch.Tensor:
@@ -676,8 +760,8 @@ def test_gmm_fr_full_config(tile_config: TileConfig = DEFAULT_TILE_CONFIG, devic
     print("Test: GroupedMatmulFinalizeRoutingV3 - Full Config")
     print("=" * 60)
 
-    m, k, n, e, batch = 256, 512, 512, 4, 8
-    group_list = [64, 64, 64, 64]
+    m, k, n, e, batch = 16, 512, 7168, 2, 8
+    group_list = [7, 9]
 
     print(f"Config: m={m}, k={k}, n={n}, e={e}, batch={batch}")
     print(f"group_list: {group_list}, bias=True, shared_input=True")
@@ -732,8 +816,6 @@ def test_gmm_fr_full_config(tile_config: TileConfig = DEFAULT_TILE_CONFIG, devic
             tile_config=tile_config,
         ))
 
-        print(result)
-        print(result.shape)
         max_diff = np.abs(result.cpu().numpy() - golden.cpu().numpy()).max()
         print(f"Max diff: {max_diff:.6e}")
 
@@ -747,6 +829,83 @@ def test_gmm_fr_full_config(tile_config: TileConfig = DEFAULT_TILE_CONFIG, devic
         print("[NPU NOT AVAILABLE - Golden only]")
 
     print("✓ Passed\n")
+
+
+def test_gmm_fr_debug_min_config(tile_config: TileConfig = DEFAULT_TILE_CONFIG, device_id=None):
+    """最小调试用例：所有核心维度都固定为 1。"""
+    print("=" * 60)
+    print("Test: GroupedMatmulFinalizeRoutingV3 - Debug Min Config")
+    print("=" * 60)
+
+    m, k, n, e, batch = 1, 1, 1, 1, 1
+    group_list = [1]
+
+    print(f"Config: m={m}, k={k}, n={n}, e={e}, batch={batch}")
+
+    data = generate_test_data(
+        m=m, k=k, n=n, e=e, batch=batch, group_list=group_list,
+        include_bias=True,
+        include_shared=True,
+    )
+    data['row_index'] = torch.tensor([0], dtype=torch.int64)
+    data['logit'] = torch.tensor([1.0], dtype=torch.float32)
+    data['shared_input_weight'] = 1.0
+    data['shared_input_offset'] = 0
+
+    debug = gen_golden_debug(GmmFRGoldenInputs(
+        x1=data['x1'],
+        x2=data['x2'],
+        scale=data['scale'],
+        pertoken_scale=data['pertoken_scale'],
+        group_list=data['group_list'],
+        row_index=data['row_index'],
+        logit=data['logit'],
+        batch=data['batch'],
+        n=data['n'],
+        bias=data['bias'],
+        shared_input=data['shared_input'],
+        shared_input_weight=data['shared_input_weight'],
+        shared_input_offset=data['shared_input_offset'],
+        transpose_x1=data['transpose_x1'],
+        transpose_x2=data['transpose_x2'],
+        group_list_type=data['group_list_type'],
+    ))
+
+    print("Golden intermediate:", debug["intermediate"])
+    print("Golden weighted:", debug["weighted"])
+    print("Golden routing_out:", debug["routing_out"])
+    print("Golden shared_out:", debug["shared_out"])
+    print("Golden final_out:", debug["final_out"])
+
+    if device_id is not None:
+        torch.npu.set_device(device_id)
+        result = gen_mxfp8(GmmFRInputs(
+            x1=data['x1'],
+            x2=data['x2'],
+            scale=data['scale'],
+            pertoken_scale=data['pertoken_scale'],
+            group_list=data['group_list'],
+            row_index=data['row_index'],
+            logit=data['logit'],
+            batch=data['batch'],
+            n=data['n'],
+            bias=data['bias'],
+            shared_input=data['shared_input'],
+            shared_input_weight=data['shared_input_weight'],
+            shared_input_offset=data['shared_input_offset'],
+            transpose_x1=data['transpose_x1'],
+            transpose_x2=data['transpose_x2'],
+            group_list_type=data['group_list_type'],
+            tile_config=tile_config,
+        ))
+
+        print("Kernel final_out:", result.cpu())
+        max_diff = np.abs(result.cpu().numpy() - debug["final_out"].cpu().numpy()).max()
+        print(f"Debug max diff: {max_diff:.6e}")
+    else:
+        print("[NPU NOT AVAILABLE - Golden debug only]")
+
+    print("✓ Debug case finished\n")
 
 
 # ─────────────────────────────────────────────
@@ -763,7 +922,7 @@ if __name__ == "__main__":
     device_id = get_device_id()
 
     # 运行测试
-    test_gmm_fr_full_config(DEFAULT_TILE_CONFIG, device_id)
+    test_gmm_fr_debug_min_config(DEFAULT_TILE_CONFIG, device_id)
 
     print("=" * 60)
     print("All tests completed!")
