@@ -28,7 +28,7 @@ def _make_q(device: str) -> torch.Tensor:
     row = torch.tensor([-3.0, -2.0, -1.0, 0.0, 1.0, 2.0, 3.0, 4.0], device=device, dtype=torch.float32).repeat(8)
     return row.unsqueeze(0).repeat(64, 1)
 
-
+a5
 def _make_k(device: str) -> torch.Tensor:
     return torch.eye(64, device=device, dtype=torch.float32)
 
