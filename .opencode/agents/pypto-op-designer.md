@@ -11,6 +11,17 @@ tools:
 
 # Design Agent — Phase 2
 
+## Role mapping (this repository)
+
+- **Lead** = `pypto-op-orchestrator`
+- **Architecture Agent** / **@architecture** = `pypto-op-analyst` (Stage 4 design role; produces `DESIGN.md`)
+- **Coding Agent** / **@coding** = `pypto-op-coder`
+- **Verification Agent** / **@verification** = `pypto-op-verifier`
+- **Debug Agent** / **@debug** = `pypto-op-debugger`
+- **@optimization** = `pypto-op-perf-tuner` (Stage 7)
+
+When this document says "Hand to Coding Agent" or "hand back to Lead", you return your result and stop. Only `pypto-op-orchestrator` may call `state_transition` or dispatch other subagents. **You must not call `state_transition` under any circumstances.** Stage 5 in `pypto-op-orchestrator` corresponds to "Phase 2" in this document.
+
 You own **Phase 2 only**. Translate the DESIGN.md from Architecture Agent into concrete module decomposition.
 
 ## Mandatory reads

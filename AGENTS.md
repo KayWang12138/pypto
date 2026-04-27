@@ -16,16 +16,25 @@
 
 #### 算子开发与编排
 - `pypto-op-workflow`：无状态的全流程 Skill 入口，用于手动串联算子开发阶段
-- `pypto-intent-understand`：将自然语言算子需求转化为结构化规格
-- `pypto-api-explore`：探索 API 映射、约束条件与实现可行性
-- `pypto-golden-generate`：生成用于精度对比的 golden 参考实现
-- `pypto-op-design`：生成算子设计方案，明确数据切分、tiling 与 loop 结构
-- `pypto-op-develop`：Stage 5 实现阶段 Skill，生成实现、测试入口与 README
+- `pypto-intent-understand`：将自然语言算子需求转化为结构化规格（Stage 1）
+- `pypto-api-explore`：探索 API 映射、约束条件与实现可行性（Stage 2）
+- `pypto-golden-generate`：生成用于精度对比的 golden 参考实现（Stage 3）
+- `pypto-op-design`：生成算子 architecture 设计方案，明确数据切分、tiling 与 loop 结构（Stage 4）
+- `pypto-decompose-construct`：将 architecture 设计分解为模块图与 staged set，为 Stage 6 三者循环提供契约（Stage 5）
+- `pypto-op-memory`：内存语义与 workspace 规划（Stage 5 designer 辅助）
+- `pypto-op-develop`：Stage 6 模块实现 Skill，生成 staged set（impl + golden + test 三件套）
+- `pypto-op-validate`：Stage 6 verifier 用 `detailed_tensor_compare` 与 prefix-evaluation 判定 GATE 3/4
+- `pypto-kernel-layout-check`：Stage 6 verifier 的 kernel layout 与 PyPTO 调用合法性校验
 
 #### 精度验证与调试
 - `pypto-precision-debug`：定位并修复精度问题
 - `pypto-precision-compare`：精度对比与定位，支持文件保存和二分对比两种方法
 - `pypto-aicore-error-locator`：定位 aicore error 的问题文件和代码行
+- `pypto-host-stacktrace-analyzer`：分析 host segfault / stack trace
+- `pypto-memory-overlap-detector`：定位 workspace overlap 类内存破坏
+- `pypto-machine-workspace`：分析 OOM / `rtMalloc failed`
+- `pypto-tile-shape-debug`：定位 tile shape / `set_cube_tile_shapes` 误用
+- `pypto-general-debug`：失败分类 router，调度上述 sub-skill
 
 #### 性能分析
 - `pypto-op-perf-tune`：分析性能数据、定位瓶颈并给出优化依据，基于实测性能数据迭代调优，并验证精度与性能收益
