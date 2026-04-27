@@ -23,7 +23,7 @@
 #   bash integration/benchmark/scripts/local/test-integration.sh             # FULL
 #   FULL=0 bash integration/benchmark/scripts/local/test-integration.sh      # cheap
 #   CASES=19_ReLU,20_LeakyReLU bash ...                                      # 多 case
-#   CASE='level1=1:21;level2=31,41:50' bash ...                             # 多 level
+#   CASES='level1=1:21;level2=31,41:50' bash ...                            # 多 level
 #   VERIFIER_MODE=direct bash ...                                            # 不烧 LLM 验证
 #   BENCHMARK_LOG_DIR=/path bash ...                                         # 自定义 log
 #   CONCURRENCY=4 bash ...                                                  # 并行 case 数 (默认 1)
@@ -34,7 +34,7 @@ source "$(dirname "${BASH_SOURCE[0]}")/lib.sh"
 
 require_npu
 
-CASES="${CASE:-${CASES:-19_ReLU}}"
+CASES="${CASES:-19_ReLU}"
 FULL="${FULL:-1}"
 VERIFIER_MODE="${VERIFIER_MODE:-opencode}"
 SKILL_TIMEOUT="${SKILL_TIMEOUT:-1500}"

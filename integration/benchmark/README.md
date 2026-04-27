@@ -224,7 +224,7 @@ python -m integration.benchmark.run_kernelbench \
 ### 批处理多 level
 
 KernelBench 每个 level 都从 `1` 开始编号, 因此多 level 的 level 信息
-必须直接合并到 `--cases` / `CASE` 中.
+必须直接合并到 `--cases` / `CASES` 中.
 
 CLI 写法:
 
@@ -239,7 +239,7 @@ python -m integration.benchmark.run_kernelbench \
 环境变量入口遵循同一规则:
 
 ```bash
-CASE='level1=1:21;level2=31,41:50' \
+CASES='level1=1:21;level2=31,41:50' \
 python -m integration.benchmark.run_kernelbench \
   --devices 0,1 \
   --concurrency 2 \
@@ -247,8 +247,8 @@ python -m integration.benchmark.run_kernelbench \
 ```
 
 `integration/benchmark/scripts/local/test-integration.sh` 和 monitor 入口也读取
-`CASE`/`CASES`. 多 level 不使用 `LEVELS`/`LEVEL`; 写成
-`CASE='level1=...;level2=...'` 才无歧义.
+`CASES`. 多 level 不使用 `LEVELS`/`LEVEL`; 写成
+`CASES='level1=...;level2=...'` 才无歧义.
 
 裸 selector 仍可用于单 level:
 

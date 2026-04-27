@@ -917,7 +917,7 @@ def _render_dashboard(state: Dict[str, Any]) -> str:
 # ────────────────────────────────────────────────────────────
 
 def _load_run_args_from_env() -> Tuple[str, bool, int]:
-    cases = os.environ.get("CASE", os.environ.get("CASES", "19_ReLU"))
+    cases = os.environ.get("CASES", "19_ReLU")
     skip_gen = os.environ.get("FULL", "1") == "0"
     timeout_sec = int(os.environ.get("PYPTO_TIMEOUT", str(_DEFAULT_TIMEOUT)))
     return cases, skip_gen, timeout_sec
