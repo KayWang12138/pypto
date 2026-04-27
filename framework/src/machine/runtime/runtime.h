@@ -18,10 +18,10 @@
 #include <vector>
 
 #include "tilefwk/pypto_fwk_log.h"
+#include "tilefwk/error_code.h"
 #include "adapter/api/acl_api.h"
 #include "adapter/api/runtime_api.h"
-#include "tilefwk/error_code.h"
-#include "machine/runtime/memory_pool.h"
+#include "machine/runtime/memory_utils/memory_pool.h"
 
 constexpr int ADDR_MAP_TYPE_REG_AIC_CTRL = 2;
 constexpr int ADDR_MAP_TYPE_REG_AIC_PMU_CTRL = 3;

@@ -17,14 +17,9 @@
 
 #include <map>
 #include <unordered_map>
-#include <list>
-#include <mutex>
-#include <chrono>
-#include <cstdint>
-#include <cstdio>
 #include "tilefwk/pypto_fwk_log.h"
-#include "interface/configs/config_manager.h"
 #include "tilefwk/error_code.h"
+#include "interface/configs/config_manager.h"
 
 namespace npu::tile_fwk {
 inline constexpr int RTMALLOC_SUCCESS = 0;
