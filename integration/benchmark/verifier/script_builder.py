@@ -118,6 +118,27 @@ def _compare_outputs(ref_out, impl_out, rtol, atol):
 '''
 
 
+_WEIGHT_SYNC = '''\
+def _sync_weights(src_model, dst_model):
+    """将 src_model 的权重复制到 dst_model，确保 verifier 比较时使用相同参数."""
+    try:
+        missing, unexpected = dst_model.load_state_dict(src_model.state_dict(), strict=False)
+        if missing:
+            print(f"[WARN] Missing keys in impl model: {missing}")
+        if unexpected:
+            print(f"[WARN] Unexpected keys in impl model: {unexpected}")
+    except Exception as e:
+        print(f"[WARN] load_state_dict failed ({e}), falling back to manual copy")
+        src_params = dict(src_model.named_parameters())
+        with torch.no_grad():
+            for name, dst_param in dst_model.named_parameters():
+                if name in src_params:
+                    dst_param.copy_(src_params[name])
+                else:
+                    print(f"[WARN] Parameter '{name}' not found in framework model, skipping")
+'''
+
+
 def _framework_loader(op_name: str, framework_filename: str) -> str:
     safe_module = "framework_" + op_name.replace("-", "_")
     return _FRAMEWORK_LOADER_TEMPLATE.format(
@@ -158,6 +179,7 @@ os.environ["TILE_FWK_DEVICE_ID"] = "{device_id}"
 {_NPU_SYNC_SAFE}
 {_INPUT_TO_DEVICE}
 {_OUTPUT_FLATTEN_AND_COMPARE}
+{_WEIGHT_SYNC}
 
 # === load reference Model from {framework_filename} ===
 {fw_loader}
@@ -170,6 +192,9 @@ framework_model = framework_module.Model(*init_inputs).to(device)
 # === load PyPTO ModelNew (must be after device setup; jit not patched in verify path) ===
 {modelnew_loader}
 impl_model = ModelNew(*init_inputs).to(device)
+
+# === sync weights to ensure fair comparison ===
+_sync_weights(framework_model, impl_model)
 
 # === run both ===
 with torch.no_grad():
