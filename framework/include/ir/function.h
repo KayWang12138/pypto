@@ -35,7 +35,8 @@ namespace ir {
 enum class FunctionType : uint8_t {
     OPAQUE = 0,        ///< Default: unspecified function type
     ORCHESTRATION = 1, ///< Host/AICPU control and coordination
-    IN_CORE = 2        ///< AICore sub-graph execution
+    IN_CORE = 2,       ///< AICore sub-graph execution
+    HELPER = 3         ///< Scalar helper function callable from kernels
 };
 
 /**
@@ -52,6 +53,8 @@ inline std::string FunctionTypeToString(FunctionType type)
             return "Orchestration";
         case FunctionType::IN_CORE:
             return "InCore";
+        case FunctionType::HELPER:
+            return "Helper";
         default:
             return "Unknown";
     }
@@ -71,9 +74,36 @@ inline FunctionType StringToFunctionType(const std::string& str)
         return FunctionType::ORCHESTRATION;
     } else if (str == "InCore") {
         return FunctionType::IN_CORE;
+    } else if (str == "Helper") {
+        return FunctionType::HELPER;
     } else {
         throw std::invalid_argument("Unknown FunctionType: " + str);
     }
+}
+
+enum class ParamDirection : uint8_t {
+    In = 0,
+    Out = 1,
+    InOut = 2
+};
+
+inline std::string ParamDirectionToString(ParamDirection dir)
+{
+    switch (dir) {
+        case ParamDirection::In: return "In";
+        case ParamDirection::Out: return "Out";
+        case ParamDirection::InOut: return "InOut";
+        default: break;
+    }
+    throw std::invalid_argument("Unknown ParamDirection");
+}
+
+inline ParamDirection StringToParamDirection(const std::string& str)
+{
+    if (str == "In") return ParamDirection::In;
+    if (str == "Out") return ParamDirection::Out;
+    if (str == "InOut") return ParamDirection::InOut;
+    throw std::invalid_argument("Unknown ParamDirection: " + str);
 }
 
 /**
@@ -84,16 +114,18 @@ inline FunctionType StringToFunctionType(const std::string& str)
  */
 class Function : public IRNode {
 public:
-    /**
-     * \brief Create a function definition
-     *
-     * \param name Function name
-     * \param params Parameter variables
-     * \param returnTypes Return types
-     * \param body Function body statement (use SeqStmts for multiple statements)
-     * \param span Source location
-     * \param type Function type (default: Opaque)
-     */
+    Function(
+        std::string name, std::vector<VarPtr> params, std::vector<ParamDirection> paramDirections,
+        std::vector<TypePtr> returnTypes, StmtPtr body, Span span, FunctionType type = FunctionType::OPAQUE)
+        : IRNode(std::move(span)),
+          name_(std::move(name)),
+          funcType_(type),
+          params_(std::move(params)),
+          paramDirections_(std::move(paramDirections)),
+          returnTypes_(std::move(returnTypes)),
+          body_(std::move(body))
+    {}
+
     Function(
         std::string name, std::vector<VarPtr> params, std::vector<TypePtr> returnTypes, StmtPtr body, Span span,
         FunctionType type = FunctionType::OPAQUE)
@@ -101,6 +133,7 @@ public:
           name_(std::move(name)),
           funcType_(type),
           params_(std::move(params)),
+          paramDirections_(params_.size(), ParamDirection::In),
           returnTypes_(std::move(returnTypes)),
           body_(std::move(body))
     {}
@@ -108,29 +141,25 @@ public:
     [[nodiscard]] ObjectKind GetKind() const override { return ObjectKind::Function; }
     [[nodiscard]] std::string TypeName() const override { return "Function"; }
 
-    /**
-     * \brief Get field descriptors for reflection-based visitation
-     *
-     * \return Tuple of field descriptors (params as DEF field, func_type, return_types and body as USUAL
-     * fields, name as an IGNORE field)
-     */
     static constexpr auto GetFieldDescriptors()
     {
         return std::tuple_cat(
             IRNode::GetFieldDescriptors(),
             std::make_tuple(
                 reflection::DefField(&Function::params_, "params"),
+                reflection::UsualField(&Function::paramDirections_, "param_directions"),
                 reflection::UsualField(&Function::funcType_, "func_type"),
                 reflection::UsualField(&Function::returnTypes_, "return_types"),
                 reflection::UsualField(&Function::body_, "body"), reflection::IgnoreField(&Function::name_, "name")));
     }
 
 public:
-    std::string name_;                 // Function name
-    FunctionType funcType_;            // Function type (orchestration, incore, or opaque)
-    std::vector<VarPtr> params_;       // Parameter variables
-    std::vector<TypePtr> returnTypes_; // Return types
-    StmtPtr body_;                     // Function body statement
+    std::string name_;
+    FunctionType funcType_;
+    std::vector<VarPtr> params_;
+    std::vector<ParamDirection> paramDirections_;
+    std::vector<TypePtr> returnTypes_;
+    StmtPtr body_;
 };
 
 using FunctionPtr = std::shared_ptr<const Function>;

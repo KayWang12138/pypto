@@ -13,28 +13,37 @@
 #include <string>
 
 #include "ir/core.h"
+#include "ir/expr.h"
 #include "ir/type.h"
 
 namespace pypto {
 namespace ir {
-/**
- * @brief Print an IR node in Python syntax
- *
- * @param node IR node to print (Expr, Stmt, Function, or Program)
- * @param prefix Module prefix to use (default: "ir")
- * @param concise If true, omit intermediate type annotations (default: false)
- * @return Python-style string representation
- */
-std::string PythonPrint(const IRNodePtr& node, const std::string& prefix = "ir", bool concise = false);
 
-/**
- * @brief Print a type in Python syntax
- *
- * @param type Type to print (ScalarType, TensorType, TupleType, etc.)
- * @param prefix Module prefix to use (default: "pl", can be "ir" for legacy)
- * @return Python-style string representation
- */
-std::string PythonPrint(const TypePtr& type, const std::string& prefix = "ir");
+enum class Precedence : int {
+    kOr = 1,
+    kXor = 2,
+    kAnd = 3,
+    kNot = 4,
+    kComparison = 5,
+    kBitOr = 6,
+    kBitXor = 7,
+    kBitAnd = 8,
+    kBitShift = 9,
+    kAddSub = 10,
+    kMulDivMod = 11,
+    kUnary = 12,
+    kPow = 13,
+    kCall = 14,
+    kAtom = 15
+};
+
+Precedence GetPrecedence(const ExprPtr& expr);
+bool IsRightAssociative(const ExprPtr& expr);
+
+std::string PythonPrint(const IRNodePtr& node, const std::string& prefix = "pl", bool concise = false);
+std::string PythonPrint(const TypePtr& type, const std::string& prefix = "pl");
+std::string PythonDslPrint(const IRNodePtr& node, const std::string& prefix = "pl");
+std::string PythonDslPrint(const TypePtr& type, const std::string& prefix = "pl");
 
 } // namespace ir
 } // namespace pypto

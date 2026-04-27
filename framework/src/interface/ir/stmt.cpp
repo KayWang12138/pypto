@@ -9,26 +9,29 @@
  * -----------------------------------------------------------------------------------------------------------
  */
 
-#include "ir/type.h"
+#include "ir/stmt.h"
 
-#include <cstdint>
-#include <memory>
-#include <optional>
+#include <cstddef>
 #include <utility>
 #include <vector>
 
-#include "core/dtype.h"
-#include "ir/scalar_expr.h"
+#include "core/logging.h"
+#include "ir/core.h"
 #include "ir/span.h"
 
 namespace pypto {
 namespace ir {
 
-ShapedType::ShapedType(DataType dtype, const std::vector<int64_t>& shape, std::optional<MemRefPtr> memref)
-    : dtype_(dtype), memref_(std::move(memref)) {
-  for (int64_t dim : shape) {
-    shape_.push_back(std::make_shared<ConstInt>(dim, DataType::INDEX, Span::unknown()));
+OpStmts::OpStmts(std::vector<StmtPtr> stmts, Span span) : Stmt(std::move(span)), stmts_(std::move(stmts)) {
+  // Validate that all statements are AssignStmt or EvalStmt
+  for (size_t i = 0; i < stmts_.size(); ++i) {
+    const auto& stmt = stmts_[i];
+    INTERNAL_CHECK(stmt) << "OpStmts has null statement at index " << i;
+    auto kind = stmt->GetKind();
+    INTERNAL_CHECK(kind == ObjectKind::AssignStmt || kind == ObjectKind::EvalStmt)
+        << "OpStmts only accepts AssignStmt or EvalStmt, but got " << stmt->TypeName() << " at index " << i;
   }
 }
+
 }  // namespace ir
 }  // namespace pypto
