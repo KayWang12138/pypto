@@ -18,36 +18,105 @@
 
 #include "../cube_utils.h"
 
-template <typename tileUBTensor, typename tileL0CTensor>
+template <typename tileUBTensor, typename tileL0CTensor, typename FbTileData>
 TILEOP void TExtractL0CToUB(
-    tileUBTensor& ubTile, tileL0CTensor& l0cTile, int64_t l0cOffset0, int64_t l0cOffset1, int16_t subblockId)
+    tileUBTensor& ubTile, tileL0CTensor& l0cTile, FbTileData& fixbuf, int64_t l0cOffset0, int64_t l0cOffset1,
+    int16_t subblockId, uint64_t scaleValue)
 {
-    if (subblockId == 0) {
-        pto::TEXTRACT<tileUBTensor, tileL0CTensor, pto::AccToVecMode::SingleModeVec0>(
-            ubTile, l0cTile, l0cOffset0, l0cOffset1);
+    constexpr bool supportedQuantMode =
+        std::is_same<typename l0cData::DType, int32_t>::value && std::is_same<typename l1Data::DType, half>::value;
+    constexpr bool supportedBasicMode =
+        (std::is_same<typename l0cData::DType, float>::value && std::is_same<typename l1Data::DType, half>::value) ||
+        (std::is_same<typename l0cData::DType, float>::value &&
+         std::is_same<typename l1Data::DType, bfloat16_t>::value);
+    if constexpr (supportedQuantMode) {
+        if (scaleValue != 0) {
+            constexpr pto::ReluPreMode relu_mode =
+                (config::kReluMode == 0) ? pto::ReluPreMode::NoRelu : pto::ReluPreMode::NormalRelu;
+            if (subblockId == 0) {
+                pto::TEXTRACT<tileUBTensor, tileL0CTensor, pto::AccToVecMode::SingleModeVec0, relu_mode>(
+                    ubTile, l0cTile, scaleValue, l0cOffset0, l0cOffset1);
+            } else {
+                pto::TEXTRACT<tileUBTensor, tileL0CTensor, pto::AccToVecMode::SingleModeVec1, relu_mode>(
+                    ubTile, l0cTile, scaleValue, l0cOffset0, l0cOffset1);
+            }
+        } else {
+            auto scaleData = CreateScaleTileData(fixbuf);
+            pto::TASSIGN(scaleData, static_cast<uint64_t>(fixbuf.GetAddr()));
+            if (subblockId == 0) {
+                pto::TEXTRACT_FP<
+                    tileUBTensor, tileL0CTensor, decltype(scaleData), pto::AccToVecMode::SingleModeVec0,
+                    config::kReluMode == 0 ? pto::ReluPreMode::NoRelu : pto::ReluPreMode::NormalRelu>(
+                    ubTile, l0cTile, scaleData, l0cOffset0, l0cOffset1);
+            } else {
+                pto::TEXTRACT_FP<
+                    tileUBTensor, tileL0CTensor, decltype(scaleData), pto::AccToVecMode::SingleModeVec1,
+                    config::kReluMode == 0 ? pto::ReluPreMode::NoRelu : pto::ReluPreMode::NormalRelu>(
+                    ubTile, l0cTile, scaleData, l0cOffset0, l0cOffset1);
+            }
+        }
     } else {
-        pto::TEXTRACT<tileUBTensor, tileL0CTensor, pto::AccToVecMode::SingleModeVec1>(
-            ubTile, l0cTile, l0cOffset0, l0cOffset1);
+        if (subblockId == 0) {
+            pto::TEXTRACT<tileUBTensor, tileL0CTensor, pto::AccToVecMode::SingleModeVec0>(
+                ubTile, l0cTile, l0cOffset0, l0cOffset1);
+        } else {
+            pto::TEXTRACT<tileUBTensor, tileL0CTensor, pto::AccToVecMode::SingleModeVec1>(
+                ubTile, l0cTile, l0cOffset0, l0cOffset1);
+        }
     }
 }
 
-template <typename tileUBTensor, typename tileL0CTensor>
+template <typename tileUBTensor, typename tileL0CTensor, typename FbTileData>
 TILEOP void TInsertL0CToUB(
-    tileUBTensor& ubTile, tileL0CTensor& l0cTile, int64_t ubOffset0, int64_t ubOffset1, int16_t subblockId)
+    tileUBTensor& ubTile, tileL0CTensor& l0cTile, FbTileData& fixbuf, int64_t ubOffset0, int64_t ubOffset1,
+    int16_t subblockId, uint64_t scaleValue)
 {
-    if (subblockId == 0) {
-        pto::TINSERT<tileUBTensor, tileL0CTensor, pto::AccToVecMode::SingleModeVec0>(
-            ubTile, l0cTile, ubOffset0, ubOffset1);
+    constexpr bool supportedQuantMode =
+        std::is_same<typename l0cData::DType, int32_t>::value && std::is_same<typename l1Data::DType, half>::value;
+    constexpr bool supportedBasicMode =
+        (std::is_same<typename l0cData::DType, float>::value && std::is_same<typename l1Data::DType, half>::value) ||
+        (std::is_same<typename l0cData::DType, float>::value &&
+         std::is_same<typename l1Data::DType, bfloat16_t>::value);
+    if constexpr (supportedQuantMode) {
+        if (scaleValue != 0) {
+            constexpr pto::ReluPreMode relu_mode =
+                (config::kReluMode == 0) ? pto::ReluPreMode::NoRelu : pto::ReluPreMode::NormalRelu;
+            if (subblockId == 0) {
+                pto::TINSERT<tileUBTensor, tileL0CTensor, pto::AccToVecMode::SingleModeVec0, relu_mode>(
+                    ubTile, l0cTile, scaleValue, l0cOffset0, l0cOffset1);
+            } else {
+                pto::TINSERT<tileUBTensor, tileL0CTensor, pto::AccToVecMode::SingleModeVec1, relu_mode>(
+                    ubTile, l0cTile, scaleValue, l0cOffset0, l0cOffset1);
+            }
+        } else {
+            auto scaleData = CreateScaleTileData(fixbuf);
+            pto::TASSIGN(scaleData, static_cast<uint64_t>(fixbuf.GetAddr()));
+            if (subblockId == 0) {
+                pto::TINSERT_FP<
+                    tileUBTensor, tileL0CTensor, decltype(scaleData), pto::AccToVecMode::SingleModeVec0,
+                    config::kReluMode == 0 ? pto::ReluPreMode::NoRelu : pto::ReluPreMode::NormalRelu>(
+                    ubTile, l0cTile, scaleData, l0cOffset0, l0cOffset1);
+            } else {
+                pto::TINSERT_FP<
+                    tileUBTensor, tileL0CTensor, decltype(scaleData), pto::AccToVecMode::SingleModeVec1,
+                    config::kReluMode == 0 ? pto::ReluPreMode::NoRelu : pto::ReluPreMode::NormalRelu>(
+                    ubTile, l0cTile, scaleData, l0cOffset0, l0cOffset1);
+            }
+        }
     } else {
-        pto::TINSERT<tileUBTensor, tileL0CTensor, pto::AccToVecMode::SingleModeVec1>(
-            ubTile, l0cTile, ubOffset0, ubOffset1);
+        if (subblockId == 0) {
+            pto::TINSERT<tileUBTensor, tileL0CTensor, pto::AccToVecMode::SingleModeVec0>(
+                ubTile, l0cTile, ubOffset0, ubOffset1);
+        } else {
+            pto::TINSERT<tileUBTensor, tileL0CTensor, pto::AccToVecMode::SingleModeVec1>(
+                ubTile, l0cTile, ubOffset0, ubOffset1);
+        }
     }
 }
 
 // Copy data from L0C to UB
-template <CopyOutMode mode, typename Coord, typename DstTileData, typename SrcTileData>
-INLINE void TExtractL0C2UBImpl(
-    DstTileData& dst, SrcTileData& src, const Coord& dstCoord, const Coord& srcCoord, int16_t subblockId)
+template <typename config, typename Coord, typename DstTileData, typename SrcTileData, typename FbTileData>
+INLINE void TExtractL0C2UBImpl(DstTileData& dst, SrcTileData& src, FbTileData& fixbuf, const Coord& coord, int16_t subblockId, uint64_t scaleValue = 0)
 {
     constexpr uint64_t shapeSize = Std::tuple_size<typename DstTileData::Shape>::value;
     constexpr int64_t c0Size = BLOCK_ALIGN_BYTE / sizeof(typename SrcTileData::Type);
@@ -75,9 +144,9 @@ INLINE void TExtractL0C2UBImpl(
     pto::TASSIGN(ubTile, (uint64_t)dst.GetAddr());
     pto::TASSIGN(l0cTile, (uint64_t)src.GetAddr());
     if (dstShape0 < srcShape0 || dstShape1 < srcShape1) {
-        TExtractL0CToUB<tileUBTensor, tileL0CTensor>(ubTile, l0cTile, srcOffset0, srcOffset1, subblockId);
+        TExtractL0CToUB<config, tileUBTensor, tileL0CTensor, FbTileData>(ubTile, l0cTile, fixbuf, srcOffset0, srcOffset1, subblockId, scaleValue);
     } else {
-        TInsertL0CToUB<tileUBTensor, tileL0CTensor>(ubTile, l0cTile, dstOffset0, dstOffset1, subblockId);
+        TInsertL0CToUB<config, tileUBTensor, tileL0CTensor, FbTileData>(ubTile, l0cTile, fixbuf, dstOffset0, dstOffset1, subblockId, scaleValue);
     }
 }
 
