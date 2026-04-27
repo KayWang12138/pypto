@@ -363,10 +363,10 @@ void CoreScheduler::ScheduleOneTask(
         int64_t gap0 = calcGap(intervalAIV0);
         int64_t gap1 = calcGap(intervalAIV1);
 
-        auto getLastFinishBefore = [&](TargetCoreType core, int startTime) -> int {
+        auto getLastFinishBefore = [&](TargetCoreType core, int intervalAIVFirstTime) -> int {
             for (auto& slot : availTime[core]) {
-                if (slot.second <= startTime && slot.second < INT32_MAX) {
-                    return slot.second;
+                if (slot.second >= intervalAIVFirstTime && slot.first <= intervalAIVFirstTime) {
+                    return slot.first;
                 }
             }
             return 0;
