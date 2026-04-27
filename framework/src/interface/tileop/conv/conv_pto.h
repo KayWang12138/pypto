@@ -148,12 +148,12 @@ INLINE int64_t CalStoreOffsetNCHW(const ShapeInfo& shapeInfo, const OffsetInfo& 
  * offset3: dst_h_offset
  * offset4: dst_w_offset
  */
-INLINE int64_t CalStoreOffsetNCDHW(const ShapeInfo& shapeInfo, const OffsetInfo& offsetInfo)
+INLINE int64_t CalStoreOffsetNCDHW(const ShapeInfo& shapeInfo, const OffsetInfo& offsetInfo, const int64_t& loopH)
 {
     int64_t outputOneBatchSize = shapeInfo.shape0 * shapeInfo.shape1 * shapeInfo.shape2 * shapeInfo.shape3;
     int64_t coutOffset = offsetInfo.offset1 * shapeInfo.shape1 * shapeInfo.shape2 * shapeInfo.shape3;
     int64_t doutOffset = offsetInfo.offset2 * shapeInfo.shape2 * shapeInfo.shape3;
-    return offsetInfo.offset0 * outputOneBatchSize + coutOffset + doutOffset + offsetInfo.offset3 * shapeInfo.shape3 +
+    return offsetInfo.offset0 * outputOneBatchSize + coutOffset + doutOffset + (offsetInfo.offset3 + loopH) * shapeInfo.shape3 +
            offsetInfo.offset4;
 }
 
@@ -335,12 +335,10 @@ INLINE void TStoreConv2DNZ2DN(T& dst, U& src, const OffsetInfo& offsetInfo, cons
     int64_t dstStrideC = GetConvStride<CONV_IDX_1>(dst);
     int64_t dstStrideH = GetConvStride<CONV_IDX_2>(dst);
     int64_t dstStrideW = GetConvStride<CONV_IDX_3>(dst);
+    int64_t repeat = repeatTime == 0 ? 1 : repeatTime;
+    int64_t strideW = repeatTime == 0 ? realM : oneW;
 
-    if (repeatTime == 0) {
-        repeatTime = 1;
-        oneW = realM;
-    }
-    for (int64_t loopH = 0; loopH < repeatTime; loopH++) {
+    for (int64_t loopH = 0; loopH < repeat; loopH++) {
         ShapeInfo shapeInfo{dstC, dstH, dstW};
         int64_t gmOffset = CalStoreOffsetNCHW(shapeInfo, offsetInfo, loopH);
         using shapeDim4 = pto::Shape<1, -1, -1, -1, -1>;
@@ -352,7 +350,7 @@ INLINE void TStoreConv2DNZ2DN(T& dst, U& src, const OffsetInfo& offsetInfo, cons
         using tileData = pto::Tile<
             pto::TileType::Acc, typename U::Type, srcM, srcN, pto::BLayout::ColMajor, -1, -1, pto::SLayout::RowMajor,
             pto::TileConfig::fractalCSize, pto::PadValue::Null, pto::CompactMode::Normal>;
-        tileData srcL0C(oneW, realN);
+        tileData srcL0C(strideW, realN);
         pto::TASSIGN(srcL0C, (uint64_t)src.GetAddr());
         pto::TSTORE(dstGlobal, srcL0C);
     }
@@ -384,11 +382,10 @@ INLINE void TStoreConv3DNZ2DN(T& dst, U& src, const OffsetInfo& offsetInfo, cons
     int64_t dstStrideD = GetConvStride<CONV_IDX_2>(dst);
     int64_t dstStrideH = GetConvStride<CONV_IDX_3>(dst);
     int64_t dstStrideW = GetConvStride<CONV_IDX_4>(dst);
-    if (repeatTime == 0) {
-        repeatTime = 1;
-        oneW = realM;
-    }
-    for (int64_t loopH = 0; loopH < repeatTime; loopH++) {
+    int64_t repeat = repeatTime == 0 ? 1 : repeatTime;
+    int64_t strideW = repeatTime == 0 ? realM : oneW;
+
+    for (int64_t loopH = 0; loopH < repeat; loopH++) {
         ShapeInfo shapeInfo{dstC, dstD, dstH, dstW};
         int64_t gmOffset = CalStoreOffsetNCDHW(shapeInfo, offsetInfo, loopH);
         using shapeDim5 = pto::Shape<1, -1, -1, -1, -1>;
@@ -400,7 +397,7 @@ INLINE void TStoreConv3DNZ2DN(T& dst, U& src, const OffsetInfo& offsetInfo, cons
         using tileData = pto::Tile<
             pto::TileType::Acc, typename U::Type, srcM, srcN, pto::BLayout::ColMajor, -1, -1, pto::SLayout::RowMajor,
             pto::TileConfig::fractalCSize, pto::PadValue::Null, pto::CompactMode::Normal>;
-        tileData srcL0C(oneW, realN);
+        tileData srcL0C(strideW, realN);
         pto::TASSIGN(srcL0C, (uint64_t)src.GetAddr());
         pto::TSTORE(dstGlobal, srcL0C);
     }
