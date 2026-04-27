@@ -46,6 +46,8 @@ class CaseRunRecord:
     op_name: str
     case_id: str
     source_file: str
+    level: str = ""
+    report_subdir: str = ""
 
     # pypto 生成阶段
     pypto_status: str = ""           # PyptoRunStatus.value
@@ -125,7 +127,7 @@ def derive_overall_status(pypto_ok: bool, verifier_status: Optional[str],
 
 def write_case_result(record: CaseRunRecord, report_dir: Path) -> Path:
     """把单 case 结果写到 ``<report-dir>/<op>/result.json``."""
-    op_dir = report_dir / record.op_name
+    op_dir = report_dir / (record.report_subdir or record.op_name)
     op_dir.mkdir(parents=True, exist_ok=True)
     out = op_dir / "result.json"
     out.write_text(json.dumps(asdict(record), indent=2, ensure_ascii=False),
@@ -137,6 +139,7 @@ def write_summary(records: Iterable[CaseRunRecord], report_dir: Path,
                   meta: Optional[Dict[str, Any]] = None) -> Dict[str, Path]:
     """写 summary.json + summary.md, 返回两个路径."""
     records = list(records)
+    records.sort(key=_case_sort_key)
     report_dir.mkdir(parents=True, exist_ok=True)
 
     summary_payload = {
@@ -170,7 +173,7 @@ def _build_meta(meta: Optional[Dict[str, Any]]) -> Dict[str, Any]:
     return base
 
 
-def _compute_totals(records: List[CaseRunRecord]) -> Dict[str, Any]:
+def _compute_totals(records: List[CaseRunRecord], *, include_by_level: bool = True) -> Dict[str, Any]:
     total = len(records)
     if total == 0:
         return {"total": 0}
@@ -226,6 +229,15 @@ def _compute_totals(records: List[CaseRunRecord]) -> Dict[str, Any]:
             "speedup_max": round(max(speedups), 4),
             "speedup_mean": round(statistics.mean(speedups), 4),
             "speedup_geomean": round(_geo_mean(speedups), 4),
+        }
+    if include_by_level:
+        grouped: Dict[str, List[CaseRunRecord]] = {}
+        for r in records:
+            level = r.level or "unknown"
+            grouped.setdefault(level, []).append(r)
+        out["by_level"] = {
+            level: _compute_totals(group_records, include_by_level=False)
+            for level, group_records in sorted(grouped.items())
         }
     return out
 
@@ -310,11 +322,34 @@ def _render_markdown(payload: Dict[str, Any]) -> str:
         )
     lines.append("")
 
+    by_level = totals.get("by_level") or {}
+    if by_level:
+        lines.append("## 按 Level 汇总")
+        lines.append("")
+        lines.append("| level | total | success | success_rate | correctness | status |")
+        lines.append("|-------|------:|--------:|-------------:|-------------|--------|")
+        for level, level_totals in by_level.items():
+            cor = level_totals.get("correctness", {})
+            cor_cell = (
+                f"pass={cor.get('pass', 0)}, "
+                f"fail={cor.get('fail', 0)}, unknown={cor.get('unknown', 0)}"
+            )
+            status_cell = ", ".join(
+                f"{k}={v}" for k, v in level_totals.get("by_status", {}).items()
+            )
+            lines.append(
+                f"| `{level}` | {level_totals.get('total', 0)} "
+                f"| {level_totals.get('success', 0)} "
+                f"| {level_totals.get('success_rate', 0) * 100:.1f}% "
+                f"| {cor_cell} | {status_cell} |"
+            )
+        lines.append("")
+
     if cases:
         lines.append("## 用例明细")
         lines.append("")
-        lines.append("| op | case | 总状态 | 精度 | pypto阶段 | verify阶段 | pypto(s) | verify(s) | 完整流程(s) | 备注 |")
-        lines.append("|----|------|--------|:----:|-----------|------------|---------:|----------:|------------:|------|")
+        lines.append("| level | op | case | 总状态 | 精度 | pypto阶段 | verify阶段 | pypto(s) | verify(s) | 完整流程(s) | 备注 |")
+        lines.append("|-------|----|------|--------|:----:|-----------|------------|---------:|----------:|------------:|------|")
         for c in cases:
             badge = _STATUS_BADGE.get(c.get("overall_status", ""), c.get("overall_status", ""))
             cor = c.get("correctness")
@@ -327,10 +362,11 @@ def _render_markdown(payload: Dict[str, Any]) -> str:
             wall_cell = f"{wall_sec:.1f}" if wall_sec is not None else "—"
             op_cell = f"`{c['op_name']}`"
             case_cell = f"`{c['case_id']}`"
+            level_cell = f"`{c.get('level') or '—'}`"
             pypto_st = c.get("pypto_status", "")
             ver_st = c.get("verifier_status", "")
             lines.append(
-                f"| {op_cell} | {case_cell} | {badge} | {cor_cell} "
+                f"| {level_cell} | {op_cell} | {case_cell} | {badge} | {cor_cell} "
                 f"| {pypto_st} | {ver_st} "
                 f"| {pypto_sec} | {verify_sec} | {wall_cell} | {note} |"
             )
@@ -346,10 +382,11 @@ def _render_markdown(payload: Dict[str, Any]) -> str:
         if has_session_exports:
             lines.append("## OpenCode 会话导出")
             lines.append("")
-            lines.append("| op | pypto session | verifier session |")
-            lines.append("|----|---------------|------------------|")
+            lines.append("| level | op | pypto session | verifier session |")
+            lines.append("|-------|----|---------------|------------------|")
             for c in cases:
                 lines.append(
+                    f"| `{c.get('level') or '—'}` "
                     f"| `{c['op_name']}` "
                     f"| {_export_cell(c, 'pypto')} "
                     f"| {_export_cell(c, 'verifier')} |"
@@ -361,8 +398,8 @@ def _render_markdown(payload: Dict[str, Any]) -> str:
         if has_perf:
             lines.append("## 性能明细 (gen vs base, time 单位 us)")
             lines.append("")
-            lines.append("| op | gen_time | base_time | speedup | roofline_time | roofline_speedup | 完整流程(s) | 备注 |")
-            lines.append("|----|---------:|----------:|--------:|--------------:|-----------------:|------------:|------|")
+            lines.append("| level | op | gen_time | base_time | speedup | roofline_time | roofline_speedup | 完整流程(s) | 备注 |")
+            lines.append("|-------|----|---------:|----------:|--------:|--------------:|-----------------:|------------:|------|")
             for c in cases:
                 gen = c.get("perf_gen_time_us")
                 base = c.get("perf_base_time_us")
@@ -374,6 +411,7 @@ def _render_markdown(payload: Dict[str, Any]) -> str:
                 wall_cell = f"{wall_sec:.1f}" if wall_sec is not None else "—"
                 op_perf = f"`{c['op_name']}`"
                 lines.append(
+                    f"| `{c.get('level') or '—'}` "
                     f"| {op_perf} "
                     f"| {_fmt_perf_num(gen)} "
                     f"| {_fmt_perf_num(base)} "
@@ -443,9 +481,9 @@ def _case_sort_key(record: CaseRunRecord) -> tuple:
     """按 KernelBench case_id 前缀数字排序, 无数字时退化到字符串排序."""
     head = (record.case_id or "").split("_", 1)[0]
     try:
-        return (int(head), record.case_id)
+        return (record.level or "", int(head), record.case_id)
     except ValueError:
-        return (sys.maxsize, record.case_id)
+        return (record.level or "", sys.maxsize, record.case_id)
 
 
 # ────────────────────────────────────────────────────────────
@@ -459,8 +497,7 @@ def _main_cli() -> int:
     args = parser.parse_args()
 
     records: List[CaseRunRecord] = []
-    for case_dir in sorted(args.report_dir.iterdir()):
-        result_file = case_dir / "result.json"
+    for result_file in sorted(args.report_dir.rglob("result.json")):
         if not result_file.is_file():
             continue
         try:

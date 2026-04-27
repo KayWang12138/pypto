@@ -184,7 +184,8 @@ python -m integration.benchmark.run_kernelbench \
   --mode performance
 ```
 
-> `--cases` 接受完整 stem (`19_ReLU`) 或仅序号前缀 (`19`).
+> `--cases` 接受完整 stem (`19_ReLU`)、仅序号前缀 (`19`) 或闭区间
+> (`1:21,31,41:50`).
 > 不传 `--bench-dir` 时默认指向 `.cache/KernelBench/KernelBench/`.
 
 ### CI / 离线 dev: 跳过 LLM 语义层 (--verifier-mode direct)
@@ -212,13 +213,56 @@ python -m integration.benchmark.run_kernelbench \
 
 ```bash
 python -m integration.benchmark.run_kernelbench \
-  --cases 19,20,21 \
+  --cases 19:21 \
   --level level1 \
   --devices 0,1,2 \
   --concurrency 3 \
   --mode performance \
   --report-dir benchmark_report
 ```
+
+### 批处理多 level
+
+KernelBench 每个 level 都从 `1` 开始编号, 因此多 level 的 level 信息
+必须直接合并到 `--cases` / `CASE` 中.
+
+CLI 写法:
+
+```bash
+python -m integration.benchmark.run_kernelbench \
+  --cases 'level1=1:21;level2=31,41:50' \
+  --devices 0,1 \
+  --concurrency 2 \
+  --mode performance
+```
+
+环境变量入口遵循同一规则:
+
+```bash
+CASE='level1=1:21;level2=31,41:50' \
+python -m integration.benchmark.run_kernelbench \
+  --devices 0,1 \
+  --concurrency 2 \
+  --mode performance
+```
+
+`integration/benchmark/scripts/local/test-integration.sh` 和 monitor 入口也读取
+`CASE`/`CASES`. 多 level 不使用 `LEVELS`/`LEVEL`; 写成
+`CASE='level1=...;level2=...'` 才无歧义.
+
+裸 selector 仍可用于单 level:
+
+```bash
+python -m integration.benchmark.run_kernelbench \
+  --level level1 \
+  --cases 1:21,31,41:50 \
+  --devices 0,1 \
+  --concurrency 2 \
+  --mode performance
+```
+
+多 level 运行时, pypto 产物与报告按 `level/op` 分目录, 避免不同 level
+出现同名 op 时互相覆盖. `summary.md` 会同时输出聚合总览和按 level 汇总.
 
 ### 仅手动跑统一 verifier CLI (跳过 pypto 生成阶段)
 

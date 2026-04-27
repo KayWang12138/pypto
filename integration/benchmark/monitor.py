@@ -40,7 +40,13 @@ from typing import Any, Dict, List, Optional, Tuple
 from wcwidth import wcswidth
 
 from integration.benchmark.case_loader import derive_op_name
-from integration.benchmark.run_kernelbench import DEFAULT_CONFIG_PATH, discover_cases, load_yaml_config
+from integration.benchmark.run_kernelbench import (
+    DEFAULT_CONFIG_PATH,
+    discover_cases,
+    load_yaml_config,
+    parse_cases_by_level,
+    parse_csv_str_list,
+)
 
 
 _STATE_DIR_DEFAULT = "/tmp/pypto-benchmark-monitor"
@@ -397,7 +403,7 @@ def _resolve_pypto_repo_root() -> Path:
     return Path.cwd()
 
 
-def _resolve_level_dir() -> Path:
+def _resolve_bench_dir() -> Path:
     yaml_cfg = load_yaml_config(DEFAULT_CONFIG_PATH)
     yaml_bench = (yaml_cfg.get("bench_dir") or "").strip()
     if yaml_bench:
@@ -415,20 +421,28 @@ def _resolve_level_dir() -> Path:
             bench_dir = repo_candidate
         else:
             bench_dir = cwd_candidate
-
-    level = yaml_cfg.get("level", "level1")
-    return bench_dir / level
+    return bench_dir
 
 
 def _resolve_requested_cases(cases: str) -> List[Dict[str, str]]:
     """把原始 --cases 解析成 run_kernelbench 实际使用的 case/op 映射."""
-    requested = [c.strip() for c in cases.split(",") if c.strip()]
-    level_dir = _resolve_level_dir()
-    case_paths = discover_cases(level_dir, requested=requested, limit=None)
+    yaml_cfg = load_yaml_config(DEFAULT_CONFIG_PATH)
+    level_cfg = yaml_cfg.get("level", "level1")
+    if isinstance(level_cfg, (list, tuple)):
+        default_levels = [str(item).strip() for item in level_cfg if str(item).strip()]
+    else:
+        default_levels = parse_csv_str_list(str(level_cfg))
+    cases_by_level = parse_cases_by_level(cases, default_levels or ["level1"])
+    bench_dir = _resolve_bench_dir()
+    case_paths: List[Path] = []
+    for level in cases_by_level:
+        requested = cases_by_level.get(level)
+        case_paths.extend(discover_cases(bench_dir / level, requested=requested, limit=None))
     resolved: List[Dict[str, str]] = []
     for path in case_paths:
         resolved.append({
             "requested": path.stem.split("_", 1)[0] if "_" in path.stem else path.stem,
+            "level": path.parent.name,
             "case_id": path.stem,
             "op_name": derive_op_name(path.stem),
         })
@@ -439,33 +453,33 @@ def _resolve_requested_cases(cases: str) -> List[Dict[str, str]]:
 # 报告目录扫描
 # ────────────────────────────────────────────────────────────
 
-def _scan_reports(report_dir: str, op_names: List[str]) -> Dict[str, Dict[str, Any]]:
+def _scan_reports(report_dir: str, report_keys: List[str]) -> Dict[str, Dict[str, Any]]:
     """扫描 report_dir 下各算子的 result.json."""
     out: Dict[str, Dict[str, Any]] = {}
     rd = Path(report_dir)
     if not rd.exists():
         return out
-    for op in op_names:
-        rf = rd / op / "result.json"
+    for key in report_keys:
+        rf = rd / key / "result.json"
         if rf.exists():
             try:
-                out[op] = json.loads(rf.read_text("utf-8"))
+                out[key] = json.loads(rf.read_text("utf-8"))
             except (json.JSONDecodeError, OSError):
                 pass
     return out
 
 
-def _scan_phase_states(report_dir: str, op_names: List[str]) -> Dict[str, Dict[str, Any]]:
+def _scan_phase_states(report_dir: str, report_keys: List[str]) -> Dict[str, Dict[str, Any]]:
     """扫描 report_dir 下各算子的 phase_state.json."""
     out: Dict[str, Dict[str, Any]] = {}
     rd = Path(report_dir)
     if not rd.exists():
         return out
-    for op in op_names:
-        pf = rd / op / "phase_state.json"
+    for key in report_keys:
+        pf = rd / key / "phase_state.json"
         if pf.exists():
             try:
-                out[op] = json.loads(pf.read_text("utf-8"))
+                out[key] = json.loads(pf.read_text("utf-8"))
             except (json.JSONDecodeError, OSError):
                 pass
     return out
@@ -541,12 +555,21 @@ def _run_monitor_session(cases: str, skip_gen: bool, timeout_sec: int, *, tee_st
 
     resolved_cases = _resolve_requested_cases(cases)
     case_list = [item["case_id"] for item in resolved_cases]
+    multi_level = len({item.get("level", "") for item in resolved_cases}) > 1
     op_names = [item["op_name"] for item in resolved_cases]
+    report_keys = [
+        f"{item['level']}/{item['op_name']}" if multi_level else item["op_name"]
+        for item in resolved_cases
+    ]
 
     operators: List[Dict[str, Any]] = []
     for item in resolved_cases:
         operators.append({
             "case_id": item["case_id"],
+            "level": item.get("level", ""),
+            "report_key": (
+                f"{item['level']}/{item['op_name']}" if multi_level else item["op_name"]
+            ),
             "op_name": item["op_name"],
             "phase": "pending",
             "phase_status": "pending",
@@ -616,13 +639,14 @@ def _run_monitor_session(cases: str, skip_gen: bool, timeout_sec: int, *, tee_st
                     if key not in seen_pids or seen_pids[key][0] != pid:
                         seen_pids[key] = (pid, _now())
 
-            reports = _scan_reports(str(report_dir), op_names)
-            phase_states = _scan_phase_states(str(report_dir), op_names)
+            reports = _scan_reports(str(report_dir), report_keys)
+            phase_states = _scan_phase_states(str(report_dir), report_keys)
 
             for op in _daemon_state["operators"]:
                 name = op["op_name"]
-                if name in phase_states:
-                    ps = phase_states[name]
+                report_key = op.get("report_key") or name
+                if report_key in phase_states:
+                    ps = phase_states[report_key]
                     op["phase"] = ps.get("phase", op.get("phase", "pending"))
                     op["phase_status"] = ps.get("status", op.get("phase_status", ""))
                     op["phase_message"] = ps.get("message", "")
@@ -645,8 +669,8 @@ def _run_monitor_session(cases: str, skip_gen: bool, timeout_sec: int, *, tee_st
                             op["started_at"] = first
                 op["opencode_pid"] = active_pid
 
-                if name in reports:
-                    r = reports[name]
+                if report_key in reports:
+                    r = reports[report_key]
                     op["result_status"] = r.get("overall_status", "")
                     op["pypto_status"] = r.get("pypto_status", "")
                     op["verifier_status"] = r.get("verifier_status", "")
@@ -809,6 +833,8 @@ def _render_dashboard(state: Dict[str, Any]) -> str:
             dur_s = f"{op.get('duration_sec', 0):.1f}"
             dev_s = op.get("dev_status", "未知")
             nm = op.get("op_name", "?")
+            if op.get("level"):
+                nm = f"{op['level']}/{nm}"
             lines.append(
                 f"  {_pad_cell(i, w['idx'], align='>')}"
                 f"  {_pad_cell(nm, w['op'])}"
@@ -831,7 +857,7 @@ def _render_dashboard(state: Dict[str, Any]) -> str:
 # ────────────────────────────────────────────────────────────
 
 def _load_run_args_from_env() -> Tuple[str, bool, int]:
-    cases = os.environ.get("CASES", "19_ReLU")
+    cases = os.environ.get("CASE", os.environ.get("CASES", "19_ReLU"))
     skip_gen = os.environ.get("FULL", "1") == "0"
     timeout_sec = int(os.environ.get("PYPTO_TIMEOUT", str(_DEFAULT_TIMEOUT)))
     return cases, skip_gen, timeout_sec

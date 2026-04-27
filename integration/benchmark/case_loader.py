@@ -69,6 +69,7 @@ class CaseSpec:
     case_id: str                           # 上游文件 stem, 例如 "19_relu"
     source_file: str                       # 绝对路径
     task_desc: str                         # 原始源码 (KernelBench 风格)
+    level: str = ""                        # KernelBench level, 例如 level1 / level2
     framework_module: str = "torch"        # 上游 KernelBench 一律 torch; 探针时若 import 不同, 会被覆盖
     init_source: str = ""                  # Model.__init__ 的源码片段
     forward_source: str = ""               # Model.forward / __call__ 的源码片段
@@ -333,6 +334,7 @@ def load_case(case_path: Path, op_name: Optional[str] = None,
         case_id=case_id,
         source_file=str(case_path),
         task_desc=source,
+        level=case_path.parent.name,
         framework_module=framework,
         init_source=init_src,
         forward_source=forward_src,
@@ -370,6 +372,7 @@ tolerance: {tolerance_json}
 
 - **算子名 (op_name)**: `{op_name}`
 - **来源用例 (case_id)**: `{case_id}`
+- **来源 level**: `{level}`
 - **来源文件**: `{source_file}`
 - **参考框架 (framework)**: `{framework}`
 
@@ -519,6 +522,7 @@ def render_spec_md(case: CaseSpec) -> str:
         tolerance_json=json.dumps(tolerance, ensure_ascii=False),
         dynamic_axis_front_matter=_render_dynamic_axis_front_matter(case.dynamic_axis),
         case_id=case.case_id,
+        level=case.level,
         source_file=case.source_file,
         framework=case.framework_module,
         formula_section=_render_formula_section(case.formula),

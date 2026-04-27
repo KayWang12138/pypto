@@ -20,9 +20,13 @@
 
     # 多 case 多卡并发
     python -m integration.benchmark.run_kernelbench \\
-        --cases 19_ReLU,20_LeakyReLU,21_Sigmoid \\
+        --cases 19:21,31,41:50 \\
         --devices 0,1,2 --concurrency 3 \\
         --report-dir benchmark_report
+
+    # 多 level 批处理: 直接在 --cases 中写完整 level/case 坐标
+    python -m integration.benchmark.run_kernelbench \\
+        --cases 'level1=1:21;level2=31,41:50'
 
     # 仅复跑验证 (跳过 pypto 生成阶段, 要求产物已就绪)
     python -m integration.benchmark.run_kernelbench \\
@@ -77,6 +81,77 @@ def parse_csv_str_list(text: str) -> List[str]:
     return [x.strip() for x in text.split(",") if x.strip()]
 
 
+def _expand_case_selector(selector: str) -> List[str]:
+    selector = selector.strip()
+    if not selector:
+        return []
+    if ":" not in selector:
+        return [selector]
+
+    start, end = (part.strip() for part in selector.split(":", 1))
+    if start.isdigit() and end.isdigit():
+        lo = int(start)
+        hi = int(end)
+        if lo > hi:
+            raise ValueError(f"case range 必须递增: {selector}")
+        return [str(i) for i in range(lo, hi + 1)]
+    return [selector]
+
+
+def parse_case_selectors(text: str) -> List[str]:
+    selectors: List[str] = []
+    for token in parse_csv_str_list(text):
+        selectors.extend(_expand_case_selector(token))
+    return selectors
+
+
+def parse_cases_by_level(
+    cases_text: str,
+    default_levels: List[str],
+) -> Dict[str, Optional[List[str]]]:
+    """解析 --cases.
+
+    单 level 兼容 ``1:21,31,41:50`` 裸 selector, 使用 ``default_levels``
+    里的单个 level. 多 level 必须直接在 --cases 中写完整坐标:
+    ``level1=1:21;level2=31,41:50``.
+    """
+    if not cases_text:
+        if len(default_levels) > 1:
+            raise ValueError(
+                "多 level 不能通过 --level/config 单独表达. "
+                "请使用 --cases 'level1=1:21;level2=31,41:50'."
+            )
+        return {level: None for level in default_levels}
+
+    if "=" not in cases_text:
+        if len(default_levels) > 1:
+            raise ValueError(
+                "多 level 下裸 --cases selector 语义不明确: "
+                f"{cases_text!r}. 请改用 'level1=1:21;level2=31,41:50' "
+                "这种分 level 写法."
+            )
+        selectors = parse_case_selectors(cases_text)
+        level = default_levels[0] if default_levels else "level1"
+        return {level: selectors}
+
+    mapping: Dict[str, Optional[List[str]]] = {}
+    for chunk in (part.strip() for part in cases_text.split(";") if part.strip()):
+        if "=" not in chunk:
+            raise ValueError(
+                "分 level 指定 --cases 时必须使用 'level=cases' 片段, "
+                f"收到: {chunk!r}"
+            )
+        level, selectors_text = (part.strip() for part in chunk.split("=", 1))
+        if not level:
+            raise ValueError(f"--cases 中存在空 level 片段: {chunk!r}")
+        if level in mapping:
+            raise ValueError(f"--cases 中重复指定 level: {level}")
+        mapping[level] = parse_case_selectors(selectors_text)
+    if not mapping:
+        raise ValueError(f"--cases 未解析到任何 level: {cases_text!r}")
+    return mapping
+
+
 # ────────────────────────────────────────────────────────────
 # 用例发现
 # ────────────────────────────────────────────────────────────
@@ -93,7 +168,7 @@ def discover_cases(level_dir: Path, requested: Optional[List[str]] = None,
         level_dir: ``KernelBench/<level>/`` 目录绝对路径.
         requested: 用户指定的 case_id 子集; ``None`` 表示全选.
             可写完整 stem (``19_ReLU``) 或仅序号前缀 (``19``).
-        limit: 截断数量, 仅在 ``requested`` 为空时生效.
+        limit: 截断数量, 仅在 ``requested is None`` 时生效.
 
     Returns:
         每个用例对应的 ``.py`` 文件绝对路径列表.
@@ -122,7 +197,7 @@ def discover_cases(level_dir: Path, requested: Optional[List[str]] = None,
         if idx.isdigit():
             by_index_prefix.setdefault(idx, path)
 
-    if requested:
+    if requested is not None:
         resolved: List[Path] = []
         missing: List[str] = []
         for r in requested:
@@ -156,6 +231,7 @@ def _write_case_phase(
     case_id: str,
     phase: str,
     status: str,
+    level: str = "",
     message: str = "",
     pypto_status: str = "",
     verifier_status: str = "",
@@ -164,6 +240,7 @@ def _write_case_phase(
     payload = {
         "op_name": op_name,
         "case_id": case_id,
+        "level": level,
         "phase": phase,
         "status": status,
         "message": message,
@@ -197,6 +274,7 @@ class _RunCfg:
     mode: str                      # correctness / performance / full
     skip_pypto_gen: bool
     force_regen: bool
+    use_level_dirs: bool
     extra_verifier_config: Dict[str, Any]
     verifier_mode: str             # opencode / direct
     validator_agent: str           # opencode 模式: agent 名
@@ -213,9 +291,14 @@ async def run_one_case(case_path: Path, device_id: int, cfg: _RunCfg,
     logger.info("[%s] loading case + probing inputs", case_path.stem)
     case = case_loader.load_case(case_path, case_id=case_path.stem)
     op_name = case.op_name
-    op_workdir = cfg.pypto_repo_root / cfg.workdir_root
+    report_subdir = f"{case.level}/{op_name}" if cfg.use_level_dirs and case.level else op_name
+    workdir_root = (
+        f"{cfg.workdir_root}/{case.level}"
+        if cfg.use_level_dirs and case.level else cfg.workdir_root
+    )
+    op_workdir = cfg.pypto_repo_root / workdir_root
     op_dir = op_workdir / op_name
-    case_report_dir = cfg.report_dir / op_name
+    case_report_dir = cfg.report_dir / report_subdir
     case_report_dir.mkdir(parents=True, exist_ok=True)
     _write_case_phase(
         case_report_dir,
@@ -237,6 +320,8 @@ async def run_one_case(case_path: Path, device_id: int, cfg: _RunCfg,
         op_name=op_name,
         case_id=case.case_id,
         source_file=case.source_file,
+        level=case.level,
+        report_subdir=report_subdir,
         started_at=started_at,
     )
 
@@ -286,7 +371,7 @@ async def run_one_case(case_path: Path, device_id: int, cfg: _RunCfg,
                 run_pypto_workflow,
                 op_name=op_name,
                 pypto_repo_root=cfg.pypto_repo_root,
-                workdir_root=cfg.workdir_root,
+                workdir_root=workdir_root,
                 opencode_bin=cfg.opencode_bin,
                 opencode_model=cfg.opencode_model,
                 agent=cfg.pypto_agent,
@@ -295,7 +380,7 @@ async def run_one_case(case_path: Path, device_id: int, cfg: _RunCfg,
                 log_file=pypto_log,
                 output_format=cfg.pypto_output_format,
                 skip_if_done=not cfg.force_regen,
-                task_desc_rel=f"{cfg.workdir_root}/{op_name}/task_desc.py",
+                task_desc_rel=f"{workdir_root}/{op_name}/task_desc.py",
                 case_init_args_repr=case.init_args_repr,
                 case_init_source=case.init_source,
                 case_forward_source=case.forward_source,
@@ -516,6 +601,7 @@ def _build_cfg(args: argparse.Namespace, yaml_cfg: Dict[str, Any]) -> _RunCfg:
         mode=args.mode or verifier_yaml.get("mode", "correctness"),
         skip_pypto_gen=args.skip_pypto_gen,
         force_regen=args.force_regen,
+        use_level_dirs=False,
         extra_verifier_config=extra_verifier_config,
         verifier_mode=args.verifier_mode or verifier_yaml.get("verifier_mode", "opencode"),
         validator_agent=args.validator_agent or verifier_yaml.get(
@@ -542,10 +628,12 @@ def _build_arg_parser() -> argparse.ArgumentParser:
                    help="上游 KernelBench 根目录 (即 KernelBench/KernelBench/, "
                         "含 level1/level2/level3 子目录); 默认 .cache/KernelBench/KernelBench")
     p.add_argument("--level", type=str, default="",
-                   help="KernelBench 难度子目录, 如 level1/level2/level3 (默认 level1)")
+                   help="单 level 默认难度子目录, 如 level1; 多 level 请直接写进 --cases")
     p.add_argument("--cases", type=str, default="",
-                   help="逗号分隔的 case_id 列表 (如 '19_ReLU' 或 '19'); "
-                        "空表示按 --limit 跑全部")
+                   help="逗号分隔的 case selector, 支持完整 stem、序号和闭区间 "
+                        "(如 '19_ReLU', '19', '1:21,31,41:50'); 多 level 直接写 "
+                        "'level1=1:21;level2=31,41:50'. 未传时读取 CASE/CASES "
+                        "环境变量; 空表示按 --limit 跑默认 level 全部")
     p.add_argument("--limit", type=int, default=None,
                    help="未指定 --cases 时, 截取前 N 个用例")
     p.add_argument("--devices", type=str, default="",
@@ -652,20 +740,40 @@ def main(argv: Optional[List[str]] = None) -> int:
         else:
             bench_dir = cwd_candidate  # 报错时给个明确的路径
 
-    level = args.level or yaml_cfg.get("level", "level1")
-    level_dir = bench_dir / level
-    if not level_dir.exists():
+    level_cfg = args.level or yaml_cfg.get("level", "level1")
+    if isinstance(level_cfg, (list, tuple)):
+        default_levels = [str(item).strip() for item in level_cfg if str(item).strip()]
+    else:
+        default_levels = parse_csv_str_list(str(level_cfg))
+    default_levels = default_levels or ["level1"]
+    if args.level and len(default_levels) > 1:
         parser.error(
-            f"level dir 不存在: {level_dir}\n"
-            f"  bench_dir = {bench_dir}\n"
-            f"  level     = {level}\n"
-            f"请先运行: bash pypto/integration/benchmark/scripts/download_kernelbench.sh"
+            "多 level 不再使用 --level 表达; 请直接写 "
+            "--cases 'level1=1:21;level2=31,41:50'."
         )
 
-    requested = parse_csv_str_list(args.cases) if args.cases else None
-    case_paths = discover_cases(level_dir, requested=requested, limit=args.limit)
+    try:
+        cases_text = args.cases or os.environ.get("CASE") or os.environ.get("CASES", "")
+        cases_by_level = parse_cases_by_level(cases_text, default_levels)
+    except ValueError as e:
+        parser.error(str(e))
+    levels = list(cases_by_level.keys())
+    cfg.use_level_dirs = len(levels) > 1
+
+    case_paths: List[Path] = []
+    for level in levels:
+        level_dir = bench_dir / level
+        if not level_dir.exists():
+            parser.error(
+                f"level dir 不存在: {level_dir}\n"
+                f"  bench_dir = {bench_dir}\n"
+                f"  level     = {level}\n"
+                f"请先运行: bash pypto/integration/benchmark/scripts/download_kernelbench.sh"
+            )
+        requested = cases_by_level.get(level)
+        case_paths.extend(discover_cases(level_dir, requested=requested, limit=args.limit))
     if not case_paths:
-        parser.error(f"未发现可执行用例 (level_dir={level_dir})")
+        parser.error(f"未发现可执行用例 (bench_dir={bench_dir}, levels={levels})")
 
     devices = parse_csv_int_list(args.devices) if args.devices else (yaml_cfg.get("devices") or [0])
     concurrency = args.concurrency or yaml_cfg.get("concurrency") or len(devices)
@@ -673,7 +781,7 @@ def main(argv: Optional[List[str]] = None) -> int:
     cfg.report_dir.mkdir(parents=True, exist_ok=True)
     logger.info(f"pypto_repo_root  = {cfg.pypto_repo_root}")
     logger.info(f"bench_dir        = {bench_dir}")
-    logger.info(f"level            = {level} (-> {level_dir})")
+    logger.info(f"levels           = {levels}")
     logger.info(f"cases            = {[p.stem for p in case_paths]}")
     logger.info(f"devices          = {devices}, concurrency = {concurrency}")
     logger.info(f"skip_stage7      = {cfg.skip_stage7_perf_tune}")
@@ -686,7 +794,8 @@ def main(argv: Optional[List[str]] = None) -> int:
         records, cfg.report_dir,
         meta={
             "bench_dir": str(bench_dir),
-            "level": level,
+            "level": ",".join(levels),
+            "levels": levels,
             "kernelbench_commit": "21fbe5a642898cd60b8f60c7aefb43d475e11f33",
             "arch": cfg.arch,
             "backend": cfg.backend,
