@@ -59,7 +59,7 @@ void ExecuteOpShmemPut(ExecuteOperationContext *ctx) {
     std::cout << "=== ExecuteOpShmemPut running ..." << std::endl;
 
     ASSERT(ctx->ioperandDataViewList->size() == 3);
-    ASSERT(ctx->ooperandInplaceDataViewList->size() == 1);
+    ASSERT(ctx->ooperandInplaceDataViewList->size() == 1 || ctx->ooperandInplaceDataViewList->size() == 2);
     auto &in = ctx->ioperandDataViewList->at(1);
     auto &shm = ctx->ioperandDataViewList->at(2);
 
