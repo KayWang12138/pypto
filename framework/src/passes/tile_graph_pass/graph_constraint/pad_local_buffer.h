@@ -80,7 +80,6 @@ private:
     bool IsVector(const LogicalTensorPtr& tensor);
     void DoPadding(Function& function);
     void DoPadding256(Function& function);
-    void ProcessReduceForAxisCombine(Operation& op, LogicalTensorPtr& in, size_t paddingValue);
     int64_t AlignedRawTensorIfNeed(LogicalTensorPtr& in, int64_t pos, const int64_t base);
     bool IsInputDataType(
         const Operation& op, const LogicalTensorPtr& in, const std::unordered_set<DataType>& targetTypes) const;
