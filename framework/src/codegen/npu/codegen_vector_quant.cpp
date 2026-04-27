@@ -30,13 +30,13 @@ std::string CodeGenOpNPU::GenQuantMXOp() const
     const std::string srcTensor = QueryTileTensorNameByIdx(ID4);
 
     int64_t mode = 0;
-    ASSERT(OperErr::ATTRIBUTE_INVALID, GetAttr(OpAttributeKey::mxQuantMode, mode))
+    ASSERT(OperErr::ATTRIBUTE_INVALID, GetOpAttr(OpAttributeKey::mxQuantMode, mode))
         << "QuantMX missing required attribute: " << OpAttributeKey::mxQuantMode;
     int64_t axis = 0;
-    ASSERT(OperErr::ATTRIBUTE_INVALID, GetAttr(OpAttributeKey::mxQuantAxis, axis))
+    ASSERT(OperErr::ATTRIBUTE_INVALID, GetOpAttr(OpAttributeKey::mxQuantAxis, axis))
         << "QuantMX missing required attribute: " << OpAttributeKey::mxQuantAxis;
     int64_t performanceMode = 0;
-    ASSERT(OperErr::ATTRIBUTE_INVALID, GetAttr(OpAttributeKey::mxQuantPerformanceMode, performanceMode))
+    ASSERT(OperErr::ATTRIBUTE_INVALID, GetOpAttr(OpAttributeKey::mxQuantPerformanceMode, performanceMode))
         << "QuantMX missing required attribute: " << OpAttributeKey::mxQuantPerformanceMode;
 
     std::ostringstream oss;
