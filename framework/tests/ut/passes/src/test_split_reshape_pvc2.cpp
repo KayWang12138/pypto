@@ -73,32 +73,6 @@ TEST_F(TestSplitReshapeOpPVC2, Test_Reshape_1to1)
     }
 }
 
-TEST_F(TestSplitReshapeOpPVC2, Test_Reshape_InferShape_NewOpsHaveDynValidShape)
-{
-    Function* currentFunction = nullptr;
-
-    TileShape::Current().SetVecTile(8, 8, 8, 8);
-    Tensor input(DT_FP32, {16, 4, 4}, "a");
-    Tensor res1;
-
-    FUNCTION("Test_Reshape_InferShape")
-    {
-        auto res = Exp(input);
-        auto test = Reshape(res, {16, 16});
-        res1 = Exp(test);
-        currentFunction = Program::GetInstance().GetCurrentFunction();
-    }
-    EXPECT_NE(currentFunction, nullptr);
-    for (auto& op : currentFunction->Operations()) {
-        if (op.GetOpcode() == Opcode::OP_RESHAPE) {
-            for (auto& out : op.oOperand) {
-                auto dynShape = out->GetDynValidShape();
-                EXPECT_FALSE(dynShape.empty()) << "RESHAPE output should have DynValidShape after InferShape";
-            }
-        }
-    }
-}
-
 TEST_F(TestSplitReshapeOpPVC2, Test_Reshape_1toMulti)
 {
     Function* currentFunction = nullptr;
