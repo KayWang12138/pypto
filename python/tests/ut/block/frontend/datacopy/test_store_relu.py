@@ -18,13 +18,13 @@ import pypto_block.language.op.manual as plm
 
 
 def _make_q(device: str) -> torch.Tensor:
-    base = torch.arange(64 * 64, device=device, dtype=torch.float32).reshape(64, 64)
-    return base.remainder(9) - 4.0
+    base = torch.arange(64 * 64, dtype=torch.float32).reshape(64, 64)
+    return (base.remainder(9) - 4.0).to(device)
 
 
 def _make_k(device: str) -> torch.Tensor:
-    base = torch.arange(64 * 64, device=device, dtype=torch.float32).reshape(64, 64)
-    return (base * 3).remainder(7) - 3.0
+    base = torch.arange(64 * 64, dtype=torch.float32).reshape(64, 64)
+    return ((base * 3).remainder(7) - 3.0).to(device)
 
 
 @fe.kernel

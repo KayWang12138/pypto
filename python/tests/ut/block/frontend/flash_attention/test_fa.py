@@ -406,8 +406,9 @@ def test_fa_k():
     # Note: cross-core sync only verified for skv_tiles=1 (skv<=TKV).
     # Multi-KV-tile cross-core handshake is a known limitation of the
     # original fa_k_kernel's pto.sync.set/wait pattern.
-    for sq, skv, d, num_cores in [  # num_cores is the number of cores of Cube
-        (8192, 128, TD, 24),
+    for sq, skv, d, num_cores in [ # num_cores is the number of cores of Cube
+        (8192, 8192, TD, 24),    # 4 cores, 1 Q tile each
+        # (128, 128, TD, 1),    # 4 cores, 1 Q tile each
     ]:
         print(f"\nFA-K ({sq},{skv},{d}) cores={num_cores}")
         q = torch.rand((sq, d), device=device, dtype=torch.float16)

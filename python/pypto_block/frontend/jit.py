@@ -12,7 +12,6 @@
 import ctypes
 import dataclasses
 import functools
-import hashlib
 import inspect
 import os
 import re
@@ -206,17 +205,10 @@ def _make_artifact_build_dir(prog, arch: str, codegen_mode: str) -> str:
     prog_name = prog.name if hasattr(prog, "name") and prog.name else "kernel"
     safe_name = _sanitize_artifact_component(str(prog_name))
     test_prefix = _infer_test_artifact_prefix()
-    try:
-        prog_fingerprint_input = str(prog)
-    except Exception:
-        prog_fingerprint_input = safe_name
-
-    digest_input = "\n".join((safe_name, arch, codegen_mode, prog_fingerprint_input))
-    digest = hashlib.sha1(digest_input.encode("utf-8")).hexdigest()[:12]
     readable_prefix = (
         f"{test_prefix}__{safe_name}" if test_prefix and test_prefix != safe_name else safe_name
     )
-    return os.path.join(".", "build", f"{readable_prefix}_{digest}")
+    return os.path.join(".", "build", f"{readable_prefix}__{arch}__{codegen_mode}")
 
 
 def _pl_dtype_to_torch(dtype: DataType):
@@ -786,7 +778,13 @@ def compile(
     """
     arch = _normalize_arch(arch)
 
-    # Deferred compilation: parse KernelDef → ir.Program.
+    os.environ["PYPTO_JIT_ARCH"] = arch
+    if arch in ("a2", "a3"):
+        os.environ["npu_arch"] = "dav-c220"
+    else:
+        os.environ["npu_arch"] = "dav-c310"
+
+    # Deferred compilation: parse KernelDef → ir.Program with arch info
     from pypto_block.frontend.kernel import KernelDef
 
     if isinstance(prog, KernelDef):
