@@ -10,7 +10,7 @@
 
 /*!
  * \file device_utils.h
- * \brief
+ * \brief Device utility functions and timeout detection macros
  */
 
 #ifndef DEVICE_UTILS_H
@@ -67,16 +67,29 @@ constexpr uint64_t NUM_FIFTY = 50;
 constexpr uint64_t US_PER_SEC = 1000000;
 constexpr uint64_t NSEC_PER_USEC = 1000;
 constexpr uint64_t NSEC_PER_SEC = 1000000000;
-constexpr uint64_t HAND_SHAKE_TIMEOUT = 48000000000; // aicpu stream wait hccl finish
-constexpr uint64_t TIMEOUT_ONE_MINUTE = 3000000000;
+constexpr uint64_t HAND_SHAKE_TIMEOUT_NS = 960ULL * 1000ULL * 1000ULL * 1000ULL; // 16分钟 (aicpu stream wait hccl finish)
 constexpr int32_t MAX_MNG_AICORE_AVG_NUM = 8;
 constexpr uint32_t CORE_IDX_AIV = 0;
 constexpr uint32_t CORE_IDX_AIC = 1;
 const uint32_t AIV_NUM_PER_AI_CORE = 2;
 const int INVALID_CORE_IDX = 0xFF;
 
+// ========== 统一超时常量定义（基于纳秒）==========
+// 注意：A2/A3 频率约 50 MHz（50 cycles/ns），A5 频率约 1000 MHz（1000 cycles/ns）
+// 统一使用纳秒定义超时时间，通过 GetFreq() 动态转换确保跨平台一致性
+
+constexpr uint64_t TIMEOUT_NS_10SEC   = 10ULL * 1000ULL * 1000ULL * 1000ULL;
+constexpr uint64_t TIMEOUT_NS_1MIN     = 60ULL * 1000ULL * 1000ULL * 1000ULL;
+constexpr uint64_t TIMEOUT_NS_2MIN     = 120ULL * 1000ULL * 1000ULL * 1000ULL;
+constexpr uint64_t TIMEOUT_NS_10MIN    = 600ULL * 1000ULL * 1000ULL * 1000ULL;
+constexpr uint64_t TIMEOUT_NS_20MIN    = 1200ULL * 1000ULL * 1000ULL * 1000ULL;
+
+constexpr uint64_t TIMEOUT_NS_INFINITE = UINT64_MAX;
+
 #ifdef __aarch64__
-constexpr uint64_t TIMEOUT_CYCLES = 500 * 1000 * 1000;
+// 注意：A2/A3频率约50MHz，500M cycles ≈ 10秒；A5频率1000MHz，500M cycles ≈ 500ms
+// 此为legacy常量，建议使用新的ns-based超时常量
+constexpr uint64_t TIMEOUT_CYCLES = 500 * 1000 * 1000;  // 约 10s @50MHz 或 500ms @1000MHz（legacy）
 #else
 constexpr uint64_t TIMEOUT_CYCLES = NSEC_PER_SEC;
 #endif
@@ -287,6 +300,45 @@ inline int CheckTimeOut(const std::string& operation, TimeCheck& timeCheck)
 {
     return CheckTimeOut(timeCheck.startTime, timeCheck.count, timeCheck.curTime, operation);
 }
+
+struct TimeoutState {
+    uint64_t startCycles;
+    uint64_t freq;
+    uint64_t lastWarnNs;
+    bool warnPrinted;
+    
+    TimeoutState() : startCycles(GetCycles()), freq(GetFreq()), 
+                     lastWarnNs(0), warnPrinted(false) {}
+    
+    inline uint64_t ElapsedNs() const {
+        return ((GetCycles() - startCycles) * NSEC_PER_SEC) / freq;
+    }
+    
+    inline void Reset() {
+        startCycles = GetCycles();
+        lastWarnNs = 0;
+        warnPrinted = false;
+    }
+};
+
+// 支持分别指定 warning 和 error 的格式化字符串
+// warn_fmt 和 error_fmt 使用不同的格式，但共用相同的参数 args
+// warning 和 error 都会自动追加已等待时间（如 "elapsed 30 sec"）
+#define __PYPTO_TIMEOUT_CHECK(state, timeout_ns, warn_interval_ns, error_code, action, \
+                              warn_fmt, error_fmt, ...) \
+    do { \
+        uint64_t elapsed_ns = state.ElapsedNs(); \
+        uint64_t elapsed_sec = elapsed_ns / NSEC_PER_SEC; \
+        if (timeout_ns != TIMEOUT_NS_INFINITE && elapsed_ns > timeout_ns) { \
+            DEV_ERROR(error_code, error_fmt ", elapsed %lu sec", ##__VA_ARGS__, elapsed_sec); \
+            action; \
+        } \
+        if (elapsed_ns > state.lastWarnNs + warn_interval_ns) { \
+            DEV_WARN(warn_fmt ", elapsed %lu sec", ##__VA_ARGS__, elapsed_sec); \
+            state.lastWarnNs = elapsed_ns; \
+            state.warnPrinted = true; \
+        } \
+    } while (0)
 
 #define TIMEOUT_CHECK_START() uint64_t start = GetCycles()
 
