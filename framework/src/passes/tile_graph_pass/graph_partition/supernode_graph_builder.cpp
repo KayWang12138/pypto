@@ -679,22 +679,17 @@ inline void UpdateProducerScopeId(Operation* op, Operation::ScopeInfo targetScop
 inline void PropagateScopeInfo(std::vector<Operation*>& opList)
 {
     for (size_t i = 0; i < opList.size(); i++) {
-        if (opList[i]->GetOpcode() == Opcode::OP_VIEW || opList[i]->GetOpcode() == Opcode::OP_ASSEMBLE) {
-            opList[i]->SetScopeInfo(Operation::ScopeInfo());
-        }
-    }
-    for (size_t i = 0; i < opList.size(); i++) {
         auto targetScope = opList[i]->GetScopeInfo();
         if (targetScope.scopeId == DEFAULT_SCOPE_ID) {
             continue;
         }
         for (auto& consumer : opList[i]->ConsumerOps()) {
-            if (consumer->GetScopeId() == -1 && consumer->GetOpcode() == Opcode::OP_ASSEMBLE) {
+            if (consumer->GetScopeId() != targetScope.scopeId && consumer->GetOpcode() == Opcode::OP_ASSEMBLE) {
                 UpdateConsumerScopeId(consumer, targetScope);
             }
         }
         for (auto& producer : opList[i]->ProducerOps()) {
-            if (producer->GetScopeId() == -1 && producer->GetOpcode() == Opcode::OP_VIEW) {
+            if (producer->GetScopeId() != targetScope.scopeId && producer->GetOpcode() == Opcode::OP_VIEW) {
                 UpdateProducerScopeId(producer, targetScope);
             }
         }
