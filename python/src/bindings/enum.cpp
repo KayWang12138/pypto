@@ -115,6 +115,11 @@ void bind_enum(py::module& m)
         .value("HIGH_PRECISION", RecipAlgorithm::HIGH_PRECISION)
         .finalize();
 
+    py::native_enum<RemainderAlgorithm>(m, "RemainderAlgorithm", "enum.IntEnum")
+        .value("INTRINSIC", RemainderAlgorithm::DEFAULT)
+        .value("HIGH_PRECISION", RemainderAlgorithm::HIGH_PRECISION)
+        .finalize();
+
     py::native_enum<TileType>(m, "TileType", "enum.IntEnum")
         .value("VEC", TileType::VEC)
         .value("CUBE", TileType::CUBE)

@@ -164,7 +164,7 @@ void TiledBinaryOperation(
                 op->SetAttribute(OpAttributeKey::brcpIdx, brcOperand[shapeSize - NUM2]);
             }
         }
-        if constexpr (T == BinaryOpType::DIV || T == BinaryOpType::POW) {
+        if constexpr (T == BinaryOpType::DIV || T == BinaryOpType::POW || T == BinaryOpType::REM) {
             op->SetAttribute(OpAttributeKey::precisionType, precisionType);
         }
         return;
@@ -385,7 +385,7 @@ Tensor Fmod(const Tensor& self, const Tensor& other)
     RETURN_CALL(BinaryOperation<BinaryOpType::MOD>, *Program::GetInstance().GetCurrentFunction(), self, other);
 }
 
-Tensor Remainder(const Tensor& self, const Tensor& other)
+Tensor Remainder(const Tensor& self, const Tensor& other, RemainderAlgorithm precisionType)
 {
     DECLARE_TRACER();
     CheckTensorsDataTypeConsistency(self.GetStorage(), other.GetStorage(), "REM");
@@ -395,13 +395,14 @@ Tensor Remainder(const Tensor& self, const Tensor& other)
     if (selfDtype == DT_INT16) {
         Tensor castSelf = Cast(self, DT_FP32, CastMode::CAST_NONE);
         Tensor castOther = Cast(other, DT_FP32, CastMode::CAST_NONE);
-        Tensor result = CALL(
-            BinaryOperation<BinaryOpType::REM>, *Program::GetInstance().GetCurrentFunction(), castSelf.GetStorage(),
-            castOther.GetStorage());
-        Tensor castedResult = Cast(result, selfDtype, CastMode::CAST_TRUNC, SaturationMode::OFF);
+        auto [result, op] = TensorBinaryOperationWithOp<BinaryOpType::REM>(*Program::GetInstance().GetCurrentFunction(), castSelf, castOther);
+        op->SetAttribute(OpAttributeKey::precisionType, static_cast<int64_t>(precisionType));
+        Tensor castedResult = Cast(Tensor(result), selfDtype, CastMode::CAST_TRUNC, SaturationMode::OFF);
         return castedResult;
     }
-    RETURN_CALL(BinaryOperation<BinaryOpType::REM>, *Program::GetInstance().GetCurrentFunction(), self, other);
+    auto [result, op] = TensorBinaryOperationWithOp<BinaryOpType::REM>(*Program::GetInstance().GetCurrentFunction(), self, other);
+    op->SetAttribute(OpAttributeKey::precisionType, static_cast<int64_t>(precisionType));
+    return Tensor(result);
 }
 
 Tensor Maximum(const Tensor& operand1, const Tensor& operand2)
@@ -652,7 +653,7 @@ void TiledBinaryOperationScalar(
         auto& op = function.AddOperation(opNameCode, {inputTile1}, {resultTile});
         op.SetAttribute(OpAttributeKey::scalar, value);
         op.SetAttribute(OP_ATTR_PREFIX + "reverseOperand", reverseOperand);
-        if constexpr (T == BinaryOpType::DIV || T == BinaryOpType::POW) {
+        if constexpr (T == BinaryOpType::DIV || T == BinaryOpType::POW || T == BinaryOpType::REM) {
             op.SetAttribute(OpAttributeKey::precisionType, precisionType);
         }
         return;
@@ -685,7 +686,7 @@ void TiledBinaryOperationScalar(
 template <BinaryOpType T>
 void TiledRemainderSOperation(
     Function& function, const TileShape& tileShape, size_t cur, LogicalInput& input1, Element& value,
-    const LogicalTensorPtr& result, TileInfo& resultTileInfo, bool reverseOperand)
+    const LogicalTensorPtr& result, TileInfo& resultTileInfo, bool reverseOperand, int64_t precisionType)
 {
     auto opNameCode = GetBinaryOpNameCode<T, true>();
     if (cur == input1.tensor->GetShape().size()) {
@@ -705,6 +706,9 @@ void TiledRemainderSOperation(
         auto& tmpOp = function.AddOperation(opNameCode, {inputTile1}, {resultTile, tmpTensor});
         tmpOp.SetAttribute(OpAttributeKey::scalar, value);
         tmpOp.SetAttribute(OP_ATTR_PREFIX + "reverseOperand", reverseOperand);
+        if constexpr (T == BinaryOpType::REM || T == BinaryOpType::REMR) {
+            tmpOp.SetAttribute(OpAttributeKey::precisionType, precisionType);
+        }
         return;
     }
     auto& vecTile = tileShape.GetVecTile();
@@ -715,19 +719,19 @@ void TiledRemainderSOperation(
         input1.tileInfo.shape[cur] =
             std::min(input1.tensor->GetShape()[cur] - input1.tileInfo.offset[cur], vecTile[cur]);
         TiledRemainderSOperation<T>(
-            function, tileShape, cur + 1, input1, value, result, resultTileInfo, reverseOperand);
+            function, tileShape, cur + 1, input1, value, result, resultTileInfo, reverseOperand, precisionType);
     }
 }
 
 template <BinaryOpType T>
 void TiledRemainderSOperation(
     Function& function, const TileShape& tileShape, LogicalTensorPtr operand1, Element value,
-    const LogicalTensorPtr& result, bool reverseOperand = false)
+    const LogicalTensorPtr& result, bool reverseOperand = false, int64_t precisionType = static_cast<int64_t>(RemainderAlgorithm::DEFAULT))
 {
     TileInfo tileInfo1(result->shape.size(), result->offset.size());
     TileInfo resultTileInfo(result->shape.size(), result->offset.size());
     auto input1 = LogicalInput{operand1, tileInfo1};
-    TiledRemainderSOperation<T>(function, tileShape, 0, input1, value, result, resultTileInfo, reverseOperand);
+    TiledRemainderSOperation<T>(function, tileShape, 0, input1, value, result, resultTileInfo, reverseOperand, precisionType);
 }
 
 Tensor Add(const Tensor& self, const Element& other)
@@ -781,7 +785,7 @@ Tensor Fmod(const Tensor& self, const Element& other)
         other);
 }
 
-Tensor Remainder(const Tensor& self, const Element& other)
+Tensor Remainder(const Tensor& self, const Element& other, RemainderAlgorithm precisionType)
 {
     DECLARE_TRACER();
     std::unordered_set<DataType> supportedTypes = {DT_FP16, DT_BF16, DT_INT16, DT_INT32, DT_FP32};
@@ -791,18 +795,17 @@ Tensor Remainder(const Tensor& self, const Element& other)
     Element other_ = Element(selfDtype, other.Cast<float>());
     if (selfDtype == DT_INT16) {
         castSelf = Cast(self, DT_FP32, CastMode::CAST_NONE);
-        Tensor result = CALL(
-            BinaryOperationScalar<BinaryOpType::REM>, *Program::GetInstance().GetCurrentFunction(),
-            castSelf.GetStorage(), other_);
-        Tensor castedResult = Cast(result, selfDtype, CastMode::CAST_TRUNC, SaturationMode::OFF);
+        auto [result, op] = TensorBinaryOperationScalarWithOp<BinaryOpType::REM>(*Program::GetInstance().GetCurrentFunction(), castSelf.GetStorage(), other_);
+        op->SetAttribute(OpAttributeKey::precisionType, static_cast<int64_t>(precisionType));
+        Tensor castedResult = Cast(Tensor(result), selfDtype, CastMode::CAST_TRUNC, SaturationMode::OFF);
         return castedResult;
     }
-    RETURN_CALL(
-        BinaryOperationScalar<BinaryOpType::REM>, *Program::GetInstance().GetCurrentFunction(), castSelf.GetStorage(),
-        other_);
+    auto [result, op] = TensorBinaryOperationScalarWithOp<BinaryOpType::REM>(*Program::GetInstance().GetCurrentFunction(), castSelf.GetStorage(), other_);
+    op->SetAttribute(OpAttributeKey::precisionType, static_cast<int64_t>(precisionType));
+    return Tensor(result);
 }
 
-Tensor Remainder(const Element& self, const Tensor& other)
+Tensor Remainder(const Element& self, const Tensor& other, RemainderAlgorithm precisionType)
 {
     DECLARE_TRACER();
     std::unordered_set<DataType> supportedTypes = {DT_FP16, DT_BF16, DT_INT16, DT_INT32, DT_FP32};
@@ -812,15 +815,16 @@ Tensor Remainder(const Element& self, const Tensor& other)
     Element self_ = Element(otherDtype, self.Cast<float>());
     if (otherDtype == DT_INT16) {
         castOther = Cast(other, DT_FP32, CastMode::CAST_NONE);
-        Tensor result = CALL(
-            BinaryOperationAllScalar<BinaryOpType::REMR>, *Program::GetInstance().GetCurrentFunction(),
-            castOther.GetStorage(), self_, true);
-        Tensor castedResult = Cast(result, otherDtype, CastMode::CAST_TRUNC, SaturationMode::OFF);
+        auto [result, op] = TensorBinaryOperationScalarWithOp<BinaryOpType::REMR>(*Program::GetInstance().GetCurrentFunction(), castOther.GetStorage(), self_);
+        op->SetAttribute(OpAttributeKey::precisionType, static_cast<int64_t>(precisionType));
+        op->SetAttribute(OP_ATTR_PREFIX + "reverseOperand", true);
+        Tensor castedResult = Cast(Tensor(result), otherDtype, CastMode::CAST_TRUNC, SaturationMode::OFF);
         return castedResult;
     }
-    RETURN_CALL(
-        BinaryOperationAllScalar<BinaryOpType::REMR>, *Program::GetInstance().GetCurrentFunction(),
-        castOther.GetStorage(), self_, true);
+    auto [result, op] = TensorBinaryOperationScalarWithOp<BinaryOpType::REMR>(*Program::GetInstance().GetCurrentFunction(), castOther.GetStorage(), self_);
+    op->SetAttribute(OpAttributeKey::precisionType, static_cast<int64_t>(precisionType));
+    op->SetAttribute(OP_ATTR_PREFIX + "reverseOperand", true);
+    return Tensor(result);
 }
 
 Tensor BitwiseAnd(const Tensor& self, const Element& other)
@@ -1208,9 +1212,13 @@ void RemainderSTileFunc(
     Function& function, const TileShape& tileShape, const std::vector<LogicalTensorPtr>& iOperand,
     const std::vector<LogicalTensorPtr>& oOperand, [[maybe_unused]] const Operation& op)
 {
+    int64_t precisionType = static_cast<int64_t>(RemainderAlgorithm::DEFAULT);
+    if (op.HasAttr(OpAttributeKey::precisionType)) {
+        precisionType = op.GetIntAttribute(OpAttributeKey::precisionType);
+    }
     TiledRemainderSOperation<T>(
         function, tileShape, iOperand[0], op.GetElementAttribute(OpAttributeKey::scalar), oOperand[0],
-        op.GetBoolAttribute(OP_ATTR_PREFIX + "reverseOperand"));
+        op.GetBoolAttribute(OP_ATTR_PREFIX + "reverseOperand"), precisionType);
 }
 
 // OP_S_ADDS OP_S_SUBS OP_S_MULS OP_S_DIVS OP_S_MAXS
