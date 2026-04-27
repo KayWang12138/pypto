@@ -170,7 +170,8 @@ void UpdateReduceStatus(Operation* op, std::unordered_map<LogicalTensorPtr, Axis
         tensorStatus[outputTensor] = AxisReorderStatus::DISABLE;
         return;
     }
-    if (inputTensor->GetShape().back() == outputTensor->GetShape().back()) { // 不变
+    if (inputTensor->GetShape().back() == outputTensor->GetShape().back()) { 
+        // reduce tensor shape尾轴为1, 且语义为尾轴Reduce
         tensorStatus[inputTensor] = AxisReorderStatus::DISABLE;
         tensorStatus[outputTensor] = AxisReorderStatus::DISABLE;
         return;
@@ -293,7 +294,6 @@ void AxisCombineMarker::ForwardVisit()
 {
     std::queue<size_t> procOpQueue;
     std::vector<size_t> inDegree(opList_.size(), 0);
-
     for (size_t j = 0; j < opInGraph_.size(); ++j) {
         if (opInGraph_[j].empty()) {
             procOpQueue.push(j);
