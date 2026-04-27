@@ -83,11 +83,8 @@ void DeviceTaskContext::ShowStats()
 
 void DeviceTaskContext::InitReadyCoreFunctionQueue(ReadyCoreFunctionQueue* q, uint32_t capacity)
 {
-    q->lock = 0;
-    q->head = 0;
-    q->tail = 0;
-    q->capacity = capacity;
-    q->elem = reinterpret_cast<taskid_t*>(q + 1);
+    taskid_t* elem = reinterpret_cast<taskid_t*>(q + 1); // elems are immediately after ReadyCoreFunctionQueue struct
+    new (q) ReadyCoreFunctionQueue(capacity, elem);
 }
 
 int DeviceTaskContext::InitReadyQueues(
@@ -121,23 +118,19 @@ void DeviceTaskContext::ProcessAivBatchTasks(
 {
     uint32v8 one = {1, 1, 1, 1, 1, 1, 1, 1};
     uint32v8 base = {0, 1, 2, 3, 4, 5, 6, 7};
-    taskid_t* aivQueueElemList = reinterpret_cast<taskid_t*>(aivQueue->elem);
 
     for (size_t opIndex = 0; opIndex < totalZeroPredAIVBatchEnd; opIndex += DUP_PRED_COUNT_LOOP_MAX) {
         if (likely(
                 (*reinterpret_cast<const uint64_t*>(&dupPredCountList[opIndex]) |
                  *reinterpret_cast<const uint64_t*>(&dupPredCountList[opIndex + DUP_PRED_COUNT_PRE_LOOP_CNT])) == 0)) {
             uint32v8 taskidv8 = (one * MakeTaskID(funcIndex, 0)) | (base + static_cast<uint32_t>(opIndex));
-#ifdef __x86_64__
-            memcpy_s(&aivQueueElemList[aivQueue->tail], sizeof(taskidv8), &taskidv8, sizeof(taskidv8));
-#else
-            *reinterpret_cast<uint32v8*>(&aivQueueElemList[aivQueue->tail]) = taskidv8;
-#endif
-            aivQueue->tail += DUP_PRED_COUNT_LOOP_MAX;
+            aivQueue->unsafe_enqueue(
+                reinterpret_cast<ReadyCoreFunctionQueue::value_type*>(&taskidv8), DUP_PRED_COUNT_LOOP_MAX);
         } else {
             for (size_t idx = 0; idx < DUP_PRED_COUNT_LOOP_MAX; ++idx) {
                 if (likely(dupPredCountList[opIndex + idx] == 0)) {
-                    aivQueueElemList[aivQueue->tail++] = MakeTaskID(funcIndex, opIndex + idx);
+                    const auto taskId = MakeTaskID(funcIndex, opIndex + idx);
+                    aivQueue->unsafe_enqueue(taskId);
                 }
             }
         }
@@ -183,7 +176,8 @@ int DeviceTaskContext::BuildReadyQueue(DynDeviceTask* dyntask, DevAscendProgram*
 
     int wrapTaskNum = ProcessZeroPredTask(dyntask, wrapQueue, isNeedWrap);
     UpdateDeviceTaskQueueInfo(dyntask, aicpuQueue, aivQueue, aicQueue, wrapQueue);
-    readyTaskNum += static_cast<uint64_t>(aivQueue->tail + aicQueue->tail + aicpuQueue->tail + wrapTaskNum);
+    readyTaskNum += static_cast<uint64_t>(
+        aivQueue->unsafe_size() + aicQueue->unsafe_size() + aicpuQueue->unsafe_size() + wrapTaskNum);
     PerfEnd(PERF_EVT_READY_QUEUE_IN);
     return DEVICE_MACHINE_OK;
 }
@@ -222,7 +216,7 @@ void DeviceTaskContext::BuildReadyQueueForFunc(
                     wrapQueue);
                 wrapTaskNum++;
             } else {
-                targetAivQueue->elem[targetAivQueue->tail++] = MakeTaskID(funcIndex, opIndex);
+                targetAivQueue->unsafe_enqueue(MakeTaskID(funcIndex, opIndex));
             }
         }
     }
@@ -237,7 +231,7 @@ void DeviceTaskContext::BuildReadyQueueForFunc(
                     wrapQueue);
                 wrapTaskNum++;
             } else {
-                targetAicQueue->elem[targetAicQueue->tail++] = MakeTaskID(funcIndex, opIndex);
+                targetAicQueue->unsafe_enqueue(MakeTaskID(funcIndex, opIndex));
             }
         }
     }
@@ -246,7 +240,7 @@ void DeviceTaskContext::BuildReadyQueueForFunc(
     auto aicpuEnd = predInfo.totalZeroPredAIV + predInfo.totalZeroPredAIC + predInfo.totalZeroPredAicpu;
     for (size_t opIndex = aicEnd; opIndex < aicpuEnd; ++opIndex) {
         if (likely(dupPredCountList[opIndex] == 0)) {
-            aicpuQueue->elem[aicpuQueue->tail++] = MakeTaskID(funcIndex, opIndex);
+            aicpuQueue->unsafe_enqueue(MakeTaskID(funcIndex, opIndex));
         }
     }
 }
@@ -396,25 +390,14 @@ void DeviceTaskContext::DumpReadyQueue(DynDeviceTask* dynTask, const char* prefi
     int aicpuIndex = DynDeviceTask::GetReadyQueueIndexByCoreType(CoreType::AICPU);
 
     DEV_DEBUG(
-        "%s: ready queue aiv: %d-%d", prefix, (int)dynTask->readyQueue[aivIndex]->head,
-        (int)dynTask->readyQueue[aivIndex]->tail);
-    for (uint32_t i = dynTask->readyQueue[aivIndex]->head; i < dynTask->readyQueue[aivIndex]->tail; i++) {
-        DEV_DEBUG("%s: ready queue aiv[%d]: %x", prefix, (int)i, dynTask->readyQueue[aivIndex]->elem[i]);
-    }
-
+        "%s: ready queue aiv: %s [%s]", prefix, dynTask->readyQueue[aivIndex]->str().c_str(),
+        dynTask->readyQueue[aivIndex]->dump().c_str());
     DEV_DEBUG(
-        "%s: ready queue aic: %d-%d", prefix, (int)dynTask->readyQueue[aicIndex]->head,
-        (int)dynTask->readyQueue[aicIndex]->tail);
-    for (uint32_t i = dynTask->readyQueue[aicIndex]->head; i < dynTask->readyQueue[aicIndex]->tail; i++) {
-        DEV_DEBUG("%s: ready queue aic[%d]: %x", prefix, (int)i, dynTask->readyQueue[aicIndex]->elem[i]);
-    }
-
+        "%s: ready queue aic: %s [%s]", prefix, dynTask->readyQueue[aicIndex]->str().c_str(),
+        dynTask->readyQueue[aicIndex]->dump().c_str());
     DEV_DEBUG(
-        "%s: ready queue aicpu: %d-%d", prefix, (int)dynTask->readyQueue[aicpuIndex]->head,
-        (int)dynTask->readyQueue[aicpuIndex]->tail);
-    for (uint32_t i = dynTask->readyQueue[aicpuIndex]->head; i < dynTask->readyQueue[aicpuIndex]->tail; i++) {
-        DEV_DEBUG("%s: ready queue aicpu[%d]: %x", prefix, (int)i, dynTask->readyQueue[aicpuIndex]->elem[i]);
-    }
+        "%s: ready queue aicpu: %s [%s]", prefix, dynTask->readyQueue[aicpuIndex]->str().c_str(),
+        dynTask->readyQueue[aicpuIndex]->dump().c_str());
 }
 void DeviceTaskContext::DumpDepend(
     DynDeviceTask* dyntask, DevAscendProgram* devProg, DevStartArgs* startArgs, const char* prefix)
@@ -424,17 +407,17 @@ void DeviceTaskContext::DumpDepend(
     int total = 0;
     for (size_t i = 0; i < READY_QUEUE_SIZE; i++) {
         ReadyCoreFunctionQueue* q = dyntask->readyQueue[i];
-        total += q->tail - q->head;
+        total += q->unsafe_size();
     }
     DEV_DEBUG("%s: ready total:%d", prefix, total);
     for (size_t i = 0; i < READY_QUEUE_SIZE; i++) {
         ReadyCoreFunctionQueue* q = dyntask->readyQueue[i];
-        for (uint32_t k = q->head; k < q->tail; k++) {
-            uint32_t taskId = q->elem[k];
+        int k = 0;
+        for (auto taskId : *q) {
             uint32_t dupIndex = FuncID(taskId);
             uint32_t opIndex = TaskID(taskId);
             DEV_DEBUG(
-                "%s: ready %d-%d:L(%d,%d,%d)\n", prefix, (int)i, (int)k, (int)dyntask->GetDynFuncDataList()->seqNo,
+                "%s: ready %d-%d:L(%d,%d,%d)\n", prefix, (int)i, k++, (int)dyntask->GetDynFuncDataList()->seqNo,
                 (int)dupIndex, (int)opIndex);
         }
     }

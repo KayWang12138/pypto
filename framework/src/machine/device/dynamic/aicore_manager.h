@@ -854,7 +854,7 @@ private:
     [[gnu::hot]] inline uint64_t TryBatchSendTask(SchDeviceTaskContext* devTaskCtx, CoreType type, ReadyCoreFunctionQueue* readyQue,
                 int coreIdxStart, int coreIdxEnd)
     {
-        if (__atomic_load_n(&readyQue->tail, __ATOMIC_RELAXED) == __atomic_load_n(&readyQue->head, __ATOMIC_RELAXED)) {
+        if (readyQue->unsafe_size() == 0) {
             DEV_VERBOSE_DEBUG("AiCpud:%d, can not send task currently. ready Task: 0", aicpuIdx_);
             return 0;
         }
@@ -866,31 +866,20 @@ private:
             return 0;
         }
         PerfMtBegin(PERF_EVT_SEND_AIC_TASK, aicpuIdx_);
+        const bool isRealLifo = (enableL2CacheSch_ && !firstLock[static_cast<int>(type)]);
         uint32_t readyId[MAX_MANAGER_AIV_NUM];
-        ReadyQueueLock(readyQue);
-        uint32_t head = __atomic_load_n(&readyQue->head, __ATOMIC_RELAXED);
-        uint32_t tail = __atomic_load_n(&readyQue->tail, __ATOMIC_RELAXED);
-        uint32_t taskCount = std::min(ready, tail - head);
+        auto readyTasksRange = isRealLifo ? readyQue->dequeue_tail(ready, readyId) : readyQue->dequeue(ready);
+        const uint32_t taskCount = readyTasksRange.second - readyTasksRange.first;
         if (taskCount == 0) {
-            DEV_VERBOSE_DEBUG("AiCpud:%u, taskCount is zero", head);
-            ReadyQueueUnLock(readyQue);
+            DEV_VERBOSE_DEBUG("AiCpud:%d, taskCount is zero", aicpuIdx_);
             PerfMtEnd(PERF_EVT_SEND_AIC_TASK, aicpuIdx_);
             return 0;
         }
-        bool isRealLifo = (enableL2CacheSch_ && !firstLock[static_cast<int>(type)]);
-        if (isRealLifo) {
-            memcpy_s(
-                readyId, taskCount * sizeof(uint64_t), reinterpret_cast<uint8_t*>(&readyQue->elem[tail - taskCount]),
-                taskCount * sizeof(uint32_t));
-            __atomic_fetch_sub(&readyQue->tail, taskCount, std::memory_order_release);
-        } else {
-            __atomic_fetch_add(&readyQue->head, taskCount, std::memory_order_release);
-        }
-        ReadyQueueUnLock((readyQue));
+
         DEV_VERBOSE_DEBUG("AiCpud:%d, pop all new task count: %u", aicpuIdx_, taskCount);
         BatchSendTask(
-            devTaskCtx, type, isRealLifo ? &readyId[taskCount - 1] : &readyQue->elem[head],
-            taskCount, coreIdxStart, coreIdxEnd, isRealLifo);
+            devTaskCtx, type, isRealLifo ? readyTasksRange.second - 1 : readyTasksRange.first, taskCount, coreIdxStart,
+            coreIdxEnd, isRealLifo);
         DEV_VERBOSE_DEBUG("core ready cnt: %u", context_->corePendReadyCnt_[static_cast<int>(type)]);
         firstLock[static_cast<int>(type)] = false;
         PerfMtEnd(PERF_EVT_SEND_AIC_TASK, aicpuIdx_);
@@ -898,7 +887,7 @@ private:
     }
 
     [[gnu::hot]] inline uint32_t BatchSendTask(
-        SchDeviceTaskContext* devTaskCtx, CoreType type, uint32_t *newTask, uint32_t taskCount,
+        SchDeviceTaskContext* devTaskCtx, CoreType type, const uint32_t *newTask, uint32_t taskCount,
         int coreIdxStart, int coreIdxEnd, bool isLifo)
     {
         uint32_t sendCnt = 0;
@@ -1106,20 +1095,16 @@ private:
 
     inline int32_t PushReadyQue(ReadyCoreFunctionQueue* readyQue, void* idList, uint32_t idCnt) const
     {
-        ReadyQueueLock(readyQue);
-        memcpy_s(&readyQue->elem[readyQue->tail], idCnt * sizeof(uint32_t), (uint8_t*)idList, idCnt * sizeof(uint32_t));
-        __atomic_fetch_add(&readyQue->tail, idCnt, std::memory_order_release);
+        const bool res = readyQue->try_enqueue(reinterpret_cast<uint32_t*>(idList), idCnt);
         DEV_IF_NONDEVICE
         {
-            if (readyQue->tail > readyQue->capacity) {
+            if (!res) {
                 DEV_ERROR(
-                    SchedErr::READY_QUEUE_OVERFLOW, "#sche.resolve.enqueue: readyQue tail=%u > readyQue capacity=%u",
-                    readyQue->tail, readyQue->capacity);
+                    SchedErr::READY_QUEUE_OVERFLOW, "#sche.resolve.enqueue: readyQue: %s", readyQue->str().c_str());
                 return DEVICE_MACHINE_ERROR;
             }
-            DEV_ASSERT(SchedErr::READY_QUEUE_OVERFLOW, readyQue->tail <= readyQue->capacity);
         }
-        ReadyQueueUnLock(readyQue);
+        DEV_ASSERT(SchedErr::READY_QUEUE_OVERFLOW, res); // fail on queue overflow
         return DEVICE_MACHINE_OK;
     }
 
@@ -1161,8 +1146,8 @@ private:
                 type, resolveCtx[i].finishCoreIdx, resolveCtx[i].finishIds,
                 resolveCtx[i].resolveIndexBase, resloveParallelIdx);
             if (enableFairSch_ && (resloveParallelIdx & (1U << devTaskCtx->parallelIdx))) {
-                if (devTaskCtx->readyAicCoreFunctionQue->tail - devTaskCtx->readyAicCoreFunctionQue->head == 0 ||
-                    devTaskCtx->readyAivCoreFunctionQue->tail - devTaskCtx->readyAivCoreFunctionQue->head == 0) {
+                if (devTaskCtx->readyAicCoreFunctionQue->unsafe_size() == 0 ||
+                    devTaskCtx->readyAivCoreFunctionQue->unsafe_size() == 0) {
                     ret = BatchPushReadyQueue(devTaskCtx);
                     if (unlikely(ret != DEVICE_MACHINE_OK)) {
                         return ret;
@@ -1810,8 +1795,8 @@ private:
         if (!context_->DevTaskEmpty()) {
             auto deviceTaskCtx = context_->FrontDevTaskCtx();
             InitDevTask(deviceTaskCtx);
-            needSendAic = (deviceTaskCtx->readyAicCoreFunctionQue->tail != deviceTaskCtx->readyAicCoreFunctionQue->head);
-            needSendAiv = (deviceTaskCtx->readyAivCoreFunctionQue->tail != deviceTaskCtx->readyAivCoreFunctionQue->head);
+            needSendAic = (deviceTaskCtx->readyAicCoreFunctionQue->unsafe_size() > 0);
+            needSendAiv = (deviceTaskCtx->readyAivCoreFunctionQue->unsafe_size() > 0);
             DEV_DEBUG("hand shake prefetch dev task success: needSendAic=%d, needSendAiv=%d", needSendAic, needSendAiv);
             return deviceTaskCtx;
         }
