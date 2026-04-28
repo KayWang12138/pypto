@@ -1,4 +1,4 @@
-# PyPTO 复杂算子 — Layer 组织规范（multi-file 仕様）
+# PyPTO 复杂算子 — Layer 组织规范（multi-file 规范）
 
 本文档定义 **复杂算子**（attention / recurrent / fused 类）的代码组织规范。
 简单算子（SiLU / softmax / layer_norm 等）请遵循 `pypto-op-develop` 的标准 3 文件结构，
@@ -6,7 +6,7 @@
 
 ---
 
-## 1. 文件组织（multi-file 仕様）
+## 1. 文件组织（multi-file 规范）
 
 复杂算子最终交付为 **3 个独立文件 + 1 个 staged 目录**:
 

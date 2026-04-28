@@ -115,7 +115,7 @@ This section condenses **`.agents/pypto-example-debug-practice/DEBUG_PRACTICE.md
 - **Environment / exit codes:** If **`import pypto`** fails, fix the install per **`docs/install/build_and_install.md`** before treating kernel logic as broken. When capturing whether a script failed, remember a shell pipeline can mask Python’s exit code unless you use **`set -e`**, **`set -o pipefail`**, or **`python3 ...; echo $?`** without masking.
 - **Golden reference implementation patterns:** Golden functions (used for precision verification) can adopt **two equivalent strategies**:
   - **Full computation:** Process the entire input tensor at once (default, simpler).
-  - **Tiled computation:** Split input into small tiles, compute each tile independently, and concatenate results. Tiled golden is closer to how PyPTO kernels actually execute (tile-by-tile), making it better for verifying boundary handling, accumulation logic, and tile-size effects on numerical precision. See **`skills/pypto-golden-generate/SKILL.md`** → **§4 実装策略：全量 vs 分块** for patterns and when to use each.
+  - **Tiled computation:** Split input into small tiles, compute each tile independently, and concatenate results. Tiled golden is closer to how PyPTO kernels actually execute (tile-by-tile), making it better for verifying boundary handling, accumulation logic, and tile-size effects on numerical precision. See **`skills/pypto-golden-generate/SKILL.md`** → **§4 实现方式：全量 vs 分块** for patterns and when to use each.
 
 ### 8.2 Example inventory and recurring failures
 
