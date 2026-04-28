@@ -266,6 +266,7 @@ class _RunCfg:
     pypto_agent: str
     pypto_timeout: int
     pypto_output_format: str
+    incomplete_workflow_retry: int
     skip_stage7_perf_tune: bool
     arch: str
     backend: str
@@ -381,6 +382,7 @@ async def run_one_case(case_path: Path, device_id: int, cfg: _RunCfg,
                 device_id=device_id,
                 log_file=pypto_log,
                 output_format=cfg.pypto_output_format,
+                incomplete_workflow_retry=cfg.incomplete_workflow_retry,
                 skip_if_done=not cfg.force_regen,
                 task_desc_rel=f"{workdir_root}/{op_name}/task_desc.py",
                 case_init_args_repr=case.init_args_repr,
@@ -397,6 +399,8 @@ async def run_one_case(case_path: Path, device_id: int, cfg: _RunCfg,
         record.pypto_message = pypto_result.message
         record.pypto_duration_sec = pypto_result.duration_sec
         record.pypto_log_file = str(pypto_result.log_file) if pypto_result.log_file else None
+        record.pypto_attempt_log_files = [str(p) for p in pypto_result.attempt_log_files]
+        record.pypto_retry_count = pypto_result.retry_count
         record.pypto_session_id = pypto_result.opencode_session_id
         record.pypto_session_md_file = (
             str(pypto_result.opencode_session_md_file)
@@ -590,6 +594,11 @@ def _build_cfg(args: argparse.Namespace, yaml_cfg: Dict[str, Any]) -> _RunCfg:
         pypto_agent=args.agent or pypto_yaml.get("agent", "pypto-op-orchestrator"),
         pypto_timeout=args.timeout_sec or pypto_yaml.get("timeout_sec", 1800),
         pypto_output_format=args.opencode_format or pypto_yaml.get("output_format", "default"),
+        incomplete_workflow_retry=(
+            args.incomplete_workflow_retry
+            if args.incomplete_workflow_retry is not None
+            else int(pypto_yaml.get("incomplete_workflow_retry", 1))
+        ),
         skip_stage7_perf_tune=(
             args.skip_stage7_perf_tune
             if args.skip_stage7_perf_tune is not None
@@ -658,6 +667,8 @@ def _build_arg_parser() -> argparse.ArgumentParser:
     p.add_argument("--opencode-format", type=str, default="",
                    choices=["", "default", "json"],
                    help="opencode --format")
+    p.add_argument("--incomplete-workflow-retry", type=int, default=None,
+                   help="PyPTO 状态机未完成且无失败阶段时自动重试次数 (默认 1)")
     p.add_argument("--skip-stage7-perf-tune",
                    action=argparse.BooleanOptionalAction,
                    default=None,

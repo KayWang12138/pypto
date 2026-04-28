@@ -54,6 +54,8 @@ class CaseRunRecord:
     pypto_message: str = ""
     pypto_duration_sec: float = 0.0
     pypto_log_file: Optional[str] = None
+    pypto_attempt_log_files: List[str] = field(default_factory=list)
+    pypto_retry_count: int = 0
     pypto_session_id: Optional[str] = None
     pypto_session_md_file: Optional[str] = None
     pypto_session_export_message: str = ""
@@ -348,8 +350,8 @@ def _render_markdown(payload: Dict[str, Any]) -> str:
     if cases:
         lines.append("## 用例明细")
         lines.append("")
-        lines.append("| level | op | case | 总状态 | 精度 | pypto阶段 | verify阶段 | pypto(s) | verify(s) | 完整流程(s) | 备注 |")
-        lines.append("|-------|----|------|--------|:----:|-----------|------------|---------:|----------:|------------:|------|")
+        lines.append("| level | op | case | 总状态 | 精度 | pypto阶段 | verify阶段 | pypto retry | pypto(s) | verify(s) | 完整流程(s) | 备注 |")
+        lines.append("|-------|----|------|--------|:----:|-----------|------------|------------:|---------:|----------:|------------:|------|")
         for c in cases:
             badge = _STATUS_BADGE.get(c.get("overall_status", ""), c.get("overall_status", ""))
             cor = c.get("correctness")
@@ -365,16 +367,19 @@ def _render_markdown(payload: Dict[str, Any]) -> str:
             level_cell = f"`{c.get('level') or '—'}`"
             pypto_st = c.get("pypto_status", "")
             ver_st = c.get("verifier_status", "")
+            pypto_retry = int(c.get("pypto_retry_count") or 0)
             lines.append(
                 f"| {level_cell} | {op_cell} | {case_cell} | {badge} | {cor_cell} "
                 f"| {pypto_st} | {ver_st} "
-                f"| {pypto_sec} | {verify_sec} | {wall_cell} | {note} |"
+                f"| {pypto_retry} | {pypto_sec} | {verify_sec} | {wall_cell} | {note} |"
             )
         lines.append("")
 
         has_session_exports = any(
             c.get("pypto_session_md_file")
             or c.get("verifier_session_md_file")
+            or c.get("pypto_attempt_log_files")
+            or c.get("verifier_attempt_log_files")
             or c.get("pypto_session_export_message")
             or c.get("verifier_session_export_message")
             for c in cases
@@ -441,6 +446,11 @@ def _export_cell(case: Dict[str, Any], label: str) -> str:
     md_file = case.get(f"{label}_session_md_file")
     if md_file:
         parts.append(_md_file_link(md_file))
+
+    attempt_logs = case.get(f"{label}_attempt_log_files")
+    if isinstance(attempt_logs, list) and attempt_logs:
+        links = ", ".join(_md_file_link(p) for p in attempt_logs)
+        parts.append(f"attempt logs: {links}")
 
     log_file = case.get(f"{label}_log_file")
     if log_file:

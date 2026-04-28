@@ -13,7 +13,10 @@
 from __future__ import annotations
 
 from benchmark.pypto_runner import (
+    PyptoRunResult,
+    PyptoRunStatus,
     _attempt_log_file,
+    _attempt_logs,
     _state_all_stages_completed,
     _state_has_failed_stage,
     _state_incomplete_without_failure,
@@ -41,6 +44,26 @@ def test_attempt_log_file_suffix(tmp_path) -> None:
     log_file = tmp_path / "pypto_run.log"
     assert _attempt_log_file(log_file, 1) == log_file
     assert _attempt_log_file(log_file, 2) == tmp_path / "pypto_run.attempt2.log"
+    assert _attempt_logs(log_file) == [log_file]
+    assert _attempt_logs(None) == []
+
+
+def test_run_result_serializes_retry_metadata(tmp_path) -> None:
+    log_file = tmp_path / "pypto_run.attempt2.log"
+    result = PyptoRunResult(
+        op_name="Foo",
+        status=PyptoRunStatus.SUCCESS,
+        workdir=tmp_path / "Foo",
+        log_file=log_file,
+        attempt_log_files=[tmp_path / "pypto_run.log", log_file],
+        retry_count=1,
+    )
+    data = result.to_dict()
+    assert data["retry_count"] == 1
+    assert data["attempt_log_files"] == [
+        str(tmp_path / "pypto_run.log"),
+        str(log_file),
+    ]
 
 
 def test_modelnew_prompt_requires_nn_module_and_to() -> None:
@@ -69,4 +92,5 @@ if __name__ == "__main__":
     from pathlib import Path
     with tempfile.TemporaryDirectory() as tmp:
         test_attempt_log_file_suffix(Path(tmp))
+        test_run_result_serializes_retry_metadata(Path(tmp))
     test_modelnew_prompt_requires_nn_module_and_to()

@@ -72,6 +72,8 @@ class PyptoRunResult:
     workdir: Path
     artifacts: Dict[str, Path] = field(default_factory=dict)
     log_file: Optional[Path] = None
+    attempt_log_files: List[Path] = field(default_factory=list)
+    retry_count: int = 0
     duration_sec: float = 0.0
     message: str = ""
     orchestrator_state: Optional[dict] = None
@@ -90,6 +92,8 @@ class PyptoRunResult:
             "workdir": str(self.workdir),
             "artifacts": {k: str(v) for k, v in self.artifacts.items()},
             "log_file": str(self.log_file) if self.log_file else None,
+            "attempt_log_files": [str(p) for p in self.attempt_log_files],
+            "retry_count": self.retry_count,
             "duration_sec": round(self.duration_sec, 2),
             "message": self.message,
             "orchestrator_state": self.orchestrator_state,
@@ -387,6 +391,10 @@ def _attempt_log_file(log_file: Optional[Path], attempt_index: int) -> Optional[
     return log_file.with_name(f"{log_file.stem}.attempt{attempt_index}{log_file.suffix}")
 
 
+def _attempt_logs(log_file: Optional[Path]) -> List[Path]:
+    return [log_file] if log_file is not None else []
+
+
 def _incomplete_retry_reason(timed_out: bool, returncode: Optional[int]) -> str:
     if timed_out:
         return "OpenCode 硬超时且 PyPTO 状态机未完成"
@@ -550,6 +558,7 @@ def run_pypto_workflow(
                 workdir=op_dir,
                 artifacts=artifacts,
                 log_file=log_file,
+                attempt_log_files=_attempt_logs(log_file),
                 duration_sec=0.0,
                 message=_blocked_message(state),
                 orchestrator_state=state,
@@ -574,6 +583,7 @@ def run_pypto_workflow(
                 workdir=op_dir,
                 artifacts=artifacts,
                 log_file=log_file,
+                attempt_log_files=_attempt_logs(log_file),
                 duration_sec=0.0,
                 message="所有产物齐全, 且状态文件 Stage 1-7 均 completed; 跳过.",
                 orchestrator_state=state,
@@ -747,6 +757,8 @@ def run_pypto_workflow(
             _attempt_index=_attempt_index + 1,
         )
         retry_result.duration_sec += duration
+        retry_result.retry_count += 1
+        retry_result.attempt_log_files = _attempt_logs(log_file) + retry_result.attempt_log_files
         retry_result.message = (
             f"第{_attempt_index}次 {retry_reason}, 已自动重试; "
             f"{retry_result.message}"
@@ -760,6 +772,7 @@ def run_pypto_workflow(
             workdir=op_dir,
             artifacts=artifacts,
             log_file=log_file,
+            attempt_log_files=_attempt_logs(log_file),
             duration_sec=duration,
             message=f"opencode run 超时 (>{timeout_sec}s); 缺失产物: {missing or '(齐全)'}",
             orchestrator_state=state,
@@ -775,6 +788,7 @@ def run_pypto_workflow(
             workdir=op_dir,
             artifacts=artifacts,
             log_file=log_file,
+            attempt_log_files=_attempt_logs(log_file),
             duration_sec=duration,
             message=f"opencode 退出 code={proc.returncode}, 缺少产物: {missing}",
             orchestrator_state=state,
@@ -790,6 +804,7 @@ def run_pypto_workflow(
             workdir=op_dir,
             artifacts=artifacts,
             log_file=log_file,
+            attempt_log_files=_attempt_logs(log_file),
             duration_sec=duration,
             message=f"opencode 异常退出 code={proc.returncode}, 但产物齐全 (可能仍可用).",
             orchestrator_state=state,
@@ -805,6 +820,7 @@ def run_pypto_workflow(
             workdir=op_dir,
             artifacts=artifacts,
             log_file=log_file,
+            attempt_log_files=_attempt_logs(log_file),
             duration_sec=duration,
             message=_blocked_message(state),
             orchestrator_state=state,
@@ -820,6 +836,7 @@ def run_pypto_workflow(
             workdir=op_dir,
             artifacts=artifacts,
             log_file=log_file,
+            attempt_log_files=_attempt_logs(log_file),
             duration_sec=duration,
             message=_blocked_message(state),
             orchestrator_state=state,
@@ -834,6 +851,7 @@ def run_pypto_workflow(
         workdir=op_dir,
         artifacts=artifacts,
         log_file=log_file,
+        attempt_log_files=_attempt_logs(log_file),
         duration_sec=duration,
         message="产物齐全, opencode 正常退出, 且状态文件 Stage 1-7 均 completed.",
         orchestrator_state=state,
