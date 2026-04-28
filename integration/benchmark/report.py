@@ -355,7 +355,7 @@ def _render_markdown(payload: Dict[str, Any]) -> str:
             cor = c.get("correctness")
             cor_cell = "✓" if cor is True else ("✗" if cor is False else "—")
             note_src = c.get("verifier_message") or c.get("pypto_message") or ""
-            note = note_src.replace("\n", " ")[:80]
+            note = _table_text(note_src)
             pypto_sec = round(c.get("pypto_duration_sec") or 0, 1)
             verify_sec = round(c.get("verifier_duration_sec") or 0, 1)
             wall_sec = _wall_from_record_dict(c)
@@ -406,7 +406,7 @@ def _render_markdown(payload: Dict[str, Any]) -> str:
                 sp = c.get("perf_speedup")
                 rl_t = c.get("perf_roofline_time_us")
                 rl_sp = c.get("perf_roofline_speedup")
-                pm = (c.get("perf_message") or "").replace("\n", " ")[:60]
+                pm = _table_text(c.get("perf_message"))
                 wall_sec = _wall_from_record_dict(c)
                 wall_cell = f"{wall_sec:.1f}" if wall_sec is not None else "—"
                 op_perf = f"`{c['op_name']}`"
@@ -454,12 +454,10 @@ def _export_cell(case: Dict[str, Any], label: str) -> str:
     return "<br>".join(parts) if parts else "—"
 
 
-def _table_text(value: Any, limit: int = 80) -> str:
+def _table_text(value: Any) -> str:
     text = str(value or "").replace("\n", " ").replace("|", "\\|").strip()
     if not text:
         return "—"
-    if len(text) > limit:
-        return text[: limit - 3] + "..."
     return text
 
 

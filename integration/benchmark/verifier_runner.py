@@ -623,7 +623,7 @@ def _skill_report_to_result(
         log_text=log_text,
         log_file=log_file,
         duration_sec=duration,
-        message=(report.get("final_reasoning") or "")[:500],
+        message=report.get("final_reasoning") or "",
         extra={"skill_report": report, "skill_final_verdict": final},
         **perf_kw,
     )

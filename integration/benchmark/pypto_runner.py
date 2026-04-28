@@ -62,6 +62,9 @@ class PyptoRunStatus(str, Enum):
     SUBPROCESS_ERROR = "subprocess_error"
 
 
+_REQUIRED_ORCHESTRATOR_STAGES = tuple(str(i) for i in range(1, 8))
+
+
 @dataclass
 class PyptoRunResult:
     op_name: str
@@ -155,7 +158,7 @@ KernelBench task_desc (已就绪, 需要用它校准包装接口): `{task_desc_r
   - {op_name}_impl.py            (必须导出 {op_name}_wrapper)
   - test_{op_name}.py
   - README.md
-  - .orchestrator_state.json     (整体状态: SUCCESS 或 BLOCKED_*)
+  - .orchestrator_state.json     (由 state_transition 维护的阶段状态文件)
 
 ================================================================
 【外部桥接附加要求 -- 仅本次任务额外完成, 不要修改 pypto 内置 SKILL/agent】
@@ -216,21 +219,28 @@ class ModelNew(nn.Module):
 ModelNew 文件硬约束:
 1. 必须是新文件 `{op_name}_pypto_impl.py`, 与 `{op_name}_impl.py` 同目录.
 2. 必须 `from {op_name}_impl import {op_name}_wrapper` (不得内联 wrapper 实现).
-3. `ModelNew(*get_init_inputs()).forward(*get_inputs())` 必须与 task_desc 严格兼容.
-4. 如果 task_desc 把参数拆成 init 和 forward 两部分, 必须保持这个拆分;
+3. `ModelNew` 必须继承 `torch.nn.Module`, `__init__` 必须调用 `super().__init__()`;
+   下游 verifier 会调用 `ModelNew(*get_init_inputs()).to(device)`, 因此缺少 `.to()`
+   视为接口错误, 不得通过自检.
+4. `ModelNew(*get_init_inputs()).forward(*get_inputs())` 必须与 task_desc 严格兼容.
+5. 如果 task_desc 把参数拆成 init 和 forward 两部分, 必须保持这个拆分;
    禁止要求下游验证器把 init_args 和 raw_inputs 错误拍平成一个外部调用接口.
-5. 若 `{op_name}_wrapper` 需要 init 参数, 允许在 `ModelNew.forward()` 内部把
+6. 若 `{op_name}_wrapper` 需要 init 参数, 允许在 `ModelNew.forward()` 内部把
    `self._init_args` / `self._init_kwargs` 按正确顺序转发给 wrapper.
-6. `forward` 内部禁止复制 kernel 逻辑或调用任何其他实现, 只能做参数整理并
+7. `forward` 内部禁止复制 kernel 逻辑或调用任何其他实现, 只能做参数整理并
    转发到 `{op_name}_wrapper`.
-7. 不得修改已生成的 `{op_name}_impl.py` 的导出符号或函数签名, 除非是为修正
+8. 不得修改已生成的 `{op_name}_impl.py` 的导出符号或函数签名, 除非是为修正
    与 task_desc 调用约定不兼容的问题.
+9. 输出 shape 必须与 task_desc 参考 `Model` 完全一致; scalar `torch.Size([])`
+   与 `torch.Size([1])` 不等价, 不得作为通过处理.
 
 ModelNew 文件自检 (必须通过):
 ----------------------------------------------------------------------
 python - <<'PY'
 import importlib.util
 import sys
+import torch
+import torch.nn as nn
 
 sys.path.insert(0, '{op_dir_rel}')
 
@@ -251,11 +261,23 @@ def _stub(*args, **kwargs):
 
 impl_mod.{op_name}_wrapper = _stub
 model = impl_mod.ModelNew(*task_mod.get_init_inputs())
+assert isinstance(model, nn.Module), "ModelNew must inherit torch.nn.Module"
+assert hasattr(model, "to"), "ModelNew must support .to(device)"
+model.to("cpu")
 model(*task_mod.get_inputs())
 print(type(model).__name__, calls)
 PY
 ----------------------------------------------------------------------
-预期行为: 不抛异常, 且输出里包含 `ModelNew`.
+预期行为: 不抛异常, 且输出里包含 `ModelNew`. 如果真实 wrapper 可运行,
+还必须额外对比 `task_desc.Model(*get_init_inputs())(*get_inputs())` 与
+`ModelNew(*get_init_inputs())(*get_inputs())` 的输出 shape, 包括 scalar rank.
+
+精度二次校验硬约束:
+- Stage 5/6 只有在重新运行测试且确定性解析到 `[PRECISION_PASS]` 时才允许判定通过.
+- 测试超时、`no_marker`、权限拒绝、只做文件/接口结构检查、只做 stub 调用检查,
+  都不得被解释为精度通过.
+- 若二次校验未拿到有效 `[PRECISION_PASS]`, 必须通过 `state_transition` 将当前
+  stage 标记为 failed, 不得继续推进到后续阶段.
 
 {stage7_control_section}
 
@@ -263,9 +285,8 @@ PY
 其它约束:
 - 所有产物落在 `{op_dir_rel}/`, 不要写到其它目录.
 - 走真实 NPU 验证 (有可用 NPU 时), 不要降级到 sim 模式.
-- 完成或阻塞时, 在最后一行打印一条机读标记:
-  `[BENCHMARK_DONE] op={op_name} state=<SUCCESS|BLOCKED_*> stage7=<ran|skipped> artifacts=impl,golden,test,pypto_impl`
-  缺失任一产物时, 在 artifacts= 后只列出实际存在的项.
+- 完成或阻塞状态只以 `.orchestrator_state.json` 为准: 成功必须是 Stage 1-7
+  全部 `completed`; 无法继续时必须把失败 stage 标记为 `failed`.
 
 请立即开始, 不要再问我问题.
 """
@@ -277,7 +298,7 @@ def _render_stage7_control_section(skip_stage7_perf_tune: bool) -> str:
             "================================================================\n"
             "【Stage 7 控制】\n"
             "本次任务保持默认行为: Stage 7 需要正常执行迭代性能调优.\n"
-            "完成后请在 `[BENCHMARK_DONE]` 中写 `stage7=ran`.\n"
+            "完成后请通过 `state_transition` 将 Stage 7 标记为 completed.\n"
         )
     return (
         "================================================================\n"
@@ -288,7 +309,7 @@ def _render_stage7_control_section(skip_stage7_perf_tune: bool) -> str:
         "2. 不要为了 Stage 7 再改动本算子的实现 / 测试 / README 等工件.\n"
         "3. 最终流程仍需正常结束, 并在最终报告中写明 `iterations=0`, "
         "`stop_reason=skipped_by_request`.\n"
-        "4. `[BENCHMARK_DONE]` 中写 `stage7=skipped`.\n"
+        "4. 通过 `state_transition` 将 Stage 7 标记为 completed.\n"
     )
 
 
@@ -328,6 +349,32 @@ def _read_orchestrator_state(op_dir: Path) -> Optional[dict]:
         return json.loads(state_file.read_text(encoding="utf-8"))
     except (json.JSONDecodeError, OSError):
         return None
+
+
+def _state_has_failed_stage(state: Optional[dict]) -> bool:
+    if not isinstance(state, dict):
+        return False
+    stage_status = state.get("stage_status")
+    if not isinstance(stage_status, dict):
+        return False
+    return any(str(v).lower() in {"failed", "blocked", "cancelled"} for v in stage_status.values())
+
+
+def _state_all_stages_completed(state: Optional[dict]) -> bool:
+    if not isinstance(state, dict):
+        return False
+    stage_status = state.get("stage_status")
+    if not isinstance(stage_status, dict) or not stage_status:
+        return False
+    return all(str(stage_status.get(k)).lower() == "completed" for k in _REQUIRED_ORCHESTRATOR_STAGES)
+
+
+def _blocked_message(state: Optional[dict]) -> str:
+    if _state_has_failed_stage(state):
+        return "PyPTO workflow 状态机存在 failed/blocked/cancelled 阶段."
+    if not isinstance(state, dict):
+        return "PyPTO workflow 缺少合法 .orchestrator_state.json, 不进入 verifier."
+    return "PyPTO workflow 状态机未达到全阶段 completed, 不进入 verifier."
 
 
 # ────────────────────────────────────────────────────────────
@@ -461,7 +508,30 @@ def run_pypto_workflow(
     if skip_if_done:
         missing = all_artifacts_present(artifacts)
         state = _read_orchestrator_state(op_dir)
-        state_success = bool(state and state.get("current_stage") and state.get("stage_status"))
+        if not missing and _state_has_failed_stage(state):
+            session_export = OpencodeExportResult(
+                status="skipped",
+                message="PyPTO 工作流已阻塞, 本次没有新的 OpenCode session 可导出.",
+            )
+            if log_file is not None:
+                log_file.parent.mkdir(parents=True, exist_ok=True)
+                log_file.write_text(
+                    "[pypto workflow skipped] 已有产物齐全, 但 workflow 处于阻塞/失败状态; 不进入 verifier.\n",
+                    encoding="utf-8",
+                )
+                append_export_result_to_log(log_file, session_export, label="pypto")
+            return PyptoRunResult(
+                op_name=op_name,
+                status=PyptoRunStatus.BLOCKED,
+                workdir=op_dir,
+                artifacts=artifacts,
+                log_file=log_file,
+                duration_sec=0.0,
+                message=_blocked_message(state),
+                orchestrator_state=state,
+                opencode_session_export_message=session_export.message,
+            )
+        state_success = _state_all_stages_completed(state)
         if not missing and state_success:
             session_export = OpencodeExportResult(
                 status="skipped",
@@ -470,7 +540,7 @@ def run_pypto_workflow(
             if log_file is not None:
                 log_file.parent.mkdir(parents=True, exist_ok=True)
                 log_file.write_text(
-                    "[pypto workflow skipped] 所有产物齐全, 且 .orchestrator_state.json 存在.\n",
+                    "[pypto workflow skipped] 所有产物齐全, 且状态文件 Stage 1-7 均 completed.\n",
                     encoding="utf-8",
                 )
                 append_export_result_to_log(log_file, session_export, label="pypto")
@@ -481,7 +551,7 @@ def run_pypto_workflow(
                 artifacts=artifacts,
                 log_file=log_file,
                 duration_sec=0.0,
-                message="所有产物齐全, 且 .orchestrator_state.json 存在; 跳过.",
+                message="所有产物齐全, 且状态文件 Stage 1-7 均 completed; 跳过.",
                 orchestrator_state=state,
                 opencode_session_export_message=session_export.message,
             )
@@ -671,6 +741,36 @@ def run_pypto_workflow(
             opencode_session_export_message=session_export_message,
         )
 
+    if _state_has_failed_stage(state):
+        return PyptoRunResult(
+            op_name=op_name,
+            status=PyptoRunStatus.BLOCKED,
+            workdir=op_dir,
+            artifacts=artifacts,
+            log_file=log_file,
+            duration_sec=duration,
+            message=_blocked_message(state),
+            orchestrator_state=state,
+            opencode_session_id=session_id,
+            opencode_session_md_file=session_md_file,
+            opencode_session_export_message=session_export_message,
+        )
+
+    if not _state_all_stages_completed(state):
+        return PyptoRunResult(
+            op_name=op_name,
+            status=PyptoRunStatus.BLOCKED,
+            workdir=op_dir,
+            artifacts=artifacts,
+            log_file=log_file,
+            duration_sec=duration,
+            message=_blocked_message(state),
+            orchestrator_state=state,
+            opencode_session_id=session_id,
+            opencode_session_md_file=session_md_file,
+            opencode_session_export_message=session_export_message,
+        )
+
     return PyptoRunResult(
         op_name=op_name,
         status=PyptoRunStatus.SUCCESS,
@@ -678,7 +778,7 @@ def run_pypto_workflow(
         artifacts=artifacts,
         log_file=log_file,
         duration_sec=duration,
-        message="产物齐全, opencode 正常退出.",
+        message="产物齐全, opencode 正常退出, 且状态文件 Stage 1-7 均 completed.",
         orchestrator_state=state,
         opencode_session_id=session_id,
         opencode_session_md_file=session_md_file,
