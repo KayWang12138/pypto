@@ -51,15 +51,20 @@ def test_render_spec_front_matter_from_tensor_specs() -> None:
             TensorSpec(name="x1", shape=[4], dtype="float16"),
             TensorSpec(name="x2", shape=None, dtype="torch.float32"),
         ],
+        outputs=[TensorSpec(name="y0", shape=[2, 3], dtype="torch.float16")],
     )
 
-    front_matter = _parse_front_matter(render_spec_md(case))
+    markdown = render_spec_md(case)
+    front_matter = _parse_front_matter(markdown)
 
     assert front_matter["schema_version"] == 1
     assert front_matter["op_name"] == "Foo"
     assert front_matter["supported_dtypes"] == ["float16", "float32"]
     assert front_matter["p0_shapes"] == [[2, 3], [4]]
     assert front_matter["tolerance"] == {"rtol": 0.004, "atol": 0.004}
+    assert "## 输入输出规格" in markdown
+    assert "**输出规格**" in markdown
+    assert "`y0` | `2x3` | `torch.float16`" in markdown
 
 
 def test_render_spec_front_matter_probe_fallback() -> None:
@@ -107,6 +112,9 @@ def test_load_case_populates_front_matter_fields_and_write_spec(tmp_path) -> Non
                 def forward(self, x):
                     return x
 
+                def __call__(self, x):
+                    return self.forward(x)
+
             class FakeTensor:
                 shape = (16, 256, 256)
                 dtype = "float32"
@@ -128,6 +136,7 @@ def test_load_case_populates_front_matter_fields_and_write_spec(tmp_path) -> Non
     assert case.supported_dtypes == ["float32"]
     assert case.p0_shapes == [[16, 256, 256]]
     assert case.tolerance == {"rtol": 0.001, "atol": 0.001}
+    assert case.outputs[0].shape == [16, 256, 256]
     assert front_matter["op_name"] == "Softmax"
     assert front_matter["supported_dtypes"] == ["float32"]
     assert front_matter["p0_shapes"] == [[16, 256, 256]]
@@ -147,6 +156,9 @@ def test_load_case_extracts_formula_and_dynamic_axis_globals(tmp_path) -> None:
 
                 def forward(self, x, bias):
                     return x + bias
+
+                def __call__(self, x, bias):
+                    return self.forward(x, bias)
 
             class FakeTensor:
                 shape = (2, 4, 8)
@@ -168,5 +180,6 @@ def test_load_case_extracts_formula_and_dynamic_axis_globals(tmp_path) -> None:
 
     assert case.formula == "out[b, s, d] = x[b, s, d] + bias[d]"
     assert case.dynamic_axis == ["B", "S"]
+    assert case.outputs[0].shape == [2, 4, 8]
     assert front_matter["dynamic_axis"] == ["B", "S"]
     assert "### 1.3 数学公式" in markdown

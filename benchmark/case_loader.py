@@ -75,6 +75,7 @@ class CaseSpec:
     forward_source: str = ""               # Model.forward / __call__ 的源码片段
     init_args_repr: str = "[]"             # get_init_inputs() 的 repr
     inputs: List[TensorSpec] = field(default_factory=list)
+    outputs: List[TensorSpec] = field(default_factory=list)
     supported_dtypes: List[str] = field(default_factory=lambda: ["float32"])
     p0_shapes: List[List[int]] = field(default_factory=list)
     tolerance: Dict[str, float] = field(
@@ -196,7 +197,15 @@ def _shape_dtype(obj):
     dtype = str(getattr(obj, "dtype", type(obj).__name__))
     return shape, dtype
 
+def _flatten_outputs(obj):
+    if isinstance(obj, dict):
+        return list(obj.items())
+    if isinstance(obj, (list, tuple)):
+        return list(enumerate(obj))
+    return [(0, obj)]
+
 inputs_info = []
+inputs = []
 try:
     inputs = mod.get_inputs()
     for i, t in enumerate(inputs):
@@ -206,18 +215,32 @@ except Exception as e:
     inputs_info.append({{"error": str(e)}})
 
 init_repr = "[]"
+init_args = []
 try:
-    init_repr = repr(mod.get_init_inputs())
+    init_args = mod.get_init_inputs()
+    init_repr = repr(init_args)
 except Exception as e:
     init_repr = f"<unavailable: {{e}}>"
 
+outputs_info = []
+try:
+    if inputs_info and "error" not in inputs_info[0]:
+        model = mod.Model(*init_args)
+        outputs = model(*inputs)
+        for key, t in _flatten_outputs(outputs):
+            shp, dt = _shape_dtype(t)
+            name = f"y{{key}}" if isinstance(key, int) else str(key)
+            outputs_info.append({{"name": name, "shape": shp, "dtype": dt}})
+except Exception as e:
+    outputs_info.append({{"error": str(e)}})
+
 print("__PROBE_RESULT__")
-print(json.dumps({{"inputs": inputs_info, "init_args_repr": init_repr}}))
+print(json.dumps({{"inputs": inputs_info, "outputs": outputs_info, "init_args_repr": init_repr}}))
 """
 
 
-def _probe_inputs(case_path: Path, timeout_sec: int = 30) -> tuple[List[TensorSpec], str]:
-    """在子进程中执行 ``get_inputs()`` 并捕获 shape/dtype.
+def _probe_io_specs(case_path: Path, timeout_sec: int = 30) -> tuple[List[TensorSpec], List[TensorSpec], str]:
+    """在子进程中执行 ``get_inputs()`` / ``Model.forward`` 并捕获 shape/dtype.
 
     失败时返回空列表 + ``"[]"`` 作为 fallback, 不抛异常 (静默降级到 SPEC 自行推断).
     """
@@ -231,30 +254,41 @@ def _probe_inputs(case_path: Path, timeout_sec: int = 30) -> tuple[List[TensorSp
             check=False,
         )
     except subprocess.TimeoutExpired:
-        return [], "[]"
+        return [], [], "[]"
 
     if proc.returncode != 0:
-        return [], "[]"
+        return [], [], "[]"
 
     marker = "__PROBE_RESULT__"
     if marker not in proc.stdout:
-        return [], "[]"
+        return [], [], "[]"
     payload = proc.stdout.split(marker, 1)[1].strip()
     try:
         data = json.loads(payload.splitlines()[0])
     except (ValueError, IndexError):
-        return [], "[]"
+        return [], [], "[]"
 
-    inputs: List[TensorSpec] = []
-    for entry in data.get("inputs", []):
-        if "error" in entry:
-            continue
-        inputs.append(TensorSpec(
-            name=entry.get("name", ""),
-            shape=entry.get("shape"),
-            dtype=str(entry.get("dtype", "")),
-        ))
-    return inputs, str(data.get("init_args_repr", "[]"))
+    def _to_specs(entries: list[dict]) -> List[TensorSpec]:
+        specs: List[TensorSpec] = []
+        for entry in entries:
+            if "error" in entry:
+                continue
+            specs.append(TensorSpec(
+                name=entry.get("name", ""),
+                shape=entry.get("shape"),
+                dtype=str(entry.get("dtype", "")),
+            ))
+        return specs
+
+    inputs = _to_specs(data.get("inputs", []))
+    outputs = _to_specs(data.get("outputs", []))
+    return inputs, outputs, str(data.get("init_args_repr", "[]"))
+
+
+def _probe_inputs(case_path: Path, timeout_sec: int = 30) -> tuple[List[TensorSpec], str]:
+    """兼容旧调用方：仅返回输入规格和 init 参数。"""
+    inputs, _, init_repr = _probe_io_specs(case_path, timeout_sec)
+    return inputs, init_repr
 
 
 # ────────────────────────────────────────────────────────────
@@ -326,7 +360,7 @@ def load_case(case_path: Path, op_name: Optional[str] = None,
     init_src = _extract_model_method_source(tree, source, "__init__")
     forward_src = _extract_model_method_source(tree, source, "__call__", "forward")
     formula, dynamic_axis = _extract_new_interface_globals(tree)
-    inputs, init_repr = _probe_inputs(case_path, timeout_sec=probe_timeout_sec)
+    inputs, outputs, init_repr = _probe_io_specs(case_path, timeout_sec=probe_timeout_sec)
     supported_dtypes, p0_shapes, tolerance = _derive_front_matter_fields(inputs)
 
     return CaseSpec(
@@ -340,6 +374,7 @@ def load_case(case_path: Path, op_name: Optional[str] = None,
         forward_source=forward_src,
         init_args_repr=init_repr,
         inputs=inputs,
+        outputs=outputs,
         supported_dtypes=supported_dtypes,
         p0_shapes=p0_shapes,
         tolerance=tolerance,
@@ -377,9 +412,21 @@ tolerance: {tolerance_json}
 - **参考框架 (framework)**: `{framework}`
 
 {formula_section}
-## 输入规格
+## 输入输出规格
 
+**输入规格**:
 {inputs_section}
+
+**输出规格**:
+{outputs_section}
+
+## Shape 约束
+
+{shape_constraints_section}
+
+## 数据类型支持
+
+{dtype_section}
 
 ## 初始化参数 (get_init_inputs)
 
@@ -413,7 +460,7 @@ outputs = model(*get_inputs())
 
 ## 精度要求
 
-- 默认: ``rtol=1e-3, atol=1e-3`` (FP32) / ``rtol=4e-3, atol=4e-3`` (FP16/BF16).
+- 默认: ``rtol={rtol}, atol={atol}`` (由输入 dtype 自动推导; FP16/BF16 使用更宽容差).
 - 验证通过条件: ``test_{op_name}.py`` 输出 ``[PRECISION_PASS]``.
 - 桥接层 KernelVerifier 端按 ``mode=correctness`` 复测.
 
@@ -437,14 +484,53 @@ outputs = model(*get_inputs())
 """
 
 
-def _render_inputs_section(inputs: List[TensorSpec]) -> str:
-    if not inputs:
-        return ("> 输入 shape/dtype 探针执行失败 (子进程超时或环境缺依赖). "
+def _format_shape(shape: Optional[List[int]]) -> str:
+    if shape is None:
+        return "unknown"
+    return "x".join(str(s) for s in shape) or "scalar"
+
+
+def _render_tensor_section(specs: List[TensorSpec], kind: str) -> str:
+    if not specs:
+        return (f"> {kind} shape/dtype 探针执行失败 (子进程超时、环境缺依赖或 forward 不可执行). "
                 "请由 pypto-intent-understand 从下方 task_desc 自行推断.\n")
     lines = ["| # | name | shape | dtype |", "|---|------|-------|-------|"]
-    for i, spec in enumerate(inputs):
-        shp = "x".join(str(s) for s in (spec.shape or [])) or "scalar"
-        lines.append(f"| {i} | `{spec.name}` | `{shp}` | `{spec.dtype}` |")
+    for i, spec in enumerate(specs):
+        lines.append(f"| {i} | `{spec.name}` | `{_format_shape(spec.shape)}` | `{spec.dtype}` |")
+    return "\n".join(lines) + "\n"
+
+
+def _render_shape_constraints_section(
+    inputs: List[TensorSpec],
+    outputs: List[TensorSpec],
+    dynamic_axis: Optional[List[str]],
+) -> str:
+    lines = ["- **来源**: `get_inputs()` 与 `Model(*get_init_inputs()).forward(*get_inputs())` 探针结果。"]
+    if inputs:
+        lines.append("- **P0 输入 Shape**:")
+        for spec in inputs:
+            lines.append(f"  - `{spec.name}`: `{_format_shape(spec.shape)}`")
+    else:
+        lines.append("- **P0 输入 Shape**: 未探测到。")
+    if outputs:
+        lines.append("- **P0 输出 Shape**:")
+        for spec in outputs:
+            lines.append(f"  - `{spec.name}`: `{_format_shape(spec.shape)}`")
+    else:
+        lines.append("- **P0 输出 Shape**: 未探测到。")
+    if dynamic_axis:
+        lines.append(f"- **动态轴**: `{', '.join(dynamic_axis)}` (来自 case 顶层 `DYNAMIC_AXIS`)。")
+    else:
+        lines.append("- **动态轴**: 未声明 (case 顶层未提供 `DYNAMIC_AXIS`)。")
+    return "\n".join(lines) + "\n"
+
+
+def _render_dtype_section(supported_dtypes: List[str], tolerance: Dict[str, float]) -> str:
+    lines = ["| Dtype | 支持 | atol | rtol | 备注 |", "|-------|------|------|------|------|"]
+    for dtype in supported_dtypes:
+        lines.append(
+            f"| {dtype} | 是 | {tolerance['atol']} | {tolerance['rtol']} | 自动探测 |"
+        )
     return "\n".join(lines) + "\n"
 
 
@@ -526,7 +612,14 @@ def render_spec_md(case: CaseSpec) -> str:
         source_file=case.source_file,
         framework=case.framework_module,
         formula_section=_render_formula_section(case.formula),
-        inputs_section=_render_inputs_section(case.inputs),
+        inputs_section=_render_tensor_section(case.inputs, "输入"),
+        outputs_section=_render_tensor_section(case.outputs, "输出"),
+        shape_constraints_section=_render_shape_constraints_section(
+            case.inputs, case.outputs, case.dynamic_axis
+        ),
+        dtype_section=_render_dtype_section(supported_dtypes, tolerance),
+        rtol=tolerance["rtol"],
+        atol=tolerance["atol"],
         init_args_repr=case.init_args_repr,
         init_source=textwrap.dedent(case.init_source).strip() or "# (未提取到 __init__ 源码)",
         forward_source=textwrap.dedent(case.forward_source).strip() or "# (未提取到 forward 源码)",
