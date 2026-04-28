@@ -190,10 +190,6 @@ Status RemoveRedundantAssemble::ProcessView(Function& function) const
         APASS_LOG_ERROR_F(Elements::Function, "SplitMultiConsumerReshape failed.");
         return FAILED;
     }
-    if (RemoveViewMultiReshape(multiReshapeVector) != SUCCESS) {
-        APASS_LOG_ERROR_F(Elements::Function, "RemoveViewMultiReshape failed.");
-        return FAILED;
-    }
     if (RemoveViewSingleReshape(function) != SUCCESS) {
         APASS_LOG_ERROR_F(Elements::Function, "RemoveViewSingleReshape failed.");
         return FAILED;
