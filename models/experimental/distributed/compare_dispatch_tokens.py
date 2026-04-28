@@ -153,7 +153,7 @@ def dispatch_tokens_v2(
             receive_rank_token_counts_list[receiving_rank_id][expert_offset * moe_case.ep_world_size + sending_rank_id + 1] = token_count_per_expert[expert_id]
     
     token_counts_tensor = torch.stack(receive_rank_token_counts_list)
-    cumsum_result = torch.cumsum(token_counts_tensor, dim=1)
+    cumsum_result = torch.cumsum(token_counts_tensor, dim=1).to(torch.int32)
     recv_counts_tensor = cumsum_result[:, -1].unsqueeze(1)
     recv_counts_list = [recv_counts_tensor[i] for i in range(moe_case.ep_world_size)]
     
