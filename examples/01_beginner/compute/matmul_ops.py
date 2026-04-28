@@ -282,6 +282,101 @@ def test_matmul_bias(device_id: int = None):
     print("✓ Matrix multiplication with bias completed successfully")
 
 
+def test_mixed_ascendc_pypto_matmul_add_chain(device_id: int = None):
+    """Test mixed chain: AscendC matmul/add + PyPTO matmul."""
+    print("=" * 60)
+    print("Test: Mixed AscendC/PyPTO Matmul-Add Chain")
+    print("=" * 60)
+
+    device = f'npu:{device_id}' if global_run_mode == pypto.RunMode.NPU and device_id is not None else 'cpu'
+    dtype = torch.float32
+
+    # Input and weights for:
+    # ascendc matmul + pypto matmul + ascendc matmul + ascendc add +
+    # ascendc matmul + ascendc add + ascendc matmul + ascendc add +
+    # ascendc matmul + ascendc add
+    x = torch.tensor([[1.0, 2.0], [3.0, 4.0]], dtype=dtype, device=device)
+    w0 = torch.tensor([[1.0, 0.0], [0.0, 1.0]], dtype=dtype, device=device)
+    w1 = torch.tensor([[2.0, 1.0], [1.0, 2.0]], dtype=dtype, device=device)
+    w2 = torch.tensor([[1.0, 3.0], [2.0, 1.0]], dtype=dtype, device=device)
+    w3 = torch.tensor([[1.0, 1.0], [1.0, -1.0]], dtype=dtype, device=device)
+    w4 = torch.tensor([[0.5, 1.0], [1.5, -0.5]], dtype=dtype, device=device)
+    b0 = torch.tensor([[1.0, -1.0], [2.0, 0.5]], dtype=dtype, device=device)
+    w5 = torch.tensor([[1.0, 2.0], [3.0, 1.0]], dtype=dtype, device=device)
+    b1 = torch.tensor([[0.0, 1.0], [1.0, 0.0]], dtype=dtype, device=device)
+    b2 = torch.tensor([[1.0, 1.0], [-1.0, 2.0]], dtype=dtype, device=device)
+    b3 = torch.tensor([[0.5, -0.5], [1.5, 1.0]], dtype=dtype, device=device)
+
+    # 1) AscendC matmul (torch on NPU)
+    y0 = torch.matmul(x, w0)
+    # 2) PyPTO matmul (reuse required kernel)
+    y1 = torch.empty((y0.shape[0], w1.shape[1]), dtype=dtype, device=device)
+    matmul_kernel(y0, w1, y1)
+    # 3) AscendC matmul
+    y2 = torch.matmul(y1, w2)
+    # 4) AscendC add
+    y3 = torch.add(y2, b0)
+    # 5) AscendC matmul
+    y4 = torch.matmul(y3, w3)
+    # 6) AscendC add
+    y5 = torch.add(y4, b1)
+    # 7) AscendC matmul
+    y6 = torch.matmul(y5, w4)
+    # 8) AscendC add
+    y7 = torch.add(y6, b2)
+    # 9) AscendC matmul
+    y8 = torch.matmul(y7, w5)
+    # 10) AscendC add
+    out = torch.add(y8, b3)
+
+    # Golden uses the same math path, with PyPTO step replaced by torch.matmul.
+    golden = torch.matmul(x, w0)
+    golden = torch.matmul(golden, w1)
+    golden = torch.matmul(golden, w2)
+    golden = torch.add(golden, b0)
+    golden = torch.matmul(golden, w3)
+    golden = torch.add(golden, b1)
+    golden = torch.matmul(golden, w4)
+    golden = torch.add(golden, b2)
+    golden = torch.matmul(golden, w5)
+    golden = torch.add(golden, b3)
+
+    if global_run_mode == pypto.RunMode.NPU:
+        assert_allclose(out.cpu().numpy(), golden.cpu().numpy(), rtol=1e-3, atol=1e-3)
+    else:
+        assert_allclose(out.numpy(), golden.numpy(), rtol=1e-3, atol=1e-3)
+
+    print(f"Output: {out}")
+    print(f"Expected: {golden}")
+    print("✓ Mixed AscendC/PyPTO matmul-add chain completed successfully")
+
+
+def test_ascendc_matmul_add_only(device_id: int = None):
+    """Test pure AscendC chain: matmul + add."""
+    print("=" * 60)
+    print("Test: AscendC Matmul + Add")
+    print("=" * 60)
+
+    device = f'npu:{device_id}' if global_run_mode == pypto.RunMode.NPU and device_id is not None else 'cpu'
+    dtype = torch.float32
+
+    x = torch.tensor([[1.0, 2.0], [3.0, 4.0]], dtype=dtype, device=device)
+    w = torch.tensor([[2.0, 1.0], [1.0, 2.0]], dtype=dtype, device=device)
+    b = torch.tensor([[0.5, -1.0], [1.5, 2.0]], dtype=dtype, device=device)
+
+    out = torch.add(torch.matmul(x, w), b)
+    golden = torch.matmul(x, w) + b
+
+    if global_run_mode == pypto.RunMode.NPU:
+        assert_allclose(out.cpu().numpy(), golden.cpu().numpy(), rtol=1e-3, atol=1e-3)
+    else:
+        assert_allclose(out.numpy(), golden.numpy(), rtol=1e-3, atol=1e-3)
+
+    print(f"Output: {out}")
+    print(f"Expected: {golden}")
+    print("✓ AscendC matmul + add completed successfully")
+
+
 # ============================================================================
 # Main Function
 # ============================================================================
@@ -349,6 +444,16 @@ Examples:
             'name': 'Test matrix multiplication with bias',
             'description': 'Matrix multiplication with bias example',
             'function': test_matmul_bias
+        },
+        'matmul::test_mixed_ascendc_pypto_matmul_add_chain': {
+            'name': 'Test mixed AscendC/PyPTO matmul-add chain',
+            'description': 'AscendC matmul/add and PyPTO matmul mixed pipeline example',
+            'function': test_mixed_ascendc_pypto_matmul_add_chain
+        },
+        'matmul::test_ascendc_matmul_add_only': {
+            'name': 'Test AscendC matmul + add',
+            'description': 'Pure AscendC path with one matmul and one add',
+            'function': test_ascendc_matmul_add_only
         }
     }
 
