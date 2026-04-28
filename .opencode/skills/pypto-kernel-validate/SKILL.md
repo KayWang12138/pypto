@@ -145,6 +145,16 @@ python -m integration.benchmark.verifier verify \
 
 把三方结论合并写到 `<output_dir>/skill_report.json`. **必须** 用 `write` 工具落盘, 不要只在 chat 里输出.
 
+写入后必须立即执行 JSON 合法性门禁:
+
+```bash
+python -m json.tool "<output_dir>/skill_report.json" >/dev/null
+```
+
+若该命令失败, 说明 `skill_report.json` 不是合法 JSON。必须重写该文件并重新执行
+`python -m json.tool`, 直到命令通过。JSON 校验失败时不得输出
+`skill_report.json written: ...` 成功行, 也不得把本 skill 判为完成。
+
 报告结构:
 
 ```json
@@ -183,7 +193,8 @@ python -m integration.benchmark.verifier verify \
 
 - 唯一刚性产物: `<output_dir>/skill_report.json`
 - 中间产物可选保留: `cheat_check_script.json`, `verify_run.json` (推荐落盘, 便于排错)
-- chat 中只回一行: `skill_report.json written: <path>; final_verdict=<verdict>`. 不重复 JSON 内容, 不堆叠人类总结.
+- 只有 `python -m json.tool "<output_dir>/skill_report.json" >/dev/null` 通过后, chat 中才能只回一行:
+  `skill_report.json written: <path>; final_verdict=<verdict>`. 不重复 JSON 内容, 不堆叠人类总结.
 
 ## 失败处理
 
@@ -194,10 +205,12 @@ python -m integration.benchmark.verifier verify \
 | Step 3 correctness 失败且日志为 runtime/aicore/ACL/507xxx | 先按潜在卡问题重试/切卡; 未完成重试不得直接写 `FAIL_CORRECTNESS` |
 | `op_dir` 缺源文件 | 直接 `final_verdict = ERROR`, 不进入 Step 2/3 |
 | Step 2 你拿不准任何一项 | 该项标 `suspicious`, 综合 verdict 取 `suspicious`; final_verdict 仍可 PASS, 但要在 reasoning 里点名 |
+| `python -m json.tool skill_report.json` 失败 | 重写 `skill_report.json` 并重新校验; 校验通过前不得输出成功行 |
 
 ## 你绝对不能做的事
 
 - 不能跳过 Step 2 直接采信 Step 1 的脚本结论 (脚本只能抓机械层, 这正是你存在的理由).
 - 不能修改 `<op_dir>` 下的任何文件 (你是审阅者, 不是修复者).
 - 不能在 chat 里给"通过"的口头结论而不写 `skill_report.json`.
+- 不能在 `skill_report.json` 未通过 `python -m json.tool` 时输出成功行.
 - 不能因为脚本层 warning 就跳过 Step 2/3; 也不能无依据把语义层已确认的 cheat 降级为 suspicious / pass. 严格遵守上面 final_verdict 的优先级规则.
