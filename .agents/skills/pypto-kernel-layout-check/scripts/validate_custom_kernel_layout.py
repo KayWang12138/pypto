@@ -51,6 +51,7 @@ staged/*_impl.py), checks:
 
 Exit 0 if nothing to check or all checks pass; 1 on failure.
 """
+
 from __future__ import annotations
 
 import argparse
@@ -254,7 +255,7 @@ def find_pypto_view_reshape_misuse(source: str, rel_path: Path) -> list[str]:
       - len(shape) != len(valid_shape)     → clear bug when valid_shape is non-empty
 
     pypto.view extracts a same-rank sub-view. It is NOT a reshape. See
-    `docs/api/operation/pypto-view.md` and `skills/pypto-general-debug/references/debug-playbook.md` §9.4.
+    `docs/api/operation/pypto-view.md` and `skills/pypto-general-debug/references/pypto-view.md`.
     """
     errors: list[str] = []
     try:
@@ -286,7 +287,7 @@ def find_pypto_view_reshape_misuse(source: str, rel_path: Path) -> list[str]:
                 f"(shape has {shape_len} dims, offsets has {offsets_len} dims). "
                 f"pypto.view is NOT reshape — it extracts a same-rank sub-view. "
                 f"See `docs/api/operation/pypto-view.md` and "
-                f"`skills/pypto-general-debug/references/debug-playbook.md` §9.4."
+                f"`skills/pypto-general-debug/references/pypto-view.md`."
             )
 
         if (
@@ -369,7 +370,7 @@ def find_missing_pypto_loop(source: str, rel_path: Path) -> list[str]:
         warnings.append(
             f"{rel_path}: PyPTO kernel function detected but no `pypto.loop` calls found. "
             f"If the kernel uses iteration over dynamic axes, consider using `pypto.loop`. "
-            f"See `skills/pypto-general-debug/references/debug-playbook.md` §9.15 and "
+            f"See `skills/pypto-general-debug/references/tile-shapes.md` and "
             f"`docs/api/controlflow/pypto-loop.md`."
         )
 
@@ -389,7 +390,11 @@ def _is_set_cube_tile_shapes_call(node: ast.AST) -> bool:
 
 def _int_literal_value(node: ast.AST | None) -> int | None:
     """Return int value if `node` is a positive int literal; else None."""
-    if isinstance(node, ast.Constant) and isinstance(node.value, int) and not isinstance(node.value, bool):
+    if (
+        isinstance(node, ast.Constant)
+        and isinstance(node.value, int)
+        and not isinstance(node.value, bool)
+    ):
         return node.value
     return None
 
@@ -498,7 +503,9 @@ def _validate_staged_sets(repo_root: Path, op: str, custom_op: Path) -> list[str
         return errors
 
     impl_re = re.compile(rf"^{re.escape(op)}_module(\d+)_impl\.py$")
-    impl_files = sorted(p for p in staged_dir.iterdir() if p.is_file() and impl_re.match(p.name))
+    impl_files = sorted(
+        p for p in staged_dir.iterdir() if p.is_file() and impl_re.match(p.name)
+    )
     if not impl_files:
         return errors
 
@@ -533,7 +540,9 @@ def _validate_staged_sets(repo_root: Path, op: str, custom_op: Path) -> list[str
     return errors
 
 
-def _validate_runner_references_compare(repo_root: Path, custom_op: Path, op: str) -> list[str]:
+def _validate_runner_references_compare(
+    repo_root: Path, custom_op: Path, op: str
+) -> list[str]:
     """
     The active runner must reference detailed_tensor_compare. Pick:
       - canonical test_<op>.py if present (Phase D done)
@@ -656,7 +665,9 @@ def main() -> int:
             "no kernel artifacts yet — skip)."
         )
     else:
-        print(f"validate_custom_kernel_layout: OK ({checked} operator kernel layout(s) checked).")
+        print(
+            f"validate_custom_kernel_layout: OK ({checked} operator kernel layout(s) checked)."
+        )
     return 0
 
 

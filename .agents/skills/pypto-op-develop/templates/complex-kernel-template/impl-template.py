@@ -86,7 +86,7 @@ def prepare_buffers_for_pypto(
 #   - set_vec_tile_shapes 传正整数 tile 维度（参考 docs/api/config/pypto-set_vec_tile_shapes.md）
 #   - pypto.view / 内部 tensor: 必要时保持 ≤ 4D
 #   - 在真实代码中给 tensor 行加 shape 注释（例: # [B, S, H]）
-#   - 写 PyPTO 代码前先读 .agents/skills/pypto-general-debug/references/debug-playbook.md §9 的对应小节
+#   - 写 PyPTO 代码前先读 .agents/skills/pypto-general-debug/references/ 下的对应 leaf 文件（见 DEBUG_GUIDEBOOK.md 索引）
 #     （JIT §9.1, view §9.4, matmul §9.19 等）
 #
 # ═══════════════════════════════════════════════════════════════════
@@ -116,7 +116,7 @@ def pypto_stage_placeholder() -> None:
 #     tensor stub，直到当前模块匹配 golden。
 #   - **禁止**: 在任何中间 boundary 与 golden 匹配前，把所有 pypto_* helper
 #     一次性串入 kernel_impl。
-#   - 遇到不透明错误（Errcode、FFFFF…）: 跟随 .agents/skills/pypto-general-debug/references/debug-playbook.md。
+#   - 遇到不透明错误（Errcode、FFFFF…）: 跟随 .agents/skills/pypto-general-debug/references/error-codes.md。
 #
 # ═══════════════════════════════════════════════════════════════════
 

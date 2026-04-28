@@ -75,21 +75,22 @@ Goal: build each module in isolation before integration, as a **staged set of 3 
 
 **Hard rule:** In each iteration, extend the production kernel by at most one new semantic module's real PyPTO logic. Everything downstream remains stubbed or fed from golden boundary tensors. The Coding Agent is responsible for enforcing one-staged-set-per-dispatch.
 
-### Before writing PyPTO code — consult `skills/pypto-general-debug/references/debug-playbook.md` §9
+### Before writing PyPTO code — consult the matching reference leaf file
 
-Read the relevant subsections before writing each module's PyPTO code:
+Open only the leaf file that matches what you are about to write. Each leaf is small (≈30–300 lines).
+See the full situation→leaf table in `.agents/skills/pypto-general-debug/references/DEBUG_GUIDEBOOK.md`.
 
 | What you are about to write | Read first |
 |------------------------------|------------|
-| Any `@pypto.frontend.jit` function | §9.1 (`from __future__ import annotations` breaks JIT) |
-| `pypto.view` / `pypto.assemble` | §9.4 (golden rule: `len(shape)==len(offsets)`, padding, reshape) |
-| `pypto.matmul` | §9.19 (transpose flags `a_trans`/`b_trans`, NOT `.T`; cube+vec tiles required) |
-| `.sum()` / reduction ops | §9.19 (32-byte alignment; matmul-based workaround) |
-| Dynamic shapes / `pypto.loop` | §9.2 (concrete loop bounds, symbolic offsets) |
-| Tensor type hints in JIT signature | §9.13 (use `pypto.Tensor([], dtype)`, not explicit `DYNAMIC` dims) |
-| Element-wise ops inside JIT | §9.14 (Python `*`, `+`, `.exp()` work; prefer over verbose `pypto.mul`) |
-| Tile shape configuration | §9.15 + §9.19 (vec+cube both needed for matmul; ≥4 vec args) |
-| Any error during development | §9.11 (common error → cause → solution quick table) |
+| Any `@pypto.frontend.jit` function | `references/jit-signature.md` (`from __future__ import annotations` breaks JIT) |
+| `pypto.view` / `pypto.assemble` | `references/pypto-view.md` (golden rule: `len(shape)==len(offsets)`, padding, reshape) |
+| `pypto.matmul` | `references/matmul.md` (transpose flags `a_trans`/`b_trans`, NOT `.T`; cube+vec tiles required) |
+| `.sum()` / reduction ops | `references/matmul.md` (32-byte alignment; matmul-based workaround) |
+| Dynamic shapes / `pypto.loop` | `references/dynamic-shapes.md` (concrete loop bounds, symbolic offsets) |
+| Tensor type hints in JIT signature | `references/jit-signature.md` (use `pypto.Tensor([], dtype)`, not explicit `DYNAMIC` dims) |
+| Element-wise ops inside JIT | `references/python-operators.md` (Python `*`, `+`, `.exp()` work; prefer over verbose `pypto.mul`) |
+| Tile shape configuration | `references/tile-shapes.md` + `references/matmul.md` (vec+cube both needed for matmul; ≥4 vec args) |
+| Any error during development | `references/checklist-and-api.md` §9.11 (common error → cause → solution quick table) |
 
 ### Subskill reference: implementation templates and execution constraints
 
@@ -191,7 +192,7 @@ If the module fails:
 
 ### Subskill delegation: debugging escalation
 
-When `skills/pypto-general-debug/references/debug-playbook.md` strategies and `diagnose_error` do not resolve the issue, escalate to the following subskills in order:
+When the debug strategies (see `.agents/skills/pypto-general-debug/references/DEBUG_GUIDEBOOK.md` for the section→leaf map) and `diagnose_error` do not resolve the issue, escalate to the following subskills in order:
 
 1. **Precision workarounds**: Read `skills/pypto-precision-debug/SKILL.md` — try the workaround checklist (frontend switch, avoid inplace, unroll_list=[1], submit_before_loop, +0.0, shape adjustment).
 2. **Precision bisection**: Read `skills/pypto-precision-compare/SKILL.md` — use `pass_verify_save` or checkpoint tensors to pinpoint the diverging operation.

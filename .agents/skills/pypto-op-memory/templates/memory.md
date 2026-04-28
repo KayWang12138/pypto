@@ -115,24 +115,23 @@ List **every operation** in the PyPTO-friendly golden. In Phase 3/4, cross-check
 - **Layer rules:** `.agents/skills/pypto-op-develop/references/kernel-layer-format.md`
 - Which layers apply, which omitted, why:
 
-## `skills/pypto-general-debug/references/debug-playbook.md` §9 — pre-write checklist
+## Pre-write checklist (see `.agents/skills/pypto-general-debug/references/DEBUG_GUIDEBOOK.md` for section→leaf map)
 
-Before writing each module's PyPTO code, review the matching subsections from `.agents/skills/pypto-general-debug/references/debug-playbook.md` §9. Check off after reading. See full lookup table in `skills/pypto-decompose-construct/SKILL.md` → **Phase 3 → Before writing PyPTO code**.
+Before writing each module's PyPTO code, open the matching leaf file from `.agents/skills/pypto-general-debug/references/`. Check off after reading. See full lookup table in `skills/pypto-decompose-construct/SKILL.md` → **Phase 3 → Before writing PyPTO code**.
 
-| Subsection | Applies to this kernel? | Reviewed? |
-|------------|------------------------|-----------|
-| §9.1 JIT signature (`from __future__` ban) | ☐ yes / ☐ no | ☐ |
-| §9.2 Dynamic shapes, symbolic loop bounds | ☐ yes / ☐ no | ☐ |
-| §9.4 `pypto.view` / `pypto.assemble` guide | ☐ yes / ☐ no | ☐ |
-| §9.13 Tensor shape specs (`[]` vs `DYNAMIC`) | ☐ yes / ☐ no | ☐ |
-| §9.14 Python operators inside JIT | ☐ yes / ☐ no | ☐ |
-| §9.15 Tile shape configuration | ☐ yes / ☐ no | ☐ |
-| §9.19 matmul API / reduction / assemble | ☐ yes / ☐ no | ☐ |
-| §9.11 Common error quick table | ☐ yes / ☐ no | ☐ |
+| Reference file (leaf) | Applies to this kernel? | Reviewed? |
+|------------------------|------------------------|-----------|
+| `jit-signature.md` (JIT signatures, `from __future__` ban) | ☐ yes / ☐ no | ☐ |
+| `dynamic-shapes.md` (dynamic shapes, symbolic loop bounds) | ☐ yes / ☐ no | ☐ |
+| `pypto-view.md` (pypto.view / pypto.assemble guide) | ☐ yes / ☐ no | ☐ |
+| `python-operators.md` (Python operators inside JIT) | ☐ yes / ☐ no | ☐ |
+| `tile-shapes.md` (tile shape configuration) | ☐ yes / ☐ no | ☐ |
+| `matmul.md` (matmul API / reduction / assemble) | ☐ yes / ☐ no | ☐ |
+| `checklist-and-api.md` (common error quick table) | ☐ yes / ☐ no | ☐ |
 
 ## Opaque error codes (FFFFF, UNKNOWN, Errcode: F…!)
 
-**Do not** abandon the run on these alone. Follow `.agents/skills/pypto-general-debug/references/debug-playbook.md` §1–§8, capture full logs, and iterate. When debugging, also consult §9.11 (common error → cause → solution quick table). Log each attempt below.
+**Do not** abandon the run on these alone. Follow `.agents/skills/pypto-general-debug/references/error-codes.md`, capture full logs, and iterate. When debugging, also consult `checklist-and-api.md` §9.11 (common error → cause → solution quick table). Log each attempt below.
 
 ## Development & debug log
 

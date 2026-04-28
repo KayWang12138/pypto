@@ -136,7 +136,7 @@ different function scope than the matmul call.
 
 **Patch proposal**: add the call at the **top of the `@pypto.frontend.jit` function body**,
 before any matmul, and re-set after any nested-scope change if the API requires it (see
-`skills/pypto-general-debug/references/debug-playbook.md §8`).
+`skills/pypto-general-debug/references/DEBUG_GUIDEBOOK.md §4`).
 
 If mixing cube and vec ops, also call `set_vec_tile_shapes(...)`:
 
@@ -287,7 +287,7 @@ needed, raise `nL1` instead (subject to L1 budget, §6).
 
 **Cause**: `set_cube_tile_shapes` alone is **not** enough — AIV ops (including compiler-
 inserted `REGISTER_COPY`) still require `set_vec_tile_shapes`. See
-`skills/pypto-general-debug/references/debug-playbook.md §8` bullet "Do not rely only on `set_cube_tile_shapes`".
+`skills/pypto-general-debug/references/error-codes.md` §4 bullet "Do not rely only on `set_cube_tile_shapes`".
 
 **Patch proposal**: call **both**:
 
