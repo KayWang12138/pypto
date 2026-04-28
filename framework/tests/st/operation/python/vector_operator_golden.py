@@ -3146,6 +3146,26 @@ def gen_floor_divs_golden(case_name: str, output: Path, case_index: int = None) 
     logging.debug(f"Generating golden files of {case_name} ...")
     return gen_op_golden("FloorDivs", generate_wrapper, output, case_index)
 
+@GoldenRegister.reg_golden_func(
+    case_names=[
+        "TestAxpy/AxpyOperationTest.TestAxpy",
+    ]
+)
+def gen_axpy_op_golden(case_name: str, output: Path, case_index: int = None) -> bool:
+    def golden_func(inputs: list, config: dict):
+        params = config.get("params")
+        alpha = params.get("alpha", 1.0)
+        output_dtype = config.get("output_tensors")[0].get("dtype")
+        dtype = get_dtype_by_name(output_dtype)
+        alpha = dtype(alpha)
+        y = inputs[0]
+        x = inputs[1]
+        result = alpha * x + y
+        return [result.astype(dtype)]
+
+    logging.debug("Case(%s), Golden creating...", case_name)
+    return gen_op_golden("Axpy", golden_func, output, case_index)
+
 
 @TestCaseLoader.reg_params_handler(ops=["Quantize"])
 def quantize_params_func(params: dict):
@@ -3327,6 +3347,42 @@ def gen_dequantize_op_golden(case_name: str, output: Path, case_index: int = Non
 
     logging.debug(f"Generating golden files of {case_name} ...")
     return gen_op_golden("Dequantize", dequantize_golden_func, output, case_index)
+
+
+@GoldenRegister.reg_golden_func(case_names=[
+    "TestSinh/SinhOperationTest.TestSinh",
+])
+def gen_sinh_golden(case_name: str, output: Path, case_index: int = None) -> bool:
+
+    def generate_wrapper(
+        inputs: List[np.ndarray],
+        config: Dict[str, Any],
+    ) -> List[np.ndarray]:
+        tensor0 = from_numpy(inputs[0]).npu()
+        result = torch.sinh(tensor0)
+        result = result.cpu()
+        return [to_numpy(result)]
+
+    logging.debug(f"Generating golden files of {case_name} ...")
+    return gen_op_golden("Sinh", generate_wrapper, output, case_index)
+
+
+@GoldenRegister.reg_golden_func(case_names=[
+    "TestCosh/CoshOperationTest.TestCosh",
+])
+def gen_cosh_golden(case_name: str, output: Path, case_index: int = None) -> bool:
+
+    def generate_wrapper(
+        inputs: List[np.ndarray],
+        config: Dict[str, Any],
+    ) -> List[np.ndarray]:
+        tensor0 = from_numpy(inputs[0]).npu()
+        result = torch.cosh(tensor0)
+        result = result.cpu()
+        return [to_numpy(result)]
+
+    logging.debug(f"Generating golden files of {case_name} ...")
+    return gen_op_golden("Cosh", generate_wrapper, output, case_index)
 
 
 def main() -> bool:

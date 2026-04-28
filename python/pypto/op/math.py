@@ -16,7 +16,10 @@ from .._element import Element
 from .._op_wrapper import op_wrapper
 from ..error import PyptoError
 from ..tensor import Tensor
-from ..enum import DataType, DivAlgorithm, ExpAlgorithm, SqrtAlgorithm, RsqrtAlgorithm, LogAlgorithm, RecipAlgorithm
+from ..enum import (
+    DataType, DivAlgorithm, PowAlgorithm, ExpAlgorithm, SqrtAlgorithm,
+    RsqrtAlgorithm, LogAlgorithm, RecipAlgorithm, FmodAlgorithm
+)
 from ..symbolic_scalar import SymbolicScalar, SymInt
 
 
@@ -79,6 +82,59 @@ def add(
                     f"alpha must be int or float, but got {type(other)}."
                     ))
             return pypto_impl.Add(input, pypto_impl.Element(input.dtype, other * alpha))
+
+
+@op_wrapper
+def axpy(y: Tensor, x: Tensor, alpha: Union[int, float] = 1.0) -> Tensor:
+    """Computes the element-wise AXPY operation: y = alpha * x + y.
+
+    This function performs an in-place update on tensor y.
+    The formula is: `y = alpha * x + y`.
+    It supports broadcasting for tensor x (but y cannot broadcast).
+
+    Parameters
+    ----------
+    y : Tensor
+        The destination tensor that will be updated in-place.
+    x : Tensor
+        The source tensor. Can be broadcast to match y's shape.
+    alpha : float, optional
+        A scaling factor for the `x` tensor. Default is 1.0.
+
+    Returns
+    -------
+    Tensor
+        The updated y tensor (same as input y, modified in-place).
+
+    Raises
+    ------
+    RuntimeError
+        If y's shape cannot accommodate x's broadcast.
+        If dtype combination is not supported (only fp32+fp32, fp16+fp16, bf16+bf16, fp32+fp16).
+
+    Notes
+    -----
+    - This is an in-place operation. The y tensor is modified directly.
+    - Supported dtype combinations:
+      - fp32 + fp32
+      - fp16 + fp16  
+      - bf16 + bf16 (converted to fp32 internally)
+      - fp32 + fp16 (mixed precision)
+
+    Examples
+    --------
+    y = pypto.tensor([1, 3], pypto.DT_FP32)
+    x = pypto.tensor([1, 3], pypto.DT_FP32)
+    out = pypto.axpy(y, x, alpha=2.0)
+
+    Input y:    [[1.0 2.0 3.0]]
+    Input x:    [[2.0 3.0 4.0]]
+    alpha:      2.0
+    Output:     [[5.0 8.0 11.0]]  (y = 2.0 * x + y)
+    """
+    return pypto_impl.Axpy(y, x, float(alpha))
+
+
 
 
 @op_wrapper
@@ -287,7 +343,11 @@ def hypot(self: Tensor, other: Tensor) -> Tensor:
 
 
 @op_wrapper
-def fmod(input: Tensor, other: Union[Tensor, float]) -> Tensor:
+def fmod(
+    input: Tensor,
+    other: Union[Tensor, float],
+    precision_type: FmodAlgorithm = FmodAlgorithm.HIGH_PRECISION,
+) -> Tensor:
     """Computes the element-wise modulus of `input` and `other`.
 
     This function calculates the formula: `out = input % other`.
@@ -299,6 +359,10 @@ def fmod(input: Tensor, other: Union[Tensor, float]) -> Tensor:
         The first input tensor.
     other : Tensor or Number
         The second input tensor or a scalar to modulo operation.
+    precision_type : FmodAlgorithm, optional
+        The precision algorithm for modulo. Default is FmodAlgorithm.HIGH_PRECISION.
+        HIGH_PRECISION uses higher precision calculation to reduce precision loss.
+        Use FmodAlgorithm.INTRINSIC to directly use chip instructions.
 
     Returns
     -------
@@ -326,9 +390,9 @@ def fmod(input: Tensor, other: Union[Tensor, float]) -> Tensor:
     Output out: [[0.0 1.0 1.0]]
     """
     if isinstance(other, pypto_impl.Tensor):
-        return pypto_impl.Fmod(input, other)
+        return pypto_impl.Fmod(input, other, precision_type)
     else:
-        return pypto_impl.Fmod(input, pypto_impl.Element(input.dtype, other))
+        return pypto_impl.Fmod(input, pypto_impl.Element(input.dtype, other), precision_type)
 
 
 @op_wrapper
@@ -557,17 +621,22 @@ def bitwise_xor(first: Tensor, second: Union[Tensor, int]) -> Tensor:
 
 
 @op_wrapper
-def pow(input: Tensor, other: Union[Tensor, int, float]) -> Tensor:
-    """Computes the element-wise power of `input` raised to `other`.
+def pow(base: Tensor, other: Union[Tensor, int, float],
+    precision_type: PowAlgorithm = PowAlgorithm.HIGH_PRECISION) -> Tensor:
+    """Computes the element-wise power of `base` raised to `other`.
 
-    This function calculates the formula: `out = input ** other`.
+    This function calculates the formula: `out = base ** other`.
 
     Parameters
     ----------
-    input : Tensor
+    base : Tensor
         The base input tensor.
     other : Tensor or Number
-        The exponent to which each element in `input` will be raised.
+        The exponent to which each element in `base` will be raised.
+    precision_type : PowAlgorithm, optional
+        The precision algorithm for pow. Default is PowAlgorithm.HIGH_PRECISION.
+        HIGH_PRECISION uses higher precision calculation to reduce precision loss.
+        Use PowAlgorithm.INTRINSIC to directly use chip instructions.
 
     Returns
     -------
@@ -579,8 +648,8 @@ def pow(input: Tensor, other: Union[Tensor, int, float]) -> Tensor:
     x = pypto.tensor([2, 2], pypto.DT_FP32)
     a = 2
     b = pypto.tensor([2, 2], pypto.DT_FP32)
-    y = pypto.pow(x, a)
-    z = pypto.pow(x, b)
+    y = pypto.pow(x, a, PowAlgorithm.HIGH_PRECISION)
+    z = pypto.pow(x, b, PowAlgorithm.HIGH_PRECISION)
 
     Input x:[[ 1.0 2.0],
              [-3.0 4.0]]
@@ -596,10 +665,10 @@ def pow(input: Tensor, other: Union[Tensor, int, float]) -> Tensor:
             f"other must be Tensor, int or float but got {type(other)}."
             ))
     if isinstance(other, pypto_impl.Tensor):
-        return pypto_impl.Pow(input, other)
+        return pypto_impl.Pow(base, other, precision_type)
     if isinstance(other, int):
-        return pypto_impl.Pow(input, pypto_impl.Element(DataType.DT_INT32, other))
-    return pypto_impl.Pow(input, pypto_impl.Element(DataType.DT_FP32, other))
+        return pypto_impl.Pow(base, pypto_impl.Element(DataType.DT_INT32, other), precision_type)
+    return pypto_impl.Pow(base, pypto_impl.Element(DataType.DT_DOUBLE, other), precision_type)
 
 
 @op_wrapper
@@ -766,6 +835,70 @@ def cos(self: Tensor) -> Tensor:
     Output y:[1.0000 0.0000 -1.0000]
     """
     return pypto_impl.Cos(self)
+
+
+@op_wrapper
+def sinh(input: Tensor) -> Tensor:
+    """Computes the element-wise hyperbolic sine of `input`.
+
+    This function calculates the formula: `out = (e ** input - e ** (-input)) / 2`.
+
+    Parameters
+    ----------
+    input : Tensor
+        The input tensor.
+
+    Returns
+    -------
+    Tensor
+        A new tensor containing the element-wise hyperbolic sine results.
+
+    See Also
+    -------
+    cosh : Element-wise hyperbolic cosine function
+
+    Examples
+    --------
+    x = pypto.tensor([3], pypto.DT_FP32)
+    y = pypto.sinh(x)
+
+    Input x: [0.0     1.0     2.0]
+    Output y:[0.0000  1.1752  3.6269]
+    """
+
+    return pypto_impl.Sinh(input)
+
+
+@op_wrapper
+def cosh(input: Tensor) -> Tensor:
+    """Computes the element-wise hyperbolic cosine of `input`.
+
+    This function calculates the formula: `out = (e ** input + e ** (-input)) / 2`.
+
+    Parameters
+    ----------
+    input : Tensor
+        The input tensor.
+
+    Returns
+    -------
+    Tensor
+        A new tensor containing the element-wise hyperbolic cosine results.
+
+    See Also
+    -------
+    sinh : Element-wise hyperbolic sine function
+
+    Examples
+    --------
+    x = pypto.tensor([3], pypto.DT_FP32)
+    y = pypto.cosh(x)
+
+    Input x: [0.0     1.0     2.0]
+    Output y:[1.0000  1.5431  3.7622]
+    """
+
+    return pypto_impl.Cosh(input)
 
 
 @op_wrapper

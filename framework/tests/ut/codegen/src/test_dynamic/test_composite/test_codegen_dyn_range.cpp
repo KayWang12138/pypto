@@ -28,21 +28,9 @@
 #include "test_codegen_common.h"
 
 namespace npu::tile_fwk {
-class TestCodegenDynRange : public ::testing::Test {
+class TestCodegenDynRange : public CodegenTestBase {
 public:
-    static void SetUpTestCase() {}
-
-    static void TearDownTestCase() {}
-
-    void SetUp() override
-    {
-        Program::GetInstance().Reset();
-        config::Reset();
-        config::SetHostOption(COMPILE_STAGE, CS_EXECUTE_GRAPH);
-        config::SetPlatformConfig(KEY_ENABLE_COST_MODEL, false);
-    }
-
-    void TearDown() override {}
+    TestCodegenDynRange() : CodegenTestBase({.compileStage = CS_EXECUTE_GRAPH}) {}
 };
 
 TEST_F(TestCodegenDynRange, TestDynOpRange)
@@ -89,7 +77,6 @@ TEST_F(TestCodegenDynRange, RangeTileTensor)
     localTensor->UpdateDynValidShape(dynValidShape);
     std::vector<SymbolicScalar> dynoffset = {0, 0};
     std::vector<int64_t> offset = {0, 0};
-    localTensor->UpdateOffset(TensorOffset(offset, dynoffset));
 
     auto& op = function->AddOperation(Opcode::OP_RANGE, {localTensor}, {localOutTensor});
     Element start(DataType::DT_FP32, 1.0);

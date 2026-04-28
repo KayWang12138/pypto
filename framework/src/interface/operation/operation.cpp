@@ -72,6 +72,7 @@ const std::string OpAttributeKey::accumulate = "accumulate";
 const std::string OpAttributeKey::indicesSize = "indicesSize";
 const std::string OpAttributeKey::brcbIdx = "brcb_idx";
 const std::string OpAttributeKey::brcpIdx = "brcp_idx";
+const std::string OpAttributeKey::topkAlgo = "topk_algo";
 const std::string OpAttributeKey::quantFlag = "op_attr_vector_quant_flag";
 const std::string OpAttributeKey::loopGroup = "LOOP_GROUP";
 const std::string OpAttributeKey::loopAxes = "LOOP_AXES";
@@ -148,7 +149,7 @@ Operation::Operation(
       function_(&cur)
 {
     if (opcode != Opcode::OP_CALL) {
-        FUNCTION_ASSERT(FError::INVALID_TYPE, cur.GetFunctionType() != FunctionType::EAGER);
+        FE_ASSERT(FeError::INVALID_TYPE, cur.GetFunctionType() != FunctionType::EAGER);
     }
 
     auto opCoreType = OpcodeManager::Inst().GetCoreType(opcode);
@@ -176,13 +177,13 @@ Operation::Operation(
         if (cur.IsCompiledFunction()) {
             for (auto& t : GetOOperands()) {
                 if (cur.GetTensorMap().GetTensorByMagic(t->magic) == nullptr) {
-                    FUNCTION_ASSERT(FError::NOT_EXIST, updateTensorMap || cur.IsCompiledFunction());
+                    FE_ASSERT(FeError::NOT_EXIST, updateTensorMap || cur.IsCompiledFunction());
                 }
             }
         }
     } else {
         if (cur.GetTensorMap().GetTensorByMagic(GetOOperands()[0]->magic) == nullptr) {
-            FUNCTION_ASSERT(FError::NOT_EXIST, updateTensorMap || cur.IsCompiledFunction());
+            FE_ASSERT(FeError::NOT_EXIST, updateTensorMap || cur.IsCompiledFunction());
         } else {
             updateTensorMap = false;
         }
@@ -193,13 +194,13 @@ Operation::Operation(
         if (coreType_ == CoreType::AIC) {
             auto& cubeTile = tileShape_.GetCubeTile();
             auto& convTile = tileShape_.GetConvTile();
-            FUNCTION_ASSERT(FError::INVALID_VAL, cubeTile.valid() || convTile.valid())
+            FE_ASSERT(FeError::INVALID_VAL, cubeTile.valid() || convTile.valid())
                 << "op [" << OpcodeManager::Inst().GetOpcodeStr(opcode) << "]tile shape not set";
         }
         OpCalcType calcType = OpcodeManager::Inst().GetOpCalcType(opcode);
         if (coreType_ == CoreType::AIV && calcType != OpCalcType::DISTRIBUTED) {
             auto& vecTile = tileShape_.GetVecTile();
-            FUNCTION_ASSERT(FError::INVALID_VAL, vecTile.valid())
+            FE_ASSERT(FeError::INVALID_VAL, vecTile.valid())
                 << "op [" << OpcodeManager::Inst().GetOpcodeStr(opcode) << "]tile shape not set";
         }
     }
@@ -243,7 +244,7 @@ Operation::Operation(
 
 std::string Operation::GetStringAttribute(const std::string& key) const
 {
-    FUNCTION_ASSERT(FError::NOT_EXIST, HasAttr(key)) << "Operation doesn't have attribute " << key;
+    FE_ASSERT(FeError::NOT_EXIST, HasAttr(key)) << "Operation doesn't have attribute " << key;
     std::string attrVal;
     GetAttr(key, attrVal);
     return attrVal;
@@ -265,7 +266,7 @@ void Operation::SetAttribute(const std::string& key, bool value) { SetAttr(key, 
 
 int64_t Operation::GetIntAttribute(const std::string& key) const
 {
-    FUNCTION_ASSERT(FError::NOT_EXIST, HasAttr(key)) << "Operation doesn't have attribute " << key;
+    FE_ASSERT(FeError::NOT_EXIST, HasAttr(key)) << "Operation doesn't have attribute " << key;
     int64_t attrVal = 0;
     GetAttr(key, attrVal);
     return attrVal;
@@ -275,9 +276,9 @@ void Operation::SetAttribute(const std::string& key, int64_t value) { SetAttr(ke
 
 CastMode Operation::GetCastModeAttribute(const std::string& key) const
 {
-    FUNCTION_ASSERT(FError::NOT_EXIST, HasAttr(key)) << "Operation doesn't have attribute " << key;
+    FE_ASSERT(FeError::NOT_EXIST, HasAttr(key)) << "Operation doesn't have attribute " << key;
     int attrVal = GetIntAttribute(key);
-    FUNCTION_ASSERT(FError::INVALID_VAL, attrVal >= CAST_NONE && attrVal <= CAST_ODD);
+    FE_ASSERT(FeError::INVALID_VAL, attrVal >= CAST_NONE && attrVal <= CAST_ODD);
     return static_cast<CastMode>(attrVal);
 }
 
@@ -285,26 +286,26 @@ void Operation::SetAttribute(const std::string& key, CastMode value) { SetAttr(k
 
 SymbolicScalar Operation::GetSymbolicScalarAttribute(const std::string& key) const
 {
-    FUNCTION_ASSERT(FError::NOT_EXIST, HasAttr(key)) << "Operation doesn't have attribute " << key;
+    FE_ASSERT(FeError::NOT_EXIST, HasAttr(key)) << "Operation doesn't have attribute " << key;
     SymbolicScalar attrVal = 0;
     GetAttr(key, attrVal);
-    FUNCTION_ASSERT(FError::INVALID_VAL, attrVal.IsValid());
+    FE_ASSERT(FeError::INVALID_VAL, attrVal.IsValid());
     return attrVal;
 }
 
 void Operation::SetAttribute(const std::string& key, const SymbolicScalar& value)
 {
-    FUNCTION_ASSERT(FError::INVALID_VAL, value.IsValid());
+    FE_ASSERT(FeError::INVALID_VAL, value.IsValid());
     SetAttr(key, value);
 }
 
 std::vector<SymbolicScalar> Operation::GetVectorSymbolicScalarAttribute(const std::string& key) const
 {
-    FUNCTION_ASSERT(FError::NOT_EXIST, HasAttr(key)) << "Operation doesn't have attribute " << key;
+    FE_ASSERT(FeError::NOT_EXIST, HasAttr(key)) << "Operation doesn't have attribute " << key;
     std::vector<SymbolicScalar> attrVal;
     GetAttr(key, attrVal);
     for (auto& attr : attrVal) {
-        FUNCTION_ASSERT(FError::INVALID_VAL, attr.IsValid());
+        FE_ASSERT(FeError::INVALID_VAL, attr.IsValid());
     }
     return attrVal;
 }
@@ -312,14 +313,14 @@ std::vector<SymbolicScalar> Operation::GetVectorSymbolicScalarAttribute(const st
 void Operation::SetAttribute(const std::string& key, const std::vector<SymbolicScalar>& value)
 {
     for (auto& attr : value) {
-        FUNCTION_ASSERT(FError::INVALID_VAL, attr.IsValid());
+        FE_ASSERT(FeError::INVALID_VAL, attr.IsValid());
     }
     SetAttr(key, value);
 }
 
 [[nodiscard]] Element Operation::GetElementAttribute(const std::string& key) const
 {
-    FUNCTION_ASSERT(FError::NOT_EXIST, HasAttr(key)) << "Operation doesn't have attribute " << key;
+    FE_ASSERT(FeError::NOT_EXIST, HasAttr(key)) << "Operation doesn't have attribute " << key;
     Element attrVal;
     GetAttr(key, attrVal);
     return attrVal;
@@ -327,7 +328,7 @@ void Operation::SetAttribute(const std::string& key, const std::vector<SymbolicS
 
 std::vector<Element> Operation::GetVectorElementAttribute(const std::string& key) const
 {
-    FUNCTION_ASSERT(FError::NOT_EXIST, HasAttr(key)) << "Operation doesn't have attribute " << key;
+    FE_ASSERT(FeError::NOT_EXIST, HasAttr(key)) << "Operation doesn't have attribute " << key;
     std::vector<Element> attrVal;
     GetAttr(key, attrVal);
     return attrVal;
@@ -381,7 +382,7 @@ void Operation::DumpCalleeHashJson(Json& opDump) const
         }
     }
     if (callee == nullptr) {
-        FUNCTION_LOGE_E(FError::NOT_EXIST, "Cannot find function by calleeHash %s", calleeHash.c_str());
+        FE_LOGE(FeError::NOT_EXIST, "Cannot find function by calleeHash %s", calleeHash.c_str());
         return;
     }
     if (callee->rootFunc_ == nullptr) {
@@ -435,7 +436,7 @@ void Operation::DumpCallOpInfoJson(Json& opDump) const
         return;
     }
     auto callAttr = std::dynamic_pointer_cast<CallOpAttribute>(GetOpAttribute());
-    FUNCTION_ASSERT(FError::INVALID_PTR, callAttr != nullptr);
+    FE_ASSERT(FeError::INVALID_PTR, callAttr != nullptr);
     auto programId = callAttr->invokeInfo_->GetProgramId();
     auto programIter = function_->programs_.find(programId);
     if (programIter != function_->programs_.end()) {
@@ -444,7 +445,7 @@ void Operation::DumpCallOpInfoJson(Json& opDump) const
         opDump["program_funcmagic"] = programFuncMagic_;
     }
     auto attr = std::dynamic_pointer_cast<CallOpAttribute>(GetOpAttribute());
-    FUNCTION_ASSERT(FError::INVALID_PTR, attr != nullptr);
+    FE_ASSERT(FeError::INVALID_PTR, attr != nullptr);
     opDump["invoke_info"] = attr->DumpInvokeInfoJson();
     opDump["static"]["invoke_info"] = opDump["invoke_info"];
 }
@@ -505,7 +506,7 @@ void Operation::LoadOperandsFromJson(
         std::shared_ptr<LogicalTensor> tensor;
         if (i.is_number()) {
             int magic = i.get<int>();
-            FUNCTION_ASSERT(FError::NOT_EXIST, tensorDict.count(magic));
+            FE_ASSERT(FeError::NOT_EXIST, tensorDict.count(magic));
             tensor = tensorDict.find(magic)->second;
         } else {
             tensor = tensorDict.find(i["magic"].get<int>())->second;
@@ -516,7 +517,7 @@ void Operation::LoadOperandsFromJson(
         std::shared_ptr<LogicalTensor> tensor;
         if (o.is_number()) {
             int magic = o.get<int>();
-            FUNCTION_ASSERT(FError::NOT_EXIST, tensorDict.count(magic));
+            FE_ASSERT(FeError::NOT_EXIST, tensorDict.count(magic));
             tensor = tensorDict.find(magic)->second;
         } else {
             tensor = tensorDict.find(o["magic"].get<int>())->second;
@@ -629,7 +630,7 @@ void Operation::LoadExtraInfoFromJson(const Json& opDump)
 std::shared_ptr<Operation> Operation::LoadJson(
     Function& cur, const std::unordered_map<int, std::shared_ptr<LogicalTensor>>& tensorDict, const Json& opDump)
 {
-    FUNCTION_ASSERT(FError::INVALID_TYPE, opDump[T_FIELD_KIND].get<int>() == static_cast<int>(Kind::T_KIND_OPERATION));
+    FE_ASSERT(FeError::INVALID_TYPE, opDump[T_FIELD_KIND].get<int>() == static_cast<int>(Kind::T_KIND_OPERATION));
 
     std::vector<std::shared_ptr<LogicalTensor>> ioperands;
     std::vector<std::shared_ptr<LogicalTensor>> ooperands;
@@ -696,7 +697,7 @@ void Operation::ReplaceInputOperand(
         return;
     }
     for (size_t i = 0; i < iOperand.size(); ++i) {
-        FUNCTION_ASSERT(FError::INVALID_PTR, iOperand[i] != nullptr);
+        FE_ASSERT(FeError::INVALID_PTR, iOperand[i] != nullptr);
         if (iOperand[i] == originInput) {
             iOperand[i] = newInput;
             continue;
@@ -711,7 +712,7 @@ void Operation::ReplaceOutputOperand(
         return;
     }
     for (size_t i = 0; i < oOperand.size(); ++i) {
-        FUNCTION_ASSERT(FError::INVALID_PTR, oOperand[i] != nullptr);
+        FE_ASSERT(FeError::INVALID_PTR, oOperand[i] != nullptr);
         if (oOperand[i] == originOutput) {
             oOperand[i] = newOutput;
             continue;
@@ -721,7 +722,7 @@ void Operation::ReplaceOutputOperand(
 
 void Operation::ReplaceIOperand(size_t index, std::shared_ptr<LogicalTensor> newTensor)
 {
-    FUNCTION_ASSERT(FError::OUT_OF_RANGE, index < GetIOperands().size());
+    FE_ASSERT(FeError::OUT_OF_RANGE, index < GetIOperands().size());
     GetIOperands()[index]->RemoveConsumer(*this);
     GetIOperands()[index] = std::move(newTensor);
     GetIOperands()[index]->AddConsumer(*this);
@@ -731,7 +732,7 @@ void Operation::ReplaceIOperand(size_t index, std::shared_ptr<LogicalTensor> new
 
 void Operation::ReplaceOOperand(size_t index, std::shared_ptr<LogicalTensor> newTensor)
 {
-    FUNCTION_ASSERT(FError::OUT_OF_RANGE, index < GetOOperands().size());
+    FE_ASSERT(FeError::OUT_OF_RANGE, index < GetOOperands().size());
     GetOOperands()[index]->RemoveProducer(*this);
     GetOOperands()[index] = std::move(newTensor);
     GetOOperands()[index]->AddProducer(*this);
@@ -758,7 +759,7 @@ LogicalTensorPtr Operation::GetOutputOperand(const size_t index) const
 int Operation::GetIOperandIndex(const LogicalTensorPtr& ioperand) const
 {
     for (size_t i = 0; i < iOperand.size(); ++i) {
-        FUNCTION_ASSERT(FError::INVALID_PTR, iOperand[i] != nullptr);
+        FE_ASSERT(FeError::INVALID_PTR, iOperand[i] != nullptr);
         if (iOperand[i] == ioperand) {
             return (int)i;
         }
@@ -768,7 +769,7 @@ int Operation::GetIOperandIndex(const LogicalTensorPtr& ioperand) const
 int Operation::GetOOperandIndex(const LogicalTensorPtr& ooperand) const
 {
     for (size_t i = 0; i < oOperand.size(); ++i) {
-        FUNCTION_ASSERT(FError::INVALID_PTR, oOperand[i] != nullptr);
+        FE_ASSERT(FeError::INVALID_PTR, oOperand[i] != nullptr);
         if (oOperand[i] == ooperand) {
             return (int)i;
         }
@@ -1028,14 +1029,14 @@ void Operation::ReplaceOutput(
 void Operation::SetSubFuncInvokeInfo(const SubfuncInvokeInfoTy& invokeInfo)
 {
     auto callAttr = std::dynamic_pointer_cast<CallOpAttribute>(opAttribute_);
-    FUNCTION_ASSERT(FError::INVALID_PTR, callAttr != nullptr);
+    FE_ASSERT(FeError::INVALID_PTR, callAttr != nullptr);
     callAttr->invokeInfo_ = std::make_shared<SubfuncInvokeInfoTy>(invokeInfo);
 }
 
 int Operation::GetProgramId()
 {
     auto callAttr = std::dynamic_pointer_cast<CallOpAttribute>(opAttribute_);
-    FUNCTION_ASSERT(FError::INVALID_PTR, callAttr != nullptr);
+    FE_ASSERT(FeError::INVALID_PTR, callAttr != nullptr);
     return callAttr->invokeInfo_->GetProgramId();
 }
 

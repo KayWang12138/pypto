@@ -87,6 +87,7 @@ public:
     static const std::string indicesSize;
     static const std::string brcbIdx;
     static const std::string brcpIdx;
+    static const std::string topkAlgo;
     static const std::string quantFlag;
     static const std::string loopGroup;
     static const std::string loopAxes;
@@ -435,6 +436,7 @@ public:
             Opcode::OP_L1_COPY_OUT,
             Opcode::OP_COPY_IN,
             Opcode::OP_L0C_TO_L1,
+            Opcode::OP_L0C_COPY_UB,
             Opcode::OP_L1_TO_BT,
             Opcode::OP_L1_TO_FIX_QUANT_PRE,
             Opcode::OP_L1_TO_L0A,
@@ -471,42 +473,42 @@ public:
             Opcode::OP_L1_COPY_IN_CONV,
             Opcode::OP_L0C_COPY_OUT_CONV};
         if (copyOpAttrOpTypes.count(opcode_) > 0) {
-            ASSERT(std::dynamic_pointer_cast<CopyOpAttribute>(opAttribute_) != nullptr);
+            FE_ASSERT(std::dynamic_pointer_cast<CopyOpAttribute>(opAttribute_) != nullptr);
             return;
         }
 
         switch (opcode_) {
             case Opcode::OP_VIEW: {
-                ASSERT(std::dynamic_pointer_cast<ViewOpAttribute>(opAttribute_) != nullptr);
+                FE_ASSERT(std::dynamic_pointer_cast<ViewOpAttribute>(opAttribute_) != nullptr);
                 break;
             }
             case Opcode::OP_ASSEMBLE: {
-                ASSERT(std::dynamic_pointer_cast<AssembleOpAttribute>(opAttribute_) != nullptr);
+                FE_ASSERT(std::dynamic_pointer_cast<AssembleOpAttribute>(opAttribute_) != nullptr);
                 break;
             }
             case Opcode::OP_ASSEMBLE_SSA:
-                ASSERT(
+                FE_ASSERT(
                     std::dynamic_pointer_cast<AssembleOpAttribute>(opAttribute_) != nullptr ||
                     std::dynamic_pointer_cast<CopyOpAttribute>(opAttribute_) != nullptr);
                 break;
             case Opcode::OP_BLOCK_CALL:
             case Opcode::OP_CALL: {
-                ASSERT(std::dynamic_pointer_cast<CallOpAttribute>(opAttribute_) != nullptr);
+                FE_ASSERT(std::dynamic_pointer_cast<CallOpAttribute>(opAttribute_) != nullptr);
                 break;
             }
             case Opcode::OP_CONVERT: {
-                ASSERT(std::dynamic_pointer_cast<ConvertOpAttribute>(opAttribute_) != nullptr);
+                FE_ASSERT(std::dynamic_pointer_cast<ConvertOpAttribute>(opAttribute_) != nullptr);
                 break;
             }
             default:
-                ASSERT(opAttribute_ == nullptr);
+                FE_ASSERT(opAttribute_ == nullptr);
         }
     }
 
     void SetAssembleOpAttribute(
         const std::vector<int64_t>& toOffset, const std::vector<SymbolicScalar>& toDynOffset = {})
     {
-        ASSERT(opcode_ == Opcode::OP_ASSEMBLE || opcode_ == Opcode::OP_ASSEMBLE_SSA);
+        FE_ASSERT(opcode_ == Opcode::OP_ASSEMBLE || opcode_ == Opcode::OP_ASSEMBLE_SSA);
         SetOpAttribute(std::make_shared<AssembleOpAttribute>(toOffset, toDynOffset));
     }
 
@@ -515,7 +517,7 @@ public:
 
     std::string GetCalleeMagicName() const
     {
-        ASSERT(IsCall());
+        FE_ASSERT(IsCall());
         return std::static_pointer_cast<CallOpAttribute>(opAttribute_)->GetCalleeMagicName();
     }
 
@@ -526,7 +528,7 @@ public:
 
     const FunctionHash& GetCalleeHash() const
     {
-        ASSERT(IsCall() || opcode_ == Opcode::OP_BLOCK_CALL);
+        FE_ASSERT(IsCall() || opcode_ == Opcode::OP_BLOCK_CALL);
         auto callop = std::dynamic_pointer_cast<CallOpAttribute>(opAttribute_);
         return callop->GetCalleeHash();
     }
@@ -594,7 +596,7 @@ public:
     SubfuncInvokeInfoTy& GetSubFuncInvokeInfo()
     {
         auto callAttr = std::dynamic_pointer_cast<CallOpAttribute>(opAttribute_);
-        ASSERT(callAttr != nullptr);
+        FE_ASSERT(callAttr != nullptr);
         return *(callAttr->invokeInfo_);
     }
 

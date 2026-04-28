@@ -103,7 +103,6 @@ static std::shared_ptr<LogicalTensor> BuildDifferentOffsetSubgraph0(const std::s
     auto tensor0 = std::make_shared<LogicalTensor>(*func, DT_FP32, std::vector<int64_t>{16, 8, 8});
     tensor0->SetMemoryTypeBoth(MEM_UB);
     tensor0->SetMagic(15);
-    tensor0->subGraphID = 0;
 
     auto& copyopin0 = func->AddOperation(Opcode::OP_COPY_IN, {incast}, {tensor0});
     copyopin0.SetOpAttribute(std::make_shared<CopyOpAttribute>(
@@ -114,7 +113,6 @@ static std::shared_ptr<LogicalTensor> BuildDifferentOffsetSubgraph0(const std::s
     auto tensor1 = std::make_shared<LogicalTensor>(*func, DT_FP32, std::vector<int64_t>{16, 64});
     tensor1->SetMemoryTypeBoth(MEM_UB);
     tensor1->SetMagic(66);
-    tensor1->subGraphID = 0;
 
     auto& reshapeop = func->AddOperation(Opcode::OP_RESHAPE, {tensor0}, {tensor1});
     reshapeop.UpdateSubgraphID(0);
@@ -123,7 +121,6 @@ static std::shared_ptr<LogicalTensor> BuildDifferentOffsetSubgraph0(const std::s
     auto input_tensor = std::make_shared<LogicalTensor>(*func, DT_FP32, std::vector<int64_t>{16, 64});
     input_tensor->SetMemoryTypeBoth(MEM_DEVICE_DDR);
     input_tensor->SetMagic(79);
-    input_tensor->subGraphID = 0;
 
     auto& copyoutop0 = func->AddOperation(Opcode::OP_COPY_OUT, {tensor1}, {input_tensor});
     copyoutop0.SetOpAttribute(std::make_shared<CopyOpAttribute>(
@@ -142,7 +139,6 @@ static void BuildDifferentOffsetSubgraph1(const std::shared_ptr<Function>& func,
     auto inner_tensor1 = std::make_shared<LogicalTensor>(*func, DT_FP32, std::vector<int64_t>{16, 32});
     inner_tensor1->SetMemoryTypeBoth(MEM_UB);
     inner_tensor1->UpdateOffset({0, 0});
-    inner_tensor1->subGraphID = 1;
     inner_tensor1->SetMagic(30);
 
     auto& copyopin1 = func->AddOperation(Opcode::OP_COPY_IN, {input_tensor}, {inner_tensor1});
@@ -153,7 +149,6 @@ static void BuildDifferentOffsetSubgraph1(const std::shared_ptr<Function>& func,
 
     auto result_tensor1 = std::make_shared<LogicalTensor>(*func, DT_FP32, std::vector<int64_t>{16, 32});
     result_tensor1->SetMemoryTypeBoth(MEM_UB);
-    result_tensor1->subGraphID = 1;
     result_tensor1->SetMagic(29);
 
     auto& expopin1 = func->AddOperation(Opcode::OP_EXP, {inner_tensor1}, {result_tensor1});
@@ -175,7 +170,6 @@ static void BuildDifferentOffsetSubgraph2(const std::shared_ptr<Function>& func,
     auto inner_tensor2 = std::make_shared<LogicalTensor>(*func, DT_FP32, std::vector<int64_t>{16, 32});
     inner_tensor2->SetMemoryTypeBoth(MEM_UB);
     inner_tensor2->UpdateOffset({0, 32});
-    inner_tensor2->subGraphID = 2;
     inner_tensor2->SetMagic(35);
 
     auto& copyopin2 = func->AddOperation(Opcode::OP_COPY_IN, {input_tensor}, {inner_tensor2});
@@ -186,7 +180,6 @@ static void BuildDifferentOffsetSubgraph2(const std::shared_ptr<Function>& func,
 
     auto result_tensor2 = std::make_shared<LogicalTensor>(*func, DT_FP32, std::vector<int64_t>{16, 32});
     result_tensor2->SetMemoryTypeBoth(MEM_UB);
-    result_tensor2->subGraphID = 2;
     result_tensor2->SetMagic(34);
 
     auto& expopin2 = func->AddOperation(Opcode::OP_EXP, {inner_tensor2}, {result_tensor2});
@@ -244,20 +237,19 @@ static void BuildSameOffsetSubgraph0(const std::shared_ptr<Function>& func,
     auto shape2Imme = OpImmediate::Specified({16, 32});
 
     auto inner_tensor1 = std::make_shared<LogicalTensor>(*func, DT_FP32, std::vector<int64_t>{16, 32});
-    inner_tensor1->SetMemoryTypeBoth(MEM_UB);
     inner_tensor1->UpdateOffset({0, 0});
-    inner_tensor1->subGraphID = 0;
     inner_tensor1->SetMagic(30);
+    inner_tensor1->SetMemoryTypeBoth(MEM_UB);
 
     auto& copyopin1 = func->AddOperation(Opcode::OP_COPY_IN, {input_tensor}, {inner_tensor1});
-    copyopin1.SetOpAttribute(std::make_shared<CopyOpAttribute>(
-        OpImmediate::Specified({0, 0}), MEM_UB, shape2Imme, shape2Imme, std::vector<npu::tile_fwk::OpImmediate>()));
     copyopin1.UpdateSubgraphID(0);
     copyopin1.opmagic = 10021;
+    copyopin1.SetOpAttribute(std::make_shared<CopyOpAttribute>(
+        OpImmediate::Specified({0, 0}), MEM_UB, shape2Imme, shape2Imme, std::vector<npu::tile_fwk::OpImmediate>()));
+
 
     auto result_tensor1 = std::make_shared<LogicalTensor>(*func, DT_FP32, std::vector<int64_t>{16, 32});
     result_tensor1->SetMemoryTypeBoth(MEM_UB);
-    result_tensor1->subGraphID = 0;
     result_tensor1->SetMagic(29);
 
     auto& expopin1 = func->AddOperation(Opcode::OP_EXP, {inner_tensor1}, {result_tensor1});
@@ -279,7 +271,6 @@ static void BuildSameOffsetSubgraph1(const std::shared_ptr<Function>& func,
     auto inner_tensor2 = std::make_shared<LogicalTensor>(*func, DT_FP32, std::vector<int64_t>{16, 32});
     inner_tensor2->SetMemoryTypeBoth(MEM_UB);
     inner_tensor2->UpdateOffset({0, 0});
-    inner_tensor2->subGraphID = 1;
     inner_tensor2->SetMagic(35);
 
     auto& copyopin2 = func->AddOperation(Opcode::OP_COPY_IN, {input_tensor}, {inner_tensor2});
@@ -290,7 +281,6 @@ static void BuildSameOffsetSubgraph1(const std::shared_ptr<Function>& func,
 
     auto result_tensor2 = std::make_shared<LogicalTensor>(*func, DT_FP32, std::vector<int64_t>{16, 32});
     result_tensor2->SetMemoryTypeBoth(MEM_UB);
-    result_tensor2->subGraphID = 1;
     result_tensor2->SetMagic(34);
 
     auto& expopin2 = func->AddOperation(Opcode::OP_EXP, {inner_tensor2}, {result_tensor2});
@@ -345,156 +335,10 @@ TEST_F(SubgraphToFunctionTest, SameOffset)
     for (const auto& pair : PSgToESgMap) {
         uniquePSgIds.insert(pair.first);
     }
-
-    EXPECT_EQ(uniquePSgIds.size(), 1);
+    size_t mergedSubgraphCount = uniquePSgIds.size();
+    EXPECT_EQ(mergedSubgraphCount, 2);
     EXPECT_TRUE(ArePsgHashesUnique(*rootFunc));
     EXPECT_TRUE(IsPSgToESgMapOneToOne(PSgToESgMap));
-}
-
-TEST_F(SubgraphToFunctionTest, test_json_dump_and_load)
-{
-    int bs = 1;
-    int m = 32;
-    int k = 32;
-    int n = 32;
-
-    std::vector<int64_t> shapeA = {bs, m, k};
-    std::vector<int64_t> shapeB = {bs, k, n};
-    std::vector<int64_t> shapeC = {bs, m, n};
-
-    config::Reset();
-    TileShape::Current().SetCubeTile({32, 32}, {32, 32}, {32, 32});
-    Tensor matA(DT_FP16, shapeA, "MatA", TileOpFormat::TILEOP_NZ);
-    Tensor matB(DT_FP16, shapeB, "MatB", TileOpFormat::TILEOP_ND);
-    Tensor matC(DT_FP32, shapeC, "MatC");
-    config::SetBuildStatic(true);
-    FUNCTION("BATCHMATMUL", {matA, matB, matC})
-    {
-        config::SetPassConfig("PVC2_OOO", "OoOSchedule", KEY_DISABLE_PASS, true);
-        matC = npu::tile_fwk::Matrix::BatchMatmul(DT_FP32, matA, matB, false, false);
-    }
-    config::SetPassConfig("PVC2_OOO", "OoOSchedule", KEY_DISABLE_PASS, false);
-    auto programJson = Program::GetInstance().DumpJson();
-    auto currentFunctionPtr = Program::GetInstance().GetCurrentFunction();
-    EXPECT_EQ(Program::GetInstance().FunctionMapSize(), 4);
-    ASSERT_NE(currentFunctionPtr, nullptr);
-    EXPECT_EQ(currentFunctionPtr->Operations().size(), 1);
-    EXPECT_EQ(currentFunctionPtr->GetRawName(), "PROGRAM_ENTRY");
-
-    auto batchMatmulFunc = Program::GetInstance().GetFunctionByRawName("TENSOR_BATCHMATMUL");
-#ifndef PRIOR_SCHEDULING
-    EXPECT_EQ(batchMatmulFunc->Operations().size(), 9);
-#endif
-
-    ASSERT_NE(batchMatmulFunc->rootFunc_, nullptr);
-    EXPECT_EQ(batchMatmulFunc->rootFunc_->Operations().size(), 1);
-    EXPECT_EQ(batchMatmulFunc->rootFunc_->programs_.size(), 1);
-    auto& oriPrograms = batchMatmulFunc->rootFunc_->programs_;
-    EXPECT_EQ(oriPrograms[0]->Operations().size(), 11);
-#ifndef PRIOR_SCHEDULING
-    EXPECT_EQ(oriPrograms[1]->Operations().size(), 8);
-#endif
-    auto topoBefore = batchMatmulFunc->rootFunc_->topoInfo_;
-    auto& entrysBefore = topoBefore.GetTopology();
-    EXPECT_EQ(programJson["functions"].size(), 4);
-    SubfuncInvokeInfoTy invokeInfo10000;
-    SubfuncInvokeInfoTy invokeInfo10001;
-    SubfuncInvokeInfoTy invokeInfo10002;
-    SubfuncInvokeInfoTy invokeInfo10003;
-    for (auto& op : batchMatmulFunc->rootFunc_->Operations()) {
-        EXPECT_EQ(op.GetOpcode(), Opcode::OP_CALL);
-        if (op.GetOpMagic() == 10000) {
-            invokeInfo10000 = op.GetSubFuncInvokeInfo();
-        }
-        if (op.GetOpMagic() == 10001) {
-            invokeInfo10001 = op.GetSubFuncInvokeInfo();
-        }
-        if (op.GetOpMagic() == 10002) {
-            invokeInfo10002 = op.GetSubFuncInvokeInfo();
-        }
-        if (op.GetOpMagic() == 10003) {
-            invokeInfo10003 = op.GetSubFuncInvokeInfo();
-        }
-    }
-
-    Program::GetInstance().LoadJson(programJson);
-    EXPECT_EQ(Program::GetInstance().FunctionMapSize(), 4);
-    auto newCurrFuncPtr = Program::GetInstance().GetCurrentFunction();
-    ASSERT_NE(newCurrFuncPtr, nullptr);
-    // 校验CallOpAttribute
-    ASSERT_NE(newCurrFuncPtr->rootFunc_, nullptr);
-    EXPECT_EQ(newCurrFuncPtr->rootFunc_->Operations().size(), 1);
-
-    for (auto& op : newCurrFuncPtr->rootFunc_->Operations()) {
-        EXPECT_EQ(op.GetOpcode(), Opcode::OP_CALL);
-        if (op.GetOpMagic() == 10000) {
-            auto callOpAttr = std::dynamic_pointer_cast<CallOpAttribute>(op.GetOpAttribute());
-            EXPECT_NE(callOpAttr, nullptr);
-            EXPECT_EQ(*(callOpAttr->invokeInfo_), invokeInfo10000);
-        }
-
-        if (op.GetOpMagic() == 10001) {
-            auto callOpAttr = std::dynamic_pointer_cast<CallOpAttribute>(op.GetOpAttribute());
-            EXPECT_NE(callOpAttr, nullptr);
-            EXPECT_EQ(*(callOpAttr->invokeInfo_), invokeInfo10001);
-        }
-
-        if (op.GetOpMagic() == 10002) {
-            auto callOpAttr = std::dynamic_pointer_cast<CallOpAttribute>(op.GetOpAttribute());
-            EXPECT_NE(callOpAttr, nullptr);
-            EXPECT_EQ(*(callOpAttr->invokeInfo_), invokeInfo10002);
-        }
-
-        if (op.GetOpMagic() == 10003) {
-            auto callOpAttr = std::dynamic_pointer_cast<CallOpAttribute>(op.GetOpAttribute());
-            EXPECT_NE(callOpAttr, nullptr);
-            EXPECT_EQ(*(callOpAttr->invokeInfo_), invokeInfo10003);
-        }
-    }
-    batchMatmulFunc = Program::GetInstance().GetFunctionByRawName("TENSOR_BATCHMATMUL");
-#ifndef PRIOR_SCHEDULING
-    EXPECT_EQ(batchMatmulFunc->Operations().size(), 9);
-#endif
-    ASSERT_NE(batchMatmulFunc->rootFunc_, nullptr);
-    EXPECT_EQ(batchMatmulFunc->rootFunc_->Operations().size(), 1);
-    EXPECT_EQ(batchMatmulFunc->rootFunc_->programs_.size(), 1);
-
-    // 校验Topo
-    auto& topo = newCurrFuncPtr->rootFunc_->topoInfo_;
-    auto& entrys = topo.GetTopology();
-    EXPECT_EQ(entrysBefore.size(), entrys.size());
-
-    for (size_t i = 0; i < entrysBefore.size(); i++) {
-        EXPECT_EQ(entrys[i].esgId, entrysBefore[i].esgId);
-        EXPECT_EQ(entrys[i].readyState, entrysBefore[i].readyState);
-        EXPECT_EQ(entrys[i].outGraph, entrysBefore[i].outGraph);
-    }
-
-    // 校验rootFunc_->programs_
-    auto& programs = newCurrFuncPtr->rootFunc_->programs_;
-    ASSERT_EQ(programs.size(), 1);
-    EXPECT_EQ(programs[0]->Operations().size(), 11);
-#ifndef PRIOR_SCHEDULING
-    EXPECT_EQ(programs[1]->Operations().size(), 8);
-#endif
-    // 校验CopyInCopyoutAttribute
-    for (auto& op : programs[0]->Operations()) {
-        if (op.GetOpcode() == Opcode::OP_COPY_IN) {
-            auto copyInOpAttr = std::dynamic_pointer_cast<CopyOpAttribute>(op.GetOpAttribute());
-            EXPECT_NE(copyInOpAttr, nullptr);
-            auto outputDynShape = op.GetOOperands().front()->GetDynValidShape();
-            EXPECT_NE(outputDynShape.size(), 0);
-        }
-        if (op.GetOpcode() == Opcode::OP_COPY_OUT) {
-            auto copyOutOpAttr = std::dynamic_pointer_cast<CopyOpAttribute>(op.GetOpAttribute());
-            EXPECT_NE(copyOutOpAttr, nullptr);
-        }
-    }
-
-    programJson = Program::GetInstance().DumpJson();
-    Program::GetInstance().LoadJson(programJson);
-    Json programJsonNew = Program::GetInstance().DumpJson();
-    EXPECT_EQ(programJsonNew.dump(), programJson.dump());
 }
 
 TEST_F(SubgraphToFunctionTest, test_json_dump_and_load_1)

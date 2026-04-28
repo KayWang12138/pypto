@@ -190,7 +190,7 @@ inline void DeviceLogSplitDebug(const char* func, const char* format, Args... ar
     do {                                                                      \
         if (!(expr)) {                                                        \
             DEV_ERROR(errCode, "Assertion failed (%s): " fmt, #expr, ##args); \
-            assert(0);                                                        \
+            abort();                                                          \
         }                                                                     \
     } while (0)
 
@@ -198,7 +198,7 @@ inline void DeviceLogSplitDebug(const char* func, const char* format, Args... ar
     do {                                                        \
         if (!(expr)) {                                          \
             DEV_ERROR(errCode, "Assertion failed (%s)", #expr); \
-            assert(0);                                          \
+            abort();                                            \
         }                                                       \
     } while (0)
 
@@ -213,7 +213,7 @@ inline void DeviceLogSplitDebug(const char* func, const char* format, Args... ar
 #define DEV_DEBUG(fmt, args...)         PYPTO_SIM_LOG(DLOG_DEBUG, MACHINE, fmt, ##args)
 #define DEV_INFO(fmt, args...)          PYPTO_SIM_LOG(DLOG_INFO, MACHINE, fmt, ##args)
 #define DEV_WARN(fmt, args...)          PYPTO_SIM_LOG(DLOG_WARN, MACHINE, fmt, ##args)
-#define DEV_ERROR(errCode, fmt, args...)         PYPTO_SIM_LOGE(MACHINE, errCode, fmt, ##args)
+#define DEV_ERROR(errCode, fmt, args...)  PYPTO_SIM_LOGE_WITH_ERRCODE(MACHINE, errCode, fmt, ##args)
 
 #if DEBUG_MEM_DUMP_LEVEL != DEBUG_MEM_DUMP_DISABLE
 #define DEV_MEM_DUMP(fmt, args...) MACHINE_LOGD("[WsMem Statistics] " fmt, ##args)
@@ -224,16 +224,16 @@ inline void DeviceLogSplitDebug(const char* func, const char* format, Args... ar
 #define DEV_ASSERT_MSG(errCode, expr, fmt, args...)           \
     do {                                                      \
         if (!(expr)) {                                        \
-            MACHINE_LOGE(errCode, "%s :" fmt, #expr, ##args); \
-            assert(0);                                        \
+            DEV_ERROR(errCode, "%s :" fmt, #expr, ##args);    \
+            abort();                                          \
         }                                                     \
     } while (0)
 
 #define DEV_ASSERT(errCode, expr)               \
     do {                                        \
         if (!(expr)) {                          \
-            MACHINE_LOGE(errCode, "%s", #expr); \
-            assert(0);                          \
+            DEV_ERROR(errCode, "%s", #expr);    \
+            abort();                            \
         }                                       \
     } while (0)
 

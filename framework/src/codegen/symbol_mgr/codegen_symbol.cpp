@@ -37,7 +37,7 @@ AllocKey SymbolManager::CreateAllocKey(int tensorMagicNum) const
 {
     std::shared_ptr<LogicalTensor> tensor = SymbolManager::GetTensorByMagic(tensorMagicNum);
     if (!tensor) {
-        CODEGEN_LOGE_E(
+        CODEGEN_LOGE(
             GenCodeErr::TENSOR_NOT_FOUND, "can not query tensor object from tensor magicnum: %d", tensorMagicNum);
         return {};
     }
@@ -97,7 +97,7 @@ std::string SymbolManager::QueryVariableNameTileTensor(const AllocKey& key)
         return iter->second;
     }
 
-    CODEGEN_LOGE_E(GenCodeErr::SYMBOL_NOT_FOUND, "failed to query by identifier: %s", FormatAllocKey(key).c_str());
+    CODEGEN_LOGE(GenCodeErr::SYMBOL_NOT_FOUND, "failed to query by identifier: %s", FormatAllocKey(key).c_str());
     ASSERT(GenCodeErr::SYMBOL_NOT_FOUND, false)
         << "QueryVariableNameTileTensor Failed: UNDEFINED_VAR !!! AllocKey: " << FormatAllocKey(key);
     return "UNDEFINED_VAR";
@@ -161,7 +161,7 @@ std::string SymbolManager::AddTileTensor(int opMagic, const TileTensor& tileTens
 
     const TileTensor& storedTileTensor = tileTensorByKeyIter->second.get();
     TileTensorMagicKey key{tileTensor.magic, opMagic};
-    auto& tileTensorByMagic = tileTensor.shapeInLoop.loopDepth == 0 ? tileTensorByMagic_ : tileTensorByMagicInLoop_;
+    auto& tileTensorByMagic = tileTensor.isInLoop ? tileTensorByMagicInLoop_ : tileTensorByMagic_;
     auto [iter, inserted] = tileTensorByMagic.emplace(key, std::cref(storedTileTensor));
     ASSERT(GenCodeErr::TENSOR_MAGIC_CONFLICT, inserted || &iter->second.get() == &storedTileTensor)
         << "TileTensor conflict for tensor magic " << tileTensor.magic << ", op magic " << opMagic
@@ -238,6 +238,16 @@ std::string SymbolManager::GenTileTensorDefList()
     for (const auto& tileTensor : tileTensorStorage_) {
         oss << tileTensor.ToString();
     }
+    return oss.str();
+}
+
+std::string SymbolManager::GenNewTileTensorDefs()
+{
+    std::ostringstream oss;
+    for (size_t i = tileTensorOutputIdx_; i < tileTensorStorage_.size(); ++i) {
+        oss << tileTensorStorage_[i].ToString();
+    }
+    tileTensorOutputIdx_ = tileTensorStorage_.size();
     return oss.str();
 }
 

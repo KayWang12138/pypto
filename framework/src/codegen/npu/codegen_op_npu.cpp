@@ -109,6 +109,7 @@ CodeGenOpNPU::CodeGenOpNPU(const CodeGenOpNPUCtx& ctx)
           {Opcode::OP_ABS, [this]() { return GenUnaryOp(); }},
           {Opcode::OP_LN, [this]() { return GenUnaryOp(); }},
           {Opcode::OP_BRCB, [this]() { return GenUnaryOp(); }},
+          {Opcode::OP_COSH, [this]() { return GenUnaryOp(); }},
 
           // unary with temp buffer
           {Opcode::OP_COMPACT, [this]() { return GenUnaryOpWithTmpBuff(); }},
@@ -132,6 +133,7 @@ CodeGenOpNPU::CodeGenOpNPU(const CodeGenOpNPUCtx& ctx)
           {Opcode::OP_SIGNBIT, [this]() { return GenUnaryOpWithTmpBuff(); }},
           {Opcode::OP_SIN, [this]() { return GenUnaryOpWithTmpBuff(); }},
           {Opcode::OP_COS, [this]() { return GenUnaryOpWithTmpBuff(); }},
+          {Opcode::OP_SINH, [this]() { return GenUnaryOpWithTmpBuff(); }},
       }),
       binaryOps_({
           // binary op: vector operations
@@ -160,7 +162,8 @@ CodeGenOpNPU::CodeGenOpNPU(const CodeGenOpNPUCtx& ctx)
           {Opcode::OP_COPYSIGN, [this]() { return GenBinaryOpWithTmp(); }},
           {Opcode::OP_PRELU, [this]() { return GenPreluOp(); }},
           {Opcode::OP_FLOORDIV, [this]() { return GenBinaryOpWithTmp(); }},
-
+          {Opcode::OP_AXPY, [this]() { return GenAxpyOp(); }},
+          
           // binary op: broadcast associated vector
           {Opcode::OP_ADD_BRC, [this]() { return GenBinaryWithBrc(); }},
           {Opcode::OP_SUB_BRC, [this]() { return GenBinaryWithBrc(); }},
@@ -188,6 +191,7 @@ CodeGenOpNPU::CodeGenOpNPU(const CodeGenOpNPUCtx& ctx)
           {Opcode::OP_MODS, [this]() { return GenVectorScalarOp(); }},
           {Opcode::OP_REMRS, [this]() { return GenRemainderSOp(); }},
           {Opcode::OP_REMS, [this]() { return GenRemainderSOp(); }},
+          {Opcode::OP_POWS, [this]() { return GenVectorScalarOpWithTmp(); }},
           {Opcode::OP_SBITWISERIGHTSHIFT, [this]() { return GenVectorScalarOpWithTmp(); }},
           {Opcode::OP_SBITWISELEFTSHIFT, [this]() { return GenVectorScalarOpWithTmp(); }},
           {Opcode::OP_BITWISEXORS, [this]() { return GenVectorScalarOpWithTmp(); }},
@@ -247,6 +251,7 @@ CodeGenOpNPU::CodeGenOpNPU(const CodeGenOpNPUCtx& ctx)
           {Opcode::OP_MRGSORT, [this]() { return GenMrgSortOp(); }},
           {Opcode::OP_EXTRACT, [this]() { return GenExtractOp(); }},
           {Opcode::OP_TILEDMRGSORT, [this]() { return GenTiledMrgSortOp(); }},
+          {Opcode::OP_RADIX_SELECT, [this]() { return GenRadixSelectOp(); }},
 
           {Opcode::OP_TOPK_SORT, [this]() { return GenTopKSortOp(); }},
           {Opcode::OP_TOPK_MERGE, [this]() { return GenTopKMergeOp(); }},
@@ -547,11 +552,11 @@ std::vector<std::string> CodeGenOpNPU::BuildStride(const std::vector<int64_t>& i
 }
 
 void CodeGenOpNPU::UpdateTileTensorShapeAndStride(
-    int paramIdx, TileTensor& tileTensor, bool isSpillToGm, const ShapeInLoop& shapeInLoop)
+    int paramIdx, TileTensor& tileTensor, bool isSpillToGm, const TileTensorShape& tileTensorShape)
 {
-    auto newOriginShape = shapeInLoop.loopDepth > 0 ? shapeInLoop.originShape : originShape[paramIdx];
-    auto newRawShape = shapeInLoop.loopDepth > 0 ? shapeInLoop.rawShape : rawShape[paramIdx];
-    auto newDynValidShape = shapeInLoop.loopDepth > 0 ? shapeInLoop.dynamicValidShape : dynamicValidShape[paramIdx];
+    auto newOriginShape = tileTensorShape.originShape;
+    auto newRawShape = tileTensorShape.rawShape;
+    auto newDynValidShape = tileTensorShape.dynamicValidShape;
     CODEGEN_LOGI(
         "newOriginShape is %s, newRawShape is %s, newDynValidShape is %s", IntVecToStr(newOriginShape).c_str(),
         IntVecToStr(newRawShape).c_str(), IntVecToStr(newDynValidShape).c_str());
@@ -595,27 +600,25 @@ void CodeGenOpNPU::UpdateTileTensorShapeAndStride(
     tileTensor.stride = BuildStride(newRawShape);
 }
 
-TileTensor CodeGenOpNPU::BuildTileTensor(int paramIdx, const std::string& usingType, const ShapeInLoop& shapeInLoop)
+TileTensor CodeGenOpNPU::BuildTileTensor(
+    int paramIdx, const std::string& usingType, const TileTensorShape& tileTensorShape)
 {
-    bool isSpillToGm = operand[paramIdx] == SYMBOL_STACK_BASE;
+    int64_t gmOffset{0};
+    bool isSpillToGm = GetTensorAttr(paramIdx, OpAttributeKey::workspaceBaseOffset, gmOffset);
 
     TileTensor tileTensor;
     tileTensor.isConstant = functionType == FunctionType::STATIC || isMainBlock;
     tileTensor.magic = operandWithMagic[paramIdx];
-    tileTensor.shapeInLoop = shapeInLoop;
+    tileTensor.isInLoop = tileTensorShape.isInLoop;
 
-    if (tileTensor.isConstant) {
-        tileTensor.dim = shapeInLoop.loopDepth > 0 ? shapeInLoop.originShape.size() : originShape[paramIdx].size();
-    } else {
-        tileTensor.dim =
-            shapeInLoop.loopDepth > 0 ? shapeInLoop.dynamicValidShape.size() : dynamicValidShape[paramIdx].size();
-    }
+    tileTensor.dim =
+        tileTensor.isConstant ? tileTensorShape.originShape.size() : tileTensorShape.dynamicValidShape.size();
 
     tileTensor.dtype = operandDtype[paramIdx];
     tileTensor.bufType = operandType[paramIdx];
 
     if (tileTensor.bufType == OperandType::BUF_DDR) {
-        tileTensor.bufVar = isSpillToGm ? GenGMAddrExprWithOffset(GM_STACK_BASE) : GenGmParamVar(paramIdx);
+        tileTensor.bufVar = isSpillToGm ? GenGMAddrExprWithOffset(paramIdx, GM_STACK_BASE) : GenGmParamVar(paramIdx);
     } else {
         tileTensor.bufVar = sm->QueryVarNameByTensorMagic(tileTensor.magic, true);
     }
@@ -623,14 +626,14 @@ TileTensor CodeGenOpNPU::BuildTileTensor(int paramIdx, const std::string& usingT
     tileTensor.usingType = usingType;
 
     tileTensor.tensorName = sm->GenTensorName(tileTensor.bufType);
-    if (shapeInLoop.loopDepth != 0) {
+    if (tileTensorShape.isInLoop) {
         std::string tensorName = tensorNames_[paramIdx];
         if (!tensorName.empty()) {
             tensorName.append("_low").append(std::to_string(tileTensor.dim)).append("DimInLoop");
             tileTensor.tensorName = tensorName;
         }
     }
-    UpdateTileTensorShapeAndStride(paramIdx, tileTensor, isSpillToGm, shapeInLoop);
+    UpdateTileTensorShapeAndStride(paramIdx, tileTensor, isSpillToGm, tileTensorShape);
 
     tileTensor.localBufOffset = offset[paramIdx];
 
@@ -661,7 +664,8 @@ void CodeGenOpNPU::UpdateTileTensorInfo()
             originShape[i],
             rawShape[i]};
         std::string usingType = sm->AddTileTensorUsing(tileTensorUsing);
-        TileTensor tileTensor = BuildTileTensor(i, usingType);
+        TileTensorShape tileTensorShape{false, originShape[i], rawShape[i], dynamicValidShape[i]};
+        TileTensor tileTensor = BuildTileTensor(i, usingType, tileTensorShape);
         std::string tensorName = sm->AddTileTensor(originalOp.GetOpMagic(), tileTensor);
         tensorNames_[i] = tensorName;
         CODEGEN_LOGI(
@@ -719,32 +723,35 @@ void CodeGenOpNPU::UpdateLoopInfo()
 
     // Add TileTensor info in loop
     CODEGEN_LOGI("opCode %s has loopAxes: %s", opCodeStr.c_str(), IntVecToStr(loopAxes).c_str());
-    size_t loopDepth = loopAxes.size();
     for (int i = 0; i < operandCnt; ++i) {
         if (ShouldSkipProcInLoop(i)) {
             continue;
         }
-        ShapeInLoop shapeInLoop = BuildShapeInLoop(i, loopDepth);
+        TileTensorShape tileTensorShape = BuildTileTensorShapeInLoop(i);
         CODEGEN_LOGI(
-            "shapeInLoop: loopDepth is %zu newOriginShape is %s, newRawShape is %s, newDynValidShape is %s", loopDepth,
-            IntVecToStr(shapeInLoop.originShape).c_str(), IntVecToStr(shapeInLoop.rawShape).c_str(),
-            IntVecToStr(shapeInLoop.dynamicValidShape).c_str());
+            "tileTensorShape: isInLoop is %s newOriginShape is %s, newRawShape is %s, newDynValidShape is %s",
+            tileTensorShape.isInLoop ? "true" : "false", IntVecToStr(tileTensorShape.originShape).c_str(),
+            IntVecToStr(tileTensorShape.rawShape).c_str(), IntVecToStr(tileTensorShape.dynamicValidShape).c_str());
         TileTensorUsing tileTensorUsing{
-            functionType == FunctionType::STATIC || isMainBlock, operandDtype[i],         operandType[i],
-            static_cast<int>(shapeInLoop.rawShape.size()),       shapeInLoop.originShape, shapeInLoop.rawShape};
+            functionType == FunctionType::STATIC || isMainBlock,
+            operandDtype[i],
+            operandType[i],
+            static_cast<int>(tileTensorShape.rawShape.size()),
+            tileTensorShape.originShape,
+            tileTensorShape.rawShape};
         std::string usingType = sm->AddTileTensorUsing(tileTensorUsing);
-        TileTensor tileTensor = BuildTileTensor(i, usingType, shapeInLoop);
+        TileTensor tileTensor = BuildTileTensor(i, usingType, tileTensorShape);
         forBlkMgr_->AddTensorInLoopBody(tensorNames_[i], tileTensor, originalOp.GetOpMagic(), opCode);
     }
 }
 
 // Get last 2 dim of shape
-ShapeInLoop CodeGenOpNPU::BuildShapeInLoop(int paramIdx, size_t loopDepth)
+TileTensorShape CodeGenOpNPU::BuildTileTensorShapeInLoop(int paramIdx)
 {
     auto newOriginShape = GetShapeInLoop(originShape[paramIdx]);
     auto newRawShape = GetShapeInLoop(rawShape[paramIdx]);
     auto newDynValidShape = GetShapeInLoop<SymbolicScalar>(dynamicValidShape[paramIdx]);
-    return {loopDepth, newOriginShape, newRawShape, newDynValidShape};
+    return {true, newOriginShape, newRawShape, newDynValidShape};
 }
 
 std::string CodeGenOpNPU::PrintCoord(size_t dim, const std::string& coord) const

@@ -74,6 +74,7 @@ enum class Opcode {
     OP_BITWISEXORS,
     OP_TRIUL,
     OP_POW,
+    OP_POWS,
     OP_S_ADDS,
     OP_S_SUBS,
     OP_S_MULS,
@@ -100,6 +101,8 @@ enum class Opcode {
     OP_COPYSIGN,
     OP_SIN,
     OP_COS,
+    OP_SINH,
+    OP_COSH,
     // Binary Vector
     OP_ADD,
     OP_SUB,
@@ -168,6 +171,7 @@ enum class Opcode {
     OP_BITWISEXOR,
     OP_FLOORDIV,
     OP_FLOORDIVS,
+    OP_AXPY,
 
     // Cube
     OP_A_MUL_B,
@@ -309,6 +313,7 @@ enum class Opcode {
     OP_TWOTILEMRGSORT,
     OP_EXTRACT_SINGLE,
     OP_SORT_UB,
+    OP_RADIX_SELECT,
     // End: add for TOPK and ArgSort
     // Begin: topk for DS3.2-Day0
     OP_TOPK_SORT,
@@ -616,7 +621,8 @@ const std::unordered_set<Opcode> UNARY_OPS{
     Opcode::OP_ROWMAX, Opcode::OP_ROWEXPSUM,  Opcode::OP_ROWEXPMAX, Opcode::OP_L1_TO_L1,    Opcode::OP_COPY_UB_TO_UB,
     Opcode::OP_ROUND,  Opcode::OP_ROWSUMLINE, Opcode::OP_ABS,       Opcode::OP_LN,          Opcode::OP_ISFINITE,
     Opcode::OP_HUB,    Opcode::OP_BITWISENOT, Opcode::OP_SIGN,      Opcode::OP_ROWPRODLINE, Opcode::OP_SIGNBIT,
-    Opcode::OP_SIN,    Opcode::OP_COS};
+    Opcode::OP_SIN,    Opcode::OP_COS,        Opcode::OP_COSH
+};
 
 const std::unordered_set<Opcode> UNARY_OPS_WITH_TMP{
     Opcode::OP_COMPACT,
@@ -632,7 +638,9 @@ const std::unordered_set<Opcode> UNARY_OPS_WITH_TMP{
     Opcode::OP_ROWSUM_COMBINE_AXIS_SINGLE,
     Opcode::OP_ROWPROD_SINGLE,
     Opcode::OP_SIN,
-    Opcode::OP_COS};
+    Opcode::OP_COS,
+    Opcode::OP_SINH
+};
 
 const std::unordered_set<Opcode> VECTOR_SCALAR_OPS{
     Opcode::OP_ADDS,
@@ -727,7 +735,6 @@ const std::unordered_set<Opcode> SUPPORT_DYNAMIC_UNALIGNED_OPS{
     Opcode::OP_LOGICALNOT,
     Opcode::OP_LOGICALAND,
     Opcode::OP_ONEHOT,
-    Opcode::OP_POW,
     Opcode::OP_INDEX_PUT,
     Opcode::OP_L1_TO_L0_BT,
     Opcode::OP_L1_TO_L0B,
@@ -841,6 +848,7 @@ const std::unordered_set<Opcode> UNSUPPORT_BF16_OPS{
     Opcode::OP_RELU,
     Opcode::OP_RECIPROCAL,
     Opcode::OP_ABS,
+    Opcode::OP_AXPY,
     Opcode::OP_LN,
     Opcode::OP_LOGICALNOT,
     Opcode::OP_TRIUL,
@@ -922,7 +930,9 @@ const std::unordered_set<Opcode> UNSUPPORT_BF16_OPS{
     Opcode::OP_ROWARGMAXLINE,
     Opcode::OP_ROWPRODLINE,
     Opcode::OP_FLOORDIV,
-    Opcode::OP_FLOORDIVS};
+    Opcode::OP_FLOORDIVS,
+    Opcode::OP_SINH,
+    Opcode::OP_COSH};
 
 const std::unordered_set<Opcode> UNSUPPORT_BF16_ARCH35_OPS{
     Opcode::OP_INDEX_ADD,

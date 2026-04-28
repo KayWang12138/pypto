@@ -290,6 +290,22 @@ static void Cos(const TensorData& out, const TensorData& self)
     ToOperand(tout.second, tout.first, out.dtype);
 }
 
+static void Sinh(const TensorData& out, const TensorData& self)
+{
+    auto tout = From(out);
+    auto tself = From(self);
+    torch::sinh_out(tout.second, tself.second);
+    ToOperand(tout.second, tout.first, out.dtype);
+}
+
+static void Cosh(const TensorData& out, const TensorData& self)
+{
+    auto tout = From(out);
+    auto tself = From(self);
+    torch::cosh_out(tout.second, tself.second);
+    ToOperand(tout.second, tout.first, out.dtype);
+}
+
 static void Neg(const TensorData& out, const TensorData& self)
 {
     auto tout = From(out);
@@ -565,6 +581,7 @@ DEFINE_BINARY_S_OPS(DivS, div_out)
 DEFINE_BINARY_S_OPS(FmodS, fmod_out)
 DEFINE_BINARY_S_OPS(RemainderS, remainder_out)
 DEFINE_BINARY_S_OPS(RemainderRS, remainder_out)
+DEFINE_BINARY_S_OPS(PowS, pow_out)
 DEFINE_BINARY_S_OPS(BitwiseAndS, bitwise_and_out)
 DEFINE_BINARY_S_OPS(BitwiseOrS, bitwise_or_out)
 DEFINE_BINARY_S_OPS(BitwiseXorS, bitwise_xor_out)
@@ -767,16 +784,8 @@ static void PReLU(const TensorData& out, const TensorData& self, const TensorDat
 
 DEFINE_BINARY_OPS(Remainder, remainder_out)
 DEFINE_BINARY_OPS(Gcd, gcd_out)
+DEFINE_BINARY_OPS(Pow, pow_out)
 DEFINE_BINARY_OPS(FloorDiv, floor_divide_out)
-
-static void Pow(const TensorData& out, const TensorData& self, const TensorData& other)
-{
-    auto tout = From(out);
-    auto tself = From(self);
-    auto tother = From(other);
-    torch::pow_out(tout.second, tself.second, tother.second);
-    ToOperand(tout.second, tout.first, out.dtype);
-}
 
 static void BitwiseAnd(const TensorData& out, const TensorData& self, const TensorData& other)
 {
@@ -2616,6 +2625,8 @@ static struct CalcOps calcOps = {
     .Expm1 = Expm1,
     .Sin = Sin,
     .Cos = Cos,
+    .Sinh = Sinh,
+    .Cosh = Cosh,
     .Neg = Neg,
     .Rsqrt = Rsqrt,
     .Sign = Sign,
@@ -2656,6 +2667,7 @@ static struct CalcOps calcOps = {
     .FmodS = FmodS,
     .RemainderS = RemainderS,
     .RemainderRS = RemainderRS,
+    .PowS = PowS,
     .BitwiseAndS = BitwiseAndS,
     .BitwiseOrS = BitwiseOrS,
     .BitwiseXorS = BitwiseXorS,

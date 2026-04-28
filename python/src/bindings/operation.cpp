@@ -26,6 +26,9 @@ void bind_operation(py::module& m)
     m.def(
         "Add", [](const Tensor& self, const Tensor& other) { return npu::tile_fwk::Add(self, other); }, "Tensor add.");
     m.def(
+        "Axpy", [](const Tensor& y, const Tensor& x, float alpha) { return npu::tile_fwk::Axpy(y, x, alpha); },
+        py::arg("y"), py::arg("x"), py::arg("alpha") = 1.0f, "Tensor axpy: y = alpha * x + y.");        
+    m.def(
         "Sub", [](const Tensor& self, const Tensor& other) { return npu::tile_fwk::Sub(self, other); }, "Tensor sub.");
     m.def(
         "Mul", [](const Tensor& self, const Tensor& other) { return npu::tile_fwk::Mul(self, other); }, "Tensor mul.");
@@ -39,8 +42,11 @@ void bind_operation(py::module& m)
         "Hypot", [](const Tensor& self, const Tensor& other) { return npu::tile_fwk::Hypot(self, other); },
         "Tensor hypot.");
     m.def(
-        "Fmod", [](const Tensor& self, const Tensor& other) { return npu::tile_fwk::Fmod(self, other); },
-        "Tensor fmod.");
+        "Fmod",
+        [](const Tensor& self, const Tensor& other, FmodAlgorithm precisionType) {
+            return npu::tile_fwk::Fmod(self, other, precisionType);
+        },
+        py::arg("self"), py::arg("other"), py::arg("precision_type") = FmodAlgorithm::HIGH_PRECISION, "Tensor fmod.");
     m.def(
         "Gcd", [](const Tensor& self, const Tensor& other) { return npu::tile_fwk::Gcd(self, other); }, "Tensor gcd.");
     m.def(
@@ -170,6 +176,10 @@ void bind_operation(py::module& m)
         "Ceil", [](const Tensor& self) { return npu::tile_fwk::Ceil(self); }, "Tensor ceil.");
     m.def(
         "Floor", [](const Tensor& self) { return npu::tile_fwk::Floor(self); }, "Tensor floor.");
+    m.def(
+        "Sinh", [](const Tensor& self) { return npu::tile_fwk::Sinh(self); }, "Tensor sinh");
+    m.def(
+        "Cosh", [](const Tensor& self) { return npu::tile_fwk::Cosh(self); }, "Tensor cosh");
     m.def("FloorDiv", [](const Tensor& self, const Tensor& other) { return npu::tile_fwk::FloorDiv(self, other); });
     m.def("FloorDiv", [](const Tensor& self, const Element& other) { return npu::tile_fwk::FloorDiv(self, other); });
     m.def(
@@ -193,9 +203,19 @@ void bind_operation(py::module& m)
     m.def(
         "Log1p", [](const Tensor& self) { return npu::tile_fwk::Log1p(self); }, "Tensor log1p.");
     m.def(
-        "Pow", [](const Tensor& self, const Tensor& other) { return npu::tile_fwk::Pow(self, other); }, "Tensor pow.");
+        "Pow",
+        [](const Tensor& self, const Tensor& other, PowAlgorithm precisionType) {
+            return npu::tile_fwk::Pow(self, other, precisionType);
+        },
+        py::arg("self"), py::arg("other"), py::arg("precision_type") = PowAlgorithm::HIGH_PRECISION,
+        "Tensor pow.");
     m.def(
-        "Pow", [](const Tensor& self, const Element& other) { return npu::tile_fwk::Pow(self, other); }, "Tensor pow.");
+        "Pow",
+        [](const Tensor& self, const Element& other, PowAlgorithm precisionType) {
+            return npu::tile_fwk::Pow(self, other, precisionType);
+        },
+        py::arg("self"), py::arg("other"), py::arg("precision_type") = PowAlgorithm::HIGH_PRECISION,
+        "Tensor pow scalar.");
     m.def(
         "Cast",
         [](const Tensor& self, DataType dstDataType, CastMode mode, SaturationMode satmode) {
@@ -472,10 +492,10 @@ void bind_operation(py::module& m)
         "Tensor tril.");
     m.def(
         "TopK",
-        [](const Tensor& self, int k, int axis, bool islargest) {
-            return npu::tile_fwk::TopK(self, k, axis, islargest);
+        [](const Tensor& self, int k, int axis, bool islargest, TopKAlgo algo) {
+            return npu::tile_fwk::TopK(self, k, axis, islargest, algo);
         },
-        py::arg("operand"), py::arg("k"), py::arg("axis"), py::arg("islargest") = true, "Tensor topk.");
+        py::arg("operand"), py::arg("k"), py::arg("axis"), py::arg("islargest") = true, py::arg("algo") = TopKAlgo::MERGE_SORT, "Tensor topk.");
     m.def(
         "Sort32", [](const Tensor& self, int index) { return npu::tile_fwk::Sort32(self, index); }, py::arg("operand"),
         py::arg("index"), "Tensor sort32.");

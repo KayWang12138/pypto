@@ -28,21 +28,13 @@
 #include "test_codegen_common.h"
 
 namespace npu::tile_fwk {
-class TestCodegenDynLogical : public ::testing::Test {
+class TestCodegenDynLogical : public CodegenTestBase {
 public:
+    TestCodegenDynLogical() : CodegenTestBase({.compileStage = CS_EXECUTE_GRAPH}) {}
+
     static void SetUpTestCase() { config::SetCodeGenConfig(KEY_CODEGEN_SUPPORT_TILE_TENSOR, false); }
 
     static void TearDownTestCase() { config::SetCodeGenConfig(KEY_CODEGEN_SUPPORT_TILE_TENSOR, true); }
-
-    void SetUp() override
-    {
-        Program::GetInstance().Reset();
-        config::Reset();
-        config::SetHostOption(COMPILE_STAGE, CS_EXECUTE_GRAPH);
-        config::SetPlatformConfig(KEY_ENABLE_COST_MODEL, false);
-    }
-
-    void TearDown() override {}
 };
 
 TEST_F(TestCodegenDynLogical, TestDynOpLogicalAnd)
@@ -114,7 +106,6 @@ std::string TestLogicalBody(Opcode opcode)
     localOutTensor->UpdateDynValidShape(dynValidShape);
     std::vector<int64_t> offset = {0, 0};
     std::vector<SymbolicScalar> dynoffset = {0, 0};
-    logicalInTensor->UpdateOffset(TensorOffset(offset, dynoffset));
 
     auto& op = function->AddOperation(opcode, {logicalInTensor, logicalInTensor}, {localOutTensor, localOutTensor});
 

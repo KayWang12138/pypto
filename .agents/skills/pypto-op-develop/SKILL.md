@@ -54,6 +54,7 @@ description: 当需要编写 PyPTO 算子实现时使用此 skill。基于需求
 | 文件 | 用途 | 加载时机 |
 |------|------|----------|
 | [templates/test-template.py](templates/test-template.py) | test 文件固定模板 | 生成 test_{op}.py 时读取 |
+| [templates/test_cases-template.json](templates/test_cases-template.json) | test_cases.json 固定模板 | 生成 test_cases.json 时读取 |
 | [templates/impl-template.py](templates/impl-template.py) | impl 文件固定模板 | 生成 {op}_impl.py 时读取 |
 | [references/execution-constraints.md](references/execution-constraints.md) | PyPTO 开发执行约束清单 | 进入实现阶段前必读；编码与自检时反复对照 |
 | [references/error-code-troubleshooting.md](references/error-code-troubleshooting.md) | 错误码排查流程与常见错误码速查 | 验证失败时按流程排查 |
@@ -109,6 +110,7 @@ export PTO_TILE_LIB_CODE_PATH=./pto_isa/pto-isa/
 - `references/execution-constraints.md` — 框架级约束清单
 - `templates/impl-template.py` — impl 文件模板
 - `templates/test-template.py` — test 文件模板
+- `templates/test_cases-template.json` — test_cases.json 模板
 
 **生成顺序**：
 1. 根据输入信息，先梳理 API 映射、tiling 策略、loop 结构，确认可行后再进入实现
@@ -118,9 +120,11 @@ export PTO_TILE_LIB_CODE_PATH=./pto_isa/pto-isa/
     - 本算子使用 pypto.concat → 第4.8节：仅支持 2-4D
     - 本算子需要 cast → 第4.10节：显式指定 CastMode
 3. 基于约束清单和 impl 模板生成 `{op}_impl.py`
-4. `{op}_impl.py` 完成后，**并行生成** `test_{op}.py` 和 `README.md`（两者互不依赖）
+4. `{op}_impl.py` 完成后，**并行生成** `test_cases.json`、`test_{op}.py` 和 `README.md`（三者互不依赖）
+
 
 ⚠️ 实现代码与测试代码必须分离，禁止混写 golden / impl / test 到同一文件。
+⚠️ 测试用例信息统一放在 test_cases.json，test_{op}.py 遍历读取执行。
 
 ---
 
@@ -134,14 +138,33 @@ PyPTO kernel 函数实现，基于固定模板 `templates/impl-template.py` 生�
 |------|------|
 | 导出函数 | `{op}_wrapper(x: torch.Tensor) -> torch.Tensor` |
 | Kernel 装饰器 | `@pypto.frontend.jit` |
-| Tensor 描述符 | `pypto.Tensor()` 或 `pypto.Tensor([pypto.DYNAMIC, ...], pypto.DT_FP32)` |
+| Tensor 描述符 | `pypto.Tensor([pypto.DYNAMIC, ...], pypto.DT_FP32)`（动态轴必须显式标 `pypto.DYNAMIC`；禁止使用 `pypto.Tensor()` / `pypto.Tensor([], ...)`） |
 | Tiling 配置 | 必须调用 `pypto.set_vec_tile_shapes(...)` 或 `pypto.set_cube_tile_shapes(...)` |
 | 输出写回 | `output[:] = result` 或 `pypto.assemble(result, offset, output)` |
 | 可选辅助函数 | `{op}_core()` — 复杂算子拆分核心计算逻辑 |
 
+#### 生成 test_cases.json
+
+测试用例信息文件，基于固定模板 `templates/test_cases-template.json` 生成。
+
+**结构**：
+
+| 字段 | 必填 | 说明 |
+|------|------|------|
+| `op_name` | ✅ | 算子名称 |
+| `source` | ✅ | 数据来源 |
+| `test_cases` | ✅ | 测试用例列表 |
+| `id` | ✅ | 用例唯一标识 |
+| `description` | 可选 | 用例描述 |
+| `seed` | 可选 | 随机种子（默认42） |
+| `input` | ✅ | 输入 tensor 信息（shape、dtype） |
+| `output` | ✅ | 输出 tensor 信息（shape、dtype） |
+| `rtol` | 可选 | 相对容差（默认1e-3） |
+| `atol` | 可选 | 绝对容差（默认1e-3） |
+
 #### 生成 test_{op}.py
 
-torch golden 函数精度对比测试，基于固定模板 `templates/test-template.py` 生成。
+精度对比测试文件，基于固定模板 `templates/test-template.py` 生成，遍历读取 test_cases.json。
 
 **结构**：
 
@@ -149,8 +172,9 @@ torch golden 函数精度对比测试，基于固定模板 `templates/test-templ
 |------|------|
 | Import | `from {op}_golden import {op}_golden` + `from {op}_impl import {op}_wrapper` |
 | 环境工具 | `get_device_id()` — 读取 `TILE_FWK_DEVICE_ID` |
-| 测试函数 | `test_{op}_levelN()` — 数据生成 → `{op}_wrapper(x)` → `{op}_golden(x)` → `assert_allclose` |
-| CLI 入口 | `argparse`，支持 `example_id` / `--list` / `--run_mode` |
+| 加载函数 | `load_test_cases()` — 读取 test_cases.json |
+| 测试执行 | `run_single_case()` — 构造数据 → 调用 → assert_allclose |
+| CLI 入口 | `argparse`，支持 `case_id` / `--list` / `--run_mode` / `--json` |
 
 **精度对比强制规范**：
 
@@ -160,6 +184,14 @@ torch golden 函数精度对比测试，基于固定模板 `templates/test-templ
 | 容差 | 简单算子 `rtol=1e-3, atol=1e-3`；复杂算子 `rtol=3e-3, atol=3e-3` |
 | NPU 条件对比 | `if run_mode == "npu": assert_allclose(...)` |
 | 禁止手写对比 | `assert max_diff < tolerance` / `np.allclose()` 均禁止 |
+
+**运行方式**：
+
+```bash
+python test_{op}.py              # 遍历所有用例
+python test_{op}.py case_001     # 运行单个用例
+python test_{op}.py --list       # 列出所有用例
+```
 
 #### 生成 README.md
 
@@ -173,16 +205,16 @@ torch golden 函数精度对比测试，基于固定模板 `templates/test-templ
 
 #### Design 到代码文件的映射
 
-| design 章节 | `test_{op}.py` | `{op}_impl.py` | `README.md` |
-|------------|----------------|----------------|-------------|
-| 概述 | 间接引用 | 否 | 是 |
-| API 映射设计 | 否 | 是 | 可摘要 |
-| 数据规格设计 | 是 | 是 | 可摘要 |
-| Tiling 策略 | 否 | 是 | 可摘要 |
-| Loop 结构设计 | 否 | 是 | 可摘要 |
-| 验证方案 | 是 | 否 | 是 |
-| 性能指标 | 部分 | 部分 | 是 |
-| 交付件清单 | 是 | 是 | 是 |
+| design 章节 | `test_cases.json` | `test_{op}.py` | `{op}_impl.py` | `README.md` |
+|------------|-------------------|----------------|----------------|-------------|
+| 概述 | 间接引用 | 间接引用 | 否 | 是 |
+| API 映射设计 | 否 | 否 | 是 | 可摘要 |
+| 数据规格设计 | 是 | 是 | 是 | 可摘要 |
+| Tiling 策略 | 否 | 否 | 是 | 可摘要 |
+| Loop 结构设计 | 否 | 否 | 是 | 可摘要 |
+| 验证方案 | 是 | 是 | 否 | 是 |
+| 性能指标 | 部分 | 部分 | 部分 | 是 |
+| 交付件清单 | 是 | 是 | 是 | 是 |
 
 ---
 
@@ -235,12 +267,12 @@ python3 custom/{op}/test_{op}.py
 6. **动态循环边界使用 unroll_list**：当循环次数为动态值时，需要使用 `unroll_list`；多层循环嵌套时，最内层使用 `unroll_list`。
 7. **matmul / cube 场景**：必须确认 `set_cube_tile_shapes(...)` 已正确配置。
 8. **输出写回必须显式完成**：使用 `output[:] = ...`、`output.move(...)` 或 `pypto.assemble(..., output)`；不要写 `output = ...`。
-9. **动态轴必须显式标注**：所有动态 shape 输入和输出都要在 Tensor 注解中标成 `pypto.DYNAMIC` / `pypto.DYN`。
-10. **Element 用于固定标量 dtype**：当标量参与计算且 dtype 不能依赖隐式映射时，显式使用 `pypto.Element(dtype, value)`。
-11. **避免同图内回环读写**：同一 Tensor 不要在同一图里既 `view` 读取又 `assemble` 回写。
-12. 如果设计中已有 tiling / loop 约束，编码时优先遵循 `DESIGN.md`，不要临时拍脑袋改写。
+9. **动态轴必须显式标注**：所有动态 shape 输入和输出都必须在 Tensor 注解中标成 `pypto.DYNAMIC` / `pypto.DYN`。**禁止** `pypto.Tensor()` / `pypto.Tensor([], dtype)` 这类空注解写法（门禁 OL31 会直接判 FAIL）；静态轴写常量整数，动态轴写 `pypto.DYNAMIC`，不可混淆。
+10. **声明动态轴时 kernel 必须含真实 `pypto.loop`**：DESIGN.md `dynamic_axes` 非空时，JIT 函数内必须存在遍历动态轴的 `pypto.loop(...)` 调用，trip count 必须来自动态轴（`tensor.shape[i]`、函数参数或其符号表达式）；**禁止**用 `pypto.loop(1)`、`pypto.loop(常量)` 等空循环或注释里写 `pypto.loop` 来糊弄门禁 OL43，门禁正向校验为 FAIL。
+11. **Element 用于固定标量 dtype**：当标量参与计算且 dtype 不能依赖隐式映射时，显式使用 `pypto.Element(dtype, value)`。
+12. **避免同图内回环读写**：同一 Tensor 不要在同一图里既 `view` 读取又 `assemble` 回写。
+13. 如果设计方案中已有 tiling / loop 约束，编码时优先遵循设计方案，不要临时拍脑袋改写。
 
----
 
 ## 复杂算子（attention 类、recurrent、fused）
 
@@ -260,9 +292,6 @@ python3 custom/{op}/test_{op}.py
 - **Layer J**：`@pypto.frontend.jit` 入口
 - **Layer K**：`pypto_function` 主机包装器（**禁止 `for ... in range(...)`**，迭代必须用 `pypto.loop`）
 
-复杂算子推荐配合 `staged/` 目录使用渐进式开发流程，详见 `references/kernel-layer-format.md` §8。
-
----
 
 ## 常见问题与解决方案
 
@@ -331,8 +360,9 @@ if __name__ == "__main__":
 
 ## Checklist
 
-1. 3 个文件（`test_{op}.py` + `{op}_impl.py` + `README.md`）全部存在
-2. `test_{op}.py` 可执行（无语法错误）
-3. 测试包含 `[PRECISION_PASS]` / `[PRECISION_FAIL]` 标记逻辑，无其他功能问题
-4. 验证失败时已确认是否有错误码：有则走错误码流程，无则跳过
-5. `{op}_impl.py` 已按 `references/execution-constraints.md` 自检：输出写回、动态轴、TileShape、valid_shape、Element、loop/cond、assemble 回环均已检查
+1. 4 个文件（`test_cases.json` + `test_{op}.py` + `{op}_impl.py` + `README.md`）全部存在
+2. `test_cases.json` 格式正确（包含 op_name、source、test_cases 字段）
+3. `test_{op}.py` 可执行（无语法错误），遍历读取 test_cases.json
+4. 测试包含 `[PRECISION_PASS]` / `[PRECISION_FAIL]` 标记逻辑，无其他功能问题
+5. 验证失败时已确认是否有错误码：有则走错误码流程，无则跳过
+6. `{op}_impl.py` 已按 `references/execution-constraints.md` 自检：输出写回、动态轴、TileShape、valid_shape、Element、loop/cond、assemble 回环均已检查

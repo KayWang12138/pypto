@@ -29,24 +29,20 @@
 
 namespace npu::tile_fwk {
 
-class TestCodegenSpillOut : public ::testing::Test {
+class TestCodegenSpillOut : public CodegenTestBase {
 public:
-    static void SetUpTestCase() {}
+    TestCodegenSpillOut()
+        : CodegenTestBase(
+              {.compileStage = CS_EXECUTE_GRAPH, .buildStatic = true, .setTileTensor = true, .tileTensorValue = false})
+    {}
 
     static void TearDownTestCase() { config::SetCodeGenConfig(KEY_CODEGEN_SUPPORT_TILE_TENSOR, true); }
 
     void SetUp() override
     {
-        Program::GetInstance().Reset();
-        config::Reset();
-        config::SetBuildStatic(true);
-        config::SetHostOption(COMPILE_STAGE, CS_EXECUTE_GRAPH);
-        config::SetPlatformConfig(KEY_ENABLE_COST_MODEL, false);
-        config::SetCodeGenConfig(KEY_CODEGEN_SUPPORT_TILE_TENSOR, false);
+        CodegenTestBase::SetUp();
         TileShape::Current().SetCubeTile({64, 64}, {64, 64}, {64, 64});
     }
-
-    void TearDown() override {}
 };
 
 TEST_F(TestCodegenSpillOut, UBSpillOut)
@@ -57,6 +53,8 @@ TEST_F(TestCodegenSpillOut, UBSpillOut)
     auto ddrTensor = CreateLogicalTensor(
         {*function, DataType::DT_FP32, MemoryType::MEM_DEVICE_DDR, shape, "UBSpillOut", SYMBOL_STACK_BASE,
          dynValidShape});
+    int64_t baseOffset{0};
+    ddrTensor->SetAttr(OpAttributeKey::workspaceBaseOffset, baseOffset);
     auto ubTensor = CreateLogicalTensor({*function, DataType::DT_FP32, MemoryType::MEM_UB, shape});
 
     auto& op = function->AddOperation(Opcode::OP_COPY_OUT, {ubTensor}, {ddrTensor});
@@ -88,6 +86,8 @@ TEST_F(TestCodegenSpillOut, UBSpillOutTileTensor)
     auto ddrTensor = CreateLogicalTensor(
         {*function, DataType::DT_FP32, MemoryType::MEM_DEVICE_DDR, shape, "UBSpillOutTileTensor", SYMBOL_STACK_BASE,
          dynValidShape});
+    int64_t baseOffset{16};
+    ddrTensor->SetAttr(OpAttributeKey::workspaceBaseOffset, baseOffset);
     auto ubTensor = CreateLogicalTensor({*function, DataType::DT_FP32, MemoryType::MEM_UB, shape});
 
     auto& op = function->AddOperation(Opcode::OP_COPY_OUT, {ubTensor}, {ddrTensor});
@@ -124,6 +124,8 @@ TEST_F(TestCodegenSpillOut, L1SpillOut)
     auto ddrTensor = CreateLogicalTensor(
         {*function, DataType::DT_FP32, MemoryType::MEM_DEVICE_DDR, shape, "L1SpillOut", SYMBOL_STACK_BASE,
          dynValidShape});
+    int64_t baseOffset{0};
+    ddrTensor->SetAttr(OpAttributeKey::workspaceBaseOffset, baseOffset);
     auto l1Tensor = CreateLogicalTensor({*function, DataType::DT_FP32, MemoryType::MEM_L1, shape, dynValidShape});
 
     auto& op = function->AddOperation(Opcode::OP_L1_COPY_OUT, {l1Tensor}, {ddrTensor});

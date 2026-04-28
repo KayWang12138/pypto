@@ -51,6 +51,7 @@ REGISTER_INFER_SHAPE_FUNC(OP_MUL, Opcode::OP_MUL, BinaryBrcinlineInferFunc);
 REGISTER_INFER_SHAPE_FUNC(OP_DIV, Opcode::OP_DIV, BinaryBrcinlineInferFunc);
 REGISTER_INFER_SHAPE_FUNC(OP_MAXIMUM, Opcode::OP_MAXIMUM, BinaryBrcinlineInferFunc);
 REGISTER_INFER_SHAPE_FUNC(OP_MINIMUM, Opcode::OP_MINIMUM, BinaryBrcinlineInferFunc);
+REGISTER_INFER_SHAPE_FUNC(OP_AXPY, Opcode::OP_AXPY, BinaryBrcinlineInferFunc);
 
 void ElewiseInferFunc(Operation* op, std::vector<std::vector<SymbolicScalar>>& outValidShapes)
 {
@@ -76,6 +77,7 @@ void ElewiseInferFunc(Operation* op, std::vector<std::vector<SymbolicScalar>>& o
             }
         }
     }
+    std::vector<int64_t> inputIdx(shapeDimNum, 0);
     std::vector<SymbolicScalar> inputValidShape;
     for (size_t i = 0; i < shapeDimNum; ++i) {
         size_t oneDimNum = 0;
@@ -89,6 +91,7 @@ void ElewiseInferFunc(Operation* op, std::vector<std::vector<SymbolicScalar>>& o
         }
         if (oneDimNum > 0 && oneDimNum < dimShape[i].size()) {
             inputValidShape.push_back(dimValidShape[i][noOneIndex]);
+            inputIdx[i] = noOneIndex;
             continue;
         }
 
@@ -116,7 +119,7 @@ void ElewiseInferFunc(Operation* op, std::vector<std::vector<SymbolicScalar>>& o
     }
 
     int64_t whereBitMode = 0;
-    if (op->GetAttr(OP_ATTR_PREFIX + "whereBitMode", whereBitMode) && whereBitMode == 1) {
+    if (op->GetAttr(OP_ATTR_PREFIX + "whereBitMode", whereBitMode) && whereBitMode == 1 && inputIdx.back() == 0) {
         inputValidShape[inputValidShape.size() - 1] = inputValidShape[inputValidShape.size() - 1] * 8;
     }
 
@@ -196,6 +199,7 @@ REGISTER_INFER_SHAPE_FUNC(OP_BITWISEOR, Opcode::OP_BITWISEOR, ElewiseInferFunc);
 REGISTER_INFER_SHAPE_FUNC(OP_BITWISEXOR, Opcode::OP_BITWISEXOR, ElewiseInferFunc);
 REGISTER_INFER_SHAPE_FUNC(OP_EXPANDEXPDIF, Opcode::OP_EXPANDEXPDIF, ElewiseInferFunc);
 REGISTER_INFER_SHAPE_FUNC(OP_COPYSIGN, Opcode::OP_COPYSIGN, ElewiseInferFunc);
+REGISTER_INFER_SHAPE_FUNC(OP_COSH, Opcode::OP_COSH, ElewiseInferFunc);
 
 void FloorDivInferShapeFunc(Operation* op, std::vector<std::vector<SymbolicScalar>>& outValidShapes)
 {
@@ -209,6 +213,18 @@ void FloorDivInferShapeFunc(Operation* op, std::vector<std::vector<SymbolicScala
 }
 REGISTER_INFER_SHAPE_FUNC(OP_FLOORDIV, Opcode::OP_FLOORDIV, FloorDivInferShapeFunc);
 REGISTER_INFER_SHAPE_FUNC(OP_FLOORDIVS, Opcode::OP_FLOORDIVS, FloorDivInferShapeFunc);
+
+void SinhInferShapeFunc(Operation* op, std::vector<std::vector<SymbolicScalar>>& outValidShapes)
+{
+    auto inputValidShape = op->GetIOperands()[0]->GetDynValidShape();
+    if (inputValidShape.empty()) {
+        return;
+    }
+    size_t ndim = inputValidShape.size();
+    outValidShapes.emplace_back(inputValidShape);
+    outValidShapes.emplace_back(std::vector<SymbolicScalar>{inputValidShape[ndim - 1] * 4});
+}
+REGISTER_INFER_SHAPE_FUNC(OP_SINH, Opcode::OP_SINH, SinhInferShapeFunc);
 
 void PadInferShapeFunc(Operation* op, std::vector<std::vector<SymbolicScalar>>& outValidShapes)
 {
@@ -710,9 +726,7 @@ void Load2L1InferFunc(Operation* op, std::vector<std::vector<SymbolicScalar>>& o
         outValidShapes.push_back(inputValidShapes[0]);
     }
 }
-REGISTER_INFER_SHAPE_FUNC(OP_UB_COPY_L1, Opcode::OP_UB_COPY_L1, Load2L1InferFunc);
 REGISTER_INFER_SHAPE_FUNC(OP_UB_COPY_ND2NZ, Opcode::OP_UB_COPY_ND2NZ, Load2L1InferFunc);
-REGISTER_INFER_SHAPE_FUNC(OP_L0C_COPY_UB, Opcode::OP_L0C_COPY_UB, Load2L1InferFunc);
 
 void Load2L1MXScaleInferFunc(Operation* op, std::vector<std::vector<SymbolicScalar>>& outValidShapes)
 {
@@ -1065,6 +1079,8 @@ void CopyOutInferFunc(Operation* op, std::vector<std::vector<SymbolicScalar>>& o
     }
 }
 REGISTER_INFER_SHAPE_FUNC(OP_COPY_OUT, Opcode::OP_COPY_OUT, CopyOutInferFunc);
+REGISTER_INFER_SHAPE_FUNC(OP_UB_COPY_L1, Opcode::OP_UB_COPY_L1, CopyOutInferFunc);
+REGISTER_INFER_SHAPE_FUNC(OP_L0C_COPY_UB, Opcode::OP_L0C_COPY_UB, CopyOutInferFunc);
 
 // MTE infer shape func
 void TransposeInferFunc(Operation* op, std::vector<std::vector<SymbolicScalar>>& outValidShapes)
@@ -1223,6 +1239,7 @@ REGISTER_INFER_SHAPE_FUNC(OP_ASSEMBLE, Opcode::OP_ASSEMBLE, AssembleInferFunc);
 
 const std::string TOPK_AXIS = OP_ATTR_PREFIX + "axis";
 const std::string TOPK_ORDER = OP_ATTR_PREFIX + "order";
+const std::string TOPK_ALGO = OP_ATTR_PREFIX + "algo";
 const std::string TOPK_KVALUE = OP_ATTR_PREFIX + "kvalue";
 const std::string EXTRACT_MASKMODE = OP_ATTR_PREFIX + "makeMode";
 const std::string SORT_AXIS = OP_ATTR_PREFIX + "axis";
@@ -1310,6 +1327,27 @@ void ExtractFunc(Operation* op, std::vector<std::vector<SymbolicScalar>>& outVal
 }
 
 REGISTER_INFER_SHAPE_FUNC(OP_EXTRACT, Opcode::OP_EXTRACT, ExtractFunc);
+
+void RadixSelectFunc(Operation* op, std::vector<std::vector<SymbolicScalar>>& outValidShapes)
+{
+    auto input = op->GetIOperands()[0];
+    std::vector<SymbolicScalar> res(input->GetDynValidShape());
+    res.back() = op->GetIntAttribute(TOPK_KVALUE);
+    outValidShapes.push_back(res);
+    outValidShapes.push_back(res);
+    std::vector<SymbolicScalar> tmpValidShape;
+    std::vector<int64_t> srcShape = input->GetShape();
+    auto lastDim = srcShape[srcShape.size() - 1];
+    tmpValidShape.emplace_back(
+        static_cast<int64_t>(NUM_VALUE_2 * lastDim * BytesOf(input->Datatype())) +
+        static_cast<int64_t>(NUM_VALUE_6 * lastDim) +
+        static_cast<int64_t>(NUM_VALUE_1024) +
+        static_cast<int64_t>(NUM_VALUE_1024 > NUM_VALUE_8 * lastDim ? NUM_VALUE_1024 : NUM_VALUE_8 * lastDim)
+    );
+    outValidShapes.push_back(tmpValidShape);
+}
+
+REGISTER_INFER_SHAPE_FUNC(OP_RADIX_SELECT, Opcode::OP_RADIX_SELECT, RadixSelectFunc);
 
 void VecDupInferFunc(Operation* op, std::vector<std::vector<SymbolicScalar>>& validShapes)
 {

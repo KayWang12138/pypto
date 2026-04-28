@@ -308,6 +308,11 @@ void OpcodeManager::RegisterVectorBinary()
         {MemoryType::MEM_UB, MemoryType::MEM_UB}, {"TileOp::TFloorDivS", PIPE_V, PIPE_V, CoreType::AIV},
         OpCalcType::BROADCAST, {OpAttributeKey::inputCombineAxis, OpAttributeKey::excludeBufferReuse},
         TileShapeVerifier::Verify);
+    RegisterInfo(
+        Opcode::OP_AXPY, OpCoreType::AIV, "AXPY", {MemoryType::MEM_UB, MemoryType::MEM_UB}, {MemoryType::MEM_UB},
+        {"TileOp::TAXPY", PIPE_V, PIPE_V, CoreType::AIV}, OpCalcType::BROADCAST,
+        {OpAttributeKey::scalar, OpAttributeKey::inplaceInfo, OpAttributeKey::inputCombineAxis},
+        TileShapeVerifier::Verify);        
 }
 
 void OpcodeManager::RegisterVectorUnary()
@@ -399,6 +404,14 @@ void OpcodeManager::RegisterVectorUnary()
         Opcode::OP_COS, OpCoreType::AIV, "COS", {MemoryType::MEM_UB}, {MemoryType::MEM_UB, MemoryType::MEM_UB,
         MemoryType::MEM_UB}, {"TileOp::Tcos", PIPE_V, PIPE_V, CoreType::AIV}, OpCalcType::ELMWISE,
         {OpAttributeKey::inputCombineAxis, OpAttributeKey::outputCombineAxis, OpAttributeKey::excludeBufferReuse}, TileShapeVerifier::Verify);
+    RegisterInfo(
+        Opcode::OP_SINH, OpCoreType::AIV, "SINH", {MemoryType::MEM_UB}, {MemoryType::MEM_UB, MemoryType::MEM_UB},
+        {"TileOp::TSinh", PIPE_V, PIPE_V, CoreType::AIV}, OpCalcType::ELMWISE,
+        {OpAttributeKey::inputCombineAxis, OpAttributeKey::outputCombineAxis, OpAttributeKey::excludeBufferReuse}, TileShapeVerifier::Verify);
+    RegisterInfo(
+        Opcode::OP_COSH, OpCoreType::AIV, "COSH", {MemoryType::MEM_UB}, {MemoryType::MEM_UB},
+        {"TileOp::TCosh", PIPE_V, PIPE_V, CoreType::AIV}, OpCalcType::ELMWISE,
+        {OpAttributeKey::inputCombineAxis, OpAttributeKey::outputCombineAxis, OpAttributeKey::excludeBufferReuse}, TileShapeVerifier::Verify);
 }
 
 void OpcodeManager::RegisterVectorSort()
@@ -406,7 +419,7 @@ void OpcodeManager::RegisterVectorSort()
     RegisterInfo(
         Opcode::OP_TOPK, OpCoreType::ANY, "TOPK", {MemoryType::MEM_UB}, {MemoryType::MEM_UB},
         {"TileOp::MrgSort", PIPE_V, PIPE_V, CoreType::AIV}, OpCalcType::OTHER,
-        {OP_ATTR_PREFIX + "axis", OP_ATTR_PREFIX + "order", OP_ATTR_PREFIX + "kvalue"}, TileShapeVerifier::Verify);
+        {OP_ATTR_PREFIX + "axis", OP_ATTR_PREFIX + "order", OP_ATTR_PREFIX + "kvalue", OpAttributeKey::topkAlgo}, TileShapeVerifier::Verify);
     RegisterInfo(
         Opcode::OP_BITSORT, OpCoreType::ANY, "BITSORT", {MemoryType::MEM_UB}, {MemoryType::MEM_UB, MemoryType::MEM_UB},
         {"TileOp::BitSort", PIPE_S, PIPE_V, CoreType::AIV}, OpCalcType::OTHER,
@@ -440,6 +453,11 @@ void OpcodeManager::RegisterVectorSort()
         Opcode::OP_SORT_UB, OpCoreType::ANY, "SORTUB", {MemoryType::MEM_DEVICE_DDR},
         {MemoryType::MEM_DEVICE_DDR, MemoryType::MEM_DEVICE_DDR}, {"TileOp::SortUB", PIPE_S, PIPE_V, CoreType::AIV},
         OpCalcType::OTHER, {OP_ATTR_PREFIX + "axis", OP_ATTR_PREFIX + "order"});
+    RegisterInfo(
+        Opcode::OP_RADIX_SELECT, OpCoreType::ANY, "RADIX_SELECT", {MemoryType::MEM_UB},
+        {MemoryType::MEM_UB, MemoryType::MEM_UB, MemoryType::MEM_UB},
+        {"TileOp::RadixSelect", PIPE_V, PIPE_V, CoreType::AIV}, OpCalcType::OTHER,
+        {OP_ATTR_PREFIX + "order", OP_ATTR_PREFIX + "kvalue", OpAttributeKey::excludeBufferReuse});
 
     // parallel sort
     RegisterInfo(
@@ -639,7 +657,12 @@ void OpcodeManager::RegisterVector() {
         Opcode::OP_POW, OpCoreType::AIV, "POW", {MemoryType::MEM_UB, MemoryType::MEM_UB},
         {MemoryType::MEM_UB, MemoryType::MEM_UB}, {"TileOp::Tpow", PIPE_V, PIPE_V, CoreType::AIV}, OpCalcType::ELMWISE,
         {OpAttributeKey::scalar, OP_ATTR_PREFIX + "reverseOperand", OpAttributeKey::inputCombineAxis,
-         OpAttributeKey::outputCombineAxis, OpAttributeKey::excludeBufferReuse});
+         OpAttributeKey::outputCombineAxis, OpAttributeKey::excludeBufferReuse, OpAttributeKey::precisionType});
+    RegisterInfo(
+        Opcode::OP_POWS, OpCoreType::AIV, "POWS", {MemoryType::MEM_UB, MemoryType::MEM_UB},
+        {MemoryType::MEM_UB, MemoryType::MEM_UB}, {"TileOp::Tpows", PIPE_V, PIPE_V, CoreType::AIV}, OpCalcType::ELMWISE,
+        {OpAttributeKey::scalar, OP_ATTR_PREFIX + "reverseOperand", OpAttributeKey::inputCombineAxis,
+         OpAttributeKey::outputCombineAxis, OpAttributeKey::excludeBufferReuse, OpAttributeKey::precisionType});
     RegisterInfo(
         Opcode::OP_GATHER_FROM_UB, OpCoreType::AIV, "GATHER_FROM_UB", {MemoryType::MEM_UB, MemoryType::MEM_UB},
         {MemoryType::MEM_UB}, {"TileOp::TgatherFromUB", PIPE_V, PIPE_V, CoreType::AIV}, OpCalcType::OTHER,
@@ -1227,6 +1250,7 @@ std::unordered_map<Opcode, std::string> SUPPORT_TILETENSOR_OPS{
     {Opcode::OP_SIN, "TSin"},
     {Opcode::OP_COS, "TCos"},
     {Opcode::OP_ADD, "TAdd"},
+    {Opcode::OP_AXPY, "TAxpy"},    
     {Opcode::OP_CUM_SUM, "TCumOperation"},
     {Opcode::OP_CUM_PROD, "TCumOperation"},
     {Opcode::OP_SUB, "TSub"},
@@ -1234,6 +1258,7 @@ std::unordered_map<Opcode, std::string> SUPPORT_TILETENSOR_OPS{
     {Opcode::OP_DIV, "TDiv"},
     {Opcode::OP_MOD, "TMod"},
     {Opcode::OP_POW, "TPow"},
+    {Opcode::OP_POWS, "TPowS"},
     {Opcode::OP_MUL, "TMul"},
     {Opcode::OP_REM, "TRemainder"},
     {Opcode::OP_REMS, "TRemainderS"},
@@ -1287,6 +1312,7 @@ std::unordered_map<Opcode, std::string> SUPPORT_TILETENSOR_OPS{
     {Opcode::OP_RSQRT, "TRsqrt"},
     {Opcode::OP_RELU, "TRelu"},
     {Opcode::OP_LOG1P, "TLog1p"},
+    {Opcode::OP_RADIX_SELECT, "TRadixSelect"},
     {Opcode::OP_PAD, "TPad"},
     {Opcode::OP_FILLPAD, "TFillPad"},
     {Opcode::OP_SQRT, "TSqrt"},
@@ -1337,6 +1363,8 @@ std::unordered_map<Opcode, std::string> SUPPORT_TILETENSOR_OPS{
     {Opcode::OP_QUANTIZE_SYM, "TQuant"},
     {Opcode::OP_QUANTIZE_ASYM, "TQuant"},
     {Opcode::OP_DEQUANTIZE, "TDequant"},
+    {Opcode::OP_SINH, "TSinh"},
+    {Opcode::OP_COSH, "TCosh"},
     {Opcode::OP_L1_TO_L0A, "TExtract"},
     {Opcode::OP_L1_TO_L0B, "TExtract"},
     {Opcode::OP_L1_TO_L0_AT, "TExtract"},

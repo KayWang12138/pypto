@@ -72,6 +72,12 @@ struct IssueQueue {
         }
     }
 
+    void ForceInsertAfterFirst(Operation* op) {
+        // 插入到第一个元素之后
+        auto insertPos = queue.begin() + 1;
+        queue.insert(insertPos, op);
+    }
+
     bool Empty() { return queue.size() == 0; }
 
     Operation* Front()
@@ -253,7 +259,9 @@ private:
     Status ReplayPartialWriteProducers(SpillInfo &spillInfo, Operation* allocOp,
         LogicalTensorPtr assembleTensor, const std::vector<Operation*> &assembleOps, bool isGenSpill);
     Status SpillOnBlock() override;
-    Status SpillOnCoreBlock(CoreLocationType targetCore, bool &didSpill);
+    Status SpillOnCoreBlock(std::pair<CoreLocationType, MemoryType> orderFirstPair);
+    Status FindCoreLocationMemoryType(CoreLocationType coreLocation, MemoryType &spillMemType);
+    Status FindFirstOrder(std::pair<CoreLocationType, MemoryType> &orderFirstPair);
     Operation* SkipViewChain(Operation* start, bool followProducers);
 
     // 新增：插入Operation到orderedOps
@@ -270,7 +278,7 @@ private:
     void UpdateOpInternalSubgraphID(Operation &op, Operation* srcOp);
     void GetActualSpillInfo(Operation* spillOp, std::pair<LogicalTensorPtr, Operation*>& actualInfo);
     void UpdateOpAttr(Operation &op, int opLatency, LogicalTensorPtr spillTensor, std::vector<int64_t> offset,
-        Operation* spillOp, int64_t workspaceBaseOffset, bool isSpecialL1);
+        Operation* spillOp, bool isSpecialL1);
     Status UpdateTensorAttr(LogicalTensorPtr tensor, MemoryType memType, LogicalTensorPtr spillTensor, int spillMemId);
     int GetBufNextUseOrder(Operation* op, int curMemId);
     int GetBufLastUseOrder(Operation* op, int curMemId);
@@ -282,9 +290,9 @@ private:
     Status UpdateAssembleBuffer(SpillInfo &spillInfo, LocalBufferPtr allocBuffer, LogicalTensorPtr assembleTensor);
     LogicalTensorPtr CreateAssemblePartTensor(
         LogicalTensorPtr iOperand, LogicalTensorPtr assembleTensor, const std::vector<int64_t> &toOffset);
-    void GetWorkspaceBaseOffset(LogicalTensorPtr ddrTensor, int64_t& base);
     Status UpdateCopyOutMode(Operation& copyOutOp);
     Status UpdateCopyInMode(Operation& copyInOp);
+    void AllocWorkspaceGM(const std::vector<Operation *> &opList);
 
     // buffer rearrange
     Status RearrangeBuffer(Operation* allocOp, MemoryType memType, CoreLocationType coreLocation, bool isGenSpill);

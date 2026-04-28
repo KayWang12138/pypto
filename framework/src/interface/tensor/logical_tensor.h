@@ -50,7 +50,6 @@ public:
 
 class LogicalTensor : public AttrHolder {
 public:
-    int subGraphID{NOT_IN_SUBGRAPH};
 
     std::shared_ptr<RawTensor> tensor;
     Offset offset;
@@ -121,9 +120,6 @@ public:
     bool IsDummy() const;
     void SetIsDummy(bool dummy = true);
 
-    int GetSubgraphID() const { return subGraphID; }
-    void UpdateSubgraphID(int subgraphID) { subGraphID = subgraphID; }
-
     bool Overlap(const std::shared_ptr<LogicalTensor>& other) const;
 
     int GetMagic() const { return magic; }
@@ -134,7 +130,7 @@ public:
     const Shape& GetShape() const { return shape; }
     void UpdateOffset(const Offset& newOffset)
     {
-        FUNCTION_ASSERT(FError::INVALID_VAL, newOffset.size() == shape.size())
+        FE_ASSERT(FeError::INVALID_VAL, newOffset.size() == shape.size())
             << "newOffset.size(): " << newOffset.size() << ", shape.size(): " << shape.size();
         offset = newOffset;
     }

@@ -39,6 +39,10 @@ enum class OutType {
     BOOL,
     BIT,
 };
+enum class TopKAlgo {
+    MERGE_SORT,
+    RADIX_SELECT,
+};
 
 enum class SaturationMode : uint8_t {
     ON = 0,
@@ -46,6 +50,12 @@ enum class SaturationMode : uint8_t {
 };
 
 enum class DivAlgorithm : uint8_t
+{
+    DEFAULT,
+    HIGH_PRECISION
+};
+
+enum class PowAlgorithm : uint8_t
 {
     DEFAULT,
     HIGH_PRECISION
@@ -76,6 +86,12 @@ enum class LogAlgorithm : uint8_t
 };
 
 enum class RecipAlgorithm : uint8_t
+{
+    DEFAULT,
+    HIGH_PRECISION
+};
+
+enum class FmodAlgorithm : uint8_t
 {
     DEFAULT,
     HIGH_PRECISION
@@ -206,6 +222,8 @@ Tensor Ln(const Tensor& operand, LogAlgorithm precisionType = LogAlgorithm::DEFA
 Tensor Hub(const Tensor& operand);
 Tensor Sign(const Tensor& operand);
 Tensor Signbit(const Tensor& operand);
+Tensor Sinh(const Tensor& self);
+Tensor Cosh(const Tensor& self);
 
 Tensor Duplicate(const Tensor& operand);
 Tensor Gather(const Tensor& params, const Tensor& indices, int axis);
@@ -256,7 +274,7 @@ Tensor Sub(const Tensor& self, const Tensor& other);
 Tensor Div(const Tensor& self, const Tensor& other, DivAlgorithm precisionType = DivAlgorithm::DEFAULT);
 Tensor Mul(const Tensor& self, const Tensor& other);
 Tensor Hypot(const Tensor& self, const Tensor& other);
-Tensor Fmod(const Tensor& self, const Tensor& other);
+Tensor Fmod(const Tensor& self, const Tensor& other, FmodAlgorithm precisionType = FmodAlgorithm::DEFAULT);
 Tensor Maximum(const Tensor& operand1, const Tensor& operand2);
 Tensor Minimum(const Tensor& operand1, const Tensor& operand2);
 Tensor BitwiseAnd(const Tensor& self, const Tensor& other);
@@ -267,7 +285,7 @@ Tensor Add(const Tensor& self, const Element& other);
 Tensor Sub(const Tensor& self, const Element& other);
 Tensor Div(const Tensor& self, const Element& other, DivAlgorithm precisionType = DivAlgorithm::DEFAULT);
 Tensor Mul(const Tensor& self, const Element& other);
-Tensor Fmod(const Tensor& self, const Element& other);
+Tensor Fmod(const Tensor& self, const Element& other, FmodAlgorithm precisionType = FmodAlgorithm::DEFAULT);
 Tensor BitwiseAnd(const Tensor& self, const Element& other);
 Tensor BitwiseOr(const Tensor& self, const Element& other);
 Tensor BitwiseXor(const Tensor& self, const Element& other);
@@ -276,13 +294,14 @@ Tensor Maximum(const Tensor& operand1, const Element& operand2);
 Tensor Compare(const Tensor& self, const Tensor& other, OpType op, OutType mode);
 Tensor Compare(const Tensor& self, const Element& other, OpType op, OutType mode);
 Tensor Compare(const Element& self, const Tensor& other, OpType op, OutType mode);
-Tensor Pow(const Tensor& self, const Tensor& other);
-Tensor Pow(const Tensor& self, const Element& other);
+Tensor Pow(const Tensor& self, const Tensor& other, PowAlgorithm precisionType = PowAlgorithm::DEFAULT);
+Tensor Pow(const Tensor& self, const Element& other, PowAlgorithm precisionType = PowAlgorithm::DEFAULT);
 Tensor Remainder(const Tensor& self, const Tensor& other);
 Tensor Remainder(const Tensor& self, const Element& other);
 Tensor Remainder(const Element& self, const Tensor& other);
 Tensor CopySign(const Tensor& self, const Tensor& other);
 Tensor PReLU(const Tensor& self, const Tensor& weight);
+Tensor Axpy(const Tensor& self, const Tensor& other, float alpha);
 
 Tensor BitwiseRightShift(const Tensor& self, const Tensor& other);
 Tensor BitwiseRightShift(const Tensor& self, const Element& other);
@@ -327,7 +346,7 @@ Tensor Uniform(const Element &key, const SymbolicScalar& counter0, const Element
 Tensor Clip(const Tensor& self, const Tensor& min = {}, const Tensor& max = {});
 Tensor Clip(const Tensor& self, const Element& min = {}, const Element& max = {});
 
-std::tuple<Tensor, Tensor> TopK(const Tensor& self, int k, int axis = -1, bool isLargest = true);
+std::tuple<Tensor, Tensor> TopK(const Tensor& self, int k, int axis = -1, bool isLargest = true, TopKAlgo algo = TopKAlgo::MERGE_SORT);
 Tensor ArgSort(const Tensor& self, int axis = -1, bool descending = false);
 Tensor Sort32(const Tensor& self, int idxStart = 0);
 Tensor MrgSort(const Tensor& self, int mergeSize);
