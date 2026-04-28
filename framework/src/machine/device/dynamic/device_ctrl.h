@@ -25,10 +25,19 @@
 #include "machine/utils/machine_ws_intf.h"
 #include "machine/utils/device_log.h"
 #include "machine/utils/barrier.h"
+#include "machine/utils/perf_event_sampler.h"
 #include "machine/device/dynamic/aicore_prof.h"
 #include "device_trace.h"
 #ifdef __DEVICE__
 #include "log_types.h"
+#if defined(PMU_USER_ACCESS_KO_AUTO_LOAD) && PMU_USER_ACCESS_KO_AUTO_LOAD
+#if defined(__has_include)
+#if __has_include("machine/utils/pmu_user_access_ko_embedded.h")
+#include "machine/utils/pmu_user_access_ko_embedded.h"
+#endif
+#endif
+#include "machine/utils/pmu_ko_loader.h"
+#endif
 #endif
 
 #ifdef __USE_CUSTOM_CTRLFLOW__
@@ -297,6 +306,20 @@ public:
     {
         DEV_INFO("start control flow.");
         DEV_ATRACE("start control flow.");
+// PMU 采集示例（两种采样路径相互独立，开关位于 framework/src/machine/utils/device_switch.h）：
+//   1) AICPU_PMU_EVENT_ENABLE = 1  使用 perf_event_open / ioctl / read 路径（兼容性好）
+//      头文件: machine/utils/perf_event_sampler.h
+//      宏: AICPU_PMU_SCOPE / AICPU_PMU_BEGIN / AICPU_PMU_END
+//   2) ARM_PMU_DIRECT_ENABLE   = 1  使用 MRS/MSR 直读 ARMv8 PMU 寄存器（零系统调用）
+//      头文件: machine/utils/arm_pmu_direct_sampler.h
+//      宏: ARM_PMU_DIRECT_SCOPE / ARM_PMU_DIRECT_BEGIN / ARM_PMU_DIRECT_END
+//      前置条件: aarch64 架构 + 内核已开启 PMUSERENR_EL0.EN
+#if ARM_PMU_DIRECT_ENABLE
+        ARM_PMU_DIRECT_SCOPE("ExecDyn");
+#endif
+#if AICPU_PMU_EVENT_ENABLE
+        AICPU_PMU_SCOPE("ExecDyn");
+#endif
         auto devProg = PtrToPtr<int64_t, DevAscendProgram>(args->cfgdata);
         auto devStartArgs = (DevStartArgs*)devProg->GetRuntimeDataList()->GetRuntimeDataPending();
 
@@ -345,12 +368,34 @@ public:
 #endif
     }
 
+    void InitPmuUserAccessKo()
+    {
+#ifdef __DEVICE__
+#if defined(PMU_USER_ACCESS_KO_AUTO_LOAD) && PMU_USER_ACCESS_KO_AUTO_LOAD
+        static bool loadTried = false;
+        if (loadTried) {
+            return;
+        }
+        loadTried = true;
+
+        // 先诊断环境限制
+        npu::tile_fwk::PmuKoLoader::DumpModuleLoadConstraints();
+
+        int ret = npu::tile_fwk::PmuInitEmbeddedKo();
+        if (ret != 0) {
+            DEV_WARN("[PMU_KO] Auto load failed, ARM PMU direct sampler may be unavailable, ret=%d", ret);
+        }
+#endif
+#endif
+    }
+
     int EntryInit(DeviceKernelArgs* kargs)
     {
         SetModuleLogLevel(kargs);
         PerfBegin(PERF_EVT_DEVICE_MACHINE_INIT_DYN);
 #ifdef __DEVICE__
         InitLogSwitch();
+        InitPmuUserAccessKo();
         AiCoreProf::RegDevProf();
 #endif
         if (kargs == nullptr) {
