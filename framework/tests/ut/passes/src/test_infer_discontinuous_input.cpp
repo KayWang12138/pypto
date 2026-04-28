@@ -240,9 +240,9 @@ TEST_F(TestInferDiscontinuousInput, testValidShapeInfer)
     G.GetTensor("inputTensor2")->UpdateDynValidShape({SymbolicScalar(16), SymbolicScalar(128)});
     G.GetTensor("inputTensor3")->UpdateDynValidShape({SymbolicScalar(16), SymbolicScalar(128)});
 
-    inputTensor3->tensor = inputTensor1->tensor;
-    inputTensor1->tensor->UpdateRawShape({32, 128});
-    inputTensor3->UpdateOffset({16, 0});
+    G.GetTensor("inputTensor3")->tensor = G.GetTensor("inputTensor1")->tensor;
+    G.GetTensor("inputTensor1")->tensor->UpdateRawShape({32, 128});
+    G.GetTensor("inputTensor3")->UpdateOffset({16, 0});
 
     G.SetInCast({"inputTensor0", "inputTensor1", "inputTensor2", "inputTensor3"});
 
@@ -269,7 +269,9 @@ TEST_F(TestInferDiscontinuousInput, testValidShapeInfer)
 
     InferDiscontinuousInput inferDiscontinuousInput;
     EXPECT_EQ(inferDiscontinuousInput.PostCheck(*function), FAILED);
+    function->DumpJsonFile("/mnt/workspace/gitCode/cann/pypto_4/.inferb.json");
     EXPECT_EQ(inferDiscontinuousInput.Run(*function, "", "", 0), SUCCESS);
+    function->DumpJsonFile("/mnt/workspace/gitCode/cann/pypto_4/.infera.json");
     EXPECT_EQ(inferDiscontinuousInput.PostCheck(*function), SUCCESS);
 
     auto insertedViewOps = function->Operations().DuplicatedOpList();
