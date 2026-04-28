@@ -453,7 +453,7 @@ struct LogicalTensorData {
     }
 
     bool IsShmTensor() {
-        return data->IsShmTensor();
+        return data_->IsShmTensor();
     }
 
     int ViewIndexToDataIndex(int viewIndex) const
