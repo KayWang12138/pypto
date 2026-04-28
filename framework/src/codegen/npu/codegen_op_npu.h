@@ -59,9 +59,11 @@ public:
     std::string GenMemL1ToBt() const;
     std::string GenMemL1CopyIn() const;
     std::string GenMemL1CopyOut() const;
-    std::string GetConvCopyInMode() const;
+    int64_t GetConvCopyInMode() const;
     std::string GetConvCopyOutMode() const;
     std::string GenMemL1CopyInConv() const;
+    std::string GenMemL1CopyInConvNZ2NZ(
+        const std::string& srcTensor, const std::string& dstTensor, const std::string& copyInModeStr) const;
     std::string GenMemL1CopyOutConv() const;
     std::string GenMemL1ToFB() const;
     std::string GenMemL0CCopyOut() const;
