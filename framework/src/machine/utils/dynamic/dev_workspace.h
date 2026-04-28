@@ -762,7 +762,7 @@ public:
             uint64_t start_inner = GetCycles();
             uint64_t last_warn_inner = 0;
             while (!DeviceTaskMemTryRecycle()) {
-                __PYPTO_TIMEOUT_CHECK(start_inner, last_warn_inner, TIMEOUT_20MIN, TIMEOUT_1MIN,
+                __PYPTO_TIMEOUT_CHECK_WITH_WARN(start_inner, last_warn_inner, TIMEOUT_20MIN, TIMEOUT_1MIN,
                     WsErr::SLAB_ADD_CACHE_FAILED,
                     break,
                     "#workspace.alloc.inner_timeout: Inner recycle still waiting, type=%u, objSize=%u.",
@@ -770,7 +770,7 @@ public:
                     ToUnderlying(type), objSize);
             };
         
-            __PYPTO_TIMEOUT_CHECK(start, last_warn, TIMEOUT_20MIN, TIMEOUT_2MIN,
+            __PYPTO_TIMEOUT_CHECK_WITH_WARN(start, last_warn, TIMEOUT_20MIN, TIMEOUT_2MIN,
                 WsErr::SLAB_ADD_CACHE_FAILED,
                 { WsAllocation emptyAlloc; emptyAlloc.ptr = 0; return emptyAlloc; },
                 "#workspace.alloc: SlabAlloc still waiting, type=%u, objSize=%u.",
@@ -799,7 +799,7 @@ public:
         while (!submmitTaskQueue_.TryEnqueue(devTask)) {
             DeviceTaskMemTryRecycle();
             
-            __PYPTO_TIMEOUT_CHECK(start, last_warn, TIMEOUT_20MIN, TIMEOUT_1MIN,
+            __PYPTO_TIMEOUT_CHECK_WITH_WARN(start, last_warn, TIMEOUT_20MIN, TIMEOUT_1MIN,
                 WsErr::SLAB_ADD_CACHE_FAILED,
                 return,
                 "#workspace.submit: SlabStageAllocMemSubmmit still waiting 1min.",

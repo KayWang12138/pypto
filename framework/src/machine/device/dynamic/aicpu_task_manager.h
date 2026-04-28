@@ -107,10 +107,9 @@ public:
             if (unlikely(ret != DEVICE_MACHINE_OK)) {
                 return ret;
             }
-            __PYPTO_TIMEOUT_CHECK(start, last_warn, TIMEOUT_10SEC, TIMEOUT_1SEC,
+            __PYPTO_TIMEOUT_CHECK_SIMPLE(start, TIMEOUT_10SEC,
                 DistributedErrorCode::AICPU_TASK_TIMEOUT,
                 return DEVICE_MACHINE_TIMEOUT_SYNC_AICPU_FINISH,
-                "#sche.task.end.sync: SyncAicpuTaskFinish still waiting.",
                 "#sche.task.end.sync: SyncAicpuTaskFinish timeout.");
         }
         return DEVICE_MACHINE_OK;

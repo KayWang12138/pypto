@@ -351,10 +351,9 @@ public:
 
             DEV_IF_DEVICE
             {
-                __PYPTO_TIMEOUT_CHECK(start, last_warn, TIMEOUT_10SEC, TIMEOUT_1SEC,
+                __PYPTO_TIMEOUT_CHECK_SIMPLE(start, TIMEOUT_10SEC,
                     SchedErr::TASK_WAIT_TIMEOUT,
                     return DEVICE_MACHINE_TIMEOUT_CORETASK,
-                    "#sche.task.loop: ProcessTaskLoop still waiting.",
                     "#sche.task.loop: ProcessTaskLoop timeout.");
             }
         }
@@ -484,10 +483,9 @@ public:
             }
 
             DEV_IF_DEVICE {
-                __PYPTO_TIMEOUT_CHECK(start, last_warn, TIMEOUT_10SEC, TIMEOUT_1SEC,
+                __PYPTO_TIMEOUT_CHECK_SIMPLE(start, TIMEOUT_10SEC,
                     SchedErr::SCH_PARALLEL_DEVTASK_TIMEOUT,
                     { ret = ToUnderlying(SchedErr::SCH_PARALLEL_DEVTASK_TIMEOUT); break; },
-                    "#sche.parallel.devtask: Schedule parallel devtask still waiting, dequeueFinish=%d.",
                     "#sche.parallel.devtask: Schedule parallel devtask timeout, dequeueFinish=%d.",
                     taskCtrlDequeFinish);
             }
@@ -797,10 +795,9 @@ private:
             
             DEV_IF_DEVICE
             {
-                __PYPTO_TIMEOUT_CHECK(start, last_warn, TIMEOUT_10SEC, TIMEOUT_1SEC,
+                __PYPTO_TIMEOUT_CHECK_SIMPLE(start, TIMEOUT_10SEC,
                     SchedErr::TASK_WAIT_TIMEOUT,
                     { DumpDfxWhenCoreNotStop(devTaskCtx); return DEVICE_MACHINE_TIMEOUT_SYNC_CORE_FINISH; },
-                    "#sche.task.end.sync: SyncAicoreDevTaskFinish still waiting, notstopNum=%u.",
                     "#sche.task.end.sync: SyncAicoreDevTaskFinish timeout, notstopNum=%u.",
                     mngCoreNum - devTaskCtx->coreFinishedNum);
             }
@@ -1935,7 +1932,7 @@ private:
                 aivSucessCnt = 0;
             }
 
-            __PYPTO_TIMEOUT_CHECK(start, last_warn, TIMEOUT_HAND_SHAKE, TIMEOUT_1MIN,
+            __PYPTO_TIMEOUT_CHECK_WITH_WARN(start, last_warn, TIMEOUT_HAND_SHAKE, TIMEOUT_1MIN,
                 SchedErr::HANDSHAKE_TIMEOUT,
                 { DumpAicoreStatusWhenTimeout(handFlag); return DEVICE_MACHINE_ERROR; },
                 "#sche.handshake: HandShakeByGmWithPreSendTask still waiting, notHandshakeNum=%d.",

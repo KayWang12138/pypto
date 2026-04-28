@@ -328,10 +328,9 @@ public:
         TIMEOUT_CHECK_START(archInfo_);
         volatile int stopFlag = metric->isMetricStop;
         while (stopFlag != 1) {
-            __PYPTO_TIMEOUT_CHECK(start, last_warn, TIMEOUT_10SEC, TIMEOUT_1SEC,
+            __PYPTO_TIMEOUT_CHECK_SIMPLE(start, TIMEOUT_10SEC,
                 DevCommonErr::NULLPTR,
                 return nullptr,
-                "#sche.prof.aicore.wait_finish: wait metrics done still waiting.",
                 "#sche.prof.aicore.wait_finish: wait metrics done timeout.");
             stopFlag = metric->isMetricStop;
         }

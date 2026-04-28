@@ -299,10 +299,14 @@ inline int CheckTimeOut(const std::string& operation, TimeCheck& timeCheck)
     return CheckTimeOut(timeCheck.startTime, timeCheck.count, timeCheck.curTime, operation);
 }
 
+// Timeout check macros: architecture-specific timeout values computed once at start
+// Two variants:
+//   - __PYPTO_TIMEOUT_CHECK_SIMPLE: only timeout check (for short durations, seconds)
+//   - __PYPTO_TIMEOUT_CHECK_WITH_WARN: timeout + periodic warning (for long durations, minutes)
 #define TIMEOUT_CHECK_START(arch) \
     uint64_t start = GetCycles(); \
     uint64_t last_warn = 0; \
-    ArchInfo timeout_check_arch = arch
+    const uint64_t* timeout_map = (arch == ArchInfo::DAV_3510) ? TIMEOUT_MAP_A5 : TIMEOUT_MAP_A2A3
 
 constexpr uint64_t TIMEOUT_INDEX_1SEC   = 0;
 constexpr uint64_t TIMEOUT_INDEX_10SEC  = 1;
@@ -332,34 +336,37 @@ static constexpr uint64_t TIMEOUT_MAP_A5[7] = {
     HAND_SHAKE_TIMEOUT_A5_CYCLES
 };
 
-inline const uint64_t* GetTimeoutMap(ArchInfo arch)
-{
-    if (arch == ArchInfo::DAV_3510) {
-        return TIMEOUT_MAP_A5;
-    }
-    return TIMEOUT_MAP_A2A3;
-}
-
-#define TIMEOUT_1SEC   (GetTimeoutMap(timeout_check_arch)[TIMEOUT_INDEX_1SEC])
-#define TIMEOUT_10SEC  (GetTimeoutMap(timeout_check_arch)[TIMEOUT_INDEX_10SEC])
-#define TIMEOUT_1MIN   (GetTimeoutMap(timeout_check_arch)[TIMEOUT_INDEX_1MIN])
-#define TIMEOUT_2MIN   (GetTimeoutMap(timeout_check_arch)[TIMEOUT_INDEX_2MIN])
-#define TIMEOUT_10MIN  (GetTimeoutMap(timeout_check_arch)[TIMEOUT_INDEX_10MIN])
-#define TIMEOUT_20MIN  (GetTimeoutMap(timeout_check_arch)[TIMEOUT_INDEX_20MIN])
-#define TIMEOUT_HAND_SHAKE (GetTimeoutMap(timeout_check_arch)[TIMEOUT_INDEX_HAND_SHAKE])
+#define TIMEOUT_1SEC   (timeout_map[TIMEOUT_INDEX_1SEC])
+#define TIMEOUT_10SEC  (timeout_map[TIMEOUT_INDEX_10SEC])
+#define TIMEOUT_1MIN   (timeout_map[TIMEOUT_INDEX_1MIN])
+#define TIMEOUT_2MIN   (timeout_map[TIMEOUT_INDEX_2MIN])
+#define TIMEOUT_10MIN  (timeout_map[TIMEOUT_INDEX_10MIN])
+#define TIMEOUT_20MIN  (timeout_map[TIMEOUT_INDEX_20MIN])
+#define TIMEOUT_HAND_SHAKE (timeout_map[TIMEOUT_INDEX_HAND_SHAKE])
 #define TIMEOUT_INFINITE UINT64_MAX
 
-#define __PYPTO_TIMEOUT_CHECK(start, last_warn, timeout_cycles, warn_interval_cycles, error_code, action, \
-                               warn_fmt, error_fmt, ...) \
+// Simple timeout check (no warning) - for short durations like seconds
+// Directly compares elapsed cycles without intermediate variable assignment
+#define __PYPTO_TIMEOUT_CHECK_SIMPLE(start, timeout_cycles, error_code, action, error_fmt, ...) \
     do { \
-        uint64_t elapsed_cycles = GetCycles() - start; \
-        if (timeout_cycles != UINT64_MAX && elapsed_cycles > timeout_cycles) { \
-            DEV_ERROR(error_code, error_fmt ", elapsed %lu cycles", ##__VA_ARGS__, elapsed_cycles); \
+        if ((GetCycles() - start) > timeout_cycles) { \
+            DEV_ERROR(error_code, error_fmt ", elapsed %lu cycles", ##__VA_ARGS__, (GetCycles() - start)); \
             action; \
         } \
-        if (elapsed_cycles > last_warn + warn_interval_cycles) { \
-            DEV_WARN(warn_fmt ", elapsed %lu cycles", ##__VA_ARGS__, elapsed_cycles); \
-            last_warn = elapsed_cycles; \
+    } while (0)
+
+// Timeout check with periodic warning - for long durations like minutes
+// Warning interval prevents log flooding while providing monitoring visibility
+#define __PYPTO_TIMEOUT_CHECK_WITH_WARN(start, last_warn, timeout_cycles, warn_interval_cycles, error_code, action, \
+                                         warn_fmt, error_fmt, ...) \
+    do { \
+        if (timeout_cycles != UINT64_MAX && (GetCycles() - start) > timeout_cycles) { \
+            DEV_ERROR(error_code, error_fmt ", elapsed %lu cycles", ##__VA_ARGS__, (GetCycles() - start)); \
+            action; \
+        } \
+        if ((GetCycles() - start) > last_warn + warn_interval_cycles) { \
+            DEV_WARN(warn_fmt ", elapsed %lu cycles", ##__VA_ARGS__, (GetCycles() - start)); \
+            last_warn = GetCycles() - start; \
         } \
     } while (0)
 } // namespace npu::tile_fwk::dynamic

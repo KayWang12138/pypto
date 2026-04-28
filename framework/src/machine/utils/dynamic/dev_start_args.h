@@ -176,7 +176,7 @@ public:
         while (Full()) {
             RuntimeYield();
 
-            __PYPTO_TIMEOUT_CHECK(start, last_warn, TIMEOUT_INFINITE, TIMEOUT_10MIN,
+            __PYPTO_TIMEOUT_CHECK_WITH_WARN(start, last_warn, TIMEOUT_INFINITE, TIMEOUT_10MIN,
                 WsErr::WORKSPACE_CAPACITY_INSUFFICIENT,
                 ,
                 "#ringbuffer.alloc: AllocateWait still waiting, ring buffer full.",

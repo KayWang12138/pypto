@@ -175,7 +175,7 @@ struct DynMachineManager {
     {
         TIMEOUT_CHECK_START(devArgs->archInfo);
         while (__builtin_popcount(cpumask_.load(std::memory_order_acquire)) != static_cast<int>(devArgs->nrAicpu)) {
-            __PYPTO_TIMEOUT_CHECK(start, last_warn, TIMEOUT_20MIN, TIMEOUT_10SEC,
+            __PYPTO_TIMEOUT_CHECK_WITH_WARN(start, last_warn, TIMEOUT_20MIN, TIMEOUT_10SEC,
                 ThreadErr::THREAD_CPU_ALLOC_FAILED,
                 return DEVICE_MACHINE_ERROR,
                 "#sche.thread.init: Thread alloc still waiting, threadIdx=%d, physicalCpu=%d.",
@@ -555,7 +555,7 @@ int EntrySplittedStreamSche(DeviceKernelArgs* kargs, const KernelCtrlEntry& entr
             while (unlikely(!devProg->runtimeDataRingBufferInited)) {
                 RuntimeYield(0);
                 
-                __PYPTO_TIMEOUT_CHECK(start, last_warn, TIMEOUT_1MIN, TIMEOUT_10SEC,
+                __PYPTO_TIMEOUT_CHECK_WITH_WARN(start, last_warn, TIMEOUT_1MIN, TIMEOUT_10SEC,
                     SchedErr::RINGBUFFER_WAIT_TIMEOUT,
                     return DEVICE_MACHINE_ERROR,
                     "#sche.wait: RingBuffer init still waiting.",
@@ -569,7 +569,7 @@ int EntrySplittedStreamSche(DeviceKernelArgs* kargs, const KernelCtrlEntry& entr
             while (unlikely(ringBufferHead->Empty())) {
                 RuntimeYield(0);
                 
-                __PYPTO_TIMEOUT_CHECK(start2, last_warn2, TIMEOUT_1MIN, TIMEOUT_10SEC,
+                __PYPTO_TIMEOUT_CHECK_WITH_WARN(start2, last_warn2, TIMEOUT_1MIN, TIMEOUT_10SEC,
                     SchedErr::RINGBUFFER_WAIT_TIMEOUT,
                     return DEVICE_MACHINE_ERROR,
                     "#sche.wait: RingBuffer data still waiting.",
