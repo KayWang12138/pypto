@@ -191,7 +191,7 @@ protected:
         const std::vector<int64_t>& staticOffsets, const std::vector<int64_t>& srcShape, bool isConv3D) const;
     std::vector<std::string> BuildCopyOutParamList(
         const std::string& dstTensor, const std::string& srcTensor, const std::vector<std::string>& gmOffsetExpr,
-        const std::vector<int64_t>& staticOffsets, int64_t realM, int64_t realN, bool isConv3D) const;
+        const std::vector<int64_t>& staticOffsets, int64_t realM, int64_t realN, bool isConv3D, int64_t cutW) const;
 
     std::string GenTemplateParamsForPutAndGet() const;
     std::string GenTemplateParamsForPutUb2Gm() const;

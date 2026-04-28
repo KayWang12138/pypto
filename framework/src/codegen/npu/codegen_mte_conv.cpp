@@ -90,7 +90,7 @@ std::vector<std::string> CodeGenOpNPU::BuildCopyInParamList(
 
 std::vector<std::string> CodeGenOpNPU::BuildCopyOutParamList(
     const std::string& dstTensor, const std::string& srcTensor, const std::vector<std::string>& gmOffsetExpr,
-    const std::vector<int64_t>& staticOffsets, int64_t realM, int64_t realN, bool isConv3D) const
+    const std::vector<int64_t>& staticOffsets, int64_t realM, int64_t realN, bool isConv3D, int64_t cutW) const
 {
     std::vector<std::string> tileOpParamList;
     tileOpParamList.emplace_back(dstTensor);
@@ -122,6 +122,7 @@ std::vector<std::string> CodeGenOpNPU::BuildCopyOutParamList(
 
     tileOpParamList.emplace_back(std::to_string(realM));
     tileOpParamList.emplace_back(std::to_string(realN));
+    tileOpParamList.emplace_back(std::to_string(cutW)); // 添加cutW参数
 
     return tileOpParamList;
 }
@@ -196,6 +197,10 @@ std::string CodeGenOpNPU::GenMemL1CopyOutConv() const
     bool isConv3D = false;
     GetOpAttr(Conv::LoadStoreConvOpAttributeKey::isConv3D, isConv3D);
 
+    // 获取cutW参数，默认值为0
+    int64_t cutW = 0;
+    GetOpAttr(Conv::LoadStoreConvOpAttributeKey::cutW, cutW);
+
     auto realShape = shapeFromAttr[ToUnderlying(MISOIdx::DST_IDX)];
     ASSERT(ConvCodenGenError::CODEGEN_CHECK_DIM_INVALID, realShape.size() == SHAPE_DIM2)
         << "GenMemL1CopyOutConv valid shape should be 2-dim!";
@@ -211,7 +216,7 @@ std::string CodeGenOpNPU::GenMemL1CopyOutConv() const
     std::vector<std::string> gmOffsetExpr = GetDynamicOffsetExpr(dynOffset, isConv3D, staticOffsets);
 
     std::vector<std::string> tileOpParamList =
-        BuildCopyOutParamList(dstTensor, srcTensor, gmOffsetExpr, staticOffsets, realM, realN, isConv3D);
+        BuildCopyOutParamList(dstTensor, srcTensor, gmOffsetExpr, staticOffsets, realM, realN, isConv3D, cutW);
 
     std::ostringstream oss;
     oss << tileOpName << WrapParamByAngleBrackets({copyOutModeStr, std::to_string(isConv3D)});

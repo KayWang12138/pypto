@@ -49,6 +49,7 @@ const std::string LoadStoreConvOpAttributeKey::copyInMode = "COPY_IN_MODE";
 const std::string LoadStoreConvOpAttributeKey::copyOutMode = "COPY_OUT_MODE";
 const std::string LoadStoreConvOpAttributeKey::isFmap = "IS_FMAP";
 const std::string LoadStoreConvOpAttributeKey::isConv3D = "IS_CONV3D";
+const std::string LoadStoreConvOpAttributeKey::cutW = "CUT_W";
 
 std::vector<int64_t> rotateVector(const std::vector<int64_t>& input, size_t shift)
 {
@@ -965,6 +966,11 @@ void ConstrucCopyOutTile(
     fixpipeOpRes.SetAttribute(
         LoadStoreConvOpAttributeKey::copyOutMode, static_cast<int64_t>(CopyOutMode::COPY_MOD_NZ2DN));
     fixpipeOpRes.SetAttribute(LoadStoreConvOpAttributeKey::isConv3D, convAttrParam.isConv3D);
+
+    // 设置cutW参数：L0C M方向(hw合轴)的w大小
+    int64_t cutW = std::min(iterInfo.woutL1Size - iterInfo.wL0Offset, convTileInfo.wL0);
+    fixpipeOpRes.SetAttribute(LoadStoreConvOpAttributeKey::cutW, cutW);
+
     fixpipeOpRes.SetAttribute("res_tile_shape", SymbolicScalar::FromConcrete(tensorGraphNodes.resTensorPtr->shape));
     int64_t dst_n_offset = iterInfo.batchOffset;
     int64_t dst_c_offset = iterInfo.groupOffset * convTileInfo.coutPerGroup + iterInfo.nL1Offset + iterInfo.nL0Offset;
