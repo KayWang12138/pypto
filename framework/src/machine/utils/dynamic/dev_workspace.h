@@ -624,7 +624,7 @@ public:
         uint64_t realMemBase = AlignUp(memBase, sizeof(uint64_t));
         uint32_t metaSlabMemSize = metadataAllocators_.general.FreeMemorySize() - (realMemBase - memBase);
         uint32_t slabSize = CalcAicpuMetaSlabAlloctorSlabPageSize(metaSlabMemSize);
-        metadataAllocators_.generalSlab.Init(reinterpret_cast<void*>(realMemBase), metaSlabMemSize, slabSize);
+        metadataAllocators_.generalSlab.Init(reinterpret_cast<void*>(realMemBase), metaSlabMemSize, slabSize, devProg_->devArgs.archInfo);
         for (size_t i = 0; i < ToUnderlying(WsAicpuSlabMemType::COHERENT_SLAB_MEM_TYPE_BUTT); i++) {
             if ((slabMemObjSizeFunc[i] != nullptr) && ((this->*slabMemObjSizeFunc[i])() != 0)) {
                 [[maybe_unused]] bool registCacheRes =
@@ -734,7 +734,11 @@ public:
     {
         void* ptr = nullptr;
         DEV_VERBOSE_DEBUG("SlabAlloc type = %u, size = %u.", ToUnderlying(type), objSize);
-        SlabTryDynAddCache(type, objSize); // ready que need dyn add cache
+        SlabTryDynAddCache(type, objSize);
+        
+        TIMEOUT_CHECK_START(devProg_->devArgs.archInfo);
+        TIMEOUT_WARN_INIT(TIMEOUT_2MIN);
+        
         do {
             if (type < WsAicpuSlabMemType::COHERENT_SLAB_MEM_TYPE_BUTT) {
                 ptr = metadataAllocators_.generalSlab.Alloc(ToUnderlying(type));
@@ -746,7 +750,6 @@ public:
             }
 
             if (submmitTaskQueue_.IsEmpty()) {
-                // should not happen, first task alloc failed
                 metadataAllocators_.generalSlab.DumpMemoryStatusWhenAbnormal("SlabAlloc null");
                 metadataAllocators_.stitchSlab.DumpMemoryStatusWhenAbnormal("SlabAlloc null");
                 DEV_ERROR(
@@ -756,13 +759,25 @@ public:
                     WsErr::SLAB_ADD_CACHE_FAILED, false, "Slab alloc null,type=%u,objsize=%u.", ToUnderlying(type),
                     objSize);
             }
-            uint64_t ttlstart = GetCycles();
-            while (!DeviceTaskMemTryRecycle()) {  // wait sch aicpu finish task
-                if (GetCycles() - ttlstart > TIMEOUT_CYCLES) {
-                    ttlstart = GetCycles();
-                    DEV_WARN("Waiting for device task finished for too long.");
-                }
+            
+            uint64_t start_inner = GetCycles();
+            uint64_t last_warn_inner = 0;
+            uint64_t warn_interval_inner = TIMEOUT_1MIN / 5;
+            while (!DeviceTaskMemTryRecycle()) {
+                __PYPTO_TIMEOUT_CHECK_WITH_EXIT(start_inner, last_warn_inner, warn_interval_inner, TIMEOUT_1MIN,
+                    WsErr::SLAB_ADD_CACHE_FAILED,
+                    break,
+                    "#workspace.alloc.inner_timeout: Inner recycle still waiting, type=%u, objSize=%u.",
+                    "#workspace.alloc.inner_timeout: Inner recycle timeout, type=%u, objSize=%u.",
+                    ToUnderlying(type), objSize);
             };
+        
+            __PYPTO_TIMEOUT_CHECK_WITH_EXIT(start, last_warn, warn_interval, TIMEOUT_2MIN,
+                WsErr::SLAB_ADD_CACHE_FAILED,
+                { WsAllocation emptyAlloc; emptyAlloc.ptr = 0; return emptyAlloc; },
+                "#workspace.alloc: SlabAlloc still waiting, type=%u, objSize=%u.",
+                "#workspace.alloc: SlabAlloc timeout, type=%u, objSize=%u.",
+                ToUnderlying(type), objSize);
         } while (true);
 
         WsAllocation allocation;
@@ -781,9 +796,16 @@ public:
     }
 
     void SlabStageAllocMemSubmmit(DynDeviceTask* devTask) {
+        TIMEOUT_CHECK_START(devProg_->devArgs.archInfo);
+        TIMEOUT_WARN_INIT(TIMEOUT_1MIN);
         while (!submmitTaskQueue_.TryEnqueue(devTask)) {
-            // maybe que is full, need wait task finish and recycle aicpu meta memory
             DeviceTaskMemTryRecycle();
+            
+            __PYPTO_TIMEOUT_CHECK_WITH_EXIT(start, last_warn, warn_interval, TIMEOUT_1MIN,
+                WsErr::SLAB_ADD_CACHE_FAILED,
+                return,
+                "#workspace.submit: SlabStageAllocMemSubmmit still waiting.",
+                "#workspace.submit: SlabStageAllocMemSubmmit timeout.");
         }
         return;
     }
@@ -1007,7 +1029,7 @@ private:
             WsErr::WORKSPACE_INIT_PARAM_INVALID, memBase != nullptr && totalSize > 0, "memBase %s null, totalSize=%u",
             memBase == nullptr ? "is" : "is not", totalSize);
         uint32_t slabSize = devProg_->memBudget.metadata.stitchSlabSize;
-        metadataAllocators_.stitchSlab.Init(memBase, totalSize, slabSize);
+        metadataAllocators_.stitchSlab.Init(memBase, totalSize, slabSize, devProg_->devArgs.archInfo);
         for (size_t i = ToUnderlying(WsAicpuSlabMemType::COHERENT_SLAB_MEM_TYPE_BUTT) + 1;
              i < ToUnderlying(WsAicpuSlabMemType::SLAB_MEM_TYPE_BUTT); ++i) {
             if ((slabMemObjSizeFunc[i] != nullptr) && ((this->*slabMemObjSizeFunc[i])() != 0)) {

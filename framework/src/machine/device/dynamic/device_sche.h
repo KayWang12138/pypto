@@ -170,14 +170,27 @@ struct DynMachineManager {
         }
     }
 
+    // Common helper function for waiting CPU mask readiness with timeout check
+    int WaitForCpuMaskReady(DeviceArgs* devArgs, int cpu, int curThreadIdx)
+    {
+        TIMEOUT_CHECK_START(devArgs->archInfo);
+        while (__builtin_popcount(cpumask_.load(std::memory_order_acquire)) != static_cast<int>(devArgs->nrAicpu)) {
+            __PYPTO_TIMEOUT_CHECK_SIMPLE(start, TIMEOUT_10SEC,
+                ThreadErr::THREAD_CPU_ALLOC_FAILED,
+                return DEVICE_MACHINE_ERROR,
+                "#sche.thread.init: Thread alloc timeout, threadIdx=%d, physicalCpu=%d.",
+                curThreadIdx, cpu);
+            sched_yield();
+        }
+        return npu::tile_fwk::dynamic::DEVICE_MACHINE_OK;
+    }
+
     int AllocThreadIdxForDav3510(DeviceArgs* devArgs, int cpu, int& curThreadIdx, std::atomic<int>& threadIdx)
     {
         int die0MaxCpuid = static_cast<int>(devArgs->maxAicpuNum >> 1);
         int die0MaxCpuNum = static_cast<int>(devArgs->scheCpuNum >> 1);
         int die1MaxCpuNum = static_cast<int>(devArgs->scheCpuNum) - die0MaxCpuNum;
 
-        // use CAS, Try to allocate the next available thread index, loop until successfully allocate or exceed the
-        // limit
         if (cpu <= die0MaxCpuid) {
             SetCurThreadIdxForDav3510(die0MaxCpuNum, SCHE_THREAD_START_IDX, curThreadIdx, die0ThreadIdx_);
         } else {
@@ -185,17 +198,11 @@ struct DynMachineManager {
                 die1MaxCpuNum, die0MaxCpuNum + SCHE_THREAD_START_IDX, curThreadIdx, die1ThreadIdx_);
         }
 
-        // wait until all threads are ecexuted to prevent threads from being relaunched after exiting
         cpumask_.fetch_or(1 << cpu, std::memory_order_release);
-        uint64_t start = GetCycles();
-        while (__builtin_popcount(cpumask_.load(std::memory_order_acquire)) != static_cast<int>(devArgs->nrAicpu)) {
-            if (GetCycles() - start > TIMEOUT_CYCLES) {
-                DEV_ERROR(
-                    ThreadErr::THREAD_CPU_ALLOC_FAILED,
-                    "#sche.thread.init: Thread alloc timeout: threadIdx=%d, physicalCpu=%d.", curThreadIdx, cpu);
-                return npu::tile_fwk::dynamic::DEVICE_MACHINE_ERROR;
-            }
-            sched_yield();
+        
+        int ret = WaitForCpuMaskReady(devArgs, cpu, curThreadIdx);
+        if (ret != npu::tile_fwk::dynamic::DEVICE_MACHINE_OK) {
+            return ret;
         }
 
         DEV_INFO("Thread alloc success: physicalCpu=%d, threadIdx=%d.", cpu, curThreadIdx);
@@ -206,11 +213,10 @@ struct DynMachineManager {
     int AllocThreadIdxForDav2201(DeviceArgs* devArgs, int cpu, int& curThreadIdx, std::atomic<int>& threadIdx)
     {
         cpumask_.fetch_or(1 << cpu, std::memory_order_release);
-        TIMEOUT_CHECK_START();
-        while (__builtin_popcount(cpumask_.load(std::memory_order_acquire)) != static_cast<int>(devArgs->nrAicpu)) {
-            TIMEOUT_CHECK_AND_RESET(
-                TIMEOUT_ONE_MINUTE, ThreadErr::THREAD_CPU_ALLOC_FAILED,
-                "#sche.thread.init: Thread alloc timeout over 1 min: threadIdx=%d, physicalCpu=%d.", curThreadIdx, cpu);
+        
+        int ret = WaitForCpuMaskReady(devArgs, cpu, curThreadIdx);
+        if (ret != npu::tile_fwk::dynamic::DEVICE_MACHINE_OK) {
+            return ret;
         }
 
         auto maskval = cpumask_.load(std::memory_order_relaxed);
@@ -444,10 +450,15 @@ struct DynMachineManager {
         return ret;
     }
 
-    int EntrySplittedStreamSche(DeviceKernelArgs* kargs, const KernelCtrlEntry& entry)
+int EntrySplittedStreamSche(DeviceKernelArgs* kargs, const KernelCtrlEntry& entry)
     {
         DevAscendProgram* devProg = PtrToPtr<int64_t, DevAscendProgram>(kargs->cfgdata);
-        splittedInfo_.ScheWait(devProg);
+        int scheWaitRet = splittedInfo_.ScheWait(devProg);
+        if (scheWaitRet != DEVICE_MACHINE_OK) {
+            DEV_ERROR(SchedErr::RINGBUFFER_WAIT_TIMEOUT, "#sche.wait: ScheWait failed, ret=%d.", scheWaitRet);
+            DeviceTrace::GetInstance().ReportTraceMsg();
+            return scheWaitRet;
+        }
         // After wait, the devStartArgs should be ready.
         auto beginTime = GetCycles();
         DevStartArgs* runtimeDataCurrent =
@@ -536,23 +547,31 @@ struct DynMachineManager {
     struct SplittedInfo {
         std::atomic<uint64_t> currentRound{0};
 
-        void ScheWait(DevAscendProgram* devProg)
+        int ScheWait(DevAscendProgram* devProg)
         {
-            TIMEOUT_CHECK_START();
+            TIMEOUT_CHECK_START(devProg->devArgs.archInfo);
+            
             while (unlikely(!devProg->runtimeDataRingBufferInited)) {
-                /* In the first launch, sche must wait for ctrl's ring buffer's initialization.
-                 * Otherwise, the ringBufferHead->Empty() is not legal. */
                 RuntimeYield(0);
-                TIMEOUT_CHECK_AND_RESET(
-                    TIMEOUT_ONE_MINUTE, SchedErr::RINGBUFFER_WAIT_TIMEOUT, "Sche wait ring buf init over 1 min.");
+                
+                __PYPTO_TIMEOUT_CHECK_SIMPLE(start, TIMEOUT_10SEC,
+                    SchedErr::RINGBUFFER_WAIT_TIMEOUT,
+                    return DEVICE_MACHINE_ERROR,
+                    "#sche.wait: RingBuffer init timeout.");
             }
             RuntimeDataRingBufferHead* ringBufferHead = devProg->GetRuntimeDataList();
+            
+            uint64_t start2 = GetCycles();
+            
             while (unlikely(ringBufferHead->Empty())) {
-                /* Sche must wait until the current devStarArgs has been initialized. */
                 RuntimeYield(0);
-                TIMEOUT_CHECK_AND_RESET(
-                    TIMEOUT_ONE_MINUTE, SchedErr::RINGBUFFER_WAIT_TIMEOUT, "Sche wait ring buf data over 1 min.");
+                
+                __PYPTO_TIMEOUT_CHECK_SIMPLE(start2, TIMEOUT_10SEC,
+                    SchedErr::RINGBUFFER_WAIT_TIMEOUT,
+                    return DEVICE_MACHINE_ERROR,
+                    "#sche.wait: RingBuffer data timeout.");
             }
+            return DEVICE_MACHINE_OK;
         }
 
         bool ScheSync(DevStartArgs* devStartArgs, int schNum)
