@@ -149,15 +149,14 @@ class KernelVerifier:
         current_step: int = 0,
         device_id: int = -1,
     ) -> tuple[bool, str]:
-        impl_code = task_info.get("coder_code", "")
-        if not impl_code:
-            return False, "task_info.coder_code 为空, 无法验证"
+        if not self._has_impl_source(task_info):
+            return False, "task_info 缺少 coder_code/source_files, 无法验证"
 
         verify_dir = self._verify_dir(current_step)
         actual_device_id: Optional[int] = None
         try:
             actual_device_id = await self._acquire_device(device_id)
-            self._write_source_artifacts(impl_code, verify_dir)
+            self._write_source_artifacts(task_info, verify_dir)
 
             verify_script_name = f"verify_{self.op_name}.py"
             script_text = script_builder.build_verify_script(
@@ -203,16 +202,15 @@ class KernelVerifier:
             self.config.get("profile_settings", {}).get("run_times", 50),
         ))
 
-        impl_code = task_info.get("coder_code", "")
-        if not impl_code:
-            return self._empty_profile_result(error="task_info.coder_code 为空")
+        if not self._has_impl_source(task_info):
+            return self._empty_profile_result(error="task_info 缺少 coder_code/source_files")
 
         verify_dir = self._verify_dir(current_step)
         actual_device_id: Optional[int] = None
         try:
             actual_device_id = await self._acquire_device(device_id)
             # profile 路径独立写一遍源文件 (覆盖即可), 调用方多次重跑也保证一致.
-            self._write_source_artifacts(impl_code, verify_dir)
+            self._write_source_artifacts(task_info, verify_dir)
 
             base_script_name = f"profile_{self.op_name}_base.py"
             gen_script_name = f"profile_{self.op_name}_generation.py"
@@ -316,32 +314,42 @@ class KernelVerifier:
     def _pypto_impl_filename(self) -> str:
         return f"{self.op_name}_pypto_impl.py"
 
-    def _write_source_artifacts(self, impl_code: str, verify_dir: Path) -> None:
-        """把 framework_code 与 coder_code 写入 verify_dir 同名两个文件.
+    def _has_impl_source(self, task_info: Dict[str, Any]) -> bool:
+        source_files = task_info.get("source_files")
+        return bool(task_info.get("coder_code") or (isinstance(source_files, dict) and source_files))
+
+    def _write_source_artifacts(self, task_info: Dict[str, Any], verify_dir: Path) -> None:
+        """把 framework_code 与 PyPTO 源文件写入 verify_dir.
 
         - ``<op>_torch.py``       — 原 KernelBench task_desc (含 Model / get_inputs /
           get_init_inputs).
-        - ``<op>_pypto_impl.py``  — 调用方传入的 coder_code (一般是
-          ``verifier_runner.merge_pypto_artifacts`` 合并后的自包含源码,
-          含 ``ModelNew`` 类). 命名 ``{op}_{dsl}_impl.py`` 与
-          ``pypto_adapter.get_modelnew_loader`` 中 importlib 的 spec 路径对齐.
+        - ``source_files``        — 原样写入调用方提供的 ``{op}_impl.py`` /
+          ``{op}_pypto_impl.py`` 等文件, 让 wrapper 中的本地 import 自然解析.
+        - ``coder_code``          — 兼容旧调用方, 写入 ``{op}_pypto_impl.py``.
         """
+        verify_dir.mkdir(parents=True, exist_ok=True)
         framework_file = verify_dir / self._framework_filename()
-        impl_file = verify_dir / self._pypto_impl_filename()
         framework_file.write_text(self.framework_code, encoding="utf-8")
-        impl_file.write_text(impl_code, encoding="utf-8")
+        source_files = task_info.get("source_files")
+        if isinstance(source_files, dict) and source_files:
+            for rel_name, content in source_files.items():
+                path = Path(str(rel_name))
+                if path.is_absolute() or ".." in path.parts:
+                    raise ValueError(f"非法 verifier 源文件名: {rel_name!r}")
+                target = verify_dir / path
+                target.parent.mkdir(parents=True, exist_ok=True)
+                target.write_text(str(content), encoding="utf-8")
+        else:
+            impl_code = str(task_info.get("coder_code") or "")
+            impl_file = verify_dir / self._pypto_impl_filename()
+            impl_file.write_text(impl_code, encoding="utf-8")
         logger.debug(
             "[%s] wrote %s (%d chars)",
             self.op_name,
             framework_file,
             len(self.framework_code),
         )
-        logger.debug(
-            "[%s] wrote %s (%d chars)",
-            self.op_name,
-            impl_file,
-            len(impl_code),
-        )
+        logger.debug("[%s] wrote PyPTO source artifacts into %s", self.op_name, verify_dir)
 
     # ---------- device 管理 (LocalWorker 自带 device pool) ----------
 
