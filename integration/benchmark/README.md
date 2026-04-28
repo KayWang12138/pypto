@@ -339,6 +339,48 @@ bash integration/benchmark/scripts/local/test-skill-cheat.sh       # 自动部�
 FULL=0 bash integration/benchmark/scripts/local/test-integration.sh # cheap 集成
 ```
 
+### test-integration 后台运行 (nohup)
+
+`test-integration.sh` 的 FULL 模式耗时较长, 建议用固定
+`BENCHMARK_LOG_DIR` 后台跑, 方便断开终端后继续查看报告和日志:
+
+```bash
+cd pypto
+RUN_DIR=/tmp/benchmark_integration_$(date +%Y%m%d_%H%M%S)
+mkdir -p "${RUN_DIR}"
+
+nohup env \
+  BENCHMARK_LOG_DIR="${RUN_DIR}" \
+  CASES=19_ReLU \
+  FULL=1 \
+  CONCURRENCY=1 \
+  bash integration/benchmark/scripts/local/test-integration.sh \
+  >"${RUN_DIR}/nohup.log" 2>&1 &
+```
+
+如果需要先激活 conda / source CANN 环境, 用 `bash -lc` 把环境初始化和测试命令放在
+同一个 shell 里:
+
+```bash
+cd pypto
+RUN_DIR=/tmp/benchmark_integration_$(date +%Y%m%d_%H%M%S)
+mkdir -p "${RUN_DIR}"
+
+nohup bash -lc '
+  source /path/to/set_env.sh
+  BENCHMARK_LOG_DIR="'"${RUN_DIR}"'" \
+  CASES="level1=1:21" \
+  FULL=1 \
+  CONCURRENCY=1 \
+  bash integration/benchmark/scripts/local/test-integration.sh
+' >"${RUN_DIR}/nohup.log" 2>&1 &
+```
+
+注意环境变量的位置: `nohup FULL=0 bash ...` 是错误写法, 因为 `nohup` 会把
+`FULL=0` 当成要执行的命令名. 应写成 `FULL=0 nohup bash ...`,
+或更清晰地写成 `nohup env FULL=0 bash ...`. 若使用 `bash -lc`, 变量要放进
+引号内那条真正执行的命令中.
+
 各步骤的 log 默认落在 `${BENCHMARK_LOG_DIR:-/tmp/benchmark_test_<ts>}/`,
 可设 `BENCHMARK_LOG_DIR=/path` 自定义.
 
