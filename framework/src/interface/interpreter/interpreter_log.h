@@ -16,14 +16,17 @@
 #pragma once
 
 #include <cstdarg>
+#include <cinttypes>
 #include <cstdint>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
 #include <ctime>
+#include <functional>
 #include <mutex>
 #include <string>
 #include <sys/stat.h>
+#include <thread>
 
 #include "securec.h"
 #include "tilefwk/pypto_fwk_log.h"
@@ -41,10 +44,19 @@ inline std::string& LogFilePath()
     return path;
 }
 
+inline bool& IsLogFilePathInitialized()
+{
+    static bool initialized = false;
+    return initialized;
+}
+
 inline void SetLogFilePath(const std::string& path)
 {
     std::lock_guard<std::mutex> lock(LogMutex());
-    LogFilePath() = path;
+    if (!IsLogFilePathInitialized()) {
+        LogFilePath() = path;
+        IsLogFilePathInitialized() = true;
+    }
 }
 
 inline void EnsureLogDir()
@@ -55,7 +67,7 @@ inline void EnsureLogDir()
 
 inline bool ShouldWriteLevel(const char* level)
 {
-    return std::strcmp(level, "ERROR") == 0 || std::strcmp(level, "EVENT") == 0;
+    return std::strcmp(level, "ERROR") == 0 || std::strcmp(level, "EVENT") == 0 || std::strcmp(level, "WARN") == 0;
 }
 
 inline bool ShouldPrintToStdout()
@@ -64,10 +76,19 @@ inline bool ShouldPrintToStdout()
     return value != nullptr && std::strcmp(value, "1") == 0;
 }
 
+inline bool ShouldWriteInfoLevel()
+{
+    const char* value = std::getenv("ASCEND_INTERPRETER_LOG_INFO_TO_FILE");
+    return value != nullptr && std::strcmp(value, "1") == 0;
+}
+
 inline void WriteLine(const char* level, const char* fmt, va_list args) __attribute__((format(printf, 2, 0)));
 inline void WriteLine(const char* level, const char* fmt, va_list args)
 {
-    if (!ShouldWriteLevel(level)) {
+    if (std::strcmp(level, "INFO") == 0 && !ShouldWriteInfoLevel()) {
+        return;
+    }
+    if (!ShouldWriteLevel(level) && std::strcmp(level, "INFO") != 0) {
         return;
     }
     EnsureLogDir();
@@ -105,10 +126,11 @@ inline void WriteLine(const char* level, const char* fmt, va_list args)
     (void)localtime_r(&now, &localTm);
     char timeBuf[32] = {0};
     (void)std::strftime(timeBuf, sizeof(timeBuf), "%Y-%m-%d %H:%M:%S", &localTm);
+    const uint64_t threadId = static_cast<uint64_t>(std::hash<std::thread::id>()(std::this_thread::get_id()));
 
-    fprintf(fp, "[%s][%s] %s\n", timeBuf, level, msgBuf.c_str());
+    fprintf(fp, "[%s][%s][tid:%" PRIu64 "] %s\n", timeBuf, level, threadId, msgBuf.c_str());
     if (ShouldPrintToStdout()) {
-        fprintf(stdout, "[%s][%s] %s\n", timeBuf, level, msgBuf.c_str());
+        fprintf(stdout, "[%s][%s][tid:%" PRIu64 "] %s\n", timeBuf, level, threadId, msgBuf.c_str());
         fflush(stdout);
     }
     fclose(fp);
@@ -124,9 +146,9 @@ inline void Log(const char* level, const char* fmt, ...)
 }
 } // namespace npu::tile_fwk::interpreter_log
 
-#define INTERPRETER_LOGD(...) VERIFY_LOGD(__VA_ARGS__)
-#define INTERPRETER_LOGI(...) VERIFY_LOGI(__VA_ARGS__)
-#define INTERPRETER_LOGW(...) VERIFY_LOGW(__VA_ARGS__)
+#define INTERPRETER_LOGD(...) npu::tile_fwk::interpreter_log::Log("DEBUG", __VA_ARGS__)
+#define INTERPRETER_LOGI(...) npu::tile_fwk::interpreter_log::Log("INFO", __VA_ARGS__)
+#define INTERPRETER_LOGW(...) npu::tile_fwk::interpreter_log::Log("WARN", __VA_ARGS__)
 #define INTERPRETER_EVENT(...) npu::tile_fwk::interpreter_log::Log("EVENT", __VA_ARGS__)
 
 #define INTERPRETER_LOGE(errCode, fmt, ...)                                                                  \
