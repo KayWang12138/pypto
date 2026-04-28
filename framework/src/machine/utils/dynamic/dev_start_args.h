@@ -172,11 +172,12 @@ public:
     void AllocateWait()
     {
         TIMEOUT_CHECK_START(archInfo_);
+        TIMEOUT_WARN_INIT(TIMEOUT_20MIN);
 
         while (Full()) {
             RuntimeYield();
 
-            __PYPTO_TIMEOUT_CHECK_WITH_WARN(start, last_warn, TIMEOUT_INFINITE, TIMEOUT_10MIN,
+            __PYPTO_TIMEOUT_CHECK_WITH_EXIT(start, last_warn, warn_interval, TIMEOUT_20MIN,
                 WsErr::WORKSPACE_CAPACITY_INSUFFICIENT,
                 ,
                 "#ringbuffer.alloc: AllocateWait still waiting, ring buffer full.",

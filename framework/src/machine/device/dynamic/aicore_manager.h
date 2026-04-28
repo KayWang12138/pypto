@@ -1866,6 +1866,7 @@ private:
         int mngAicoreNum = aicEnd_ - aicStart_ + aivEnd_ - aivStart_;
         bool handFlag[MAX_AICORE_NUM] = {false};
         TIMEOUT_CHECK_START(archInfo_);
+        TIMEOUT_WARN_INIT(TIMEOUT_1MIN);
         bool needSendAic = false;
         bool needSendAiv = false;
         bool aicAllSuccess = false;
@@ -1932,7 +1933,7 @@ private:
                 aivSucessCnt = 0;
             }
 
-            __PYPTO_TIMEOUT_CHECK_WITH_WARN(start, last_warn, TIMEOUT_HAND_SHAKE, TIMEOUT_1MIN,
+            __PYPTO_TIMEOUT_CHECK_WITH_EXIT(start, last_warn, warn_interval, TIMEOUT_1MIN,
                 SchedErr::HANDSHAKE_TIMEOUT,
                 { DumpAicoreStatusWhenTimeout(handFlag); return DEVICE_MACHINE_ERROR; },
                 "#sche.handshake: HandShakeByGmWithPreSendTask still waiting, notHandshakeNum=%d.",

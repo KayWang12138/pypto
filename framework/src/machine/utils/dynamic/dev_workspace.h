@@ -737,6 +737,7 @@ public:
         SlabTryDynAddCache(type, objSize);
         
         TIMEOUT_CHECK_START(devProg_->devArgs.archInfo);
+        TIMEOUT_WARN_INIT(TIMEOUT_2MIN);
         
         do {
             if (type < WsAicpuSlabMemType::COHERENT_SLAB_MEM_TYPE_BUTT) {
@@ -761,8 +762,9 @@ public:
             
             uint64_t start_inner = GetCycles();
             uint64_t last_warn_inner = 0;
+            uint64_t warn_interval_inner = TIMEOUT_1MIN / 5;
             while (!DeviceTaskMemTryRecycle()) {
-                __PYPTO_TIMEOUT_CHECK_WITH_WARN(start_inner, last_warn_inner, TIMEOUT_20MIN, TIMEOUT_1MIN,
+                __PYPTO_TIMEOUT_CHECK_WITH_EXIT(start_inner, last_warn_inner, warn_interval_inner, TIMEOUT_1MIN,
                     WsErr::SLAB_ADD_CACHE_FAILED,
                     break,
                     "#workspace.alloc.inner_timeout: Inner recycle still waiting, type=%u, objSize=%u.",
@@ -770,7 +772,7 @@ public:
                     ToUnderlying(type), objSize);
             };
         
-            __PYPTO_TIMEOUT_CHECK_WITH_WARN(start, last_warn, TIMEOUT_20MIN, TIMEOUT_2MIN,
+            __PYPTO_TIMEOUT_CHECK_WITH_EXIT(start, last_warn, warn_interval, TIMEOUT_2MIN,
                 WsErr::SLAB_ADD_CACHE_FAILED,
                 { WsAllocation emptyAlloc; emptyAlloc.ptr = 0; return emptyAlloc; },
                 "#workspace.alloc: SlabAlloc still waiting, type=%u, objSize=%u.",
@@ -795,15 +797,15 @@ public:
 
     void SlabStageAllocMemSubmmit(DynDeviceTask* devTask) {
         TIMEOUT_CHECK_START(devProg_->devArgs.archInfo);
-        
+        TIMEOUT_WARN_INIT(TIMEOUT_1MIN);
         while (!submmitTaskQueue_.TryEnqueue(devTask)) {
             DeviceTaskMemTryRecycle();
             
-            __PYPTO_TIMEOUT_CHECK_WITH_WARN(start, last_warn, TIMEOUT_20MIN, TIMEOUT_1MIN,
+            __PYPTO_TIMEOUT_CHECK_WITH_EXIT(start, last_warn, warn_interval, TIMEOUT_1MIN,
                 WsErr::SLAB_ADD_CACHE_FAILED,
                 return,
-                "#workspace.submit: SlabStageAllocMemSubmmit still waiting 1min.",
-                "#workspace.submit: SlabStageAllocMemSubmmit timeout 20min.");
+                "#workspace.submit: SlabStageAllocMemSubmmit still waiting.",
+                "#workspace.submit: SlabStageAllocMemSubmmit timeout.");
         }
         return;
     }

@@ -77,10 +77,9 @@ public:
             }
             taskCtrlIndex++;
             
-            __PYPTO_TIMEOUT_CHECK_WITH_WARN(start, last_warn, TIMEOUT_1MIN, TIMEOUT_10SEC,
+            __PYPTO_TIMEOUT_CHECK_SIMPLE(start, TIMEOUT_10SEC,
                 CtrlErr::CTRL_ALLOC_TIMEOUT,
                 return DEVICE_MACHINE_ERROR,
-                "#ctrl.alloc: AllocNewTaskCtrl still waiting, taskCtrlIndex=%u.",
                 "#ctrl.alloc: AllocNewTaskCtrl timeout, taskCtrlIndex=%u.",
                 taskCtrlIndex);
         }

@@ -234,8 +234,9 @@ public:
         DEV_ASSERT(WsErr::SLAB_STAGE_LIST_INCONSISTENT, temp != nullptr);
 
         TIMEOUT_CHECK_START(archInfo_);
+        TIMEOUT_WARN_INIT(TIMEOUT_20MIN);
         while (*static_cast<void**>(temp) != caches_[cacheIdx].stageAllocTail) {
-            __PYPTO_TIMEOUT_CHECK_WITH_WARN(start, last_warn, TIMEOUT_INFINITE, TIMEOUT_10MIN,
+            __PYPTO_TIMEOUT_CHECK_WITH_EXIT(start, last_warn, warn_interval, TIMEOUT_20MIN,
                 WsErr::SLAB_STAGE_LIST_INCONSISTENT,
                 ,
                 "#workspace.slab.stage: Stage alloc traversal still waiting for cacheIndex=%u.",

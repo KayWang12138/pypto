@@ -81,7 +81,6 @@ constexpr uint64_t TIMEOUT_A2A3_1SEC   = 50000000ULL;       // 50M cycles
 constexpr uint64_t TIMEOUT_A2A3_10SEC  = 500000000ULL;      // 500M cycles
 constexpr uint64_t TIMEOUT_A2A3_1MIN   = 3000000000ULL;     // 3G cycles
 constexpr uint64_t TIMEOUT_A2A3_2MIN   = 6000000000ULL;     // 6G cycles
-constexpr uint64_t TIMEOUT_A2A3_10MIN  = 30000000000ULL;    // 30G cycles
 constexpr uint64_t TIMEOUT_A2A3_20MIN  = 60000000000ULL;    // 60G cycles
 
 // A5 架构超时常量 (基于 1000MHz，是 A2A3 的 20 倍)
@@ -89,7 +88,6 @@ constexpr uint64_t TIMEOUT_A5_1SEC   = 1000000000ULL;       // 1G cycles
 constexpr uint64_t TIMEOUT_A5_10SEC  = 10000000000ULL;      // 10G cycles
 constexpr uint64_t TIMEOUT_A5_1MIN   = 60000000000ULL;      // 60G cycles
 constexpr uint64_t TIMEOUT_A5_2MIN   = 120000000000ULL;     // 120G cycles
-constexpr uint64_t TIMEOUT_A5_10MIN  = 600000000000ULL;     // 600G cycles
 constexpr uint64_t TIMEOUT_A5_20MIN  = 1200000000000ULL;    // 1200G cycles
 
 constexpr uint64_t TIMEOUT_CYCLES_INFINITE = UINT64_MAX;
@@ -300,38 +298,40 @@ inline int CheckTimeOut(const std::string& operation, TimeCheck& timeCheck)
 }
 
 // Timeout check macros: architecture-specific timeout values computed once at start
-// Two variants:
-//   - __PYPTO_TIMEOUT_CHECK_SIMPLE: only timeout check (for short durations, seconds)
-//   - __PYPTO_TIMEOUT_CHECK_WITH_WARN: timeout + periodic warning (for long durations, minutes)
+// Usage pattern:
+//   - For simple timeout (no warning): TIMEOUT_CHECK_START + __PYPTO_TIMEOUT_CHECK_SIMPLE
+//   - For timeout with warning: TIMEOUT_CHECK_START + TIMEOUT_WARN_INIT + __PYPTO_TIMEOUT_CHECK_WITH_EXIT
+//   - For nested/multiple timeouts: use _inner, _2 suffix for variable names
 #define TIMEOUT_CHECK_START(arch) \
     uint64_t start = GetCycles(); \
-    uint64_t last_warn = 0; \
     const uint64_t* timeout_map = (arch == ArchInfo::DAV_3510) ? TIMEOUT_MAP_A5 : TIMEOUT_MAP_A2A3
+
+// Initialize warning variables: last_warn and warn_interval (computed once)
+#define TIMEOUT_WARN_INIT(timeout_cycles) \
+    uint64_t last_warn = 0; \
+    uint64_t warn_interval = timeout_cycles / 5
 
 constexpr uint64_t TIMEOUT_INDEX_1SEC   = 0;
 constexpr uint64_t TIMEOUT_INDEX_10SEC  = 1;
 constexpr uint64_t TIMEOUT_INDEX_1MIN   = 2;
 constexpr uint64_t TIMEOUT_INDEX_2MIN   = 3;
-constexpr uint64_t TIMEOUT_INDEX_10MIN  = 4;
-constexpr uint64_t TIMEOUT_INDEX_20MIN  = 5;
-constexpr uint64_t TIMEOUT_INDEX_HAND_SHAKE = 6;
+constexpr uint64_t TIMEOUT_INDEX_20MIN  = 4;
+constexpr uint64_t TIMEOUT_INDEX_HAND_SHAKE = 5;
 
-static constexpr uint64_t TIMEOUT_MAP_A2A3[7] = {
+static constexpr uint64_t TIMEOUT_MAP_A2A3[6] = {
     TIMEOUT_A2A3_1SEC,
     TIMEOUT_A2A3_10SEC,
     TIMEOUT_A2A3_1MIN,
     TIMEOUT_A2A3_2MIN,
-    TIMEOUT_A2A3_10MIN,
     TIMEOUT_A2A3_20MIN,
     HAND_SHAKE_TIMEOUT_A2A3_CYCLES
 };
 
-static constexpr uint64_t TIMEOUT_MAP_A5[7] = {
+static constexpr uint64_t TIMEOUT_MAP_A5[6] = {
     TIMEOUT_A5_1SEC,
     TIMEOUT_A5_10SEC,
     TIMEOUT_A5_1MIN,
     TIMEOUT_A5_2MIN,
-    TIMEOUT_A5_10MIN,
     TIMEOUT_A5_20MIN,
     HAND_SHAKE_TIMEOUT_A5_CYCLES
 };
@@ -340,13 +340,11 @@ static constexpr uint64_t TIMEOUT_MAP_A5[7] = {
 #define TIMEOUT_10SEC  (timeout_map[TIMEOUT_INDEX_10SEC])
 #define TIMEOUT_1MIN   (timeout_map[TIMEOUT_INDEX_1MIN])
 #define TIMEOUT_2MIN   (timeout_map[TIMEOUT_INDEX_2MIN])
-#define TIMEOUT_10MIN  (timeout_map[TIMEOUT_INDEX_10MIN])
 #define TIMEOUT_20MIN  (timeout_map[TIMEOUT_INDEX_20MIN])
 #define TIMEOUT_HAND_SHAKE (timeout_map[TIMEOUT_INDEX_HAND_SHAKE])
 #define TIMEOUT_INFINITE UINT64_MAX
 
-// Simple timeout check (no warning) - for short durations like seconds
-// Directly compares elapsed cycles without intermediate variable assignment
+// Simple timeout check (no warning, for short timeouts like 10sec)
 #define __PYPTO_TIMEOUT_CHECK_SIMPLE(start, timeout_cycles, error_code, action, error_fmt, ...) \
     do { \
         if ((GetCycles() - start) > timeout_cycles) { \
@@ -355,18 +353,18 @@ static constexpr uint64_t TIMEOUT_MAP_A5[7] = {
         } \
     } while (0)
 
-// Timeout check with periodic warning - for long durations like minutes
-// Warning interval prevents log flooding while providing monitoring visibility
-#define __PYPTO_TIMEOUT_CHECK_WITH_WARN(start, last_warn, timeout_cycles, warn_interval_cycles, error_code, action, \
-                                         warn_fmt, error_fmt, ...) \
+// Timeout check with warning (warn_interval computed once by TIMEOUT_WARN_INIT)
+#define __PYPTO_TIMEOUT_CHECK_WITH_EXIT(start, last_warn, warn_interval, timeout_cycles, error_code, action, \
+                                          warn_fmt, error_fmt, ...) \
     do { \
-        if (timeout_cycles != UINT64_MAX && (GetCycles() - start) > timeout_cycles) { \
-            DEV_ERROR(error_code, error_fmt ", elapsed %lu cycles", ##__VA_ARGS__, (GetCycles() - start)); \
+        uint64_t elapsed = GetCycles() - start; \
+        if (elapsed > timeout_cycles) { \
+            DEV_ERROR(error_code, error_fmt ", elapsed %lu cycles", ##__VA_ARGS__, elapsed); \
             action; \
         } \
-        if ((GetCycles() - start) > last_warn + warn_interval_cycles) { \
-            DEV_WARN(warn_fmt ", elapsed %lu cycles", ##__VA_ARGS__, (GetCycles() - start)); \
-            last_warn = GetCycles() - start; \
+        if (elapsed > last_warn + warn_interval) { \
+            DEV_WARN(warn_fmt ", elapsed %lu cycles", ##__VA_ARGS__, elapsed); \
+            last_warn = elapsed; \
         } \
     } while (0)
 } // namespace npu::tile_fwk::dynamic
