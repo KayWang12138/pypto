@@ -7,141 +7,15 @@
 # See LICENSE in the root of the software repository for the full text of the License.
 # -----------------------------------------------------------------------------------------------------------
 
-"""
-PyPTO Language module - Type-safe DSL API for writing IR functions.
+"""PyPTO Language module - Type-safe DSL API for writing IR functions."""
 
-This module provides:
-- function decorator for parsing DSL functions to IR
-- Tensor type for tensor annotations and runtime wrapping
-- Tile type for tile/block annotations and runtime wrapping
-- Type-safe operation wrappers (tensor.*, block.*, system.*, and unified ops)
-- DSL helpers (range, yield_)
-- DataType constants
-
-Typical usage:
-    import pypto_block.language as pl
-
-    @pl.function
-    def my_func(x: pl.Tensor[[64, 128], pl.FP16]) -> pl.Tensor[[64, 128], pl.FP32]:
-        result: pl.Tensor[[64, 128], pl.FP32] = pl.create_tensor([64, 128], dtype=pl.FP32)
-        return result
-
-    @pl.function
-    def block_func(x: pl.Tensor[[64, 64], pl.FP32]) -> pl.Tensor[[64, 64], pl.FP32]:
-        tile: pl.Tile[[64, 64], pl.FP32] = pl.load(x, [0, 0], [64, 64])
-        result: pl.Tile[[64, 64], pl.FP32] = pl.add(tile, tile)
-        return pl.store(result, [0, 0], [64, 64], x)
-
-    @pl.function
-    def scalar_func(x: pl.Scalar[pl.FP32]) -> pl.Scalar[pl.FP32]:
-        return x
-"""
-
+from types import SimpleNamespace
 from typing import Any
 
 from pypto_block.pypto_core import DataType
 from pypto_block.pypto_core.ir import ForKind, FunctionType, MemorySpace, MemRef, PipeType, TensorLayout
 
 from . import parser
-from .dsl_api import (
-    cond,
-    const,
-    incore,
-    parallel,
-    range,
-    section_cube,
-    section_vector,
-    unroll,
-    while_,
-    yield_,
-)
-from .op.auto.op.auto_ops import block
-from .op import system_ops as system
-from .op import mutex_ops as mutex
-from .op.auto.op.auto_ops import tensor
-from .op.auto.op.auto_ops import (
-    abs,
-    addc,
-    addsc,
-    and_,
-    ands,
-    cmp,
-    cmps,
-    col_expand,
-    col_expand_div,
-    col_expand_mul,
-    col_expand_sub,
-    expands,
-    gemv,
-    gemv_acc,
-    gemv_bias,
-    load,
-    log,
-    lrelu,
-    make_tile,
-    matmul_acc,
-    matmul_bias,
-    max,
-    maxs,
-    min,
-    minimum,
-    mins,
-    move,
-    neg,
-    not_,
-    or_,
-    ors,
-    prelu,
-    recip,
-    relu,
-    rem,
-    rems,
-    row_expand,
-    row_expand_add,
-    row_expand_div,
-    row_expand_mul,
-    row_expand_sub,
-    row_min,
-    rsqrt,
-    sel,
-    sels,
-    shl,
-    shls,
-    shr,
-    shrs,
-    sqrt,
-    store,
-    subc,
-    subsc,
-    sum,
-    vec_move,
-    xor,
-    xors,
-    getval,
-    setval,
-)
-from .op.ptr_ops import addptr, make_tensor
-from .op.manual.op.manual_ops import col_max, col_sum
-from .op.auto.op.auto_ops import assemble, create_tensor, dim
-from .op.auto.op.auto_ops import (
-    add,
-    cast,
-    div,
-    exp,
-    matmul,
-    maximum,
-    mul,
-    reshape,
-    row_max,
-    row_sum,
-    sub,
-    transpose,
-)
-from .parser.decorator import InlineFunction, KernelFunction, func, function, inline, program
-from .parser.text_parser import loads, loads_program, parse, parse_program
-from .typing import DynVar, InOut, IntLike, Out, Ptr, Scalar, Tensor, Tile, dynamic
-from .typing.tensor import TensorViewSpec as view
-from .typing.dynamic import dynamic as dynamic
 from .buffer import (
     Buffer,
     BufferSlot,
@@ -158,47 +32,40 @@ from .buffer import (
     UBBuffer,
     UBNBuffer,
 )
+from .dsl_api import (
+    cond,
+    const,
+    incore,
+    parallel,
+    range,
+    section_cube,
+    section_vector,
+    unroll,
+    while_,
+    yield_,
+)
+from .op import manual as block
+from .op import mutex_ops as mutex
+from .op import system_ops as system
+from .op.manual import *  # noqa: F401, F403
+from .op.manual import __all__ as _manual_all
+from .op.ptr_ops import addptr, make_tensor
+from .parser.decorator import InlineFunction, KernelFunction, func, function, inline, program
+from .parser.text_parser import loads, loads_program, parse, parse_program
+from .typing import DynVar, InOut, IntLike, Out, Ptr, Scalar, Tensor, Tile, dynamic
+from .typing.dynamic import dynamic as dynamic
+from .typing.tensor import TensorViewSpec as view
 
 
 def struct(**kwargs: Any) -> Any:
-    """Create a compile-time struct grouping IR expressions for attribute access.
-
-    Args:
-        **kwargs: Named fields mapping to IR expressions or Python values.
-
-    Returns:
-        Struct object whose fields can be accessed as ``s.field_name``.
-
-    Example::
-
-        ctx = pl.struct(sq_off=sq_off, buf_idx=buf_idx)
-        # later: ctx.sq_off, ctx.buf_idx
-    """
-    # The parser handles pl.struct() syntactically; this stub exists for
-    # IDE autocompletion and runtime import validation only.
-    from types import SimpleNamespace  # noqa: PLC0415
-
+    """Create a compile-time struct grouping IR expressions for attribute access."""
     return SimpleNamespace(**kwargs)
 
 
 def StructArray(size: int, **kwargs: Any) -> Any:
-    """Create a struct array of ``size`` identical structs.
-
-    Args:
-        size: Number of elements in the array.
-        **kwargs: Named fields with initial values (shared by all elements).
-
-    Returns:
-        Struct array that supports dynamic indexing: ``arr[idx].field``.
-
-    Example::
-
-        ctx_arr = pl.StructArray(3, sq_off=0, task_id=0, ki=0)
-        # ctx_arr[task_id].sq_off = sq_off
-    """
-    # The parser handles pl.StructArray() syntactically; this stub exists for
-    # IDE autocompletion and runtime import validation only.
+    """Create a struct array of ``size`` identical structs."""
     return [SimpleNamespace(**kwargs) for _ in range(size)]
+
 
 # Re-export TensorLayout constants for convenience
 ND = TensorLayout.ND
@@ -206,11 +73,27 @@ DN = TensorLayout.DN
 NZ = TensorLayout.NZ
 
 # Re-export DataType constants from ir module (single source of truth)
-from pypto_block.ir import (
-    FP4, FP8E4M3FN, FP8E5M2, FP16, FP32, BF16, HF4, HF8,
-    INT4, INT8, INT16, INT32, INT64,
-    UINT4, UINT8, UINT16, UINT32, UINT64,
-    BOOL, INDEX
+from pypto_block.ir import (  # noqa: E402
+    BF16,
+    BOOL,
+    FP4,
+    FP8E4M3FN,
+    FP8E5M2,
+    FP16,
+    FP32,
+    HF4,
+    HF8,
+    INDEX,
+    INT4,
+    INT8,
+    INT16,
+    INT32,
+    INT64,
+    UINT4,
+    UINT8,
+    UINT16,
+    UINT32,
+    UINT64,
 )
 
 __all__ = [
@@ -247,95 +130,13 @@ __all__ = [
     "block",
     "system",
     "mutex",
-    "tensor",
-    # Unified dispatch
-    "add",
-    "sub",
-    "mul",
-    "div",
-    "maximum",
-    "exp",
-    "cast",
-    "reshape",
-    "transpose",
     "view",
-    "matmul",
-    "row_max",
-    "row_sum",
-    # Promoted block-only
-    "make_tile",
-    "load",
-    "store",
-    "move",
-    "vec_move",
-    "neg",
-    "sqrt",
-    "rsqrt",
-    "recip",
-    "log",
-    "abs",
-    "relu",
-    "matmul_acc",
-    "matmul_bias",
-    "gemv",
-    "gemv_acc",
-    "gemv_bias",
-    "minimum",
-    "min",
-    "sum",
-    "max",
-    "cmp",
-    "cmps",
-    "row_min",
-    "row_expand",
-    "row_expand_add",
-    "row_expand_sub",
-    "row_expand_mul",
-    "row_expand_div",
-    "col_expand",
-    "col_expand_mul",
-    "col_expand_div",
-    "col_expand_sub",
-    "col_max",
-    "col_sum",
-    "expands",
-    "rem",
-    "rems",
-    "and_",
-    "ands",
-    "or_",
-    "ors",
-    "xor",
-    "xors",
-    "shl",
-    "shls",
-    "shr",
-    "shrs",
-    "maxs",
-    "mins",
-    "prelu",
-    "not_",
-    "addc",
-    "subc",
-    "addsc",
-    "subsc",
-    "lrelu",
-    "sel",
-    "sels",
-    "getval",
-    "setval",
-    "sort32",
-    "mrgsort",
-    # Promoted tensor-only
-    "create_tensor",
-    "assemble",
-    "dim",
-    "getval",
-    "setval",
-    # Ptr ops
+    *_manual_all,
     "make_tensor",
     "addptr",
     "struct",
+    "StructArray",
+    "DataType",
     "FunctionType",
     "ForKind",
     "MemRef",
@@ -365,7 +166,6 @@ __all__ = [
     "UINT64",
     "BOOL",
     "INDEX",
-    # Buffer management (A5 Mutex-based)
     "Buffer",
     "BufferSlot",
     "NBuffer",

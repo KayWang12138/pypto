@@ -553,8 +553,7 @@ def get_block_idx() -> Scalar:
     Returns:
         Scalar wrapping the block index (UINT64 type).
     """
-    from pypto_block.language.op.auto.op.auto_ops import get_block_idx as _get_block_idx
-    return _get_block_idx()
+    return Scalar(expr=_ir_block_ops.get_block_idx())
 
 
 def get_subblock_idx() -> Scalar:
@@ -564,8 +563,7 @@ def get_subblock_idx() -> Scalar:
         Scalar wrapping to subblock index (UINT64 type).
         >>>     ...
     """
-    from pypto_block.language.op.auto.op.auto_ops import get_subblock_idx as _get_subblock_idx
-    return _get_subblock_idx()
+    return Scalar(expr=_ir_block_ops.get_subblock_idx())
 
 
 def get_block_num() -> Scalar:
@@ -581,8 +579,7 @@ def get_block_num() -> Scalar:
         >>>     ...
         >>>     ...
     """
-    from pypto_block.language.op.auto.op.auto_ops import get_block_num as _get_block_num
-    return _get_block_num()
+    return Scalar(expr=_ir_block_ops.get_block_num())
 
 
 # ---------------------------------------------------------------------------

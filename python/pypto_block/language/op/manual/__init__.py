@@ -153,7 +153,8 @@ __all__ = [
     # Allocation
     "make_tile",
     # Memory
-    "load", "load_tile", "store", "store_tile", "move", "ub_copy", "full", "fillpad", "get_block_idx", "get_subblock_idx",
+    "load", "load_tile", "store", "store_tile", "move", "ub_copy", "full", "fillpad",
+    "get_block_idx", "get_subblock_idx", "get_block_num",
     # Tile x Tile binary
     "add", "sub", "mul", "div", "rem", "maximum", "minimum",
     "and_", "or_", "shl", "shr", "add_relu", "sub_relu", "add_relu_cast", "sub_relu_cast", "mul_cast",
