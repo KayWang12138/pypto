@@ -1710,6 +1710,8 @@ Status OoOScheduler::SpillL0CBuffer(SpillInfo &spillInfo, Operation* allocOp, si
         spillInfo.ddrTensor_ = reusedCopyOut->GetOutputOperand(0);
         spillInfo.spillCopyOutOp_ = reusedCopyOut;
         consumers.erase(std::remove(consumers.begin(), consumers.end(), reusedCopyOut), consumers.end());
+        SetOpMemIds(reusedCopyOut, FilterOutMemId(GetOpMemIds(reusedCopyOut), spillInfo.spillMemId_));
+        opIsRetiredMap[reusedCopyOut] = true;
         // 安全性：L0C 槽位 Free 后会被新 alloc 占用并写入；必须保证 reusedCopyOut
         // 在 allocOp 之前完成，否则新 alloc 写入会覆盖 reusedCopyOut 待读的数据。
         depManager_.AddDependency(reusedCopyOut, allocOp);
@@ -1727,6 +1729,18 @@ Status OoOScheduler::SpillL0CBuffer(SpillInfo &spillInfo, Operation* allocOp, si
             APASS_LOG_ERROR_F(Elements::Operation, "L0C spill: ReplaceL0CConsumer failed for %s.",
                 GetOpInfo(cons).c_str());
             return FAILED;
+        }
+    }
+    bufRefCount_[spillInfo.spillMemId_] = 0;
+    for (auto* op : orderedOps) {
+        if (opIsRetiredMap[op]) {
+            continue;
+        }
+        auto& reqMemIds = GetOpMemIds(op);
+        for (auto memId : reqMemIds) {
+            if (memId == spillInfo.spillMemId_) {
+                bufRefCount_[spillInfo.spillMemId_]++;
+            }
         }
     }
     function_.EraseOperations(false, false);
