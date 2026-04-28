@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2025 Huawei Technologies Co., Ltd.
+ * Copyright (c) 2026 Huawei Technologies Co., Ltd.
  * This program is free software, you can redistribute it and/or modify it under the terms and conditions of
  * CANN Open Software License Agreement Version 2.0 (the "License").
  * Please refer to the License for details. You may not use this file except in compliance with the License.
@@ -12,8 +12,10 @@
  * pmu_user_access.c
  *
  * Enable EL0 (user-space) access to ARMv8 PMUv3 registers by writing
- * PMUSERENR_EL0 = 0xF on every online CPU. A CPU hotplug callback keeps the
- * bit set when a CPU is brought online after initial module load.
+ * PMUSERENR_EL0 = 0xF on every online CPU. The cycle counter is configured to
+ * count EL0 only, matching perf_event exclude_kernel behavior. A CPU hotplug
+ * callback keeps the bit set when a CPU is brought online after initial module
+ * load.
  *
  * This module is a one-shot bootstrap for the direct-register sampler in
  * framework/src/machine/utils/arm_pmu_direct_sampler.h, targeted at kernels
@@ -25,6 +27,10 @@
  *   bit2 CR : EL0 read of cycle counter (PMCCNTR_EL0)
  *   bit3 ER : EL0 read of event counters via PMXEVCNTR_EL0
  * Writing 0xF opens all four capabilities.
+ *
+ * PMCCFILTR_EL0 relevant filter bits:
+ *   bit31 P : Do not count cycles in privileged modes (EL1/EL2/EL3)
+ *   bit30 U : Do not count cycles in EL0
  */
 
 #include <linux/module.h>
@@ -36,6 +42,7 @@
 
 #define PMUSERENR_EN_ALL 0xFUL
 #define PMU_CNTENSET_CYCLE_BIT (1UL << 31)
+#define PMCCFILTR_EXCLUDE_PRIVILEGED (1UL << 31)
 
 static enum cpuhp_state g_pmu_hp_state;
 
@@ -52,6 +59,7 @@ static void PmuWriteOnCpu(void *info)
     asm volatile("mrs %0, pmcr_el0" : "=r"(pmcr));
     pmcr |= 1UL; /* PMCR_EL0.E: enable all counters */
     asm volatile("msr pmcr_el0, %0" ::"r"(pmcr));
+    asm volatile("msr pmccfiltr_el0, %0" ::"r"(PMCCFILTR_EXCLUDE_PRIVILEGED));
     asm volatile("msr pmcntenset_el0, %0" ::"r"(PMU_CNTENSET_CYCLE_BIT));
     asm volatile("isb" ::: "memory");
 }
@@ -106,5 +114,5 @@ module_exit(PmuUserAccessExit);
 
 MODULE_LICENSE("GPL");
 MODULE_AUTHOR("CANN pypto_pmu");
-MODULE_DESCRIPTION("Enable EL0 access to ARMv8 PMUv3 registers (PMUSERENR_EL0=0xF)");
+MODULE_DESCRIPTION("Enable EL0 access to ARMv8 PMUv3 registers and filter PMCCNTR_EL0 to EL0");
 MODULE_VERSION("1.0");

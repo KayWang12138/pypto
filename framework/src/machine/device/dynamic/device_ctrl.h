@@ -314,10 +314,8 @@ public:
 //      头文件: machine/utils/arm_pmu_direct_sampler.h
 //      宏: ARM_PMU_DIRECT_SCOPE / ARM_PMU_DIRECT_BEGIN / ARM_PMU_DIRECT_END
 //      前置条件: aarch64 架构 + 内核已开启 PMUSERENR_EL0.EN
-#ifdef __DEVICE__
 #if ARM_PMU_DIRECT_ENABLE
         ARM_PMU_DIRECT_SCOPE("ExecDyn");
-#endif
 #endif
         auto devProg = PtrToPtr<int64_t, DevAscendProgram>(args->cfgdata);
         auto devStartArgs = (DevStartArgs*)devProg->GetRuntimeDataList()->GetRuntimeDataPending();
@@ -376,6 +374,9 @@ public:
             return;
         }
         loadTried = true;
+
+        // 先诊断环境限制
+        npu::tile_fwk::PmuKoLoader::DumpModuleLoadConstraints();
 
         int ret = npu::tile_fwk::PmuInitEmbeddedKo();
         if (ret != 0) {
