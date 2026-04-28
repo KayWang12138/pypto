@@ -49,6 +49,7 @@ const std::string LoadStoreConvOpAttributeKey::copyInMode = "COPY_IN_MODE";
 const std::string LoadStoreConvOpAttributeKey::copyOutMode = "COPY_OUT_MODE";
 const std::string LoadStoreConvOpAttributeKey::isFmap = "IS_FMAP";
 const std::string LoadStoreConvOpAttributeKey::isConv3D = "IS_CONV3D";
+const std::string LoadStoreConvOpAttributeKey::cutW = "CUT_W";
 
 std::vector<int64_t> rotateVector(const std::vector<int64_t>& input, size_t shift)
 {
@@ -965,6 +966,11 @@ void ConstrucCopyOutTile(
     fixpipeOpRes.SetAttribute(
         LoadStoreConvOpAttributeKey::copyOutMode, static_cast<int64_t>(CopyOutMode::COPY_MOD_NZ2DN));
     fixpipeOpRes.SetAttribute(LoadStoreConvOpAttributeKey::isConv3D, convAttrParam.isConv3D);
+
+    // 设置cutW参数：L0C M方向(hw合轴)的w大小
+    int64_t cutW = std::min(iterInfo.woutL1Size - iterInfo.wL0Offset, convTileInfo.wL0);
+    fixpipeOpRes.SetAttribute(LoadStoreConvOpAttributeKey::cutW, cutW);
+
     fixpipeOpRes.SetAttribute("res_tile_shape", SymbolicScalar::FromConcrete(tensorGraphNodes.resTensorPtr->shape));
     int64_t dst_n_offset = iterInfo.batchOffset;
     int64_t dst_c_offset = iterInfo.groupOffset * convTileInfo.coutPerGroup + iterInfo.nL1Offset + iterInfo.nL0Offset;
@@ -1165,17 +1171,17 @@ void ConstructTileGraph(
 }
 Tensor Conv(
     DataType outType, const Tensor& inputTensor, const Tensor& weightTensor, const std::vector<int64_t>& strides,
-    const std::vector<int64_t>& paddings, const std::vector<int64_t>& dilations, const ConvExtendParam& extendParam,
-    const int64_t groups)
+    const std::vector<SymbolicScalar>& paddings, const std::vector<int64_t>& dilations,
+    const ConvExtendParam& extendParam, const int64_t groups)
 {
-    std::vector<int64_t> finalPaddings = paddings;
+    std::vector<int64_t> finalPaddings = SymbolicScalar::Concrete(paddings, 0);
     std::vector<int64_t> finalDilations = dilations;
     std::vector<int64_t> finalStrides = strides;
     if (dilations.size() == CONV3D_INPUT_DIM - 2 && strides.size() == CONV3D_INPUT_DIM - 2 &&
         paddings.size() == 2 * (CONV3D_INPUT_DIM - 2)) {
         finalDilations = rotateVector(dilations, 1);
         finalStrides = rotateVector(strides, 1);
-        finalPaddings = rotateVector(paddings, 2);
+        finalPaddings = rotateVector(SymbolicScalar::Concrete(paddings, 0), 2);
     }
     const Tensor& biasTensor = extendParam.biasTensor;
     // init and set attr

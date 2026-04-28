@@ -445,9 +445,117 @@ Status GenerateMoveOp::CreateMoveOp(Function& function) const
                     OpImmediate::Specified(op.oOperand.front()->tensor->GetDynRawShape())));
                 break;
             }
+            case Opcode::OP_L1_COPY_IN_CONV: {
+                Status status = ProcessL1CopyInConv(op);
+                if (status != SUCCESS) {
+                    return status;
+                }
+                break;
+            }
+            case Opcode::OP_L0C_COPY_OUT_CONV: {
+                Status status = ProcessL0CCopyOutConv(op);
+                if (status != SUCCESS) {
+                    return status;
+                }
+                break;
+            }
             default:
                 break;
         }
+    }
+    function.EraseOperations(false);
+    return SUCCESS;
+}
+
+Status GenerateMoveOp::ProcessL1CopyInConv(Operation& op) const
+{
+    // 1. 获取 L1_COPY_IN_CONV 的 producer VIEW
+    auto inputTensor = op.GetIOperands()[0];
+    auto producers = inputTensor->GetProducers();
+    if (producers.empty()) {
+        return SUCCESS;  // 没有 producer，不需要处理
+    }
+
+    auto viewOp = *producers.begin();
+    if (viewOp->GetOpcode() != Opcode::OP_VIEW) {
+        return SUCCESS;  // producer 不是 VIEW，不需要处理
+    }
+
+    // 2. 获取 VIEW 的 fromOffset 属性
+    auto viewAttr = std::dynamic_pointer_cast<ViewOpAttribute>(viewOp->GetOpAttribute());
+    if (viewAttr == nullptr) {
+        return FAILED;
+    }
+
+    // 3. 将 VIEW 的 fromOffset 累加到 L1_COPY_IN_CONV 的 CopyOpAttribute 的 fromOffset
+    auto copyAttr = std::dynamic_pointer_cast<CopyOpAttribute>(op.GetOpAttribute());
+    if (copyAttr != nullptr) {
+        std::vector<OpImmediate> curFromOffset = copyAttr->GetFromOffset();
+
+        // 如果当前 offset 为空，直接使用 VIEW 的 offset
+        if (curFromOffset.empty()) {
+            copyAttr->SetFromOffset(OpImmediate::Specified(viewAttr->GetFromTensorOffset()));
+        } else {
+            // 使用 TensorOffset::Add 进行累加
+            std::vector<SymbolicScalar> curFromOffsetScalar = OpImmediate::ToSpecified(curFromOffset);
+            std::vector<SymbolicScalar> viewOffsetScalar = OpImmediate::ToSpecified(
+                OpImmediate::Specified(TensorOffset(viewAttr->GetFromOffset(), viewAttr->GetFromDynOffset())));
+
+            // 尺寸检查
+            if (curFromOffsetScalar.size() == viewOffsetScalar.size()) {
+                auto ret = TensorOffset::Add(viewOffsetScalar, curFromOffsetScalar);
+                copyAttr->SetFromOffset(OpImmediate::Specified(ret));
+            } else {
+                // 尺寸不一致，使用 VIEW 的 offset 覆盖
+                copyAttr->SetFromOffset(OpImmediate::Specified(viewAttr->GetFromTensorOffset()));
+            }
+        }
+        op.SetOpAttribute(copyAttr);
+    }
+
+    // 4. 标记删除 VIEW
+    auto viewInput = viewOp->GetIOperands().front();
+    op.ReplaceIOperand(0, viewInput);
+    viewOp->SetAsDeleted();
+    return SUCCESS;
+}
+
+Status GenerateMoveOp::ProcessL0CCopyOutConv(Operation& op) const
+{
+    // 1. 获取 L0C_COPY_OUT_CONV 的所有 consumer ASSEMBLE
+    auto outputTensor = op.GetOOperands()[0];
+    auto consumers = outputTensor->GetConsumers();
+
+    for (auto assembleOp : consumers) {
+        if (assembleOp->GetOpcode() != Opcode::OP_ASSEMBLE) {
+            continue;  // 不是 ASSEMBLE，跳过
+        }
+
+        // 2. 获取 ASSEMBLE 的 toOffset 属性
+        auto assembleAttr = std::dynamic_pointer_cast<AssembleOpAttribute>(assembleOp->GetOpAttribute());
+        if (assembleAttr == nullptr) {
+            continue;
+        }
+
+        // 3. 将 ASSEMBLE 的 toOffset 累加到 L0C_COPY_OUT_CONV 的 toOffset
+        auto copyAttr = std::dynamic_pointer_cast<CopyOpAttribute>(op.GetOpAttribute());
+        if (copyAttr != nullptr) {
+            std::vector<OpImmediate> curToOffset = copyAttr->GetToOffset();
+            std::vector<SymbolicScalar> curToOffsetScalar = OpImmediate::ToSpecified(curToOffset);
+
+            auto ret = TensorOffset::Add(
+                OpImmediate::ToSpecified(OpImmediate::Specified(
+                    TensorOffset(assembleAttr->GetToOffset(), assembleAttr->GetToDynOffset()))),
+                curToOffsetScalar);
+
+            copyAttr->SetToOffset(OpImmediate::Specified(ret));
+            op.SetOpAttribute(copyAttr);
+        }
+
+        // 4. 标记删除 ASSEMBLE
+        auto assembleOutput = assembleOp->GetOOperands().front();
+        op.ReplaceOOperand(0, assembleOutput);
+        assembleOp->SetAsDeleted();
     }
     return SUCCESS;
 }

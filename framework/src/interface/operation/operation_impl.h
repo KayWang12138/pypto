@@ -127,10 +127,10 @@ struct MatmulGraphNodes {
     MatmulGraphNodes() = default;
 
     MatmulGraphNodes(LogicalTensorPtr aTensorIn, LogicalTensorPtr bTensorIn)
-        : aTensorPtr(aTensorIn), bTensorPtr(bTensorIn){};
+        : aTensorPtr(aTensorIn), bTensorPtr(bTensorIn) {};
 
     MatmulGraphNodes(LogicalTensorPtr aTensorIn, LogicalTensorPtr bTensorIn, LogicalTensorPtr gmAccumulationTensorIn)
-        : aTensorPtr(aTensorIn), bTensorPtr(bTensorIn), gmAccumulationTensorPtr(gmAccumulationTensorIn){};
+        : aTensorPtr(aTensorIn), bTensorPtr(bTensorIn), gmAccumulationTensorPtr(gmAccumulationTensorIn) {};
 
     MatmulGraphNodes(
         LogicalTensorPtr aTensorIn, LogicalTensorPtr aScaleTensorIn, LogicalTensorPtr bTensorIn,
@@ -138,7 +138,7 @@ struct MatmulGraphNodes {
         : aTensorPtr(aTensorIn),
           aScaleTensorPtr(aScaleTensorIn),
           bTensorPtr(bTensorIn),
-          bScaleTensorPtr(bScaleTensorIn){};
+          bScaleTensorPtr(bScaleTensorIn) {};
 };
 
 struct MatmulAttrParam {
@@ -261,6 +261,7 @@ public:
     static const std::string copyOutMode;
     static const std::string isFmap;
     static const std::string isConv3D;
+    static const std::string cutW; // L0C M方向(hw合轴)的w大小
 };
 
 enum class CopyInMode : int {
