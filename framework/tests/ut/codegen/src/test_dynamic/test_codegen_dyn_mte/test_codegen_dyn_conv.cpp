@@ -187,7 +187,7 @@ TEST_F(TestCodegenDynConv, L0COutTileTensorConv2D)
     std::vector<int64_t> l0cShape = {16, 16};
     std::vector<int64_t> gmShape = {1, 16, 1, 16};
     std::string res = TestConvL0COutBody("L0COutTileTensorConv2D", l0cShape, gmShape);
-    std::string expect = R"!!!(TStoreConv<CopyOutMode::NZ2DN, 0>(gmTensor_9, l0cTensor_10, 0, 0, 0, 0, 0, 16, 16);)!!!";
+    std::string expect = R"!!!(TStoreConv<CopyOutMode::NZ2DN, 0>(gmTensor_9, l0cTensor_10, 0, 0, 0, 0, 0, 16, 16, 0);)!!!";
     CheckStringExist(expect, res);
 }
 
@@ -196,7 +196,7 @@ TEST_F(TestCodegenDynConv, L0COutTileTensorConv3D)
     std::vector<int64_t> l0cShape = {16, 16};
     std::vector<int64_t> gmShape = {1, 16, 1, 1, 16};
     std::string res = TestConvL0COutBody("L0COutTileTensorConv3D", l0cShape, gmShape);
-    std::string expect = R"!!!(TStoreConv<CopyOutMode::NZ2DN, 1>(gmTensor_9, l0cTensor_10, 0, 0, 0, 0, 0, 16, 16);)!!!";
+    std::string expect = R"!!!(TStoreConv<CopyOutMode::NZ2DN, 1>(gmTensor_9, l0cTensor_10, 0, 0, 0, 0, 0, 16, 16, 0);)!!!";
     CheckStringExist(expect, res);
 }
 
