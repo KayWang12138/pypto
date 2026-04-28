@@ -795,7 +795,7 @@ Status OoOScheduler::UpdateCopyInMode(Operation& copyInOp)
 }
 
 Status OoOScheduler::CreateSpecialL1Copyout(SpillInfo &spillInfo, Operation* &spillCopyoutOp, int &bufLastUseOrder,
-    bool &isFinish, bool isGenSpill) {
+    bool &isFinish, bool isGenSpill, size_t &pcIdx) {
     auto spillOp = spillInfo.spillOp_;
     auto preTensor = spillOp->GetInputOperand(0);
     if (spillOp->GetOpcode() != Opcode::OP_RESHAPE && preTensor->GetMemoryTypeOriginal() != MemoryType::MEM_UB && preTensor->GetMemoryTypeOriginal() != MemoryType::MEM_L0C) {
@@ -843,7 +843,7 @@ Status OoOScheduler::CreateSpecialL1Copyout(SpillInfo &spillInfo, Operation* &sp
     }
     // A5 L1 small-shape spill: spillInfo.spillOp_ 为 UB_COPY_L1 / L0C_COPY_L1 且其 input.shape 任一维 < output.shape，
     // 说明 L1 是被多个生产者拼接式写入，需为每个生产者分别插 COPY_OUT 落到同一块 DDR。
-    if (TryCreateSpillCopyoutForSmallShape(spillInfo, spillOp, isFinish, isGenSpill) != SUCCESS) {
+    if (TryCreateSpillCopyoutForSmallShape(spillInfo, spillOp, isFinish, isGenSpill, pcIdx) != SUCCESS) {
         return FAILED;
     }
     if (isFinish) {
@@ -864,7 +864,7 @@ Status OoOScheduler::CreateSpecialL1Copyout(SpillInfo &spillInfo, Operation* &sp
 }
 
 Status OoOScheduler::TryCreateSpillCopyoutForSmallShape(SpillInfo &spillInfo, Operation* candidateOp, bool &isFinish,
-    bool isGenSpill)
+    bool isGenSpill, size_t &pcIdx)
 {
     if (candidateOp == nullptr) {
         return SUCCESS;
@@ -881,7 +881,7 @@ Status OoOScheduler::TryCreateSpillCopyoutForSmallShape(SpillInfo &spillInfo, Op
     if (!IsAnyDimSmaller(inOpd->GetShape(), outOpd->GetShape())) {
         return SUCCESS;
     }
-    if (CreateSpillCopyoutForSmallShape(spillInfo, outOpd, isFinish, isGenSpill) != SUCCESS) {
+    if (CreateSpillCopyoutForSmallShape(spillInfo, outOpd, isFinish, isGenSpill, pcIdx) != SUCCESS) {
         APASS_LOG_ERROR_F(Elements::Operation,
             "CreateSpillCopyoutForSmallShape failed! %s",
             GetFormatBacktrace(*spillInfo.spillOp_).c_str());
@@ -891,7 +891,7 @@ Status OoOScheduler::TryCreateSpillCopyoutForSmallShape(SpillInfo &spillInfo, Op
 }
 
 Status OoOScheduler::CreateSpillCopyoutForSmallShape(SpillInfo &spillInfo, LogicalTensorPtr l1Tensor, bool &isFinish,
-    bool isGenSpill)
+    bool isGenSpill, size_t &pcIdx)
 {
     LogicalTensorPtr ddrTensor;
     int64_t workspaceOffsetTemp = 0;
@@ -902,7 +902,7 @@ Status OoOScheduler::CreateSpillCopyoutForSmallShape(SpillInfo &spillInfo, Logic
         if (producerOp == nullptr || IsAllocOpCode(producerOp->GetOpcode())) {
             continue;
         }
-        if (CreateSmallShapeProducerCopyout(spillInfo, producerOp, ddrTensor, workspaceOffsetTemp, isGenSpill) != SUCCESS) {
+        if (CreateSmallShapeProducerCopyout(spillInfo, producerOp, ddrTensor, workspaceOffsetTemp, isGenSpill, pcIdx) != SUCCESS) {
             return FAILED;
         }
     }
@@ -1011,7 +1011,7 @@ Status OoOScheduler::ConfigSmallShapeCopyoutAttrs(Operation &copyOutOp, Operatio
 }
 
 Status OoOScheduler::CreateSmallShapeProducerCopyout(SpillInfo &spillInfo, Operation* producerOp,
-    LogicalTensorPtr ddrTensor, int64_t workspaceOffsetTemp, bool isGenSpill)
+    LogicalTensorPtr ddrTensor, int64_t workspaceOffsetTemp, bool isGenSpill, size_t &pcIdx)
 {
     Operation* actualOp = nullptr;
     LogicalTensorPtr actualTensor;
@@ -1065,7 +1065,7 @@ Status OoOScheduler::SpillOutBuffer(SpillInfo &spillInfo, Operation* op, size_t 
     if (spillInfo.isSpecialL1_) {
         // actualSpillOp 为 copy_in
         bool isFinish = false;
-        if (CreateSpecialL1Copyout(spillInfo, spillCopyoutOp, bufLastUseOrder, isFinish, isGenSpill) != SUCCESS) {
+        if (CreateSpecialL1Copyout(spillInfo, spillCopyoutOp, bufLastUseOrder, isFinish, isGenSpill, pcIdx) != SUCCESS) {
             APASS_LOG_ERROR_F(Elements::Operation, "SpecialL1 CreateSpillCopyout failed!");
             return FAILED;
         }
