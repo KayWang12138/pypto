@@ -528,9 +528,63 @@ TEST_F(TestRemoveUnalignedReshapeOp, TestCopyToReshapeBeforeMultCopyOutOnL1)
 
     RemoveUnalignedReshape removeUnalignedReshapeOpTest;
     int curOpSize = currFunctionPtr->Operations().size();
+    currFunctionPtr->DumpJsonFile("./config/pass/json/TestCopyToReshapeBeforeMultCopyOutOnL1_before.json");
     EXPECT_EQ(removeUnalignedReshapeOpTest.RunOnFunction(*currFunctionPtr), SUCCESS);
-    int expOpSize = curOpSize + 6;
+    currFunctionPtr->DumpJsonFile("./config/pass/json/TestCopyToReshapeBeforeMultCopyOutOnL1_after.json");
+    int expOpSize = curOpSize + 8;
     EXPECT_EQ(currFunctionPtr->Operations().size(), expOpSize);
+}
+
+// in - COPYIN - COPYOUT - RESHAPE - COPYIN - COPYOUT - out
+//    - COPYIN - COPYOUT           - COPYIN - COPYOUT - out
+TEST_F(TestRemoveUnalignedReshapeOp, TestCopyToReshapeBeforeMultCopyOutOnUB)
+{
+    auto currFunctionPtr =
+        std::make_shared<Function>(Program::GetInstance(), "TestCopyToReshapeCopy", "TestCopyToReshapeCopy", nullptr);
+    EXPECT_TRUE(currFunctionPtr != nullptr);
+
+    // Prepare the graph
+    std::vector<int64_t> inShape = {2, 2};
+    std::vector<int64_t> copyoutShape = {2, 4};
+    std::vector<int64_t> reshapeShape = {4, 2};
+    std::vector<int64_t> outShape = {4, 4};
+    auto incast = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, inShape);
+    auto copyin_Tensor1 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, inShape);
+    copyin_Tensor1->SetMemoryTypeBoth(MemoryType::MEM_UB, true);
+    auto copyout_Tensor1 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, copyoutShape);
+    copyout_Tensor1->SetMemoryTypeBoth(MemoryType::MEM_DEVICE_DDR, true);
+    std::vector<SymbolicScalar> validShape1 = {SymbolicScalar("Input_00_Dim_0"), SymbolicScalar("Input_00_Dim_1")};
+    copyout_Tensor1->UpdateDynValidShape(validShape1);
+    auto copyin_Tensor2 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, inShape);
+    copyin_Tensor2->SetMemoryTypeBoth(MemoryType::MEM_UB, true);
+    auto reshape_Tensor = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, reshapeShape);
+    reshape_Tensor->SetMemoryTypeBoth(MemoryType::MEM_DEVICE_DDR, true);
+    std::vector<SymbolicScalar> validShape3 = {SymbolicScalar("Input_02_Dim_0"), SymbolicScalar("Input_02_Dim_1")};
+    reshape_Tensor->UpdateDynValidShape(validShape3);
+    auto copyin_Tensor3 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, reshapeShape);
+    copyin_Tensor3->SetMemoryTypeBoth(MemoryType::MEM_UB, true);
+    auto copyin_Tensor4 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, reshapeShape);
+    copyin_Tensor4->SetMemoryTypeBoth(MemoryType::MEM_UB, true);
+    auto outcast = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, outShape);
+    outcast->SetMemoryTypeBoth(MemoryType::MEM_DEVICE_DDR, true);
+
+    currFunctionPtr->AddOperation(Opcode::OP_COPY_IN, {incast}, {copyin_Tensor1});
+    currFunctionPtr->AddOperation(Opcode::OP_COPY_IN, {incast}, {copyin_Tensor2});
+    currFunctionPtr->AddOperation(Opcode::OP_COPY_OUT, {copyin_Tensor1}, {copyout_Tensor1});
+    currFunctionPtr->AddOperation(Opcode::OP_COPY_OUT, {copyin_Tensor2}, {copyout_Tensor1});
+    currFunctionPtr->AddOperation(Opcode::OP_RESHAPE, {copyout_Tensor1}, {reshape_Tensor});
+    currFunctionPtr->AddOperation(Opcode::OP_COPY_IN, {reshape_Tensor}, {copyin_Tensor3});
+    currFunctionPtr->AddOperation(Opcode::OP_COPY_IN, {reshape_Tensor}, {copyin_Tensor4});
+    currFunctionPtr->AddOperation(Opcode::OP_COPY_OUT, {copyin_Tensor2}, {outcast});
+    currFunctionPtr->AddOperation(Opcode::OP_COPY_OUT, {copyin_Tensor3}, {outcast});
+
+    currFunctionPtr->inCasts_.push_back(incast);
+    currFunctionPtr->outCasts_.push_back(outcast);
+
+    RemoveUnalignedReshape removeUnalignedReshapeOpTest;
+    currFunctionPtr->DumpJsonFile("./config/pass/json/TestCopyToReshapeBeforeMultCopyOutOnUB_before.json");
+    EXPECT_EQ(removeUnalignedReshapeOpTest.RunOnFunction(*currFunctionPtr), SUCCESS);
+    currFunctionPtr->DumpJsonFile("./config/pass/json/TestCopyToReshapeBeforeMultCopyOutOnUB_after.json");
 }
 
 // in - COPYIN - COPYOUT - RESHAPE - COPYIN   - COPYOUT - out1
