@@ -158,7 +158,7 @@ export const PyptoOpLintPlugin: Plugin = async (input) => {
 
       if (!absPath.endsWith("_impl.py")) return;
 
-      // pre-edit-backup: Stage 6 编辑 impl 前 git auto-commit
+      // pre-edit-backup: Stage 6（coder 写 staged/<op>_module<k>_impl.py，或 verifier 在 Phase D rename 后修订 canonical <op>_impl.py）前 git auto-commit
       try {
         await execHookJson("pre-edit-backup", {
           tool_input: { file_path: absPath },

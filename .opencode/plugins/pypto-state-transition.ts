@@ -2,7 +2,12 @@ import { type Plugin, tool } from "@opencode-ai/plugin";
 import crypto from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
-import { applyTransition, type OrchestratorState, type TransitionAction } from "./lib/state-transition-core";
+import {
+  applyTransition,
+  migrateLegacyState,
+  type OrchestratorState,
+  type TransitionAction,
+} from "./lib/state-transition-core";
 
 type GateFinding = {
   rule_id: string;
@@ -24,6 +29,10 @@ const ALLOWED_ACTIONS = new Set<TransitionAction>([
   "start_stage",
   "complete_stage",
   "fail_stage",
+  // Stage 6 三者循环（coder/verifier/debugger）状态管理 actions
+  "advance_module",
+  "record_gate",
+  "record_module_attempt",
 ]);
 
 /** 仅允许以下 agent 调用 state_transition 工具 */
@@ -98,6 +107,17 @@ function buildInitialState(opDir: string): OrchestratorState {
       "6": 0,
       "7": 0,
     },
+    // Stage 6 三者循环（coder/verifier/debugger）相关字段
+    gate_status: {
+      "0": "pending",
+      "1": "pending",
+      "2": "pending",
+      "3": "pending",
+      "4": "pending",
+    },
+    current_subphase: null,
+    last_failure: null,
+    // module_state 在第一次 advance_module(stage=6, k=1, total_modules=N) 时由 core 创建
     perf_iteration: {
       count: 0,
       last_improvement: 0,
@@ -112,7 +132,8 @@ function readStateOrInit(statePath: string): OrchestratorState {
     return buildInitialState(path.dirname(statePath));
   }
   const raw = fs.readFileSync(statePath, "utf8");
-  return parseState(raw);
+  // 旧格式状态文件（无 gate_status / current_subphase / last_failure）需要迁移补默认值。
+  return migrateLegacyState(parseState(raw));
 }
 
 function writeStateAtomically(statePath: string, state: OrchestratorState): void {
@@ -167,12 +188,27 @@ export const PyptoStateTransitionPlugin: Plugin = async (input) => {
   return {
     tool: {
       state_transition: tool({
-        description: "Safely transition .orchestrator_state.json with stage gate enforcement. Actions: init (stage=1 only, first call), start_stage (set stage to in_progress — for init or retry after failure), complete_stage (gate check + mark done + auto-advance to next stage), fail_stage (mark failed + increment retry).",
+        description:
+          "Safely transition .orchestrator_state.json with stage gate enforcement. " +
+          "Stage-level actions: init (stage=1 only, first call), start_stage (set stage to in_progress — for init or retry after failure), " +
+          "complete_stage (gate check + mark done + auto-advance to next stage), fail_stage (mark failed + increment retry). " +
+          "Stage 6 module-loop actions: advance_module (stage=6, module_index=k, total_modules on first call) — advances active_module and marks the previous one verified; " +
+          "record_gate (gate=0..4, gate_status=pending|in_progress|passed|failed) — updates GATE 0..4 status; " +
+          "record_module_attempt (stage=6, module_index=k, failure_category?) — increments module_attempts[k] and stores last_failure on category. " +
+          "Any action may also pass an optional `subphase` to update current_subphase (coding|verifying|debugging|scaffolding|e2e_gate|phase_d|null).",
         args: {
           opDir: tool.schema.string(),
           action: tool.schema.string(),
           stage: tool.schema.number(),
           reason: tool.schema.string().optional(),
+          // Stage 6 module-loop parameters
+          module_index: tool.schema.number().optional(),
+          total_modules: tool.schema.number().optional(),
+          gate: tool.schema.number().optional(),
+          gate_status: tool.schema.string().optional(),
+          failure_category: tool.schema.string().optional(),
+          evaluation_report_path: tool.schema.string().optional(),
+          subphase: tool.schema.string().optional(),
         },
         execute: async (args, context) => {
           // ── Agent 权限校验：仅 pypto-op-orchestrator 可调用 ──
@@ -230,9 +266,31 @@ export const PyptoStateTransitionPlugin: Plugin = async (input) => {
             }
           }
 
+          // Stage 6 三者循环参数透传到 core；非相关 action 时这些字段被忽略。
           const nextState = applyTransition(prevState, {
             action,
             stage: args.stage,
+            module_index: typeof args.module_index === "number" ? args.module_index : undefined,
+            total_modules: typeof args.total_modules === "number" ? args.total_modules : undefined,
+            gate: typeof args.gate === "number" ? args.gate : undefined,
+            gate_status:
+              typeof args.gate_status === "string"
+                ? (args.gate_status as "pending" | "in_progress" | "passed" | "failed")
+                : undefined,
+            failure_category:
+              typeof args.failure_category === "string" ? args.failure_category : undefined,
+            evaluation_report_path:
+              typeof args.evaluation_report_path === "string" ? args.evaluation_report_path : undefined,
+            subphase:
+              typeof args.subphase === "string"
+                ? (args.subphase as
+                    | "coding"
+                    | "verifying"
+                    | "debugging"
+                    | "scaffolding"
+                    | "e2e_gate"
+                    | "phase_d")
+                : undefined,
           });
 
           // 将 SPEC hash 持久化到 state（init/complete_stage(1) 时写入）
@@ -271,6 +329,11 @@ export const PyptoStateTransitionPlugin: Plugin = async (input) => {
             statePath,
             warnCount: gateSummary.warnCount,
             infoCount: gateSummary.infoCount,
+            // Stage 6 三者循环相关字段（非 Stage 6 时为 undefined / null）
+            module_state: nextState.module_state,
+            gate_status: nextState.gate_status,
+            current_subphase: nextState.current_subphase,
+            last_failure: nextState.last_failure,
           });
         },
       }),

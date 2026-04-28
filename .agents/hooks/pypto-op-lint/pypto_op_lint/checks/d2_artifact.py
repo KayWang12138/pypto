@@ -154,7 +154,7 @@ def check_ol12(ctx: CheckContext) -> Finding:
 
 @register("OL13")
 def check_ol13(ctx: CheckContext) -> Finding:
-    """生成文件三件套完整"""
+    """Stage 6.final canonical three-set: produced by Phase D rename."""
     files = [
         f"{ctx.op_name}_impl.py",
         f"test_{ctx.op_name}.py",
@@ -163,8 +163,313 @@ def check_ol13(ctx: CheckContext) -> Finding:
     missing = [f for f in files if not ctx.file_exists(f)]
     if missing:
         return ctx.make_finding("OL13", "FAIL",
-            f"缺少文件: {', '.join(missing)}")
-    return ctx.make_finding("OL13", "PASS", "三件套文件完整")
+            f"Stage 6 canonical 三件套缺少: {', '.join(missing)}")
+    return ctx.make_finding("OL13", "PASS", "Stage 6 canonical 三件套完整")
+
+
+@register("OL44")
+def check_ol44(ctx: CheckContext) -> Finding:
+    """Stage 5 active module impl: staged/<op>_module<k>_impl.py only.
+
+    Per the new ownership model (post-Phase-C): coder writes only the
+    cumulative impl for the active module. The golden + test files for
+    k = 1..N are produced up front by verifier in Phase 6.0 (Phase C);
+    OL51 covers their presence.
+
+    Resolves k from .orchestrator_state.json:
+      - new schema: module_state.active_module = <int>
+      - legacy v2.0 schema: stage5_phases.active_phase = "M1" / "M12" / ...
+    Probes both staged/ (new) and modules/ (legacy) directories."""
+    state_path = ctx.file_path(".orchestrator_state.json")
+    if not os.path.isfile(state_path):
+        return ctx.make_finding(
+            "OL44", "SKIP",
+            ".orchestrator_state.json not present (state-less run); cannot judge Stage 5 staged/",
+        )
+    try:
+        with open(state_path, "r", encoding="utf-8") as f:
+            state = json.load(f)
+    except (ValueError, OSError) as e:
+        return ctx.make_finding("OL44", "FAIL", f"Cannot parse .orchestrator_state.json: {e}")
+
+    suffix: str = ""
+    schema_used: str = ""
+    mod_state = state.get("module_state")
+    if isinstance(mod_state, dict) and isinstance(mod_state.get("active_module"), int):
+        suffix = str(mod_state["active_module"])
+        schema_used = "new (module_state.active_module)"
+    else:
+        s5 = state.get("stage5_phases")
+        active_phase = s5.get("active_phase") if isinstance(s5, dict) else None
+        if isinstance(active_phase, str) and active_phase.startswith("M"):
+            suffix = active_phase[1:]
+            schema_used = "legacy (stage5_phases.active_phase)"
+        elif active_phase is not None:
+            return ctx.make_finding("OL44", "FAIL", f"Malformed active_phase: {active_phase!r}")
+
+    if not suffix:
+        return ctx.make_finding(
+            "OL44", "SKIP",
+            "No active module recorded (neither module_state.active_module nor stage5_phases.active_phase)",
+        )
+
+    staged_dir = ctx.file_path("staged")
+    modules_dir = ctx.file_path("modules")
+    if os.path.isdir(staged_dir):
+        sub_dir = "staged"
+    elif os.path.isdir(modules_dir):
+        sub_dir = "modules"
+    else:
+        return ctx.make_finding(
+            "OL44", "FAIL",
+            "Stage 5 active but neither custom/<op>/staged/ nor custom/<op>/modules/ exists",
+        )
+
+    impl_path = f"{sub_dir}/{ctx.op_name}_module{suffix}_impl.py"
+    if not ctx.file_exists(impl_path):
+        return ctx.make_finding(
+            "OL44", "FAIL",
+            f"Active module {suffix} impl 缺少 (under {sub_dir}/): {impl_path}",
+        )
+    return ctx.make_finding(
+        "OL44", "PASS",
+        f"Active module {suffix} impl 存在 ({impl_path}) [schema: {schema_used}]",
+    )
+
+
+@register("OL51")
+def check_ol51(ctx: CheckContext) -> Finding:
+    """Stage 6 Phase C scaffolding: staged/ must contain all N cumulative
+    goldens + N test drivers (k = 1..N) after verifier Phase C completes.
+
+    Reads N from module_state.N. The cumulative suffix for module k is
+    formed by concatenating "1234..." up to k digits ('1', '12', '123', …).
+    """
+    state_path = ctx.file_path(".orchestrator_state.json")
+    if not os.path.isfile(state_path):
+        return ctx.make_finding(
+            "OL51", "SKIP",
+            ".orchestrator_state.json not present; cannot judge Phase C scaffolding",
+        )
+    try:
+        with open(state_path, "r", encoding="utf-8") as f:
+            state = json.load(f)
+    except (ValueError, OSError) as e:
+        return ctx.make_finding("OL51", "FAIL", f"Cannot parse .orchestrator_state.json: {e}")
+
+    mod_state = state.get("module_state")
+    if not isinstance(mod_state, dict):
+        return ctx.make_finding(
+            "OL51", "SKIP",
+            "module_state not initialized; Phase C has not run yet",
+        )
+    n = mod_state.get("N")
+    if not isinstance(n, int) or n < 1:
+        return ctx.make_finding(
+            "OL51", "SKIP",
+            f"module_state.N invalid or absent ({n!r}); cannot judge Phase C",
+        )
+
+    sub_dir = "staged" if os.path.isdir(ctx.file_path("staged")) else None
+    if sub_dir is None:
+        return ctx.make_finding(
+            "OL51", "FAIL",
+            "custom/<op>/staged/ does not exist; verifier Phase C has not run",
+        )
+
+    missing = []
+    for k in range(1, n + 1):
+        suffix = "".join(str(j) for j in range(1, k + 1))
+        golden_path = f"{sub_dir}/{ctx.op_name}_module{suffix}_golden.py"
+        test_path = f"{sub_dir}/test_{ctx.op_name}_module{suffix}.py"
+        if not ctx.file_exists(golden_path):
+            missing.append(golden_path)
+        if not ctx.file_exists(test_path):
+            missing.append(test_path)
+    if missing:
+        return ctx.make_finding(
+            "OL51", "FAIL",
+            f"Phase C scaffolding incomplete (N={n}); missing {len(missing)} file(s): "
+            + ", ".join(missing[:6]) + (" ..." if len(missing) > 6 else ""),
+        )
+    return ctx.make_finding(
+        "OL51", "PASS",
+        f"Phase C scaffolding complete: all {n} cumulative goldens + {n} test drivers under {sub_dir}/",
+    )
+
+
+@register("OL48")
+def check_ol48(ctx: CheckContext) -> Finding:
+    """Stage 5 designer output: MEMORY.md must contain three sections —
+    'Module decomposition', 'Module contracts', 'Staged set table'."""
+    plan_file = "MEMORY.md"
+    if not ctx.file_exists(plan_file):
+        return ctx.make_finding("OL48", "FAIL", f"{plan_file} 不存在")
+    content = ctx.read_file(plan_file)
+    headings = _extract_markdown_headings(content)
+    required_sections = [
+        ("Module decomposition", "模块分解"),
+        ("Module contracts", "模块契约"),
+        ("Staged set table", "Staged set"),
+    ]
+    missing = []
+    for primary, alias in required_sections:
+        if not _has_heading_like(headings, primary) and not _has_heading_like(headings, alias):
+            missing.append(primary)
+    if missing:
+        return ctx.make_finding(
+            "OL48", "FAIL",
+            f"{plan_file} 缺少必需章节: {', '.join(missing)}",
+            file=plan_file,
+        )
+    return ctx.make_finding(
+        "OL48", "PASS",
+        f"{plan_file} 含 Module decomposition / Module contracts / Staged set table 三节",
+        file=plan_file,
+    )
+
+
+@register("OL49")
+def check_ol49(ctx: CheckContext) -> Finding:
+    """Stage 5 designer output: eval/module_interfaces.yaml must pass wiring rules.
+
+    Wiring rules:
+      - file exists and is parseable as YAML
+      - top-level 'modules' key is a non-empty list
+      - each module has id and non-empty outputs (no no-op modules)
+      - input.source is 'primary' or 'm<j>:<output_name>' with j < current_idx
+        (no forward references, no undefined refs)
+      - composition_verification.tolerance present (atol+rtol or three-metric)
+    """
+    yaml_rel = "eval/module_interfaces.yaml"
+    if not ctx.file_exists(yaml_rel):
+        return ctx.make_finding("OL49", "FAIL", f"{yaml_rel} 不存在")
+    try:
+        import yaml  # noqa: PLC0415
+    except ImportError:
+        return ctx.make_finding(
+            "OL49", "SKIP",
+            "PyYAML 未安装，跳过 module_interfaces.yaml schema 校验",
+            file=yaml_rel,
+        )
+    content = ctx.read_file(yaml_rel)
+    try:
+        data = yaml.safe_load(content)
+    except yaml.YAMLError as e:
+        return ctx.make_finding(
+            "OL49", "FAIL",
+            f"{yaml_rel} YAML 解析失败: {e}",
+            file=yaml_rel,
+        )
+    if not isinstance(data, dict):
+        return ctx.make_finding(
+            "OL49", "FAIL",
+            f"{yaml_rel} 顶层必须是 dict",
+            file=yaml_rel,
+        )
+    modules = data.get("modules")
+    if not isinstance(modules, list) or not modules:
+        return ctx.make_finding(
+            "OL49", "FAIL",
+            f"{yaml_rel} 缺少非空 'modules' 列表",
+            file=yaml_rel,
+        )
+
+    seen_ids: dict[str, int] = {}
+    errors: list[str] = []
+    for idx, mod in enumerate(modules):
+        if not isinstance(mod, dict):
+            errors.append(f"modules[{idx}] 不是 dict")
+            continue
+        mid = mod.get("id")
+        if not isinstance(mid, str) or not mid:
+            errors.append(f"modules[{idx}] 缺少 id")
+            continue
+        if mid in seen_ids:
+            errors.append(f"模块 id 重复: {mid}")
+        seen_ids[mid] = idx
+        outputs = mod.get("outputs")
+        if not isinstance(outputs, list) or not outputs:
+            errors.append(f"模块 {mid} outputs 为空 (no-op module 禁止)")
+        inputs = mod.get("inputs") or []
+        if not isinstance(inputs, list):
+            errors.append(f"模块 {mid} inputs 必须是 list")
+            continue
+        for iidx, inp in enumerate(inputs):
+            if not isinstance(inp, dict):
+                errors.append(f"模块 {mid} inputs[{iidx}] 不是 dict")
+                continue
+            src = inp.get("source", "")
+            if not isinstance(src, str) or not src:
+                errors.append(f"模块 {mid} inputs[{iidx}] 缺少 source")
+                continue
+            if src == "primary":
+                continue
+            if ":" not in src:
+                errors.append(
+                    f"模块 {mid} inputs[{iidx}] source 格式非法 "
+                    f"(期望 'primary' 或 'm<j>:<output_name>'): {src!r}"
+                )
+                continue
+            ref_id = src.split(":", 1)[0]
+            ref_idx = seen_ids.get(ref_id)
+            if ref_idx is None:
+                errors.append(
+                    f"模块 {mid} inputs[{iidx}] 引用未定义模块 {ref_id} (forward reference)"
+                )
+            elif ref_idx >= idx:
+                errors.append(
+                    f"模块 {mid} inputs[{iidx}] 前向引用 {ref_id} (idx {ref_idx} >= {idx})"
+                )
+
+    cv = data.get("composition_verification")
+    if not isinstance(cv, dict):
+        errors.append("缺少 composition_verification (dict)")
+    else:
+        tol = cv.get("tolerance")
+        if not isinstance(tol, dict):
+            errors.append("composition_verification.tolerance 缺失或格式非法")
+        else:
+            std_keys = {"atol", "rtol"}
+            metric_keys = {"mare_matrix", "mere_matrix", "rmse_matrix"}
+            if not (std_keys.issubset(tol) or metric_keys.issubset(tol)):
+                errors.append(
+                    "composition_verification.tolerance 必须含 (atol+rtol) "
+                    "或 (mare_matrix+mere_matrix+rmse_matrix)"
+                )
+
+    if errors:
+        return ctx.make_finding(
+            "OL49", "FAIL",
+            f"{yaml_rel} wiring rules 违反: " + "; ".join(errors),
+            file=yaml_rel,
+        )
+    return ctx.make_finding(
+        "OL49", "PASS",
+        f"{yaml_rel} 通过 wiring rules ({len(modules)} modules)",
+        file=yaml_rel,
+    )
+
+
+@register("OL50")
+def check_ol50(ctx: CheckContext) -> Finding:
+    """Stage 5 designer scaffolding: eval/ and staged/ directories must exist."""
+    eval_dir = ctx.file_path("eval")
+    staged_dir = ctx.file_path("staged")
+    missing = []
+    if not os.path.isdir(eval_dir):
+        missing.append("eval/")
+    if not os.path.isdir(staged_dir):
+        missing.append("staged/")
+    if missing:
+        return ctx.make_finding(
+            "OL50", "FAIL",
+            f"Stage 5 designer scaffolding 缺少目录: {', '.join(missing)}",
+        )
+    return ctx.make_finding(
+        "OL50", "PASS",
+        "eval/ 与 staged/ 目录均存在",
+    )
 
 
 @register("OL14")

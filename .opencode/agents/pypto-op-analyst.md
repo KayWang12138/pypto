@@ -147,6 +147,29 @@ skills:
 - 门禁校验结果（逐项列出通过/缺失的章节）
 - 若失败，给出失败类型和缺失项
 
+### MEMORY.md 追加（仅当 MEMORY.md 已存在时）
+
+`MEMORY.md` 由 Stage 5 的 `pypto-op-designer` 创建。Stage 4 首次执行时 MEMORY.md 一般尚未存在，此时**不要**创建该文件。
+
+但当 Orchestrator 因 Stage 6 verifier 拒绝 YAML 而回退到 Stage 4（架构层重设计）时，`MEMORY.md` 已经存在并由 designer 维护。此时你必须：
+
+- 以 **append-only** 方式向 MEMORY.md 追加一个 `## Stage 4 design notes — <ISO timestamp>` 块
+- 内容：本轮 DESIGN.md 关键决策摘要（API 选型变更、tiling 策略调整、shape/dtype 边界条件、与上一版本的差异点）
+- **绝对禁止**修改 MEMORY.md 已有 section（Module decomposition / Module contracts / Staged set table / Per-module verification log / Development & debug log / Performance log 等）
+
+格式示例：
+
+```markdown
+## Stage 4 design notes — 2026-04-28T10:00:00Z
+
+- 触发：verifier rejection (composition_verification fail at boundary M2)
+- 主要变更：M2 输出 dtype 从 fp16 改为 fp32 以避免累计误差
+- 影响范围：M3 输入 dtype 同步；module_interfaces.yaml 需 designer 重写
+- 与上版差异：DESIGN.md §Tiling 节增加 split-K 说明；§API 映射表新增 cast op
+```
+
+返回摘要时若执行了追加操作，须包含 `plan_md_appended: true` 字段。
+
 ---
 
 ## 约束
@@ -155,6 +178,7 @@ skills:
 2. 不得修改 `SPEC.md`、`API_REPORT.md` 等上游输入工件，也不得修改其他阶段产出的工件。
 3. 不得写入全局状态、重试计数、BLOCKED / SUCCESS 等编排层信息。
 4. 若输入工件缺失或内容不足，必须如实返回缺失项，不得自行假设或编造。
+5. MEMORY.md 只能 append-only 追加自己的 `## Stage 4 design notes — <ts>` 块；不得新建 MEMORY.md 文件，也不得编辑 designer / coder / verifier / debugger / perf-tuner 所属的 section。
 
 ## 输出格式要求
 
