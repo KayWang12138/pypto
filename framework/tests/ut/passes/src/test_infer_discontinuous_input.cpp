@@ -235,14 +235,10 @@ TEST_F(TestInferDiscontinuousInput, testValidShapeInfer)
     G.AddTensor(DataType::DT_FP16, {16, 128}, MemoryType::MEM_DEVICE_DDR, "inputTensor3");
     G.AddTensor(DataType::DT_FP16, {64, 128}, MemoryType::MEM_DEVICE_DDR, "outputTensor");
 
-    auto inputTensor0 = G.GetTensor("inputTensor0");
-    auto inputTensor1 = G.GetTensor("inputTensor1");
-    auto inputTensor2 = G.GetTensor("inputTensor2");
-    auto inputTensor3 = G.GetTensor("inputTensor3");
-    inputTensor0->UpdateDynValidShape({SymbolicScalar(16), SymbolicScalar(128)});
-    inputTensor1->UpdateDynValidShape({SymbolicScalar(16), SymbolicScalar(128)});
-    inputTensor2->UpdateDynValidShape({SymbolicScalar(16), SymbolicScalar(128)});
-    inputTensor3->UpdateDynValidShape({SymbolicScalar(16), SymbolicScalar(128)});
+    G.GetTensor("inputTensor0")->UpdateDynValidShape({SymbolicScalar(16), SymbolicScalar(128)});
+    G.GetTensor("inputTensor1")->UpdateDynValidShape({SymbolicScalar(16), SymbolicScalar(128)});
+    G.GetTensor("inputTensor2")->UpdateDynValidShape({SymbolicScalar(16), SymbolicScalar(128)});
+    G.GetTensor("inputTensor3")->UpdateDynValidShape({SymbolicScalar(16), SymbolicScalar(128)});
 
     inputTensor3->tensor = inputTensor1->tensor;
     inputTensor1->tensor->UpdateRawShape({32, 128});
@@ -251,27 +247,20 @@ TEST_F(TestInferDiscontinuousInput, testValidShapeInfer)
     G.SetInCast({"inputTensor0", "inputTensor1", "inputTensor2", "inputTensor3"});
 
     G.AddOp(Opcode::OP_ASSEMBLE, {"inputTensor0"}, {"outputTensor"}, "assemble_0");
-    auto assemble_0 = G.GetOp("assemble_0");
     auto attrAssemble_0 = std::make_shared<AssembleOpAttribute>(MemoryType::MEM_DEVICE_DDR, std::vector<int64_t>{0, 0});
-    assemble_0->SetOpAttribute(attrAssemble_0);
+    G.GetOp("assemble_0")->SetOpAttribute(attrAssemble_0);
 
     G.AddOp(Opcode::OP_ASSEMBLE, {"inputTensor1"}, {"outputTensor"}, "assemble_1");
-    auto assemble_1 = G.GetOp("assemble_1");
-    auto attrAssemble_1 =
-        std::make_shared<AssembleOpAttribute>(MemoryType::MEM_DEVICE_DDR, std::vector<int64_t>{16, 0});
-    assemble_1->SetOpAttribute(attrAssemble_1);
+    auto attrAssemble_1 = std::make_shared<AssembleOpAttribute>(MemoryType::MEM_DEVICE_DDR, std::vector<int64_t>{16, 0});
+    G.GetOp("assemble_1")->SetOpAttribute(attrAssemble_1);
 
     G.AddOp(Opcode::OP_ASSEMBLE, {"inputTensor2"}, {"outputTensor"}, "assemble_2");
-    auto assemble_2 = G.GetOp("assemble_2");
-    auto attrAssemble_2 =
-        std::make_shared<AssembleOpAttribute>(MemoryType::MEM_DEVICE_DDR, std::vector<int64_t>{32, 0});
-    assemble_2->SetOpAttribute(attrAssemble_2);
+    auto attrAssemble_2 = std::make_shared<AssembleOpAttribute>(MemoryType::MEM_DEVICE_DDR, std::vector<int64_t>{32, 0});
+    G.GetOp("assemble_2")->SetOpAttribute(attrAssemble_2);
 
     G.AddOp(Opcode::OP_ASSEMBLE, {"inputTensor3"}, {"outputTensor"}, "assemble_3");
-    auto assemble_3 = G.GetOp("assemble_3");
-    auto attrAssemble_3 =
-        std::make_shared<AssembleOpAttribute>(MemoryType::MEM_DEVICE_DDR, std::vector<int64_t>{48, 0});
-    assemble_3->SetOpAttribute(attrAssemble_3);
+    auto attrAssemble_3 = std::make_shared<AssembleOpAttribute>(MemoryType::MEM_DEVICE_DDR, std::vector<int64_t>{48, 0});
+    G.GetOp("assemble_3")->SetOpAttribute(attrAssemble_3);
 
     G.SetOutCast({"outputTensor"});
 
