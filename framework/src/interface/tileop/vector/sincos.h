@@ -172,13 +172,12 @@ TILEOP void TrigCompute(T0 dst, T1 tmp0, T2 tmp1, T3 src0)
     auto shape0 = dstLayout.template GetShapeDim<DIM_1ST, MAX_DIMS>();
     auto shape1 = dstLayout.template GetShapeDim<DIM_2ND, MAX_DIMS>();
     auto shape2 = dstLayout.template GetShapeDim<DIM_3RD, MAX_DIMS>();
-    auto shape3 = dstLayout.template GetShapeDim<DIM_4TH, MAX_DIMS>();
-    auto shape4 = dstLayout.template GetShapeDim<DIM_5TH, MAX_DIMS>();
+    
     constexpr auto tmp1TileH = TileOp::GetTensorTileShapeDim<T3, 3, 5>();
     constexpr auto tmp1TileW = TileOp::GetTensorTileShapeDim<T3, 4, 5>();
     auto dstTile = PtoTile<T0>(dst);
-    auto tmp0Tile = PtoTile<T1>(tmp0);
-    auto tmp1Tile = PtoTile<T2>(tmp1);
+    auto tmp0Tile = PtoTile<T0>(dst);
+    auto tmp1Tile = PtoTile<T0>(dst);
     auto src0Tile = PtoTile<T3>(src0);
     for (LoopVar n0Index = 0; n0Index < shape0; ++n0Index) {
         for (LoopVar n1Index = 0; n1Index < shape1; ++n1Index) {
@@ -186,12 +185,12 @@ TILEOP void TrigCompute(T0 dst, T1 tmp0, T2 tmp1, T3 src0)
                 auto tileOffsets = TileOffset(n0Index, n1Index, n2Index);
                 dstTile.Assign(dst, tileOffsets);
                 src0Tile.Assign(src0, tileOffsets);
-                tmp0Tile.Assign(tmp0, tileOffsets);
-                tmp1Tile.Assign(tmp1, tileOffsets);
+                tmp0Tile.Assign(dstLayout, tmp0.GetAddr(), tileOffsets);
+                tmp1Tile.Assign(dstLayout, tmp1.GetAddr(), tileOffsets);
                 reduceKCompute<op>(dstTile.Data(), src0Tile.Data(), tmp0Tile.Data(), tmp1Tile.Data());
                 SyncV();
                 using TmpTile = pto::Tile<pto::TileType::Vec, typename T3::Type, tmp1TileH, tmp1TileW, pto::BLayout::RowMajor, -1, -1>;
-                TmpTile tmp2Tile(shape3, shape4);
+                TmpTile tmp2Tile(tmp1TileH, tmp1TileW);
                 pto::TASSIGN(tmp2Tile, (uint64_t)(tmp1.GetAddr()));
                 SinCosCompute<op>(dstTile.Data(), src0Tile.Data(), tmp0Tile.Data(), tmp2Tile);
             }

@@ -530,16 +530,16 @@ TILEOP void TExp2(T0 dst, T1 tmp, T2 tmp2, T3 src)
     auto shape2 = dstLayout.template GetShapeDim<DIM_3RD, MAX_DIMS>();
 
     auto dstTile = PtoTile<T0>(dst);
-    auto tmpTile = PtoTile<T1>(tmp);
-    auto tmpTile2 = PtoTile<T2>(tmp2);
+    auto tmpTile = PtoTile<T0>(dst);
+    auto tmpTile2 = PtoTile<T0>(dst);
     auto srcTile = PtoTile<T3>(src);
     for (LoopVar n0Index = 0; n0Index < shape0; ++n0Index) {
         for (LoopVar n1Index = 0; n1Index < shape1; ++n1Index) {
             for (LoopVar n2Index = 0; n2Index < shape2; ++n2Index) {
                 auto tileOffsets = TileOffset(n0Index, n1Index, n2Index);
                 dstTile.Assign(dst, tileOffsets);
-                tmpTile.Assign(tmp, tileOffsets);
-                tmpTile2.Assign(tmp2, tileOffsets);
+                tmpTile.Assign(dstLayout, tmp.GetAddr(), tileOffsets);
+                tmpTile2.Assign(dstLayout, tmp2.GetAddr(), tileOffsets);
                 srcTile.Assign(src, tileOffsets);
 
                 if constexpr (std::is_same_v<typename T3::Type, float>) {

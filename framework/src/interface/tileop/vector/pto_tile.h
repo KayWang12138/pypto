@@ -68,21 +68,18 @@ public:
 private:
     Type data_;
 };
-
-template <typename T>
-__aicore__ inline size_t GenTileOffset(const T& tensor, const TileOffset& offsets)
+template <typename LA>
+__aicore__ inline size_t GenTileOffset(const LA& layout, const TileOffset& offsets)
 {
-    const auto layout = tensor.GetLayout();
     size_t offset = Std::get<DIM_1ST>(offsets) * layout.template GetStrideDim<DIM_1ST, MAX_DIMS>();
     offset += Std::get<DIM_2ND>(offsets) * layout.template GetStrideDim<DIM_2ND, MAX_DIMS>();
     offset += Std::get<DIM_3RD>(offsets) * layout.template GetStrideDim<DIM_3RD, MAX_DIMS>();
     return offset;
 }
 
-template <typename T>
-__aicore__ inline size_t GenTileOffset(const T& tensor, const TileOffset4Dim& offsets)
+template <typename LA>
+__aicore__ inline size_t GenTileOffset(const LA& layout, const TileOffset4Dim& offsets)
 {
-    const auto layout = tensor.GetLayout();
     size_t offset = Std::get<DIM_1ST>(offsets) * layout.template GetStrideDim<DIM_1ST, MAX_DIMS>();
     offset += Std::get<DIM_2ND>(offsets) * layout.template GetStrideDim<DIM_2ND, MAX_DIMS>();
     offset += Std::get<DIM_3RD>(offsets) * layout.template GetStrideDim<DIM_3RD, MAX_DIMS>();
@@ -178,7 +175,14 @@ public:
 
     __aicore__ inline void Assign(T& tensor, const TileOffset& offsets)
     {
-        pto::TASSIGN(data_, (uint64_t)(tensor.GetAddr() + GenTileOffset(tensor, offsets) * sizeof(typename T::Type)));
+        const auto layout = tensor.GetLayout();
+        pto::TASSIGN(data_, (uint64_t)(tensor.GetAddr() + GenTileOffset(layout, offsets) * sizeof(typename T::Type)));
+    }
+
+    template <typename LA>
+    __aicore__ inline void Assign(LA& layout, uint64_t addr, const TileOffset& offsets)
+    {
+        pto::TASSIGN(data_, (uint64_t)(addr + GenTileOffset(layout, offsets) * sizeof(typename T::Type)));
     }
 
 private:
