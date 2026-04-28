@@ -2063,7 +2063,7 @@ TEST_F(ScheduleOoOTest, TestL1SpillBufferFailed)
     InitSpillInfo(spillInfo, 0, ubCopyL1);
     int num = 0;
     bool isFinish = false;
-    res = oooSchedule.CreateSpecialL1Copyout(spillInfo, spillCopyout, num, isFinish);
+    res = oooSchedule.CreateSpecialL1Copyout(spillInfo, spillCopyout, num, isFinish, true, 7);
     EXPECT_EQ(res, FAILED);
 }
 
