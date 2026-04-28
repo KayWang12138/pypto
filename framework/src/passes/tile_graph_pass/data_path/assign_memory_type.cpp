@@ -1107,7 +1107,17 @@ size_t AssignMemoryType::CalcNZTensorSize(const LogicalTensorPtr &tensor) const 
     // 外轴对齐：INT8/FP8 对齐到 32，其他对齐到 16
     size_t outerAlign = (dtype == DT_INT8 || dtype == DT_UINT8 || dtype == DT_FP8) ? 32 : 16;
     // 内轴对齐：C0 size = 32 / 元素字节数
-    size_t c0 = (bytes <= 0) ? 1 : static_cast<size_t>(32 / bytes);
+    size_t c0 = 0;
+    if (bytes > 0) {
+        c0 = static_cast<size_t>(32 / bytes);
+    }
+    if (c0 <= 0) {
+        APASS_LOG_DEBUG_F(Elements::Operation,
+            "CalcNZTensorSize: invalid C0 size, c0=%zu",
+            c0);
+        // 返回原始 ND 格式大小作为 fallback
+        return outer * inner * static_cast<size_t>(bytes > 0 ? bytes : 4);
+    }
     
     size_t alignedOuter = (outer + outerAlign - 1) / outerAlign * outerAlign;
     size_t alignedInner = (inner + c0 - 1) / c0 * c0;
