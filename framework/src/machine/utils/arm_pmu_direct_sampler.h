@@ -36,6 +36,7 @@
 #include <sstream>
 #include <iomanip>
 #include <string>
+#include <locale>
 
 #include "machine/utils/device_switch.h"
 #include "machine/utils/device_log.h"
@@ -109,6 +110,8 @@ ARM_PMU_DEFINE_READ_PMEVCNTR(2)
 ARM_PMU_DEFINE_READ_PMEVCNTR(3)
 ARM_PMU_DEFINE_READ_PMEVCNTR(4)
 ARM_PMU_DEFINE_READ_PMEVCNTR(5)
+ARM_PMU_DEFINE_READ_PMEVCNTR(6)
+ARM_PMU_DEFINE_READ_PMEVCNTR(7)
 #undef ARM_PMU_DEFINE_READ_PMEVCNTR
 
 static inline uint64_t ReadPmevcntr(int idx)
@@ -120,6 +123,8 @@ static inline uint64_t ReadPmevcntr(int idx)
         case 3: return ReadPmevcntr3();
         case 4: return ReadPmevcntr4();
         case 5: return ReadPmevcntr5();
+        case 6: return ReadPmevcntr6();
+        case 7: return ReadPmevcntr7();
         default: return 0;
     }
 }
@@ -135,6 +140,8 @@ ARM_PMU_DEFINE_WRITE_PMEVTYPER(2)
 ARM_PMU_DEFINE_WRITE_PMEVTYPER(3)
 ARM_PMU_DEFINE_WRITE_PMEVTYPER(4)
 ARM_PMU_DEFINE_WRITE_PMEVTYPER(5)
+ARM_PMU_DEFINE_WRITE_PMEVTYPER(6)
+ARM_PMU_DEFINE_WRITE_PMEVTYPER(7)
 #undef ARM_PMU_DEFINE_WRITE_PMEVTYPER
 
 static inline void WritePmevtyper(int idx, uint64_t evt)
@@ -146,6 +153,8 @@ static inline void WritePmevtyper(int idx, uint64_t evt)
         case 3: WritePmevtyper3(evt); break;
         case 4: WritePmevtyper4(evt); break;
         case 5: WritePmevtyper5(evt); break;
+        case 6: WritePmevtyper6(evt); break;
+        case 7: WritePmevtyper7(evt); break;
         default: break;
     }
 }
@@ -191,6 +200,9 @@ enum ArmPmuDirectEventIdx {
     ARM_PMU_IDX_INSTRUCTIONS = 0,
     ARM_PMU_IDX_L1D_CACHE,
     ARM_PMU_IDX_L1D_MISS,
+    ARM_PMU_IDX_L1I_CACHE,
+    ARM_PMU_IDX_L1I_MISS,
+    ARM_PMU_DIRECT_COLLECT_EVENT_COUNT,
     ARM_PMU_IDX_BRANCHES,
     ARM_PMU_IDX_BRANCH_MISS,
     ARM_PMU_IDX_STALL_BACKEND,
@@ -201,7 +213,7 @@ enum ArmPmuDirectEventIdx {
 // ArmPmuDirectSampler: MRS/MSR 直读 PMU 寄存器采样器
 // ============================================================
 struct ArmPmuDirectSampler {
-    static constexpr int MAX_COUNTERS = ARM_PMU_DIRECT_EVENT_COUNT;
+    static constexpr int MAX_COUNTERS = ARM_PMU_DIRECT_COLLECT_EVENT_COUNT;
 
     struct EventDesc {
         uint32_t event;
@@ -214,9 +226,8 @@ struct ArmPmuDirectSampler {
             {arm_pmu_direct::EVT_INST_RETIRED,     "instructions"},
             {arm_pmu_direct::EVT_L1D_CACHE,        "l1d_cache"},
             {arm_pmu_direct::EVT_L1D_CACHE_REFILL, "l1d_miss"},
-            {arm_pmu_direct::EVT_BR_PRED,          "branches"},
-            {arm_pmu_direct::EVT_BR_MIS_PRED,      "branch_miss"},
-            {arm_pmu_direct::EVT_STALL_BACKEND,    "stall_backend"},
+            {arm_pmu_direct::EVT_L1I_CACHE,        "l1i_cache"},
+            {arm_pmu_direct::EVT_L1I_CACHE_REFILL, "l1i_miss"},
         };
         return kEvents[idx];
     }
@@ -315,61 +326,99 @@ struct ArmPmuDirectSampler {
         DEV_INFO("[ARM_PMU_DIRECT] Performance Report (MRS/MSR mode)");
         DEV_INFO("============================================================");
         DEV_INFO("Total Running Time: %.2f us (%.2f ms)", timeUs, timeMs);
-        DEV_INFO("Cycles (PMCCNTR):   %s", FormatNumber(cycles).c_str());
 
-        // CPU Metrics
-        if (activeCounters_ > ARM_PMU_IDX_INSTRUCTIONS) {
-            DEV_INFO("------------------------------------------------------------");
-            DEV_INFO("CPU Metrics");
-            DEV_INFO("------------------------------------------------------------");
-            uint64_t inst = delta[ARM_PMU_IDX_INSTRUCTIONS];
-            DEV_INFO("  Instructions:       %s", FormatNumber(inst).c_str());
-            double ipc = cycles > 0 ? static_cast<double>(inst) / cycles : 0.0;
-            double cpi = inst > 0 ? static_cast<double>(cycles) / inst : 0.0;
-            DEV_INFO("  IPC:                %.3f", ipc);
-            DEV_INFO("  CPI:                %.3f", cpi);
-        }
-        if (activeCounters_ > ARM_PMU_IDX_STALL_BACKEND) {
-            uint64_t stall = delta[ARM_PMU_IDX_STALL_BACKEND];
-            double pct = cycles > 0 ? static_cast<double>(stall) / cycles * 100.0 : 0.0;
-            DEV_INFO("  Stall Backend:      %s (%.1f%%)", FormatNumber(stall).c_str(), pct);
-        }
+        // Raw PMU event counters
+        DEV_INFO("------------------------------------------------------------");
+        DEV_INFO("Raw PMU Event Counters");
+        DEV_INFO("------------------------------------------------------------");
+        DEV_INFO("  CPU Cycles (PMCCNTR): %s", FormatNumber(cycles).c_str());
+        DEV_INFO("  Instructions:         %s", FormatCounter(delta, ARM_PMU_IDX_INSTRUCTIONS).c_str());
+        DEV_INFO("  Branch Instructions:  %s", FormatCounter(delta, ARM_PMU_IDX_BRANCHES).c_str());
+        DEV_INFO("  Branch Misses:        %s", FormatCounter(delta, ARM_PMU_IDX_BRANCH_MISS).c_str());
+        DEV_INFO("  L1D Cache Refs:       %s", FormatCounter(delta, ARM_PMU_IDX_L1D_CACHE).c_str());
+        DEV_INFO("  L1D Cache Misses:     %s", FormatCounter(delta, ARM_PMU_IDX_L1D_MISS).c_str());
+        DEV_INFO("  L1I Cache Refs:       %s", FormatCounter(delta, ARM_PMU_IDX_L1I_CACHE).c_str());
+        DEV_INFO("  L1I Cache Misses:     %s", FormatCounter(delta, ARM_PMU_IDX_L1I_MISS).c_str());
+        DEV_INFO("  Stall Backend:        %s", FormatCounter(delta, ARM_PMU_IDX_STALL_BACKEND).c_str());
 
-        // Branch Metrics
-        if (activeCounters_ > ARM_PMU_IDX_BRANCH_MISS) {
-            DEV_INFO("------------------------------------------------------------");
-            DEV_INFO("Branch Metrics");
-            DEV_INFO("------------------------------------------------------------");
-            uint64_t br = delta[ARM_PMU_IDX_BRANCHES];
-            uint64_t brMiss = delta[ARM_PMU_IDX_BRANCH_MISS];
-            DEV_INFO("  Branches:           %s", FormatNumber(br).c_str());
-            DEV_INFO("  Branch Misses:      %s", FormatNumber(brMiss).c_str());
-            double rate = br > 0 ? static_cast<double>(brMiss) / br * 100.0 : 0.0;
-            DEV_INFO("  Branch Miss Rate:   %.2f%%", rate);
-        }
-
-        // Cache Metrics
-        if (activeCounters_ > ARM_PMU_IDX_L1D_MISS) {
-            DEV_INFO("------------------------------------------------------------");
-            DEV_INFO("Cache Metrics (L1D)");
-            DEV_INFO("------------------------------------------------------------");
-            uint64_t refs = delta[ARM_PMU_IDX_L1D_CACHE];
-            uint64_t miss = delta[ARM_PMU_IDX_L1D_MISS];
-            DEV_INFO("  L1D References:     %s", FormatNumber(refs).c_str());
-            DEV_INFO("  L1D Misses:         %s", FormatNumber(miss).c_str());
-            double rate = refs > 0 ? static_cast<double>(miss) / refs * 100.0 : 0.0;
-            DEV_INFO("  L1D Miss Rate:      %.2f%%", rate);
-        }
+        // Derived metrics computed from the raw counters above.
+        DEV_INFO("------------------------------------------------------------");
+        DEV_INFO("Derived Metrics");
+        DEV_INFO("------------------------------------------------------------");
+        DumpIpcMetric(cycles, delta);
+        DumpRateMetric("Branch Miss Rate", delta, ARM_PMU_IDX_BRANCH_MISS, ARM_PMU_IDX_BRANCHES);
+        DumpCacheDerivedMetric("L1D Cache", delta, ARM_PMU_IDX_L1D_CACHE, ARM_PMU_IDX_L1D_MISS);
+        DumpCacheDerivedMetric("L1I Cache", delta, ARM_PMU_IDX_L1I_CACHE, ARM_PMU_IDX_L1I_MISS);
+        DumpRateMetric("Stall Backend Rate", delta, ARM_PMU_IDX_STALL_BACKEND, cycles);
         DEV_INFO("============================================================");
     }
 
 private:
+    bool IsEventActive(int idx) const
+    {
+        return idx >= 0 && idx < activeCounters_;
+    }
+
+    std::string FormatCounter(const uint64_t* delta, int idx)
+    {
+        if (!IsEventActive(idx)) {
+            return "N/A";
+        }
+        return FormatNumber(delta[idx]);
+    }
+
     std::string FormatNumber(uint64_t n)
     {
         std::stringstream ss;
         ss.imbue(std::locale(""));
         ss << n;
         return ss.str();
+    }
+
+    void DumpIpcMetric(uint64_t cycles, const uint64_t* delta)
+    {
+        if (!IsEventActive(ARM_PMU_IDX_INSTRUCTIONS) || cycles == 0) {
+            DEV_INFO("  IPC:                 N/A");
+            DEV_INFO("  CPI:                 N/A");
+            return;
+        }
+        uint64_t inst = delta[ARM_PMU_IDX_INSTRUCTIONS];
+        double ipc = static_cast<double>(inst) / cycles;
+        double cpi = inst > 0 ? static_cast<double>(cycles) / inst : 0.0;
+        DEV_INFO("  IPC:                 %.3f", ipc);
+        DEV_INFO("  CPI:                 %.3f", cpi);
+    }
+
+    void DumpRateMetric(const char* name, const uint64_t* delta, int numeratorIdx, int denominatorIdx)
+    {
+        if (!IsEventActive(numeratorIdx) || !IsEventActive(denominatorIdx) || delta[denominatorIdx] == 0) {
+            DEV_INFO("  %s: N/A", name);
+            return;
+        }
+        double rate = static_cast<double>(delta[numeratorIdx]) / delta[denominatorIdx] * 100.0;
+        DEV_INFO("  %s: %.2f%%", name, rate);
+    }
+
+    void DumpRateMetric(const char* name, const uint64_t* delta, int numeratorIdx, uint64_t denominator)
+    {
+        if (!IsEventActive(numeratorIdx) || denominator == 0) {
+            DEV_INFO("  %s: N/A", name);
+            return;
+        }
+        double rate = static_cast<double>(delta[numeratorIdx]) / denominator * 100.0;
+        DEV_INFO("  %s: %.2f%%", name, rate);
+    }
+
+    void DumpCacheDerivedMetric(const char* name, const uint64_t* delta, int refsIdx, int missesIdx)
+    {
+        if (!IsEventActive(refsIdx) || !IsEventActive(missesIdx) || delta[refsIdx] == 0) {
+            DEV_INFO("  %s Hit Rate:  N/A", name);
+            DEV_INFO("  %s Miss Rate: N/A", name);
+            return;
+        }
+        double missRate = static_cast<double>(delta[missesIdx]) / delta[refsIdx] * 100.0;
+        DEV_INFO("  %s Hit Rate:  %.2f%%", name, 100.0 - missRate);
+        DEV_INFO("  %s Miss Rate: %.2f%%", name, missRate);
     }
 
     bool available_{false};
