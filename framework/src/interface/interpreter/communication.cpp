@@ -147,6 +147,7 @@ RawTensorDataPtr SimulationCommContext::Alloc(DataType dataType, const Shape& sh
 
     auto result = RawTensorData::CreateTensor(dataType, shape, dataBase_ + beforeSize);
     result->SetShmOffset(beforeSize);
+    result->SetAsShmTensor();
     return result;
 }
 
@@ -167,6 +168,7 @@ RawTensorDataPtr SimulationCommContext::AllocSignal(DataType dataType, const Sha
 
     auto result = RawTensorData::CreateTensor(dataType, shape, ctrlBase_ + beforeSize);
     result->SetShmOffset(beforeSize);
+    result->SetAsShmTensor();
     return result;
 }
 

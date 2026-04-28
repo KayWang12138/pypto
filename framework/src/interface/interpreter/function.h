@@ -965,6 +965,7 @@ struct FunctionInterpreter {
             out = LogicalTensorData::Create(*tmp);
         }
         frame.AddDataView(outOp, out);
+        oOpDataList.emplace_back(out);
     }
 
     void ExecuteInplaceOperation(
@@ -1040,6 +1041,11 @@ struct FunctionInterpreter {
                 ExecuteInplaceOperation(frame, *op, i, iOpDataList, oOpDataList);
             } else if (op->GetOpcode() == Opcode::OP_BIND_TENSOR){
                 ExecuteBindTensor(frame, *op, iOpDataList, oOpDataList);
+            } else if ((op->Getopcode() == Opcode::OP_VIEW || op->Getopcode() == Opcode::OP_ASSEMBLE) && op->GetIOperands()[0]->IsShmTensor()) {
+                ASSERT(ControlFlowScene::FUNC_OUTCAST_COUNT_MISMATCH, op->GetConsumers().size() == 1);
+                auto iop = op->GetIOperands()[0];
+                auto ret = AllocateDataView(frame, oop, iop);
+                oOpDataList.push_back(ret);
             } else {
                 if (isConsumerAccMatmul(op)) {
                     auto dtype = oop->GetRawTensor()->GetDataType();
