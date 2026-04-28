@@ -359,12 +359,6 @@ INLINE void TStoreConv2DNZ2DN(
         pto::TASSIGN(srcL0C, (uint64_t)(src.GetAddr() + loopH * cutW * 16 * 4));
         pto::TSTORE(dstGlobal, srcL0C);
     }
-
-    return;
-}
-}
-
-return;
 }
 
 /**
@@ -412,12 +406,6 @@ INLINE void TStoreConv3DNZ2DN(
         pto::TASSIGN(srcL0C, (uint64_t)(src.GetAddr() + loopH * cutH * 16 * 4));
         pto::TSTORE(dstGlobal, srcL0C);
     }
-
-    return;
-}
-}
-
-return;
 }
 
 template <bool isConv3D, typename T, typename U>
@@ -448,7 +436,6 @@ TILEOP void TStoreConv(
         TStoreConvNZ2DN<isConv3D>(dst, src, offsetInfo, realM, realN, cutW);
     } else if constexpr (mode == CopyOutMode::NZ2NZ) {
     }
-    return;
 }
 
 template <bool isConv3D, typename U, int64_t elements, int64_t c0Size>
