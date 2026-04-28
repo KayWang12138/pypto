@@ -25,6 +25,7 @@
 #include "tilefwk/tilefwk.h"
 #include "interface/inner/tilefwk.h"
 #include "passes/pass_utils/pass_utils.h"
+#include "passes/pass_utils/infer_shape_utils.h"
 
 namespace npu::tile_fwk {
 struct ShapeDimComparator {
@@ -114,6 +115,7 @@ private:
     std::map<LogicalTensorPtr, std::set<Shape>> toShapes_;
     std::map<LogicalTensorPtr, std::set<Shape>> fromShapes_;
     bool enableMoreSplit_ = false;
+    std::vector<Operation*> addedOps_;
 
     std::string idx;
 };

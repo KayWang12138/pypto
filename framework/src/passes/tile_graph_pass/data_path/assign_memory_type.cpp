@@ -85,12 +85,37 @@ Status AssignMemoryType::RunOnFunction(Function& function)
         ProcessUB2L1LargeToSmall(function);
     }
 
+    Status insertStatus = InsertConvertOpsAndInferShape(function);
+    if (insertStatus != SUCCESS) {
+        return insertStatus;
+    }
+    APASS_LOG_INFO_F(Elements::Function, "===> End AssignMemoryType.");
+    return SUCCESS;
+}
+
+Status AssignMemoryType::InsertConvertOpsAndInferShape(Function& function)
+{
+    std::unordered_set<Operation*> existingOps;
+    for (auto& op : function.Operations()) {
+        existingOps.insert(&op);
+    }
     // 插入convert op
     Status insertionStatus = inserter.DoInsertion(function);
     if (insertionStatus != SUCCESS) {
         return insertionStatus;
     }
-    APASS_LOG_INFO_F(Elements::Function, "===> End AssignMemoryType.");
+    addedOps_.clear();
+    for (auto& op : function.Operations()) {
+        if (existingOps.find(&op) == existingOps.end()) {
+            addedOps_.push_back(&op);
+        }
+    }
+    if (!addedOps_.empty()) {
+        if (InferShapeUtils::InferShape(function, addedOps_) != SUCCESS) {
+            APASS_LOG_ERROR_F(Elements::Function, "InferShape for added ops failed.");
+            return FAILED;
+        }
+    }
     return SUCCESS;
 }
 

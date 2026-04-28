@@ -368,6 +368,63 @@ public:
         G.SetInCast({"a", "b"});
         G.SetOutCast({"out"});
     }
+    
+    void BuildInferShapeTestGraph(ComputationalGraphBuilder& G)
+    {
+        int N = 2;
+        int T = 8;
+        std::vector<int64_t> shape0{N * T, N * T};
+        std::vector<int64_t> shape1{T, T};
+        G.AddTensor(DataType::DT_FP32, shape0, "a");
+        G.AddTensor(DataType::DT_FP32, shape0, "b");
+        G.AddTensor(DataType::DT_FP32, shape1, "out");
+        G.AddTensor(DataType::DT_FP32, shape0, "sub_out");
+        TileExpandSub(G, N, T);
+        auto subOut = G.GetTensor("sub_out");
+        subOut->SetMemoryTypeBoth(MemoryType::MEM_UNKNOWN, true);
+
+        G.AddTensor(DataType::DT_FP32, shape1, "sub_out_upper_right");
+        auto subOutUR = G.GetTensor("sub_out_upper_right");
+        subOutUR->SetMemoryTypeBoth(MemoryType::MEM_UNKNOWN, true);
+        G.AddOp(Opcode::OP_VIEW, {"sub_out"}, {"sub_out_upper_right"}, "View_Upper_Right");
+        auto View_UR = G.GetOp("View_Upper_Right");
+        std::vector<int64_t> offsetUR = {0, T};
+        auto attrUR = std::make_shared<ViewOpAttribute>(offsetUR, MemoryType::MEM_UNKNOWN);
+        View_UR->SetOpAttribute(attrUR);
+
+        G.AddTensor(DataType::DT_FP32, shape1, "sub_out_lower_left");
+        auto subOutLL = G.GetTensor("sub_out_lower_left");
+        subOutLL->SetMemoryTypeBoth(MemoryType::MEM_UNKNOWN, true);
+        G.AddOp(Opcode::OP_VIEW, {"sub_out"}, {"sub_out_lower_left"}, "View_Lower_Left");
+        auto View_LL = G.GetOp("View_Lower_Left");
+        std::vector<int64_t> offsetLL = {T, 0};
+        auto attrLL = std::make_shared<ViewOpAttribute>(offsetLL, MemoryType::MEM_UNKNOWN);
+        View_LL->SetOpAttribute(attrLL);
+
+        std::vector<SymbolicScalar> addDynShape = {SymbolicScalar("a"), T};
+        G.AddTensor(DataType::DT_FP32, shape1, "add_out");
+        G.AddOp(Opcode::OP_ADD, {"sub_out_upper_right", "sub_out_lower_left"}, {"add_out"}, "Add");
+        auto addOut = G.GetTensor("add_out");
+        addOut->SetMemoryTypeBoth(MemoryType::MEM_UNKNOWN, true);
+        addOut->UpdateDynValidShape(addDynShape);
+
+        G.AddOp(Opcode::OP_ASSEMBLE, {"add_out"}, {"out"}, "Assemble_final");
+        auto attrAssembleFinal =
+            std::make_shared<AssembleOpAttribute>(MemoryType::MEM_UNKNOWN, std::vector<int64_t>{0, 0});
+        auto assembleOp = G.GetOp("Assemble_final");
+        assembleOp->SetOpAttribute(attrAssembleFinal);
+
+        auto a = G.GetTensor("a");
+        a->SetMemoryTypeBoth(MemoryType::MEM_UNKNOWN, true);
+        auto b = G.GetTensor("b");
+        b->SetMemoryTypeBoth(MemoryType::MEM_UNKNOWN, true);
+        auto out = G.GetTensor("out");
+        out->SetMemoryTypeBoth(MemoryType::MEM_UNKNOWN, true);
+        out->UpdateDynValidShape(addDynShape);
+
+        G.SetInCast({"a", "b"});
+        G.SetOutCast({"out"});
+    }
 };
 
 TEST_F(SplitLargeFanoutTensorTest, TestLCM)
@@ -1973,6 +2030,33 @@ TEST_F(SplitLargeFanoutTensorTest, TestSimplifyOverlapDualOverlap)
         EXPECT_EQ(countResultAfter[0], expectViewCount);
         EXPECT_EQ(countResultAfter[1], expectAssembleCount);
     }
+}
+
+
+TEST_F(SplitLargeFanoutTensorTest, TestInferShapeNewOpsHaveDynValidShape)
+{
+    ComputationalGraphBuilder G;
+    BuildInferShapeTestGraph(G);
+    Function* function = G.GetFunction();
+    // Function* function = BuildInferShapeTestGraph(*this);
+    ASSERT_NE(function, nullptr);
+
+    npu::tile_fwk::SplitLargeFanoutTensor splitLargeFanoutTensor;
+    EXPECT_EQ(SUCCESS, splitLargeFanoutTensor.PreCheck(*function));
+    EXPECT_EQ(SUCCESS, splitLargeFanoutTensor.RunOnFunction(*function));
+    EXPECT_EQ(SUCCESS, splitLargeFanoutTensor.PostCheck(*function));
+
+    bool hasAssembleWithDynValidShape = false;
+    for (auto& op : function->Operations()) {
+        if (op.GetOpcode() == Opcode::OP_ASSEMBLE) {
+            auto outputDynShape = op.GetOOperands().front()->GetDynValidShape();
+            if (!outputDynShape.empty()) {
+                hasAssembleWithDynValidShape = true;
+                break;
+            }
+        }
+    }
+    EXPECT_TRUE(hasAssembleWithDynValidShape) << "At least one ASSEMBLE op output should have DynValidShape";
 }
 } // namespace tile_fwk
 } // namespace npu
