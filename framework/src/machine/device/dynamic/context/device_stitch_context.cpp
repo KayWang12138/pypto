@@ -265,7 +265,7 @@ uint64_t DeviceStitchContext::PartialUpdateStitch(
             int consumerOperationIdx, DeviceWorkspaceAllocator* workspace, int debugSlotIdx)
         {
             uint64_t id = cellMatchTableData[index];
-            if (id != AICORE_TASK_INIT && devTaskId == static_cast<uint32_t>(id >> TASKID_SHIFT32)) {
+            if (id != 0 && devTaskId == static_cast<uint32_t>(id >> TASKID_SHIFT32)) {
                 auto funcId = FuncID(static_cast<uint32_t>(id));
                 auto producerOperationIdx = TaskID(static_cast<uint32_t>(id));
                 DevAscendFunctionDupped& prevDup = stitchingList[funcId];
