@@ -29,13 +29,12 @@
   机械层 cheat 检测仍在跑 (``cheat_detector`` 在 KernelVerifier 之前过一遍),
   运行时多 kernel 也仍由 ``pypto_adapter`` 触发 ``CHEAT_MULTI_KERNEL``.
 
-工件合并:
+工件落盘:
 - ``KernelVerifier`` 把 ``framework_code`` 写到 ``{op}_torch.py``, 把传入的
-  ``coder_code`` 写到 ``{op}_pypto_impl.py``. pypto 的 ``{op}_pypto_impl.py``
-  自身 ``from {op}_impl import {op}_wrapper``, 在 verify_dir 中读不到
-  ``{op}_impl.py``, 因此本 runner 把两份源码合并为一个自包含字符串
-  (去掉那个 import) 再传入. opencode 模式下统一 verifier CLI
-  (``python -m integration.benchmark.verifier verify``) 也做同样合并.
+  ``source_files`` 原样写到 verify_dir. 这样 ``{op}_pypto_impl.py`` 中
+  ``from {op}_impl import {op}_wrapper`` 可以自然解析, 不再拼接或改写源码.
+  opencode 模式下统一 verifier CLI
+  (``python -m integration.benchmark.verifier verify``) 也走同样的多文件落盘.
 """
 
 from __future__ import annotations
@@ -44,7 +43,6 @@ import asyncio
 import json
 import logging
 import os
-import re
 import shlex
 import shutil
 import signal
@@ -137,60 +135,26 @@ class VerifierResult:
         }
 
 
-# ────────────────────────────────────────────────────────────
-# 工件合并
-# ────────────────────────────────────────────────────────────
-
-def _strip_self_import(pypto_impl_src: str, op_name: str) -> str:
-    """删除 ``from {op}_impl import {op}_wrapper`` 形式的本地 import.
-
-    pypto-op-develop/references/modelnew-template.py 默认产出此 import,
-    但合并到一个文件时要去掉, 否则会变成自引用.
-    """
-    pattern = re.compile(
-        rf"^\s*from\s+{re.escape(op_name)}_impl\s+import\s+.*$",
-        re.MULTILINE,
-    )
-    return pattern.sub("", pypto_impl_src)
-
-
-def merge_pypto_artifacts(op_dir: Path, op_name: str) -> str:
-    """把 ``{op}_impl.py`` 和 ``{op}_pypto_impl.py`` 合并成一个自包含字符串.
-
-    Returns:
-        合并后的 Python 源码; 直接喂给 ``KernelVerifier.run`` 的 ``coder_code``.
-
-    Raises:
-        FileNotFoundError: 两份源码至少有一个不存在.
-    """
+def collect_pypto_source_files(op_dir: Path, op_name: str) -> Dict[str, str]:
+    """读取 verifier 需要的 PyPTO 源文件, 后续在 verify_dir 原样落盘."""
     impl_file = op_dir / f"{op_name}_impl.py"
     pypto_impl_file = op_dir / f"{op_name}_pypto_impl.py"
 
     if not impl_file.exists():
         raise FileNotFoundError(f"PyPTO impl 缺失: {impl_file}")
 
-    impl_src = impl_file.read_text(encoding="utf-8")
-
+    source_files = {
+        impl_file.name: impl_file.read_text(encoding="utf-8"),
+    }
     if pypto_impl_file.exists():
-        pypto_impl_src = _strip_self_import(
-            pypto_impl_file.read_text(encoding="utf-8"), op_name)
-        merged = (
-            f"# === merged by integration.benchmark.verifier_runner ===\n"
-            f"# Source 1: {impl_file}\n"
-            f"# Source 2: {pypto_impl_file}\n\n"
-            f"{impl_src}\n\n"
-            f"# --- ModelNew (KernelBench wrapper) ---\n"
-            f"{pypto_impl_src}\n"
-        )
-        return merged
+        source_files[pypto_impl_file.name] = pypto_impl_file.read_text(encoding="utf-8")
+        return source_files
 
-    # Fallback: 仅有 wrapper, 由 verifier 子包内 ``pypto_adapter.get_modelnew_loader``
-    # 的 wrapper-only fallback 路径自动从 wrapper 包出 ModelNew.
     logger.warning(
         f"[{op_name}] {pypto_impl_file} 不存在; 仅返回 {op_name}_impl.py, "
         "依赖 verifier 的 wrapper-only fallback."
     )
-    return impl_src
+    return source_files
 
 
 # ────────────────────────────────────────────────────────────
@@ -341,7 +305,7 @@ async def _run_direct(
     profile_run_times: Optional[int],
 ) -> VerifierResult:
     try:
-        merged_impl = merge_pypto_artifacts(op_dir, op_name)
+        source_files = collect_pypto_source_files(op_dir, op_name)
     except FileNotFoundError as e:
         return VerifierResult(
             op_name=op_name,
@@ -405,7 +369,7 @@ async def _run_direct(
             config=config,
             worker=worker,
         )
-        task_info = {"coder_code": merged_impl}
+        task_info = {"source_files": source_files}
 
         # 1) 精度验证 — 所有 mode 都跑.
         success, log_text = await verifier.run(task_info, current_step=0, device_id=device_id)

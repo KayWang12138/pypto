@@ -105,10 +105,10 @@ def _excerpt(text: str, max_chars: int = 4000) -> str:
     return text[:head] + f"\n... [truncated {len(text) - max_chars} chars] ...\n" + text[-tail:]
 
 
-def _merge_pypto_artifacts(op_dir: Path, op_name: str) -> str:
-    """把 ``{op}_impl.py`` 与 ``{op}_pypto_impl.py`` 合并成一段自包含源码.
+def _collect_pypto_source_files(op_dir: Path, op_name: str) -> Dict[str, str]:
+    """读取 verifier 需要的 PyPTO 源文件, 后续在 verify_dir 原样落盘.
 
-    与 ``verifier_runner.merge_pypto_artifacts`` 行为一致, 在此重复实现
+    与 ``verifier_runner.collect_pypto_source_files`` 行为一致, 在此重复实现
     是为了让 verifier 子包具备完整的对外 CLI, 不反向依赖桥接层模块.
     """
     impl_file = op_dir / f"{op_name}_impl.py"
@@ -116,24 +116,12 @@ def _merge_pypto_artifacts(op_dir: Path, op_name: str) -> str:
     if not impl_file.exists():
         raise FileNotFoundError(f"PyPTO impl 缺失: {impl_file}")
 
-    impl_src = impl_file.read_text(encoding="utf-8")
-
+    source_files = {
+        impl_file.name: impl_file.read_text(encoding="utf-8"),
+    }
     if pypto_impl_file.exists():
-        import re as _re
-        pattern = _re.compile(
-            rf"^\s*from\s+{_re.escape(op_name)}_impl\s+import\s+.*$",
-            _re.MULTILINE,
-        )
-        wrapper_src = pattern.sub("", pypto_impl_file.read_text(encoding="utf-8"))
-        return (
-            f"# === merged by integration.benchmark.verifier.__main__ ===\n"
-            f"# Source 1: {impl_file}\n"
-            f"# Source 2: {pypto_impl_file}\n\n"
-            f"{impl_src}\n\n"
-            f"# --- ModelNew (KernelBench wrapper) ---\n"
-            f"{wrapper_src}\n"
-        )
-    return impl_src
+        source_files[pypto_impl_file.name] = pypto_impl_file.read_text(encoding="utf-8")
+    return source_files
 
 
 async def _run_verify_async(args: argparse.Namespace) -> Dict[str, Any]:
@@ -170,7 +158,7 @@ async def _run_verify_async(args: argparse.Namespace) -> Dict[str, Any]:
         )
 
     try:
-        merged_impl = _merge_pypto_artifacts(op_dir, op_name)
+        source_files = _collect_pypto_source_files(op_dir, op_name)
     except FileNotFoundError as e:
         output["error"] = str(e)
         output["verdict_machine"] = "error"
@@ -213,7 +201,7 @@ async def _run_verify_async(args: argparse.Namespace) -> Dict[str, Any]:
             config=config,
             worker=worker,
         )
-        task_info = {"coder_code": merged_impl}
+        task_info = {"source_files": source_files}
 
         success, log_text = await verifier.run(
             task_info, current_step=0, device_id=args.device_id,
