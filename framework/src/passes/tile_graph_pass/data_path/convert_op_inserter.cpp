@@ -15,6 +15,7 @@
 #include "convert_op_inserter.h"
 #include "interface/tensor/logical_tensor.h"
 #include "passes/pass_utils/graph_utils.h"
+#include "passes/pass_utils/pass_utils.h"
 #include "passes/pass_log/pass_log.h"
 
 #define MODULE_NAME "AssignMemoryType"
@@ -481,7 +482,7 @@ bool ConvertInserter::isAllConsumersValid(const std::set<Operation*, OpMagicComp
             return false;
         }
         if (consumer->GetOpcode() == Opcode::OP_ASSEMBLE &&
-            (consumer->GetOOperands().front()->nodetype != NodeType::OUTCAST)) {
+            (FunctionUtils::GetNodeType(consumer->GetOOperands().front()) != NodeType::OUTCAST)) {
             return false;
         }
     }

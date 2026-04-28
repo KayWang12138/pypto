@@ -15,6 +15,7 @@
 
 #include "remove_redundant_assemble.h"
 #include "passes/pass_log/pass_log.h"
+#include "passes/pass_utils/pass_utils.h"
 
 #define MODULE_NAME "PreGraphProcess"
 
@@ -581,14 +582,13 @@ void RemoveRedundantAssemble::HandleForAssembleToOutcast(
     Function& function, Operation& assembleOp, std::set<Operation*, LogicalTensor::CompareOp>& producersBackup) const
 {
     int outCastMagic = -1;
-    if (function.IsFromOutCast(assembleOp.oOperand[0]) && assembleOp.oOperand[0]->nodetype == NodeType::OUTCAST) {
+    if (function.IsFromOutCast(assembleOp.oOperand[0]) && FunctionUtils::GetNodeType(assembleOp.oOperand[0]) == NodeType::OUTCAST) {
         outCastMagic = assembleOp.oOperand[0]->GetMagic();
     }
     if (outCastMagic != -1) {
         APASS_LOG_DEBUG_F(Elements::Operation, "Find outCastMagic: %d.", outCastMagic);
         for (auto& producer : producersBackup) {
             producer->oOperand[0]->SetMagic(outCastMagic);
-            producer->oOperand[0]->nodetype = NodeType::OUTCAST;
         }
     }
 }
