@@ -87,6 +87,10 @@ public:
     void GapMinForwardPass(TaskGraph& taskGraph, std::vector<int>& topoSeq);
     void GapMinBackwardShift(TaskGraph& taskGraph, std::vector<int>& topoSeq);
     int64_t SumCrossCoreGap(const TaskGraph& g) const;
+    void SelectAIVCore(
+        std::unordered_map<TargetCoreType, std::vector<std::pair<int, int>>>& availTime,
+        int evalDepTimeStart, int maxCrossDepEnd, int latency,
+        TargetCoreType& evalCore, int& currentIdx, std::pair<int, int>& currentInterval);
     void ScheduleOneTask(
         TaskGraph& taskGraph, int taskId,
         std::unordered_map<TargetCoreType, std::vector<std::pair<int, int>>>& availTime,
@@ -117,8 +121,13 @@ public:
     TaskGraph BuildTaskGraph();
     void BuildSameLayerConnectionWithBack();
     void BuildSameLayerConnectionWithFront();
+    void UnionSameCoreOps(DSUWithOrder& dsu);
+    void UnionSameLayerConnections(DSUWithOrder& dsu);
+    void UnionCrossCoreAICToAIV(DSUWithOrder& dsu);
+    void UnionL0CToL1CopyIn(DSUWithOrder& dsu);
     int BuildCluster(std::vector<int>& clusterIds, std::vector<ScheduleCoreType>& clusterCoreTypes);
-    void ReverseDFSFindByOutputMemType(int opIdx, MemoryType targetMemType, std::vector<int>& result, std::vector<bool>& visited);
+    void ReverseDFSFindByOutputMemType(int opIdx, MemoryType targetMemType, std::vector<int>& result,
+        std::vector<bool>& visited);
     std::vector<std::vector<int>> FindMergeableTaskNodes();
     void MergeTask();
     void MergeTaskByTargetCoreType();
