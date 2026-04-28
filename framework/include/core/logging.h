@@ -630,5 +630,5 @@ public:
     if (!!(expr))                       \
         ;                               \
     else                                \
-        pypto::FatalLogger<pypto::ir::InternalError>(#expr, span.filename_.c_str(), span.beginLine_)
+        pypto::FatalLogger<pypto::ir::InternalError>(#expr, span.filename_.c_str(), span.begin_line_)
 } // namespace pypto

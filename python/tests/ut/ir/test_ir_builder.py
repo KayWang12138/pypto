@@ -488,9 +488,9 @@ def test_builder_program_functions_sorted():
     b.add_function(func_a)
     prog = b.end_program(sp)
 
-    # Functions preserve insertion order via builder
-    assert prog.functions[0].name == "zebra"
-    assert prog.functions[1].name == "alpha"
+    # Functions are exposed in deterministic name order
+    assert prog.functions[0].name == "alpha"
+    assert prog.functions[1].name == "zebra"
 
 
 def test_builder_get_function_return_types():

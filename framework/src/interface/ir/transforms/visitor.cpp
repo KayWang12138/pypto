@@ -30,7 +30,7 @@ namespace ir {
 // Top-level entry points
 void IRVisitor::VisitProgram(const ProgramPtr& program)
 {
-    for (auto& func : program->functions_) {
+    for (const auto& [gv, func] : program->functions_) {
         VisitFunction(func);
     }
 }
@@ -67,7 +67,11 @@ void IRVisitor::VisitExpr_(const IterArgPtr& op)
     VisitExpr(op->initValue_);
 }
 
-void IRVisitor::VisitExpr_(const MemRefPtr& op) { (void)op; }
+void IRVisitor::VisitExpr_(const MemRefPtr& op)
+{
+    INTERNAL_CHECK_SPAN(op->addr_, op->span_) << "MemRef has null offset";
+    VisitExpr(op->addr_);
+}
 
 void IRVisitor::VisitExpr_(const ConstIntPtr& op) { (void)op; }
 
@@ -95,6 +99,14 @@ void IRVisitor::VisitExpr_(const TupleGetItemExprPtr& op)
 {
     INTERNAL_CHECK_SPAN(op->tuple_, op->span_) << "TupleGetItemExpr has null tuple";
     VisitExpr(op->tuple_);
+}
+
+void IRVisitor::VisitExpr_(const TileOffsetExprPtr& op)
+{
+    INTERNAL_CHECK_SPAN(op->tile_, op->span_) << "TileOffsetExpr has null tile";
+    INTERNAL_CHECK_SPAN(op->offset_, op->span_) << "TileOffsetExpr has null offset";
+    VisitExpr(op->tile_);
+    VisitExpr(op->offset_);
 }
 
 void IRVisitor::VisitBinaryExpr_(const BinaryExprPtr& op)
@@ -235,6 +247,26 @@ void IRVisitor::VisitStmt_(const SeqStmtsPtr& op)
         INTERNAL_CHECK_SPAN(op->stmts_[i], op->span_) << "SeqStmts has null statement at index " << i;
         VisitStmt(op->stmts_[i]);
     }
+}
+
+void IRVisitor::VisitStmt_(const OpStmtsPtr& op)
+{
+    for (size_t i = 0; i < op->stmts_.size(); ++i) {
+        INTERNAL_CHECK_SPAN(op->stmts_[i], op->span_) << "OpStmts has null statement at index " << i;
+        VisitStmt(op->stmts_[i]);
+    }
+}
+
+void IRVisitor::VisitStmt_(const ScopeStmtPtr& op)
+{
+    INTERNAL_CHECK_SPAN(op->body_, op->span_) << "ScopeStmt has null body";
+    VisitStmt(op->body_);
+}
+
+void IRVisitor::VisitStmt_(const SectionStmtPtr& op)
+{
+    INTERNAL_CHECK_SPAN(op->body_, op->span_) << "SectionStmt has null body";
+    VisitStmt(op->body_);
 }
 
 void IRVisitor::VisitStmt_(const EvalStmtPtr& op)
