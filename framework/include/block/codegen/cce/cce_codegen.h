@@ -353,6 +353,9 @@ class CCECodegen : public CodegenBase {
     std::map<std::string, std::vector<ir::ExprPtr>> common_shapes;  // outside any section
     std::map<std::string, std::vector<ir::ExprPtr>> cube_shapes;
     std::map<std::string, std::vector<ir::ExprPtr>> vec_shapes;
+    std::map<std::string, std::vector<int>> common_tile_dims;
+    std::map<std::string, std::vector<int>> cube_tile_dims;
+    std::map<std::string, std::vector<int>> vec_tile_dims;
   };
 
   SectionAccessShapes CollectTensorAccessShapesPerSection(const ir::StmtPtr& stmt);
@@ -526,7 +529,8 @@ class CCECodegen : public CodegenBase {
    */
   std::string GenerateSingleFileStrideType(const std::vector<int64_t>& shape_dims,
                                            const std::vector<int64_t>& tensor_dims,
-                                           bool all_static, bool needs_dynamic_stride) const;
+                                           bool all_static, bool needs_dynamic_stride,
+                                           bool needs_tile_dims_stride) const;
 
   /**
    * @brief Emit the GlobalTensor instance declaration and register pointer/struct mappings.
@@ -538,6 +542,8 @@ class CCECodegen : public CodegenBase {
                                 const ir::TensorTypePtr& tensor_type,
                                 const std::vector<int64_t>& shape_dims,
                                 bool needs_dynamic_stride,
+                                bool needs_tile_dims_stride,
+                                const std::optional<std::vector<int>>& tile_dims,
                                 const std::optional<std::string>& base_pointer,
                                 const std::optional<std::string>& tensor_struct_ptr,
                                 bool use_runtime_tensor_struct);
@@ -572,6 +578,7 @@ class CCECodegen : public CodegenBase {
   std::string arch_ = "a3";          ///< Target architecture ("a2", "a3", "a5")
   std::optional<ir::SectionKind> current_section_kind_;  ///< Current section being generated (Cube/Vector)
   bool force_dn_layout_ = false;     ///< Temporary flag for DN layout in GenerateGlobalTensorTypeDeclaration
+  std::optional<std::vector<int>> current_tile_dims_;  ///< Temporary tile_dims for strided GlobalTensor views
   std::set<std::string> dn_tensors_;  ///< Tensor names loaded with layout="dn" (need Layout::DN)
   std::map<std::string, std::string> tile_addresses_;  ///< tile_name → TASSIGN address expression
 
