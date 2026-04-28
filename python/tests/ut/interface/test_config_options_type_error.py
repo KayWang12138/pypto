@@ -68,22 +68,27 @@ def test_wrapper_option_type_mismatch_error(setter, pattern):
     [
         (
             {"runtime_options": {"stitch_function_max_num": "aa"}},
+            "RuntimeError: ASSERT FAILED: Errcode: F21003! Enum: FeError::INVALID_TYPE"
             "Option 'runtime.stitch_function_max_num' has invalid type. Expected int64, but got string.",
         ),
         (
             {"runtime_options": {"ready_on_host_tensors": "tensor0"}},
+            "RuntimeError: ASSERT FAILED: Errcode: F21003! Enum: FeError::INVALID_TYPE"
             "Option 'runtime.ready_on_host_tensors' has invalid type. Expected list\\[string\\], but got string.",
         ),
         (
             {"runtime_options": {"device_sched_parallelism": "aa"}},
+            "RuntimeError: ASSERT FAILED: Errcode: F21003! Enum: FeError::INVALID_TYPE"
             "Option 'runtime.device_sched_parallelism' has invalid type. Expected int64, but got string.",
         ),
         (
             {"verify_options": {"pass_verify_pass_filter": False}},
+            "RuntimeError: ASSERT FAILED: Errcode: F21003! Enum: FeError::INVALID_TYPE"
             "Option 'verify.pass_verify_pass_filter' has invalid type. Expected list\\[string\\], but got bool.",
         ),
         (
             {"verify_options": {"pass_verify_error_tol": "0.1,0.1"}},
+            "RuntimeError: ASSERT FAILED: Errcode: F21003! Enum: FeError::INVALID_TYPE"
             "Option 'verify.pass_verify_error_tol' has invalid type. Expected list\\[double\\], but got string.",
         ),
     ],
