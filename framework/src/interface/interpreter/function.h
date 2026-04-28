@@ -954,7 +954,7 @@ struct FunctionInterpreter {
         
         auto outOp = op.GetOOperands()[0];
         if (frame.GetDataView(outOp) != nullptr) {
-            auto out = frame.GetDataView(outOp);
+            out = frame.GetDataView(outOp);
             oOpDataList.emplace_back(out);
             return;
         }
