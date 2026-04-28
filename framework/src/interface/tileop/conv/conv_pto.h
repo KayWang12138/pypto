@@ -130,8 +130,7 @@ INLINE int64_t CalLoadOffsetNCDHW(const ShapeInfo& shapeInfo, const OffsetInfo& 
  * offset3: dst_h_offset
  * offset4: dst_w_offset
  */
-INLINE int64_t CalStoreOffsetNCHW(
-    const ShapeInfo& shapeInfo, const OffsetInfo& offsetInfo, const int64_t& loopH)
+INLINE int64_t CalStoreOffsetNCHW(const ShapeInfo& shapeInfo, const OffsetInfo& offsetInfo, const int64_t& loopH)
 {
     int64_t outputOneBatchSize = shapeInfo.shape0 * shapeInfo.shape1 * shapeInfo.shape2;
     int64_t coutOffset = offsetInfo.offset1 * shapeInfo.shape1 * shapeInfo.shape2;
@@ -154,8 +153,8 @@ INLINE int64_t CalStoreOffsetNCDHW(const ShapeInfo& shapeInfo, const OffsetInfo&
     int64_t outputOneBatchSize = shapeInfo.shape0 * shapeInfo.shape1 * shapeInfo.shape2 * shapeInfo.shape3;
     int64_t coutOffset = offsetInfo.offset1 * shapeInfo.shape1 * shapeInfo.shape2 * shapeInfo.shape3;
     int64_t doutOffset = offsetInfo.offset2 * shapeInfo.shape2 * shapeInfo.shape3;
-    return offsetInfo.offset0 * outputOneBatchSize + coutOffset + doutOffset + (offsetInfo.offset3 + loopH) *
-        shapeInfo.shape3 + offsetInfo.offset4;
+    return offsetInfo.offset0 * outputOneBatchSize + coutOffset + doutOffset +
+           (offsetInfo.offset3 + loopH) * shapeInfo.shape3 + offsetInfo.offset4;
 }
 
 /**
@@ -385,7 +384,7 @@ INLINE void TStoreConv3DNZ2DN(
     int64_t dstStrideW = GetConvStride<CONV_IDX_4>(dst);
 
     ShapeInfo shapeInfo{dstC, dstD, dstH, dstW};
-    using shapeDim5 = pto::Shape<1, -1, -1, -1, -1>;
+    using shapeDim5 = pto::Shape<-1, -1, -1, -1, -1>;
     using strideDim5 = pto::Stride<-1, -1, -1, -1, -1>;
     using tileData = pto::Tile<
         pto::TileType::Acc, typename U::Type, srcM, srcN, pto::BLayout::ColMajor, -1, -1, pto::SLayout::RowMajor,
