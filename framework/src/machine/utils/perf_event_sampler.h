@@ -27,6 +27,7 @@
 #include <ctime>
 #include <sstream>
 #include <iomanip>
+#include <locale>
 
 #include "machine/utils/device_switch.h"
 #include "machine/utils/device_log.h"
@@ -35,6 +36,11 @@
 #define MAX_PERF_EVENT_NUM 16
 
 namespace npu::tile_fwk {
+
+static inline uint64_t MakeCacheEventConfig(uint64_t cacheId, uint64_t opId, uint64_t resultId)
+{
+    return cacheId | (opId << 8) | (resultId << 16);
+}
 
 struct GroupEvent {
     struct Event {
@@ -142,8 +148,12 @@ enum PerfEventIdx {
     IDX_INSTRUCTIONS,
     IDX_BRANCH_INST,
     IDX_BRANCH_MISS,
-    IDX_CACHE_REFS,
-    IDX_CACHE_MISSES,
+    IDX_L1D_CACHE_REFS,
+    IDX_L1D_CACHE_MISSES,
+    IDX_L1I_CACHE_REFS,
+    IDX_L1I_CACHE_MISSES,
+    IDX_LL_CACHE_REFS,
+    IDX_LL_CACHE_MISSES,
     IDX_STALL_FRONTEND,
     IDX_STALL_BACKEND,
     IDX_CTX_SWITCHES,
@@ -160,8 +170,18 @@ struct AicpuPerfEventSampler {
         TryAddEvent(PERF_TYPE_HARDWARE, PERF_COUNT_HW_INSTRUCTIONS, "instructions");
         TryAddEvent(PERF_TYPE_HARDWARE, PERF_COUNT_HW_BRANCH_INSTRUCTIONS, "branch_inst");
         TryAddEvent(PERF_TYPE_HARDWARE, PERF_COUNT_HW_BRANCH_MISSES, "branch_miss");
-        TryAddEvent(PERF_TYPE_HARDWARE, PERF_COUNT_HW_CACHE_REFERENCES, "cache_refs");
-        TryAddEvent(PERF_TYPE_HARDWARE, PERF_COUNT_HW_CACHE_MISSES, "cache_misses");
+        TryAddCacheEvent(PERF_COUNT_HW_CACHE_L1D, PERF_COUNT_HW_CACHE_OP_READ,
+                         PERF_COUNT_HW_CACHE_RESULT_ACCESS, "l1d_cache_refs");
+        TryAddCacheEvent(PERF_COUNT_HW_CACHE_L1D, PERF_COUNT_HW_CACHE_OP_READ,
+                         PERF_COUNT_HW_CACHE_RESULT_MISS, "l1d_cache_misses");
+        TryAddCacheEvent(PERF_COUNT_HW_CACHE_L1I, PERF_COUNT_HW_CACHE_OP_READ,
+                         PERF_COUNT_HW_CACHE_RESULT_ACCESS, "l1i_cache_refs");
+        TryAddCacheEvent(PERF_COUNT_HW_CACHE_L1I, PERF_COUNT_HW_CACHE_OP_READ,
+                         PERF_COUNT_HW_CACHE_RESULT_MISS, "l1i_cache_misses");
+        TryAddCacheEvent(PERF_COUNT_HW_CACHE_LL, PERF_COUNT_HW_CACHE_OP_READ,
+                         PERF_COUNT_HW_CACHE_RESULT_ACCESS, "ll_cache_refs");
+        TryAddCacheEvent(PERF_COUNT_HW_CACHE_LL, PERF_COUNT_HW_CACHE_OP_READ,
+                         PERF_COUNT_HW_CACHE_RESULT_MISS, "ll_cache_misses");
         TryAddEvent(PERF_TYPE_HARDWARE, PERF_COUNT_HW_STALLED_CYCLES_FRONTEND, "stall_frontend");
         TryAddEvent(PERF_TYPE_HARDWARE, PERF_COUNT_HW_STALLED_CYCLES_BACKEND, "stall_backend");
         
@@ -216,54 +236,36 @@ struct AicpuPerfEventSampler {
         DEV_INFO("============================================================");
         DEV_INFO("Total Running Time: %.2f us (%.2f ms)", timeUs, timeMs);
         
-        // CPU Metrics
+        // Raw PMU event counters
         DEV_INFO("------------------------------------------------------------");
-        DEV_INFO("CPU Metrics");
+        DEV_INFO("Raw PMU Event Counters");
         DEV_INFO("------------------------------------------------------------");
-        DEV_INFO("  CPU Cycles:         %s", FormatNumber(counts[IDX_CPU_CYCLES]).c_str());
-        DEV_INFO("  Instructions:       %s", FormatNumber(counts[IDX_INSTRUCTIONS]).c_str());
-        
-        double ipc = counts[IDX_CPU_CYCLES] > 0 ? 
-            (double)counts[IDX_INSTRUCTIONS] / counts[IDX_CPU_CYCLES] : 0.0;
-        double cpi = counts[IDX_INSTRUCTIONS] > 0 ?
-            (double)counts[IDX_CPU_CYCLES] / counts[IDX_INSTRUCTIONS] : 0.0;
-        DEV_INFO("  IPC:                %.2f", ipc);
-        DEV_INFO("  CPI:                %.2f", cpi);
-        
-        double stallFrontPct = counts[IDX_CPU_CYCLES] > 0 ?
-            (double)counts[IDX_STALL_FRONTEND] / counts[IDX_CPU_CYCLES] * 100.0 : 0.0;
-        double stallBackPct = counts[IDX_CPU_CYCLES] > 0 ?
-            (double)counts[IDX_STALL_BACKEND] / counts[IDX_CPU_CYCLES] * 100.0 : 0.0;
-        DEV_INFO("  Stall Frontend:     %s (%.1f%%)", FormatNumber(counts[IDX_STALL_FRONTEND]).c_str(), stallFrontPct);
-        DEV_INFO("  Stall Backend:      %s (%.1f%%)", FormatNumber(counts[IDX_STALL_BACKEND]).c_str(), stallBackPct);
-        
-        // Branch Metrics
+        DEV_INFO("  CPU Cycles:          %s", FormatCounter(counts, IDX_CPU_CYCLES).c_str());
+        DEV_INFO("  Instructions:        %s", FormatCounter(counts, IDX_INSTRUCTIONS).c_str());
+        DEV_INFO("  Branch Instructions: %s", FormatCounter(counts, IDX_BRANCH_INST).c_str());
+        DEV_INFO("  Branch Misses:       %s", FormatCounter(counts, IDX_BRANCH_MISS).c_str());
+        DEV_INFO("  L1D Cache Refs:      %s", FormatCounter(counts, IDX_L1D_CACHE_REFS).c_str());
+        DEV_INFO("  L1D Cache Misses:    %s", FormatCounter(counts, IDX_L1D_CACHE_MISSES).c_str());
+        DEV_INFO("  L1I Cache Refs:      %s", FormatCounter(counts, IDX_L1I_CACHE_REFS).c_str());
+        DEV_INFO("  L1I Cache Misses:    %s", FormatCounter(counts, IDX_L1I_CACHE_MISSES).c_str());
+        DEV_INFO("  LL Cache Refs:       %s", FormatCounter(counts, IDX_LL_CACHE_REFS).c_str());
+        DEV_INFO("  LL Cache Misses:     %s", FormatCounter(counts, IDX_LL_CACHE_MISSES).c_str());
+        DEV_INFO("  Stall Frontend:      %s", FormatCounter(counts, IDX_STALL_FRONTEND).c_str());
+        DEV_INFO("  Stall Backend:       %s", FormatCounter(counts, IDX_STALL_BACKEND).c_str());
+        DEV_INFO("  Context Switches:    %s", FormatCounter(counts, IDX_CTX_SWITCHES).c_str());
+        DEV_INFO("  Page Faults:         %s", FormatCounter(counts, IDX_PAGE_FAULTS).c_str());
+
+        // Derived metrics computed from the raw counters above.
         DEV_INFO("------------------------------------------------------------");
-        DEV_INFO("Branch Metrics");
+        DEV_INFO("Derived Metrics");
         DEV_INFO("------------------------------------------------------------");
-        DEV_INFO("  Branch Instructions:%s", FormatNumber(counts[IDX_BRANCH_INST]).c_str());
-        DEV_INFO("  Branch Misses:      %s", FormatNumber(counts[IDX_BRANCH_MISS]).c_str());
-        double branchMissRate = counts[IDX_BRANCH_INST] > 0 ?
-            (double)counts[IDX_BRANCH_MISS] / counts[IDX_BRANCH_INST] * 100.0 : 0.0;
-        DEV_INFO("  Branch Miss Rate:   %.2f%%", branchMissRate);
-        
-        // Cache Metrics
-        DEV_INFO("------------------------------------------------------------");
-        DEV_INFO("Cache Metrics");
-        DEV_INFO("------------------------------------------------------------");
-        DEV_INFO("  Cache References:   %s", FormatNumber(counts[IDX_CACHE_REFS]).c_str());
-        DEV_INFO("  Cache Misses:       %s", FormatNumber(counts[IDX_CACHE_MISSES]).c_str());
-        double cacheMissRate = counts[IDX_CACHE_REFS] > 0 ?
-            (double)counts[IDX_CACHE_MISSES] / counts[IDX_CACHE_REFS] * 100.0 : 0.0;
-        double cacheHitRate = 100.0 - cacheMissRate;
-        DEV_INFO("  Cache Hit Rate:     %.2f%%", cacheHitRate);
-        
-        // System Metrics
-        DEV_INFO("------------------------------------------------------------");
-        DEV_INFO("System Metrics");
-        DEV_INFO("------------------------------------------------------------");
-        DEV_INFO("  Context Switches:   %s", FormatNumber(counts[IDX_CTX_SWITCHES]).c_str());
-        DEV_INFO("  Page Faults:        %s", FormatNumber(counts[IDX_PAGE_FAULTS]).c_str());
+        DumpIpcMetric(counts);
+        DumpRateMetric("Stall Frontend Rate", counts, IDX_STALL_FRONTEND, IDX_CPU_CYCLES);
+        DumpRateMetric("Stall Backend Rate", counts, IDX_STALL_BACKEND, IDX_CPU_CYCLES);
+        DumpRateMetric("Branch Miss Rate", counts, IDX_BRANCH_MISS, IDX_BRANCH_INST);
+        DumpCacheDerivedMetric("L1D Cache", counts, IDX_L1D_CACHE_REFS, IDX_L1D_CACHE_MISSES);
+        DumpCacheDerivedMetric("L1I Cache", counts, IDX_L1I_CACHE_REFS, IDX_L1I_CACHE_MISSES);
+        DumpCacheDerivedMetric("LL Cache", counts, IDX_LL_CACHE_REFS, IDX_LL_CACHE_MISSES);
         
         DEV_INFO("============================================================");
     }
@@ -276,6 +278,59 @@ private:
             DEV_DEBUG("[AICPU_PMU] Failed to register: %s (type=%d, config=%lu, errno=%d)",
                       name, type, config, errno);
         }
+    }
+
+    void TryAddCacheEvent(uint64_t cacheId, uint64_t opId, uint64_t resultId, const char* name)
+    {
+        TryAddEvent(PERF_TYPE_HW_CACHE, MakeCacheEventConfig(cacheId, opId, resultId), name);
+    }
+
+    bool IsEventActive(int idx) const
+    {
+        return idx >= 0 && idx < events.nrEvent && events.events[idx].valid_;
+    }
+
+    std::string FormatCounter(const uint64_t* counts, int idx)
+    {
+        if (!IsEventActive(idx)) {
+            return "N/A";
+        }
+        return FormatNumber(counts[idx]);
+    }
+
+    void DumpIpcMetric(const uint64_t* counts)
+    {
+        if (!IsEventActive(IDX_INSTRUCTIONS) || !IsEventActive(IDX_CPU_CYCLES) || counts[IDX_CPU_CYCLES] == 0) {
+            DEV_INFO("  IPC:                 N/A");
+            DEV_INFO("  CPI:                 N/A");
+            return;
+        }
+        double ipc = (double)counts[IDX_INSTRUCTIONS] / counts[IDX_CPU_CYCLES];
+        double cpi = counts[IDX_INSTRUCTIONS] > 0 ? (double)counts[IDX_CPU_CYCLES] / counts[IDX_INSTRUCTIONS] : 0.0;
+        DEV_INFO("  IPC:                 %.2f", ipc);
+        DEV_INFO("  CPI:                 %.2f", cpi);
+    }
+
+    void DumpRateMetric(const char* name, const uint64_t* counts, int numeratorIdx, int denominatorIdx)
+    {
+        if (!IsEventActive(numeratorIdx) || !IsEventActive(denominatorIdx) || counts[denominatorIdx] == 0) {
+            DEV_INFO("  %s: N/A", name);
+            return;
+        }
+        double rate = (double)counts[numeratorIdx] / counts[denominatorIdx] * 100.0;
+        DEV_INFO("  %s: %.2f%%", name, rate);
+    }
+
+    void DumpCacheDerivedMetric(const char* name, const uint64_t* counts, int refsIdx, int missesIdx)
+    {
+        if (!IsEventActive(refsIdx) || !IsEventActive(missesIdx) || counts[refsIdx] == 0) {
+            DEV_INFO("  %s Hit Rate:  N/A", name);
+            DEV_INFO("  %s Miss Rate: N/A", name);
+            return;
+        }
+        double missRate = (double)counts[missesIdx] / counts[refsIdx] * 100.0;
+        DEV_INFO("  %s Hit Rate:  %.2f%%", name, 100.0 - missRate);
+        DEV_INFO("  %s Miss Rate: %.2f%%", name, missRate);
     }
     
     std::string FormatNumber(uint64_t n)
