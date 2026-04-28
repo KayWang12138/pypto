@@ -190,10 +190,6 @@ Status RemoveRedundantAssemble::ProcessView(Function& function) const
         APASS_LOG_ERROR_F(Elements::Function, "SplitMultiConsumerReshape failed.");
         return FAILED;
     }
-    if (RemoveViewMultiReshape(multiReshapeVector) != SUCCESS) {
-        APASS_LOG_ERROR_F(Elements::Function, "RemoveViewMultiReshape failed.");
-        return FAILED;
-    }
     if (RemoveViewSingleReshape(function) != SUCCESS) {
         APASS_LOG_ERROR_F(Elements::Function, "RemoveViewSingleReshape failed.");
         return FAILED;
@@ -397,51 +393,6 @@ Status RemoveRedundantAssemble::ProcessReshape(
             newReshapeOp.SetOpAttribute(oriReshapeAttr);
         }
         multiReshapeVector.emplace_back(&newReshapeOp, consumer);
-    }
-    return SUCCESS;
-}
-
-/*
-删除冗余RESHAPE
-Before:
-input --> RESHAPE1 -> VIEW -> RESHAPE2 -> XXX
-
-After:
-input --> RESHAPE2 -> XXX
-
-*/
-Status RemoveRedundantAssemble::RemoveViewMultiReshape(
-    const std::vector<std::pair<Operation*, Operation*>>& multiReshapeVector) const
-{
-    for (const auto& pair : multiReshapeVector) {
-        auto firstReshape = pair.first;
-        auto viewOp = pair.second;
-        if (viewOp->GetOutputOperand(0) == nullptr) {
-            APASS_LOG_ERROR_F(
-                Elements::Operation, "VIEW operator [%d]: OutputOperand[0] is a null pointer. %s", viewOp->GetOpMagic(),
-                GetFormatBacktrace(viewOp).c_str());
-            return FAILED;
-        }
-        auto consumers = viewOp->GetOutputOperand(0)->GetConsumers();
-        if (consumers.empty()) {
-            APASS_LOG_ERROR_F(
-                Elements::Operation, "VIEW operator [%d]: OutputOperand[0] has no consumers. %s", viewOp->GetOpMagic(),
-                GetFormatBacktrace(viewOp).c_str());
-            return FAILED;
-        }
-        auto secondReshape = *consumers.begin();
-        if (secondReshape == nullptr) {
-            APASS_LOG_ERROR_F(Elements::Operation, "SecondReshape is null.");
-            return FAILED;
-        }
-        auto oriRawShape = secondReshape->GetIOperands().front()->GetRawTensor()->GetRawShape();
-        Shape newShape;
-        std::remove_copy_if(
-            oriRawShape.begin(), oriRawShape.end(), std::back_inserter(newShape), [](const auto& e) { return e == 1; });
-        secondReshape->GetOOperands().front()->GetRawTensor()->UpdateRawShape(newShape);
-        secondReshape->ReplaceIOperand(0, firstReshape->GetIOperands().front());
-        firstReshape->SetAsDeleted();
-        viewOp->SetAsDeleted();
     }
     return SUCCESS;
 }

@@ -44,7 +44,6 @@ private:
     Status ProcessReshape(
         Function& function, Operation*& operation,
         std::vector<std::pair<Operation*, Operation*>>& multiReshapeVector) const;
-    Status RemoveViewMultiReshape(const std::vector<std::pair<Operation*, Operation*>>& multiReshapeVector) const;
     Status RemoveViewSingleReshape(Function& function) const;
     Status HandleDynOffsetForReshape(
         Operation& assembleOp, const std::set<Operation*, LogicalTensor::CompareOp>& producers) const;
