@@ -966,7 +966,7 @@ REGISTER_INFER_SHAPE_FUNC(OP_COPY_IN, Opcode::OP_COPY_IN, CopyInInferFunc);
 
 void ReshapeCopyInInferFunc(Operation* op, std::vector<std::vector<SymbolicScalar>>& outValidShapes)
 {
-    if (!op->GetOpIOperands().empty()) {
+    if (!op->GetIOperands().empty()) {
         outValidShapes.push_back(op->GetIOperands().front()->GetDynValidShape());
     }
 }
