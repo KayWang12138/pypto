@@ -248,7 +248,6 @@ public:
                     ret = SyncTaskFinish(deviceTaskCtx, isStageFinish);
                     PerfMtEnd(PERF_EVT_SYNC_AICORE, aicpuIdx_);
                     if (isStageFinish) {
-                        deviceTaskCtx->GetWrapManager().Deinit();
                         if (deviceTaskCtx->GetDeviceTaskCtrl()->Finish(!deviceTaskCtx->IsParallel())) {
                             PerfMtTrace(PERF_TRACE_DEV_TASK_RSP, aicpuIdx_);
                             deviceTaskCtx->EntryStage(DevTaskExecStage::FINISH);
@@ -1278,7 +1277,7 @@ private:
             }
 
             SchDeviceTaskContext* deviceTaskCtx = context_->ParallelDeviceTaskCtx(ParallelIndex(finTaskId));
-            deviceTaskCtx->GetWrapManager().UpdateFinishIdForMixCore(finTaskId);
+            deviceTaskCtx->GetWrapManager().UpdateFinishIdForMixCore(finTaskId, type, coreIdx);
         }
         return ret;
     }
@@ -1333,7 +1332,7 @@ private:
             }
             RecordResolveTask(ctx, finishCnt, coreIdx, pendingIdValue, pendingResolveIndexBaseValue);
             SchDeviceTaskContext* deviceTaskCtx = context_->ParallelDeviceTaskCtx(ParallelIndex(finTaskId));
-            deviceTaskCtx->GetWrapManager().UpdateFinishIdForMixCore(finTaskId);
+            deviceTaskCtx->GetWrapManager().UpdateFinishIdForMixCore(finTaskId, type, coreIdx);
         } else if (unlikely(finTaskId == pendingIdRef && aicpuCallCode != 0)) {
             // pending task is copyout, reolve both running and pending task.
             DEV_VERBOSE_DEBUG(
@@ -1600,6 +1599,7 @@ private:
         size_t succSize;
         auto succList = func->GetOperationDepGraphSuccAddr(opIndex, succSize);
         uint32_t wrapId = 0;
+        WrapManager::MixCoreDepBatchContext batchCtx;
         for (size_t i = succIndexList[resolveIndexBase]; i < succSize; i++) {
             auto succIdx = succList[i];
             if (predCounts[succIdx] == 1 || __atomic_sub_fetch(&predCounts[succIdx], 1, __ATOMIC_RELAXED) == 0) {
@@ -1614,7 +1614,11 @@ private:
                 } else if (unlikely(coreType == static_cast<int>(MachineType::AICPU))) {
                     PushAicpuTaskQueue(deviceTaskCtx, id);
                 } else if (wrapManager.IsBindedWrapId(id, wrapId)) {
-                    wrapManager.ResolveDepForMixCore(id, wrapId, &cceBinary[callList[succIdx]]);
+                    auto curCceBin = &cceBinary[callList[succIdx]];
+                    bool isSuccess = batchCtx.AddTask(id, wrapId, curCceBin);
+                    if (unlikely(!isSuccess)) {
+                        wrapManager.ResolveDepForMixCore(id, wrapId, &cceBinary[callList[succIdx]]);
+                    }
                 } else {
                     ret = PushReadyTask(deviceTaskCtx, static_cast<int>(coreType), id);
                     if (unlikely(ret != DEVICE_MACHINE_OK)) {
@@ -1622,6 +1626,9 @@ private:
                     }
                 }
             }
+        }
+        if (batchCtx.groupCount > 0) {
+            wrapManager.BatchResolveDepForMixCore(batchCtx);
         }
 
         ret = ResolveDynStitched(deviceTaskCtx, dyntask, funcId, opIndex, coreIdx);
