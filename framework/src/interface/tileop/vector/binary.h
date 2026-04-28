@@ -111,9 +111,11 @@ TILEOP void BinaryCompute(T0 dst, T1 src0, T2 src1)
     auto shape2 = dstLayout.template GetShapeDim<DIM_3RD, MAX_DIMS>();
     using Src0TileInfo = TensorTileInfo<T1>;
     using Src1TileInfo = TensorTileInfo<T2>;
-
     constexpr BrcMode brcmode = GetBrcMode<BrcOperands...>();
-    if constexpr (TileOp::IsConstContinous<T0, T1, T2>() == true) {
+    if constexpr (brcmode == BrcMode::BRC_HW) {
+        BinaryMixBrcCompute<op, PrecisionType, Src0TileInfo, Src1TileInfo, LastUse, BrcOperands...>(dst, src0, src1);
+        return;
+    } else if constexpr (TileOp::IsConstContinous<T0, T1, T2>() == true) {
         auto dstTile = PtoTile<T0, pto::BLayout::RowMajor, true>().Data();
         using Src0PtoTile = typename std::conditional<
             (Src0TileInfo::tileW == 1 && GetBrcOperandAt<DIM_5TH, BrcOperands...>() == BRC_LEFT),
@@ -127,11 +129,6 @@ TILEOP void BinaryCompute(T0 dst, T1 src0, T2 src1)
         pto::TASSIGN(src0Tile, (uint64_t)src0.GetAddr());
         pto::TASSIGN(src1Tile, (uint64_t)src1.GetAddr());
         BinaryBrcDispatch<op, PrecisionType, brcmode, LastUse>(dstTile, src0Tile, src1Tile);
-        return;
-    }
-
-    if constexpr (brcmode == BrcMode::BRC_HW) {
-        BinaryMixBrcCompute<op, PrecisionType, Src0TileInfo, Src1TileInfo, LastUse, BrcOperands...>(dst, src0, src1);
         return;
     }
 
