@@ -54,7 +54,7 @@ if (TARGET ${PTO_Fwk_STestNamePrefix}_python)
     add_dependencies(${_Target} ${PTO_Fwk_STestNamePrefix}_python)
 endif ()
 
-# 用例可执行程序(执行)
+#用例可执行程序(执行)
 set(_num_ranks "4")
 set(_num_cases "3")
 set(_DistributedGTestCaseFilterConfig "")
