@@ -37,6 +37,7 @@
 #include "interface/utils/serialization.h"
 #include "interface/interpreter/flow_verifier.h"
 #include "passes/pass_utils/subgraph_utils.h"
+#include "passes/pass_utils/pass_utils.h"
 
 using namespace npu::tile_fwk;
 
@@ -3756,7 +3757,7 @@ std::shared_ptr<LogicalTensor> Function::ConnectWithOverlap(std::shared_ptr<Logi
         case OverlapStatus::PERFECTLY_MATCH_WITH_ALL: {
             auto assembleResult = std::make_shared<LogicalTensor>(
                 *this, iOperand->Datatype(), iOperand->shape, iOperand->GetDynValidShape(), iOperand->Format(),
-                "Assemble_" + matches[0]->Symbol(), iOperand->nodetype);
+                "Assemble_" + matches[0]->Symbol(), FunctionUtils::GetNodeType(*iOperand, iOperand->BelongFunction()));
             FE_ASSERT(FeError::NOT_EXIST, assembleResult->GetProducers().empty())
                 << "Assemble result should have no producers";
             for (size_t idx = 0; idx < matches.size(); idx++) {
@@ -3774,7 +3775,7 @@ std::shared_ptr<LogicalTensor> Function::ConnectWithOverlap(std::shared_ptr<Logi
         case OverlapStatus::BE_COVERED: {
             auto viewResult = std::make_shared<LogicalTensor>(
                 *this, matches.front()->tensor->datatype, iOperand->shape, iOperand->Format(),
-                "View_" + matches.front()->tensor->symbol, matches.front()->nodetype);
+                "View_" + matches.front()->tensor->symbol, FunctionUtils::GetNodeType(*(matches.front()), matches.front()->BelongFunction()));
             auto& viewOp = AddRawOperation(Opcode::OP_VIEW, {matches.front()}, {viewResult});
             viewOp.SetOpAttribute(std::make_shared<ViewOpAttribute>(
                 iOperand->GetOffset(), iOperand->GetDynOffset(), iOperand->GetDynValidShape()));
@@ -3790,7 +3791,7 @@ std::shared_ptr<LogicalTensor> Function::ConnectWithOverlap(std::shared_ptr<Logi
 
             auto assembleResult = std::make_shared<LogicalTensor>(
                 *this, matches[0]->Datatype(), maximumShape, iOperand->Format(), "Assemble_" + matches[0]->Symbol(),
-                iOperand->nodetype);
+                FunctionUtils::GetNodeType(*iOperand, iOperand->BelongFunction()));
             FE_ASSERT(FeError::NOT_EXIST, assembleResult->GetProducers().empty())
             "Assemble result should have no producers";
             for (size_t idx = 0; idx < matches.size(); idx++) {
@@ -3801,7 +3802,7 @@ std::shared_ptr<LogicalTensor> Function::ConnectWithOverlap(std::shared_ptr<Logi
 
             auto viewResult = std::make_shared<LogicalTensor>(
                 *this, assembleResult->Datatype(), iOperand->shape, iOperand->Format(),
-                "View_" + assembleResult->Symbol(), assembleResult->nodetype);
+                "View_" + assembleResult->Symbol(), FunctionUtils::GetNodeType(*assembleResult, assembleResult->BelongFunction()));
             auto& viewOp = AddRawOperation(Opcode::OP_VIEW, {assembleResult}, {viewResult});
             std::vector<int64_t> newOffset = TensorOffset::Sub(iOperand->GetOffset(), minimumOffset);
             std::vector<SymbolicScalar> newDynOffset = TensorOffset::Sub(iOperand->GetDynOffset(), minimumOffset);

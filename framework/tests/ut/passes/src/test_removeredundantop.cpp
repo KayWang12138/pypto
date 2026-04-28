@@ -1348,7 +1348,6 @@ TEST_F(TestRemoveRedundantOpPass, AssembleDDR)
     auto inTensor = std::make_shared<LogicalTensor>(*func, DT_FP32, shape);
     auto ddrOut = std::make_shared<LogicalTensor>(*func, DT_FP32, shape);
     ddrOut->SetMemoryTypeOriginal(MemoryType::MEM_DEVICE_DDR);
-    ddrOut->nodetype = NodeType::LOCAL; // 不是 OUTCAST
     func->AddOperation(Opcode::OP_ASSEMBLE, { inTensor }, { ddrOut });
 
     func->inCasts_.push_back(inTensor);
