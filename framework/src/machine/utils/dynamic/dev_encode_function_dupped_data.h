@@ -420,7 +420,7 @@ struct DevAscendFunctionDupped {
                 "#ctrl.encode.shape: Dimension mismatch: info.dim=%d, rawTensor->dim=%d", dim, rawTensor->GetDim());
         }
         DEV_ASSERT(TensorMetaErr::RAW_TENSOR_INDEX_OUT_OF_RANGE, rawIndex < func->GetRawTensorSize());
-        DEV_ASSERT(TensorMetaErr::SHAPE_VALUE_MISMATCH, dim == rawTensor->GetDim());
+        DEV_ASSERT(TensorMetaErr::SHAPE_VALUE_MISMATCH, dim <= rawTensor->GetDim());
 
         for (int d = 0; d < rawTensor->GetDim(); d++) {
             auto shapeIdx = attrOffset + d + rawTensor->GetDim() * 2;
