@@ -29,6 +29,7 @@
 #include "machine/runtime/host_prof.h"
 #include "machine/utils/machine_ws_intf.h"
 #include "machine/runtime/pmu_common.h"
+#include "machine/runtime/device_state.h"
 
 constexpr int CORE_DEFAULT_NUM = 70;
 namespace npu::tile_fwk {
@@ -70,7 +71,9 @@ public:
     int RegisterKernelBin(void** hdl, std::vector<uint8_t>* funcBinBuf = nullptr);
     static void SetBinData(const std::vector<uint8_t>& binBuf);
     HostProf& GetHostProfInstance();
-    inline void SetCaptureFlag(bool isCapture) { isCapture_ = isCapture; }
+    inline void SetCaptureFlag(bool isCapture) { state_.isCapture = isCapture; }
+    DeviceState& GetState() { return state_; }
+    const DeviceState& GetState() const { return state_; }
 
     void SetDebugEnable();
     void ResetMetrics(const uint32_t& coreId);
@@ -78,7 +81,7 @@ public:
     void DumpAiCoreExecutionTimeData();
     void DumpAiCorePmuData();
     void SynchronizeDeviceToHostProfData();
-    void InitMetaData(DeviceArgs& devArgs);
+    void InitMetaData(DeviceArgs& targetArgs) const;
     void InitAiCpuSoBin(DeviceArgs& devArgs);
     bool GetValidGetPgMask() const;
     void ReportHostProfInfo(
@@ -94,7 +97,7 @@ private:
     void* DevAlloc(int size);
     void GetModuleLogLevel(DeviceArgs& args);
     int InitDeviceArgsCore(DeviceArgs& args, const std::vector<int64_t>& regs, const std::vector<int64_t>& regsPmu);
-    int InitDeviceArgs(DeviceArgs& args);
+    int InitDeviceArgs();
     int Init();
 
     void Dump();
@@ -116,12 +119,9 @@ private:
 
 private:
     int devId_;
-    int aicpuNum_{5};
-    int blockDim_{24};
     std::vector<int64_t> pmuEvtType_;
-    DeviceArgs args_;
+    DeviceState state_;
     ToSubMachineConfig lastLaunchToSubMachineConfig_;
-    DeviceArgs* devArgs_;
     std::vector<void*> perfData_;
     std::once_flag once_;
     RtBinHandle binHdl_;
@@ -129,8 +129,6 @@ private:
     HostProf hostProf_;
     AclRtEvent event_;
     std::unordered_map<ArchInfo, std::function<int(std::vector<int64_t>&, std::vector<int64_t>&)>> addressMappingTable_;
-    bool isCapture_{false};
-    bool initFlag_{false};
     bool enableDumpMachinePerfTrace_{false};
 
     std::thread dumpThread_;
