@@ -928,39 +928,7 @@ void AssignMemoryType::ProcessUB2L1SmallToLarge(Function &function) {
         }
         auto oOperand = op.GetOOperands().front();
         auto iOperand = op.GetIOperands().front();
-        // 检查输入是否为 UB，输出是否为 L1
-        if (iOperand->GetMemoryTypeOriginal() != MEM_UB || oOperand->GetMemoryTypeOriginal() != MEM_L1) {
-            continue;
-        }
-        // 约束：仅支持2维
-        if (iOperand->GetShape().size() != 2 || oOperand->GetShape().size() != 2) {
-            continue;
-        }
-        bool hasCopyInModeView = false;
-        for (auto &consumerOp : oOperand->GetConsumers()) {
-            if (consumerOp->GetOpcode() == Opcode::OP_VIEW) {
-                int64_t copyInModeValue = 0;
-                if (consumerOp->GetAttr<int64_t>("op_attr_copy_in_mode", copyInModeValue) && copyInModeValue == 0) {
-                    hasCopyInModeView = true;
-                    break;
-                }
-            }
-        }
-        if (hasCopyInModeView || !CheckInnerAxisC0Size(iOperand, oOperand)) {
-            oOperand->SetMemoryTypeOriginal(MemoryType::MEM_DEVICE_DDR, true);
-            continue;
-        }
-        // 检查输入 UB tensor 是否超过 UB size 限制
-        const size_t UB_LIMIT = static_cast<size_t>(
-            Platform::Instance().GetDie().GetMemoryLimit(MemoryType::MEM_UB) * UB_THRESHOLD_NORMAL);
-        size_t totalSize = CalcNZTensorSize(iOperand);
-        APASS_LOG_INFO_F(Elements::Operation,
-            "UB2L1 small to large: Assemble Op[%d], nd+ nz totalSize=%zu, UB_LIMIT=%zu",
-            op.GetOpMagic(), totalSize, UB_LIMIT);
-        if (totalSize > UB_LIMIT) {
-            APASS_LOG_INFO_F(Elements::Operation,
-                "UB2L1 small to large: totalSize %zu exceeds UB_LIMIT %zu, downgrade to DDR",
-                totalSize, UB_LIMIT);
+        if (ShouldSkipUB2L1SmallToLarge(iOperand, oOperand)) {
             oOperand->SetMemoryTypeOriginal(MemoryType::MEM_DEVICE_DDR, true);
             continue;
         }
@@ -986,6 +954,38 @@ void AssignMemoryType::ProcessUB2L1SmallToLarge(Function &function) {
             }
         }
     }
+}
+
+bool AssignMemoryType::ShouldSkipUB2L1SmallToLarge(const LogicalTensorPtr &iOperand,
+                                                    const LogicalTensorPtr &oOperand) const {
+    // 检查输入是否为 UB，输出是否为 L1
+    if (iOperand->GetMemoryTypeOriginal() != MEM_UB || oOperand->GetMemoryTypeOriginal() != MEM_L1) {
+        return true;
+    }
+    // 约束：仅支持2维
+    if (iOperand->GetShape().size() != 2 || oOperand->GetShape().size() != 2) {
+        return true;
+    }
+    // 检查 NZ tensor 大小是否超过 UB 限制
+    const size_t UB_LIMIT = static_cast<size_t>(
+        Platform::Instance().GetDie().GetMemoryLimit(MemoryType::MEM_UB) * UB_THRESHOLD_NORMAL);
+    if (CalcNZTensorSize(iOperand) > UB_LIMIT) {
+        return true;
+    }
+    // 检查 consumer view 是否有 copy_in_mode=0 属性
+    for (auto &consumerOp : oOperand->GetConsumers()) {
+        if (consumerOp->GetOpcode() == Opcode::OP_VIEW) {
+            int64_t copyInModeValue = 0;
+            if (consumerOp->GetAttr<int64_t>("op_attr_copy_in_mode", copyInModeValue) && copyInModeValue == 0) {
+                return true;
+            }
+        }
+    }
+    // 检查内轴 C0 size 对齐
+    if (!CheckInnerAxisC0Size(iOperand, oOperand)) {
+        return true;
+    }
+    return false;
 }
 
 // 处理 UB->L1 大搬小场景（Vector到Cube的切片）
@@ -1101,6 +1101,15 @@ bool AssignMemoryType::IsDimMultiple(const Shape& shape1, const Shape& shape2)
 size_t AssignMemoryType::CalcNZTensorSize(const LogicalTensorPtr &tensor) const {
     DataType dtype = tensor->Datatype();
     int64_t bytes = BytesOf(dtype);
+    // 检查 bytes 是否为 0，避免除零错误
+    if (bytes <= 0) {
+        APASS_LOG_WARN_F(Elements::Operation,
+            "CalcNZTensorSize: invalid bytes (%ld) for datatype", static_cast<long>(bytes));
+        // 返回原始 ND 格式大小作为保守估计
+        size_t outer = tensor->GetShape()[0];
+        size_t inner = tensor->GetShape()[1];
+        return outer * inner * 4;  // 默认使用 4 字节
+    }
     size_t outer = tensor->GetShape()[0];
     size_t inner = tensor->GetShape()[1];
     
@@ -1108,6 +1117,13 @@ size_t AssignMemoryType::CalcNZTensorSize(const LogicalTensorPtr &tensor) const 
     size_t outerAlign = (dtype == DT_INT8 || dtype == DT_UINT8 || dtype == DT_FP8) ? 32 : 16;
     // 内轴对齐：C0 size = 32 / 元素字节数
     size_t c0 = static_cast<size_t>(32 / bytes);
+    // 检查 c0 是否为 0（当 bytes > 32 时可能发生）
+    if (c0 == 0) {
+        APASS_LOG_WARN_F(Elements::Operation,
+            "CalcNZTensorSize: invalid c0 (bytes=%ld), using fallback", static_cast<long>(bytes));
+        size_t ndSize = outer * inner * static_cast<size_t>(bytes);
+        return ndSize;
+    }
     
     size_t alignedOuter = (outer + outerAlign - 1) / outerAlign * outerAlign;
     size_t alignedInner = (inner + c0 - 1) / c0 * c0;
