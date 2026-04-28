@@ -419,8 +419,19 @@ struct AicpuPerfEventSampler {
     void Dump() {}
 };
 
+static inline AicpuPerfEventSampler& GetAicpuPerfEventSampler()
+{
+    static thread_local AicpuPerfEventSampler sampler;
+    return sampler;
+}
+
 struct AicpuPerfScopedSampler {
-    explicit AicpuPerfScopedSampler([[maybe_unused]] const char* sectionName) {}
+    explicit AicpuPerfScopedSampler([[maybe_unused]] const char* sectionName)
+        : sampler_(GetAicpuPerfEventSampler())
+    {}
+
+private:
+    AicpuPerfEventSampler& sampler_;
 };
 
 #define AICPU_PMU_SCOPE(section_name_literal)
