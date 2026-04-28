@@ -691,45 +691,7 @@ python3 scripts/computation_graph_analyzer.py \
 - `Alloc tensor .* size .* exceeds .* size`
 - `OP .* in/output total size .* exceeds .* size`
 - `MEM_UB`、`MEM_L1`、`MEM_L0A`、`MEM_L0B`、`MEM_L0C`
-- `ooo_schedule` 或 `OoOSchedule`
-
-说明：
-
-内存越界日志来源包括以下 Pass 模块的检查：
-
-**1. OoOSchedule Pass**
-
-- 来源：`framework/src/passes/block_graph_pass/schedule_ooo/schedule_base.h:309`
-- 日志：`Alloc tensor [%d] size [%ld] exceeds %s size [%ld]!`
-- 检查函数：`CheckOpBufferSize`
-- 检查逻辑：在 Pass 执行调度逻辑前，对每个 op 的 tensor buffer size 与硬件内存上限进行校验
-- 失败处理：`return FAILED`
-
-**2. ReplaceTensor Pass**
-
-- 来源：`framework/src/passes/tile_graph_pass/graph_constraint/replace_tensor.cpp:968`
-- 日志：`Tensor [%d] can not copy to UB, tensor size [%d] exceeds the UB size [%d] limit.`
-- 检查函数：`InsertCopyDDROp`
-- 检查逻辑：检查 tensor 是否能复制到 UB 内存，判断条件为 `(memType == MEM_UB) && (GetDataSize() > UB_SIZE_THRESHOLD)`
-- 失败处理：`return FAILED`
-
-**3. InplaceProcess Pass**
-
-- 来源：`framework/src/passes/tile_graph_pass/graph_constraint/inplace_process.cpp:88`
-- 日志：`Local Buffer Assemble Result Oversized, %d, tensor: %d, size: %ld B; Please check the result size.`
-- 检查函数：`ProcessAssembleOp`
-- 检查逻辑：检查 Assemble 操作的输出 tensor 是否超过 UB 限制，判断条件为 `(memType == MEM_UB) && (GetRawDataSize() > UB_SIZE)`
-- 失败处理：`return FAILED`
-
-**4. AssignMemoryType Pass**
-
-- 来源：`framework/src/passes/tile_graph_pass/data_path/assign_memory_type.cpp:390`
-- 日志：`%s[%d] output %d is oversized, set as MEM_DEVICE_DDR.`
-- 检查函数：`AssignMoveOpForAssemble`
-- 检查逻辑：如果 Assemble 输出 tensor 超过阈值（`UB_SIZE_THRESHOLD * UB_THRESHOLD`），将其内存类型设置为 MEM_DEVICE_DDR
-- 失败处理：继续执行（INFO 级别日志，不返回失败）
-
-越界问题通常由前端 tile_shape 配置过大引起，也可能是上游 pass 未正确处理内存分配
+- `ooo_schedule` 或 `OoOSchedule`、 `ReplaceTensor` 或 `replace_tensor`、`AssignMemoryType` 或 `assign_memory_type`
 
 ### 分析目标
 
@@ -755,44 +717,82 @@ python3 scripts/computation_graph_analyzer.py \
 
 **1.2 计算 Tile Shape 总大小**
 
-VecTile 计算公式：
+**前置检查：动态 shape 检测**
+
+在计算前，先检测 tile_shape 是否包含动态维度。打印每个维度值，判断是否能计算出具体 int 值。
+
+| 维度来源 | 类型判定 | 处理方式 |
+|---------|---------|---------|
+| 具体整数或具体乘积值（如 128、tile_b*tile_s=930） | 静态维度 | 继续检查 |
+| pypto.min()、pypto.max() 返回值，或从动态 tensor.shape 获取 | **动态维度** | **流程结束** |
+
+**示例：**
 ```
-tile_size = product(tile_dims)  # 各维度乘积
-total_bytes = tile_size * dtype_size
+tile_shape = [tile_b*tile_s, 64]
+  - dim[0] = 31*30 = 930 (具体 int) ✓ 静态
+  - dim[1] = 64 (具体 int) ✓ 静态
+  → 静态 shape，继续计算
+
+tile_shape = [pypto.min(...)*pypto.min(...), 64]
+  - dim[0] = SymbolicScalar（无法计算具体值） ✗ 动态
+  → 动态 shape，流程结束
 ```
 
-CubeTile 计算公式：
-```
-l0_tile_size = m[0] * k[0] * n[0]
-l1_tile_size = m[1] * k[1] * n[1]
-```
+**判定为动态 shape 时：**
+- **结论**：tile_shape 包含动态维度，无法静态计算大小
+- **建议**：检查 reshape 的 `shape` 和 `valid_shape` 参数是否匹配
+- **流程结束**
+
+**静态 shape 继续计算：**
+
+VecTile：`tile_size = product(tile_dims)`，`total_bytes = tile_size * dtype_size`
+
+CubeTile：`l0_tile_size = m[0] * k[0] * n[0]`，`l1_tile_size = m[1] * k[1] * n[1]`
 
 **1.3 对比硬件容量上限**
 
-参考硬件配置文件 `framework/tests/ut/machine/stubs/compiler/data/platform_config/Ascend910B1.ini`：
+参考硬件配置文件目录：`framework/tests/ut/machine/stubs/compiler/data/platform_config/`
 
-| 内存类型 | Ascend910B1 容量 |
-|---------|------------------|
-| MEM_UB | 196608 bytes (192 KB) |
-| MEM_L1 | 524288 bytes (512 KB) |
-| MEM_L0A | 65536 bytes (64 KB) |
-| MEM_L0B | 65536 bytes (64 KB) |
-| MEM_L0C | 131072 bytes (128 KB) |
+| 内存类型 | Ascend910B1 | Ascend910_9572 |
+|---------|-------------|----------------|
+| MEM_UB | 196608 bytes (192 KB) | 253952 bytes (~248 KB) |
+| MEM_L1 | 524288 bytes (512 KB) | 524288 bytes (512 KB) |
+| MEM_L0A | 65536 bytes (64 KB) | 65536 bytes (64 KB) |
+| MEM_L0B | 65536 bytes (64 KB) | 65536 bytes (64 KB) |
+| MEM_L0C | 131072 bytes (128 KB) | 262144 bytes (256 KB) |
 
 **1.4 判断是否为前端配置问题**
 
-| 检查项 | 计算公式 | 超限条件 | 结论 |
-|-------|---------|---------|------|
-| VecTile 超限 | `product(dim) * dtype` | > MEM_UB | 前端配置错误 |
-| CubeTile L0 超限 | `m[0]*k[0]*n[0] * dtype` | > MEM_L0A/L0B/L0C | 前端配置错误 |
-| CubeTile L1 超限 | `m[1]*k[1]*n[1] * dtype` | > MEM_L1 | 前端配置错误 |
+根据日志关键词判断越界类型：
 
-如果 `total_bytes > hardware_limit`：
-- **结论**：前端配置错误，Tile Shape 设置过大
-- **建议**：用户需调整 tile_shape 参数
-- **流程结束**，无需继续定位 Pass
+| 日志关键词 | 越界类型 | 说明 |
+|-----------|---------|------|
+| `Alloc tensor .* size .* exceeds` | 单 tensor 超限 | ALLOC op 分配的单个 tensor 越界 |
+| `OP .* in/output total size .* exceeds` | op 总内存超限 | op 所有输入/输出 tensor 加起来越界 |
 
-如果 Tile Shape 未超限，继续步骤 2。
+**单 tensor 超限检查：**
+
+| 检查项 | 计算公式 | 超限条件 |
+|-------|---------|---------|
+| VecTile | `product(dim) * dtype` | > MEM_UB |
+| CubeTile L0 | `m[0]*k[0]*n[0] * dtype` | > MEM_L0A/L0B/L0C |
+| CubeTile L1 | `m[1]*k[1]*n[1] * dtype` | > MEM_L1 |
+
+**op 总内存超限检查：**
+
+> **重要**：需检查 op 所有输入/输出 tensor 的总内存，相同 memId 的 tensor 共享内存不重复计算。
+
+| 检查项 | 计算公式 | 超限条件 |
+|-------|---------|---------|
+| op 总内存 | `Σ(tensor_size)`（按 memId 去重） | > 对应内存层级容量 |
+
+**判定规则：**
+
+| 检查结果 | 结论 | 建议 |
+|---------|------|------|
+| 单 tensor 超限 | 前端配置错误 | 调整 tile_shape |
+| op 总内存超限 | 前端配置错误 | 调整 tile_shape 或优化内存复用 |
+| 均未超限 | 继续步骤 2 | 定位 Pass 问题 |
 
 #### 步骤 2：从日志提取关键信息
 
@@ -802,8 +802,8 @@ l1_tile_size = m[1] * k[1] * n[1]
 - `tensor size`：张量大小（bytes）
 - `内存层级`：MEM_UB/L1/L0A/L0B/L0C
 - `硬件容量上限`：对应 MemoryType 的 limit
-- `Pass 名称`：通常是 OoOSchedule
-- `代码位置`：schedule_base.h 行号
+- `Pass 名称`：根据日志关键词识别（OoOSchedule/ReplaceTensor/AssignMemoryType）
+- `代码位置`：日志中的 `[文件名:行号]`
 - `producer op`：生产者算子信息
 
 #### 步骤 3：定位计算图节点
@@ -828,7 +828,7 @@ python3 scripts/computation_graph_analyzer.py \
 **4.1 找到当前报错 pass 的计算图文件**
 
 ```bash
-ls -lt output/*/Pass_*OoOSchedule*/*.json
+ls -lt output/*/Pass_*<报错 pass 名称>*/*.json
 ```
 
 或从日志环境变量路径查找：
@@ -842,7 +842,7 @@ output/output_*/
 ├── Pass_00_XXX/
 │   ├── Before_XXX.json
 │   └── After_XXX.json
-├── Pass_01_OoOSchedule/
+├── Pass_XX_<报错 pass 名称>/
 │   ├── Before_XXX.json    # 当前 pass 输入图
 │   └ After_XXX.json       # 当前 pass 输出图（可能缺失）
 ```
@@ -864,7 +864,7 @@ python3 scripts/computation_graph_analyzer.py \
 
 | Before 图搜索结果 | 结论 | 来源 Pass |
 |------------------|------|----------|
-| tensor_magic 不存在 | 当前 pass 新创建 | 报错 pass（OoOSchedule） |
+| tensor_magic 不存在 | 当前 pass 新创建 | 报错 pass |
 | tensor_magic 存在 | 上游 pass 生成 | 需继续回溯 |
 
 **4.4 回溯上游 pass 定位首次生成位置**
@@ -873,7 +873,7 @@ python3 scripts/computation_graph_analyzer.py \
 
 1. 找到当前 pass 的上一个 pass 输出图：
 ```bash
-ls -lt output/*/Pass_* | grep -B1 "OoOSchedule"
+ls -lt output/*/Pass_* | grep -B1 "<报错 pass 名称>"
 ```
 
 2. 在上游 pass 的 Before/After 图中对比：
@@ -906,19 +906,10 @@ grep -n "magic.*<tensor_magic>" <prev_pass_before_json>
 
 | tensor 类型 | 来源判断 | 来源 Pass |
 |------------|---------|----------|
-| View tensor (COPY_IN 输出) | 当前 pass 创建 | OoOSchedule 或上游调度 pass |
-| ALLOC tensor | 当前 pass 创建 | OoOSchedule |
+| COPY_IN 输出的 view tensor | 当前 pass 创建 | 报错 pass 或上游调度类 pass |
+| ALLOC tensor | 当前 pass 创建 | 报错 pass |
 | 用户输入 tensor | 前端创建 | 无（用户代码） |
 | 中间计算 tensor | 上游 pass 创建 | 需回溯定位 |
-
-**示例输出格式：**
-```
-来源分析：
-- tensor [78] 由 COPY_IN[10055] 产生
-- COPY_IN 属于 OoOSchedule pass 的调度逻辑
-- tensor shape [128, 512] 来自前端 tile_shape 配置
-- 根因 Pass：OoOSchedule（基于前端配置创建 view tensor）
-```
 
 #### 步骤 5：内存层级分析
 
@@ -947,13 +938,16 @@ tensor_size = product(shape) * dtype_size
 根据日志中的文件名和行号定位问题代码：
 
 ```bash
-sed -n '<line-15>,<line+15>p' framework/src/passes/block_graph_pass/schedule_ooo/schedule_base.h
+sed -n '<line-15>,<line+15>p' <日志中的源码文件路径>
 ```
 
-代码位置参考：
-- `schedule_base.h:309`：Alloc tensor exceeds 检查点
-- `schedule_base.h:324`：OP in/output total size exceeds 检查点
-- `CheckOpBufferSize`：静态检查入口函数
+**各 Pass 代码位置参考：**
+
+| Pass | 文件路径 | 行号 | 日志特征 |
+|------|---------|------|---------|
+| OoOSchedule | schedule_base.h | 309 | Alloc tensor exceeds MEM_UB |
+| ReplaceTensor | replace_tensor.cpp | 968 | Tensor can not copy to UB |.
+| AssignMemoryType | assign_memory_type.cpp | 390 | oversized, set as MEM_DEVICE_DDR |
 
 #### 步骤 7：确定根因并输出修复建议
 
@@ -968,7 +962,7 @@ sed -n '<line-15>,<line+15>p' framework/src/passes/block_graph_pass/schedule_ooo
 **根因链输出格式：**
 
 ```
-现象(日志: Alloc tensor X exceeds MEM_UB) -> 触发位置(schedule_base.h:309) -> 状态异常(tensor size > limit) -> 根因(前端配置/Pass逻辑)
+现象(日志: <关键词匹配内容>) -> 触发位置(<文件名>:<行号>) -> 状态异常(tensor size > memory_limit) -> 根因(前端配置/Pass逻辑/上游Pass)
 ```
 
 ### 输出要求
