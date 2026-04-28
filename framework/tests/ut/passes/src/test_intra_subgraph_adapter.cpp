@@ -131,17 +131,16 @@ TEST_F(IntraSubgraphAdapterTest, TestValidShapeInfer)
 {
     ComputationalGraphBuilder subGraph;
     std::vector<std::string> tensorNames{"t1", "t2", "t3", "t4"};
-    std::vector<MemoryType> tensorMemTypes{
-        MemoryType::MEM_UB, MemoryType::MEM_UB, MemoryType::MEM_L1, MemoryType::MEM_L0A};
+    std::vector<MemoryType> tensorMemTypes{ MemoryType::MEM_UB, MemoryType::MEM_UB, MemoryType::MEM_L1, MemoryType::MEM_L0A};
     std::vector<Opcode> opCodes{Opcode::OP_ADDS, Opcode::OP_CONVERT, Opcode::OP_L1_TO_L0A};
     std::vector<std::vector<std::string>> ioperands{{"t1"}, {"t2"}, {"t3"}};
     std::vector<std::vector<std::string>> ooperands{{"t2"}, {"t3"}, {"t4"}};
     std::vector<std::string> opNames{"adds", "convert", "L1ToL0A"};
-    EXPECT_EQ(subGraph.AddTensors(DataType::DT_FP32, {128, 128}, tensorMemTypes, tensorNames, 0), true);
+    EXPECT_EQ(subGraph.AddTensors(DataType::DT_FP32, {32, 32}, tensorMemTypes, tensorNames, 0), true);
     EXPECT_EQ(subGraph.AddOps(opCodes, ioperands, ooperands, opNames, true), true);
 
     auto t2 = subGraph.GetTensor("t2");
-    t2->UpdateDynValidShape({SymbolicScalar(128), SymbolicScalar(128)});
+    t2->UpdateDynValidShape({SymbolicScalar(32), SymbolicScalar(32)});
 
     subGraph.GetOp("adds")->UpdateSubgraphID(0);
     subGraph.GetOp("convert")->UpdateSubgraphID(0);
