@@ -55,6 +55,8 @@ import torch
 import numpy as np
 import time
 import toolss
+from conv_test_config import TEST_CASES, get_cases_by_conv_type, get_case_by_name
+
 global_run_mode = pypto.RunMode.NPU
 
 
@@ -531,114 +533,6 @@ def conv3d_dynamic_kernel(
                             )
 
                             pypto.assemble(output_view, [batch_offset, cout_offset, dout_offset, hout_offset, wout_offset], output_c_tensor)
-
-
-# ============================================================================
-# Test Configurations - Support Multiple Test Cases per Conv Type
-# ============================================================================
-
-TEST_CASES = {
-    "conv3d_small": {
-        "name": "conv3d_small",
-        "conv_type": "conv3d",
-        "fmap_shape": (1, 32, 16, 16, 16),
-        "weight_shape": (64, 32, 3, 3, 3),
-        "bias_shape": (64,),
-        "out_shape": (1, 64, 16, 16, 16),
-        "strides": [1, 1, 1],
-        "padding": [1, 1, 1, 1, 1, 1],
-        "dilations": [1, 1, 1],
-        "tile_config": {
-            "tile_batch": 1,
-            "tile_cout": 64,
-            "tile_dout": 8,
-            "tile_hout": 8,
-            "tile_wout": 16,
-            "tile_l1": {
-                "tileHin": 8, "tileHout": 8, "tileWin": 16, "tileWout": 16,
-                "tileCinFmap": 32, "tileCinWeight": 32, "tileN": 64, "tileBatch": 1
-            },
-            "tile_l0": {
-                "tileH": 8, "tileW": 16, "tileK": 32, "tileN": 64
-            },
-            "vec_tile": (1, 64, 8, 16)
-        }
-    },
-    "conv2d_small": {
-        "name": "conv2d_small",
-        "conv_type": "conv2d",
-        "fmap_shape": (1, 64, 64, 64),
-        "weight_shape": (256, 64, 3, 3),
-        "bias_shape": (256,),
-        "out_shape": (1, 256, 64, 64),
-        "strides": [1, 1],
-        "padding": [0, 0, 0, 0],
-        "dilations": [1, 1],
-        "tile_config": {
-            "tile_batch": 1,
-            "tile_cout": 256,
-            "tile_hout": 16,
-            "tile_wout": 16,
-            "tile_l1": {
-                "tileHin": 16, "tileHout": 16, "tileWin": 16, "tileWout": 16,
-                "tileCinFmap": 64, "tileCinWeight": 64, "tileN": 256, "tileBatch": 1
-            },
-            "tile_l0": {
-                "tileH": 16, "tileW": 16, "tileK": 64, "tileN": 256
-            },
-            "vec_tile": (1, 256, 16, 16)
-        }
-    },
-    "conv2d_large": {
-        "name": "conv2d_large",
-        "conv_type": "conv2d",
-        "fmap_shape": (1, 512, 512, 512),
-        "weight_shape": (128, 512, 1, 1),
-        "bias_shape": (128,),
-        "out_shape": (1, 128, 512, 512),
-        "strides": [1, 1],
-        "padding": [0, 0, 0, 0],
-        "dilations": [1, 1],
-        "tile_config": {
-            "tile_batch": 1,
-            "tile_cout": 128,
-            "tile_hout": 32,
-            "tile_wout": 32,
-            "tile_l1": {
-                "tileHin": 32, "tileHout": 32, "tileWin": 32, "tileWout": 32,
-                "tileCinFmap": 128, "tileCinWeight": 128, "tileN": 128, "tileBatch": 1
-            },
-            "tile_l0": {
-                "tileH": 32, "tileW": 32, "tileK": 128, "tileN": 128
-            },
-            "vec_tile": (1, 128, 32, 32)
-        }
-    },
-    "conv1d_small": {
-        "name": "conv1d_small",
-        "conv_type": "conv1d",
-        "fmap_shape": (2, 16, 2048),
-        "weight_shape": (16, 16, 3),
-        "bias_shape": (16,),
-        "out_shape": (2, 16, 2048),
-        "strides": [1],
-        "padding": [1, 1],
-        "dilations": [1],
-        "tile_config": {
-            "tile_batch": 1,
-            "tile_cout": 16,
-            "tile_wout": 16,
-            "tile_l1": {
-                "tileHin": 1, "tileHout": 1, "tileWin": 16, "tileWout": 16,
-                "tileCinFmap": 16, "tileCinWeight": 16, "tileN": 16, "tileBatch": 1
-            },
-            "tile_l0": {
-                "tileH": 1, "tileW": 16, "tileK": 16, "tileN": 16
-            },
-            "vec_tile": (1, 16, 16)
-        }
-    },
-}
 
 
 # ============================================================================
