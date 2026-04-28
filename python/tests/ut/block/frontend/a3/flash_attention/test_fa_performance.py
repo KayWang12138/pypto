@@ -65,7 +65,8 @@ VA_GMAX0 = VA3 + VB_RED;  VA_GMAX1 = VA_GMAX0 + VB_RED
 VA_GSUM0 = VA_GMAX1 + VB_RED;  VA_GSUM1 = VA_GSUM0 + VB_RED
 # exp_corr × FIFO_SIZE (by task_id % FIFO_SIZE)
 VA_EXP_BASE = VA_GSUM1 + VB_RED
-EXP_CORR_ADDRS = [VA_EXP_BASE + i * VB_RED for i in range(FIFO_SIZE)]  # Python list
+VA_EXP0 = VA_EXP_BASE
+VA_EXP1 = VA_EXP_BASE + VB_RED
 VA_AFTER_EXP = VA_EXP_BASE + FIFO_SIZE * VB_RED
 VA7  = VA_AFTER_EXP            # running_o
 VA8  = VA7 + VB4               # pv_vec
@@ -125,30 +126,14 @@ def alloc_cube_buffer():
             (v_mat_0, v_mat_1), (left_0, left_1), (right_0, right_1), (acc_0, acc_1))
 
 
-# Write alloc_exp_corr_fifo to a temp .py so auto-inline can read its source.
-import importlib.util as _ilu, os as _os
-def _gen_alloc_exp_corr():
-    lines = ["import pypto_block.language as pl", "import pypto_block.language.op.manual as plm", ""]
-    lines.append("def alloc_exp_corr_fifo():")
-    names, rm_names = [], []
-    for i, addr in enumerate(EXP_CORR_ADDRS):
-        lines.append(f"    ec{i} = plm.make_tile(plm.TileType(shape=[{TS_HALF}, 1], dtype=pl.FP32, "
-                     f"target_memory=pl.MemorySpace.Vec, blayout=2), addr={addr}, size={VB_RED})")
-        lines.append(f"    ec{i}_rm = plm.make_tile(plm.TileType(shape=[1, {TS_HALF}], dtype=pl.FP32, "
-                     f"target_memory=pl.MemorySpace.Vec), addr={addr}, size={VB_RED})")
-        names.append(f"ec{i}"); rm_names.append(f"ec{i}_rm")
-    lines.append(f"    return ({', '.join(names)}), ({', '.join(rm_names)})")
-    src = "\n".join(lines) + "\n"
-    tmp = _os.path.join("./build/tmp/", "_alloc_exp_corr_fifo.py")
-    _os.makedirs(_os.path.dirname(tmp), exist_ok=True)
-    with open(tmp, "w") as f:
-        f.write(src)
-    spec = _ilu.spec_from_file_location("_alloc_exp_corr_fifo", tmp)
-    mod = _ilu.module_from_spec(spec)
-    spec.loader.exec_module(mod)
-    return mod.alloc_exp_corr_fifo
-
-alloc_exp_corr_fifo = _gen_alloc_exp_corr()
+def alloc_exp_corr_fifo():
+    exp_corr_type = plm.TileType(shape=[TS_HALF, 1], dtype=pl.FP32, target_memory=pl.MemorySpace.Vec, blayout=2)
+    exp_corr_rm_type = plm.TileType(shape=[1, TS_HALF], dtype=pl.FP32, target_memory=pl.MemorySpace.Vec)
+    ec0 = plm.make_tile(exp_corr_type, addr=VA_EXP0, size=VB_RED)
+    ec0_rm = plm.make_tile(exp_corr_rm_type, addr=VA_EXP0, size=VB_RED)
+    ec1 = plm.make_tile(exp_corr_type, addr=VA_EXP1, size=VB_RED)
+    ec1_rm = plm.make_tile(exp_corr_rm_type, addr=VA_EXP1, size=VB_RED)
+    return (ec0, ec1), (ec0_rm, ec1_rm)
 
 
 # ================================================================
