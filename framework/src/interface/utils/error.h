@@ -39,6 +39,8 @@ struct TerminateHandler {
                 if (eptr) {
                     std::rethrow_exception(eptr);
                 }
+            } catch (const npu::tile_fwk::Error& e) {
+                PYPTO_LOGE("Caught uncaught exception:\n%s", e.DiagnosticWithBacktrace().c_str())
             } catch (const std::exception& e) {
                 PYPTO_LOGE("Caught exception: %s", e.what());
                 ErrorManager::Instance().OutputErrorMessage();
