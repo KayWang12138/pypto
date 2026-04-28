@@ -63,7 +63,7 @@ struct DeviceExecuteContext {
     PushTaskEntry pushTask;
 
     DevStartArgs* args{nullptr};
-    uint64_t taskId{0};
+    uint64_t taskId{1};
     bool isFirstTaskSend{true};
     ParallelForContext  parallelCtx;
 

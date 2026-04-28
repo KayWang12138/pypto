@@ -2190,7 +2190,7 @@ void DevAscendProgram::InitPartialUpdateSlot(
                 cellMatchRuntimePartialUpdateTableList, totalCellMatchSize, tableSize);
             auto tableData = partialUpdate.cellMatchRuntimePartialUpdateTable.Data();
             for (size_t j = 0; j < tableSize; j++) {
-                tableData[j] = AICORE_TASK_INIT;
+                tableData[j] = 0;
             }
         }
         totalCellMatchSize += tableSize;

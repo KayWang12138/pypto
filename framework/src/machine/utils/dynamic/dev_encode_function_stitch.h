@@ -105,7 +105,7 @@ struct DevAscendFunctionDuppedStitchList {
         oss << "{";
         oss << "size = " << size << " -> ";
         for (int i = 0; i < size; i++) {
-            if (idx[i] != AICORE_TASK_INIT) {
+            if (idx[i] != 0) {
                 oss << Delim(i != 0, ",");
                 oss << "[" << std::dec << i << "]=" << DumpTask<T>(idx[i]);
             }
