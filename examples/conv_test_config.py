@@ -32,27 +32,27 @@ TEST_CASES = {
     "conv3d_small": {
         "name": "conv3d_small",
         "conv_type": "conv3d",
-        "fmap_shape": (1, 32, 16, 16, 16),
+        "fmap_shape": (1, 32, 16, 8, 16),
         "weight_shape": (64, 32, 3, 3, 3),
         "bias_shape": (64,),
-        "out_shape": (1, 64, 16, 16, 16),
+        "out_shape": (1, 64, 16, 8, 16),
         "strides": [1, 1, 1],
         "padding": [1, 1, 1, 1, 1, 1],
         "dilations": [1, 1, 1],
         "tile_config": {
             "tile_batch": 1,
             "tile_cout": 64,
-            "tile_dout": 8,
-            "tile_hout": 8,
+            "tile_dout": 4,
+            "tile_hout": 4,
             "tile_wout": 16,
             "tile_l1": {
-                "tileHin": 8, "tileHout": 8, "tileWin": 16, "tileWout": 16,
+                "tileHin": 4, "tileHout": 4, "tileWin": 16, "tileWout": 16,
                 "tileCinFmap": 32, "tileCinWeight": 32, "tileN": 64, "tileBatch": 1
             },
             "tile_l0": {
-                "tileH": 8, "tileW": 16, "tileK": 32, "tileN": 64
+                "tileH": 4, "tileW": 16, "tileK": 288, "tileN": 64
             },
-            "vec_tile": (1, 64, 8, 16)
+            "vec_tile": (1, 64, 1, 4, 16)
         }
     },
 
@@ -67,7 +67,7 @@ TEST_CASES = {
         "bias_shape": (256,),
         "out_shape": (1, 256, 64, 64),
         "strides": [1, 1],
-        "padding": [0, 0, 0, 0],
+        "padding": [1, 1, 1, 1],
         "dilations": [1, 1],
         "tile_config": {
             "tile_batch": 1,
@@ -104,9 +104,9 @@ TEST_CASES = {
                 "tileCinFmap": 128, "tileCinWeight": 128, "tileN": 128, "tileBatch": 1
             },
             "tile_l0": {
-                "tileH": 32, "tileW": 32, "tileK": 128, "tileN": 128
+                "tileH": 8, "tileW": 32, "tileK": 128, "tileN": 128
             },
-            "vec_tile": (1, 128, 32, 32)
+            "vec_tile": (1, 128, 8, 32)
         }
     },
 
