@@ -131,16 +131,12 @@ INLINE int64_t CalLoadOffsetNCDHW(const ShapeInfo& shapeInfo, const OffsetInfo& 
  * offset4: dst_w_offset
  */
 INLINE int64_t CalStoreOffsetNCHW(
-    const ShapeInfo& shapeInfo, const OffsetInfo& offsetInfo //)
-    ,
-    const int64_t& loopH)
+    const ShapeInfo& shapeInfo, const OffsetInfo& offsetInfo, const int64_t& loopH)
 {
     int64_t outputOneBatchSize = shapeInfo.shape0 * shapeInfo.shape1 * shapeInfo.shape2;
     int64_t coutOffset = offsetInfo.offset1 * shapeInfo.shape1 * shapeInfo.shape2;
     return offsetInfo.offset0 * outputOneBatchSize + coutOffset + (offsetInfo.offset3 + loopH) * shapeInfo.shape2 +
            offsetInfo.offset4;
-    // return offsetInfo.offset0 * outputOneBatchSize + coutOffset + offsetInfo.offset3 * shapeInfo.shape2 +
-    //        offsetInfo.offset4;
 }
 
 /**
@@ -153,13 +149,13 @@ INLINE int64_t CalStoreOffsetNCHW(
  * offset3: dst_h_offset
  * offset4: dst_w_offset
  */
-INLINE int64_t CalStoreOffsetNCDHW(const ShapeInfo& shapeInfo, const OffsetInfo& offsetInfo)
+INLINE int64_t CalStoreOffsetNCDHW(const ShapeInfo& shapeInfo, const OffsetInfo& offsetInfo, const int64_t& loopH)
 {
     int64_t outputOneBatchSize = shapeInfo.shape0 * shapeInfo.shape1 * shapeInfo.shape2 * shapeInfo.shape3;
     int64_t coutOffset = offsetInfo.offset1 * shapeInfo.shape1 * shapeInfo.shape2 * shapeInfo.shape3;
     int64_t doutOffset = offsetInfo.offset2 * shapeInfo.shape2 * shapeInfo.shape3;
-    return offsetInfo.offset0 * outputOneBatchSize + coutOffset + doutOffset + offsetInfo.offset3 * shapeInfo.shape3 +
-           offsetInfo.offset4;
+    return offsetInfo.offset0 * outputOneBatchSize + coutOffset + doutOffset + (offsetInfo.offset3 + loopH) *
+        shapeInfo.shape3 + offsetInfo.offset4;
 }
 
 /**
@@ -373,7 +369,7 @@ INLINE void TStoreConv2DNZ2DN(
  */
 template <typename T, typename U>
 INLINE void TStoreConv3DNZ2DN(
-    T& dst, U& src, const OffsetInfo& offsetInfo, const int64_t& realM, const int64_t& realN, const int64_t& cutH)
+    T& dst, U& src, const OffsetInfo& offsetInfo, const int64_t& realM, const int64_t& realN, const int64_t& cutW)
 {
     constexpr auto srcM = Std::tuple_element<CONV_IDX_0, typename U::TileShape>::type::value;
     constexpr auto srcN = Std::tuple_element<CONV_IDX_1, typename U::TileShape>::type::value;
@@ -396,14 +392,14 @@ INLINE void TStoreConv3DNZ2DN(
         pto::TileConfig::fractalCSize, pto::PadValue::Null, pto::CompactMode::Normal>;
     using globalData = pto::GlobalTensor<typename T::Type, shapeDim5, strideDim5, pto::Layout::NCDHW>;
 
-    // 分块搬出，每次搬出cutH大小的数据
-    for (int64_t loopH = 0; loopH < (realM / cutH); loopH++) {
-        int64_t gmOffset = CalStoreOffsetNCDHW(shapeInfo, offsetInfo);
+    // 分块搬出，每次搬出cutW大小的数据
+    for (int64_t loopH = 0; loopH < (realM / cutW); loopH++) {
+        int64_t gmOffset = CalStoreOffsetNCDHW(shapeInfo, offsetInfo, loopH);
         globalData dstGlobal(
             (__gm__ typename T::Type*)(dst.GetAddr() + gmOffset), shapeDim5(dstN, dstC, dstD, dstH, dstW),
             strideDim5(dstStrideN, dstStrideC, dstStrideD, dstStrideH, dstStrideW));
-        tileData srcL0C(cutH, realN);
-        pto::TASSIGN(srcL0C, (uint64_t)(src.GetAddr() + loopH * cutH * 16 * 4));
+        tileData srcL0C(cutW, realN);
+        pto::TASSIGN(srcL0C, (uint64_t)(src.GetAddr() + loopH * cutW * 16 * 4));
         pto::TSTORE(dstGlobal, srcL0C);
     }
 }
