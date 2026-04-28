@@ -15,6 +15,7 @@ from __future__ import annotations
 import json
 import textwrap
 
+from benchmark import case_loader
 from benchmark.case_loader import (
     CaseSpec,
     TensorSpec,
@@ -103,7 +104,8 @@ def test_render_spec_new_interface_globals_when_present() -> None:
     assert "out[b, s, d] = x[b, s, d] + bias[d]" in markdown
 
 
-def test_load_case_populates_front_matter_fields_and_write_spec(tmp_path) -> None:
+def test_load_case_populates_front_matter_fields_and_write_spec(tmp_path, monkeypatch) -> None:
+    monkeypatch.setattr(case_loader, "_list_idle_chip_ids", lambda: ["0"])
     case_file = tmp_path / "19_Softmax.py"
     case_file.write_text(
         textwrap.dedent(
@@ -142,7 +144,8 @@ def test_load_case_populates_front_matter_fields_and_write_spec(tmp_path) -> Non
     assert front_matter["p0_shapes"] == [[16, 256, 256]]
 
 
-def test_load_case_extracts_formula_and_dynamic_axis_globals(tmp_path) -> None:
+def test_load_case_extracts_formula_and_dynamic_axis_globals(tmp_path, monkeypatch) -> None:
+    monkeypatch.setattr(case_loader, "_list_idle_chip_ids", lambda: ["0"])
     case_file = tmp_path / "101_DynamicAxisAdd.py"
     case_file.write_text(
         textwrap.dedent(
@@ -183,3 +186,108 @@ def test_load_case_extracts_formula_and_dynamic_axis_globals(tmp_path) -> None:
     assert case.outputs[0].shape == [2, 4, 8]
     assert front_matter["dynamic_axis"] == ["B", "S"]
     assert "### 1.3 数学公式" in markdown
+
+
+def test_load_case_leaves_outputs_empty_without_idle_chip(tmp_path, monkeypatch) -> None:
+    monkeypatch.setattr(case_loader, "_list_idle_chip_ids", lambda: [])
+    case_file = tmp_path / "102_NoIdleChip.py"
+    case_file.write_text(
+        textwrap.dedent(
+            """
+            class Model:
+                def forward(self, x):
+                    raise RuntimeError("forward should not run without idle chip")
+
+                def __call__(self, x):
+                    return self.forward(x)
+
+            class FakeTensor:
+                shape = (4, 8)
+                dtype = "float32"
+
+            def get_inputs():
+                return [FakeTensor()]
+
+            def get_init_inputs():
+                return []
+            """
+        ).strip(),
+        encoding="utf-8",
+    )
+
+    case = load_case(case_file, case_id="102_NoIdleChip")
+
+    assert case.inputs[0].shape == [4, 8]
+    assert case.outputs == []
+
+
+def test_load_case_retries_other_idle_chips(tmp_path, monkeypatch) -> None:
+    calls = []
+
+    def fake_run_probe(case_path, timeout_sec, probe_outputs, chip_id=None):
+        if not probe_outputs:
+            return [TensorSpec(name="x0", shape=[2, 3], dtype="float32")], [], "[]"
+        calls.append(chip_id)
+        if chip_id == "0":
+            return [], [], "[]"
+        return [], [TensorSpec(name="y0", shape=[2, 3], dtype="float32")], "[]"
+
+    monkeypatch.setattr(case_loader, "_list_idle_chip_ids", lambda: ["0", "1"])
+    monkeypatch.setattr(case_loader, "_run_probe_subprocess", fake_run_probe)
+    case_file = tmp_path / "103_Retry.py"
+    case_file.write_text(
+        textwrap.dedent(
+            """
+            class Model:
+                def forward(self, x):
+                    return x
+
+            def get_inputs():
+                return []
+
+            def get_init_inputs():
+                return []
+            """
+        ).strip(),
+        encoding="utf-8",
+    )
+
+    case = load_case(case_file, case_id="103_Retry")
+
+    assert calls == ["0", "1"]
+    assert case.outputs[0].name == "y0"
+
+
+def test_load_case_limits_output_probe_attempts(tmp_path, monkeypatch) -> None:
+    calls = []
+
+    def fake_run_probe(case_path, timeout_sec, probe_outputs, chip_id=None):
+        if not probe_outputs:
+            return [TensorSpec(name="x0", shape=[2, 3], dtype="float32")], [], "[]"
+        calls.append(chip_id)
+        return [], [], "[]"
+
+    monkeypatch.setattr(case_loader, "_list_idle_chip_ids", lambda: ["0", "1", "2", "3"])
+    monkeypatch.setattr(case_loader, "_run_probe_subprocess", fake_run_probe)
+    case_file = tmp_path / "104_AttemptLimit.py"
+    case_file.write_text(
+        textwrap.dedent(
+            """
+            class Model:
+                def forward(self, x):
+                    return x
+
+            def get_inputs():
+                return []
+
+            def get_init_inputs():
+                return []
+            """
+        ).strip(),
+        encoding="utf-8",
+    )
+
+    case = load_case(case_file, case_id="104_AttemptLimit")
+
+    assert calls == ["0", "1", "2"]
+    assert case.outputs == []

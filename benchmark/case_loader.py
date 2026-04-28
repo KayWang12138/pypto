@@ -187,6 +187,7 @@ def _extract_new_interface_globals(tree: ast.Module) -> tuple[str, Optional[List
 
 _PROBE_TEMPLATE = r"""
 import importlib.util, json, sys
+PROBE_OUTPUTS = {probe_outputs!r}
 spec = importlib.util.spec_from_file_location("kb_case", {path!r})
 mod = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(mod)
@@ -224,7 +225,7 @@ except Exception as e:
 
 outputs_info = []
 try:
-    if inputs_info and "error" not in inputs_info[0]:
+    if PROBE_OUTPUTS and inputs_info and "error" not in inputs_info[0]:
         model = mod.Model(*init_args)
         outputs = model(*inputs)
         for key, t in _flatten_outputs(outputs):
@@ -239,17 +240,49 @@ print(json.dumps({{"inputs": inputs_info, "outputs": outputs_info, "init_args_re
 """
 
 
-def _probe_io_specs(case_path: Path, timeout_sec: int = 30) -> tuple[List[TensorSpec], List[TensorSpec], str]:
-    """在子进程中执行 ``get_inputs()`` / ``Model.forward`` 并捕获 shape/dtype.
+_IDLE_CHIP_SCRIPT = (
+    Path(__file__).resolve().parents[1] /
+    ".agents/skills/pypto-op-develop/scripts/list_idle_chip_ids.sh"
+)
 
-    失败时返回空列表 + ``"[]"`` 作为 fallback, 不抛异常 (静默降级到 SPEC 自行推断).
-    """
-    script = _PROBE_TEMPLATE.format(path=str(case_path))
+
+def _list_idle_chip_ids() -> List[str]:
+    """返回当前空闲 NPU chip id 列表；探测失败时返回空列表。"""
+    if not _IDLE_CHIP_SCRIPT.exists():
+        return []
+    try:
+        proc = subprocess.run(
+            [str(_IDLE_CHIP_SCRIPT)],
+            capture_output=True,
+            text=True,
+            timeout=10,
+            check=False,
+        )
+    except (OSError, subprocess.TimeoutExpired):
+        return []
+    if proc.returncode != 0:
+        return []
+    return [item for item in proc.stdout.split() if item.strip()]
+
+
+def _run_probe_subprocess(
+    case_path: Path,
+    timeout_sec: int,
+    probe_outputs: bool,
+    chip_id: Optional[str] = None,
+) -> tuple[List[TensorSpec], List[TensorSpec], str]:
+    """执行一次 probe 子进程；失败时返回空结果。"""
+    script = _PROBE_TEMPLATE.format(path=str(case_path), probe_outputs=probe_outputs)
+    env = os.environ.copy()
+    if chip_id is not None:
+        # 与 pypto-op-develop 约定保持一致：list_idle_chip_ids.sh 的输出用于 TILE_FWK_DEVICE_ID。
+        env["TILE_FWK_DEVICE_ID"] = str(chip_id)
     try:
         proc = subprocess.run(
             [sys.executable, "-c", script],
             capture_output=True,
             text=True,
+            env=env,
             timeout=timeout_sec,
             check=False,
         )
@@ -285,9 +318,52 @@ def _probe_io_specs(case_path: Path, timeout_sec: int = 30) -> tuple[List[Tensor
     return inputs, outputs, str(data.get("init_args_repr", "[]"))
 
 
+def _probe_io_specs(
+    case_path: Path,
+    timeout_sec: int = 30,
+    max_output_attempts: int = 3,
+) -> tuple[List[TensorSpec], List[TensorSpec], str]:
+    """探测输入和输出规格。
+
+    输入/init 参数探针不绑定设备；输出规格通过真实执行 ``Model.forward`` 获取。
+    forward 前先选择空闲 chip，失败后换其他空闲 chip 重试，最多 ``max_output_attempts`` 次。
+    所有失败都降级为空输出规格，不阻断 SPEC.md 生成。
+    """
+    inputs, _, init_repr = _run_probe_subprocess(
+        case_path,
+        timeout_sec=timeout_sec,
+        probe_outputs=False,
+    )
+
+    if not inputs or max_output_attempts <= 0:
+        return inputs, [], init_repr
+
+    attempted: set[str] = set()
+    for _ in range(max_output_attempts):
+        idle_ids = [chip for chip in _list_idle_chip_ids() if chip not in attempted]
+        if not idle_ids:
+            break
+        chip_id = idle_ids[0]
+        attempted.add(chip_id)
+        _, outputs, _ = _run_probe_subprocess(
+            case_path,
+            timeout_sec=timeout_sec,
+            probe_outputs=True,
+            chip_id=chip_id,
+        )
+        if outputs:
+            return inputs, outputs, init_repr
+
+    return inputs, [], init_repr
+
+
 def _probe_inputs(case_path: Path, timeout_sec: int = 30) -> tuple[List[TensorSpec], str]:
     """兼容旧调用方：仅返回输入规格和 init 参数。"""
-    inputs, _, init_repr = _probe_io_specs(case_path, timeout_sec)
+    inputs, _, init_repr = _run_probe_subprocess(
+        case_path,
+        timeout_sec=timeout_sec,
+        probe_outputs=False,
+    )
     return inputs, init_repr
 
 
@@ -322,7 +398,8 @@ def derive_op_name(case_id: str) -> str:
 
 def load_case(case_path: Path, op_name: Optional[str] = None,
               case_id: Optional[str] = None,
-              probe_timeout_sec: int = 30) -> CaseSpec:
+              probe_timeout_sec: int = 30,
+              max_output_probe_attempts: int = 3) -> CaseSpec:
     """加载并解析一个 KernelBench 用例 (上游 PyTorch 扁平布局).
 
     Args:
@@ -332,6 +409,8 @@ def load_case(case_path: Path, op_name: Optional[str] = None,
         case_id: 可选, 用例标识; 缺省时取 ``case_path.stem``
             (上游扁平布局下文件名即标识).
         probe_timeout_sec: 子进程执行 ``get_inputs()`` 的超时.
+        max_output_probe_attempts: 执行 ``Model.forward`` 探测输出规格的最大选卡
+            尝试次数。每次尝试都从空闲 chip 列表中选择一张未尝试过的卡。
 
     Raises:
         FileNotFoundError: 文件不存在.
@@ -360,7 +439,11 @@ def load_case(case_path: Path, op_name: Optional[str] = None,
     init_src = _extract_model_method_source(tree, source, "__init__")
     forward_src = _extract_model_method_source(tree, source, "__call__", "forward")
     formula, dynamic_axis = _extract_new_interface_globals(tree)
-    inputs, outputs, init_repr = _probe_io_specs(case_path, timeout_sec=probe_timeout_sec)
+    inputs, outputs, init_repr = _probe_io_specs(
+        case_path,
+        timeout_sec=probe_timeout_sec,
+        max_output_attempts=max_output_probe_attempts,
+    )
     supported_dtypes, p0_shapes, tolerance = _derive_front_matter_fields(inputs)
 
     return CaseSpec(
