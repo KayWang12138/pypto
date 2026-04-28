@@ -108,6 +108,7 @@ public:
     static const std::string precisionType;
     static const std::string perm;
     static const std::string gmTensorParamIdxInCall;
+    static const std::string splitMN;
 };
 
 class ConvOpAttributeKey {

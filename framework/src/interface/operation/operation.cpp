@@ -93,6 +93,7 @@ const std::string OpAttributeKey::maxTileNum = "max_tile_num";
 const std::string OpAttributeKey::precisionType = "precision_type";
 const std::string OpAttributeKey::perm = "perm";
 const std::string OpAttributeKey::gmTensorParamIdxInCall = "gm_tensor_param_idx_in_call";
+const std::string OpAttributeKey::splitMN = "op_attr_splitMN";
 
 const std::string ConvOpAttributeKey::cin = "CIN";
 const std::string ConvOpAttributeKey::cout = "COUT";

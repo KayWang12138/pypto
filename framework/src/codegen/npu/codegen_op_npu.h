@@ -113,6 +113,7 @@ public:
     std::string PrintRangeTileTensor(
         const std::string& startVal, const std::string& stepVal, const std::string& tileIdxExpr) const;
     std::string GenL0CToUBTileTensor() const;
+    std::string GenL0CToUBTileTensorDualDst() const;
 
     std::string GenScatterElementSOp() const;
     std::string GenScatterOp() const;
