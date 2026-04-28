@@ -48,6 +48,7 @@ const std::string L12L0ConvOpAttributeKey::padValue = "PAD_VALUE";
 const std::string L12L0ConvOpAttributeKey::repeatStride = "REPEAT_STRIDE";
 const std::string L12L0ConvOpAttributeKey::repeatTime = "REPEAT_TIME";
 const std::string L12L0ConvOpAttributeKey::wStride = "W_STRIDE";
+const std::string LoadStoreConvOpAttributeKey::cutW = "CUT_W";
 const std::string LoadStoreConvOpAttributeKey::copyInMode = "COPY_IN_MODE";
 const std::string LoadStoreConvOpAttributeKey::copyOutMode = "COPY_OUT_MODE";
 const std::string LoadStoreConvOpAttributeKey::isFmap = "IS_FMAP";
@@ -968,8 +969,10 @@ void ConstrucCopyOutTile(
         LoadStoreConvOpAttributeKey::copyOutMode, static_cast<int64_t>(CopyOutMode::COPY_MOD_NZ2DN));
     fixpipeOpRes.SetAttribute(LoadStoreConvOpAttributeKey::isConv3D, convAttrParam.isConv3D);
     fixpipeOpRes.SetAttribute("res_tile_shape", SymbolicScalar::FromConcrete(tensorGraphNodes.resTensorPtr->shape));
-    fixpipeOpRes.SetAttribute(L12L0ConvOpAttributeKey::repeatTime, iterInfo.repeatTime);
-    fixpipeOpRes.SetAttribute(L12L0ConvOpAttributeKey::wStride, iterInfo.wStride);
+    // 设置cutW参数：L0C M方向(hw合轴)的w大小
+    int64_t cutW = std::min(iterInfo.woutL1Size - iterInfo.wL0Offset, convTileInfo.wL0);
+    fixpipeOpRes.SetAttribute(LoadStoreConvOpAttributeKey::cutW, cutW);
+
     int64_t dst_n_offset = iterInfo.batchOffset;
     int64_t dst_c_offset = iterInfo.groupOffset * convTileInfo.coutPerGroup + iterInfo.nL1Offset + iterInfo.nL0Offset;
     int64_t dst_d_offset = iterInfo.doL1Offset;

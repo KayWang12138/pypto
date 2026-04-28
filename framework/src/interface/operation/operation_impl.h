@@ -264,6 +264,7 @@ public:
     static const std::string copyOutMode;
     static const std::string isFmap;
     static const std::string isConv3D;
+    static const std::string cutW;
 };
 
 enum class CopyInMode : int {

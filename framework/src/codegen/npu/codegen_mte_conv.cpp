@@ -142,9 +142,8 @@ std::string CodeGenOpNPU::GenMemL1CopyOutConv() const
         offsetH = dynOffset[ID2].Concrete();
         offsetW = dynOffset[ID3].Concrete();
     }
-    int64_t repeatTime = 0, wStride = 0;
-    GetOpAttr(Conv::L12L0ConvOpAttributeKey::repeatTime, repeatTime);
-    GetOpAttr(Conv::L12L0ConvOpAttributeKey::wStride, wStride);
+    int64_t cutW = 0;
+    GetOpAttr(Conv::LoadStoreConvOpAttributeKey::cutW, cutW);
 
     std::vector<std::string> tileOpParamList = {
         dstTensor,
@@ -156,8 +155,7 @@ std::string CodeGenOpNPU::GenMemL1CopyOutConv() const
         std::to_string(offsetW),
         std::to_string(realM),
         std::to_string(realN),
-        std::to_string(repeatTime),
-        std::to_string(wStride)};
+        std::to_string(cutW)};
 
     std::ostringstream oss;
     oss << tileOpName << WrapParamByAngleBrackets({copyOutModeStr, std::to_string(isConv3D)});

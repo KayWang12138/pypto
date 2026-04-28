@@ -323,7 +323,7 @@ TILEOP void TLoadConv(
  */
 template <typename T, typename U>
 INLINE void TStoreConv2DNZ2DN(T& dst, U& src, const OffsetInfo& offsetInfo, const int64_t& realM, const int64_t& realN,
-    const int64_t& repeatTime, const int64_t& oneW)
+    const int64_t& cutW)
 {
     constexpr auto srcM = Std::tuple_element<CONV_IDX_0, typename U::TileShape>::type::value;
     constexpr auto srcN = Std::tuple_element<CONV_IDX_1, typename U::TileShape>::type::value;
@@ -335,10 +335,8 @@ INLINE void TStoreConv2DNZ2DN(T& dst, U& src, const OffsetInfo& offsetInfo, cons
     int64_t dstStrideC = GetConvStride<CONV_IDX_1>(dst);
     int64_t dstStrideH = GetConvStride<CONV_IDX_2>(dst);
     int64_t dstStrideW = GetConvStride<CONV_IDX_3>(dst);
-    int64_t repeat = repeatTime == 0 ? 1 : repeatTime;
-    int64_t strideW = repeatTime == 0 ? realM : oneW;
 
-    for (int64_t loopH = 0; loopH < repeat; loopH++) {
+    for (int64_t loopH = 0; loopH < (realM / cutW); loopH++) {
         ShapeInfo shapeInfo{dstC, dstH, dstW};
         int64_t gmOffset = CalStoreOffsetNCHW(shapeInfo, offsetInfo, loopH);
         using shapeDim4 = pto::Shape<1, -1, -1, -1, -1>;
@@ -350,8 +348,8 @@ INLINE void TStoreConv2DNZ2DN(T& dst, U& src, const OffsetInfo& offsetInfo, cons
         using tileData = pto::Tile<
             pto::TileType::Acc, typename U::Type, srcM, srcN, pto::BLayout::ColMajor, -1, -1, pto::SLayout::RowMajor,
             pto::TileConfig::fractalCSize, pto::PadValue::Null, pto::CompactMode::Normal>;
-        tileData srcL0C(strideW, realN);
-        pto::TASSIGN(srcL0C, (uint64_t)src.GetAddr());
+        tileData srcL0C(cutW, realN);
+        pto::TASSIGN(srcL0C, (uint64_t)src.GetAddr() + loopH * cutW * BLOCK_CUBE_M_N * L0C_ONE_ELEMENT_SIZE);
         pto::TSTORE(dstGlobal, srcL0C);
     }
     return;
@@ -369,7 +367,7 @@ INLINE void TStoreConv2DNZ2DN(T& dst, U& src, const OffsetInfo& offsetInfo, cons
  */
 template <typename T, typename U>
 INLINE void TStoreConv3DNZ2DN(T& dst, U& src, const OffsetInfo& offsetInfo, const int64_t& realM, const int64_t& realN, 
-    const int64_t& repeatTime, const int64_t& oneW)
+    const int64_t& cutW)
 {
     constexpr auto srcM = Std::tuple_element<CONV_IDX_0, typename U::TileShape>::type::value;
     constexpr auto srcN = Std::tuple_element<CONV_IDX_1, typename U::TileShape>::type::value;
@@ -382,10 +380,8 @@ INLINE void TStoreConv3DNZ2DN(T& dst, U& src, const OffsetInfo& offsetInfo, cons
     int64_t dstStrideD = GetConvStride<CONV_IDX_2>(dst);
     int64_t dstStrideH = GetConvStride<CONV_IDX_3>(dst);
     int64_t dstStrideW = GetConvStride<CONV_IDX_4>(dst);
-    int64_t repeat = repeatTime == 0 ? 1 : repeatTime;
-    int64_t strideW = repeatTime == 0 ? realM : oneW;
 
-    for (int64_t loopH = 0; loopH < repeat; loopH++) {
+    for (int64_t loopH = 0; loopH < (realM / cutW); loopH++) {
         ShapeInfo shapeInfo{dstC, dstD, dstH, dstW};
         int64_t gmOffset = CalStoreOffsetNCDHW(shapeInfo, offsetInfo, loopH);
         using shapeDim5 = pto::Shape<1, -1, -1, -1, -1>;
@@ -397,8 +393,8 @@ INLINE void TStoreConv3DNZ2DN(T& dst, U& src, const OffsetInfo& offsetInfo, cons
         using tileData = pto::Tile<
             pto::TileType::Acc, typename U::Type, srcM, srcN, pto::BLayout::ColMajor, -1, -1, pto::SLayout::RowMajor,
             pto::TileConfig::fractalCSize, pto::PadValue::Null, pto::CompactMode::Normal>;
-        tileData srcL0C(strideW, realN);
-        pto::TASSIGN(srcL0C, (uint64_t)src.GetAddr());
+        tileData srcL0C(cutW, realN);
+        pto::TASSIGN(srcL0C, (uint64_t)src.GetAddr() + loopH * cutW * BLOCK_CUBE_M_N * L0C_ONE_ELEMENT_SIZE);
         pto::TSTORE(dstGlobal, srcL0C);
     }
     return;
@@ -406,12 +402,12 @@ INLINE void TStoreConv3DNZ2DN(T& dst, U& src, const OffsetInfo& offsetInfo, cons
 
 template <bool isConv3D, typename T, typename U>
 INLINE void TStoreConvNZ2DN(T& dst, U& src, const OffsetInfo& offsetInfo, const int64_t& realM, const int64_t& realN,
-    const int64_t& repeatTime, const int64_t& oneW)
+    const int64_t& cutW)
 {
     if constexpr (isConv3D) {
-        TStoreConv3DNZ2DN(dst, src, offsetInfo, realM, realN, repeatTime, oneW);
+        TStoreConv3DNZ2DN(dst, src, offsetInfo, realM, realN, cutW);
     } else {
-        TStoreConv2DNZ2DN(dst, src, offsetInfo, realM, realN, repeatTime, oneW);
+        TStoreConv2DNZ2DN(dst, src, offsetInfo, realM, realN, cutW);
     }
 }
 
@@ -419,7 +415,7 @@ INLINE void TStoreConvNZ2DN(T& dst, U& src, const OffsetInfo& offsetInfo, const 
 template <CopyOutMode mode, bool isConv3D, typename T, typename U>
 TILEOP void TStoreConv(
     T& dst, U& src, const int64_t& offset0, const int64_t& offset1, const int64_t& offset2, const int64_t& offset3,
-    const int64_t& offset4, const int64_t& realM, const int64_t& realN, const int64_t& repeatTime, const int64_t& oneW)
+    const int64_t& offset4, const int64_t& realM, const int64_t& realN, const int64_t& cutW)
 {
     constexpr auto srcShapeSize = Std::tuple_size<typename U::Shape>::value;
     static_assert(srcShapeSize == SHAPE_DIM2, "L0C shape size should be 2 Dim");
@@ -429,7 +425,7 @@ TILEOP void TStoreConv(
     OffsetInfo offsetInfo = {offset0, offset1, offset2, offset3, offset4};
     if constexpr (mode == CopyOutMode::NZ2ND) {
     } else if constexpr (mode == CopyOutMode::NZ2DN) {
-        TStoreConvNZ2DN<isConv3D>(dst, src, offsetInfo, realM, realN, repeatTime, oneW);
+        TStoreConvNZ2DN<isConv3D>(dst, src, offsetInfo, realM, realN, cutW);
     } else if constexpr (mode == CopyOutMode::NZ2NZ) {
     }
     return;
@@ -472,11 +468,11 @@ INLINE void SetConvTileParams(
 
     if (repeatTime == 0) { // wout contiguous copyIn
         l1.SetRepeatTime(NUM1);
-        l1.SetRepeatStride(mL0);
+        l1.SetRepeatStride(mL0 / BLOCK_CUBE_M_N);
         l1.SetDstStride(mL0 / BLOCK_CUBE_M_N);
     } else {
         l1.SetRepeatTime(repeatTime);
-        l1.SetRepeatStride(repeatStride);
+        l1.SetRepeatStride(repeatStride / BLOCK_CUBE_M_N);
         l1.SetDstStride(dstStride / BLOCK_CUBE_M_N);
     }
 
