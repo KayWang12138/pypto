@@ -69,8 +69,6 @@ struct CalcOps {
     void (*Expm1)(const TensorData&, const TensorData&);
     void (*Sin)(const TensorData&, const TensorData&);
     void (*Cos)(const TensorData&, const TensorData&);
-    void (*Sinh)(const TensorData&, const TensorData&);
-    void (*Cosh)(const TensorData&, const TensorData&);
     void (*Neg)(const TensorData&, const TensorData&);
     void (*Rsqrt)(const TensorData&, const TensorData&);
     void (*Sign)(const TensorData&, const TensorData&);
@@ -103,7 +101,7 @@ struct CalcOps {
     void (*PReLU)(const TensorData&, const TensorData&, const TensorData&);
     void (*LogicalAnd)(const TensorData&, const TensorData&, const TensorData&);
 
-    void (*Uniform)(const TensorData &, const Element &, const Element &, const Element &, const Element &, DataType);
+    void (*Uniform)(const TensorData&, const Element&, const Element&, const Element&, const Element&, DataType);
 
     void (*AddS)(const TensorData&, const TensorData&, const Element&, bool);
     void (*SubS)(const TensorData&, const TensorData&, const Element&, bool);

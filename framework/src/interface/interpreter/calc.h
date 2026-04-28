@@ -84,8 +84,6 @@ inline void Cos(LogicalTensorDataPtr out, LogicalTensorDataPtr self) { GetCalcOp
 inline void Exp(LogicalTensorDataPtr out, LogicalTensorDataPtr self) { GetCalcOps()->Exp(Trans(out), Trans(self)); }
 inline void Exp2(LogicalTensorDataPtr out, LogicalTensorDataPtr self) { GetCalcOps()->Exp2(Trans(out), Trans(self)); }
 inline void Expm1(LogicalTensorDataPtr out, LogicalTensorDataPtr self) { GetCalcOps()->Expm1(Trans(out), Trans(self)); }
-inline void Sinh(LogicalTensorDataPtr out, LogicalTensorDataPtr self) { GetCalcOps()->Sinh(Trans(out), Trans(self)); }
-inline void Cosh(LogicalTensorDataPtr out, LogicalTensorDataPtr self) { GetCalcOps()->Cosh(Trans(out), Trans(self)); }
 inline void Neg(LogicalTensorDataPtr out, LogicalTensorDataPtr self) { GetCalcOps()->Neg(Trans(out), Trans(self)); }
 inline void Round(LogicalTensorDataPtr out, LogicalTensorDataPtr self, int decimals)
 {
@@ -158,8 +156,10 @@ inline void Range(LogicalTensorDataPtr out, const Element& start, const Element&
 {
     GetCalcOps()->Range(Trans(out), start, end, step);
 }
-inline void Uniform(LogicalTensorDataPtr out, const Element &key,
-                    const Element &counter0, const Element &counter1, const Element &rounds, DataType dtype = DT_FP32) {
+inline void Uniform(
+    LogicalTensorDataPtr out, const Element& key, const Element& counter0, const Element& counter1,
+    const Element& rounds, DataType dtype = DT_FP32)
+{
     GetCalcOps()->Uniform(Trans(out), key, counter0, counter1, rounds, dtype);
 }
 
@@ -571,7 +571,9 @@ inline void Sort(
 }
 
 // Quantize
-inline void Quantize(LogicalTensorDataPtr out, LogicalTensorDataPtr input, LogicalTensorDataPtr scale, LogicalTensorDataPtr zeroPoints) {
+inline void Quantize(
+    LogicalTensorDataPtr out, LogicalTensorDataPtr input, LogicalTensorDataPtr scale, LogicalTensorDataPtr zeroPoints)
+{
     TensorData scaleData = Trans(scale);
     if (zeroPoints == nullptr) {
         TensorData emptyZeroPoints = {nullptr, {}, {}, {}, 0, DataType::DT_FP32, false};
@@ -582,7 +584,9 @@ inline void Quantize(LogicalTensorDataPtr out, LogicalTensorDataPtr input, Logic
 }
 
 // Dequantize
-inline void Dequantize(LogicalTensorDataPtr out, LogicalTensorDataPtr input, LogicalTensorDataPtr scale, LogicalTensorDataPtr zeroPoints) {
+inline void Dequantize(
+    LogicalTensorDataPtr out, LogicalTensorDataPtr input, LogicalTensorDataPtr scale, LogicalTensorDataPtr zeroPoints)
+{
     TensorData scaleData = Trans(scale);
     if (zeroPoints == nullptr) {
         TensorData emptyZeroPoints = {nullptr, {}, {}, {}, 0, DataType::DT_FP32, false};

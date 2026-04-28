@@ -50,7 +50,7 @@ constexpr int FUNC_ID_BATCH = 0x7FF;
 const uint64_t SHARED_BUFFER_SIZE = 512;
 const uint64_t PMU_BUFFER_SIZE = 4096;
 const uint64_t DEVICE_QUEUE_SIZE = 512;
-const uint64_t PRINT_BUFFER_SIZE = 131072;  // 128KB
+const uint64_t PRINT_BUFFER_SIZE = 131072; // 128KB
 
 constexpr const int DEV_SHAPE_DIM_NUM_2 = 2;
 constexpr const int DEV_SHAPE_DIM_NUM_3 = 3;
@@ -182,7 +182,7 @@ struct DeviceArgs {
 const uint64_t AICORE_REG_SAY_HELLO = 0xF000000080000000;
 constexpr uint32_t REG_HIGH_DTASKID_SHIFT = 32;
 enum class TASK_POS : size_t { LOW_REG = 0, HIGH_REG = 1, ALL_REG = 2, REG_POS_BUTT = 3 };
-constexpr uint32_t MAX_SYNC_EVENT_NUM = 48; // the max set/wait insts in a mix subgraph leaffunction is 48, can set larger manually
+constexpr uint32_t MAX_SYNC_EVENT_NUM = 32; // There can be a maximum of 32 sets of sync in a mix subgraph
 
 struct TaskStat {
     int16_t seqNo;
@@ -190,10 +190,11 @@ struct TaskStat {
     int32_t taskId;
     int64_t execStart;
     int64_t execEnd;
+    int64_t waitStart; // 2.0 dfx 当前未使用
     int64_t setEventCycle[MAX_SYNC_EVENT_NUM];
     int64_t waitEventCycle[MAX_SYNC_EVENT_NUM];
-    int8_t waitEventIdx;
-    int8_t setEventIdx;
+    int waitEventIdx;
+    int setEventIdx;
 };
 
 struct DevDfxArgs {
@@ -246,7 +247,6 @@ inline const char* AicorePerfTraceName[] = {
     "WAIT_ALL_DEV_TASK_LEAF_TASK_EXEC_FINISH",
     "WAIT_EXIT_NOTIFY"};
 
-
 // use ring buffer to control parallel multi devtask
 struct ParallelDevTask {
     uint32_t front{0};
@@ -280,7 +280,7 @@ struct KernelArgs {
 union KernelSharedBuffer {
     struct KernelArgs args;
     uint8_t sharedBuffer[SHARED_BUFFER_SIZE];
-    KernelSharedBuffer() {};
+    KernelSharedBuffer(){};
 };
 
 static_assert(sizeof(KernelArgs) < SHARED_BUFFER_SIZE);

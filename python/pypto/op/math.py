@@ -649,7 +649,7 @@ def exp(input: Tensor, precision_type: ExpAlgorithm = ExpAlgorithm.INTRINSIC) ->
 
     Input x: [0.0    1.0    2.0]
     Output y:[1.0000 2.7183 7.3891]
-    
+
     # Using high precision mode for FP16
     x = pypto.tensor([3], pypto.DT_FP16)
     y = pypto.exp(x, pypto.ExpAlgorithm.HIGH_PRECISION)
@@ -785,70 +785,6 @@ def cos(self: Tensor) -> Tensor:
 
 
 @op_wrapper
-def sinh(input: Tensor) -> Tensor:
-    """Computes the element-wise hyperbolic sine of `input`.
-
-    This function calculates the formula: `out = (e ** input - e ** (-input)) / 2`.
-
-    Parameters
-    ----------
-    input : Tensor
-        The input tensor.
-
-    Returns
-    -------
-    Tensor
-        A new tensor containing the element-wise hyperbolic sine results.
-
-    See Also
-    -------
-    cosh : Element-wise hyperbolic cosine function
-
-    Examples
-    --------
-    x = pypto.tensor([3], pypto.DT_FP32)
-    y = pypto.sinh(x)
-
-    Input x: [0.0     1.0     2.0]
-    Output y:[0.0000  1.1752  3.6269]
-    """
-
-    return pypto_impl.Sinh(input)
-
-
-@op_wrapper
-def cosh(input: Tensor) -> Tensor:
-    """Computes the element-wise hyperbolic cosine of `input`.
-
-    This function calculates the formula: `out = (e ** input + e ** (-input)) / 2`.
-
-    Parameters
-    ----------
-    input : Tensor
-        The input tensor.
-
-    Returns
-    -------
-    Tensor
-        A new tensor containing the element-wise hyperbolic cosine results.
-
-    See Also
-    -------
-    sinh : Element-wise hyperbolic sine function
-
-    Examples
-    --------
-    x = pypto.tensor([3], pypto.DT_FP32)
-    y = pypto.cosh(x)
-
-    Input x: [0.0     1.0     2.0]
-    Output y:[1.0000  1.5431  3.7622]
-    """
-
-    return pypto_impl.Cosh(input)
-
-
-@op_wrapper
 def sign(a: Tensor) -> Tensor:
     """Computes the element-wise exponential of `input`.
 
@@ -954,7 +890,7 @@ def reciprocal(a: Tensor, precision_type: RecipAlgorithm = RecipAlgorithm.INTRIN
 
     Input x:  [-0.4595, -2.1219, -1.4314,  0.7298]
     Output y: [-2.1763, -0.4713, -0.6986,  1.3702]
-    
+
     # Using high precision mode
     x = pypto.tensor([4], pypto.DT_FP16)
     y = pypto.reciprocal(x, pypto.RecipAlgorithm.HIGH_PRECISION)
@@ -1264,7 +1200,7 @@ def sqrt(input: Tensor, precision_type: SqrtAlgorithm = SqrtAlgorithm.INTRINSIC)
 
     Input x:  [1.0 4.0 9.0 16.0 25.0]
     Output y: [1.0 2.0 3.0 4.0  5.0]
-    
+
     # Using high precision mode for FP16
     x = pypto.tensor([5], pypto.DT_FP16)
     y = pypto.sqrt(x, pypto.SqrtAlgorithm.HIGH_PRECISION)
@@ -1329,7 +1265,7 @@ def log(input: Tensor, precision_type: LogAlgorithm = LogAlgorithm.INTRINSIC) ->
 
     Input x: [1.0     2.0    3.0]
     Output y:[0.0000 0.6931 1.0986]
-    
+
     # Using high precision mode for FP16
     x = pypto.tensor([3], pypto.DT_FP16)
     y = pypto.log(x, pypto.LogAlgorithm.HIGH_PRECISION)
@@ -2104,10 +2040,10 @@ def uniform(
 ) -> Tensor:
     """
     Generates uniform random numbers using the Philox algorithm.
-    
+
     Philox is a counter-based random number generator that produces deterministic
     uniform random sequences based on a key and counter.
-    
+
     Parameters
     ----------
     key : int
@@ -2123,12 +2059,12 @@ def uniform(
     dtype : DataType, optional
         The data type of the output tensor. Supports DT_FP32, DT_FP16, DT_BF16.
         Default is DT_FP32.
-    
+
     Returns
     -------
     Tensor
         A tensor of uniform random numbers with the specified shape and dtype.
-    
+
     Examples
     --------
     key = 12345678901234
@@ -2145,19 +2081,19 @@ def uniform(
         raise PyptoError(0xF00002, ValueError(
             f"rounds must be 7 or 10, got {rounds}"
             ))
-    
+
     if dtype is None:
         dtype = pypto_impl.DataType.DT_FP32
-    
+
     valid_dtypes = [pypto_impl.DataType.DT_FP32, pypto_impl.DataType.DT_FP16, pypto_impl.DataType.DT_BF16]
     if dtype not in valid_dtypes:
         raise PyptoError(0xF00002, ValueError(
             f"dtype must be one of DT_FP32, DT_FP16, DT_BF16, got {dtype}"
             ))
-    
+
     if isinstance(counter0, int):
         counter0 = SymbolicScalar(counter0).base()
-    
+
     return pypto_impl.Uniform(
         pypto_impl.Element(pypto_impl.DataType.DT_UINT64, key),
         counter0,
