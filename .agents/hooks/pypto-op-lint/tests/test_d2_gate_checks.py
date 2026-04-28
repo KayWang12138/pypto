@@ -274,12 +274,12 @@ def test_ol44_skip_when_no_active_module(tmp_path: Path):
     assert finding.status == "SKIP"
 
 
-# ── OL48: plan.md 三节齐全 ──
+# ── OL48: MEMORY.md 三节齐全 ──
 
 def test_ol48_pass_when_plan_complete(tmp_path: Path):
     mod = load_lint_module()
     op_dir = build_stateless_op_dir(tmp_path, "demo")
-    plan = """# plan.md
+    plan = """# MEMORY.md
 ## Module decomposition
 M1, M2 ...
 ## Module contracts
@@ -287,7 +287,7 @@ input/output contracts
 ## Staged set table
 | k | files |
 """
-    write_file(op_dir / "plan.md", plan)
+    write_file(op_dir / "MEMORY.md", plan)
     finding = run_rule(mod, op_dir, "OL48", stage=5)
     assert finding.status == "PASS", finding.message
 
@@ -295,13 +295,13 @@ input/output contracts
 def test_ol48_fail_when_plan_missing_section(tmp_path: Path):
     mod = load_lint_module()
     op_dir = build_stateless_op_dir(tmp_path, "demo")
-    plan = """# plan.md
+    plan = """# MEMORY.md
 ## Module decomposition
 M1
 ## Module contracts
 contracts
 """
-    write_file(op_dir / "plan.md", plan)
+    write_file(op_dir / "MEMORY.md", plan)
     finding = run_rule(mod, op_dir, "OL48", stage=5)
     assert finding.status == "FAIL"
     assert "Staged set table" in finding.message

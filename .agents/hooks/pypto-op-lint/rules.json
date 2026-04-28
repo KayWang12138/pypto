@@ -531,7 +531,7 @@
         5
       ],
       "target": "gate",
-      "rule": "plan.md must contain three sections: 'Module decomposition', 'Module contracts', and 'Staged set table' (Stage 5 designer output)",
+      "rule": "MEMORY.md must contain three sections: 'Module decomposition', 'Module contracts', and 'Staged set table' (Stage 5 designer output)",
       "check_function": "check_ol48"
     },
     {

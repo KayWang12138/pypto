@@ -83,7 +83,7 @@ custom/{op}/
 ├── API_REPORT.md                           ← Stage 2
 ├── DESIGN.md                               ← Stage 4 architecture design
 ├── {op}_golden.py                          ← Stage 3 user-provided golden
-├── plan.md                                 ← Stage 5 designer + Stage 6 verifier/debugger 持续追加
+├── MEMORY.md                                 ← Stage 5 designer + Stage 6 verifier/debugger 持续追加
 ├── eval/
 │   ├── module_interfaces.yaml              ← Stage 5 designer 产出
 │   ├── {op}_golden_modular.py              ← Stage 6.0 verifier (Phase A.5) 产出
@@ -116,7 +116,7 @@ custom/{op}/
 | `API_REPORT.md` | Stage 2 | Stage 4 | API 映射表、约束清单、可行性判定、参考实现 |
 | `{op}_golden.py` | Stage 3 | Stage 4/5/6 | 导出函数签名、输入输出 shape、计算逻辑参考 |
 | `DESIGN.md` | Stage 4 | Stage 5 | API 选型、tiling 策略、loop 结构、特殊处理 |
-| `plan.md` | Stage 5 designer (创建) + Stage 4 analyst / Stage 6 coder/verifier/debugger / Stage 7 perf-tuner (各自 append-only) | Stage 5-7 全员 | 模块分解、模块契约、staged set 表、Stage 4 design notes、Per-module verification log、Development & debug log、Performance log |
+| `MEMORY.md` | Stage 5 designer (创建) + Stage 4 analyst / Stage 6 coder/verifier/debugger / Stage 7 perf-tuner (各自 append-only) | Stage 5-7 全员 | 模块分解、模块契约、staged set 表、Stage 4 design notes、Per-module verification log、Development & debug log、Performance log |
 | `eval/module_interfaces.yaml` | Stage 5 designer | Stage 6 verifier | 模块编号、输入/输出名、shape/dtype、source 接线、composition_verification 容差 |
 | `staged/{op}_module<k>_*.py` | Stage 6 coder | Stage 6 verifier/debugger | 第 k 个 staged set（impl + golden + test 三件套） |
 | `eval/{op}_golden_modular.py` | Stage 6.0 verifier (Phase A.5) | Stage 6 verifier (prefix-eval) | 按模块切分的纯 torch 参考实现 |
@@ -126,9 +126,9 @@ custom/{op}/
 | `README.md` | Stage 6.final verifier (Phase D) | 用户 | 算子说明 |
 | `.orchestrator_state.json` | Orchestrator | Orchestrator | 全局状态（含 `module_state`、`gate_status`、`current_subphase`、`last_failure`） |
 
-### plan.md section ownership
+### MEMORY.md section ownership
 
-`plan.md` 是 Stage 5-7 共享的滚动日志。**designer 创建**，其它 agent 各自只在自己的专属 section 内 **append-only** 追加，**不得修改**他人的 section。
+`MEMORY.md` 是 Stage 5-7 共享的滚动日志。**designer 创建**，其它 agent 各自只在自己的专属 section 内 **append-only** 追加，**不得修改**他人的 section。
 
 | Section | Owner | Stage | 写入策略 |
 |---------|-------|-------|---------|
@@ -137,16 +137,16 @@ custom/{op}/
 | `## Staged set table` | designer | 5 | 同上 |
 | `## Architecture/Design Rejection — <ts>` | verifier | 6.0 | YAML 拒绝时 verifier 追加；触发 fail_stage(6)→start_stage(5) |
 | `## Verification Rejection — <ts>` | verifier | 6.0 | composition verification 失败时 verifier 追加；触发 fail_stage(6)→start_stage(5) |
-| `## Stage 4 design notes — <ts>` | analyst | 4（重设计时） | 仅当 Stage 6 verifier 拒绝触发回退到 Stage 4 时 analyst 追加；首次 Stage 4 不写入（plan.md 尚未存在） |
+| `## Stage 4 design notes — <ts>` | analyst | 4（重设计时） | 仅当 Stage 6 verifier 拒绝触发回退到 Stage 4 时 analyst 追加；首次 Stage 4 不写入（MEMORY.md 尚未存在） |
 | `## Development & debug log` | coder + debugger | 6.k | coder 每次 dispatch 末尾追加 1 行 "M_k staged set produced"；debugger 每次 dispatch 追加 patch_proposal 块 |
 | `## Per-module verification log` | verifier | 6.k | verifier 每次 dispatch 追加 1 行 detailed_tensor_compare 结果（all_close、max diff、failing_module_boundary） |
 | `## Phase D — Canonical rename — <ts>` | verifier | 6.final | Phase D rename 完成后 verifier 追加 git mv 命令记录 |
 | `## Performance log` | perf-tuner | 7 | perf-tuner 首轮创建 section；每轮迭代追加 1 行（含 baseline、candidate、precision、adopted） |
 
 **硬性规则**：
-- Orchestrator 自身**不写** plan.md（除非把 Subagent 的 rejection 转写为 section 头作为 Lead 备忘——这种情况罕见，应由 verifier/debugger 自行写入）
+- Orchestrator 自身**不写** MEMORY.md（除非把 Subagent 的 rejection 转写为 section 头作为 Lead 备忘——这种情况罕见，应由 verifier/debugger 自行写入）
 - Subagent 一律 **append-only**，禁止 in-place 编辑他人的 section
-- 删除 plan.md 等同于丢失 audit trail；任何 fail_stage 路径都不得清空 plan.md
+- 删除 MEMORY.md 等同于丢失 audit trail；任何 fail_stage 路径都不得清空 MEMORY.md
 
 ### 三文件分离
 
@@ -160,7 +160,7 @@ custom/{op}/
 
 | 分类 | 工件 | 策略 |
 |------|------|------|
-| 用户工件 | `SPEC.md`、`DESIGN.md`、`plan.md` | 优先版本化，不直接丢弃历史 |
+| 用户工件 | `SPEC.md`、`DESIGN.md`、`MEMORY.md` | 优先版本化，不直接丢弃历史 |
 | 单一真源 | `eval/module_interfaces.yaml` | 由 designer 创建，不得手改；YAML 变更必须重启 Stage 5 |
 | Staged 累积工件 | `staged/{op}_module<k>_*.py` | 通过 GATE 3 后冻结，禁止后续 stage 编辑 |
 | 评估工件 | `eval/{op}_golden_modular.py`、`adversarial_*.py`、`test_inputs.py` | 通过 composition verification 后冻结；YAML 重生时由 verifier 重生 |
@@ -192,12 +192,12 @@ custom/{op}/
 - `custom/{op}/{op}_golden.py`
 
 **输出工件**：
-- `custom/{op}/plan.md`（必须含三节：Module decomposition / Module contracts / Staged set table）
+- `custom/{op}/MEMORY.md`（必须含三节：Module decomposition / Module contracts / Staged set table）
 - `custom/{op}/eval/module_interfaces.yaml`
 - `custom/{op}/staged/`（空目录，可选 stub M_1 三文件）
 
 **门禁（GATE 2 designer 部分）**：
-- `plan.md` 三节齐全
+- `MEMORY.md` 三节齐全
 - `module_interfaces.yaml` 通过 wiring rules（`source: primary` 解析、无前向引用、shape/dtype consumer/producer 一致、无 no-op 模块）
 - `eval/` 与 `staged/` 目录存在
 
@@ -205,7 +205,7 @@ custom/{op}/
 
 **重试上限**：3 次。超限置 `BLOCKED_DESIGN_DECOMP`。
 
-**门禁失败处理**：参见「门禁失败处理流程」。若 Stage 6.0 中 verifier 拒绝 YAML，必须回到 Stage 5 重新调度 designer（在 prompt 中传入 `last_failure_summary`，并把 `Verification Rejection` 节追加到 `plan.md`）。
+**门禁失败处理**：参见「门禁失败处理流程」。若 Stage 6.0 中 verifier 拒绝 YAML，必须回到 Stage 5 重新调度 designer（在 prompt 中传入 `last_failure_summary`，并把 `Verification Rejection` 节追加到 `MEMORY.md`）。
 
 ### Stage 6 — 代码实现 + 验证三者循环
 
@@ -273,7 +273,7 @@ verifier 返回的 verdict 决定 Stage 6 内分支。`failure_category` 取自�
 | 2 | `SPEC.md` | `API_REPORT.md` 含 API 映射表、约束清单、可行性判定 | — | API 不可行 | 重试 Stage 2 |
 | 3 | `SPEC.md` | `{op}_golden.py` 可运行且导出函数签名与 spec 一致；`allclose` 通过 | GATE 1 | 运行失败 / 签名不匹配 | 重试 Stage 3 |
 | 4 | `SPEC.md` + `API_REPORT.md` + `{op}_golden.py` | `DESIGN.md` 含计算图、Tiling、验证方案 | — | — | 重试 Stage 4 |
-| 5 | `DESIGN.md` + `{op}_golden.py` | `plan.md` 三节齐全 + `module_interfaces.yaml` 通过 wiring rules + `eval/`/`staged/` 目录存在 | GATE 2 (designer portion) | YAML 拒绝、wiring 违规、章节缺失 | 重试 Stage 5 |
+| 5 | `DESIGN.md` + `{op}_golden.py` | `MEMORY.md` 三节齐全 + `module_interfaces.yaml` 通过 wiring rules + `eval/`/`staged/` 目录存在 | GATE 2 (designer portion) | YAML 拒绝、wiring 违规、章节缺失 | 重试 Stage 5 |
 | 6.0 | Stage 5 产物 | `<op>_golden_modular.py` 通过 composition verification + `adversarial_runner.py --self-test` 通过 | GATE 2 (full) | composition fail、self-test fail、YAML 拒绝（回到 Stage 5） | Stage 6.0 内重试 |
 | 6.k (k=1..N) | `module_interfaces.yaml` + previous staged sets | `validate_kernel_structure` 通过 + per-module test `[PRECISION_PASS]` + prefix-eval `status: "PASS"` (`L1/L2/L3`) + layout check exit 0 | GATE 3 | precision / aicore / host_crash / workspace_overlap / oom / tile_shape / layout / structure / other | 见「Stage 6 dispatch model」 |
 | 6.final | 所有模块通过 GATE 3 + `eval/adversarial_runner.py` | E2E `all_close: true` + adversarial 全 level（L1-L5）PASS + Phase D rename 成功 | GATE 4 | E2E precision fail / regression / rename fail | 回到 GATE 4 失败模块（Phase 6.k） |
@@ -305,7 +305,7 @@ state_transition(record_gate, gate=2, gate_status=in_progress, subphase=scaffold
 dispatch @pypto-op-verifier(phase_a5_required=true, phase_b_required=true)
 
 if verifier returns "rejected_yaml":
-    回到 Stage 5（fail_stage(6) → start_stage(5)，将 rejection 信息追加到 plan.md）
+    回到 Stage 5（fail_stage(6) → start_stage(5)，将 rejection 信息追加到 MEMORY.md）
 elif verifier returns "fail_other":
     重新调度 verifier（计入 Stage 6 全局 dispatch budget）
 else:
@@ -377,7 +377,7 @@ if k < N:
 - coder 一次调度 = 一个 staged set，coder 不会推进到 `M_{k+1}`
 - verdict 是唯一的 PASS/FAIL 信号，Orchestrator 禁止自行判定
 - verifier 失败必须以 debugger 调度结尾，禁止 verifier 失败后直接重新调度 coder
-- debugger 写 patch_proposal 到 `plan.md` 的 Development & debug log；coder 在下一次 dispatch 中按 patch 执行
+- debugger 写 patch_proposal 到 `MEMORY.md` 的 Development & debug log；coder 在下一次 dispatch 中按 patch 执行
 - 每模块 attempt 上限 3 次（一次 attempt = 一次 coder→verifier 来回，可附 debugger 前缀）
 
 #### Phase 6.final（GATE 4 + Phase D）
@@ -606,7 +606,7 @@ record_gate(3, in_progress, subphase=coding) → [coder]
 |----------|----------|----------|
 | 工件缺失（Stage 1-5） | 必需工件文件不存在 | 回退到产出该工件的 Stage |
 | 工件内容不完整 | 工件存在但缺少必要章节或字段 | 在原 Stage 内重试，传入缺失项信息 |
-| Stage 5 designer 输出违规 | YAML wiring 失败 / `plan.md` 章节缺失 | Stage 5 内重试 designer，超限置 `BLOCKED_DESIGN_DECOMP` |
+| Stage 5 designer 输出违规 | YAML wiring 失败 / `MEMORY.md` 章节缺失 | Stage 5 内重试 designer，超限置 `BLOCKED_DESIGN_DECOMP` |
 | Stage 6.0 verifier scaffolding 失败 | composition verification fail | Stage 6.0 内重试 verifier；若是 YAML 拒绝则回 Stage 5 |
 | Stage 6 模块中断 | `current_stage=6` + `module_state.active_module=k` | 从 `module_state.active_module` 对应模块继续；按 `current_subphase` 决定下一调度（coding 调 coder / verifying 调 verifier / debugging 调 debugger） |
 | Stage 6 模块内失败 | verifier verdict = FAIL | 按 dispatch model 调 debugger → coder → verifier；attempt 累计上限 3 次 |
@@ -635,7 +635,7 @@ record_gate(3, in_progress, subphase=coding) → [coder]
 - spec: custom/{op}/SPEC.md
 - api_report: custom/{op}/API_REPORT.md
 - design: custom/{op}/DESIGN.md
-- plan: custom/{op}/plan.md
+- plan: custom/{op}/MEMORY.md
 - module_interfaces: custom/{op}/eval/module_interfaces.yaml
 - golden: custom/{op}/{op}_golden.py
 - kernel: custom/{op}/{op}_impl.py
@@ -725,7 +725,7 @@ record_gate(3, in_progress, subphase=coding) → [coder]
 | `active_module` | 当前模块 index `k` |
 | `mode` | `first_attempt` / `patch_apply` |
 | `staged_dir` | `custom/<op>/staged/` |
-| `patch_proposal?` | `mode=patch_apply` 时必填，指向 `plan.md` 中 debugger 写下的 patch entry |
+| `patch_proposal?` | `mode=patch_apply` 时必填，指向 `MEMORY.md` 中 debugger 写下的 patch entry |
 | `attempt_index` | 当前模块的 attempt 序号 |
 
 ### `@pypto-op-debugger`（Stage 6.k）

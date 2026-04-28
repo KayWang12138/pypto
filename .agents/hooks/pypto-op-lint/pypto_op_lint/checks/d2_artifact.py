@@ -240,9 +240,9 @@ def check_ol44(ctx: CheckContext) -> Finding:
 
 @register("OL48")
 def check_ol48(ctx: CheckContext) -> Finding:
-    """Stage 5 designer output: plan.md must contain three sections —
+    """Stage 5 designer output: MEMORY.md must contain three sections —
     'Module decomposition', 'Module contracts', 'Staged set table'."""
-    plan_file = "plan.md"
+    plan_file = "MEMORY.md"
     if not ctx.file_exists(plan_file):
         return ctx.make_finding("OL48", "FAIL", f"{plan_file} 不存在")
     content = ctx.read_file(plan_file)

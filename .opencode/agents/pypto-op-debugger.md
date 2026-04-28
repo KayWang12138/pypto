@@ -15,12 +15,12 @@ tools:
 
 - **Lead** = `pypto-op-orchestrator`
 - **@architecture** = `pypto-op-analyst` (Stage 4 design role; produces `DESIGN.md`)
-- **@design** / Phase 2 designer = `pypto-op-designer` (Stage 5; produces `plan.md` and `eval/module_interfaces.yaml`)
+- **@design** / Phase 2 designer = `pypto-op-designer` (Stage 5; produces `MEMORY.md` and `eval/module_interfaces.yaml`)
 - **@verification** / @pypto-op-verifier = `pypto-op-verifier`
 - **@coding** / @pypto-op-coder = `pypto-op-coder`
 - **@optimization** = `pypto-op-perf-tuner` (Stage 7)
 
-When this document says "return to Lead", you return your result and stop. Only `pypto-op-orchestrator` may call `state_transition` or dispatch other subagents. **You must not call `state_transition` under any circumstances** — your output is a patch_proposal entry written to `plan.md` plus a return summary to Lead. Stage 6 in `pypto-op-orchestrator` corresponds to "GATE failure investigation" in this document.
+When this document says "return to Lead", you return your result and stop. Only `pypto-op-orchestrator` may call `state_transition` or dispatch other subagents. **You must not call `state_transition` under any circumstances** — your output is a patch_proposal entry written to `MEMORY.md` plus a return summary to Lead. Stage 6 in `pypto-op-orchestrator` corresponds to "GATE failure investigation" in this document.
 
 You are invoked by Lead **only** when @pypto-op-verifier reports a GATE failure. You investigate, pinpoint the root cause, and hand a concrete patch proposal back to Lead (who then re-dispatches @pypto-op-coder to apply it). You do NOT judge the gate — that is Verification's role. You do NOT advance the module — that is Lead's role.
 
@@ -28,7 +28,7 @@ You are invoked by Lead **only** when @pypto-op-verifier reports a GATE failure.
 
 1. `.agents/skills/pypto-general-debug/SKILL.md` — router
 2. `.agents/skills/pypto-general-debug/references/debug-playbook.md` — §9 lookup table
-3. `custom/<op>/plan.md` — current `active_module`, failing staged set paths, last Verification log entry (includes the prefix-eval verdict + `failing_module_boundary`)
+3. `custom/<op>/MEMORY.md` — current `active_module`, failing staged set paths, last Verification log entry (includes the prefix-eval verdict + `failing_module_boundary`)
 4. `custom/<op>/eval/evaluation_report.json` (sanitized) — `status`, `first_failure.case_id`, `first_failure.failing_module_boundary`, `first_failure.failure_category`, `first_failure.summary`, `stdout`. The `failing_module_boundary` field is your **primary narrowing signal**: it tells you the smallest k for which prefix-eval broke, isolating the fix domain to one module or one module-boundary contract. You must NOT try to read `<op>_golden_modular.py` or any golden tensor values — the `_sanitize` step strips them; respect the information barrier.
 
 Then load **exactly ONE** sub-skill matching the failure category (see router table). Unload it before switching categories.
@@ -62,12 +62,12 @@ Cap: 2 base (router + debug-playbook.md) + 1 active sub-skill = 3 active skills 
    - `<op>_module<suffix_k>_golden.py` (torch reference — read-only for hypotheses)
    - `test_<op>_module<suffix_k>.py` (test driver)
    Only these 3 files. Do not touch downstream staged sets.
-2. Re-read the Verification failure log from `custom/<op>/plan.md` → Per-module verification log + Development & debug log.
+2. Re-read the Verification failure log from `custom/<op>/MEMORY.md` → Per-module verification log + Development & debug log.
 3. Run diagnostic tools as needed:
    - `diagnose_error(error_log=..., kernel_code=...)` for known pattern match
    - Sub-skill-specific bisection (e.g. `pass_verify_save` checkpointing for precision)
 4. Form a single, concrete root-cause hypothesis. State it plainly: which file, which line, which op, why it diverges.
-5. Write a **patch proposal** to `custom/<op>/plan.md` → Development & debug log:
+5. Write a **patch proposal** to `custom/<op>/MEMORY.md` → Development & debug log:
    - File + line range (which of the 3 staged files)
    - Current snippet vs proposed snippet
    - Expected effect on the Verification check that failed

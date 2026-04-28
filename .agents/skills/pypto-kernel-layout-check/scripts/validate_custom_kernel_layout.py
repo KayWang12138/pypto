@@ -7,7 +7,7 @@ Runs without NPU. Intended for CI and pre-commit.
 Folder convention (multi-file staged set):
 
     custom/<op>/
-    ├── plan.md                                  ← required from Phase 0 onward
+    ├── MEMORY.md                                  ← required from Phase 0 onward
     ├── SPEC.md, DESIGN.md
     ├── staged/                                  ← active during Phase 3
     │   ├── <op>_module1_impl.py, _golden.py, test_<op>_module1.py
@@ -19,7 +19,7 @@ Folder convention (multi-file staged set):
 When custom/<op>/ contains kernel work (any of: test_<op>.py, <op>_impl.py, or
 staged/*_impl.py), checks:
 
-  - custom/<op>/plan.md exists
+  - custom/<op>/MEMORY.md exists
   - The active runner exists and references detailed_tensor_compare:
       after Phase D: test_<op>.py
       during Phase 3: any staged/test_<op>_module*.py
@@ -574,8 +574,8 @@ def validate_operator(repo_root: Path, op: str) -> list[str]:
     errors: list[str] = []
     custom_op = repo_root / "custom" / op
 
-    # plan.md now lives inside the operator folder.
-    plan_md = custom_op / "plan.md"
+    # MEMORY.md now lives inside the operator folder.
+    plan_md = custom_op / "MEMORY.md"
     if not plan_md.is_file():
         errors.append(f"Missing plan file: {plan_md.relative_to(repo_root)}")
 
@@ -609,7 +609,7 @@ def discover_operators(custom_dir: Path) -> list[str]:
     Discover operator folders under custom/.
 
     Excludes the legacy "plan" folder name in case it still exists from older trees
-    (new convention puts plan.md inside each custom/<op>/).
+    (new convention puts MEMORY.md inside each custom/<op>/).
     """
     if not custom_dir.is_dir():
         return []

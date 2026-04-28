@@ -1,23 +1,23 @@
 ---
 name: pypto-op-memory
-description: Template for the operator-specific plan file (custom/<op>/plan.md). Defines required sections, machine-readable fields, and update cadence for the staged-set workflow.
+description: Template for the operator-specific plan file (custom/<op>/MEMORY.md). Defines required sections, machine-readable fields, and update cadence for the staged-set workflow.
 ---
 
 # PyPTO Complex Kernel — Plan Template
 
-This skill contains the plan template that agents copy to `custom/<op>/plan.md` at the start of each kernel implementation. The plan lives **inside** the operator folder, not in a separate `custom/plan/` directory.
+This skill contains the plan template that agents copy to `custom/<op>/MEMORY.md` at the start of each kernel implementation. The plan lives **inside** the operator folder, not in a separate `custom/plan/` directory.
 
 ## Contents
 
 | File | Purpose |
 |------|---------|
-| **`templates/memory.md`** | The actual template — copy to `custom/<op>/plan.md` and fill in |
+| **`templates/memory.md`** | The actual template — copy to `custom/<op>/MEMORY.md` and fill in |
 
 ---
 
 ## When to use
 
-- **Phase 0:** Copy `templates/memory.md` to `custom/<op>/plan.md` as the first action
+- **Phase 0:** Copy `templates/memory.md` to `custom/<op>/MEMORY.md` as the first action
 - **Every turn:** Update `active_module`, `modules_pypto_verified`, `current_staged_set`, `next_mandatory_step`
 - **Phase 1:** Fill in Golden function inventory
 - **Phase 2:** Fill in Module decomposition, Module contracts, Staged set table

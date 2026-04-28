@@ -41,7 +41,7 @@ For every operator, the working folder is `custom/<op>/` and lives self-containe
 custom/<op>/
 ├── SPEC.md                                 ← from Phase 0 (read-only here)
 ├── DESIGN.md                               ← from Phase 1 / Architecture (read-only here)
-├── plan.md                                 ← YOU maintain (Phase 2 sections + later logs)
+├── MEMORY.md                                 ← YOU maintain (Phase 2 sections + later logs)
 ├── eval/
 │   ├── module_interfaces.yaml              ← YOU produce (single source of truth)
 │   └── (later: <op>_golden_modular.py, adversarial_runner.py — produced by @pypto-op-verifier)
@@ -59,9 +59,9 @@ The `staged/` directory is preserved after delivery so reviewers can trace the i
 
 ## Deliverables
 
-### In `custom/<op>/plan.md`
+### In `custom/<op>/MEMORY.md`
 
-You **create** plan.md and own these three sections. Other agents will append their own dedicated sections later (see "Sections owned by other agents" below); you must not pre-fill or stub those sections.
+You **create** MEMORY.md and own these three sections. Other agents will append their own dedicated sections later (see "Sections owned by other agents" below); you must not pre-fill or stub those sections.
 
 | Section | Content |
 |---------|---------|
@@ -129,4 +129,4 @@ Optionally seed the M_1 row of the staged set table with stub files containing o
 
 ## Exit criterion (GATE 2 — Design's portion)
 
-All three plan sections present + `custom/<op>/eval/module_interfaces.yaml` exists and passes the wiring rules above + `custom/<op>/staged/` exists. Hand back to Lead. Lead then dispatches @pypto-op-verifier in scaffolding mode (build `<op>_golden_modular.py` + `adversarial_runner.py` and run composition verification + `--self-test`); only when that sub-pass succeeds does GATE 2 fully close. If @pypto-op-verifier rejects the YAML, a `## Verification Rejection — <ts>` note is appended to `custom/<op>/plan.md` and you are re-invoked to revise it.
+All three plan sections present + `custom/<op>/eval/module_interfaces.yaml` exists and passes the wiring rules above + `custom/<op>/staged/` exists. Hand back to Lead. Lead then dispatches @pypto-op-verifier in scaffolding mode (build `<op>_golden_modular.py` + `adversarial_runner.py` and run composition verification + `--self-test`); only when that sub-pass succeeds does GATE 2 fully close. If @pypto-op-verifier rejects the YAML, a `## Verification Rejection — <ts>` note is appended to `custom/<op>/MEMORY.md` and you are re-invoked to revise it.

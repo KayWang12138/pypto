@@ -14,7 +14,7 @@
 
 1. **Capture the full message** — stderr, Python traceback, and any **`pypto-log*.log`** / device log lines. Search for `Errcode`, `ErrCode`, `F` + digits, `aicore`.
 2. **Route the error code** — read `docs/trouble_shooting/README.md` and open the component doc for that prefix (e.g. FUNCTION / `docs/trouble_shooting/function.md` for many `F2xxxx`-style codes). For **`F21004`** / **`REGISTER_COPY`** / invalid vector tile, see **§4** below first.
-3. **Append to `custom/<op>/plan.md` → Development & debug log** — what failed, command, hypothesis, next step. No empty "stopped" endings.
+3. **Append to `custom/<op>/MEMORY.md` → Development & debug log** — what failed, command, hypothesis, next step. No empty "stopped" endings.
 
 ---
 

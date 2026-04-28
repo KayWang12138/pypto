@@ -15,7 +15,7 @@ tools:
 
 - **Lead** = `pypto-op-orchestrator`
 - **@architecture** = `pypto-op-analyst` (Stage 4 design role; produces `DESIGN.md`)
-- **@design** / Phase 2 designer = `pypto-op-designer` (Stage 5; produces `plan.md` and `eval/module_interfaces.yaml`)
+- **@design** / Phase 2 designer = `pypto-op-designer` (Stage 5; produces `MEMORY.md` and `eval/module_interfaces.yaml`)
 - **@verification** = `pypto-op-verifier`
 - **@debug** = `pypto-op-debugger`
 - **@optimization** = `pypto-op-perf-tuner` (Stage 7)
@@ -26,7 +26,7 @@ You own **Phase 3 implementation**. **One staged set per dispatch.** You do NOT 
 
 ## Single-set invariant (strict)
 
-Each time Lead dispatches you in Phase 3, you produce **exactly one staged set** (3 files) for the currently active module `active_module: M_k` recorded in `custom/<op>/plan.md`.
+Each time Lead dispatches you in Phase 3, you produce **exactly one staged set** (3 files) for the currently active module `active_module: M_k` recorded in `custom/<op>/MEMORY.md`.
 
 A **staged set** is the triple of files for module index suffix `<suffix_k>`:
 
@@ -87,7 +87,7 @@ The 3 files in a staged set carry distinct layer responsibilities. Keep them sep
 
 ## Per-dispatch workflow (do this once, then return)
 
-1. Read `active_module: M_k` and the module contract from `custom/<op>/plan.md`. If `active_module` is unset or already in `modules_pypto_verified`, reject the dispatch and ask Lead to clarify.
+1. Read `active_module: M_k` and the module contract from `custom/<op>/MEMORY.md`. If `active_module` is unset or already in `modules_pypto_verified`, reject the dispatch and ask Lead to clarify.
 2. Read the previous staged set (M_{k-1}) from `custom/<op>/staged/` to understand the cumulative scope being extended.
 3. Generate the 3 files of the new staged set under `custom/<op>/staged/`:
    - `<op>_module<suffix_k>_golden.py` — extends the previous golden with M_k's reference math
@@ -95,7 +95,7 @@ The 3 files in a staged set carry distinct layer responsibilities. Keep them sep
    - `test_<op>_module<suffix_k>.py` — imports both, compares all outputs of the cumulative scope
 4. Run local validation: `validate_kernel_structure(source_code=...)` on the new `*_impl.py`.
 5. Consult DEBUG §9 subsections before writing JIT code / `pypto.view` / `pypto.matmul` / reductions.
-6. Append a Development log line to `custom/<op>/plan.md` stating "M_k staged set produced (3 files in staged/); awaiting GATE 3".
+6. Append a Development log line to `custom/<op>/MEMORY.md` stating "M_k staged set produced (3 files in staged/); awaiting GATE 3".
 7. **Return control to Lead.** Do NOT advance to M_{k+1}. Do NOT run end-to-end tests. Do NOT attempt to debug if local validation flagged something — hand off to Verification Agent with the failing file paths and full log.
 
 ## Tooling used directly
@@ -108,5 +108,5 @@ The 3 files in a staged set carry distinct layer responsibilities. Keep them sep
 - Never touch any staged set in `modules_pypto_verified` (frozen).
 - Never edit the canonical top-level `<op>_impl.py` / `<op>_golden.py` / `test_<op>.py` directly — those are produced by rename from the final M_N staged set after GATE 4.
 - Never comment out PyPTO lines to "bisect" inside a fused `@jit` — that is Verification's job via the debug router.
-- Every iteration logged to `custom/<op>/plan.md` → Development & debug log.
+- Every iteration logged to `custom/<op>/MEMORY.md` → Development & debug log.
 - If you catch yourself opening a `pypto-general-debug/*` skill: STOP. That is Verification's role. Hand off.

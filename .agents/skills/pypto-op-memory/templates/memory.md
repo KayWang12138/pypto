@@ -1,6 +1,6 @@
 # Plan: `<op>`
 
-Copy to: `custom/<op>/plan.md` and keep **machine-readable** fields current every turn.
+Copy to: `custom/<op>/MEMORY.md` and keep **machine-readable** fields current every turn.
 
 **Agent:** This plan is the operator's coordination file. Do **not** skip sub-skill obligations (staged sets, all-output compare, plan logs). **Code layout:** complex kernels follow the multi-file template under `.agents/skills/pypto-op-develop/templates/complex-kernel-template/` (impl + test) plus the layer rules in `.agents/skills/pypto-op-develop/references/kernel-layer-format.md`. Document exceptions here. After `custom/` changes, run `bash .agents/skills/pypto-kernel-layout-check/scripts/run_validate_layout.sh`.
 

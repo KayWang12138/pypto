@@ -27,12 +27,12 @@ description: Validation runner requirements, detailed_tensor_compare usage, succ
 
 ### Module boundaries (Phase 3)
 
-Intermediate module-boundary checks must use the same bundled `detailed_tensor_compare`. Record each run in `custom/<op>/plan.md` → Per-module verification log (see `skills/pypto-op-memory/templates/memory.md`).
+Intermediate module-boundary checks must use the same bundled `detailed_tensor_compare`. Record each run in `custom/<op>/MEMORY.md` → Per-module verification log (see `skills/pypto-op-memory/templates/memory.md`).
 
 ### `pytest`
 
 - **Forbidden** as the default mechanism for golden vs PyPTO end-to-end comparison.
-- **Allowed** only for small, optional extras if documented in `custom/<op>/plan.md`.
+- **Allowed** only for small, optional extras if documented in `custom/<op>/MEMORY.md`.
 
 ## User-Facing Runner Requirement
 
@@ -61,7 +61,7 @@ PYTHONPATH=.agents/skills/pypto-op-validate/scripts python custom/<op>/staged/te
 The task is complete only when all of the following are true:
 - the normalized golden matches the original golden within tolerance,
 - every module matches its expected golden outputs,
-- `custom/<op>/plan.md` documents module decomposition (rationale), the staged set table, and an up-to-date per-module verification log with `detailed_tensor_compare` evidence,
+- `custom/<op>/MEMORY.md` documents module decomposition (rationale), the staged set table, and an up-to-date per-module verification log with `detailed_tensor_compare` evidence,
 - staged sets (3 files each) exist for each milestone under `custom/<op>/staged/`, and the final M_N set has been renamed to canonical top-level `<op>_impl.py` / `<op>_golden.py` / `test_<op>.py`,
 - progressive integration preserves correctness at each boundary,
 - the final production design is either one integrated `@pypto.frontend.jit` kernel or a clearly documented staged fallback,
@@ -73,7 +73,7 @@ The task is complete only when all of the following are true:
 
 The agent must produce all of the following:
 
-1. **`custom/<op>/plan.md`** — including Module decomposition, Staged set table, and Per-module verification log; boundary checks must use `detailed_tensor_compare`.
+1. **`custom/<op>/MEMORY.md`** — including Module decomposition, Staged set table, and Per-module verification log; boundary checks must use `detailed_tensor_compare`.
 2. **Staged sets** — under `custom/<op>/staged/`, each set is 3 files (`<op>_module<k>_impl.py` + `_golden.py` + `test_*.py`); each stage passes before the next exists. After GATE 4, the final M_N set is renamed to canonical top-level `<op>_impl.py` / `<op>_golden.py` / `test_<op>.py`.
 3. **Normalized golden reference** — consistent with the final kernel (lives in the staged `*_golden.py` files and, after Phase D, in `custom/<op>/<op>_golden.py`).
 4. **Validation runner script** — `custom/<op>/test_<op>.py` (after Phase D) or per-staged-set `custom/<op>/staged/test_<op>_module<k>.py` (during Phase 3). Must compare all outputs via `detailed_tensor_compare`. Do not use `pytest` as the default.

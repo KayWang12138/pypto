@@ -15,7 +15,7 @@ tools:
 
 - **Lead** = `pypto-op-orchestrator`
 - **@architecture** = `pypto-op-analyst` (Stage 4 design role; produces `DESIGN.md`)
-- **@design** / Phase 2 designer = `pypto-op-designer` (Stage 5; produces `plan.md` and `eval/module_interfaces.yaml`)
+- **@design** / Phase 2 designer = `pypto-op-designer` (Stage 5; produces `MEMORY.md` and `eval/module_interfaces.yaml`)
 - **@coding** / @pypto-op-coder = `pypto-op-coder`
 - **@debug** / @pypto-op-debugger = `pypto-op-debugger`
 - **@optimization** = `pypto-op-perf-tuner` (Stage 7)
@@ -57,7 +57,7 @@ For every operator with a decomposition, the working folder is self-contained un
 ```
 custom/<op>/
 ├── SPEC.md, DESIGN.md                    ← from earlier phases (read-only)
-├── plan.md                               ← @pypto-op-designer owns; you append evidence rows only
+├── MEMORY.md                               ← @pypto-op-designer owns; you append evidence rows only
 ├── staged/                               ← @pypto-op-coder's staged sets (subject of verification)
 │   ├── <op>_module1_impl.py, <op>_module1_golden.py, test_<op>_module1.py
 │   ├── <op>_module12_impl.py, <op>_module12_golden.py, test_<op>_module12.py
@@ -73,11 +73,11 @@ custom/<op>/
    ← YOU rename from the final M_N staged set; staged/ remains for traceability
 ```
 
-You only write inside `custom/<op>/eval/` (during phases A.5 and B) and inside `custom/<op>/` itself (renaming the final staged set after GATE 4). You never edit any file under `custom/<op>/staged/` — those are @pypto-op-coder's. You never edit `plan.md` other than appending evidence rows.
+You only write inside `custom/<op>/eval/` (during phases A.5 and B) and inside `custom/<op>/` itself (renaming the final staged set after GATE 4). You never edit any file under `custom/<op>/staged/` — those are @pypto-op-coder's. You never edit `MEMORY.md` other than appending evidence rows.
 
 ## Gate runner
 
-For every gate (0–4), produce evidence recorded in `custom/<op>/plan.md`:
+For every gate (0–4), produce evidence recorded in `custom/<op>/MEMORY.md`:
 - GATE 0: API map clean
 - GATE 1: golden `allclose` pass, zero `.T`, shape comments
 - GATE 2: module decomposition / contracts / staged set table present **+ modular golden exists and composition-verification passes (Phase A.5, see below)**
@@ -99,7 +99,7 @@ Parse `custom/<op>/eval/module_interfaces.yaml`. Reject (stop and report to Lead
 5. Shape expressions parse (only `+`, `-`, `*`, `//`, and symbolic names from `primary_inputs`).
 6. Dtype strings are from the allowed vocabulary: `float32`, `float16`, `bfloat16`, `int32`, `int64`, `bool`, `int`.
 
-On rejection, append a `## Architecture/Design Rejection — <timestamp>` block to `custom/<op>/plan.md` with the specific wiring/shape/dtype problem and stop.
+On rejection, append a `## Architecture/Design Rejection — <timestamp>` block to `custom/<op>/MEMORY.md` with the specific wiring/shape/dtype problem and stop.
 
 ### Step A.5.2 — Emit `custom/<op>/eval/<op>_golden_modular.py`
 
@@ -127,7 +127,7 @@ For each `(seed, shape)` pair in `composition_verification`:
 3. For each `(candidate_k, truth_k)` pair, `torch.allclose(candidate_k, truth_k, atol, rtol)` must hold.
 
 Both sides are pure torch (no PyPTO), so this runs in the normal Python env. If verification fails:
-- Append `## Verification Rejection — <timestamp>` to `custom/<op>/plan.md` explaining which `(seed, shape, tensor)` failed and what the mismatch suggests about module boundaries.
+- Append `## Verification Rejection — <timestamp>` to `custom/<op>/MEMORY.md` explaining which `(seed, shape, tensor)` failed and what the mismatch suggests about module boundaries.
 - Stop. Lead re-dispatches @architecture / @pypto-op-designer to fix the YAML, then re-invokes you.
 
 On pass, freeze the file (add `# verified vs <op>_golden on <seeds>/<shapes>; do not edit` below the header) and proceed to Phase B.
@@ -222,7 +222,7 @@ You are the single blocker between module `M_k` and module `M_{k+1}`. Lead dispa
 3. **Prefix evaluation (mandatory)**: run `python custom/<op>/eval/adversarial_runner.py --impl custom/<op>/staged/<op>_module<suffix_k>_impl.py --up-to-module k --levels L1,L2,L3`. Read back `eval/evaluation_report.json` — `status: "PASS"` required. `failing_module_boundary` narrows the fix domain if it fails.
 4. Run `python custom/<op>/staged/test_<op>_module<suffix_k>.py` and check it emits `[PRECISION_PASS]` for every case
 5. `bash .agents/skills/pypto-kernel-layout-check/scripts/run_validate_layout.sh` — exit 0 (covers staged files under `custom/<op>/staged/`)
-6. Append row to **Per-module verification log** in `custom/<op>/plan.md` with `detailed_tensor_compare` dict fields (`all_close`, max abs diff, max rel diff, offending output tensor name) and the prefix-eval `status` + `first_failure.failing_module_boundary`.
+6. Append row to **Per-module verification log** in `custom/<op>/MEMORY.md` with `detailed_tensor_compare` dict fields (`all_close`, max abs diff, max rel diff, offending output tensor name) and the prefix-eval `status` + `first_failure.failing_module_boundary`.
 
 ## Verdict format (always one of these two)
 
@@ -283,14 +283,14 @@ Generate `custom/<op>/README.md` per `pypto-op-develop` template (中文 algorit
 
 The earlier `staged/<op>_module1_*`, `staged/<op>_module12_*`, … files **remain in place** — they are the trace of incremental construction and reviewers may inspect them. Do NOT delete `staged/`.
 
-Append a `## Phase D — Canonical rename (<timestamp>)` block to `custom/<op>/plan.md` recording the exact `git mv` commands and final file paths.
+Append a `## Phase D — Canonical rename (<timestamp>)` block to `custom/<op>/MEMORY.md` recording the exact `git mv` commands and final file paths.
 
 **GATE 4 final criterion:** `<op>_impl.py`, `<op>_golden.py`, `test_<op>.py`, `README.md` all exist at `custom/<op>/`; `staged/` retained; `python custom/<op>/test_<op>.py` produces `[PRECISION_PASS]` end-to-end.
 
 ## Hard rules
 
 - **Never** open a `pypto-general-debug/*` skill. That is @pypto-op-debugger's role.
-- **Never** edit kernel code or `module_interfaces.yaml`. Judge-only (the only writes you do: produce eval/ artifacts, append plan.md rows, and the canonical rename in Phase D).
+- **Never** edit kernel code or `module_interfaces.yaml`. Judge-only (the only writes you do: produce eval/ artifacts, append MEMORY.md rows, and the canonical rename in Phase D).
 - **Never** retry the check yourself after a fail — return verdict and wait for Lead to dispatch @pypto-op-debugger → @pypto-op-coder → then re-invoke you.
 - **Never** approve `M_{k+1}` while your last verdict on `M_k` is fail or pending.
 - **Never** leak golden tensor values or golden source into any report — the `_sanitize` step is mandatory; do not disable `_FORBIDDEN_REPORT_KEYS`.

@@ -310,7 +310,7 @@ If the symptom didn't match §2–§10:
 4. **Identify the first invariant violated**; propose the minimum change that restores it.
 5. **Re-derive §3** (divisibility, ordering) after any change.
 6. **Re-check §5 / §6 / §9** — changes can cascade.
-7. **Write the proposal** to the plan file `custom/<op>/plan.md` under
+7. **Write the proposal** to the plan file `custom/<op>/MEMORY.md` under
    `## tile-shape patch proposal`. Do NOT modify any staged `*_impl.py` yourself; the Coding Agent
    applies it per `.opencode/agents/pypto-op-coder.md`.
 
@@ -318,7 +318,7 @@ If the symptom didn't match §2–§10:
 
 ## 12. Output format — patch proposal
 
-Write the proposal to `custom/<op>/plan.md`:
+Write the proposal to `custom/<op>/MEMORY.md`:
 
 ```markdown
 ## tile-shape patch proposal (cycle N)
@@ -362,7 +362,7 @@ error message and update your math accordingly.
 This skill produces **patch proposals**, not commits. The Debug Agent:
 
 - MUST NOT open or modify any staged set under `custom/<op>/staged/` or the canonical `custom/<op>/<op>_impl.py`.
-- MUST write the proposal to `custom/<op>/plan.md`.
+- MUST write the proposal to `custom/<op>/MEMORY.md`.
 - MUST cap at 3 cycles per `.opencode/agents/pypto-op-debugger.md`; if still failing, escalate to Lead.
 
 The Coding Agent applies the patch, then Verification Agent re-judges.

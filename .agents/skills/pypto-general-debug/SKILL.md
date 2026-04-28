@@ -83,7 +83,7 @@ Disabling arbitrary `pypto` lines inside one fused `@jit` usually invalidates th
 
 ### Step 4 — Plan file log (handoff-safe)
 
-Append to `custom/<op>/plan.md`:
+Append to `custom/<op>/MEMORY.md`:
 - Path to `extract_pypto_calls.py` output (or paste the table),
 - First doc mismatch or first diverging checkpoint index,
 - Hypothesis and patch; re-run validation.
@@ -161,5 +161,5 @@ active-skill count ≤ 4.
 - Do **not** pre-load sub-skills speculatively.
 - If no row matches, stay in this SKILL.md + `references/debug-playbook.md`. Do not escalate.
 - The Debug Agent's contract (`.opencode/agents/pypto-op-debugger.md`) takes precedence over any sub-skill guidance on conflict.
-- Log the dispatch decision to `custom/<op>/plan.md` under **Development &
+- Log the dispatch decision to `custom/<op>/MEMORY.md` under **Development &
   debug log** (which row matched, which sub-skill was loaded, outcome).

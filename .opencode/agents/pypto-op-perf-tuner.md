@@ -107,13 +107,13 @@ skills:
 - 是否采纳
 - 若回滚，给出回滚原因
 
-### plan.md 追加（每轮迭代必须）
+### MEMORY.md 追加（每轮迭代必须）
 
-`plan.md` 由 Stage 5 designer 创建、由 Stage 6 verifier/debugger/coder 持续追加。Stage 7 进入时 plan.md 必然存在。
+`MEMORY.md` 由 Stage 5 designer 创建、由 Stage 6 verifier/debugger/coder 持续追加。Stage 7 进入时 MEMORY.md 必然存在。
 
-每完成一轮迭代（无论采纳或回滚），你必须以 **append-only** 方式向 plan.md 追加一行到 `## Performance log` section：
+每完成一轮迭代（无论采纳或回滚），你必须以 **append-only** 方式向 MEMORY.md 追加一行到 `## Performance log` section：
 
-- 若 plan.md 中尚无 `## Performance log` section，则**首次迭代时**创建该 section（这是 perf-tuner 的专属 section，其他 agent 不会创建）
+- 若 MEMORY.md 中尚无 `## Performance log` section，则**首次迭代时**创建该 section（这是 perf-tuner 的专属 section，其他 agent 不会创建）
 - 之后的迭代只在该 section 下追加新行
 
 格式示例：
@@ -129,9 +129,9 @@ skills:
 
 要求：
 - 每一行对应一次本 agent 的迭代调用，不得合并多轮
-- `note` 列不超过 1 行；详细分析放在返回摘要中，不写入 plan.md（避免 plan.md 膨胀）
+- `note` 列不超过 1 行；详细分析放在返回摘要中，不写入 MEMORY.md（避免 MEMORY.md 膨胀）
 - 精度退化等回滚必须如实记录 `precision: fail` 或 `adopted: no (rollback)`
-- **绝对禁止**修改 plan.md 已有 section（Module decomposition / Module contracts / Staged set table / Stage 4 design notes / Per-module verification log / Development & debug log / Phase D — Canonical rename 等）
+- **绝对禁止**修改 MEMORY.md 已有 section（Module decomposition / Module contracts / Staged set table / Stage 4 design notes / Per-module verification log / Development & debug log / Phase D — Canonical rename 等）
 
 返回摘要时须包含 `plan_md_perf_log_row_appended: true` 字段。
 
@@ -143,7 +143,7 @@ skills:
 2. 每轮调优后必须执行精度验证。
 3. 不得保留精度失败或性能下降的版本。
 4. 不得定义 Stage 7 之外的中止条件；全流程结束判定由 Orchestrator 负责。
-5. plan.md 只能 append-only 维护 `## Performance log` section（首轮可创建该 section，后续只追加行）；不得编辑 designer / analyst / coder / verifier / debugger 所属的 section。
+5. MEMORY.md 只能 append-only 维护 `## Performance log` section（首轮可创建该 section，后续只追加行）；不得编辑 designer / analyst / coder / verifier / debugger 所属的 section。
 
 ## 输出格式要求
 

@@ -18,7 +18,7 @@ custom/<op>/
 ├── README.md
 ├── SPEC.md
 ├── DESIGN.md
-├── plan.md
+├── MEMORY.md
 └── staged/                 ← 开发期 staged set（完成后保留）
     ├── <op>_module1_impl.py
     ├── <op>_module1_golden.py

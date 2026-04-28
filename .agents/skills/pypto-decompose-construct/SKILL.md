@@ -11,7 +11,7 @@ Goal: split the kernel into semantically meaningful, verifiable blocks.
 
 ### Write decomposition into the plan (mandatory)
 
-As soon as the module split is known, write Module decomposition in `custom/<op>/plan.md`: named modules, boundary tensors, and rationale. See `skills/pypto-op-memory/templates/memory.md` for log format.
+As soon as the module split is known, write Module decomposition in `custom/<op>/MEMORY.md`: named modules, boundary tensors, and rationale. See `skills/pypto-op-memory/templates/memory.md` for log format.
 
 ### Rule: split by meaning, not by equal complexity
 
@@ -147,11 +147,11 @@ Every module must be verifiable before the next module begins.
 
 Validation is provided by the staged set itself: `test_<op>_module<suffix_k>.py` imports both `<op>_module<suffix_k>_golden` and `pypto_function` from `<op>_module<suffix_k>_impl`, then runs `detailed_tensor_compare` at every output boundary.
 
-Use `detailed_tensor_compare` (bundled in `skills/pypto-op-validate/scripts/detailed_tensor_compare.py`) at module boundaries. After each boundary run, append a row to the Per-module verification log in `custom/<op>/plan.md`.
+Use `detailed_tensor_compare` (bundled in `skills/pypto-op-validate/scripts/detailed_tensor_compare.py`) at module boundaries. After each boundary run, append a row to the Per-module verification log in `custom/<op>/MEMORY.md`.
 
 ### Step 2b. Cross-check Golden function inventory (mandatory before running)
 
-Before executing the staged set's test for the first time, open `custom/<op>/plan.md` → Golden function inventory and cross-check every operation in this module's scope:
+Before executing the staged set's test for the first time, open `custom/<op>/MEMORY.md` → Golden function inventory and cross-check every operation in this module's scope:
 
 - For each golden operation belonging to the current module, mark ✅ with the PyPTO call and line number (in `<op>_module<suffix_k>_impl.py`), or ❌ if not yet implemented.
 - **If any ❌ remains, do not run the test.** Implement the missing operation first.

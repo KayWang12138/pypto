@@ -39,7 +39,7 @@ python3 .agents/skills/pypto-kernel-layout-check/scripts/validate_custom_kernel_
 
 | Check | Failure means |
 |-------|---------------|
-| `custom/<op>/plan.md` exists | Missing plan file |
+| `custom/<op>/MEMORY.md` exists | Missing plan file |
 | `custom/<op>/test_<op>.py` (after Phase D) or `custom/<op>/staged/test_<op>_module<k>.py` (during Phase 3) exists and imports `detailed_tensor_compare` | Missing or incomplete runner |
 | Staged sets use cumulative suffixes (`1`, `12`, `123`, …) and the 3-file naming (`*_impl.py`, `*_golden.py`, `test_*`) | Wrong naming convention |
 | No `for ... in range(...)` in `pypto_function` / kernel functions | Use `pypto.loop` instead (`skills/pypto-op-develop/references/kernel-layer-format.md` §7.1) |
