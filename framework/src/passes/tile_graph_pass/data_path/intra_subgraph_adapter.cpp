@@ -18,6 +18,7 @@
 #include "intra_subgraph_adapter.h"
 #include "passes/pass_log/pass_log.h"
 #include "passes/pass_check/intra_subgraph_adapter_checker.h"
+#include "passes/pass_utils/infer_shape_utils.h"
 
 #define MODULE_NAME "IntraSubgraphAdapter"
 
@@ -111,6 +112,12 @@ Status IntraSubgraphAdapter::RunOnFunction(Function& function)
                     Elements::Tensor, "Process boundary tensors failed; Please check ProcessBoundaryTensors method.");
                 return FAILED;
             }
+        }
+    }
+    if (!newOps.empty()) {
+        if (InferShapeUtils::InferShape(function, newOps) != SUCCESS) {
+            APASS_LOG_ERROR_F(Elements::Function, "InferShape failed; Please check the InferShape method.");
+            return FAILED;
         }
     }
     return SUCCESS;
@@ -382,6 +389,7 @@ LogicalTensorPtr IntraSubgraphAdapter::InsertOpBetween(
 
     std::vector<int64_t> offset(tensor->GetShape().size(), 0);
     Operation* newOp = &function.AddRawOperation(opcode, {newTensor}, {tensor});
+    newOps.push_back(newOp);
     if (opcode == Opcode::OP_ASSEMBLE) {
         newOp->SetOpAttribute(std::make_shared<AssembleOpAttribute>(
             newTensor->GetMemoryTypeOriginal(), offset, tensor->GetDynOffset(), tensor->GetDynValidShape()));
@@ -437,6 +445,7 @@ LogicalTensorPtr IntraSubgraphAdapter::InsertOpBetween(
 
     std::vector<int64_t> offset(tensor->GetShape().size(), 0);
     Operation* newOp = &function.AddRawOperation(opcode, {tensor}, {newTensor});
+    newOps.push_back(newOp);
     if (opcode == Opcode::OP_ASSEMBLE) {
         newOp->SetOpAttribute(std::make_shared<AssembleOpAttribute>(
             newTensor->GetMemoryTypeOriginal(), offset, tensor->GetDynOffset(), tensor->GetDynValidShape()));
