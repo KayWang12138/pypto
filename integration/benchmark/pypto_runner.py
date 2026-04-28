@@ -369,12 +369,30 @@ def _state_all_stages_completed(state: Optional[dict]) -> bool:
     return all(str(stage_status.get(k)).lower() == "completed" for k in _REQUIRED_ORCHESTRATOR_STAGES)
 
 
+def _state_incomplete_without_failure(state: Optional[dict]) -> bool:
+    return not _state_has_failed_stage(state) and not _state_all_stages_completed(state)
+
+
 def _blocked_message(state: Optional[dict]) -> str:
     if _state_has_failed_stage(state):
         return "PyPTO workflow 状态机存在 failed/blocked/cancelled 阶段."
     if not isinstance(state, dict):
         return "PyPTO workflow 缺少合法 .orchestrator_state.json, 不进入 verifier."
     return "PyPTO workflow 状态机未达到全阶段 completed, 不进入 verifier."
+
+
+def _attempt_log_file(log_file: Optional[Path], attempt_index: int) -> Optional[Path]:
+    if log_file is None or attempt_index <= 1:
+        return log_file
+    return log_file.with_name(f"{log_file.stem}.attempt{attempt_index}{log_file.suffix}")
+
+
+def _incomplete_retry_reason(timed_out: bool, returncode: Optional[int]) -> str:
+    if timed_out:
+        return "OpenCode 硬超时且 PyPTO 状态机未完成"
+    if returncode == 0:
+        return "OpenCode 正常退出但 PyPTO 状态机未完成"
+    return f"OpenCode 异常退出 code={returncode} 且 PyPTO 状态机未完成"
 
 
 # ────────────────────────────────────────────────────────────
@@ -460,6 +478,8 @@ def run_pypto_workflow(
     case_forward_source: str = "# (未提取到 forward 源码)",
     skip_stage7_perf_tune: bool = False,
     stop_event: Optional[threading.Event] = None,
+    incomplete_workflow_retry: int = 1,
+    _attempt_index: int = 1,
 ) -> PyptoRunResult:
     """跑一次 pypto 7 阶段工作流.
 
@@ -495,11 +515,15 @@ def run_pypto_workflow(
         case_init_source: 传给 prompt 的 ``Model.__init__`` 源码摘要.
         case_forward_source: 传给 prompt 的 ``Model.forward/__call__`` 源码摘要.
         skip_stage7_perf_tune: 是否要求 orchestrator 跳过 Stage 7 迭代性能调优.
+        incomplete_workflow_retry: 若状态机未完成且无失败阶段,
+            自动重跑 PyPTO workflow 的次数.
 
     Returns:
         ``PyptoRunResult``.
     """
     pypto_repo_root = pypto_repo_root.resolve()
+    base_log_file = log_file
+    log_file = _attempt_log_file(log_file, _attempt_index)
     op_dir = pypto_repo_root / workdir_root / op_name
     op_dir_rel = f"{workdir_root}/{op_name}"
     artifacts = expected_artifact_paths(op_name, op_dir, need_kernelbench=need_kernelbench)
@@ -696,6 +720,39 @@ def run_pypto_workflow(
     state = _read_orchestrator_state(op_dir)
     missing = all_artifacts_present(artifacts)
 
+    workflow_incomplete = _state_incomplete_without_failure(state)
+    if workflow_incomplete and _attempt_index <= max(0, incomplete_workflow_retry):
+        retry_reason = _incomplete_retry_reason(timed_out, proc.returncode)
+        retry_result = run_pypto_workflow(
+            op_name=op_name,
+            pypto_repo_root=pypto_repo_root,
+            workdir_root=workdir_root,
+            opencode_bin=opencode_bin,
+            opencode_model=opencode_model,
+            agent=agent,
+            timeout_sec=timeout_sec,
+            device_id=device_id,
+            log_file=base_log_file,
+            output_format=output_format,
+            extra_env=extra_env,
+            skip_if_done=skip_if_done,
+            need_kernelbench=need_kernelbench,
+            task_desc_rel=task_desc_rel,
+            case_init_args_repr=case_init_args_repr,
+            case_init_source=case_init_source,
+            case_forward_source=case_forward_source,
+            skip_stage7_perf_tune=skip_stage7_perf_tune,
+            stop_event=stop_event,
+            incomplete_workflow_retry=incomplete_workflow_retry,
+            _attempt_index=_attempt_index + 1,
+        )
+        retry_result.duration_sec += duration
+        retry_result.message = (
+            f"第{_attempt_index}次 {retry_reason}, 已自动重试; "
+            f"{retry_result.message}"
+        )
+        return retry_result
+
     if timed_out:
         return PyptoRunResult(
             op_name=op_name,
@@ -807,6 +864,8 @@ def _main_cli() -> int:
     parser.add_argument("--log-file", type=Path, default=None)
     parser.add_argument("--no-skip", action="store_true",
                         help="即使产物齐全也强制重跑")
+    parser.add_argument("--incomplete-workflow-retry", type=int, default=1,
+                        help="PyPTO 状态机未完成且无失败阶段时自动重试次数")
     args = parser.parse_args()
 
     result = run_pypto_workflow(
@@ -819,6 +878,7 @@ def _main_cli() -> int:
         log_file=args.log_file,
         skip_if_done=not args.no_skip,
         skip_stage7_perf_tune=args.skip_stage7_perf_tune,
+        incomplete_workflow_retry=args.incomplete_workflow_retry,
     )
     sys.stdout.write(json.dumps(result.to_dict(), indent=2, ensure_ascii=False) + "\n")
     return 0 if result.ok else 1

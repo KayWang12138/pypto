@@ -13,8 +13,10 @@
 from __future__ import annotations
 
 from integration.benchmark.pypto_runner import (
+    _attempt_log_file,
     _state_all_stages_completed,
     _state_has_failed_stage,
+    _state_incomplete_without_failure,
     render_prompt,
 )
 
@@ -26,6 +28,19 @@ def test_state_stage_completion_helpers() -> None:
     assert _state_all_stages_completed(
         {"stage_status": {str(i): "completed" for i in range(1, 8)}}
     )
+    assert _state_incomplete_without_failure(
+        {"stage_status": {"1": "completed", "2": "in_progress"}}
+    )
+    assert not _state_incomplete_without_failure(
+        {"stage_status": {"1": "completed", "2": "failed"}}
+    )
+    assert _state_incomplete_without_failure(None)
+
+
+def test_attempt_log_file_suffix(tmp_path) -> None:
+    log_file = tmp_path / "pypto_run.log"
+    assert _attempt_log_file(log_file, 1) == log_file
+    assert _attempt_log_file(log_file, 2) == tmp_path / "pypto_run.attempt2.log"
 
 
 def test_modelnew_prompt_requires_nn_module_and_to() -> None:
@@ -50,4 +65,8 @@ def test_modelnew_prompt_requires_nn_module_and_to() -> None:
 
 if __name__ == "__main__":
     test_state_stage_completion_helpers()
+    import tempfile
+    from pathlib import Path
+    with tempfile.TemporaryDirectory() as tmp:
+        test_attempt_log_file_suffix(Path(tmp))
     test_modelnew_prompt_requires_nn_module_and_to()
