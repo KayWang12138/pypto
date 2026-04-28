@@ -317,6 +317,9 @@ public:
 #if ARM_PMU_DIRECT_ENABLE
         ARM_PMU_DIRECT_SCOPE("ExecDyn");
 #endif
+#if AICPU_PMU_EVENT_ENABLE
+        AICPU_PMU_SCOPE("ExecDyn");
+#endif
         auto devProg = PtrToPtr<int64_t, DevAscendProgram>(args->cfgdata);
         auto devStartArgs = (DevStartArgs*)devProg->GetRuntimeDataList()->GetRuntimeDataPending();
 
