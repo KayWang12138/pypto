@@ -642,6 +642,72 @@ TEST_F(ScheduleOoOTest, TestSpillAssemble)
     EXPECT_EQ(res, SUCCESS);
 }
 
+TEST_F(ScheduleOoOTest, TestSpillL0CReuseCopyOut)
+{
+    // L0C1 三消费者(UB/L1/CopyOut)，强排 alloc2 在消费者前 + 缩 L0C 到 64KB 触发 spill 复用 CopyOut。
+    ComputationalGraphBuilder subGraph;
+    std::vector<std::string> tensorNames{"L0A", "L0B", "L0C1", "L0C2", "UBDst", "L1Dst", "DDROut"};
+    std::vector<MemoryType> tensorMemTypes{
+        MemoryType::MEM_L0A, MemoryType::MEM_L0B, MemoryType::MEM_L0C, MemoryType::MEM_L0C,
+        MemoryType::MEM_UB,  MemoryType::MEM_L1,  MemoryType::MEM_DEVICE_DDR};
+    std::vector<Opcode> opCodes{
+        Opcode::OP_L0A_ALLOC, Opcode::OP_L0B_ALLOC,
+        Opcode::OP_L0C_ALLOC, Opcode::OP_A_MUL_B,
+        Opcode::OP_UB_ALLOC,  Opcode::OP_L0C_COPY_UB,
+        Opcode::OP_L1_ALLOC,  Opcode::OP_L0C_TO_L1,
+        Opcode::OP_L0C_COPY_OUT,
+        Opcode::OP_L0C_ALLOC, Opcode::OP_A_MUL_B};
+    std::vector<std::vector<std::string>> ioperands{
+        {}, {}, {}, {"L0A", "L0B"}, {}, {"L0C1"}, {}, {"L0C1"}, {"L0C1"}, {}, {"L0A", "L0B"}};
+    std::vector<std::vector<std::string>> ooperands{
+        {"L0A"}, {"L0B"}, {"L0C1"}, {"L0C1"}, {"UBDst"}, {"UBDst"},
+        {"L1Dst"}, {"L1Dst"}, {"DDROut"}, {"L0C2"}, {"L0C2"}};
+    std::vector<std::string> opNames{
+        "L0AAlloc", "L0BAlloc", "L0CAlloc1", "Matmul1", "UBAlloc", "L0CCopyUB",
+        "L1Alloc", "L0CToL1", "L0CCopyOut", "L0CAlloc2", "Matmul2"};
+    subGraph.AddTensors(DataType::DT_FP32, {128, 128}, tensorMemTypes, tensorNames, 0);
+    subGraph.AddOps(opCodes, ioperands, ooperands, opNames, true);
+    Function* function = subGraph.GetFunction();
+
+    auto shapeImme = OpImmediate::Specified(std::vector<int64_t>{128, 128});
+    auto* copyOutOp = subGraph.GetOp("L0CCopyOut");
+    copyOutOp->SetOpAttribute(std::make_shared<CopyOpAttribute>(
+        MemoryType::MEM_L0C, OpImmediate::Specified(std::vector<int64_t>{0, 0}), shapeImme, shapeImme));
+
+    OptimizeSort sort(function->Operations().DuplicatedOpList(), *function);
+    EXPECT_EQ(sort.SortOps(), SUCCESS);
+    OoOScheduler ooOScheduler(*function);
+    EXPECT_EQ(ooOScheduler.Init(sort.operations), SUCCESS);
+
+    ooOScheduler.bufferManagerMap[CoreLocationType::AIC][MemoryType::MEM_L0C] =
+        BufferPool(MemoryType::MEM_L0C, 64 * 1024);
+    ooOScheduler.orderedOps = {
+        subGraph.GetOp("L0AAlloc"),  subGraph.GetOp("L0BAlloc"),
+        subGraph.GetOp("L0CAlloc1"), subGraph.GetOp("Matmul1"),
+        subGraph.GetOp("L0CAlloc2"), subGraph.GetOp("Matmul2"),
+        subGraph.GetOp("UBAlloc"),   subGraph.GetOp("L0CCopyUB"),
+        subGraph.GetOp("L1Alloc"),   subGraph.GetOp("L0CToL1"),
+        copyOutOp};
+    for (size_t i = 0; i < ooOScheduler.orderedOps.size(); i++) {
+        ooOScheduler.opExecOrderMap[ooOScheduler.orderedOps[i]] = static_cast<int>(i);
+    }
+
+    EXPECT_EQ(ooOScheduler.GenSpillSchedule(), SUCCESS);
+
+    int copyOutCnt = 0, copyInCnt = 0, copyUBCnt = 0, toL1Cnt = 0;
+    for (auto* op : ooOScheduler.orderedOps) {
+        auto opc = op->GetOpcode();
+        copyOutCnt += (opc == Opcode::OP_L0C_COPY_OUT);
+        copyInCnt  += (opc == Opcode::OP_COPY_IN);
+        copyUBCnt  += (opc == Opcode::OP_L0C_COPY_UB);
+        toL1Cnt    += (opc == Opcode::OP_L0C_TO_L1);
+    }
+    EXPECT_EQ(copyOutCnt, 1);
+    EXPECT_EQ(copyInCnt, 2);
+    EXPECT_EQ(copyUBCnt, 0);
+    EXPECT_EQ(toL1Cnt, 0);
+}
+
 TEST_F(ScheduleOoOTest, TestSchedule) {
     ComputationalGraphBuilder subGraph;
     std::vector<std::string> tensorNames{"t1", "t2", "t3", "t4", "t5", "t6", "t7", "t8", "t9"};
