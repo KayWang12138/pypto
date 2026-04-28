@@ -50,6 +50,10 @@ const std::string LoadStoreConvOpAttributeKey::copyOutMode = "COPY_OUT_MODE";
 const std::string LoadStoreConvOpAttributeKey::isFmap = "IS_FMAP";
 const std::string LoadStoreConvOpAttributeKey::isConv3D = "IS_CONV3D";
 
+bool IsA2A3Platform()
+{
+    return Platform::Instance().GetSoc().GetNPUArch() == NPUArch::DAV_2201;
+}
 std::vector<int64_t> rotateVector(const std::vector<int64_t>& input, size_t shift)
 {
     std::vector<int64_t> result = input;
@@ -718,7 +722,6 @@ void SetCopyInAL1Op(
 {
     copyInOpAl1.SetAttribute(LoadStoreConvOpAttributeKey::isFmap, true);
     copyInOpAl1.SetAttribute(LoadStoreConvOpAttributeKey::isConv3D, convAttrParam.isConv3D);
-    copyInOpAl1.SetAttribute(LoadStoreConvOpAttributeKey::copyInMode, static_cast<int64_t>(CopyInMode::COPY_MOD_DN2NZ));
     copyInOpAl1.SetAttribute("src_d_stride", convAttrParam.isConv3D ? convAttrParam.dilations[2] : 1);
     int64_t src_n_offset = iterInfo.batchOffset;
     int64_t src_c_offset = iterInfo.groupOffset * (convTileInfo.orgCin / convAttrParam.groups) + srcCinOffset;
@@ -728,12 +731,34 @@ void SetCopyInAL1Op(
             0;
     int64_t src_h_offset = iterInfo.hL1InOffset > 0 ? iterInfo.hL1InOffset : 0;
     int64_t src_w_offset = iterInfo.wL1InOffset > 0 ? iterInfo.wL1InOffset : 0;
-    std::vector<int64_t> srcFmapGmOffset = {src_n_offset, src_c_offset, src_h_offset, src_w_offset};
-    if (convAttrParam.isConv3D) {
-        srcFmapGmOffset = {src_n_offset, src_c_offset, src_d_offset, src_h_offset, src_w_offset};
+
+    std::vector<int64_t> srcGmOffset;
+    std::vector<int64_t> srcGmShape;
+    if (IsA2A3Platform()) {
+        copyInOpAl1.SetAttribute(
+            LoadStoreConvOpAttributeKey::copyInMode, static_cast<int64_t>(CopyInMode::COPY_MOD_NZ2NZ));
+        int64_t cin1Offset = src_c_offset / convTileInfo.cin0;
+        if (convAttrParam.isConv3D) {
+            srcGmOffset = {src_n_offset, src_d_offset, cin1Offset, src_h_offset, src_w_offset, 0};
+            srcGmShape = {1, iterInfo.dkAL1Size, CeilDiv(srcGmValidShape[1], convTileInfo.cin0), iterInfo.hinL1Size,
+                       iterInfo.winL1Size, convTileInfo.cin0};
+        } else {
+            srcGmOffset = {src_n_offset, cin1Offset, src_h_offset, src_w_offset, 0};
+            srcGmShape = {1, CeilDiv(srcGmValidShape[1], convTileInfo.cin0), iterInfo.hinL1Size, iterInfo.winL1Size,
+                       convTileInfo.cin0};
+        }
+    } else {
+        copyInOpAl1.SetAttribute(
+            LoadStoreConvOpAttributeKey::copyInMode, static_cast<int64_t>(CopyInMode::COPY_MOD_DN2NZ));
+        srcGmOffset = {src_n_offset, src_c_offset, src_h_offset, src_w_offset};
+        if (convAttrParam.isConv3D) {
+            srcGmOffset = {src_n_offset, src_c_offset, src_d_offset, src_h_offset, src_w_offset};
+        }
+        srcGmShape = srcGmValidShape;
     }
+
     auto copyAttr = std::make_shared<CopyOpAttribute>(
-        OpImmediate::Specified(srcFmapGmOffset), MemoryType::MEM_L1, OpImmediate::Specified(srcGmValidShape),
+        OpImmediate::Specified(srcGmOffset), MemoryType::MEM_L1, OpImmediate::Specified(srcGmShape),
         OpImmediate::Specified(dstAL1Shape), OpImmediate::Specified(dstAL1Shape));
     copyInOpAl1.SetOpAttribute(copyAttr);
     copyInOpAl1.SetAttribute("l1_tile_shape", SymbolicScalar::FromConcrete(dstAL1Shape));
@@ -806,7 +831,6 @@ void SetCopyInBL1Op(
 {
     copyInOpBl1.SetAttribute(LoadStoreConvOpAttributeKey::isFmap, false);
     copyInOpBl1.SetAttribute(LoadStoreConvOpAttributeKey::isConv3D, convAttrParam.isConv3D);
-    copyInOpBl1.SetAttribute(LoadStoreConvOpAttributeKey::copyInMode, static_cast<int64_t>(CopyInMode::COPY_MOD_DN2NZ));
     int64_t src_n_offset = iterInfo.groupOffset * convTileInfo.coutPerGroup + iterInfo.nL1Offset;
     int64_t src_c_offset = srcCinOffset;
     int64_t src_d_offset = 0;
@@ -818,12 +842,36 @@ void SetCopyInBL1Op(
     }
     int64_t src_h_offset = 0;
     int64_t src_w_offset = 0;
-    std::vector<int64_t> srcWeightGmOffset = {src_n_offset, src_c_offset, src_h_offset, src_w_offset};
-    if (convAttrParam.isConv3D) {
-        srcWeightGmOffset = {src_n_offset, src_c_offset, src_d_offset, src_h_offset, src_w_offset};
+
+    std::vector<int64_t> srcGmOffset;
+    std::vector<int64_t> srcGmShape;
+    if (IsA2A3Platform()) {
+        copyInOpBl1.SetAttribute(
+            LoadStoreConvOpAttributeKey::copyInMode, static_cast<int64_t>(CopyInMode::COPY_MOD_NZ2NZ));
+        int64_t cout1Offset = src_n_offset / MKN_N_VALUE;
+        int64_t cin1Offset = src_c_offset / convTileInfo.cin0;
+        if (convAttrParam.isConv3D) {
+            int64_t kOffset = cin1Offset * convTileInfo.orgKd * convTileInfo.orgKh * convTileInfo.orgKw;
+            srcGmOffset = {kOffset, cout1Offset, 0, 0};
+            srcGmShape = {iterInfo.kBL1Size / convTileInfo.cin0, CeilDiv(iterInfo.nL1Size, MKN_N_VALUE), MKN_N_VALUE,
+                       convTileInfo.cin0};
+        } else {
+            int64_t c1hwOffset = cin1Offset * convTileInfo.orgKh * convTileInfo.orgKw;
+            srcGmOffset = {c1hwOffset, cout1Offset, 0, 0};
+            srcGmShape = {CeilDiv(srcGmValidShape[1], convTileInfo.cin0) * convTileInfo.orgKh * convTileInfo.orgKw,
+                       CeilDiv(iterInfo.nL1Size, MKN_N_VALUE), MKN_N_VALUE, convTileInfo.cin0};
+        }
+    } else {
+        copyInOpBl1.SetAttribute(
+            LoadStoreConvOpAttributeKey::copyInMode, static_cast<int64_t>(CopyInMode::COPY_MOD_DN2NZ));
+        srcGmOffset = {src_n_offset, src_c_offset, src_h_offset, src_w_offset};
+        if (convAttrParam.isConv3D) {
+            srcGmOffset = {src_n_offset, src_c_offset, src_d_offset, src_h_offset, src_w_offset};
+        }
+        srcGmShape = srcGmValidShape;
     }
     auto copyAttr = std::make_shared<CopyOpAttribute>(
-        OpImmediate::Specified(srcWeightGmOffset), MemoryType::MEM_L1, OpImmediate::Specified(srcGmValidShape),
+        OpImmediate::Specified(srcGmOffset), MemoryType::MEM_L1, OpImmediate::Specified(srcGmShape),
         OpImmediate::Specified(dstBL1Shape), OpImmediate::Specified(dstBL1Shape));
     copyInOpBl1.SetOpAttribute(copyAttr);
     copyInOpBl1.SetAttribute("l1_tile_shape", SymbolicScalar::FromConcrete(dstBL1Shape));
@@ -961,9 +1009,6 @@ void ConstrucCopyOutTile(
     auto& fixpipeOpRes =
         function.AddOperation(Opcode::OP_L0C_COPY_OUT_CONV, {resCl0TensorPtr}, {tensorGraphNodes.resTensorPtr});
     fixpipeOpRes.SetAttribute("isConv", true);
-    // set fixpipe copy out validshape
-    fixpipeOpRes.SetAttribute(
-        LoadStoreConvOpAttributeKey::copyOutMode, static_cast<int64_t>(CopyOutMode::COPY_MOD_NZ2DN));
     fixpipeOpRes.SetAttribute(LoadStoreConvOpAttributeKey::isConv3D, convAttrParam.isConv3D);
     fixpipeOpRes.SetAttribute("res_tile_shape", SymbolicScalar::FromConcrete(tensorGraphNodes.resTensorPtr->shape));
     int64_t dst_n_offset = iterInfo.batchOffset;
@@ -971,9 +1016,24 @@ void ConstrucCopyOutTile(
     int64_t dst_d_offset = iterInfo.doL1Offset;
     int64_t dst_h_offset = iterInfo.hL1OutOffset + iterInfo.hL0Offset;
     int64_t dst_w_offset = iterInfo.wL1OutOffset + iterInfo.wL0Offset;
-    std::vector<int64_t> dstResGmOffset = {dst_n_offset, dst_c_offset, dst_h_offset, dst_w_offset};
-    if (convAttrParam.isConv3D) {
-        dstResGmOffset = {dst_n_offset, dst_c_offset, dst_d_offset, dst_h_offset, dst_w_offset};
+
+    std::vector<int64_t> dstResGmOffset;
+    if (IsA2A3Platform()) {
+        fixpipeOpRes.SetAttribute(
+            LoadStoreConvOpAttributeKey::copyOutMode, static_cast<int64_t>(CopyOutMode::COPY_MOD_NZ2NZ));
+        int64_t cout1Offset = dst_c_offset / MKN_N_VALUE;
+        if (convAttrParam.isConv3D) {
+            dstResGmOffset = {dst_n_offset, dst_d_offset, cout1Offset, dst_h_offset, dst_w_offset, 0};
+        } else {
+            dstResGmOffset = {dst_n_offset, cout1Offset, dst_h_offset, dst_w_offset, 0};
+        }
+    } else {
+        fixpipeOpRes.SetAttribute(
+            LoadStoreConvOpAttributeKey::copyOutMode, static_cast<int64_t>(CopyOutMode::COPY_MOD_NZ2DN));
+        dstResGmOffset = {dst_n_offset, dst_c_offset, dst_h_offset, dst_w_offset};
+        if (convAttrParam.isConv3D) {
+            dstResGmOffset = {dst_n_offset, dst_c_offset, dst_d_offset, dst_h_offset, dst_w_offset};
+        }
     }
     auto copyAttr = std::make_shared<CopyOpAttribute>(
         MemoryType::MEM_L1, OpImmediate::Specified(dstResGmOffset),
