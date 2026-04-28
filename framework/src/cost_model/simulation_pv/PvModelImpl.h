@@ -431,8 +431,8 @@ public:
         binPath = srcPath.substr(0, srcPath.length() - Len3) + "bin";
         constexpr int cmdLen = 2048;
         char cmd[cmdLen];
-        CHECK(npu::tile_fwk::FileExist(objPath)) << "ErrCode: F" <<
-            static_cast<unsigned>(CostModel::ExternalErrorScene::INVALID_PATH) 
+        CHECK(npu::tile_fwk::FileExist(objPath))
+            << "ErrCode: F" << static_cast<unsigned>(CostModel::ExternalErrorScene::INVALID_PATH)
             << ", obj file does not exist. objPath: " << objPath;
         int ret = snprintf_s(
             cmd, sizeof(cmd), sizeof(cmd) - 1, "llvm-objcopy -O binary -j .text %s %s", objPath.c_str(),
@@ -472,7 +472,7 @@ public:
     uint8_t* AllocWorkspace(uint64_t size)
     {
         std::vector<uint8_t> s(size, 0);
-        uint8_t *devPtr = s.data();
+        uint8_t* devPtr = s.data();
         storage_.emplace_back(std::move(s));
         DataMap m = {nullptr, reinterpret_cast<uint64_t>(devPtr), size};
         workspace_ = m;

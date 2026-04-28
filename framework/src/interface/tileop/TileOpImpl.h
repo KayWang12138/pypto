@@ -59,8 +59,10 @@
 #include "vector/where.h"
 #include "vector/pad.h"
 #include "vector/fillpad.h"
+#ifndef __LITE_NPU
 #include "vector/quantize.h"
 #include "vector/dequantize.h"
+#endif
 #include "vector/logicaland.h"
 #include "vector/vector_dup.h"
 #include "vector/range.h"

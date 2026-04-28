@@ -60,7 +60,6 @@ public:
 class TaskGraph {
 public:
     void ApplyCandidate();
-    void ApplyCandidateUnconditional();
     int AddTask(const std::string& name, ScheduleCoreType coreType, int latency);
     void AddDependency(int src, int dst);
     void ClearSchedule();
@@ -82,23 +81,6 @@ public:
     void BruteForceScheduleRecursiveStep(
         std::vector<bool>& visited, int recursiveLevel, TaskGraph& taskGraph, std::vector<int>& topoList);
     void Schedule(TaskGraph& taskGraph, int bruteForceThreshold);
-
-    void GapMinSchedule(TaskGraph& taskGraph, std::vector<int>& topoSeq);
-    void GapMinForwardPass(TaskGraph& taskGraph, std::vector<int>& topoSeq);
-    void GapMinBackwardShift(TaskGraph& taskGraph, std::vector<int>& topoSeq);
-    int64_t SumCrossCoreGap(const TaskGraph& g) const;
-    void SelectAIVCore(
-        std::unordered_map<TargetCoreType, std::vector<std::pair<int, int>>>& availTime,
-        int evalDepTimeStart, int maxCrossDepEnd, int latency,
-        TargetCoreType& evalCore, int& currentIdx, std::pair<int, int>& currentInterval);
-    void ScheduleOneTask(
-        TaskGraph& taskGraph, int taskId,
-        std::unordered_map<TargetCoreType, std::vector<std::pair<int, int>>>& availTime,
-        std::function<bool(TargetCoreType)> isAicCore);
-    void TryScheduleCrossCoreSuccessors(
-        TaskGraph& taskGraph, int taskId,
-        std::unordered_map<TargetCoreType, std::vector<std::pair<int, int>>>& availTime, std::set<int>& scheduledTasks,
-        std::function<bool(TargetCoreType)> isAicCore);
 };
 
 // 并查集
@@ -121,13 +103,7 @@ public:
     TaskGraph BuildTaskGraph();
     void BuildSameLayerConnectionWithBack();
     void BuildSameLayerConnectionWithFront();
-    void UnionSameCoreOps(DSUWithOrder& dsu);
-    void UnionSameLayerConnections(DSUWithOrder& dsu);
-    void UnionCrossCoreAICToAIV(DSUWithOrder& dsu);
-    void UnionL0CToL1CopyIn(DSUWithOrder& dsu);
     int BuildCluster(std::vector<int>& clusterIds, std::vector<ScheduleCoreType>& clusterCoreTypes);
-    void ReverseDFSFindByOutputMemType(int opIdx, MemoryType targetMemType, std::vector<int>& result,
-        std::vector<bool>& visited);
     std::vector<std::vector<int>> FindMergeableTaskNodes();
     void MergeTask();
     void MergeTaskByTargetCoreType();
@@ -136,8 +112,8 @@ public:
         std::vector<int>& clusterIds, std::vector<ScheduleCoreType>& clusterCoreTypes,
         std::vector<std::set<int>>& inGraph, std::vector<std::set<int>>& outGraph,
         std::vector<std::vector<int>>& sccResult);
-    void RecordIDMap(std::unordered_map<int, int>& oldClusterToNewCluster,
-        std::vector<ScheduleCoreType>& clusterCoreTypes);
+    void RecordIDMap(
+        std::unordered_map<int, int>& oldClusterToNewCluster, std::vector<ScheduleCoreType>& clusterCoreTypes);
     TaskGraph& GetTaskGraph() { return taskGraph_; }
     std::vector<Operation*> GetMergedOperations();
     std::vector<Operation*> opList_;
@@ -156,12 +132,9 @@ public:
     std::vector<std::vector<int>> cycledSCCClusters_;
     // CombineSCC 之后，映射为新 TaskNode ID 的成环对
     std::vector<std::pair<int, int>> cycledTaskNodePairs_;
-    void RecordCycledClusters(const std::vector<ScheduleCoreType> &clusterCoreTypes,
-        const std::vector<std::vector<int>> &sccResult);
-    const std::vector<std::pair<int, int>>& GetCycledTaskNodePairs() const
-    {
-        return cycledTaskNodePairs_;
-    }
+    void RecordCycledClusters(
+        const std::vector<ScheduleCoreType>& clusterCoreTypes, const std::vector<std::vector<int>>& sccResult);
+    const std::vector<std::pair<int, int>>& GetCycledTaskNodePairs() const { return cycledTaskNodePairs_; }
 };
 
 // 使用TarJan算法寻找强连通分量

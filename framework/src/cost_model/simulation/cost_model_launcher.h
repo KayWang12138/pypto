@@ -265,7 +265,8 @@ private:
         costModelAgent.TerminateCostModel();
     }
 
-    void RunPvModel(DeviceKernelArgs& kArgs, const std::vector<RawTensorDataPtr>& inputs,
+    void RunPvModel(
+        DeviceKernelArgs& kArgs, const std::vector<RawTensorDataPtr>& inputs,
         const std::vector<RawTensorDataPtr>& outputs)
     {
         if (config::GetRuntimeOption<int64_t>(CFG_RUN_MODE) != CFG_RUN_MODE_SIM ||
@@ -287,7 +288,8 @@ private:
         pv_->CopyTensorFromDev();
     }
 
-    void BuildPvKernelArgs(DeviceKernelArgs& kArgs, const std::vector<RawTensorDataPtr>& inputs,
+    void BuildPvKernelArgs(
+        DeviceKernelArgs& kArgs, const std::vector<RawTensorDataPtr>& inputs,
         const std::vector<RawTensorDataPtr>& outputs)
     {
         MemoryHelper devMem{true};
@@ -349,7 +351,7 @@ private:
 
         aicpus[0] = std::thread(threadFun, RUN_SPLITTED_STREAM_CTRL);
         for (int i = 1; i < launchAiCpuNum; i++) {
-           aicpus[i] = std::thread(threadFun, RUN_SPLITTED_STREAM_SCHE);
+            aicpus[i] = std::thread(threadFun, RUN_SPLITTED_STREAM_SCHE);
         }
 
         for (int i = 0; i < launchAiCpuNum; i++) {

@@ -27,7 +27,6 @@ pypto-clone
 pypto-concat
 pypto-copysign
 pypto-cos
-pypto-cosh
 pypto-cumprod
 pypto-cumsum
 pypto-div
@@ -97,7 +96,6 @@ pypto-sigmoid
 pypto-sign
 pypto-signbit
 pypto-sin
-pypto-sinh
 pypto-softmax
 pypto-sqrt
 pypto-sub
