@@ -60,183 +60,17 @@ from conv_test_config import TEST_CASES, get_cases_by_conv_type, get_case_by_nam
 global_run_mode = pypto.RunMode.NPU
 
 
-def compare_precision(actual, expected, rtol=1e-3, atol=1e-3, max_errors=100):
-    """
-    Compare precision with detailed output including pass rate and error points.
-    
-    Args:
-        actual: Actual output tensor (NPU result)
-        expected: Expected output tensor (golden reference)
-        rtol: Relative tolerance
-        atol: Absolute tolerance
-        max_errors: Maximum number of error points to print
-    
-    Returns:
-        bool: True if all points pass, False otherwise
-    """
-    actual_np = actual.cpu().numpy() if hasattr(actual, 'cpu') else actual
-    expected_np = expected.cpu().numpy() if hasattr(expected, 'cpu') else expected
-    
-    abs_diff = np.abs(actual_np - expected_np)
-    rel_diff = abs_diff / (np.abs(expected_np) + atol)
-    
-    pass_mask = (abs_diff <= atol) | (rel_diff <= rtol)
-    total_points = actual_np.size
-    pass_count = np.sum(pass_mask)
-    fail_count = total_points - pass_count
-    pass_rate = pass_count / total_points * 100
-    
-    print(f"\n{'='*60}")
-    print(f"Precision Comparison Results:")
-    print(f"{'='*60}")
-    print(f"Total points: {total_points}")
-    print(f"Pass count: {pass_count}")
-    print(f"Fail count: {fail_count}")
-    print(f"Pass rate: {pass_rate:.4f}%")
-    print(f"Max absolute diff: {np.max(abs_diff):.6f}")
-    print(f"Max relative diff: {np.max(rel_diff):.6f}")
-    print(f"Mean absolute diff: {np.mean(abs_diff):.6f}")
-    print(f"Tolerance: rtol={rtol}, atol={atol}")
-    
-    if fail_count > 0:
-        print(f"\n{'='*60}")
-        print(f"Top {min(max_errors, fail_count)} Error Points:")
-        print(f"{'='*60}")
-        
-        fail_indices = np.where(~pass_mask)
-        fail_flat_indices = np.flatnonzero(~pass_mask)
-        
-        for i, flat_idx in enumerate(fail_flat_indices[:max_errors]):
-            multi_idx = np.unravel_index(flat_idx, actual_np.shape)
-            actual_val = actual_np[multi_idx]
-            expected_val = expected_np[multi_idx]
-            abs_err = abs_diff[multi_idx]
-            rel_err = rel_diff[multi_idx]
-            
-            print(f"[{i+1}] Index: {multi_idx}")
-            print(f"    Actual: {actual_val:.6f}, Expected: {expected_val:.6f}")
-            print(f"    Abs diff: {abs_err:.6f}, Rel diff: {rel_err:.6f}")
-        
-        if fail_count > max_errors:
-            print(f"\n... and {fail_count - max_errors} more error points")
-    
-    print(f"{'='*60}")
-    
-    return fail_count == 0
-
-
 # ============================================================================
-# Helper Functions for Calculating Input Offsets
+# Helper Functions for Conv Dynamic Kernel
 # ============================================================================
 
-def cal_hin_idxoffset(hout_idx, tile_hout, ho, hin, kh, strideh, dilationh, pad_top, pad_bottom):
+def setup_tile_config(tile_cfg: dict):
     """
-    Calculate hin offset and current size based on hout_idx (for Conv2D/Conv3D).
+    Setup tile L1 and L0 config from tile_cfg dict.
     
     Returns:
-        (cal_flag, hin_offset, hin_current, (pad_top_current, pad_bottom_current))
+        (tile_l1_config, tile_l0_config, vec_tile_config)
     """
-    pad_top_current = pypto.symbolic_scalar(0)
-    pad_bottom_current = pypto.symbolic_scalar(0)
-    hin_offset = hout_idx * tile_hout * strideh - pad_top
-    need_hin = (tile_hout - 1) * strideh + (kh - 1) * dilationh + 1
-    
-    if pypto.cond(hin_offset + need_hin <= 0):
-        return False, 0, 0, (pad_top_current, pad_bottom_current)
-    if pypto.cond(hin - hin_offset <= 0):
-        return False, 0, 0, (pad_top_current, pad_bottom_current)
-    
-    pad_top_current = (-hin_offset).max(0)
-    hin_current = hin_offset + need_hin
-    pad_bottom_current = (hin_current - hin).max(0)
-    hin_offset = hin_offset.max(0)
-    hin_current = (hin - hin_offset).min(need_hin)
-    
-    return True, hin_offset, hin_current, (pad_top_current, pad_bottom_current)
-
-
-def cal_din_idxoffset(dout_idx, tile_dout, do, din, kd, strided, dilationd, pad_front, pad_back):
-    """
-    Calculate din offset and current size based on dout_idx (for Conv3D D axis).
-    
-    Returns:
-        (cal_flag, din_offset, din_current, (pad_front_current, pad_back_current))
-    """
-    pad_front_current = pypto.symbolic_scalar(0)
-    pad_back_current = pypto.symbolic_scalar(0)
-    din_offset = dout_idx * tile_dout * strided - pad_front
-    need_din = (tile_dout - 1) * strided + (kd - 1) * dilationd + 1
-    
-    if pypto.cond(din_offset + need_din <= 0):
-        return False, 0, 0, (pad_front_current, pad_back_current)
-    if pypto.cond(din - din_offset <= 0):
-        return False, 0, 0, (pad_front_current, pad_back_current)
-    
-    pad_front_current = (-din_offset).max(0)
-    din_current = din_offset + need_din
-    pad_back_current = (din_current - din).max(0)
-    din_offset = din_offset.max(0)
-    din_current = (din - din_offset).min(need_din)
-    
-    return True, din_offset, din_current, (pad_front_current, pad_back_current)
-
-
-def cal_win_idxoffset(wout_idx, tile_wout, wo, win, kw, stridew, dilationw, pad_left, pad_right):
-    """
-    Calculate win offset and current size based on wout_idx.
-    Applicable to both Conv1D and Conv2D (w axis).
-    
-    Returns:
-        (cal_flag, win_offset, win_current, (pad_left_current, pad_right_current))
-    """
-    pad_left_current = pypto.symbolic_scalar(0)
-    pad_right_current = pypto.symbolic_scalar(0)
-    win_offset = wout_idx * tile_wout * stridew - pad_left
-    need_win = (tile_wout - 1) * stridew + (kw - 1) * dilationw + 1
-    
-    if pypto.cond(win_offset + need_win <= 0):
-        return False, 0, 0, (pad_left_current, pad_right_current)
-    if pypto.cond(win - win_offset <= 0):
-        return False, 0, 0, (pad_left_current, pad_right_current)
-    
-    pad_left_current = (-win_offset).max(0)
-    win_current = win_offset + need_win
-    pad_right_current = (win_current - win).max(0)
-    win_offset = win_offset.max(0)
-    win_current = (win - win_offset).min(need_win)
-    
-    return True, win_offset, win_current, (pad_left_current, pad_right_current)
-
-
-# ============================================================================
-# Conv2D Dynamic Kernel (4D tensors: [batch, cin, hin, win])
-# ============================================================================
-
-@pypto.frontend.jit(runtime_options={"run_mode": global_run_mode},
-                    debug_options={"compile_debug_mode": 1, "runtime_debug_mode": 1})
-def conv2d_dynamic_kernel(
-    input_a_tensor: pypto.Tensor([pypto.DYNAMIC, pypto.DYNAMIC, pypto.DYNAMIC, pypto.DYNAMIC]),
-    input_b_tensor: pypto.Tensor([pypto.DYNAMIC, pypto.DYNAMIC, pypto.DYNAMIC, pypto.DYNAMIC]),
-    input_c_tensor: pypto.Tensor([pypto.DYNAMIC]),
-    output_c_tensor: pypto.Tensor([pypto.DYNAMIC, pypto.DYNAMIC, pypto.DYNAMIC, pypto.DYNAMIC]),
-    params: dict):
-    """
-    Conv2D kernel with dynamic tiling (4D tensors).
-    Tile config read from params["tile_config"].
-    """
-    use_bias = params.get("use_bias", True)
-    tile_cfg = params["tile_config"]
-    
-    _, _, hin, win = params["shape"][0]
-    _, cin, kh, kw = params["shape"][1]
-    batch, cout, ho, wo = params["shape"][2]
-    stride_h = params.get("strides", [1, 1])[0]
-    stride_w = params.get("strides", [1, 1])[1]
-    dilation_h = params.get("dilations", [1, 1])[0]
-    dilation_w = params.get("dilations", [1, 1])[1]
-    pad_h = params.get("padding", [0, 0, 0, 0])[:2]
-    pad_w = params.get("padding", [0, 0, 0, 0])[-2:]
-
     tile_l1_params = tile_cfg["tile_l1"]
     tile_l1_config = pypto.pypto_impl.TileL1Info(
         tileHin=tile_l1_params["tileHin"], tileHout=tile_l1_params["tileHout"],
@@ -252,6 +86,189 @@ def conv2d_dynamic_kernel(
     )
     
     vec_tile_config = tile_cfg["vec_tile"]
+    
+    return tile_l1_config, tile_l0_config, vec_tile_config
+
+
+def calculate_tile_input_size(tile_out, stride, dilation, kernel):
+    """
+    Calculate required input tile size from output tile size.
+    
+    Args:
+        tile_out: Output tile size (symbolic_scalar)
+        stride: Stride value
+        dilation: Dilation value
+        kernel: Kernel size
+    
+    Returns:
+        Required input tile size
+    """
+    return (tile_out - 1) * stride + (kernel - 1) * dilation + 1
+
+
+def calculate_offset_and_current(out_idx, tile_out, stride, in_size, tile_in):
+    """
+    Calculate input offset and current size for a tile.
+    
+    Since input is pre-padded by torch, offset is always >= 0.
+    No need to handle left/top overflow (already handled by torch padding).
+    
+    Args:
+        out_idx: Output tile index
+        tile_out: Output tile size (symbolic_scalar)
+        stride: Stride value
+        in_size: Total input size (already padded)
+        tile_in: Input tile size
+    
+    Returns:
+        (offset, current_size) where:
+        - offset: Input offset for this tile (always >= 0)
+        - current_size: Valid input size for this tile
+    """
+    # Calculate input offset from output tile position
+    offset = out_idx * tile_out * stride
+    
+    # Calculate valid input size (may be smaller at boundaries)
+    current_size = (in_size - offset).min(tile_in)
+    
+    return offset, current_size
+
+
+def create_conv_extend_params(use_bias: bool, bias_tensor, cout_offset: int, tile_cout):
+    """
+    Create extend_params dict for conv operation.
+    
+    Args:
+        use_bias: Whether to use bias
+        bias_tensor: Bias tensor
+        cout_offset: Output channel offset
+        tile_cout: Output channel tile size
+    
+    Returns:
+        extend_params dict
+    """
+    if use_bias:
+        return {"bias_tensor": bias_tensor[cout_offset:cout_offset + tile_cout]}
+    return {}
+
+
+# ============================================================================
+# Conv1D Dynamic Kernel (3D tensors: [batch, cin, win])
+# ============================================================================
+# 
+# Note: Input tensor is pre-padded by torch before calling this kernel.
+#       params["padding"] should be [0, 0] since input is already padded.
+# ============================================================================
+
+@pypto.frontend.jit(runtime_options={"run_mode": global_run_mode},
+                    debug_options={"compile_debug_mode": 1, "runtime_debug_mode": 1})
+def conv1d_dynamic_kernel(
+    input_a_tensor: pypto.Tensor([pypto.DYNAMIC, pypto.DYNAMIC, pypto.DYNAMIC]),
+    input_b_tensor: pypto.Tensor([pypto.DYNAMIC, pypto.DYNAMIC, pypto.DYNAMIC]),
+    input_c_tensor: pypto.Tensor([pypto.DYNAMIC]),
+    output_c_tensor: pypto.Tensor([pypto.DYNAMIC, pypto.DYNAMIC, pypto.DYNAMIC]),
+    params: dict):
+    """
+    Conv1D kernel with dynamic tiling (3D tensors).
+    Input is pre-padded by torch, so no padding needed in kernel.
+    """
+    use_bias = params.get("use_bias", True)
+    tile_cfg = params["tile_config"]
+    
+    # Input shape is already padded (padded_fmap_shape)
+    _, cin, win = params["shape"][0]
+    _, _, kw = params["shape"][1]
+    batch, cout, wo = params["shape"][2]
+    
+    stride_w = params.get("strides", [1])[0]
+    dilation_w = params.get("dilations", [1])[0]
+
+    # Setup tile config
+    tile_l1_config, tile_l0_config, vec_tile_config = setup_tile_config(tile_cfg)
+    
+    tile_batch = pypto.symbolic_scalar(tile_cfg["tile_batch"])
+    tile_cout = pypto.symbolic_scalar(tile_cfg["tile_cout"])
+    tile_wout = pypto.symbolic_scalar(tile_cfg["tile_wout"])
+
+    pypto.set_conv_tile_shapes(tile_l1_config, tile_l0_config)
+    pypto.set_vec_tile_shapes(*vec_tile_config)
+
+    batch_loop = (batch + tile_batch - 1) // tile_batch
+    cout_loop = (cout + tile_cout - 1) // tile_cout
+    wout_loop = (wo + tile_wout - 1) // tile_wout
+
+    tile_win = calculate_tile_input_size(tile_wout, stride_w, dilation_w, kw)
+
+    for batch_idx in pypto.loop(0, batch_loop, 1, name="LOOP_L1_batchIdx", idx_name="batch_idx"):
+        for cout_idx in pypto.loop(0, cout_loop, 1, name="LOOP_L1_nIdx", idx_name="n_idx"):
+            for wout_idx in pypto.loop(0, wout_loop, 1, name="LOOP_L1_woutIdx", idx_name="wout_idx"):
+                batch_offset = batch_idx * tile_batch
+                cout_offset = cout_idx * tile_cout
+                wout_offset = wout_idx * tile_wout
+
+                # Calculate input offset and current size (input is pre-padded)
+                win_offset, win_current = calculate_offset_and_current(wout_idx, tile_wout, stride_w, win, tile_win)
+
+                # Get input view - input tensor is already pre-padded by torch
+                input_a_view = pypto.view(
+                    input_a_tensor,
+                    [tile_batch, cin, tile_win],
+                    [batch_offset, 0, win_offset],
+                    valid_shape=[tile_batch, cin, win_current]
+                )
+                input_b_view = input_b_tensor[cout_offset:cout_offset + tile_cout, 0:cin, 0:kw]
+
+                # Call conv with padding=0 (input is pre-padded)
+                extend_params = create_conv_extend_params(use_bias, input_c_tensor, cout_offset, tile_cout)
+
+                output_view = pypto.conv(
+                    input_a_view, input_b_view,
+                    pypto.DT_FP16,
+                    [stride_w],
+                    (0, 0),  # No padding - input is pre-padded
+                    [dilation_w],
+                    extend_params=extend_params,
+                    groups=1
+                )
+
+                pypto.assemble(output_view, [batch_offset, cout_offset, wout_offset], output_c_tensor)
+
+
+# ============================================================================
+# Conv2D Dynamic Kernel (4D tensors: [batch, cin, hin, win])
+# ============================================================================
+# 
+# Note: Input tensor is pre-padded by torch before calling this kernel.
+#       params["padding"] should be [0, 0, 0, 0] since input is already padded.
+# ============================================================================
+
+@pypto.frontend.jit(runtime_options={"run_mode": global_run_mode},
+                    debug_options={"compile_debug_mode": 1, "runtime_debug_mode": 1})
+def conv2d_dynamic_kernel(
+    input_a_tensor: pypto.Tensor([pypto.DYNAMIC, pypto.DYNAMIC, pypto.DYNAMIC, pypto.DYNAMIC]),
+    input_b_tensor: pypto.Tensor([pypto.DYNAMIC, pypto.DYNAMIC, pypto.DYNAMIC, pypto.DYNAMIC]),
+    input_c_tensor: pypto.Tensor([pypto.DYNAMIC]),
+    output_c_tensor: pypto.Tensor([pypto.DYNAMIC, pypto.DYNAMIC, pypto.DYNAMIC, pypto.DYNAMIC]),
+    params: dict):
+    """
+    Conv2D kernel with dynamic tiling (4D tensors).
+    Input is pre-padded by torch, so no padding needed in kernel.
+    """
+    use_bias = params.get("use_bias", True)
+    tile_cfg = params["tile_config"]
+    
+    # Input shape is already padded (padded_fmap_shape)
+    _, _, hin, win = params["shape"][0]
+    _, cin, kh, kw = params["shape"][1]
+    batch, cout, ho, wo = params["shape"][2]
+    
+    stride_h = params.get("strides", [1, 1])[0]
+    stride_w = params.get("strides", [1, 1])[1]
+    dilation_h = params.get("dilations", [1, 1])[0]
+    dilation_w = params.get("dilations", [1, 1])[1]
+
+    # Setup tile config
+    tile_l1_config, tile_l0_config, vec_tile_config = setup_tile_config(tile_cfg)
     
     tile_batch = pypto.symbolic_scalar(tile_cfg["tile_batch"])
     tile_cout = pypto.symbolic_scalar(tile_cfg["tile_cout"])
@@ -266,8 +283,8 @@ def conv2d_dynamic_kernel(
     hout_loop = (ho + tile_hout - 1) // tile_hout
     wout_loop = (wo + tile_wout - 1) // tile_wout
 
-    tile_hin = (tile_hout - 1) * stride_h + (kh - 1) * dilation_h + 1
-    tile_win = (tile_wout - 1) * stride_w + (kw - 1) * dilation_w + 1
+    tile_hin = calculate_tile_input_size(tile_hout, stride_h, dilation_h, kh)
+    tile_win = calculate_tile_input_size(tile_wout, stride_w, dilation_w, kw)
 
     for batch_idx in pypto.loop(0, batch_loop, 1, name="LOOP_L1_batchIdx", idx_name="batch_idx"):
         for cout_idx in pypto.loop(0, cout_loop, 1, name="LOOP_L1_nIdx", idx_name="n_idx"):
@@ -278,139 +295,41 @@ def conv2d_dynamic_kernel(
                     hout_offset = hout_idx * tile_hout
                     wout_offset = wout_idx * tile_wout
 
-                    cal_flag_w, win_offset, win_current, update_pad_w = \
-                        cal_win_idxoffset(wout_idx, tile_wout, wo, win, kw,
-                                         stride_w, dilation_w, pad_w[0], pad_w[1])
+                    # Calculate input offset and current size (input is pre-padded)
+                    hin_offset, hin_current = calculate_offset_and_current(hout_idx, tile_hout, stride_h, hin, tile_hin)
+                    win_offset, win_current = calculate_offset_and_current(wout_idx, tile_wout, stride_w, win, tile_win)
 
-                    cal_flag_h, hin_offset, hin_current, update_pad_h = \
-                        cal_hin_idxoffset(hout_idx, tile_hout, ho, hin, kh,
-                                         stride_h, dilation_h, pad_h[0], pad_h[1])
-                    cal_flag = cal_flag_h and cal_flag_w
-
-                    if cal_flag:
-                        input_a_view = pypto.view(
-                            input_a_tensor,
-                            [tile_batch, cin, tile_hin, tile_win],
-                            [batch_offset, 0, hin_offset, win_offset],
-                            valid_shape=[tile_batch, cin, hin_current, win_current]
-                        )
-                        input_b_view = input_b_tensor[cout_offset:cout_offset + tile_cout, 0:cin, 0:kh, 0:kw]
-                        
-                        padding = (update_pad_h[0], update_pad_h[1], update_pad_w[0], update_pad_w[1])
-                        strides = [stride_h, stride_w]
-                        dilations = [dilation_h, dilation_w]
-                        
-                        extend_params = {"bias_tensor": input_c_tensor[cout_offset:cout_offset + tile_cout]} if use_bias else {}
-
-                        output_view = pypto.conv(
-                            input_a_view, input_b_view,
-                            pypto.DT_FP16,
-                            strides,
-                            padding,
-                            dilations,
-                            extend_params=extend_params,
-                            groups=1
-                        )
-
-                        pypto.assemble(output_view, [batch_offset, cout_offset, hout_offset, wout_offset], output_c_tensor)
-
-
-# ============================================================================
-# Conv1D Dynamic Kernel (3D tensors: [batch, cin, win])
-# ============================================================================
-
-@pypto.frontend.jit(runtime_options={"run_mode": global_run_mode},
-                    debug_options={"compile_debug_mode": 1, "runtime_debug_mode": 1})
-def conv1d_dynamic_kernel(
-    input_a_tensor: pypto.Tensor([pypto.DYNAMIC, pypto.DYNAMIC, pypto.DYNAMIC]),
-    input_b_tensor: pypto.Tensor([pypto.DYNAMIC, pypto.DYNAMIC, pypto.DYNAMIC]),
-    input_c_tensor: pypto.Tensor([pypto.DYNAMIC]),
-    output_c_tensor: pypto.Tensor([pypto.DYNAMIC, pypto.DYNAMIC, pypto.DYNAMIC]),
-    params: dict):
-    """
-    Conv1D kernel with dynamic tiling (3D tensors).
-    Tile config read from params["tile_config"].
-    """
-    use_bias = params.get("use_bias", True)
-    tile_cfg = params["tile_config"]
-    
-    _, cin, win = params["shape"][0]
-    _, _, kw = params["shape"][1]
-    batch, cout, wo = params["shape"][2]
-    stride_w = params.get("strides", [1])[0]
-    dilation_w = params.get("dilations", [1])[0]
-    pad_w = params.get("padding", [1, 1])
-
-    tile_l1_params = tile_cfg["tile_l1"]
-    tile_l1_config = pypto.pypto_impl.TileL1Info(
-        tileHin=tile_l1_params["tileHin"], tileHout=tile_l1_params["tileHout"],
-        tileWin=tile_l1_params["tileWin"], tileWout=tile_l1_params["tileWout"],
-        tileCinFmap=tile_l1_params["tileCinFmap"], tileCinWeight=tile_l1_params["tileCinWeight"],
-        tileN=tile_l1_params["tileN"], tileBatch=tile_l1_params["tileBatch"]
-    )
-    
-    tile_l0_params = tile_cfg["tile_l0"]
-    tile_l0_config = pypto.pypto_impl.TileL0Info(
-        tileH=tile_l0_params["tileH"], tileW=tile_l0_params["tileW"],
-        tileK=tile_l0_params["tileK"], tileN=tile_l0_params["tileN"]
-    )
-    
-    vec_tile_config = tile_cfg["vec_tile"]
-    
-    tile_batch = pypto.symbolic_scalar(tile_cfg["tile_batch"])
-    tile_cout = pypto.symbolic_scalar(tile_cfg["tile_cout"])
-    tile_wout = pypto.symbolic_scalar(tile_cfg["tile_wout"])
-
-    pypto.set_conv_tile_shapes(tile_l1_config, tile_l0_config)
-    pypto.set_vec_tile_shapes(*vec_tile_config)
-
-    batch_loop = (batch + tile_batch - 1) // tile_batch
-    cout_loop = (cout + tile_cout - 1) // tile_cout
-    wout_loop = (wo + tile_wout - 1) // tile_wout
-
-    tile_win = (tile_wout - 1) * stride_w + (kw - 1) * dilation_w + 1
-
-    for batch_idx in pypto.loop(0, batch_loop, 1, name="LOOP_L1_batchIdx", idx_name="batch_idx"):
-        for cout_idx in pypto.loop(0, cout_loop, 1, name="LOOP_L1_nIdx", idx_name="n_idx"):
-            for wout_idx in pypto.loop(0, wout_loop, 1, name="LOOP_L1_woutIdx", idx_name="wout_idx"):
-                batch_offset = batch_idx * tile_batch
-                cout_offset = cout_idx * tile_cout
-                wout_offset = wout_idx * tile_wout
-
-                cal_flag, win_offset, win_current, update_pad_w = \
-                    cal_win_idxoffset(wout_idx, tile_wout, wo, win, kw,
-                                     stride_w, dilation_w, pad_w[0], pad_w[1])
-
-                if cal_flag:
+                    # Get input view
                     input_a_view = pypto.view(
                         input_a_tensor,
-                        [tile_batch, cin, tile_win],
-                        [batch_offset, 0, win_offset],
-                        valid_shape=[tile_batch, cin, win_current]
+                        [tile_batch, cin, tile_hin, tile_win],
+                        [batch_offset, 0, hin_offset, win_offset],
+                        valid_shape=[tile_batch, cin, hin_current, win_current]
                     )
-                    input_b_view = input_b_tensor[cout_offset:cout_offset + tile_cout, 0:cin, 0:kw]
-                    
-                    padding = (update_pad_w[0], update_pad_w[1])
-                    strides = [stride_w]
-                    dilations = [dilation_w]
-                    
-                    extend_params = {"bias_tensor": input_c_tensor[cout_offset:cout_offset + tile_cout]} if use_bias else {}
+                    input_b_view = input_b_tensor[cout_offset:cout_offset + tile_cout, 0:cin, 0:kh, 0:kw]
+
+                    # Call conv with padding=0 (input is pre-padded)
+                    extend_params = create_conv_extend_params(use_bias, input_c_tensor, cout_offset, tile_cout)
 
                     output_view = pypto.conv(
                         input_a_view, input_b_view,
                         pypto.DT_FP16,
-                        strides,
-                        padding,
-                        dilations,
+                        [stride_h, stride_w],
+                        (0, 0, 0, 0),  # No padding - input is pre-padded
+                        [dilation_h, dilation_w],
                         extend_params=extend_params,
                         groups=1
                     )
 
-                    pypto.assemble(output_view, [batch_offset, cout_offset, wout_offset], output_c_tensor)
+                    pypto.assemble(output_view, [batch_offset, cout_offset, hout_offset, wout_offset], output_c_tensor)
 
 
 # ============================================================================
 # Conv3D Dynamic Kernel (5D tensors: [batch, cin, din, hin, win])
+# ============================================================================
+# 
+# Note: Input tensor is pre-padded by torch before calling this kernel.
+#       params["padding"] should be [0, 0, 0, 0, 0, 0] since input is already padded.
 # ============================================================================
 
 @pypto.frontend.jit(runtime_options={"run_mode": global_run_mode},
@@ -423,45 +342,25 @@ def conv3d_dynamic_kernel(
     params: dict):
     """
     Conv3D kernel with dynamic tiling (5D tensors).
-    
-    Dynamic tiling axes:
-      - batch: tile_batch = 1 (前端循环)
-      - cout: tile_cout = 64 (TileShape动态)
-      - dout: tile_dout = 8 (TileShape动态)
-      - hout: tile_hout = 8 (TileShape动态)
-      - wout: tile_wout = 16 (前端循环)
+    Input is pre-padded by torch, so no padding needed in kernel.
     """
     use_bias = params.get("use_bias", True)
     tile_cfg = params["tile_config"]
     
+    # Input shape is already padded (padded_fmap_shape)
     _, _, din, hin, win = params["shape"][0]
     _, cin, kd, kh, kw = params["shape"][1]
     batch, cout, do, ho, wo = params["shape"][2]
+    
     stride_d = params.get("strides", [1, 1, 1])[0]
     stride_h = params.get("strides", [1, 1, 1])[1]
     stride_w = params.get("strides", [1, 1, 1])[2]
     dilation_d = params.get("dilations", [1, 1, 1])[0]
     dilation_h = params.get("dilations", [1, 1, 1])[1]
     dilation_w = params.get("dilations", [1, 1, 1])[2]
-    pad_d = params.get("padding", [0, 0, 0, 0, 0, 0])[:2]
-    pad_h = params.get("padding", [0, 0, 0, 0, 0, 0])[2:4]
-    pad_w = params.get("padding", [0, 0, 0, 0, 0, 0])[-2:]
 
-    tile_l1_params = tile_cfg["tile_l1"]
-    tile_l1_config = pypto.pypto_impl.TileL1Info(
-        tileHin=tile_l1_params["tileHin"], tileHout=tile_l1_params["tileHout"],
-        tileWin=tile_l1_params["tileWin"], tileWout=tile_l1_params["tileWout"],
-        tileCinFmap=tile_l1_params["tileCinFmap"], tileCinWeight=tile_l1_params["tileCinWeight"],
-        tileN=tile_l1_params["tileN"], tileBatch=tile_l1_params["tileBatch"]
-    )
-    
-    tile_l0_params = tile_cfg["tile_l0"]
-    tile_l0_config = pypto.pypto_impl.TileL0Info(
-        tileH=tile_l0_params["tileH"], tileW=tile_l0_params["tileW"],
-        tileK=tile_l0_params["tileK"], tileN=tile_l0_params["tileN"]
-    )
-    
-    vec_tile_config = tile_cfg["vec_tile"]
+    # Setup tile config
+    tile_l1_config, tile_l0_config, vec_tile_config = setup_tile_config(tile_cfg)
     
     tile_batch = pypto.symbolic_scalar(tile_cfg["tile_batch"])
     tile_cout = pypto.symbolic_scalar(tile_cfg["tile_cout"])
@@ -478,9 +377,9 @@ def conv3d_dynamic_kernel(
     hout_loop = (ho + tile_hout - 1) // tile_hout
     wout_loop = (wo + tile_wout - 1) // tile_wout
 
-    tile_din = (tile_dout - 1) * stride_d + (kd - 1) * dilation_d + 1
-    tile_hin = (tile_hout - 1) * stride_h + (kh - 1) * dilation_h + 1
-    tile_win = (tile_wout - 1) * stride_w + (kw - 1) * dilation_w + 1
+    tile_din = calculate_tile_input_size(tile_dout, stride_d, dilation_d, kd)
+    tile_hin = calculate_tile_input_size(tile_hout, stride_h, dilation_h, kh)
+    tile_win = calculate_tile_input_size(tile_wout, stride_w, dilation_w, kw)
 
     for batch_idx in pypto.loop(0, batch_loop, 1, name="LOOP_L1_batchIdx", idx_name="batch_idx"):
         for cout_idx in pypto.loop(0, cout_loop, 1, name="LOOP_L1_nIdx", idx_name="n_idx"):
@@ -493,46 +392,34 @@ def conv3d_dynamic_kernel(
                         hout_offset = hout_idx * tile_hout
                         wout_offset = wout_idx * tile_wout
 
-                        cal_flag_w, win_offset, win_current, update_pad_w = \
-                            cal_win_idxoffset(wout_idx, tile_wout, wo, win, kw,
-                                             stride_w, dilation_w, pad_w[0], pad_w[1])
+                        # Calculate input offset and current size (input is pre-padded)
+                        din_offset, din_current = calculate_offset_and_current(dout_idx, tile_dout, stride_d, din, tile_din)
+                        hin_offset, hin_current = calculate_offset_and_current(hout_idx, tile_hout, stride_h, hin, tile_hin)
+                        win_offset, win_current = calculate_offset_and_current(wout_idx, tile_wout, stride_w, win, tile_win)
 
-                        cal_flag_h, hin_offset, hin_current, update_pad_h = \
-                            cal_hin_idxoffset(hout_idx, tile_hout, ho, hin, kh,
-                                             stride_h, dilation_h, pad_h[0], pad_h[1])
+                        # Get input view
+                        input_a_view = pypto.view(
+                            input_a_tensor,
+                            [tile_batch, cin, tile_din, tile_hin, tile_win],
+                            [batch_offset, 0, din_offset, hin_offset, win_offset],
+                            valid_shape=[tile_batch, cin, din_current, hin_current, win_current]
+                        )
+                        input_b_view = input_b_tensor[cout_offset:cout_offset + tile_cout, 0:cin, 0:kd, 0:kh, 0:kw]
 
-                        cal_flag_d, din_offset, din_current, update_pad_d = \
-                            cal_din_idxoffset(dout_idx, tile_dout, do, din, kd,
-                                             stride_d, dilation_d, pad_d[0], pad_d[1])
+                        # Call conv with padding=0 (input is pre-padded)
+                        extend_params = create_conv_extend_params(use_bias, input_c_tensor, cout_offset, tile_cout)
 
-                        cal_flag = cal_flag_d and cal_flag_h and cal_flag_w
+                        output_view = pypto.conv(
+                            input_a_view, input_b_view,
+                            pypto.DT_FP16,
+                            [stride_d, stride_h, stride_w],
+                            (0, 0, 0, 0, 0, 0),  # No padding - input is pre-padded
+                            [dilation_d, dilation_h, dilation_w],
+                            extend_params=extend_params,
+                            groups=1
+                        )
 
-                        if cal_flag:
-                            input_a_view = pypto.view(
-                                input_a_tensor,
-                                [tile_batch, cin, tile_din, tile_hin, tile_win],
-                                [batch_offset, 0, din_offset, hin_offset, win_offset],
-                                valid_shape=[tile_batch, cin, din_current, hin_current, win_current]
-                            )
-                            input_b_view = input_b_tensor[cout_offset:cout_offset + tile_cout, 0:cin, 0:kd, 0:kh, 0:kw]
-                            
-                            padding = (update_pad_d[0], update_pad_d[1], update_pad_h[0], update_pad_h[1], update_pad_w[0], update_pad_w[1])
-                            strides = [stride_d, stride_h, stride_w]
-                            dilations = [dilation_d, dilation_h, dilation_w]
-                            
-                            extend_params = {"bias_tensor": input_c_tensor[cout_offset:cout_offset + tile_cout]} if use_bias else {}
-
-                            output_view = pypto.conv(
-                                input_a_view, input_b_view,
-                                pypto.DT_FP16,
-                                strides,
-                                padding,
-                                dilations,
-                                extend_params=extend_params,
-                                groups=1
-                            )
-
-                            pypto.assemble(output_view, [batch_offset, cout_offset, dout_offset, hout_offset, wout_offset], output_c_tensor)
+                        pypto.assemble(output_view, [batch_offset, cout_offset, dout_offset, hout_offset, wout_offset], output_c_tensor)
 
 
 # ============================================================================
@@ -570,47 +457,101 @@ def run_conv_test(
     padding = case_config["padding"]
     dilations = case_config["dilations"]
 
+    # ============================================================================
+    # Step 1: Pre-pad input tensor using torch (handle all left/top/right/bottom padding)
+    # ============================================================================
+    # padding format in config:
+    #   - conv3d: [pad_front, pad_back, pad_top, pad_bottom, pad_left, pad_right]
+    #   - conv2d: [pad_top, pad_bottom, pad_left, pad_right]
+    #   - conv1d: [pad_left, pad_right]
+    # 
+    # torch.nn.functional.pad format: (pad_left, pad_right, pad_top, pad_bottom, pad_front, pad_back)
+    # Note: torch pad is from last dim to first dim
+    
     if conv_type == "conv3d":
-        torch_padding = (padding[0], padding[2], padding[4])
+        # conv3d: [batch, cin, din, hin, win] -> pad din, hin, win
+        pad_front, pad_back, pad_top, pad_bottom, pad_left, pad_right = padding
+        torch_padding = (pad_left, pad_right, pad_top, pad_bottom, pad_front, pad_back)
+        # torch conv3d expects padding=(pad_front, pad_top, pad_left) for symmetric padding
+        torch_conv_padding = (pad_front, pad_top, pad_left)
     elif conv_type == "conv2d":
-        torch_padding = (padding[0], padding[2])
+        # conv2d: [batch, cin, hin, win] -> pad hin, win
+        pad_top, pad_bottom, pad_left, pad_right = padding
+        torch_padding = (pad_left, pad_right, pad_top, pad_bottom)
+        # torch conv2d expects padding=(pad_top, pad_left) for symmetric padding
+        torch_conv_padding = (pad_top, pad_left)
     else:
-        torch_padding = padding[0]
+        # conv1d: [batch, cin, win] -> pad win
+        pad_left, pad_right = padding
+        torch_padding = (pad_left, pad_right)
+        torch_conv_padding = pad_left
 
     a = torch.randn(fmap_shape, dtype=dtype, device=device)
     b = torch.randn(weight_shape, dtype=dtype, device=device)
     c = torch.randn(bias_shape, dtype=dtype, device=device) if use_bias else torch.zeros(bias_shape, dtype=dtype, device=device)
 
+    # Pre-pad input tensor using torch
+    a_padded = torch.nn.functional.pad(a, torch_padding, mode='constant', value=0.0)
+    
+    # Calculate padded input shape
+    if conv_type == "conv3d":
+        padded_fmap_shape = (
+            fmap_shape[0],  # batch
+            fmap_shape[1],  # cin
+            fmap_shape[2] + pad_front + pad_back,   # din + padding
+            fmap_shape[3] + pad_top + pad_bottom,   # hin + padding
+            fmap_shape[4] + pad_left + pad_right    # win + padding
+        )
+    elif conv_type == "conv2d":
+        padded_fmap_shape = (
+            fmap_shape[0],  # batch
+            fmap_shape[1],  # cin
+            fmap_shape[2] + pad_top + pad_bottom,   # hin + padding
+            fmap_shape[3] + pad_left + pad_right    # win + padding
+        )
+    else:
+        padded_fmap_shape = (
+            fmap_shape[0],  # batch
+            fmap_shape[1],  # cin
+            fmap_shape[2] + pad_left + pad_right    # win + padding
+        )
+
+    # Compute expected output using torch conv with original padding
     bias_tensor = c if use_bias else None
     if conv_type == "conv3d":
-        expected = torch.conv3d(a, b, bias=bias_tensor, padding=torch_padding, stride=strides, dilation=dilations, groups=1)
+        expected = torch.conv3d(a, b, bias=bias_tensor, padding=torch_conv_padding, stride=strides, dilation=dilations, groups=1)
     elif conv_type == "conv2d":
-        expected = torch.conv2d(a, b, bias=bias_tensor, padding=torch_padding, stride=strides, dilation=dilations, groups=1)
+        expected = torch.conv2d(a, b, bias=bias_tensor, padding=torch_conv_padding, stride=strides, dilation=dilations, groups=1)
     else:
-        expected = torch.conv1d(a, b, bias=bias_tensor, padding=torch_padding, stride=strides, dilation=dilations, groups=1)
+        expected = torch.conv1d(a, b, bias=bias_tensor, padding=torch_conv_padding, stride=strides, dilation=dilations, groups=1)
 
     out = torch.empty(out_shape, dtype=dtype, device=device)
     start_time = time.time()
     
+    # ============================================================================
+    # Step 2: Call kernel with padded input and padding=0
+    # ============================================================================
+    # Since input is already padded, kernel only handles tile boundary overflow (right/bottom pad)
     params = {
-        "shape": [fmap_shape, weight_shape, out_shape],
+        "shape": [padded_fmap_shape, weight_shape, out_shape],  # Use padded input shape
         "strides": strides,
-        "padding": padding,
+        "padding": [0, 0, 0, 0] if conv_type == "conv2d" else ([0, 0] if conv_type == "conv1d" else [0, 0, 0, 0, 0, 0]),  # No padding in kernel
         "dilations": dilations,
         "use_bias": use_bias,
         "tile_config": case_config["tile_config"]
     }
     
     if conv_type == "conv3d":
-        conv3d_dynamic_kernel(a, b, c, out, params)
+        conv3d_dynamic_kernel(a_padded, b, c, out, params)
     elif conv_type == "conv2d":
-        conv2d_dynamic_kernel(a, b, c, out, params)
+        conv2d_dynamic_kernel(a_padded, b, c, out, params)
     else:
-        conv1d_dynamic_kernel(a, b, c, out, params)
+        conv1d_dynamic_kernel(a_padded, b, c, out, params)
     
     end_time = time.time()
     print(f"Kernel execution time: {end_time - start_time:.4f} seconds")
-    print(f"Input shape: {fmap_shape}")
+    print(f"Original input shape: {fmap_shape}")
+    print(f"Padded input shape: {padded_fmap_shape}")
     print(f"Weight shape: {weight_shape}")
     print(f"Strides: {strides}")
     print(f"Padding: {padding}")
