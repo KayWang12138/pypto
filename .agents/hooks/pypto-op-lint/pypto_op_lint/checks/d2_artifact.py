@@ -169,8 +169,12 @@ def check_ol13(ctx: CheckContext) -> Finding:
 
 @register("OL44")
 def check_ol44(ctx: CheckContext) -> Finding:
-    """Stage 5 active module three-set: staged/<op>_module<k>_impl.py +
-    staged/<op>_module<k>_golden.py + staged/test_<op>_module<k>.py.
+    """Stage 5 active module impl: staged/<op>_module<k>_impl.py only.
+
+    Per the new ownership model (post-Phase-C): coder writes only the
+    cumulative impl for the active module. The golden + test files for
+    k = 1..N are produced up front by verifier in Phase 6.0 (Phase C);
+    OL51 covers their presence.
 
     Resolves k from .orchestrator_state.json:
       - new schema: module_state.active_module = <int>
@@ -221,20 +225,76 @@ def check_ol44(ctx: CheckContext) -> Finding:
             "Stage 5 active but neither custom/<op>/staged/ nor custom/<op>/modules/ exists",
         )
 
-    expected = [
-        f"{sub_dir}/{ctx.op_name}_module{suffix}_impl.py",
-        f"{sub_dir}/{ctx.op_name}_module{suffix}_golden.py",
-        f"{sub_dir}/test_{ctx.op_name}_module{suffix}.py",
-    ]
-    missing = [p for p in expected if not ctx.file_exists(p)]
-    if missing:
+    impl_path = f"{sub_dir}/{ctx.op_name}_module{suffix}_impl.py"
+    if not ctx.file_exists(impl_path):
         return ctx.make_finding(
             "OL44", "FAIL",
-            f"Active module {suffix} 三件套缺少 (under {sub_dir}/): {', '.join(missing)}",
+            f"Active module {suffix} impl 缺少 (under {sub_dir}/): {impl_path}",
         )
     return ctx.make_finding(
         "OL44", "PASS",
-        f"Active module {suffix} 三件套完整 in {sub_dir}/ (impl + golden + test) [schema: {schema_used}]",
+        f"Active module {suffix} impl 存在 ({impl_path}) [schema: {schema_used}]",
+    )
+
+
+@register("OL51")
+def check_ol51(ctx: CheckContext) -> Finding:
+    """Stage 6 Phase C scaffolding: staged/ must contain all N cumulative
+    goldens + N test drivers (k = 1..N) after verifier Phase C completes.
+
+    Reads N from module_state.N. The cumulative suffix for module k is
+    formed by concatenating "1234..." up to k digits ('1', '12', '123', …).
+    """
+    state_path = ctx.file_path(".orchestrator_state.json")
+    if not os.path.isfile(state_path):
+        return ctx.make_finding(
+            "OL51", "SKIP",
+            ".orchestrator_state.json not present; cannot judge Phase C scaffolding",
+        )
+    try:
+        with open(state_path, "r", encoding="utf-8") as f:
+            state = json.load(f)
+    except (ValueError, OSError) as e:
+        return ctx.make_finding("OL51", "FAIL", f"Cannot parse .orchestrator_state.json: {e}")
+
+    mod_state = state.get("module_state")
+    if not isinstance(mod_state, dict):
+        return ctx.make_finding(
+            "OL51", "SKIP",
+            "module_state not initialized; Phase C has not run yet",
+        )
+    n = mod_state.get("N")
+    if not isinstance(n, int) or n < 1:
+        return ctx.make_finding(
+            "OL51", "SKIP",
+            f"module_state.N invalid or absent ({n!r}); cannot judge Phase C",
+        )
+
+    sub_dir = "staged" if os.path.isdir(ctx.file_path("staged")) else None
+    if sub_dir is None:
+        return ctx.make_finding(
+            "OL51", "FAIL",
+            "custom/<op>/staged/ does not exist; verifier Phase C has not run",
+        )
+
+    missing = []
+    for k in range(1, n + 1):
+        suffix = "".join(str(j) for j in range(1, k + 1))
+        golden_path = f"{sub_dir}/{ctx.op_name}_module{suffix}_golden.py"
+        test_path = f"{sub_dir}/test_{ctx.op_name}_module{suffix}.py"
+        if not ctx.file_exists(golden_path):
+            missing.append(golden_path)
+        if not ctx.file_exists(test_path):
+            missing.append(test_path)
+    if missing:
+        return ctx.make_finding(
+            "OL51", "FAIL",
+            f"Phase C scaffolding incomplete (N={n}); missing {len(missing)} file(s): "
+            + ", ".join(missing[:6]) + (" ..." if len(missing) > 6 else ""),
+        )
+    return ctx.make_finding(
+        "OL51", "PASS",
+        f"Phase C scaffolding complete: all {n} cumulative goldens + {n} test drivers under {sub_dir}/",
     )
 
 

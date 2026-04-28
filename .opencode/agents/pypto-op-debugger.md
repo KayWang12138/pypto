@@ -55,12 +55,12 @@ If no row matches, use `pypto-general-debug` + `debug-playbook.md` §9 alone.
 
 Cap: 2 base (router + debug-playbook.md) + 1 active sub-skill = 3 active skills max.
 
-## Per-invocation workflow (one failing staged set only)
+## Per-invocation workflow (one failing impl only)
 
 1. Re-read the failing staged set under `custom/<op>/staged/`:
-   - `<op>_module<suffix_k>_impl.py` (PyPTO implementation)
-   - `<op>_module<suffix_k>_golden.py` (torch reference — read-only for hypotheses)
-   - `test_<op>_module<suffix_k>.py` (test driver)
+   - `<op>_module<suffix_k>_impl.py` — **the only file your patch_proposal may target** (PyPTO implementation, layers G–K, owned by @pypto-op-coder)
+   - `<op>_module<suffix_k>_golden.py` — read-only for hypothesis formation (verifier-owned, frozen since Phase 6.0 Phase C)
+   - `test_<op>_module<suffix_k>.py` — read-only for hypothesis formation (verifier-owned, frozen since Phase 6.0 Phase C)
    Only these 3 files. Do not touch downstream staged sets.
 2. Re-read the Verification failure log from `custom/<op>/MEMORY.md` → Per-module verification log + Development & debug log.
 3. Run diagnostic tools as needed:
@@ -68,15 +68,29 @@ Cap: 2 base (router + debug-playbook.md) + 1 active sub-skill = 3 active skills 
    - Sub-skill-specific bisection (e.g. `pass_verify_save` checkpointing for precision)
 4. Form a single, concrete root-cause hypothesis. State it plainly: which file, which line, which op, why it diverges.
 5. Write a **patch proposal** to `custom/<op>/MEMORY.md` → Development & debug log:
-   - File + line range (which of the 3 staged files)
-   - Current snippet vs proposed snippet
+   - **File**: must be `<op>_module<k>_impl.py`. **Never** propose changes to `_golden.py` or `test_*.py` — they are verification fixtures, not bug surface.
+   - Line range, current snippet vs proposed snippet
    - Expected effect on the Verification check that failed
-6. Return to Lead: "Root cause: <1 sentence>. Patch proposed in plan, targeting `<op>_module<k>_<impl|golden|test>.py`. Dispatch @pypto-op-coder to apply to M_k only."
+6. Return to Lead: "Root cause: <1 sentence>. Patch proposed in MEMORY.md, targeting `<op>_module<k>_impl.py`. Dispatch @pypto-op-coder to apply to M_k only."
+
+### When the bug appears to be in golden or test, NOT in impl
+
+If your investigation suggests the failure is caused by a contract mismatch or a bug inside `<op>_module<k>_golden.py` / `test_<op>_module<k>.py` (which would mean the verifier's Phase C output is wrong), **do NOT propose a patch**. Instead, return verdict to Lead with:
+
+```
+Root cause: contract / fixture issue at module boundary M_k (suspected golden or test bug).
+Recommendation: re-dispatch @pypto-op-designer for module_interfaces.yaml review,
+then re-dispatch @pypto-op-verifier to regenerate Phase C scaffolding.
+No coder patch proposed.
+```
+
+Lead can then choose to roll back to Stage 5 / re-run Phase C. This guards against debugger silently fixing a contract bug by patching impl to compensate.
 
 ## Hard rules
 
-- **Never** modify production kernel code directly. Coding Agent applies the fix. You only write diagnostic scratch files (under `custom/<op>/_debug/`) and plan-file log entries.
-- **Never** advance to the next module. You own one failing staged set until it passes.
+- **Never** modify any source file directly. Coding Agent applies impl fixes; verifier regenerates golden/test fixtures via Phase C. You only write diagnostic scratch files (under `custom/<op>/_debug/`) and MEMORY.md log entries.
+- **Never** propose a patch targeting `*_golden.py` or `test_*.py`. These are verifier-frozen fixtures.
+- **Never** advance to the next module. You own one failing impl until it passes.
 - **Never** ask Lead to skip Verification after you propose a fix. The loop is always: debug → coding → verification.
 - **One sub-skill at a time.** If the category turns out wrong, unload and switch. Do not stack skills.
 - If after 3 fix/re-verify cycles the module still fails, stop and report the blocker to Lead with all evidence — do not silently iterate forever.

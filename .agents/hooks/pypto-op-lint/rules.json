@@ -1,5 +1,5 @@
 {
-  "version": "2.1.0",
+  "version": "2.2.0",
   "tolerance_schema": {
     "type": "dict",
     "description": "tolerance 必须是 dict，且满足以下任一模式",
@@ -520,7 +520,7 @@
         5
       ],
       "target": "gate",
-      "rule": "Stage 5 active module三件套完整: staged/<op>_module<k>_impl.py + staged/<op>_module<k>_golden.py + staged/test_<op>_module<k>.py (k = module_state.active_module)",
+      "rule": "Stage 5 active module impl 文件: staged/<op>_module<k>_impl.py (k = module_state.active_module). Note: golden + test files are produced by verifier in Phase 6.0 / Phase C, not by coder.",
       "check_function": "check_ol44"
     },
     {
@@ -555,6 +555,17 @@
       "target": "gate",
       "rule": "eval/ and staged/ directories must exist after Stage 5 designer dispatch (designer creates skeleton)",
       "check_function": "check_ol50"
+    },
+    {
+      "id": "OL51",
+      "severity": "S1",
+      "dimension": "D2",
+      "stages": [
+        6
+      ],
+      "target": "gate",
+      "rule": "After Phase C completes, staged/ must contain all N cumulative goldens and N test drivers (staged/<op>_module<k>_golden.py and staged/test_<op>_module<k>.py for k = 1..N where N = module_state.N). The matching impl files appear progressively as coder dispatches in Phase 6.k.",
+      "check_function": "check_ol51"
     }
   ]
 }

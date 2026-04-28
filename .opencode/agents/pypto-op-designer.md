@@ -117,15 +117,17 @@ Wiring rules your YAML must satisfy (verification will reject malformed files):
 
 ### Empty `staged/` directory
 
-Create `custom/<op>/staged/` as an empty directory (or with a `.gitkeep`) so @pypto-op-coder has a clear destination on first dispatch.
+Create `custom/<op>/staged/` as an empty directory (or with a `.gitkeep`) so downstream agents have a clear destination.
 
-### Stub staged set for M_1 (optional but recommended)
+**Do NOT** seed `staged/` with stub files of any kind. The contents are produced as follows:
 
-Optionally seed the M_1 row of the staged set table with stub files containing only the contract as docstrings — this makes @pypto-op-coder's first dispatch unambiguous. Stub content:
+| File | Owner | When |
+|------|-------|------|
+| `staged/<op>_module<k>_golden.py` for k=1..N | @pypto-op-verifier (Phase 6.0 / Phase C) | All N produced up front, before any coder dispatch |
+| `staged/test_<op>_module<k>.py` for k=1..N | @pypto-op-verifier (Phase 6.0 / Phase C) | All N produced up front, before any coder dispatch |
+| `staged/<op>_module<k>_impl.py` for k=1..N | @pypto-op-coder (Phase 6.k) | One per dispatch, in order |
 
-- `staged/<op>_module1_impl.py` — module docstring with M_1 contract
-- `staged/<op>_module1_golden.py` — module docstring with M_1 reference math intent
-- `staged/test_<op>_module1.py` — module docstring with what to compare
+If you author stubs anyway, verifier's Phase C will overwrite them — keep `staged/` strictly empty.
 
 ## Exit criterion (GATE 2 — Design's portion)
 

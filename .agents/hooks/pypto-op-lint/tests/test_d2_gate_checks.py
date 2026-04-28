@@ -189,10 +189,13 @@ def test_ol24_fail_when_state_invalid_json(tmp_path: Path):
     assert finding.status == "FAIL"
 
 
-# ── OL44: Stage 5 active module three-set under staged/ ──
+# ── OL44: Stage 5 active module impl (impl-only post-Phase-C) ──
 
-def test_ol44_pass_with_new_module_state_schema(tmp_path: Path):
-    """staged/ + module_state.active_module = 1 -> PASS when three-set present."""
+def test_ol44_pass_when_active_impl_present(tmp_path: Path):
+    """staged/ + module_state.active_module = 1 -> PASS when impl exists.
+
+    Note: golden/test files are not required by OL44 (verifier owns them
+    via Phase C; OL51 covers their presence)."""
     mod = load_lint_module()
     op_dir = build_stateless_op_dir(tmp_path, "demo")
     state = {
@@ -209,14 +212,12 @@ def test_ol44_pass_with_new_module_state_schema(tmp_path: Path):
     }
     write_file(op_dir / ".orchestrator_state.json", json.dumps(state))
     write_file(op_dir / "staged" / "demo_module1_impl.py", "pass\n")
-    write_file(op_dir / "staged" / "demo_module1_golden.py", "pass\n")
-    write_file(op_dir / "staged" / "test_demo_module1.py", "pass\n")
     finding = run_rule(mod, op_dir, "OL44", stage=5)
     assert finding.status == "PASS", finding.message
 
 
-def test_ol44_fail_when_three_set_missing(tmp_path: Path):
-    """staged/ exists but the active module's impl is missing -> FAIL."""
+def test_ol44_fail_when_active_impl_missing(tmp_path: Path):
+    """staged/ exists with golden+test (Phase C output) but the active module's impl is missing -> FAIL."""
     mod = load_lint_module()
     op_dir = build_stateless_op_dir(tmp_path, "demo")
     state = {
@@ -232,6 +233,7 @@ def test_ol44_fail_when_three_set_missing(tmp_path: Path):
         },
     }
     write_file(op_dir / ".orchestrator_state.json", json.dumps(state))
+    # Phase C output present, but no impl yet (coder hasn't dispatched)
     write_file(op_dir / "staged" / "demo_module1_golden.py", "pass\n")
     write_file(op_dir / "staged" / "test_demo_module1.py", "pass\n")
     finding = run_rule(mod, op_dir, "OL44", stage=5)
@@ -240,7 +242,7 @@ def test_ol44_fail_when_three_set_missing(tmp_path: Path):
 
 
 def test_ol44_pass_with_legacy_stage5_phases_schema(tmp_path: Path):
-    """Legacy stage5_phases.active_phase + modules/ still works."""
+    """Legacy stage5_phases.active_phase + modules/ still works (impl-only)."""
     mod = load_lint_module()
     op_dir = build_stateless_op_dir(tmp_path, "demo")
     state = {
@@ -254,8 +256,6 @@ def test_ol44_pass_with_legacy_stage5_phases_schema(tmp_path: Path):
     }
     write_file(op_dir / ".orchestrator_state.json", json.dumps(state))
     write_file(op_dir / "modules" / "demo_module1_impl.py", "pass\n")
-    write_file(op_dir / "modules" / "demo_module1_golden.py", "pass\n")
-    write_file(op_dir / "modules" / "test_demo_module1.py", "pass\n")
     finding = run_rule(mod, op_dir, "OL44", stage=5)
     assert finding.status == "PASS", finding.message
 
@@ -272,6 +272,94 @@ def test_ol44_skip_when_no_active_module(tmp_path: Path):
     write_file(op_dir / ".orchestrator_state.json", json.dumps(state))
     finding = run_rule(mod, op_dir, "OL44", stage=5)
     assert finding.status == "SKIP"
+
+
+# ── OL51: Phase C scaffolding (all N goldens + N test drivers under staged/) ──
+
+def _seed_phase_c(op_dir: Path, n: int):
+    """Helper: create N cumulative goldens + N test drivers under staged/."""
+    for k in range(1, n + 1):
+        suffix = "".join(str(j) for j in range(1, k + 1))
+        write_file(op_dir / "staged" / f"demo_module{suffix}_golden.py", "pass\n")
+        write_file(op_dir / "staged" / f"test_demo_module{suffix}.py", "pass\n")
+
+
+def test_ol51_pass_when_all_n_present(tmp_path: Path):
+    mod = load_lint_module()
+    op_dir = build_stateless_op_dir(tmp_path, "demo")
+    state = {
+        "operator_name": "demo",
+        "current_stage": 6,
+        "stage_status": {"6": "in_progress"},
+        "module_state": {
+            "N": 3,
+            "active_module": 1,
+            "modules_pypto_verified": [],
+            "module_attempts": {"1": 0},
+            "module_status": {"1": "in_progress"},
+        },
+    }
+    write_file(op_dir / ".orchestrator_state.json", json.dumps(state))
+    _seed_phase_c(op_dir, 3)
+    finding = run_rule(mod, op_dir, "OL51", stage=6)
+    assert finding.status == "PASS", finding.message
+
+
+def test_ol51_fail_when_some_missing(tmp_path: Path):
+    mod = load_lint_module()
+    op_dir = build_stateless_op_dir(tmp_path, "demo")
+    state = {
+        "operator_name": "demo",
+        "current_stage": 6,
+        "stage_status": {"6": "in_progress"},
+        "module_state": {
+            "N": 3,
+            "active_module": 1,
+            "modules_pypto_verified": [],
+            "module_attempts": {"1": 0},
+            "module_status": {"1": "in_progress"},
+        },
+    }
+    write_file(op_dir / ".orchestrator_state.json", json.dumps(state))
+    # Only seed k=1 and k=2; k=3 missing
+    _seed_phase_c(op_dir, 2)
+    finding = run_rule(mod, op_dir, "OL51", stage=6)
+    assert finding.status == "FAIL"
+    assert "demo_module123_golden.py" in finding.message or "demo_module123" in finding.message
+
+
+def test_ol51_skip_when_module_state_uninitialized(tmp_path: Path):
+    mod = load_lint_module()
+    op_dir = build_stateless_op_dir(tmp_path, "demo")
+    state = {
+        "operator_name": "demo",
+        "current_stage": 6,
+        "stage_status": {"6": "in_progress"},
+    }
+    write_file(op_dir / ".orchestrator_state.json", json.dumps(state))
+    finding = run_rule(mod, op_dir, "OL51", stage=6)
+    assert finding.status == "SKIP"
+
+
+def test_ol51_fail_when_staged_dir_missing(tmp_path: Path):
+    mod = load_lint_module()
+    op_dir = build_stateless_op_dir(tmp_path, "demo")
+    state = {
+        "operator_name": "demo",
+        "current_stage": 6,
+        "stage_status": {"6": "in_progress"},
+        "module_state": {
+            "N": 2,
+            "active_module": 1,
+            "modules_pypto_verified": [],
+            "module_attempts": {"1": 0},
+            "module_status": {"1": "in_progress"},
+        },
+    }
+    write_file(op_dir / ".orchestrator_state.json", json.dumps(state))
+    finding = run_rule(mod, op_dir, "OL51", stage=6)
+    assert finding.status == "FAIL"
+    assert "staged/" in finding.message
 
 
 # ── OL48: MEMORY.md 三节齐全 ──
