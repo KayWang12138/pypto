@@ -197,6 +197,16 @@ void OoOScheduler::UpdateOpInternalSubgraphID(Operation &op, Operation* srcOp) {
     }
 }
 
+bool OoOScheduler::IsSmallToLargeSpill(Operation* spillOp) const
+{
+    if (spillOp == nullptr || spillOp->GetIOperands().empty() || spillOp->GetOOperands().empty() ||
+        spillOp->GetInputOperand(0) == nullptr || spillOp->GetOutputOperand(0) == nullptr) {
+        return false;
+    }
+    return spillOp->GetInputOperand(0)->GetRawTensor()->GetRawDataSize() <
+        spillOp->GetOutputOperand(0)->GetRawTensor()->GetRawDataSize();
+}
+
 // A5 中：L1 发生 spill 时， copy_in的rawshape属性来源于实际spill的tensor，offset属性来源于spill op
 void OoOScheduler::GetActualSpillInfo(Operation* spillOp, std::pair<LogicalTensorPtr, Operation*>& actualInfo)
 {
@@ -213,6 +223,20 @@ void OoOScheduler::GetActualSpillInfo(Operation* spillOp, std::pair<LogicalTenso
         copyOp = actualSpillOp;
     }
     actualInfo = std::make_pair(actualSpillTensor, copyOp);
+}
+
+Status OoOScheduler::GetSpecifiedOffset(const std::vector<OpImmediate> &immediates, std::vector<int64_t> &offset) const
+{
+    offset.clear();
+    offset.reserve(immediates.size());
+    for (const auto &imm : immediates) {
+        if (!imm.IsSpecified() || !imm.GetSpecifiedValue().ConcreteValid()) {
+            APASS_LOG_ERROR_F(Elements::Operation, "Only support static concrete offset in small-shape spill.");
+            return FAILED;
+        }
+        offset.push_back(static_cast<int64_t>(imm.GetSpecifiedValue()));
+    }
+    return SUCCESS;
 }
 
 void OoOScheduler::UpdateOpAttr(Operation &op, int opLatency, LogicalTensorPtr spillTensor,
@@ -239,17 +263,33 @@ void OoOScheduler::UpdateOpAttr(Operation &op, int opLatency, LogicalTensorPtr s
                 OpImmediate::Specified(spillTensor->tensor->GetDynRawShape())));
         } else {
             op.SetAttr(OpAttributeKey::workspaceBaseOffset, workspaceBaseOffset);
-            std::pair<LogicalTensorPtr, Operation*> actualInfo;
-            GetActualSpillInfo(spillOp, actualInfo);
-            auto attr = std::dynamic_pointer_cast<CopyOpAttribute>(actualInfo.second->GetOpAttribute());
-            if (attr == nullptr) {
-                APASS_LOG_INFO_F(Elements::Tensor, "Op %s attribute is nullptr", GetOpInfo(actualInfo.second).c_str());
-                return;
+            bool isMultiProducerSmallShape = false;
+            if (IsSmallToLargeSpill(spillOp) && spillOp->GetOutputOperand(0) != nullptr) {
+                size_t producerCnt = 0;
+                for (auto *producer : spillOp->GetOutputOperand(0)->GetProducers()) {
+                    if (producer != nullptr && !opIsAllocMap[producer]) {
+                        producerCnt++;
+                    }
+                }
+                isMultiProducerSmallShape = producerCnt > 1;
             }
-            op.SetOpAttribute(std::make_shared<CopyOpAttribute>(
-                attr->GetFromOffset(), spillTensor->GetMemoryTypeOriginal(),
-                OpImmediate::Specified(spillTensor->GetShape()),
-                OpImmediate::Specified(actualInfo.first->tensor->GetDynRawShape())));
+            if (isMultiProducerSmallShape) {
+                op.SetOpAttribute(std::make_shared<CopyOpAttribute>(OpImmediate::Specified(offset),
+                    spillTensor->GetMemoryTypeOriginal(), OpImmediate::Specified(spillTensor->GetShape()),
+                    OpImmediate::Specified(spillTensor->tensor->GetDynRawShape())));
+            } else {
+                std::pair<LogicalTensorPtr, Operation*> actualInfo;
+                GetActualSpillInfo(spillOp, actualInfo);
+                auto attr = std::dynamic_pointer_cast<CopyOpAttribute>(actualInfo.second->GetOpAttribute());
+                if (attr == nullptr) {
+                    APASS_LOG_INFO_F(Elements::Tensor, "Op %s attribute is nullptr", GetOpInfo(actualInfo.second).c_str());
+                    return;
+                }
+                op.SetOpAttribute(std::make_shared<CopyOpAttribute>(
+                    attr->GetFromOffset(), spillTensor->GetMemoryTypeOriginal(),
+                    OpImmediate::Specified(spillTensor->GetShape()),
+                    OpImmediate::Specified(actualInfo.first->tensor->GetDynRawShape())));
+            }
         }
     }
     op.UpdateLatency(opLatency);
@@ -737,6 +777,153 @@ Status OoOScheduler::CreateSpillCopyout(Operation* spillOp, LogicalTensorPtr spi
     return SUCCESS;
 }
 
+Status OoOScheduler::CreateSpillCopyoutForSmallShape(SpillInfo &spillInfo, int &bufLastUseOrder, bool &isFinish,
+    size_t &pcIdx, bool isGenSpill)
+{
+    auto spillTensor = spillInfo.spillTensor_;
+    if (spillTensor == nullptr) {
+        APASS_LOG_ERROR_F(Elements::Tensor, "spill tensor is nullptr in small-shape spill.");
+        return FAILED;
+    }
+    std::vector<Operation*> producerOps;
+    for (auto *producer : spillTensor->GetProducers()) {
+        if (producer == nullptr || opIsAllocMap[producer]) {
+            continue;
+        }
+        producerOps.push_back(producer);
+    }
+    if (producerOps.empty()) {
+        APASS_LOG_ERROR_F(Elements::Operation, "Cannot find producer for small-shape spill tensor[%d].",
+            spillTensor->GetMagic());
+        return FAILED;
+    }
+    std::sort(producerOps.begin(), producerOps.end(), [this](Operation *lhs, Operation *rhs) {
+        return opExecOrderMap[lhs] < opExecOrderMap[rhs];
+    });
+
+    auto ddrRawTensor = std::make_shared<RawTensor>(spillTensor->Datatype(), spillTensor->tensor->rawshape,
+        TileOpFormat::TILEOP_ND, "WorkspaceGm", SYMBOL_STACK_BASE);
+    if (ddrRawTensor == nullptr) {
+        APASS_LOG_ERROR_F(Elements::Tensor, "Create aggregated DDR raw tensor failed!");
+        return FAILED;
+    }
+    auto ddrTensor = std::make_shared<LogicalTensor>(function_, ddrRawTensor,
+        std::vector<int64_t>(spillTensor->GetOffset().size(), 0), spillTensor->GetShape());
+    if (ddrTensor == nullptr) {
+        APASS_LOG_ERROR_F(Elements::Tensor, "Create aggregated DDR tensor failed!");
+        return FAILED;
+    }
+    if (UpdateTensorAttr(ddrTensor, MEM_DEVICE_DDR, spillTensor, spillInfo.spillMemId_) != SUCCESS) {
+        APASS_LOG_ERROR_F(Elements::Tensor, "UpdateTensorAttr aggregated DDR tensor failed!");
+        return FAILED;
+    }
+    spillInfo.ddrTensor_ = ddrTensor;
+
+    auto spillOpIt = std::find(newOperations_.begin(), newOperations_.end(), spillInfo.spillOp_);
+    size_t insertPos = spillOpIt == newOperations_.end() ? newOperations_.size() :
+        static_cast<size_t>(std::distance(newOperations_.begin(), spillOpIt)) + 1;
+    int nextExecOrder = opExecOrderMap[spillInfo.spillOp_] + 1;
+    int64_t workspaceBaseOffset = 0;
+
+    for (auto *producerOp : producerOps) {
+        LogicalTensorPtr actualSpillTensor = producerOp->GetInputOperand(0);
+        Operation *actualSpillOp = producerOp;
+        if (producerOp->GetOpcode() == Opcode::OP_UB_COPY_L1) {
+            if (actualSpillTensor == nullptr) {
+                APASS_LOG_ERROR_F(Elements::Operation, "UB_COPY_L1 input tensor is nullptr.");
+                return FAILED;
+            }
+            if (actualSpillTensor->Format() == TileOpFormat::TILEOP_NZ) {
+                if (actualSpillTensor->GetProducers().size() != 1) {
+                    APASS_LOG_ERROR_F(Elements::Operation,
+                        "NZ UB tensor[%d] producer count is not 1 in small-shape spill.", actualSpillTensor->GetMagic());
+                    return FAILED;
+                }
+                auto *nd2nzOp = *actualSpillTensor->GetProducers().begin();
+                if (nd2nzOp == nullptr || nd2nzOp->GetOpcode() != Opcode::OP_UB_COPY_ND2NZ) {
+                    APASS_LOG_ERROR_F(Elements::Operation,
+                        "NZ UB tensor[%d] producer is not UB_COPY_ND2NZ in small-shape spill.", actualSpillTensor->GetMagic());
+                    return FAILED;
+                }
+                actualSpillOp = nd2nzOp;
+                actualSpillTensor = nd2nzOp->GetInputOperand(0);
+            }
+        } else if (producerOp->GetOpcode() != Opcode::OP_L0C_TO_L1) {
+            APASS_LOG_ERROR_F(Elements::Operation, "Unsupported producer %s[%d] in small-shape spill.",
+                producerOp->GetOpcodeStr().c_str(), producerOp->GetOpMagic());
+            return FAILED;
+        }
+        if (actualSpillTensor == nullptr) {
+            APASS_LOG_ERROR_F(Elements::Tensor, "actual spill tensor is nullptr in small-shape spill.");
+            return FAILED;
+        }
+
+        std::vector<int64_t> ddrOffset(actualSpillTensor->GetShape().size(), 0);
+        auto producerAttr = std::dynamic_pointer_cast<CopyOpAttribute>(producerOp->GetOpAttribute());
+        if (producerOp->GetOpcode() == Opcode::OP_L0C_TO_L1) {
+            if (producerAttr == nullptr || GetSpecifiedOffset(producerAttr->GetToOffset(), ddrOffset) != SUCCESS) {
+                APASS_LOG_ERROR_F(Elements::Operation,
+                    "Get L0C_COPY_L1 offset failed in small-shape spill. %s", GetOpInfo(producerOp).c_str());
+                return FAILED;
+            }
+        } else if (actualSpillTensor->GetOffset().size() == ddrOffset.size()) {
+            ddrOffset = actualSpillTensor->GetOffset();
+        }
+
+        auto *existingCopyout = actualSpillTensor->GetConsumers().empty() ? nullptr : *actualSpillTensor->GetConsumers().begin();
+        bool hasWorkspaceBase = false;
+        if (existingCopyout != nullptr && existingCopyout->GetOpcode() == Opcode::OP_COPY_OUT) {
+            hasWorkspaceBase = existingCopyout->GetAttr(OpAttributeKey::workspaceBaseOffset, workspaceBaseOffset);
+        }
+        if (!hasWorkspaceBase) {
+            workspaceBaseOffset = ddrTensor->memoryrange.start;
+        }
+
+        Operation &spillOutOp = function_.AddRawOperation(Opcode::OP_COPY_OUT, {actualSpillTensor}, {ddrTensor});
+        auto *spillCopyoutOp = &spillOutOp;
+        spillOutOp.SetAttr(OpAttributeKey::workspaceBaseOffset, workspaceBaseOffset);
+        spillOutOp.SetOpAttribute(std::make_shared<CopyOpAttribute>(actualSpillTensor->GetMemoryTypeOriginal(),
+            OpImmediate::Specified(ddrOffset), OpImmediate::Specified(actualSpillTensor->GetShape()),
+            OpImmediate::Specified(actualSpillTensor->GetRawTensor()->GetDynRawShape()),
+            OpImmediate::Specified(actualSpillTensor->GetDynValidShape())));
+        if (actualSpillTensor->GetMemoryTypeOriginal() == MemoryType::MEM_L0C) {
+            Element scaleValue = Element(DataType::DT_UINT64, 0);
+            if (producerOp->GetAttr(OpAttributeKey::scaleValue, scaleValue)) {
+                spillOutOp.SetAttribute(OpAttributeKey::scaleValue, scaleValue);
+            }
+        }
+
+        SetOpMemIds(spillCopyoutOp, {actualSpillTensor->memoryrange.memId});
+        depManager_.RegisterOp(spillCopyoutOp);
+        depManager_.AddDependency(actualSpillOp, spillCopyoutOp);
+        depManager_.AddDependency(spillInfo.spillOp_, spillCopyoutOp);
+        opIsRetiredMap[spillCopyoutOp] = true;
+        opIsAllocMap[spillCopyoutOp] = false;
+        opPipeTypeMap[spillCopyoutOp] = RescheduleUtils::GetOpPipeType(spillCopyoutOp);
+        opViewOpsMap[spillCopyoutOp] = std::vector<Operation*>();
+        opCoreLocationMap[spillCopyoutOp] = opCoreLocationMap[producerOp];
+        UpdateOpInternalSubgraphID(*spillCopyoutOp, producerOp);
+
+        if (UpdateCopyOutMode(*spillCopyoutOp) != SUCCESS) {
+            APASS_LOG_ERROR_F(Elements::Operation, "UpdateCopyOutMode failed for small-shape spill.");
+            return FAILED;
+        }
+        SetExecOrder(spillCopyoutOp, nextExecOrder++);
+        InsertOrdered(spillCopyoutOp);
+        if (isGenSpill) {
+            pcIdx++;
+            numTotalIssues++;
+        }
+        newOperations_.insert(newOperations_.begin() +
+            static_cast<std::vector<Operation*>::difference_type>(insertPos), spillCopyoutOp);
+        insertPos++;
+        APASS_LOG_DEBUG_F(Elements::Operation, "Insert small-shape SPILL_OUT: %s.", GetOpInfo(spillCopyoutOp).c_str());
+    }
+    bufLastUseOrder = opExecOrderMap[spillInfo.spillOp_];
+    isFinish = true;
+    return SUCCESS;
+}
+
 Status OoOScheduler::UpdateCopyOutMode(Operation& copyOutOp)
 {
     // A5 上 L0C_COPY_OUT 设置为 NZ_ND, A2/A3 上 L1_COPY_OUT 设置为 ND_ND
@@ -781,12 +968,26 @@ Status OoOScheduler::UpdateCopyInMode(Operation& copyInOp)
     return SUCCESS;
 }
 
-Status OoOScheduler::CreateSpecialL1Copyout(SpillInfo &spillInfo, Operation* &spillCopyoutOp, int &bufLastUseOrder, bool &isFinish) {
+Status OoOScheduler::CreateSpecialL1Copyout(SpillInfo &spillInfo, Operation* &spillCopyoutOp, int &bufLastUseOrder,
+    bool &isFinish, size_t &pcIdx, bool isGenSpill) {
     auto spillOp = spillInfo.spillOp_;
     auto preTensor = spillOp->GetInputOperand(0);
     if (spillOp->GetOpcode() != Opcode::OP_RESHAPE && preTensor->GetMemoryTypeOriginal() != MemoryType::MEM_UB && preTensor->GetMemoryTypeOriginal() != MemoryType::MEM_L0C) {
         APASS_LOG_ERROR_F(Elements::Operation, "spillOp %s is not COPY_IN/UB_COPY_L1/UB_COPY_L1/RESHAPE in A5 L1 spill", GetOpInfo(spillOp).c_str());
         return FAILED;
+    }
+    bool isMultiProducerSmallShape = false;
+    if (IsSmallToLargeSpill(spillOp) && spillInfo.spillTensor_ != nullptr) {
+        size_t producerCnt = 0;
+        for (auto *producer : spillInfo.spillTensor_->GetProducers()) {
+            if (producer != nullptr && !opIsAllocMap[producer]) {
+                producerCnt++;
+            }
+        }
+        isMultiProducerSmallShape = producerCnt > 1;
+    }
+    if (isMultiProducerSmallShape) {
+        return CreateSpillCopyoutForSmallShape(spillInfo, bufLastUseOrder, isFinish, pcIdx, isGenSpill);
     }
     auto actualSpillTensor = preTensor;
     Operation* actualSpillOp = nullptr;
@@ -843,7 +1044,7 @@ Status OoOScheduler::SpillOutBuffer(SpillInfo &spillInfo, Operation* op, size_t 
     if (spillInfo.isSpecialL1_) {
         // actualSpillOp 为 copy_in
         bool isFinish = false;
-        if (CreateSpecialL1Copyout(spillInfo, spillCopyoutOp, bufLastUseOrder, isFinish) != SUCCESS) {
+        if (CreateSpecialL1Copyout(spillInfo, spillCopyoutOp, bufLastUseOrder, isFinish, pcIdx, isGenSpill) != SUCCESS) {
             APASS_LOG_ERROR_F(Elements::Operation, "SpecialL1 CreateSpillCopyout failed!");
             return FAILED;
         }

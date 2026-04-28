@@ -224,7 +224,9 @@ private:
         LocalBufferPtr allocBuffer, bool isGenSpill);
     Status SpillOutBuffer(SpillInfo &spillInfo, Operation* op, size_t &pcIdx, bool isGenSpill);
     Status CreateSpecialL1Copyout(SpillInfo &spillInfo, Operation* &spillCopyoutOp, int &bufLastUseOrder,
-        bool &isFinish);
+        bool &isFinish, size_t &pcIdx, bool isGenSpill);
+    Status CreateSpillCopyoutForSmallShape(SpillInfo &spillInfo, int &bufLastUseOrder, bool &isFinish,
+        size_t &pcIdx, bool isGenSpill);
     Status CreateSpillCopyout(Operation* spillOp, LogicalTensorPtr spillTensor, int spillMemId,
         Operation* &spillCopyoutOp, const SpillInfo &spillInfo);
     Status SpillInBuffer(SpillInfo &spillInfo, Operation* allocOp, MemoryType bufferType, bool isGenSpill);
@@ -268,7 +270,9 @@ private:
     void ReplaceTensorMemId(Operation* op, int oldMemId, int newMemId);
     void ReplaceViewOpChainMemId(LogicalTensorPtr startTensor, int oldMemId, int newMemId);
     void UpdateOpInternalSubgraphID(Operation &op, Operation* srcOp);
+    bool IsSmallToLargeSpill(Operation* spillOp) const;
     void GetActualSpillInfo(Operation* spillOp, std::pair<LogicalTensorPtr, Operation*>& actualInfo);
+    Status GetSpecifiedOffset(const std::vector<OpImmediate> &immediates, std::vector<int64_t> &offset) const;
     void UpdateOpAttr(Operation &op, int opLatency, LogicalTensorPtr spillTensor, std::vector<int64_t> offset,
         Operation* spillOp, int64_t workspaceBaseOffset, bool isSpecialL1);
     Status UpdateTensorAttr(LogicalTensorPtr tensor, MemoryType memType, LogicalTensorPtr spillTensor, int spillMemId);
