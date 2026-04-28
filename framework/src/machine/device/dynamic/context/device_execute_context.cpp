@@ -285,6 +285,36 @@ void DeviceExecuteContext::ProcessControlFlowCacheRecord(DynDeviceTask* dynTask)
     }
 }
 
+void DeviceExecuteContext::CalcControlMaxAicore()
+{
+    // 在 Submit 时遍历 stitchContext 累加所有真正执行的 devRoot 的 maxCV
+    currentMaxC_ = 0;
+    currentMaxV_ = 0;
+    const auto& stitchedList = stitchContext.GetStitchedList();
+    for (size_t i = 0; i < stitchedList.size(); i++) {
+        const DevAscendFunction* sourceFunc = stitchedList[i].GetSource();
+        if (sourceFunc != nullptr) {
+            currentMaxC_ += sourceFunc->GetMaxC();
+            currentMaxV_ += sourceFunc->GetMaxV();
+        }
+    }
+
+    if (currentMaxC_ == 0 && currentMaxV_ == 0) {
+        currentMaxC_ = devProg->devArgs.nrValidAic;
+        currentMaxV_ = currentMaxC_ * AIV_NUM_PER_AI_CORE;
+        return;
+    }
+ 
+    if (devProg->devArgs.archInfo == ArchInfo::DAV_2201) {
+        if (currentMaxC_ * AIV_NUM_PER_AI_CORE >= currentMaxV_) {
+            currentMaxV_ = currentMaxC_ * AIV_NUM_PER_AI_CORE;
+        } else {
+            currentMaxV_ = (currentMaxV_ & 1) ? currentMaxV_ + 1 : currentMaxV_;
+            currentMaxC_ = maxV / AIV_NUM_PER_AI_CORE;
+        }
+    }
+}
+
 int DeviceExecuteContext::SubmitToAicoreAndRecycleMemory(bool withoutTail, bool isLastTask, bool isParallelIterLastTask)
 {
     int ret = DEVICE_MACHINE_OK;
@@ -322,18 +352,7 @@ int DeviceExecuteContext::SubmitToAicoreAndRecycleMemory(bool withoutTail, bool 
     workspace.MarkAsNewStitchWindow();
 #endif // DEBUG_MEM_DUMP_LEVEL >= DEBUG_MEM_DUMP_FULL
 
-// 在 Submit 时遍历 stitchContext 累加所有真正执行的 devRoot 的 maxCV
-    currentMaxC_ = 0;
-    currentMaxV_ = 0;
-    const auto& stitchedList = stitchContext.GetStitchedList();
-    for (size_t i = 0; i < stitchedList.size(); i++) {
-        const DevAscendFunction* sourceFunc = stitchedList[i].GetSource();
-        if (sourceFunc != nullptr) {
-            currentMaxC_ += sourceFunc->GetMaxC();
-            currentMaxV_ += sourceFunc->GetMaxV();
-        }
-    }
-
+    CalcControlMaxAicore();
     PROF_STAGE_BEGIN(PERF_EVT_STAGE_BUILD_TASK, "BuildDeviceTaskData.before\n");
     DynDeviceTask* dynTask = taskContext.BuildDeviceTaskData(stitchContext, taskId, devProg, withoutTail);
     if (dynTask == nullptr) {

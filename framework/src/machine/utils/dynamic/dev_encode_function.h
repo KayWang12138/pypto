@@ -97,12 +97,9 @@ public:
     uint64_t rootInnerTensorWsMemoryRequirement{0};
     uint64_t exclusiveOutcastWsMemoryRequirement{0};
 
-    int maxC_{0};
-    int maxV_{0};
-
-    int GetMaxC() const { return maxC_; }
-    int GetMaxV() const { return maxV_; }
-    void SetMaxCV(int maxC, int maxV) { maxC_ = maxC; maxV_ = maxV; }
+    uint32_t GetMaxC() const { return maxC_; }
+    uint32_t GetMaxV() const { return maxV_; }
+    void SetMaxCV(uint32_t maxC, uint32_t maxV) { maxC_ = maxC; maxV_ = maxV; }
 
 private:
     DevLocalVector<int> opWrapList_;
@@ -133,6 +130,8 @@ private:
     DevLocalVector<uint32_t> cellMatchStaticIncastTableList;
     DevLocalVector<char> rawName_;
 #define sharedLastField rawName_
+    uint32_t maxC_{0};
+    uint32_t maxV_{0};
 public:
     uint8_t data[0];
     /*
