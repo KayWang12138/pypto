@@ -1694,6 +1694,33 @@ Status OoOScheduler::FreeL0CAfterSpill(SpillInfo &spillInfo, LocalBufferPtr allo
     return SUCCESS;
 }
 
+void OoOScheduler::BindReusedCopyOut(SpillInfo &spillInfo, Operation* reusedCopyOut,
+    Operation* allocOp, std::vector<Operation*> &consumers)
+{
+    spillInfo.ddrTensor_ = reusedCopyOut->GetOutputOperand(0);
+    spillInfo.spillCopyOutOp_ = reusedCopyOut;
+    consumers.erase(std::remove(consumers.begin(), consumers.end(), reusedCopyOut), consumers.end());
+    SetOpMemIds(reusedCopyOut, FilterOutMemId(GetOpMemIds(reusedCopyOut), spillInfo.spillMemId_));
+    opIsRetiredMap[reusedCopyOut] = true;
+    // 安全性：L0C 槽位 Free 后会被新 alloc 占用并写入；必须保证 reusedCopyOut
+    // 在 allocOp 之前完成，否则新 alloc 写入会覆盖 reusedCopyOut 待读的数据。
+    depManager_.AddDependency(reusedCopyOut, allocOp);
+    APASS_LOG_DEBUG_F(Elements::Operation, "L0C spill: reuse existing CopyOut %s as DDR source.",
+        GetOpInfo(reusedCopyOut).c_str());
+}
+
+void OoOScheduler::RecomputeBufRefCount(int memId)
+{
+    bufRefCount_[memId] = 0;
+    for (auto* op : orderedOps) {
+        if (opIsRetiredMap[op]) {
+            continue;
+        }
+        auto& reqMemIds = GetOpMemIds(op);
+        bufRefCount_[memId] += std::count(reqMemIds.begin(), reqMemIds.end(), memId);
+    }
+}
+
 Status OoOScheduler::SpillL0CBuffer(SpillInfo &spillInfo, Operation* allocOp, size_t &pcIdx,
     LocalBufferPtr allocBuffer, bool isGenSpill)
 {
@@ -1707,21 +1734,10 @@ Status OoOScheduler::SpillL0CBuffer(SpillInfo &spillInfo, Operation* allocOp, si
     }
     Operation* reusedCopyOut = PickReusableCopyOut(consumers);
     if (reusedCopyOut != nullptr) {
-        spillInfo.ddrTensor_ = reusedCopyOut->GetOutputOperand(0);
-        spillInfo.spillCopyOutOp_ = reusedCopyOut;
-        consumers.erase(std::remove(consumers.begin(), consumers.end(), reusedCopyOut), consumers.end());
-        SetOpMemIds(reusedCopyOut, FilterOutMemId(GetOpMemIds(reusedCopyOut), spillInfo.spillMemId_));
-        opIsRetiredMap[reusedCopyOut] = true;
-        // 安全性：L0C 槽位 Free 后会被新 alloc 占用并写入；必须保证 reusedCopyOut
-        // 在 allocOp 之前完成，否则新 alloc 写入会覆盖 reusedCopyOut 待读的数据。
-        depManager_.AddDependency(reusedCopyOut, allocOp);
-        APASS_LOG_DEBUG_F(Elements::Operation, "L0C spill: reuse existing CopyOut %s as DDR source.",
-            GetOpInfo(reusedCopyOut).c_str());
-    } else {
-        if (CreateL0CSpillOut(spillInfo, allocOp, pcIdx, isGenSpill) != SUCCESS) {
-            APASS_LOG_ERROR_F(Elements::Operation, "L0C spill: CreateL0CSpillOut failed.");
-            return FAILED;
-        }
+        BindReusedCopyOut(spillInfo, reusedCopyOut, allocOp, consumers);
+    } else if (CreateL0CSpillOut(spillInfo, allocOp, pcIdx, isGenSpill) != SUCCESS) {
+        APASS_LOG_ERROR_F(Elements::Operation, "L0C spill: CreateL0CSpillOut failed.");
+        return FAILED;
     }
     NotifySpill(spillInfo, allocBuffer);
     for (auto* cons : consumers) {
@@ -1731,18 +1747,7 @@ Status OoOScheduler::SpillL0CBuffer(SpillInfo &spillInfo, Operation* allocOp, si
             return FAILED;
         }
     }
-    bufRefCount_[spillInfo.spillMemId_] = 0;
-    for (auto* op : orderedOps) {
-        if (opIsRetiredMap[op]) {
-            continue;
-        }
-        auto& reqMemIds = GetOpMemIds(op);
-        for (auto memId : reqMemIds) {
-            if (memId == spillInfo.spillMemId_) {
-                bufRefCount_[spillInfo.spillMemId_]++;
-            }
-        }
-    }
+    RecomputeBufRefCount(spillInfo.spillMemId_);
     function_.EraseOperations(false, false);
     auto coreLocation = opCoreLocationMap[allocOp];
     if (bufferManagerMap[coreLocation][allocBuffer->memType].Free(spillInfo.spillMemId_) != SUCCESS) {
@@ -1750,10 +1755,8 @@ Status OoOScheduler::SpillL0CBuffer(SpillInfo &spillInfo, Operation* allocOp, si
             spillInfo.spillMemId_);
         return FAILED;
     }
-    if (!isGenSpill) {
-        if (FreeL0CAfterSpill(spillInfo, allocBuffer) != SUCCESS) {
-            return FAILED;
-        }
+    if (!isGenSpill && FreeL0CAfterSpill(spillInfo, allocBuffer) != SUCCESS) {
+        return FAILED;
     }
     APASS_LOG_DEBUG_F(Elements::Operation, "END: SPILL L0C tensor[%d]!", spillInfo.spillMemId_);
     return SUCCESS;

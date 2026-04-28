@@ -270,6 +270,9 @@ private:
         LocalBufferPtr allocBuffer, bool isGenSpill);
     void CollectL0CConsumers(LogicalTensorPtr spillTensor, std::vector<Operation*> &consumers);
     Operation* PickReusableCopyOut(const std::vector<Operation*> &consumers);
+    void BindReusedCopyOut(SpillInfo &spillInfo, Operation* reusedCopyOut,
+        Operation* allocOp, std::vector<Operation*> &consumers);
+    void RecomputeBufRefCount(int memId);
     Status CreateL0CSpillOut(SpillInfo &spillInfo, Operation* allocOp, size_t &pcIdx, bool isGenSpill);
     Status ReplaceL0CConsumer(Operation* oldCons, const SpillInfo &spillInfo);
     Status FreeL0CAfterSpill(SpillInfo &spillInfo, LocalBufferPtr allocBuffer);
