@@ -131,10 +131,10 @@ struct CoaInfo {
 };
 
 struct IsConstMetric {
-    int isConst = 1;
-    int attrValue = -1;
+    int isConst = 1;  // not const = 2; const = 1; const but not static = 3; 
+    int attrValue = -1;  // static >= 0; else -1.
 
-    void MarkNotConst() { isConst = 0; }
+    void MarkNotConst() { isConst = 2; }
     int GetIsConst() { return isConst; }
     int GetAttrValue() { return attrValue; }
     bool TryInitAndCheckEqual(int newValue)
@@ -143,10 +143,16 @@ struct IsConstMetric {
             attrValue = newValue;
             return true;
         }
-
-        if (newValue < 0 || newValue != attrValue) {
+        if (newValue < 0) {
             isConst = 0;
+            attrValue = -1;
             return false;
+        }
+
+        if (newValue != attrValue) {
+            isConst = 3;
+            attrValue = -1;
+            return true;
         }
         return true;
     }
