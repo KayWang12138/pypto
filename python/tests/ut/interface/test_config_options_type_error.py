@@ -26,6 +26,7 @@ def assert_option_type_error(setter, pattern):
     [
         (
             lambda: pypto.set_pass_options(sg_set_scope="aa"),
+            "ASSERT FAILED: Errcode: F21003! Enum: FeError::INVALID_TYPE"
             "Option 'pass.sg_set_scope' has invalid type. Expected int64 or tuple, but got str.",
         ),
         (
@@ -35,26 +36,32 @@ def assert_option_type_error(setter, pattern):
         ),
         (
             lambda: pypto.set_host_options(compile_monitor_enable="true"),
+            "ASSERT FAILED: Errcode: F21003! Enum: FeError::INVALID_TYPE"
             "Option 'host.compile_monitor_enable' has invalid type. Expected bool, but got string.",
         ),
         (
             lambda: pypto.set_host_options(compile_timeout="100"),
+            "ASSERT FAILED: Errcode: F21003! Enum: FeError::INVALID_TYPE"
             "Option 'host.compile_timeout' has invalid type. Expected int64, but got string.",
         ),
         (
             lambda: pypto.set_codegen_options(support_dynamic_aligned="true"),
+            "ASSERT FAILED: Errcode: F21003! Enum: FeError::INVALID_TYPE"
             "Option 'codegen.support_dynamic_aligned' has invalid type. Expected bool, but got string.",
         ),
         (
             lambda: pypto.set_verify_options(pass_verify_save_tensor_dir=123),
+            "ASSERT FAILED: Errcode: F21003! Enum: FeError::INVALID_TYPE"
             "Option 'verify.pass_verify_save_tensor_dir' has invalid type. Expected string, but got int64.",
         ),
         (
             lambda: pypto.set_debug_options(runtime_debug_mode="1"),
+            "ASSERT FAILED: Errcode: F21003! Enum: FeError::INVALID_TYPE"
             "Option 'debug.runtime_debug_mode' has invalid type. Expected int64, but got string.",
         ),
         (
             lambda: set_operation_options(force_combine_axis="true"),
+            "ASSERT FAILED: Errcode: F21003! Enum: FeError::INVALID_TYPE"
             "Option 'operation.force_combine_axis' has invalid type. Expected bool, but got string.",
         ),
     ],
@@ -68,22 +75,27 @@ def test_wrapper_option_type_mismatch_error(setter, pattern):
     [
         (
             {"runtime_options": {"stitch_function_max_num": "aa"}},
+            "RuntimeError: ASSERT FAILED: Errcode: F21003! Enum: FeError::INVALID_TYPE"
             "Option 'runtime.stitch_function_max_num' has invalid type. Expected int64, but got string.",
         ),
         (
             {"runtime_options": {"ready_on_host_tensors": "tensor0"}},
+            "RuntimeError: ASSERT FAILED: Errcode: F21003! Enum: FeError::INVALID_TYPE"
             "Option 'runtime.ready_on_host_tensors' has invalid type. Expected list\\[string\\], but got string.",
         ),
         (
             {"runtime_options": {"device_sched_parallelism": "aa"}},
+            "RuntimeError: ASSERT FAILED: Errcode: F21003! Enum: FeError::INVALID_TYPE"
             "Option 'runtime.device_sched_parallelism' has invalid type. Expected int64, but got string.",
         ),
         (
             {"verify_options": {"pass_verify_pass_filter": False}},
+            "RuntimeError: ASSERT FAILED: Errcode: F21003! Enum: FeError::INVALID_TYPE"
             "Option 'verify.pass_verify_pass_filter' has invalid type. Expected list\\[string\\], but got bool.",
         ),
         (
             {"verify_options": {"pass_verify_error_tol": "0.1,0.1"}},
+            "RuntimeError: ASSERT FAILED: Errcode: F21003! Enum: FeError::INVALID_TYPE"
             "Option 'verify.pass_verify_error_tol' has invalid type. Expected list\\[double\\], but got string.",
         ),
     ],
