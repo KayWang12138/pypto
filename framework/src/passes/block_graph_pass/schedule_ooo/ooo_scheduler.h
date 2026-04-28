@@ -227,7 +227,7 @@ private:
         bool &isFinish, bool isGenSpill, size_t &pcIdx);
     Status CreateSpillCopyout(Operation* spillOp, LogicalTensorPtr spillTensor, int spillMemId,
         Operation* &spillCopyoutOp, const SpillInfo &spillInfo);
-    Status OoOScheduler::HandleReshapeSpillPath(SpillInfo &spillInfo, Operation* &actualSpillOp,
+    Status HandleReshapeSpillPath(SpillInfo &spillInfo, Operation* &actualSpillOp,
         LogicalTensorPtr &actualSpillTensor, bool &isFinish, bool isGenSpill, size_t &pcIdx);
     Status CreateSpillCopyoutForSmallShape(SpillInfo &spillInfo, LogicalTensorPtr l1Tensor, bool &isFinish,
         bool isGenSpill, size_t &pcIdx);
