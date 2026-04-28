@@ -76,7 +76,8 @@ inline bool g_isLogEnableError = false;
 HardBranchGroupDefine(verboseInfo);
 HardBranchGroupDefine(verboseDebug);
 
-inline void InitLogSwitch() {
+inline void InitLogSwitch()
+{
     g_isLogEnableDebug = CheckLogLevel(LOG_MOD_ID, DLOG_DEBUG);
     g_isLogEnableInfo = CheckLogLevel(LOG_MOD_ID, DLOG_INFO);
     g_isLogEnableWarn = CheckLogLevel(LOG_MOD_ID, DLOG_WARN);
@@ -127,64 +128,62 @@ inline void DeviceLogSplitDebug(const char* func, const char* format, Args... ar
     }
 }
 
-#define DEV_DEBUG_SPLIT(fmt, ...)                                             \
-    do {                                                                      \
-        if (unlikely(!HardBranchTrue(verboseDebug) || IsLogEnableDebug())) {  \
-            DeviceLogSplitDebug(__FUNCTION__, fmt, ##__VA_ARGS__);            \
-        }                                                                     \
+#define DEV_DEBUG_SPLIT(fmt, ...)                                            \
+    do {                                                                     \
+        if (unlikely(!HardBranchTrue(verboseDebug) || IsLogEnableDebug())) { \
+            DeviceLogSplitDebug(__FUNCTION__, fmt, ##__VA_ARGS__);           \
+        }                                                                    \
     } while (false)
 
-#define DEV_DEBUG(fmt, ...)                                                                    \
-    do {                                                                                       \
-        if (unlikely(!HardBranchTrue(verboseDebug) || IsLogEnableDebug())) {                   \
-            dlog_debug(LOG_MOD_ID, "%lu %s\n" #fmt , GET_TID(), __FUNCTION__, ##__VA_ARGS__);  \
-        }                                                                                      \
+#define DEV_DEBUG(fmt, ...)                                                                  \
+    do {                                                                                     \
+        if (unlikely(!HardBranchTrue(verboseDebug) || IsLogEnableDebug())) {                 \
+            dlog_debug(LOG_MOD_ID, "%lu %s\n" #fmt, GET_TID(), __FUNCTION__, ##__VA_ARGS__); \
+        }                                                                                    \
     } while (false)
 
-#define DEV_INFO(fmt, ...)                                                                     \
-    do {                                                                                       \
-        if (unlikely(!HardBranchTrue(verboseInfo) || IsLogEnableInfo())) {                     \
-            dlog_info(LOG_MOD_ID, "%lu %s\n" #fmt , GET_TID(), __FUNCTION__, ##__VA_ARGS__);   \
-        }                                                                                      \
+#define DEV_INFO(fmt, ...)                                                                  \
+    do {                                                                                    \
+        if (unlikely(!HardBranchTrue(verboseInfo) || IsLogEnableInfo())) {                  \
+            dlog_info(LOG_MOD_ID, "%lu %s\n" #fmt, GET_TID(), __FUNCTION__, ##__VA_ARGS__); \
+        }                                                                                   \
     } while (false)
 
-#define DEV_WARN(fmt, ...)                                                                     \
-    do {                                                                                       \
-        if (IsLogEnableWarn()) {                                                               \
-            dlog_warn(LOG_MOD_ID, "%lu %s\n" #fmt , GET_TID(), __FUNCTION__, ##__VA_ARGS__);   \
-        }                                                                                      \
+#define DEV_WARN(fmt, ...)                                                                  \
+    do {                                                                                    \
+        if (IsLogEnableWarn()) {                                                            \
+            dlog_warn(LOG_MOD_ID, "%lu %s\n" #fmt, GET_TID(), __FUNCTION__, ##__VA_ARGS__); \
+        }                                                                                   \
     } while (false)
 
-#define DEV_ERROR(errCode, fmt, ...)                                                           \
-    do {                                                                                       \
-        if (IsLogEnableError()) {                                                              \
-            dlog_error(LOG_MOD_ID, "%lu %s\nErrCode: F%05X! " #fmt , GET_TID(), __FUNCTION__,  \
-                       static_cast<uint32_t>(errCode) & 0xFFFFF, ##__VA_ARGS__);               \
-            DEV_ATRACE(fmt, ##__VA_ARGS__);                                                    \
-        }                                                                                      \
+#define DEV_ERROR(errCode, fmt, ...)                                                  \
+    do {                                                                              \
+        if (IsLogEnableError()) {                                                     \
+            dlog_error(                                                               \
+                LOG_MOD_ID, "%lu %s\nErrCode: F%05X! " #fmt, GET_TID(), __FUNCTION__, \
+                static_cast<uint32_t>(errCode) & 0xFFFFF, ##__VA_ARGS__);             \
+            DEV_ATRACE(fmt, ##__VA_ARGS__);                                           \
+        }                                                                             \
     } while (false)
 
-#define DEV_TRACE_LOG_ERROR(errCode, fmt, ...)                                                 \
-    do {                                                                                       \
-        if (IsLogEnableError()) {                                                              \
-            dlog_error(LOG_MOD_ID, "%lu %s\nErrCode: F%05X! " #fmt , GET_TID(), __FUNCTION__,  \
-                       static_cast<uint32_t>(errCode) & 0xFFFFF, ##__VA_ARGS__);               \
-        }                                                                                      \
+#define DEV_TRACE_LOG_ERROR(errCode, fmt, ...)                                        \
+    do {                                                                              \
+        if (IsLogEnableError()) {                                                     \
+            dlog_error(                                                               \
+                LOG_MOD_ID, "%lu %s\nErrCode: F%05X! " #fmt, GET_TID(), __FUNCTION__, \
+                static_cast<uint32_t>(errCode) & 0xFFFFF, ##__VA_ARGS__);             \
+        }                                                                             \
     } while (false)
 
-#define DEV_VERBOSE_DEBUG(fmt, ...)                                 \
-    do {                                                            \
-        DEV_IF_VERBOSE_LOG {                                        \
-            DEV_DEBUG(fmt, ##__VA_ARGS__);                          \
-        }                                                           \
-    } while(0)
+#define DEV_VERBOSE_DEBUG(fmt, ...)                           \
+    do {                                                      \
+        DEV_IF_VERBOSE_LOG { DEV_DEBUG(fmt, ##__VA_ARGS__); } \
+    } while (0)
 
-#define DEV_VERBOSE_INFO(fmt, ...)                                  \
-    do {                                                            \
-        DEV_IF_VERBOSE_LOG {                                        \
-            DEV_INFO(fmt, ##__VA_ARGS__);                           \
-        }                                                           \
-    } while(0)
+#define DEV_VERBOSE_INFO(fmt, ...)                           \
+    do {                                                     \
+        DEV_IF_VERBOSE_LOG { DEV_INFO(fmt, ##__VA_ARGS__); } \
+    } while (0)
 
 #define DEV_ASSERT_MSG(errCode, expr, fmt, args...)                           \
     do {                                                                      \
@@ -208,12 +207,12 @@ inline void DeviceLogSplitDebug(const char* func, const char* format, Args... ar
 #define DEV_IF_DEBUG if (true)
 
 #define DEV_VERBOSE_DEBUG(fmt, args...) PYPTO_SIM_LOG(DLOG_DEBUG, MACHINE, fmt, ##args)
-#define DEV_VERBOSE_INFO(fmt, args...)  PYPTO_SIM_LOG(DLOG_INFO, MACHINE, fmt, ##args)
-#define DEV_DEBUG_SPLIT(fmt, args...)   PYPTO_SIM_LOG(DLOG_DEBUG, MACHINE, fmt, ##args)
-#define DEV_DEBUG(fmt, args...)         PYPTO_SIM_LOG(DLOG_DEBUG, MACHINE, fmt, ##args)
-#define DEV_INFO(fmt, args...)          PYPTO_SIM_LOG(DLOG_INFO, MACHINE, fmt, ##args)
-#define DEV_WARN(fmt, args...)          PYPTO_SIM_LOG(DLOG_WARN, MACHINE, fmt, ##args)
-#define DEV_ERROR(errCode, fmt, args...)         PYPTO_SIM_LOGE(MACHINE, errCode, fmt, ##args)
+#define DEV_VERBOSE_INFO(fmt, args...) PYPTO_SIM_LOG(DLOG_INFO, MACHINE, fmt, ##args)
+#define DEV_DEBUG_SPLIT(fmt, args...) PYPTO_SIM_LOG(DLOG_DEBUG, MACHINE, fmt, ##args)
+#define DEV_DEBUG(fmt, args...) PYPTO_SIM_LOG(DLOG_DEBUG, MACHINE, fmt, ##args)
+#define DEV_INFO(fmt, args...) PYPTO_SIM_LOG(DLOG_INFO, MACHINE, fmt, ##args)
+#define DEV_WARN(fmt, args...) PYPTO_SIM_LOG(DLOG_WARN, MACHINE, fmt, ##args)
+#define DEV_ERROR(errCode, fmt, args...) PYPTO_SIM_LOGE_WITH_ERRCODE(MACHINE, errCode, fmt, ##args)
 
 #if DEBUG_MEM_DUMP_LEVEL != DEBUG_MEM_DUMP_DISABLE
 #define DEV_MEM_DUMP(fmt, args...) MACHINE_LOGD("[WsMem Statistics] " fmt, ##args)
@@ -221,20 +220,20 @@ inline void DeviceLogSplitDebug(const char* func, const char* format, Args... ar
 #define DEV_MEM_DUMP(fmt, args...)
 #endif // DEBUG_MEM_DUMP_LEVEL != DEBUG_MEM_DUMP_DISABLE
 
-#define DEV_ASSERT_MSG(errCode, expr, fmt, args...)           \
-    do {                                                      \
-        if (!(expr)) {                                        \
-            DEV_ERROR(errCode, "%s :" fmt, #expr, ##args);    \
-            abort();                                          \
-        }                                                     \
+#define DEV_ASSERT_MSG(errCode, expr, fmt, args...)        \
+    do {                                                   \
+        if (!(expr)) {                                     \
+            DEV_ERROR(errCode, "%s :" fmt, #expr, ##args); \
+            abort();                                       \
+        }                                                  \
     } while (0)
 
-#define DEV_ASSERT(errCode, expr)               \
-    do {                                        \
-        if (!(expr)) {                          \
-            DEV_ERROR(errCode, "%s", #expr);    \
-            abort();                            \
-        }                                       \
+#define DEV_ASSERT(errCode, expr)            \
+    do {                                     \
+        if (!(expr)) {                       \
+            DEV_ERROR(errCode, "%s", #expr); \
+            abort();                         \
+        }                                    \
     } while (0)
 
 #endif

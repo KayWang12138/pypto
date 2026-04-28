@@ -75,7 +75,9 @@ std::vector<T> GetOpMetaDataFromFile(const std::filesystem::path& filePath)
 {
     std::ifstream jsonFile(filePath);
     if (!jsonFile.is_open()) {
-        DISTRIBUTED_LOGE("Failed to open Json file for Path: %s", std::filesystem::absolute(filePath).string().c_str());
+        DISTRIBUTED_LOGE(
+            DistributedErrorCode::UNKNOW_ERROR, "Failed to open Json file for Path: %s",
+            std::filesystem::absolute(filePath).string().c_str());
         return {};
     }
     std::string fileName = filePath.stem().string();
@@ -86,7 +88,8 @@ std::vector<T> GetOpMetaDataFromFile(const std::filesystem::path& filePath)
     }
     if (testCaseList.empty()) {
         DISTRIBUTED_LOGE(
-            "No test cases found in json for File: %s", std::filesystem::absolute(filePath).string().c_str());
+            DistributedErrorCode::UNKNOW_ERROR, "No test cases found in json for File: %s",
+            std::filesystem::absolute(filePath).string().c_str());
     }
     return testCaseList;
 }
@@ -126,7 +129,7 @@ std::vector<T> GetOpMetaData()
         casePath = std::filesystem::path(TEST_CASE_EXE_DIR) / TEST_CASE_RELATIVE_PATH;
     }
     if (!std::filesystem::exists(casePath)) {
-        DISTRIBUTED_LOGE("JSON path does not exist: %s", casePath.string().c_str());
+        DISTRIBUTED_LOGE(DistributedErrorCode::UNKNOW_ERROR, "JSON path does not exist: %s", casePath.string().c_str());
         return {};
     }
     if (std::filesystem::is_regular_file(casePath)) {

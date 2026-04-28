@@ -302,7 +302,7 @@ std::string CodeGenOpNPU::PrintUnaryOpWithTmpTwoBuff() const
     std::string tmp0Tensor = QueryTileTensorNameByIdx(ToUnderlying(MILOIdx::TMP_IDX));
     std::string tmp1Tensor = QueryTileTensorNameByIdx(ToUnderlying(MILOIdx::TMP2_IDX));
     std::string srcTensor = QueryTileTensorNameByIdx(ToUnderlying(MILOIdx::SRC0_IDX));
-    
+
     std::vector<std::string> tileOpCallParamList = {dstTensor, tmp0Tensor, tmp1Tensor, srcTensor};
     std::ostringstream oss;
     oss << tileOpName;
@@ -512,7 +512,7 @@ std::string CodeGenOpNPU::GenUnaryOpWithTmpBuff() const
         return PrintVnchwconv({s0Var, tmpVar, dVar, srcDtypeStr, tmpDtypeStr, dstDtypeStr});
     }
 
-    if (opCode == Opcode::OP_SIGN || opCode == Opcode::OP_SIGNBIT || opCode == Opcode::OP_SINH) {
+    if (opCode == Opcode::OP_SIGN || opCode == Opcode::OP_SIGNBIT) {
         return PrintUnaryWithTmpTileTensor();
     }
 

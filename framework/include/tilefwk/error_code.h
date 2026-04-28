@@ -18,13 +18,16 @@
 #include <cstdint>
 
 namespace npu::tile_fwk {
+template <typename T, typename = std::enable_if_t<std::is_enum_v<T>>>
+inline constexpr std::underlying_type_t<T> ToUnderlying(T value)
+{
+    return static_cast<std::underlying_type_t<T>>(value);
+}
 
 // =============================================================================
 // F0-1XXXX: external limitation
 // =============================================================================
-enum class ExternalErrorCode : uint32_t {
-    UNKNOWN = 0x1FFFFU
-};
+enum class ExternalErrorCode : uint32_t { UNKNOWN = 0x1FFFFU };
 
 // =============================================================================
 // F2-F3XXXX: FUNCTION
@@ -345,6 +348,7 @@ enum class DistributedErrorCode : uint32_t {
     HCCL_ALLOC_RESOURCE_FAILED = 0xA4000,
     INVALID_HCCL_TOPO = 0xA4001,
     CONTEXT_CONFIGURE_FAILED = 0xA4002,
+    UNKNOW_ERROR = 0xAFFFF
 };
 
 // =============================================================================
@@ -447,11 +451,7 @@ enum class MatmulErrorCode : uint32_t {
     ERR_RUNTIME_LOGIC = 0xC5002U,
 };
 
-enum class ConvOperationError : uint32_t {
-    INPUT_INVALID = 0xC6101U,
-    OVER_BUFFER_LIMIT = 0xC6102U,
-    UNKNOWN = 0xC6199U
-};
+enum class ConvOperationError : uint32_t { INPUT_INVALID = 0xC6101U, OVER_BUFFER_LIMIT = 0xC6102U, UNKNOWN = 0xC6199U };
 
 enum class ConvExpandFuncError : uint32_t {
     EXPANDFUNC_TENSOR_OP_NULLPTR = 0xC6201U,

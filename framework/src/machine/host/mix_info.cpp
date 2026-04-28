@@ -22,7 +22,6 @@ using json = nlohmann::json;
 namespace npu {
 namespace tile_fwk {
 namespace mix_info {
-constexpr uint32_t MAX_SYNC_EVENT_NUM = 48; // the max set/wait insts in a mix subgraph leaffunction is 48, can set larger manually
 void GetExecuteFunc(Function* func, std::map<int, std::set<Function*>>& leafFunctions)
 {
     auto funcType = func->GetGraphType();
@@ -58,7 +57,8 @@ void GetExecuteFunc(Function* func, std::map<int, std::set<Function*>>& leafFunc
     return;
 }
 
-void DumpMixInfoToJson(const std::map<uint64_t, std::map<int, WrapInfo>>& wrapInfos) {
+void DumpMixInfoToJson(const std::map<uint64_t, std::map<int, WrapInfo>>& wrapInfos)
+{
     std::vector<MixInfo> wrapinfoList;
     for (auto& [mixId, rootWrapinfo] : wrapInfos) {
         MixInfo mixInfo;
@@ -69,7 +69,7 @@ void DumpMixInfoToJson(const std::map<uint64_t, std::map<int, WrapInfo>>& wrapIn
         }
         wrapinfoList.push_back(mixInfo);
     }
-json j = wrapinfoList;
+    json j = wrapinfoList;
     std::string path = npu::tile_fwk::config::GetAbsoluteTopFolder() + "/mix_event_info.json";
     std::ofstream of(path);
     if (of.is_open()) {
@@ -93,8 +93,7 @@ int DumpMixInfo(Function* topFunc)
                 continue;
             }
             auto mixId = leafAttr->mixId;
-            if (wrapInfos.find(mixId) == wrapInfos.end() ||
-                wrapInfos[mixId].find(wrapID) == wrapInfos[mixId].end()) {
+            if (wrapInfos.find(mixId) == wrapInfos.end() || wrapInfos[mixId].find(wrapID) == wrapInfos[mixId].end()) {
                 WrapInfo info;
                 info.wrapID = wrapID;
                 wrapInfos[mixId][wrapID] = info;
@@ -113,9 +112,6 @@ int DumpMixInfo(Function* topFunc)
                 syncInfo.eventID = op->GetSyncQueue().eventId_;
                 leafFuncSyncInfo.syncMsg.push_back(syncInfo);
             }
-            ASSERT(DevCommonErr::PARAM_CHECK_FAILED, leafFuncSyncInfo.syncMsg.size() <= MAX_SYNC_EVENT_NUM)
-                << "leaffunction's syncEvent's size(" << leafFuncSyncInfo.syncMsg.size() << "is lager than MAX_SYNC_EVENT_NUM"
-                << MAX_SYNC_EVENT_NUM << "need to set MAX_SYNC_EVENT_NUM larger manually";
             wrapInfos[mixId][wrapID].coreTask.push_back(leafFuncSyncInfo);
         }
     }

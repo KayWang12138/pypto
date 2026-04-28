@@ -48,8 +48,7 @@ void PvModelBinHelper::ReadBin(std::string path, std::vector<uint8_t>& bytes)
     std::ifstream inFile(path, std::ios::binary);
 
     if (!inFile.is_open()) {
-        SIMULATION_LOGE_E(CostModel::ExternalErrorScene::FILE_OPEN_FAILED,
-            "open bin file error: %s", path.c_str());
+        SIMULATION_LOGE(CostModel::ExternalErrorScene::FILE_OPEN_FAILED, "open bin file error: %s", path.c_str());
         return;
     }
 
@@ -69,8 +68,7 @@ uint64_t PvModelBinHelper::GetBinSize(std::string path)
 {
     std::ifstream file(path, std::ios::binary | std::ios::ate);
     if (!file) {
-        SIMULATION_LOGE_E(CostModel::ExternalErrorScene::FILE_OPEN_FAILED,
-            "open file error: %s", path.c_str());
+        SIMULATION_LOGE(CostModel::ExternalErrorScene::FILE_OPEN_FAILED, "open file error: %s", path.c_str());
         return 0;
     }
 
@@ -308,7 +306,7 @@ void PvModelImpl<SystemConfig, CaseConfig>::BinGen(npu::tile_fwk::Function* func
 
             int ret = std::system(cmd);
             if (ret != 0) {
-                SIMULATION_LOGE_E(CostModel::PrecisionSimErrorScene::CMD_ERROR, "cmd error: %s", cmd);
+                SIMULATION_LOGE(CostModel::PrecisionSimErrorScene::CMD_ERROR, "cmd error: %s", cmd);
             }
 
             auto size = PvModelBinHelper::GetBinSize(task_.binPath[subFuncPair.first]);
@@ -458,7 +456,7 @@ void PvModelImpl<SystemConfig, CaseConfig>::RunModel(std::string esgDir)
 
     int result = std::system(cmd);
     if (result != 0) {
-        SIMULATION_LOGE_E(CostModel::PrecisionSimErrorScene::CMD_ERROR, "cmd error: %s", cmd);
+        SIMULATION_LOGE(CostModel::PrecisionSimErrorScene::CMD_ERROR, "cmd error: %s", cmd);
     }
 }
 
@@ -474,8 +472,7 @@ void PvModelImpl<SystemConfig, CaseConfig>::TearDown(std::string esgDir)
     }
 }
 
-void DynPvModelImpl::Run(
-    DynFuncData* funcDataList, int coreId, int funcId, int taskId)
+void DynPvModelImpl::Run(DynFuncData* funcDataList, int coreId, int funcId, int taskId)
 {
     SIMULATION_LOGI("[AICORE] core  %d, func %d, task %d", coreId, funcId, taskId);
     CostModel::OutputSilencer silencer;
@@ -503,18 +500,32 @@ void DynPvModelImpl::RunModel(PvModelCceBin* cce, DynFuncData* funcdata, uint64_
     pv_launch_sub_core_(binAddr, cce->binPath.c_str(), subcoreId_, coreId_);
     pv_reg_write_(static_cast<uint32_t>(1), PV_REG_PC, (uint8_t*)&binAddr, subcoreId_, coreId_);
 
-    pv_mem_write_(0, reinterpret_cast<uint64_t>(funcdata), sizeof(DynFuncData), reinterpret_cast<uint8_t*>(funcdata), subcoreId_, coreId_);
-    pv_mem_write_(0, reinterpret_cast<uint64_t>(funcdata->opAttrs), funcdata->opAttrSize * sizeof(uint64_t), reinterpret_cast<uint8_t*>(funcdata->opAttrs), subcoreId_, coreId_);
-    pv_mem_write_(0, reinterpret_cast<uint64_t>(funcdata->exprTbl), funcdata->exprNum * sizeof(uint64_t), reinterpret_cast<uint8_t*>(funcdata->exprTbl), subcoreId_, coreId_);
-    pv_mem_write_(0, reinterpret_cast<uint64_t>(funcdata->rawTensorDesc), funcdata->rawTensorDescSize * sizeof(DevRawTensorDesc), reinterpret_cast<uint8_t*>(funcdata->rawTensorDesc), subcoreId_, coreId_);
-    pv_mem_write_(0, reinterpret_cast<uint64_t>(funcdata->rawTensorAddr), funcdata->rawTensorAddrSize * sizeof(uint64_t), reinterpret_cast<uint8_t*>(funcdata->rawTensorAddr), subcoreId_, coreId_);
+    pv_mem_write_(
+        0, reinterpret_cast<uint64_t>(funcdata), sizeof(DynFuncData), reinterpret_cast<uint8_t*>(funcdata), subcoreId_,
+        coreId_);
+    pv_mem_write_(
+        0, reinterpret_cast<uint64_t>(funcdata->opAttrs), funcdata->opAttrSize * sizeof(uint64_t),
+        reinterpret_cast<uint8_t*>(funcdata->opAttrs), subcoreId_, coreId_);
+    pv_mem_write_(
+        0, reinterpret_cast<uint64_t>(funcdata->exprTbl), funcdata->exprNum * sizeof(uint64_t),
+        reinterpret_cast<uint8_t*>(funcdata->exprTbl), subcoreId_, coreId_);
+    pv_mem_write_(
+        0, reinterpret_cast<uint64_t>(funcdata->rawTensorDesc), funcdata->rawTensorDescSize * sizeof(DevRawTensorDesc),
+        reinterpret_cast<uint8_t*>(funcdata->rawTensorDesc), subcoreId_, coreId_);
+    pv_mem_write_(
+        0, reinterpret_cast<uint64_t>(funcdata->rawTensorAddr), funcdata->rawTensorAddrSize * sizeof(uint64_t),
+        reinterpret_cast<uint8_t*>(funcdata->rawTensorAddr), subcoreId_, coreId_);
     std::vector<uint64_t> para_args;
     para_args.push_back(reinterpret_cast<uint64_t>(funcdata));
 
-    pv_mem_write_(0, reinterpret_cast<uint64_t>(opAttrs), sizeof(uint64_t), reinterpret_cast<uint8_t*>(opAttrs), subcoreId_, coreId_);
+    pv_mem_write_(
+        0, reinterpret_cast<uint64_t>(opAttrs), sizeof(uint64_t), reinterpret_cast<uint8_t*>(opAttrs), subcoreId_,
+        coreId_);
     para_args.push_back(reinterpret_cast<uint64_t>(opAttrs));
-    
-    pv_mem_write_(uint32_t(0), HBM_PARA_BASE, para_args.size() * sizeof(uint64_t), (uint8_t*)(&para_args[0]), subcoreId_, coreId_);
+
+    pv_mem_write_(
+        uint32_t(0), HBM_PARA_BASE, para_args.size() * sizeof(uint64_t), (uint8_t*)(&para_args[0]), subcoreId_,
+        coreId_);
 
     step_status_t step_status;
     do {

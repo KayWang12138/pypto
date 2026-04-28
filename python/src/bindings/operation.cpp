@@ -110,10 +110,7 @@ void bind_operation(py::module& m)
         py::arg("operand"), py::arg("dstDataType"), "Tensor view_type.");
 
     m.def(
-        "Exp",
-        [](const Tensor& self, ExpAlgorithm precisionType) {
-            return npu::tile_fwk::Exp(self, precisionType);
-        },
+        "Exp", [](const Tensor& self, ExpAlgorithm precisionType) { return npu::tile_fwk::Exp(self, precisionType); },
         py::arg("self"), py::arg("precision_type") = ExpAlgorithm::HIGH_PRECISION, "Tensor exp.");
     m.def(
         "Expm1", [](const Tensor& self) { return npu::tile_fwk::Expm1(self); }, "Tensor expm1.");
@@ -124,8 +121,7 @@ void bind_operation(py::module& m)
     m.def(
         "Exp2", [](const Tensor& self) { return npu::tile_fwk::Exp2(self); }, "Tensor exp2.");
     m.def(
-        "Permute",
-        [](const Tensor& self, const std::vector<int>& perm) { return npu::tile_fwk::Permute(self, perm); },
+        "Permute", [](const Tensor& self, const std::vector<int>& perm) { return npu::tile_fwk::Permute(self, perm); },
         "Tensor transpose.");
 
     m.def(
@@ -161,9 +157,7 @@ void bind_operation(py::module& m)
         py::arg("self"), py::arg("precision_type") = RsqrtAlgorithm::HIGH_PRECISION, "Tensor rsqrt.");
     m.def(
         "Sqrt",
-        [](const Tensor& self, SqrtAlgorithm precisionType) {
-            return npu::tile_fwk::Sqrt(self, precisionType);
-        },
+        [](const Tensor& self, SqrtAlgorithm precisionType) { return npu::tile_fwk::Sqrt(self, precisionType); },
         py::arg("self"), py::arg("precision_type") = SqrtAlgorithm::HIGH_PRECISION, "Tensor sqrt.");
     m.def(
         "Sign", [](const Tensor& self) { return npu::tile_fwk::Sign(self); }, "Tensor sign.");
@@ -173,10 +167,6 @@ void bind_operation(py::module& m)
         "Ceil", [](const Tensor& self) { return npu::tile_fwk::Ceil(self); }, "Tensor ceil.");
     m.def(
         "Floor", [](const Tensor& self) { return npu::tile_fwk::Floor(self); }, "Tensor floor.");
-    m.def(
-        "Sinh", [](const Tensor& self) { return npu::tile_fwk::Sinh(self); }, "Tensor sinh");
-    m.def(
-        "Cosh", [](const Tensor& self) { return npu::tile_fwk::Cosh(self); }, "Tensor cosh");
     m.def("FloorDiv", [](const Tensor& self, const Tensor& other) { return npu::tile_fwk::FloorDiv(self, other); });
     m.def("FloorDiv", [](const Tensor& self, const Element& other) { return npu::tile_fwk::FloorDiv(self, other); });
     m.def(
@@ -187,9 +177,7 @@ void bind_operation(py::module& m)
         "Neg", [](const Tensor& self) { return npu::tile_fwk::Neg(self); }, "Tensor neg.");
     m.def(
         "Reciprocal",
-        [](const Tensor& self, RecipAlgorithm precisionType) {
-            return npu::tile_fwk::Reciprocal(self, precisionType);
-        },
+        [](const Tensor& self, RecipAlgorithm precisionType) { return npu::tile_fwk::Reciprocal(self, precisionType); },
         py::arg("self"), py::arg("precision_type") = RecipAlgorithm::DEFAULT, "Tensor reciprocal.");
     m.def(
         "Log",
@@ -204,8 +192,7 @@ void bind_operation(py::module& m)
         [](const Tensor& self, const Tensor& other, PowAlgorithm precisionType) {
             return npu::tile_fwk::Pow(self, other, precisionType);
         },
-        py::arg("self"), py::arg("other"), py::arg("precision_type") = PowAlgorithm::HIGH_PRECISION,
-        "Tensor pow.");
+        py::arg("self"), py::arg("other"), py::arg("precision_type") = PowAlgorithm::HIGH_PRECISION, "Tensor pow.");
     m.def(
         "Pow",
         [](const Tensor& self, const Element& other, PowAlgorithm precisionType) {
@@ -222,18 +209,18 @@ void bind_operation(py::module& m)
         py::arg("satmode") = SaturationMode::OFF, "Tensor cast.");
     m.def(
         "Quantize",
-        [](const Tensor &input, const Tensor &scale, DataType otype, int axis, const Tensor &zeroPoints) {
+        [](const Tensor& input, const Tensor& scale, DataType otype, int axis, const Tensor& zeroPoints) {
             return npu::tile_fwk::Quantize(input, scale, otype, axis, zeroPoints);
         },
-        py::arg("input"), py::arg("scale"), py::arg("otype"), py::arg("axis"),
-        py::arg("zero_points") = Tensor(), "Tensor Quantize.");
+        py::arg("input"), py::arg("scale"), py::arg("otype"), py::arg("axis"), py::arg("zero_points") = Tensor(),
+        "Tensor Quantize.");
     m.def(
         "Dequantize",
-        [](const Tensor &input, const Tensor &scale, DataType otype, int axis, const Tensor &zeroPoints) {
+        [](const Tensor& input, const Tensor& scale, DataType otype, int axis, const Tensor& zeroPoints) {
             return npu::tile_fwk::Dequantize(input, scale, otype, axis, zeroPoints);
         },
-        py::arg("input"), py::arg("scale"), py::arg("otype"), py::arg("axis"),
-        py::arg("zero_points") = Tensor(), "Tensor Dequantize.");
+        py::arg("input"), py::arg("scale"), py::arg("otype"), py::arg("axis"), py::arg("zero_points") = Tensor(),
+        "Tensor Dequantize.");
     m.def(
         "Add", [](const Tensor& self, const Element& other) { return npu::tile_fwk::Add(self, other); },
         "Tensor add scalar.");
@@ -248,7 +235,8 @@ void bind_operation(py::module& m)
         [](const Tensor& self, const Element& other, DivAlgorithm precisionType) {
             return npu::tile_fwk::Div(self, other, precisionType);
         },
-        py::arg("self"), py::arg("other"), py::arg("precision_type") = DivAlgorithm::HIGH_PRECISION, "Tensor div scalar.");
+        py::arg("self"), py::arg("other"), py::arg("precision_type") = DivAlgorithm::HIGH_PRECISION,
+        "Tensor div scalar.");
     m.def(
         "Fmod", [](const Tensor& self, const Element& other) { return npu::tile_fwk::Fmod(self, other); },
         "Tensor mod scalar.");
@@ -299,11 +287,11 @@ void bind_operation(py::module& m)
         py::arg("start"), py::arg("end"), py::arg("step"), "Tensor range.");
     m.def(
         "Uniform",
-        [](const Element &key, const SymbolicScalar& counter0, const Element &counter1,
-           const std::vector<int64_t> &shape, const Element &rounds, DataType dtype) {
-            return npu::tile_fwk::Uniform(key, counter0, counter1, shape, rounds, dtype);
-        },
-        py::arg("key"), py::arg("counter0"), py::arg("counter1"), py::arg("shape"), py::arg("rounds") = Element(DT_UINT16, static_cast<uint16_t>(10)), py::arg("dtype") = DT_FP32,
+        [](const Element& key, const SymbolicScalar& counter0, const Element& counter1,
+           const std::vector<int64_t>& shape, const Element& rounds,
+           DataType dtype) { return npu::tile_fwk::Uniform(key, counter0, counter1, shape, rounds, dtype); },
+        py::arg("key"), py::arg("counter0"), py::arg("counter1"), py::arg("shape"),
+        py::arg("rounds") = Element(DT_UINT16, static_cast<uint16_t>(10)), py::arg("dtype") = DT_FP32,
         "Uniform random number generator.");
     m.def(
         "Amax",
