@@ -642,6 +642,134 @@ TEST_F(ScheduleOoOTest, TestSpillAssemble)
     EXPECT_EQ(res, SUCCESS);
 }
 
+TEST_F(ScheduleOoOTest, TestSpillL0CReuseCopyOut)
+{
+    // L0C 多消费者 + 含 L0C_COPY_OUT 的复用主路径：
+    //   matmul1 -> L0C1, 三个消费者：L0C_COPY_UB / L0C_TO_L1 / L0C_COPY_OUT
+    //   接着 L0CAlloc2 + matmul2，把 orderedOps 拍成 "L0CAlloc2 在所有 L0C1 消费者之前"
+    //   后跑 GenSpillSchedule，自然在 L0CAlloc2 处触发 L0C 满 → SpillL0CBuffer。
+    // 期望：
+    //   - 不新建 spill CopyOut（复用既有 L0C_COPY_OUT）
+    //   - 原 L0C_COPY_UB / L0C_TO_L1 被新建的 OP_COPY_IN(DDR -> 原 UB/L1 tensor) 取代
+    //   - 复用的 CopyOut 多了一条 -> L0CAlloc2 的保护依赖
+    ComputationalGraphBuilder subGraph;
+    std::vector<std::string> tensorNamesL0AB{"L0A", "L0B"};
+    std::vector<MemoryType> tensorMemTypesL0AB{MemoryType::MEM_L0A, MemoryType::MEM_L0B};
+    std::vector<std::string> tensorNamesL0C{"L0C1", "L0C2"};
+    std::vector<MemoryType> tensorMemTypesL0C{MemoryType::MEM_L0C, MemoryType::MEM_L0C};
+    std::vector<std::string> tensorNamesOther{"UBDst", "L1Dst", "DDROut"};
+    std::vector<MemoryType> tensorMemTypesOther{
+        MemoryType::MEM_UB, MemoryType::MEM_L1, MemoryType::MEM_DEVICE_DDR};
+    std::vector<Opcode> opCodes{
+        Opcode::OP_L0A_ALLOC,    Opcode::OP_L0B_ALLOC,
+        Opcode::OP_L0C_ALLOC,    Opcode::OP_A_MUL_B,
+        Opcode::OP_UB_ALLOC,     Opcode::OP_L0C_COPY_UB,
+        Opcode::OP_L1_ALLOC,     Opcode::OP_L0C_TO_L1,
+        Opcode::OP_L0C_COPY_OUT,
+        Opcode::OP_L0C_ALLOC,    Opcode::OP_A_MUL_B};
+    std::vector<std::vector<std::string>> ioperands{
+        {}, {},
+        {}, {"L0A", "L0B"},
+        {}, {"L0C1"},
+        {}, {"L0C1"},
+        {"L0C1"},
+        {}, {"L0A", "L0B"}};
+    std::vector<std::vector<std::string>> ooperands{
+        {"L0A"},  {"L0B"},
+        {"L0C1"}, {"L0C1"},
+        {"UBDst"}, {"UBDst"},
+        {"L1Dst"}, {"L1Dst"},
+        {"DDROut"},
+        {"L0C2"}, {"L0C2"}};
+    std::vector<std::string> opNames{
+        "L0AAlloc",  "L0BAlloc",
+        "L0CAlloc1", "Matmul1",
+        "UBAlloc",   "L0CCopyUB",
+        "L1Alloc",   "L0CToL1",
+        "L0CCopyOut",
+        "L0CAlloc2", "Matmul2"};
+
+    // A5: L0C 256KB / L0A/L0B 64KB。{128, 128} FP32 = 64KB：L0A/L0B 各 1 块塞满，
+    // L0C 1 块占 1/4，但下面会把 L0C BufferPool 覆盖成 64KB，让第二块 L0C 必然 spill。
+    EXPECT_EQ(subGraph.AddTensors(DataType::DT_FP32, {128, 128}, tensorMemTypesL0AB, tensorNamesL0AB, 0), true);
+    EXPECT_EQ(subGraph.AddTensors(DataType::DT_FP32, {128, 128}, tensorMemTypesL0C, tensorNamesL0C, 0), true);
+    EXPECT_EQ(subGraph.AddTensors(DataType::DT_FP32, {128, 128}, tensorMemTypesOther, tensorNamesOther, 0), true);
+    EXPECT_EQ(subGraph.AddOps(opCodes, ioperands, ooperands, opNames, true), true);
+    Function* function = subGraph.GetFunction();
+    EXPECT_NE(function, nullptr);
+
+    std::vector<int64_t> zeroOffset = {0, 0};
+    std::vector<int64_t> shape = {128, 128};
+    auto shapeImme = OpImmediate::Specified(shape);
+    auto* copyOutOp = subGraph.GetOp("L0CCopyOut");
+    EXPECT_NE(copyOutOp, nullptr);
+    copyOutOp->SetOpAttribute(std::make_shared<CopyOpAttribute>(
+        MemoryType::MEM_L0C, OpImmediate::Specified(zeroOffset), shapeImme, shapeImme));
+
+    OptimizeSort sort(function->Operations().DuplicatedOpList(), *function);
+    Status res = sort.SortOps();
+    EXPECT_EQ(res, SUCCESS);
+    OoOScheduler ooOScheduler(*function);
+    res = ooOScheduler.Init(sort.operations);
+    EXPECT_EQ(res, SUCCESS);
+
+    // 把 L0C BufferPool 缩到 64KB，正好放下 1 块 L0C，第二块必然触发 spill。
+    auto coreAIC = CoreLocationType::AIC;
+    ooOScheduler.bufferManagerMap[coreAIC][MemoryType::MEM_L0C] =
+        BufferPool(MemoryType::MEM_L0C, 64 * 1024);
+
+    // 强制 orderedOps 的顺序：让 L0CAlloc2 出现在 L0C1 三个消费者之前，否则 L0C1
+    // 在第二次 alloc 前就被消费完，L0C 自然空闲，触发不到 spill。
+    Operation* l0aAlloc = subGraph.GetOp("L0AAlloc");
+    Operation* l0bAlloc = subGraph.GetOp("L0BAlloc");
+    Operation* l0cAlloc1 = subGraph.GetOp("L0CAlloc1");
+    Operation* matmul1 = subGraph.GetOp("Matmul1");
+    Operation* l0cAlloc2 = subGraph.GetOp("L0CAlloc2");
+    Operation* matmul2 = subGraph.GetOp("Matmul2");
+    Operation* ubAlloc = subGraph.GetOp("UBAlloc");
+    Operation* l0cCopyUB = subGraph.GetOp("L0CCopyUB");
+    Operation* l1Alloc = subGraph.GetOp("L1Alloc");
+    Operation* l0cToL1 = subGraph.GetOp("L0CToL1");
+    ooOScheduler.orderedOps = {
+        l0aAlloc, l0bAlloc,
+        l0cAlloc1, matmul1,
+        l0cAlloc2, matmul2,
+        ubAlloc, l0cCopyUB,
+        l1Alloc, l0cToL1,
+        copyOutOp};
+    for (size_t i = 0; i < ooOScheduler.orderedOps.size(); i++) {
+        ooOScheduler.opExecOrderMap[ooOScheduler.orderedOps[i]] = static_cast<int>(i);
+    }
+
+    res = ooOScheduler.GenSpillSchedule();
+    EXPECT_EQ(res, SUCCESS);
+
+    // 不应新建 spill CopyOut：图里仍只有原始那 1 个 L0C_COPY_OUT。
+    int copyOutCnt = 0;
+    int copyInCnt = 0;
+    for (auto* op : ooOScheduler.orderedOps) {
+        auto opc = op->GetOpcode();
+        if (opc == Opcode::OP_COPY_OUT || opc == Opcode::OP_L0C_COPY_OUT) {
+            copyOutCnt++;
+        }
+        if (opc == Opcode::OP_COPY_IN) {
+            copyInCnt++;
+        }
+    }
+    EXPECT_EQ(copyOutCnt, 1);
+    // 替换 L0CCopyUB 和 L0CToL1，各加一个 OP_COPY_IN，共 2 个。
+    EXPECT_EQ(copyInCnt, 2);
+
+    // 原 L0C_COPY_UB / L0C_TO_L1 已被删掉。
+    for (auto* op : ooOScheduler.orderedOps) {
+        EXPECT_NE(op->GetOpcode(), Opcode::OP_L0C_COPY_UB);
+        EXPECT_NE(op->GetOpcode(), Opcode::OP_L0C_TO_L1);
+    }
+
+    // 复用 CopyOut 多了一条 -> L0CAlloc2 的保护依赖。
+    EXPECT_TRUE(ooOScheduler.depManager_.GetSuccessors(copyOutOp).count(l0cAlloc2) > 0);
+}
+
 TEST_F(ScheduleOoOTest, TestSchedule) {
     ComputationalGraphBuilder subGraph;
     std::vector<std::string> tensorNames{"t1", "t2", "t3", "t4", "t5", "t6", "t7", "t8", "t9"};
