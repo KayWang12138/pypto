@@ -290,22 +290,6 @@ static void Cos(const TensorData& out, const TensorData& self)
     ToOperand(tout.second, tout.first, out.dtype);
 }
 
-static void Sinh(const TensorData& out, const TensorData& self)
-{
-    auto tout = From(out);
-    auto tself = From(self);
-    torch::sinh_out(tout.second, tself.second);
-    ToOperand(tout.second, tout.first, out.dtype);
-}
-
-static void Cosh(const TensorData& out, const TensorData& self)
-{
-    auto tout = From(out);
-    auto tself = From(self);
-    torch::cosh_out(tout.second, tself.second);
-    ToOperand(tout.second, tout.first, out.dtype);
-}
-
 static void Neg(const TensorData& out, const TensorData& self)
 {
     auto tout = From(out);
@@ -1758,7 +1742,9 @@ void IndexAdd(
     ToOperand(tout.second, tout.first, out.dtype);
 }
 
-static void Quantize(const TensorData &out, const TensorData &input, const TensorData &scale, const TensorData &zeroPoints) {
+static void Quantize(
+    const TensorData& out, const TensorData& input, const TensorData& scale, const TensorData& zeroPoints)
+{
     auto tout = From(out);
     auto tinput = From(input);
     auto tscale = From(scale);
@@ -1800,7 +1786,9 @@ static void Quantize(const TensorData &out, const TensorData &input, const Tenso
     ToOperand(rounded, tout.first, out.dtype);
 }
 
-static void Dequantize(const TensorData &out, const TensorData &input, const TensorData &scale, const TensorData &zeroPoints) {
+static void Dequantize(
+    const TensorData& out, const TensorData& input, const TensorData& scale, const TensorData& zeroPoints)
+{
     auto tout = From(out);
     auto tinput = From(input);
     auto tscale = From(scale);
@@ -1834,7 +1822,8 @@ static void Dequantize(const TensorData &out, const TensorData &input, const Ten
     ToOperand(result, tout.first, out.dtype);
 }
 
-void TriU(const TensorData &out, const TensorData &in, int diagonal) {
+void TriU(const TensorData& out, const TensorData& in, int diagonal)
+{
     auto output = From(out);
     auto input = From(in);
 
@@ -2625,8 +2614,6 @@ static struct CalcOps calcOps = {
     .Expm1 = Expm1,
     .Sin = Sin,
     .Cos = Cos,
-    .Sinh = Sinh,
-    .Cosh = Cosh,
     .Neg = Neg,
     .Rsqrt = Rsqrt,
     .Sign = Sign,

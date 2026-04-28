@@ -64,10 +64,11 @@ void DevAscendFunction::InitIncastOutcastAttr(
     outcastAddressList.HostInitDataSizeOffset(initOffset, oList.size());
 }
 
-static void FillDuppedDataFields(DevAscendFunctionDuppedData* dupData, uint64_t operationSize, uint64_t incastSize,
-    uint64_t outcastSize, uint64_t expressionSize, uint32_t outcastStitchCount, uint64_t predCountListDataSize,
-    uint64_t incastDataSize, uint64_t outcastDataSize, uint64_t expressionDataSize, uint64_t stitchDataSize,
-    uint64_t totalDataSize, uint64_t duppedDataAllocSize)
+static void FillDuppedDataFields(
+    DevAscendFunctionDuppedData* dupData, uint64_t operationSize, uint64_t incastSize, uint64_t outcastSize,
+    uint64_t expressionSize, uint32_t outcastStitchCount, uint64_t predCountListDataSize, uint64_t incastDataSize,
+    uint64_t outcastDataSize, uint64_t expressionDataSize, uint64_t stitchDataSize, uint64_t totalDataSize,
+    uint64_t duppedDataAllocSize)
 {
     dupData->operationList_.size = operationSize;
 
@@ -101,8 +102,9 @@ static void FillDuppedDataFields(DevAscendFunctionDuppedData* dupData, uint64_t 
         << "Pointer mismatch:dataEnd " << dataEnd << " != dataEndAlloc " << dataEndAlloc;
 }
 
-static void VerifyDuppedDataRanges(DevAscendFunctionDuppedData* dupData, uint64_t operationSize,
-    uint64_t incastSize, uint64_t outcastSize, uint64_t expressionSize)
+static void VerifyDuppedDataRanges(
+    DevAscendFunctionDuppedData* dupData, uint64_t operationSize, uint64_t incastSize, uint64_t outcastSize,
+    uint64_t expressionSize)
 {
     uint8_t* dataBegin = &dupData->data_[0];
     uint8_t* incastBegin = &dupData->data_[dupData->incastList_.base];
@@ -113,26 +115,25 @@ static void VerifyDuppedDataRanges(DevAscendFunctionDuppedData* dupData, uint64_
     for (uint64_t i = 0; i < operationSize; i++) {
         uint8_t* ptr = reinterpret_cast<uint8_t*>(&dupData->GetOperationCurrPredCount(i));
         ASSERT(ProgEncodeErr::RANGE_VERIFY_FAILED, dataBegin <= ptr && ptr < incastBegin)
-            << "OperationCurrPredCount out of range:  ptr " << ptr
-            << " not in [" << dataBegin << ", " << incastBegin << ")";
+            << "OperationCurrPredCount out of range:  ptr " << ptr << " not in [" << dataBegin << ", " << incastBegin
+            << ")";
     }
     for (uint64_t i = 0; i < incastSize; i++) {
         uint8_t* ptr = reinterpret_cast<uint8_t*>(&dupData->GetIncastAddress(i));
         ASSERT(ProgEncodeErr::RANGE_VERIFY_FAILED, incastBegin <= ptr && ptr < outcastBegin)
-            << "Incast address out of range:  ptr " << ptr
-            << " not in [" << incastBegin << ", " << outcastBegin << ")";
+            << "Incast address out of range:  ptr " << ptr << " not in [" << incastBegin << ", " << outcastBegin << ")";
     }
     for (uint64_t i = 0; i < outcastSize; i++) {
         uint8_t* ptr = reinterpret_cast<uint8_t*>(&dupData->GetOutcastAddress(i));
         ASSERT(ProgEncodeErr::RANGE_VERIFY_FAILED, outcastBegin <= ptr && ptr < expressionBegin)
-            << "Outcast address out of range:  ptr " << ptr << " not in [" << outcastBegin << ", "
-            << expressionBegin << ")";
+            << "Outcast address out of range:  ptr " << ptr << " not in [" << outcastBegin << ", " << expressionBegin
+            << ")";
     }
     for (uint64_t i = 0; i < expressionSize; i++) {
         uint8_t* ptr = reinterpret_cast<uint8_t*>(&dupData->GetExpression(i));
         ASSERT(ProgEncodeErr::RANGE_VERIFY_FAILED, expressionBegin <= ptr && ptr < stitchBegin)
-            << "Expression address out of range:  ptr " << ptr << " not in [" << expressionBegin << ", "
-            << stitchBegin << ")";
+            << "Expression address out of range:  ptr " << ptr << " not in [" << expressionBegin << ", " << stitchBegin
+            << ")";
     }
 }
 
@@ -170,9 +171,9 @@ void DevAscendFunction::InitOperationDynamicField(
     ONFILLCONTENT
     {
         DevAscendFunctionDuppedData* dupData = reinterpret_cast<DevAscendFunctionDuppedData*>(&At(duppedData_, 0));
-        FillDuppedDataFields(dupData, operationSize, incastSize, outcastSize, expressionSize, outcastStitchCount,
-            predCountListDataSize, incastDataSize, outcastDataSize, expressionDataSize, stitchDataSize, totalDataSize,
-            duppedDataAllocSize_);
+        FillDuppedDataFields(
+            dupData, operationSize, incastSize, outcastSize, expressionSize, outcastStitchCount, predCountListDataSize,
+            incastDataSize, outcastDataSize, expressionDataSize, stitchDataSize, totalDataSize, duppedDataAllocSize_);
         VerifyDuppedDataRanges(dupData, operationSize, incastSize, outcastSize, expressionSize);
     }
 }
@@ -395,8 +396,6 @@ void DevAscendFunction::InitRawTensorAndMemoryRequirement(
                 rawTensor->addrOffset = encoded.addrOffset;
                 rootInnerTensorWsMemoryRequirement += encoded.maxStaticMemReq;
 #else
-                ASSERT(DevCommonErr::NULLPTR, rawAttrs[idx].storage.get() != nullptr)
-                    << "rawTensor(rawmagic:" << rawTensor->GetRawMagic()  <<" )'s storage is null, should be incast or outcast tensor";
                 encoded.addrOffset = rawAttrs[idx].storage->start_ + rawAttrs[idx].storageOffset;
                 rawTensor->addrOffset = encoded.addrOffset;
                 rootInnerTensorWsMemoryRequirement = std::max(
@@ -441,31 +440,30 @@ void DevAscendFunction::InitRawTensorAndMemoryRequirement(
                         << "Detected zero byte size data type, fromType: " << static_cast<int>(fromType)
                         << ", toType: " << static_cast<int>(toType);
                     if (inSize > outSize) {
-                        ASSERT(DevCommonErr::PARAM_CHECK_FAILED,
+                        ASSERT(
+                            DevCommonErr::PARAM_CHECK_FAILED,
                             (rawTensor->GetRawShapeSize() * (inSize / outSize)) == actualRaw->GetRawShapeSize())
                             << "Shape size mismatch: expected " << rawTensor->GetRawShapeSize() * (inSize / outSize)
                             << ", got: " << actualRaw->GetRawShapeSize();
                     } else {
-                        ASSERT(DevCommonErr::PARAM_CHECK_FAILED,
+                        ASSERT(
+                            DevCommonErr::PARAM_CHECK_FAILED,
                             rawTensor->GetRawShapeSize() == (actualRaw->GetRawShapeSize() * (outSize / inSize)))
                             << "Shape size mismatch: expected " << actualRaw->GetRawShapeSize() * (outSize / inSize)
                             << ", got " << rawTensor->GetRawShapeSize();
                     }
-                    ASSERT(DevCommonErr::PARAM_CHECK_FAILED,
-                        rawTensor->GetRawDataSize() == actualRaw->GetRawDataSize())
+                    ASSERT(DevCommonErr::PARAM_CHECK_FAILED, rawTensor->GetRawDataSize() == actualRaw->GetRawDataSize())
                         << "Data size mismatch:" << rawTensor->GetRawDataSize() << "!=" << actualRaw->GetRawDataSize();
                     continue;
                 }
-                ASSERT(DevCommonErr::PARAM_CHECK_FAILED,
-                    rawTensor->GetRawShapeSize() == actualRaw->GetRawShapeSize())
+                ASSERT(DevCommonErr::PARAM_CHECK_FAILED, rawTensor->GetRawShapeSize() == actualRaw->GetRawShapeSize())
                     << "Shape size mismatch:" << rawTensor->GetRawShapeSize() << "!=" << actualRaw->GetRawShapeSize()
                     << ", rootMagic=" << param.devRoot->GetMagicName()
                     << ", rootHash=" << param.devRoot->GetFunctionHash().GetHash() << " ,rawShape=" << rawShape
                     << ",actualrawShape=" << actualrawShape << ", rawTensor->rawMagic=" << rawTensor->GetRawMagic()
                     << ", rawTensor->actualRawmagic=" << rawTensor->actualRawmagic
                     << ", actualRaw->rawMagic=" << actualRaw->rawmagic;
-                ASSERT(DevCommonErr::PARAM_CHECK_FAILED,
-                    rawTensor->GetRawDataSize() == actualRaw->GetRawDataSize())
+                ASSERT(DevCommonErr::PARAM_CHECK_FAILED, rawTensor->GetRawDataSize() == actualRaw->GetRawDataSize())
                     << "Data size mismatch:" << rawTensor->GetRawDataSize() << "!=" << actualRaw->GetRawDataSize()
                     << ", rootMagic=" << param.devRoot->GetMagicName()
                     << ", rootHash=" << param.devRoot->GetFunctionHash().GetHash() << " ,rawShape=" << rawShape
@@ -481,7 +479,8 @@ void DevAscendFunction::InitRawTensorAndMemoryRequirement(
         for (size_t i = 0; i < rawList.size(); i++) {
             auto& encoded = *GetRawTensor(i);
             if (outIncastLinkMap.find(rawList[i]) != outIncastLinkMap.end()) {
-                ASSERT(DevCommonErr::PARAM_CHECK_FAILED,
+                ASSERT(
+                    DevCommonErr::PARAM_CHECK_FAILED,
                     outIncastLinkMap[rawList[i]]->actualRawmagic != rawList[i]->rawmagic)
                     << "Unexpected rawmagic match: actualRawmagic " << outIncastLinkMap[rawList[i]]->actualRawmagic
                     << " == rawmagic " << rawList[i]->rawmagic;
@@ -761,7 +760,8 @@ void DevAscendFunction::VerifyOperationEncodedContent(
         Operation* op = callList[idx];
         ASSERT(DevCommonErr::PARAM_CHECK_FAILED, callOpPredDict.count(op))
             << "callOpPredDict does not contain op " << op;
-        ASSERT(DevCommonErr::PARAM_CHECK_FAILED,
+        ASSERT(
+            DevCommonErr::PARAM_CHECK_FAILED,
             At(operationList_, idx).depGraphPredCount == callOpPredDict.find(op)->second)
             << "depGraphPredCount mismatch: expected " << callOpPredDict.find(op)->second << ", got "
             << At(operationList_, idx).depGraphPredCount;
@@ -771,7 +771,8 @@ void DevAscendFunction::VerifyOperationEncodedContent(
                 "OperationCurrPredCount: %d Callopsize is %u exceeds the maximum allowed value of 65535.",
                 dupData->GetOperationCurrPredCount(idx), dupData->GetOperationSize());
         }
-        ASSERT(DevCommonErr::PARAM_CHECK_FAILED,
+        ASSERT(
+            DevCommonErr::PARAM_CHECK_FAILED,
             dupData->GetOperationCurrPredCount(idx) == callOpPredDict.find(op)->second)
             << "GetOperationCurrPredCount mismatch: expected " << dupData->GetOperationCurrPredCount(idx) << ", got "
             << callOpPredDict.find(op)->second << ", Callopsize is " << dupData->GetOperationSize()
@@ -1612,8 +1613,8 @@ struct EncodeDevAscendFunctionInfo {
         }
     }
 
-    void SortCallOpList(std::vector<Operation*>& callopList,
-        const std::unordered_map<Operation*, int> &callopCoreTypeDict)
+    void SortCallOpList(
+        std::vector<Operation*>& callopList, const std::unordered_map<Operation*, int>& callopCoreTypeDict)
     {
         std::sort(callopList.begin(), callopList.end(), [&](Operation* lhs, Operation* rhs) {
             if (callOpPredDict[lhs] != callOpPredDict[rhs]) {
@@ -1640,9 +1641,11 @@ struct EncodeDevAscendFunctionInfo {
                 << "cceIndex " << cceIndex << " exceeds cceCodeInfoList size: " << cceCodeInfoList.size();
 
             uint32_t coreType = cceCodeInfoList[cceIndex].coreType;
-            ASSERT(DevCommonErr::PARAM_INVALID,
-                coreType == static_cast<uint32_t>(CoreType::AIV) || coreType == static_cast<uint32_t>(CoreType::AIC) ||
-                coreType == static_cast<uint32_t>(CoreType::HUB) || coreType == static_cast<uint32_t>(CoreType::AICPU))
+            ASSERT(
+                DevCommonErr::PARAM_INVALID, coreType == static_cast<uint32_t>(CoreType::AIV) ||
+                                                 coreType == static_cast<uint32_t>(CoreType::AIC) ||
+                                                 coreType == static_cast<uint32_t>(CoreType::HUB) ||
+                                                 coreType == static_cast<uint32_t>(CoreType::AICPU))
                 << "invalid coreType " << coreType << " for op " << op;
             callopCoreTypeDict[op] = coreType;
         }
@@ -1733,9 +1736,10 @@ struct EncodeDevAscendFunctionInfo {
                 copyOutResolveSuccList.end(), nonCopyOutResolveSuccSet.begin(), nonCopyOutResolveSuccSet.end());
 
             // Assert: succ set are the same
-            ASSERT(DevCommonErr::PARAM_CHECK_FAILED,
+            ASSERT(
+                DevCommonErr::PARAM_CHECK_FAILED,
                 std::set<Operation*>(succSet.begin(), succSet.end()) ==
-                std::set<Operation*>(copyOutResolveSuccList.begin(), copyOutResolveSuccList.end()))
+                    std::set<Operation*>(copyOutResolveSuccList.begin(), copyOutResolveSuccList.end()))
                 << "succSet and copyOutResolveSuccList content mismatch";
 
             succSet.Clear();
@@ -2318,9 +2322,9 @@ struct EncodeDevAscendProgramInfo {
         // control flow cache is always at the back of the program. So it should be the last.
         devProg->InitControlFlowCache(initOffset, dyndevAttr, fillContent);
         devProg->dataSize = initOffset - reinterpret_cast<uintdevptr_t>(devProg->data);
-        ASSERT(DevCommonErr::PARAM_CHECK_FAILED,
-            reinterpret_cast<uint8_t*>(devProg->controlFlowCache.cacheData.end()) ==
-            reinterpret_cast<uint8_t*>(initOffset))
+        ASSERT(
+            DevCommonErr::PARAM_CHECK_FAILED, reinterpret_cast<uint8_t*>(devProg->controlFlowCache.cacheData.end()) ==
+                                                  reinterpret_cast<uint8_t*>(initOffset))
             << "controlFlowCache.cacheData.end()"
                " does not match initOffset, expected "
             << reinterpret_cast<uint8_t*>(initOffset) << ", got "
