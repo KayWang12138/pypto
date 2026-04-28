@@ -473,7 +473,7 @@ INLINE void SetConvTileParams(
     } else {
         l1.SetRepeatTime(repeatTime);
         l1.SetRepeatStride(repeatStride / BLOCK_CUBE_M_N);
-        l1.SetDstStride(dstStride / BLOCK_CUBE_M_N);
+        l1.SetDstStride(mL0 / BLOCK_CUBE_M_N);
     }
 
     if constexpr (isConv3D) {
