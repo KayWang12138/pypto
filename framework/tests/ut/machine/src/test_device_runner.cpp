@@ -51,7 +51,7 @@ TEST_F(TestDeviceRunner, test_device_runner_get_task_time)
     // auto runner = npu::tile_fwk::DeviceRunner::Get();
     npu::tile_fwk::DeviceRunner runner;
     std::uint64_t tastWastTime = 0;
-    runner.args_.taskWastTime = (uint64_t)&tastWastTime;
+    runner.state_.args.taskWastTime = (uint64_t)&tastWastTime;
     runner.GetTasksTime();
 }
 
@@ -77,19 +77,15 @@ TEST_F(TestDeviceRunner, test_ini_device_runner)
 
 TEST_F(TestDeviceRunner, test_ini_device_args_arch32)
 {
-    DeviceArgs args_;
-    args_.archInfo = ArchInfo::DAV_2201;
     npu::tile_fwk::DeviceRunner runner;
-    runner.InitDeviceArgs(args_);
+    runner.InitDeviceArgs();
 }
 
 TEST_F(TestDeviceRunner, test_ini_device_args_arch35)
 {
     Platform::Instance().GetSoc().SetNPUArch(NPUArch::DAV_3510);
-    DeviceArgs args_;
-    args_.archInfo = ArchInfo::DAV_3510;
     npu::tile_fwk::DeviceRunner runner;
-    runner.InitDeviceArgs(args_);
+    runner.InitDeviceArgs();
     Platform::Instance().GetSoc().SetNPUArch(NPUArch::DAV_UNKNOWN);
 }
 
