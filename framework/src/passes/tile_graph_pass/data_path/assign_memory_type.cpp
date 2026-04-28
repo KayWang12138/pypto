@@ -1101,29 +1101,13 @@ bool AssignMemoryType::IsDimMultiple(const Shape& shape1, const Shape& shape2)
 size_t AssignMemoryType::CalcNZTensorSize(const LogicalTensorPtr &tensor) const {
     DataType dtype = tensor->Datatype();
     int64_t bytes = BytesOf(dtype);
-    // 检查 bytes 是否为 0，避免除零错误
-    if (bytes <= 0) {
-        APASS_LOG_WARN_F(Elements::Operation,
-            "CalcNZTensorSize: invalid bytes (%ld) for datatype", static_cast<long>(bytes));
-        // 返回原始 ND 格式大小作为保守估计
-        size_t outer = tensor->GetShape()[0];
-        size_t inner = tensor->GetShape()[1];
-        return outer * inner * 4;  // 默认使用 4 字节
-    }
     size_t outer = tensor->GetShape()[0];
     size_t inner = tensor->GetShape()[1];
     
     // 外轴对齐：INT8/FP8 对齐到 32，其他对齐到 16
     size_t outerAlign = (dtype == DT_INT8 || dtype == DT_UINT8 || dtype == DT_FP8) ? 32 : 16;
     // 内轴对齐：C0 size = 32 / 元素字节数
-    size_t c0 = static_cast<size_t>(32 / bytes);
-    // 检查 c0 是否为 0（当 bytes > 32 时可能发生）
-    if (c0 == 0) {
-        APASS_LOG_WARN_F(Elements::Operation,
-            "CalcNZTensorSize: invalid c0 (bytes=%ld), using fallback", static_cast<long>(bytes));
-        size_t ndSize = outer * inner * static_cast<size_t>(bytes);
-        return ndSize;
-    }
+    size_t c0 = (bytes <= 0) ? 1 : static_cast<size_t>(32 / bytes);
     
     size_t alignedOuter = (outer + outerAlign - 1) / outerAlign * outerAlign;
     size_t alignedInner = (inner + c0 - 1) / c0 * c0;
