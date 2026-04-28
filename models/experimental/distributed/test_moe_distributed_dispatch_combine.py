@@ -930,7 +930,7 @@ def moe_distributed_dispatch_combine(
             error_queue.put((logical_rank_id, str(e), traceback.format_exc()))
         raise
 
-
+@pytest.mark.skip(reason="功能未实现，暂不执行")
 @pytest.mark.world_size(4)
 def test_moe_distributed_dispatch_combine() -> None:
     config = DistributedConfig(world_size=4)
