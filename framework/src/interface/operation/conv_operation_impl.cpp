@@ -632,8 +632,7 @@ LogicalTensorPtr ConstructBiasTile(
         0, iterInfo.groupOffset * convTileInfo.coutPerGroup + iterInfo.nL1Offset + iterInfo.nL0Offset};
     LogicalTensorPtr dstBiasl1TensorPtr = std::make_shared<LogicalTensor>(
         function, tensorGraphNodes.biasTensorPtr->Datatype(), dstBiasL1Shape,
-        SymbolicScalar::FromConcrete(dstBiasL1Shape), tensorGraphNodes.biasTensorPtr->Format(), "biasL1Tensor",
-        NodeType::LOCAL);
+        SymbolicScalar::FromConcrete(dstBiasL1Shape), tensorGraphNodes.biasTensorPtr->Format(), "biasL1Tensor");
     dstBiasl1TensorPtr->UpdateDynValidShape(SymbolicScalar::FromConcrete(dstBiasL1Shape));
     auto& viewOpBiasL1 = function.AddOperation(Opcode::OP_VIEW, {tensorGraphNodes.biasTensorPtr}, {dstBiasl1TensorPtr});
     auto viewAttributeBiasL1 = std::make_shared<ViewOpAttribute>(
@@ -646,7 +645,7 @@ LogicalTensorPtr ConstructBiasTile(
     std::vector<int64_t> dstBiasBtOffset = std::vector<int64_t>{0, iterInfo.nL0Offset};
     LogicalTensorPtr dstBiasBtTensorPtr = std::make_shared<LogicalTensor>(
         function, DataType::DT_FP32, dstBiasBtShape, SymbolicScalar::FromConcrete(dstBiasBtShape),
-        tensorGraphNodes.biasTensorPtr->Format(), "biasBtTensor", NodeType::LOCAL);
+        tensorGraphNodes.biasTensorPtr->Format(), "biasBtTensor");
     dstBiasBtTensorPtr->UpdateDynValidShape(SymbolicScalar::FromConcrete(dstBiasBtShape));
     auto& viewOpBiasBt = function.AddOperation(Opcode::OP_VIEW, {dstBiasl1TensorPtr}, {dstBiasBtTensorPtr});
     auto viewAttributeBiasBt = std::make_shared<ViewOpAttribute>(
@@ -776,8 +775,7 @@ LogicalTensorPtr ConstructFmapTile(
         }
         dstAL1TensorPtr = std::make_shared<LogicalTensor>(
             function, tensorGraphNodes.fmapTensorPtr->Datatype(), dstAL1Shape,
-            SymbolicScalar::FromConcrete(dstAL1Shape), tensorGraphNodes.fmapTensorPtr->Format(), "aL1Tensor",
-            NodeType::LOCAL);
+            SymbolicScalar::FromConcrete(dstAL1Shape), tensorGraphNodes.fmapTensorPtr->Format(), "aL1Tensor");
         dstAL1TensorPtr->UpdateDynValidShape(SymbolicScalar::FromConcrete(dstAL1Shape));
         auto& copyInOpAl1 =
             function.AddOperation(Opcode::OP_L1_COPY_IN_CONV, {tensorGraphNodes.fmapTensorPtr}, {dstAL1TensorPtr});
@@ -791,7 +789,7 @@ LogicalTensorPtr ConstructFmapTile(
     LogicalTensorPtr dstAL0TensorPtr = std::make_shared<LogicalTensor>(
         function, tensorGraphNodes.fmapTensorPtr->Datatype(), dstAL0Shape,
         SymbolicScalar::FromConcrete({iterInfo.mL0Size, iterInfo.kL0Size}), tensorGraphNodes.fmapTensorPtr->Format(),
-        "aL0Tensor", NodeType::LOCAL);
+        "aL0Tensor");
     dstAL1TensorPtr->UpdateDynValidShape(SymbolicScalar::FromConcrete({iterInfo.mL0Size, iterInfo.kL0Size}));
     auto& load3dOpAl0 = function.AddOperation(Opcode::OP_LOAD3D_CONV, {dstAL1TensorPtr}, {dstAL0TensorPtr});
     load3dOpAl0.SetAttribute("l0_tile_shape", SymbolicScalar::FromConcrete(dstAL0Shape));
@@ -865,8 +863,7 @@ LogicalTensorPtr ConstructWeightTile(
         }
         dstBL1TensorPtr = std::make_shared<LogicalTensor>(
             function, tensorGraphNodes.weightTensorPtr->Datatype(), dstBL1Shape,
-            SymbolicScalar::FromConcrete(dstBL1Shape), tensorGraphNodes.weightTensorPtr->Format(), "bL1Tensor",
-            NodeType::LOCAL);
+            SymbolicScalar::FromConcrete(dstBL1Shape), tensorGraphNodes.weightTensorPtr->Format(), "bL1Tensor");
         dstBL1TensorPtr->UpdateDynValidShape(SymbolicScalar::FromConcrete(dstBL1Shape));
         auto& copyInOpBl1 =
             function.AddOperation(Opcode::OP_L1_COPY_IN_CONV, {tensorGraphNodes.weightTensorPtr}, {dstBL1TensorPtr});
@@ -879,7 +876,7 @@ LogicalTensorPtr ConstructWeightTile(
     LogicalTensorPtr dstBL0TensorPtr = std::make_shared<LogicalTensor>(
         function, tensorGraphNodes.weightTensorPtr->Datatype(), dstBL0Shape,
         SymbolicScalar::FromConcrete({iterInfo.kL0Size, iterInfo.nL0Size}), tensorGraphNodes.weightTensorPtr->Format(),
-        "bL0Tensor", NodeType::LOCAL);
+        "bL0Tensor");
     dstBL0TensorPtr->UpdateDynValidShape(SymbolicScalar::FromConcrete({iterInfo.kL0Size, iterInfo.nL0Size}));
     auto& load2dOpBl0 = function.AddOperation(Opcode::OP_LOAD2D_CONV, {dstBL1TensorPtr}, {dstBL0TensorPtr});
     load2dOpBl0.SetAttribute(L12L0ConvOpAttributeKey::postK, iterInfo.kL0Offset % convTileInfo.kBL1);
@@ -942,7 +939,7 @@ LogicalTensorPtr DoMmad(
         tileGraphNodes.cL0PartialSumPtr = std::make_shared<LogicalTensor>(
             function, DataType::DT_FP32, cL0PartialSumShape,
             SymbolicScalar::FromConcrete({iterInfo.mL0Size, iterInfo.nL0Size}), TileOpFormat::TILEOP_NZ,
-            "cL0PartialSumTensor", NodeType::LOCAL);
+            "cL0PartialSumTensor");
         tileGraphNodes.cL0PartialSumPtr->UpdateDynValidShape({iterInfo.mL0Size, iterInfo.nL0Size});
         mmadOutputs = {tileGraphNodes.cL0PartialSumPtr};
     }
@@ -1097,8 +1094,7 @@ void IterL0ExpandFunc(
                     ConvAlignB(iterInfo.mL0Size, MKN_M_VALUE), ConvAlignB(iterInfo.nL0Size, MKN_N_VALUE)};
                 tileGraphNodes.resTensorPtr = std::make_shared<LogicalTensor>(
                     function, tensorGraphNodes.fmapTensorPtr->Datatype(), dstCL0Shape,
-                    SymbolicScalar::FromConcrete(dstCL0Shape), tensorGraphNodes.fmapTensorPtr->Format(), "cL0Tensor",
-                    NodeType::LOCAL);
+                    SymbolicScalar::FromConcrete(dstCL0Shape), tensorGraphNodes.fmapTensorPtr->Format(), "cL0Tensor");
                 for (iterInfo.kL0Offset = 0; iterInfo.kL0Offset < convTileInfo.kPerGroup * iterInfo.dkL1Size;
                      iterInfo.kL0Offset += convTileInfo.kL0) {
                     UpdateL0IterInfo(convTileInfo, iterInfo);

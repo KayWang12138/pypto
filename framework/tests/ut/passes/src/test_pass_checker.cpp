@@ -142,11 +142,11 @@ TEST_F(PassCheckTest, TestPublicCheck)
     std::vector<int64_t> shape = {8, 16};
 
     auto incast1 = std::make_shared<LogicalTensor>(
-        *currFunctionPtr, DT_FP32, shape, TileOpFormat::TILEOP_ND, "", NodeType::INCAST);
+        *currFunctionPtr, DT_FP32, shape, TileOpFormat::TILEOP_ND, "");
     auto tensor1 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape);
     currFunctionPtr->AddOperation(Opcode::OP_EXP, {incast1}, {tensor1});
     auto outcast1 = std::make_shared<LogicalTensor>(
-        *currFunctionPtr, DT_FP32, shape, TileOpFormat::TILEOP_ND, "", NodeType::OUTCAST);
+        *currFunctionPtr, DT_FP32, shape, TileOpFormat::TILEOP_ND, "");
     currFunctionPtr->AddOperation(Opcode::OP_EXP, {tensor1}, {outcast1});
 
     currFunctionPtr->inCasts_.push_back(incast1);
@@ -225,10 +225,10 @@ TEST_F(PassCheckTest, TestCheckLocalTensor)
     std::vector<int64_t> shape = {32, 32};
 
     auto incast1 = std::make_shared<LogicalTensor>(
-        *currFunctionPtr, DT_FP32, shape, TileOpFormat::TILEOP_ND, "", NodeType::INCAST);
+        *currFunctionPtr, DT_FP32, shape, TileOpFormat::TILEOP_ND, "");
     auto localTensor = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape);
     auto outcast1 = std::make_shared<LogicalTensor>(
-        *currFunctionPtr, DT_FP32, shape, TileOpFormat::TILEOP_ND, "", NodeType::OUTCAST);
+        *currFunctionPtr, DT_FP32, shape, TileOpFormat::TILEOP_ND, "");
     currFunctionPtr->AddOperation(Opcode::OP_ADD, {incast1, localTensor}, {outcast1});
 
     currFunctionPtr->inCasts_.push_back(incast1);
@@ -325,9 +325,9 @@ TEST_F(PassCheckTest, TestCheckOpIOValid_OutputIsNull)
 
     std::vector<int64_t> shape = {32, 32};
     auto incast1 = std::make_shared<LogicalTensor>(
-        *currFunctionPtr, DT_FP32, shape, TileOpFormat::TILEOP_ND, "", NodeType::INCAST);
+        *currFunctionPtr, DT_FP32, shape, TileOpFormat::TILEOP_ND, "");
     auto outcast1 = std::make_shared<LogicalTensor>(
-        *currFunctionPtr, DT_FP32, shape, TileOpFormat::TILEOP_ND, "", NodeType::OUTCAST);
+        *currFunctionPtr, DT_FP32, shape, TileOpFormat::TILEOP_ND, "");
 
     auto& addOp = currFunctionPtr->AddOperation(Opcode::OP_ADD, {incast1}, {outcast1});
     addOp.oOperand[0] = nullptr;
@@ -347,7 +347,7 @@ TEST_F(PassCheckTest, TestCheckCompleteness_IncastIsNull)
 
     std::vector<int64_t> shape = {32, 32};
     auto outcast1 = std::make_shared<LogicalTensor>(
-        *currFunctionPtr, DT_FP32, shape, TileOpFormat::TILEOP_ND, "", NodeType::OUTCAST);
+        *currFunctionPtr, DT_FP32, shape, TileOpFormat::TILEOP_ND, "");
 
     currFunctionPtr->inCasts_.push_back(nullptr);
     currFunctionPtr->outCasts_.push_back(outcast1);
@@ -364,7 +364,7 @@ TEST_F(PassCheckTest, TestCheckCompleteness_OutcastEmpty)
 
     std::vector<int64_t> shape = {32, 32};
     auto incast1 = std::make_shared<LogicalTensor>(
-        *currFunctionPtr, DT_FP32, shape, TileOpFormat::TILEOP_ND, "", NodeType::INCAST);
+        *currFunctionPtr, DT_FP32, shape, TileOpFormat::TILEOP_ND, "");
 
     currFunctionPtr->inCasts_.push_back(incast1);
 
@@ -380,7 +380,7 @@ TEST_F(PassCheckTest, TestCheckCompleteness_OutcastIsNull)
 
     std::vector<int64_t> shape = {32, 32};
     auto incast1 = std::make_shared<LogicalTensor>(
-        *currFunctionPtr, DT_FP32, shape, TileOpFormat::TILEOP_ND, "", NodeType::INCAST);
+        *currFunctionPtr, DT_FP32, shape, TileOpFormat::TILEOP_ND, "");
 
     currFunctionPtr->inCasts_.push_back(incast1);
     currFunctionPtr->outCasts_.push_back(nullptr);
@@ -397,7 +397,7 @@ TEST_F(PassCheckTest, TestCheckGraphLoop_HasLoop)
 
     std::vector<int64_t> shape = {32, 32};
     auto incast1 = std::make_shared<LogicalTensor>(
-        *currFunctionPtr, DT_FP32, shape, TileOpFormat::TILEOP_ND, "", NodeType::INCAST);
+        *currFunctionPtr, DT_FP32, shape, TileOpFormat::TILEOP_ND, "");
     auto tensor1 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape);
     auto tensor2 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape);
 
@@ -420,9 +420,9 @@ TEST_F(PassCheckTest, TestCheckDynAttrForView_FromDynOffsetEmpty)
 
     std::vector<int64_t> shape = {32, 32};
     auto incast1 = std::make_shared<LogicalTensor>(
-        *currFunctionPtr, DT_FP32, shape, TileOpFormat::TILEOP_ND, "", NodeType::INCAST);
+        *currFunctionPtr, DT_FP32, shape, TileOpFormat::TILEOP_ND, "");
     auto outcast1 = std::make_shared<LogicalTensor>(
-        *currFunctionPtr, DT_FP32, shape, TileOpFormat::TILEOP_ND, "", NodeType::OUTCAST);
+        *currFunctionPtr, DT_FP32, shape, TileOpFormat::TILEOP_ND, "");
     auto& viewOp = currFunctionPtr->AddOperation(Opcode::OP_VIEW, {incast1}, {outcast1});
     auto viewAttr = std::make_shared<ViewOpAttribute>(Offset(0, 0));
     viewAttr->GetFromDynOffset().clear();
@@ -444,9 +444,9 @@ TEST_F(PassCheckTest, TestCheckDynAttrForView_ToDynValidShapeEmpty)
 
     std::vector<int64_t> shape = {32, 32};
     auto incast1 = std::make_shared<LogicalTensor>(
-        *currFunctionPtr, DT_FP32, shape, TileOpFormat::TILEOP_ND, "", NodeType::INCAST);
+        *currFunctionPtr, DT_FP32, shape, TileOpFormat::TILEOP_ND, "");
     auto outcast1 = std::make_shared<LogicalTensor>(
-        *currFunctionPtr, DT_FP32, shape, TileOpFormat::TILEOP_ND, "", NodeType::OUTCAST);
+        *currFunctionPtr, DT_FP32, shape, TileOpFormat::TILEOP_ND, "");
 
     auto& viewOp = currFunctionPtr->AddOperation(Opcode::OP_VIEW, {incast1}, {outcast1});
     auto viewAttr = std::make_shared<ViewOpAttribute>(Offset(0, 0));
@@ -469,9 +469,9 @@ TEST_F(PassCheckTest, TestCheckToDynOffsetForAssemble_ToDynOffsetEmpty)
 
     std::vector<int64_t> shape = {32, 32};
     auto incast1 = std::make_shared<LogicalTensor>(
-        *currFunctionPtr, DT_FP32, shape, TileOpFormat::TILEOP_ND, "", NodeType::INCAST);
+        *currFunctionPtr, DT_FP32, shape, TileOpFormat::TILEOP_ND, "");
     auto outcast1 = std::make_shared<LogicalTensor>(
-        *currFunctionPtr, DT_FP32, shape, TileOpFormat::TILEOP_ND, "", NodeType::OUTCAST);
+        *currFunctionPtr, DT_FP32, shape, TileOpFormat::TILEOP_ND, "");
 
     auto& assembleOp = currFunctionPtr->AddOperation(Opcode::OP_ASSEMBLE, {incast1}, {outcast1});
     auto assembleAttr = std::make_shared<AssembleOpAttribute>(Offset(0, 0));
@@ -494,10 +494,10 @@ TEST_F(PassCheckTest, TestCheckLocalTensor_LocalInput)
     std::vector<int64_t> shape = {32, 32};
 
     auto incast1 = std::make_shared<LogicalTensor>(
-        *currFunctionPtr, DT_FP32, shape, TileOpFormat::TILEOP_ND, "", NodeType::INCAST);
+        *currFunctionPtr, DT_FP32, shape, TileOpFormat::TILEOP_ND, "");
     auto localTensor = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape);
     auto outcast1 = std::make_shared<LogicalTensor>(
-        *currFunctionPtr, DT_FP32, shape, TileOpFormat::TILEOP_ND, "", NodeType::OUTCAST);
+        *currFunctionPtr, DT_FP32, shape, TileOpFormat::TILEOP_ND, "");
     currFunctionPtr->AddOperation(Opcode::OP_ADD, {incast1, localTensor}, {outcast1});
 
     currFunctionPtr->inCasts_.push_back(incast1);
@@ -515,7 +515,7 @@ TEST_F(PassCheckTest, TestPublicCheck_IncastEmpty)
 
     std::vector<int64_t> shape = {32, 32};
     auto outcast1 = std::make_shared<LogicalTensor>(
-        *currFunctionPtr, DT_FP32, shape, TileOpFormat::TILEOP_ND, "", NodeType::OUTCAST);
+        *currFunctionPtr, DT_FP32, shape, TileOpFormat::TILEOP_ND, "");
 
     currFunctionPtr->outCasts_.push_back(outcast1);
 
