@@ -15,8 +15,6 @@
  */
 
 #pragma once
-
-#ifdef __DEVICE__
  
 #include <unistd.h>
 #include <linux/perf_event.h>
@@ -25,16 +23,16 @@
 #include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
+#include <cinttypes>
 #include <cstdint>
 #include <ctime>
 #include <cerrno>
-#include <sstream>
-#include <iomanip>
-#include <locale>
+#include <string>
 
 #include "machine/utils/device_switch.h"
 #include "machine/utils/device_log.h"
 #include "machine/device/dynamic/device_utils.h"
+#include "securec.h"
 
 #define MAX_PERF_EVENT_NUM 8
 
@@ -45,56 +43,76 @@ static inline uint64_t MakeCacheEventConfig(uint64_t cacheId, uint64_t opId, uin
     return cacheId | (opId << 8) | (resultId << 16);
 }
 
-struct GroupEvent {
-    struct Event {
-        int type_;
-        uint64_t config_;
-        int fd_{-1};
-        const char* name;
-        bool valid_{false};
-    };
+class GroupEvent {
+public:
+    explicit GroupEvent(pid_t tid) : tid_(tid) {}
+
+    ~GroupEvent()
+    {
+        for (int i = 0; i < nrEvent_; i++) {
+            if (events_[i].fd_ >= 0) {
+                close(events_[i].fd_);
+            }
+        }
+    }
+
+    GroupEvent(const GroupEvent&) = delete;
+    GroupEvent& operator=(const GroupEvent&) = delete;
+
+    int GetNrEvent() const
+    {
+        return nrEvent_;
+    }
+
+    int GetValidEventCount() const
+    {
+        return validEventCount_;
+    }
 
     int AddEvent(int type, uint64_t config, const char* name)
     {
-        if (nrEvent == MAX_PERF_EVENT_NUM) {
+        if (nrEvent_ == MAX_PERF_EVENT_NUM) {
             return -EINVAL;
         }
 
         struct perf_event_attr pe;
-        memset(&pe, 0, sizeof(struct perf_event_attr));
+        if (memset_s(&pe, sizeof(pe), 0, sizeof(pe)) != EOK) {
+            DEV_WARN("[AICPU_PMU] memset_s perf_event_attr failed");
+            return -1;
+        }
         pe.type = type;
         pe.size = sizeof(struct perf_event_attr);
         pe.config = config;
         pe.disabled = 1;
         pe.exclude_kernel = 1;
         pe.exclude_hv = 1;
-        if (groupFd == -1) {
+        if (groupFd_ == -1) {
             pe.read_format = PERF_FORMAT_GROUP;
         }
 
-        int fd = syscall(__NR_perf_event_open, &pe, tid_, -1, groupFd, 0);
+        int fd = syscall(__NR_perf_event_open, &pe, tid_, -1, groupFd_, 0);
         if (fd < 0) {
-            events[nrEvent++] = {type, config, -1, name, false};
+            events_[nrEvent_++] = {type, config, -1, name, false};
             return -1;
         }
-        if (groupFd == -1) {
-            groupFd = fd;
+        if (groupFd_ == -1) {
+            groupFd_ = fd;
         }
-        events[nrEvent++] = {type, config, fd, name, true};
-        validEventCount++;
+        events_[nrEvent_++] = {type, config, fd, name, true};
+        validEventCount_++;
         return 0;
     }
 
     bool Enable()
     {
-        if (groupFd == -1) {
+        if (groupFd_ == -1) {
             return false;
         }
-        if (ioctl(groupFd, PERF_EVENT_IOC_RESET, PERF_IOC_FLAG_GROUP) < 0) {
+        if (ioctl(groupFd_, PERF_EVENT_IOC_RESET, PERF_IOC_FLAG_GROUP) < 0) {
             DEV_WARN("[AICPU_PMU] PERF_EVENT_IOC_RESET failed, errno=%d", errno);
             return false;
         }
-        if (ioctl(groupFd, PERF_EVENT_IOC_ENABLE, PERF_IOC_FLAG_GROUP) < 0) {
+        if (ioctl(groupFd_, PERF_EVENT_IOC_ENABLE, PERF_IOC_FLAG_GROUP) < 0) {
             DEV_WARN("[AICPU_PMU] PERF_EVENT_IOC_ENABLE failed, errno=%d", errno);
             return false;
         }
@@ -103,23 +121,23 @@ struct GroupEvent {
 
     void Disable()
     {
-        if (groupFd != -1) {
-            ioctl(groupFd, PERF_EVENT_IOC_DISABLE, PERF_IOC_FLAG_GROUP);
+        if (groupFd_ != -1) {
+            ioctl(groupFd_, PERF_EVENT_IOC_DISABLE, PERF_IOC_FLAG_GROUP);
         }
     }
 
     int Read(uint64_t* counts)
     {
         uint64_t buf[MAX_PERF_EVENT_NUM + 1];
-        if (groupFd == -1 || validEventCount == 0) {
+        if (groupFd_ == -1 || validEventCount_ == 0) {
             return 0;
         }
-        int len = read(groupFd, buf, sizeof(buf));
+        int len = read(groupFd_, buf, sizeof(buf));
         if (len < 0) {
             DEV_WARN("[AICPU_PMU] read perf event group failed, errno=%d", errno);
             return 0;
         }
-        size_t expectedLen = (validEventCount + 1) * sizeof(uint64_t);
+        size_t expectedLen = (validEventCount_ + 1) * sizeof(uint64_t);
         if ((size_t)len != expectedLen) {
             DEV_WARN("[AICPU_PMU] read perf event group length mismatch, actual=%d, expected=%lu",
                      len, expectedLen);
@@ -127,8 +145,8 @@ struct GroupEvent {
         }
         
         int validIdx = 0;
-        for (int i = 0; i < nrEvent; i++) {
-            if (events[i].valid_) {
+        for (int i = 0; i < nrEvent_; i++) {
+            if (events_[i].valid_) {
                 counts[i] = buf[validIdx + 1];
                 validIdx++;
             } else {
@@ -138,22 +156,21 @@ struct GroupEvent {
         return buf[0];
     }
 
-    GroupEvent(int tid) : tid_(tid) {}
-
-    ~GroupEvent()
-    {
-        for (int i = 0; i < nrEvent; i++) {
-            if (events[i].fd_ >= 0) {
-                close(events[i].fd_);
-            }
-        }
-    }
+private:
+    class Event {
+    public:
+        int type_;
+        uint64_t config_;
+        int fd_{-1};
+        const char* name;
+        bool valid_{false};
+    };
 
     pid_t tid_;
-    int nrEvent{0};
-    int validEventCount{0};
-    int groupFd{-1};
-    Event events[MAX_PERF_EVENT_NUM];
+    int nrEvent_{0};
+    int validEventCount_{0};
+    int groupFd_{-1};
+    Event events_[MAX_PERF_EVENT_NUM];
 };
 
 // Event indices for standard PERF_TYPE_HARDWARE events
@@ -170,7 +187,8 @@ enum PerfEventIdx {
 };
 
 #if AICPU_PMU_EVENT_ENABLE
-struct AicpuPerfEventSampler {
+class AicpuPerfEventSampler {
+public:
     AicpuPerfEventSampler() : events(gettid())
     {
         // 使用 PERF_TYPE_HARDWARE 标准事件（权限要求较低，兼容性更好）
@@ -187,9 +205,9 @@ struct AicpuPerfEventSampler {
         TryAddCacheEvent(PERF_COUNT_HW_CACHE_LL, PERF_COUNT_HW_CACHE_OP_READ,
                          PERF_COUNT_HW_CACHE_RESULT_MISS, "ll_cache_misses");
         
-        if (events.validEventCount > 0) {
+        if (events.GetValidEventCount() > 0) {
             DEV_INFO("[AICPU_PMU] Registered %d/%d PMU events successfully", 
-                     events.validEventCount, events.nrEvent);
+                     events.GetValidEventCount(), events.GetNrEvent());
         } else {
             DEV_WARN("[AICPU_PMU] PMU events unavailable (errno=%d). "
                      "Possible causes: container restrictions or missing capabilities. "
@@ -215,7 +233,7 @@ struct AicpuPerfEventSampler {
         double timeUs = dynamic::Cycles2Us(cycles);
         double timeMs = timeUs / 1000.0;
         
-        if (!pmuAvailable || !pmuEnabled || events.validEventCount == 0) {
+        if (!pmuAvailable || !pmuEnabled || events.GetValidEventCount() == 0) {
             DEV_ERROR(ERROR_CODE_UNDEFINED, "[AICPU_PMU] ExecDyn Summary (PMU unavailable)");
             DEV_ERROR(ERROR_CODE_UNDEFINED, "  Total Running Time: %.2f us (%.2f ms)", timeUs, timeMs);
             DEV_ERROR(ERROR_CODE_UNDEFINED, "  Note: PMU events disabled due to permission restrictions");
@@ -297,10 +315,9 @@ private:
     
     std::string FormatNumber(uint64_t n)
     {
-        std::stringstream ss;
-        ss.imbue(std::locale(""));
-        ss << n;
-        return ss.str();
+        char buf[32] = {0};
+        int ret = snprintf_s(buf, sizeof(buf), sizeof(buf) - 1, "%" PRIu64, n);
+        return ret < 0 ? std::string() : std::string(buf);
     }
 
     uint64_t cycles{0};
@@ -315,7 +332,8 @@ static inline AicpuPerfEventSampler& GetAicpuPerfEventSampler()
     return sampler;
 }
 
-struct AicpuPerfScopedSampler {
+class AicpuPerfScopedSampler {
+public:
     explicit AicpuPerfScopedSampler(const char* sectionName)
         : sectionName_(sectionName), sampler_(GetAicpuPerfEventSampler())
     {
@@ -359,7 +377,8 @@ private:
         (sampler_ptr)->Dump(); \
     } while (0)
 #else
-struct AicpuPerfEventSampler {
+class AicpuPerfEventSampler {
+public:
     void Begin() {}
     void End() {}
     void Dump() {}
@@ -371,7 +390,8 @@ static inline AicpuPerfEventSampler& GetAicpuPerfEventSampler()
     return sampler;
 }
 
-struct AicpuPerfScopedSampler {
+class AicpuPerfScopedSampler {
+public:
     explicit AicpuPerfScopedSampler([[maybe_unused]] const char* sectionName)
         : sampler_(GetAicpuPerfEventSampler())
     {}
@@ -388,5 +408,3 @@ private:
 #endif
 
 } // namespace npu::tile_fwk
-
-#endif // __DEVICE__
