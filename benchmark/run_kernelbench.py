@@ -61,6 +61,24 @@ from benchmark.verifier_runner import VerifierResult, VerifierStatus, run_verifi
 
 logger = logging.getLogger("benchmark")
 
+_ANSI_RESET = "\033[0m"
+_PYPTO_STATUS_COLORS = {
+    PyptoRunStatus.SUCCESS.value: "\033[1;32m",
+    PyptoRunStatus.SKIPPED.value: "\033[1;36m",
+    PyptoRunStatus.TIMEOUT.value: "\033[1;33m",
+    PyptoRunStatus.ARTIFACT_MISSING.value: "\033[1;31m",
+    PyptoRunStatus.BLOCKED.value: "\033[1;31m",
+    PyptoRunStatus.OPENCODE_NOT_FOUND.value: "\033[1;31m",
+    PyptoRunStatus.SUBPROCESS_ERROR.value: "\033[1;31m",
+}
+
+
+def _color_pypto_finish_log(status: str, text: str) -> str:
+    if os.environ.get("NO_COLOR"):
+        return text
+    color = _PYPTO_STATUS_COLORS.get(status)
+    return f"{color}{text}{_ANSI_RESET}" if color else text
+
 
 # ────────────────────────────────────────────────────────────
 # 配置加载
@@ -391,9 +409,13 @@ async def run_one_case(case_path: Path, device_id: int, cfg: _RunCfg,
                 skip_stage7_perf_tune=cfg.skip_stage7_perf_tune,
                 stop_event=_stop_event,
             )
-            logger.info("[%s] pypto workflow finished: status=%s duration=%.1fs message=%s",
-                        case.case_id, pypto_result.status.value,
-                        pypto_result.duration_sec, pypto_result.message)
+            status_value = pypto_result.status.value
+            finish_log = (
+                f"[{case.case_id}] pypto workflow finished: "
+                f"status={status_value} duration={pypto_result.duration_sec:.1f}s "
+                f"message={pypto_result.message}"
+            )
+            logger.info("%s", _color_pypto_finish_log(status_value, finish_log))
 
         record.pypto_status = pypto_result.status.value
         record.pypto_message = pypto_result.message
