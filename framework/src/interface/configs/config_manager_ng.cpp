@@ -23,6 +23,7 @@
 #include <typeindex>
 #include <climits>
 #include <utility>
+#include <numeric>
 
 #include <nlohmann/json.hpp>
 
@@ -34,6 +35,8 @@
 #include "config_manager_ng.h"
 #include "tilefwk/tile_shape.h"
 #include "tilefwk/pypto_fwk_log.h"
+#include "tilefwk/platform.h"
+#include "tilefwk/data_type.h"
 #include "interface/utils/error.h"
 
 namespace npu::tile_fwk {
@@ -298,6 +301,31 @@ void ValidateConfigValueType(const std::string& key, const Any& value)
     FE_ASSERT(FeError::INVALID_TYPE, false) << os.str();
 }
 
+void ValidateVecTileShapesUBSize(const std::vector<int64_t>& tile)
+{
+    if (tile.empty()) {
+        return;
+    }
+
+    if (!std::all_of(tile.begin(), tile.end(), [](int64_t x) { return x > 0; })) {
+        CHECK(FeError::INVALID_VAL, false)
+            << "vec_tile_shapes contains invalid dimensions (must all be > 0): [" << tile << "]";
+    }
+
+    Platform::Instance().ObtainPlatformInfo();
+
+    int64_t tileSize = std::accumulate(tile.begin(), tile.end(), 1LL, std::multiplies<int64_t>());
+    size_t ubSize = Platform::Instance().GetDie().GetMemoryLimit(MemoryType::MEM_UB);
+
+    if (tileSize < 0) {
+        CHECK(FeError::INVALID_VAL, false) << "vec_tile_shapes product overflow: [" << tile << "]";
+    }
+
+    CHECK(FeError::INVALID_VAL, tileSize <= static_cast<int64_t>(ubSize))
+        << "vec_tile_shapes product (" << tileSize << ") exceeds UB size (" << ubSize << "). Tile dimensions: [" << tile
+        << "]";
+}
+
 std::string ConfigScope::ToString() const
 {
     auto values = GetAllConfig();
@@ -331,6 +359,11 @@ void ConfigScope::AddValue(const std::string& key, Any value)
 void ConfigScope::UpdateValueWithAny(const std::string& key, Any value)
 {
     ValidateConfigValueType(key, value);
+
+    if (key == "vec_tile_shapes" && value.Type() == typeid(std::vector<int64_t>)) {
+        ValidateVecTileShapesUBSize(AnyCast<std::vector<int64_t>>(value));
+    }
+
     const auto& rangeInfos = ConfigManagerNg::GetInstance().Range();
     if (HasRangeConstraint(key, value.Type(), rangeInfos) &&
         !ConfigManagerNg::GetInstance().IsWithinRange(key, value)) {
@@ -445,8 +478,7 @@ struct ConfigManagerImpl {
                 root->AddValue(it.first, it.second);
                 FE_LOGD("Set option successfully, Key: %s", it.first.c_str());
             } catch (const std::exception& e) {
-                FE_LOGE(
-                    FeError::INVALID_VAL, "Failed to set option. Key: %s, Error: %s", it.first.c_str(), e.what());
+                FE_LOGE(FeError::INVALID_VAL, "Failed to set option. Key: %s, Error: %s", it.first.c_str(), e.what());
             }
         }
     }
