@@ -828,7 +828,8 @@ Status OoOScheduler::HandleReshapeSpillPath(SpillInfo &spillInfo, Operation* &ac
 }
 
 Status OoOScheduler::CreateSpecialL1Copyout(SpillInfo &spillInfo, Operation* &spillCopyoutOp, int &bufLastUseOrder,
-    bool &isFinish, bool isGenSpill, size_t &pcIdx) {
+    bool &isFinish, bool isGenSpill, size_t &pcIdx)
+{
     auto spillOp = spillInfo.spillOp_;
     auto preTensor = spillOp->GetInputOperand(0);
     if (spillOp->GetOpcode() != Opcode::OP_RESHAPE && preTensor->GetMemoryTypeOriginal() != MemoryType::MEM_UB && preTensor->GetMemoryTypeOriginal() != MemoryType::MEM_L0C) {
@@ -843,7 +844,8 @@ Status OoOScheduler::CreateSpecialL1Copyout(SpillInfo &spillInfo, Operation* &sp
         }
     }
     if (spillOp->GetOpcode() == Opcode::OP_RESHAPE) {
-        if (HandleReshapeSpillPath(spillInfo, actualSpillOp, actualSpillTensor, isFinish, isGenSpill, pcIdx) != SUCCESS) {
+        if (HandleReshapeSpillPath(spillInfo, actualSpillOp, actualSpillTensor, isFinish, isGenSpill, pcIdx) !=
+            SUCCESS) {
             return FAILED;
         }
         if (isFinish) {
@@ -915,7 +917,8 @@ Status OoOScheduler::CreateSpillCopyoutForSmallShape(SpillInfo &spillInfo, Logic
         if (producerOp == nullptr || IsAllocOpCode(producerOp->GetOpcode())) {
             continue;
         }
-        if (CreateSmallShapeProducerCopyout(spillInfo, producerOp, ddrTensor, workspaceOffsetTemp, isGenSpill, pcIdx) != SUCCESS) {
+        if (CreateSmallShapeCopyout(spillInfo, producerOp, ddrTensor, workspaceOffsetTemp, isGenSpill, pcIdx) !=
+            SUCCESS) {
             return FAILED;
         }
     }
@@ -1023,7 +1026,7 @@ Status OoOScheduler::ConfigSmallShapeCopyoutAttrs(Operation &copyOutOp, Operatio
     return SUCCESS;
 }
 
-Status OoOScheduler::CreateSmallShapeProducerCopyout(SpillInfo &spillInfo, Operation* producerOp,
+Status OoOScheduler::CreateSmallShapeCopyout(SpillInfo &spillInfo, Operation* producerOp,
     LogicalTensorPtr ddrTensor, int64_t workspaceOffsetTemp, bool isGenSpill, size_t &pcIdx)
 {
     Operation* actualOp = nullptr;
@@ -1078,7 +1081,8 @@ Status OoOScheduler::SpillOutBuffer(SpillInfo &spillInfo, Operation* op, size_t 
     if (spillInfo.isSpecialL1_) {
         // actualSpillOp 为 copy_in
         bool isFinish = false;
-        if (CreateSpecialL1Copyout(spillInfo, spillCopyoutOp, bufLastUseOrder, isFinish, isGenSpill, pcIdx) != SUCCESS) {
+        if (CreateSpecialL1Copyout(spillInfo, spillCopyoutOp, bufLastUseOrder, isFinish, isGenSpill, pcIdx) !=
+            SUCCESS) {
             APASS_LOG_ERROR_F(Elements::Operation, "SpecialL1 CreateSpillCopyout failed!");
             return FAILED;
         }

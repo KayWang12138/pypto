@@ -237,7 +237,7 @@ private:
         LogicalTensorPtr &ddrTensor, int64_t &workspaceOffsetTemp);
     Status ResolveSmallShapeActualSpill(Operation* producerOp,
         Operation* &actualOp, LogicalTensorPtr &actualTensor);
-    Status CreateSmallShapeProducerCopyout(SpillInfo &spillInfo, Operation* producerOp,
+    Status CreateSmallShapeCopyout(SpillInfo &spillInfo, Operation* producerOp,
         LogicalTensorPtr ddrTensor, int64_t workspaceOffsetTemp, bool isGenSpill, size_t &pcIdx);
     Status ConfigSmallShapeCopyoutAttrs(Operation &copyOutOp, Operation* producerOp,
         LogicalTensorPtr actualTensor, int64_t workspaceOffsetTemp);
