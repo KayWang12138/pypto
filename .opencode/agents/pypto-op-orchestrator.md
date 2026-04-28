@@ -116,7 +116,7 @@ custom/{op}/
 | `API_REPORT.md` | Stage 2 | Stage 4 | API 映射表、约束清单、可行性判定、参考实现 |
 | `{op}_golden.py` | Stage 3 | Stage 4/5/6 | 导出函数签名、输入输出 shape、计算逻辑参考 |
 | `DESIGN.md` | Stage 4 | Stage 5 | API 选型、tiling 策略、loop 结构、特殊处理 |
-| `plan.md` | Stage 5 designer (创建) + Stage 6 verifier/debugger (追加) | Stage 6 coder/verifier/debugger | 模块分解、模块契约、staged set 表、verification log、debug patch proposals |
+| `plan.md` | Stage 5 designer (创建) + Stage 4 analyst / Stage 6 coder/verifier/debugger / Stage 7 perf-tuner (各自 append-only) | Stage 5-7 全员 | 模块分解、模块契约、staged set 表、Stage 4 design notes、Per-module verification log、Development & debug log、Performance log |
 | `eval/module_interfaces.yaml` | Stage 5 designer | Stage 6 verifier | 模块编号、输入/输出名、shape/dtype、source 接线、composition_verification 容差 |
 | `staged/{op}_module<k>_*.py` | Stage 6 coder | Stage 6 verifier/debugger | 第 k 个 staged set（impl + golden + test 三件套） |
 | `eval/{op}_golden_modular.py` | Stage 6.0 verifier (Phase A.5) | Stage 6 verifier (prefix-eval) | 按模块切分的纯 torch 参考实现 |
@@ -125,6 +125,28 @@ custom/{op}/
 | `{op}_impl.py` / `{op}_golden.py` / `test_{op}.py`（canonical） | Stage 6.final verifier (Phase D rename) | Stage 7 perf-tuner、用户 | PyPTO kernel 实现、参考实现、测试入口 |
 | `README.md` | Stage 6.final verifier (Phase D) | 用户 | 算子说明 |
 | `.orchestrator_state.json` | Orchestrator | Orchestrator | 全局状态（含 `module_state`、`gate_status`、`current_subphase`、`last_failure`） |
+
+### plan.md section ownership
+
+`plan.md` 是 Stage 5-7 共享的滚动日志。**designer 创建**，其它 agent 各自只在自己的专属 section 内 **append-only** 追加，**不得修改**他人的 section。
+
+| Section | Owner | Stage | 写入策略 |
+|---------|-------|-------|---------|
+| `## Module decomposition` | designer | 5 | designer 创建；Stage 5 重试时整节重写 |
+| `## Module contracts` | designer | 5 | 同上 |
+| `## Staged set table` | designer | 5 | 同上 |
+| `## Architecture/Design Rejection — <ts>` | verifier | 6.0 | YAML 拒绝时 verifier 追加；触发 fail_stage(6)→start_stage(5) |
+| `## Verification Rejection — <ts>` | verifier | 6.0 | composition verification 失败时 verifier 追加；触发 fail_stage(6)→start_stage(5) |
+| `## Stage 4 design notes — <ts>` | analyst | 4（重设计时） | 仅当 Stage 6 verifier 拒绝触发回退到 Stage 4 时 analyst 追加；首次 Stage 4 不写入（plan.md 尚未存在） |
+| `## Development & debug log` | coder + debugger | 6.k | coder 每次 dispatch 末尾追加 1 行 "M_k staged set produced"；debugger 每次 dispatch 追加 patch_proposal 块 |
+| `## Per-module verification log` | verifier | 6.k | verifier 每次 dispatch 追加 1 行 detailed_tensor_compare 结果（all_close、max diff、failing_module_boundary） |
+| `## Phase D — Canonical rename — <ts>` | verifier | 6.final | Phase D rename 完成后 verifier 追加 git mv 命令记录 |
+| `## Performance log` | perf-tuner | 7 | perf-tuner 首轮创建 section；每轮迭代追加 1 行（含 baseline、candidate、precision、adopted） |
+
+**硬性规则**：
+- Orchestrator 自身**不写** plan.md（除非把 Subagent 的 rejection 转写为 section 头作为 Lead 备忘——这种情况罕见，应由 verifier/debugger 自行写入）
+- Subagent 一律 **append-only**，禁止 in-place 编辑他人的 section
+- 删除 plan.md 等同于丢失 audit trail；任何 fail_stage 路径都不得清空 plan.md
 
 ### 三文件分离
 

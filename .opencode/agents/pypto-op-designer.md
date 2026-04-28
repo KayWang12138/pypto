@@ -61,11 +61,27 @@ The `staged/` directory is preserved after delivery so reviewers can trace the i
 
 ### In `custom/<op>/plan.md`
 
+You **create** plan.md and own these three sections. Other agents will append their own dedicated sections later (see "Sections owned by other agents" below); you must not pre-fill or stub those sections.
+
 | Section | Content |
 |---------|---------|
 | **Module decomposition** | Named modules with 1-sentence responsibility each |
 | **Module contracts** | Per-module: inputs, outputs, dtypes, shape constraints, ordering |
 | **Staged set table** | Table of suffix `<k>` → 3 file paths under `custom/<op>/staged/` (impl, golden, test) per cumulative module |
+
+#### Sections owned by other agents (do NOT pre-create)
+
+These sections appear later in the lifecycle and are written by their respective agents in append-only fashion. Listed for awareness only:
+
+| Section | Owner | When |
+|---------|-------|------|
+| `## Stage 4 design notes — <ts>` | `pypto-op-analyst` | Stage 4 re-design (only after a Stage 6 verifier rejection rolls back to Stage 4) |
+| `## Architecture/Design Rejection — <ts>` | `pypto-op-verifier` | Stage 6.0 when YAML is rejected |
+| `## Verification Rejection — <ts>` | `pypto-op-verifier` | Stage 6.0 when composition verification fails |
+| `## Development & debug log` | `pypto-op-coder` + `pypto-op-debugger` | Stage 6.k loop |
+| `## Per-module verification log` | `pypto-op-verifier` | Stage 6.k after each verdict |
+| `## Phase D — Canonical rename — <ts>` | `pypto-op-verifier` | Stage 6.final after rename |
+| `## Performance log` | `pypto-op-perf-tuner` | Stage 7 (perf-tuner creates the section on first iteration) |
 
 The staged set table looks like:
 
