@@ -165,9 +165,19 @@ public:
         }
     }
 
+    static void PrepareDevProgArgsCpuInfo(DevAscendProgram* devProg, DeviceLauncherConfig& config, bool isNeedCalc)
+    {
+        uint32_t aiCpuNum = static_cast<uint32_t>(Platform::Instance().GetSoc().GetAICPUNum());
+        devProg->devArgs.maxAicpuNum = aiCpuNum;
+        devProg->devArgs.nrValidAic = config.blockdim;
+        devProg->devArgs.scheCpuNum = CalcSchAicpuNumByBlockDim(config.blockdim, aiCpuNum, devProg->devArgs.archInfo);
+        config.aicpuNum = GetAiCpuNum(aiCpuNum, devProg->devArgs.scheCpuNum, devProg->devArgs.archInfo);
+        devProg->devArgs.nrAicpu = config.aicpuNum;
+    }
+
     // Prepare device program scheduling and memory budget related args (keeps <= 50 lines)
     static void PrepareDevProgArgs(
-        DevAscendProgram* devProg, DeviceLauncherConfig& config, [[maybe_unused]] bool isDevice, bool isNeedCalc = true)
+        DevAscendProgram* devProg, DeviceLauncherConfig& config, [[maybe_unused]] bool isDevice)
     {
         devProg->devArgs.taskId = 0;
         devProg->devArgs.nrAic = kDefaultAicNum;
@@ -176,14 +186,6 @@ public:
         devProg->devArgs.taskType = DEVICE_TASK_TYPE_DYN;
         bool enableVFFusion = Platform::Instance().GetSoc().GetNPUArch() == NPUArch::DAV_3510 && config::GetPassGlobalConfig(KEY_ENABLE_VF, false);
         devProg->devArgs.enableVFFusion = (config::GetRuntimeOption<int64_t>(CFG_VALID_SHAPE_OPTIMIZE) == 1 || enableVFFusion);
-        uint32_t aiCpuNum = static_cast<uint32_t>(Platform::Instance().GetSoc().GetAICPUNum());
-        devProg->devArgs.maxAicpuNum = static_cast<int>(aiCpuNum);
-        if (isNeedCalc) {
-            devProg->devArgs.nrValidAic = config.blockdim;
-            devProg->devArgs.scheCpuNum = CalcSchAicpuNumByBlockDim(config.blockdim, aiCpuNum, devProg->devArgs.archInfo);
-            config.aicpuNum = GetAiCpuNum(aiCpuNum, devProg->devArgs.scheCpuNum, devProg->devArgs.archInfo);
-            devProg->devArgs.nrAicpu = config.aicpuNum;
-        }
 
         if (IsPtoDataDumpEnabled()) { // dump tensor
             devProg->devArgs.hostPid = GetProcessId();
@@ -292,7 +294,8 @@ public:
         auto& mutableConfig = const_cast<DeviceLauncherConfig&>(config);
         auto* devProg = reinterpret_cast<DevAscendProgram*>(const_cast<uint8_t*>(devProgData.data()));
         bool isNeedCalc = (ctrlFlowCache == nullptr || !ctrlFlowCache->isActivated);
-        PrepareDevProgArgs(devProg, mutableConfig, devMem.IsDevice(), isNeedCalc);
+        PrepareDevProgArgsCpuInfo(devProg, mutableConfig, isNeedCalc);
+        PrepareDevProgArgs(devProg, mutableConfig, devMem.IsDevice());
         // Fill all metadata and kernel args
         bool isCtrlCacheRecording = false;
         if (!devMem.IsDevice()) {

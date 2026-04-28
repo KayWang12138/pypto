@@ -453,7 +453,7 @@ struct DynMachineManager {
         DevStartArgs* runtimeDataCurrent =
             reinterpret_cast<DevStartArgs*>(devProg->GetRuntimeDataList()->GetRuntimeDataCurrent());
         if (kargs->parameter.ctrlBlockNum != 0 &&
-            kargs->parameter.ctrlBlockNum < static_cast<int>(devProg->devArgs.nrValidAic)) {
+            static_cast<uint32_t>(kargs->parameter.ctrlBlockNum) < devProg->devArgs.nrValidAic) {
             devProg->devArgs.nrValidAic = kargs->parameter.ctrlBlockNum;
             DEV_INFO("control aicore before launch, nrValidAic changed to %ld", kargs->parameter.ctrlBlockNum);
         }

@@ -911,7 +911,7 @@ private:
             uint32_t coreIdx =
                 context_
                     ->runReadyCoreIdx_[static_cast<int>(type)][context_->coreRunReadyCnt_[static_cast<int>(type)] - 1];
-            RemoveReadyCoreIdx(coreIdx, static_cast<int>(type));
+            RemoveReadyCoreIdxTail(coreIdx, static_cast<int>(type));
             SendTaskToAiCore(devTaskCtx, type, coreIdx, isLifo ? *newTask-- : *newTask++);
             sendCnt++;
         }
@@ -1099,6 +1099,19 @@ private:
     }
 
     inline void RemoveReadyCoreIdx(int coreIdx, int type)
+    {
+        uint32_t tail = --coreRunReadyCnt_[type];
+        uint8_t pos = coreIdxPosition_[coreIdx];
+        // when control core more than one devtask, pos maybe not equal tail
+        if (pos != tail) {
+            runReadyCoreIdx_[type][pos] = runReadyCoreIdx_[type][tail];
+            coreIdxPosition_[runReadyCoreIdx_[type][pos]] = pos;
+        }
+        coreIdxPosition_[coreIdx] = INVALID_COREIDX_POSITION;
+        corePendReadyCnt_[type]--;
+    }
+
+    inline void RemoveReadyCoreIdxTail(int coreIdx, int type)
     {
         context_->coreRunReadyCnt_[type]--;
         context_->coreIdxPosition_[coreIdx] = INVALID_COREIDX_POSITION;
@@ -1426,7 +1439,7 @@ private:
         if (context_->coreRunReadyCnt_[coreType] > 0) {
             context_->corePendReadyCnt_[coreType]--;
             uint32_t coreIdx = context_->runReadyCoreIdx_[coreType][context_->coreRunReadyCnt_[coreType] - 1];
-            RemoveReadyCoreIdx(coreIdx, coreType);
+            RemoveReadyCoreIdxTail(coreIdx, coreType);
             DEV_VERBOSE_DEBUG("Direct send task when task ready %x.", taskId);
             SendTaskToAiCore(devTaskCtx, static_cast<CoreType>(coreType), coreIdx, taskId);
             return true;
@@ -1758,7 +1771,8 @@ private:
         enableEslModel_ = deviceArgs->enableEslModel;
         archInfo_ = deviceArgs->archInfo;
         if (startArgs->devProg->ctrlFlowCacheAnchor != nullptr) {
-            enableControlCore_ = startArgs->devProg->ctrlFlowCacheAnchor->IsActivatedFullCache(startArgs);
+            enableControlCore_ = startArgs->devProg->ctrlFlowCacheAnchor->IsActivatedFullCache(startArgs) &&
+                !startArgs->devProg->ctrlFlowCacheAnchor->isRecordingStopped;
         }
         aicoreHal_.Init(deviceArgs, &aicoreProf_);
         validGetPgMask_ = deviceArgs->validGetPgMask;
@@ -1888,7 +1902,7 @@ private:
         while (handShakeNum < mngAicoreNum) {
             if (deviceCtx == nullptr) {
                 deviceCtx = HandShakeTryPreFetchDevTask(needSendAic, needSendAiv);
-                ClacAdjAicoreEnd(deviceCtx, true, false);
+                CalcAdjAicoreEnd(deviceCtx, true, false);
             }
 
             bool curIterAllAicSuccess = true;
@@ -2181,7 +2195,7 @@ private:
         return;
     }
 
-    inline void UpdateReadCoreNum(int preAdjAicEnd, int preAdjAivEnd)
+    inline void UpdateReadyCoreNum(int preAdjAicEnd, int preAdjAivEnd)
     {
         if (preAdjAicEnd > adjAicEnd_) {
             for (int i = preAdjAicEnd - 1; i >= adjAicEnd_; i--) {
@@ -2203,7 +2217,13 @@ private:
         }
     }
 
-    inline void ClacAdjAicoreEnd(SchDeviceTaskContext* devTaskCtx, bool isNoNeedUpdate, bool isNoNeedCalc) {
+    static void UpdateAicoreEnd(int total, int idx, int part, int count, int start, int& end) {
+        int perCpu = (total / part) * count;
+        int remain = total % part;
+        end = start + perCpu + ((idx < remain) ? count : 0);
+    }
+
+    inline void CalcAdjAicoreEnd(SchDeviceTaskContext* devTaskCtx, bool isNoNeedUpdate, bool isNoNeedCalc) {
         if constexpr (IsDeviceMode()) {
             return;
         }
@@ -2213,44 +2233,29 @@ private:
         }
 
         auto taskCtrl = devTaskCtx->GetDeviceTaskCtrl();
-        int maxC = taskCtrl->GetMaxC();
-        int maxV = taskCtrl->GetMaxV();
-        const int aivNumPerAicore = static_cast<int>(AIV_NUM_PER_AI_CORE);
-        if (archInfo_ == ArchInfo::DAV_3510) {
-            if (maxC * aivNumPerAicore >= maxV) {
-                maxV = maxC * aivNumPerAicore;
-            } else {
-                maxV = (maxV & 1) ? maxV + 1 : maxV;
-                maxC = maxV / aivNumPerAicore;
-            }
-        }
+        int maxC = static_cast<int>(taskCtrl->GetMaxC());
+        int maxV = static_cast<int>(taskCtrl->GetMaxV());
         int preAdjAicEnd = adjAicEnd_;
         int preAdjAivEnd = adjAivEnd_;
-        if (maxC >= aicValidNum_ && maxV >= aicValidNum_ * aivNumPerAicore) {
+        if (maxC >= aicValidNum_ && maxV >= aicValidNum_ * AIV_NUM_PER_AI_CORE) {
             adjAicEnd_ = aicEnd_;
             adjAivEnd_ = aivEnd_;
         } else {
-            auto f = [](int total, int idx, int part, int count, int start, int& end) {
-                int perCpu = (total / part) * count;
-                int remain = total % part;
-                end = start + perCpu + ((idx < remain) ? count : 0);
-            };
-
-            f(maxC, schedIdx_, aicpuNum_, 1, aicStart_, adjAicEnd_);
+            UpdateAicoreEnd(maxC, schedIdx_, aicpuNum_, 1, aicStart_, adjAicEnd_);
             if (archInfo_ == ArchInfo::DAV_3510) {
-                f(maxC, schedIdx_, aicpuNum_, aivNumPerAicore, aivStart_, adjAivEnd_);
+                UpdateAicoreEnd(maxC, schedIdx_, aicpuNum_, AIV_NUM_PER_AI_CORE, aivStart_, adjAivEnd_);
             } else {
-                f(maxV, schedIdx_, aicpuNum_, 1, aivStart_, adjAivEnd_);
+                UpdateAicoreEnd(maxV, schedIdx_, aicpuNum_, 1, aivStart_, adjAivEnd_);
             }
         }
 
-        if (isNoNeedUpdate) {
+        if (isNoNeedUpdate || (preAdjAicEnd == adjAicEnd_ && preAdjAivEnd == adjAivEnd_)) {
             return;
         }
 
         context_->corePendReadyCnt_[static_cast<int>(CoreType::AIC)] = adjAicEnd_ - aicStart_;
         context_->corePendReadyCnt_[static_cast<int>(CoreType::AIV)] = adjAivEnd_ - aivStart_;
-        UpdateReadCoreNum(preAdjAicEnd, preAdjAivEnd);
+        UpdateReadyCoreNum(preAdjAicEnd, preAdjAivEnd);
     }
 
     inline int32_t ProcessParallelDevTasks() {
@@ -2264,8 +2269,8 @@ private:
             }
             context_->curSchDevTaskCtx = devTaskCtx;
             PerfMtBegin(PERF_EVT_RUN_TASK, aicpuIdx_);
-            bool isFront = (i == parallelDevTaskCtx.front);
-            ClacAdjAicoreEnd(devTaskCtx, isFront, isFront);
+            bool isFront = (i == parallelDevTaskCtx.front); // when first devtask, handshake calc aicore, no need calc again
+            CalcAdjAicoreEnd(devTaskCtx, isFront, isFront);
             ret = RunTask(devTaskCtx);
             PerfMtEnd(PERF_EVT_RUN_TASK, aicpuIdx_);
             if (ret != DEVICE_MACHINE_OK)
@@ -2352,6 +2357,6 @@ private:
     friend class AiCoreProf;
 
     bool enableEslModel_;
-    bool enableControlCore_;
+    bool enableControlCore_{false};
 };
 } // namespace npu::tile_fwk::dynamic

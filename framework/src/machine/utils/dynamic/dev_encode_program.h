@@ -333,6 +333,7 @@ struct DevAscendProgram {
         uint32_t nrAicpu;
         uint32_t nrValidAic;
         uint32_t scheCpuNum;
+        uint32_t maxAicpuNum;
         ArchInfo archInfo;
     };
 
@@ -344,6 +345,7 @@ struct DevAscendProgram {
         params.nrAicpu = src.nrAicpu;
         params.nrValidAic = src.nrValidAic;
         params.scheCpuNum = src.scheCpuNum;
+        params.maxAicpuNum = src.maxAicpuNum;
         params.archInfo = src.archInfo;
         return params;
     }
@@ -355,6 +357,7 @@ struct DevAscendProgram {
         dst.nrAicpu = params.nrAicpu;
         dst.nrValidAic = params.nrValidAic;
         dst.scheCpuNum = params.scheCpuNum;
+        dst.maxAicpuNum = params.maxAicpuNum;
         dst.archInfo = params.archInfo;
     }
 

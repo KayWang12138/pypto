@@ -161,7 +161,9 @@ static void ResetBlockDimForPreLaunch(DevControlFlowCache* ctrlFlowCache, DevAsc
             actualMaxV = taskMaxV;
         }
     }
-    int ctualMaxCore = std::max(actualMaxC, actualMaxV / 2);
+
+    actualMaxV = (actualMaxV & 1) ? actualMaxV + 1 : actualMaxV;
+    int ctualMaxCore = std::max(actualMaxC, actualMaxV / dynamic::AIV_NUM_PER_AI_CORE);
     if ((actualMaxC != 0 && actualMaxV !=0) && ctualMaxCore <= config.blockdim) {
         DeviceLauncherConfig& devConfig = const_cast<DeviceLauncherConfig&>(config);
         devConfig.blockdim = ctualMaxCore;
