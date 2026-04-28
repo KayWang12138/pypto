@@ -173,11 +173,6 @@ void CheckHowoTile(const Tensor& inputTensor, const Tensor& weightTensor, const 
             << "When wOut is not a multiple of 16, tileHout should be 1.";
     }
     CheckValueRange(tileHout, "tileHout", NUM1, hOut);
-    if (tileHout > 1) {
-        ASSERT(ConvOperationError::INPUT_INVALID, tileWout == wOut)
-            << "When tileHout > 1, tileWout must be equal to wOut.Now tileHout=" << tileHout
-            << ", tileWout=" << tileWout << ", wOut=" << wOut;
-    }
     CheckValueRange(tileWout, "tileWout", NUM1, ConvAlignB(wOut, NUM16));
     CheckAlignment(tileWout, NUM16, "tileWout");
 }
