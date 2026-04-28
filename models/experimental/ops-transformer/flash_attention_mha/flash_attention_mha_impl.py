@@ -181,12 +181,11 @@ def flash_attention_varlen_forward_kernel(
 
                     pypto.set_vec_tile_shapes(v1_tile[0], v1_tile[1])
 
+                    pypto.set_pass_options(sg_set_scope=5001)
                     scores = pypto.matmul(q_tile_view, k_tile_view, out_dtype=pypto.DT_FP32, b_trans=True)
 
-                    pypto.set_pass_options(sg_set_scope=1)
-
+                    # pypto.set_pass_options(sg_set_scope=1)
                     scores_scaled = pypto.mul(scores, scale)
-
                     mij = pypto.amax(scores_scaled, dim=-1, keepdim=True)
                     s_shifted = pypto.sub(scores_scaled, mij)
                     pij = pypto.exp(s_shifted)
@@ -199,9 +198,10 @@ def flash_attention_varlen_forward_kernel(
                             pypto.set_vec_tile_shapes(v1_tile[0], v1_tile[1])
                             pij_div = pypto.div(pij, lij, precision_type=pypto.DivAlgorithm.INTRINSIC)
                             pij_bf16 = pypto.cast(pij_div, pypto.DT_BF16)
-                            pypto.set_pass_options(sg_set_scope=-1)
+                            # pypto.set_pass_options(sg_set_scope=-1)
 
                             oij = pypto.matmul(pij_bf16, v_tile_view, out_dtype=pypto.DT_BF16)
+                            pypto.set_pass_options(sg_set_scope=-1)
 
                             pypto.assemble(lij, [q_start + q_tile_start, h_idx], l_output)
                             pypto.assemble(mij, [q_start + q_tile_start, h_idx], m_output)
@@ -210,9 +210,11 @@ def flash_attention_varlen_forward_kernel(
                         else:
                             pypto.set_vec_tile_shapes(v1_tile[0], v1_tile[1])
                             pij_bf16 = pypto.cast(pij, pypto.DT_BF16)
-                            pypto.set_pass_options(sg_set_scope=-1)
+                            # pypto.set_pass_options(sg_set_scope=-1)
 
                             oij = pypto.matmul(pij_bf16, v_tile_view, out_dtype=pypto.DT_FP32)
+
+                            pypto.set_pass_options(sg_set_scope=-1)
 
                             oi_update[:] = oij
                             li_update[:] = lij
@@ -220,9 +222,11 @@ def flash_attention_varlen_forward_kernel(
                     else:
                         pypto.set_vec_tile_shapes(v1_tile[0], v1_tile[1])
                         pij_bf16 = pypto.cast(pij, pypto.DT_BF16)
-                        pypto.set_pass_options(sg_set_scope=-1)
+                        # pypto.set_pass_options(sg_set_scope=-1)
 
                         oij = pypto.matmul(pij_bf16, v_tile_view, out_dtype=pypto.DT_FP32)
+
+                        pypto.set_pass_options(sg_set_scope=-1)
 
                         pypto.set_vec_tile_shapes(v2_tile[0], v2_tile[1])
 
@@ -238,14 +242,19 @@ def flash_attention_varlen_forward_kernel(
 
                         li_new = pypto.add(pypto.mul(t2, li), pypto.mul(t4, lij))
                         oi_tmp = pypto.add(pypto.mul(oi, t2), pypto.mul(oij, t4))
+                        # pypto.set_pass_options(sg_set_scope=-1)
+
                         if pypto.is_loop_end(k_tile_idx):
                             out_fp32 = pypto.div(oi_tmp, li_new, precision_type=pypto.DivAlgorithm.INTRINSIC)
                             out_bf16 = pypto.cast(out_fp32, pypto.DT_BF16)
-
+                            # pypto.set_pass_options(sg_set_scope=-1)
+                        
                             pypto.assemble(li_new, [q_start + q_tile_start, h_idx], l_output)
                             pypto.assemble(mi_new, [q_start + q_tile_start, h_idx], m_output)
                             pypto.assemble(out_bf16, [q_start + q_tile_start, h_offset], output)
-                        else:  
+                        else: 
+                            # pypto.set_pass_options(sg_set_scope=-1)
+
                             oi_update[:] = oi_tmp
                             li_update[:] = li_new
                             mi_update[:] = mi_new
