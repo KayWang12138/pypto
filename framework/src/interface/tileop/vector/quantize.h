@@ -465,11 +465,14 @@ TILEOP void TQuantMX(T0 dst, T1 exp, T2 maxScratch, T3 scalingScratch, T4 src)
 //     RegTensor<float> vreg_b32;
 //     vector_s32 vreg_zero;
 //     vbr(vreg_zero, 0);
-//     uint32_t elem_count = total_elements_count;
 //     for (uint16_t i = 0; i < (uint16_t)vl_count; ++i) {
-//         MaskReg preg = CreatePredicate<float>(elem_count);
+//         uint32_t offset = i * elementsPerRepeat;
+//         uint32_t remaining = (total_elements_count > offset) ? (total_elements_count - offset) : 0;
+//         if (remaining > elementsPerRepeat)
+//             remaining = elementsPerRepeat;
+//         MaskReg preg = CreatePredicate<float>(remaining);
 //         RegTensor<float> vreg_max_0, vreg_max_1;
-//         vlds(vreg_b32, srcPtr, i * elementsPerRepeat, NORM);
+//         vlds(vreg_b32, srcPtr, offset, NORM);
 //         vabs(vreg_b32, vreg_b32, preg);
 //         vsel((vector_s32&)vreg_b32, (vector_s32&)vreg_b32, vreg_zero, preg);
 //         vcmax(vreg_max_0, vreg_b32, preg_lower32);
@@ -1133,21 +1136,19 @@ TILEOP void TQuantMX(T0 dst, T1 exp, T2 maxScratch, T3 scalingScratch, T4 src)
 //         AbsReduceMax_Naive(
 //             srcPtr, maxPtr, total_elements_count, vl_count, elementsPerRepeat, preg_lower32, preg_upper32);
 //     else {
-//         uint32_t aligned_total = (total_elements_count / 256) * 256;
-//         uint32_t tail_total = total_elements_count - aligned_total;
-//         if (aligned_total > 0) {
-//             uint16_t aligned_vl_count = aligned_total / elementsPerRepeat;
-//             if (aligned_total % 2048 == 0)
-//                 AbsReduceMax_f32_opt_largesizes(srcPtr, maxPtr, aligned_vl_count, elementsPerRepeat, aligned_total);
-//             else
-//                 AbsReduceMax_f32_opt(srcPtr, maxPtr, aligned_vl_count, elementsPerRepeat, aligned_total);
+//         constexpr uint32_t kLargeReduceElems = 2048;
+//         uint32_t large_total = (total_elements_count / kLargeReduceElems) * kLargeReduceElems;
+//         uint32_t tail_total = total_elements_count - large_total;
+//         if (large_total > 0) {
+//             uint16_t large_vl_count = large_total / elementsPerRepeat;
+//             AbsReduceMax_f32_opt_largesizes(srcPtr, maxPtr, large_vl_count, elementsPerRepeat, large_total);
 //         }
 //         if (tail_total > 0) {
-//             uint32_t aligned_groups = aligned_total / 32;
+//             uint32_t large_groups = large_total / 32;
 //             uint16_t tail_vl_count = CeilDivision(tail_total, elementsPerRepeat);
 //             AbsReduceMax_Naive(
-//                 srcPtr + aligned_total, maxPtr + aligned_groups, tail_total, tail_vl_count, elementsPerRepeat,
-//                 preg_lower32, preg_upper32);
+//                 srcPtr + large_total, maxPtr + large_groups, tail_total, tail_vl_count, elementsPerRepeat, preg_lower32,
+//                 preg_upper32);
 //         }
 //     }
 //     mem_bar(VST_VLD);
