@@ -433,11 +433,18 @@ private:
     uint64_t endCounts_[MAX_COUNTERS]{};
 };
 
+static inline ArmPmuDirectSampler& GetArmPmuDirectSampler()
+{
+    static thread_local ArmPmuDirectSampler sampler;
+    return sampler;
+}
+
 // ============================================================
 // RAII 作用域采样器
 // ============================================================
 struct ArmPmuDirectScopedSampler {
-    explicit ArmPmuDirectScopedSampler(const char* sectionName) : sectionName_(sectionName)
+    explicit ArmPmuDirectScopedSampler(const char* sectionName)
+        : sectionName_(sectionName), sampler_(GetArmPmuDirectSampler())
     {
         sampler_.Begin();
     }
@@ -451,7 +458,7 @@ struct ArmPmuDirectScopedSampler {
 
 private:
     const char* sectionName_{"unnamed"};
-    ArmPmuDirectSampler sampler_;
+    ArmPmuDirectSampler& sampler_;
 };
 
 // ============================================================
@@ -461,7 +468,7 @@ private:
     ::npu::tile_fwk::ArmPmuDirectScopedSampler armPmuDirectScoped_##__LINE__(section_name_literal)
 
 #define ARM_PMU_DIRECT_BEGIN(sampler_name) \
-    ::npu::tile_fwk::ArmPmuDirectSampler sampler_name; \
+    auto& sampler_name = ::npu::tile_fwk::GetArmPmuDirectSampler(); \
     (sampler_name).Begin()
 
 #define ARM_PMU_DIRECT_END(sampler_name, section_name_literal) \

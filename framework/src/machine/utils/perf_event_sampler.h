@@ -363,8 +363,15 @@ private:
     bool pmuAvailable{true};
 };
 
+static inline AicpuPerfEventSampler& GetAicpuPerfEventSampler()
+{
+    static thread_local AicpuPerfEventSampler sampler;
+    return sampler;
+}
+
 struct AicpuPerfScopedSampler {
-    explicit AicpuPerfScopedSampler(const char* sectionName) : sectionName_(sectionName)
+    explicit AicpuPerfScopedSampler(const char* sectionName)
+        : sectionName_(sectionName), sampler_(GetAicpuPerfEventSampler())
     {
         sampler_.Begin();
     }
@@ -378,14 +385,14 @@ struct AicpuPerfScopedSampler {
 
 private:
     const char* sectionName_{"unnamed"};
-    AicpuPerfEventSampler sampler_;
+    AicpuPerfEventSampler& sampler_;
 };
 
 #define AICPU_PMU_SCOPE(section_name_literal) \
     ::npu::tile_fwk::AicpuPerfScopedSampler aicpuPerfScopedSampler_##__LINE__(section_name_literal)
 
 #define AICPU_PMU_BEGIN(sampler_name) \
-    ::npu::tile_fwk::AicpuPerfEventSampler sampler_name; \
+    auto& sampler_name = ::npu::tile_fwk::GetAicpuPerfEventSampler(); \
     (sampler_name).Begin()
 
 #define AICPU_PMU_END(sampler_name, section_name_literal) \
