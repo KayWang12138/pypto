@@ -141,6 +141,9 @@ PyPTO kernel 函数实现，基于固定模板 `templates/impl-template.py` 生�
 | Tensor 描述符 | `pypto.Tensor([pypto.DYNAMIC, ...], pypto.DT_FP32)`（动态轴必须显式标 `pypto.DYNAMIC`；禁止使用 `pypto.Tensor()` / `pypto.Tensor([], ...)`） |
 | Tiling 配置 | 必须调用 `pypto.set_vec_tile_shapes(...)` 或 `pypto.set_cube_tile_shapes(...)` |
 | 输出写回 | `output[:] = result` 或 `pypto.assemble(result, offset, output)` |
+| 图捕获装饰器 | `@allow_in_graph`（`from torch._dynamo`），必须用于 wrapper 函数，非 jit kernel |
+| FakeTensor 处理 | wrapper 开头判 `isinstance(x, FakeTensor)` 并短路返回 |
+| 适配层命名 | 适配层函数命名为 `{op}_pto`，调用 `{op}_wrapper`（见 pypto-fused-op-integration SKILL.md） |
 | 可选辅助函数 | `{op}_core()` — 复杂算子拆分核心计算逻辑 |
 
 #### 生成 test_cases.json

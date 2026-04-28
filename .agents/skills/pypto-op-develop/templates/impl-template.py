@@ -13,6 +13,8 @@
 
 import pypto
 import torch
+from torch._dynamo import allow_in_graph
+from torch._subclasses.fake_tensor import FakeTensor
 
 # ─────────────────────────────────────────────
 # 1. 核心计算函数（可选，复杂算子拆分用）
@@ -75,25 +77,28 @@ def {op}_kernel(
     output_tensor[:] = result
 
 # ─────────────────────────────────────────────
-# 3. Wrapper 函数（导出接口）
+# 3. Wrapper 函数（导出接口，适配层调用入口）
 # ─────────────────────────────────────────────
 
+@allow_in_graph
 def {op}_wrapper(x: torch.Tensor) -> torch.Tensor:
-    """算子 wrapper，供 test_{op}.py 调用。
+    """算子 wrapper，供 test_{op}.py 和适配层 {op}_pto() 调用。
 
-    负责：
-    1. 构造输出 torch.Tensor
-    2. 调用 JIT kernel
-    3. 返回结果 torch.Tensor
+    使用 @allow_in_graph 装饰器以支持 PyTorch 图捕获模式 (aclgraph / torch.compile)，
+    避免图分割报错。
+
+    ⚠️ 适配层 {op}_pto() 必须调用本 wrapper，禁止绕过直接调用 JIT kernel。
 
     Args:
         x: 输入 torch.Tensor。
-           根据实际算子需求调整参数列表（可多输入）。
+            根据实际算子需求调整参数列表（可多输入）。
 
     Returns:
         输出 torch.Tensor。
         根据实际算子需求调整返回值（可多输出）。
     """
+    if isinstance(x, FakeTensor):
+        return torch.empty_like(x)
     # TODO: 根据实际算子调整 output shape 和 dtype
     output = torch.empty_like(x)
 

@@ -155,3 +155,22 @@ for idx in pypto.loop(n, name="LOOP", idx_name="idx", unroll_list=[4, 2, 1]):
 1. `docs/api/` — API 签名和约束（权威）
 2. `docs/tutorials/` — 用法示例和常见模式
 3. `models/` — 真实算子实现参考
+
+---
+
+## 8. models/ 中值得参考的 kernel-golden 对照入口
+
+设计同类算子时，优先看这些文件的 `main()` 入口（全部是 kernel impl vs golden 精度对比）：
+
+| 算子类别 | 推荐参考文件（相对 models/） | 关键看点 |
+|---------|---------------------------|---------|
+| Attention（融合） | `glm_v4_5/glm_attention_fusion.py` | rms_norm残差+量化matmul+RoPE+flash attention+scatter 的融合写法 |
+| Attention（Pre-Quant） | `glm_v4_5/glm_attention_pre_quant.py` | 前置量化路径：rms_norm残差+输入量化+QKV量化matmul+Q/K norm+RoPE |
+| Attention（分页） | `glm_v4_5/glm_attention.py` | 动态 batch/seqlen、paged KV cache、block_table 模式 |
+| RMS Norm + RoPE | `deepseek_v4/test_compressor.py` | 独立 rms_norm + RoPE 的简洁实现 |
+| SwiGLU / MoE FFN | `glm_v4_5/glm_ffn_shared_expert_quant.py` | per-token 量化+matmul+dequant+SwiGLU 完整流程 |
+| MoE Gate / TopK | `glm_v4_5/glm_select_experts.py` | group topk + weight renormalize |
+| MLA Prolog | `deepseek_v4/test_mla_prolog_v4.py` | MLA 前置：RMS norm + 投影 + RoPE + scatter |
+
+> 排除 `experimental/` 目录；golden 辅助函数位于各目录的 `utils/golden/` 下。
+> 完整列表可用 `rg "if __name__" models/glm_v4_5/ models/deepseek*/` 查看。

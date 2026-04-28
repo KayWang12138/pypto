@@ -23,6 +23,15 @@ description: 当需要设计 PyPTO 算子实现方案时使用。通过迭代式
 | API 探索报告 | 否 | API 可用性（缺失时在第 1 轮自行查 `docs/`） |
 | Golden 参考实现 | 否 | 辅助理解计算逻辑 |
 
+**动态轴推断**：SPEC 未明确时，网络场景按约定推断（其他场景需确认）：
+
+| 轴 | 约定 | 说明 |
+|----|------|------|
+| `b`, `s1`, `s2` | **动态** | 运行时确定（批次/序列长度） |
+| `n1`, `n2`, `d`, `h` | **静态** | 模型配置参数（头数/头维度/隐藏层维度） |
+
+网络场景识别：算子名含 attention/softmax/layer_norm/rms_norm/mlp/moe 等，或 shape 用 b/s/n/d 符号。
+
 **输出**：`DESIGN.md`，基于模板 [templates/design-template.md](templates/design-template.md)
 
 ---
@@ -35,6 +44,25 @@ description: 当需要设计 PyPTO 算子实现方案时使用。通过迭代式
 
 **核心问题**：数学公式的每一步用哪个 PyPTO API？dtype 怎么流转？哪里必须 cast？
 
+**步骤0（预检）：从 models/ 中学习已有实现模式**
+
+在拆分公式之前，先了解同类算子"已验证的写法"。不限于搜索同名算子，更重要的是从已落地的网络中找到 kernel-golden 对照入口（`main()` 函数），理解其架子（动态轴标注、view 策略、loop 结构、精度路由）。
+
+1. 确定算子类别：`attention` / `rms_norm` / `swiglu` / `rope` / `mla` / `moe` / `topk`
+2. 在 `models/glm_v4_5/` 和 `models/deepseek*/` 中查找 `test_*.py` 或带 `main()` 的入口文件（这些文件 import golden + import kernel impl 后做精度对比，是最有价值的参考）
+3. 快速浏览找到的文件，重点看：
+   - 动态轴标注方式（kernel 签名中哪些标 `DYNAMIC`、哪些是常量）
+   - view/reshape 策略（是否做了 2D 展开、头拆分）
+   - loop 嵌套结构（层数、顺序、`unroll_list` 取值）
+   - 精度路由（FP32 cast 在哪些位置）
+4. 将可借鉴的文件路径写入 `DESIGN.md` §1 顶部，作为"已有参考实现"
+5. 排除 `experimental/` 目录下的实验性代码
+
+> **⚡ 内置 API 为静态实现**：`python/pypto/operator.py` 中的内置 API（`rms_norm`、`softmax` 等）均为非动态实现，内部 `cast` 编译期拒绝 dim=-1，**不适用于网络场景的动态轴算子**。整网集成时跳过内置 API 检查，直接走手动实现。
+
+**检查要点**：
+- 网络场景中 `batch`/`seq_len` 通常为动态轴，必须采用 loop + concrete tile view 模式
+
 **步骤**：
 1. 拆分公式为原子操作
 2. 查 `docs/api/` 找到对应 API 及其 dtype 限制
@@ -42,7 +70,7 @@ description: 当需要设计 PyPTO 算子实现方案时使用。通过迭代式
 4. 写出带 shape/dtype 注释的计算伪代码
 5. 记录被排除的替代 API 及原因
 
-**收敛标志**：每步都有确定的 API 和 dtype，无类型冲突。
+**收敛标志**：每步都有确定的 API 和 dtype，无类型冲突（或已通过步骤0 选定内置 API）。
 
 **可能发现的问题**（触发回退）：
 - `pypto.sum` 要求 FP32 但输入是 BF16 → 插入 cast → 检查后续是否需要 cast 回
@@ -86,6 +114,12 @@ description: 当需要设计 PyPTO 算子实现方案时使用。通过迭代式
 - **编译期已知且单 tile 可覆盖** → **不标 DYNAMIC**，不需要 loop
 - **编译期已知但超出 tile** → **不标 DYNAMIC**，用 Python for 或编译器自动切分
 - **运行时才确定大小** → **标 `pypto.DYNAMIC`**，用 `pypto.loop`
+
+**网络场景默认约定**：
+- `b`, `s1`, `s2`（批次、序列长度）→ 动态
+- `n1`, `n2`, `d`, `h`（头数、头维度、隐藏层维度）→ 静态
+
+示例：`[b, n1, s1, d]` 未说明动态轴时，签名写为 `pypto.Tensor([pypto.DYNAMIC, n1, pypto.DYNAMIC, d], dtype)`
 
 #### SymbolicScalar 约束
 
