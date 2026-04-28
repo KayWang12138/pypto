@@ -794,6 +794,39 @@ Status OoOScheduler::UpdateCopyInMode(Operation& copyInOp)
     return SUCCESS;
 }
 
+Status OoOScheduler::HandleReshapeSpillPath(SpillInfo &spillInfo, Operation* &actualSpillOp,
+    LogicalTensorPtr &actualSpillTensor, bool &isFinish, bool isGenSpill, size_t &pcIdx)
+{
+    if (actualSpillOp->GetOpcodeStr().find("COPY_IN") != std::string::npos) {
+        spillInfo.ddrTensor_ = actualSpillOp->GetInputOperand(0);
+        isFinish = true;
+        APASS_LOG_DEBUG_F(Elements::Operation, "Spill out finish in A5: DDR->copy_in->L1->reshape->L1");
+        return SUCCESS;
+    }
+    if (actualSpillOp->GetInputOperand(0)->GetMemoryTypeOriginal() != MemoryType::MEM_UB &&
+        actualSpillOp->GetInputOperand(0)->GetMemoryTypeOriginal() != MemoryType::MEM_L0C) {
+        APASS_LOG_ERROR_F(Elements::Operation, "SpillOp is Reshape, preop: %s, ioperand of L1: %s",
+            GetOpInfo(actualSpillOp).c_str(),
+            MemoryTypeToString(actualSpillOp->GetInputOperand(0)->GetMemoryTypeOriginal()).c_str());
+        return FAILED;
+    }
+    // RESHAPE 路径下，若 actualSpillOp 是 UB_COPY_L1 / L0C_COPY_L1
+    // 且 input.shape 任一维 < output.shape，同样走 small-shape 多生产者搬出逻辑。
+    if (TryCreateSpillCopyoutForSmallShape(spillInfo, actualSpillOp, isFinish, isGenSpill, pcIdx) != SUCCESS) {
+        return FAILED;
+    }
+    if (isFinish) {
+        return SUCCESS;
+    }
+    actualSpillTensor = actualSpillOp->GetInputOperand(0);
+    for (auto &preOp : depManager_.GetPredecessors(actualSpillOp)) {
+        if (!opIsAllocMap[preOp]) {
+            actualSpillOp = preOp;
+        }
+    }
+    return SUCCESS;
+}
+
 Status OoOScheduler::CreateSpecialL1Copyout(SpillInfo &spillInfo, Operation* &spillCopyoutOp, int &bufLastUseOrder,
     bool &isFinish, bool isGenSpill, size_t &pcIdx) {
     auto spillOp = spillInfo.spillOp_;
@@ -810,31 +843,11 @@ Status OoOScheduler::CreateSpecialL1Copyout(SpillInfo &spillInfo, Operation* &sp
         }
     }
     if (spillOp->GetOpcode() == Opcode::OP_RESHAPE) {
-        if (actualSpillOp->GetOpcodeStr().find("COPY_IN") != std::string::npos) {
-            spillInfo.ddrTensor_ = actualSpillOp->GetInputOperand(0);
-            isFinish = true;
-            APASS_LOG_DEBUG_F(Elements::Operation, "Spill out finish in A5: DDR->copy_in->L1->reshape->L1");
-            return SUCCESS;
-        }
-        if (actualSpillOp->GetInputOperand(0)->GetMemoryTypeOriginal() != MemoryType::MEM_UB &&
-            actualSpillOp->GetInputOperand(0)->GetMemoryTypeOriginal() != MemoryType::MEM_L0C) {
-            APASS_LOG_ERROR_F(Elements::Operation, "SpillOp is Reshape, preop: %s, ioperand of L1: %s", GetOpInfo(actualSpillOp).c_str(),
-                MemoryTypeToString(actualSpillOp->GetInputOperand(0)->GetMemoryTypeOriginal()).c_str());
-            return FAILED;
-        }
-        // RESHAPE 路径下，若 actualSpillOp 是 UB_COPY_L1 / L0C_COPY_L1
-        // 且 input.shape 任一维 < output.shape，同样走 small-shape 多生产者搬出逻辑。
-        if (TryCreateSpillCopyoutForSmallShape(spillInfo, actualSpillOp, isFinish, isGenSpill, pcIdx) != SUCCESS) {
+        if (HandleReshapeSpillPath(spillInfo, actualSpillOp, actualSpillTensor, isFinish, isGenSpill, pcIdx) != SUCCESS) {
             return FAILED;
         }
         if (isFinish) {
             return SUCCESS;
-        }
-        actualSpillTensor = actualSpillOp->GetInputOperand(0);
-        for (auto &preOp : depManager_.GetPredecessors(actualSpillOp)) {
-            if (!opIsAllocMap[preOp]) {
-                actualSpillOp = preOp;
-            }
         }
     }
     if (actualSpillOp->GetOpcodeStr().find("COPY_IN") != std::string::npos) {
