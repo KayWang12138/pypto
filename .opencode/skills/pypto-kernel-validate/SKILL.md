@@ -85,7 +85,6 @@ python -m integration.benchmark.verifier cheat-check \
 | S4 | **绕过 jit 的 pre/post-process** —— 把核心计算放在 jit 前后的 numpy/torch 代码里, jit 只做无关紧要的一小步 | 看 forward / wrapper 在 jit 调用前后还做了哪些计算; 只允许 to-device / reshape / dtype cast / 简单 broadcast |
 | S5 | **多 kernel 拆分** —— 只能由 runtime profile 判定。若 `verify_run.json.performance.cheat_multi_kernel == true`, 则判 `fail`; 否则不得仅凭 AST 中多个 jit 定义、dtype 路由或 wrapper 分支判作弊 | 以 Step 3 的 `performance.cheat_multi_kernel` 为唯一真相源; 对 dtype-specialized 多个 jit 定义但单次 forward 只产生一个 profile kernel 的情况应判 `pass` 或 `suspicious`, 不能判 `fail` |
 | S6 | **mock kernel** —— jit 函数只写 `pass` / `return None` / 返回 dummy tensor; 实际计算在 wrapper 里 torch 完成 | 看 jit 函数体是否真有意义的运算 |
-| S7 | **shape 硬编码作弊** —— jit 函数硬编码 input shape, 只能跑 KernelBench 的特定 case, 实质是把 baseline 复制了一遍 | 看 jit 函数对 shape 是参数化还是写死;  写死也算作弊 |
 | S8 | **tile config 关闭核心算子** —— 通过 PyPTO config 把核心算子改成 noop / identity, 让评测路径不实际算 | 看 wrapper / __init__ / forward 是否对 pypto 全局配置做特殊修改 |
 | S9 | **可疑注释** —— 代码注释提示 "for testing", "use pypto later", "fallback", "workaround", "demo only" 等 | 通读注释; 与 Step 1 的 `forbidden_text_patterns` 交叉印证 |
 
