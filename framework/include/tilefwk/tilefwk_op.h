@@ -526,6 +526,11 @@ Tensor BatchMatmul(
     DataType dataType, const Tensor& aMatrix, const Tensor& bMatrix, bool isATrans = false, bool isBTrans = false,
     bool isCMatrixNZ = false);
 
+Tensor BatchMXMatmul(
+    DataType dataType, const Tensor& aMatrix, const Tensor& aScale, const Tensor& bMatrix, const Tensor& bScale,
+    bool isTransA = false, bool isAScaleTrans = false, bool isTransB = false, bool isBScaleTrans = false,
+    bool isCMatrixNZ = false);
+
 Tensor TransposedBatchMatmul(DataType dataType, const Tensor& aMatrix, const Tensor& bMatrix);
 
 Tensor QuantMM(const Tensor& operand1, const Tensor& operand2, const Tensor& dequantScaleW);

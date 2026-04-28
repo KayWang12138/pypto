@@ -245,18 +245,24 @@ def scaled_mm(
     pypto.scaled_mm(a, b, pypto.DT_FP16, extend_params=extend_params)
     """
     __validate_inputs(mat_a, mat_b, out_dtype, [a_trans, b_trans, c_matrix_nz, extend_params])
-    __validate_scaled_inputs(mat_a, mat_b, scale_a, scale_b)
+    # __validate_scaled_inputs(mat_a, mat_b, scale_a, scale_b)
     __validate_scaled_shape(mat_a, mat_b, scale_a, scale_b, [a_trans, b_trans, scale_a_trans, scale_b_trans])
-    if extend_params is not None:
-        extend_params = pypto_impl.MatmulExtendParam(
-            **__convert_matmul_extend_params(extend_params)
-        )
-        return pypto_impl.MatmulMX(
-            out_dtype, mat_a, scale_a, mat_b, scale_b, a_trans, scale_a_trans, b_trans, scale_b_trans,
-            c_matrix_nz, extend_params
-        )
+
+    if mat_a.Dim() == 2:
+        if extend_params is not None:
+            extend_params = pypto_impl.MatmulExtendParam(
+                **__convert_matmul_extend_params(extend_params)
+            )
+            return pypto_impl.MatmulMX(
+                out_dtype, mat_a, scale_a, mat_b, scale_b, a_trans, scale_a_trans, b_trans, scale_b_trans,
+                c_matrix_nz, extend_params
+            )
+        else:
+            return pypto_impl.MatmulMX(
+                out_dtype, mat_a, scale_a, mat_b, scale_b, a_trans, scale_a_trans, b_trans, scale_b_trans, c_matrix_nz
+            )
     else:
-        return pypto_impl.MatmulMX(
+        return pypto_impl.BatchMXMatmul(
             out_dtype, mat_a, scale_a, mat_b, scale_b, a_trans, scale_a_trans, b_trans, scale_b_trans, c_matrix_nz
         )
 

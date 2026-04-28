@@ -538,6 +538,20 @@ void bind_operation(py::module& m)
         py::arg("b_trans") = false, py::arg("b_scale_trans") = false, py::arg("c_matrix_nz") = false,
         "Matrix multiply with extend param.");
 
+    m.def(
+        "BatchMXMatmul",
+        [](DataType out_type, const Tensor& tensor_a, const Tensor& tensor_a_scale, const Tensor& tensor_b,
+           const Tensor& tensor_b_scale, bool a_trans, bool a_scale_trans, bool b_trans, bool b_scale_trans,
+           bool c_matrix_nz) {
+            return Matrix::BatchMXMatmul(
+                out_type, tensor_a, tensor_a_scale, tensor_b, tensor_b_scale, a_trans, a_scale_trans, b_trans,
+                b_scale_trans, c_matrix_nz);
+        },
+        py::arg("out_type"), py::arg("tensor_a"), py::arg("tensor_a_scale"), py::arg("tensor_b"),
+        py::arg("tensor_b_scale"), py::arg("a_trans") = false, py::arg("a_scale_trans") = false,
+        py::arg("b_trans") = false, py::arg("b_scale_trans") = false, py::arg("c_matrix_nz") = false,
+        "Matrix multiply with extend param.");
+
     py::class_<Matrix::MatmulExtendParam>(m, "MatmulExtendParam")
         .def(py::init<>())
         .def(

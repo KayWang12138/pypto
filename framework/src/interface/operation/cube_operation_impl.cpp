@@ -220,9 +220,9 @@ void SetTensorGraphNodes(
                       (static_cast<size_t>(param.gmAccumulationFlag) << 2) |
                       (static_cast<size_t>(param.hasMXScale) << 3); // 2、3含义：编码偏移
     switch (extraDim) {
-        case 0:                                                     // 无bias，无scale, 无gmTensor
+        case 0: // 无bias，无scale, 无gmTensor
             break;
-        case 1:                                                     // 有scale
+        case 1: // 有scale
             tensorGraphNodes.scaleTensorPtr = operandVec[SHAPE_DIM2];
             break;
         case 2: // 2含义：有bias
@@ -681,23 +681,34 @@ void CheckMXMatmulShape(
     const Tensor& aTensor, const Tensor& aScaleTensor, const Tensor& bTensor, const Tensor& bScaleTensor,
     const MatmulAttrParam& attrParam)
 {
-    ASSERT(
-        MatmulErrorCode::ERR_PARAM_INVALID,
-        aScaleTensor.GetShape().size() == SHAPE_DIM3 && bScaleTensor.GetShape().size() == SHAPE_DIM3)
-        << "The dimension of scaleTensor for mxmatmul must be equal to 3! The dimension of ascaleTensor: "
-        << aScaleTensor.GetShape().size() << ", The dimension of bscaleTensor: " << bScaleTensor.GetShape().size();
+    const size_t aDim = aTensor.GetShape().size();
+    const size_t bDim = bTensor.GetShape().size();
+    const size_t aScaleDim = aScaleTensor.GetShape().size();
+    const size_t bScaleDim = bScaleTensor.GetShape().size();
 
-    int64_t mSize = attrParam.transA ? aTensor.GetShape()[1] : aTensor.GetShape()[0];
-    int64_t nSize = attrParam.transB ? bTensor.GetShape()[0] : bTensor.GetShape()[1];
-    int64_t kSize = attrParam.transA ? aTensor.GetShape()[0] : aTensor.GetShape()[1];
+    // 校验：Scale 维度 = 输入维度 + 1 (2D输入->3D Scale, 3D输入->4D Scale)
+    ASSERT(MatmulErrorCode::ERR_PARAM_INVALID, aScaleDim == aDim + 1 && bScaleDim == bDim + 1)
+        << "Scale tensor dimension mismatch: aTensor dim=" << aDim << ", aScale dim=" << aScaleDim
+        << "; bTensor dim=" << bDim << ", bScale dim=" << bScaleDim << ". Require: scale dim = input dim + 1";
 
-    int64_t mScaleSize = attrParam.transAScale ? aScaleTensor.GetShape()[1] : aScaleTensor.GetShape()[0];
-    int64_t kAScaleSize0 = attrParam.transAScale ? aScaleTensor.GetShape()[0] : aScaleTensor.GetShape()[1];
-    int64_t kAScaleSize1 = aScaleTensor.GetShape()[SHAPE_DIM2];
-    int64_t kBScaleSize0 = attrParam.transBScale ? bScaleTensor.GetShape()[1] : bScaleTensor.GetShape()[0];
-    int64_t kBScaleSize1 = bScaleTensor.GetShape()[SHAPE_DIM2];
-    int64_t nScaleSize = attrParam.transBScale ? bScaleTensor.GetShape()[0] : bScaleTensor.GetShape()[1];
+    // 从最后两维提取矩阵核心维度 m, n, k
+    const int64_t mSize = attrParam.transA ? aTensor.GetShape()[aDim - 1] : aTensor.GetShape()[aDim - 2];
+    const int64_t nSize = attrParam.transB ? bTensor.GetShape()[bDim - 2] : bTensor.GetShape()[bDim - 1];
+    const int64_t kSize = attrParam.transA ? aTensor.GetShape()[aDim - 2] : aTensor.GetShape()[aDim - 1];
 
+    // 从最后三维提取 Scale 核心维度
+    const int64_t mScaleSize =
+        attrParam.transAScale ? aScaleTensor.GetShape()[aScaleDim - 2] : aScaleTensor.GetShape()[aScaleDim - 3];
+    const int64_t kAScaleSize0 =
+        attrParam.transAScale ? aScaleTensor.GetShape()[aScaleDim - 3] : aScaleTensor.GetShape()[aScaleDim - 2];
+    const int64_t kAScaleSize1 = aScaleTensor.GetShape()[aScaleDim - 1];
+    const int64_t kBScaleSize0 =
+        attrParam.transBScale ? bScaleTensor.GetShape()[bScaleDim - 2] : bScaleTensor.GetShape()[bScaleDim - 3];
+    const int64_t kBScaleSize1 = bScaleTensor.GetShape()[bScaleDim - 1];
+    const int64_t nScaleSize =
+        attrParam.transBScale ? bScaleTensor.GetShape()[bScaleDim - 3] : bScaleTensor.GetShape()[bScaleDim - 2];
+
+    // 以下完全保留您原有的校验逻辑
     ASSERT(MatmulErrorCode::ERR_PARAM_MISMATCH, kAScaleSize0 == kBScaleSize0)
         << "Scale Matrix K dimension mismatch, kAScaleSize: " << kAScaleSize0 << ", kBScaleSize: " << kBScaleSize0;
 
@@ -1570,6 +1581,170 @@ Tensor ConstructBatchMatmulTensorGraph4D(
     return result;
 }
 
+Tensor ConstructBatchMXMatmulTensorGraph3D(
+    DataType dataType, const Tensor& aMatrix, const Tensor& aScale, const Tensor& bMatrix, const Tensor& bScale,
+    const MatmulAttrParam& attrParam)
+{
+    const int64_t batchSizeA = aMatrix.GetShape()[0];
+    const int64_t batchSizeB = bMatrix.GetShape()[0];
+    const int64_t batchSize = std::max(batchSizeA, batchSizeB);
+
+    const int64_t mView = attrParam.transA ? aMatrix.GetShape()[SHAPE_DIM2] : aMatrix.GetShape()[1];
+    const int64_t nView = attrParam.transB ? bMatrix.GetShape()[1] : bMatrix.GetShape()[SHAPE_DIM2];
+    Tensor result = attrParam.isCMatrixNZ ?
+                        Tensor(dataType, {batchSize, mView, nView}, "BatchMXMatmulOutputNz", TileOpFormat::TILEOP_NZ) :
+                        Tensor(dataType, {batchSize, mView, nView});
+    auto oriVecTile = TileShape::Current().GetVecTile();
+    TileShape::Current().SetVecTile({1, 128, 128, 128});
+
+    for (int64_t bIdx = 0; bIdx < batchSize; bIdx++) {
+        int64_t offsetBatchA = batchSizeA == 1 ? 0 : bIdx;
+        int64_t offsetBatchB = batchSizeB == 1 ? 0 : bIdx;
+
+        auto aValidShape3D = aMatrix.GetStorage()->GetDynValidShape();
+        auto bValidShape3D = bMatrix.GetStorage()->GetDynValidShape();
+        auto aScaleValidShape4D = aScale.GetStorage()->GetDynValidShape();
+        auto bScaleValidShape4D = bScale.GetStorage()->GetDynValidShape();
+
+        // 1. View 出单个 Batch 的数据 (保持 3D/4D 结构)
+        Tensor aTensorSingleBatch = View(
+            aMatrix, {1, aMatrix.GetShape()[1], aMatrix.GetShape()[SHAPE_DIM2]},
+            std::vector<SymbolicScalar>({1, aValidShape3D[1], aValidShape3D[SHAPE_DIM2]}), {offsetBatchA, 0, 0});
+        Tensor aScaleSingleBatch = View(
+            aScale, {1, aScale.GetShape()[1], aScale.GetShape()[2], aScale.GetShape()[3]},
+            std::vector<SymbolicScalar>({1, aScaleValidShape4D[1], aScaleValidShape4D[2], aScaleValidShape4D[3]}),
+            {offsetBatchA, 0, 0, 0});
+
+        Tensor bTensorSingleBatch = View(
+            bMatrix, {1, bMatrix.GetShape()[1], bMatrix.GetShape()[SHAPE_DIM2]},
+            std::vector<SymbolicScalar>({1, bValidShape3D[1], bValidShape3D[SHAPE_DIM2]}), {offsetBatchB, 0, 0});
+        Tensor bScaleSingleBatch = View(
+            bScale, {1, bScale.GetShape()[1], bScale.GetShape()[2], bScale.GetShape()[3]},
+            std::vector<SymbolicScalar>({1, bScaleValidShape4D[1], bScaleValidShape4D[2], bScaleValidShape4D[3]}),
+            {offsetBatchB, 0, 0, 0});
+
+        // 2. Reshape 去掉 Batch 维，还原为 2D Matmul / 3D Scale 结构
+        Tensor aTensor = Reshape(
+            aTensorSingleBatch, {aMatrix.GetShape()[1], aMatrix.GetShape()[SHAPE_DIM2]},
+            std::vector<SymbolicScalar>({aValidShape3D[1], aValidShape3D[SHAPE_DIM2]}));
+        Tensor aScaleReshaped = Reshape(
+            aScaleSingleBatch, {aScale.GetShape()[1], aScale.GetShape()[2], aScale.GetShape()[3]},
+            std::vector<SymbolicScalar>({aScaleValidShape4D[1], aScaleValidShape4D[2], aScaleValidShape4D[3]}));
+
+        Tensor bTensor = Reshape(
+            bTensorSingleBatch, {bMatrix.GetShape()[1], bMatrix.GetShape()[SHAPE_DIM2]},
+            std::vector<SymbolicScalar>({bValidShape3D[1], bValidShape3D[SHAPE_DIM2]}));
+        Tensor bScaleReshaped = Reshape(
+            bScaleSingleBatch, {bScale.GetShape()[1], bScale.GetShape()[2], bScale.GetShape()[3]},
+            std::vector<SymbolicScalar>({bScaleValidShape4D[1], bScaleValidShape4D[2], bScaleValidShape4D[3]}));
+
+        Tensor cTensor(dataType, {mView, nView}, "cTensorSingleBatch");
+
+        // 3. 构造带 MX Scale 的图节点并计算
+        MatmulGraphNodes tensorGraphNodes(
+            aTensor.GetStorage(), aScaleReshaped.GetStorage(), bTensor.GetStorage(), bScaleReshaped.GetStorage());
+        tensorGraphNodes.outTensorPtr = cTensor.GetStorage();
+        AddAMulBNode(tensorGraphNodes, attrParam);
+
+        // 4. Reshape 回 Batch 结构并 Assemble
+        auto cValidShape2D = cTensor.GetStorage()->GetDynValidShape();
+        Tensor cTensor3D = Reshape(
+            cTensor, {1, cTensor.GetShape()[0], cTensor.GetShape()[1]},
+            std::vector<SymbolicScalar>({1, cValidShape2D[0], cValidShape2D[1]}));
+        Assemble(cTensor3D, {bIdx, 0, 0}, result);
+    }
+    TileShape::Current().SetVecTile(oriVecTile);
+    return result;
+}
+
+Tensor ConstructBatchMXMatmulTensorGraph4D(
+    DataType dataType, const Tensor& aMatrix, const Tensor& aScale, const Tensor& bMatrix, const Tensor& bScale,
+    const MatmulAttrParam& attrParam)
+{
+    const int64_t batchSizeA1 = aMatrix.GetShape()[0];
+    const int64_t batchSizeA2 = aMatrix.GetShape()[1];
+    const int64_t batchSizeB1 = bMatrix.GetShape()[0];
+    const int64_t batchSizeB2 = bMatrix.GetShape()[1];
+    const int64_t batchSize1 = std::max(batchSizeA1, batchSizeB1);
+    const int64_t batchSize2 = std::max(batchSizeA2, batchSizeB2);
+
+    const int64_t mView = attrParam.transA ? aMatrix.GetShape()[SHAPE_DIM3] : aMatrix.GetShape()[SHAPE_DIM2];
+    const int64_t nView = attrParam.transB ? bMatrix.GetShape()[SHAPE_DIM2] : bMatrix.GetShape()[SHAPE_DIM3];
+    Tensor result =
+        attrParam.isCMatrixNZ ?
+            Tensor(dataType, {batchSize1, batchSize2, mView, nView}, "BatchMXMatmulOutputNz", TileOpFormat::TILEOP_NZ) :
+            Tensor(dataType, {batchSize1, batchSize2, mView, nView});
+    auto oriVecTile = TileShape::Current().GetVecTile();
+    TileShape::Current().SetVecTile({1, 128, 128, 128, 128});
+
+    for (int64_t bIdx1 = 0; bIdx1 < batchSize1; bIdx1++) {
+        int64_t offsetBatchA1 = batchSizeA1 == 1 ? 0 : bIdx1;
+        int64_t offsetBatchB1 = batchSizeB1 == 1 ? 0 : bIdx1;
+        for (int64_t bIdx2 = 0; bIdx2 < batchSize2; bIdx2++) {
+            int64_t offsetBatchA2 = batchSizeA2 == 1 ? 0 : bIdx2;
+            int64_t offsetBatchB2 = batchSizeB2 == 1 ? 0 : bIdx2;
+
+            auto aValidShape4D = aMatrix.GetStorage()->GetDynValidShape();
+            auto bValidShape4D = bMatrix.GetStorage()->GetDynValidShape();
+            auto aScaleValidShape5D = aScale.GetStorage()->GetDynValidShape();
+            auto bScaleValidShape5D = bScale.GetStorage()->GetDynValidShape();
+
+            // 1. View 出单个 Batch 的数据
+            Tensor aTensorSingleBatch = View(
+                aMatrix, {1, 1, aMatrix.GetShape()[SHAPE_DIM2], aMatrix.GetShape()[SHAPE_DIM3]},
+                std::vector<SymbolicScalar>({1, 1, aValidShape4D[SHAPE_DIM2], aValidShape4D[SHAPE_DIM3]}),
+                {offsetBatchA1, offsetBatchA2, 0, 0});
+            Tensor aScaleSingleBatch = View(
+                aScale, {1, 1, aScale.GetShape()[2], aScale.GetShape()[3], aScale.GetShape()[4]},
+                std::vector<SymbolicScalar>(
+                    {1, 1, aScaleValidShape5D[2], aScaleValidShape5D[3], aScaleValidShape5D[4]}),
+                {offsetBatchA1, offsetBatchA2, 0, 0, 0});
+
+            Tensor bTensorSingleBatch = View(
+                bMatrix, {1, 1, bMatrix.GetShape()[SHAPE_DIM2], bMatrix.GetShape()[SHAPE_DIM3]},
+                std::vector<SymbolicScalar>({1, 1, bValidShape4D[SHAPE_DIM2], bValidShape4D[SHAPE_DIM3]}),
+                {offsetBatchB1, offsetBatchB2, 0, 0});
+            Tensor bScaleSingleBatch = View(
+                bScale, {1, 1, bScale.GetShape()[2], bScale.GetShape()[3], bScale.GetShape()[4]},
+                std::vector<SymbolicScalar>(
+                    {1, 1, bScaleValidShape5D[2], bScaleValidShape5D[3], bScaleValidShape5D[4]}),
+                {offsetBatchB1, offsetBatchB2, 0, 0, 0});
+
+            // 2. Reshape 去掉 Batch 维
+            Tensor aTensor = Reshape(
+                aTensorSingleBatch, {aMatrix.GetShape()[SHAPE_DIM2], aMatrix.GetShape()[SHAPE_DIM3]},
+                std::vector<SymbolicScalar>({aValidShape4D[SHAPE_DIM2], aValidShape4D[SHAPE_DIM3]}));
+            Tensor aScaleReshaped = Reshape(
+                aScaleSingleBatch, {aScale.GetShape()[2], aScale.GetShape()[3], aScale.GetShape()[4]},
+                std::vector<SymbolicScalar>({aScaleValidShape5D[2], aScaleValidShape5D[3], aScaleValidShape5D[4]}));
+
+            Tensor bTensor = Reshape(
+                bTensorSingleBatch, {bMatrix.GetShape()[SHAPE_DIM2], bMatrix.GetShape()[SHAPE_DIM3]},
+                std::vector<SymbolicScalar>({bValidShape4D[SHAPE_DIM2], bValidShape4D[SHAPE_DIM3]}));
+            Tensor bScaleReshaped = Reshape(
+                bScaleSingleBatch, {bScale.GetShape()[2], bScale.GetShape()[3], bScale.GetShape()[4]},
+                std::vector<SymbolicScalar>({bScaleValidShape5D[2], bScaleValidShape5D[3], bScaleValidShape5D[4]}));
+
+            Tensor cTensor(dataType, {mView, nView}, "cTensorSingleBatch");
+
+            // 3. 构造带 MX Scale 的图节点
+            MatmulGraphNodes tensorGraphNodes(
+                aTensor.GetStorage(), aScaleReshaped.GetStorage(), bTensor.GetStorage(), bScaleReshaped.GetStorage());
+            tensorGraphNodes.outTensorPtr = cTensor.GetStorage();
+            AddAMulBNode(tensorGraphNodes, attrParam);
+
+            // 4. Reshape 回 Batch 结构并 Assemble
+            auto cValidShape2D = cTensor.GetStorage()->GetDynValidShape();
+            Tensor cTensor4D = Reshape(
+                cTensor, {1, 1, cTensor.GetShape()[0], cTensor.GetShape()[1]},
+                std::vector<SymbolicScalar>({1, 1, cValidShape2D[0], cValidShape2D[1]}));
+            Assemble(cTensor4D, {bIdx1, bIdx2, 0, 0}, result);
+        }
+    }
+    TileShape::Current().SetVecTile(oriVecTile);
+    return result;
+}
+
 Tensor BatchMatmul(
     DataType dataType, const Tensor& aMatrix, const Tensor& bMatrix, const bool isTransA, const bool isTransB,
     const bool isCMatrixNZ)
@@ -1581,6 +1756,27 @@ Tensor BatchMatmul(
         return ConstructBatchMatmulTensorGraph4D(dataType, aMatrix, bMatrix, attrParam);
     } else {
         return ConstructBatchMatmulTensorGraph3D(dataType, aMatrix, bMatrix, attrParam);
+    }
+}
+
+Tensor BatchMXMatmul(
+    DataType dataType, const Tensor& aMatrix, const Tensor& aScale, const Tensor& bMatrix, const Tensor& bScale,
+    const bool isTransA, bool isAScaleTrans, const bool isTransB, bool isBScaleTrans, const bool isCMatrixNZ)
+{
+    MATMUL_LOGD("BatchMatmulMX[Basic]: Start.");
+    MatmulAttrParam attrParam(isTransA, isAScaleTrans, isTransB, isBScaleTrans, isCMatrixNZ);
+    CheckMatmulOperands(dataType, aMatrix, bMatrix, attrParam);
+    Status checkStatus = CheckMatmulOperands(dataType, aMatrix, bMatrix, attrParam);
+    ASSERT(MatmulErrorCode::ERR_RUNTIME_LOGIC, checkStatus == SUCCESS) << "Matmul operands check failed";
+    Status checkMXStatus = CheckMXMatmulOperands(aMatrix, aScale, bMatrix, bScale, attrParam);
+    ASSERT(MatmulErrorCode::ERR_RUNTIME_LOGIC, checkMXStatus == SUCCESS) << "MXMatmul operands check failed";
+    CheckABatchMulB(aMatrix, bMatrix);
+    MatmulGraphNodes tensorGraphNodes(
+        aMatrix.GetStorage(), aScale.GetStorage(), bMatrix.GetStorage(), bScale.GetStorage());
+    if (aMatrix.GetShape().size() == SHAPE_DIM4) {
+        return ConstructBatchMXMatmulTensorGraph4D(dataType, aMatrix, aScale, bMatrix, bScale, attrParam);
+    } else {
+        return ConstructBatchMXMatmulTensorGraph3D(dataType, aMatrix, aScale, bMatrix, bScale, attrParam);
     }
 }
 
