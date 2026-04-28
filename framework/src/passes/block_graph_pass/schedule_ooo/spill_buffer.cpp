@@ -1003,7 +1003,7 @@ Status OoOScheduler::ResolveSmallShapeActualSpill(Operation* producerOp,
 Status OoOScheduler::ConfigSmallShapeCopyoutAttrs(Operation &copyOutOp, Operation* producerOp,
     LogicalTensorPtr actualTensor, int64_t workspaceOffsetTemp)
 {
-    // 用 producer 在 L1 上写入的局部 offset/shape，避免不同片段互相覆盖
+    // 用 producerOp 取 tooffset 属性
     auto producerL1Out = producerOp->GetOutputOperand(0);
     if (producerL1Out == nullptr) {
         APASS_LOG_ERROR_F(Elements::Operation,
@@ -1011,11 +1011,16 @@ Status OoOScheduler::ConfigSmallShapeCopyoutAttrs(Operation &copyOutOp, Operatio
         return FAILED;
     }
     copyOutOp.SetAttr(OpAttributeKey::workspaceBaseOffset, workspaceOffsetTemp);
+    auto attr = std::dynamic_pointer_cast<CopyOpAttribute>(producerOp->GetOpAttribute());
+    if (attr == nullptr) {
+        APASS_LOG_INFO_F(Elements::Tensor, "Op %s attribute is nullptr", GetOpInfo(producerOp).c_str());
+        return FAILED;
+    }
     copyOutOp.SetOpAttribute(std::make_shared<CopyOpAttribute>(
         actualTensor->GetMemoryTypeOriginal(),
-        OpImmediate::Specified(producerL1Out->GetOffset()),
-        OpImmediate::Specified(producerL1Out->GetShape()),
-        OpImmediate::Specified(producerL1Out->GetRawTensor()->GetDynRawShape())));
+        attr->GetToOffset(),
+        OpImmediate::Specified(actualTensor->GetShape()),
+        OpImmediate::Specified(producerL1Out->tensor->GetDynRawShape())));
     copyOutOp.UpdateLatency(DEFAULT_LATENCY);
     if (actualTensor->GetMemoryTypeOriginal() == MemoryType::MEM_L0C) {
         Element scaleValue = Element(DataType::DT_UINT64, 0);
@@ -1026,6 +1031,8 @@ Status OoOScheduler::ConfigSmallShapeCopyoutAttrs(Operation &copyOutOp, Operatio
     return SUCCESS;
 }
 
+// 场景1 actualTensor(UB)->actualOp(UB_COPY_ND2NZ)->UB->producerOp UB_COPY_L1->L1
+// 场景2 actualTensor(L0C)->actualOp L0C_COPY_L1->L1
 Status OoOScheduler::CreateSmallShapeCopyout(SpillInfo &spillInfo, Operation* producerOp,
     LogicalTensorPtr ddrTensor, int64_t workspaceOffsetTemp, bool isGenSpill, size_t &pcIdx)
 {
@@ -1038,35 +1045,39 @@ Status OoOScheduler::CreateSmallShapeCopyout(SpillInfo &spillInfo, Operation* pr
     if (ConfigSmallShapeCopyoutAttrs(copyOutOp, producerOp, actualTensor, workspaceOffsetTemp) != SUCCESS) {
         return FAILED;
     }
+    for (auto preOp : depManager_.GetPredecessors(actualOp)) {
+        if (!opIsAllocMap[preOp]) {
+            depManager_.AddDependency(preOp, &copyOutOp);
+            for (auto allocOp : depManager_.GetPredecessors(preOp)) {
+                if (opIsAllocMap[allocOp]) {
+                    opCoreLocationMap[&copyOutOp] = opCoreLocationMap[allocOp];
+                    UpdateOpInternalSubgraphID(copyOutOp, allocOp);
+                }
+            }
+        }
+    }
     SetOpMemIds(&copyOutOp, {spillInfo.spillMemId_});
-    depManager_.AddDependency(producerOp, &copyOutOp);
     opIsRetiredMap[&copyOutOp] = true;
     opIsAllocMap[&copyOutOp] = false;
     opPipeTypeMap[&copyOutOp] = RescheduleUtils::GetOpPipeType(&copyOutOp);
     opViewOpsMap[&copyOutOp] = std::vector<Operation*>();
-    for (auto preOp : depManager_.GetPredecessors(producerOp)) {
-        if (opIsAllocMap[preOp]) {
-            opCoreLocationMap[&copyOutOp] = opCoreLocationMap[preOp];
-            UpdateOpInternalSubgraphID(copyOutOp, preOp);
-        }
-    }
     if (UpdateCopyOutMode(copyOutOp) != SUCCESS) {
         APASS_LOG_ERROR_F(Elements::Operation, "UpdateCopyOutMode failed in SmallShape spill!");
         return FAILED;
     }
-    int order = GetBufLastUseOrder(producerOp, spillInfo.spillMemId_);
-    if (order == -1) {
-        order = opExecOrderMap[producerOp];
-    }
+    int order = opExecOrderMap[actualOp];
     SetExecOrder(&copyOutOp, order + 1);
     InsertOrdered(&copyOutOp);
     if (isGenSpill) {
         pcIdx++;
         numTotalIssues++;
-    } else if (std::find(newOperations_.begin(), newOperations_.end(), &copyOutOp) == newOperations_.end()) {
-        newOperations_.push_back(&copyOutOp);
-        APASS_LOG_DEBUG_F(Elements::Operation,
-            "SmallShape spill insert COPY_OUT: %s.", GetOpInfo(&copyOutOp).c_str());
+    } else {
+        auto spillOpIt = std::find(newOperations_.begin(), newOperations_.end(), actualOp);
+        if (spillOpIt != newOperations_.end()) {
+            size_t pos = std::distance(newOperations_.begin(), spillOpIt);
+            newOperations_.insert(newOperations_.begin() + pos + 1, &copyOutOp);
+            APASS_LOG_DEBUG_F(Elements::Operation, "SmallShape spill insert op: %s.", GetOpInfo(&copyOutOp).c_str());
+        }
     }
     return SUCCESS;
 }
