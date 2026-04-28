@@ -824,7 +824,7 @@ Status OoOScheduler::CreateSpecialL1Copyout(SpillInfo &spillInfo, Operation* &sp
         }
         // RESHAPE 路径下，若 actualSpillOp 是 UB_COPY_L1 / L0C_COPY_L1
         // 且 input.shape 任一维 < output.shape，同样走 small-shape 多生产者搬出逻辑。
-        if (TryCreateSpillCopyoutForSmallShape(spillInfo, actualSpillOp, isFinish, isGenSpill) != SUCCESS) {
+        if (TryCreateSpillCopyoutForSmallShape(spillInfo, actualSpillOp, isFinish, isGenSpill, pcIdx) != SUCCESS) {
             return FAILED;
         }
         if (isFinish) {
