@@ -48,8 +48,7 @@ Status IntraSubgraphAdapter::RunOnFunction(Function& function)
     for (size_t i = 0; i < boundaryTensors.size(); i++) {
         LogicalTensorPtr tensor = boundaryTensors[i];
         if (CheckBoundaryTensor(tensor) != SUCCESS) {
-            APASS_LOG_ERROR_F(
-                Elements::Tensor, "Check boundary tensor failed; Please check the CheckBoundaryTensor method.");
+            APASS_LOG_ERROR_F(Elements::Tensor, "Check boundary tensor failed; Please check the CheckBoundaryTensor method.");
             return FAILED;
         }
 
@@ -63,22 +62,8 @@ Status IntraSubgraphAdapter::RunOnFunction(Function& function)
         CollectConsumerColors(tensor, consumerColors);
 
         std::set<int> commonColors = SetIntersection(producerColors, consumerColors);
-        if (commonColors.size() > 1) {
-            APASS_LOG_ERROR_F(
-                Elements::Tensor,
-                "Process boundary tensor failed, tensor magic : %d; The producers and consumers cannot simultaneously "
-                "appear in more than one subgraph.",
-                tensor->GetMagic());
+        if (CheckColorCount(commonColors.size()) != SUCCESS) {
             return FAILED;
-        }
-        if (commonColors.size() == 0) {
-            if (ProcessBoundaryTensor(function, tensor) == FAILED) {
-                APASS_LOG_ERROR_F(
-                    Elements::Tensor,
-                    "Process boundary tensor failed, tensor magic : %d; Please check the ProcessBoundaryTensor method.",
-                    tensor->GetMagic());
-                return FAILED;
-            }
         }
         if (commonColors.size() == 1) {
             // For boundary tensor that have both producer and consumer in a single subgraph,
@@ -86,13 +71,9 @@ Status IntraSubgraphAdapter::RunOnFunction(Function& function)
             int mainSubgraphID = *(commonColors.begin()); // the only subgraph id that has both producers and consumers.
             LogicalTensors newBoundaryTensors;
 
-            APASS_LOG_DEBUG_F(
-                Elements::Tensor, "********** %s requires SplitBoundaryTensor. **********",
-                function.GetMagicName().c_str());
-            APASS_LOG_DEBUG_F(
-                Elements::Tensor, "Boundary tensor: %s, mainSubgraphID: %d, producerColors: %s, consumerColors: %s",
-                tensor->Dump().c_str(), mainSubgraphID, IntSetToStr(producerColors).c_str(),
-                IntSetToStr(consumerColors).c_str());
+            APASS_LOG_DEBUG_F(Elements::Tensor, "********** %s requires SplitBoundaryTensor. **********", function.GetMagicName().c_str());
+            APASS_LOG_DEBUG_F(Elements::Tensor, "Boundary tensor: %s, mainSubgraphID: %d, producerColors: %s, consumerColors: %s",
+                tensor->Dump().c_str(), mainSubgraphID, IntSetToStr(producerColors).c_str(), IntSetToStr(consumerColors).c_str());
             for (const auto& producer : tensor->GetProducers()) {
                 APASS_LOG_DEBUG_F(Elements::Operation, "producer: %s", producer->Dump().c_str());
             }
@@ -101,15 +82,11 @@ Status IntraSubgraphAdapter::RunOnFunction(Function& function)
             }
 
             if (SplitBoundaryTensor(function, tensor, mainSubgraphID, newBoundaryTensors) == FAILED) {
-                APASS_LOG_ERROR_F(
-                    Elements::Tensor,
-                    "Split boundary tensor failed, tensor magic : %d; Please check SplitBoundaryTensor method.",
-                    tensor->GetMagic());
+                APASS_LOG_ERROR_F(Elements::Tensor, "Split boundary tensor failed, tensor magic : %d; Please check SplitBoundaryTensor method.", tensor->GetMagic());
                 return FAILED;
             }
             if (ProcessBoundaryTensors(function, newBoundaryTensors) == FAILED) {
-                APASS_LOG_ERROR_F(
-                    Elements::Tensor, "Process boundary tensors failed; Please check ProcessBoundaryTensors method.");
+                APASS_LOG_ERROR_F(Elements::Tensor, "Process boundary tensors failed; Please check ProcessBoundaryTensors method.");
                 return FAILED;
             }
         }
@@ -123,6 +100,20 @@ Status IntraSubgraphAdapter::RunOnFunction(Function& function)
     return SUCCESS;
 }
 
+Status IntraSubgraphAdapter::CheckColorCount(size_t commonColorCount) {
+    if (commonColors.size() > 1) {
+        APASS_LOG_ERROR_F(Elements::Tensor, "Process boundary tensor failed, tensor magic : %d; The producers and consumers cannot simultaneously "
+            "appear in more than one subgraph.", tensor->GetMagic());
+        return FAILED;
+    }
+    if (commonColors.size() == 0) {
+        if (ProcessBoundaryTensor(function, tensor) == FAILED) {
+            APASS_LOG_ERROR_F(Elements::Tensor,"Process boundary tensor failed, tensor magic : %d; Please check the ProcessBoundaryTensor method.", tensor->GetMagic());
+            return FAILED;
+        }
+    }
+    return SUCCESS;
+}
 Status IntraSubgraphAdapter::CheckBoundaryTensor(LogicalTensorPtr tensor)
 {
     const static std::unordered_set<MemoryType> validBoundaryTensorMemType = {MEM_UB, MEM_L1, MEM_L0C, MEM_DEVICE_DDR};

@@ -33,6 +33,7 @@ public:
 private:
     Status RunOnFunction(Function& function) override;
     Status PostCheck(Function& function) override;
+    Status CheckColorCount(size_t commonColorCount);
     Status InferFromIncast();
     void InsertViewOp(Function& function, LogicalTensorPtr iOperand, LogicalTensorPtr oOperand);
     void InsertAssembleOp(Function& function, LogicalTensorPtr iOperand, LogicalTensorPtr oOperand);
