@@ -54,6 +54,7 @@ int32_t ShmemWaitUntilImpl::PollCompleted(npu::tile_fwk::dynamic::AiCoreManager*
             DEV_ERROR(DistributedErrorCode::NULLPTR, "sche.task.pre.task.poll#: AicoreManager is nullptr");
             return dynamic::DEVICE_MACHINE_ERROR;
         }
+        hashMap_.RemoveTask(static_cast<uint32_t>(task->taskId_));
         return aicoreManager->ProcessCompletedAicpuTask(task->taskId_);
     });
 }

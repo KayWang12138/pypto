@@ -86,13 +86,37 @@ public:
     {
         uint32_t index = Hash(taskId);
         SignalTileOp* current = hashTable[index];
-        while (current != nullptr) {
+        uint32_t loopCount = 0;
+        while (current != nullptr && loopCount < AICPU_TASK_ARRAY_SIZE) {
             if (current->taskId_ == taskId) {
                 return current;
             }
             current = current->next;
+            loopCount++;
         }
         return nullptr;
+    }
+
+    void RemoveTask(uint32_t taskId)
+    {
+        uint32_t index = Hash(taskId);
+        SignalTileOp* current = hashTable[index];
+        SignalTileOp* prev = nullptr;
+        uint32_t loopCount = 0;
+        while (current != nullptr && loopCount < AICPU_TASK_ARRAY_SIZE) {
+            if (current->taskId_ == taskId) {
+                if (prev == nullptr) {
+                    hashTable[index] = current->next;
+                } else {
+                    prev->next = current->next;
+                }
+                current->next = nullptr;
+                return;
+            }
+            prev = current;
+            current = current->next;
+            loopCount++;
+        }
     }
 
 private:
