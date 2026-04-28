@@ -152,9 +152,17 @@ def matmul(
                 out_dtype, input, mat2, a_trans, b_trans, c_matrix_nz
             )
     else:
-        return pypto_impl.BatchMatmul(
-            out_dtype, input, mat2, a_trans, b_trans, c_matrix_nz
-        )
+        if extend_params is not None:
+            extend_params = pypto_impl.MatmulExtendParam(
+                **__convert_matmul_extend_params(extend_params)
+            )
+            return pypto_impl.BatchMatmul(
+                out_dtype, input, mat2, a_trans, b_trans, c_matrix_nz, extend_params
+            )
+        else:
+            return pypto_impl.BatchMatmul(
+                out_dtype, input, mat2, a_trans, b_trans, c_matrix_nz
+            )
 
 
 @op_wrapper
@@ -330,10 +338,6 @@ def __validate_inputs(input_tensor1, input_tensor2, out_dtype, optional_param) -
             "Input tensor with DT_FP8E5M2 must use ND format, NZ format is not support currently."))
     if not ((input1_dtype in fp8_dtype and input2_dtype in fp8_dtype) or (input1_dtype == input2_dtype)):
         raise PyptoError(0xF00002, ValueError("Non-FP8 inputs require identical dtypes."))
-    if input_tensor1.Dim() != 2 and extend_params is not None:
-        raise PyptoError(0xF00003, RuntimeError(
-            "extend_params is not supported for batched matrix multiplication."
-        ))
 
 
 def __validate_scaled_inputs(input_tensor1, input_tensor2, input_scale1, input_scale2) -> None:
