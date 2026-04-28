@@ -36,6 +36,17 @@ core_dir = {model_weight_dir}/core                         # 代码目录（tran
 model_archive_dir = {pypto_repo}/models/experimental/huggingface/{model_name}  # 归档目录（可选）
 ```
 
+**检测已有模型：**
+
+```bash
+ls {model_weight_dir}/*.safetensors {model_weight_dir}/*.bin 2>/dev/null
+```
+
+- 存在权重 → 直接使用，跳过步骤 4
+- 不存在 → **询问：**「无权重文件。有已下载的目录吗？（给路径则跳过下载，否则自动下载）」
+
+若用户提供目录：`model_weight_dir` / `script_dir` / `core_dir` 同步更新。
+
 ### 步骤1：检查NPU环境与内存预估
 
 **检查NPU状态：**
@@ -93,6 +104,8 @@ python3 -c "import torch; import torch_npu; print(f'torch: {torch.__version__}')
 **trust_remote_code模式：** core/目录不存在，网络结构代码已包含在HuggingFace下载的文件中。
 
 ### 步骤4：下载模型
+
+> **前置条件：** 步骤 0 已确认 `{model_weight_dir}` 不存在权重文件。
 
 **检测网络结构来源：**
 
@@ -247,6 +260,52 @@ cp -r {model_weight_dir}/scripts {model_archive_dir}/
 
 **说明：** 归档仅用于版本控制，transformers 不读取此目录。修改代码需同步更新 `{model_weight_dir}/`。
 
+---
+
+### 步骤 8.5：Git 管理模型目录 [可选]
+
+将代码文件纳入版本控制，排除权重大文件：
+
+```bash
+cd {model_weight_dir}
+
+# HuggingFace 仓库已有 .git 则跳过 init
+[ ! -d .git ] && git init
+
+cat > .gitignore << 'EOF'
+*.safetensors
+*.bin
+*.pt
+*.pth
+tokenizer.json
+tokenizer.model
+vocab.json
+merges.txt
+__pycache__/
+*.log
+.cache/
+output/
+EOF
+
+git add core/ scripts/ *.md *.sh .gitignore
+git commit -m "migrate {model_name} to NPU — add ask script, core code, README"
+```
+
+> 后续 `{model}_pto_kernels/` 等 PyPTO 产出的代码变更也通过此 git 仓库管理。
+
+---
+
+### 步骤 9：下一步 — PyPTO 融合算子优化 [可选]
+
+**必须询问：** 是否需要 PyPTO 融合算子整网集成？
+
+模型已可在 NPU 推理。`pypto-fused-op-integration` 复用本 skill 产出
+（ask 脚本、core 代码、权重目录、.git），进行算子融合 → 集成 → 端到端验证。
+
+**启动：** `使用 pypto-fused-op-integration，模型路径 {model_weight_dir}`
+
+---
+
 ## 常见问题解决
 
 ### Q1: transformers报错 "PyTorch >= 2.4 is required"
@@ -295,3 +354,10 @@ cp {model_weight_dir}/core/configuration_{model_type}.py.bak {model_weight_dir}/
 # 重新使用脚本修复
 python3 {pypto_repo}/.agents/skills/migrate-huggingface-to-npu/scripts/fix_imports.py {model_weight_dir}/core/modeling_{model_type}.py
 ```
+
+---
+
+**Skill 版本：** v1.2  
+**最后更新：** 2026-04-28  
+**维护者：** PyPTO Team  
+**更新说明：** 步骤 0 新增已有模型目录检测，避免重复下载

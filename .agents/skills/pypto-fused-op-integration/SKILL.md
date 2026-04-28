@@ -27,6 +27,27 @@ description: PyPTO算子整网集成工作流。打点采集真实tensor→Golde
 
 ### 阶段一：前置准备
 
+#### 步骤 0：确认模型信息 ★ 【必须最先执行】
+
+**上游 Skill：** 若模型通过 `migrate-huggingface-to-npu` 迁移，
+模型目录已包含 `scripts/ask_*.py` + `core/modeling_*.py` + `.git`，
+环境基线已验证，可直接跳入步骤 2（需求分析）。
+
+**必须询问：**
+- **模型路径**：权重目录（目录或子目录下包含 safetensors/bin）
+  - 若来自 `migrate-huggingface-to-npu`，直接沿用上游的 `model_weight_dir`
+
+**自动查找（无需询问）：**
+- 在 `{模型路径}/scripts/` 下查找 `*.py` 执行脚本
+- 在 `{模型路径}/core/` 下查找 `modeling_*.py`（上游 skill 已准备）
+- 若唯一 → 直接使用
+- 若多个 → 询问用户选择
+- 若无 → 询问用户提供
+
+> **原则：** 最小化用户输入，最大化自动推断。
+
+---
+
 #### 步骤 1：前置验证（环境+网络基线）★
 
 **目标：** 确认环境和网络可运行，作为后续工作基础。
@@ -41,8 +62,6 @@ description: PyPTO算子整网集成工作流。打点采集真实tensor→Golde
 - **关键成功标志：生成对 Prompt 的通顺回答**
 
 > **为什么需要？** 网络必须可运行，否则后续工作基础不稳定。
-
-**找不到运行方式时，必须询问用户：** 入口脚本路径、环境变量、模型路径。
 
 **验证检查点：**
 - ✅ NPU 驱动正常
@@ -84,17 +103,22 @@ description: PyPTO算子整网集成工作流。打点采集真实tensor→Golde
 **目标：** 从原始网络采集真实 shape/dtype，构造必须 pass 的测试用例。
 
 **操作：**
-1. 定位打点位置 → 插入打印代码：
-   ```python
-   print(f"[DEBUG] input: shape={x.shape}, dtype={x.dtype}")
-   ```
-2. 运行原始网络采集数据
-3. 创建 `test_cases.json` 记录结果
+1. 定位并插入一行 print（采集所有外部输入的 shape/dtype）
+2. 运行原始网络采集
+3. 采集完成后删除打印，恢复代码原状
+4. 创建 test_cases.json
 
-**采集流程参考：** `references/test-cases-template.md`  
-**测试格式参考：** `pypto-op-develop/templates/test-template.py`
+**注意事项：**
+- ⚠️ **不要限制打印次数**：禁止使用计数器限制打印次数（如 `if counter < 5`），否则会漏掉不同场景（如不同 layer、不同 seq_len、不同 shape），导致测试用例不完整
+- 应采集所有调用场景，覆盖不同 shape/dtype 组合
 
-**输出物：** test_cases.json、test_{op}.py
+**格式参考：**
+- 统一格式以 `pypto-op-develop/templates/test_cases-template.json` 为准
+- 多输入算子补充说明见 `references/test-cases-template.md`
+
+**输出物：** test_cases.json
+
+**存放位置：** `models/{model_name}/pto_kernels/xxx/test/test_cases.json`
 
 **关键原则：** 真实用例是必须 pass 的基准，覆盖所有调用场景。
 
@@ -106,38 +130,12 @@ description: PyPTO算子整网集成工作流。打点采集真实tensor→Golde
 
 **场景判断：** 检查**被替换逻辑**是否使用 torch_npu 融合算子（只看逻辑本身，不看文件import）。
 
-- **场景A**：只使用基础算子（torch.matmul、torch.softmax等）→ 直接复制原始代码
-- **场景B**：使用融合算子（torch_npu.contrib.flash_attention等）⚠️ 需用torch重写并验证
-
 ---
 
-**场景A：未引用 torch_npu**
-
-**策略：** 直接复制原始代码作为 Golden（无需理解，无偏差风险）
-
-```python
-# 直接复制原始实现到 xxx_golden.py
-def xxx_golden(...):
-    # 从网络代码复制原始逻辑
-    return original_impl(...)
-```
-
----
-
-**场景B：引用 torch_npu**
-
-**策略：** 用理解编写纯 torch 等价实现
-
-```python
-def xxx_golden(query, key, value, ...):
-    # 理解 torch_npu 算子语义，用 torch 实现等价计算
-    scale = 1.0 / math.sqrt(query.size(-1))
-    scores = torch.matmul(query, key.transpose(-2, -1)) * scale
-    ...
-    return output
-```
-
----
+| 场景 | 判断条件 | 策略 | 输出件 |
+|------|---------|------|--------|
+| **场景A** | 只使用基础算子（matmul、softmax等） | 直接复制原始代码，无需理解验证 | `xxx_golden.py` |
+| **场景B** | 使用融合算子（flash_attention等） | 用 torch 重写等价实现，必须验证 | `xxx_golden.py` + `test_xxx_golden_correctness.py` |
 
 **通用要点：**
 - 纯 PyTorch，禁止引入 pypto/torch_npu
@@ -162,26 +160,31 @@ def xxx_golden(query, key, value, ...):
 
 **场景B：引用 torch_npu ★ 必须验证**
 
-验证流程：
-1. **构造真实测试用例**（来自步骤3采集的 shape/dtype）
-2. **对比 torch Golden 与 torch_npu 原始实现**：
+**输出件清单：**
+
+| 输出件 | 文件名 | 存放位置 | 要求 |
+|--------|--------|---------|------|
+| 测试用例 | `test_cases_golden.json` | `pto_kernels/test/` | 必须：torch_npu 参数信息 |
+| 验证脚本 | `test_{op}_golden.py` | `pto_kernels/test/` | 必须：对比 Golden vs torch_npu |
+
+**验证流程：**
+1. **构造测试用例**（来自步骤3采集的 shape/dtype）
+2. **对比 torch Golden 与 torch_npu**：
    ```python
-   output_npu = torch_npu.flash_attention(query, key, value)
-   output_golden = xxx_golden(query, key, value)
-   diff = torch.abs(output_npu - output_golden).max().item()
-   assert diff < 1e-3
+   output_npu = torch_npu.flash_attention(query, key, value, **params)
+   output_golden = xxx_golden(query, key, value, **params)
+   assert_allclose(output_npu, output_golden, rtol=1e-3, atol=1e-3)
+   print("[PRECISION_PASS] Golden 与 torch_npu 一致")
    ```
 3. **一致后替换 Golden 到整网**，验证输出正确
-4. **全部通过** → 说明理解正确，进入步骤7
+4. **全部通过** → 进入步骤7
 
 ---
 
 **验证检查点：**
-- ✅ Golden 与原始实现一致（场景B必查）
+- ✅ Golden 与 torch_npu 一致（diff < 1e-3）
 - ✅ 整网替换后输出正常
 - ✅ 无 NaN/Inf
-
-**详细步骤参考：** `references/golden-verification.md`
 
 ---
 
@@ -204,6 +207,14 @@ def xxx_golden(query, key, value, ...):
 
 **推荐 Skill：** `pypto-op-design`
 
+**⚠️ 阶段三常见陷阱：**
+
+| 陷阱 | 原因 | 表现 | 预防 |
+|------|------|------|------|
+| 内置API不支持动态轴 | 内部`cast`拒绝dim=-1 | `FC0000: invalid shape value: -1` | 设计前先查API源码，含`cast`则走手动实现 |
+| `set_vec_tile_shapes(x.shape[i])` | 返回值是SymbolicScalar | `F00002: Not concrete value` | 使用concrete常量(e.g. `set_vec_tile_shapes(1, 2048)`) |
+| `pypto.mul(x, Element(...))` | `mul`内部二次包装Element | `TypeError: Element(Element)` | 传标量(float/int)，`mul`自动转换 |
+
 ---
 
 #### 步骤 8：算子实现
@@ -218,6 +229,10 @@ def xxx_golden(query, key, value, ...):
 
 **目标：** 验证 PyPTO 实现正确性。
 
+**编译环境：**
+- 必须设置 `export PTO_TILE_LIB_CODE_PATH=/path/to/pto-isa`（kernel 编译需要）
+- 设置 `export TILE_FWK_DEVICE_ID=<空闲 chip id>`
+
 **关键说明：**
 - 步骤 3 采集的真实用例是必须 pass 的基准
 - 输出无 NaN/Inf，与 Golden 对齐（diff < 2e-3）
@@ -230,16 +245,30 @@ def xxx_golden(query, key, value, ...):
 
 #### 步骤 10：调整目录结构
 
-**目标：** 创建 PyPTO 算子库目录结构。
+**目标：** 创建 PyPTO 算子库目录结构（按算子组织）。
 
 **典型结构：**
 ```
-xxx_pto_kernels/
-├── __init__.py      # 开关定义
-├── xxx_impl.py      # PyPTO kernel
-└── utils/
-    └── xxx_golden.py
+pto_kernels/                        # 算子库顶层
+├── __init__.py                     # USE_PTO开关 + 导入所有算子
+│
+├── xxx/                            # 算子目录（如 rms_norm、ffn、softmax）
+│   ├── __init__.py                 # 导出 xxx_wrapper
+│   ├── xxx_impl.py                 # PyPTO kernel（带前缀）
+│   ├── xxx_golden.py               # Golden参考（带前缀）
+│   ├── README.md                   # 算子文档
+│   └── test/
+│       ├── test_xxx.py             # 测试脚本（带前缀）
+│       └── test_cases.json         # 测试用例
+│
+└── utils/                          # 通用工具（可选）
+    └── DESIGN.md                   # 设计文档
 ```
+
+**命名规则：**
+- 目录名：抽象命名（如 `rms_norm`、`ffn`）
+- 文件名：带算子前缀（如 `rms_norm_impl.py`）
+- 模块名：`{model}_pto_kernels`（如 `qwen3_pto_kernels`），避免通用名称
 
 ---
 
@@ -248,37 +277,70 @@ xxx_pto_kernels/
 **目标：** 封装 PyPTO 算子调用。
 
 **关键要点：**
-- 使用开关变量切换 PyPTO 和原始实现
-- 适配层只负责参数转换和桥接
+- 开关设计：按算子粒度 `USE_PTO_{OP}`（如 `USE_PTO_RMS_NORM`），便于渐进式验证
+- 函数命名：与原始算子同名，参数传递根据场景灵活设计
+- 文档注释：包含目标文件、目标类、替换代码片段
+
+**最佳实践（参考 GLM-Net）：**
+
+| 方面 | 推荐做法 | 理由 |
+|------|---------|------|
+| **模块命名** | `{model}_pto_kernels` | 避免通用名称，提高可识别性 |
+| **开关设计** | 按算子粒度 `USE_PTO_{OP}` | 渐进式验证，便于定位问题 |
+| **函数命名** | 与原始算子同名 | 降低理解成本 |
+| **参数传递** | 根据场景灵活设计（layer 对象或单独参数） | 适配不同调用位置 |
+| **文档注释** | 包含替换代码片段 | 可直接复制，减少错误 |
+| **allow_in_graph** | 适配层函数 `{op}_pto` 调用 `@allow_in_graph` 修饰的 `{op}_wrapper`，禁止越级调 JIT kernel | 确保 torch.compile / aclgraph 图捕获兼容 |
+
+**参考案例：** https://gitcode.com/songle1/glm-net/blob/main/glm_pto_kernels/__init__.py
 
 ---
 
-#### 步骤 12：修改模型调用逻辑 + 处理缓存 ★
+#### 步骤 12：修改模型调用逻辑 + sys.modules注入 ★
 
-**目标：** 替换原始算子调用，处理 transformers 缓存。
+**目标：** 替换原始算子调用，通过 sys.modules注入绕过缓存。
 
-**修改调用逻辑：**
+**推荐方案：sys.modules注入**
+
+**原理：** Python的 `sys.modules` 是全局模块注册表。脚本预导入算子库→注入→modeling自动获取，无缓存依赖。
+
+**实施步骤：**
+
+**步骤A：脚本注入（在transformers导入前）**
 ```python
-if xxx_pto_kernels.USE_PTO:
-    output = xxx_pto_kernels.xxx_wrapper(...)
-else:
-    output = self.original_op(...)  # fallback
+parser.add_argument("--use-pto", action="store_true", help="启用PyPTO算子")
+
+if args.use_pto:
+    sys.path.insert(0, args.model_path)         # 1. 添加路径
+    import {model}_pto_kernels                  # 2. 导入模块
+    sys.modules["{model}_pto_kernels"] = module # 3. 注册全局
+    module.USE_PTO_{OP} = True                   # 4. 启用算子开关
+
+from transformers import AutoModelForCausalLM   # 之后加载模型
 ```
 
-**处理 transformers 缓存：**
-
-适用场景：transformers 内置模型 + `trust_remote_code=True`
-
-快速诊断：
+**步骤B：modeling获取**
 ```python
-print(f"[Debug] __file__ = {__file__}")  # 缓存路径则有问题
+import sys
+
+pto_kernels = sys.modules.get("{model}_pto_kernels")
+
+def forward(self, hidden_states):
+    if pto_kernels is not None and pto_kernels.USE_PTO_{OP}:
+        return pto_kernels.{op}(self, hidden_states)
+    # 原始torch实现（fallback）
+    ...
 ```
 
-**完整解决方案参考：** `references/cache-sync-template.md`
+**关键要点：**
+- 注入位置：transformers 导入前
+- 条件判断：`sys.modules.get()` + 开关启用（双重条件）
+- **必须保留原始 torch 实现作为 fallback**
 
 **验证检查点：**
-- ✅ 本地修改自动生效
-- ✅ 缓存目录存在算子库
+- ✅ 使用 `--use-pto` → `RMS_PTO_AVAILABLE = True`（PTO生效）
+- ✅ 不使用 → `RMS_PTO_AVAILABLE = False`（torch fallback）
+- ✅ 本地修改算子库后即时生效
 
 ---
 
@@ -328,8 +390,6 @@ print(f"[Debug] __file__ = {__file__}")  # 缓存路径则有问题
 
 ### 参考模板
 - **测试集模板**：`references/test-cases-template.md`
-- **缓存处理**：`references/cache-sync-template.md`
-- **Golden验证**：`references/golden-verification.md`
 
 ### 相关 Skill
 - `pypto-environment-setup`：环境安装
@@ -347,6 +407,7 @@ print(f"[Debug] __file__ = {__file__}")  # 缓存路径则有问题
 
 ---
 
-**Skill 版本：** v2.0
-**最后更新：** 2026-04-25
+**Skill 版本：** v2.4
+**最后更新：** 2026-04-28
 **维护者：** PyPTO Team
+**更新说明：** 步骤 0 新增上游 migrate-huggingface-to-npu 感知，可直接跳入步骤 2

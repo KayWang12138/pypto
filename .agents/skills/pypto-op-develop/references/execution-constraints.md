@@ -3,6 +3,9 @@
 ## 1. 框架级约束
 
 - PyTorch 集成支持单算子模式（eager）和图捕获模式（aclgraph）；`@pypto.frontend.jit` 默认按单算子模式执行。
+- 图捕获模式下，JIT kernel 的调用 wrapper 必须使用 `@allow_in_graph`（`from torch._dynamo`）装饰，
+  并在函数体内通过 `isinstance(input, FakeTensor)` 对编译期假 tensor 做短路处理。适配层函数（命名
+  为 `{op}_pto`）必须调用该 wrapper，禁止绕过直接调用 JIT kernel。
 - JIT kernel 不支持返回值；结果必须写回输出参数。
 - 可用的输出写回方式包括 `out[:] = ...`、`out.move(...)`、`pypto.assemble(..., out)`；`out = ...` 只会绑定局部变量，不会修改出参。
 - JIT 函数中的张量参数必须写成 `pypto.Tensor([...], dtype)` 类型注解。
@@ -49,6 +52,27 @@
 - `pypto.loop` 返回的是符号索引，不是普通 Python 整数循环。
 - 在 `pypto.loop` 中用 Python `print` 打印，看到的是构图阶段遍历到的路径，不是运行时真实循环次数。
 - `pypto.loop` 默认会展开并分发到多核并行处理；循环迭代之间存在数据依赖时，必须设置 `submit_before_loop=True`。
+
+### loop 零次执行陷阱
+
+- **症状**：输出全为 0 或随机未初始化值，max diff 极大但与计算结果完全无关。
+- **原因**：`M // TILE_SIZE` 作为 loop 边界，当 `M < TILE_SIZE` 时循环执行 0 次，输出 tensor 未被写入。
+- **修复**：使用向上取整 `(M + TILE_SIZE - 1) // TILE_SIZE`，并为尾块指定 `valid_shape`。
+
+```python
+# ❌ M=1, TILE_M=8 → loop 执行 0 次，输出未初始化
+total_steps = M // TILE_M
+for m in pypto.loop(total_steps, name="batch"):
+    ...
+
+# ✅ 向上取整，尾块用 valid_shape
+total_steps = (M + TILE_M - 1) // TILE_M
+for m in pypto.loop(total_steps, name="batch"):
+    remaining = M - m * TILE_M
+    actual_m = remaining.min(TILE_M)
+    x_tile = pypto.view(x, [TILE_M, D], [m * TILE_M, 0], valid_shape=[actual_m, D])
+    pypto.assemble(out_tile, [m * TILE_M, 0], output)
+```
 
 ### `pypto.loop_unroll`
 

@@ -86,6 +86,17 @@ def run_single_case(case_data, device_id=None, run_mode="npu"):
     # 执行 golden
     golden = {op}_golden(x)
     
+    # ================================================================
+    # 多输入算子模式（当 input 不是平铺的 shape/dtype 而是命名子对象时切换）：
+    #
+    #   input_data = case_data["input"]
+    #   # input_data 无 "shape" 键 → 多输入模式，键名即参数名
+    #   a = torch.randn(input_data["param_a"]["shape"], ...)
+    #   b = torch.randn(input_data["param_b"]["shape"], ...)
+    #   result = {op}_wrapper(a, b)
+    #   golden = {op}_golden(a, b)
+    # ================================================================
+    
     # 精度对比
     print(f"  Input shape : {x.shape}")
     print(f"  Output shape: {result.shape}")
