@@ -275,7 +275,7 @@ def dispatch_tokens(
                     assist_info_for_combine_per_expert[logical_rank_id][expert_offset],
                     dtype=torch.int32,
                 )
-                fixed_shape_assist_info_for_combine[offset:end, -3:] = actual_assist_info_for_combine
+                fixed_shape_assist_info_for_combine[offset:end, :] = actual_assist_info_for_combine
                 expert_token_nums[expert_offset] = actual_expand_x.size(0)
                 offset = end
 
@@ -285,6 +285,59 @@ def dispatch_tokens(
         recv_counts_per_rank.append(expert_token_nums.sum(dtype=torch.int32).unsqueeze(0))
 
     return expand_x_per_rank, assist_info_for_combine_per_rank, expert_token_nums_per_rank, recv_counts_per_rank
+
+
+def dispatch_tokens_v2(
+    moe_case: MoeCase,
+    torch_data_type: torch.dtype,
+    x_list: TensorList,
+    expert_ids_list: TensorList,
+) -> tuple[TensorList, TensorList, TensorList, TensorList]:
+    expert_num_per_rank = get_moe_expert_num_per_rank(moe_case)
+    total_send_tasks = moe_case.batch_size * moe_case.topk
+    
+    sending_rank_cumsum_tables_list = []
+    sending_rank_token_counts_list = []
+    for expert_ids in expert_ids_list:
+        expert_ids_flat = expert_ids.flatten().to(torch.long)
+        one_hot_table = F.one_hot(expert_ids_flat, num_classes=moe_case.moe_expert_num)
+        cumsum_table = torch.cumsum(one_hot_table, dim=0)
+        sending_rank_cumsum_tables_list.append(cumsum_table)
+        sending_rank_token_counts_list.append(cumsum_table[-1, :])
+    
+    receive_rank_token_counts_list = [torch.zeros(moe_case.moe_expert_num + 1, dtype=torch.int32) for _ in range(moe_case.ep_world_size)]
+    
+    for sending_rank_id, token_count_per_expert in enumerate(sending_rank_token_counts_list):
+        for expert_id in range(moe_case.moe_expert_num):
+            receiving_rank_id, expert_offset = divmod(expert_id, expert_num_per_rank)
+            receive_rank_token_counts_list[receiving_rank_id][expert_offset * moe_case.ep_world_size + sending_rank_id + 1] = token_count_per_expert[expert_id]
+    
+    token_counts_tensor = torch.stack(receive_rank_token_counts_list)
+    cumsum_result = torch.cumsum(token_counts_tensor, dim=1)
+    recv_counts_tensor = cumsum_result[:, -1].unsqueeze(1)
+    recv_counts_list = [recv_counts_tensor[i] for i in range(moe_case.ep_world_size)]
+    
+    indices = torch.arange(0, moe_case.moe_expert_num + 1, moe_case.ep_world_size)
+    start_indices = indices[:-1]
+    end_indices = indices[1:]
+    expert_token_nums_tensor = cumsum_result[:, end_indices] - cumsum_result[:, start_indices]
+    expert_token_nums_list = [expert_token_nums_tensor[i] for i in range(moe_case.ep_world_size)]
+    
+    row = get_dispatch_output_row(moe_case)
+    expand_x_list = [torch.zeros((row, moe_case.hidden_size), dtype=torch_data_type) for _ in range(moe_case.ep_world_size)]
+    assist_info_for_combine_list = [torch.zeros((row, 3), dtype=torch.int32) for _ in range(moe_case.ep_world_size)]
+    
+    for sending_rank_id, (x, cumsum_table) in enumerate(zip(x_list, sending_rank_cumsum_tables_list)):
+        for index in range(moe_case.batch_size * moe_case.topk):
+            token_id, k_offset = divmod(index, moe_case.topk)
+            expert_id = expert_ids_list[sending_rank_id][token_id, k_offset].item()
+            receiving_rank_id, expert_offset = divmod(expert_id, expert_num_per_rank)
+            cumsum_offset = 0 if index == 0 else cumsum_table[index - 1, expert_id]
+            token_offset = cumsum_result[receiving_rank_id, expert_offset * moe_case.ep_world_size + sending_rank_id + 1] + cumsum_offset
+            expand_x_list[receiving_rank_id][token_offset] = x[token_id]
+            assist_info_for_combine_list[receiving_rank_id][token_offset] = torch.tensor([sending_rank_id, token_id, k_offset], dtype=torch.int32)
+    
+    return expand_x_list, assist_info_for_combine_list, expert_token_nums_list, recv_counts_list
 
 
 def combine_tokens(
