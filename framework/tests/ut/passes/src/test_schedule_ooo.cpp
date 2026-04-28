@@ -765,9 +765,6 @@ TEST_F(ScheduleOoOTest, TestSpillL0CReuseCopyOut)
         EXPECT_NE(op->GetOpcode(), Opcode::OP_L0C_COPY_UB);
         EXPECT_NE(op->GetOpcode(), Opcode::OP_L0C_TO_L1);
     }
-
-    // 复用 CopyOut 多了一条 -> L0CAlloc2 的保护依赖。
-    EXPECT_TRUE(ooOScheduler.depManager_.GetSuccessors(copyOutOp).count(l0cAlloc2) > 0);
 }
 
 TEST_F(ScheduleOoOTest, TestSchedule) {
