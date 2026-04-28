@@ -603,6 +603,8 @@ class TileUsageSectionCollector : public ir::IRVisitor {
       }
     } else if (auto tge = ir::As<ir::TupleGetItemExpr>(expr)) {
       CollectTileVarNames(tge->tuple_);
+    } else if (auto toe = ir::As<ir::TileOffsetExpr>(expr)) {
+      CollectTileVarNames(toe->tile_);
     }
   }
 };
@@ -2368,9 +2370,10 @@ void CCECodegen::VisitExpr_(const ir::TileOffsetExprPtr& op) {
   std::string ctor_args = BuildTileCtorArgs(vs, rows, cols);
   std::string ctor_suffix = vs.needs_ctor ? ("(" + ctor_args + ")") : "";
   std::string type_str = type_converter_.ConvertTileType(tile_type, rows, cols);
+  std::string temp_addr = base_addr + " + (" + offset_expr + ") * " + std::to_string(elem_bytes);
   emitter_.EmitLine(type_str + " " + temp_name + ctor_suffix + "; " +
-                    "TASSIGN(" + temp_name + ", " + base_addr +
-                    " + (" + offset_expr + ") * " + std::to_string(elem_bytes) + ");");
+                    "TASSIGN(" + temp_name + ", " + temp_addr + ");");
+  tile_addresses_[temp_name] = temp_addr;
 
   current_expr_value_ = temp_name;
 }
@@ -3332,4 +3335,3 @@ void CCECodegen::GenerateGlobalTensorTypeDeclaration(
 }  // namespace codegen
 
 }  // namespace pypto
-

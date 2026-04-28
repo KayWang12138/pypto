@@ -773,6 +773,46 @@ def test_debug_dump_tile_dynamic_offset_codegen():
     assert 'cce::printf("=== [TPRINT Tile Window]' in code
 
 
+def test_manual_tile_offset_codegen_emits_offset_tile_in_cce():
+    """CCE codegen should support tile[offset] as a manual op tile operand."""
+    backend.reset_for_testing()
+    backend.set_backend_type(BackendType.CCE)
+
+    @pl.program
+    class ManualTileOffsetCCEProgram:
+        @pl.function
+        def manual_tile_offset_cce(
+            self,
+            input: pl.Tensor[[4, 64], pl.FP32],
+            output: pl.Tensor[[4, 64], pl.FP32],
+        ) -> pl.Tensor[[4, 64], pl.FP32]:
+            tile_type = plm.TileType(shape=[1, 64], dtype=pl.FP32, target_memory=pl.MemorySpace.Vec)
+            src = plm.make_tile(tile_type, addr=0x0000, size=1024)
+            dst = plm.make_tile(tile_type, addr=0x0400, size=1024)
+            with pl.section_vector():
+                for row in pl.range(0, 4):
+                    offset = row * 64
+                    plm.load(src[offset], input, [row, 0])
+                    plm.add(dst[offset], src[offset], src[offset])
+                    plm.store(output, dst[offset], [row, 0])
+            return output
+
+    pm = PassManager.get_strategy()
+    optimized_program = pm.run_passes(ManualTileOffsetCCEProgram)
+
+    generator = codegen.CCECodegen()
+    files = generator.generate(optimized_program)
+    code = files["kernels/aiv/manual_tile_offset_cce.cpp"]
+
+    assert "src_eoff_" in code
+    assert "dst_eoff_" in code
+    assert "TASSIGN(src_eoff_" in code
+    assert "TASSIGN(dst_eoff_" in code
+    assert re.search(r"TASSIGN\(src_eoff_\d+, .*\+ \(offset\) \* 4\);", code)
+    assert re.search(r"TASSIGN\(dst_eoff_\d+, .*\+ \(offset\) \* 4\);", code)
+    assert "TADD(" in code
+
+
 def test_debug_dump_tile_location_header_codegen():
     """CCE dump_tile with loc=True should emit a location header before the dump."""
     backend.reset_for_testing()
