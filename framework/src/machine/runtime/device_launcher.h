@@ -202,6 +202,21 @@ public:
                 static_cast<int64_t>(devProg->memBudget.tensor.maxDynamicAssembleOutcastMem),
                 AlignUp(config.dynWorkspaceSize, TENSOR_ADDR_ALIGNMENT));
         }
+        if (devProg->memBudget.tensor.dynamicCellMatchSlotNum != 0 &&
+            devProg->memBudget.tensor.maxDynamicAssembleOutcastMem == 0) {
+            uint64_t conservative = AlignUp(
+                std::max<uint64_t>(
+                    std::max<uint64_t>(devProg->memBudget.tensor.maxStaticOutcastMem * 8, 4096), 32768),
+                TENSOR_ADDR_ALIGNMENT);
+            uint64_t originalDynamicAssemble = devProg->memBudget.tensor.maxDynamicAssembleOutcastMem;
+            devProg->memBudget.tensor.maxDynamicAssembleOutcastMem = conservative;
+            MACHINE_LOGW(
+                "[workspaceSize] Fallback dynamic assemble outcast mem: static=%lu old_dynamic=%lu dynamic=%lu slots=%lu",
+                devProg->memBudget.tensor.maxStaticOutcastMem,
+                originalDynamicAssemble,
+                devProg->memBudget.tensor.maxDynamicAssembleOutcastMem,
+                devProg->memBudget.tensor.dynamicCellMatchSlotNum);
+        }
 
         if (isDevice) {
             DeviceRunner::Get().InitMetaData(devProg->devArgs);
@@ -430,7 +445,8 @@ public:
 
     static int DeviceSynchronize(RtStream aicpuStream, RtStream aicoreStream);
     static void FillDeviceKernelArgs(
-        std::vector<uint8_t>& devProgData, DeviceKernelArgs& kargs, const std::vector<std::string>& groupNames);
+        std::vector<uint8_t>& devProgData, DeviceKernelArgs& kargs, const std::vector<std::string>& groupNames,
+        int64_t dynWorkspaceSize = 0);
     static int64_t GetL2Offset();
     static uint8_t* CopyControlFlowCache(DevControlFlowCache* ctrlCache);
     static void FreeControlFlowCache(uint8_t* ctrlCache);
