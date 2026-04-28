@@ -92,8 +92,8 @@ TEST_F(TestDynamicDeviceRunner, TestDynamicRun)
     std::vector<uint8_t> tensorInfo(sizeof(dynamic::AiCpuArgs));
     taskArgs.inputs = reinterpret_cast<int64_t*>(tensorInfo.data());
     taskArgs.outputs = 0;
-    runner.args_.nrAic = 2;
-    runner.args_.nrAiv = 2;
+    runner.state_.args.nrAic = 2;
+    runner.state_.args.nrAiv = 2;
     int ret = runner.DynamicRun(0, 0, 0, 0, &taskArgs, 2);
     EXPECT_EQ(ret, 0);
 }
