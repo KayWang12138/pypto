@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2025 Huawei Technologies Co., Ltd.
+ * Copyright (c) 2026 Huawei Technologies Co., Ltd.
  * This program is free software, you can redistribute it and/or modify it under the terms and conditions of
  * CANN Open Software License Agreement Version 2.0 (the "License").
  * Please refer to the License for details. You may not use this file except in compliance with the License.
@@ -309,8 +309,15 @@ private:
     bool pmuEnabled{false};
 };
 
+static inline AicpuPerfEventSampler& GetAicpuPerfEventSampler()
+{
+    static thread_local AicpuPerfEventSampler sampler;
+    return sampler;
+}
+
 struct AicpuPerfScopedSampler {
-    explicit AicpuPerfScopedSampler(const char* sectionName) : sectionName_(sectionName)
+    explicit AicpuPerfScopedSampler(const char* sectionName)
+        : sectionName_(sectionName), sampler_(GetAicpuPerfEventSampler())
     {
         sampler_.Begin();
     }
@@ -324,14 +331,14 @@ struct AicpuPerfScopedSampler {
 
 private:
     const char* sectionName_{"unnamed"};
-    AicpuPerfEventSampler sampler_;
+    AicpuPerfEventSampler& sampler_;
 };
 
 #define AICPU_PMU_SCOPE(section_name_literal) \
     ::npu::tile_fwk::AicpuPerfScopedSampler aicpuPerfScopedSampler_##__LINE__(section_name_literal)
 
 #define AICPU_PMU_BEGIN(sampler_name) \
-    ::npu::tile_fwk::AicpuPerfEventSampler sampler_name; \
+    auto& sampler_name = ::npu::tile_fwk::GetAicpuPerfEventSampler(); \
     (sampler_name).Begin()
 
 #define AICPU_PMU_END(sampler_name, section_name_literal) \
@@ -358,10 +365,19 @@ struct AicpuPerfEventSampler {
     void Dump() {}
 };
 
+static inline AicpuPerfEventSampler& GetAicpuPerfEventSampler()
+{
+    static thread_local AicpuPerfEventSampler sampler;
+    return sampler;
+}
+
 struct AicpuPerfScopedSampler {
-    explicit AicpuPerfScopedSampler(const char* sectionName) {
-        (void)sectionName;
-    }
+    explicit AicpuPerfScopedSampler([[maybe_unused]] const char* sectionName)
+        : sampler_(GetAicpuPerfEventSampler())
+    {}
+
+private:
+    AicpuPerfEventSampler& sampler_;
 };
 
 #define AICPU_PMU_SCOPE(section_name_literal)
