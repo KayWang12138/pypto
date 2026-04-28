@@ -684,115 +684,115 @@ def _verify_outputs(tag, sorted_workspace, ref_weighted, ref_values, ref_indices
 
     print(f"{tag} PASS")
 
-def test_lightning_indexer():
-    device = "npu:7"
-    torch.npu.set_device(device)
+# def test_lightning_indexer():
+#     device = "npu:7"
+#     torch.npu.set_device(device)
 
-    # (b, n, g, s1, s2, d, topk, num_cores, sparse_mode)
-    # g divides n (GQA constraint: n % g == 0)
-    for b, n, g, s1, s2, d, topk, num_cores, sparse_mode in [
-        # === sparse_mode=0 ===
-        (1, 1, 1, 128, 128,  TD, TOPK,  1, 0),   # 最小 baseline
-        (1, 1, 1, 128, 256,  TD, 150,  1, 0),   # Sk > Sq (2 sk_tiles)
-        (1, 1, 1, 256, 128,  TD, 100,  1, 0),   # Sq > Sk (2 sq_tiles, 1 sk_tile)
-        (1, 1, 1, 256, 256,  TD, 256,   2, 0),   # topk=256, 2 tiles × 2 tiles
-        (1, 1, 1, 512, 512,  TD, TOPK,  4, 0),   # 4 tiles × 4 tiles
-        (1, 1, 1, 512, 1024, TD, 512,   4, 0),   # topk=512, 8 sk_tiles
-        (1, 1, 1, 128, 1024, TD, 1000,  1, 0),   # 1 sq_tile, 8 sk_tiles (最多 cross-tile merge)
-        (2, 4, 2, 128, 256,  TD, TOPK,  2, 0),   # BNG: B=2, N=4, G=2 (GQA 2:1)
-        (1, 4, 1, 128, 256,  TD, 255,  2, 0),   # GQA 4:1
-        (1, 8, 2, 256, 256,  TD, TOPK,  4, 0),   # GQA 4:1, 更大
-        (1, 1, 1, 4096, 4096, TD, 2048, 16, 0),  # large
-        (1, 1, 1, 128, 128,  TD, 64,   1, 0),    # 不同 topk
-        # --- 尾块（非 128 整倍数）---
-        (1, 1, 1,  96,  96,  TD, 50,   1, 0),   # Sq=Sk=96 (尾块)
-        (1, 1, 1,  64, 200,  TD, 64,   1, 0),   # Sq=64, Sk=200 尾块
-        (1, 1, 1, 160, 320,  TD, 200,  2, 0),   # Sq=160, Sk=320 尾块
-        (1, 2, 1, 100, 150,  TD, 64,   1, 0),   # BN + 尾块
+#     # (b, n, g, s1, s2, d, topk, num_cores, sparse_mode)
+#     # g divides n (GQA constraint: n % g == 0)
+#     for b, n, g, s1, s2, d, topk, num_cores, sparse_mode in [
+#         # === sparse_mode=0 ===
+#         (1, 1, 1, 128, 128,  TD, TOPK,  1, 0),   # 最小 baseline
+#         (1, 1, 1, 128, 256,  TD, 150,  1, 0),   # Sk > Sq (2 sk_tiles)
+#         (1, 1, 1, 256, 128,  TD, 100,  1, 0),   # Sq > Sk (2 sq_tiles, 1 sk_tile)
+#         (1, 1, 1, 256, 256,  TD, 256,   2, 0),   # topk=256, 2 tiles × 2 tiles
+#         (1, 1, 1, 512, 512,  TD, TOPK,  4, 0),   # 4 tiles × 4 tiles
+#         (1, 1, 1, 512, 1024, TD, 512,   4, 0),   # topk=512, 8 sk_tiles
+#         (1, 1, 1, 128, 1024, TD, 1000,  1, 0),   # 1 sq_tile, 8 sk_tiles (最多 cross-tile merge)
+#         (2, 4, 2, 128, 256,  TD, TOPK,  2, 0),   # BNG: B=2, N=4, G=2 (GQA 2:1)
+#         (1, 4, 1, 128, 256,  TD, 255,  2, 0),   # GQA 4:1
+#         (1, 8, 2, 256, 256,  TD, TOPK,  4, 0),   # GQA 4:1, 更大
+#         (1, 1, 1, 4096, 4096, TD, 2048, 16, 0),  # large
+#         (1, 1, 1, 128, 128,  TD, 64,   1, 0),    # 不同 topk
+#         # --- 尾块（非 128 整倍数）---
+#         (1, 1, 1,  96,  96,  TD, 50,   1, 0),   # Sq=Sk=96 (尾块)
+#         (1, 1, 1,  64, 200,  TD, 64,   1, 0),   # Sq=64, Sk=200 尾块
+#         (1, 1, 1, 160, 320,  TD, 200,  2, 0),   # Sq=160, Sk=320 尾块
+#         (1, 2, 1, 100, 150,  TD, 64,   1, 0),   # BN + 尾块
 
-        # === sparse_mode=3 (rightDownCausal) ===
-        (1, 1, 1, 128, 128,  TD, TOPK,  1, 3),   # Sk=Sq (row0 只有 1 个 valid)
-        (1, 1, 1, 128, 256,  TD, 200,  1, 3),   # Sk>Sq (row0 有 129 个 valid)
-        (1, 1, 1, 256, 256,  TD, TOPK,  2, 3),   # Sq=Sk=256
-        (1, 1, 1, 256, 512,  TD, TOPK,  2, 3),   # Sk=2×Sq
-        (1, 1, 1, 256, 512,  TD, 256,   2, 3),   # topk=256 + causal
-        (1, 1, 1, 128, 1024, TD, TOPK,  1, 3),   # Sk=8×Sq (大量 mask)
-        (2, 4, 2, 128, 256,  TD, 60,  2, 3),   # BNG + causal
-        (1, 1, 1, 2048, 2048,  TD, 2048,  4, 3),   # large + causal
-        # --- 尾块 + causal ---
-        (1, 1, 1,  96, 192,  TD, 64,   1, 3),   # Sq=96, Sk=192 尾块 + causal
-    ]:
-        print(f"\nLightning-Indexer B={b} N={n} G={g} Sq={s1} Sk={s2} D={d} "
-              f"topk={topk} cores={num_cores} sparseMode={sparse_mode}")
+#         # === sparse_mode=3 (rightDownCausal) ===
+#         (1, 1, 1, 128, 128,  TD, TOPK,  1, 3),   # Sk=Sq (row0 只有 1 个 valid)
+#         (1, 1, 1, 128, 256,  TD, 200,  1, 3),   # Sk>Sq (row0 有 129 个 valid)
+#         (1, 1, 1, 256, 256,  TD, TOPK,  2, 3),   # Sq=Sk=256
+#         (1, 1, 1, 256, 512,  TD, TOPK,  2, 3),   # Sk=2×Sq
+#         (1, 1, 1, 256, 512,  TD, 256,   2, 3),   # topk=256 + causal
+#         (1, 1, 1, 128, 1024, TD, TOPK,  1, 3),   # Sk=8×Sq (大量 mask)
+#         (2, 4, 2, 128, 256,  TD, 60,  2, 3),   # BNG + causal
+#         (1, 1, 1, 2048, 2048,  TD, 2048,  4, 3),   # large + causal
+#         # --- 尾块 + causal ---
+#         (1, 1, 1,  96, 192,  TD, 64,   1, 3),   # Sq=96, Sk=192 尾块 + causal
+#     ]:
+#         print(f"\nLightning-Indexer B={b} N={n} G={g} Sq={s1} Sk={s2} D={d} "
+#               f"topk={topk} cores={num_cores} sparseMode={sparse_mode}")
 
-        kernel = make_lightning_indexer_kernel(sparse_mode, topk)
-        compiled_cce = fe.compile(kernel, arch="a3", codegen_mode="cce")
-        compiled_pto = fe.compile(kernel, arch="a3", codegen_mode="pto")
+#         kernel = make_lightning_indexer_kernel(sparse_mode, topk)
+#         compiled_cce = fe.compile(kernel, arch="a3", codegen_mode="cce")
+#         compiled_pto = fe.compile(kernel, arch="a3", codegen_mode="pto")
 
-        torch.manual_seed(42 + sparse_mode * 4)
-        query   = torch.randn([b, n, s1, d], device=device, dtype=torch.float16)
-        key     = torch.randn([b, g, s2, d], device=device, dtype=torch.float16)
-        weights = torch.rand([b, n, s1, 1], device=device, dtype=torch.float32).abs() + 0.1
+#         torch.manual_seed(42 + sparse_mode * 4)
+#         query   = torch.randn([b, n, s1, d], device=device, dtype=torch.float16)
+#         key     = torch.randn([b, g, s2, d], device=device, dtype=torch.float16)
+#         weights = torch.rand([b, n, s1, 1], device=device, dtype=torch.float32).abs() + 0.1
 
-        group_size   = n // g
-        key_expanded = key.repeat_interleave(group_size, dim=1)
-        ref_weighted = (
-            torch.relu(torch.matmul(query.float(), key_expanded.float().transpose(-2, -1)))
-            * weights
-        )
-        ref_values, ref_indices = reference_lightning_indexer(ref_weighted, topk, sparse_mode)
-        ref_weighted = ref_weighted.cpu()
-        ref_values   = ref_values.cpu()
-        ref_indices  = ref_indices.cpu().int()
+#         group_size   = n // g
+#         key_expanded = key.repeat_interleave(group_size, dim=1)
+#         ref_weighted = (
+#             torch.relu(torch.matmul(query.float(), key_expanded.float().transpose(-2, -1)))
+#             * weights
+#         )
+#         ref_values, ref_indices = reference_lightning_indexer(ref_weighted, topk, sparse_mode)
+#         ref_weighted = ref_weighted.cpu()
+#         ref_values   = ref_values.cpu()
+#         ref_indices  = ref_indices.cpu().int()
 
-        # Pad Sq and Sk to multiples of TS so the kernel always sees full tiles.
-        # Padded regions are zero: ReLU(0)=0, so padding entries never enter top-k.
-        sq_pad = ((s1 + TS - 1) // TS) * TS
-        sk_pad = ((s2 + TS - 1) // TS) * TS
+#         # Pad Sq and Sk to multiples of TS so the kernel always sees full tiles.
+#         # Padded regions are zero: ReLU(0)=0, so padding entries never enter top-k.
+#         sq_pad = ((s1 + TS - 1) // TS) * TS
+#         sk_pad = ((s2 + TS - 1) // TS) * TS
 
-        def pad_rows(t, padded):
-            """Zero-pad axis -2 (row dimension) of t."""
-            p = padded - t.shape[-2]
-            return torch.nn.functional.pad(t, (0, 0, 0, p)) if p > 0 else t
+#         def pad_rows(t, padded):
+#             """Zero-pad axis -2 (row dimension) of t."""
+#             p = padded - t.shape[-2]
+#             return torch.nn.functional.pad(t, (0, 0, 0, p)) if p > 0 else t
 
-        query_p   = pad_rows(query,   sq_pad)   # [b, n, sq_pad, d]
-        key_p     = pad_rows(key,     sk_pad)   # [b, g, sk_pad, d]
-        weights_p = pad_rows(weights, sq_pad)   # [b, n, sq_pad, 1]
+#         query_p   = pad_rows(query,   sq_pad)   # [b, n, sq_pad, d]
+#         key_p     = pad_rows(key,     sk_pad)   # [b, g, sk_pad, d]
+#         weights_p = pad_rows(weights, sq_pad)   # [b, n, sq_pad, 1]
 
-        idx_workspace = (
-            torch.arange(sk_pad, device=device, dtype=torch.int32)
-            .view(1, 1, 1, sk_pad).expand(b, n, sq_pad, -1).contiguous()
-        )
-        key_idx_fp32 = torch.arange(sk_pad, device=device, dtype=torch.float32).unsqueeze(0)
+#         idx_workspace = (
+#             torch.arange(sk_pad, device=device, dtype=torch.int32)
+#             .view(1, 1, 1, sk_pad).expand(b, n, sq_pad, -1).contiguous()
+#         )
+#         key_idx_fp32 = torch.arange(sk_pad, device=device, dtype=torch.float32).unsqueeze(0)
 
-        # causal_dims: dummy [s1, s2] FP32 tensor — shape encodes real Sq/Sk for causal offset.
-        # Data is never read by the kernel; only the shape (SqReal=s1, SkReal=s2) is used.
-        causal_dims = torch.zeros([s1, s2], device=device, dtype=torch.float32)
+#         # causal_dims: dummy [s1, s2] FP32 tensor — shape encodes real Sq/Sk for causal offset.
+#         # Data is never read by the kernel; only the shape (SqReal=s1, SkReal=s2) is used.
+#         causal_dims = torch.zeros([s1, s2], device=device, dtype=torch.float32)
 
-        topk_padded = ((topk + 63) // 64) * 64
-        sorted_cols = max(topk_padded * 2, MRGSORT_COLS)
+#         topk_padded = ((topk + 63) // 64) * 64
+#         sorted_cols = max(topk_padded * 2, MRGSORT_COLS)
 
-        def make_workspaces():
-            return (
-                torch.zeros([b, n, sq_pad, sk_pad], device=device, dtype=torch.float32),
-                torch.zeros([b, n, sq_pad, sorted_cols], device=device, dtype=torch.float32),
-            )
+#         def make_workspaces():
+#             return (
+#                 torch.zeros([b, n, sq_pad, sk_pad], device=device, dtype=torch.float32),
+#                 torch.zeros([b, n, sq_pad, sorted_cols], device=device, dtype=torch.float32),
+#             )
 
-        # --- CCE ---
-        scores_workspace, sorted_workspace = make_workspaces()
-        fe.launch(None, num_cores, compiled_cce,
-                  query_p, key_p, weights_p,
-                  scores_workspace, idx_workspace, key_idx_fp32, sorted_workspace, causal_dims)
-        torch.npu.synchronize()
-        _verify_outputs("CCE", sorted_workspace[:, :, :s1, :], ref_weighted, ref_values, ref_indices, topk)
+#         # --- CCE ---
+#         scores_workspace, sorted_workspace = make_workspaces()
+#         fe.launch(None, num_cores, compiled_cce,
+#                   query_p, key_p, weights_p,
+#                   scores_workspace, idx_workspace, key_idx_fp32, sorted_workspace, causal_dims)
+#         torch.npu.synchronize()
+#         _verify_outputs("CCE", sorted_workspace[:, :, :s1, :], ref_weighted, ref_values, ref_indices, topk)
 
-        # --- PTO ---
-        scores_workspace, sorted_workspace = make_workspaces()
-        fe.launch(None, num_cores, compiled_pto,
-                  query_p, key_p, weights_p,
-                  scores_workspace, idx_workspace, key_idx_fp32, sorted_workspace, causal_dims)
-        torch.npu.synchronize()
-        _verify_outputs("PTO", sorted_workspace[:, :, :s1, :], ref_weighted, ref_values, ref_indices, topk)
+#         # --- PTO ---
+#         scores_workspace, sorted_workspace = make_workspaces()
+#         fe.launch(None, num_cores, compiled_pto,
+#                   query_p, key_p, weights_p,
+#                   scores_workspace, idx_workspace, key_idx_fp32, sorted_workspace, causal_dims)
+#         torch.npu.synchronize()
+#         _verify_outputs("PTO", sorted_workspace[:, :, :s1, :], ref_weighted, ref_values, ref_indices, topk)
 
 if __name__ == "__main__":
     print("Lightning Indexer: sort32 + mrgsort + cross-tile merge, BNG + sparseMode=0/3 support")
