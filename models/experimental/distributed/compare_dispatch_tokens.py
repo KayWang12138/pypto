@@ -35,6 +35,10 @@ def generate_inputs(moe_case, torch_data_type):
     ]
     moe_expert_ids_list = []
     topk_expert_scales_list = []
+    x_active_mask_list = [
+        torch.randint(0, 2, [moe_case.batch_size], dtype=torch.int32)
+        for _ in range(moe_case.ep_world_size)
+    ]
     
     for _ in range(moe_case.ep_world_size):
         expert_scores = generate_random_tensor((moe_case.batch_size, moe_case.moe_expert_num), torch.float32)
@@ -44,12 +48,20 @@ def generate_inputs(moe_case, torch_data_type):
         moe_expert_ids = moe_expert_ids.to(dtype=torch.int32)
         moe_expert_ids_list.append(moe_expert_ids)
     
-    return x_list, moe_expert_ids_list, topk_expert_scales_list
+    return x_list, moe_expert_ids_list, topk_expert_scales_list, x_active_mask_list
 
 def get_moe_expert_num_per_rank(moe_case):
     return (moe_case.moe_expert_num + moe_case.ep_world_size - 1) // moe_case.ep_world_size
 
-def dispatch_tokens(moe_case, torch_data_type, x_list, moe_expert_ids_list):
+def get_moe_expert_rank_id_and_expert_offset(expert_id, moe_expert_num_per_rank):
+    return divmod(expert_id, moe_expert_num_per_rank)
+
+def get_dispatch_output_row(moe_case):
+    max_send_token_num = moe_case.topk * moe_case.batch_size * moe_case.ep_world_size
+    max_receive_token_num = moe_case.batch_size * moe_case.moe_expert_num
+    return min(max_send_token_num, max_receive_token_num)
+
+def dispatch_tokens(moe_case, torch_data_type, x_list, moe_expert_ids_list, x_active_mask_list, enable_mask=True):
     moe_expert_num_per_rank = get_moe_expert_num_per_rank(moe_case)
     expand_x_per_expert = [[[] for _ in range(moe_expert_num_per_rank)] for _ in range(moe_case.ep_world_size)]
     assist_info_for_combine_per_expert = [
@@ -57,15 +69,18 @@ def dispatch_tokens(moe_case, torch_data_type, x_list, moe_expert_ids_list):
         for _ in range(moe_case.ep_world_size)
     ]
     
-    for sending_rank_id, (x, moe_expert_ids) in enumerate(zip(x_list, moe_expert_ids_list)):
-        for token_id, (token, topk_moe_expert_ids) in enumerate(zip(x, moe_expert_ids)):
-            for k_offset, moe_expert_id in enumerate(topk_moe_expert_ids):
-                receiving_expert_id = moe_expert_id.item()
-                receiving_rank_id, expert_offset = divmod(receiving_expert_id, moe_expert_num_per_rank)
-                expand_x_per_expert[receiving_rank_id][expert_offset].append(token)
-                assist_info_for_combine_per_expert[receiving_rank_id][expert_offset].append((sending_rank_id, token_id, k_offset))
+    for sending_rank_id, (x, moe_expert_ids, x_active_mask) in enumerate(zip(x_list, moe_expert_ids_list, x_active_mask_list)):
+        for token_id, (token, topk_moe_expert_ids, x_active) in enumerate(zip(x, moe_expert_ids, x_active_mask)):
+            if not enable_mask or x_active.item():
+                for k_offset, moe_expert_id in enumerate(topk_moe_expert_ids):
+                    receiving_expert_id = moe_expert_id.item()
+                    receiving_rank_id, expert_offset = get_moe_expert_rank_id_and_expert_offset(
+                        receiving_expert_id, moe_expert_num_per_rank)
+                    expand_x_per_expert[receiving_rank_id][expert_offset].append(token)
+                    assist_info_for_combine_per_expert[receiving_rank_id][expert_offset].append(
+                        (sending_rank_id, token_id, k_offset))
     
-    row = min(moe_case.topk * moe_case.batch_size * moe_case.ep_world_size, moe_case.batch_size * moe_case.moe_expert_num)
+    row = get_dispatch_output_row(moe_case)
     combine_info_col = 3
     expand_x_per_rank = []
     assist_info_for_combine_per_rank = []
@@ -104,18 +119,31 @@ def dispatch_tokens_v2(
     torch_data_type: torch.dtype,
     x_list: TensorList,
     expert_ids_list: TensorList,
+    x_active_mask_list: TensorList,
+    enable_mask: bool = True,
 ) -> tuple[TensorList, TensorList, TensorList, TensorList]:
     expert_num_per_rank = get_moe_expert_num_per_rank(moe_case)
     total_send_tasks = moe_case.batch_size * moe_case.topk
     
     sending_rank_cumsum_tables_list = []
     sending_rank_token_counts_list = []
-    for expert_ids in expert_ids_list:
+    for expert_ids, x_active_mask in zip(expert_ids_list, x_active_mask_list):
         expert_ids_flat = expert_ids.flatten().to(torch.long)
-        one_hot_table = F.one_hot(expert_ids_flat, num_classes=moe_case.moe_expert_num)
+        
+        if enable_mask:
+            x_active_mask_flat = x_active_mask.unsqueeze(1).expand(-1, moe_case.topk).flatten()
+            active_indices = x_active_mask_flat.nonzero().squeeze(-1)
+            active_expert_ids = expert_ids_flat[active_indices]
+        else:
+            active_expert_ids = expert_ids_flat
+            active_indices = torch.arange(len(expert_ids_flat))
+        
+        one_hot_table = F.one_hot(active_expert_ids, num_classes=moe_case.moe_expert_num)
         cumsum_table = torch.cumsum(one_hot_table, dim=0)
-        sending_rank_cumsum_tables_list.append(cumsum_table)
-        sending_rank_token_counts_list.append(cumsum_table[-1, :])
+        sending_rank_cumsum_tables_list.append((cumsum_table, active_indices))
+        sending_rank_token_counts_list.append(
+            cumsum_table[-1, :] if cumsum_table.size(0) > 0 else torch.zeros(moe_case.moe_expert_num, dtype=torch.int64)
+        )
     
     receive_rank_token_counts_list = [torch.zeros(moe_case.moe_expert_num + 1, dtype=torch.int32) for _ in range(moe_case.ep_world_size)]
     
@@ -135,16 +163,18 @@ def dispatch_tokens_v2(
     expert_token_nums_tensor = cumsum_result[:, end_indices] - cumsum_result[:, start_indices]
     expert_token_nums_list = [expert_token_nums_tensor[i] for i in range(moe_case.ep_world_size)]
     
-    row = min(moe_case.topk * moe_case.batch_size * moe_case.ep_world_size, moe_case.batch_size * moe_case.moe_expert_num)
+    row = get_dispatch_output_row(moe_case)
     expand_x_list = [torch.zeros((row, moe_case.hidden_size), dtype=torch_data_type) for _ in range(moe_case.ep_world_size)]
     assist_info_for_combine_list = [torch.zeros((row, 3), dtype=torch.int32) for _ in range(moe_case.ep_world_size)]
     
-    for sending_rank_id, (x, cumsum_table) in enumerate(zip(x_list, sending_rank_cumsum_tables_list)):
-        for index in range(moe_case.batch_size * moe_case.topk):
-            token_id, k_offset = divmod(index, moe_case.topk)
+    for sending_rank_id, (x, cumsum_table_data) in enumerate(zip(x_list, sending_rank_cumsum_tables_list)):
+        cumsum_table, active_indices = cumsum_table_data
+        for local_idx in range(len(active_indices)):
+            index = active_indices[local_idx]
+            token_id, k_offset = divmod(index.item(), moe_case.topk)
             expert_id = expert_ids_list[sending_rank_id][token_id, k_offset].item()
             receiving_rank_id, expert_offset = divmod(expert_id, expert_num_per_rank)
-            cumsum_offset = 0 if index == 0 else cumsum_table[index - 1, expert_id]
+            cumsum_offset = cumsum_table[local_idx, expert_id] - 1
             token_offset = cumsum_result[receiving_rank_id, expert_offset * moe_case.ep_world_size + sending_rank_id] + cumsum_offset
             expand_x_list[receiving_rank_id][token_offset] = x[token_id]
             assist_info_for_combine_list[receiving_rank_id][token_offset] = torch.tensor([sending_rank_id, token_id, k_offset], dtype=torch.int32)
@@ -154,10 +184,10 @@ def dispatch_tokens_v2(
 moe_case = MoeCase(8, 5120, 160, 8, 'BF16', 4)
 torch_data_type = torch.bfloat16
 
-x_list, moe_expert_ids_list, _ = generate_inputs(moe_case, torch_data_type)
+x_list, moe_expert_ids_list, _, x_active_mask_list = generate_inputs(moe_case, torch_data_type)
 
-expand_x_list_1, assist_info_list_1, expert_token_nums_list_1, recv_counts_list_1 = dispatch_tokens(moe_case, torch_data_type, x_list, moe_expert_ids_list)
-expand_x_list_2, assist_info_list_2, expert_token_nums_list_2, recv_counts_list_2 = dispatch_tokens_v2(moe_case, torch_data_type, x_list, moe_expert_ids_list)
+expand_x_list_1, assist_info_list_1, expert_token_nums_list_1, recv_counts_list_1 = dispatch_tokens(moe_case, torch_data_type, x_list, moe_expert_ids_list, x_active_mask_list, True)
+expand_x_list_2, assist_info_list_2, expert_token_nums_list_2, recv_counts_list_2 = dispatch_tokens_v2(moe_case, torch_data_type, x_list, moe_expert_ids_list, x_active_mask_list, True)
 
 for rank_id, (assist_1, assist_2) in enumerate(zip(assist_info_list_1, assist_info_list_2)):
     recv_count = recv_counts_list_1[rank_id].item()
