@@ -96,16 +96,17 @@ void TiledTrig(
         std::vector<int64_t> tmpShape;
         std::vector<int64_t> tmpShape2;
 
-        tmpShape.assign(srcTileShape.end() - SHAPE_DIM2, srcTileShape.end());
-        tmpShape2.assign(srcTileShape.end() - SHAPE_DIM2, srcTileShape.end());
-        auto alignSize = BLOCK_SIZE / BytesOf(DT_FP32);
-        tmpShape2[tmpShape2.size() - 1] = (tmpShape2[tmpShape2.size() - 1] + alignSize - 1) / alignSize * alignSize;
-        tmpShape[tmpShape.size() - 1] = (tmpShape[tmpShape.size() - 1] + alignSize - 1) / alignSize * alignSize;
-
         if (input.tensor.GetShape().size() == 1) {
-            tmpShape = {tmpShape[1]};
-            tmpShape2 = {tmpShape2[1]};
+            tmpShape.assign(srcTileShape.end() - SHAPE_DIM1, srcTileShape.end());
+            tmpShape2.assign(srcTileShape.end() - SHAPE_DIM1, srcTileShape.end());
+        } else {
+            tmpShape.assign(srcTileShape.end() - SHAPE_DIM2, srcTileShape.end());
+            tmpShape2.assign(srcTileShape.end() - SHAPE_DIM2, srcTileShape.end());
         }
+        auto alignSize0 = BLOCK_SIZE / BytesOf(DT_FP32);
+        auto alignSize1 = BLOCK_SIZE / BytesOf(DT_INT32);
+        tmpShape[tmpShape.size() - 1] = (tmpShape[tmpShape.size() - 1] + alignSize0 - 1) / alignSize0 * alignSize0;
+        tmpShape2[tmpShape2.size() - 1] = (tmpShape2[tmpShape2.size() - 1] + alignSize1 - 1) / alignSize1 * alignSize1;
 
         auto tmpTensor = std::make_shared<LogicalTensor>(function, DT_FP32, tmpShape);
         auto tmpTensorNext = std::make_shared<LogicalTensor>(function, DT_INT32, tmpShape2);
