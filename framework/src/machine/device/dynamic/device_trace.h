@@ -35,7 +35,8 @@
 #include <atomic>
 #define MAX_MSG_LEN 112
 
-inline std::string TraceInfo([[maybe_unused]]const char* fmt, ...) {
+inline std::string TraceInfo([[maybe_unused]] const char* fmt, ...)
+{
     char tempBuf[MAX_MSG_LEN] = {0};
 #ifdef __DEVICE__
     va_list args;
