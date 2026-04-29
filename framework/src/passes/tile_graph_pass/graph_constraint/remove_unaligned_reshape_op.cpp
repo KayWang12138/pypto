@@ -362,10 +362,37 @@ void RemoveUnalignedReshape::InsertReshapeCopy(Function& function, Operation& op
     bool checkOverUbSize = false;
     //index表示copyout到reshape之间，有多个消费者的Tensor的第几个消费者是包含需要处理的reshape的
     FindAllProducerCopyOuts(input, copyOutOps);
-    if (copyOutOps.empty() || copyOutOps.size() > 1) {
+    if (copyOutOps.empty()) {
         auto newReshapeIo = HandleNoOrMultiCopyOutInProducer(function, op, checkOverUbSize);
         if (!checkOverUbSize && newReshapeIo != nullptr) {
             copyOutOp = *(newReshapeIo->GetProducers().begin());
+        }
+    } else if (copyOutOps.size() > 1) {
+        for (auto* cOp : copyOutOps) {
+            if (!ProcessCopyOutOfDDRReshape(function, op, cOp, true)) {
+                checkOverUbSize = true;
+                break;
+            }
+        }
+        if (!checkOverUbSize) {
+            auto consumers = output->GetConsumers();
+            bool allCopyIn = !consumers.empty();
+            for (auto* consumerOp : consumers) {
+                if (consumerOp->GetOpcode() != Opcode::OP_COPY_IN) {
+                    allCopyIn = false;
+                    break;
+                }
+            }
+            if (allCopyIn) {
+                for (auto* consumerOp : consumers) {
+                    consumerOp->SetOpCode(Opcode::OP_RESHAPE_COPY_IN);
+                }
+                APASS_LOG_DEBUG_F(Elements::Operation,
+                    "Reshape[%d] on GM: all consumers are copy_in, converted to reshape_copy_in.",
+                    op.GetOpMagic());
+                processedReshapeOps.insert(op.GetOpMagic());
+                return;
+            }
         }
     } else {
         copyOutOp = copyOutOps.front();
@@ -381,7 +408,9 @@ void RemoveUnalignedReshape::InsertReshapeCopy(Function& function, Operation& op
         if (needToCopy) {
             copyOutOp = CopyBranchBetweenCopyOut2Reshape(function, toCopyProducerTensor, index);
         }
-        ProcessCopyOutOfDDRReshape(function, op, copyOutOp);
+        if (copyOutOp != nullptr) {
+            ProcessCopyOutOfDDRReshape(function, op, copyOutOp);
+        }
         ProcessCopyInOfDDRReshape(function, op, copyInOps);
     } else {
         APASS_LOG_WARN_F(Elements::Tensor, "Reshape[%d] on GM had processed failed, "
@@ -469,7 +498,7 @@ void RemoveUnalignedReshape::HandleNoCopyInConsumer(
     copyInOps.push_back(&newCopyInOp);
 }
 
-void RemoveUnalignedReshape::ProcessCopyOutOfDDRReshape(Function& function, Operation& op, Operation* copyOutOp)
+bool RemoveUnalignedReshape::ProcessCopyOutOfDDRReshape(Function& function, Operation& op, Operation* copyOutOp, bool multiCopyOut)
 {
     // 当copyout的输入是ub输出为ddr可以直接转化为reshapecopyop
     // 否则需要插copy
@@ -494,7 +523,7 @@ void RemoveUnalignedReshape::ProcessCopyOutOfDDRReshape(Function& function, Oper
                 "The size[%ld] of copyTensor[%d] from output of copyout op[%d] should not exceed %zu after padding. "
                 "Consider reducing its size.",
                 newTensorPtr->GetDataSize(), newTensorPtr->GetMagic(), copyOutOp->GetOpMagic(), UB_SIZE_THRESHOLD);
-            return;
+            return false;
         }
 
         auto& reshapeCopyInOp = function.AddOperation(Opcode::OP_COPY_IN, {copyOutOutput}, {newTensorPtr});
@@ -519,9 +548,20 @@ void RemoveUnalignedReshape::ProcessCopyOutOfDDRReshape(Function& function, Oper
                 OpImmediate::Specified(copyOutOutput->tensor->GetDynRawShape()),
                 OpImmediate::Specified(copyOutOutput->GetDynValidShape())));
 
-        copyOutOutput->RemoveConsumer(&op);
-        op.ReplaceInput(newTensor2Ptr, copyOutOutput);
+        if (multiCopyOut) {
+            auto consumers = copyOutOutput->GetConsumers();
+            std::vector<Operation*> consumersVec(consumers.begin(), consumers.end());
+            for (auto* consumer : consumersVec) {
+                if (consumer != &reshapeCopyInOp) {
+                    consumer->ReplaceInput(newTensor2Ptr, copyOutOutput);
+                }
+            }
+        } else {
+            copyOutOutput->RemoveConsumer(&op);
+            op.ReplaceInput(newTensor2Ptr, copyOutOutput);
+        }
     }
+    return true;
 }
 
 void RemoveUnalignedReshape::ProcessCopyInOfDDRReshape(
