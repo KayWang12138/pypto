@@ -144,8 +144,7 @@ Json CostModelAgent::ParseDynTopo(std::string& path)
             } catch (const std::invalid_argument& e) {
                 // ignore
             } catch (const std::out_of_range& e) {
-                SIMULATION_LOGE(CostModel::ExternalErrorScene::FILE_CONTENT_ERROR,
-                    "Out of range: %s", e.what());
+                SIMULATION_LOGE(CostModel::ExternalErrorScene::FILE_CONTENT_ERROR, "Out of range: %s", e.what());
             }
         }
         uint64_t seqNo = fields[seqPos];

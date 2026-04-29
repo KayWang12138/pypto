@@ -451,18 +451,22 @@ std::vector<int32_t> IsoPartitioner::GetCandidateMergeColors(
 
 bool IsoPartitioner::CanMergeScopes(int32_t currColor, int32_t mergeColor) const
 {
-    auto canMergeFrom = [this](const std::shared_ptr<IsomorphismGraphGroup>& fromGroup,
-                               const std::shared_ptr<IsomorphismGraphGroup>& toGroup) -> bool {
+    auto canMergeFrom = [this](
+                            const std::shared_ptr<IsomorphismGraphGroup>& fromGroup,
+                            const std::shared_ptr<IsomorphismGraphGroup>& toGroup) -> bool {
         for (auto& g : fromGroup->isoGraphs_) {
-            if (g->scopeId_ == -1) continue;
+            if (g->scopeId_ == -1)
+                continue;
             if (!g->GetAllowCrossScopeMerge()) {
-                APASS_LOG_INFO_F(Elements::Operation,
-                    "Cannot merge: subgraph scopeId=%d with allowCrossScopeMerge=false.", g->scopeId_);
+                APASS_LOG_INFO_F(
+                    Elements::Operation, "Cannot merge: subgraph scopeId=%d with allowCrossScopeMerge=false.",
+                    g->scopeId_);
                 return false;
             }
             for (auto& tg : toGroup->isoGraphs_) {
                 if (tg->scopeId_ != -1) {
-                    APASS_LOG_INFO_F(Elements::Operation,
+                    APASS_LOG_INFO_F(
+                        Elements::Operation,
                         "Cannot merge: allowCrossScopeMerge=true requires target scope=-1, got %d.", tg->scopeId_);
                     return false;
                 }
@@ -518,7 +522,8 @@ bool IsoPartitioner::SuitableForMergeCheck(int32_t currColor, int32_t mergeColor
         return shouldMerge;
     }
     bool isSuitableForMerge = CheckIsoMergeConditions(currColorSize, mergeColorSize);
-    isSuitableForMerge = isSuitableForMerge ||
+    isSuitableForMerge =
+        isSuitableForMerge ||
         (std::min(isoSubGroups_[currColor]->GetLatency(), isoSubGroups_[mergeColor]->GetLatency()) <= cycleLB_);
     isSuitableForMerge = coreTypeMergable && isSuitableForMerge && cycleMergable;
     APASS_LOG_DEBUG_F(
@@ -718,7 +723,11 @@ Status IsoPartitioner::SetParameter(
     int32_t parallelNum, int32_t pgLowerBound, bool useReduceBalanceHash, bool skipPartition)
 {
     skipPartition_ = skipPartition;
-    if (skipPartition) {
+    auto platform = Platform::Instance().GetSoc().GetNPUArch();
+    if (platform == NPUArch::DAV_3113) {
+        skipPartition_ = true;
+    }
+    if (skipPartition_) {
         return SUCCESS;
     }
     if (parallelNum < 0) {

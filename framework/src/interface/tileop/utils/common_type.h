@@ -40,9 +40,7 @@ enum class UnaryOp : uint8_t {
     FILLPAD,
     SIGN,
     ISFINITE,
-    SIGNBIT,
-    SINH,
-    COSH
+    SIGNBIT
 };
 
 enum class BinaryOp : uint8_t {

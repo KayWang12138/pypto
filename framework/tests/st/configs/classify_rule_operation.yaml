@@ -219,7 +219,7 @@ stest:
       - TestPermute/PermuteOperationTest.TestPermute/7
       - TestPermute/PermuteOperationTest.TestPermute/8
       - TestPermute/PermuteOperationTest.TestPermute/9
-      - TestPermute/PermuteOperationTest.TestPermute/10  
+      - TestPermute/PermuteOperationTest.TestPermute/10
       - TestWhere/WhereOperationTest.TestWhere/0
       - TestWhere/WhereOperationTest.TestWhere/8
       - TestWhere/WhereOperationTest.TestWhere/15
@@ -287,8 +287,6 @@ stest:
       - TestQuantize/QuantizeOperationTest.TestQuantize/4
       - TestDequantize/DequantizeOperationTest.TestDequantize/0
       - TestDequantize/DequantizeOperationTest.TestDequantize/4
-      - TestSinh/SinhOperationTest.TestSinh/2
-      - TestCosh/CoshOperationTest.TestCosh/2
       # - GatherInL1Test.gather_in_a_unalign
       # - GatherInL1Test.gather_in_bt_with_valid_shape
       - GatherInUBTest.gather_in_a_

@@ -38,6 +38,9 @@ struct CodegenTestConfig {
     bool tileTensorValue = false;
     bool setIdGen = false;
     bool resetTileTensorOnTearDown = false;
+    bool setSocVersion = false;
+    std::string socVersionValue = "";
+    bool resetSocVersionOnTearDown = false;
 };
 
 class CodegenTestBase : public ::testing::Test {
@@ -65,12 +68,18 @@ public:
         if (config_.setIdGen) {
             IdGen<IdType::FUNCTION>::Inst().SetId(DummyFuncMagic);
         }
+        if (config_.setSocVersion) {
+            config::SetCodeGenOption<std::string>(PLATFORM_SOC_VERSION, config_.socVersionValue);
+        }
     }
 
     void TearDown() override
     {
         if (config_.resetTileTensorOnTearDown) {
             config::SetCodeGenConfig(KEY_CODEGEN_SUPPORT_TILE_TENSOR, true);
+        }
+        if (config_.resetSocVersionOnTearDown) {
+            config::SetCodeGenOption<std::string>(PLATFORM_SOC_VERSION, "");
         }
     }
 

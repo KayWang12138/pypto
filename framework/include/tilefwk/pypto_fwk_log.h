@@ -21,14 +21,16 @@
 
 #ifndef __DEVICE__
 
-#define PYPTO_HOST_LOGE_WITH_ERRCODE(module, errCode, fmt, ...)                                                    \
-    PYPTO_HOST_LOG(DLOG_ERROR, module, "ErrCode: F%05X! Enum: %s " fmt, static_cast<uint32_t>(errCode) & 0xFFFFF,  \
-                   #errCode, ##__VA_ARGS__);                                                                       \
+#define PYPTO_HOST_LOGE_WITH_ERRCODE(module, errCode, fmt, ...)                                                  \
+    PYPTO_HOST_LOG(                                                                                              \
+        DLOG_ERROR, module, "ErrCode: F%05X! Enum: %s " fmt, static_cast<uint32_t>(errCode) & 0xFFFFF, #errCode, \
+        ##__VA_ARGS__);                                                                                          \
     REPORT_ERROR_MSG(errCode, fmt, ##__VA_ARGS__)
 
-#define PYPTO_SIM_LOGE_WITH_ERRCODE(module, errCode, fmt, ...)                                                    \
-    PYPTO_SIM_LOG(DLOG_ERROR, module, "ErrCode: F%05X! Enum: %s " fmt, static_cast<uint32_t>(errCode) & 0xFFFFF,  \
-                  #errCode, ##__VA_ARGS__);                                                                       \
+#define PYPTO_SIM_LOGE_WITH_ERRCODE(module, errCode, fmt, ...)                                                   \
+    PYPTO_SIM_LOG(                                                                                               \
+        DLOG_ERROR, module, "ErrCode: F%05X! Enum: %s " fmt, static_cast<uint32_t>(errCode) & 0xFFFFF, #errCode, \
+        ##__VA_ARGS__);                                                                                          \
     REPORT_ERROR_MSG(errCode, fmt, ##__VA_ARGS__)
 
 #define FE_LOGD(...) PYPTO_HOST_LOG(DLOG_DEBUG, FUNCTION, __VA_ARGS__)
@@ -77,8 +79,8 @@
 #define VERIFY_LOGW(...) PYPTO_HOST_LOG(DLOG_WARN, VERIFY, __VA_ARGS__)
 #define VERIFY_LOGE(errCode, fmt, ...) PYPTO_HOST_LOGE_WITH_ERRCODE(VERIFY, errCode, fmt, ##__VA_ARGS__)
 #define VERIFY_EVENT(...) PYPTO_HOST_LOG_WITHOUT_LEVEL_CHECK(DLOG_INFO, VERIFY, __VA_ARGS__)
-#define VERIFY_LOGE_FULL(errCode, fmt, ...) \
-    PYPTO_HOST_SPLIT_LOG(                   \
+#define VERIFY_LOGE_FULL(errCode, fmt, ...)                                                                      \
+    PYPTO_HOST_SPLIT_LOG(                                                                                        \
         DLOG_ERROR, VERIFY, "ErrCode: F%05X! Enum: %s " fmt, static_cast<uint32_t>(errCode) & 0xFFFFF, #errCode, \
         ##__VA_ARGS__)
 
@@ -114,15 +116,15 @@
 #define VECTOR_LOGW(...) PYPTO_HOST_LOG(DLOG_WARN, VECTOR, __VA_ARGS__)
 #define VECTOR_LOGE(errCode, fmt, ...) PYPTO_HOST_LOGE_WITH_ERRCODE(VECTOR, errCode, fmt, ##__VA_ARGS__)
 
-#define PYPTO_LOG(level, fmt, ...)                                                                                    \
-    do {                                                                                                               \
-        if (npu::tile_fwk::LogFuncInfo::Instance().setAttr != nullptr) {                                              \
-            npu::tile_fwk::LogFuncInfo::Instance().setAttr(false);                                                    \
-        }                                                                                                              \
-        if (npu::tile_fwk::LogFuncInfo::Instance().record != nullptr) {                                               \
-            npu::tile_fwk::LogFuncInfo::Instance().record(                                                            \
-                PYPTO, level, "[%s:%d]:" fmt, __FILE_NAME__, __LINE__, ##__VA_ARGS__);                                \
-        }                                                                                                              \
+#define PYPTO_LOG(level, fmt, ...)                                                     \
+    do {                                                                               \
+        if (npu::tile_fwk::LogFuncInfo::Instance().setAttr != nullptr) {               \
+            npu::tile_fwk::LogFuncInfo::Instance().setAttr(false);                     \
+        }                                                                              \
+        if (npu::tile_fwk::LogFuncInfo::Instance().record != nullptr) {                \
+            npu::tile_fwk::LogFuncInfo::Instance().record(                             \
+                PYPTO, level, "[%s:%d]:" fmt, __FILE_NAME__, __LINE__, ##__VA_ARGS__); \
+        }                                                                              \
     } while (0)
 
 #define PYPTO_LOGD(...) PYPTO_LOG(DLOG_DEBUG, __VA_ARGS__)

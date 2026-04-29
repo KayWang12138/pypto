@@ -49,53 +49,21 @@ enum class SaturationMode : uint8_t {
     OFF = 1,
 };
 
-enum class DivAlgorithm : uint8_t
-{
-    DEFAULT,
-    HIGH_PRECISION
-};
+enum class DivAlgorithm : uint8_t { DEFAULT, HIGH_PRECISION };
 
-enum class PowAlgorithm : uint8_t
-{
-    DEFAULT,
-    HIGH_PRECISION
-};
+enum class PowAlgorithm : uint8_t { DEFAULT, HIGH_PRECISION };
 
-enum class SqrtAlgorithm : uint8_t
-{
-    DEFAULT,
-    HIGH_PRECISION
-};
+enum class SqrtAlgorithm : uint8_t { DEFAULT, HIGH_PRECISION };
 
-enum class RsqrtAlgorithm : uint8_t
-{
-    DEFAULT,
-    HIGH_PRECISION
-};
+enum class RsqrtAlgorithm : uint8_t { DEFAULT, HIGH_PRECISION };
 
-enum class ExpAlgorithm : uint8_t
-{
-    DEFAULT,
-    HIGH_PRECISION
-};
+enum class ExpAlgorithm : uint8_t { DEFAULT, HIGH_PRECISION };
 
-enum class LogAlgorithm : uint8_t
-{
-    DEFAULT,
-    HIGH_PRECISION
-};
+enum class LogAlgorithm : uint8_t { DEFAULT, HIGH_PRECISION };
 
-enum class RecipAlgorithm : uint8_t
-{
-    DEFAULT,
-    HIGH_PRECISION
-};
+enum class RecipAlgorithm : uint8_t { DEFAULT, HIGH_PRECISION };
 
-enum class FmodAlgorithm : uint8_t
-{
-    DEFAULT,
-    HIGH_PRECISION
-};
+enum class FmodAlgorithm : uint8_t { DEFAULT, HIGH_PRECISION };
 
 namespace experimental {
 struct PrintHelper {
@@ -194,7 +162,7 @@ Tensor Full(
 Tensor Transpose(const Tensor& self, std::vector<int> perm);
 Tensor Cast(
     const Tensor& self, DataType dstDataType, CastMode mode = CAST_NONE, SaturationMode satmode = SaturationMode::OFF);
-Tensor Permute(const Tensor &self, std::vector<int> perm);
+Tensor Permute(const Tensor& self, std::vector<int> perm);
 
 Tensor Exp(const Tensor& self, ExpAlgorithm precisionType = ExpAlgorithm::DEFAULT);
 Tensor Exp2(const Tensor& self);
@@ -222,8 +190,6 @@ Tensor Ln(const Tensor& operand, LogAlgorithm precisionType = LogAlgorithm::DEFA
 Tensor Hub(const Tensor& operand);
 Tensor Sign(const Tensor& operand);
 Tensor Signbit(const Tensor& operand);
-Tensor Sinh(const Tensor& self);
-Tensor Cosh(const Tensor& self);
 
 Tensor Duplicate(const Tensor& operand);
 Tensor Gather(const Tensor& params, const Tensor& indices, int axis);
@@ -339,8 +305,9 @@ Tensor LogicalAnd(const Tensor& self, const Tensor& other);
 Tensor IsFinite(const Tensor& self);
 Tensor Assign(const Tensor& operand);
 
-Tensor Uniform(const Element &key, const SymbolicScalar& counter0, const Element &counter1,
-               const std::vector<int64_t> &shape, const Element &rounds, DataType dtype = DT_FP32);
+Tensor Uniform(
+    const Element& key, const SymbolicScalar& counter0, const Element& counter1, const std::vector<int64_t>& shape,
+    const Element& rounds, DataType dtype = DT_FP32);
 
 // Implementation of `Tensor` type should be placed at first, so that it can be routed when only single input.
 Tensor Clip(const Tensor& self, const Tensor& min = {}, const Tensor& max = {});
@@ -352,9 +319,9 @@ Tensor Sort32(const Tensor& self, int idxStart = 0);
 Tensor MrgSort(const Tensor& self, int mergeSize);
 
 // support float32 -> int8/uint8
-Tensor Quantize(const Tensor &input, const Tensor &scale, DataType dtype, int axis, const Tensor &zeroPoints);
+Tensor Quantize(const Tensor& input, const Tensor& scale, DataType dtype, int axis, const Tensor& zeroPoints);
 // support int8/int16 -> float32
-Tensor Dequantize(const Tensor &input, const Tensor &scale, DataType otype, int axis, const Tensor &zeroPoints);
+Tensor Dequantize(const Tensor& input, const Tensor& scale, DataType otype, int axis, const Tensor& zeroPoints);
 
 /**
  * @brief Sort a tensor with shape (1, n) along the last dimension, n must be orders of 2.
@@ -428,7 +395,8 @@ enum class LogBaseType {
     LOG_2,
     LOG_10,
 };
-Tensor Log(const Tensor& self, LogBaseType base = LogBaseType::LOG_E, LogAlgorithm precisionType = LogAlgorithm::DEFAULT);
+Tensor Log(
+    const Tensor& self, LogBaseType base = LogBaseType::LOG_E, LogAlgorithm precisionType = LogAlgorithm::DEFAULT);
 Tensor Log1p(const Tensor& self);
 
 Tensor OneHot(const Tensor& self, int numClasses);
