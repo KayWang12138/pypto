@@ -452,6 +452,11 @@ struct DynMachineManager {
         auto beginTime = GetCycles();
         DevStartArgs* runtimeDataCurrent =
             reinterpret_cast<DevStartArgs*>(devProg->GetRuntimeDataList()->GetRuntimeDataCurrent());
+        if (kargs->parameter.ctrlBlockNum != 0 &&
+            static_cast<uint32_t>(kargs->parameter.ctrlBlockNum) < devProg->devArgs.nrValidAic) {
+            devProg->devArgs.nrValidAic = kargs->parameter.ctrlBlockNum;
+            DEV_INFO("control aicore before launch, nrValidAic changed to %ld", kargs->parameter.ctrlBlockNum);
+        }
         auto devArgs = devProg->devArgs;
         int threadIdx = -1;
         RunSchInit(&devArgs);
