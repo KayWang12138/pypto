@@ -375,6 +375,26 @@ void RemoveUnalignedReshape::InsertReshapeCopy(Function& function, Operation& op
                 break;
             }
         }
+        if (!checkOverUbSize) {
+            auto consumers = output->GetConsumers();
+            bool allCopyIn = !consumers.empty();
+            for (auto* consumerOp : consumers) {
+                if (consumerOp->GetOpcode() != Opcode::OP_COPY_IN) {
+                    allCopyIn = false;
+                    break;
+                }
+            }
+            if (allCopyIn) {
+                for (auto* consumerOp : consumers) {
+                    consumerOp->SetOpCode(Opcode::OP_RESHAPE_COPY_IN);
+                }
+                APASS_LOG_DEBUG_F(Elements::Operation,
+                    "Reshape[%d] on GM: all consumers are copy_in, converted to reshape_copy_in.",
+                    op.GetOpMagic());
+                processedReshapeOps.insert(op.GetOpMagic());
+                return;
+            }
+        }
     } else {
         copyOutOp = copyOutOps.front();
         GetPathBetweenSingleCopyOutAndReshape(&op, toCopyProducerTensor, findCopyOut, needToCopy, index);
