@@ -23,30 +23,19 @@
 #include "interface/utils/id_gen.h"
 #include "tilefwk/data_type.h"
 #include "codegen/symbol_mgr/codegen_symbol.h"
-#include "codegen/cloudnpu/codegen_op_cloudnpu.h"
-#include "codegen/cloudnpu/codegen_cloudnpu.h"
+#include "codegen/npu/cloudnpu/codegen_op_cloudnpu.h"
+#include "codegen/npu/cloudnpu/codegen_cloudnpu.h"
 #include "test_codegen_common.h"
 
 namespace npu::tile_fwk {
 
-class TestCodegenGatherInUB : public ::testing::Test {
+class TestCodegenGatherInUB : public CodegenTestBase {
 public:
-    static void SetUpTestCase() {}
+    TestCodegenGatherInUB()
+        : CodegenTestBase({.compileStage = CS_EXECUTE_GRAPH, .setTileTensor = true, .setIdGen = true})
+    {}
 
     static void TearDownTestCase() { config::SetCodeGenConfig(KEY_CODEGEN_SUPPORT_TILE_TENSOR, true); }
-
-    void SetUp() override
-    {
-        const constexpr int DummyFuncMagic = 1;
-        Program::GetInstance().Reset();
-        config::Reset();
-        config::SetHostOption(COMPILE_STAGE, CS_EXECUTE_GRAPH);
-        config::SetPlatformConfig(KEY_ENABLE_COST_MODEL, false);
-        config::SetCodeGenConfig(KEY_CODEGEN_SUPPORT_TILE_TENSOR, false);
-        IdGen<IdType::FUNCTION>::Inst().SetId(DummyFuncMagic);
-    }
-
-    void TearDown() override {}
 };
 // ----------------- 配置结构体（含类型） -----------------
 // IndexT  : topk_indices / page_table 的整数类型

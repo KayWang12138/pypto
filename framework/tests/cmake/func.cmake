@@ -241,7 +241,7 @@ function(PTO_Fwk_GTest_AddExe)
             COMMAND ln -sf "${PTO_FWK_SRC_ROOT}/framework/src/interface/configs/*.json"                         "${InstallConfigsDir}/"
             COMMAND ln -sf "${PTO_FWK_SRC_ROOT}/framework/src/passes/pass_config/tile_fwk_platform_info.json"   "${InstallConfigsDir}/"
             COMMAND ln -sf "${PTO_FWK_SRC_ROOT}/framework/src/platform/parser/platforminfo.ini"   "${InstallConfigsDir}/"
-            COMMAND ln -sf "${PTO_FWK_SRC_ROOT}/framework/src/platform/parser/simulation_platform/platform_config/A2A3.ini"   "${InstallConfigsDir}/"
+            COMMAND ln -sf "${PTO_FWK_SRC_ROOT}/framework/src/platform/parser/simulation_platform/platform_config/*.ini"   "${InstallConfigsDir}/"
             COMMENT "Soft link of configs(*.json) has been created at ${InstallConfigsDir}"
     )
     # 模拟脚本文件 Install 流程, 为便于调试, 使用创建软连接方式模拟安装
@@ -257,6 +257,7 @@ function(PTO_Fwk_GTest_AddExe)
             COMMAND ln -sf "${PTO_FWK_SRC_ROOT}/tools/profiling/function_json_convert.py" "${InstallScriptsDir}/"
             COMMAND ln -sf "${PTO_FWK_SRC_ROOT}/tools/profiling/parse_pipe_time_trace.py" "${InstallScriptsDir}/"
             COMMAND ln -sf "${PTO_FWK_SRC_ROOT}/tools/scripts/machine_perf_trace.py" "${InstallScriptsDir}/"
+            COMMAND ln -sf "${PTO_FWK_SRC_ROOT}/tools/scripts/extract_pass_log.py" "${InstallScriptsDir}/"
             COMMENT "Soft link of scripts has been created at ${InstallScriptsDir}"
     )
     # 模拟头文件 Install 流程, 为便于调试, 使用创建软连接方式模拟安装
@@ -275,7 +276,6 @@ function(PTO_Fwk_GTest_AddExe)
             COMMAND ${CMAKE_COMMAND} -E make_directory ${InstallLibIncludeDir}/
             COMMAND ln -sf ${PTO_FWK_SRC_ROOT}/framework/src/interface/tileop ${InstallLibIncludeDir}
             COMMAND ln -sf ${PTO_FWK_SRC_ROOT}/framework/src/interface/machine/device/tilefwk ${InstallLibIncludeDir}
-            COMMAND ln -sf ${PTO_FWK_SRC_ROOT}/framework/src/cost_model/simulation_ca/mock ${InstallLibIncludeDir}
             COMMENT "Soft link of library include directory has been created at ${InstallLibIncludeDir}"
     )
 endfunction()

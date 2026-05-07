@@ -15,6 +15,8 @@
 
 #include <gtest/gtest.h>
 #include <limits>
+#include <filesystem>
+#include <cstdlib>
 
 #include "interface/interpreter/raw_tensor_data.h"
 #include "interface/tensor/float.h"
@@ -262,6 +264,41 @@ TEST_F(CalcCommonTest, ExecuteOpGatherInL1Basic)
         float value = outputView->Get<float>(i);
         ASSERT_FLOAT_EQ(value, expected[i]);
     }
+}
+
+// 测试 ExecutePrint 在 csv 文件无法创建时走 DUMP_OPEN_FILE_FAILED 分支
+TEST_F(CalcCommonTest, ExecutePrintCsvOpenFailed)
+{
+    const std::string outputRoot = "/tmp/pypto_ut_print_csv_open_failed";
+    setenv("TILE_FWK_OUTPUT_DIR", outputRoot.c_str(), 1);
+    config::Reset();
+
+    auto func =
+        std::make_shared<Function>(Program::GetInstance(), "TestPrintCsvOpenFailed", "TestPrintCsvOpenFailed", nullptr);
+    std::vector<int64_t> shape = {2, 2};
+    auto inputTensor = std::make_shared<LogicalTensor>(*func, DT_FP32, shape);
+    auto& printOp = func->AddOperation(Opcode::OP_PRINT, {inputTensor}, {});
+    printOp.SetAttribute(OP_ATTR_PREFIX + "cond", SymbolicScalar(1));
+    printOp.SetAttribute(OP_ATTR_PREFIX + "fname", std::string("ut_print_csv_open_failed"));
+
+    Tensor inputTensorData(DT_FP32, shape);
+    std::vector<float> inputVals = {1.f, 2.f, 3.f, 4.f};
+    auto inputData = RawTensorData::CreateTensor<float>(inputTensorData, inputVals);
+    auto inputView = std::make_shared<LogicalTensorData>(inputData);
+
+    auto tensorDir = config::LogTopFolder() + "/tensor";
+    std::filesystem::remove_all(tensorDir);
+    ASSERT_FALSE(std::filesystem::exists(tensorDir));
+
+    auto inoutDataPair = std::make_shared<FunctionIODataPair>();
+    FunctionFrame frame(func.get(), nullptr, nullptr, inoutDataPair, 0);
+    OperationInterpreter opInter;
+    std::vector<LogicalTensorDataPtr> ioperandDataViewList = {inputView};
+    std::vector<LogicalTensorDataPtr> ooperandInplaceDataViewList;
+    ExecuteOperationContext ctx = {
+        &frame, &opInter, &printOp, &ioperandDataViewList, nullptr, &ooperandInplaceDataViewList};
+
+    opInter.ExecuteOperation(&ctx);
 }
 
 // 测试 ExecuteOpUnary 以 OP_EXP 为例，验证一元运算路径正确调用 calc::Exp
@@ -1085,5 +1122,64 @@ TEST_F(CalcCommonTest, ExecuteOpReduceAccBasic)
     EXPECT_FLOAT_EQ(outView->Get<float>(0), 12.f);
     EXPECT_FLOAT_EQ(outView->Get<float>(1), 15.f);
     EXPECT_FLOAT_EQ(outView->Get<float>(2), 18.f);
+}
+
+// 测试 ExecuteOpPermute，验证 OP_PERMUTE 读取 perm 属性后调用 calc::Permute
+TEST_F(CalcCommonTest, ExecuteOpPermute3D)
+{
+    auto func = std::make_shared<Function>(Program::GetInstance(), "TestPermute3D", "TestPermute3D", nullptr);
+
+    std::vector<int64_t> inShape = {2, 3, 4};
+    std::vector<int64_t> outShape = {3, 2, 4};
+
+    auto inputTensor = std::make_shared<LogicalTensor>(*func, DT_FP32, inShape);
+    auto outputTensor = std::make_shared<LogicalTensor>(*func, DT_FP32, outShape);
+
+    auto& permuteOp = func->AddOperation(Opcode::OP_PERMUTE, {inputTensor}, {outputTensor});
+    permuteOp.SetAttribute(OpAttributeKey::perm, std::vector<int>{1, 0, 2});
+
+    Tensor inputTensorData(DT_FP32, inShape);
+    Tensor outputTensorData(DT_FP32, outShape);
+
+    std::vector<float> inputVals(inShape[0] * inShape[1] * inShape[2]);
+    for (size_t i = 0; i < inputVals.size(); ++i) {
+        inputVals[i] = static_cast<float>(i + 1);
+    }
+    std::vector<float> expectedVals(outShape[0] * outShape[1] * outShape[2], 0.f);
+    int64_t d0 = inShape[0];
+    int64_t d1 = inShape[1];
+    int64_t d2 = inShape[2];
+    for (int64_t i = 0; i < d0; ++i) {
+        for (int64_t j = 0; j < d1; ++j) {
+            for (int64_t k = 0; k < d2; ++k) {
+                int64_t srcIdx = (i * d1 + j) * d2 + k;
+                int64_t dstIdx = (j * d0 + i) * d2 + k;
+                expectedVals[dstIdx] = inputVals[srcIdx];
+            }
+        }
+    }
+
+    auto inputData = RawTensorData::CreateTensor<float>(inputTensorData, inputVals);
+    auto outputData = RawTensorData::CreateConstantTensor<float>(outputTensorData, 0.f);
+
+    auto inputView = std::make_shared<LogicalTensorData>(inputData);
+    auto outputView = std::make_shared<LogicalTensorData>(outputData);
+
+    auto inoutDataPair = std::make_shared<FunctionIODataPair>();
+    FunctionFrame frame(func.get(), nullptr, nullptr, inoutDataPair, 0);
+    OperationInterpreter opInter;
+
+    std::vector<LogicalTensorDataPtr> ioperandDataViewList = {inputView};
+    std::vector<LogicalTensorDataPtr> ooperandInplaceDataViewList = {outputView};
+
+    ExecuteOperationContext ctx = {
+        &frame, &opInter, &permuteOp, &ioperandDataViewList, nullptr, &ooperandInplaceDataViewList};
+
+    opInter.ExecuteOperation(&ctx);
+
+    ASSERT_EQ(outputView->GetSize(), static_cast<int>(expectedVals.size()));
+    for (size_t i = 0; i < expectedVals.size(); ++i) {
+        EXPECT_FLOAT_EQ(outputView->Get<float>(i), expectedVals[i]);
+    }
 }
 } // namespace npu::tile_fwk

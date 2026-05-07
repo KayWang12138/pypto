@@ -15,10 +15,10 @@
 
 #include "interface/utils/string_utils.h"
 #include "interface/utils/common.h"
-
+#include "machine/device/tilefwk/aicpu_common.h"
 #include "aicore_emulation.h"
 #include "test_machine_common.h"
-#include "machine/device/tilefwk/aicpu_common.h"
+
 struct AicoreTest : UnitTestBase {};
 
 TEST_F(AicoreTest, InitGoodbye)
@@ -35,8 +35,8 @@ TEST_F(AicoreTest, InitGoodbye)
     devArgs.devDfxArgAddr = (uint64_t)(uintptr_t)devDfxArgs.get();
 
     KernelEntry(0, 0, 0, 0, 0, (uint64_t)(uintptr_t)&devArgs);
-    // Use AICORE_SAY_GOODBYE to exit
-    EXPECT_EQ(args->shakeBuffer[2], STAGE_GET_COREFUNC_DATA_TIMEOUT);
+    // Use AICORE_SAY_GOODBYE to exit 
+    EXPECT_EQ(args->shakeBuffer[2], STAGE_GET_PARALLEL_DEVTASK_TIMEOUT);
 }
 
 class MemoryEmulation {
@@ -93,18 +93,18 @@ struct MultipleCore : ThreadAicoreEmulation {
     static void StartKernelEntry(std::shared_ptr<MultipleCore> aicore) { aicore->WaitAndStartKernelEntry(); }
 
     virtual void AicoreCallSubFuncTask(
-        uint64_t funcIdx, CoreFuncParam* param, int64_t gmStackAddr, __gm__ int64_t* hcclContext) override
+        uint64_t funcIdx, CoreFuncParam* param, int64_t gmStackAddr, __gm__ int64_t* hcclContext, TaskStat* taskStat) override
     {
         UNUSED(funcIdx);
         UNUSED(param);
         UNUSED(gmStackAddr);
         UNUSED(hcclContext);
+        UNUSED(taskStat);
         std::lock_guard<std::mutex> guard(traceMutex);
         traceList.emplace_back(GetAicoreInfoByThread()->GetCoreIdx(), funcIdx, *param);
     }
 
-    void MainLoop()
-    {
+    void MainLoop() {
         const int rootCount = 0x2;
         const int attrCount = 0x100;
         const int leafCount = 0x40;
@@ -138,9 +138,11 @@ struct MultipleCore : ThreadAicoreEmulation {
 
         KernelSharedBuffer* buffer = memory->GetSharedBuffer();
         for (int i = 0; i < memory->GetAicCount() + memory->GetAivCount(); i++) {
-            buffer[i].args.shakeBufferCpuToCore[CPU_TO_CORE_SHAK_BUF_COREFUNC_DATA_INDEX] = (uintptr_t)dataList;
+            buffer[i].args.parallelDevTask.front = 0;
+            buffer[i].args.parallelDevTask.rear = 1;
+            buffer[i].args.parallelDevTask.ptrElements[0] = (uintptr_t)dataList;
+            
             buffer[i].args.shakeBuffer[SHAK_BUF_PRINT_BUFFER_INDEX] = (uintptr_t)memory->GetPrintBuffer(i);
-            buffer[i].args.shakeBufferCpuToCore[SHAK_BUF_PRINT_BUFFER_INDEX] = (uintptr_t)memory->GetPrintBuffer(i);
         }
 
         for (int i = 0; i < memory->GetAicCount() + memory->GetAivCount(); i++) {
@@ -154,7 +156,7 @@ struct MultipleCore : ThreadAicoreEmulation {
         }
 
         for (int i = 0; i < memory->GetAicCount() + memory->GetAivCount(); i++) {
-            AicpuSetData(i, AICORE_FUNC_STOP + 1);
+            AicpuSetData(i, AICORE_TASK_STOP + 1);
         }
 
         for (int i = 0; i < memory->GetAicCount() + memory->GetAivCount(); i++) {
@@ -210,7 +212,7 @@ TEST_F(AicoreTest, MultipleCore)
     KernelSharedBuffer* buffer = memory->GetSharedBuffer();
     for (int i = 0; i < memory->GetAicCount() + memory->GetAivCount(); i++) {
         // normal exit
-        EXPECT_EQ(buffer[i].args.shakeBuffer[2], STAGE_GET_NEXT_TASK_STOP);
+        EXPECT_EQ(buffer[i].args.shakeBuffer[2], STAGE_CORE_EXIT);
     }
 
     AicoreEmulationManager::GetInstance().Reset();

@@ -2,14 +2,14 @@
     "permissions": {
       "allow": [
         "Skill(pypto-op-workflow)",
-        "Skill(pypto-operator-auto-tuner)",
+        "Skill(pypto-op-perf-tune)",
         "Skill(pypto-skill-reviewer)",
-        "Skill(pypto-intent-understanding)",
-        "Skill(pypto-api-explorer)",
-        "Skill(pypto-golden-generator)",
+        "Skill(pypto-intent-understand)",
+        "Skill(pypto-api-explore)",
+        "Skill(pypto-golden-generate)",
         "Skill(pypto-op-design)",
         "Skill(pypto-op-develop)",
-        "Skill(pypto-precision-debugger)",
+        "Skill(pypto-precision-debug)",
         "Skill(pypto-precision-compare)",
         "Skill(pypto-aicore-error-locator)",
         "Skill(pypto-environment-setup)",
@@ -18,7 +18,7 @@
         "Skill(pypto-pr-fixer)",
         "Skill(pypto-issue-creator)",
         "Skill(pypto-fracture-point-detector)",
-        "Skill(pypto-pass-error-fixer)",
+        "Skill(pypto-pass-error-locator)",
         "Skill(pypto-pass-module-analyzer)",
         "Skill(pypto-pass-perf-optimizer)",
         "Skill(pypto-pass-ut-generate)",
@@ -51,11 +51,57 @@
       "deny": [],
       "ask": []
     },
-    "hooks": {},
+    "hooks": {
+      "PostToolUse": [
+        {
+          "matcher": "Write|Edit|MultiEdit",
+          "hooks": [
+            {
+              "type": "command",
+              "command": "python3 \"$CLAUDE_PROJECT_DIR\"/.agents/hooks/pypto-op-lint/pypto_op_lint.py --hook post-edit",
+              "timeout": 20
+            }
+          ]
+        },
+        {
+          "matcher": "Bash",
+          "hooks": [
+            {
+              "type": "command",
+              "command": "python3 \"$CLAUDE_PROJECT_DIR\"/.agents/hooks/pypto-op-lint/pypto_op_lint.py --hook post-bash",
+              "timeout": 10
+            }
+          ]
+        }
+      ],
+      "PreToolUse": [
+        {
+          "matcher": "Write|Edit|MultiEdit",
+          "hooks": [
+            {
+              "type": "command",
+              "command": "python3 \"$CLAUDE_PROJECT_DIR\"/.agents/hooks/pypto-op-lint/pypto_op_lint.py --hook pre-edit-backup",
+              "timeout": 15
+            }
+          ]
+        }
+      ],
+      "Stop": [
+        {
+          "matcher": "",
+          "hooks": [
+            {
+              "type": "command",
+              "command": "python3 \"$CLAUDE_PROJECT_DIR\"/.agents/hooks/pypto-op-lint/pypto_op_lint.py --hook stop",
+              "timeout": 30
+            }
+          ]
+        }
+      ]
+    },
     "sandbox": {
       "enabled": false,
       "autoAllowBashIfSandboxed": false
     },
-    "enabledPlugins": {
-    }
+    "enabledPlugins": {}
   }

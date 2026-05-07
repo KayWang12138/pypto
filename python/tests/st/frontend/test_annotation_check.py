@@ -22,7 +22,7 @@ def create_compute_func(shape, dtype):
     """Factory function that creates a new compute function with annotations."""
     tiling = 16
 
-    @pypto.frontend.jit(use_cache=False, debug_options={"runtime_debug_mode": 3})
+    @pypto.frontend.jit()
     def compute_add(
         a: pypto.Tensor(shape, dtype),
         b: pypto.Tensor(shape, dtype),
@@ -57,7 +57,7 @@ def test_number_of_input_not_match():
     try:
         kernel(torch.rand(shape, dtype=torch.float32, device=f'npu:{device_id}'),
                torch.rand(shape, dtype=torch.float32, device=f'npu:{device_id}'))
-    except RuntimeError as e:
+    except pypto.error.FeError as e:
         logging.info(f"✓ Verified: Number of input not match causes an error: {e}")
     else:
         raise RuntimeError("Number of input not match causes no error.")
@@ -75,7 +75,7 @@ def test_incorrect_number_of_dimensions_annotation():
         kernel(torch.rand((16, 16, 16), dtype=torch.float32, device=f'npu:{device_id}'),
                torch.rand(shape, dtype=torch.float32, device=f'npu:{device_id}'),
                torch.rand(shape, dtype=torch.float32, device=f'npu:{device_id}'))
-    except ValueError as e:
+    except pypto.error.FeError as e:
         logging.info(f"✓ Verified: Incorrect number of dimensions annotation causes an error: {e}")
     else:
         raise ValueError("Incorrect number of dimensions annotation causes no error.")
@@ -92,7 +92,7 @@ def test_incorrect_shape_annotation():
         kernel(torch.rand((16, 18), dtype=torch.float32, device=f'npu:{device_id}'),
                torch.rand((16, 16), dtype=torch.float32, device=f'npu:{device_id}'),
                torch.rand((16, 16), dtype=torch.float32, device=f'npu:{device_id}'))
-    except ValueError as e:
+    except pypto.error.FeError as e:
         logging.info(f"✓ Verified: Incorrect shape annotation causes an error: {e}")
     else:
         raise ValueError("Incorrect shape annotation causes no error.")
@@ -109,7 +109,7 @@ def test_incorrect_dtype_annotation():
         kernel(torch.rand(shape, dtype=torch.float16, device=f'npu:{device_id}'),
                torch.rand(shape, dtype=torch.float32, device=f'npu:{device_id}'),
                torch.rand(shape, dtype=torch.float16, device=f'npu:{device_id}'))
-    except ValueError as e:
+    except pypto.error.FeError as e:
         logging.info(f"✓ Verified: Incorrect dtype annotation causes an error: {e}")
     else:
         raise ValueError("Incorrect dtype annotation causes no error.")

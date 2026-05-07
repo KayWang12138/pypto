@@ -92,12 +92,86 @@ TEST_F(TorchAdaptorTest, Range)
     ASSERT_ALLCLOSE(out, golden);
 }
 
+TEST_F(TorchAdaptorTest, Uniform) {
+    uint64_t key = 12345678901234;
+    uint64_t counter0 = 0;
+    uint64_t counter1 = 0;
+    auto out = makeTensorData(DT_FP32, {16}, 0.0f);
+    calc::Uniform(out, Element(DT_UINT64, key), Element(DT_UINT64, counter0), Element(DT_UINT64, counter1), Element(DT_UINT16, static_cast<uint16_t>(10)), DT_FP32);
+}
+
+TEST_F(TorchAdaptorTest, Uniform_FP16) {
+    uint64_t key = 12345678901234;
+    uint64_t counter0 = 0;
+    uint64_t counter1 = 0;
+    auto out = makeTensorData(DT_FP16, {16}, float16(0.0));
+    calc::Uniform(out, Element(DT_UINT64, key), Element(DT_UINT64, counter0), Element(DT_UINT64, counter1), Element(DT_UINT16, static_cast<uint16_t>(10)), DT_FP16);
+}
+
+TEST_F(TorchAdaptorTest, Uniform_BF16) {
+    uint64_t key = 12345678901234;
+    uint64_t counter0 = 0;
+    uint64_t counter1 = 0;
+    auto out = makeTensorData(DT_BF16, {16}, static_cast<bfloat16>(0.0f));
+    calc::Uniform(out, Element(DT_UINT64, key), Element(DT_UINT64, counter0), Element(DT_UINT64, counter1), Element(DT_UINT16, static_cast<uint16_t>(10)), DT_BF16);
+}
+
+TEST_F(TorchAdaptorTest, Uniform_Rounds7) {
+    uint64_t key = 12345678901234;
+    uint64_t counter0 = 0;
+    uint64_t counter1 = 0;
+    auto out = makeTensorData(DT_FP32, {16}, 0.0f);
+    calc::Uniform(out, Element(DT_UINT64, key), Element(DT_UINT64, counter0), Element(DT_UINT64, counter1), Element(DT_UINT16, static_cast<uint16_t>(7)), DT_FP32);
+}
+
+TEST_F(TorchAdaptorTest, Uniform_FP16_Rounds7) {
+    uint64_t key = 12345678901234;
+    uint64_t counter0 = 0;
+    uint64_t counter1 = 0;
+    auto out = makeTensorData(DT_FP16, {16}, float16(0.0));
+    calc::Uniform(out, Element(DT_UINT64, key), Element(DT_UINT64, counter0), Element(DT_UINT64, counter1), Element(DT_UINT16, static_cast<uint16_t>(7)), DT_FP16);
+}
+
+TEST_F(TorchAdaptorTest, Uniform_BF16_Rounds7) {
+    uint64_t key = 12345678901234;
+    uint64_t counter0 = 0;
+    uint64_t counter1 = 0;
+    auto out = makeTensorData(DT_BF16, {16}, static_cast<bfloat16>(0.0f));
+    calc::Uniform(out, Element(DT_UINT64, key), Element(DT_UINT64, counter0), Element(DT_UINT64, counter1), Element(DT_UINT16, static_cast<uint16_t>(7)), DT_BF16);
+}
+
+TEST_F(TorchAdaptorTest, Uniform_LargeShape) {
+    uint64_t key = 9876543210;
+    uint64_t counter0 = 100;
+    uint64_t counter1 = 200;
+    auto out = makeTensorData(DT_FP32, {64}, 0.0f);
+    calc::Uniform(out, Element(DT_UINT64, key), Element(DT_UINT64, counter0), Element(DT_UINT64, counter1), Element(DT_UINT16, static_cast<uint16_t>(10)), DT_FP32);
+}
+
 TEST_F(TorchAdaptorTest, Exp2)
 {
     auto self = makeTensorData(DT_FP32, {16, 16}, 2.0f);
     auto out = makeTensorData(DT_FP32, {16, 16}, 0.0f);
     auto golden = makeTensorData(DT_FP32, {16, 16}, std::exp2(2.0f));
     calc::Exp2(out, self);
+    ASSERT_ALLCLOSE(out, golden);
+}
+
+TEST_F(TorchAdaptorTest, Sin)
+{
+    auto self = makeTensorData(DT_FP32, {16, 16}, 0.0f);  // sin(0) = 0
+    auto out = makeTensorData(DT_FP32, {16, 16}, 0.0f);
+    auto golden = makeTensorData(DT_FP32, {16, 16}, std::sin(0.0f));
+    calc::Sin(out, self);
+    ASSERT_ALLCLOSE(out, golden);
+}
+
+TEST_F(TorchAdaptorTest, Cos)
+{
+    auto self = makeTensorData(DT_FP32, {16, 16}, 0.0f);  // cos(0) = 1
+    auto out = makeTensorData(DT_FP32, {16, 16}, 0.0f);
+    auto golden = makeTensorData(DT_FP32, {16, 16}, std::cos(0.0f));  // cos(0) = 1
+    calc::Cos(out, self);
     ASSERT_ALLCLOSE(out, golden);
 }
 
@@ -315,6 +389,22 @@ TEST_F(TorchAdaptorTest, UnaryOps)
         auto out = makeTensorData(DT_FP32, {16, 16}, 0.0f);
         auto golden = makeTensorData(DT_FP32, {16, 16}, std::exp(2.0f) - 1);
         calc::Expm1(out, self);
+        ASSERT_ALLCLOSE(out, golden);
+    }
+    {
+        // sinh
+        auto self = makeTensorData(DT_FP32, {16, 16}, 0.5f);
+        auto out = makeTensorData(DT_FP32, {16, 16}, 0.0f);
+        auto golden = makeTensorData(DT_FP32, {16, 16}, std::sinh(0.5f));
+        calc::Sinh(out, self);
+        ASSERT_ALLCLOSE(out, golden);
+    }
+    {
+        // cosh
+        auto self = makeTensorData(DT_FP32, {16, 16}, 0.5f);
+        auto out = makeTensorData(DT_FP32, {16, 16}, 0.0f);
+        auto golden = makeTensorData(DT_FP32, {16, 16}, std::cosh(0.5f));
+        calc::Cosh(out, self);
         ASSERT_ALLCLOSE(out, golden);
     }
     {
@@ -1061,7 +1151,10 @@ TEST_F(TorchAdaptorTest, MatMul)
         auto other = makeTensorData(DT_FP32, {16, 8}, 1.0f);
         auto out = makeTensorData(DT_FP32, {8, 8}, 1.0f);
         auto golden = makeTensorData(DT_FP32, {8, 8}, 16.0f);
-        MatMulParam param = {false, false, 4};
+        MatMulParam param{};
+        param.aTrans = false;
+        param.bTrans = false;
+        param.kStep = 4;
         calc::MatMul(out, self, other, param);
         ASSERT_ALLCLOSE(out, golden);
     }
@@ -1071,7 +1164,10 @@ TEST_F(TorchAdaptorTest, MatMul)
         auto other = makeTensorData(DT_FP32, {8, 16}, 1.0f);
         auto out = makeTensorData(DT_FP32, {8, 8}, 1.0f);
         auto golden = makeTensorData(DT_FP32, {8, 8}, 16.0f);
-        MatMulParam param = {false, true, 0};
+        MatMulParam param{};
+        param.aTrans = false;
+        param.bTrans = true;
+        param.kStep = 0;
         calc::MatMul(out, self, other, param);
         ASSERT_ALLCLOSE(out, golden);
     }
@@ -1081,7 +1177,10 @@ TEST_F(TorchAdaptorTest, MatMul)
         auto other = makeTensorData(DT_FP32, {8, 16}, 1.0f);
         auto out = makeTensorData(DT_FP32, {8, 8}, 1.0f);
         auto golden = makeTensorData(DT_FP32, {8, 8}, 16.0f);
-        MatMulParam param = {false, true, 4};
+        MatMulParam param{};
+        param.aTrans = false;
+        param.bTrans = true;
+        param.kStep = 4;
         calc::MatMul(out, self, other, param);
         ASSERT_ALLCLOSE(out, golden);
     }
@@ -1100,7 +1199,10 @@ TEST_F(TorchAdaptorTest, MatMul)
         auto other = makeTensorData(DT_FP32, {16, 8}, 1.0f);
         auto out = makeTensorData(DT_FP32, {8, 8}, 1.0f);
         auto golden = makeTensorData(DT_FP32, {8, 8}, 17.0f);
-        MatMulParam param = {false, false, 4};
+        MatMulParam param{};
+        param.aTrans = false;
+        param.bTrans = false;
+        param.kStep = 4;
         calc::AccMatMul(out, self, other, out, param);
         ASSERT_ALLCLOSE(out, golden);
     }
@@ -1110,7 +1212,10 @@ TEST_F(TorchAdaptorTest, MatMul)
         auto other = makeTensorData(DT_FP32, {8, 16}, 1.0f);
         auto out = makeTensorData(DT_FP32, {8, 8}, 1.0f);
         auto golden = makeTensorData(DT_FP32, {8, 8}, 17.0f);
-        MatMulParam param = {false, true, 0};
+        MatMulParam param{};
+        param.aTrans = false;
+        param.bTrans = true;
+        param.kStep = 0;
         calc::AccMatMul(out, self, other, out, param);
         ASSERT_ALLCLOSE(out, golden);
     }
@@ -1120,7 +1225,10 @@ TEST_F(TorchAdaptorTest, MatMul)
         auto other = makeTensorData(DT_FP32, {8, 16}, 1.0f);
         auto out = makeTensorData(DT_FP32, {8, 8}, 1.0f);
         auto golden = makeTensorData(DT_FP32, {8, 8}, 17.0f);
-        MatMulParam param = {false, true, 4};
+        MatMulParam param{};
+        param.aTrans = false;
+        param.bTrans = true;
+        param.kStep = 4;
         calc::AccMatMul(out, self, other, out, param);
         ASSERT_ALLCLOSE(out, golden);
     }
@@ -1276,6 +1384,30 @@ TEST_F(TorchAdaptorTest, Reduce)
         auto out = makeTensorData(DT_INT32, {1, 16}, 0);
         auto golden = makeTensorData(DT_INT32, {1, 16}, 0);
         calc::RowArgMinLine(out, self, 0);
+        ASSERT_ALLCLOSE(out, golden);
+    }
+}
+
+TEST_F(TorchAdaptorTest, Permute3D)
+{
+    {
+        std::vector<float> sdata = {1,  2,  3,  4,  5,  6,  7,  8,  9,  10, 11, 12,
+                                    13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24};
+        std::vector<float> gdata = {1,  2,  3,  4,  13, 14, 15, 16, 5,  6,  7,  8,
+                                    17, 18, 19, 20, 9,  10, 11, 12, 21, 22, 23, 24};
+        auto self = makeTensorData(DT_FP32, {2, 3, 4}, sdata);
+        auto out = makeTensorData(DT_FP32, {2, 3, 4}, 0.0f);
+        auto golden = makeTensorData(DT_FP32, {2, 3, 4}, gdata);
+        calc::Permute(out, self, {1, 0, 2});
+        ASSERT_ALLCLOSE(out, golden);
+    }
+    {
+        std::vector<float> sdata = {1, 2, 3, 4, 5, 6};
+        std::vector<float> gdata = {1, 4, 2, 5, 3, 6};
+        auto self = makeTensorData(DT_FP32, {2, 3}, sdata);
+        auto out = makeTensorData(DT_FP32, {3, 2}, 0.0f);
+        auto golden = makeTensorData(DT_FP32, {3, 2}, gdata);
+        calc::Permute(out, self, {1, 0});
         ASSERT_ALLCLOSE(out, golden);
     }
 }
@@ -1745,4 +1877,192 @@ TEST_F(TorchAdaptorTest, NDNZ)
         }
     }
 }
+
+TEST_F(TorchAdaptorTest, QuantizeSymmetricToInt8)
+{
+    // Symmetric quantization: FP32 -> INT8
+    // Formula: output = clamp(round(input * scale), -128, 127)
+    // Input: [2.0, 4.0, 6.0, 8.0], scale: 0.5
+    // Expected: round([1.0, 2.0, 3.0, 4.0]) = [1, 2, 3, 4]
+    std::vector<float> inputData = {2.0f, 4.0f, 6.0f, 8.0f};
+    std::vector<float> scaleData = {0.5f};
+    std::vector<int8_t> goldenData = {1, 2, 3, 4};
+
+    auto input = makeTensorData(DT_FP32, {2, 2}, inputData);
+    auto scale = makeTensorData(DT_FP32, {1}, scaleData);
+    auto out = makeTensorData(DT_INT8, {2, 2}, static_cast<int8_t>(0));
+    auto golden = makeTensorData(DT_INT8, {2, 2}, goldenData);
+
+    calc::Quantize(out, input, scale, nullptr);
+    ASSERT_ALLCLOSE(out, golden);
+}
+
+TEST_F(TorchAdaptorTest, QuantizeAsymmetricToUInt8)
+{
+    // Asymmetric quantization: FP32 -> UINT8
+    // Formula: output = clamp(round(input * scale + zero_points), 0, 255)
+    // Input: [2.0, 4.0, 6.0, 8.0], scale: 0.5, zero_points: 128
+    // Expected: round([1.0, 2.0, 3.0, 4.0]) + 128 = [129, 130, 131, 132]
+    std::vector<float> inputData = {2.0f, 4.0f, 6.0f, 8.0f};
+    std::vector<float> scaleData = {0.5f};
+    std::vector<int32_t> zeroPointsData = {128};
+    std::vector<uint8_t> goldenData = {129, 130, 131, 132};
+
+    auto input = makeTensorData(DT_FP32, {2, 2}, inputData);
+    auto scale = makeTensorData(DT_FP32, {1}, scaleData);
+    auto zeroPoints = makeTensorData(DT_INT32, {1}, zeroPointsData);
+    auto out = makeTensorData(DT_UINT8, {2, 2}, static_cast<uint8_t>(0));
+    auto golden = makeTensorData(DT_UINT8, {2, 2}, goldenData);
+
+    calc::Quantize(out, input, scale, zeroPoints);
+    ASSERT_ALLCLOSE(out, golden);
+}
+
+TEST_F(TorchAdaptorTest, QuantizeSymmetricClamp)
+{
+    // Test clamping for symmetric quantization (INT8 range: -128 to 127)
+    // Input: [300.0, -300.0], scale: 1.0
+    // Expected: clamp([300, -300], -128, 127) = [127, -128]
+    std::vector<float> inputData = {300.0f, -300.0f};
+    std::vector<float> scaleData = {1.0f};
+    std::vector<int8_t> goldenData = {127, -128};
+
+    auto input = makeTensorData(DT_FP32, {1, 2}, inputData);
+    auto scale = makeTensorData(DT_FP32, {1}, scaleData);
+    auto out = makeTensorData(DT_INT8, {1, 2}, static_cast<int8_t>(0));
+    auto golden = makeTensorData(DT_INT8, {1, 2}, goldenData);
+
+    calc::Quantize(out, input, scale, nullptr);
+    ASSERT_ALLCLOSE(out, golden);
+}
+
+TEST_F(TorchAdaptorTest, QuantizeAsymmetricClamp)
+{
+    // Test clamping for asymmetric quantization (UINT8 range: 0 to 255)
+    // Input: [100.0, -100.0], scale: 2.0, zero_points: 128
+    // Expected: clamp([200, -200] + 128, 0, 255) = clamp([328, -72], 0, 255) = [255, 0]
+    std::vector<float> inputData = {100.0f, -100.0f};
+    std::vector<float> scaleData = {2.0f};
+    std::vector<int32_t> zeroPointsData = {128};
+    std::vector<uint8_t> goldenData = {255, 0};
+
+    auto input = makeTensorData(DT_FP32, {1, 2}, inputData);
+    auto scale = makeTensorData(DT_FP32, {1}, scaleData);
+    auto zeroPoints = makeTensorData(DT_INT32, {1}, zeroPointsData);
+    auto out = makeTensorData(DT_UINT8, {1, 2}, static_cast<uint8_t>(0));
+    auto golden = makeTensorData(DT_UINT8, {1, 2}, goldenData);
+
+    calc::Quantize(out, input, scale, zeroPoints);
+    ASSERT_ALLCLOSE(out, golden);
+}
+
+TEST_F(TorchAdaptorTest, DequantizeInt8ToFP32)
+{
+    // Dequantize: INT8 -> FP32
+    // Formula: output = input * scale
+    // Input: [1, 2, 3, 4], scale: 2.0
+    // Expected: [2.0, 4.0, 6.0, 8.0]
+    std::vector<int8_t> inputData = {1, 2, 3, 4};
+    std::vector<float> scaleData = {2.0f};
+    std::vector<float> goldenData = {2.0f, 4.0f, 6.0f, 8.0f};
+
+    auto input = makeTensorData(DT_INT8, {2, 2}, inputData);
+    auto scale = makeTensorData(DT_FP32, {1}, scaleData);
+    auto zeroPoints = makeTensorData(DT_INT32, {1}, 0);
+    auto out = makeTensorData(DT_FP32, {2, 2}, 0.0f);
+    auto golden = makeTensorData(DT_FP32, {2, 2}, goldenData);
+
+    calc::Dequantize(out, input, scale, zeroPoints);
+    ASSERT_ALLCLOSE(out, golden);
+}
+
+TEST_F(TorchAdaptorTest, DequantizeInt16ToFP32)
+{
+    // Dequantize: INT16 -> FP32
+    // Input: [10, 20, 30, 40], scale: 0.5
+    // Expected: [5.0, 10.0, 15.0, 20.0]
+    std::vector<int16_t> inputData = {10, 20, 30, 40};
+    std::vector<float> scaleData = {0.5f};
+    std::vector<float> goldenData = {5.0f, 10.0f, 15.0f, 20.0f};
+
+    auto input = makeTensorData(DT_INT16, {2, 2}, inputData);
+    auto scale = makeTensorData(DT_FP32, {1}, scaleData);
+    auto zeroPoints = makeTensorData(DT_INT32, {1}, 0);
+    auto out = makeTensorData(DT_FP32, {2, 2}, 0.0f);
+    auto golden = makeTensorData(DT_FP32, {2, 2}, goldenData);
+
+    calc::Dequantize(out, input, scale, zeroPoints);
+    ASSERT_ALLCLOSE(out, golden);
+}
+
+TEST_F(TorchAdaptorTest, DequantizeAsymmetric)
+{
+    // Dequantize with zero_points: INT8 -> FP32
+    // Formula: output = input * scale - zero_points
+    // Input: [30, 31], scale: 0.5, zero_points: 128
+    // Expected: [30 * 0.5 - 128, 31 * 0.5 - 128] = [15 - 128, 15.5 - 128] = [-113.0, -112.5]
+    std::vector<int8_t> inputData = {30, 31};
+    std::vector<float> scaleData = {0.5f};
+    std::vector<int32_t> zeroPointsData = {128};
+    std::vector<float> goldenData = {-113.0f, -112.5f};
+
+    auto input = makeTensorData(DT_INT8, {1, 2}, inputData);
+    auto scale = makeTensorData(DT_FP32, {1}, scaleData);
+    auto zeroPoints = makeTensorData(DT_INT32, {1}, zeroPointsData);
+    auto out = makeTensorData(DT_FP32, {1, 2}, 0.0f);
+    auto golden = makeTensorData(DT_FP32, {1, 2}, goldenData);
+
+    calc::Dequantize(out, input, scale, zeroPoints);
+    ASSERT_ALLCLOSE(out, golden);
+}
+
+TEST_F(TorchAdaptorTest, QuantizeDequantizeRoundTrip)
+{
+    // Quantize-Dequantize round trip test
+    // Input: [2.0, 4.0, 6.0, 8.0], scale: 1.0
+    // Quantize (symmetric): [2, 4, 6, 8]
+    // Dequantize: [2.0, 4.0, 6.0, 8.0]
+    std::vector<float> inputData = {2.0f, 4.0f, 6.0f, 8.0f};
+    std::vector<float> scaleData = {1.0f};
+    std::vector<float> goldenData = {2.0f, 4.0f, 6.0f, 8.0f};
+
+    auto input = makeTensorData(DT_FP32, {2, 2}, inputData);
+    auto scale = makeTensorData(DT_FP32, {1}, scaleData);
+    auto quantized = makeTensorData(DT_INT8, {2, 2}, static_cast<int8_t>(0));
+    auto out = makeTensorData(DT_FP32, {2, 2}, 0.0f);
+    auto golden = makeTensorData(DT_FP32, {2, 2}, goldenData);
+
+    auto zeroPoints = makeTensorData(DT_INT32, {1}, 0);
+
+    calc::Quantize(quantized, input, scale, nullptr);
+    calc::Dequantize(out, quantized, scale, zeroPoints);
+    ASSERT_ALLCLOSE(out, golden);
+}
+
+TEST_F(TorchAdaptorTest, QuantMXFp32)
+{
+    constexpr int64_t cols = 32;
+    std::vector<float> inputData(cols, 1.0f);
+    std::vector<uint8_t> quantData(cols, 0x78);
+    std::vector<uint8_t> expData = {119};
+    std::vector<float> maxData = {1.0f};
+    std::vector<float> scalingData(cols, 256.0f);
+
+    auto input = makeTensorData(DT_FP32, {1, cols}, inputData);
+    auto out = makeTensorData(DT_FP8E4M3, {1, cols}, static_cast<uint8_t>(0));
+    auto exp = makeTensorData(DT_FP8E8M0, {1, 1}, static_cast<uint8_t>(0));
+    auto max = makeTensorData(DT_FP32, {1, 1}, 0.0f);
+    auto scaling = makeTensorData(DT_FP32, {1, cols}, 0.0f);
+    auto quantGolden = makeTensorData(DT_FP8E4M3, {1, cols}, quantData);
+    auto expGolden = makeTensorData(DT_FP8E8M0, {1, 1}, expData);
+    auto maxGolden = makeTensorData(DT_FP32, {1, 1}, maxData);
+    auto scalingGolden = makeTensorData(DT_FP32, {1, cols}, scalingData);
+
+    calc::QuantMX(out, exp, max, scaling, input, false);
+    ASSERT_ALLCLOSE(out, quantGolden);
+    ASSERT_ALLCLOSE(exp, expGolden);
+    ASSERT_ALLCLOSE(max, maxGolden);
+    ASSERT_ALLCLOSE(scaling, scalingGolden);
+}
+
 } // namespace npu::tile_fwk

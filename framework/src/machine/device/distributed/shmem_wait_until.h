@@ -22,7 +22,7 @@
 #include "machine/utils/dynamic/dev_workspace.h"
 #include "machine/utils/dynamic/device_task.h"
 #include "machine/device/dynamic/device_utils.h"
-#include "interface/utils/distributed_error.h"
+#include "tilefwk/error_code.h"
 
 namespace npu::tile_fwk::Distributed {
 struct SignalTileOp {
@@ -86,11 +86,13 @@ public:
     {
         uint32_t index = Hash(taskId);
         SignalTileOp* current = hashTable[index];
-        while (current != nullptr) {
+        uint32_t loopCount = 0;
+        while (current != nullptr && loopCount < AICPU_TASK_ARRAY_SIZE) {
             if (current->taskId_ == taskId) {
                 return current;
             }
             current = current->next;
+            loopCount++;
         }
         return nullptr;
     }
@@ -206,25 +208,39 @@ public:
         const int32_t expectedSum = info.expectedSum;
         const bool resetSignal = info.resetSignal;
 
-        int32_t tileCols = (paramInfo_.rawShapeCol + paramInfo_.tileShapeCol - 1) / paramInfo_.tileShapeCol;
-        int32_t tileRows = (paramInfo_.rawShapeRow + paramInfo_.tileShapeRow - 1) / paramInfo_.tileShapeRow;
-        int32_t tileRow = info.offset[SHMEM_DIM_ROW] / paramInfo_.tileShapeRow;
-        int32_t tileCol = info.offset[SHMEM_DIM_COL] / paramInfo_.tileShapeCol;
-        int32_t tileIndex = tileRow * tileCols + tileCol;
-        int32_t totalTileNum = tileRows * tileCols;
+        uint32_t tileIndex = 0;
+        uint32_t multiplier = 1;
+        uint32_t totalTileNum = 1;
 
-        DEV_DEBUG(
-            "ShmemWaitUntilImpl::EnqueueOp logical rawShape=[%u, %u],"
-            "logical tile=[%u, %u], logical offset=[%u, %u], ownerRank=%u,"
-            "actual rawShape=[%u, %d], actual offset=[%u, %d], buffer maxTileNum=%u, bufferStride=%u",
-            paramInfo_.rawShapeRow, paramInfo_.rawShapeCol, paramInfo_.tileShapeRow, paramInfo_.tileShapeCol,
-            info.offset[SHMEM_DIM_ROW], info.offset[SHMEM_DIM_COL], info.offset[OWNER_RANK_ID_INDEX],
-            paramInfo_.rankNum, totalTileNum, info.offset[OWNER_RANK_ID_INDEX], tileIndex, paramInfo_.maxTileNum,
-            paramInfo_.bufferStride);
+        uint32_t dataDim = paramInfo_.dim;
+        uint32_t tileShapeDim = paramInfo_.tileShape.size();
+        uint32_t startDim = dataDim - tileShapeDim;
+
+        for (uint32_t dimIdx = 0; dimIdx < tileShapeDim; ++dimIdx) {
+            uint32_t curDim = startDim + dimIdx;
+            uint32_t rawShape = paramInfo_.rawShape[curDim];
+            uint32_t tileShapeVal = paramInfo_.tileShape[dimIdx];
+            uint32_t offset = info.offset[curDim];
+
+            uint32_t tileNum = (rawShape + tileShapeVal - 1) / tileShapeVal;
+            uint32_t dimTileIdx = offset / tileShapeVal;
+
+            tileIndex += dimTileIdx * multiplier;
+            multiplier *= tileNum;
+            totalTileNum *= tileNum;
+        }
 
         int32_t* addr =
             reinterpret_cast<int32_t*>(info.rawAddr) +
             CalcLinearOffset(totalTileNum, info.offset[OWNER_RANK_ID_INDEX], tileIndex) * paramInfo_.bufferStride;
+
+        DEV_DEBUG(
+            "PrepareTask baseAddr=0x%lx, actualAddr=0x%lx, ownerRank=%u, actual rawShape=[%lu, %u],"
+            "actual offset=[%u, %u], buffer maxTileNum=%lu, bufferStride=%u",
+            info.rawAddr, reinterpret_cast<uint64_t>(addr), info.offset[OWNER_RANK_ID_INDEX],
+            GetRankNum(hcclContextAddr_, info.vaddr), totalTileNum, info.offset[OWNER_RANK_ID_INDEX], tileIndex,
+            TileOp::Distributed::DecodeShmemAddrMaxTileNum(info.vaddr), paramInfo_.bufferStride);
+
         return hashMap_.InsertTask(taskId, addr, expectedSum, resetSignal);
     }
 
@@ -242,7 +258,6 @@ private:
     uint64_t commGroupNum_{0};
     AicpuParamInfo paramInfo_;
 
-    uint64_t GetRawAddr(const uint64_t addr);
     TensorInfo GetTensorInfo(uint64_t taskId, const npu::tile_fwk::dynamic::DevRelocVector<int32_t>& aicpuCode);
 };
 

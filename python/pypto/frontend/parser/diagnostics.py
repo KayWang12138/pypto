@@ -37,7 +37,8 @@ import enum
 import typing
 from typing import NoReturn, Callable
 
-from .error import RenderedParserError
+from pypto.error import RenderedParserError
+from pypto.pypto_impl import OutputErrorMessage
 
 PRIOR_CONTEXT_LINES = 2
 SUBSEQUENT_CONTEXT_LINES = 4
@@ -327,6 +328,7 @@ class Diagnostics:
         RenderedParserError
             Always raises RenderedParserError after displaying the diagnostic.
         """
+        OutputErrorMessage()
         self.emit(node, message, DiagnosticLevel.BUG)
         self._render()
         raise RenderedParserError(node, message)

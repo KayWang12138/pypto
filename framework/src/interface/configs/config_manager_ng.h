@@ -29,8 +29,8 @@ namespace npu::tile_fwk {
 
 // pass
 constexpr const char* SG_PARALLEL_NUM = "pg_parallel_lower_bound";
-constexpr const char* SG_PG_UPPER_BOUND = "pg_upper_bound";
 constexpr const char* SG_PG_LOWER_BOUND = "pg_lower_bound";
+constexpr const char* SG_PARTITION_ALGORITHM = "pg_partition_algorithm";
 constexpr const char* SG_SET_SCOPE = "sg_set_scope";
 constexpr const char* CUBE_L1_REUSE_SETTING = "cube_l1_reuse_setting";
 constexpr const char* CUBE_NBUFFER_SETTING = "cube_nbuffer_setting";
@@ -39,25 +39,19 @@ constexpr const char* OOO_PRESCHEDULE_METHOD = "ooo_preschedule_method";
 constexpr const char* VEC_NBUFFER_SETTING = "vec_nbuffer_setting";
 constexpr const char* SG_CUBE_PARALLEL_NUM = "sg_cube_parallel_num";
 constexpr const char* MG_VEC_PARALLEL_LB = "mg_vec_parallel_lb";
-constexpr const char* PG_SKIP_PARTITION = "pg_skip_partition";
 constexpr const char* DB_TYPE = "db_type";
 constexpr const char* COPYOUT_RESOLVE_COALESCING = "copyout_resolve_coalescing";
 
 // runtime
 constexpr const char* DEVICE_SCHED_MODE = "device_sched_mode";
-constexpr const char* STITCH_FUNCTION_INNER_MEMORY = "stitch_function_inner_memory";
-constexpr const char* STITCH_FUNCTION_OUTCAST_MEMORY = "stitch_function_outcast_memory";
-constexpr const char* STITCH_FUNCTION_NUM_INITIAL = "stitch_function_num_initial";
 constexpr const char* STITCH_FUNCTION_MAX_NUM = "stitch_function_max_num";
-constexpr const char* STITCH_FUNCTION_NUM_STEP = "stitch_function_num_step";
-constexpr const char* STITCH_FUNCTION_SIZE = "stitch_function_size";
-constexpr const char* STITCH_CFGCACHE_SIZE = "stitch_cfgcache_size";
+
 constexpr const char* CFG_RUN_MODE = "run_mode";
 constexpr const char* CFG_VALID_SHAPE_OPTIMIZE = "valid_shape_optimize";
 constexpr int64_t CFG_RUN_MODE_NPU = 0;
 constexpr int64_t CFG_RUN_MODE_SIM = 1;
 constexpr const char* READY_ON_HOST_TENSORS = "ready_on_host_tensors";
-constexpr const char* CFG_TRIPLE_STREAM_SCHED = "triple_stream_sched";
+constexpr const char* DEVICE_SCHED_PARALLELISM = "device_sched_parallelism";
 
 // host
 constexpr const char* COMPILE_STAGE = "compile_stage";
@@ -74,6 +68,7 @@ constexpr int64_t CS_CODEGEN_BINARY = 5;
 
 // codegen
 constexpr const char* SUPPORT_DYNAMIC_ALIGNED = "support_dynamic_aligned";
+constexpr const char* PLATFORM_SOC_VERSION = "soc_version";
 
 /* flow virifer tools KEYs */
 const std::string KEY_ENABLE_PASS_VERIFY = "enable_pass_verify";

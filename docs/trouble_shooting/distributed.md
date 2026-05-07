@@ -5,7 +5,7 @@
 
 ## 错误码定义
 
-相关错误码的统一定义，参见 `framework/src/interface/utils/distributed_error.h` 文件。
+相关错误码的枚举与码值统一定义在 `framework/include/tilefwk/error_code.h`（见 `DistributedErrorCode`）。
 
 ---
 
@@ -13,7 +13,7 @@
 
 根据日志中不同ErrorCode关联到下述排查建议：
 
-### 参数错误（0xA0000 - 0xA0009）
+### 参数错误（0xA0000 - 0xA000C）
 
 #### 0xA0000 INVALID_GROUP_NAME
 
@@ -56,6 +56,18 @@
 #### 0xA0009 INVALID_OPERAND_NUM
 
 1. **检查输入输出参数个数**：确保传入的输入和输出参数数量与 API 定义一致。
+
+#### 0xA000A INVALID_MOE_EXPERT_NUM
+
+1. **检查 MoE 专家数量**：确认传入的 moeExpertNum 参数值为 160，符合 MoE 分布式组合算子的要求。
+
+#### 0xA000B INVALID_MOE_TOP_K
+
+1. **检查 MoE topK数**：确认传入的 topK 参数值为 8，符合 MoE 分布式组合算子的要求。
+
+#### 0xA000C INVALID_EXPERT_NUM_PER_RANK
+
+1. **检查 MoE 每卡专家数**：确认传入的 expertNumPerRank 参数值符合 moeExpertNum / epWorldSize，符合 MoE 分布式组合算子的要求。
 
 ### 配置错误（0xA1000-0xA1002）
 

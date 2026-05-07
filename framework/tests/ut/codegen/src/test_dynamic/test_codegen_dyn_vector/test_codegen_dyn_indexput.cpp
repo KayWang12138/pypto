@@ -26,29 +26,16 @@
 #include "codegen/symbol_mgr/codegen_symbol.h"
 #include "passes/pass_mgr/pass_manager.h"
 #include "codegen/codegen.h"
-#include "codegen/cloudnpu/codegen_op_cloudnpu.h"
-#include "codegen/cloudnpu/codegen_cloudnpu.h"
+#include "codegen/npu/cloudnpu/codegen_op_cloudnpu.h"
+#include "codegen/npu/cloudnpu/codegen_cloudnpu.h"
 #include "test_codegen_utils.h"
 #include "test_codegen_common.h"
 #include "interface/utils/id_gen.h"
 
 namespace npu::tile_fwk {
-class TestCodegenDynIndexPut : public ::testing::Test {
+class TestCodegenDynIndexPut : public CodegenTestBase {
 public:
-    static void SetUpTestCase() {}
-
-    static void TearDownTestCase() {}
-
-    void SetUp() override
-    {
-        Program::GetInstance().Reset();
-        config::Reset();
-        config::SetHostOption(COMPILE_STAGE, CS_EXECUTE_GRAPH);
-        config::SetPlatformConfig(KEY_ENABLE_COST_MODEL, false);
-        IdGen<IdType::FUNCTION>::Inst().SetId(DummyFuncMagic);
-    }
-
-    void TearDown() override {}
+    TestCodegenDynIndexPut() : CodegenTestBase({.compileStage = CS_EXECUTE_GRAPH, .setIdGen = true}) {}
 };
 
 TEST_F(TestCodegenDynIndexPut, DynIndexPutTileTensor)
@@ -103,17 +90,11 @@ TEST_F(TestCodegenDynIndexPut, DynIndexPutDynUnaligned)
     op.SetAttribute(OpAttributeKey::indicesSize, 1);
     auto shapeImme = OpImmediate::Specified(shape);
     op.SetOpAttribute(std::make_shared<CopyOpAttribute>(MEM_UB, OpImmediate::Specified({0, 0}), shapeImme, shapeImme));
-    op.SetAttribute("GmTensorParamIdxInCallFunc", 0);
+    op.SetAttribute(OpAttributeKey::gmTensorParamIdxInCall, 0);
 
-    std::shared_ptr<SymbolManager> symbolManager = std::make_shared<SymbolManager>();
-    CodeGenCtx ctx;
-    CodeGenCloudNPU cga(ctx);
-    cga.GenAllocForLocalBuffer(op, symbolManager);
-    CodeGenOpCloudNPUCtx opCtx(symbolManager, *function, *function->rootFunc_->programs_[0], op, {});
-    CodeGenOpCloudNPU cop(opCtx);
-    std::string res = cop.GenOpCode();
+    std::string res = GenOpCodeFromOp(*function, op);
     std::string expect =
-        R"!!!(TileOp::DynTIndexPut<float, float, 2, 1, 64, 64, 1>((__gm__ float*)GET_PARAM_ADDR(param, 0, -1), (__ubuf__ float*)UB_S0_E0, (__ubuf__ float*)UB_S0_E0, 64, 1, 1, GET_PARAM_RAWSHAPE_BY_IDX(param, 0, -1, 2, 0), GET_PARAM_RAWSHAPE_BY_IDX(param, 0, -1, 2, 1));
+        R"!!!(TileOp::DynTIndexPut<float, float, 2, 1, 64, 64, 1>((__gm__ float*)GET_PARAM_ADDR(param, 0, 1), (__ubuf__ float*)UB_S0_E0, (__ubuf__ float*)UB_S0_E0, 64, 1, 1, GET_PARAM_RAWSHAPE_BY_IDX(param, 0, 1, 2, 0), GET_PARAM_RAWSHAPE_BY_IDX(param, 0, 1, 2, 1));
 )!!!";
     EXPECT_EQ(res, expect);
 }

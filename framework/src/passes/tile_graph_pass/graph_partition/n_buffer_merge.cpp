@@ -15,6 +15,7 @@
 
 #include "n_buffer_merge.h"
 #include "passes/pass_utils/reschedule_utils.h"
+#include "passes/pass_utils/pass_utils.h"
 
 #include "passes/pass_utils/parallel_tool.h"
 #include "passes/pass_log/pass_log.h"
@@ -54,7 +55,7 @@ void NBufferMerge::GetOpHashReverse(std::vector<uint64_t>& hashList, const std::
     hashList[idx] = hash;
 }
 
-void UpdateOpColor(
+void NBufferMerge::UpdateOpColor(
     OperationsViewer& opOriList, int& color, std::vector<int>& colorCycles, std::vector<std::vector<int>>& colorNode)
 {
     std::vector<int> oriColor2NewColor(color);
@@ -77,14 +78,14 @@ void UpdateOpColor(
 }
 
 Status NBufferMerge::ColorTopo(
-    int& color1, std::vector<std::vector<int>>& inputColor, std::vector<std::vector<int>>& outputColor,
+    int& colorNum, std::vector<std::vector<int>>& inputColor, std::vector<std::vector<int>>& outputColor,
     OperationsViewer& opOriList)
 {
-    std::vector<int> colorQueue(color1);
-    std::vector<int> colorInDegree(color1);
+    std::vector<int> colorQueue(colorNum);
+    std::vector<int> colorInDegree(colorNum);
     int colorQueueHead = 0;
     int colorQueueTail = 0;
-    for (int i = 0; i < color1; i++) {
+    for (int i = 0; i < colorNum; i++) {
         colorInDegree[i] = inputColor[i].size();
         if (colorInDegree[i] == 0) {
             // 找到入度为0的color作为queue的起始点
@@ -102,33 +103,33 @@ Status NBufferMerge::ColorTopo(
         }
     }
     // 这里1.0中遍历了前color个节点，这里修改成遍历所有的color
-    for (int i = 0; i < color1; i++) {
+    for (int i = 0; i < colorNum; i++) {
         if (colorInDegree[i] != 0) {
             APASS_LOG_ERROR_F(
                 Elements::Operation, "Color [%d] has cycle in graph; Please check and adjust the merge method.", i);
             return FAILED;
         }
     }
-    std::vector<int> colorQueueReverse(color1);
-    for (int i = 0; i < color1; i++) {
-        colorQueueReverse[colorQueue[i]] = i;
+    std::vector<int> newSubgraphId(colorNum);
+    for (int i = 0; i < colorNum; i++) {
+        newSubgraphId[colorQueue[i]] = i;
     }
     for (size_t i = 0; i < opOriList.size(); i++) {
         if (opOriList[i].GetSubgraphID() < 0) {
             continue;
         }
-        opOriList[i].UpdateSubgraphID(colorQueueReverse[opOriList[i].GetSubgraphID()]);
+        opOriList[i].UpdateSubgraphID(newSubgraphId[opOriList[i].GetSubgraphID()]);
     }
     return SUCCESS;
 }
 
 Status NBufferMerge::CheckAndFixColorOrder(
-    OperationsViewer& opOriList, int& color1, std::vector<int>& colorCycles1, std::vector<std::vector<int>>& colorNode1)
+    OperationsViewer& opOriList, int& colorNum, std::vector<int>& colorCycles, std::vector<std::vector<int>>& colorNode)
 {
-    UpdateOpColor(opOriList, color1, colorCycles1, colorNode1);
+    UpdateOpColor(opOriList, colorNum, colorCycles, colorNode);
     // 颜色拓扑排序
-    std::vector<std::vector<int>> inputColor(color1);
-    std::vector<std::vector<int>> outputColor(color1);
+    std::vector<std::vector<int>> inputColor(colorNum);
+    std::vector<std::vector<int>> outputColor(colorNum);
     for (size_t i = 0; i < opOriList.size(); i++) {
         for (int j : outGraph_[i]) {
             if (opOriList[i].GetSubgraphID() < 0 || opOriList[j].GetSubgraphID() < 0) {
@@ -140,7 +141,7 @@ Status NBufferMerge::CheckAndFixColorOrder(
             }
         }
     }
-    if (ColorTopo(color1, inputColor, outputColor, opOriList) == FAILED) {
+    if (ColorTopo(colorNum, inputColor, outputColor, opOriList) == FAILED) {
         APASS_LOG_ERROR_F(Elements::Operation, "ColorTopo failed; Please check the ColorTopo method.");
         return FAILED;
     }
@@ -149,17 +150,17 @@ Status NBufferMerge::CheckAndFixColorOrder(
         if (opOriList[i].GetSubgraphID() < 0) {
             continue;
         }
-        colorCycles1[opOriList[i].GetSubgraphID()] += opOriList[i].GetLatency();
-        colorNode1[opOriList[i].GetSubgraphID()].push_back(i);
+        colorCycles[opOriList[i].GetSubgraphID()] += opOriList[i].GetLatency();
+        colorNode[opOriList[i].GetSubgraphID()].push_back(i);
     }
     return SUCCESS;
 }
 
 void NBufferMerge::InitParam(OperationsViewer& opOriList)
 {
-    std::vector<std::mutex> subgraphMtx(color_);
-    std::vector<std::mutex> inColorMtx(color_);
-    std::vector<std::mutex> outColorMtx(color_);
+    std::vector<std::mutex> subgraphMtx(colorNum_);
+    std::vector<std::mutex> inColorMtx(colorNum_);
+    std::vector<std::mutex> outColorMtx(colorNum_);
     ParallelTool::Instance().Parallel_for(0, opOriList.size(), 1, [&](int st, int et, int tid) {
         (void)tid;
         for (int i = st; i < et; i++) {
@@ -217,11 +218,11 @@ Status NBufferMerge::Init(Function& func)
             func.GetFuncMagic());
         return FAILED;
     }
-    color_ = colorMax + 1;
-    colorNode_.resize(color_);
-    colorCycles_.resize(color_, 0);
-    inColor_.resize(color_);
-    outColor_.resize(color_);
+    colorNum_ = colorMax + 1;
+    colorNode_.resize(colorNum_);
+    colorCycles_.resize(colorNum_, 0);
+    inColor_.resize(colorNum_);
+    outColor_.resize(colorNum_);
     InitParam(opOriList);
     std::vector<Operation*> opList;
     for (auto& op : func.Operations()) {
@@ -285,9 +286,7 @@ void NBufferMerge::GetColorHash(
         }
         // 单独的reshape不用合并
         subgraphOpCount[subGraphID]++;
-        if (opOriList[i].GetOpcode() == Opcode::OP_RESHAPE) {
-            reshapeCount[subGraphID]++;
-        }
+        if (opOriList[i].GetOpcode() == Opcode::OP_RESHAPE) reshapeCount[subGraphID]++;
         if (OpcodeManager::Inst().GetCoreType(opOriList[i].GetOpcode()) == OpCoreType::AIC) {
             mulaccGraph.insert(subGraphID);
             continue;
@@ -295,48 +294,29 @@ void NBufferMerge::GetColorHash(
         hashColor[subGraphID] = (hashColor[subGraphID] * p + (hashTileOp[i] ^ a)) % mod;
     }
     for (auto& [id, count] : reshapeCount) {
-        if (count == subgraphOpCount[id]) {
-            hashColor[id] = 0;
-        }
+        if (count == subgraphOpCount[id]) hashColor[id] = 0;
     }
     for (auto subgraphId : mulaccGraph) {
         hashColor[subgraphId] = 0;
     }
     int order = 0;
-    for (int i = 0; i < color_; i++) {
+    for (int i = 0; i < colorNum_; i++) {
+        if (mulaccGraph.count(i)) continue;
         hashMap[hashColor[i]].push_back(i);
         if (hashMap[hashColor[i]].size() == 1) {
             hashOrder_[hashColor[i]] = order;
             order++;
         }
     }
-}
-
-inline int GetCopyIn(const OperationsViewer& opOriList, std::vector<int>& colorNode)
-{
-    // 获取子图CopyIn数据量
-    int colorCopyIn = 0;
-    for (int j : colorNode) {
-        if (opOriList[j].GetOpcode() == Opcode::OP_COPY_IN) { // getopcode == opcode::OP_COPY_IN
-            int volume = BytesOf(opOriList[j].GetOOperands()[0]->Datatype());
-            std::shared_ptr<CopyOpAttribute> attr =
-                std::static_pointer_cast<CopyOpAttribute>(opOriList[j].GetOpAttribute());
-            if (attr == nullptr) {
-                APASS_LOG_ERROR_F(
-                    Elements::Operation,
-                    "CopyOpAttribute is nullptr, origin op magic : %d; Please check whether the source OpAttribute "
-                    "attribute can be convert to CopyOpAttribute.%s",
-                    opOriList[j].GetOpMagic(), GetFormatBacktrace(opOriList[j]).c_str());
-                return -1;
+    for (auto& entry : hashMap) {
+        int hashOrder = hashOrder_[entry.first];
+        for (auto subgraphId : entry.second) {
+            if (mulaccGraph.count(subgraphId)) continue;
+            for (auto opIdx : colorNode_[subgraphId]) {
+                opOriList[opIdx].UpdateVecMergeHashOrder(hashOrder);
             }
-            auto shape = attr->GetSpecifiedShape(1);
-            for (int k : shape) {
-                volume *= k;
-            }
-            colorCopyIn = colorCopyIn + volume;
         }
     }
-    return colorCopyIn;
 }
 
 std::vector<std::vector<int>> NBufferMerge::SortColorWithInput(std::vector<int>& colorValues) const
@@ -384,13 +364,13 @@ std::vector<std::vector<int>> NBufferMerge::SortColorWithInput(std::vector<int>&
 
 void NBufferMerge::MergePingPong(
     std::vector<std::vector<int>>& sortedColors, const OperationsViewer& opOriList, std::vector<uint64_t>& hashColor,
-    size_t& numDBmerge)
+    size_t& numDBmerge, int hashOrder)
 {
     int pingColor = -1;
     for (auto& input2Color : sortedColors) {
         APASS_LOG_DEBUG_F(
-            Elements::Operation, "NBuffer %zu Number of subgraphs %zu SubGraphIDs %s", numDBmerge, input2Color.size(),
-            IntVecToStr(input2Color).c_str());
+            Elements::Operation, "HashOrder %d, NBuffer %zu, Number of subgraphs %zu, SubGraphIDs %s",
+            hashOrder, numDBmerge, input2Color.size(), IntVecToStr(input2Color).c_str());
         if (vecNBuffermode_ == autoMulityInOutMerge || vecNBuffermode_ == manualMulityInOutMerge) {
             std::sort(input2Color.begin(), input2Color.end(), [&](int x, int y) {
                 return dfsColorOrder_[x] < dfsColorOrder_[y];
@@ -414,7 +394,7 @@ void NBufferMerge::MergePingPong(
             colorCycles_[pongColor] = 0;
             colorNode_[pongColor].clear();
             hashColor[pongColor] = 0;
-            APASS_LOG_DEBUG_F(Elements::Operation, "SubGraph Merge: %d, %d.", pingColor, pongColor);
+            APASS_LOG_DEBUG_F(Elements::Operation, "HashOrder %d, SubGraph Merge: %d -> %d.", hashOrder, pongColor, pingColor);
         }
     }
 }
@@ -427,7 +407,7 @@ Status NBufferMerge::MergeProcessForMulityInOut(
     for (const auto& entry : hashMap) {
         hashMapKeys.push_back(entry.first);
     }
-    DFSSortUtils::DFSSortColor(color_, inColor_, outColor_, dfsColorOrder_);
+    DFSSortUtils::DFSSortColor(colorNum_, inColor_, outColor_, dfsColorOrder_);
     ParallelTool::Instance().Parallel_for(0, hashMapKeys.size(), 1, [&](int st, int et, int tid) {
         (void)tid;
         for (int hashMapKeyIdx = st; hashMapKeyIdx < et; hashMapKeyIdx++) {
@@ -442,9 +422,12 @@ Status NBufferMerge::MergeProcessForMulityInOut(
                 continue;
             std::vector<std::vector<int>> sortedColors;
             sortedColors.push_back(colorValues);
+            APASS_LOG_INFO_F(Elements::Operation,
+                "HashOrder %d, HashValue %lu (MulityInOut mode): subgraphs %s.",
+                hashOrder_[colorHashValue], colorHashValue, IntVecToStr(colorValues).c_str());
             size_t numDBMerge = (vecNBuffermode_ == autoMulityInOutMerge) ? hashMergeNum.at(colorHashValue) :
                                                                             hashMergeNum.at(hashOrder_[colorHashValue]);
-            MergePingPong(sortedColors, opOriList, hashColor, numDBMerge);
+            MergePingPong(sortedColors, opOriList, hashColor, numDBMerge, hashOrder_[colorHashValue]);
         }
     });
     return SUCCESS;
@@ -468,9 +451,16 @@ Status NBufferMerge::MergeProcess(
             auto sortedColors = SortColorWithInput(colorValues);
             if (sortedColors.empty())
                 continue;
+            APASS_LOG_INFO_F(Elements::Operation,
+                "HashOrder %d, HashValue %lu: total %zu groups, subgraphs before grouping: %s.",
+                hashOrder_[colorHashValue], colorHashValue, sortedColors.size(), IntVecToStr(colorValues).c_str());
+            for (size_t groupIdx = 0; groupIdx < sortedColors.size(); groupIdx++) {
+                APASS_LOG_INFO_F(Elements::Operation, "  Group %zu: subgraphs %s.",
+                    groupIdx, IntVecToStr(sortedColors[groupIdx]).c_str());
+            }
             size_t numDBMerge =
-                (vecNBuffermode_ == 1) ? hashMergeNum[colorHashValue] : hashMergeNum[hashOrder_[colorHashValue]];
-            MergePingPong(sortedColors, opOriList, hashColor, numDBMerge);
+                (vecNBuffermode_ == autoMerge) ? hashMergeNum[colorHashValue] : hashMergeNum[hashOrder_[colorHashValue]];
+            MergePingPong(sortedColors, opOriList, hashColor, numDBMerge, hashOrder_[colorHashValue]);
         }
     });
     return SUCCESS;
@@ -482,22 +472,91 @@ std::map<uint64_t, size_t> NBufferMerge::SetNumDB(std::map<uint64_t, std::vector
     auto it = vecNBufferSetting_.find(VEC_NBUFFER_SETTING_DEFAULT_MERGE_NUM_KEY);
     if (it != vecNBufferSetting_.end()) {
         int defaultVal = it->second;
-        for (uint64_t i = 0; i < static_cast<uint64_t>(hashMap.size()); i++) {
-            numDBList[i] = defaultVal;
+        for (const auto& [hashVal, order] : hashOrder_) {
+            (void) hashVal;
+            numDBList[order] = defaultVal;
         }
         vecNBufferSetting_.erase(it);
-    } else { // 手动合并但没配置默认值的情况，没配置的order自动计算合并粒度
+    } else {
         auto hashMergeNum = GetIsoColorMergeNum(hashMap);
         for (const auto& entry : hashMergeNum) {
             numDBList[hashOrder_[entry.first]] = entry.second;
         }
     }
     for (const auto& entry : vecNBufferSetting_) {
-        if (entry.first >= 0 && entry.first < static_cast<int>(hashMap.size())) {
+        bool found = false;
+        for (const auto& [hashVal, order] : hashOrder_) {
+            (void) hashVal;
+            if (order == entry.first) {
+                found = true;
+                break;
+            }
+        }
+        if (found) {
             numDBList[entry.first] = entry.second;
         }
     }
     return numDBList;
+}
+
+Status NBufferMerge::ApplySemanticLabelSettings(
+    const OperationsViewer& opOriList, std::map<uint64_t, size_t>& hashMergeNum,
+    const std::map<uint64_t, std::vector<int>>& /* hashMap */, const std::vector<uint64_t>& hashColor)
+{
+    if (vecNBufferSettingByLabel_.empty()) {
+        return SUCCESS;
+    }
+
+    // Build a map from semantic label to the subgraph colors that contain ops with that label
+    auto labelToColors = BuildLabelToColorsMap(opOriList);
+
+    // hashMergeNum is keyed by colorHashValue in auto modes, by hashOrder in manual modes.
+    bool useHashValueAsKey = (vecNBuffermode_ == autoMerge || vecNBuffermode_ == autoMulityInOutMerge);
+
+    // First step: collect the override value per target (hashOrder or hashValue) from all labels.
+    // If multiple labels target the same isomorphic group, take max among them.
+    std::map<uint64_t, size_t> labelOverrides;
+    for (const auto& [label, mergeNum] : vecNBufferSettingByLabel_) {
+        auto it = labelToColors.find(label);
+        if (it == labelToColors.end()) {
+            APASS_LOG_ERROR_F(
+                Elements::Config,
+                "Semantic label '%s' specified in vec_nbuffer_setting not found in any operation. "
+                "Please check that the label matches an operation's semantic_label.",
+                label.c_str());
+            return FAILED;
+        }
+
+        for (int color : it->second) {
+            uint64_t colorHash = hashColor[color];
+            uint64_t target = colorHash;
+            if (!useHashValueAsKey) {
+                auto hashOrderIt = hashOrder_.find(colorHash);
+                if (hashOrderIt == hashOrder_.end()) {
+                    APASS_LOG_WARN_F(
+                        Elements::Config, "Could not find hash order for subgraph color %d with semantic label '%s'.",
+                        color, label.c_str());
+                    continue;
+                }
+                target = static_cast<uint64_t>(hashOrderIt->second);
+            }
+            auto overIt = labelOverrides.find(target);
+            if (overIt != labelOverrides.end()) {
+                overIt->second = std::max(overIt->second, static_cast<size_t>(mergeNum));
+            } else {
+                labelOverrides[target] = static_cast<size_t>(mergeNum);
+            }
+        }
+    }
+
+    // Second step: replace the hashMergeNum with collected label overrides
+    for (const auto& [target, val] : labelOverrides) {
+        hashMergeNum[target] = val;
+        APASS_LOG_INFO_F(
+            Elements::Config, "Applied semantic label override: target=%lu, merge_num=%zu", target, val);
+    }
+
+    return SUCCESS;
 }
 
 Status NBufferMerge::NBufferMergeProcess(Function& func)
@@ -506,24 +565,24 @@ Status NBufferMerge::NBufferMergeProcess(Function& func)
         APASS_LOG_ERROR_F(Elements::Operation, "Init Failed; Please check the Init method.");
         return FAILED;
     }
-    if (color_ == 0) {
+    if (colorNum_ == 0) {
         return SUCCESS;
     }
     APASS_LOG_INFO_F(Elements::Operation, "User set nbuffer mode: %d", vecNBuffermode_);
     // 获取节点和子图的hash
     auto opOriList = func.Operations();
-    std::vector<uint64_t> hashColor(color_, 0);
+    std::vector<uint64_t> hashColor(colorNum_, 0);
     std::map<uint64_t, std::vector<int>> hashMap;
     hashOrder_.clear();
     GetColorHash(opOriList, hashColor, hashMap);
     // print hashorder
-    APASS_LOG_INFO_F(Elements::Operation, "Computation graph [%s] overview.", func.GetRawName().c_str());
+    APASS_LOG_INFO_F(Elements::Function, "Computation graph [%s] overview.", func.GetMagicName().c_str());
     for (auto& entry : hashMap) {
         APASS_LOG_INFO_F(
-            Elements::Operation, "Hash order: %d, Subgraph hash: %lu, Subgraph IDs: %s.", hashOrder_[entry.first],
-            entry.first, IntVecToStr(entry.second).c_str());
+            Elements::Function, "Vec nbuffer hash order: %d, Subgraph hash: %lu, Subgraph count: %zu, Subgraph IDs: %s.",
+            hashOrder_[entry.first], entry.first, entry.second.size(), IntVecToStr(entry.second).c_str());
     }
-    APASS_LOG_INFO_F(Elements::Operation, "Computation graph [%s] overview end.", func.GetRawName().c_str());
+    APASS_LOG_INFO_F(Elements::Function, "Computation graph [%s] overview end.", func.GetMagicName().c_str());
     std::map<uint64_t, size_t> hashMergeNum;
     if (vecNBuffermode_ == autoMerge || vecNBuffermode_ == autoMulityInOutMerge) {
         APASS_LOG_INFO_F(
@@ -539,6 +598,15 @@ Status NBufferMerge::NBufferMergeProcess(Function& func)
         APASS_LOG_INFO_F(Elements::Config, "Manually set mode to %d.", vecNBuffermode_);
         hashMergeNum = SetNumDB(hashMap);
     }
+
+    // Apply semantic label settings (higher priority than hashorder settings)
+    if (ApplySemanticLabelSettings(opOriList, hashMergeNum, hashMap, hashColor) == FAILED) {
+        APASS_LOG_ERROR_F(
+            Elements::Config,
+            "ApplySemanticLabelSettings failed; Please check the semantic labels in vec_nbuffer_setting.");
+        return FAILED;
+    }
+
     if (vecNBuffermode_ == autoMulityInOutMerge || vecNBuffermode_ == manualMulityInOutMerge) {
         if (MergeProcessForMulityInOut(opOriList, hashMap, hashMergeNum, hashColor) == FAILED) {
             APASS_LOG_ERROR_F(
@@ -553,12 +621,12 @@ Status NBufferMerge::NBufferMergeProcess(Function& func)
         }
     }
 
-    if (CheckAndFixColorOrder(opOriList, color_, colorCycles_, colorNode_) == FAILED) {
+    if (CheckAndFixColorOrder(opOriList, colorNum_, colorCycles_, colorNode_) == FAILED) {
         APASS_LOG_ERROR_F(
             Elements::Operation, "CheckAndFixColorOrder failed; Please check the CheckAndFixColorOrder method.");
         return FAILED;
     }
-    func.SetTotalSubGraphCount(color_);
+    func.SetTotalSubGraphCount(colorNum_);
     APASS_LOG_DEBUG_F(Elements::Operation, "After Nbuffer merge.");
     RescheduleUtils::PrintColorNode(func);
     return SUCCESS;
@@ -572,13 +640,22 @@ Status NBufferMerge::CheckVecNBufferSettingForManualMerge()
         return FAILED;
     }
     for (const auto& pair : vecNBufferSetting_) {
-        if (pair.first < VEC_NBUFFER_SETTING_DEFAULT_MERGE_NUM_KEY ||
-            pair.first > static_cast<int64_t>(hashOrder_.size()) - 1) {
+        if (pair.first == VEC_NBUFFER_SETTING_DEFAULT_MERGE_NUM_KEY) {
+            continue;
+        }
+        bool found = false;
+        for (const auto& [hashVal, order] : hashOrder_) {
+            (void) hashVal;
+            if (order == pair.first) {
+                found = true;
+                break;
+            }
+        }
+        if (!found) {
             APASS_LOG_WARN_F(
                 Elements::Config,
-                "The VEC_NBUFFER_SETTING key %ld is invalid; For the current graph, valid keys should be between %ld "
-                "and max hashOrder %ld.",
-                pair.first, VEC_NBUFFER_SETTING_DEFAULT_MERGE_NUM_KEY, static_cast<int64_t>(hashOrder_.size()) - 1);
+                "The VEC_NBUFFER_SETTING key %ld is invalid; This hashOrder does not exist in current graph.",
+                pair.first);
         }
         if (pair.second <= 0 || pair.second > static_cast<int64_t>(INT_MAX)) {
             APASS_LOG_ERROR_F(
@@ -599,7 +676,7 @@ Status NBufferMerge::InitVecNBufferModeBySetting()
         return SUCCESS;
     }
     std::map<int64_t, int64_t> skipSetting = {{-1, 1}}; // 仅配置{{-1, 1}} 跳过合并
-    if (vecNBufferSetting_ == skipSetting) {
+    if (vecNBufferSetting_ == skipSetting && vecNBufferSettingByLabel_.empty()) {
         vecNBuffermode_ = noMerge;
         return SUCCESS;
     }
@@ -631,6 +708,7 @@ Status NBufferMerge::RunOnFunction(Function& function)
 {
     APASS_LOG_INFO_F(Elements::Operation, "===> Start NBufferMerge.");
     vecNBufferSetting_ = function.paramConfigs_.vecNBufferSetting;
+    vecNBufferSettingByLabel_ = function.paramConfigs_.vecNBufferSettingByLabel;
     mgVecParallelLb_ = function.paramConfigs_.mgVecParallelLb;
     if (InitVecNBufferModeBySetting() != SUCCESS) {
         APASS_LOG_ERROR_F(Elements::Config, "InitVecNBufferModeBySetting failed.");

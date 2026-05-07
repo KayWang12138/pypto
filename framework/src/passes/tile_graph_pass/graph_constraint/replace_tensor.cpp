@@ -15,6 +15,8 @@
 
 #include "replace_tensor.h"
 #include "passes/pass_log/pass_log.h"
+#include "tilefwk/error_code.h"
+#include "passes/pass_utils/alignment_utils.h"
 
 #define MODULE_NAME "ReplaceTensor"
 
@@ -292,23 +294,38 @@ Status ReplaceTensor::FindBaseTensor(
             }
         }
     }
-    if (baseTensor == nullptr) {
-        baseTensor = group.front();
-        int64_t baseShape = abs(baseTensor->tensor->GetRawDataSize());
-        for (auto& curTensor : group) {
-            int64_t curShape = abs(curTensor->tensor->GetRawDataSize());
-            if (curShape > baseShape) {
-                APASS_LOG_INFO_F(
-                    Elements::Tensor, "Replace curTensor %d size %ld to baseTensor %d size %ld.", curTensor->GetMagic(),
-                    curShape, baseTensor->GetMagic(), baseShape);
-                baseTensor = curTensor;
-                baseShape = curShape;
-            } else if (curShape == baseShape && tensorToOrderIndex.at(curTensor) < tensorToOrderIndex.at(baseTensor)) {
-                APASS_LOG_INFO_F(
-                    Elements::Tensor, "Replace curTensor %d idx %d to baseTensor %d idx %d.", curTensor->GetMagic(),
-                    tensorToOrderIndex.at(curTensor), baseTensor->GetMagic(), tensorToOrderIndex.at(baseTensor));
-                baseTensor = curTensor;
-            }
+    if (baseTensor != nullptr) {
+        return SUCCESS;
+    }
+    LogicalTensors boundTensors;
+    for (auto& curTensor : group) {
+        std::set<int> boundTensorIDs;
+        for (auto &inOp : curTensor->GetProducers()) {
+            boundTensorIDs.insert(inOp->GetSubgraphID());
+        }
+        for (auto &outOp : curTensor->GetConsumers()) {
+            boundTensorIDs.insert(outOp->GetSubgraphID());
+        }
+        if (boundTensorIDs.size() > 1) {
+            boundTensors.push_back(curTensor);
+        }
+    }
+    LogicalTensors baseGroup = boundTensors.empty() ? group : boundTensors;
+    baseTensor = baseGroup.front();
+    int64_t baseShape = abs(baseTensor->tensor->GetRawDataSize());
+    for (auto& curTensor : baseGroup) {
+        int64_t curShape = abs(curTensor->tensor->GetRawDataSize());
+        if (curShape > baseShape) {
+            APASS_LOG_INFO_F(
+                Elements::Tensor, "Replace curTensor %d size %ld to baseTensor %d size %ld.", curTensor->GetMagic(),
+                curShape, baseTensor->GetMagic(), baseShape);
+            baseTensor = curTensor;
+            baseShape = curShape;
+        } else if (curShape == baseShape && tensorToOrderIndex.at(curTensor) < tensorToOrderIndex.at(baseTensor)) {
+            APASS_LOG_INFO_F(
+                Elements::Tensor, "Replace curTensor %d idx %d to baseTensor %d idx %d.", curTensor->GetMagic(),
+                tensorToOrderIndex.at(curTensor), baseTensor->GetMagic(), tensorToOrderIndex.at(baseTensor));
+            baseTensor = curTensor;
         }
     }
     return SUCCESS;
@@ -628,7 +645,7 @@ Status ReplaceTensor::ForwardProcess(Function& function)
                     return FAILED;
                 }
             } else if (
-                consumerOp->GetOpcode() == Opcode::OP_INDEX_PUT &&
+                (consumerOp->GetOpcode() == Opcode::OP_INDEX_PUT || consumerOp->GetOpcode() == Opcode::OP_INDEX_ADD) &&
                 consumerOp->HasAttribute(OpAttributeKey::inplaceIdx)) {
                 if (ForwardInputIdx(consumerOp, rootTensor, function) == FAILED) {
                     return FAILED;
@@ -685,7 +702,7 @@ LogicalTensorPtr ReplaceTensor::FindReplaceSource(
         return visited.at(&op);
     }
     auto inplaceIdx = op.GetIntAttribute(OpAttributeKey::inplaceIdx);
-    ASSERT(inplaceIdx >= 0 && inplaceIdx < static_cast<int>(op.GetIOperands().size()));
+    ASSERT(OperationErr::OP_INVALID_OPERAND_COUNT, inplaceIdx >= 0 && inplaceIdx < static_cast<int>(op.GetIOperands().size()));
     auto inplaceIOperand = op.GetInputOperand(inplaceIdx);
     LogicalTensorPtr res = nullptr;
     for (auto producer : inplaceIOperand->GetProducers()) {
@@ -696,7 +713,7 @@ LogicalTensorPtr ReplaceTensor::FindReplaceSource(
         if (res == nullptr) {
             res = tmp;
         } else {
-            ASSERT(res == tmp); // inplace路径应总是交汇于同一起点
+            ASSERT(OperationErr::OP_SPECIAL_CONSTRAINT, res == tmp); // inplace路径应总是交汇于同一起点
         }
     }
     if (res == nullptr) {
@@ -730,14 +747,14 @@ Status ReplaceTensor::RefactorViewConnectForReplace(Function& function)
             continue;
         }
         auto inplaceIdx = op->GetIntAttribute(OpAttributeKey::inplaceIdx);
-        ASSERT(inplaceIdx == 0);
+        ASSERT(OperationErr::OP_SPECIAL_CONSTRAINT, inplaceIdx == 0);
         auto iOperand = op->GetInputOperand(inplaceIdx);
         auto oOperand = op->GetOutputOperand(0);
         if (iOperand == srcTensor) { // 开头的VIEW不需要插入NOP来控制顺序
             continue;
         }
-        ASSERT(iOperand->GetRawTensor() == srcTensor->GetRawTensor());
-        ASSERT(oOperand->GetRawTensor() == srcTensor->GetRawTensor());
+        ASSERT(TensorErr::TENSOR_SHAPE_MISMATCH, iOperand->GetRawTensor() == srcTensor->GetRawTensor());
+        ASSERT(TensorErr::TENSOR_SHAPE_MISMATCH, oOperand->GetRawTensor() == srcTensor->GetRawTensor());
         op->ReplaceIOperand(0, srcTensor);
         // 含inplace语义，都为同一个RawTensor
         auto nopOutput = std::make_shared<LogicalTensor>(
@@ -861,62 +878,6 @@ std::unordered_map<LogicalTensorPtr, int> ReplaceTensor::BuildTensorOrderIndexMa
 }
 
 /**
- * @brief 判断 UB 上的tensor尾轴是否32B对齐
- */
-inline bool IsLastDim32BAligned(const LogicalTensorPtr& tensor)
-{
-    // 空shape视为非32B对齐
-    if (tensor->shape.empty()) {
-        return false;
-    }
-
-    size_t lastIdx = tensor->shape.size() - 1;
-    size_t lastDim = tensor->shape[lastIdx];
-    size_t bytes = BytesOf(tensor->Datatype());
-    size_t totalByte = lastDim * bytes;
-
-    // 判断是否32字节对齐
-    return (totalByte % 32) == 0;
-}
-
-inline size_t GetPaddingValue(LogicalTensorPtr& in)
-{
-    auto bytes = BytesOf(in->Datatype());
-    auto paddingIter = BLOCK_PADDING_DIM.find(bytes);
-    if (paddingIter == BLOCK_PADDING_DIM.end()) {
-        return 1;
-    }
-    return paddingIter->second;
-}
-
-/**
- * @brief 为 UB 上尾轴非32B对齐的tensor做32B对齐操作
- */
-inline int64_t Pad(int64_t dim, int64_t padValue)
-{
-    if (padValue == 0) {
-        return dim;
-    }
-    return (dim + padValue - 1) / padValue * padValue;
-}
-
-/**
- * @brief 计算tensor的数据量
- */
-int computeTensorSize(const LogicalTensorPtr& tensor) {
-    if (tensor == nullptr || tensor->shape.empty()) {
-        return 0;
-    }
-
-    int bytes = BytesOf(tensor->Datatype());
-    int tensorSize = bytes;
-    for (int dim : tensor->shape) {
-        tensorSize *= dim;
-    }
-    return tensorSize;
-}
-
-/**
  * @brief 为 UB 内存类型的输入插入拷贝序列 (UB → DDR → UB)
  */
 Status ReplaceTensor::InsertCopyUBOp(Function& function, Operation* needInsertCopyAssOp, LogicalTensorPtr& input)
@@ -965,24 +926,13 @@ Status ReplaceTensor::InsertCopyDDROp(Function& function, Operation* needInsertC
     auto memType = copyInOutput.GetMemoryTypeOriginal();
     if ((memType == MemoryType::MEM_UB) && (copyInOutput.GetDataSize() > UB_SIZE_THRESHOLD)) {
         APASS_LOG_ERROR_F(Elements::Tensor, 
-                          "Tensor [%d] can not copy to UB, tensor size [%d] exceeds the UB size [%d] limit.", input->magic, 
-                          computeTensorSize(input), UB_SIZE_THRESHOLD);
+                          "Tensor [%d] can not copy to UB, tensor size [%ld] exceeds the UB size [%d] limit.", input->magic, 
+                          input->GetDataSize(), UB_SIZE_THRESHOLD);
         return FAILED;
     }
     auto copyInOutputPtr = std::make_shared<LogicalTensor>(std::move(copyInOutput));
-    if (memType == MemoryType::MEM_UB && !IsLastDim32BAligned(copyInOutputPtr)) {
-        size_t lastIdx = copyInOutputPtr->shape.size() - 1;
-        size_t paddingValue = GetPaddingValue(copyInOutputPtr); // 根据数据类型，判断需要pad到几个元素
-
-        // 保存rawshape
-        copyInOutputPtr->oriShape = copyInOutputPtr->shape;
-        copyInOutputPtr->tensor->oriRawshape = copyInOutputPtr->tensor->rawshape;
-
-        // pad 32B
-        copyInOutputPtr->shape[lastIdx] = Pad(copyInOutputPtr->shape[lastIdx], paddingValue);
-        copyInOutputPtr->tensor->rawshape[lastIdx] =
-            Pad(copyInOutputPtr->tensor->oriRawshape[lastIdx], copyInOutputPtr->shape[lastIdx]);
-    }
+    //为copy到Ub的Tensor进行32B对齐
+    AlignmentUtils::ProcessLastDim32BAlignedOnUB(copyInOutputPtr);
     auto& copyInOp = function.AddOperation(Opcode::OP_COPY_IN, {input}, {copyInOutputPtr});
     copyInOp.SetOpAttribute(std::make_shared<CopyOpAttribute>(
         OpImmediate::Specified(input->GetOffset()), MemoryType::MEM_UB, OpImmediate::Specified(copyShape),
@@ -1011,8 +961,15 @@ Status ReplaceTensor::FindNeedToCopyAssemble(
     visitedAssOps.insert(op.GetOpMagic());
     auto assembleIn = op.GetIOperands()[0];
     auto producers = assembleIn->GetProducers();
+    auto &inOp = *(assembleIn)->GetProducers().begin();
     if ((!producers.empty()) && (*producers.begin())->GetOpcode() == Opcode::OP_TRANSPOSE_MOVEOUT) {
         return FAILED;
+    }
+    const int UB_SIZE_THRESHOLD = static_cast<int>(Platform::Instance().GetDie().GetMemoryLimit(MemoryType::MEM_UB));
+    if (inOp->GetOpcode() == Opcode::OP_RESHAPE &&
+        op.GetIOperands()[0]->tensor->GetRawDataSize() <= UB_SIZE_THRESHOLD) {
+        needInsertCopyAssOps.insert(&op);
+        return SUCCESS;
     }
     auto consumers = assembleIn->GetConsumers();
     bool sameAssembleOut = true;
@@ -1033,6 +990,38 @@ Status ReplaceTensor::FindNeedToCopyAssemble(
     return SUCCESS;
 }
 
+Status ReplaceTensor::FindNeedToCopyReshape(
+    std::unordered_set<Operation*>& needInsertCopyAssOps, std::unordered_set<int>& visitedReshapeOps, Operation& op)
+{
+    visitedReshapeOps.insert(op.GetOpMagic());
+    if (op.GetIOperands()[0]->tensor->GetRawShapeSize() > 0 &&
+        op.GetOOperands()[0]->tensor->GetRawShapeSize() > 0 &&
+        op.GetIOperands()[0]->tensor->GetRawShapeSize() != op.GetOOperands()[0]->tensor->GetRawShapeSize()) {
+        needInsertCopyAssOps.insert(&op);
+        return SUCCESS;
+    }
+    auto producerOps = op.ProducerOps();
+    auto consumerOps = op.ConsumerOps();
+    bool flag = true;
+    for (auto consumerOp : consumerOps) {
+        if (consumerOp->GetOpcode() == Opcode::OP_COPY_IN) {
+            flag = false;
+            break;
+        }
+    }
+    for (auto producesOp : producerOps) {
+        if (producesOp->GetOpcode() == Opcode::OP_VIEW && flag) {
+            needInsertCopyAssOps.insert(&op);
+        }
+    }
+    for (auto consumerOp : consumerOps) {
+        if (consumerOp->GetOpcode() == Opcode::OP_ASSEMBLE && consumerOp->GetIOperands()[0]->GetMemoryTypeOriginal() == MemoryType::MEM_UB) {
+            needInsertCopyAssOps.insert(consumerOp);
+        }
+    }
+    return SUCCESS;
+}
+
 /**
  * @brief 遍历所有 ASSEMBLE 操作，为需要拷贝的操作插入拷贝序列，避免多个 ASSEMBLE 操作共享同一个输入导致的内存冲突
  * Tensor1 ---> Assemble ---> Tensor2
@@ -1046,31 +1035,14 @@ Status ReplaceTensor::FindNeedToCopyAssemble(
 Status ReplaceTensor::InsertNeedCopy(Function& function)
 {
     std::unordered_set<int> visitedAssOps;
+    std::unordered_set<int> visitedReshapeOps;
     std::unordered_set<Operation*> needInsertCopyAssOps;
     for (auto& op : function.Operations()) {
         if (op.GetOpcode() == Opcode::OP_ASSEMBLE && (!visitedAssOps.count(op.GetOpMagic()))) {
             FindNeedToCopyAssemble(needInsertCopyAssOps, visitedAssOps, op);
         }
-        if (op.GetOpcode() == Opcode::OP_RESHAPE) {
-            auto producerOps = op.ProducerOps();
-            auto consumerOps = op.ConsumerOps();
-            bool flag = true;
-            for (auto consumerOp : consumerOps) {
-                if (consumerOp->GetOpcode() == Opcode::OP_COPY_IN) {
-                    flag = false;
-                    break;
-                }
-            }
-            for (auto producesOp : producerOps) {
-                if (producesOp->GetOpcode() == Opcode::OP_VIEW && flag) {
-                    needInsertCopyAssOps.insert(&op);
-                }
-            }
-            for (auto consumerOp : consumerOps) {
-                if (consumerOp->GetOpcode() == Opcode::OP_ASSEMBLE && consumerOp->GetIOperands()[0]->GetMemoryTypeOriginal() == MemoryType::MEM_UB) {
-                    needInsertCopyAssOps.insert(consumerOp);
-                }
-            }
+        if (op.GetOpcode() == Opcode::OP_RESHAPE && (!visitedReshapeOps.count(op.GetOpMagic()))) {
+            FindNeedToCopyReshape(needInsertCopyAssOps, visitedReshapeOps, op);
         }
     }
     std::vector<Operation*> sortedOps(needInsertCopyAssOps.begin(), needInsertCopyAssOps.end());

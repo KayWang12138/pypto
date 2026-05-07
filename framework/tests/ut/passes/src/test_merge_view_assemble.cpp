@@ -968,5 +968,252 @@ TEST_F(MergeViewAssembleTest, TestSourceLocation)
         }
     }
 }
+
+TEST_F(MergeViewAssembleTest, ViewChainSameScopeIdsShouldMerge)
+{
+    Program program;
+    std::string funcMagicName = "test_view_same_scope";
+    std::string funcRawName = "test_view_same_scope_raw";
+    std::unique_ptr<Function> function =
+        std::make_unique<Function>(program, funcMagicName, funcRawName, nullptr);
+    auto rawTensor = std::make_shared<RawTensor>(
+        DataType::DT_FP32, std::vector<int64_t>{10, 10}, TileOpFormat::TILEOP_ND, "input_tensor");
+    std::shared_ptr<LogicalTensor> inputTensor = std::make_shared<LogicalTensor>(
+        *function, rawTensor, std::vector<int64_t>{0, 0}, std::vector<int64_t>{10, 10});
+    const_cast<std::vector<std::shared_ptr<LogicalTensor>>&>(function->GetIncast()).push_back(inputTensor);
+
+    // VIEW1(scopeId=1) -> VIEW2(scopeId=1), should merge
+    auto midTensor = std::make_shared<LogicalTensor>(*function, DataType::DT_FP32, std::vector<int64_t>{8, 8});
+    auto view1Attr = std::make_shared<ViewOpAttribute>(
+        std::vector<int64_t>{1, 2}, std::vector<SymbolicScalar>{}, std::vector<SymbolicScalar>{});
+    auto& view1Op = function->AddRawOperation(Opcode::OP_VIEW, {inputTensor}, {midTensor});
+    view1Op.SetOpAttribute(view1Attr);
+    view1Op.SetScopeId(1);
+
+    auto outputTensor = std::make_shared<LogicalTensor>(*function, DataType::DT_FP32, std::vector<int64_t>{6, 6});
+    const_cast<std::vector<std::shared_ptr<LogicalTensor>>&>(function->GetOutcast()).push_back(outputTensor);
+    auto view2Attr = std::make_shared<ViewOpAttribute>(
+        std::vector<int64_t>{3, 4}, std::vector<SymbolicScalar>{}, std::vector<SymbolicScalar>{});
+    auto& view2Op = function->AddRawOperation(Opcode::OP_VIEW, {midTensor}, {outputTensor});
+    view2Op.SetOpAttribute(view2Attr);
+    view2Op.SetScopeId(1);
+
+    MergeViewAssemble mergePass;
+    ASSERT_EQ(mergePass.RunOnFunction(*function), SUCCESS);
+
+    // Verify: 1 merged VIEW with scopeId=1
+    int viewCount = 0;
+    int mergedScopeId = -1;
+    for (auto& op : function->Operations()) {
+        if (op.GetOpcode() == Opcode::OP_VIEW && !op.IsDeleted()) {
+            viewCount++;
+            mergedScopeId = op.GetScopeId();
+        }
+    }
+    EXPECT_EQ(viewCount, 1);
+    EXPECT_EQ(mergedScopeId, 1);
+}
+
+TEST_F(MergeViewAssembleTest, ViewChainMixedDefaultAndValidScopeIdShouldMerge)
+{
+    Program program;
+    std::string funcMagicName = "test_view_mixed_scope";
+    std::string funcRawName = "test_view_mixed_scope_raw";
+    std::unique_ptr<Function> function =
+        std::make_unique<Function>(program, funcMagicName, funcRawName, nullptr);
+    auto rawTensor = std::make_shared<RawTensor>(
+        DataType::DT_FP32, std::vector<int64_t>{10, 10}, TileOpFormat::TILEOP_ND, "input_tensor");
+    std::shared_ptr<LogicalTensor> inputTensor = std::make_shared<LogicalTensor>(
+        *function, rawTensor, std::vector<int64_t>{0, 0}, std::vector<int64_t>{10, 10});
+    const_cast<std::vector<std::shared_ptr<LogicalTensor>>&>(function->GetIncast()).push_back(inputTensor);
+
+    // VIEW1(scopeId=-1, default) -> VIEW2(scopeId=1), should merge and inherit scopeId=1
+    auto midTensor = std::make_shared<LogicalTensor>(*function, DataType::DT_FP32, std::vector<int64_t>{8, 8});
+    auto view1Attr = std::make_shared<ViewOpAttribute>(
+        std::vector<int64_t>{1, 2}, std::vector<SymbolicScalar>{}, std::vector<SymbolicScalar>{});
+    auto& view1Op = function->AddRawOperation(Opcode::OP_VIEW, {inputTensor}, {midTensor});
+    view1Op.SetOpAttribute(view1Attr);
+
+    auto outputTensor = std::make_shared<LogicalTensor>(*function, DataType::DT_FP32, std::vector<int64_t>{6, 6});
+    const_cast<std::vector<std::shared_ptr<LogicalTensor>>&>(function->GetOutcast()).push_back(outputTensor);
+    auto view2Attr = std::make_shared<ViewOpAttribute>(
+        std::vector<int64_t>{3, 4}, std::vector<SymbolicScalar>{}, std::vector<SymbolicScalar>{});
+    auto& view2Op = function->AddRawOperation(Opcode::OP_VIEW, {midTensor}, {outputTensor});
+    view2Op.SetOpAttribute(view2Attr);
+    view2Op.SetScopeId(1);
+
+    MergeViewAssemble mergePass;
+    ASSERT_EQ(mergePass.RunOnFunction(*function), SUCCESS);
+
+    // Verify: 1 merged VIEW with scopeId=1
+    int viewCount = 0;
+    int mergedScopeId = -2;
+    for (auto& op : function->Operations()) {
+        if (op.GetOpcode() == Opcode::OP_VIEW && !op.IsDeleted()) {
+            viewCount++;
+            mergedScopeId = op.GetScopeId();
+        }
+    }
+    EXPECT_EQ(viewCount, 1);
+    EXPECT_EQ(mergedScopeId, 1);
+}
+
+TEST_F(MergeViewAssembleTest, AssembleChainDifferentScopeIdsShouldNotMerge)
+{
+    ComputationalGraphBuilder G;
+
+    std::vector<std::string> tensorNames = {"input", "view_out", "assemble1_out", "assemble2_out", "final_out"};
+    EXPECT_TRUE(G.AddTensors(DataType::DT_FP32, {10, 10}, tensorNames));
+
+    std::vector<Opcode> opCodes = {Opcode::OP_VIEW, Opcode::OP_ASSEMBLE, Opcode::OP_ASSEMBLE, Opcode::OP_ABS};
+    std::vector<std::vector<std::string>> ioperands = {{"input"}, {"view_out"}, {"assemble1_out"}, {"assemble2_out"}};
+    std::vector<std::vector<std::string>> ooperands = {
+        {"view_out"}, {"assemble1_out"}, {"assemble2_out"}, {"final_out"}};
+    std::vector<std::string> opNames = {"view1", "assemble1", "assemble2", "abs"};
+
+    EXPECT_TRUE(G.AddOps(opCodes, ioperands, ooperands, opNames, true));
+    EXPECT_TRUE(G.SetInCast({"input"}));
+    EXPECT_TRUE(G.SetOutCast({"final_out"}));
+
+    Function* function = G.GetFunction();
+    ASSERT_NE(function, nullptr);
+
+    auto* view1 = G.GetOp("view1");
+    view1->SetOpAttribute(std::make_shared<ViewOpAttribute>(
+        std::vector<int64_t>{0, 0}, std::vector<SymbolicScalar>{}, std::vector<SymbolicScalar>{}));
+
+    auto* assemble1 = G.GetOp("assemble1");
+    assemble1->SetOpAttribute(
+        std::make_shared<AssembleOpAttribute>(std::vector<int64_t>{1, 0}, std::vector<SymbolicScalar>{}));
+    assemble1->SetScopeId(1);
+
+    auto* assemble2 = G.GetOp("assemble2");
+    assemble2->SetOpAttribute(
+        std::make_shared<AssembleOpAttribute>(std::vector<int64_t>{0, 2}, std::vector<SymbolicScalar>{}));
+    assemble2->SetScopeId(2);
+
+    MergeViewAssemble mergePass;
+    ASSERT_EQ(mergePass.RunOnFunction(*function), SUCCESS);
+
+    // Verify: 2 ASSEMBLEs remain (not merged due to different scopeIds)
+    int assembleCount = 0;
+    for (auto& op : function->Operations()) {
+        if (op.GetOpcode() == Opcode::OP_ASSEMBLE && !op.IsDeleted()) {
+            assembleCount++;
+        }
+    }
+    EXPECT_EQ(assembleCount, 2);
+}
+
+/*
+TestInferShapeAfterMergeView
+input{8,16} with DynValidShape -> view1 -> tensor1{8,16} -> view2 -> tensor2{8,16} -> exp -> output{8,16}
+After merge: input{8,16} with DynValidShape -> mergedView -> tensor2{8,16} -> exp -> output{8,16}
+Verify mergedView output tensor has correct DynValidShape inferred
+*/
+TEST_F(MergeViewAssembleTest, TestInferShapeAfterMergeView)
+{
+    Program program;
+    std::string funcMagicName = "testInferShapeMergeView";
+    std::string funcRawName = "testInferShapeMergeViewRaw";
+    std::unique_ptr<Function> function = std::make_unique<Function>(program, funcMagicName, funcRawName, nullptr);
+
+    std::vector<int64_t> shape = {8, 16};
+    std::vector<SymbolicScalar> inputDynValidShape = {SymbolicScalar("Input_0_Dim_0"), SymbolicScalar("Input_0_Dim_1")};
+    
+    auto rawTensor = std::make_shared<RawTensor>(DataType::DT_FP32, shape, TileOpFormat::TILEOP_ND, "inputTensor");
+    auto input = std::make_shared<LogicalTensor>(*function, rawTensor, std::vector<int64_t>{0, 0}, shape);
+    input->UpdateDynValidShape(inputDynValidShape);
+    const_cast<std::vector<std::shared_ptr<LogicalTensor>>&>(function->GetIncast()).push_back(input);
+    
+    auto tensor1 = std::make_shared<LogicalTensor>(*function, DataType::DT_FP32, shape);
+    auto tensor2 = std::make_shared<LogicalTensor>(*function, DataType::DT_FP32, shape);
+    auto outCast = std::make_shared<LogicalTensor>(*function, DataType::DT_FP32, shape);
+    const_cast<std::vector<std::shared_ptr<LogicalTensor>>&>(function->GetOutcast()).push_back(outCast);
+
+    auto& view1 = function->AddRawOperation(Opcode::OP_VIEW, {input}, {tensor1});
+    auto view1Attr = std::make_shared<ViewOpAttribute>(
+        std::vector<int64_t>{0, 0}, MemoryType::MEM_UB, std::vector<SymbolicScalar>{}, std::vector<SymbolicScalar>{});
+    view1.SetOpAttribute(view1Attr);
+
+    auto& view2 = function->AddRawOperation(Opcode::OP_VIEW, {tensor1}, {tensor2});
+    auto view2Attr = std::make_shared<ViewOpAttribute>(
+        std::vector<int64_t>{0, 0}, MemoryType::MEM_UB, std::vector<SymbolicScalar>{}, std::vector<SymbolicScalar>{});
+    view2.SetOpAttribute(view2Attr);
+
+    function->AddOperation(Opcode::OP_EXP, {tensor2}, {outCast});
+
+    MergeViewAssemble mergePass;
+    ASSERT_EQ(mergePass.RunOnFunction(*function), SUCCESS);
+
+    int viewCount = 0;
+    for (auto& op : function->Operations()) {
+        if (op.GetOpcode() == Opcode::OP_VIEW && !op.IsDeleted()) {
+            viewCount++;
+            auto& outputTensor = op.GetOOperands()[0];
+            EXPECT_NE(outputTensor->GetDynValidShape().size(), 0U);
+        }
+    }
+    EXPECT_EQ(viewCount, 1);
+}
+
+/*
+TestInferShapeAfterMergeAssemble
+input{8,16} with DynValidShape -> view -> tensor0{8,16} -> assemble1 -> tensor1{8,16} -> assemble2 -> tensor2{8,16} -> exp -> output{8,16}
+After merge: input -> view -> tensor0 -> mergedAssemble -> tensor2 -> exp -> output
+Verify mergedAssemble output tensor has correct DynValidShape
+*/
+TEST_F(MergeViewAssembleTest, TestInferShapeAfterMergeAssemble)
+{
+    Program program;
+    std::string funcMagicName = "testInferShapeMergeAssemble";
+    std::string funcRawName = "testInferShapeMergeAssembleRaw";
+    std::unique_ptr<Function> function = std::make_unique<Function>(program, funcMagicName, funcRawName, nullptr);
+
+    std::vector<int64_t> shape = {8, 16};
+    std::vector<SymbolicScalar> tensorDynValidShape = {SymbolicScalar("Input_0_Dim_0"), SymbolicScalar("Input_0_Dim_1")};
+    
+    auto rawTensor = std::make_shared<RawTensor>(DataType::DT_FP32, shape, TileOpFormat::TILEOP_ND, "inputTensor");
+    auto input = std::make_shared<LogicalTensor>(*function, rawTensor, std::vector<int64_t>{0, 0}, shape);
+    const_cast<std::vector<std::shared_ptr<LogicalTensor>>&>(function->GetIncast()).push_back(input);
+    
+    auto tensor0 = std::make_shared<LogicalTensor>(*function, DataType::DT_FP32, shape);
+    tensor0->UpdateDynValidShape(tensorDynValidShape);
+    auto tensor1 = std::make_shared<LogicalTensor>(*function, DataType::DT_FP32, shape);
+    auto tensor2 = std::make_shared<LogicalTensor>(*function, DataType::DT_FP32, shape);
+    auto outCast = std::make_shared<LogicalTensor>(*function, DataType::DT_FP32, shape);
+    const_cast<std::vector<std::shared_ptr<LogicalTensor>>&>(function->GetOutcast()).push_back(outCast);
+
+    auto& viewOp = function->AddRawOperation(Opcode::OP_VIEW, {input}, {tensor0});
+    auto viewAttr = std::make_shared<ViewOpAttribute>(
+        std::vector<int64_t>{0, 0}, MemoryType::MEM_UB, std::vector<SymbolicScalar>{}, std::vector<SymbolicScalar>{});
+    viewOp.SetOpAttribute(viewAttr);
+
+    auto& assemble1 = function->AddRawOperation(Opcode::OP_ASSEMBLE, {tensor0}, {tensor1});
+    assemble1.SetOpAttribute(std::make_shared<AssembleOpAttribute>(std::vector<int64_t>{0, 0}));
+
+    auto& assemble2 = function->AddRawOperation(Opcode::OP_ASSEMBLE, {tensor1}, {tensor2});
+    assemble2.SetOpAttribute(std::make_shared<AssembleOpAttribute>(std::vector<int64_t>{0, 0}));
+
+    function->AddOperation(Opcode::OP_EXP, {tensor2}, {outCast});
+
+    MergeViewAssemble mergePass;
+    ASSERT_EQ(mergePass.RunOnFunction(*function), SUCCESS);
+
+    int viewCount = 0;
+    int assembleCount = 0;
+    for (auto& op : function->Operations()) {
+        if (op.GetOpcode() == Opcode::OP_VIEW && !op.IsDeleted()) {
+            viewCount++;
+        }
+        if (op.GetOpcode() == Opcode::OP_ASSEMBLE && !op.IsDeleted()) {
+            assembleCount++;
+            auto& outputTensor = op.GetOOperands()[0];
+            EXPECT_NE(outputTensor->GetDynValidShape().size(), 0U);
+        }
+    }
+    EXPECT_EQ(viewCount, NUM1);
+    EXPECT_EQ(assembleCount, NUM1);
+}
 } // namespace tile_fwk
 } // namespace npu

@@ -315,7 +315,7 @@ public:
     AivCore& GetAIVCore() { return core_wrap_.GetAIVCore(); }
 };
 
-enum class NPUArch { DAV_1001 = 1001, DAV_2201 = 2201, DAV_3510 = 3510, DAV_UNKNOWN };
+enum class NPUArch { DAV_1001 = 1001, DAV_2201 = 2201, DAV_3510 = 3510, DAV_3113 = 3113, DAV_UNKNOWN };
 
 inline std::string NPUArchToString(NPUArch npu_arch)
 {
@@ -326,9 +326,16 @@ inline std::string NPUArchToString(NPUArch npu_arch)
             return "DAV_2201";
         case NPUArch::DAV_3510:
             return "DAV_3510";
+        case NPUArch::DAV_3113:
+            return "DAV_3113";
         default:
             return "UNKNOWN_NPU_ARCH";
     }
+}
+
+inline bool IsLiteNPU(NPUArch arch)
+{
+    return arch == NPUArch::DAV_3113;
 }
 
 class SoC {
@@ -418,6 +425,27 @@ public:
 };
 
 class Host {};
+
+class PlatformSocVersionManager {
+private:
+    PlatformSocVersionManager() = default;
+    ~PlatformSocVersionManager() = default;
+
+    std::string platformSocVersion_;
+
+public:
+    static PlatformSocVersionManager& Instance()
+    {
+        static PlatformSocVersionManager instance;
+        return instance;
+    }
+
+    PlatformSocVersionManager(const PlatformSocVersionManager&) = delete;
+    PlatformSocVersionManager& operator=(const PlatformSocVersionManager&) = delete;
+
+    std::string GetPlatformSocVersion() const { return platformSocVersion_; }
+    void SetPlatformSocVersion(const std::string& version) { platformSocVersion_ = version; }
+};
 
 class Platform {
 private:

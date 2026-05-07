@@ -14,32 +14,26 @@
  */
 
 #include "gtest/gtest.h"
+#include "test_codegen_common.h"
 #include "codegen/codegen.h"
 #include "tilefwk/tilefwk.h"
 #include "interface/inner/tilefwk.h"
 #include "interface/configs/config_manager.h"
 #include "passes/pass_mgr/pass_manager.h"
 #include "tilefwk/tilefwk_op.h"
-#include "codegen/cloudnpu/codegen_cloudnpu.h"
+#include "codegen/npu/cloudnpu/codegen_cloudnpu.h"
 
 namespace npu::tile_fwk {
 
-class TestCodegenScatterUpdate : public ::testing::Test {
+class TestCodegenScatterUpdate : public CodegenTestBase {
 public:
-    static void SetUpTestCase() {}
-
-    static void TearDownTestCase() {}
-
-    void SetUp() override
-    {
-        Program::GetInstance().Reset();
-        config::Reset();
-        config::SetHostOption(COMPILE_STAGE, CS_EXECUTE_GRAPH);
-        config::SetPlatformConfig(KEY_ENABLE_COST_MODEL, false);
-        config::SetCodeGenConfig(KEY_CODEGEN_SUPPORT_TILE_TENSOR, false);
-    }
-
-    void TearDown() override { config::SetCodeGenConfig(KEY_CODEGEN_SUPPORT_TILE_TENSOR, true); }
+    TestCodegenScatterUpdate()
+        : CodegenTestBase(
+              {.compileStage = CS_EXECUTE_GRAPH,
+               .setTileTensor = true,
+               .tileTensorValue = false,
+               .resetTileTensorOnTearDown = true})
+    {}
 };
 
 // ScatterUpdate

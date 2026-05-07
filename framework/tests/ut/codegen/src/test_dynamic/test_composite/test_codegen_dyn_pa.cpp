@@ -14,7 +14,7 @@
  */
 
 #include "gtest/gtest.h"
-
+#include "test_codegen_common.h"
 #include "codegen/codegen.h"
 #include "tilefwk/tilefwk.h"
 #include "interface/inner/tilefwk.h"
@@ -22,25 +22,13 @@
 #include "operator/models/llama/llama_def.h"
 #include "operator/models/deepseek/page_attention.h"
 #include "interface/configs/config_manager.h"
-#include "codegen/cloudnpu/codegen_cloudnpu.h"
+#include "codegen/npu/cloudnpu/codegen_cloudnpu.h"
 
 namespace npu::tile_fwk {
 
-class TestCodegenDynPa : public ::testing::Test {
+class TestCodegenDynPa : public CodegenTestBase {
 public:
-    static void SetUpTestCase() {}
-
-    static void TearDownTestCase() {}
-
-    void SetUp() override
-    {
-        Program::GetInstance().Reset();
-        config::Reset();
-        config::SetHostOption(COMPILE_STAGE, CS_EXECUTE_GRAPH);
-        config::SetPlatformConfig(KEY_ENABLE_COST_MODEL, false);
-    }
-
-    void TearDown() override {}
+    TestCodegenDynPa() : CodegenTestBase({.compileStage = CS_EXECUTE_GRAPH}) {}
 };
 
 void testPa(PaTileShapeConfig& tileConfig, int maxUnrollTimes = 1)

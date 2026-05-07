@@ -32,7 +32,7 @@
 #include "interface/configs/config_manager.h"
 #include "distributed_expand.h"
 #include "tilefwk/comm_group_recorder.h"
-#include "interface/utils/distributed_error.h"
+#include "tilefwk/error_code.h"
 
 namespace npu::tile_fwk {
 namespace Distributed {
@@ -51,6 +51,7 @@ constexpr int32_t AIV_NUM = 4;
 constexpr int32_t RECEIVE_CNT_OUT_ROW = 1024;
 constexpr int32_t RECEIVE_CNT_OUT_COL = 512;
 constexpr int32_t SHMEM_SIGNAL_STRIDE = 8;
+constexpr int32_t MAX_SHMEM_TILE_DIMS = 4;
 enum class TileIndex : size_t { HEAD_SHAPE, HEAD_NUM, TAIL_SHAPE };
 
 enum class AllReduceType {
@@ -154,8 +155,7 @@ struct ShmemGetAttr {
 struct ShmemSignalAttr {
     int64_t signalValue = 1;
     int32_t signalStride = SHMEM_SIGNAL_STRIDE;
-    int64_t tileRowShape = 0;
-    int64_t tileColShape = 0;
+    std::vector<int64_t> tileShape;
     AtomicType atomicType = AtomicType::SET;
     bool notifyAll{false};
     int64_t worldSize{0};
@@ -166,8 +166,7 @@ struct ShmemWaitUntilAttr {
     int32_t expectedSum = 0;
     int32_t signalStride = SHMEM_SIGNAL_STRIDE;
     bool resetSignal = false;
-    int64_t tileRowShape = 0;
-    int64_t tileColShape = 0;
+    std::vector<int64_t> tileShape;
     SymbolicScalar ownerRank;
 };
 
@@ -198,76 +197,30 @@ inline int GetTotalTileNum(const std::array<int, MAX_DIST_DIM_SIZE>& tile)
            static_cast<int>(tile[static_cast<size_t>(TileIndex::TAIL_SHAPE)] != 0);
 }
 
-inline bool checkValidInput(
-    const Tensor& input, uint64_t dim, DataType dType, int32_t row, int32_t col, std::string& assertResult)
-{
-    if (input.Format() != TileOpFormat::TILEOP_ND) {
-        assertResult = "Distributed constraint violated: " + input.GetName() + " format must be TILEOP_ND.";
-        return false;
-    }
-    if (input.GetName() == "") {
-        assertResult = "Distributed constraint violated: input name can't be null.";
-        return false;
-    }
-    if (input.Dim() != dim) {
-        assertResult =
-            "Distributed constraint violated: " + input.GetName() + " dim must be " + std::to_string(dim) + ".";
-        return false;
-    }
-    if (input.GetDataType() != dType) {
-        assertResult = "Distributed constraint violated: " + input.GetName() + " dataType is not valid.";
-        return false;
-    }
-    if (input.GetShape(0) != row) {
-        assertResult =
-            "Distributed constraint violated: " + input.GetName() + " row must be " + std::to_string(row) + ".";
-        return false;
-    }
-    if (input.Dim() != 1 && input.GetShape(1) != col) {
-        assertResult =
-            "Distributed constraint violated: " + input.GetName() + " col must be " + std::to_string(col) + ".";
-        return false;
-    }
-    return true;
-}
-
-inline bool checkValidConfig(const MoeConfig& moeConfig, std::string& assertResult)
-{
-    int32_t rankNum = moeConfig.rankNum;
-    int32_t routedExpertNum = moeConfig.routedExpertNum;
-    int32_t expertNumPerRank = moeConfig.expertNumPerRank;
-    if (rankNum != 4 && rankNum != 8) { // rankNum仅支持4和8
-        assertResult = "Distributed constraint violated: moeConfig rankSize must be 4 or 8.";
-        return false;
-    }
-    if (routedExpertNum != ROUTED_EXPET_NUM) {
-        assertResult = "Distributed constraint violated: moeConfig routedExpertNum must be " +
-                       std::to_string(ROUTED_EXPET_NUM) + ".";
-        return false;
-    }
-    if (expertNumPerRank != routedExpertNum / rankNum) {
-        assertResult = "Distributed constraint violated: moeConfig expertNumPerRank must be " +
-                       std::to_string(routedExpertNum / rankNum) + ".";
-        return false;
-    }
-    return true;
-}
-
 inline int64_t GetTotalTileNum(const VecTile& tileShape, const Shape& dataShape)
 {
-    ASSERT(DistributedErrorCode::INVALID_TENSOR_DIM, tileShape.size() == 2)
+    ASSERT(DistributedErrorCode::INVALID_TENSOR_DIM, tileShape.size() >= 2)
         << "Invalid dimensional: "
-        << " tileShape dim must be 2, but got dimensional=" << tileShape.size();
-    ASSERT(DistributedErrorCode::INVALID_TENSOR_DIM, dataShape.size() >= 2)
+        << " tileShape dim must >= 2, but got dimensional=" << tileShape.size();
+    ASSERT(DistributedErrorCode::INVALID_TENSOR_DIM, dataShape.size() == tileShape.size() + 1)
         << "Invalid dimensional: "
-        << " dataShape dim must >= 2, but got dimensional=" << dataShape.size();
-    auto totalRowShape = dataShape[dataShape.size() - 2];
-    auto totalColShape = dataShape[dataShape.size() - 1];
-    auto tileRowShape = tileShape[0];
-    auto tileColShape = tileShape[1];
-    auto tileRowNum = totalRowShape / tileRowShape + (totalRowShape % tileRowShape == 0 ? 0 : 1);
-    auto tileColNum = totalColShape / tileColShape + (totalColShape % tileColShape == 0 ? 0 : 1);
-    return tileRowNum * tileColNum;
+        << " dataShape dim must = tileShape dim + 1, but got dataShape dim=" << dataShape.size()
+        << ", tileShape dim=" << tileShape.size();
+
+    size_t vecTileDim = tileShape.size();
+    size_t startDim = dataShape.size() - vecTileDim;
+
+    int64_t totalTileNum = 1;
+
+    for (size_t i = 0; i < vecTileDim; ++i) {
+        size_t curDim = startDim + i;
+        int64_t totalShape = dataShape[curDim];
+        int64_t tileShapeVal = tileShape[i];
+        int64_t tileNum = totalShape / tileShapeVal + (totalShape % tileShapeVal == 0 ? 0 : 1);
+        totalTileNum *= tileNum;
+    }
+
+    return totalTileNum;
 }
 } // namespace Distributed
 } // namespace npu::tile_fwk

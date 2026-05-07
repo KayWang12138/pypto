@@ -266,23 +266,6 @@ struct MsprofAicpuPyPtoHead {
 
 using MsprofAicpuPyPtoPmuHead = struct MsprofAicpuPyPtoHead;
 using MsprofAicpuPyPtoLogHead = struct MsprofAicpuPyPtoHead;
-using MsprofAicpuHandShakeHead = struct MsprofAicpuPyPtoHead;
-using MsProfAiCpuTaskStatHead = struct MsprofAicpuPyPtoHead;
-
-struct AiCpuHandShakeSta {
-    int32_t threadId{0};
-    int32_t coreId{0};
-    uint64_t shakeStart{0};
-    uint64_t shakeEnd{0};
-};
-
-struct AiCpuTaskStat {
-    int32_t coreId;
-    int32_t taskId;
-    uint64_t taskGetStart;
-    uint64_t execStart;
-    uint64_t execEnd;
-};
 
 bool ProfCheckLevel(uint64_t feature);
 AiCoreProfLevel CreateProfLevel(ProfConfig profConfig);
@@ -300,24 +283,16 @@ public:
 #endif
     void ProfInit(DeviceArgs *deviceArgs);
     void ProfStart();
-    void ProfGet(int32_t coreIdx, uint32_t subGraphId, uint32_t taskId, const struct TaskStat* taskStat);
     void ProfGetSwitch(int64_t& flag) const;
     void ProfStop();
-    void ProfStopHandShake();
-    void ProGetHandShake(int& threadIdx, const struct AiCpuHandShakeSta* handShakeStat);
     void AsmCntvc(uint64_t& cntvct) const;
-    void SetAiCpuTaskStat(const uint32_t& taskId, struct AiCpuTaskStat& aiCpuTaskStat);
-    struct AiCpuTaskStat GetAiCpuTaskStat(const uint32_t& taskId);
-    void ProfGetAiCpuTaskStat(int& threadIdx, struct AiCpuTaskStat* aiCpuStat);
-    void ProfStopAiCpuTaskStat();
-    void ProInitAiCpuTaskStat();
-    void ProInitHandShake();
     bool ProfIsEnable() { return profLevel_ != PROF_LEVEL_OFF; }
 
     void ProfInitPmu(int64_t* regAddrs, int64_t* pmuEventAddrs);
     void ProfStartPmu();
     void ProfStopPmu();
     void ProfGetPmu(int32_t coreIdx, uint32_t subGraphId, uint32_t taskId, const struct TaskStat *taskStat);
+    void ProfGetLog(int32_t coreIdx, const struct TaskStat* taskStat);
 private:
     struct PmuCtrlAddrs {
         uint32_t* ctrl0Addr{nullptr};
@@ -329,7 +304,6 @@ private:
     };
     inline void ProfInitLog();
     inline void ProfStopLog();
-    inline void ProfGetLog(int32_t coreIdx, const struct TaskStat* taskStat);
     void ReadPmuCounters(const int32_t coreIdx) const;
     void SetPmuEvents(void* mapBase, const int32_t coreIdx) const;
     PmuCtrlAddrs InitPmuRegAddrsForCore(void* addr, void* mapBase, int coreIdx);
@@ -340,6 +314,9 @@ private:
     uint64_t ProfGetCurCpuTimestamp();
 
 private:
+    uint32_t ctrl0Val_;
+    uint32_t ctrl1Val_;
+    PmuCtrlAddrs addrs_;
     int32_t coreNum_ = 0;
     AiCoreProfLevel profLevel_ = PROF_LEVEL_OFF;
     uint64_t taskCnt_ = 0;
@@ -386,19 +363,12 @@ private:
     uint32_t handShakeDataSize_{0};
     uint32_t handkShakeHeadSize_{0};
     std::vector<PyPtoMsprofAdditionalInfo> HandShakeMsg_;
-    std::vector<MsprofAicpuHandShakeHead*> HandShakeHead_;
-    std::vector<AiCpuHandShakeSta*> handShakeData_;
     // AiCputStat data
     const uint32_t aiCpuStatMaxNum_ = 6;
     uint32_t aiCpuStatMsgSize_{0};
     uint32_t aiCpuStatDataSize_{0};
     uint32_t aiCpuStatHeadSize_{0};
     std::vector<PyPtoMsprofAdditionalInfo> aiCpuStatMsg_;
-    std::vector<MsprofAicpuHandShakeHead*> aiCpuStatHead_;
-    std::vector<AiCpuTaskStat*> aiCpuStatData_;
-
-    std::map<uint32_t, AiCpuTaskStat> aiCpuStatMap_;
-
     AiCoreManager& hostAicoreMng_;
 };
 } // namespace npu::tile_fwk::dynamic

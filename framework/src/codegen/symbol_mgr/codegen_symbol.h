@@ -18,6 +18,7 @@
 #include <deque>
 #include <functional>
 #include <map>
+#include <sstream>
 #include <tuple>
 #include <cstdint>
 #include <string>
@@ -27,7 +28,7 @@
 #include "interface/utils/common.h"
 #include "interface/tensor/logical_tensor.h"
 #include "codegen/utils/codegen_utils.h"
-#include "codegen/utils/codegen_error.h"
+#include "tilefwk/error_code.h"
 #include "symbol_id_gen.h"
 
 namespace npu::tile_fwk {
@@ -39,8 +40,8 @@ const std::string COORD = "Coord";
 using BufferType = enum OperandType;
 using AllocKey = std::tuple<BufferType, int64_t /*RangeStart*/, int64_t /*RangeEnd*/>;
 
-struct ShapeInLoop {
-    size_t loopDepth{0};
+struct TileTensorShape {
+    bool isInLoop{false};
     std::vector<int64_t> originShape;
     std::vector<int64_t> rawShape;
     std::vector<SymbolicScalar> dynamicValidShape;
@@ -59,6 +60,7 @@ inline std::string GetLayoutType(BufferType bufType, int dim, bool isConst = fal
 // Stride<int, int>(64, 1)));
 struct TileTensor {
     bool isConstant;
+    bool isInLoop{false};
     int magic; // tensor magic numbuer
     int dim;
     DataType dtype;
@@ -70,7 +72,6 @@ struct TileTensor {
     std::vector<std::string> stride;
     std::vector<int64_t> rawShape;
     std::vector<int64_t> localBufOffset;
-    ShapeInLoop shapeInLoop;
 
     /*  e.g.
         ((__ubuf__ float*)UB_S0_E16384,
@@ -89,11 +90,11 @@ struct TileTensor {
             // cast local buffer pointer to uint64_t to adapt TileTensor mode
             oss << "uint64_t)";
             int64_t linearOffset{0};
-            if (!localBufOffset.empty() && shapeInLoop.loopDepth == 0) {
+            if (!localBufOffset.empty() && !isInLoop) {
                 // only calc linear offset in the outermost loop, tensor in loop use base addr from tensor out of loop
                 linearOffset = CalcLinearOffset(rawShape, localBufOffset);
             }
-            if (linearOffset != 0) {
+            if (linearOffset != 0 && bufType != BUF_L1) {
                 // append linear offset, e.g. UBTileTensorFP32Dim2_1 ubTensor_1((uint64_t)((float *)UB_S0_E4096 + 32))
                 oss << "((" << DataType2CCEStr(dtype) << " *)" << bufVar << " + " << linearOffset << ")";
             } else {
@@ -151,6 +152,15 @@ struct TileTensorKey {
     {
         return dim == other.dim && bufVar == other.bufVar && shape == other.shape && dtype == other.dtype &&
                localBufOffset == other.localBufOffset && rawShape == other.rawShape;
+    }
+
+    std::string ToString() const
+    {
+        std::ostringstream oss;
+        oss << "dim=" << dim << ", dtype=" << ToUnderlying(dtype) << ", bufVar=" << bufVar
+            << ", shape=" << IntVecToStr(shape) << ", rawShape=" << IntVecToStr(rawShape)
+            << ", localBufOffset=" << IntVecToStr(localBufOffset);
+        return oss.str();
     }
 };
 
@@ -273,18 +283,14 @@ public:
 
     std::string AddTileTensorUsing(const TileTensorUsing& tileTensorUsing);
     std::string AddTileTensor(int opMagic, const TileTensor& tileTensor);
-    const TileTensor* QueryTileTensorByMagic(int magic, int opMagic) const;
-    const TileTensor* QueryTileTensorInLoopByMagic(int magic, int opMagic) const;
+    const TileTensor* QueryTileTensorByMagic(int tensorMagic, int opMagic) const;
+    const TileTensor* QueryTileTensorInLoopByMagic(int tensorMagic, int opMagic) const;
     void InsertTensorNameInLoopToFullDim(const std::string& tensorName, const std::string& fullDimTensorName);
     std::string QueryTileTensorFullDimByTensorInLoop(const std::string& tensorName);
-    // To be compatible with GM Tensor in Static Function Type like same ddr magic number with different parmaIdx &
-    // 'GMStackBase' e.g. ((__gm__ GMTensorInfo*)param + 1), ((__gm__ GMTensorInfo*)param + 2)
-    const TileTensor& QueryTileTensorByBufVar(const std::string& bufVarName);
-    std::string QueryTileTensorNameByBufVar(const std::string& bufVarName);
-    std::string QueryTileTensorTypeByBufVar(const std::string& bufVarName);
 
     std::string GenUsingList();
     std::string GenTileTensorDefList();
+    std::string GenNewTileTensorDefs();
 
     std::string GenTensorName(BufferType bufType)
     {
@@ -331,5 +337,6 @@ private:
     // <using type, TileTensorUsing>
     std::unordered_map<std::string, TileTensorUsing> tileTensorUsing_;
     SymbolIdGenMgr idGenMgr_;
+    size_t tileTensorOutputIdx_{0};
 };
 } // namespace npu::tile_fwk

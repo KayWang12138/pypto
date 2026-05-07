@@ -27,13 +27,17 @@
 #include "cost_model/simulation/pv/PvModel.h"
 #include "cost_model/simulation_pv/PvMemAllocator.h"
 #include "cost_model/simulation/common/CommonTools.h"
-#include "codegen/cloudnpu/codegen_cloudnpu.h"
+#include "codegen/npu/cloudnpu/codegen_cloudnpu.h"
 #include "tilefwk/core_func_data.h"
 #include "interface/configs/config_manager.h"
 #include "tilefwk/platform.h"
 #include "tilefwk/pypto_fwk_log.h"
+#include "tilefwk/error.h"
+#include "tilefwk/file.h"
+#include "tilefwk/error_code.h"
 
 constexpr int INVALID_ARG_INDEX = 0xFFFFFFFF;
+using namespace npu::tile_fwk;
 
 namespace CostModel {
 const uint32_t PV_REG_PC = 0;
@@ -43,7 +47,8 @@ const uint32_t PV_REG_TASK_CFG = 163;
 const uint32_t PV_STEP_PIPE_ID = 2;
 const uint32_t PV_SYS_VA_BASE = 67;
 const uint32_t PV_SYS_PHY_BASE = 68;
-inline int64_t CalcShapeSizeFunc(const std::vector<int64_t> &shape)
+uint32_t HBM_PARA_BASE = 0xffff8000;
+inline int64_t CalcShapeSizeFunc(const std::vector<int64_t>& shape)
 {
     int64_t size = 1;
     for (auto& i : shape) {
@@ -209,13 +214,13 @@ public:
         auto name = ExtractFunctionName(content);
 
         std::string decName = R"!!!(
-extern "C" [aicore] void {KernelName}(CoreFuncParam* param, int64_t GMStackBase, __gm__ int64_t *hcclContext, __gm__ GMTensorInfo* oriAddrParam);
+extern "C" [aicore] void {KernelName}(CoreFuncParam* param, int64_t GMStackBase, __gm__ int64_t *hcclContext, __gm__ TaskStat* taskStat);
 
 )!!!";
         std::string entry = R"!!!(
-extern "C" __global__ [aicore] void PvModelKernelEntry(__gm__ npu::tile_fwk::DynFuncData *funcData, __gm__ uint64_t *opAttrOffset) {
-    CoreFuncParam param = {funcData, &funcData->opAttrs[opAttrOffset[0]], funcData->exprTbl};
-    {KernelName}(&param, funcData->stackWorkSpaceAddr, (__gm__ int64_t *)funcData->startArgs->commContexts, (__gm__ GMTensorInfo*)NULL);
+extern "C" __global__ [aicore] void PvModelKernelEntry(__gm__ npu::tile_fwk::DynFuncData *funcData, __gm__ uint64_t *opAttrs) {
+    CoreFuncParam param = {funcData, opAttrs, funcData->exprTbl};
+    {KernelName}(&param, funcData->stackWorkSpaceAddr, (__gm__ int64_t *)funcData->startArgs->commContexts, (__gm__ TaskStat*)NULL);
 }
 
 )!!!";
@@ -275,17 +280,12 @@ private:
     std::string dir_;
     std::unique_ptr<PvMemAllocator> allocator_;
     struct DataMap {
-        uint64_t hostPtr;
+        uint8_t* data;
         uint64_t devPtr;
         uint64_t size;
     };
     std::vector<DataMap> data_;
-    struct RawTensorData {
-        uint8_t *data;
-        uint8_t *hostPtr;
-        uint64_t size;
-    };
-    std::vector<RawTensorData> rawTensor_;
+    DataMap workspace_;
     std::vector<std::vector<uint8_t>> storage_;
 
     struct PvModelCceBin {
@@ -306,12 +306,12 @@ public:
     using PvInitFunc = void (*)(int pv_mode, int hj_switch, int pv_wrap, const char* out_dir, uint32_t core_id);
     using PvLaunchSubCoreFunc = void (*)(uint64_t pc, const char* bin_file, uint32_t sub_core_id, uint32_t core_id);
     using PvStepFunc = uint32_t (*)(uint32_t pipe_id, uint32_t sub_core_id, uint32_t core_id, uint32_t warp_id);
-    using PvMemWriteFunc = void (*)(
-        uint32_t mem_type, uint64_t addr, uint64_t size, uint8_t *buf, uint32_t sub_core_id, uint32_t core_id);
-    using PvMemReadFunc = void (*)(
-        uint32_t mem_type, uint64_t addr, uint64_t size, uint8_t *buf, uint32_t sub_core_id, uint32_t core_id);
-    using PvRegWriteFunc = void (*)(
-        uint32_t reg_type, uint32_t reg_id, uint8_t *buf, uint32_t sub_core_id, uint32_t core_id);
+    using PvMemWriteFunc =
+        void (*)(uint32_t mem_type, uint64_t addr, uint64_t size, uint8_t* buf, uint32_t sub_core_id, uint32_t core_id);
+    using PvMemReadFunc =
+        void (*)(uint32_t mem_type, uint64_t addr, uint64_t size, uint8_t* buf, uint32_t sub_core_id, uint32_t core_id);
+    using PvRegWriteFunc =
+        void (*)(uint32_t reg_type, uint32_t reg_id, uint8_t* buf, uint32_t sub_core_id, uint32_t core_id);
 
     explicit DynPvModelImpl()
     {
@@ -348,12 +348,12 @@ public:
 
         CostModel::OutputSilencer silencer;
         silencer.silence();
-        uint8_t *value_0_ptr = new uint8_t(0);
-        uint8_t *value_1_ptr = new uint8_t(1);
-        uint8_t *value_34603008_ptr = reinterpret_cast<uint8_t*>(new uint64_t(34603008));
+        uint8_t* value_0_ptr = new uint8_t(0);
+        uint8_t* value_1_ptr = new uint8_t(1);
+        uint8_t* value_34603008_ptr = reinterpret_cast<uint8_t*>(new uint64_t(34603008));
         pv_init_(0, 0, 1, (dir_ + std::string("/pvlog/")).c_str(), coreId_);
-        pv_reg_write_(static_cast<uint32_t>(1), PV_REG_PARA_BASE, (uint8_t *)&allocator_->hbmParaBase_, 0, coreId_);
-        pv_reg_write_(static_cast<uint32_t>(1), PV_REG_PARA_BASE, (uint8_t *)&allocator_->hbmParaBase_, 1, coreId_);
+        pv_reg_write_(static_cast<uint32_t>(1), PV_REG_PARA_BASE, (uint8_t*)&HBM_PARA_BASE, 0, coreId_);
+        pv_reg_write_(static_cast<uint32_t>(1), PV_REG_PARA_BASE, (uint8_t*)&HBM_PARA_BASE, 1, coreId_);
         pv_reg_write_(static_cast<uint32_t>(1), PV_REG_BLOCK_DIM, value_1_ptr, 0, coreId_);
         pv_reg_write_(static_cast<uint32_t>(1), PV_REG_BLOCK_DIM, value_1_ptr, 1, coreId_);
         pv_reg_write_(static_cast<uint32_t>(1), PV_REG_TASK_CFG, value_1_ptr, 0, coreId_);
@@ -391,51 +391,65 @@ public:
         }
 
         cceBin.emplace_back(PvModelCceBin(0, 0, npu::tile_fwk::CoreType::HUB));
-        int Len2 = 2;
-        int Len3 = 3;
-        for (auto& [name, leaf] : leafDict) {
-            (void)name;
+        for (auto& [hash, leaf] : leafDict) {
+            (void)hash;
             if (leaf->IsDummyFunction()) {
                 cceBin.emplace_back(PvModelCceBin(
                     leaf->GetProgramId(), leaf->GetFunctionHash().GetHash(), npu::tile_fwk::CoreType::HUB));
             } else {
                 auto leafFuncAttr = leaf->GetLeafFuncAttribute();
                 auto binPath = leafFuncAttr == nullptr ? "" : leafFuncAttr->binPath;
-                auto orgSrcPath = binPath.substr(0, binPath.length() - 1) + "cpp";
-                auto srcPath = binPath.substr(0, binPath.length() - Len2) + "_pvmodel.cpp";
-                npu::tile_fwk::CopyFile(orgSrcPath, srcPath);
-                PvModelCodegen::AddKernelEntry(srcPath);
-
-                auto objPath = srcPath.substr(0, srcPath.length() - Len3) + "o";
-                npu::tile_fwk::CodeGenCtx ctx;
-                npu::tile_fwk::CodeGenCloudNPU cga(ctx);
-                auto coreType = leafFuncAttr == nullptr ? npu::tile_fwk::CoreType::INVALID : leafFuncAttr->coreType;
-                bool isCube = coreType == npu::tile_fwk::CoreType::AIC;
-                npu::tile_fwk::CompileInfo compileInfo(
-                    *func, ctx, {leaf->GetProgramId(), leaf}, isCube, leaf->IsUnderDynamicFunction());
-                compileInfo.SetCCEAbsPath(srcPath);
-                compileInfo.SetBinAbsPath(objPath);
-                cga.CompileCode(cga.PrepareCmd(compileInfo, ""));
-
-                binPath = srcPath.substr(0, srcPath.length() - Len3) + "bin";
-                constexpr int cmdLen = 2048;
-                char cmd[cmdLen];
-                (void)snprintf_s(
-                    cmd, sizeof(cmd), sizeof(cmd) - 1, "llvm-objcopy -O binary -j .text %s %s", objPath.c_str(),
-                    binPath.c_str());
-
-                int ret = std::system(cmd);
-                if (ret != 0) {
-                    SIMULATION_LOGE("cmd error: %s", cmd);
+                CompileCode(func, leaf, leafFuncAttr->binPath);
+                if (!leafFuncAttr->binPathMainBlock.empty()) {
+                    CompileCode(func, leaf, leafFuncAttr->binPathMainBlock);
                 }
-
-                cceBin.emplace_back(
-                    PvModelCceBin(leaf->GetProgramId(), leaf->GetFunctionHash().GetHash(), coreType, srcPath, binPath));
             }
         }
     }
 
-    uint8_t* CopyToDev(const uint8_t* data, uint64_t size)
+    void CompileCode(npu::tile_fwk::Function* func, npu::tile_fwk::Function* leaf, std::string binPath)
+    {
+        int Len2 = 2;
+        int Len3 = 3;
+        auto leafFuncAttr = leaf->GetLeafFuncAttribute();
+        auto orgSrcPath = binPath.substr(0, binPath.length() - 1) + "cpp";
+        auto srcPath = binPath.substr(0, binPath.length() - Len2) + "_pvmodel.cpp";
+        npu::tile_fwk::CopyFile(orgSrcPath, srcPath);
+        PvModelCodegen::AddKernelEntry(srcPath);
+
+        auto objPath = srcPath.substr(0, srcPath.length() - Len3) + "o";
+        npu::tile_fwk::CodeGenCtx ctx;
+        npu::tile_fwk::CodeGenCloudNPU cga(ctx);
+        auto coreType = leafFuncAttr == nullptr ? npu::tile_fwk::CoreType::INVALID : leafFuncAttr->coreType;
+        bool isCube = coreType == npu::tile_fwk::CoreType::AIC;
+        npu::tile_fwk::CompileInfo compileInfo(
+            *func, ctx, {leaf->GetProgramId(), leaf}, isCube, leaf->IsUnderDynamicFunction());
+        compileInfo.SetCCEAbsPath(srcPath);
+        compileInfo.SetBinAbsPath(objPath);
+        cga.CompileCode(cga.PrepareCmd(compileInfo, ""));
+
+        binPath = srcPath.substr(0, srcPath.length() - Len3) + "bin";
+        constexpr int cmdLen = 2048;
+        char cmd[cmdLen];
+        CHECK(static_cast<unsigned>(CostModel::ExternalErrorScene::INVALID_PATH), npu::tile_fwk::FileExist(objPath))
+            << "obj file does not exist. objPath: " << objPath;
+        int ret = snprintf_s(
+            cmd, sizeof(cmd), sizeof(cmd) - 1, "llvm-objcopy -O binary -j .text %s %s", objPath.c_str(),
+            binPath.c_str());
+        if (ret < 0 || ret >= static_cast<int>(sizeof(cmd))) {
+            SIMULATION_LOGE(CostModel::PrecisionSimErrorScene::CMD_ERROR, "snprintf_s: %s", cmd);
+        }
+
+        ret = std::system(cmd);
+        if (ret != 0) {
+            SIMULATION_LOGE(CostModel::PrecisionSimErrorScene::CMD_ERROR, "cmd error: %s", cmd);
+        }
+
+        cceBin.emplace_back(
+            PvModelCceBin(leaf->GetProgramId(), leaf->GetFunctionHash().GetHash(), coreType, srcPath, binPath));
+    }
+
+    uint8_t* CopyToDev(uint8_t* data, uint64_t size)
     {
         std::vector<uint8_t> s(data, data + size);
         uint8_t* hostPtr = s.data();
@@ -443,39 +457,38 @@ public:
         return hostPtr;
     }
 
-    uint8_t* CopyTensorToDev(const uint8_t* data, uint64_t size)
+    uint8_t* CopyTensorToDev(uint8_t* data, uint64_t size)
     {
         std::vector<uint8_t> s(data, data + size);
-        uint8_t* hostPtr = s.data();
+        uint8_t* devPtr = s.data();
+        pv_mem_write_(0, reinterpret_cast<uint64_t>(devPtr), size, devPtr, 0, 0);
         storage_.emplace_back(std::move(s));
-        uint64_t devPtr = allocator_->AllocArg(size);
-        DataMap m = {reinterpret_cast<uint64_t>(hostPtr), devPtr, size};
+        DataMap m = {data, reinterpret_cast<uint64_t>(devPtr), size};
         data_.emplace_back(m);
-        RawTensorData tensor = {const_cast<uint8_t*>(data), hostPtr, size};
-        rawTensor_.emplace_back(tensor);
-        return hostPtr;
+        return devPtr;
+    }
+
+    uint8_t* AllocWorkspace(uint64_t size)
+    {
+        std::vector<uint8_t> s(size, 0);
+        uint8_t *devPtr = s.data();
+        storage_.emplace_back(std::move(s));
+        DataMap m = {nullptr, reinterpret_cast<uint64_t>(devPtr), size};
+        workspace_ = m;
+        return devPtr;
     }
 
     void CopyTensorFromDev()
     {
-        for (auto& tensor : rawTensor_) {
-            memcpy_s(tensor.data, tensor.size, tensor.hostPtr, tensor.size);
+        for (auto& d : data_) {
+            pv_mem_read_(0, d.devPtr, d.size, d.data, 0, 0);
         }
     }
 
-    void Run(npu::tile_fwk::DynFuncData *funcdata, int coreId, int funcId, int taskId,
-        std::map<uint64_t, uint64_t> tensorAddr2SizeMap);
+    void Run(DynFuncData* funcdata, int coreId, int funcId, int taskId);
 
 private:
-    void LoadPvConfig(npu::tile_fwk::DynFuncData *funcdata, uint64_t opAttrOffset, npu::tile_fwk::DynFuncData *dupData);
-    void SetUp(PvModelCceBin *cce, npu::tile_fwk::DynFuncData *funcdata, uint64_t opAttrOffset, std::string dir,
-        npu::tile_fwk::DynFuncData *dupData);
-    void RunModel();
-    void CopyToHost(uint64_t hostAddr, uint64_t devAddr, uint64_t size);
-    void BuildFuncData(npu::tile_fwk::DynFuncData *funcdata, npu::tile_fwk::DynFuncData *dupData, uint64_t *refAddr,
-        uint64_t *refSize, std::vector<uint8_t> *ref_data);
-    void BuildFuncDataWorkSpace(npu::tile_fwk::DynFuncData *funcdata, npu::tile_fwk::DynFuncData *dupData);
-    uint64_t LookupData(uint64_t addr);
+    void RunModel(PvModelCceBin* cce, DynFuncData* funcdata, uint64_t* opAttrs);
 
     PvInitFunc pv_init_;
     PvLaunchSubCoreFunc pv_launch_sub_core_;

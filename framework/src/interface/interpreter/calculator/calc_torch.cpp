@@ -13,6 +13,9 @@
  * \brief
  */
 
+#include <algorithm>
+#include <cmath>
+#include <cstring>
 #include <limits>
 #include <torch/torch.h>
 #include "calc_api.h"
@@ -90,6 +93,7 @@ static int64_t LastDimFloatCount(int64_t packedLast, DataType dtype)
 #define AXIS_TO_LAST -2
 #define NUM_VALUE_8 8
 #define BLOCK_SIZE 32
+#define MX_QUANT_TILE_BLOCK 32
 
 static torch::ScalarType FromDataType(DataType t)
 {
@@ -122,6 +126,7 @@ static torch::ScalarType FromDataType(DataType t)
             return torch::kDouble;
         case DT_INT4:
         case DT_FP8:
+        case DT_HF8:
         case DT_FP8E5M2:
             return torch::kUInt8;
         case DT_FP8E4M3:
@@ -132,7 +137,6 @@ static torch::ScalarType FromDataType(DataType t)
         case DT_FP4_E1M2X2:
             return torch::kUInt8;
         case DT_HF4:
-        case DT_HF8:
         default:
             assert(0);
     }
@@ -228,6 +232,124 @@ static std::pair<torch::Tensor, torch::Tensor> From(const TensorData& data)
     return {view, actualView};
 }
 
+static uint32_t FloatToBits(float value)
+{
+    union {
+        float floatValue;
+        uint32_t bits;
+    } converter = {value};
+    return converter.bits;
+}
+
+static float BitsToFloat(uint32_t bits)
+{
+    union {
+        uint32_t bits;
+        float floatValue;
+    } converter = {bits};
+    return converter.floatValue;
+}
+
+// MX quantization constants (OCP Microscaling Formats MX v1.0)
+// These are parameterized per target dtype for future fp4 extensibility.
+struct MXQuantDtypeParams {
+    int targetMaxPow2; // max representable power-of-2 exponent in the target format
+    float maxPos;      // max representable positive value
+    float minNormal;   // smallest normal value
+    int expBias;       // exponent bias of the target format
+    int mbits;         // number of mantissa bits
+};
+
+static constexpr MXQuantDtypeParams kFP8E4M3Params = {
+    .targetMaxPow2 = 8,
+    .maxPos = 448.0f,
+    .minNormal = 0.015625f, // 2^(1-7) = 2^-6
+    .expBias = 7,
+    .mbits = 3,
+};
+
+static constexpr int kE8M0ExponentBias = 127;
+static constexpr int kF32ExpBias = 127;
+static constexpr int kF32Mbits = 23;
+
+// Compute OCP FLOOR-mode shared exponent (E8M0 biased byte) for a group.
+// Reference: OCP MX Spec 1.0 — scale = 2^floor(log2(max_abs)) / 2^target_max_pow2
+static uint8_t ComputeSharedExponent(float maxAbsValue, int targetMaxPow2)
+{
+    if (std::isnan(maxAbsValue)) {
+        return 0xFFu; // NaN → E8M0 NaN; Inf goes through normal path (saturated by encoder)
+    }
+    const uint32_t bits = FloatToBits(maxAbsValue);
+    const uint32_t fpExponent = (bits & 0x7F800000u) >> kF32Mbits;
+    // scale_unbiased = (fpExponent - F32_EXP_BIAS) - targetMaxPow2
+    // scale_biased   = scale_unbiased + E8M0_EXPONENT_BIAS = fpExponent - targetMaxPow2
+    // Clamp to valid E8M0 range [0, 254] (255 reserved for NaN)
+    if (fpExponent <= static_cast<uint32_t>(targetMaxPow2)) {
+        return 0u;
+    }
+    const uint32_t biased = fpExponent - static_cast<uint32_t>(targetMaxPow2);
+    return static_cast<uint8_t>(std::min(biased, 254u));
+}
+
+// Compute the reciprocal scaling factor from an E8M0 biased exponent.
+// reciprocal_scale = 2^(E8M0_BIAS - e8m0) so that data * reciprocal_scale = data / scale.
+static float ComputeScalingFromExponent(uint8_t e8m0)
+{
+    if (e8m0 == 0xFFu) {
+        return std::numeric_limits<float>::quiet_NaN();
+    }
+    const uint32_t scaleExp = 254u - static_cast<uint32_t>(e8m0);
+    if (scaleExp == 0u) {
+        return std::ldexp(1.0f, -kE8M0ExponentBias);
+    }
+    return BitsToFloat(scaleExp << kF32Mbits);
+}
+
+// Encode a float32 value to FP8 E4M3 (round-to-nearest-even) via bit manipulation.
+// Reference: torchao _f32_to_floatx_unpacked (OCP MX Formats)
+static uint8_t EncodeE4M3Fn(float value)
+{
+    if (std::isnan(value)) {
+        return 0x7Fu;
+    }
+
+    constexpr auto& p = kFP8E4M3Params;
+    constexpr uint8_t kMaxCode = 0x7Eu; // max magnitude (not NaN)
+    constexpr uint8_t kSignMask = 0x80u;
+    constexpr int kShift = kF32Mbits - p.mbits; // 23 - 3 = 20
+    // magic_adder for RNE: (1 << (shift - 1)) - 1
+    constexpr uint32_t kMagicAdder = (1u << (kShift - 1)) - 1u;
+    // denorm_exp = (F32_EXP_BIAS - fp8_exp_bias) + (F32_MBITS - fp8_mbits) + 1
+    constexpr uint32_t kDenormExp = (kF32ExpBias - p.expBias) + kShift + 1u;
+    constexpr uint32_t kDenormMaskInt = kDenormExp << kF32Mbits;
+    static const float kDenormMaskFloat = BitsToFloat(kDenormMaskInt);
+
+    const uint32_t bits = FloatToBits(value);
+    const uint8_t sign = static_cast<uint8_t>((bits >> 24) & kSignMask);
+    const uint32_t absBits = bits & 0x7FFFFFFFu;
+    const float absVal = BitsToFloat(absBits);
+
+    // Branch 1: saturation
+    if (absVal >= p.maxPos) {
+        return sign | kMaxCode;
+    }
+    // Branch 2: denormal in fp8 (abs < min_normal)
+    if (absVal < p.minNormal) {
+        // Denormal trick: add a magic float then subtract the integer representation
+        const float temp = absVal + kDenormMaskFloat;
+        const uint32_t tempBits = FloatToBits(temp) - kDenormMaskInt;
+        return sign | static_cast<uint8_t>(tempBits);
+    }
+    // Branch 3: normal — adjust exponent and round-to-nearest-even
+    const uint32_t mantOdd = (absBits >> kShift) & 1u;
+    // Reinterpret as int32 for the exponent/rounding adjustment
+    const int32_t expBiasDelta = static_cast<int32_t>(p.expBias - kF32ExpBias);
+    const int32_t valToAdd =
+        expBiasDelta * static_cast<int32_t>(uint32_t{1} << kF32Mbits) + static_cast<int32_t>(kMagicAdder);
+    const uint32_t adjusted = absBits + static_cast<uint32_t>(valToAdd) + mantOdd;
+    return sign | static_cast<uint8_t>((adjusted >> kShift) & 0x7Fu);
+}
+
 static torch::Tensor View(
     const torch::Tensor& self, const std::vector<int64_t>& shape, const std::vector<int64_t>& offset)
 {
@@ -271,6 +393,38 @@ static void Expm1(const TensorData& out, const TensorData& self)
     auto tout = From(out);
     auto tself = From(self);
     torch::expm1_out(tout.second, tself.second);
+    ToOperand(tout.second, tout.first, out.dtype);
+}
+
+static void Sin(const TensorData& out, const TensorData& self)
+{
+    auto tout = From(out);
+    auto tself = From(self);
+    torch::sin_out(tout.second, tself.second);
+    ToOperand(tout.second, tout.first, out.dtype);
+}
+
+static void Cos(const TensorData& out, const TensorData& self)
+{
+    auto tout = From(out);
+    auto tself = From(self);
+    torch::cos_out(tout.second, tself.second);
+    ToOperand(tout.second, tout.first, out.dtype);
+}
+
+static void Sinh(const TensorData& out, const TensorData& self)
+{
+    auto tout = From(out);
+    auto tself = From(self);
+    torch::sinh_out(tout.second, tself.second);
+    ToOperand(tout.second, tout.first, out.dtype);
+}
+
+static void Cosh(const TensorData& out, const TensorData& self)
+{
+    auto tout = From(out);
+    auto tself = From(self);
+    torch::cosh_out(tout.second, tself.second);
     ToOperand(tout.second, tout.first, out.dtype);
 }
 
@@ -549,6 +703,7 @@ DEFINE_BINARY_S_OPS(DivS, div_out)
 DEFINE_BINARY_S_OPS(FmodS, fmod_out)
 DEFINE_BINARY_S_OPS(RemainderS, remainder_out)
 DEFINE_BINARY_S_OPS(RemainderRS, remainder_out)
+DEFINE_BINARY_S_OPS(PowS, pow_out)
 DEFINE_BINARY_S_OPS(BitwiseAndS, bitwise_and_out)
 DEFINE_BINARY_S_OPS(BitwiseOrS, bitwise_or_out)
 DEFINE_BINARY_S_OPS(BitwiseXorS, bitwise_xor_out)
@@ -751,16 +906,8 @@ static void PReLU(const TensorData& out, const TensorData& self, const TensorDat
 
 DEFINE_BINARY_OPS(Remainder, remainder_out)
 DEFINE_BINARY_OPS(Gcd, gcd_out)
+DEFINE_BINARY_OPS(Pow, pow_out)
 DEFINE_BINARY_OPS(FloorDiv, floor_divide_out)
-
-static void Pow(const TensorData& out, const TensorData& self, const TensorData& other)
-{
-    auto tout = From(out);
-    auto tself = From(self);
-    auto tother = From(other);
-    torch::pow_out(tout.second, tself.second, tother.second);
-    ToOperand(tout.second, tout.first, out.dtype);
-}
 
 static void BitwiseAnd(const TensorData& out, const TensorData& self, const TensorData& other)
 {
@@ -983,10 +1130,139 @@ static void Range(const TensorData& out, const Element& start, const Element& en
     for (int64_t dim : out.shape) {
         expected_numel *= dim;
     }
-    ASSERT(calc_error::CalculatorErrorScene::RANGE_NUMEL_MISMATCH, tmp.numel() == expected_numel)
+    ASSERT(CalculatorErrorScene::RANGE_NUMEL_MISMATCH, tmp.numel() == expected_numel)
         << "Range numel mismatch: generated " << tmp.numel() << ", expected " << expected_numel;
     auto tout = From(out);
     tout.second.copy_(tmp);
+    ToOperand(tout.second, tout.first, out.dtype);
+}
+
+static uint32_t MultiplyHighLow(uint32_t a, uint32_t b, uint32_t& hi)
+{
+    uint64_t product = static_cast<uint64_t>(a) * static_cast<uint64_t>(b);
+    hi = static_cast<uint32_t>(product >> 32);
+    return static_cast<uint32_t>(product & 0xFFFFFFFF);
+}
+
+static void PhiloxRandomGolden(std::vector<uint32_t>& counter, std::vector<uint32_t>& key, int rounds)
+{
+    for (int i = 0; i < rounds; ++i) {
+        uint32_t hi0, hi1;
+        uint32_t lo0 = MultiplyHighLow(0xD2511F53, counter[0], hi0);
+        uint32_t lo1 = MultiplyHighLow(0xCD9E8D57, counter[2], hi1);
+
+        counter = {hi1 ^ counter[1] ^ key[0], lo1, hi0 ^ counter[3] ^ key[1], lo0};
+
+        key[0] += 0x9E3779B9;
+        key[1] += 0xBB67AE85;
+    }
+}
+
+static void Uniform(
+    const TensorData& out, const Element& key, const Element& counter0, const Element& counter1, const Element& rounds,
+    DataType dtype)
+{
+    std::vector<uint32_t> keyVec(2);
+    keyVec[0] = static_cast<uint32_t>(key.Cast<uint64_t>() & 0xFFFFFFFF);
+    keyVec[1] = static_cast<uint32_t>(key.Cast<uint64_t>() >> 32);
+
+    std::vector<uint32_t> counterVec(4);
+    counterVec[0] = static_cast<uint32_t>(counter0.Cast<uint64_t>() & 0xFFFFFFFF);
+    counterVec[1] = static_cast<uint32_t>(counter0.Cast<uint64_t>() >> 32);
+    counterVec[2] = static_cast<uint32_t>(counter1.Cast<uint64_t>() & 0xFFFFFFFF);
+    counterVec[3] = static_cast<uint32_t>(counter1.Cast<uint64_t>() >> 32);
+
+    int64_t totalElements = 1;
+    for (int64_t dim : out.shape) {
+        totalElements *= dim;
+    }
+
+    std::vector<uint32_t> result(totalElements);
+    std::vector<uint32_t> currentKey = keyVec;
+    std::vector<uint32_t> currentCounter = counterVec;
+
+    uint16_t roundsVal = rounds.Cast<uint16_t>();
+
+    for (int64_t i = 0; i < totalElements; i += 4) {
+        PhiloxRandomGolden(currentCounter, currentKey, roundsVal);
+
+        for (int j = 0; j < 4 && (i + j) < totalElements; ++j) {
+            result[i + j] = currentCounter[j];
+        }
+
+        currentCounter[0]++;
+        if (currentCounter[0] == 0) {
+            currentCounter[1]++;
+            if (currentCounter[1] == 0) {
+                currentCounter[2]++;
+                if (currentCounter[2] == 0) {
+                    currentCounter[3]++;
+                }
+            }
+        }
+    }
+
+    auto tout = From(out);
+
+    if (dtype == DT_FP32) {
+        std::vector<float> resultFloat(totalElements);
+        for (int64_t i = 0; i < totalElements; ++i) {
+            uint32_t x = result[i];
+            uint32_t man = x & 0x7fffff;
+            uint32_t exp = 127;
+            uint32_t val = (exp << 23) | man;
+            float f;
+            std::memcpy(&f, &val, sizeof(val));
+            resultFloat[i] = f - 1.0f;
+        }
+        auto options = torch::TensorOptions().dtype(torch::kFloat32);
+        auto tmp = torch::from_blob(resultFloat.data(), {totalElements}, options).clone();
+        tout.second.copy_(tmp.reshape(tout.second.sizes()));
+    } else if (dtype == DT_FP16) {
+        std::vector<uint16_t> resultHalf(totalElements);
+        for (int64_t i = 0; i < totalElements; ++i) {
+            uint32_t x = result[i];
+            uint16_t x16 = static_cast<uint16_t>(x & 0xFFFF);
+            uint16_t man = x16 & 0x3ff;
+            uint16_t exp = 15;
+            uint16_t val = (exp << 10) | man;
+            resultHalf[i] = val;
+        }
+        auto options = torch::TensorOptions().dtype(torch::kInt16);
+        auto tmp = torch::from_blob(resultHalf.data(), {totalElements}, options).clone();
+        auto tmpHalf = tmp.to(torch::kFloat16);
+        auto tmpFloat = (tmpHalf - torch::scalar_tensor(1.0, torch::kFloat16)).to(torch::kFloat32);
+        tout.second.copy_(tmpFloat.reshape(tout.second.sizes()).to(torch::kFloat16));
+    } else if (dtype == DT_BF16) {
+        std::vector<uint16_t> resultBfloat16(totalElements);
+        for (int64_t i = 0; i < totalElements; ++i) {
+            uint32_t x = result[i];
+            uint16_t x16 = static_cast<uint16_t>(x & 0xFFFF);
+            uint16_t man = x16 & 0x7f;
+            uint16_t exp = 127;
+            uint16_t val = (exp << 7) | man;
+            resultBfloat16[i] = val;
+        }
+        auto options = torch::TensorOptions().dtype(torch::kInt16);
+        auto tmp = torch::from_blob(resultBfloat16.data(), {totalElements}, options).clone();
+        auto tmpBfloat16 = tmp.to(torch::kBFloat16);
+        auto tmpFloat = (tmpBfloat16 - torch::scalar_tensor(1.0, torch::kBFloat16)).to(torch::kFloat32);
+        tout.second.copy_(tmpFloat.reshape(tout.second.sizes()).to(torch::kBFloat16));
+    } else {
+        std::vector<float> resultFloat(totalElements);
+        for (int64_t i = 0; i < totalElements; ++i) {
+            uint32_t x = result[i];
+            uint32_t man = x & 0x7fffff;
+            uint32_t exp = 127;
+            uint32_t val = (exp << 23) | man;
+            float f;
+            std::memcpy(&f, &val, sizeof(val));
+            resultFloat[i] = f - 1.0f;
+        }
+        auto options = torch::TensorOptions().dtype(torch::kFloat32);
+        auto tmp = torch::from_blob(resultFloat.data(), {totalElements}, options).clone();
+        tout.second.copy_(tmp.reshape(tout.second.sizes()));
+    }
     ToOperand(tout.second, tout.first, out.dtype);
 }
 
@@ -1016,14 +1292,14 @@ static void CompareImpl(
             tmp_result = torch::ge(tself, other_op);
             break;
         default:
-            ASSERT(calc_error::CalculatorErrorScene::COMPARE_UNSUPPORTED_TYPE, false) << "Unsupported compare type";
+            ASSERT(CalculatorErrorScene::COMPARE_UNSUPPORTED_TYPE, false) << "Unsupported compare type";
             break;
     }
 
     if (mode == CmpModeType::BIT) {
         if (tmp_result.dim() > 0) {
             int64_t last_dim = tmp_result.size(-1);
-            ASSERT(calc_error::CalculatorErrorScene::BITMODE_LAST_DIM_INVALID, last_dim % NUM_VALUE_8 == 0)
+            ASSERT(CalculatorErrorScene::BITMODE_LAST_DIM_INVALID, last_dim % NUM_VALUE_8 == 0)
                 << "Last dimension must be divisible by 8 in BIT mode";
 
             auto shape = tmp_result.sizes().vec();
@@ -1104,7 +1380,7 @@ static inline int64_t alignup(int64_t x, int64_t align) { return (x + (align - 1
 static void FormatND2NZ(const TensorData& out, const TensorData& self)
 {
     auto& shape = self.shape;
-    ASSERT(calc_error::CalculatorErrorScene::FORMAT_ND2NZ_RANK_LT_2, shape.size() >= 0x2)
+    ASSERT(CalculatorErrorScene::FORMAT_ND2NZ_RANK_LT_2, shape.size() >= 0x2)
         << "Input tensor must have at least 2 dimensions";
 
     int64_t ndim = shape.size();
@@ -1141,7 +1417,7 @@ static void FormatND2NZ(const TensorData& out, const TensorData& self)
 static void FormatNZ2ND(const TensorData& out, const TensorData& self)
 {
     auto& shape = self.shape;
-    ASSERT(calc_error::CalculatorErrorScene::FORMAT_NZ2ND_RANK_LT_2, shape.size() >= 0x2)
+    ASSERT(CalculatorErrorScene::FORMAT_NZ2ND_RANK_LT_2, shape.size() >= 0x2)
         << "Input tensor must have at least 2 dimensions";
 
     auto tself_pair = From(self);
@@ -1218,11 +1494,9 @@ static void QuantExecute(torch::Tensor& tout, const TensorData* scalePtr, uint64
 static void QuantPreCompute(
     const TensorData& out, const TensorData& self, const TensorData* scalePtr, uint64_t scale, int relu)
 {
+    ASSERT(CalculatorErrorScene::QUANTPRECOMPUTE_NULL_DATAPTR, out.dataPtr != nullptr && self.dataPtr != nullptr);
     ASSERT(
-        calc_error::CalculatorErrorScene::QUANTPRECOMPUTE_NULL_DATAPTR,
-        out.dataPtr != nullptr && self.dataPtr != nullptr);
-    ASSERT(
-        calc_error::CalculatorErrorScene::QUANTPRECOMPUTE_DTYPE_MISMATCH,
+        CalculatorErrorScene::QUANTPRECOMPUTE_DTYPE_MISMATCH,
         out.dtype == DataType::DT_FP16 && self.dtype == DataType::DT_INT32);
     auto tself = From(self);
     auto tout = From(out);
@@ -1238,6 +1512,60 @@ static void QuantPreCompute(
         tout.second = tout.second.to(dtype);
     }
     ToOperand(tout.second, tout.first, out.dtype);
+}
+
+static torch::Tensor BuildMXScaleForA(const torch::Tensor& scaleA, bool scaleATrans, int64_t mSize, int64_t kSize)
+{
+    auto localScaleA = scaleA;
+    ASSERT(CalculatorErrorScene::MATMUL_INPUT_SHAPE_MISMATCH, localScaleA.dim() == 3)
+        << "MX scale_a must be 3D, got dim: " << localScaleA.dim();
+    torch::Tensor merged;
+    if (!scaleATrans) {
+        // test reference: scale_a.view(m, k / 32)
+        ASSERT(
+            CalculatorErrorScene::MATMUL_INPUT_SHAPE_MISMATCH, localScaleA.size(0) == mSize && localScaleA.size(2) == 2)
+            << "MX scale_a shape mismatch, expected [M, K/64, 2], got [" << localScaleA.size(0) << ", "
+            << localScaleA.size(1) << ", " << localScaleA.size(2) << "]";
+        merged = localScaleA.reshape({mSize, -1});
+    } else {
+        // test reference: torch.transpose(scale_a, -2, -1).reshape(k / 32, m).T
+        ASSERT(
+            CalculatorErrorScene::MATMUL_INPUT_SHAPE_MISMATCH, localScaleA.size(1) == mSize && localScaleA.size(2) == 2)
+            << "MX trans scale_a shape mismatch, expected [K/64, M, 2], got [" << localScaleA.size(0) << ", "
+            << localScaleA.size(1) << ", " << localScaleA.size(2) << "]";
+        merged = localScaleA.transpose(-2, -1).reshape({-1, mSize}).transpose(0, 1);
+    }
+    auto expanded = merged.repeat_interleave(32, 1);
+    ASSERT(CalculatorErrorScene::MATMUL_INPUT_SHAPE_MISMATCH, expanded.size(1) == kSize)
+        << "MX scale_a expanded K mismatch, got " << expanded.size(1) << ", expect " << kSize;
+    return expanded;
+}
+
+static torch::Tensor BuildMXScaleForB(const torch::Tensor& scaleB, bool scaleBTrans, int64_t kSize, int64_t nSize)
+{
+    auto localScaleB = scaleB;
+    ASSERT(CalculatorErrorScene::MATMUL_INPUT_SHAPE_MISMATCH, localScaleB.dim() == 3)
+        << "MX scale_b must be 3D, got dim: " << localScaleB.dim();
+    torch::Tensor merged;
+    if (!scaleBTrans) {
+        // test reference: torch.transpose(scale_b, -2, -1).reshape(k / 32, n)
+        ASSERT(
+            CalculatorErrorScene::MATMUL_INPUT_SHAPE_MISMATCH, localScaleB.size(1) == nSize && localScaleB.size(2) == 2)
+            << "MX scale_b shape mismatch, expected [K/64, N, 2], got [" << localScaleB.size(0) << ", "
+            << localScaleB.size(1) << ", " << localScaleB.size(2) << "]";
+        merged = localScaleB.transpose(-2, -1).reshape({-1, nSize});
+    } else {
+        // test reference: scale_b.view(n, k / 32).T
+        ASSERT(
+            CalculatorErrorScene::MATMUL_INPUT_SHAPE_MISMATCH, localScaleB.size(0) == nSize && localScaleB.size(2) == 2)
+            << "MX trans scale_b shape mismatch, expected [N, K/64, 2], got [" << localScaleB.size(0) << ", "
+            << localScaleB.size(1) << ", " << localScaleB.size(2) << "]";
+        merged = localScaleB.reshape({nSize, -1}).transpose(0, 1);
+    }
+    auto expanded = merged.repeat_interleave(32, 0);
+    ASSERT(CalculatorErrorScene::MATMUL_INPUT_SHAPE_MISMATCH, expanded.size(0) == kSize)
+        << "MX scale_b expanded K mismatch, got " << expanded.size(0) << ", expect " << kSize;
+    return expanded;
 }
 
 static void MatMul(
@@ -1273,6 +1601,19 @@ static void MatMul(
     }
     if (tother.second.scalar_type() != calcType) {
         tother.second = tother.second.to(calcType);
+    }
+    if (param.aScalePtr != nullptr && param.bScalePtr != nullptr) {
+        auto taScale = From(*param.aScalePtr).second.to(calcType);
+        auto tbScale = From(*param.bScalePtr).second.to(calcType);
+        ASSERT(CalculatorErrorScene::MATMUL_INPUT_SHAPE_MISMATCH, tself.second.dim() == 2 && tother.second.dim() == 2)
+            << "MX MatMul currently only supports 2D matrices.";
+        int64_t mSize = tself.second.size(0);
+        int64_t kSize = tself.second.size(1);
+        int64_t nSize = tother.second.size(1);
+        auto aScaleExpanded = BuildMXScaleForA(taScale, param.aScaleTrans, mSize, kSize);
+        auto bScaleExpanded = BuildMXScaleForB(tbScale, param.bScaleTrans, kSize, nSize);
+        tself.second = tself.second.mul(aScaleExpanded);
+        tother.second = tother.second.mul(bScaleExpanded);
     }
     if (!param.kStep || param.kStep == tself.second.size(-1)) {
         if (param.biasPtr != nullptr) {
@@ -1327,7 +1668,8 @@ void Gather(const TensorData& out, const TensorData& params, const TensorData& i
     if (axis < 0) {
         axis += paramsRank;
     }
-    TORCH_CHECK(axis >= 0 && axis < static_cast<int64_t>(paramsRank), "axis out of range");
+    ASSERT(CalculatorErrorScene::GATHER_AXIS_OUT_OF_RANGE, axis >= 0 && axis < static_cast<int64_t>(paramsRank))
+        << "axis out of range";
     auto idxFlat = tindices.second.to(torch::kLong).reshape({-1});
     auto gathered = tparams.second.index_select(/*dim=*/axis, /*index=*/idxFlat);
     std::vector<int64_t> outSize{};
@@ -1343,52 +1685,64 @@ void GatherINUBGolden(
     int64_t blockSize, int64_t axis)
 {
     // ---- 基本约束：只做 CPU，不考虑 CUDA ----
-    TORCH_CHECK(
-        params.is_cpu() && indices.is_cpu() && pageTable.is_cpu() && out.is_cpu(),
-        "CPU-only: params/indices/pageTable/out must all be on CPU.");
+    ASSERT(
+        CalculatorErrorScene::GATHER_INUB_DEVICE_INVALID,
+        params.is_cpu() && indices.is_cpu() && pageTable.is_cpu() && out.is_cpu())
+        << "CPU-only: params/indices/pageTable/out must all be on CPU.";
 
     // ---- axis：严格等价你 golden（token 维），只允许 axis==0 ----
     if (axis < 0)
         axis += params.dim();
-    TORCH_CHECK(axis == 0, "Only axis==0 is supported to match the original golden logic.");
-    TORCH_CHECK(blockSize > 0, "blockSize must be > 0.");
+    ASSERT(CalculatorErrorScene::GATHER_INUB_AXIS_INVALID, axis == 0)
+        << "Only axis==0 is supported to match the original golden logic.";
+    ASSERT(CalculatorErrorScene::GATHER_INUB_BLOCKSIZE_INVALID, blockSize > 0) << "blockSize must be > 0.";
 
     // ---- 形状严格限制：indices/pageTable 只能是 [1, a] ----
-    TORCH_CHECK(params.dim() == 2, "params must be [num_buffer_tokens, hidden_dim]");
-    TORCH_CHECK(indices.dim() == 2 && indices.size(0) == 1, "indices must be [1, topk_count]");
-    TORCH_CHECK(pageTable.dim() == 2 && pageTable.size(0) == 1, "pageTable must be [1, num_logical_blocks]");
-    TORCH_CHECK(out.dim() == 2, "out must be [topk_count, hidden_dim]");
+    ASSERT(CalculatorErrorScene::GATHER_INUB_SHAPE_INVALID, params.dim() == 2)
+        << "params must be [num_buffer_tokens, hidden_dim]";
+    ASSERT(CalculatorErrorScene::GATHER_INUB_SHAPE_INVALID, indices.dim() == 2 && indices.size(0) == 1)
+        << "indices must be [1, topk_count]";
+    ASSERT(CalculatorErrorScene::GATHER_INUB_SHAPE_INVALID, pageTable.dim() == 2 && pageTable.size(0) == 1)
+        << "pageTable must be [1, num_logical_blocks]";
+    ASSERT(CalculatorErrorScene::GATHER_INUB_SHAPE_INVALID, out.dim() == 2) << "out must be [topk_count, hidden_dim]";
 
     const int64_t hidden_dim = params.size(1);
     const int64_t topk_count = indices.size(1);
     const int64_t num_logical_blocks = pageTable.size(1);
 
-    TORCH_CHECK(out.size(0) == topk_count && out.size(1) == hidden_dim, "out must have shape [topk_count, hidden_dim]");
+    ASSERT(CalculatorErrorScene::GATHER_INUB_SHAPE_INVALID, out.size(0) == topk_count && out.size(1) == hidden_dim)
+        << "out must have shape [topk_count, hidden_dim]";
 
     // ---- dtype：indices/pageTable 必须是整数；统一转 int64（不转 params）----
-    TORCH_CHECK(
-        indices.scalar_type() == at::kInt || indices.scalar_type() == at::kLong, "indices must be int32 or int64");
-    TORCH_CHECK(
-        pageTable.scalar_type() == at::kInt || pageTable.scalar_type() == at::kLong,
-        "pageTable must be int32 or int64");
+    ASSERT(
+        CalculatorErrorScene::GATHER_INUB_DTYPE_INVALID,
+        indices.scalar_type() == at::kInt || indices.scalar_type() == at::kLong)
+        << "indices must be int32 or int64";
+    ASSERT(
+        CalculatorErrorScene::GATHER_INUB_DTYPE_INVALID,
+        pageTable.scalar_type() == at::kInt || pageTable.scalar_type() == at::kLong)
+        << "pageTable must be int32 or int64";
 
     // out/params dtype 必须一致（index_select 不会帮你做 dtype cast）
-    TORCH_CHECK(out.scalar_type() == params.scalar_type(), "out and params must have the same dtype");
+    ASSERT(CalculatorErrorScene::GATHER_INUB_DTYPE_INVALID, out.scalar_type() == params.scalar_type())
+        << "out and params must have the same dtype";
 
     // ---- 1) logical indices: [topk] int64 ----
     at::Tensor logical = indices.reshape({-1}).to(at::kLong);
 
     // ---- logical 越界检查： [0, num_logical_blocks * blockSize) ----
     const int64_t total_logical_tokens = num_logical_blocks * blockSize;
-    TORCH_CHECK(total_logical_tokens >= 0, "total_logical_tokens overflow?");
-    TORCH_CHECK(logical.ge(0).all().item<bool>(), "logical_index < 0 exists in indices");
-    TORCH_CHECK(
-        logical.lt(total_logical_tokens).all().item<bool>(),
-        "logical_index out of range: must be < num_logical_blocks * blockSize");
+    ASSERT(CalculatorErrorScene::GATHER_INUB_LOGICAL_INDEX_INVALID, total_logical_tokens >= 0)
+        << "total_logical_tokens overflow?";
+    ASSERT(CalculatorErrorScene::GATHER_INUB_LOGICAL_INDEX_INVALID, logical.ge(0).all().item<bool>())
+        << "logical_index < 0 exists in indices";
+    ASSERT(CalculatorErrorScene::GATHER_INUB_LOGICAL_INDEX_INVALID, logical.lt(total_logical_tokens).all().item<bool>())
+        << "logical_index out of range: must be < num_logical_blocks * blockSize";
 
     // ---- 2) pageTable: [num_logical_blocks] int64 ----
     at::Tensor pt = pageTable.reshape({-1}).to(at::kLong);
-    TORCH_CHECK(pt.numel() == num_logical_blocks, "pageTable numel mismatch");
+    ASSERT(CalculatorErrorScene::GATHER_INUB_PAGETABLE_NUMEL_MISMATCH, pt.numel() == num_logical_blocks)
+        << "pageTable numel mismatch";
 
     // ---- 3) compute physical indices (完全等价 golden) ----
     // logical_block = logical / blockSize
@@ -1399,14 +1753,19 @@ void GatherINUBGolden(
     at::Tensor offset = logical.remainder(blockSize);           // same as % for non-negative
 
     // 逻辑块 id 范围检查（其实 logical 已经检查过，这里更保险）
-    TORCH_CHECK(logical_block.ge(0).all().item<bool>(), "logical_block_id < 0 exists");
-    TORCH_CHECK(logical_block.lt(num_logical_blocks).all().item<bool>(), "logical_block_id out of range for pageTable");
+    ASSERT(CalculatorErrorScene::GATHER_INUB_LOGICAL_BLOCK_INVALID, logical_block.ge(0).all().item<bool>())
+        << "logical_block_id < 0 exists";
+    ASSERT(
+        CalculatorErrorScene::GATHER_INUB_LOGICAL_BLOCK_INVALID,
+        logical_block.lt(num_logical_blocks).all().item<bool>())
+        << "logical_block_id out of range for pageTable";
 
     at::Tensor physical_block = pt.index_select(0, logical_block);
     at::Tensor physical = physical_block.mul(blockSize).add(offset); // int64
 
     // ---- physical 越界检查：[0, num_buffer_tokens) ----
-    TORCH_CHECK(physical.ge(0).all().item<bool>(), "physical_index < 0 exists");
+    ASSERT(CalculatorErrorScene::GATHER_INUB_PHYSICAL_INDEX_INVALID, physical.ge(0).all().item<bool>())
+        << "physical_index < 0 exists";
 
     // ---- 4) index_select gather: params[physical, :] -> [topk, hidden_dim] ----
     at::Tensor selected = params.index_select(0, physical); // dtype 跟 params 一样
@@ -1501,9 +1860,7 @@ void GatherMask(const TensorData& out, const TensorData& self, int patternMode)
                 selected_indices = torch::arange(3, last_dim, 4);
                 break;
             default:
-                ASSERT(
-                    calc_error::CalculatorErrorScene::GATHERMASK_PATTERNMODE_INVALID,
-                    patternMode >= 1 && patternMode <= 7)
+                ASSERT(CalculatorErrorScene::GATHERMASK_PATTERNMODE_INVALID, patternMode >= 1 && patternMode <= 7)
                     << "Invalid patternMode";
         }
         ret.second = src.second.index_select(-1, selected_indices);
@@ -1523,8 +1880,83 @@ void IndexAdd(
     ToOperand(tout.second, tout.first, out.dtype);
 }
 
-void TriU(const TensorData& out, const TensorData& in, int diagonal)
-{
+static void Quantize(const TensorData &out, const TensorData &input, const TensorData &scale, const TensorData &zeroPoints) {
+    auto tout = From(out);
+    auto tinput = From(input);
+    auto tscale = From(scale);
+
+    int inputRank = tinput.second.dim();
+    int normalizedAxis = inputRank - 1;
+
+    // Broadcast scale to match input shape based on axis
+    auto scaleTensor = tscale.second;
+    while (scaleTensor.dim() < inputRank) {
+        scaleTensor = scaleTensor.unsqueeze(normalizedAxis);
+    }
+    scaleTensor = scaleTensor.expand_as(tinput.second);
+
+    auto scaled = tinput.second * scaleTensor;
+
+    // Apply zero_points for asymmetric quantization
+    if (zeroPoints.dataPtr != nullptr) {
+        auto tzeroPoints = From(zeroPoints);
+        auto zeroPointsTensor = tzeroPoints.second;
+
+        // Broadcast zero_points based on axis (same as scale)
+        while (zeroPointsTensor.dim() < inputRank) {
+            zeroPointsTensor = zeroPointsTensor.unsqueeze(normalizedAxis);
+        }
+        zeroPointsTensor = zeroPointsTensor.expand_as(tinput.second);
+
+        scaled = scaled + zeroPointsTensor;
+    }
+
+    auto rounded = torch::round(scaled);
+
+    if (out.dtype == DT_UINT8) {
+        rounded = torch::clamp(rounded, 0, 255);
+    } else if (out.dtype == DT_INT8) {
+        rounded = torch::clamp(rounded, -128, 127);
+    }
+
+    ToOperand(rounded, tout.first, out.dtype);
+}
+
+static void Dequantize(const TensorData &out, const TensorData &input, const TensorData &scale, const TensorData &zeroPoints) {
+    auto tout = From(out);
+    auto tinput = From(input);
+    auto tscale = From(scale);
+
+    int inputRank = tinput.second.dim();
+    int normalizedAxis = inputRank - 1;
+
+    // Broadcast scale to match input shape based on axis
+    auto scaleTensor = tscale.second;
+    while (scaleTensor.dim() < inputRank) {
+        scaleTensor = scaleTensor.unsqueeze(normalizedAxis);
+    }
+    scaleTensor = scaleTensor.expand_as(tinput.second);
+
+    auto result = tinput.second * scaleTensor;
+
+    // Apply zero_points for asymmetric dequantization
+    if (zeroPoints.dataPtr != nullptr) {
+        auto tzeroPoints = From(zeroPoints);
+        auto zeroPointsTensor = tzeroPoints.second;
+
+        // Broadcast zero_points based on axis (same as scale)
+        while (zeroPointsTensor.dim() < inputRank) {
+            zeroPointsTensor = zeroPointsTensor.unsqueeze(normalizedAxis);
+        }
+        zeroPointsTensor = zeroPointsTensor.expand_as(tinput.second);
+
+        result = result - zeroPointsTensor;
+    }
+
+    ToOperand(result, tout.first, out.dtype);
+}
+
+void TriU(const TensorData &out, const TensorData &in, int diagonal) {
     auto output = From(out);
     auto input = From(in);
 
@@ -1869,7 +2301,7 @@ static void MrgSort(const TensorData& out, const TensorData& self, int64_t axis,
     auto sliceIndices = torch::arange(actShape, torch::dtype(torch::kLong));
     auto tselfHalf = tself.second.index_select(axis, sliceIndices);
 
-    ASSERT(calc_error::CalculatorErrorScene::MRGSORT_AXIS_OUT_OF_RANGE, axis >= 0 && axis < tselfHalf.dim())
+    ASSERT(CalculatorErrorScene::MRGSORT_AXIS_OUT_OF_RANGE, axis >= 0 && axis < tselfHalf.dim())
         << "axis" << axis << " is out of bounds for tensor of dimension " << tselfHalf.dim();
 
     std::vector<int64_t> viewOffset(tself.second.dim(), 0);
@@ -2191,7 +2623,7 @@ bool ScatterDateCopy(
     int64_t j = loopIdx[1];
     int64_t dataIdx = indices.index({i, j}).item<int64_t>();
 
-    ASSERT(calc_error::CalculatorErrorScene::SCATTER_BLOCKSIZE_ZERO, blockSize != 0);
+    ASSERT(CalculatorErrorScene::SCATTER_BLOCKSIZE_ZERO, blockSize != 0);
     if (ret.dim() == 2) { // 2 dim
         int64_t srcIdx = i * s + j;
         if ((dataIdx < 0 || dataIdx >= ret.size(0)) || (srcIdx < 0 || srcIdx >= src.size(0))) {
@@ -2225,16 +2657,15 @@ static void ScatterUpdate(
     auto src = From(self);
     auto indices = From(index);
 
+    ASSERT(CalculatorErrorScene::SCATTER_INDICES_DIM_INVALID,
+           indices.second.dim() == 2); // indices should be 2 dim
     ASSERT(
-        calc_error::CalculatorErrorScene::SCATTER_INDICES_DIM_INVALID,
-        indices.second.dim() == 2); // indices should be 2 dim
-    ASSERT(
-        calc_error::CalculatorErrorScene::SCATTER_SRC_RET_DIM_UNSUPPORTED,
+        CalculatorErrorScene::SCATTER_SRC_RET_DIM_UNSUPPORTED,
         (src.second.dim() == 2) || (src.second.dim() == 4)); // only 2, 4 dim support
     ASSERT(
-        calc_error::CalculatorErrorScene::SCATTER_SRC_RET_DIM_UNSUPPORTED,
+        CalculatorErrorScene::SCATTER_SRC_RET_DIM_UNSUPPORTED,
         (ret.second.dim() == 2) || (ret.second.dim() == 4)); // only 2, 4 dim support
-    ASSERT(calc_error::CalculatorErrorScene::SCATTER_SRC_RET_DIM_MISMATCH, src.second.dim() == ret.second.dim());
+    ASSERT(CalculatorErrorScene::SCATTER_SRC_RET_DIM_MISMATCH, src.second.dim() == ret.second.dim());
 
     int64_t b = indices.second.size(0);
     int64_t s = indices.second.size(1);
@@ -2307,6 +2738,97 @@ static void Scatter(
     }
 }
 
+static void FillQuantMXRows(
+    const float* inputPtr, uint8_t* quantPtr, uint8_t* expPtr, float* scalingPtr, float* maxPtr,
+    int64_t rows, int64_t cols, int64_t groupCols)
+{
+    for (int64_t row = 0; row < rows; ++row) {
+        for (int64_t group = 0; group < groupCols; ++group) {
+            float maxAbsValue = 0.0f;
+            bool hasNaN = false;
+            for (int64_t inner = 0; inner < MX_QUANT_TILE_BLOCK; ++inner) {
+                const int64_t col = group * MX_QUANT_TILE_BLOCK + inner;
+                if (col >= cols) {
+                    continue;
+                }
+                const float val = std::fabs(inputPtr[row * cols + col]);
+                if (std::isnan(val)) {
+                    hasNaN = true;
+                } else {
+                    maxAbsValue = std::max(maxAbsValue, val);
+                }
+            }
+            if (hasNaN) {
+                maxAbsValue = std::numeric_limits<float>::quiet_NaN();
+            }
+            const uint8_t e8m0 = ComputeSharedExponent(maxAbsValue, kFP8E4M3Params.targetMaxPow2);
+            const float groupScaling = ComputeScalingFromExponent(e8m0);
+            expPtr[row * groupCols + group] = e8m0;
+            maxPtr[row * groupCols + group] = maxAbsValue;
+            for (int64_t inner = 0; inner < MX_QUANT_TILE_BLOCK; ++inner) {
+                const int64_t col = group * MX_QUANT_TILE_BLOCK + inner;
+                if (col >= cols) {
+                    continue;
+                }
+                scalingPtr[row * cols + col] = groupScaling;
+                quantPtr[row * cols + col] = EncodeE4M3Fn(inputPtr[row * cols + col] * groupScaling);
+            }
+        }
+    }
+}
+
+static void QuantMX(
+    const TensorData& out, const TensorData& exp, const TensorData& max, const TensorData& scaling,
+    const TensorData& self, bool performanceMode)
+{
+    auto tout = From(out);
+    auto texp = From(exp);
+    auto tmax = From(max);
+    auto tscaling = From(scaling);
+    auto tself = From(self);
+
+    auto input = tself.second.to(torch::kFloat32).contiguous();
+    ASSERT(CalculatorErrorScene::QUANTMX_RANK_INVALID, input.dim() >= 1 && input.dim() <= 4)
+        << "QuantMX interpreter only supports 1D to 4D input.";
+
+    auto quantRaw = torch::empty(input.sizes(), torch::TensorOptions().dtype(torch::kUInt8));
+    auto groupedShape = input.sizes().vec();
+    const int64_t cols = groupedShape.back();
+    ASSERT(CalculatorErrorScene::QUANTMX_RANK_INVALID, cols != 0) << "QuantMX input last dimension must not be zero.";
+    groupedShape.back() = (cols + MX_QUANT_TILE_BLOCK - 1) / MX_QUANT_TILE_BLOCK;
+    auto performanceGroupedShape = input.sizes().vec();
+    if (performanceGroupedShape.size() == 1) {
+        performanceGroupedShape.back() = groupedShape.back();
+    } else {
+        performanceGroupedShape.pop_back();
+        performanceGroupedShape.back() *= groupedShape.back();
+    }
+    auto expRaw = torch::empty(groupedShape, torch::TensorOptions().dtype(torch::kUInt8));
+    auto scalingTemp = torch::empty(input.sizes(), torch::TensorOptions().dtype(torch::kFloat32));
+    auto maxTemp = torch::zeros(groupedShape, torch::TensorOptions().dtype(torch::kFloat32));
+
+    const int64_t rows = input.numel() / cols;
+    const int64_t groupCols = groupedShape.back();
+    auto inputFlat = input.view({rows, cols});
+    auto quantFlat = quantRaw.view({rows, cols});
+    auto expFlat = expRaw.view({rows, groupCols});
+    auto scalingFlat = scalingTemp.view({rows, cols});
+    auto maxFlat = maxTemp.view({rows, groupCols});
+
+    const auto* inputPtr = inputFlat.data_ptr<float>();
+    auto* quantPtr = quantFlat.data_ptr<uint8_t>();
+    auto* expPtr = expFlat.data_ptr<uint8_t>();
+    auto* scalingPtr = scalingFlat.data_ptr<float>();
+    auto* maxPtr = maxFlat.data_ptr<float>();
+
+    FillQuantMXRows(inputPtr, quantPtr, expPtr, scalingPtr, maxPtr, rows, cols, groupCols);
+
+    tout.first.copy_(quantRaw);
+    texp.first.copy_(performanceMode ? expRaw.reshape(performanceGroupedShape) : expRaw);
+    tmax.second.copy_(performanceMode ? maxTemp.reshape(performanceGroupedShape) : maxTemp);
+    tscaling.second.copy_(scalingTemp);
+}
+
 static struct CalcOps calcOps = {
     .Random = Random,
     .AllClose = AllClose,
@@ -2314,6 +2836,10 @@ static struct CalcOps calcOps = {
     .Exp = Exp,
     .Exp2 = Exp2,
     .Expm1 = Expm1,
+    .Sin = Sin,
+    .Cos = Cos,
+    .Sinh = Sinh,
+    .Cosh = Cosh,
     .Neg = Neg,
     .Rsqrt = Rsqrt,
     .Sign = Sign,
@@ -2345,6 +2871,7 @@ static struct CalcOps calcOps = {
     .Hypot = Hypot,
     .PReLU = PReLU,
     .LogicalAnd = LogicalAnd,
+    .Uniform = Uniform,
     .AddS = AddS,
     .SubS = SubS,
     .MulS = MulS,
@@ -2353,6 +2880,7 @@ static struct CalcOps calcOps = {
     .FmodS = FmodS,
     .RemainderS = RemainderS,
     .RemainderRS = RemainderRS,
+    .PowS = PowS,
     .BitwiseAndS = BitwiseAndS,
     .BitwiseOrS = BitwiseOrS,
     .BitwiseXorS = BitwiseXorS,
@@ -2416,11 +2944,14 @@ static struct CalcOps calcOps = {
     .FormatNZ2ND = FormatNZ2ND,
     .QuantPreCompute = QuantPreCompute,
     .MatMul = MatMul,
+    .Quantize = Quantize,
+    .Dequantize = Dequantize,
     .BitSort = BitSort,
     .TiledMrgSort = TiledMrgSort,
     .Extract = Extract,
     .MrgSort = MrgSort,
     .TopK = TopK,
+    .QuantMX = QuantMX,
     .TopkSort = TopkSort,
     .TopkMerge = TopkMerge,
     .TopkExtract = TopkExtract,

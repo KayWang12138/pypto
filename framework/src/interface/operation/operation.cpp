@@ -23,14 +23,14 @@
 #include "tilefwk/tilefwk.h"
 #include "interface/inner/tilefwk.h"
 #include "interface/inner/tile_shape.h"
-#include "interface/utils/function_error.h"
+#include "interface/utils/error.h"
 #include "interface/program/program.h"
 #include "interface/operation/cycles.h"
 #include "interface/function/function.h"
 #include "interface/tensor/logical_tensor.h"
 #include "interface/tensor/raw_tensor.h"
 #include "interface/utils/serialization.h"
-#include "passes/pass_utils/pass_utils.h"
+#include "passes/pass_utils/subfunc_utils.h"
 #include "interface/configs/config_manager_ng.h"
 
 namespace npu::tile_fwk {
@@ -52,6 +52,7 @@ const std::string OpAttributeKey::dontTouch = "DONT_TOUCH";
 const std::string OpAttributeKey::tag = "TAG";
 const std::string OpAttributeKey::distTilingInfo = "DIST_TILING_INFO";
 const std::string OpAttributeKey::sameInOut = "SAME_IN_OUT";
+const std::string OpAttributeKey::expandDims = "op_attr_expand_dims";
 const std::string OpAttributeKey::inputCombineAxis = "op_attr_input_combine_axis";
 const std::string OpAttributeKey::outputCombineAxis = "op_attr_output_combine_axis";
 const std::string OpAttributeKey::inplaceIdx = "INPLACE_IDX";
@@ -65,11 +66,13 @@ const std::string OpAttributeKey::excludeBufferReuse = "exclude_buffer_reuse";
 const std::string OpAttributeKey::bindTensor = "BIND_TENSOR";
 const std::string OpAttributeKey::startOffset = "start_offset";
 const std::string OpAttributeKey::distOpAttr = "DIST_OP_ATTR";
+const std::string OpAttributeKey::isDistCopyOut = "IS_DIST_COPY_OUT";
 const std::string OpAttributeKey::subBlockIdx = "SUB_BLOCK_IDX";
 const std::string OpAttributeKey::accumulate = "accumulate";
 const std::string OpAttributeKey::indicesSize = "indicesSize";
 const std::string OpAttributeKey::brcbIdx = "brcb_idx";
 const std::string OpAttributeKey::brcpIdx = "brcp_idx";
+const std::string OpAttributeKey::topkAlgo = "topk_algo";
 const std::string OpAttributeKey::quantFlag = "op_attr_vector_quant_flag";
 const std::string OpAttributeKey::loopGroup = "LOOP_GROUP";
 const std::string OpAttributeKey::loopAxes = "LOOP_AXES";
@@ -87,6 +90,12 @@ const std::string OpAttributeKey::scaleValue = "op_attr_scale_value";
 const std::string OpAttributeKey::rowPad = "op_attr_row_pad";
 const std::string OpAttributeKey::ownerRank = "owner_rank";
 const std::string OpAttributeKey::maxTileNum = "max_tile_num";
+const std::string OpAttributeKey::precisionType = "precision_type";
+const std::string OpAttributeKey::perm = "perm";
+const std::string OpAttributeKey::mxQuantMode = "op_attr_mx_quant_mode";
+const std::string OpAttributeKey::mxQuantAxis = "op_attr_mx_quant_axis";
+const std::string OpAttributeKey::mxQuantPerformanceMode = "op_attr_mx_quant_performance_mode";
+const std::string OpAttributeKey::gmTensorParamIdxInCall = "gm_tensor_param_idx_in_call";
 
 const std::string ConvOpAttributeKey::cin = "CIN";
 const std::string ConvOpAttributeKey::cout = "COUT";
@@ -124,6 +133,9 @@ const std::string FixpOpAttributeKey::fbAddrSpace = "FIX_BUFFER_ADDR_SPACE";
 
 const std::string PoolOpAttributeKey::poolh = "POOL_WIN_H";
 const std::string PoolOpAttributeKey::poolw = "POOL_WIN_W";
+
+const std::string TensorAttributeKey::tensorAddr = "tensorAddr";
+
 bool OperationCmp::operator()(const Operation* lhs, const Operation* rhs) const
 {
     return lhs->GetOpMagic() < rhs->GetOpMagic();
@@ -140,7 +152,7 @@ Operation::Operation(
       function_(&cur)
 {
     if (opcode != Opcode::OP_CALL) {
-        FUNCTION_ASSERT(FError::INVALID_TYPE, cur.GetFunctionType() != FunctionType::EAGER);
+        FE_ASSERT(FeError::INVALID_TYPE, cur.GetFunctionType() != FunctionType::EAGER);
     }
 
     auto opCoreType = OpcodeManager::Inst().GetCoreType(opcode);
@@ -168,32 +180,35 @@ Operation::Operation(
         if (cur.IsCompiledFunction()) {
             for (auto& t : GetOOperands()) {
                 if (cur.GetTensorMap().GetTensorByMagic(t->magic) == nullptr) {
-                    FUNCTION_ASSERT(FError::NOT_EXIST, updateTensorMap || cur.IsCompiledFunction());
+                    FE_ASSERT(FeError::NOT_EXIST, updateTensorMap || cur.IsCompiledFunction());
                 }
             }
         }
     } else {
         if (cur.GetTensorMap().GetTensorByMagic(GetOOperands()[0]->magic) == nullptr) {
-            FUNCTION_ASSERT(FError::NOT_EXIST, updateTensorMap || cur.IsCompiledFunction());
+            FE_ASSERT(FeError::NOT_EXIST, updateTensorMap || cur.IsCompiledFunction());
         } else {
             updateTensorMap = false;
         }
     }
 
-    if (function_->IsGraphType({GraphType::TENSOR_GRAPH, GraphType::TILE_GRAPH})) {
+    if (function_->IsGraphType(GraphType::TENSOR_GRAPH)) {
         tileShape_ = TileShape::Current();
         if (coreType_ == CoreType::AIC) {
             auto& cubeTile = tileShape_.GetCubeTile();
             auto& convTile = tileShape_.GetConvTile();
-            FUNCTION_ASSERT(FError::INVALID_VAL, cubeTile.valid() || convTile.valid())
+            FE_ASSERT(FeError::INVALID_VAL, cubeTile.valid() || convTile.valid())
                 << "op [" << OpcodeManager::Inst().GetOpcodeStr(opcode) << "]tile shape not set";
         }
         OpCalcType calcType = OpcodeManager::Inst().GetOpCalcType(opcode);
         if (coreType_ == CoreType::AIV && calcType != OpCalcType::DISTRIBUTED) {
             auto& vecTile = tileShape_.GetVecTile();
-            FUNCTION_ASSERT(FError::INVALID_VAL, vecTile.valid())
+            FE_ASSERT(FeError::INVALID_VAL, vecTile.valid())
                 << "op [" << OpcodeManager::Inst().GetOpcodeStr(opcode) << "]tile shape not set";
         }
+    }
+
+    if (function_->IsGraphType({GraphType::TENSOR_GRAPH, GraphType::TILE_GRAPH})) {
         SetSemanticLabel(config::GetSemanticLabel());
         location_ = SourceLocation::GetLocation();
     }
@@ -232,7 +247,7 @@ Operation::Operation(
 
 std::string Operation::GetStringAttribute(const std::string& key) const
 {
-    FUNCTION_ASSERT(FError::NOT_EXIST, HasAttr(key)) << "Operation doesn't have attribute " << key;
+    FE_ASSERT(FeError::NOT_EXIST, HasAttr(key)) << "Operation doesn't have attribute " << key;
     std::string attrVal;
     GetAttr(key, attrVal);
     return attrVal;
@@ -254,7 +269,7 @@ void Operation::SetAttribute(const std::string& key, bool value) { SetAttr(key, 
 
 int64_t Operation::GetIntAttribute(const std::string& key) const
 {
-    FUNCTION_ASSERT(FError::NOT_EXIST, HasAttr(key)) << "Operation doesn't have attribute " << key;
+    FE_ASSERT(FeError::NOT_EXIST, HasAttr(key)) << "Operation doesn't have attribute " << key;
     int64_t attrVal = 0;
     GetAttr(key, attrVal);
     return attrVal;
@@ -264,9 +279,9 @@ void Operation::SetAttribute(const std::string& key, int64_t value) { SetAttr(ke
 
 CastMode Operation::GetCastModeAttribute(const std::string& key) const
 {
-    FUNCTION_ASSERT(FError::NOT_EXIST, HasAttr(key)) << "Operation doesn't have attribute " << key;
+    FE_ASSERT(FeError::NOT_EXIST, HasAttr(key)) << "Operation doesn't have attribute " << key;
     int attrVal = GetIntAttribute(key);
-    FUNCTION_ASSERT(FError::INVALID_VAL, attrVal >= CAST_NONE && attrVal <= CAST_ODD);
+    FE_ASSERT(FeError::INVALID_VAL, attrVal >= CAST_NONE && attrVal <= CAST_ODD);
     return static_cast<CastMode>(attrVal);
 }
 
@@ -274,26 +289,26 @@ void Operation::SetAttribute(const std::string& key, CastMode value) { SetAttr(k
 
 SymbolicScalar Operation::GetSymbolicScalarAttribute(const std::string& key) const
 {
-    FUNCTION_ASSERT(FError::NOT_EXIST, HasAttr(key)) << "Operation doesn't have attribute " << key;
+    FE_ASSERT(FeError::NOT_EXIST, HasAttr(key)) << "Operation doesn't have attribute " << key;
     SymbolicScalar attrVal = 0;
     GetAttr(key, attrVal);
-    FUNCTION_ASSERT(FError::INVALID_VAL, attrVal.IsValid());
+    FE_ASSERT(FeError::INVALID_VAL, attrVal.IsValid());
     return attrVal;
 }
 
 void Operation::SetAttribute(const std::string& key, const SymbolicScalar& value)
 {
-    FUNCTION_ASSERT(FError::INVALID_VAL, value.IsValid());
+    FE_ASSERT(FeError::INVALID_VAL, value.IsValid());
     SetAttr(key, value);
 }
 
 std::vector<SymbolicScalar> Operation::GetVectorSymbolicScalarAttribute(const std::string& key) const
 {
-    FUNCTION_ASSERT(FError::NOT_EXIST, HasAttr(key)) << "Operation doesn't have attribute " << key;
+    FE_ASSERT(FeError::NOT_EXIST, HasAttr(key)) << "Operation doesn't have attribute " << key;
     std::vector<SymbolicScalar> attrVal;
     GetAttr(key, attrVal);
     for (auto& attr : attrVal) {
-        FUNCTION_ASSERT(FError::INVALID_VAL, attr.IsValid());
+        FE_ASSERT(FeError::INVALID_VAL, attr.IsValid());
     }
     return attrVal;
 }
@@ -301,14 +316,14 @@ std::vector<SymbolicScalar> Operation::GetVectorSymbolicScalarAttribute(const st
 void Operation::SetAttribute(const std::string& key, const std::vector<SymbolicScalar>& value)
 {
     for (auto& attr : value) {
-        FUNCTION_ASSERT(FError::INVALID_VAL, attr.IsValid());
+        FE_ASSERT(FeError::INVALID_VAL, attr.IsValid());
     }
     SetAttr(key, value);
 }
 
 [[nodiscard]] Element Operation::GetElementAttribute(const std::string& key) const
 {
-    FUNCTION_ASSERT(FError::NOT_EXIST, HasAttr(key)) << "Operation doesn't have attribute " << key;
+    FE_ASSERT(FeError::NOT_EXIST, HasAttr(key)) << "Operation doesn't have attribute " << key;
     Element attrVal;
     GetAttr(key, attrVal);
     return attrVal;
@@ -316,7 +331,7 @@ void Operation::SetAttribute(const std::string& key, const std::vector<SymbolicS
 
 std::vector<Element> Operation::GetVectorElementAttribute(const std::string& key) const
 {
-    FUNCTION_ASSERT(FError::NOT_EXIST, HasAttr(key)) << "Operation doesn't have attribute " << key;
+    FE_ASSERT(FeError::NOT_EXIST, HasAttr(key)) << "Operation doesn't have attribute " << key;
     std::vector<Element> attrVal;
     GetAttr(key, attrVal);
     return attrVal;
@@ -335,11 +350,8 @@ void DebugJson(const Json& j)
     printf("%s\n", s.c_str());
 }
 
-Json Operation::DumpJson(bool dumpTensor) const
+void Operation::DumpOperandsJson(Json& opDump, bool dumpTensor) const
 {
-    Json opDump;
-    opDump[T_FIELD_KIND] = static_cast<int>(Kind::T_KIND_OPERATION);
-
     Json ioperandsDump = Json::array();
     Json ooperandsDump = Json::array();
     for (auto& i : iOperand) {
@@ -358,28 +370,33 @@ Json Operation::DumpJson(bool dumpTensor) const
     }
     opDump["ioperands"] = ioperandsDump;
     opDump["ooperands"] = ooperandsDump;
-    opDump["opcode"] = GetOpcodeStr();
-    opDump["latency"] = GetLatency();
+}
 
-    if (IsCall()) {
-        auto calleeHash = std::static_pointer_cast<CallOpAttribute>(GetOpAttribute())->GetCalleeHash();
-        Function* callee = nullptr;
-        for (auto& ele : Program::GetInstance().GetFunctionMap()) {
-            if (ele.second->GetFunctionHash() == calleeHash) {
-                callee = ele.second.get();
-            }
-        }
-        if (callee == nullptr) {
-            FUNCTION_LOGE_E(FError::NOT_EXIST, "Cannot find function by calleeHash %s", calleeHash.c_str());
-        } else {
-            if (callee->rootFunc_ == nullptr) {
-                opDump["calleehash"] = calleeHash.Data();
-            } else {
-                opDump["calleehash"] = callee->rootFunc_->GetFunctionHash().Data();
-            }
+void Operation::DumpCalleeHashJson(Json& opDump) const
+{
+    if (!IsCall()) {
+        return;
+    }
+    auto calleeHash = std::static_pointer_cast<CallOpAttribute>(GetOpAttribute())->GetCalleeHash();
+    std::shared_ptr<Function> callee = nullptr;
+    for (auto& ele : Program::GetInstance().GetFunctionMap()) {
+        if (ele.second->GetFunctionHash() == calleeHash) {
+            callee = ele.second;
         }
     }
+    if (callee == nullptr) {
+        FE_LOGE(FeError::NOT_EXIST, "Cannot find function by calleeHash %s", calleeHash.c_str());
+        return;
+    }
+    if (callee->rootFunc_ == nullptr) {
+        opDump["calleehash"] = calleeHash.Data();
+    } else {
+        opDump["calleehash"] = callee->rootFunc_->GetFunctionHash().Data();
+    }
+}
 
+void Operation::DumpLocationJson(Json& opDump) const
+{
     opDump["opmagic"] = GetOpMagic();
     if (semanticLabel_) {
         Json jlabel;
@@ -393,8 +410,10 @@ Json Operation::DumpJson(bool dumpTensor) const
         opDump["line"] = location_->GetLineno();
         opDump["backtrace"] = location_->GetBacktrace();
     }
+}
 
-    opDump["subgraphid"] = subgraphID_;
+void Operation::DumpParamLocationJson(Json& opDump) const
+{
     Json inLocation = Json::array();
     Json outLocation = Json::array();
     for (auto& inLoc : inParamLocation_) {
@@ -411,54 +430,86 @@ Json Operation::DumpJson(bool dumpTensor) const
         opDump["out_param_loc"] = outLocation;
         opDump["static"]["out_param_loc"] = opDump["out_param_loc"];
     }
-    if (opcode_ == Opcode::OP_CALL &&
-        BelongTo()->IsFunctionTypeAndGraphType(FunctionType::STATIC, GraphType::EXECUTE_GRAPH)) {
-        auto callAttr = std::dynamic_pointer_cast<CallOpAttribute>(GetOpAttribute());
-        auto programId = callAttr->invokeInfo_->GetProgramId();
-        auto programIter = function_->programs_.find(programId);
-        if (programIter != function_->programs_.end()) {
-            auto programFuncMagic = programIter->second->GetFuncMagic();
-            opDump["program_funcmagic"] = programFuncMagic;
-        } else {
-            opDump["program_funcmagic"] = programFuncMagic_;
-        }
-        auto attr = std::dynamic_pointer_cast<CallOpAttribute>(GetOpAttribute());
-        opDump["invoke_info"] = attr->DumpInvokeInfoJson();
-        opDump["static"]["invoke_info"] = opDump["invoke_info"];
-    }
+}
 
-    if (isTileOp_) {
-        HashBuffer vecBuffer, cubeBuffer, distBuffer;
-        opDump["tile"]["vec"] = std::basic_string(SerializeTo(tileShape_.GetVecTile(), vecBuffer));
-        opDump["tile"]["cube"] = std::basic_string(SerializeTo(tileShape_.GetCubeTile(), cubeBuffer));
-        opDump["tile"]["comm"] = std::basic_string(SerializeTo(tileShape_.GetDistTile(), distBuffer));
+void Operation::DumpCallOpInfoJson(Json& opDump) const
+{
+    if (opcode_ != Opcode::OP_CALL ||
+        !BelongTo()->IsFunctionTypeAndGraphType(FunctionType::STATIC, GraphType::EXECUTE_GRAPH)) {
+        return;
     }
+    auto callAttr = std::dynamic_pointer_cast<CallOpAttribute>(GetOpAttribute());
+    FE_ASSERT(FeError::INVALID_PTR, callAttr != nullptr);
+    auto programId = callAttr->invokeInfo_->GetProgramId();
+    auto programIter = function_->programs_.find(programId);
+    if (programIter != function_->programs_.end()) {
+        opDump["program_funcmagic"] = programIter->second->GetFuncMagic();
+    } else {
+        opDump["program_funcmagic"] = programFuncMagic_;
+    }
+    auto attr = std::dynamic_pointer_cast<CallOpAttribute>(GetOpAttribute());
+    FE_ASSERT(FeError::INVALID_PTR, attr != nullptr);
+    opDump["invoke_info"] = attr->DumpInvokeInfoJson();
+    opDump["static"]["invoke_info"] = opDump["invoke_info"];
+}
 
+void Operation::DumpTileInfoJson(Json& opDump) const
+{
+    if (!isTileOp_) {
+        return;
+    }
+    HashBuffer vecBuffer, cubeBuffer, distBuffer;
+    opDump["tile"]["vec"] = std::basic_string(SerializeTo(tileShape_.GetVecTile(), vecBuffer));
+    opDump["tile"]["cube"] = std::basic_string(SerializeTo(tileShape_.GetCubeTile(), cubeBuffer));
+    opDump["tile"]["comm"] = std::basic_string(SerializeTo(tileShape_.GetDistTile(), distBuffer));
+}
+
+void Operation::DumpAttributesJson(Json& opDump) const
+{
     if (GetOpAttribute() != nullptr) {
         opDump["attr"] = GetOpAttribute()->DumpDynJson();
     }
-
     for (const auto& pair : GetAllAttr()) {
         opDump["op_attr"][pair.first] = DumpAttrJson(pair.first);
     }
-
     opDump["sync_queue"] = syncQueue_.ToJson();
     opDump["static"]["sync_queue"] = opDump["sync_queue"];
+}
+
+Json Operation::DumpJson(bool dumpTensor) const
+{
+    Json opDump;
+    opDump[T_FIELD_KIND] = static_cast<int>(Kind::T_KIND_OPERATION);
+
+    DumpOperandsJson(opDump, dumpTensor);
+    opDump["opcode"] = GetOpcodeStr();
+    opDump["latency"] = GetLatency();
+
+    DumpCalleeHashJson(opDump);
+    DumpLocationJson(opDump);
+
+    opDump["subgraphid"] = subgraphID_;
+    opDump["l1ReuseHashOrder"] = l1ReuseHashOrder_;
+    opDump["cubeMergeHashOrder"] = cubeMergeHashOrder_;
+    opDump["vecMergeHashOrder"] = vecMergeHashOrder_;
+
+    DumpParamLocationJson(opDump);
+    DumpCallOpInfoJson(opDump);
+    DumpTileInfoJson(opDump);
+    DumpAttributesJson(opDump);
+
     return opDump;
 }
 
-std::shared_ptr<Operation> Operation::LoadJson(
-    Function& cur, const std::unordered_map<int, std::shared_ptr<LogicalTensor>>& tensorDict, const Json& opDump)
+void Operation::LoadOperandsFromJson(
+    const Json& opDump, const std::unordered_map<int, std::shared_ptr<LogicalTensor>>& tensorDict,
+    std::vector<std::shared_ptr<LogicalTensor>>& ioperands, std::vector<std::shared_ptr<LogicalTensor>>& ooperands)
 {
-    FUNCTION_ASSERT(FError::INVALID_TYPE, opDump[T_FIELD_KIND].get<int>() == static_cast<int>(Kind::T_KIND_OPERATION));
-
-    std::vector<std::shared_ptr<LogicalTensor>> ioperands;
-    std::vector<std::shared_ptr<LogicalTensor>> ooperands;
     for (auto& i : opDump["ioperands"]) {
         std::shared_ptr<LogicalTensor> tensor;
         if (i.is_number()) {
             int magic = i.get<int>();
-            FUNCTION_ASSERT(FError::NOT_EXIST, tensorDict.count(magic));
+            FE_ASSERT(FeError::NOT_EXIST, tensorDict.count(magic));
             tensor = tensorDict.find(magic)->second;
         } else {
             tensor = tensorDict.find(i["magic"].get<int>())->second;
@@ -469,56 +520,64 @@ std::shared_ptr<Operation> Operation::LoadJson(
         std::shared_ptr<LogicalTensor> tensor;
         if (o.is_number()) {
             int magic = o.get<int>();
-            FUNCTION_ASSERT(FError::NOT_EXIST, tensorDict.count(magic));
+            FE_ASSERT(FeError::NOT_EXIST, tensorDict.count(magic));
             tensor = tensorDict.find(magic)->second;
         } else {
             tensor = tensorDict.find(o["magic"].get<int>())->second;
         }
         ooperands.push_back(tensor);
     }
+}
 
-    Opcode opcode = FindOpcode(opDump["opcode"].get<std::string>());
-    int opMagic = opDump["opmagic"].get<int>();
-    std::shared_ptr<Operation> op = std::make_shared<Operation>(cur, opcode, ioperands, ooperands, true, opMagic);
-
+void Operation::LoadLocationFromJson(const Json& opDump)
+{
     if (opDump.count("semantic_label")) {
         auto jlabel = opDump["semantic_label"];
-        op->semanticLabel_ = std::make_shared<SemanticLabel>(
+        semanticLabel_ = std::make_shared<SemanticLabel>(
             jlabel["label"].get<std::string>(), jlabel["filename"].get<std::string>(), jlabel["lineno"].get<int>());
     }
-
     if (opDump.count("file")) {
-        op->location_ = std::make_shared<SourceLocation>(
+        location_ = std::make_shared<SourceLocation>(
             opDump["file"].get<std::string>(), opDump["line"].get<int>(), opDump["backtrace"].get<std::string>());
     }
+}
 
-    int subgraphid = opDump["subgraphid"].get<int>();
-    op->subgraphID_ = subgraphid;
-    int latency = opDump["latency"].get<int>();
-    op->UpdateLatency(latency);
+void Operation::LoadBasicInfoFromJson(const Json& opDump)
+{
+    subgraphID_ = opDump["subgraphid"].get<int>();
+    l1ReuseHashOrder_ = opDump["l1ReuseHashOrder"].get<int>();
+    cubeMergeHashOrder_ = opDump["cubeMergeHashOrder"].get<int>();
+    vecMergeHashOrder_ = opDump["vecMergeHashOrder"].get<int>();
+    UpdateLatency(opDump["latency"].get<int>());
     if (opDump.count("in_param_loc")) {
         for (auto& inLoc : opDump["in_param_loc"]) {
-            op->inParamLocation_.emplace_back(inLoc);
+            inParamLocation_.emplace_back(inLoc);
         }
     }
     if (opDump.count("out_param_loc")) {
         for (auto& outLoc : opDump["out_param_loc"]) {
-            op->outParamLocation_.emplace_back(outLoc);
+            outParamLocation_.emplace_back(outLoc);
         }
     }
+}
 
+void Operation::LoadTileInfoFromJson(const Json& opDump)
+{
     if (opDump.count("tile")) {
         HashBuffer vecBuffer = opDump["tile"]["vec"].get<HashBuffer>();
         HashBuffer cubeBuffer = opDump["tile"]["cube"].get<HashBuffer>();
         HashBuffer distBuffer = opDump["tile"]["comm"].get<HashBuffer>();
-        op->isTileOp_ = true;
-        DeserializeFrom(vecBuffer, op->tileShape_.GetVecTile());
-        DeserializeFrom(cubeBuffer, op->tileShape_.GetCubeTile());
-        DeserializeFrom(distBuffer, op->tileShape_.GetDistTile());
+        isTileOp_ = true;
+        DeserializeFrom(vecBuffer, tileShape_.GetVecTile());
+        DeserializeFrom(cubeBuffer, tileShape_.GetCubeTile());
+        DeserializeFrom(distBuffer, tileShape_.GetDistTile());
     } else {
-        op->isTileOp_ = false;
+        isTileOp_ = false;
     }
+}
 
+void Operation::LoadOpAttributeFromJson(const Json& opDump, Opcode opcode)
+{
     if (opDump.count("attr")) {
         auto& attrJson = opDump["attr"];
         std::shared_ptr<OpAttribute> opAttribute;
@@ -530,7 +589,7 @@ std::shared_ptr<Operation> Operation::LoadJson(
                 opAttribute = DeserializeFrom<AssembleOpAttribute>(attrJson);
                 break;
             case Opcode::OP_CALL:
-                opAttribute = DeserializeFrom<CallOpAttribute>(opDump, &cur);
+                opAttribute = DeserializeFrom<CallOpAttribute>(opDump, function_);
                 break;
             case Opcode::OP_CONVERT:
                 opAttribute = DeserializeFrom<ConvertOpAttribute>(attrJson);
@@ -541,40 +600,55 @@ std::shared_ptr<Operation> Operation::LoadJson(
             case Opcode::OP_L1_TO_L0_AT:
             case Opcode::OP_L1_TO_L0_BT:
             case Opcode::OP_COPY_OUT:
-                opAttribute = DeserializeFrom<CopyOpAttribute>(attrJson);
-                break;
             case Opcode::OP_TRANSPOSE_MOVEIN:
-                opAttribute = DeserializeFrom<CopyOpAttribute>(attrJson);
-                break;
             case Opcode::OP_TRANSPOSE_MOVEOUT:
-                opAttribute = DeserializeFrom<CopyOpAttribute>(attrJson);
-                break;
             case Opcode::OP_INDEX_PUT:
-                opAttribute = DeserializeFrom<CopyOpAttribute>(attrJson);
-                break;
+            case Opcode::OP_INDEX_ADD:
             case Opcode::OP_INDEX_OUTCAST:
                 opAttribute = DeserializeFrom<CopyOpAttribute>(attrJson);
                 break;
             default:
                 break;
         }
-        op->SetOpAttribute(opAttribute);
+        SetOpAttribute(opAttribute);
     }
-
-    if (opDump.count("program_funcmagic")) {
-        op->programFuncMagic_ = opDump["program_funcmagic"].get<int>();
-    }
-
-    if (opDump.count("op_attr") != 0) {
+    if (opDump.count("op_attr")) {
         auto& opAttrJson = opDump["op_attr"];
         for (auto it = opAttrJson.begin(); it != opAttrJson.end(); ++it) {
-            op->LoadAttrJson(it.key(), it.value());
+            LoadAttrJson(it.key(), it.value());
         }
     }
+}
 
-    if (opDump.count("sync_queue") != 0) {
-        op->syncQueue_.FromJson(opDump["sync_queue"]);
+void Operation::LoadExtraInfoFromJson(const Json& opDump)
+{
+    if (opDump.count("program_funcmagic")) {
+        programFuncMagic_ = opDump["program_funcmagic"].get<int>();
     }
+    if (opDump.count("sync_queue")) {
+        syncQueue_.FromJson(opDump["sync_queue"]);
+    }
+}
+
+std::shared_ptr<Operation> Operation::LoadJson(
+    Function& cur, const std::unordered_map<int, std::shared_ptr<LogicalTensor>>& tensorDict, const Json& opDump)
+{
+    FE_ASSERT(FeError::INVALID_TYPE, opDump[T_FIELD_KIND].get<int>() == static_cast<int>(Kind::T_KIND_OPERATION));
+
+    std::vector<std::shared_ptr<LogicalTensor>> ioperands;
+    std::vector<std::shared_ptr<LogicalTensor>> ooperands;
+    LoadOperandsFromJson(opDump, tensorDict, ioperands, ooperands);
+
+    Opcode opcode = FindOpcode(opDump["opcode"].get<std::string>());
+    int opMagic = opDump["opmagic"].get<int>();
+    std::shared_ptr<Operation> op = std::make_shared<Operation>(cur, opcode, ioperands, ooperands, true, opMagic);
+
+    op->LoadLocationFromJson(opDump);
+    op->LoadBasicInfoFromJson(opDump);
+    op->LoadTileInfoFromJson(opDump);
+    op->LoadOpAttributeFromJson(opDump, opcode);
+    op->LoadExtraInfoFromJson(opDump);
+
     return op;
 }
 
@@ -626,7 +700,7 @@ void Operation::ReplaceInputOperand(
         return;
     }
     for (size_t i = 0; i < iOperand.size(); ++i) {
-        FUNCTION_ASSERT(FError::INVALID_PTR, iOperand[i] != nullptr);
+        FE_ASSERT(FeError::INVALID_PTR, iOperand[i] != nullptr);
         if (iOperand[i] == originInput) {
             iOperand[i] = newInput;
             continue;
@@ -641,7 +715,7 @@ void Operation::ReplaceOutputOperand(
         return;
     }
     for (size_t i = 0; i < oOperand.size(); ++i) {
-        FUNCTION_ASSERT(FError::INVALID_PTR, oOperand[i] != nullptr);
+        FE_ASSERT(FeError::INVALID_PTR, oOperand[i] != nullptr);
         if (oOperand[i] == originOutput) {
             oOperand[i] = newOutput;
             continue;
@@ -651,7 +725,7 @@ void Operation::ReplaceOutputOperand(
 
 void Operation::ReplaceIOperand(size_t index, std::shared_ptr<LogicalTensor> newTensor)
 {
-    FUNCTION_ASSERT(FError::OUT_OF_RANGE, index < GetIOperands().size());
+    FE_ASSERT(FeError::OUT_OF_RANGE, index < GetIOperands().size());
     GetIOperands()[index]->RemoveConsumer(*this);
     GetIOperands()[index] = std::move(newTensor);
     GetIOperands()[index]->AddConsumer(*this);
@@ -661,7 +735,7 @@ void Operation::ReplaceIOperand(size_t index, std::shared_ptr<LogicalTensor> new
 
 void Operation::ReplaceOOperand(size_t index, std::shared_ptr<LogicalTensor> newTensor)
 {
-    FUNCTION_ASSERT(FError::OUT_OF_RANGE, index < GetOOperands().size());
+    FE_ASSERT(FeError::OUT_OF_RANGE, index < GetOOperands().size());
     GetOOperands()[index]->RemoveProducer(*this);
     GetOOperands()[index] = std::move(newTensor);
     GetOOperands()[index]->AddProducer(*this);
@@ -688,7 +762,7 @@ LogicalTensorPtr Operation::GetOutputOperand(const size_t index) const
 int Operation::GetIOperandIndex(const LogicalTensorPtr& ioperand) const
 {
     for (size_t i = 0; i < iOperand.size(); ++i) {
-        FUNCTION_ASSERT(FError::INVALID_PTR, iOperand[i] != nullptr);
+        FE_ASSERT(FeError::INVALID_PTR, iOperand[i] != nullptr);
         if (iOperand[i] == ioperand) {
             return (int)i;
         }
@@ -698,7 +772,7 @@ int Operation::GetIOperandIndex(const LogicalTensorPtr& ioperand) const
 int Operation::GetOOperandIndex(const LogicalTensorPtr& ooperand) const
 {
     for (size_t i = 0; i < oOperand.size(); ++i) {
-        FUNCTION_ASSERT(FError::INVALID_PTR, oOperand[i] != nullptr);
+        FE_ASSERT(FeError::INVALID_PTR, oOperand[i] != nullptr);
         if (oOperand[i] == ooperand) {
             return (int)i;
         }
@@ -817,6 +891,7 @@ Operation& Operation::CloneOperation(
     Function& func, const LogicalTensors& iOperandList, const LogicalTensors& oOperandList) const
 {
     Operation& op = func.AddRawOperation(opcode_, iOperandList, oOperandList);
+    op.SetScopeInfo(scopeInfo_);
     if (opAttribute_) {
         op.opAttribute_ = opAttribute_->Clone();
     }
@@ -957,14 +1032,14 @@ void Operation::ReplaceOutput(
 void Operation::SetSubFuncInvokeInfo(const SubfuncInvokeInfoTy& invokeInfo)
 {
     auto callAttr = std::dynamic_pointer_cast<CallOpAttribute>(opAttribute_);
-    FUNCTION_ASSERT(FError::INVALID_PTR, callAttr != nullptr);
+    FE_ASSERT(FeError::INVALID_PTR, callAttr != nullptr);
     callAttr->invokeInfo_ = std::make_shared<SubfuncInvokeInfoTy>(invokeInfo);
 }
 
 int Operation::GetProgramId()
 {
     auto callAttr = std::dynamic_pointer_cast<CallOpAttribute>(opAttribute_);
-    FUNCTION_ASSERT(FError::INVALID_PTR, callAttr != nullptr);
+    FE_ASSERT(FeError::INVALID_PTR, callAttr != nullptr);
     return callAttr->invokeInfo_->GetProgramId();
 }
 
@@ -1086,6 +1161,9 @@ std::vector<std::reference_wrapper<SymbolicScalar>> Operation::GetDynamicAttribu
                 }
             }
         } break;
+        case Opcode::OP_SHMEM_PUT:
+        case Opcode::OP_SHMEM_PUT_UB2GM:
+        case Opcode::OP_SHMEM_GET:
         case Opcode::OP_SHMEM_GET_GM2UB: {
             auto copyAttr = std::static_pointer_cast<CopyOpAttribute>(GetOpAttribute());
             if (copyAttr == nullptr) {
@@ -1096,6 +1174,24 @@ std::vector<std::reference_wrapper<SymbolicScalar>> Operation::GetDynamicAttribu
                     continue;
                 }
                 dynamicAttributeList.push_back(std::reference_wrapper<SymbolicScalar>(shape.GetSpecifiedValue()));
+            }
+            for (auto& shape : copyAttr->GetFromDynValidShape()) {
+                if (!shape.IsSpecified()) {
+                    continue;
+                }
+                dynamicAttributeList.push_back(std::reference_wrapper<SymbolicScalar>(shape.GetSpecifiedValue()));
+            }
+            for (auto& offset : copyAttr->GetToOffset()) {
+                if (!offset.IsSpecified()) {
+                    continue;
+                }
+                dynamicAttributeList.push_back(std::reference_wrapper<SymbolicScalar>(offset.GetSpecifiedValue()));
+            }
+            for (auto& offset : copyAttr->GetFromOffset()) {
+                if (!offset.IsSpecified()) {
+                    continue;
+                }
+                dynamicAttributeList.push_back(std::reference_wrapper<SymbolicScalar>(offset.GetSpecifiedValue()));
             }
         } break;
         default:

@@ -18,7 +18,7 @@
 #include <thread>
 #include "machine/host/backend.h"
 #include "machine/runtime/device_launcher.h"
-#include "machine/utils/machine_error.h"
+#include "tilefwk/error_code.h"
 
 extern "C" int DynTileFwkBackendKernelServer(void* targ);
 
@@ -166,7 +166,7 @@ int EmulationLauncher::BuildControlFlowCacheWithEmulationTensorData(
     hostCtrlFlowCache->CalcUsedCacheSize();
     uint64_t contextWorkspaceAddr = hostCtrlFlowCache->contextWorkspaceAddr;
     hostCtrlFlowCache->IncastOutcastAddrReloc(contextWorkspaceAddr, 0, nullptr);
-    hostCtrlFlowCache->RuntimeAddrRelocWorkspace(contextWorkspaceAddr, 0, nullptr, nullptr, nullptr);
+    hostCtrlFlowCache->RuntimeAddrRelocWorkspace(contextWorkspaceAddr, 0, nullptr, nullptr, nullptr, devProg->GetParallelism());
     hostCtrlFlowCache->RuntimeAddrRelocProgram(reinterpret_cast<uint64_t>(devProg), 0);
     hostCtrlFlowCache->TaskAddrRelocWorkspace(contextWorkspaceAddr, 0, nullptr);
     hostCtrlFlowCache->TaskAddrRelocProgramAndCtrlCache(
@@ -174,6 +174,7 @@ int EmulationLauncher::BuildControlFlowCacheWithEmulationTensorData(
     hostCtrlFlowCache->RelocMetaCache(reinterpret_cast<uint64_t>(hostCtrlFlowCache), 0);
     hostCtrlFlowCache->isActivated = true;
     devProg->ctrlFlowCacheAnchor = nullptr;
+    devProg->ctrlFlowCacheSize = hostCtrlFlowCache->usedCacheSize;
     devProg->ResetFromLaunch();
     if (outCtrlFlowCache) {
         *outCtrlFlowCache = hostCtrlFlowCache;
@@ -253,9 +254,7 @@ static std::vector<DeviceTensorData> toHostTensorData(const std::vector<DeviceTe
         auto size = devData.GetDataSize();
         void* ptr = malloc(size);
         if (isInput) {
-#ifdef BUILD_WITH_CANN
-            rtMemcpy(ptr, size, devData.GetAddr(), size, RT_MEMCPY_DEVICE_TO_HOST);
-#endif
+            RuntimeMemcpy(ptr, size, devData.GetAddr(), size, RtMemcpyKind::DEVICE_TO_HOST);
         }
         hostDataList.emplace_back(devData.GetDataType(), ptr, devData.GetShape());
     }
@@ -271,14 +270,14 @@ static void freeHostTensorData(const std::vector<DeviceTensorData>& hostDataList
 
 int EmulationLauncher::EmulationLaunchDeviceTensorData(
     Function* function, const std::vector<DeviceTensorData>& inDevList, const std::vector<DeviceTensorData>& outDevList,
-    const DeviceLauncherConfig& config)
+    const DeviceLauncherConfig& config, DevControlFlowCache* ctrlCache)
 {
     EmulationMemoryUtils memUtils;
     DeviceLauncher::ChangeCaptureModeRelax();
     auto inList = toHostTensorData(inDevList, true);
     auto outList = toHostTensorData(outDevList, false);
     DeviceLauncher::ChangeCaptureModeGlobal();
-    int rc = EmulationLaunchOnceWithHostTensorData(function, inList, outList, nullptr, memUtils, config);
+    int rc = EmulationLaunchOnceWithHostTensorData(function, inList, outList, ctrlCache, memUtils, config);
     freeHostTensorData(inList);
     freeHostTensorData(outList);
     return rc;

@@ -14,6 +14,7 @@
  */
 
 #include "graph_utils.h"
+#include "pass_utils.h"
 
 namespace npu {
 namespace tile_fwk {
@@ -50,6 +51,9 @@ Operation& GraphUtils::AddViewOperation(
     Function& function, const ViewOp& view, const std::vector<std::vector<SymbolicScalar>>& outDynShape)
 {
     auto& newOp = AddDynOperation(function, Opcode::OP_VIEW, {view.input}, {view.output}, outDynShape);
+    if (view.originOp != nullptr) {
+        newOp.SetScopeInfo(view.originOp->GetScopeInfo());
+    }
     SetViewAttr(function, newOp, view);
     return newOp;
 }
@@ -59,7 +63,7 @@ Operation& GraphUtils::AddAssembleOperation(
 {
     auto& newOp = function.AddRawOperation(Opcode::OP_ASSEMBLE, {assemble.input}, {assemble.output});
     if (assemble.originOp != nullptr) {
-        newOp.SetScopeId(assemble.originOp->GetScopeId());
+        newOp.SetScopeInfo(assemble.originOp->GetScopeInfo());
         newOp.CopyAttrFrom(*assemble.originOp, "");
     }
     SetAssembleAttr(newOp, assemble);
@@ -73,7 +77,7 @@ Operation& GraphUtils::AddReshapeOperation(
 {
     auto& newOp = function.AddOperation(Opcode::OP_RESHAPE, {iOperand}, {oOperand});
     if (reshapeOp.originOpPtr != nullptr) {
-        newOp.SetScopeId(reshapeOp.originOpPtr->GetScopeId());
+        newOp.SetScopeInfo(reshapeOp.originOpPtr->GetScopeInfo());
         newOp.CopyAttrFrom(*reshapeOp.originOpPtr, "");
     }
     if (outDynShape.empty()) {
@@ -109,7 +113,7 @@ Operation& GraphUtils::AddCopyInOperation(
     auto& newOp = function.AddOperation(Opcode::OP_COPY_IN, {copy.input}, {copy.output});
     SetCopyInAttr(newOp, copy);
     SetDynShape(&newOp, outDynShape);
-    newOp.UpdateSubgraphID(copy.output->subGraphID);
+    newOp.UpdateSubgraphID(CommonUtils::GetTensorSubgraphID(copy.output));
     return newOp;
 }
 
@@ -119,7 +123,7 @@ Operation& GraphUtils::AddCopyOutOperation(
     auto& newOp = function.AddOperation(Opcode::OP_COPY_OUT, {copy.input}, {copy.output});
     SetCopyOutAttr(newOp, copy);
     SetDynShape(&newOp, outDynShape);
-    newOp.UpdateSubgraphID(copy.input->subGraphID);
+    newOp.UpdateSubgraphID(CommonUtils::GetTensorSubgraphID(copy.input));
     return newOp;
 }
 

@@ -23,30 +23,26 @@
 #include "tilefwk/data_type.h"
 #include "codegen/codegen_op.h"
 #include "codegen/symbol_mgr/codegen_symbol.h"
-#include "codegen/cloudnpu/codegen_cloudnpu.h"
-#include "codegen/cloudnpu/codegen_op_cloudnpu.h"
+#include "codegen/npu/cloudnpu/codegen_cloudnpu.h"
+#include "codegen/npu/cloudnpu/codegen_op_cloudnpu.h"
 #include "test_codegen_utils.h"
 
 namespace npu::tile_fwk {
 
-class TestCodegenSpillOut : public ::testing::Test {
+class TestCodegenSpillOut : public CodegenTestBase {
 public:
-    static void SetUpTestCase() {}
+    TestCodegenSpillOut()
+        : CodegenTestBase(
+              {.compileStage = CS_EXECUTE_GRAPH, .buildStatic = true, .setTileTensor = true, .tileTensorValue = false})
+    {}
 
     static void TearDownTestCase() { config::SetCodeGenConfig(KEY_CODEGEN_SUPPORT_TILE_TENSOR, true); }
 
     void SetUp() override
     {
-        Program::GetInstance().Reset();
-        config::Reset();
-        config::SetBuildStatic(true);
-        config::SetHostOption(COMPILE_STAGE, CS_EXECUTE_GRAPH);
-        config::SetPlatformConfig(KEY_ENABLE_COST_MODEL, false);
-        config::SetCodeGenConfig(KEY_CODEGEN_SUPPORT_TILE_TENSOR, false);
+        CodegenTestBase::SetUp();
         TileShape::Current().SetCubeTile({64, 64}, {64, 64}, {64, 64});
     }
-
-    void TearDown() override {}
 };
 
 TEST_F(TestCodegenSpillOut, UBSpillOut)
@@ -57,20 +53,15 @@ TEST_F(TestCodegenSpillOut, UBSpillOut)
     auto ddrTensor = CreateLogicalTensor(
         {*function, DataType::DT_FP32, MemoryType::MEM_DEVICE_DDR, shape, "UBSpillOut", SYMBOL_STACK_BASE,
          dynValidShape});
+    int64_t baseOffset{0};
+    ddrTensor->SetAttr(OpAttributeKey::workspaceBaseOffset, baseOffset);
     auto ubTensor = CreateLogicalTensor({*function, DataType::DT_FP32, MemoryType::MEM_UB, shape});
 
     auto& op = function->AddOperation(Opcode::OP_COPY_OUT, {ubTensor}, {ddrTensor});
     auto shapeImme = OpImmediate::Specified(shape);
     op.SetOpAttribute(std::make_shared<CopyOpAttribute>(MEM_UB, OpImmediate::Specified({0, 0}), shapeImme, shapeImme));
 
-    std::shared_ptr<SymbolManager> symbolManager = std::make_shared<SymbolManager>();
-    CodeGenCtx ctx;
-    CodeGenCloudNPU cga(ctx);
-    cga.GenAllocForLocalBuffer(op, symbolManager);
-    CodeGenOpCloudNPUCtx opCtx(symbolManager, *function, *function->rootFunc_->programs_[0], op);
-    CodeGenOpCloudNPU cop(opCtx);
-
-    std::string res = cop.GenOpCode();
+    std::string res = GenOpCodeFromOp(*function, op);
     std::string expect =
         R"!!!(TileOp::UBCopyOut<float, 1, 1, 1, 64, 64, /*dst stride*/ 1, 1, 64, 64,/*src stride*/ 1, 1, 64, 64 >((__gm__ float*)GMStackBase, (__ubuf__ float*)UB_S0_E0);
 )!!!";
@@ -88,6 +79,8 @@ TEST_F(TestCodegenSpillOut, UBSpillOutTileTensor)
     auto ddrTensor = CreateLogicalTensor(
         {*function, DataType::DT_FP32, MemoryType::MEM_DEVICE_DDR, shape, "UBSpillOutTileTensor", SYMBOL_STACK_BASE,
          dynValidShape});
+    int64_t baseOffset{16};
+    ddrTensor->SetAttr(OpAttributeKey::workspaceBaseOffset, baseOffset);
     auto ubTensor = CreateLogicalTensor({*function, DataType::DT_FP32, MemoryType::MEM_UB, shape});
 
     auto& op = function->AddOperation(Opcode::OP_COPY_OUT, {ubTensor}, {ddrTensor});
@@ -96,12 +89,8 @@ TEST_F(TestCodegenSpillOut, UBSpillOutTileTensor)
         std::make_shared<CopyOpAttribute>(MEM_UB, OpImmediate::Specified({16, 16}), shapeImme, shapeImme));
     op.SetAttr(OpAttributeKey::workspaceBaseOffset, static_cast<int64_t>(16));
 
-    std::shared_ptr<SymbolManager> symbolManager = std::make_shared<SymbolManager>();
-    CodeGenCtx ctx;
-    CodeGenCloudNPU cga(ctx);
-    cga.GenAllocForLocalBuffer(op, symbolManager);
-    CodeGenOpCloudNPUCtx opCtx(symbolManager, *function, *function->rootFunc_->programs_[0], op);
-    CodeGenOpCloudNPU cop(opCtx);
+    std::shared_ptr<SymbolManager> symbolManager;
+    auto cop = GenOpCloudNPUFromOp(*function, op, symbolManager);
 
     std::string res = symbolManager->GenTileTensorDefList();
     std::string expect =
@@ -124,19 +113,14 @@ TEST_F(TestCodegenSpillOut, L1SpillOut)
     auto ddrTensor = CreateLogicalTensor(
         {*function, DataType::DT_FP32, MemoryType::MEM_DEVICE_DDR, shape, "L1SpillOut", SYMBOL_STACK_BASE,
          dynValidShape});
+    int64_t baseOffset{0};
+    ddrTensor->SetAttr(OpAttributeKey::workspaceBaseOffset, baseOffset);
     auto l1Tensor = CreateLogicalTensor({*function, DataType::DT_FP32, MemoryType::MEM_L1, shape, dynValidShape});
 
     auto& op = function->AddOperation(Opcode::OP_L1_COPY_OUT, {l1Tensor}, {ddrTensor});
     auto shapeImme = OpImmediate::Specified(shape);
     op.SetOpAttribute(std::make_shared<CopyOpAttribute>(MEM_L1, OpImmediate::Specified({0, 0}), shapeImme, shapeImme));
 
-    std::shared_ptr<SymbolManager> symbolManager = std::make_shared<SymbolManager>();
-    CodeGenCtx ctx;
-    CodeGenCloudNPU cga(ctx);
-    cga.GenAllocForLocalBuffer(op, symbolManager);
-    CodeGenOpCloudNPUCtx opCtx(symbolManager, *function, *function->rootFunc_->programs_[0], op);
-    CodeGenOpCloudNPU cop(opCtx);
-
-    cop.GenOpCode();
+    GenOpCodeFromOp(*function, op);
 }
 } // namespace npu::tile_fwk

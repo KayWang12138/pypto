@@ -208,9 +208,9 @@ Status CubeProcess::UpdateL0cDtype(Operation& op)
         }
         return SUCCESS;
     } else {
-        APASS_LOG_ERROR_F(Elements::Operation, "%s[%d] has unsupport input dtypes (L0A: %s, L0B: %s), update L0C dtype Failed. %s",
-            op.GetOpcodeStr().c_str(), op.GetOpMagic(), 
-            DataType2String(inputDtypes.first, true),
+        APASS_LOG_ERROR_F(
+            Elements::Operation, "%s[%d] has unsupport input dtypes (L0A: %s, L0B: %s), update L0C dtype Failed. %s",
+            op.GetOpcodeStr().c_str(), op.GetOpMagic(), DataType2String(inputDtypes.first, true),
             DataType2String(inputDtypes.second, true), GetFormatBacktrace(op).c_str());
         return FAILED;
     }
@@ -339,6 +339,9 @@ Status CubeProcess::AlignGMTensor(Function& function, std::vector<Operation*>& l
 
 Status CubeProcess::UpdateCubeOp(Function& function)
 {
+    if (Platform::Instance().GetSoc().GetNPUArch() == NPUArch::DAV_3113) {
+        return SUCCESS;
+    }
     for (auto& op : function.Operations()) {
         if (op.GetOpcode() != Opcode::OP_A_MUL_B && op.GetOpcode() != Opcode::OP_A_MULACC_B) {
             continue;

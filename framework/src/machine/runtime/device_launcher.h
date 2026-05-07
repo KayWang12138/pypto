@@ -18,41 +18,23 @@
 
 #include <cstdint>
 #include <cinttypes>
-
-#ifdef BUILD_WITH_CANN
+#include "tilefwk/data_type.h"
+#include "tilefwk/tilefwk.h"
+#include "tilefwk/platform.h"
+#include "tilefwk/pypto_fwk_log.h"
+#include "interface/inner/tilefwk.h"
+#include "interface/interpreter/raw_tensor_data.h"
 #include "machine/runtime/device_runner.h"
-#include "acl/acl_rt.h"
-#endif
-
 #include "machine/runtime/device_launcher_binding.h"
 #include "interface/configs/config_manager.h"
 #include "interface/function/function.h"
 #include "machine/utils/dynamic/dev_tensor_creator.h"
 #include "machine/device/dynamic/device_common.h"
-#include "machine/runtime/device_memory_utils.h"
-#include "tilefwk/tilefwk.h"
-#include "tilefwk/platform.h"
-#include "interface/inner/tilefwk.h"
-#include "tilefwk/data_type.h"
-#include "interface/interpreter/raw_tensor_data.h"
-#include "interface/configs/config_manager.h"
-#include "tilefwk/platform.h"
+#include "machine/runtime/memory_utils/device_memory_utils.h"
 #include "machine/runtime/distributed/distributed_context.h"
-#include "machine/utils/machine_error.h"
-#include "tilefwk/pypto_fwk_log.h"
-
-#ifndef BUILD_WITH_CANN
-enum aclmdlRICaptureMode {};
-using rtStream_t = uint64_t;
-using aclmdlRI = void*;
-using aclrtStream = void*;
-typedef struct tagRtArgsEx rtArgsEx_t;
-typedef struct tagRtAicpuArgsEx rtAicpuArgsEx_t;
-typedef struct tagRtTaskCfgInfo rtTaskCfgInfo_t;
-#endif
+#include "tilefwk/error_code.h"
 
 namespace npu::tile_fwk::dynamic {
-
 struct AiCpuArgs {
     DeviceKernelArgs kArgs;
     const char kernelName[32] = {"DynTileFwkKernelServer"};
@@ -63,6 +45,8 @@ struct AiCpuArgs {
 int GetCfgBlockdim();
 int GetMaxBlockdim();
 uint32_t GetProcessId();
+void DumpIOTensorsWithCann(
+    AclRtStream stream, std::vector<DeviceTensorData>& tensors, const std::string& funcName);
 
 class DeviceLauncherContext {
 public:
@@ -123,13 +107,10 @@ public:
     static void DeviceLauncherConfigFillDeviceInfo(const DeviceLauncherConfig& config)
     {
         DeviceLauncherConfig& devConfig = const_cast<DeviceLauncherConfig&>(config);
-#ifdef BUILD_WITH_CANN
         int maxBlockDim = GetCfgBlockdim();
         int maxAicpuNum = static_cast<int>(Platform::Instance().GetSoc().GetAICPUNum());
-#else
-        int maxBlockDim = 25; // 25:maxblockDim
-        int maxAicpuNum = 5;  // 5:maxaicpuNUm
-#endif
+        maxAicpuNum = maxAicpuNum > 0 ? maxAicpuNum : 5;
+
         if (devConfig.blockdim == 0 || devConfig.blockdim > maxBlockDim) {
             devConfig.blockdim = maxBlockDim;
         }
@@ -137,7 +118,6 @@ public:
         if (devConfig.aicpuNum == 0 || devConfig.aicpuNum > maxAicpuNum) {
             devConfig.aicpuNum = maxAicpuNum;
         }
-        devConfig.isTripleStream = config::GetRuntimeOption<bool>(CFG_TRIPLE_STREAM_SCHED);
     }
 
     template <typename DeviceMemoryTy>
@@ -151,9 +131,12 @@ public:
         size_t runtimeDataCount = devProg->GetDeviceRuntimeOffset().count;
         size_t runtimeDataRingBufferSize =
             RuntimeDataRingBufferHead::GetRingBufferSize(runtimeDataSize, runtimeDataCount);
-        uint64_t runtimeDataRingBufferAddr = (uint64_t)devMem.AllocDev(
-            runtimeDataRingBufferSize, CachedOperator::GetMetaDataDevAddrHolder(cachedOperator));
-        devProg->devArgs.runtimeDataRingBufferAddr = runtimeDataRingBufferAddr;
+        if (cachedOperator && *CachedOperator::GetMetaDataDevAddrHolder(cachedOperator) != nullptr) {
+            devProg->devArgs.runtimeDataRingBufferAddr =
+                reinterpret_cast<uint64_t>(*CachedOperator::GetMetaDataDevAddrHolder(cachedOperator));
+        } else {
+            devProg->devArgs.runtimeDataRingBufferAddr = (uint64_t)devMem.AllocZero(runtimeDataRingBufferSize, nullptr);
+        }
 
         uint64_t generalSize = devProg->memBudget.metadata.general;
         uint64_t stitchPoolSize = devProg->memBudget.metadata.stitchPool;
@@ -163,24 +146,21 @@ public:
         return;
     }
 
-    static uint32_t GetAiCpuNum(uint32_t aiCpuNum, uint32_t scheCpuNum, ArchInfo archInfo, DeviceLauncherConfig& config)
+    static uint32_t GetAiCpuNum(uint32_t aiCpuNum, uint32_t scheCpuNum, ArchInfo archInfo)
     {
         if (scheCpuNum == 1) {
-            return config.isTripleStream ? scheCpuNum : scheCpuNum + dynamic::MAX_CONTROL_FLOW_AICPU_NUM;
+            return scheCpuNum;
         }
 
-        if ( archInfo== ArchInfo::DAV_3510) {
+        if (archInfo == ArchInfo::DAV_3510) {
             uint32_t oneDieMinCpuNum = aiCpuNum >> 1;
             uint32_t oneDieMaxCpuNum = oneDieMinCpuNum + (aiCpuNum - (oneDieMinCpuNum << 1));
             uint32_t oneDieMinScheCpuNum = scheCpuNum >> 1;
             uint32_t launchCpuNum = oneDieMaxCpuNum + oneDieMinScheCpuNum;
-            if (!config.isTripleStream) {
-                launchCpuNum += dynamic::MAX_CONTROL_FLOW_AICPU_NUM;
-            }
             return launchCpuNum < aiCpuNum ? launchCpuNum : aiCpuNum;
         } else {
             // sche = 2, need launch 3 aicpu ensure cluster; sche = 3, need launch 5 aicpu
-            uint32_t launchCpuNum =  2 * scheCpuNum - 1;    // 2 : ensure cluster success
+            uint32_t launchCpuNum = 2 * scheCpuNum - 1; // 2 : ensure cluster success
             return launchCpuNum < aiCpuNum ? launchCpuNum : aiCpuNum;
         }
     }
@@ -195,21 +175,22 @@ public:
         devProg->devArgs.nrValidAic = config.blockdim;
         devProg->devArgs.archInfo = static_cast<ArchInfo>(Platform::Instance().GetSoc().GetNPUArch());
         devProg->devArgs.taskType = DEVICE_TASK_TYPE_DYN;
+        bool enableVFFusion = Platform::Instance().GetSoc().GetNPUArch() == NPUArch::DAV_3510 && config::GetPassGlobalConfig(KEY_ENABLE_VF, false);
+        devProg->devArgs.enableVFFusion = (config::GetRuntimeOption<int64_t>(CFG_VALID_SHAPE_OPTIMIZE) == 1 || enableVFFusion);
 
         uint32_t aiCpuNum = static_cast<uint32_t>(Platform::Instance().GetSoc().GetAICPUNum());
         devProg->devArgs.scheCpuNum = CalcSchAicpuNumByBlockDim(config.blockdim, aiCpuNum, devProg->devArgs.archInfo);
         devProg->devArgs.maxAicpuNum = static_cast<int>(aiCpuNum);
-        config.aicpuNum = GetAiCpuNum(aiCpuNum, devProg->devArgs.scheCpuNum, devProg->devArgs.archInfo, config);
+        config.aicpuNum = GetAiCpuNum(aiCpuNum, devProg->devArgs.scheCpuNum, devProg->devArgs.archInfo);
         devProg->devArgs.nrAicpu = config.aicpuNum;
 
-#ifdef BUILD_WITH_CANN
         if (IsPtoDataDumpEnabled()) { // dump tensor
             devProg->devArgs.hostPid = GetProcessId();
         }
         if (isDevice) {
             devProg->devArgs.validGetPgMask = DeviceRunner::Get().GetValidGetPgMask();
         }
-#endif
+
         MACHINE_LOGD("Set aicore blockdim=%d, aicpu blockdim=%d.", config.blockdim, config.aicpuNum);
 
         devProg->devArgs.enableCtrl = 1; // need set 0 if use custom cpu launch ctrl cpu
@@ -221,11 +202,11 @@ public:
                 static_cast<int64_t>(devProg->memBudget.tensor.maxDynamicAssembleOutcastMem),
                 AlignUp(config.dynWorkspaceSize, TENSOR_ADDR_ALIGNMENT));
         }
-#ifdef BUILD_WITH_CANN
+
         if (isDevice) {
             DeviceRunner::Get().InitMetaData(devProg->devArgs);
         }
-#endif
+
         devProg->workspaceSize = devProg->memBudget.Total();
         MACHINE_LOGI(
             "[workspaceSize] Metadata=%lu, workspaceSize=%lu, tensor=%lu, aicoreSpillen=%lu, debug.DumpTensor=%lu, "
@@ -436,52 +417,34 @@ public:
         }
     }
 
-#ifdef BUILD_WITH_CANN
     static void ChangeCaptureModeRelax();
     static void ChangeCaptureModeGlobal();
-    static int GetStreamCaptureInfo(rtStream_t aicoreStream, aclmdlRI& rtModel, bool& isCapture);
-    static int SetCaptureStream(rtStream_t aicoreStream, rtStream_t aicpuStream, bool& isCapture);
-    static int RunWithProfile(rtStream_t aicoreStream, rtStream_t aicpuStream, bool isCapture);
+    static int GetStreamCaptureInfo(RtStream aicoreStream, AclMdlRI& rtModel, bool& isCapture);
+    static int SetCaptureStream(RtStream aicoreStream, RtStream aicpuStream, bool& isCapture);
+    static int RunWithProfile(RtStream aicoreStream, RtStream aicpuStream, bool isCapture);
     static int DeviceLaunchOnceWithDeviceTensorData(
         Function* function, const std::vector<DeviceTensorData>& inputList,
-        const std::vector<DeviceTensorData>& outputList, rtStream_t aicpuStream, rtStream_t aicoreStream,
-        bool streamSynchronize, CachedOperator* cachedOperator, DevControlFlowCache* ctrlCache = nullptr,
-        const DeviceLauncherConfig& config = DeviceLauncherConfig());
+        const std::vector<DeviceTensorData>& outputList, RtStream aicpuStream, RtStream ctrlStream,
+        RtStream aicoreStream, bool streamSynchronize, CachedOperator* cachedOperator, 
+        DevControlFlowCache* ctrlCache = nullptr, const DeviceLauncherConfig& config = DeviceLauncherConfig());
 
-    static int DeviceSynchronize(rtStream_t aicpuStream, rtStream_t aicoreStream);
-#else
-    static void ChangeCaptureModeRelax() {}
-    static void ChangeCaptureModeGlobal() {}
-    static int GetStreamCaptureInfo(rtStream_t, aclmdlRI&, bool&) { return 0; }
-    static int SetCaptureStream(rtStream_t, rtStream_t, bool&) { return 0; }
-    static int RunWithProfile(rtStream_t, rtStream_t, bool) { return 0; }
-    static int DeviceLaunchOnceWithDeviceTensorData(
-        Function*, const std::vector<DeviceTensorData>&, const std::vector<DeviceTensorData>&, rtStream_t, rtStream_t,
-        bool, CachedOperator*, uintptr_t, const DeviceLauncherConfig& config = DeviceLauncherConfig())
-    {
-        (void)config;
-        return 0;
-    }
-    static int DeviceSynchronize(rtStream_t, rtStream_t) { return 0; }
-#endif
+    static int DeviceSynchronize(RtStream aicpuStream, RtStream aicoreStream);
     static void FillDeviceKernelArgs(
         std::vector<uint8_t>& devProgData, DeviceKernelArgs& kargs, const std::vector<std::string>& groupNames);
-    static int64_t GetL2Offset();
     static uint8_t* CopyControlFlowCache(DevControlFlowCache* ctrlCache);
     static void FreeControlFlowCache(uint8_t* ctrlCache);
     static void* RegisterKernelBin(const std::vector<uint8_t>& kernelBinary);
     static void UnregisterKernelBin(void* hdl);
     static void SetCaptureMode(bool captureMode);
     static bool IsCaptureMode();
-    static void SaveStream(aclrtStream aicoreStream);
-    static void GetCaptureInfo(aclrtStream aicoreStream, aclmdlRI& rtModel);
-    static void AddAicpuStream(aclmdlRI& rtModel, bool tripleStream);
+    static void SaveStream(AclRtStream aicoreStream);
+    static void GetCaptureInfo(AclRtStream aicoreStream, AclMdlRI& rtModel);
+    static void AddAicpuStream(AclMdlRI& rtModel);
     static int LaunchAicpuKernel(
-        rtAicpuArgsEx_t& rtArgs, bool tripleStream, [[maybe_unused]] bool debugEnable,
-        [[maybe_unused]] Function* function);
-    static int LaunchSyncTask(aclrtStream aicoreStream, bool isCaptureMode);
+        RtAicpuArgsEx& rtArgs, [[maybe_unused]] bool debugEnable, [[maybe_unused]] Function* function);
+    static int LaunchSyncTask(AclRtStream aicoreStream, bool isCaptureMode);
     static int LaunchAicoreKernel(
-        aclrtStream aicoreStream, void* kernel, rtArgsEx_t& rtArgs, rtTaskCfgInfo_t& rtTaskCfg, bool debugEnable);
+        AclRtStream aicoreStream, void* kernel, RtArgsEx& rtArgs, RtTaskCfgInfo& rtTaskCfg, bool debugEnable);
     static int DeviceRunOnce(
         Function* function, DevControlFlowCache* hostCtrlCache = nullptr,
         const DeviceLauncherConfig& config = DeviceLauncherConfig());
@@ -515,11 +478,11 @@ private:
 
 class AclModeGuard {
 public:
-    AclModeGuard(aclmdlRICaptureMode tmode);
+    AclModeGuard(AclMdlRICaptureMode tmode);
     ~AclModeGuard();
 
 private:
-    aclmdlRICaptureMode mode;
+    AclMdlRICaptureMode mode;
 };
 } // namespace npu::tile_fwk::dynamic
 #endif // SRC_MACHINE_DEVICE_LAUNCHER_H

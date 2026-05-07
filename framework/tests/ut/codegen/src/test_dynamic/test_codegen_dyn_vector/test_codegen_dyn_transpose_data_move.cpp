@@ -23,29 +23,17 @@
 #include "tilefwk/data_type.h"
 #include "codegen/codegen.h"
 #include "codegen/symbol_mgr/codegen_symbol.h"
-#include "codegen/cloudnpu/codegen_cloudnpu.h"
-#include "codegen/cloudnpu/codegen_op_cloudnpu.h"
+#include "codegen/npu/cloudnpu/codegen_cloudnpu.h"
+#include "codegen/npu/cloudnpu/codegen_op_cloudnpu.h"
 #include "test_codegen_utils.h"
 #include "test_codegen_common.h"
 
 namespace npu::tile_fwk {
 
-class TestCodegenDynTransposeDataMove : public ::testing::Test {
+class TestCodegenDynTransposeDataMove : public CodegenTestBase {
 public:
-    static void SetUpTestCase() {}
-
-    static void TearDownTestCase() {}
-
-    void SetUp() override
-    {
-        Program::GetInstance().Reset();
-        config::Reset();
-        config::SetCodeGenConfig(KEY_CODEGEN_SUPPORT_TILE_TENSOR, false);
-        config::SetHostOption(COMPILE_STAGE, CS_CODEGEN_INSTRUCTION);
-        config::SetPlatformConfig(KEY_ENABLE_COST_MODEL, false);
-    }
-
-    void TearDown() override {}
+    TestCodegenDynTransposeDataMove() : CodegenTestBase({.compileStage = CS_CODEGEN_INSTRUCTION, .setTileTensor = true})
+    {}
 };
 
 void TestTransposeDataMoveBody(int dim = 3)
@@ -70,37 +58,18 @@ void TestTransposeDataMoveBody(int dim = 3)
     auto shapeImme = OpImmediate::Specified(shape);
     op.SetOpAttribute(std::make_shared<CopyOpAttribute>(MEM_UB, to_offset, shapeImme, shapeImme));
     op.SetOOpAttrOffset(0, 0);
-    op.SetAttribute("GmTensorParamIdxInCallFunc", 0);
+    op.SetAttribute(OpAttributeKey::gmTensorParamIdxInCall, 0);
 
-    std::shared_ptr<SymbolManager> symbolManager = std::make_shared<SymbolManager>();
-    CodeGenCtx ctx;
-    CodeGenCloudNPU cga(ctx);
-    cga.GenAllocForLocalBuffer(op, symbolManager);
-    CodeGenOpCloudNPUCtx opCtx(symbolManager, *function, *function->rootFunc_->programs_[0], op, {});
-    CodeGenOpCloudNPU cop(opCtx);
-
-    cop.GenOpCode();
+    GenOpCodeFromOp(*function, op);
 }
 
 TEST_F(TestCodegenDynTransposeDataMove, TransposeDataMoveDim3) { TestTransposeDataMoveBody(); }
 
 TEST_F(TestCodegenDynTransposeDataMove, TransposeDataMoveDim4) { TestTransposeDataMoveBody(SHAPE_DIM4); }
 
-class TestCodegenLayoutTransposeDataMove : public ::testing::Test {
+class TestCodegenLayoutTransposeDataMove : public CodegenTestBase {
 public:
-    static void SetUpTestCase() {}
-
-    static void TearDownTestCase() {}
-
-    void SetUp() override
-    {
-        Program::GetInstance().Reset();
-        config::Reset();
-        config::SetHostOption(COMPILE_STAGE, CS_CODEGEN_INSTRUCTION);
-        config::SetPlatformConfig(KEY_ENABLE_COST_MODEL, false);
-    }
-
-    void TearDown() override {}
+    TestCodegenLayoutTransposeDataMove() : CodegenTestBase({.compileStage = CS_CODEGEN_INSTRUCTION}) {}
 };
 
 TEST_F(TestCodegenLayoutTransposeDataMove, TransposeDataMoveLayout)

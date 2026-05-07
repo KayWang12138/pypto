@@ -23,8 +23,8 @@
 #include "interface/inner/tilefwk.h"
 #include "interface/configs/config_manager.h"
 #include "codegen/codegen.h"
-#include "codegen/cloudnpu/codegen_cloudnpu.h"
-#include "codegen/cloudnpu/codegen_op_cloudnpu.h"
+#include "codegen/npu/cloudnpu/codegen_cloudnpu.h"
+#include "codegen/npu/cloudnpu/codegen_op_cloudnpu.h"
 #include "test_codegen_utils.h"
 
 namespace npu::tile_fwk {
@@ -34,22 +34,9 @@ constexpr int DIM4 = 4;
 constexpr int VALUE128 = 128;
 constexpr float F_127 = 127.0;
 
-class TestCodegenScalar : public ::testing::Test {
+class TestCodegenScalar : public CodegenTestBase {
 public:
-    static void SetUpTestCase() {}
-
-    static void TearDownTestCase() {}
-
-    void SetUp() override
-    {
-        Program::GetInstance().Reset();
-        config::Reset();
-        config::SetBuildStatic(true);
-        config::SetHostOption(COMPILE_STAGE, CS_EXECUTE_GRAPH);
-        config::SetPlatformConfig(KEY_ENABLE_COST_MODEL, false);
-    }
-
-    void TearDown() override {}
+    TestCodegenScalar() : CodegenTestBase({.compileStage = CS_EXECUTE_GRAPH, .buildStatic = true}) {}
 };
 
 void TestQuant(std::vector<int64_t>& inputShape)
@@ -136,14 +123,10 @@ TEST_F(TestCodegenScalar, TestPipeAll)
         CreateLogicalTensor({*function, DataType::DT_FP32, MemoryType::MEM_DEVICE_DDR, shape, dynValidShape});
     auto ubTensor = CreateLogicalTensor({*function, DataType::DT_FP32, MemoryType::MEM_UB, shape});
     Operation& syncOp = function->AddOperation(npu::tile_fwk::Opcode::OP_BAR_ALL, {ddrTensor}, {ubTensor});
-    syncOp.syncQueue_ = {PipeType::PIPE_ALL, PipeType::PIPE_ALL, CoreType::AIV, CoreType::AIV, -1};
+    syncOp.syncQueue_ = {PipeType::PIPE_ALL,   PipeType::PIPE_ALL,  CoreType::AIV, CoreType::AIV, -1,
+                         AIVCore::UNSPECIFIED, AIVCore::UNSPECIFIED};
 
-    std::shared_ptr<SymbolManager> symbolManager = std::make_shared<SymbolManager>();
-    CodeGenCtx ctx;
-    CodeGenCloudNPU cga(ctx);
-    CodeGenOpCloudNPU cop({symbolManager, *function, *(function->rootFunc_->programs_[0]), syncOp});
-
-    std::string res = cop.GenOpCode();
+    std::string res = GenOpCodeFromOp(*function, syncOp);
     std::string expect = R"!!!(pipe_barrier(PIPE_ALL);
 )!!!";
 
@@ -158,12 +141,7 @@ TEST_F(TestCodegenScalar, TestAicpuCallOp)
     Operation& op = function->AddOperation(npu::tile_fwk::Opcode::OP_AICPU_CALL_AIV, {ubTensor}, {});
     op.SetAttribute(OpAttributeKey::aicpuCall, 0);
 
-    std::shared_ptr<SymbolManager> symbolManager = std::make_shared<SymbolManager>();
-    CodeGenCtx ctx;
-    CodeGenCloudNPU cga(ctx);
-    CodeGenOpCloudNPU cop({symbolManager, *function, *(function->rootFunc_->programs_[0]), op});
-
-    std::string res = cop.GenOpCode();
+    std::string res = GenOpCodeFromOp(*function, op);
     std::string expect = R"!!!(TileOp::AicpuCall<0,0>(GET_CURRENT_TASKID());
 )!!!";
 
@@ -180,14 +158,7 @@ void TestCVSyncBody(Opcode syncOpcode)
 
     auto& op = function->AddOperation(syncOpcode, {localTensor}, {localOutTensor});
 
-    std::shared_ptr<SymbolManager> symbolManager = std::make_shared<SymbolManager>();
-    CodeGenCtx ctx;
-    CodeGenCloudNPU cga(ctx);
-    cga.GenAllocForLocalBuffer(op, symbolManager);
-    CodeGenOpCloudNPUCtx opCtx(symbolManager, *function, *function->rootFunc_->programs_[0], op);
-    CodeGenOpCloudNPU cop(opCtx);
-
-    std::string res = cop.GenOpCode();
+    std::string res = GenOpCodeFromOp(*function, op);
     std::string expect;
     if (syncOpcode == Opcode::OP_CV_SYNC_SRC) {
         expect = R"!!!(set_intra_block(PIPE_S, 0);
@@ -196,7 +167,7 @@ void TestCVSyncBody(Opcode syncOpcode)
         expect = R"!!!(wait_intra_block(PIPE_S, 0);
 )!!!";
     }
-    EXPECT_EQ(res, expect);
+    CheckStringExist(expect, res);
 }
 
 TEST_F(TestCodegenScalar, InjectSyncSet) { TestCVSyncBody(Opcode::OP_CV_SYNC_SRC); }

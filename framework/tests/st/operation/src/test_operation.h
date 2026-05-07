@@ -342,10 +342,12 @@ static DataType GetDataType(const std::string& name)
         {"hf4", DataType::DT_HF4},         {"hf8", DataType::DT_HF8},       {"uint8", DataType::DT_UINT8},
         {"uint16", DataType::DT_UINT16},   {"uint32", DataType::DT_UINT32}, {"uint64", DataType::DT_UINT64},
         {"bool", DataType::DT_BOOL},       {"double", DataType::DT_DOUBLE}, {"fp8e4m3", DataType::DT_FP8E4M3},
-        {"fp8e5m2", DataType::DT_FP8E5M2},
+        {"fp8e5m2", DataType::DT_FP8E5M2}, {"fp8e8m0", DataType::DT_FP8E8M0},
+        {"fp4_e2m1x2", DataType::DT_FP4_E2M1X2},
+        {"fp4_e1m2x2", DataType::DT_FP4_E1M2X2},
     };
     if (name_to_dtype.find(name) == name_to_dtype.end()) {
-        MATMUL_LOGE("Not support type %s yet, return fp32 as default.", name.c_str());
+        MATMUL_LOGW("Not support type %s yet, return fp32 as default.", name.c_str());
         return DataType::DT_FP32;
     }
     return name_to_dtype.at(name);
@@ -559,7 +561,7 @@ std::vector<T> GetOpMetaData(const std::vector<OpFunc>& opFuncs, const std::stri
         }
         auto func_id = GetFuncId(test_case);
         if (func_id < 0 || static_cast<size_t>(func_id) >= opFuncs.size()) {
-            if (GetViewShape(test_case).size() < 2) { // cut function start from 2 dim
+            if (GetViewShape(test_case).size() < func_offset) { // cut function start from 2 dim
                 func_id = 0;
             } else {
                 func_id = GetViewShape(test_case).size() - func_offset;

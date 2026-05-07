@@ -27,6 +27,7 @@ pypto-clone
 pypto-concat
 pypto-copysign
 pypto-cos
+pypto-cosh
 pypto-cumprod
 pypto-cumsum
 pypto-div
@@ -54,6 +55,8 @@ pypto-gt
 pypto-hypot
 pypto-index_add
 pypto-index_add_
+pypto-index_add_ub
+pypto-index_add__ub
 pypto-index_select
 pypto-indexput_
 pypto-isfinite
@@ -75,9 +78,11 @@ pypto-neg
 pypto-ones
 pypto-one_hot
 pypto-pad
+pypto-permute
 pypto-pow
 pypto-prelu
 pypto-prod
+pypto-quant_mx
 pypto-reciprocal
 pypto-relu
 pypto-remainder
@@ -93,6 +98,7 @@ pypto-sigmoid
 pypto-sign
 pypto-signbit
 pypto-sin
+pypto-sinh
 pypto-softmax
 pypto-sqrt
 pypto-sub

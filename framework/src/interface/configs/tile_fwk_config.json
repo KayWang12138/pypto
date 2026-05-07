@@ -1,30 +1,26 @@
 {
     "pass": {
         "pg_parallel_lower_bound": 20,
-        "pg_upper_bound": 10000,
         "pg_lower_bound": 512,
+        "pg_partition_algorithm": "Iso",
         "mg_copyin_upper_bound": 104857600,
         "mg_vec_parallel_lb": 48,
-        "pg_skip_partition": false,
         "copyout_resolve_coalescing": 0,
-        "sg_set_scope": -1,
+        "sg_set_scope": [-1, 0, 0],
         "cube_l1_reuse_setting": [],
         "cube_nbuffer_setting": [[-1, 1]],
-        "vec_nbuffer_setting": []
+        "vec_nbuffer_setting": [],
+        "cube_l1_reuse_setting_by_label": {},
+        "cube_nbuffer_setting_by_label": {},
+        "vec_nbuffer_setting_by_label": {}
     },
     "runtime": {
         "device_sched_mode": 0,
-        "stitch_function_inner_memory": 10,
-        "stitch_function_outcast_memory": 50,
-        "stitch_function_num_initial": 128,
-        "stitch_function_max_num": 0,
-        "stitch_function_num_step": 0,
-        "stitch_cfgcache_size": 0,
-        "stitch_function_size": 60000,
-        "triple_stream_sched": true,
         "run_mode": 0,
+        "stitch_function_max_num": 128,
         "valid_shape_optimize": 0,
-        "ready_on_host_tensors": []
+        "ready_on_host_tensors": [],
+        "device_sched_parallelism": 1
     },
     "host": {
         "compile_stage": 0,
@@ -34,7 +30,8 @@
         "compile_monitor_print_interval": 60
     },
     "codegen": {
-        "support_dynamic_aligned": false
+        "support_dynamic_aligned": false,
+        "soc_version": ""
     },
     "verify": {
         "enable_pass_verify": false,
@@ -90,6 +87,7 @@
         "codegen": {
             "parallel_compile" : 128,
             "support_dynamic_aligned": false,
+            "soc_version": "",
             "fixed_output_path": false,
             "force_overwrite": true,
             "codegen_support_tile_tensor": true
@@ -107,6 +105,7 @@
             "pass_thread_num": 1,
             "vf_opt_mark_for": false,
             "enable_vf": true,
+            "enable_vf_unroll": false,
             "default_pass_configs": {
                 "print_graph": false,
                 "print_program": false,

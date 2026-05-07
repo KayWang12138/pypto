@@ -91,18 +91,12 @@ TEST_F(TestConfigManager, Dump)
 
     cm.BeginScope("scope2", {{"pass.pg_lower_bound", 20L}});
     {
-        cm.BeginScope("scope2.1", {{"pass.pg_upper_bound", 120L}});
         auto scope2 = cm.CurrentScope();
-        auto upper = AnyCast<int64_t>(scope2->GetAnyConfig("pass.pg_upper_bound"));
-        EXPECT_EQ(upper, 120);
         auto lower = AnyCast<int64_t>(scope2->GetAnyConfig("pass.pg_lower_bound"));
         EXPECT_EQ(lower, 20);
-        cm.EndScope();
     }
 
     auto scope = cm.CurrentScope();
-    auto upper = AnyCast<int64_t>(scope->GetAnyConfig("pass.pg_upper_bound"));
-    EXPECT_EQ(upper, 10000);
     auto lower = AnyCast<int64_t>(scope->GetAnyConfig("pass.pg_lower_bound"));
     EXPECT_EQ(lower, 20);
     cm.EndScope();
@@ -148,14 +142,9 @@ bool RangeTest(
 TEST_F(TestConfigManager, NormalRuntimeTest)
 {
     std::unordered_map<std::string, std::vector<int64_t>> input = {
-        {DEVICE_SCHED_MODE, {0, 1, 2, 3}},
-        {STITCH_FUNCTION_INNER_MEMORY, {1, INT_MAX}},
-        {STITCH_FUNCTION_OUTCAST_MEMORY, {1, INT_MAX}},
-        {STITCH_FUNCTION_NUM_INITIAL, {1, 128}},
-        {STITCH_FUNCTION_NUM_STEP, {0, 128}},
-        {STITCH_CFGCACHE_SIZE, {0, 100000000}},
+        {DEVICE_SCHED_MODE, {0, 1, 2, 3}},      {STITCH_FUNCTION_MAX_NUM, {1, 1024}},
         {CFG_RUN_MODE, {0, 1}},
-        {CFG_VALID_SHAPE_OPTIMIZE, {0, 1}},
+        {CFG_VALID_SHAPE_OPTIMIZE, {0, 1}}, {DEVICE_SCHED_PARALLELISM, {1, 8}}
     };
     bool ret = RangeTest<int64_t>(input, &(config::SetOptionsNg), "runtime");
     EXPECT_EQ(ret, true);
@@ -163,17 +152,9 @@ TEST_F(TestConfigManager, NormalRuntimeTest)
 
 TEST_F(TestConfigManager, AbnormalRuntimeTest)
 {
-    int64_t outVal = INT_MAX;
-    ++outVal;
     std::unordered_map<std::string, std::vector<int64_t>> input = {
-        {DEVICE_SCHED_MODE, {-1, 4}},
-        {STITCH_FUNCTION_INNER_MEMORY, {0, outVal}},
-        {STITCH_FUNCTION_OUTCAST_MEMORY, {0, outVal}},
-        {STITCH_FUNCTION_NUM_INITIAL, {0, 129}},
-        {STITCH_FUNCTION_NUM_STEP, {-1, 129}},
-        {STITCH_CFGCACHE_SIZE, {-1, 100000001}},
-        {CFG_RUN_MODE, {-1, 2}},
-        {CFG_VALID_SHAPE_OPTIMIZE, {-1, 2}},
+        {DEVICE_SCHED_MODE, {-1, 4}}, {STITCH_FUNCTION_MAX_NUM, {0, 1025}},
+        {CFG_RUN_MODE, {-1, 2}},      {CFG_VALID_SHAPE_OPTIMIZE, {-1, 2}}, {DEVICE_SCHED_PARALLELISM, {0, 9}}
     };
     bool ret = RangeTest<int64_t>(input, &(config::SetOptionsNg), "runtime");
     EXPECT_EQ(ret, true);
@@ -182,7 +163,7 @@ TEST_F(TestConfigManager, AbnormalRuntimeTest)
 TEST_F(TestConfigManager, NormalPassTest)
 {
     std::unordered_map<std::string, std::vector<int64_t>> input = {
-        {SG_PARALLEL_NUM, {0, INT_MAX}},   {SG_PG_UPPER_BOUND, {0, INT_MAX}},
+        {SG_PARALLEL_NUM, {0, INT_MAX}},
         {SG_PG_LOWER_BOUND, {0, INT_MAX}}, {MG_COPYIN_UPPER_BOUND, {0, INT_MAX}},
         {MG_VEC_PARALLEL_LB, {1, 48}},     {COPYOUT_RESOLVE_COALESCING, {0, 1000000}}};
     bool ret = RangeTest<int64_t>(input, &(config::SetOptionsNg), "pass");
@@ -201,7 +182,7 @@ TEST_F(TestConfigManager, AbnormalPassTest)
     int64_t outVal = INT_MAX;
     ++outVal;
     std::unordered_map<std::string, std::vector<int64_t>> input = {
-        {SG_PARALLEL_NUM, {-1, outVal}},   {SG_PG_UPPER_BOUND, {-1, outVal}},
+        {SG_PARALLEL_NUM, {-1, outVal}},
         {SG_PG_LOWER_BOUND, {-1, outVal}}, {MG_COPYIN_UPPER_BOUND, {-1, outVal}},
         {MG_VEC_PARALLEL_LB, {0, 49}},     {COPYOUT_RESOLVE_COALESCING, {-1, 1000001}}};
     bool ret = RangeTest<int64_t>(input, &(config::SetOptionsNg), "pass");
@@ -271,4 +252,26 @@ TEST_F(TestConfigManager, JitScopeGuardBasic)
     }
     auto scopeAfter = cm.CurrentScope();
     EXPECT_EQ(scopeAfter.get(), scopeBefore.get());
+}
+
+TEST_F(TestConfigManager, IsWithinRangeInvalidKey)
+{
+    auto& cm = ConfigManagerNg::GetInstance();
+    auto scope = cm.CurrentScope();
+    Any value = int64_t(100);
+    scope->UpdateValueWithAny("invalid.key.not.in.scope", int64_t(100));
+    EXPECT_EQ(cm.IsWithinRange("invalid.key.not.in.schema", value), false);
+}
+
+TEST_F(TestConfigManager, InvalidValue)
+{
+    auto& cm = ConfigManagerNg::GetInstance();
+    try {
+        cm.SetScope({{"pass.pg_lower_bound", "1"}});
+        FAIL() << "Expected exception was not thrown.";
+    } catch (const std::exception& e) {
+        std::string msg = e.what();
+        EXPECT_NE(msg.find("Option 'pass.pg_lower_bound' has invalid type."), std::string::npos);
+        EXPECT_NE(msg.find("Expected int64"), std::string::npos);
+    }
 }

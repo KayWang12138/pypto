@@ -1,6 +1,6 @@
 ---
 name: pypto-environment-setup
-description: "PyPTO 环境安装与环境问题修复，包括 CANN、torch_npu、编译工具链、第三方依赖和 PyPTO 编译运行等。Triggers: PyPTO environment setup, CANN install, torch_npu, NPU environment, Ascend toolkit, compile PyPTO, build PyPTO, NPU driver, prepare_env, diagnose environment, fix import error, torch_npu import fail, DT_FP8E8M0, pto-isa, ASCEND_HOME_PATH, npu-smi, softmax verify, pip dependency conflict"
+description: PyPTO 环境安装与环境问题修复，包括 CANN、torch_npu、编译工具链、第三方依赖和 PyPTO 编译运行等。触发词：PyPTO environment setup, CANN install, torch_npu, NPU environment, Ascend toolkit, compile PyPTO, build PyPTO, NPU driver, prepare_env, diagnose environment, fix import error, torch_npu import fail, DT_FP8E8M0, pto-isa, ASCEND_HOME_PATH, npu-smi, softmax verify, pip dependency conflict
 ---
 
 # PyPTO Environment Setup
@@ -11,7 +11,17 @@ description: "PyPTO 环境安装与环境问题修复，包括 CANN、torch_npu�
 ASCEND_INSTALL_PATH=${ASCEND_INSTALL_PATH:-/usr/local/Ascend}
 ```
 
-- **默认版本**：CANN 8.5.0 + PyTorch 2.6.0 + torch_npu 2.6.0.post3
+- **默认版本**：CANN 8.5.0 + PyTorch/torch_npu
+
+| CANN 版本 | torch 推荐版本 | torch_npu 推荐版本 |
+|-----------|---------------|-------------------|
+| 8.5.0 | 2.6.0 | 2.6.0.post3 |
+
+**版本策略**：
+- 新环境（未安装 torch/torch_npu）：优先安装推荐版本（torch 2.6.0 + torch_npu 2.6.0.post3）
+- 已安装环境：
+  - 版本 ≥ 推荐版本：保持不变，无需降级
+  - 版本 < 推荐版本：升级至推荐版本
 
 ## ⛔ 隐私保护
 
@@ -105,18 +115,28 @@ source ${ASCEND_INSTALL_PATH:-/usr/local/Ascend}/ascend-toolkit/set_env.sh
 使用空闲卡检测脚本（来自 `pypto-op-develop` skill 的 `scripts/list_idle_chip_ids.sh`）。
 
 #### 步骤 4.3：设置环境变量
+
+**步骤 4.3.1：设置 NPU 设备 ID**
 ```bash
 # 设置 NPU 设备 ID（根据步骤 4.2 查找空闲 chip id）
 export TILE_FWK_DEVICE_ID=<空闲 chip id>
+```
 
+**步骤 4.3.2：设置 PTO-ISA 路径**
 
+> ⚠️ **重要**：PyPTO 有两层编译：Host 侧（pip install）和 Device 侧（运行时 kernel 编译）。Device 侧编译使用 `PTO_TILE_LIB_CODE_PATH` 下的 PTO-ISA 头文件。如果 CANN 内置的 PTO-ISA 版本与 pypto 源码不匹配（缺少 `pto::ExpAlgorithm` 等符号），运行时 kernel 编译会失败。此时需要从源码获取最新 PTO-ISA。
+
+```bash
 # 设置 PTO-ISA 路径
 arch=$(uname -m)   # 常见值：x86_64 或 aarch64
-
-# 3. 设置 PTO-ISA 库路径
 export PTO_TILE_LIB_CODE_PATH=${ASCEND_HOME_PATH:-/usr/local/Ascend/cann}/${arch}-linux
+```
 
-# 将环境变量写入当前目录文件
+**步骤 4.3.3：生成 env_setup.sh**
+
+将步骤 4.3.1 和 4.3.2 的结果写入 `env_setup.sh`：
+
+```bash
 cat > env_setup.sh << "EOF"
 #!/bin/bash
 # 自动生成的环境配置文件
@@ -131,7 +151,10 @@ export PTO_TILE_LIB_CODE_PATH=${ASCEND_HOME_PATH:-/usr/local/Ascend/cann}/${arch
 echo "env_setup.sh 加载完成：TILE_FWK_DEVICE_ID=${TILE_FWK_DEVICE_ID}, PTO_TILE_LIB_CODE_PATH=${PTO_TILE_LIB_CODE_PATH}"
 EOF
 ```
+> **必须用 `source` 执行**环境配置脚本：`source env_setup.sh`
+
 > - \$\{arch\}：CPU 架构，如 aarch64、x86_64.
+> - 如果运行 softmax 验证时出现 `no member named 'XXX' in namespace 'pto'` 错误，说明 CANN 内置 PTO-ISA 版本过旧，需要切换到源码方式（见步骤 4.6 失败排查）。
 
 #### 步骤 4.4：安装 torch 和 torch_npu
 ```bash
@@ -164,11 +187,19 @@ python3 examples/02_intermediate/operators/softmax/softmax.py --run_mode npu
 
 ```
 
-⚠️ **注意**：NPU 环境必须使用 NPU 模式通过验证。
+⚠️ **注意**：NPU 环境必须使用 NPU 模式通过验证。若超过 120 秒未完成，可视为卡死，执行时可以加上timeout 120 说明环境配置有问题，参照[troubleshooting.md](references/troubleshooting.md) 排查。
 
 **通过标准**：退出码 `0`，输出 `Softmax test passed`。
 
-**失败时**：重新运行步骤 1 诊断 → 对照 [🔧 troubleshooting.md](references/troubleshooting.md) 排查。
+**失败排查**（按错误类型对照）：
+
+| 错误信息 | 原因 | 修复 |
+|---------|------|------|
+| `no member named 'XXX' in namespace 'pto'`（如 `ExpAlgorithm`、`DivAlgorithm`） | PTO-ISA 版本过旧，CANN 内置头文件缺少枚举定义 | 按步骤 4.3.2 克隆 pto-isa 源码并设置 `PTO_TILE_LIB_CODE_PATH`，然后 `source env_setup.sh` 重跑 softmax |
+| `COMPILE_CODE_FAILED` / kernel 编译失败 | 多种可能，先看具体编译错误信息 | 检查上方具体错误类型 |
+| 其他错误 | 重新运行步骤 1 诊断 | 对照 [🔧 troubleshooting.md](references/troubleshooting.md) 排查 |
+
+> ⚠️ **注意**：`pip install pypto` 成功不代表运行时没问题。Host 侧编译和 Device 侧 kernel 编译使用不同的头文件来源，PTO-ISA 版本不匹配只会在 **运行时 kernel 编译** 阶段暴露。
 
 ### 步骤 5：完成报告
 
@@ -191,6 +222,7 @@ Python:     3.10.x
 torch:      2.6.x
 torch_npu:  2.6.0.post3
 pypto:      ✅ 已安装
+PTO-ISA:    CANN 内置 / pto-isa 源码 (gitcode.com/cann/pto-isa)
 =====================================
 
 验证结果:   Softmax（NPU 模式）✅ 通过

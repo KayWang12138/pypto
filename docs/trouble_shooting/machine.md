@@ -6,7 +6,7 @@
 
 ## 错误码定义与使用说明
 
-相关错误码的统一定义，参见 [machine_error.h](../../framework/src/machine/utils/machine_error.h) 文件。
+相关错误码的枚举与码值统一定义在 [`framework/include/tilefwk/error_code.h`](../../framework/include/tilefwk/error_code.h)（见 MachineError、HostBackEndErr、SchedErr、RtErr 等）。
 
 ## 排查建议
 
@@ -23,7 +23,7 @@
         auto funcData = &ctx->funcDataList[npu::tile_fwk::FuncID(taskId)];
         auto opAttrs = &funcData->opAttrs[funcData->opAtrrOffsets[npu::tile_fwk::TaskID(taskId)]];
     #if ENABLE_AICORE_PRINT
-        CoreFuncParam param = {funcData, opAttrs, funcData->exprTbl, taskId, ctx->logger.context()};
+        CoreFuncParam param = {funcData, opAttrs, funcData->exprTbl, taskId, ctx->logger.Context()};
     #else
         CoreFuncParam param = {funcData, opAttrs, funcData->exprTbl, taskId, nullptr};
     #endif
@@ -42,7 +42,7 @@
         auto funcData = &ctx->funcDataList[npu::tile_fwk::FuncID(taskId)];
         auto opAttrs = &funcData->opAttrs[funcData->opAtrrOffsets[npu::tile_fwk::TaskID(taskId)]];
     // #if ENABLE_AICORE_PRINT
-    //     CoreFuncParam param = {funcData, opAttrs, funcData->exprTbl, taskId, ctx->logger.context()};
+    //     CoreFuncParam param = {funcData, opAttrs, funcData->exprTbl, taskId, ctx->logger.Context()};
     // #else
     //     CoreFuncParam param = {funcData, opAttrs, funcData->exprTbl, taskId, nullptr};
     // #endif
@@ -196,15 +196,15 @@ workspace_tensor = torch.empty(workspace_size * 10, dtype=torch.uint8, device=de
 如果问题不复现，则是workspace使用问题，存在内存踩踏等
 
 5. **leaf function粒度的内存重叠检测**
-（1）打开VERBOSE日志
+（1）打开 Operation 信息 Dump 开关
 `framework/src/machine/utils/device_switch.h`
 ```cpp
-#define ENABLE_COMPILE_VERBOSE_LOG 1
+#define ENABLE_DUMP_OPERATION 1
 ```
 
 （2）打开DEBUG日志，指定日志落盘路径
 ```bash
-export ASCEND_GLOBAL_LOG_LEVEL=0
+export ASCEND_GLOBAL_LOG_LEVEL=1
 export ASCEND_PROCESS_LOG_PATH=./my_log
 ```
 
@@ -243,7 +243,7 @@ python3 tools/schema/schema_memory_check.py -d /path/to/my_log/debug/device-8/ -
 **关联 Skill**：[pypto-memory-overlap-detector](../../.agents/skills/pypto-memory-overlap-detector/SKILL.md)
 
 6. **复杂特性排除**：
-使用 `pypto-precision-debugger` skill，关闭unroll_list、合轴特性、配置submit_before_loop=True使loop串行执行、确定valid_shape配置正确性、+0.0等，缩小定位范围。
+使用 `pypto-precision-debug` skill，关闭unroll_list、合轴特性、配置submit_before_loop=True使loop串行执行、确定valid_shape配置正确性、+0.0等，缩小定位范围。
 
 
 ### encode 阶段 actualRawMagic 断言触发
@@ -471,7 +471,7 @@ struct {
 - 动态 shape 场景下 `maxStaticMemReq` 为 0（无法从符号 shape 推算静态大小），此类 Tensor 不会出现在超大 Tensor 的警告中
 - `aicoreSpilled` 为 AICore 栈溢出到 workspace 的内存，若该项异常偏大，需检查算子的 `stackWorkSpaceSize`
 - `debug.DumpTensor` 和 `leafDumpWorkspace` 为调试模式下的额外内存开销，正常模式下为 0
-
+**关联 Skill**：[pypto-environment-setup](../../.agents/skills/pypto-machine-workspace/SKILL.md)
 ---
 ### F70006 HANDSHAKE_TIMEOUT
 
@@ -481,3 +481,108 @@ struct {
 4. **查日志上下文**：结合同线程前后日志（如 “Schedule run init succ” 之后、AbnormalStop 相关）确认是首次握手失败还是运行中异常。
 
 **关联 Skill**：[pypto-environment-setup](../../.agents/skills/pypto-environment-setup/SKILL.md)（环境与 NPU 设备诊断、`npu-smi`、驱动与编译运行）
+
+---
+### Host侧捕获异常打印汇编堆栈信息
+
+**问题特征**：执行用例在host打屏输出堆栈信息
+例如：
+```
+floating point exception !!!
+libtile_fwk_interface.so(npu::tile_fwk::Pad(long, long)+0xe) [0X77188ae025ae]
+```
+
+**定位步骤**：
+
+1. **编译带有Debug信息的pypto包并安装**：
+```
+python3 build_ci.py -f=python3 --build_type=Debug
+pip install build_out/pypto*whl --force-reinstall --no-dep
+```
+
+2. **重新执行问题用例**
+
+3. **查找二进制文件位置**：
+如果不清楚包安装在哪里可以使用find全局搜索
+```
+find / -name "libtile_fwk_interface.so"
+```
+
+4. **反汇编得到具体代码行**：
+例如：
+```
+objdump -d -C -l /path/to/libtile_fwk_interface.so | grep -A 20 "npu::tile_fwk::Pad(long, long)>"
+```
+可得到触发问题的函数具体行号。
+
+5.**关联skill**：[pypto-host-stacktrace-analyzer](../../.agents/skills/pypto-host-stacktrace-analyzer/SKILL.md)
+
+---
+### 泳道图相关问题指导
+
+<a id="output-目录产物说明"></a>
+#### output 目录产物说明
+
+在 `output/output_时间戳` 目录下，泳道图相关文件通常包括：
+- `merged_swimlane.json`：IDE 展示用的综合泳道图文件。
+- `machine_runtime_operator_trace*.json`：AI CPU/AI Core 泳道图展示文件，可用于观察联合时序。
+- `machine_trace_perf_data*.json`：Machine 组件原始 Profiling 数据文件。
+- `tilefwk_L1_prof_data_*.json`：Machine 组件原始 Profiling 数据文件。
+其中，`machine_trace_perf_data*.json` 与 `tilefwk_L1_prof_data_*.json` 可用于判断底层数据采集是否成功（例如文件是否为空）；`merged_swimlane.json` 与 `machine_runtime_operator_trace*.json` 主要用于 IDE 可视化展示。建议优先联系 IDE 对应负责人咨询解决。
+
+<a id="IDE-参数含义解释"></a>
+#### IDE 参数含义解释
+
+在生成和查看泳道图时，IDE 工具中会显示多个性能参数和事件标签。以下是常见参数的含义说明：
+
+**1. CTRL AICPU**
+
+| 阶段 | 含义 | 打点位置 |
+| --- | --- | --- |
+| **DEV_TASK_BUILD** | Ctrl AICPU 构建 devTask 的耗时，即 stitch 耗时统计 | 在 stitch 之后 |
+| **Post-process** | Ctrl AICPU 在构建完所有 DevTask 到退出的时间 | AICPU 退出时 |
+| **Total run time** | Ctrl AICPU 从被拉起到退出时的总时间 | 整个流程启动到退出 |
+
+**2. SCHED AICPU**
+
+| 阶段 | 含义 | 打点位置 |
+| --- | --- | --- |
+| **ALLOC_THREAD_ID** | 线程分配，绑核耗时统计 | AllocThreadIdx 之后 |
+| **INIT** | Sched AICPU 初始化耗时统计 | Sched arg 参数初始化后（Sched init() 之后） |
+| **CORE_HAND_SHAKE** | Sched AICPU 与 AICore 握手的耗时统计 | 握手之后 |
+| **DEV_TASK_RCV** | Sched AICPU 接收到 Ctrl AICPU 构建的 devTask 的耗时 | 从 taskQue 读取 DevTask 之后 |
+| **Post-process** | Sched AICPU 在执行完所有 DevTask 到退出的时间 | ExecuteTask 之后到 AICPU 退出时 |
+| **Total run time** | Sched AICPU 从被拉起到退出时的总时间 | 整个流程启动到退出 |
+
+**3. AICORE**
+
+| 阶段 | 含义 | 打点位置 |
+| --- | --- | --- |
+| **End-to-End time** | AICore 端到端实际执行时间 | 从最早开始执行 ExecCoreFunctionKernel 的 AICore 到最晚结束执行的 AICore 统计时间 |
+| **Total run time** | AICore 从被拉起到退出时的总时间 | 整个流程启动到退出 |
+
+
+#### 常见异常排查
+
+##### 1. 未生成泳道图文件
+
+**现象**：算子运行正常，但 `output` 目录下未生成 `tilefwk_L1_prof_data_*.json` 文件。
+**原因与排查**：通常是因为未启动性能数据采集功能。请检查代码中是否已正确将 `runtime_debug_mode` 设置为 `1`。
+
+##### 2. 泳道图文件为空（无任何数据）
+**现象**：成功生成了 `tilefwk_L1_prof_data_*.json` 文件，但文件内容为空。
+**原因与排查**：通常是 Profiling 功能未能成功使能。需要开启 DEBUG 日志打印进行进一步排查：
+   - 按照上文说明打开 DEBUG 日志并指定日志落盘路径。
+   - **Device 侧排查**：检查日志文件 `log/debug/device*/device*.log`。若包含 `aicore profiling is opened, level is %d.`，表示成功使能；若包含 `aicore profiling is closed..`，则表示未能成功使能，aicore没有开启泳道图性能数据采集。
+
+##### 3. 泳道图中某些核首任务启动时间过长
+**现象**：从泳道图看，部分核并没有前序任务依赖，但第一个任务的启动时间却很长。
+**原因与排查**：这种情况通常是因为 AICPU 启动较慢，导致 AICore 接收任务的时间被整体延后。在泳道图中表现为首任务启动前存在等待 AICPU 启动的时间。
+
+##### 4. ACL Graph 模式下采集不到泳道图数据
+**现象**：当算子运行在 ACL Graph 模式时，启动泳道图性能采集后，`output` 目录下没有生成泳道图文件。
+**原因与排查**：当前 PyPTO 尚未支持 ACL Graph 场景的泳道图性能数据采集。在 ACL Graph 模式中，执行流程分为 Capture 和 Replay 两个阶段，当前 Capture 阶段未开启 Profiling，而是在 Replay 阶段开启性能采集；但 Task 的下发实际发生在 Capture 阶段，由于此时 Profiling 开关是关闭的，所以不会上报 OP 相关信息。目前请暂时规避该场景，后续版本将支持 ACL Graph 模式下的泳道图性能数据采集。
+
+##### 5. Profiling 泳道图数据与 msprof 采集的结果差距较大
+**现象**：`msprof` 采集到的 AICore 耗时远大于泳道图中的 AICore 端到端耗时，二者数据无法对齐。
+**原因与排查**：`msprof` 所采集到的 AICore 耗时不能真实代表 AICore 内部端到端的执行耗时，因为它实际上还包含了 **AICore 启动等待 AICPU 下发 devTask 的时间**，以及 **AICore 执行完任务后的退出时间**。为了获取更准确的时间，当前已实现对 AICore 端到端执行时间的打屏输出，可以在执行算子前设置环境变量 `export DUMP_DEVICE_PERF=true`，即可在终端中直接获取当前准确的性能统计数据。

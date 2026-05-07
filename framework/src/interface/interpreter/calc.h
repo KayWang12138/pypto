@@ -22,7 +22,7 @@
 #include "tilefwk/data_type.h"
 #include "tilefwk/element.h"
 #include "raw_tensor_data.h"
-#include "interface/interpreter/verify_error.h"
+#include "tilefwk/error_code.h"
 #include "calculator/calc_api.h"
 
 namespace npu::tile_fwk::calc {
@@ -79,9 +79,13 @@ inline void QuantPreCompute(
         ops->QuantPreCompute(Trans(out), Trans(self), &scaleData, scale, relu);
     }
 }
+inline void Sin(LogicalTensorDataPtr out, LogicalTensorDataPtr self) { GetCalcOps()->Sin(Trans(out), Trans(self)); }
+inline void Cos(LogicalTensorDataPtr out, LogicalTensorDataPtr self) { GetCalcOps()->Cos(Trans(out), Trans(self)); }
 inline void Exp(LogicalTensorDataPtr out, LogicalTensorDataPtr self) { GetCalcOps()->Exp(Trans(out), Trans(self)); }
 inline void Exp2(LogicalTensorDataPtr out, LogicalTensorDataPtr self) { GetCalcOps()->Exp2(Trans(out), Trans(self)); }
 inline void Expm1(LogicalTensorDataPtr out, LogicalTensorDataPtr self) { GetCalcOps()->Expm1(Trans(out), Trans(self)); }
+inline void Sinh(LogicalTensorDataPtr out, LogicalTensorDataPtr self) { GetCalcOps()->Sinh(Trans(out), Trans(self)); }
+inline void Cosh(LogicalTensorDataPtr out, LogicalTensorDataPtr self) { GetCalcOps()->Cosh(Trans(out), Trans(self)); }
 inline void Neg(LogicalTensorDataPtr out, LogicalTensorDataPtr self) { GetCalcOps()->Neg(Trans(out), Trans(self)); }
 inline void Round(LogicalTensorDataPtr out, LogicalTensorDataPtr self, int decimals)
 {
@@ -154,6 +158,11 @@ inline void Range(LogicalTensorDataPtr out, const Element& start, const Element&
 {
     GetCalcOps()->Range(Trans(out), start, end, step);
 }
+inline void Uniform(LogicalTensorDataPtr out, const Element &key,
+                    const Element &counter0, const Element &counter1, const Element &rounds, DataType dtype = DT_FP32) {
+    GetCalcOps()->Uniform(Trans(out), key, counter0, counter1, rounds, dtype);
+}
+
 inline void Compare(
     LogicalTensorDataPtr out, LogicalTensorDataPtr self, LogicalTensorDataPtr other, CmpOperationType operation,
     CmpModeType mode)
@@ -177,6 +186,12 @@ inline void PReLU(LogicalTensorDataPtr out, LogicalTensorDataPtr self, LogicalTe
 inline void LogicalAnd(LogicalTensorDataPtr out, LogicalTensorDataPtr self, LogicalTensorDataPtr other)
 {
     GetCalcOps()->LogicalAnd(Trans(out), Trans(self), Trans(other));
+}
+inline void QuantMX(
+    LogicalTensorDataPtr out, LogicalTensorDataPtr exp, LogicalTensorDataPtr max, LogicalTensorDataPtr scaling,
+    LogicalTensorDataPtr self, bool performanceMode)
+{
+    GetCalcOps()->QuantMX(Trans(out), Trans(exp), Trans(max), Trans(scaling), Trans(self), performanceMode);
 }
 
 inline void AddS(LogicalTensorDataPtr out, LogicalTensorDataPtr self, const Element& scalar, bool reverse = false)
@@ -214,6 +229,10 @@ inline void RemainderS(LogicalTensorDataPtr out, LogicalTensorDataPtr self, cons
 inline void RemainderRS(LogicalTensorDataPtr out, LogicalTensorDataPtr self, const Element& scalar, bool reverse = true)
 {
     GetCalcOps()->RemainderRS(Trans(out), Trans(self), scalar, reverse);
+}
+inline void PowS(LogicalTensorDataPtr out, LogicalTensorDataPtr self, const Element& scalar, bool reverse = false)
+{
+    GetCalcOps()->PowS(Trans(out), Trans(self), scalar, reverse);
 }
 inline void BitwiseAndS(
     LogicalTensorDataPtr out, LogicalTensorDataPtr self, const Element& scalar, bool reverse = false)
@@ -557,6 +576,28 @@ inline void Sort(
     GetCalcOps()->Sort(Trans(value), Trans(index), Trans(self), axis, descending);
 }
 
+// Quantize
+inline void Quantize(LogicalTensorDataPtr out, LogicalTensorDataPtr input, LogicalTensorDataPtr scale, LogicalTensorDataPtr zeroPoints) {
+    TensorData scaleData = Trans(scale);
+    if (zeroPoints == nullptr) {
+        TensorData emptyZeroPoints = {nullptr, {}, {}, {}, 0, DataType::DT_FP32, false};
+        GetCalcOps()->Quantize(Trans(out), Trans(input), scaleData, emptyZeroPoints);
+    } else {
+        GetCalcOps()->Quantize(Trans(out), Trans(input), scaleData, Trans(zeroPoints));
+    }
+}
+
+// Dequantize
+inline void Dequantize(LogicalTensorDataPtr out, LogicalTensorDataPtr input, LogicalTensorDataPtr scale, LogicalTensorDataPtr zeroPoints) {
+    TensorData scaleData = Trans(scale);
+    if (zeroPoints == nullptr) {
+        TensorData emptyZeroPoints = {nullptr, {}, {}, {}, 0, DataType::DT_FP32, false};
+        GetCalcOps()->Dequantize(Trans(out), Trans(input), scaleData, emptyZeroPoints);
+    } else {
+        GetCalcOps()->Dequantize(Trans(out), Trans(input), scaleData, Trans(zeroPoints));
+    }
+}
+
 // matmul
 inline void FormatNZ2ND(LogicalTensorDataPtr out, LogicalTensorDataPtr self)
 {
@@ -569,7 +610,7 @@ inline void FormatND2NZ(LogicalTensorDataPtr out, LogicalTensorDataPtr self)
 
 inline void MatMul(
     LogicalTensorDataPtr out, LogicalTensorDataPtr self, LogicalTensorDataPtr other,
-    MatMulParam param = {false, false, 0, 0, 0, nullptr, nullptr})
+    MatMulParam param = {false, false, false, false, 0, 0, 0, nullptr, nullptr, nullptr, nullptr})
 {
     CalcOps* ops = GetCalcOps();
     ASSERT(ExecuteOperationScene::CTX_OP_NULL, ops != nullptr);
@@ -578,7 +619,7 @@ inline void MatMul(
 
 inline void AccMatMul(
     LogicalTensorDataPtr out, LogicalTensorDataPtr self, LogicalTensorDataPtr other, LogicalTensorDataPtr acc = nullptr,
-    MatMulParam param = {false, false, 0, 0, 0, nullptr, nullptr})
+    MatMulParam param = {false, false, false, false, 0, 0, 0, nullptr, nullptr, nullptr, nullptr})
 {
     CalcOps* ops = GetCalcOps();
     ASSERT(ExecuteOperationScene::CTX_OP_NULL, ops != nullptr);

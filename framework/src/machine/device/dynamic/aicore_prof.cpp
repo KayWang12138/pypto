@@ -43,67 +43,6 @@ bool ProfCheckLevel(uint64_t feature)
     return AdprofCheckFeatureIsOn(feature) > 0;
 }
 
-void AiCoreProf::ProInitHandShake()
-{
-    handkShakeMsgSize_ = sizeof(PyPtoMsprofAdditionalInfo);
-    handkShakeHeadSize_ = sizeof(MsprofAicpuHandShakeHead);
-    handShakeDataSize_ = sizeof(AiCpuHandShakeSta);
-    HandShakeMsg_.resize(AICPUNUM);
-    HandShakeHead_.resize(AICPUNUM, nullptr);
-    handShakeData_.resize(AICPUNUM, nullptr);
-    for (int32_t i = 0; i < AICPUNUM; i++) {
-        HandShakeHead_[i] = reinterpret_cast<MsprofAicpuHandShakeHead*>(&HandShakeMsg_[i].data);
-        handShakeData_[i] =
-            reinterpret_cast<AiCpuHandShakeSta*>(reinterpret_cast<uintptr_t>(HandShakeHead_[i]) + handkShakeHeadSize_);
-        HandShakeHead_[i]->cnt = 0;
-
-        HandShakeMsg_[i].magicNumber = 0x5A5AU;
-        HandShakeMsg_[i].level = PYPTO_MSPROF_REPORT_AICPU_LEVEL;
-        HandShakeMsg_[i].type = PYPTO_MSPROF_REPORT_AICPU_NODE_TYPE;
-        HandShakeMsg_[i].threadId = hostAicoreMng_.aicpuIdx_;
-        HandShakeMsg_[i].dataLen = handkShakeHeadSize_;
-
-        HandShakeHead_[i]->magicNumber = 0x6BD3U;
-        HandShakeHead_[i]->coreId = i;
-        HandShakeHead_[i]->coreType = static_cast<uint16_t>(hostAicoreMng_.AicoreType(i));
-        HandShakeHead_[i]->dataType = PROF_DATATYPE_HAND_SHAKE;
-        HandShakeHead_[i]->taskId = 0;
-        HandShakeHead_[i]->streamId = 0;
-    }
-    DEV_INFO("ProfInitHandShake finish.");
-    sleep(1);
-}
-
-void AiCoreProf::ProInitAiCpuTaskStat()
-{
-    aiCpuStatMsgSize_ = sizeof(PyPtoMsprofAdditionalInfo);
-    aiCpuStatHeadSize_ = sizeof(MsProfAiCpuTaskStatHead);
-    aiCpuStatDataSize_ = sizeof(AiCpuTaskStat);
-    aiCpuStatMsg_.resize(AICPUNUM);
-    aiCpuStatHead_.resize(AICPUNUM, nullptr);
-    aiCpuStatData_.resize(AICPUNUM, nullptr);
-    for (int32_t i = 0; i < AICPUNUM; i++) {
-        aiCpuStatHead_[i] = reinterpret_cast<MsProfAiCpuTaskStatHead*>(&aiCpuStatMsg_[i].data);
-        aiCpuStatData_[i] =
-            reinterpret_cast<AiCpuTaskStat*>(reinterpret_cast<uintptr_t>(aiCpuStatHead_[i]) + aiCpuStatHeadSize_);
-        aiCpuStatHead_[i]->cnt = 0;
-
-        aiCpuStatMsg_[i].magicNumber = 0x5A5AU;
-        aiCpuStatMsg_[i].level = PYPTO_MSPROF_REPORT_AICPU_LEVEL;
-        aiCpuStatMsg_[i].type = PYPTO_MSPROF_REPORT_AICPU_NODE_TYPE;
-        aiCpuStatMsg_[i].threadId = hostAicoreMng_.aicpuIdx_;
-        aiCpuStatMsg_[i].dataLen = aiCpuStatHeadSize_;
-
-        aiCpuStatHead_[i]->magicNumber = 0x6BD3U;
-        aiCpuStatHead_[i]->coreId = i;
-        aiCpuStatHead_[i]->coreType = static_cast<uint16_t>(hostAicoreMng_.AicoreType(i));
-        aiCpuStatHead_[i]->dataType = PROF_DATATYPE_EXE;
-        aiCpuStatHead_[i]->taskId = 0;
-        aiCpuStatHead_[i]->streamId = 0;
-    }
-    DEV_INFO("ProfInitAicpuStat finish.");
-    sleep(1);
-}
 
 #ifdef __DEVICE__
 uint64_t AiCoreProf::devProfSwitch_ = 0;
@@ -207,56 +146,6 @@ void AiCoreProf::ProfStart()
     }
 }
 
-void AiCoreProf::ProGetHandShake(int& threadIdx, const struct AiCpuHandShakeSta* handShakeStat)
-{
-    if (profLevel_ == PROF_LEVEL_OFF) {
-        return;
-    }
-    MsprofAicpuHandShakeHead* handShakeHead = HandShakeHead_[threadIdx];
-    PyPtoMsprofAdditionalInfo& handShakeMsg = HandShakeMsg_[threadIdx];
-    DEV_DEBUG(
-        "aicore profiling gen handShake mesg, coreId: %d thread id: %d, shakeHand used %lu.", handShakeStat->coreId,
-        threadIdx, (handShakeStat->shakeEnd - handShakeStat->shakeStart));
-    if (handShakeHead->cnt < handkShakeMaxNum_ - 1) {
-        memcpy_s(
-            reinterpret_cast<void*>(
-                reinterpret_cast<uintptr_t>(handShakeData_[threadIdx]) + handShakeDataSize_ * handShakeHead->cnt),
-            handShakeDataSize_, handShakeStat, handShakeDataSize_);
-        handShakeMsg.dataLen += handShakeDataSize_;
-        handShakeHead->cnt++;
-    } else if (handShakeHead->cnt == logDataMaxNum_ - 1) {
-        memcpy_s(
-            reinterpret_cast<void*>(
-                reinterpret_cast<uintptr_t>(handShakeData_[threadIdx]) + handShakeDataSize_ * handShakeHead->cnt),
-            handShakeDataSize_, handShakeStat, handShakeDataSize_);
-        handShakeHead->cnt++;
-        handShakeMsg.dataLen += logDataSize_;
-        int32_t ret = profReportAdditionalInfoFunc_(1, &handShakeMsg, sizeof(PyPtoMsprofAdditionalInfo));
-        DEV_DEBUG(
-            "aicore profiling send log mesg, core id: %d, task num: %d, ret: %d.", threadIdx, handShakeHead->cnt, ret);
-        // reset
-        (void)(ret);
-        handShakeHead->cnt = 0;
-        handShakeMsg.dataLen = handkShakeHeadSize_;
-    }
-}
-
-void AiCoreProf::ProfGet(int32_t coreIdx, uint32_t subGraphId, uint32_t taskId, const struct TaskStat* taskStat)
-{
-    DEV_DEBUG("Start to Get prof data.");
-    if (profLevel_ == PROF_LEVEL_OFF || profReportAdditionalInfoFunc_ == nullptr) {
-        return;
-    }
-
-    taskCnt_++;
-    if (profLevel_ == PROF_LEVEL_FUNC_LOG) {
-        ProfGetLog(coreIdx, taskStat);
-    } else if (profLevel_ == PROF_LEVEL_FUNC_LOG_PMU) {
-        ProfGetLog(coreIdx, taskStat);
-        ProfGetPmu(coreIdx, subGraphId, taskId, taskStat);
-    }
-}
-
 void AiCoreProf::ProfGetSwitch(int64_t& flag) const
 {
     if (profLevel_ == PROF_LEVEL_FUNC_LOG) {
@@ -325,13 +214,13 @@ inline void AiCoreProf::ProfStopLog()
     });
 }
 
-inline void AiCoreProf::ProfGetLog(int32_t coreIdx, const struct TaskStat* taskStat)
+void AiCoreProf::ProfGetLog(int32_t coreIdx, const struct TaskStat* taskStat)
 {
-    MsprofAicpuPyPtoLogHead* logHead = logHead_[coreIdx];
-    PyPtoMsprofAdditionalInfo& logMsg = logMsg_[coreIdx];
     if (!ProfCheckLevel(PROF_TASK_TIME_L2)) {
         return;
     }
+    MsprofAicpuPyPtoLogHead* logHead = logHead_[coreIdx];
+    PyPtoMsprofAdditionalInfo& logMsg = logMsg_[coreIdx];
     if (logHead->cnt < logDataMaxNum_ - 1) {
         memcpy_s(
             reinterpret_cast<void*>(reinterpret_cast<uintptr_t>(logData_[coreIdx]) + logDataSize_ * logHead->cnt),
@@ -354,6 +243,7 @@ inline void AiCoreProf::ProfGetLog(int32_t coreIdx, const struct TaskStat* taskS
         logHead->cnt = 0;
         logMsg.dataLen = logHeadSize_;
     }
+    taskCnt_++;
 }
 
 void AiCoreProf::ProfInitPmu(int64_t* regAddrs, int64_t* pmuEventAddrs)
@@ -501,9 +391,10 @@ void AiCoreProf::ProgramPmuStartForCore(void* mapBase, int coreIdx, const PmuCtr
     *addrs.startCntCyc1Addr = 0x0;
     *addrs.stopCntCyc0Addr = 0xFFFFFFFF;
     *addrs.stopCntCyc1Addr = 0xFFFFFFFF;
-
+    ctrl0Val_ = *addrs.ctrl0Addr;
     *addrs.ctrl0Addr = cfg.ctrl0Val;
     if (cfg.ctrl1Offset != 0 && addrs.ctrl1Addr != nullptr) {
+        ctrl1Val_ = *addrs.ctrl1Addr;
         *addrs.ctrl1Addr = cfg.ctrl1Val;
     }
 }
@@ -515,13 +406,17 @@ void AiCoreProf::ProfStartPmu()
         uint32_t pageSize = static_cast<uint32_t>(sysconf(_SC_PAGESIZE));
         void* mapBase =
             reinterpret_cast<void*>(reinterpret_cast<uint64_t>(addr) & ~(static_cast<uint64_t>(pageSize) - 1));
-        PmuCtrlAddrs addrs = InitPmuRegAddrsForCore(addr, mapBase, coreIdx);
-        ProgramPmuStartForCore(mapBase, coreIdx, addrs);
+        addrs_ = InitPmuRegAddrsForCore(addr, mapBase, coreIdx);
+        ProgramPmuStartForCore(mapBase, coreIdx, addrs_);
     });
 }
 
 void AiCoreProf::ProfStopPmu()
 {
+    *addrs_.ctrl0Addr = ctrl0Val_;
+    if (archInfo_ == ArchInfo::DAV_3510) {
+        *addrs_.ctrl1Addr = ctrl1Val_;
+    }
     if (!ProfCheckLevel(PROF_TASK_TIME_L2)) {
         return;
     }
@@ -535,85 +430,6 @@ void AiCoreProf::ProfStopPmu()
             memset_s(&pmuMsg_[coreIdx], pmuMsgSize_, 0, pmuMsgSize_);
         }
     });
-}
-
-void AiCoreProf::ProfStopHandShake()
-{
-    if (profLevel_ == PROF_LEVEL_OFF) {
-        return;
-    }
-    for (int i = 0; i < AICPUNUM; i++) {
-        if (HandShakeHead_[i]->cnt != 0) {
-            int32_t ret = profReportAdditionalInfoFunc_(1, &HandShakeMsg_[i], sizeof(PyPtoMsprofAdditionalInfo));
-            DEV_DEBUG(
-                "aicore profiling send pmu mesg, core id: %d, task num: %d, ret: %d.", i, HandShakeHead_[i]->cnt, ret);
-            memset_s(&HandShakeMsg_[i], handkShakeMsgSize_, 0, handkShakeMsgSize_);
-            (void)(ret);
-        }
-    }
-}
-
-void AiCoreProf::ProfStopAiCpuTaskStat()
-{
-    for (int i = 0; i < AICPUNUM; i++) {
-        if (aiCpuStatHead_[i]->cnt != 0) {
-            int32_t ret = profReportAdditionalInfoFunc_(1, &aiCpuStatMsg_[i], sizeof(PyPtoMsprofAdditionalInfo));
-            DEV_DEBUG(
-                "aicore profiling send aicpu stat mesg, aicpu id: %d, task num: %d, ret: %d.", i,
-                aiCpuStatHead_[i]->cnt, ret);
-            memset_s(&aiCpuStatMsg_[i], aiCpuStatMsgSize_, 0, aiCpuStatMsgSize_);
-            (void)(ret);
-        }
-    }
-}
-
-void AiCoreProf::SetAiCpuTaskStat(const uint32_t& taskId, struct AiCpuTaskStat& aiCpuTaskStat)
-{
-    aiCpuStatMap_[taskId] = aiCpuTaskStat;
-}
-
-struct AiCpuTaskStat AiCoreProf::GetAiCpuTaskStat(const uint32_t& taskId)
-{
-    if (aiCpuStatMap_.find(taskId) != aiCpuStatMap_.end()) {
-        return aiCpuStatMap_[taskId];
-    }
-    return AiCpuTaskStat();
-}
-
-void AiCoreProf::ProfGetAiCpuTaskStat(int& threadIdx, struct AiCpuTaskStat* aiCpuStat)
-{
-    if (profLevel_ == PROF_LEVEL_OFF) {
-        return;
-    }
-    MsProfAiCpuTaskStatHead* aiCpuStatHead = aiCpuStatHead_[threadIdx];
-    PyPtoMsprofAdditionalInfo& aiCpuStatMsg = aiCpuStatMsg_[threadIdx];
-    if (aiCpuStatHead->cnt < aiCpuStatMaxNum_ - 1) {
-        memcpy_s(
-            reinterpret_cast<void*>(
-                reinterpret_cast<uintptr_t>(aiCpuStatData_[threadIdx]) + aiCpuStatDataSize_ * aiCpuStatHead->cnt),
-            aiCpuStatDataSize_, aiCpuStat, aiCpuStatDataSize_);
-        aiCpuStatMsg.dataLen += aiCpuStatDataSize_;
-        aiCpuStatHead->cnt++;
-        DEV_DEBUG(
-            "aicore profiling gen aiCpuStat mesg, coreId: %d thread id: %d, startExeTask: %lu shakeHand start: "
-            "%lu, shakeHandend: %lu.",
-            aiCpuStat->coreId, threadIdx, aiCpuStat->taskGetStart, aiCpuStat->execStart, aiCpuStat->execEnd);
-    } else if (aiCpuStatHead->cnt == aiCpuStatMaxNum_ - 1) {
-        memcpy_s(
-            reinterpret_cast<void*>(
-                reinterpret_cast<uintptr_t>(aiCpuStatData_[threadIdx]) + aiCpuStatDataSize_ * aiCpuStatHead->cnt),
-            aiCpuStatDataSize_, aiCpuStat, aiCpuStatDataSize_);
-        aiCpuStatHead->cnt++;
-        aiCpuStatMsg.dataLen += logDataSize_;
-        int32_t ret = profReportAdditionalInfoFunc_(1, &aiCpuStatMsg, sizeof(PyPtoMsprofAdditionalInfo));
-        DEV_DEBUG(
-            "aicore profiling send aiCpuStat mesg, core id: %d, task num: %d, ret: %d.", threadIdx, aiCpuStatHead->cnt,
-            ret);
-        // reset
-        (void)(ret);
-        aiCpuStatHead->cnt = 0;
-        aiCpuStatMsg.dataLen = handkShakeHeadSize_;
-    }
 }
 
 void AiCoreProf::FillPmuData(
@@ -644,6 +460,7 @@ void AiCoreProf::ProfGetPmu(int32_t coreIdx, uint32_t subGraphId, uint32_t taskI
     if (!ProfCheckLevel(PROF_TASK_TIME_L2)) {
         return;
     }
+
     MsprofAicpuPyPtoPmuData data = {0};
     FillPmuData(data, coreIdx, subGraphId, taskId, taskStat);
     DEV_DEBUG(

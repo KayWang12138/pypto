@@ -25,7 +25,6 @@
 #include "securec.h"
 #include "tilefwk/tilefwk.h"
 #include "interface/inner/tilefwk.h"
-#include "machine/runtime/runtime.h"
 #include "machine/device/dynamic/aicore_prof.h"
 #include "machine/device/dynamic/aicpu_task_manager.h"
 #include "machine/device/dynamic/aicore_manager.h"
@@ -67,7 +66,8 @@ protected:
 
     std::unique_ptr<AiCoreManager> CreateAiCoreManager(AicpuTaskManager* aicpuTaskPtr)
     {
-        auto aicoreMng = std::make_unique<AiCoreManager>(*aicpuTaskPtr);
+        npu::tile_fwk::dynamic::SchThreadStatus status;
+        auto aicoreMng = std::make_unique<AiCoreManager>(status, *aicpuTaskPtr);
         aicoreMng->aicNum_ = 1;
         aicoreMng->aivNum_ = 0;
         aicoreMng->aicStart_ = 0;
@@ -95,8 +95,9 @@ protected:
 
         PmuTestEnv(size_t regBufSize)
         {
+            npu::tile_fwk::dynamic::SchThreadStatus status;
             aicpuTaskPtr = std::make_unique<AicpuTaskManager>();
-            aicoreMng = std::make_unique<AiCoreManager>(*aicpuTaskPtr);
+            aicoreMng = std::make_unique<AiCoreManager>(status, *aicpuTaskPtr);
             aicoreMng->aicNum_ = 1;
             aicoreMng->aivNum_ = 0;
             aicoreMng->aicStart_ = 0;
@@ -139,8 +140,9 @@ protected:
 
         BasicProfTestEnv()
         {
+            npu::tile_fwk::dynamic::SchThreadStatus status;
             aicpuTaskPtr = std::make_unique<AicpuTaskManager>();
-            aicoreMng = std::make_unique<AiCoreManager>(*aicpuTaskPtr);
+            aicoreMng = std::make_unique<AiCoreManager>(status, *aicpuTaskPtr);
             aicoreMng->aicNum_ = 0;
             aicoreMng->aivNum_ = 1;
             aicoreMng->aivEnd_ = 1;
@@ -169,38 +171,18 @@ protected:
             prof->ProfStart();
 
             int32_t aicoreId = 0;
-            int32_t subgraphId = 0;
-            int32_t taskId = 0;
             TaskStat* taskStat = new TaskStat();
             taskStat->taskId = 0;
             taskStat->execEnd = 1;
             taskStat->execStart = 0;
             taskStat->subGraphId = 0;
-
-            prof->ProInitHandShake();
-            prof->ProInitAiCpuTaskStat();
-            int threadIdx = 0;
-            AiCpuTaskStat* aiCpuStat = new AiCpuTaskStat();
-            AiCpuHandShakeSta handShakeSta;
-            aiCpuStat->taskId = 0;
-            aiCpuStat->execEnd = 1;
-            aiCpuStat->execStart = 0;
-            aiCpuStat->coreId = 0;
-            aiCpuStat->taskGetStart = 0;
-
             for (int i = 0; i < iterations; i++) {
-                prof->ProfGet(aicoreId, subgraphId, taskId, taskStat);
-                prof->ProfGetAiCpuTaskStat(threadIdx, aiCpuStat);
-                prof->ProGetHandShake(threadIdx, &handShakeSta);
+                prof->ProfGetLog(aicoreId, taskStat);
             }
-            prof->ProfStopHandShake();
-            prof->ProfStopAiCpuTaskStat();
             int64_t flag = 0;
             prof->ProfGetSwitch(flag);
 
             prof->ProfStop();
-            prof->GetAiCpuTaskStat(taskId);
-            delete aiCpuStat;
             delete taskStat;
         }
     };

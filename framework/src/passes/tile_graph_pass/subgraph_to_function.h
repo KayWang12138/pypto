@@ -20,7 +20,7 @@
 #include "passes/pass_interface/pass.h"
 #include "interface/operation/opcode.h"
 #include "tilefwk/data_type.h"
-#include "passes/pass_utils/pass_utils.h"
+#include "passes/pass_utils/subfunc_utils.h"
 #include "passes/statistics/execute_graph_statistic.h"
 #include "passes/tile_graph_pass/static_subgraph_processor.h"
 
@@ -82,6 +82,7 @@ private:
         Function& rootFunc, Operation& tileOp, SubfuncParam& pSgParamInfo, int& tParamLoc, int& oParamLoc) const;
     void ProcessCopyInOperand(Operation& tileOp, std::vector<int64_t>& offset, std::vector<int64_t>& shape) const;
     void ProcessCopyOutOperand(Operation& tileOp, std::vector<int64_t>& offset, std::vector<int64_t>& shape) const;
+    void ProcessSymbolOfReshape(Function& function, Operation& op) const;
     void SymbolizeEachFunction(Function& rootFunc, std::vector<Function*>& mergedFuncList1, size_t i) const;
     void SymbolizeFunction(Function& rootFunc, std::vector<Function*>& mergedFuncList1) const;
     std::string FindSymbolName(std::shared_ptr<LogicalTensor> op, int magic) const;

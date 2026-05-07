@@ -19,28 +19,16 @@
 #include "interface/inner/tilefwk.h"
 #include "interface/configs/config_manager.h"
 #include "codegen/codegen.h"
-#include "codegen/cloudnpu/codegen_cloudnpu.h"
+#include "codegen/npu/cloudnpu/codegen_cloudnpu.h"
 #include "test_codegen_common.h"
 #include "interface/operation/distributed/distributed_common.h"
 #include <vector>
 #include <string>
 
 namespace npu::tile_fwk::Distributed {
-class TestMoeDistributed : public ::testing::Test {
+class TestMoeDistributed : public CodegenTestBase {
 public:
-    static void SetUpTestCase() {}
-
-    static void TearDownTestCase() {}
-
-    void SetUp() override
-    {
-        Program::GetInstance().Reset();
-        config::Reset();
-        config::SetHostOption(COMPILE_STAGE, CS_EXECUTE_GRAPH);
-        config::SetPlatformConfig(KEY_ENABLE_COST_MODEL, false);
-    }
-
-    void TearDown() override {}
+    TestMoeDistributed() : CodegenTestBase({.compileStage = CS_EXECUTE_GRAPH}) {}
 
 protected:
     bool oriEnableAihacBackend = false;

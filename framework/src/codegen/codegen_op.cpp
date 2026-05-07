@@ -19,7 +19,7 @@
 
 #include "codegen/codegen_common.h"
 #include "codegen/utils/codegen_utils.h"
-#include "codegen/utils/codegen_error.h"
+#include "tilefwk/error_code.h"
 #include "interface/tensor/logical_tensor.h"
 #include "interface/function/function.h"
 #include "interface/configs/config_manager.h"
@@ -40,6 +40,8 @@ const std::unordered_set<Opcode> OP_SHAPE_FROM_ATTR{
     // conv Load
     Opcode::OP_L1_COPY_IN_CONV,
     Opcode::OP_L0C_COPY_OUT_CONV,
+    Opcode::OP_RESHAPE_COPY_IN,
+    Opcode::OP_RESHAPE_COPY_OUT,
 };
 bool IsOpShapeFromAttr(Opcode opcode) { return OP_SHAPE_FROM_ATTR.find(opcode) != OP_SHAPE_FROM_ATTR.end(); }
 } // namespace
@@ -92,8 +94,7 @@ void CodeGenOp::UpdateShape(
         IntVecToStr(logicalTensor.GetDynValidShape()).c_str());
 
     rawShape[operandIdx] = logicalTensor.tensor->rawshape;
-    // need adapt unaligned scene after
-    originShape[operandIdx] = isMainBlock ? logicalTensor.shape : logicalTensor.oriShape;
+    originShape[operandIdx] = logicalTensor.oriShape;
     if (isDynamicFunction) {
         dynamicValidShape[operandIdx] =
             isMainBlock ? SymbolicScalar::FromConcrete(logicalTensor.shape) : logicalTensor.GetDynValidShape();
@@ -149,14 +150,16 @@ void CodeGenOp::UpdateShapeFromAttr(const std::vector<OpImmediate>& toValidShape
 void CodeGenOp::UpdateOffsetForInput(const Operation& oper, const LogicalTensor& logicalTensor, int operandIdx)
 {
     static const std::set<Opcode> cubeMDLOpCode = {
-        Opcode::OP_L1_TO_L0A,   Opcode::OP_L1_TO_L0B,       Opcode::OP_L1_TO_L0_AT,
-        Opcode::OP_L1_TO_L0_BT, Opcode::OP_L1_TO_BT,        Opcode::OP_L1_TO_FIX_QUANT_PRE,
-        Opcode::OP_L0C_TO_L1,   Opcode::OP_L1_TO_L0A_SCALE, Opcode::OP_L1_TO_L0B_SCALE};
+        Opcode::OP_L1_TO_L0A,       Opcode::OP_L1_TO_L0B,           Opcode::OP_L1_TO_L0_AT, Opcode::OP_L1_TO_L0_BT,
+        Opcode::OP_L1_TO_BT,        Opcode::OP_L1_TO_FIX_QUANT_PRE, Opcode::OP_L0C_TO_L1,   Opcode::OP_L1_TO_L0A_SCALE,
+        Opcode::OP_L1_TO_L0B_SCALE, Opcode::OP_L0C_COPY_UB, Opcode::OP_UB_COPY_L1};
+    static const std::set<Opcode> distOpcode = {Opcode::OP_SHMEM_PUT, Opcode::OP_SHMEM_PUT_UB2GM};
     bool cubeMDLCondition = cubeMDLOpCode.count(opCode);
+    bool distCondition = distOpcode.count(opCode);
     bool useAttrShapeOffsetForInputGM =
         OpcodeManager::Inst().IsCopyIn(opCode) && logicalTensor.GetMemoryTypeOriginal() == MEM_DEVICE_DDR;
     std::shared_ptr<CopyOpAttribute> attr = std::static_pointer_cast<CopyOpAttribute>(oper.GetOpAttribute());
-    if (attr != nullptr && (cubeMDLCondition || useAttrShapeOffsetForInputGM)) {
+    if (attr != nullptr && (distCondition || cubeMDLCondition || useAttrShapeOffsetForInputGM)) {
         // only used for 1. L1 Copy; 2. spilling to gm scene(e.g., ooo spilling); 3. matmul Multi-Data Load scene.
         CODEGEN_LOGI("start update offset for GM input");
         UpdateOffsetValueFromAttr(attr->GetCopyInAttr().first, operandIdx);
@@ -169,7 +172,8 @@ void CodeGenOp::UpdateOffsetForInput(const Operation& oper, const LogicalTensor&
 
 void CodeGenOp::UpdateOffsetForOutput(const Operation& oper, const LogicalTensor& logicalTensor, int operandIdx)
 {
-    static const std::set<Opcode> cubeMDLOutOpCode = {Opcode::OP_L0C_TO_L1};
+    static const std::set<Opcode> cubeMDLOutOpCode =
+        {Opcode::OP_L0C_TO_L1, Opcode::OP_L0C_COPY_UB, Opcode::OP_UB_COPY_L1};
     bool cubeMDLCondition = cubeMDLOutOpCode.count(opCode);
     bool useAttrShapeOffsetForOutputGM =
         OpcodeManager::Inst().IsCopyOut(opCode) && logicalTensor.GetMemoryTypeOriginal() == MEM_DEVICE_DDR;
@@ -269,8 +273,6 @@ void CodeGenOp::UpdateCodegenOpInfoByTensor(
                                                                               -tensor->tensor->GetRawMagic();
     operandWithMagic[operandIdx] = tensor->GetMagic();
     dynamicOffset[operandIdx] = tensor->GetDynOffset();
-    auto value = tensor->GetAttr<bool>("isPartialMem");
-    isPartialMem[operandIdx] = (value != nullptr) && (*value);
     UpdateShape(ops, *tensor, operandIdx, isInput, ioIdx);
     if (isInput) {
         UpdateOffsetForInput(ops, *tensor, operandIdx);
@@ -283,6 +285,7 @@ void CodeGenOp::UpdateCodegenOpInfoByTensor(
         << "can not support memory type: " << static_cast<size_t>(tensor->GetMemoryTypeOriginal()) << ", Tensor is "
         << tensor->Dump();
     operandType[operandIdx] = it->second;
+    tensorAttrs[operandIdx] = tensor->GetAllAttr();
     ++operandIdx;
 }
 
@@ -458,60 +461,23 @@ void CodeGenOp::GetGmParamIdx(const Operation& oper)
         return;
     }
 
-    if (OpcodeManager::Inst().IsSharedMemory(oper.GetOpcode())) {
-        for (size_t i = 0; i < oper.GetOOperands().size(); ++i) {
-            if (oper.GetOOperands()[i]->GetMemoryTypeToBe() == MEM_DEVICE_DDR) {
-                paramLocation[i] = oper.GetOOpAttrOffset(i);
-            }
+    if (oper.HasAttribute(OpAttributeKey::gmTensorParamIdxInCall)) {
+        GmTensorParamIdxInCallFunc = oper.GetIntAttribute(OpAttributeKey::gmTensorParamIdxInCall);
+    }
+
+    for (size_t i = 0; i < oper.GetOOperands().size(); ++i) {
+        if (oper.GetOOperands()[i]->GetMemoryTypeToBe() == MEM_DEVICE_DDR) {
+            paramLocation[i] = oper.GetOOpAttrOffset(i);
         }
-        size_t iOffset = oper.GetOOperands().size() == 0 ? 1 : oper.GetOOperands().size();
-        for (size_t i = 0; i < oper.GetIOperands().size(); ++i) {
-            if (oper.GetIOperands()[i]->GetMemoryTypeToBe() == MEM_DEVICE_DDR) {
-                paramLocation[i + iOffset] = oper.GetIOpAttrOffset(i);
-            }
+    }
+    size_t iOffset = oper.GetOOperands().size() == 0 ? 1 : oper.GetOOperands().size();
+    for (size_t i = 0; i < oper.GetIOperands().size(); ++i) {
+        if (oper.GetIOperands()[i]->GetMemoryTypeToBe() == MEM_DEVICE_DDR) {
+            paramLocation[i + iOffset] = oper.GetIOpAttrOffset(i);
         }
-        return;
     }
 
-    if (oper.GetOpcode() == Opcode::OP_GATHER_IN_L1 || oper.GetOpcode() == Opcode::OP_GATHER_IN_UB) {
-        int ioAttrOffset = 0;
-        for (int i = 0; i < operandCnt; i++) {
-            if (operandType[i] == BUF_DDR) {
-                paramLocation[i] = oper.GetIOpAttrOffset(ioAttrOffset++);
-            }
-        }
-        GmTensorParamIdxInCallFunc = oper.GetIntAttribute("GmTensorParamIdxInCallFunc");
-        return;
-    }
-
-    if (oper.GetOpcode() == Opcode::OP_GATHER) {
-        paramLocation[ID1] = oper.GetIOpAttrOffset(0);
-        paramLocation[ID2] = oper.GetIOpAttrOffset(1);
-        GmTensorParamIdxInCallFunc = oper.GetIntAttribute("GmTensorParamIdxInCallFunc");
-        return;
-    }
-
-    if (OpcodeManager::Inst().IsCopyIn(oper.GetOpcode())) {
-        const std::shared_ptr<OpAttribute>& attr = oper.GetOpAttribute();
-        ASSERT(OperErr::ATTRIBUTE_INVALID, attr != nullptr) << "Copy In attr is null, Op is " << oper.Dump();
-        std::shared_ptr<CopyOpAttribute> copyAttr = std::static_pointer_cast<CopyOpAttribute>(attr);
-        paramLocation[1] = oper.GetIOpAttrOffset(0);
-        CODEGEN_LOGI("Gm Param Index of Copy In Op %s is %d", tileOpName.c_str(), paramLocation[1]);
-        GmTensorParamIdxInCallFunc = oper.GetIntAttribute("GmTensorParamIdxInCallFunc");
-        CODEGEN_LOGI("GmTensorParamIdxInCallFunc: %d", GmTensorParamIdxInCallFunc);
-        return;
-    }
-
-    if (OpcodeManager::Inst().IsCopyOut(oper.GetOpcode())) {
-        const std::shared_ptr<OpAttribute>& attr = oper.GetOpAttribute();
-        ASSERT(OperErr::ATTRIBUTE_INVALID, attr != nullptr) << "Copy Out attr is null, Op is " << oper.Dump();
-        std::shared_ptr<CopyOpAttribute> copyAttr = std::static_pointer_cast<CopyOpAttribute>(attr);
-        paramLocation[0] = oper.GetOOpAttrOffset(0);
-        CODEGEN_LOGI("Gm Param Index of Copy Out Op %s is %d", tileOpName.c_str(), paramLocation[0]);
-        GmTensorParamIdxInCallFunc = oper.GetIntAttribute("GmTensorParamIdxInCallFunc");
-        CODEGEN_LOGI("GmTensorParamIdxInCallFunc: %d", GmTensorParamIdxInCallFunc);
-        return;
-    }
+    return;
 }
 
 } // namespace npu::tile_fwk

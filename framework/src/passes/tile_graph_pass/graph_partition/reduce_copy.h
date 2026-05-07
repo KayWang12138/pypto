@@ -21,63 +21,136 @@
 #include "tilefwk/tilefwk.h"
 #include "tilefwk/platform.h"
 #include "passes/pass_utils/pass_utils.h"
-
 #include "interface/tensor/logical_tensor.h"
+#include <vector>
+#include <set>
+#include <unordered_set>
+#include <queue>
+#include <utility>
 
 namespace npu::tile_fwk {
-class DSU {
-public:
-    DSU() = default;
-    DSU(int n, const std::vector<int>& nodeWeights, std::vector<OpCoreType>& colorCoreType);
-    int Find(int i);
-    void Union(int i, int j);
-    std::pair<int, int> GetWeight(int i);
-    void ResetLink(int i);
-
-    std::vector<int> parent;
-    std::vector<int> AIVSupernodeWeights;
-    std::vector<int> AICSupernodeWeights;
-    std::vector<int> AIVSingleWeights;
-    std::vector<int> AICSingleWeights;
-    std::vector<OpCoreType> coreType;
+struct EstimateInput {
+    std::vector<int> execTime;
+    std::vector<bool> isCube;
+    std::vector<std::set<int>> outGraph;
+    std::vector<std::set<int>> inGraph;
+    int betweenSubgraphScheduleTime{1500};  // estimated task issuance time
 };
 
-class ReduceCopyRunner {
+struct EstimateCoreState {
+    int aic;
+    int aiv0;
+    int aiv1;
+};
+
+struct MixScheduleContext {
+    std::vector<int> subgraphToMix;
+    std::unordered_set<int> candidateSet;
+    std::vector<std::set<int>> mixDeps;
+    std::vector<int> mixStartTime;
+    std::vector<int> mixFinishTime;
+    std::vector<int> mixInDegree;
+    std::queue<int> mixReadyQueue;
+    int numMix;
+    int numSubgraph;
+};
+
+struct SubgraphScheduleContext {
+    std::vector<int> finishTime;
+    std::vector<int> inDegree;
+    std::queue<int> readyQueue;
+    EstimateCoreState coreState;
+    int mixStartTime;
+    int mixId;
+    int numSubgraph;
+};
+
+class EstimateExecTime {
 public:
-    Status ReduceCopy(Function& func);
-    Status Init(Function& func);
-    Status MergePrepare(std::vector<std::tuple<int, int, size_t>>& candidates, std::map<int, int>& rootToDense);
-    Status MergeLoop(
-        std::vector<std::tuple<int, int, size_t>>& candidates, const std::pair<double, double>& thres,
-        bool& mergedInLoop, std::map<int, int>& rootToDense);
-    Status RemarkInternalSubgraphID(Function& func);
-    void BuildGraph(const OperationsViewer opOriList);
-    void BuildGraphInner(const OperationsViewer& opOriList, int opIdx, int opColor);
-    std::map<int, size_t> magic2Size;
-    std::map<std::pair<int, int>, std::set<int>> originalEdges;
-    std::set<std::pair<int, int>> crossEdges;
-    std::vector<std::set<int>> superNodeInGraph;
-    std::vector<std::set<int>> superNodeOutGraph;
-    std::vector<bool> isReshape;
-    std::vector<OpCoreType> colorCoreType;
-    std::vector<std::vector<size_t>> colorNode;
-    std::vector<std::pair<double, double>> mergeThresholds;
-    std::unordered_set<int> mergedGraphId;
-    std::unordered_set<int> currMergedGraphId;
-    DSU dsu;
-    int upperBound{10000};
-    int color;
+    int Estimate(const EstimateInput& input, const std::vector<std::set<int>>& estimateCandidate);
+private:
+    void InitMixData(MixScheduleContext& ctx, const std::vector<std::set<int>>& estimateCandidate);
+    void BuildMixDeps(MixScheduleContext& ctx, const EstimateInput& input);
+    void InitMixTopology(MixScheduleContext& ctx);
+    int CalcMixStartTime(int mixId, const MixScheduleContext& ctx, int scheduleTime);
+    void InitSubgraphContext(SubgraphScheduleContext& subCtx, const MixScheduleContext& ctx,
+        const EstimateInput& input);
+    void ScheduleOneSubgraph(int current, SubgraphScheduleContext& subCtx, const MixScheduleContext& ctx,
+        const EstimateInput& input);
+    void ProcessSubgraphConsumers(int current, SubgraphScheduleContext& subCtx,
+        const MixScheduleContext& ctx, const EstimateInput& input);
+    int GetMixFinishTime(const SubgraphScheduleContext& subCtx, const MixScheduleContext& ctx);
+    void ProcessMixConsumers(int mixId, MixScheduleContext& ctx);
+};
+
+struct MergeInput {
+    int numSubgraph;
+    int maxLatency;
+    std::pair<double, double> aivRatio;
+    std::vector<int> subgraphAICLatency;
+    std::vector<int> subgraphAIVLatency;
+    std::vector<std::set<int>> subGraphInGraph;
+    std::vector<std::set<int>> subGraphOutGraph;
+    std::vector<std::vector<int>> mergeGroup;
+    std::vector<bool> isEnforceMergeGroup;
+};
+
+struct MergeOutput {
+    int numSubgraphUpdated;
+    std::vector<int> subgraphIdUpdated;
+};
+
+class MixGraphMerger {
+public:
+    MixGraphMerger() = default;
+    ~MixGraphMerger() = default;
+
+    MergeOutput Merge(const MergeInput& input);
+
+private:
+    MergeInput mInput;
+    MergeOutput mOutput;
+    EstimateInput estimateInput;
+    std::vector<int> mParent;
+    std::vector<int> mRank;
+
+    void Initialize(const MergeInput& input);
+    int FindParent(int x);
+    void UnionSets(int x, int y);
+    bool CanMergeWithoutCycle(const std::vector<int>& actualGroup);
+    bool CanMergeWithConstraints(const std::vector<int>& actualGroup);
+    void PerformMerge(const std::vector<int>& actualGroup);
+    void UpdateOutput();
+    bool CheckLatencyConstraint(const std::vector<int>& actualGroup);
+    bool CheckMergeBenefit(const std::vector<int>& actualGroup);
+    std::vector<int> GetActualGroup(const std::vector<int>& group);
+    void BuildMergedGraph(std::vector<std::set<int>>& outGraph,
+                          std::vector<std::set<int>>& inGraph);
+    bool HasCycle(const std::vector<std::set<int>>& outGraph,
+                  const std::vector<std::set<int>>& inGraph);
 };
 
 class ReduceCopyMerge : public Pass {
 public:
-    ReduceCopyMerge() : Pass("ReduceCopyMerge") { SetSupportedArches({NPUArch::DAV_3510}); }
+    ReduceCopyMerge() : Pass("ReduceCopyMerge")
+    {
+        SetSupportedArches({NPUArch::DAV_3510});
+    }
     ~ReduceCopyMerge() override = default;
-
 private:
-    Status RunOnFunction(Function& function) override;
-    Status PostCheck(Function& function) override;
+    Status BuildGraph(Function &function, MergeInput& mergeInput);
+    Status BuildMergeGroup(Function &function, MergeInput& mergeInput);
+    Status MarkNoMergeSubgraph(Function &function);
+    void UpdateConnectRecord(Function &function);
+    bool IsEnforceMergeBoundary(LogicalTensorPtr &tensor);
+    Status RunOnFunction(Function &function) override;
+    Status PostCheck(Function &function) override;
+    std::unordered_set<int> noMergeSubgraph;
+    std::map<std::vector<int>, int> mergeGroupToPriority;
+    std::set<std::vector<int>> enforceMergeGroup;
+    std::vector<int> subgraphInputSize;
+    std::vector<int> subgraphOutputSize;
 };
 
-} // namespace npu::tile_fwk
+}
 #endif

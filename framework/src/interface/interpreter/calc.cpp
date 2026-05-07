@@ -12,9 +12,9 @@
 #include <dlfcn.h>
 
 #include "tilefwk/error.h"
-#include "tilefwk/pypto_fwk_log.h"
+#include "interface/interpreter/interpreter_log.h"
 #include "interface/utils/file_utils.h"
-#include "interface/interpreter/verify_error.h"
+#include "tilefwk/error_code.h"
 
 namespace npu::tile_fwk::calc {
 
@@ -30,7 +30,7 @@ struct CalcOps* GetCalcOps()
 #ifndef ENABLE_TESTS
         auto handle = dlopen(nullptr, RTLD_LAZY | RTLD_NOLOAD);
         if (handle == nullptr) {
-            VERIFY_LOGE_FULL_E(VerifyEnableScene::VERIFY_LOAD_CALC_OPS_FAILED, "Can't get program handle");
+            INTERPRETER_LOGE_FULL(VerifyEnableScene::VERIFY_LOAD_CALC_OPS_FAILED, "Can't get program handle");
             return;
         }
 #else
@@ -40,7 +40,7 @@ struct CalcOps* GetCalcOps()
         }
         auto handle = dlopen(path.c_str(), RTLD_LAZY);
         if (handle == nullptr) {
-            VERIFY_LOGI("torch not found please check the library path or import torch first");
+            INTERPRETER_LOGI("torch not found please check the library path or import torch first");
             return;
         }
 #endif

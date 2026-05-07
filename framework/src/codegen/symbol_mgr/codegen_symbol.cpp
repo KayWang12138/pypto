@@ -37,7 +37,7 @@ AllocKey SymbolManager::CreateAllocKey(int tensorMagicNum) const
 {
     std::shared_ptr<LogicalTensor> tensor = SymbolManager::GetTensorByMagic(tensorMagicNum);
     if (!tensor) {
-        CODEGEN_LOGE_E(
+        CODEGEN_LOGE(
             GenCodeErr::TENSOR_NOT_FOUND, "can not query tensor object from tensor magicnum: %d", tensorMagicNum);
         return {};
     }
@@ -97,7 +97,7 @@ std::string SymbolManager::QueryVariableNameTileTensor(const AllocKey& key)
         return iter->second;
     }
 
-    CODEGEN_LOGE_E(GenCodeErr::SYMBOL_NOT_FOUND, "failed to query by identifier: %s", FormatAllocKey(key).c_str());
+    CODEGEN_LOGE(GenCodeErr::SYMBOL_NOT_FOUND, "failed to query by identifier: %s", FormatAllocKey(key).c_str());
     ASSERT(GenCodeErr::SYMBOL_NOT_FOUND, false)
         << "QueryVariableNameTileTensor Failed: UNDEFINED_VAR !!! AllocKey: " << FormatAllocKey(key);
     return "UNDEFINED_VAR";
@@ -145,6 +145,11 @@ TileTensorKey SymbolManager::BuildTileTensorKey(const TileTensor& tileTensor) co
 std::string SymbolManager::AddTileTensor(int opMagic, const TileTensor& tileTensor)
 {
     TileTensorKey tileTensorKey = BuildTileTensorKey(tileTensor);
+
+    CODEGEN_LOGI(
+        "AddTileTensor --> tensorMagic=%d, opMagic=%d, key={%s}", tileTensor.magic, opMagic,
+        tileTensorKey.ToString().c_str());
+
     auto tileTensorByKeyIter = tileTensorByKey_.find(tileTensorKey);
     bool isNewTileTensor = false;
     if (tileTensorByKeyIter == tileTensorByKey_.end()) {
@@ -156,7 +161,7 @@ std::string SymbolManager::AddTileTensor(int opMagic, const TileTensor& tileTens
 
     const TileTensor& storedTileTensor = tileTensorByKeyIter->second.get();
     TileTensorMagicKey key{tileTensor.magic, opMagic};
-    auto& tileTensorByMagic = tileTensor.shapeInLoop.loopDepth == 0 ? tileTensorByMagic_ : tileTensorByMagicInLoop_;
+    auto& tileTensorByMagic = tileTensor.isInLoop ? tileTensorByMagicInLoop_ : tileTensorByMagic_;
     auto [iter, inserted] = tileTensorByMagic.emplace(key, std::cref(storedTileTensor));
     ASSERT(GenCodeErr::TENSOR_MAGIC_CONFLICT, inserted || &iter->second.get() == &storedTileTensor)
         << "TileTensor conflict for tensor magic " << tileTensor.magic << ", op magic " << opMagic
@@ -172,20 +177,20 @@ std::string SymbolManager::AddTileTensor(int opMagic, const TileTensor& tileTens
     return tensorName;
 }
 
-const TileTensor* SymbolManager::QueryTileTensorByMagic(int magic, int opMagic) const
+const TileTensor* SymbolManager::QueryTileTensorByMagic(int tensorMagic, int opMagic) const
 {
-    CODEGEN_LOGI("QueryTileTensorByMagic tensor magic is %d, op magic is %d", magic, opMagic);
-    auto iter = tileTensorByMagic_.find({magic, opMagic});
+    CODEGEN_LOGI("QueryTileTensorByMagic tensor magic is %d, op magic is %d", tensorMagic, opMagic);
+    auto iter = tileTensorByMagic_.find({tensorMagic, opMagic});
     if (iter != tileTensorByMagic_.end()) {
         return &iter->second.get();
     }
     return nullptr;
 }
 
-const TileTensor* SymbolManager::QueryTileTensorInLoopByMagic(int magic, int opMagic) const
+const TileTensor* SymbolManager::QueryTileTensorInLoopByMagic(int tensorMagic, int opMagic) const
 {
-    CODEGEN_LOGI("QueryTileTensorInLoopByMagic tensor magic is %d, op magic is %d", magic, opMagic);
-    auto iter = tileTensorByMagicInLoop_.find({magic, opMagic});
+    CODEGEN_LOGI("QueryTileTensorInLoopByMagic tensor magic is %d, op magic is %d", tensorMagic, opMagic);
+    auto iter = tileTensorByMagicInLoop_.find({tensorMagic, opMagic});
     if (iter != tileTensorByMagicInLoop_.end()) {
         return &iter->second.get();
     }
@@ -216,31 +221,6 @@ std::string SymbolManager::QueryTileTensorFullDimByTensorInLoop(const std::strin
     return fullDimTensorName;
 }
 
-const TileTensor& SymbolManager::QueryTileTensorByBufVar(const std::string& bufVarName)
-{
-    for (const auto& tileTensor : tileTensorStorage_) {
-        if (tileTensor.bufVar == bufVarName) {
-            return tileTensor;
-        }
-    }
-
-    ASSERT(GenCodeErr::SYMBOL_NOT_FOUND, false) << "bufVarName " << bufVarName << " is not found !!! ";
-    static TileTensor emptyTileTensor;
-    return emptyTileTensor;
-}
-
-std::string SymbolManager::QueryTileTensorNameByBufVar(const std::string& bufVarName)
-{
-    const TileTensor& tileTensor = QueryTileTensorByBufVar(bufVarName);
-    return tileTensor.tensorName;
-}
-
-std::string SymbolManager::QueryTileTensorTypeByBufVar(const std::string& bufVarName)
-{
-    const TileTensor& tileTensor = QueryTileTensorByBufVar(bufVarName);
-    return tileTensor.usingType;
-}
-
 std::string SymbolManager::GenUsingList()
 {
     std::ostringstream oss;
@@ -258,6 +238,16 @@ std::string SymbolManager::GenTileTensorDefList()
     for (const auto& tileTensor : tileTensorStorage_) {
         oss << tileTensor.ToString();
     }
+    return oss.str();
+}
+
+std::string SymbolManager::GenNewTileTensorDefs()
+{
+    std::ostringstream oss;
+    for (size_t i = tileTensorOutputIdx_; i < tileTensorStorage_.size(); ++i) {
+        oss << tileTensorStorage_[i].ToString();
+    }
+    tileTensorOutputIdx_ = tileTensorStorage_.size();
     return oss.str();
 }
 

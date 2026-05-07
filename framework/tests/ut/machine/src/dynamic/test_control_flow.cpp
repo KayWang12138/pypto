@@ -29,7 +29,6 @@ std::string GetDeclName(const std::string& name)
 TEST_F(ControlFlowTest, RunDeviceContext)
 {
     config::SetRuntimeOption<int64_t>(STITCH_FUNCTION_MAX_NUM, 0x4);
-    config::SetRuntimeOption<int64_t>(STITCH_FUNCTION_NUM_STEP, 0);
 
     int tiling = 32;
     TileShape::Current().SetVecTile(tiling, tiling);
@@ -151,7 +150,6 @@ TEST_F(ControlFlowTest, TestDD)
 TEST_F(ControlFlowTest, TensorRecycleDestruct)
 {
     config::SetRuntimeOption<int64_t>(STITCH_FUNCTION_MAX_NUM, 100);
-    config::SetRuntimeOption<int64_t>(STITCH_FUNCTION_NUM_STEP, 0);
 
     int tiling = 32;
     TileShape::Current().SetVecTile(tiling, tiling);
@@ -245,11 +243,8 @@ static DeviceTensorData toTensorData(const std::shared_ptr<LogicalTensor>& t)
 
 TEST_F(ControlFlowTest, CtrlFlowPartialCache)
 {
-    config::SetRuntimeOption<int64_t>(STITCH_CFGCACHE_SIZE, 276000);
-
     // every task 4 root func
     config::SetRuntimeOption<int64_t>(STITCH_FUNCTION_MAX_NUM, 0x4);
-    config::SetRuntimeOption<int64_t>(STITCH_FUNCTION_NUM_STEP, 0);
 
     int tiling = 32;
     int n = tiling * 4;
@@ -298,17 +293,19 @@ TEST_F(ControlFlowTest, CtrlFlowPartialCache)
                Program::GetInstance().GetLastFunction(), memUtils, inputList, outputList, &ctrolCache, config));
     DevAscendProgram* devProg = DeviceLauncher::GetDevProg(Program::GetInstance().GetLastFunction());
 
-    EXPECT_EQ(0x3, ctrolCache->deviceTaskCount);
-    EXPECT_EQ(0x1, ctrolCache->deviceTaskSkippedCount);
+    EXPECT_EQ(0x5, ctrolCache->deviceTaskCount);
+    EXPECT_EQ(0x0, ctrolCache->deviceTaskSkippedCount);
 
     devProg->RelocProgram(0, (intptr_t)devProg);
     ctrolCache->RelocMetaCache(0, (intptr_t)ctrolCache);
     ctrolCache->TaskAddrRelocProgramAndCtrlCache(0, 0, (intptr_t)devProg, (intptr_t)ctrolCache);
 
-    for (int i = 0; i < 0x3; i++) {
+    for (int i = 0; i < 0x4; i++) {
         auto dynTaskBase = ctrolCache->deviceTaskCacheList[i].dynTaskBase;
         EXPECT_EQ(0x4, dynTaskBase->GetDynFuncDataList()->Size());
     }
+    auto dynTaskBase = ctrolCache->deviceTaskCacheList[0x4].dynTaskBase;
+    EXPECT_EQ(0x1, dynTaskBase->GetDynFuncDataList()->Size());
 
     ctrolCache->TaskAddrRelocProgramAndCtrlCache((intptr_t)devProg, (intptr_t)ctrolCache, 0, 0);
     devProg->RelocProgram((intptr_t)devProg, 0);
@@ -400,8 +397,12 @@ TEST_F(ControlFlowTest, TestParallelLoop)
             {
                 LOOP("s1", FunctionType::DYNAMIC_LOOP, col_iter, LoopRange(0x4))
                 {
-                    Tensor view_x = View(input_tensor_x, {parallel_tile_size, parallel_tile_size}, {row_iter * parallel_tile_size, col_iter * parallel_tile_size});
-                    Tensor view_y = View(input_tensor_y, {parallel_tile_size, parallel_tile_size}, {row_iter * parallel_tile_size, col_iter * parallel_tile_size});
+                    Tensor view_x = View(
+                        input_tensor_x, {parallel_tile_size, parallel_tile_size},
+                        {row_iter * parallel_tile_size, col_iter * parallel_tile_size});
+                    Tensor view_y = View(
+                        input_tensor_y, {parallel_tile_size, parallel_tile_size},
+                        {row_iter * parallel_tile_size, col_iter * parallel_tile_size});
                     Tensor add_result = Add(view_x, view_y);
                     Assemble(add_result, {row_iter * parallel_tile_size, col_iter * parallel_tile_size}, accum_tensor);
                 }

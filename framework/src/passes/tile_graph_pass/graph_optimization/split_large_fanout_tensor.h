@@ -25,7 +25,7 @@
 #include "tilefwk/tilefwk.h"
 #include "interface/inner/tilefwk.h"
 #include "passes/pass_utils/pass_utils.h"
-#include "passes/pass_check/split_large_fanout_tensor_checker.h"
+#include "passes/pass_utils/infer_shape_utils.h"
 
 namespace npu::tile_fwk {
 struct ShapeDimComparator {
@@ -59,6 +59,7 @@ public:
 
 private:
     Status RunOnFunction(Function& function) override;
+    void Init();
     void EraseRedundantAssembleOp(Function& function);
     void EraseRedundantViewOp(Function& function);
     void RemoveOps(Function& function, std::vector<Operation*>& opList) const;
@@ -93,6 +94,9 @@ private:
     void CreateOpForMoreSplit(
         Function& function, LogicalTensorPtr largeTensor, LogicalTensors overlaps, Shape gcdShape,
         LogicalTensorPtr dualOverlap, std::vector<Shape> gcdTileOffsets, Offset viewOpOffset);
+    void FindOverlapAndCreateViewOp(
+        Function& function, LogicalTensorPtr largeTensor, const LogicalTensors& overlaps,
+        LogicalTensorPtr newGcdTensor, const Shape& gcdTileOffsetForLarge, Shape& newViewOffset);
     void CollectLargeTensor(Function& function);
     void SplitLargeTensor(Function& function);
     bool IsBeCovered(
@@ -115,10 +119,8 @@ private:
     std::map<LogicalTensorPtr, std::set<Shape>> toShapes_;
     std::map<LogicalTensorPtr, std::set<Shape>> fromShapes_;
     bool enableMoreSplit_ = false;
+    std::vector<Operation*> addedOps_;
 
-    Status PreCheck(Function& function) override;
-    Status PostCheck(Function& function) override;
-    SplitLargeFanoutTensorChecker checker_;
     std::string idx;
 };
 

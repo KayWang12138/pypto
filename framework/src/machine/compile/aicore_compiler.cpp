@@ -18,14 +18,17 @@
 #include <iostream>
 #include <sstream>
 #include <sys/stat.h>
+#include <unistd.h>
+#include <vector>
 #include "codegen/utils/parallel_execute.h"
 #include "interface/utils/file_utils.h"
 #include "interface/utils/op_info_manager.h"
 #include "machine/compile/gen_aicore_code.h"
 #include "machine/host/main_block.h"
+#include "machine/utils/checkinject.h"
 #include "tilefwk/platform.h"
 #include "tilefwk/pypto_fwk_log.h"
-#include "machine/utils/machine_error.h"
+#include "tilefwk/error_code.h"
 
 namespace npu::tile_fwk {
 namespace {
@@ -36,8 +39,7 @@ constexpr const char* BISHENG_LD_CMD = "ld.lld";
 } // namespace
 
 static int CompileCoreMachine(
-    const std::string& objFile, bool isCube, uint64_t tilingKey, const std::string& headFile,
-    const std::string& aicoreSrcFile)
+    const std::string& objFile, bool isCube, uint64_t tilingKey, const std::string& headFile, const std::string& aicoreSrcFile)
 {
     MACHINE_LOGI("Compile src file is [%s], kernel type[%d].", aicoreSrcFile.c_str(), isCube);
     std::string ccecAicVersion = Platform::Instance().GetSoc().GetCCECVersion("AIC");
@@ -66,13 +68,10 @@ static int CompileCoreMachine(
         "-D__TILINGKEY__=%s "
         "-D__OPTYPE__=%s "
         "-D__HEAD_FILE__=%s "
-        "%s "
-        "%s "
+        "%s " "%s "
         "-I%s/tileop/arch32 "
-        "-I%s/ "
-        "-I%s/include/tileop/arch32 "
-        "-I%s/include/ "
-        "-o %s %s %s %s",
+        "-I%s/ " "-I%s/include/tileop/arch32 "
+        "-I%s/include/ " "-o %s %s %s %s",
         BISHENG_PROGRAM_CMD, cc_opt.c_str(), std::to_string(tilingKey).c_str(), opType.c_str(), headFile.c_str(),
         hasSubFunc.c_str(), coreType.c_str(), includePath.c_str(), includePath.c_str(),
         GetCurrentSharedLibPath().c_str(), GetCurrentSharedLibPath().c_str(), objFile.c_str(),
@@ -81,11 +80,13 @@ static int CompileCoreMachine(
         MACHINE_LOGE(HostBackEndErr::COMPILE_AICORE_FAILED, "Compile aicore construct cmd failed.");
         return ret;
     }
-    MACHINE_LOGD("Compile ccec command:[%s].", ccecCmd.c_str());
-    ret = std::system(ccecCmd.c_str());
+    ret = Checkinject(ccecCmd.c_str(), ccecCmd.size());
     if (ret != 0) {
-        MACHINE_LOGE(HostBackEndErr::COMPILE_CCEC_FAILED, "Compile ccec failed.");
+        MACHINE_LOGE(HostBackEndErr::COMPILE_AICORE_FAILED, "Compile aicore cmd illegal char.");
+        return ret;
     }
+    ret = std::system(ccecCmd.c_str());
+    if (ret != 0) {MACHINE_LOGE(HostBackEndErr::COMPILE_CCEC_FAILED, "Compile ccec failed.");}
     return ret;
 }
 
@@ -94,14 +95,13 @@ std::string GenSubFuncCall(
     const std::string& ccePath, uint64_t tilingKey, std::stringstream& src_obj)
 {
     std::stringstream code;
-    int leafIndex = 1;
     std::map<int, std::string> idxNameMap;
     // Declare extern leaf func.
     for (const auto& iter : leafDict) {
         const auto leaf = iter.second;
-        leafIndex = param.calleeHashIndexDict[leaf->ComputeHash().GetHash()];
+        int leafIndex = param.calleeHashIndexDict[leaf->ComputeHash().GetHash()];
         auto leafFuncAttr = leaf->GetLeafFuncAttribute();
-        ASSERT(leafFuncAttr != nullptr) << "LeafFuncAttr is null for leaf: " << leaf;
+        ASSERT(ProgEncodeErr::LEAF_CALLEE_ATTR_NULL, leafFuncAttr != nullptr) << "LeafFuncAttr is null for " << leaf;
         if (coreType != leafFuncAttr->coreType) {
             continue;
         }
@@ -121,12 +121,12 @@ std::string GenSubFuncCall(
     }
     // Define call sub func inline function.
     code << "__attribute__((always_inline)) inline __aicore__ void CallSubFuncTask(uint64_t funcIdx, ";
-    code << "CoreFuncParam *param, int64_t gmStackAddr, __gm__ int64_t *hcclContext) {\n";
+    code << "CoreFuncParam *param, int64_t gmStackAddr, __gm__ int64_t *hcclContext, __gm__ TaskStat* taskStat) {\n";
     code << "    switch (funcIdx) {\n";
     for (const auto& iter : idxNameMap) {
         MACHINE_LOGD("Call sub func id[%d], kernel_name[%s].", iter.first, iter.second.c_str());
         code << "        case " << std::to_string(iter.first) << ": {\n";
-        code << "            " << iter.second << "(param, gmStackAddr, hcclContext, nullptr);\n";
+        code << "            " << iter.second << "(param, gmStackAddr, hcclContext, taskStat);\n";
         code << "            break;\n";
         code << "        }\n";
     }
@@ -147,6 +147,52 @@ std::string GenSubFuncCall(
     return head_file;
 }
 
+static int RunLdViaSecureTempScript(const std::string& ccePath, const std::string& key, const std::string& ccecCmd)
+{
+    std::string linkScriptTemplate = ccePath + "link_" + key + std::to_string(getpid()) + "_XXXXXX";
+    std::vector<char> linkScriptBuffer(linkScriptTemplate.begin(), linkScriptTemplate.end());
+    linkScriptBuffer.push_back('\0');
+    int fd = mkstemp(linkScriptBuffer.data());
+    if (fd < 0) {
+        MACHINE_LOGE(HostBackEndErr::LINK_FAILED, "Create secure link script failed.");
+        return -1;
+    }
+    const std::string linkScript(linkScriptBuffer.data());
+    if (fchmod(fd, S_IRUSR | S_IWUSR | S_IXUSR) != 0) {
+        MACHINE_LOGE(HostBackEndErr::LINK_FAILED, "Set secure link script permission failed, file[%s].", linkScript.c_str());
+        (void)close(fd);
+        (void)unlink(linkScript.c_str());
+        return -1;
+    }
+    const std::string scriptContent = std::string("#!/bin/bash\n") + ccecCmd;
+    ssize_t writtenSize = write(fd, scriptContent.data(), scriptContent.size());
+    if (writtenSize < 0 || static_cast<size_t>(writtenSize) != scriptContent.size()) {
+        MACHINE_LOGE(HostBackEndErr::LINK_FAILED, "Write secure link script failed, file[%s].", linkScript.c_str());
+        (void)close(fd);
+        (void)unlink(linkScript.c_str());
+        return -1;
+    }
+    if (close(fd) != 0) {
+        MACHINE_LOGE(HostBackEndErr::LINK_FAILED, "Close secure link script failed, file[%s].", linkScript.c_str());
+        (void)unlink(linkScript.c_str());
+        return -1;
+    }
+    const std::string ldCmd = "bash " + linkScript;
+    int ret = Checkinject(ldCmd.c_str(), ldCmd.size());
+    if (ret != 0) {
+        MACHINE_LOGE(HostBackEndErr::LINK_FAILED, "Link kernel cmd illegal char.");
+        return ret;
+    }
+    ret = std::system(ldCmd.c_str());
+    if (unlink(linkScript.c_str()) != 0) {
+        MACHINE_LOGW("Cleanup secure link script failed, file[%s].", linkScript.c_str());
+    }
+    if (ret != 0) {
+        MACHINE_LOGE(HostBackEndErr::LINK_FAILED, "Link kernel failed.");
+    }
+    return ret;
+}
+
 static int LinkObject(
     const std::string& src_objs, std::string& objPath, const std::string& ccePath, bool relocate,
     const std::string& key)
@@ -165,17 +211,7 @@ static int LinkObject(
         return ret;
     }
     MACHINE_LOGD("Link ccec command: [%s].", ccecCmd.c_str());
-    const std::string linkScript = ccePath + "link_" + key + "_" + std::to_string(getpid()) + ".sh";
-    std::ofstream script(linkScript.c_str());
-    script << "#!/bin/bash\n";
-    script << ccecCmd.c_str();
-    script.close();
-    const std::string ldCmd = "bash " + linkScript;
-    ret = std::system(ldCmd.c_str());
-    if (ret != 0) {
-        MACHINE_LOGE(HostBackEndErr::LINK_FAILED, "Link kernel failed.");
-    }
-    return ret;
+    return RunLdViaSecureTempScript(ccePath, key, ccecCmd);
 }
 
 int CompileAICoreKernel(
@@ -201,10 +237,11 @@ int CompileAICoreKernel(
         auto headFile = GenSubFuncCall(leafDict, CoreType::AIC, param, ccePath, tilingKey, src_aic_obj);
         std::string mid_aic_obj = ccePath + "mid_kernel_" + funcHash + "_aic_" + std::to_string(tilingKey) + ".o";
         auto ret = CompileCoreMachine(mid_aic_obj, true, tilingKey, headFile, aicoreSrcFile);
-        ASSERT(ret == 0) << "CompileCoreMachine failed with return code  " << ret;
+        ASSERT(HostBackEndErr::COMPILE_AICORE_FAILED, ret == 0)
+            << "CompileCoreMachine failed with return code  " << ret;
         src_aic_obj << mid_aic_obj;
         ret = LinkObject(src_aic_obj.str(), aic_obj, ccePath, true, "aic");
-        ASSERT(ret == 0) << "LinkObject failed with return code  " << ret;
+        ASSERT(HostBackEndErr::LINK_FAILED, ret == 0) << "LinkObject failed with return code  " << ret;
         return;
     };
     tasks.push_back(task);
@@ -214,10 +251,11 @@ int CompileAICoreKernel(
         auto headFile = GenSubFuncCall(leafDict, CoreType::AIV, param, ccePath, tilingKey, src_aiv_obj);
         std::string mid_aiv_obj = ccePath + "mid_kernel_" + funcHash + "_aiv_" + std::to_string(tilingKey) + ".o";
         auto ret = CompileCoreMachine(mid_aiv_obj, false, tilingKey, headFile, aicoreSrcFile);
-        ASSERT(ret == 0) << "CompileCoreMachine failed with return code  " << ret;
+        ASSERT(HostBackEndErr::COMPILE_AICORE_FAILED, ret == 0)
+            << "CompileCoreMachine failed with return code  " << ret;
         src_aiv_obj << mid_aiv_obj;
         ret = LinkObject(src_aiv_obj.str(), aiv_obj, ccePath, true, "aiv");
-        ASSERT(ret == 0) << "LinkObject failed with return code  " << ret;
+        ASSERT(HostBackEndErr::LINK_FAILED, ret == 0) << "LinkObject failed with return code  " << ret;
         return;
     };
     tasks.push_back(task1);

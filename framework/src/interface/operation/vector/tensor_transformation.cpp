@@ -18,6 +18,8 @@
 #include <string>
 #include "tensor_transformation.h"
 #include "interface/utils/operator_tracer.h"
+#include "tilefwk/error_code.h"
+#include "tilefwk/platform.h"
 
 namespace npu::tile_fwk {
 
@@ -26,11 +28,11 @@ struct ExpandInfo {
     const std::shared_ptr<LogicalTensor>& result;
     std::vector<int64_t>& viewShape;
     std::vector<int64_t>& offset;
-    const int expandDim;
+    const std::vector<int> expandDims;
     ExpandInfo(
         const std::shared_ptr<LogicalTensor>& srcTensor0, const std::shared_ptr<LogicalTensor>& result0,
-        std::vector<int64_t>& viewShape0, std::vector<int64_t>& offset0, const int expandDim0)
-        : srcTensor(srcTensor0), result(result0), viewShape(viewShape0), offset(offset0), expandDim(expandDim0)
+        std::vector<int64_t>& viewShape0, std::vector<int64_t>& offset0, const std::vector<int> expandDims0)
+        : srcTensor(srcTensor0), result(result0), viewShape(viewShape0), offset(offset0), expandDims(expandDims0)
     {}
 };
 
@@ -57,21 +59,6 @@ void CheckExpandTensorValid(const LogicalTensorPtr& operand, const LogicalTensor
             ASSERT(VectorErrorCode::ERR_PARAM_INVALID, false) << oss.str();
         }
     }
-
-    int numExpandAxis = 0;
-    for (size_t i = 0; i < result_shape.size(); ++i) {
-        if (operand_shape[i] != result_shape[i]) {
-            numExpandAxis++;
-        }
-    }
-    if (numExpandAxis > 1) {
-        std::ostringstream oss;
-        oss << "Only allow to expand one axis! "
-            << "Actual expanded axes count: " << numExpandAxis << ". "
-            << "Operand shape: (" << operand_shape << ") "
-            << "Result shape: (" << result_shape << ")";
-        ASSERT(VectorErrorCode::ERR_PARAM_INVALID, false) << oss.str();
-    }
 }
 
 void ExpandTile(Function& function, const struct ExpandInfo& expandInfo)
@@ -91,7 +78,7 @@ void ExpandTile(Function& function, const struct ExpandInfo& expandInfo)
     }
     auto srcTile = expandInfo.srcTensor->View(function, srcShape, srcOffset);
     auto& newOp = function.AddOperation("TILE_EXPAND", {srcTile}, {resultTile});
-    newOp.SetAttribute(OP_ATTR_PREFIX + "EXPANDDIM", expandInfo.expandDim);
+    newOp.SetAttribute(OpAttributeKey::expandDims, expandInfo.expandDims);
     newOp.SetAttribute(OP_ATTR_PREFIX + "validShape", resultTile->GetDynValidShape());
 }
 
@@ -122,10 +109,10 @@ void Expand(
     std::vector<int64_t> offset(result->shape.size(), 0);
     std::vector<int64_t> viewShape(result->shape.size(), 1);
     std::vector<SymbolicScalar> outValidShape;
-    int expandDim = -1;
+    std::vector<int> expandDims;
     for (size_t i = 0; i < result->shape.size(); ++i) {
         if (operand->shape[i] != result->shape[i]) {
-            expandDim = i;
+            expandDims.push_back(i);
             for (auto it : other) {
                 if (it != nullptr && it->shape[i] == result->shape[i]) {
                     if (it->GetDynValidShape().empty()) {
@@ -146,7 +133,7 @@ void Expand(
     }
 
     result->UpdateDynValidShape(outValidShape);
-    struct ExpandInfo expandInfo(operand, result, viewShape, offset, expandDim);
+    struct ExpandInfo expandInfo(operand, result, viewShape, offset, expandDims);
     ExpandTile(function, tileShape, 0, expandInfo, outValidShape);
 }
 
@@ -159,14 +146,14 @@ void ExpandWithResultValidShape(
         << "The GetGraphType of function is incorrect";
     std::vector<int64_t> offset(result->shape.size(), 0);
     std::vector<int64_t> viewShape(result->shape.size(), 1);
-    int expandDim = -1;
+    std::vector<int> expandDims;
     for (size_t i = 0; i < result->shape.size(); ++i) {
         if (operand->shape[i] != result->shape[i]) {
-            expandDim = i;
+            expandDims.push_back(i);
         }
     }
     result->UpdateDynValidShape(resultValidShape);
-    struct ExpandInfo expandInfo(operand, result, viewShape, offset, expandDim);
+    struct ExpandInfo expandInfo(operand, result, viewShape, offset, expandDims);
     ExpandTile(function, tileShape, 0, expandInfo, resultValidShape);
 }
 
@@ -180,14 +167,14 @@ void TiledExpand(
 
     std::vector<int64_t> offset(result->shape.size(), 0);
     std::vector<int64_t> viewShape(result->shape.size(), 1);
-    int expandDim = -1;
+    std::vector<int> expandDims;
     for (size_t i = 0; i < result->shape.size(); ++i) {
         if (operand->shape[i] != result->shape[i]) {
-            expandDim = i;
+            expandDims.push_back(i);
         }
     }
     result->UpdateDynValidShape(validShape);
-    struct ExpandInfo expandInfo(operand, result, viewShape, offset, expandDim);
+    struct ExpandInfo expandInfo(operand, result, viewShape, offset, expandDims);
     ExpandTile(function, tileShape, 0, expandInfo, validShape);
 }
 
@@ -217,15 +204,14 @@ Tensor Expand(const Tensor& self, const std::vector<int64_t>& dstShape, std::vec
 {
     DECLARE_TRACER();
 
+    std::unordered_set<DataType> supportedTypes = {DT_BF16,  DT_FP32,  DT_FP16,   DT_INT8,   DT_INT16,
+                                                   DT_INT32, DT_UINT8, DT_UINT16, DT_UINT32, DT_BOOL};
+    CheckTensorDataType(self.GetStorage(), supportedTypes, "EXPAND");
+    CheckTensorDimRange(self.GetStorage(), 1, 4, "EXPAND");
+    CheckTensorShapeSize(self.GetStorage(), "EXPAND");
+    CheckDstShapeSize(dstShape, "EXPAND");
     ASSERT(VectorErrorCode::ERR_PARAM_INVALID, self.GetShape().size() == dstShape.size())
         << "The shape size of self and dst should be equal";
-    int numExpandAxis = 0;
-    for (size_t i = 0; i < dstShape.size(); ++i) {
-        if (self.GetShape()[i] != dstShape[i]) {
-            numExpandAxis++;
-        }
-    }
-    ASSERT(VectorErrorCode::ERR_PARAM_INVALID, numExpandAxis <= 1) << "Only allow to expand one axis";
     if (validShape.empty()) {
         for (size_t i = 0; i < dstShape.size(); ++i) {
             if (self.GetShape()[i] != dstShape[i]) {
@@ -273,12 +259,15 @@ Opcode GetTransposeOpName()
 #undef CASE
 }
 
-inline void UnalignPadTmpBufTile(std::vector<int64_t>& shape, int blockElem)
-{
+inline void UnalignPadTmpBufTile(std::vector<int64_t> &shape, int blockElem, DataType dtype) {
     // tmpbuf按16 8对齐
     auto size = shape.size();
     if (size >= NUM_VALUE_2) {
-        shape[size - NUM_VALUE_2] = AlignUp(shape[size - NUM_VALUE_2], (int64_t)VNCHWCONV_REPEAT);
+        int64_t alignSize = VNCHWCONV_REPEAT;
+        if (dtype == DT_INT8 || dtype == DT_UINT8){
+            alignSize = BLOCK_SIZE;  // int8 特判 按 32 对齐
+        }
+        shape[size - NUM_VALUE_2] = AlignUp(shape[size - NUM_VALUE_2], alignSize);
         shape[size - 1] = AlignUp(shape[size - 1], blockElem);
     }
 }
@@ -302,7 +291,7 @@ void TiledInnerTranspose(
         } else {
             std::vector<int64_t> tmpShape(input.tileInfo.shape);
             int64_t blockElem = BLOCK_SIZE / static_cast<int>(BytesOf(tile->Datatype()));
-            UnalignPadTmpBufTile(tmpShape, blockElem);
+            UnalignPadTmpBufTile(tmpShape, blockElem, tile->Datatype());
             auto tempTensor = std::make_shared<LogicalTensor>(function, tile->Datatype(), tmpShape);
             tempTensor->dynValidShape_ = SymbolicScalar::FromConcrete(tmpShape);
             auto& op = function.AddOperation(GetTransposeOpName<T>(), {tile}, {resultTile, tempTensor});
@@ -464,6 +453,10 @@ bool MergeTransposeAxis(
 Tensor Transpose(const Tensor& self, std::vector<int> perm)
 {
     DECLARE_TRACER();
+    std::unordered_set<DataType> supportedTypes = {DT_FP16, DT_BF16, DT_UINT8, DT_INT8, DT_INT16, DT_UINT16, DT_FP32, DT_INT32, DT_UINT32};
+    CheckTensorDataType(self.GetStorage(), supportedTypes, "TRANSPOSE");
+    CheckTensorDimRange(self.GetStorage(), 1, 5, "TRANSPOSE");
+    CheckTensorShapeSize(self.GetStorage(), "TRANSPOSE");
     ASSERT(VectorErrorCode::ERR_PARAM_INVALID, perm.size() == 2)
         << "Transpose dim num should be 2."; // perm should be 2 dims
     int shapeSize = self.GetShape().size();
@@ -565,6 +558,11 @@ Tensor Full(
     const Element& src, DataType dtype, const std::vector<int64_t>& dstShape, std::vector<SymbolicScalar> validShape)
 {
     DECLARE_TRACER();
+    std::unordered_set<DataType> supportedTypes = {DT_FP32,  DT_FP16,  DT_BF16,   DT_INT8,   DT_INT16,
+                                                   DT_INT32, DT_UINT8, DT_UINT16, DT_UINT32, DT_BOOL};
+    CheckTensorDataType(dtype, supportedTypes, "FULL");
+    CheckDstShapeDimRange(dstShape, 1, 4, "FULL");
+    CheckDstShapeSize(dstShape, "FULL");
     if (validShape.empty()) {
         for (auto x : dstShape)
             validShape.emplace_back(x);
@@ -579,6 +577,11 @@ Tensor Full(
     std::vector<SymbolicScalar> validShape)
 {
     DECLARE_TRACER();
+    std::unordered_set<DataType> supportedTypes = {DT_FP32,  DT_FP16,  DT_BF16,   DT_INT8,   DT_INT16,
+                                                   DT_INT32, DT_UINT8, DT_UINT16, DT_UINT32, DT_BOOL};
+    CheckTensorDataType(dtype, supportedTypes, "FULL");
+    CheckDstShapeDimRange(dstShape, 1, 4, "FULL");
+    CheckDstShapeSize(dstShape, "FULL");
     if (validShape.empty()) {
         for (auto x : dstShape)
             validShape.emplace_back(x);
@@ -596,17 +599,16 @@ void TiledCastOperation(
     if (cur == static_cast<int>(input.tensor.GetShape().size())) {
         auto tile = input.tensor.GetStorage()->View(function, input.tileInfo.shape, input.tileInfo.offset);
         auto resultTile = result->View(function, input.tileInfo.shape, input.tileInfo.offset);
-        
+
         DataType srcDtype = tile->Datatype();
         DataType dstDtype = resultTile->Datatype();
-        
+
         bool needTmpBuffer = false;
-        if ((srcDtype == DT_FP32 && dstDtype == DT_INT16) ||
-            (srcDtype == DT_FP16 && dstDtype == DT_INT16) ||
+        if ((srcDtype == DT_FP32 && dstDtype == DT_INT16) || (srcDtype == DT_FP16 && dstDtype == DT_INT16) ||
             (srcDtype == DT_FP16 && dstDtype == DT_INT8)) {
             needTmpBuffer = true;
         }
-        
+
         Operation* op = nullptr;
         if (needTmpBuffer) {
             size_t shapeSize = input.tileInfo.shape.size();
@@ -644,9 +646,68 @@ void TiledCastOperation(
     TiledCastOperation<T>(function, tileShape, 0, input, result, mode, satmode);
 }
 
+void CheckCastTypeSupport(DataType srcType, DataType dstType, const std::string& opName)
+{
+    // 同类型转换始终支持
+    if (srcType == dstType) {
+        return;
+    }
+
+    auto arch = Platform::Instance().GetSoc().GetNPUArch();
+    bool isA5Architecture = (arch == NPUArch::DAV_3510);
+
+    if (isA5Architecture) {
+        // A5 架构支持的转换
+        std::unordered_map<DataType, std::unordered_set<DataType>> a5SupportedConversions = {
+            {DT_FP32, {DT_FP16, DT_BF16, DT_INT16, DT_INT32, DT_INT64, DT_FP8E4M3, DT_FP8E5M2, DT_HF8}},
+            {DT_FP16, {DT_FP32, DT_INT32, DT_INT16, DT_INT8, DT_UINT8, DT_HF8}},
+            {DT_BF16, {DT_FP32, DT_INT32, DT_FP16}},
+            {DT_UINT8, {DT_FP16, DT_UINT16, DT_INT16, DT_INT32}},
+            {DT_INT8, {DT_FP16, DT_UINT16, DT_INT16, DT_INT32}},
+            {DT_INT16, {DT_UINT8, DT_FP16, DT_FP32, DT_UINT32, DT_INT32}},
+            {DT_INT32, {DT_FP32, DT_INT16, DT_UINT16, DT_INT64, DT_UINT8, DT_FP16}},
+            {DT_UINT32, {DT_UINT8, DT_UINT16, DT_INT16}},
+            {DT_INT64, {DT_FP32, DT_INT32}},
+            {DT_FP8E4M3, {DT_FP32}},
+            {DT_FP8E5M2, {DT_FP32}},
+            {DT_HF8, {DT_FP32}}
+        };
+
+        if (a5SupportedConversions.count(srcType) == 0 ||
+            a5SupportedConversions[srcType].count(dstType) == 0) {
+            ASSERT(VectorErrorCode::ERR_PARAM_DTYPE_UNSUPPORTED, false)
+                << "A5 architecture does not support cast from " << npu::tile_fwk::DataType2String(srcType)
+                << " to " << npu::tile_fwk::DataType2String(dstType) << " in " << opName;
+        }
+    } else {
+        // A2A3 架构支持的转换（其他架构也按A2A3处理）
+        std::unordered_map<DataType, std::unordered_set<DataType>> a2a3SupportedConversions = {
+            {DT_FP16, {DT_FP32, DT_INT32, DT_INT16, DT_INT8, DT_UINT8, DT_INT4}},
+            {DT_BF16, {DT_FP32, DT_INT32}},
+            {DT_INT32, {DT_FP32, DT_INT16, DT_INT64, DT_FP16}},
+            {DT_FP32, {DT_BF16, DT_FP16, DT_INT16, DT_INT32, DT_INT64}},
+            {DT_UINT8, {DT_FP16}},
+            {DT_INT8, {DT_FP16}},
+            {DT_INT16, {DT_FP32, DT_FP16}},
+            {DT_INT64, {DT_FP32, DT_INT32}},
+            {DT_INT4, {DT_FP16}}
+        };
+
+        if (a2a3SupportedConversions.count(srcType) == 0 ||
+            a2a3SupportedConversions[srcType].count(dstType) == 0) {
+            ASSERT(VectorErrorCode::ERR_PARAM_DTYPE_UNSUPPORTED, false)
+                << "A2A3 architecture does not support cast from " << npu::tile_fwk::DataType2String(srcType)
+                << " to " << npu::tile_fwk::DataType2String(dstType) << " in " << opName;
+        }
+    }
+}
+
 Tensor Cast(const Tensor& self, DataType dstDataType, CastMode mode, SaturationMode satmode)
 {
     DECLARE_TRACER();
+    CheckCastTypeSupport(self.GetDataType(), dstDataType, "CAST");
+    CheckTensorDimRange(self.GetStorage(), 1, 4, "CAST");
+    CheckTensorShapeSize(self.GetStorage(), "CAST");
     ASSERT(VectorErrorCode::ERR_PARAM_INVALID, self.GetShape().size() == self.GetStorage()->offset.size())
         << "The shape size of self and offset should be equal";
     // Cast to same dType with no mode will do nothing
@@ -671,34 +732,20 @@ void InnerConcatNew(Function& function, const LogicalTensorPtr& operand, const L
 
 void CheckCat(const std::vector<Tensor>& tensors, int axis)
 {
-    auto shape = tensors[0].GetShape();
-    auto format = tensors[0].Format();
-    auto shapeSize = shape.size();
-    auto dataType = tensors[0].GetDataType();
-
-    ASSERT(VectorErrorCode::ERR_PARAM_INVALID, SHAPE_DIM2 <= shapeSize && shapeSize <= SHAPE_DIM4)
-        << "The support dimension must be 2 to 4 dimensions";
-    std::vector<DataType> CAT_SUPPORT_DATATYPES = {DataType::DT_FP32,  DataType::DT_FP16, DataType::DT_INT32,
-                                                   DataType::DT_INT16, DataType::DT_INT8, DataType::DT_BF16};
-    ASSERT(
-        VectorErrorCode::ERR_PARAM_DTYPE_UNSUPPORTED,
-        std::find(CAT_SUPPORT_DATATYPES.begin(), CAT_SUPPORT_DATATYPES.end(), dataType) != CAT_SUPPORT_DATATYPES.end())
-        << "The datatype is not within the supported range";
-
+    std::unordered_set<DataType> supportedTypes = {DT_FP32, DT_FP16, DT_INT32, DT_INT16, DT_INT8, DT_BF16};
+    CheckTensorDataType(tensors[0].GetStorage(), supportedTypes, "CAT");
     CheckAxisRange(tensors[0], axis);
+    std::vector<LogicalTensorPtr> tensorPtrs;
     for (auto tensor : tensors) {
-        ASSERT(VectorErrorCode::ERR_PARAM_INVALID, tensor.GetShape().size() == shapeSize)
-            << "The shape size of all tensors should be equal";
-        ASSERT(VectorErrorCode::ERR_PARAM_INVALID, tensor.Format() == format)
-            << "The format of all tensors should be equal";
-        ASSERT(VectorErrorCode::ERR_PARAM_INVALID, tensor.GetStorage() != nullptr)
-            << "Each input must not be a null pointer";
-        ASSERT(VectorErrorCode::ERR_PARAM_INVALID, tensor.GetDataType() == dataType)
-            << "The dataType of all tensors should be equal";
+        CheckTensorShapeSize(tensor.GetStorage(), "CAT");
+        tensorPtrs.push_back(tensor.GetStorage());
     }
-
+    CheckTensorsDimConsistency(tensorPtrs, "CAT");
+    CheckTensorsDataTypeConsistency(tensorPtrs, "CAT");
+    CheckTensorsFormatConsistency(tensorPtrs, "CAT");
+    auto shape = tensors[0].GetShape();
     for (auto tensor : tensors) {
-        for (int i = 0; static_cast<size_t>(i) < shapeSize; ++i) {
+        for (int i = 0; static_cast<size_t>(i) < tensors[0].GetShape().size(); ++i) {
             if (i == axis) {
                 continue;
             }

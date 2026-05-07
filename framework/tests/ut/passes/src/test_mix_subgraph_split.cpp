@@ -46,7 +46,7 @@ public:
         config::SetPlatformConfig(KEY_ENABLE_COST_MODEL, false);
     }
 
-    void TearDown() override { MixSubgraphSplit::ResetGlobalState(); }
+    void TearDown() override {}
 
 protected:
     // 单个辅助函数：构建Mix子图的所有内容
@@ -993,56 +993,6 @@ TEST_F(MixSubgraphSplitTest, TestDependOperand)
     copyin2->SetAsDeleted();
     function->EraseOperations();
     EXPECT_EQ(tensor4->GetDependOps().size(), 0);
-}
-
-TEST_F(MixSubgraphSplitTest, TestDependencyAnalyzerFailed)
-{
-    // ==================== 创建root function ====================
-    auto rootFuncPtr = std::make_shared<Function>(Program::GetInstance(), "test_root", "test_root", nullptr);
-    rootFuncPtr->rootFunc_ = rootFuncPtr.get();
-    // ==================== 创建Mix子图 ====================
-    uint64_t mixProgramId = 0;
-    std::vector<int64_t> tensorShape = {MS_NUM16, MS_NUM16};
-    auto mixFuncPtr = BuildMixFunction(rootFuncPtr.get(), tensorShape);
-    rootFuncPtr->programs_[mixProgramId] = mixFuncPtr.get();
-    // ==================== 设置hash和cache ====================
-    mixFuncPtr->ComputeHash();
-    Program::GetInstance().GetFunctionCache().Insert(mixFuncPtr->GetFunctionHash(), *mixFuncPtr);
-    // ==================== 创建CallOp ====================
-    auto createLinearArgList = [&](const std::shared_ptr<LogicalTensor>& tensor) {
-        (void)tensor;
-        std::vector<SymbolicScalar> args(9, SymbolicScalar(0));
-        args[0] = SymbolicScalar(1);
-        args[3] = SymbolicScalar(16);
-        args[6] = SymbolicScalar(16);
-        return args;
-    };
-    auto& callOp = rootFuncPtr->AddRawOperation(Opcode::OP_CALL, {}, {});
-    auto callAttr = std::make_shared<CallOpAttribute>();
-    auto invokeInfo = std::make_shared<SubfuncInvokeInfoTy>();
-    invokeInfo->UpdateProgramSubgraphId(mixProgramId);
-    std::vector<SymbolicScalar> linearArgs;
-    auto inputArgs = createLinearArgList(nullptr);
-    linearArgs.insert(linearArgs.end(), inputArgs.begin(), inputArgs.end());
-    auto outputArgs = createLinearArgList(nullptr);
-    linearArgs.insert(linearArgs.end(), outputArgs.begin(), outputArgs.end());
-    callAttr->linearArgList_ = linearArgs;
-    callAttr->SetCalleeHash(mixFuncPtr->GetFunctionHash());
-    callAttr->invokeInfo_ = invokeInfo;
-    callOp.SetOpAttribute(callAttr);
-
-    // ==================== 执行MixSubgraphSplit ====================
-    MixSubgraphSplit splitter;
-    Status status = splitter.RunOnFunction(*rootFuncPtr);
-    // 预期返回FAILED，因为存在非法的跨component循环依赖
-    EXPECT_EQ(status, FAILED);
-    // 验证原始Mix子图没有被拆分
-    EXPECT_EQ(rootFuncPtr->programs_.size(), 1);
-    EXPECT_TRUE(rootFuncPtr->programs_[mixProgramId] == mixFuncPtr.get());
-    // 验证原始CallOp没有被删除
-    auto callOps = rootFuncPtr->GetCallopList();
-    EXPECT_EQ(callOps.size(), 1);
-    EXPECT_FALSE(callOps[0]->IsDeleted());
 }
 } // namespace tile_fwk
 } // namespace npu

@@ -20,6 +20,7 @@
 #include <chrono>
 #include "interface/operation/operation.h"
 #include "interface/function/function.h"
+#include "passes/pass_interface/pass.h"
 #include "tilefwk/pypto_fwk_log.h"
 
 namespace npu::tile_fwk {
@@ -29,6 +30,14 @@ std::string GetFormatBacktrace(const Operation& op);
 std::string GetFormatBacktrace(const OperationPtr& op);
 
 std::string GetFormatBacktrace(const Operation* op);
+
+std::string EscapeShellArg(const std::string& arg);
+
+void LogPassRuntime(
+    const std::string& identifier, Program& program, Function& function,
+    const std::chrono::time_point<std::chrono::high_resolution_clock>& start);
+
+void ExtractPassLogByFunction(const Function& function);
 
 enum class Elements { Operation, Tensor, Function, Graph, Config, Manager };
 
@@ -83,6 +92,27 @@ private:
     bool ended_{false};
     std::chrono::steady_clock::time_point start_;
 };
+
+/**
+ * @brief RAII utility for managing pass-specific log file redirection
+ *
+ * Redirects log output to a pass-specific file during construction and
+ * restores the original log output on destruction. Automatically cleans
+ * up empty log directories.
+ */
+class PassLogUtil {
+public:
+    PassLogUtil(Pass& pass, Function& function, size_t passIndex);
+    ~PassLogUtil();
+
+    PassLogUtil(const PassLogUtil&) = delete;
+    PassLogUtil& operator=(const PassLogUtil&) = delete;
+
+private:
+    std::string originLogOutPath_;
+    std::string logFilePath_;
+    std::string logFolder_;
+};
 } // namespace npu::tile_fwk
 
 #define LOG_SCOPE_BEGIN(timerVar, opEnum, tag)     \
@@ -100,7 +130,7 @@ private:
 #define APASS_LOG_ERROR_F(opEnum, fmt, ...) \
     PYPTO_HOST_LOG(DLOG_ERROR, PASS, "[%s.%s]:" fmt, MODULE_NAME, toString(opEnum), ##__VA_ARGS__)
 #define APASS_LOG_ERROR_C(errCode, opEnum, fmt, ...) \
-    PYPTO_HOST_LOGE(PASS, errCode, "[%s.%s]:" fmt, MODULE_NAME, toString(opEnum), ##__VA_ARGS__)
+    PYPTO_HOST_LOGE_WITH_ERRCODE(PASS, errCode, "[%s.%s]:" fmt, MODULE_NAME, toString(opEnum), ##__VA_ARGS__)
 #define APASS_LOG_EVENT_F(opEnum, fmt, ...) \
     PYPTO_HOST_LOG_WITHOUT_LEVEL_CHECK(DLOG_INFO, PASS, "[%s.%s]:" fmt, MODULE_NAME, toString(opEnum), ##__VA_ARGS__)
 

@@ -22,8 +22,11 @@
 #include "cost_model/simulation/tools/visualizer.h"
 #include "cost_model/simulation/arch/PipeFactory.h"
 #include "cost_model/simulation/pv/PvModelFactory.h"
+#include "tilefwk/error_code.h"
 #include "interface/utils/file_utils.h"
 #include "tilefwk/pypto_fwk_log.h"
+#include "tilefwk/error.h"
+#include "tilefwk/file.h"
 
 namespace CostModel {
 
@@ -250,8 +253,8 @@ void SimSys::BuildAICPU(DevicePtr device, uint64_t idInDevice)
     uint64_t aicNum = config.cubeMachineNumberPerAICPU;
     uint64_t aivNum = config.vecMachineNumberPerAICPU;
     uint64_t mixedCoreNum = 0;
-    ASSERT(config.coreMachineNumberPerAICPU == (aicNum + aivNum))
-        << "ErrCode: F" << static_cast<unsigned>(CostModel::ExternalErrorScene::INVALID_CONFIG) << ",[SIMULATION]: "
+    ASSERT(static_cast<unsigned>(CostModel::ExternalErrorScene::INVALID_CONFIG), config.coreMachineNumberPerAICPU == (aicNum + aivNum))
+        << "[SIMULATION]: "
         << "The number of cores must be equal to the sum of the aic and aiv. Please reconfigure them.";
     if (config.cubeVecMixMode) {
         mixedCoreNum = config.coreMachineNumberPerAICPU;
@@ -439,9 +442,8 @@ bool SimSys::IsTerminate() const { return terminate; }
 void SimSys::ReportDeadlock(size_t machineId)
 {
     deadlock = true;
-    SIMULATION_LOGE(
-        "ErrCode: F%u, [ReportDeadlock] Machine %zu is deadlock at cycle %lu",
-        static_cast<unsigned>(CostModel::ForwardSimErrorScene::DEAD_LOCK), machineId,
+    SIMULATION_LOGE(CostModel::ForwardSimErrorScene::DEAD_LOCK,
+        "[ReportDeadlock] Machine %zu is deadlock at cycle %lu", machineId,
         static_cast<unsigned long>(globalCycles));
 }
 
@@ -578,10 +580,14 @@ void SimSys::OutputLogForPipeSwimLane(std::string prefix)
 
     SIMULATION_LOGW("Pipe SwimLane Graph Generated (PNG & HTML): %s", pipeDetailPath.c_str());
     std::string drawScriptPath = GetCurrentSharedLibPath() + "/scripts/draw_pipe_swim_lane.py";
+    CHECK(static_cast<unsigned>(CostModel::ExternalErrorScene::INVALID_PATH), npu::tile_fwk::FileExist(drawScriptPath))
+         << "draw_pipe_swim_lane.py does not exist. drawScriptPath: " << drawScriptPath;
+    CHECK(static_cast<unsigned>(CostModel::ExternalErrorScene::INVALID_PATH), npu::tile_fwk::FileExist(pipeDetailPath))
+         << "pipe.swim.json does not exist. pipeDetailPath: " << pipeDetailPath;
     std::string cmd = "python3 " + drawScriptPath + " " + pipeDetailPath;
     int ret = system(cmd.c_str());
     if (ret != 0) {
-        SIMULATION_LOGE("cmd error: %s", cmd.c_str());
+        SIMULATION_LOGE(CostModel::ExternalErrorScene::PYTHON_CMD_ERROR, "cmd error: %s", cmd.c_str());
     }
 }
 
@@ -608,10 +614,14 @@ void SimSys::OutputLogForSwimLane(std::string prefix)
     }
     SIMULATION_LOGW("SwimLane Graph Generated (PNG): %s", outSwimPath.c_str());
     std::string drawScriptPath = GetCurrentSharedLibPath() + "/scripts/print_swim_lane.py";
+    CHECK(static_cast<unsigned>(CostModel::ExternalErrorScene::INVALID_PATH), npu::tile_fwk::FileExist(drawScriptPath))
+         << "draw_pipe_swim_lane.py does not exist. drawScriptPath: " << drawScriptPath;
+    CHECK(static_cast<unsigned>(CostModel::ExternalErrorScene::INVALID_PATH), npu::tile_fwk::FileExist(outSwimPath))
+         << "swim.json does not exist. outSwimPath: " << outSwimPath;
     std::string cmd = "python3 " + drawScriptPath + " " + outSwimPath + " -t";
     int result1 = system(cmd.c_str());
     if (result1 != 0) {
-        SIMULATION_LOGE("cmd error: %s", cmd.c_str());
+        SIMULATION_LOGE(CostModel::ExternalErrorScene::PYTHON_CMD_ERROR, "cmd error: %s", cmd.c_str());
     }
 
     std::string mergeScriptPath = GetCurrentSharedLibPath() + "/scripts/draw_swim_lane.py";
@@ -623,17 +633,25 @@ void SimSys::OutputLogForSwimLane(std::string prefix)
     SIMULATION_LOGI("program_json_path: %s", program_json_path.c_str());
     std::string label_type = "--label_type=1 --time_convert_denominator=1800"; // default 1.8GHz
     SIMULATION_LOGI("label_type: %s", label_type.c_str());
+    CHECK(static_cast<unsigned>(CostModel::ExternalErrorScene::INVALID_PATH), npu::tile_fwk::FileExist(mergeScriptPath)) 
+        << "draw_pipe_swim_lane.py does not exist. drawScriptPath: " << mergeScriptPath;
     if (devicePtr->config.submitTopo) {
+        CHECK(static_cast<unsigned>(CostModel::ExternalErrorScene::INVALID_PATH), npu::tile_fwk::FileExist(topo_txt_path))
+            << "dyn_topo.txt does not exist. topo_txt_path: " << topo_txt_path;
+        CHECK(static_cast<unsigned>(CostModel::ExternalErrorScene::INVALID_PATH), npu::tile_fwk::FileExist(program_json_path))
+            << "program.json does not exist. program_json_path: " << program_json_path;
         cmd = "python3 " + mergeScriptPath + " " + outSwimPath + " " + topo_txt_path + " " + program_json_path + " " +
               label_type;
     } else {
+        CHECK(static_cast<unsigned>(CostModel::ExternalErrorScene::INVALID_PATH), npu::tile_fwk::FileExist(topoOutFile))
+            << "topo.json does not exist. topoOutFile: " << topoOutFile;
         SIMULATION_LOGW("devicePtr->config.submitTopo: %d", devicePtr->config.submitTopo);
         cmd = "python3 " + mergeScriptPath + " " + outSwimPath + " " + topoOutFile;
     }
     SIMULATION_LOGI("cmd: %s", cmd.c_str());
     int result2 = system(cmd.c_str());
     if (result2 != 0) {
-        SIMULATION_LOGE("cmd error: %s", cmd.c_str());
+        SIMULATION_LOGE(CostModel::ExternalErrorScene::PYTHON_CMD_ERROR, "cmd error: %s", cmd.c_str());
     }
 }
 

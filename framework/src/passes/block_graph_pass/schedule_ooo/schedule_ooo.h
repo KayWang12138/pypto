@@ -17,22 +17,26 @@
 #define PASS_SCHEDULE_OOO_H
 
 #include "passes/block_graph_pass/schedule_ooo/buffer_pool.h"
-#include "passes/block_graph_pass/schedule_ooo/scheduler.h"
+#include "passes/block_graph_pass/schedule_ooo/ooo_scheduler.h"
 #include "passes/statistics/ooo_schedule_statistic.h"
 #include "passes/pass_utils/pass_utils.h"
 #include "passes/block_graph_pass/schedule_ooo/optimize_sort.h"
-#include "passes/block_graph_pass/schedule_ooo/estimate_latency.h"
+#include "passes/block_graph_pass/schedule_ooo/latency_estimator.h"
 #include "passes/block_graph_pass/schedule_ooo/core_assign.h"
 
 namespace npu::tile_fwk {
+struct ScheduleUnit {
+    int earliestStartTime;
+    std::vector<Operation*> mergedOps;
+};
 
-const std::unordered_map<TargetCoreType, std::pair<OpCoreType, int>> targetCoreTypeMap{
-    {TargetCoreType::AIC, std::make_pair(OpCoreType::AIC, 0)},
-    {TargetCoreType::AIV0, std::make_pair(OpCoreType::AIV, 0)},
-    {TargetCoreType::AIV1, std::make_pair(OpCoreType::AIV, 1)}};
+const std::unordered_map<TargetCoreType, CoreLocationType> targetCoreTypeMap{
+    {TargetCoreType::AIC, CoreLocationType::AIC},
+    {TargetCoreType::AIV0, CoreLocationType::AIV0},
+    {TargetCoreType::AIV1, CoreLocationType::AIV1}};
 
-const std::unordered_map<OpCoreType, std::vector<int>> CORE_INIT_CONFIGS_HARDWARE_TWO_AIV = {
-    {OpCoreType::AIV, {0, 1}}, {OpCoreType::AIC, {0}}};
+const std::unordered_set<CoreLocationType> CORE_INIT_CONFIGS_HARDWARE_TWO_AIV = {
+    CoreLocationType::AIC, CoreLocationType::AIV0, CoreLocationType::AIV1};
 
 class OoOSchedule : public Pass {
 public:
@@ -47,7 +51,8 @@ private:
     void DoHealthCheckAfter(Function& function, const std::string& folderPath) override;
     void SortTaskList(std::vector<Operation*>& operations, std::vector<Operation*>& taskList);
     Status SortAndLatencyEstimate(std::vector<Operation*>& opList, std::vector<Operation*>& taskOpList, int& latency);
-    void OoOHealthCheck(OoOScheduler& oooSchedule, Function& function, std::pair<uint64_t, Function*>& program);
+    void CollectStatistic(OoOScheduleStatistic& oooHealthCheck,
+        Function& function, std::pair<uint64_t, Function*>& program);
     Status RecordLastUseMemory(Function& function);
     Status NonMixSchedule(
         std::vector<Operation*>& opList, Function& function, std::pair<uint64_t, Function*>& program,
@@ -55,13 +60,18 @@ private:
     Status MixSchedule(
         std::vector<Operation*>& opList, Function& function, std::pair<uint64_t, Function*>& program,
         int64_t& maxWorkeSpaceSize);
+    Status EstimateTaskLatencyAndSchedule(TaskSpliter& spliter, std::vector<Operation*>& opList);
+    Status BuildMixedScheduleOps(TaskSpliter& spliter, std::vector<Operation*>& opList,
+        std::unordered_map<Operation*, CoreLocationType>& opCoreMap);
     Status AdvanceAlloc(std::vector<Operation*>& opList, Operation* op, size_t& index);
     Status ModifyBoundaryOrder(std::vector<Operation*>& opList);
     bool IsBoundary(Operation* op);
     Status UpdateOpCoreMap(
-        const TaskNode& taskNode, std::unordered_map<Operation*, std::pair<OpCoreType, int>>& opCoreMap);
+        const TaskNode& taskNode, std::unordered_map<Operation*, CoreLocationType>& opCoreMap);
+    std::vector<ScheduleUnit> BuildScheduleUnits(const std::vector<TaskNode> &taskNodeList,
+        const std::vector<std::pair<int, int>> &cyclePairs, std::vector<Operation*> &opList);
     std::vector<Function*> oriFunctions;
-    std::map<uint64_t, OoOScheduler> schedulerMap;
+    std::map<uint64_t, OoOScheduleStatistic> statisticMap_;
     std::unordered_map<LogicalTensorPtr, Operation*> lastUseMap_;
     OoOScheduleChecker checker;
 };

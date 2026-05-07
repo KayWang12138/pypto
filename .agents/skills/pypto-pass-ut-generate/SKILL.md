@@ -1,7 +1,6 @@
 ---
 name: pypto-pass-ut-generate
 description: 根据 Pass 业务描述，生成单元测试用例（UT）。当用户输入业务情况时，能根据业务，生成对应 Pass 的 UT 用例。
-license: 完整条款见 LICENSE.txt
 ---
 
 # Pass 业务单元测试生成
@@ -238,7 +237,7 @@ python3 scripts/ut_coverage.py --diff pr.diff --report ut_cov.tar.gz --json
         const std::vector<std::shared_ptr<LogicalTensor>> &oOperand) {
         // Add the operation to the current function
         if (currentFunctionMagicName_ == PROGRAM_ENTRY_FUNCTION_NAME) {
-            FUNCTION_LOGE("Error: No active function to add operation.");
+            FE_LOGE("Error: No active function to add operation.");
             ASSERT(false) << "No active function to add operation.";
         }
         return currentFunctionPtr_->AddOperation(opCode, iOperand, oOperand);

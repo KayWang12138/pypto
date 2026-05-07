@@ -23,6 +23,7 @@
 #include "passes/pass_check/generate_move_op_checker.h"
 #include "passes/pass_utils/dead_operation_eliminate.h"
 #include "passes/pass_log/pass_log.h"
+#include "tilefwk/error_code.h"
 
 #define MODULE_NAME "GenerateMoveOp"
 
@@ -33,7 +34,7 @@ const Offset ZERO_OFFSET = {0, 0};
 
 int64_t GenerateMoveOp::PadUB(int64_t dim, int64_t padValue)
 {
-    ASSERT(padValue > 0);
+    ASSERT(TensorErr::TENSOR_INVALID_MEMORY_TYPE, padValue > 0);
     return (dim + padValue - 1) / padValue * padValue;
 }
 
@@ -173,12 +174,15 @@ Status GenerateMoveOp::ProcessDefault(Function& function, Operation& op, ViewOpA
     }
     if (op.GetOpcode() == Opcode::OP_UB_COPY_L1) {
         ProcessUB2L1(function, op);
+        SetUB2L1CopyAttr(op, op.GetOOperands()[0]->GetShape(), OpImmediate::Specified(viewOpAttribute->GetFromTensorOffset()), OpImmediate::Specified(ZERO_OFFSET));
+        return SUCCESS;
     }
     if (op.GetOpcode() == Opcode::OP_L0C_TO_L1) {
         SetL0C2L1CopyAttr(
             op, op.GetOOperands()[0]->GetShape(), OpImmediate::Specified(viewOpAttribute->GetFromTensorOffset()),
             OpImmediate::Specified(ZERO_OFFSET));
     } else if (op.GetOpcode() == Opcode::OP_L0C_COPY_UB) {
+        SetL0C2UBCopyAttr(op, op.GetOOperands()[0]->GetShape(), OpImmediate::Specified(viewOpAttribute->GetFromTensorOffset()), OpImmediate::Specified(ZERO_OFFSET));
         op.SetAttribute(OpAttributeKey::isCube, true);
     } else {
         SetCopyAttr(op, viewOpAttribute);
@@ -237,6 +241,48 @@ void GenerateMoveOp::SetL0C2L1CopyAttr(
         OpImmediate::Specified(op.iOperand.front()->tensor->GetDynRawShape()), OpImmediate::Specified(validShape));
     copyAttr->SetToOffset(toOffset);
     op.SetOpAttribute(copyAttr);
+    op.SetAttr(OpAttributeKey::copyIsNZ, static_cast<int64_t>(1));
+}
+
+void GenerateMoveOp::SetL0C2UBCopyAttr(Operation &op, const Shape &realShape,
+    const std::vector<OpImmediate> &fromOffset, 
+    const std::vector<OpImmediate> &toOffset) const {
+    std::vector<SymbolicScalar> validShape;
+    for (auto dim : realShape) {
+        SymbolicScalar scal = SymbolicScalar(dim);
+        validShape.push_back(scal);
+    }
+    auto copyAttr = std::make_shared<CopyOpAttribute>(
+        fromOffset,
+        op.oOperand.front()->GetMemoryTypeOriginal(),
+        OpImmediate::Specified(realShape),
+        OpImmediate::Specified(op.iOperand.front()->tensor->GetDynRawShape()),
+        OpImmediate::Specified(validShape)
+    );
+    copyAttr->SetToOffset(toOffset);
+    op.SetOpAttribute(copyAttr);
+    op.SetAttribute(OpAttributeKey::isCube, true);
+}
+
+void GenerateMoveOp::SetUB2L1CopyAttr(Operation &op, const Shape &copyShape,
+    const std::vector<OpImmediate> &fromOffset,
+    const std::vector<OpImmediate> &toOffset) const {
+    // 实际搬运的 shape 转换为 validShape
+    std::vector<SymbolicScalar> validShape;
+    for (auto dim : copyShape) {
+        SymbolicScalar scal = SymbolicScalar(dim);
+        validShape.push_back(scal);
+    }
+    // 创建 CopyOpAttribute
+    auto copyAttr = std::make_shared<CopyOpAttribute>(
+        fromOffset,                                                      // fromOffset
+        op.oOperand.front()->GetMemoryTypeOriginal(),                    // to (L1)
+        OpImmediate::Specified(copyShape),                               // shape (实际搬运的 shape)
+        OpImmediate::Specified(op.iOperand.front()->tensor->GetDynRawShape()), // rawShape (srcValidShape)
+        OpImmediate::Specified(validShape)                               // toDynValidShape (dstValidShape)
+    );
+    copyAttr->SetToOffset(toOffset);
+    op.SetOpAttribute(copyAttr);
 }
 
 Status GenerateMoveOp::SetOpcodeByMemPath(Operation& op, MemoryType from, MemoryType to) const
@@ -255,7 +301,7 @@ Status GenerateMoveOp::SetOpcodeByMemPath(Operation& op, MemoryType from, Memory
     return SUCCESS;
 }
 
-void GenerateMoveOp::CreateMoveOpForAssemble(Operation& op) const
+void GenerateMoveOp::CreateMoveOpForAssemble(Function &function, Operation &op) const 
 {
     auto assembleOpAttribute = dynamic_cast<AssembleOpAttribute*>(op.GetOpAttribute().get());
     auto ASSEMBLE_in = op.iOperand.front();
@@ -267,6 +313,21 @@ void GenerateMoveOp::CreateMoveOpForAssemble(Operation& op) const
         SetL0C2L1CopyAttr(
             op, op.GetIOperands()[0]->GetShape(), OpImmediate::Specified(ZERO_OFFSET),
             OpImmediate::Specified(assembleOpAttribute->GetToTensorOffset()));
+        return;
+    }
+    if (inputMemtype == MemoryType::MEM_L0C && outputMemtype == MemoryType::MEM_UB) {
+        SetOpcodeByMemPath(op, inputMemtype, outputMemtype);
+        SetL0C2UBCopyAttr(op, op.GetIOperands()[0]->GetShape(), 
+            OpImmediate::Specified(ZERO_OFFSET), 
+            OpImmediate::Specified(assembleOpAttribute->GetToTensorOffset()));
+        return;
+    }
+    if (inputMemtype == MemoryType::MEM_UB && outputMemtype == MemoryType::MEM_L1) {
+        SetOpcodeByMemPath(op, inputMemtype, outputMemtype);
+        // 先进行 ND2NZ 转换
+        ProcessUB2L1(function, op);
+        // 再设置属性
+        SetUB2L1CopyAttr(op, op.GetIOperands()[0]->GetShape(), OpImmediate::Specified(ZERO_OFFSET), OpImmediate::Specified(assembleOpAttribute->GetToTensorOffset()));
         return;
     }
     if (inputMemtype == MemoryType::MEM_DEVICE_DDR || outputMemtype != MemoryType::MEM_DEVICE_DDR ||
@@ -293,11 +354,18 @@ Status GenerateMoveOp::CreateMoveOpForConvert(Function& function, Operation& op)
     Status status = SetOpcodeByMemPath(op, from, to);
     if (op.GetOpcode() == Opcode::OP_UB_COPY_L1) {
         ProcessUB2L1(function, op);
+        SetUB2L1CopyAttr(op, op.GetOOperands()[0]->GetShape(), OpImmediate::Specified(ZERO_OFFSET), OpImmediate::Specified(ZERO_OFFSET));
     }
     if (op.GetOpcode() == Opcode::OP_L0C_TO_L1) {
         SetL0C2L1CopyAttr(
             op, op.GetOOperands()[0]->GetShape(), OpImmediate::Specified(ZERO_OFFSET),
             OpImmediate::Specified(ZERO_OFFSET));
+    }
+    if (op.GetOpcode() == Opcode::OP_L0C_COPY_UB) {
+        SetL0C2UBCopyAttr(op, op.GetOOperands()[0]->GetShape(), 
+            OpImmediate::Specified(ZERO_OFFSET), 
+            OpImmediate::Specified(ZERO_OFFSET));
+        op.SetAttribute(OpAttributeKey::isCube, true);
     }
     if (status != SUCCESS) {
         return status;
@@ -325,6 +393,7 @@ void GenerateMoveOp::ProcessUB2L1(Function& function, Operation& op) const
         // 插入UB2UB节点（ND2NZ)
         auto& ub2ub = function.AddRawOperation(Opcode::OP_UB_COPY_ND2NZ, {inputTensor}, {ubNzTensor});
         ub2ub.SetLocation(op.GetLocation());
+        ub2ub.SetScopeInfo(op.GetScopeInfo());
         ub2ub.UpdateSubgraphID(op.GetSubgraphID());
 
         // 图重连
@@ -340,18 +409,11 @@ Status GenerateMoveOp::CreateMoveOp(Function& function) const
         switch (op.GetOpcode()) {
             case Opcode::OP_ASSEMBLE_SSA:
             case Opcode::OP_ASSEMBLE: {
-                CreateMoveOpForAssemble(op);
+                CreateMoveOpForAssemble(function, op);
                 break;
             }
             case Opcode::OP_VIEW: {
-                if (Platform::Instance().GetSoc().GetNPUArch() == NPUArch::DAV_3510) {
-                    Status status = A5CreateMoveOpForView(function, op);
-                    if (status != SUCCESS) {
-                        return status;
-                    }
-                    break;
-                }
-                Status status = A23CreateMoveOpForView(function, op);
+                Status status = ProcessViewOp(function, op);
                 if (status != SUCCESS) {
                     return status;
                 }
@@ -365,21 +427,187 @@ Status GenerateMoveOp::CreateMoveOp(Function& function) const
                 break;
             }
             case Opcode::OP_DUPLICATE: {
-                op.SetOpCode(Opcode::OP_COPY_OUT); // 将duplicate转化为copyout
-                std::vector<OpImmediate> newOffset;
-                for (size_t i = 0; i < op.iOperand.front()->shape.size(); i++) {
-                    newOffset.push_back(OpImmediate::Specified(SymbolicScalar(0)));
+                Status status = ProcessDuplicateOp(op);
+                if (status != SUCCESS) {
+                    return status;
                 }
-                op.SetOpAttribute(std::make_shared<CopyOpAttribute>(
-                    op.iOperand.front()->GetMemoryTypeOriginal(), newOffset,
-                    OpImmediate::Specified(op.iOperand.front()->shape),
-                    OpImmediate::Specified(op.oOperand.front()->tensor->GetDynRawShape())));
+                break;
+            }
+            case Opcode::OP_L1_COPY_IN_CONV: {
+                Status status = ProcessL1CopyInConv(op);
+                if (status != SUCCESS) {
+                    return status;
+                }
+                break;
+            }
+            case Opcode::OP_L0C_COPY_OUT_CONV: {
+                Status status = ProcessL0CCopyOutConv(op);
+                if (status != SUCCESS) {
+                    return status;
+                }
                 break;
             }
             default:
                 break;
         }
     }
+    function.EraseOperations(false);
+    return SUCCESS;
+}
+
+Status GenerateMoveOp::ProcessL1CopyInConv(Operation& op) const
+{
+    // 1. 获取 L1_COPY_IN_CONV 的 producer VIEW
+    auto inputTensor = op.GetIOperands()[0];
+    auto producers = inputTensor->GetProducers();
+    if (producers.empty()) {
+        return SUCCESS;
+    }
+
+    auto producerOp = *producers.begin();
+    if (producerOp->GetOpcode() != Opcode::OP_VIEW) {
+        return SUCCESS;
+    }
+
+    // 2. 获取 VIEW 的 fromOffset 属性
+    auto viewAttr = std::dynamic_pointer_cast<ViewOpAttribute>(producerOp->GetOpAttribute());
+    if (viewAttr == nullptr) {
+        APASS_LOG_ERROR_F(
+            Elements::Operation, "L1_COPY_IN_CONV op[%d]: VIEW producer[%d] has null ViewOpAttribute.",
+            op.GetOpMagic(), producerOp->GetOpMagic());
+        return FAILED;
+    }
+
+    // 3. 将 VIEW 的 fromOffset 累加到 L1_COPY_IN_CONV 的 CopyOpAttribute 的 fromOffset
+    auto copyAttr = std::dynamic_pointer_cast<CopyOpAttribute>(op.GetOpAttribute());
+    if (copyAttr == nullptr) {
+        APASS_LOG_ERROR_F(
+            Elements::Operation, "L1_COPY_IN_CONV op[%d]: CopyOpAttribute is null.", op.GetOpMagic());
+        return FAILED;
+    }
+    std::vector<OpImmediate> curFromOffset = copyAttr->GetFromOffset();
+
+    // 如果当前 offset 为空，直接使用 VIEW 的 offset
+    if (curFromOffset.empty()) {
+        copyAttr->SetFromOffset(OpImmediate::Specified(viewAttr->GetFromTensorOffset()));
+    } else {
+        // 使用 TensorOffset::Add 进行累加
+        std::vector<SymbolicScalar> curFromOffsetScalar = OpImmediate::ToSpecified(curFromOffset);
+        std::vector<SymbolicScalar> viewOffsetScalar = OpImmediate::ToSpecified(
+            OpImmediate::Specified(TensorOffset(viewAttr->GetFromOffset(), viewAttr->GetFromDynOffset())));
+
+        // 尺寸检查
+        if (curFromOffsetScalar.size() == viewOffsetScalar.size()) {
+            auto ret = TensorOffset::Add(viewOffsetScalar, curFromOffsetScalar);
+            copyAttr->SetFromOffset(OpImmediate::Specified(ret));
+        } else {
+            APASS_LOG_ERROR_F(
+                Elements::Operation,
+                "L1_COPY_IN_CONV op[%d]: fromOffset size mismatch, cur size=%zu, view size=%zu.",
+                op.GetOpMagic(), curFromOffsetScalar.size(), viewOffsetScalar.size());
+            return FAILED;
+        }
+    }
+    op.SetOpAttribute(copyAttr);
+
+    // 4. 标记删除 VIEW
+    auto viewInput = producerOp->GetIOperands().front();
+    op.ReplaceIOperand(0, viewInput);
+    producerOp->SetAsDeleted();
+    return SUCCESS;
+}
+
+Status GenerateMoveOp::ProcessL0CCopyOutConv(Operation& op) const
+{
+    // 1. 获取 L0C_COPY_OUT_CONV 的 consumer ASSEMBLE
+    auto outputTensor = op.GetOOperands()[0];
+    auto consumers = outputTensor->GetConsumers();
+    if (consumers.empty()) {
+        return SUCCESS;
+    }
+
+    auto consumerOp = *consumers.begin();
+    if (consumerOp->GetOpcode() != Opcode::OP_ASSEMBLE) {
+        return SUCCESS;
+    }
+
+    // 2. 获取 ASSEMBLE 的 toOffset 属性
+    auto assembleAttr = std::dynamic_pointer_cast<AssembleOpAttribute>(consumerOp->GetOpAttribute());
+    if (assembleAttr == nullptr) {
+        APASS_LOG_ERROR_F(
+            Elements::Operation, "L0C_COPY_OUT_CONV op[%d]: ASSEMBLE consumer[%d] has null AssembleOpAttribute.",
+            op.GetOpMagic(), consumerOp->GetOpMagic());
+        return FAILED;
+    }
+
+    // 3. 将 ASSEMBLE 的 toOffset 累加到 L0C_COPY_OUT_CONV 的 toOffset
+    auto copyAttr = std::dynamic_pointer_cast<CopyOpAttribute>(op.GetOpAttribute());
+    if (copyAttr == nullptr) {
+        APASS_LOG_ERROR_F(
+            Elements::Operation, "L0C_COPY_OUT_CONV op[%d]: CopyOpAttribute is null.", op.GetOpMagic());
+        return FAILED;
+    }
+    std::vector<OpImmediate> curToOffset = copyAttr->GetToOffset();
+
+    // 如果当前 offset 为空，直接使用 ASSEMBLE 的 offset
+    if (curToOffset.empty()) {
+        copyAttr->SetToOffset(OpImmediate::Specified(
+            TensorOffset(assembleAttr->GetToOffset(), assembleAttr->GetToDynOffset())));
+    } else {
+        // 使用 TensorOffset::Add 进行累加
+        std::vector<SymbolicScalar> curToOffsetScalar = OpImmediate::ToSpecified(curToOffset);
+        std::vector<SymbolicScalar> assembleOffsetScalar = OpImmediate::ToSpecified(
+            OpImmediate::Specified(
+                TensorOffset(assembleAttr->GetToOffset(), assembleAttr->GetToDynOffset())));
+
+        // 尺寸检查
+        if (curToOffsetScalar.size() == assembleOffsetScalar.size()) {
+            auto ret = TensorOffset::Add(assembleOffsetScalar, curToOffsetScalar);
+            copyAttr->SetToOffset(OpImmediate::Specified(ret));
+        } else {
+            APASS_LOG_ERROR_F(
+                Elements::Operation,
+                "L0C_COPY_OUT_CONV op[%d]: toOffset size mismatch, cur size=%zu, assemble size=%zu.",
+                op.GetOpMagic(), curToOffsetScalar.size(), assembleOffsetScalar.size());
+            return FAILED;
+        }
+    }
+    op.SetOpAttribute(copyAttr);
+
+    // 4. 标记删除 ASSEMBLE
+    auto assembleOutput = consumerOp->GetOOperands().front();
+    op.ReplaceOOperand(0, assembleOutput);
+    consumerOp->SetAsDeleted();
+    return SUCCESS;
+}
+
+Status GenerateMoveOp::ProcessViewOp(Function& function, Operation& op) const
+{
+    if (Platform::Instance().GetSoc().GetNPUArch() == NPUArch::DAV_3510) {
+        Status status = A5CreateMoveOpForView(function, op);
+        if (status != SUCCESS) {
+            return status;
+        }
+    } else {
+        Status status = A23CreateMoveOpForView(function, op);
+        if (status != SUCCESS) {
+            return status;
+        }
+    }
+    return SUCCESS;
+}
+
+Status GenerateMoveOp::ProcessDuplicateOp(Operation& op) const
+{
+    op.SetOpCode(Opcode::OP_COPY_OUT);
+    std::vector<OpImmediate> newOffset;
+    for (size_t i = 0; i < op.iOperand.front()->shape.size(); i++) {
+        newOffset.push_back(OpImmediate::Specified(SymbolicScalar(0)));
+    }
+    op.SetOpAttribute(std::make_shared<CopyOpAttribute>(
+        op.iOperand.front()->GetMemoryTypeOriginal(), newOffset,
+        OpImmediate::Specified(op.iOperand.front()->shape),
+        OpImmediate::Specified(op.oOperand.front()->tensor->GetDynRawShape())));
     return SUCCESS;
 }
 } // namespace npu::tile_fwk

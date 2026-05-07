@@ -25,7 +25,7 @@
 #include <sstream>
 #include <functional>
 #include "tilefwk/pypto_fwk_log.h"
-#include "cost_model/simulation/utils/simulation_error.h"
+#include "tilefwk/error_code.h"
 
 namespace CostModel {
 class ParseArgs {
@@ -64,9 +64,8 @@ public:
             params_[index](args[currentIndex + 1]);
             ++currentIndex; // 跳过下一个参数
         } else {
-            SIMULATION_LOGE(
-                "ErrCode: F%u, Missing argument for %s",
-                static_cast<unsigned>(CostModel::ExternalErrorScene::INVALID_CONFIG), args[currentIndex].c_str());
+            SIMULATION_LOGE(CostModel::ExternalErrorScene::INVALID_CONFIG,
+                "Missing argument for %s", args[currentIndex].c_str());
         }
     }
 
@@ -79,9 +78,8 @@ public:
                 ++currentIndex; // 跳过下一个参数
             }
         } else {
-            SIMULATION_LOGE(
-                "ErrCode: F%u, Unknown parameter: %s",
-                static_cast<unsigned>(CostModel::ExternalErrorScene::INVALID_CONFIG), args[currentIndex].c_str());
+            SIMULATION_LOGE(CostModel::ExternalErrorScene::INVALID_CONFIG,
+                "Unknown parameter: %s", args[currentIndex].c_str());
         }
     }
 

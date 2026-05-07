@@ -15,35 +15,22 @@
 
 #include "gtest/gtest.h"
 
-#include "tilefwk/tilefwk.h"
 #include "interface/inner/tilefwk.h"
 #include "interface/configs/config_manager.h"
 #include "interface/operation/operation.h"
 #include "tilefwk/data_type.h"
 #include "codegen/codegen.h"
 #include "codegen/symbol_mgr/codegen_symbol.h"
-#include "codegen/cloudnpu/codegen_cloudnpu.h"
-#include "codegen/cloudnpu/codegen_op_cloudnpu.h"
+#include "codegen/npu/cloudnpu/codegen_cloudnpu.h"
+#include "codegen/npu/cloudnpu/codegen_op_cloudnpu.h"
 #include "test_codegen_common.h"
 #include "test_codegen_utils.h"
 
 namespace npu::tile_fwk {
 
-class TestCodegenDynGather : public ::testing::Test {
+class TestCodegenDynGather : public CodegenTestBase {
 public:
-    static void SetUpTestCase() {}
-
-    static void TearDownTestCase() {}
-
-    void SetUp() override
-    {
-        Program::GetInstance().Reset();
-        config::Reset();
-        config::SetHostOption(COMPILE_STAGE, CS_EXECUTE_GRAPH);
-        config::SetPlatformConfig(KEY_ENABLE_COST_MODEL, false);
-    }
-
-    void TearDown() override {}
+    TestCodegenDynGather() : CodegenTestBase({.compileStage = CS_EXECUTE_GRAPH}) {}
 };
 
 constexpr const int GATHER_SHAPE0 = 16;
@@ -141,13 +128,7 @@ TEST_F(TestCodegenDynGather, GatherFromUB)
     auto& op = function->AddOperation(Opcode::OP_GATHER_FROM_UB, {params, indices}, {result});
     op.SetAttribute(OP_ATTR_PREFIX + "axis", 0);
 
-    std::shared_ptr<SymbolManager> symbolManager = std::make_shared<SymbolManager>();
-    CodeGenCtx ctx;
-    CodeGenCloudNPU cga(ctx);
-    cga.GenAllocForLocalBuffer(op, symbolManager);
-    CodeGenOpCloudNPUCtx opCtx(symbolManager, *function, *function->rootFunc_->programs_[0], op, {});
-    CodeGenOpCloudNPU cop(opCtx);
-    std::string res = cop.GenOpCode();
+    std::string res = GenOpCodeFromOp(*function, op);
     std::string expect =
         R"!!!(TileOp::DynTgatherFromUB_<float, float, /*before*/ 1, /*after*/ 64, /*axis_shape*/ 64, 1, 1, 1, 32, 64>((__ubuf__ float*)UB_S0_E0, (__ubuf__ float*)UB_S0_E0, (__ubuf__ float*)UB_S0_E0, 1, 1, 1, 32);
 )!!!";

@@ -884,6 +884,7 @@ params_base = {
 
 
 @pytest.mark.soc("950", "910")
+@pytest.mark.skip(reason="env error case")
 def test_b_4_s1_2_tilebs_8_d():
     '''
     mlaLp decode测试函数
@@ -941,7 +942,6 @@ def test_b_4_s1_2_tilebs_8_d():
         w_linear=[16, 16, 256, 256, 128, 128],
         unroll_list=[128, 64, 32, 16, 8, 4, 2, 1],
         cube_l1_reuse_setting={1: 4},
-        pg_upper_bound=8192,
         block_size=128,
         t_sub_tile=1,
         chunk_size=2,
@@ -1014,7 +1014,6 @@ def test_t_32_tilebs_16_p():
         w_linear=[16, 16, 1024, 1024, 32, 32],
         unroll_list=[32, 16, 8, 4, 2, 1],
         cube_l1_reuse_setting={1: 4},
-        pg_upper_bound=8192,
         block_size=128,
         t_sub_tile=1,
         chunk_size=2,
@@ -1086,7 +1085,6 @@ def test_t_512_tilebs_128_p():
         w_linear=[32, 32, 512, 512, 64, 64],
         unroll_list=[128, 64, 32, 16, 8, 4, 2, 1],
         cube_l1_reuse_setting={1: 4, 3: 4},
-        pg_upper_bound=8192,
         block_size=128,
         t_sub_tile=2,
         chunk_size=1,

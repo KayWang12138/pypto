@@ -40,6 +40,7 @@ DynDeviceTask* DeviceTaskContext::BuildDeviceTaskData(
 {
     int ret = DEVICE_MACHINE_OK;
     PerfBegin(PERF_EVT_ALLOCATE_TASK);
+    DEV_ATRACE("Start to Build DeviceTask: %u", taskId);
     DynDeviceTask* dynTask = workspace_->MakeDynDeviceTask();
     ret = stitchContext.MoveTo(dynTask);
     if (unlikely(ret != DEVICE_MACHINE_OK)) {
@@ -57,7 +58,7 @@ DynDeviceTask* DeviceTaskContext::BuildDeviceTaskData(
     PerfBegin(PERF_EVT_SLAB_MEM_SUBMIT);
     // cache allocated memory , when task finish will recycle
     dynTask->taskStageAllocMem = workspace_->SlabGetStageAllocMem(withoutTail, WsAicpuSlabMemType::DUPPED_FUNC_DATA);
-    workspace_->SlabStageAllocMemSubmmit(&dynTask->taskStageAllocMem);
+    workspace_->SlabStageAllocMemSubmmit(dynTask);
     PerfEnd(PERF_EVT_SLAB_MEM_SUBMIT);
     return dynTask;
 }

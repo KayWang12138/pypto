@@ -17,6 +17,7 @@ set(_Target ${PTO_Fwk_STestNamePrefix}_distributed)
 file(GLOB_RECURSE _Sources src/*.cpp)
 set(_PrivateLinkLibraries
         tile_fwk_utils
+        tile_fwk_adapter
         tile_fwk_interface
         tile_fwk_codegen
         tile_fwk_compiler
@@ -58,9 +59,9 @@ set(_num_ranks "4")
 set(_num_cases "3")
 set(_DistributedGTestCaseFilterConfig "")
 foreach(i RANGE 0 ${_num_cases})
-    list(APPEND _DistributedGTestCaseFilterConfig
-        "TestDistributedOps/DistributedTest.TestOps/${i}" "${_num_ranks}"
-    )
+   list(APPEND _DistributedGTestCaseFilterConfig
+       "TestDistributedOps/DistributedTest.TestOps/${i}" "${_num_ranks}"
+   )
 endforeach()
 
 

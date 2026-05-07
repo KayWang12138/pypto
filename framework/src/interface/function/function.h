@@ -21,6 +21,7 @@
 #include <memory>
 #include <stack>
 
+#include "tilefwk/error.h"
 #include "tilefwk/tilefwk.h"
 #include "interface/operation/operation.h"
 #include "interface/inner/pre_def.h"
@@ -29,7 +30,7 @@
 #include "interface/tensor/tensormap.h"
 #include "interface/tensor/tensor_slot.h"
 #include "interface/cache/hash.h"
-#include "passes/pass_utils/pass_utils.h"
+#include "passes/pass_utils/subfunc_utils.h"
 
 namespace npu::tile_fwk {
 constexpr int FUNCTION_MAX_INCASTS = 10000;
@@ -97,7 +98,7 @@ public:
 
         void operator++()
         {
-            ASSERT(cur_ <= operations_.size())
+            FE_ASSERT(cur_ <= operations_.size())
                 << "operator(++) out of its size. cur_: " << cur_ << ", operations_.size(): " << operations_.size();
             cur_++;
         }
@@ -134,7 +135,7 @@ public:
     {
         auto it = opPosition_.find(&op);
         if (it == opPosition_.end()) {
-            ASSERT(false) << "Magic[" << op.opmagic << "] Op has not been found in opPosition.";
+            FE_ASSERT(FeError::NOT_EXIST, false) << "Magic[" << op.opmagic << "] Op has not been found in opPosition.";
             return 0;
         }
         return it->second;
@@ -146,7 +147,7 @@ public:
         if (it == opPosition_.end()) {
             return {0, false};
         }
-        ASSERT(operations_[it->second].get() == &op)
+        FE_ASSERT(operations_[it->second].get() == &op)
             << "operations_[it->second].get(): 0x" << reinterpret_cast<uintptr_t>(operations_[it->second].get())
             << "&op: " << reinterpret_cast<uintptr_t>(&op);
         return {it->second, true};
@@ -453,19 +454,19 @@ struct DynParamInfo {
 };
 struct ParamConfigs {
     bool dynamicAlignedOps;
-    int sgPgUpperBound{1};
     int sgPgLowerBound{1};
     int sgParallelNum{1};
     int sgMgCopyInUpperBound{2 * 1024 * 1024};
+    std::string sgPartitionAlgorithm{"Iso"};
     uint8_t machineConfig_{0}; // machine config
-    uint16_t stitchFunctionNumInitial_{0};
-    uint16_t stitchFunctionNumStep_{0};
     std::map<int64_t, int64_t> cubeL1ReuseSetting;
     std::map<int64_t, int64_t> cubeNBufferSetting;
     std::string OoOPreScheduleMethod{"PriorDFS"};
     int mgVecParallelLb{48};
-    bool pgSkipPartition{false};
     std::map<int64_t, int64_t> vecNBufferSetting;
+    std::map<std::string, int64_t> cubeL1ReuseSettingByLabel;
+    std::map<std::string, int64_t> cubeNBufferSettingByLabel;
+    std::map<std::string, int64_t> vecNBufferSettingByLabel;
     int copyOutResolveCoalescing{0};
     bool forceCombineAxis{false};
     bool combineAxis{false};
@@ -532,7 +533,7 @@ public:
     void AddOperationGroup(std::vector<Operation*> operationGroup);
     const auto& GetGroupByID(const size_t groupID) const
     {
-        ASSERT(groupID < operationGroups_.size())
+        FE_ASSERT(groupID < operationGroups_.size())
             << "groupID: " << groupID << ", operationGroups_.size(): " << operationGroups_.size();
         return operationGroups_[groupID];
     }
@@ -559,7 +560,7 @@ public:
         const bool updateTensorMap = true);
     Operation& AddRawOperation(
         const Opcode opCode, const LogicalTensors& iOperands, const LogicalTensors& oOperands,
-        bool updateTensorMap = true, const SourceLocationPtr &sourceLocation = nullptr);
+        bool updateTensorMap = true, const SourceLocationPtr& sourceLocation = nullptr);
 
     std::map<std::shared_ptr<RawTensor>, std::shared_ptr<RawTensor>> outIncastLinkMap; // 记录outcast 共享地址的 incast
     void SetSameMemId(const LogicalTensorPtr& operand, LogicalTensorPtr& dst);
@@ -584,7 +585,7 @@ public:
 
     void DumpJsonFile(std::string fileName = "");
     Json DumpJson(bool useTable = true);
-    static std::shared_ptr<Function> LoadJson(Program& belongTo, const Json& funcDump);
+    static std::shared_ptr<Function> LoadJson(Program& belongTo, const Json& funcJson);
 
     std::vector<std::vector<SymbolicScalar>> NormalizeCoa(std::vector<int>& iOffset, std::vector<int>& oOffset);
     void NormalizeCoaForInCasts(
@@ -622,6 +623,7 @@ public:
     bool IsEager() const { return functionType_ == FunctionType::EAGER; }
     bool IsStatic() const { return functionType_ == FunctionType::STATIC; }
     bool IsExplicit() const { return explicitArgSlots_.empty(); }
+    size_t GetOperationSize() const { return operations_.size(); }
     const std::string& GetMagicName() const { return funcMagicName_; }
     const std::string& GetRawName() const { return funcRawName_; }
     std::string GetOriginalRawName() const;
@@ -775,6 +777,7 @@ public:
     void RemoveOutcast(int idx)
     {
         outcastPosition.erase(outcastPosition.begin() + idx);
+        outCasts_[idx]->nodetype = NodeType::LOCAL;
         outCasts_.erase(outCasts_.begin() + idx);
         auto& outcastSlot = slotScope_->ioslot.outcastSlot;
         outcastSlot.erase(outcastSlot.begin() + idx);
@@ -952,7 +955,7 @@ private:
         const std::set<Operation*, LogicalTensor::CompareOp>& producers, const int subGraphId, int& index,
         std::unordered_map<int, int>& magic2index, std::stringstream& ss);
     static void LoadTensorJson(
-        const std::shared_ptr<Function>& func, const Json& funcDump,
+        const std::shared_ptr<Function>& func, const Json& tensorJson,
         const std::unordered_map<int, std::shared_ptr<RawTensor>>& rawTensorDict,
         std::unordered_map<int, std::shared_ptr<LogicalTensor>>& tensorDict);
 

@@ -217,17 +217,24 @@ PyPTO在计算图编译的各Pass阶段拥有完整的中间表示，可翻译�
     2025-mm-dd HH:MM:SS:xxx V | function_TENSOR_loop_0_Unroll1_PATH0_hiddenfunc0_8.pass_36_CodegenPreproc Verify result PASS
     ```
 
-5.  执行结束后，在$\{work\_path\}/output/output\_\*/目录（\*代表时间戳）下生成verify\_\*目录，存放检测结果文件。
+5.  执行结束后，在$\{work\_path\}/output/output\_\*/目录（\*代表时间戳）下生成verify\_\*目录，存放检测结果文件与日志。
 
     ```text
     ├── tensor_graph # 保存前端初始计算图模拟计算后的中间数据，作为基础数据
     │   ├── *.data
     │   └── ...
-    ├── verify_graph_data_metainfo.csv # 结果报告，用于保存中间数据的元数据信息、元数据对应的数据文件名
+    ├── verify_graph_data_metainfo.csv # 结果报告，保存中间数据元信息及对应数据文件名
+    ├── verify_graph_result_brief.csv # 精度比对摘要（PASS/FAIL/NO_COMPARE、误差统计等）
+    ├── verify_graph_result_brief.log # 精度比对异常详情（失败项、异常路径、错误明细）
+    ├── interpreter.log # interpreter 模块拆分日志（默认记录 ERROR / EVENT）
     ├── Pass_{PASS_SEQ}_{PASS_NAME} # 保存中间pass计算图模拟计算后的中间数据，作为待测数据
     │   ├── *.data
     │   └── ...
     ```
+
+    其中，`verify_graph_result_brief.log` 和 `interpreter.log` 位于同一个 `verify_*` 目录下：
+    - `verify_graph_result_brief.log`：偏向校验结果摘要与异常明细（对比失败、异常路径）。
+    - `interpreter.log`：偏向 interpreter 执行过程中的拆分日志（当前默认仅 ERROR/EVENT 落盘）。
 
 6.  后续处理建议。
 
@@ -411,3 +418,62 @@ output/output_*/dump_tensor_*/device_0/
 | bin_file | 数据文件路径 |
 | verify_tensor_file | 验证数据文件路径（如果启用验证） |
 | cmp_res | 对比结果（True/False/"NO_CMP"） |
+
+## 算子级别的输入输出tensor dump
+
+### 1. 功能概述
+
+支持整网中算子级别的输入输出上板dump的能力。
+
+### 2. 启用方式
+
+在脚本运行目录下创建 acl.json 文件，内容如下：
+
+```json
+{
+    "dump":{
+        "dump_path":"/your/path",
+        "dump_mode":"all",
+        "dump_debug":"off",
+        "dump_op_switch":"on"
+    }
+}
+```
+
+在要执行的用例 test.py 中添加如下配置：
+
+```python
+import torch
+import torch_npu
+
+torch.npu.init_dump()
+torch.npu.set_dump("acl.json")
+```
+
+### 3. Dump 数据输出路径
+
+数据输出路径就是 acl.json 里面配置的 dump_path，在该路径下会生成如下文件：
+
+```
+/your/path
+└── 20260415084134/0
+    └── TENSOR_batchmatmul_3d_kernel.TENSOR_batchmatmul_3d_kernel.29.46.1776242496294291
+```
+
+调用 CANN 已有的工具解析该文件，命令如下：
+
+```bash
+python3 /${CANN_PACKAGE_PATH}/Ascend/cann-9.0.0/tools/operator_cmp/compare/msaccucmp.py convert -d /your/path/20260415084134/0 -out /your/path/20260415084134/0/out
+```
+
+解析后生成如下 npy 文件：
+
+```
+/your/path
+└── 20260415084134/0
+    ├── out/
+    │   ├── TENSOR_batchmatmul_3d_kernel.TENSOR_batchmatmul_3d_kernel.29.46.1776242496294291.input.0.npy
+    │   ├── TENSOR_batchmatmul_3d_kernel.TENSOR_batchmatmul_3d_kernel.29.46.1776242496294291.input.1.npy
+    │   └── TENSOR_batchmatmul_3d_kernel.TENSOR_batchmatmul_3d_kernel.29.46.1776242496294291.input.2.npy
+    └── TENSOR_batchmatmul_3d_kernel.TENSOR_batchmatmul_3d_kernel.29.46.1776242496294291
+```

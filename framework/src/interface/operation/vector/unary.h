@@ -40,6 +40,10 @@ enum class UnaryOpType {
     SIGN,
     SIGNBIT,
     ISFINITE,
+    SINH,
+    COSH,
+    SIN,
+    COS,
 };
 
 template <UnaryOpType T>
@@ -78,6 +82,14 @@ std::string GetUnaryOpName()
             return "SIGN";
         case UnaryOpType::SIGNBIT:
             return "SIGNBIT";
+        case UnaryOpType::SINH:
+            return "SINH";
+        case UnaryOpType::COSH:
+            return "COSH";
+        case UnaryOpType::SIN:
+            return "SIN";
+        case UnaryOpType::COS:
+            return "COS";
         default:
             ASSERT(VectorErrorCode::ERR_PARAM_INVALID, false) << "unknown unary op type";
             return "";
@@ -107,6 +119,10 @@ Opcode GetUnaryOpNameCode()
         CASE(BITWISENOT);
         CASE(SIGN);
         CASE(SIGNBIT);
+        CASE(SINH);
+        CASE(COSH);
+        CASE(SIN);
+        CASE(COS);
         default:
             ASSERT(VectorErrorCode::ERR_PARAM_INVALID, false) << "unknown unary op type";
     }
@@ -117,16 +133,24 @@ void UnaryOperationOperandCheck(
     const std::vector<LogicalTensorPtr>& iOperand, const std::vector<LogicalTensorPtr>& oOperand);
 
 template <UnaryOpType T>
-LogicalTensorPtr TensorUnaryOperation(
+std::pair<LogicalTensorPtr, Operation*> TensorUnaryOperationWithOp(
     Function& function, LogicalTensorPtr operand, std::optional<DataType> datatype = std::nullopt)
 {
     auto opName = GetUnaryOpName<T>();
-    CheckTensorShape(operand, opName);
+    CheckTensorDimRange(operand, MIN_TENSOR_DIM, MAX_TENSOR_DIM, opName);
+    CheckTensorShapeSize(operand, opName);
     datatype = datatype.value_or(operand->tensor->datatype);
     auto result = std::make_shared<LogicalTensor>(
         function, *datatype, operand->shape, operand->GetDynValidShape(), operand->Format());
-    function.AddOperation(GetUnaryOpNameCode<T>(), {operand}, {result});
-    return result;
+    Operation* op = &function.AddOperation(GetUnaryOpNameCode<T>(), {operand}, {result});
+    return {result, op};
+}
+
+template <UnaryOpType T>
+LogicalTensorPtr TensorUnaryOperation(
+    Function& function, LogicalTensorPtr operand, std::optional<DataType> datatype = std::nullopt)
+{
+    return TensorUnaryOperationWithOp<T>(function, operand, datatype).first;
 }
 
 } // namespace npu::tile_fwk

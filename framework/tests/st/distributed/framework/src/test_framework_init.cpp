@@ -19,10 +19,11 @@
 #include <sstream>
 #include <mutex>
 #include <dlfcn.h>
-#include "hccl/hccl.h"
-#include "machine/runtime/runtime.h"
-#include "distributed_test_framework.h"
 #include "tilefwk/pypto_fwk_log.h"
+#include "adapter/api/acl_api.h"
+#include "adapter/api/hcomm_api.h"
+#include "machine/runtime/runtime_utils.h"
+#include "distributed_test_framework.h"
 
 namespace npu::tile_fwk {
 namespace Distributed {
@@ -161,7 +162,7 @@ void* GetLibHandle()
             }
         }
 
-        DISTRIBUTED_LOGE("Failed to load MPI library from common candidate paths/names");
+        DISTRIBUTED_LOGE(DistributedErrorCode::UNKNOW_ERROR, "Failed to load MPI library from common candidate paths/names");
         return static_cast<void*>(nullptr);
     }();
     return handle;
@@ -187,13 +188,13 @@ auto GetFunction(const std::string& funcName) -> FuncType
 {
     auto handle = GetLibHandle();
     if (!handle) {
-        DISTRIBUTED_LOGE("Failed to load MPI library");
+        DISTRIBUTED_LOGE(DistributedErrorCode::UNKNOW_ERROR, "Failed to load MPI library");
         return nullptr;
     }
 
     auto func = dlsym(handle, funcName.c_str());
     if (!func) {
-        DISTRIBUTED_LOGE("Failed to find function %s: %s", funcName.c_str(), dlerror());
+        DISTRIBUTED_LOGE(DistributedErrorCode::UNKNOW_ERROR, "Failed to find function %s: %s", funcName.c_str(), dlerror());
         return nullptr;
     }
     return FunctionConverter<FuncType>::Convert(func);
@@ -236,27 +237,27 @@ void TestFrameworkInit(OpTestParam& testParam, HcomTestParam& hcomTestParam, int
     }
 
     // ACL、NPU初始化与绑定
-    CHECK(aclInit(NULL) == 0) << "aclInit falied";                        // 设备资源初始化
+    CHECK(AclInit(NULL) == 0) << "AclInit falied";                        // 设备资源初始化
     if (testParam.rankId == 0) {
-        CHECK(rtSetDevice(physicalDeviceId) == 0) << "Set device falied"; // 将当前进程绑定到指定的物理NPU
+        CHECK(RuntimeSetDevice(physicalDeviceId) == 0) << "Set device falied"; // 将当前进程绑定到指定的物理NPU
     }
-    CHECK(aclrtSetDevice(physicalDeviceId) == 0) << "Set device falied";  // 指定集合通信操作使用的设备
+    CHECK(AclRtSetDevice(physicalDeviceId) == 0) << "Set device falied";  // 指定集合通信操作使用的设备
 
     // 在 rootRank 获取 rootInfo
     hcomTestParam.rootRank = 0;
     if (testParam.rankId == hcomTestParam.rootRank) {
-        CHECK(HcclGetRootInfo(&hcomTestParam.rootInfo) == 0) << "HcclGetRootInfo failed";
+        CHECK(HcommGetRootInfo(&hcomTestParam.rootInfo) == 0) << "HcommGetRootInfo failed";
     }
     // 将root_info广播到通信域内的其他rank, 初始化集合通信域
-    mpiBcast(&hcomTestParam.rootInfo, HCCL_ROOT_INFO_BYTES, MPI_CHAR, hcomTestParam.rootRank, MPI_COMM_WORLD);
+    mpiBcast(&hcomTestParam.rootInfo, HCOMM_ROOT_INFO_BYTES, MPI_CHAR, hcomTestParam.rootRank, MPI_COMM_WORLD);
     mpiBarrier(MPI_COMM_WORLD);
     CHECK(
-        HcclCommInitRootInfo(testParam.rankSize, &hcomTestParam.rootInfo, testParam.rankId, &hcomTestParam.hcclComm) ==
+        HcommCommInitRootInfo(testParam.rankSize, &hcomTestParam.rootInfo, testParam.rankId, &hcomTestParam.hcclComm) ==
         0)
-        << "HcclCommInitRootInfo failed";
+        << "HcommCommInitRootInfo failed";
 
     // 获取 group name
-    CHECK(HcclGetCommName(hcomTestParam.hcclComm, testParam.group) == 0) << "HcclGetCommName failed";
+    CHECK(HcommGetCommName(hcomTestParam.hcclComm, testParam.group) == 0) << "HcommGetCommName failed";
     setenv("TILE_FWK_DEVICE_ID", std::to_string(physicalDeviceId).c_str(), 1);
 
     DISTRIBUTED_LOGI("testParam.rankSize %d\n", testParam.rankSize);
@@ -277,7 +278,7 @@ void TestFrameworkDestroy(int32_t timeout)
         mpiFinalize();
     });
     if (finalizeTask.wait_for(std::chrono::seconds(timeout)) == std::future_status::timeout) {
-        DISTRIBUTED_LOGE("MPI_Finalize timeout, forcing exit");
+        DISTRIBUTED_LOGE(DistributedErrorCode::UNKNOW_ERROR, "MPI_Finalize timeout, forcing exit");
         mpiAbort(MPI_COMM_WORLD, 1);
     }
 }

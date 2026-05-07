@@ -31,7 +31,6 @@ message(STATUS "CMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE}")
 
 file(GLOB CTRL_FILES RELATIVE ${CMAKE_CURRENT_LIST_DIR}
     device_ctrl.cpp
-    ../device_log.cpp
     context/*.cpp
 )
 
@@ -61,6 +60,7 @@ target_include_directories(pypto_ctrl_server
             $<BUILD_INTERFACE:$<$<BOOL:${BUILD_WITH_CANN}>:${ASCEND_CANN_PACKAGE_PATH}/include>>
             $<BUILD_INTERFACE:$<$<BOOL:${BUILD_WITH_CANN}>:${ASCEND_CANN_PACKAGE_PATH}/include/toolchain>>
             $<BUILD_INTERFACE:$<$<BOOL:${BUILD_WITH_CANN}>:${ASCEND_CANN_PACKAGE_PATH}/pkg_inc/base>>
+            $<BUILD_INTERFACE:$<$<BOOL:${BUILD_WITH_CANN}>:${ASCEND_CANN_PACKAGE_PATH}/pkg_inc>>
 )
 target_link_directories(pypto_ctrl_server
         PRIVATE

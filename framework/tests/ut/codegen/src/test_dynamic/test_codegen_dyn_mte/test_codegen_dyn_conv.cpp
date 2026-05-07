@@ -23,8 +23,8 @@
 #include "interface/configs/config_manager.h"
 #include "interface/operation/operation.h"
 #include "codegen/symbol_mgr/codegen_symbol.h"
-#include "codegen/cloudnpu/codegen_op_cloudnpu.h"
-#include "codegen/cloudnpu/codegen_cloudnpu.h"
+#include "codegen/npu/cloudnpu/codegen_op_cloudnpu.h"
+#include "codegen/npu/cloudnpu/codegen_cloudnpu.h"
 #include "test_codegen_utils.h"
 #include "test_codegen_common.h"
 
@@ -32,23 +32,16 @@ namespace npu::tile_fwk {
 
 constexpr int64_t N0 = 16;
 
-class TestCodegenDynConv : public ::testing::Test {
+class TestCodegenDynConv : public CodegenTestBase {
 public:
-    static void SetUpTestCase() {}
-
-    static void TearDownTestCase() {}
-
-    void SetUp() override
-    {
-        Program::GetInstance().Reset();
-        config::Reset();
-        config::SetHostOption(COMPILE_STAGE, CS_CODEGEN_INSTRUCTION);
-        config::SetPlatformConfig(KEY_ENABLE_COST_MODEL, false);
-        config::SetCodeGenConfig(KEY_CODEGEN_SUPPORT_TILE_TENSOR, true);
-        IdGen<IdType::FUNCTION>::Inst().SetId(DummyFuncMagic);
-    }
-
-    void TearDown() override { config::SetCodeGenConfig(KEY_CODEGEN_SUPPORT_TILE_TENSOR, true); }
+    TestCodegenDynConv()
+        : CodegenTestBase(
+              {.compileStage = CS_CODEGEN_INSTRUCTION,
+               .setTileTensor = true,
+               .tileTensorValue = true,
+               .setIdGen = true,
+               .resetTileTensorOnTearDown = true})
+    {}
 };
 
 Function* GetFunctionConv(const std::string& funcName)
@@ -108,15 +101,10 @@ std::string TestConvL1CopyInBody(
     op.SetAttribute("IS_FMAP", isFmap);
     op.SetAttribute("IS_CONV3D", isConv3D);
     op.SetAttribute("COPY_IN_MODE", copyInMode);
-    op.SetAttribute("GmTensorParamIdxInCallFunc", 0);
+    op.SetAttribute(OpAttributeKey::gmTensorParamIdxInCall, 0);
     SetConvL1CopyInOpAttr(op, isConv3D, gmShape, dstL1Shape);
 
-    std::shared_ptr<SymbolManager> symbolManager = std::make_shared<SymbolManager>();
-    CodeGenCtx ctx;
-    CodeGenCloudNPU cga(ctx);
-    cga.GenAllocForLocalBuffer(op, symbolManager);
-    CodeGenOpCloudNPU cgop({symbolManager, *function, *function->rootFunc_->programs_[0], op, {}});
-    return cgop.GenOpCode();
+    return GenOpCodeFromOp(*function, op);
 }
 
 TEST_F(TestCodegenDynConv, L1CopyInTileTensorFmapConv2D)
@@ -172,7 +160,7 @@ std::string TestConvL0COutBody(
     auto shapeImme = OpImmediate::Specified(l0cShape);
     op.SetAttribute("COPY_OUT_MODE", copyOutMode);
     op.SetAttribute("IS_CONV3D", isConv3D);
-    op.SetAttribute("GmTensorParamIdxInCallFunc", 0);
+    op.SetAttribute(OpAttributeKey::gmTensorParamIdxInCall, 0);
     op.SetOpAttribute(
         std::make_shared<CopyOpAttribute>(MEM_L1, OpImmediate::Specified(offset), shapeImme, shapeImme, shapeImme));
 
@@ -223,14 +211,8 @@ std::string TestConvLoad3DBody(const std::string& funcName, const bool& isConv3D
     auto function = GetFunctionConv(funcName);
 
     const std::vector<SymbolicScalar> dynValidShape = {64, 64};
-    auto l1Tensor = CreateLogicalTensor({
-        *function, DataType::DT_FP16, MemoryType::MEM_L1, {16, 16},
-           dynValidShape
-    });
-    auto l0Tensor = CreateLogicalTensor({
-        *function, DataType::DT_FP16, MemoryType::MEM_L0A, {16, 16},
-           dynValidShape
-    });
+    auto l1Tensor = CreateLogicalTensor({*function, DataType::DT_FP16, MemoryType::MEM_L1, {16, 16}, dynValidShape});
+    auto l0Tensor = CreateLogicalTensor({*function, DataType::DT_FP16, MemoryType::MEM_L0A, {16, 16}, dynValidShape});
 
     std::vector<int64_t> offset = {0, 0};
     std::vector<SymbolicScalar> dynoffset = {0, 0};
@@ -239,13 +221,7 @@ std::string TestConvLoad3DBody(const std::string& funcName, const bool& isConv3D
     auto& op = function->AddOperation(Opcode::OP_LOAD3D_CONV, {l1Tensor}, {l0Tensor});
     SetConvLoad3DAttributes(op, isConv3D);
 
-    std::shared_ptr<SymbolManager> symbolManager = std::make_shared<SymbolManager>();
-    CodeGenCtx ctx;
-    CodeGenCloudNPU cga(ctx);
-    cga.GenAllocForLocalBuffer(op, symbolManager);
-    CodeGenOpCloudNPU cop({symbolManager, *function, *function->rootFunc_->programs_[0], op, {}});
-
-    return cop.GenOpCode();
+    return GenOpCodeFromOp(*function, op);
 }
 
 TEST_F(TestCodegenDynConv, Load3DConv2D)
@@ -275,14 +251,8 @@ std::string TestConvLoad2DBody(const std::string& funcName)
     auto function = GetFunctionConv(funcName);
 
     const std::vector<SymbolicScalar> dynValidShape = {64, 64};
-    auto l1Tensor = CreateLogicalTensor({
-        *function, DataType::DT_FP16, MemoryType::MEM_L1, {16, 16},
-           dynValidShape
-    });
-    auto l0Tensor = CreateLogicalTensor({
-        *function, DataType::DT_FP16, MemoryType::MEM_L0B, {16, 16},
-           dynValidShape
-    });
+    auto l1Tensor = CreateLogicalTensor({*function, DataType::DT_FP16, MemoryType::MEM_L1, {16, 16}, dynValidShape});
+    auto l0Tensor = CreateLogicalTensor({*function, DataType::DT_FP16, MemoryType::MEM_L0B, {16, 16}, dynValidShape});
 
     std::vector<int64_t> offset = {0, 0};
     std::vector<SymbolicScalar> dynoffset = {0, 0};
@@ -291,13 +261,7 @@ std::string TestConvLoad2DBody(const std::string& funcName)
     auto& op = function->AddOperation(Opcode::OP_LOAD2D_CONV, {l1Tensor}, {l0Tensor});
     SetConvLoad2DAttributes(op);
 
-    std::shared_ptr<SymbolManager> symbolManager = std::make_shared<SymbolManager>();
-    CodeGenCtx ctx;
-    CodeGenCloudNPU cga(ctx);
-    cga.GenAllocForLocalBuffer(op, symbolManager);
-    CodeGenOpCloudNPU cop({symbolManager, *function, *function->rootFunc_->programs_[0], op, {}});
-
-    return cop.GenOpCode();
+    return GenOpCodeFromOp(*function, op);
 }
 
 TEST_F(TestCodegenDynConv, Load2DConv)

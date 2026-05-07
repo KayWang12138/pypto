@@ -11,13 +11,13 @@
 import typing
 from typing import Union, List, Optional, Tuple, Sequence
 
-import sympy
 import pypto
 
 from .enum import *  # noqa
 from ._utils import to_syms, to_sym, source_location
 from .symbolic_scalar import SymbolicScalar, SymInt
 from ._element import Element
+from .error import FeError
 
 
 class TensorAnnotation:
@@ -67,8 +67,8 @@ class Tensor:
             self.status_shape = shape
         else:
             nshape = to_syms(shape)
-            assert isinstance(nshape, list), "shape must be a list of int or SymbolicScalar"
-
+            if not isinstance(nshape, list):
+                raise FeError(TypeError("shape must be a list of int or SymbolicScalar"))
         self._base = pypto_impl.Tensor(ndtype, nshape, name, nformat)
         self.data_ptr = data_ptr
         self.device = device
@@ -190,7 +190,8 @@ class Tensor:
             return
 
         if isinstance(key, slice) and isinstance(key.stop, Tensor):
-            assert isinstance(key.start, int)
+            if not isinstance(key.start, int):
+                raise FeError(TypeError(f"scatter key.start must be int, got {type(key.start).__name__}"))
             return pypto.scatter(self, key.start, key.stop, value)
 
         key = self._normalize_key(key)
@@ -206,11 +207,14 @@ class Tensor:
         if all(isinstance(k, (slice, int, SymbolicScalar)) for k in key):
             new_shape = self._add_one_dim(key, value.shape)
             value_reshaped = pypto.reshape(value, new_shape)
-            new_key, _ = self._get_slice_index(key)  # int→slice
+            new_key, _ = self._get_slice_index(key)
             offsets = self._get_assemble_offset(tuple(new_key), self.shape)
             return pypto.assemble(value_reshaped, offsets, self)
 
-        raise ValueError("tuple key must be int, SymbolicScalar or slice")
+        raise FeError(ValueError("tuple key must be int, SymbolicScalar or slice"))
+
+    def __iter__(self):
+        raise FeError(TypeError("Tensor is not iterable."))
 
     @source_location
     def __getitem__(self, key, *, valid_shape: Optional[List[Union[int, SymbolicScalar]]] = None):
@@ -288,7 +292,8 @@ class Tensor:
             return self
 
         if isinstance(key, slice) and isinstance(key.stop, Tensor):
-            assert isinstance(key.start, int)
+            if not isinstance(key.start, int):
+                raise FeError(TypeError(f"gather key.start must be int, got {type(key.start).__name__}"))
             return pypto.gather(self, key.start, key.stop)
 
         key = self._normalize_key(key)
@@ -307,7 +312,7 @@ class Tensor:
             res_shape = [res.shape[d] for d in range(res.dim) if bool_shape[d]]
             return pypto.reshape(res, res_shape)
 
-        raise ValueError("tuple key must be int, SymbolicScalar or slice")
+        raise FeError(ValueError("tuple key must be int, SymbolicScalar or slice"))
 
     @source_location
     def __add__(self, other: 'Tensor | int | float') -> 'Tensor':
@@ -356,7 +361,7 @@ class Tensor:
         elif other.dtype == pypto.DT_INT8:
             out_dtype = pypto.DT_INT32
         else:
-            raise RuntimeError("unsupported dtype")
+            raise FeError(RuntimeError("unsupported dtype"))
         return pypto.matmul(self, other, out_dtype)
 
     @source_location
@@ -504,7 +509,7 @@ class Tensor:
         for axis, k in enumerate(key):
             start, stop, step = k.start, k.stop, k.step
             if step not in (1, None):
-                raise ValueError("step must be 1 or None")
+                raise FeError(ValueError("step must be 1 or None"))
             if start is None and stop is None:
                 offsets.append(0)
             elif isinstance(start, (int, SymbolicScalar)):
@@ -516,10 +521,11 @@ class Tensor:
     @staticmethod
     def _add_one_dim(key, value_shape):
         slices_count = sum(1 for k in key if isinstance(k, slice))
-        assert slices_count == len(value_shape), (
-            f"The number of slice in key ({slices_count}) "
-            f"must match the length of input Tensor ({len(value_shape)}). "
-        )
+        if slices_count != len(value_shape):
+            raise FeError(ValueError(
+                f"The number of slice in key ({slices_count}) "
+                f"must match the length of input Tensor ({len(value_shape)}). "
+            ))
         new_shape = []
         idx = 0
         for k in key:
@@ -568,7 +574,7 @@ class Tensor:
         for axis, k in enumerate(key):
             start, stop, step = k.start, k.stop, k.step
             if step != 1 and step is not None:
-                raise ValueError("step must be 1 or None")
+                raise FeError(ValueError("step must be 1 or None"))
             if start is None:
                 start = 0
             if stop is None:
@@ -576,7 +582,7 @@ class Tensor:
             offsets.append(start)
             tshape = stop - start
             if isinstance(tshape, SymbolicScalar):
-                tshape = int(sympy.sympify(str(tshape)))
+                tshape = int(tshape.simplify())
             shapes.append(tshape)  # shape should be concrete
         return offsets, shapes
 
@@ -602,7 +608,7 @@ class Tensor:
         if isinstance(other, Tensor):
             self._base.Move(other._base)
         else:
-            raise TypeError(f"'{type(other).__name__}' type cannot be moved to Tensor")
+            raise FeError(TypeError(f"'{type(other).__name__}' type cannot be moved to Tensor"))
 
     def base(self) -> pypto_impl.Tensor:
         return self._base
@@ -610,6 +616,10 @@ class Tensor:
     @source_location
     def add(self, other: 'Tensor | int | float') -> 'Tensor':
         return pypto.add(self, other)
+
+    @source_location
+    def axpy_(self, x: 'Tensor', alpha: 'int | float' = 1.0) -> 'Tensor':
+        return pypto.axpy_(self, x, alpha)
 
     @source_location
     def sub(self, other: 'Tensor | int | float') -> 'Tensor':
@@ -628,8 +638,9 @@ class Tensor:
         return pypto.prelu(self, weight)
 
     @source_location
-    def div(self, other: 'Tensor | int | float') -> 'Tensor':
-        return pypto.div(self, other)
+    def div(self, other: 'Tensor | int | float',
+            precision_type: DivAlgorithm = DivAlgorithm.HIGH_PRECISION) -> 'Tensor':
+        return pypto.div(self, other, precision_type)
 
     @source_location
     def fmod(self, other: 'Tensor | int | float') -> 'Tensor':
@@ -740,6 +751,16 @@ class Tensor:
         return pypto.topk(self, k, dim, largest)
 
     @source_location
+    def quant_mx(
+        self,
+        quant_dtype: DataType = DataType.DT_FP8E4M3,
+        mode: DequantScaleRoundingMode = DequantScaleRoundingMode.ROUND_DOWN,
+        axis: int = -1,
+        performance_mode: bool = True,
+    ) -> Tuple['Tensor', 'Tensor']:
+        return pypto.quant_mx(self, quant_dtype, mode, axis, performance_mode)
+
+    @source_location
     def sort32(self, index: Optional[int] = None) -> 'Tensor':
         return pypto.sort32(self, index)
 
@@ -748,8 +769,8 @@ class Tensor:
         return pypto.mrgsort(self, mergesize)
 
     @source_location
-    def exp(self) -> 'Tensor':
-        return pypto.exp(self)
+    def exp(self, precision_type: ExpAlgorithm = ExpAlgorithm.INTRINSIC) -> 'Tensor':
+        return pypto.exp(self, precision_type)
 
     @source_location
     def sign(self) -> 'Tensor':
@@ -768,20 +789,20 @@ class Tensor:
         return pypto.expm1(self)
 
     @source_location
-    def log(self) -> 'Tensor':
-        return pypto.log(self)
+    def log(self, precision_type: LogAlgorithm = LogAlgorithm.INTRINSIC) -> 'Tensor':
+        return pypto.log(self, precision_type)
 
     @source_location
     def log1p(self) -> 'Tensor':
         return pypto.log1p(self)
 
     @source_location
-    def log10(self) -> 'Tensor':
-        return pypto.log10(self)
+    def log10(self, precision_type: LogAlgorithm = LogAlgorithm.INTRINSIC) -> 'Tensor':
+        return pypto.log10(self, precision_type)
 
     @source_location
-    def log2(self) -> 'Tensor':
-        return pypto.log2(self)
+    def log2(self, precision_type: LogAlgorithm = LogAlgorithm.INTRINSIC) -> 'Tensor':
+        return pypto.log2(self, precision_type)
 
     @source_location
     def logical_not(self) -> 'Tensor':
@@ -812,12 +833,12 @@ class Tensor:
         return pypto.round(self, decimals)
 
     @source_location
-    def rsqrt(self) -> 'Tensor':
-        return pypto.rsqrt(self)
+    def rsqrt(self, precision_type: RsqrtAlgorithm = RsqrtAlgorithm.INTRINSIC) -> 'Tensor':
+        return pypto.rsqrt(self, precision_type)
 
     @source_location
-    def sqrt(self) -> 'Tensor':
-        return pypto.sqrt(self)
+    def sqrt(self, precision_type: SqrtAlgorithm = SqrtAlgorithm.INTRINSIC) -> 'Tensor':
+        return pypto.sqrt(self, precision_type)
 
     @source_location
     def ceil(self) -> 'Tensor':
@@ -832,12 +853,16 @@ class Tensor:
         return pypto.trunc(self)
 
     @source_location
-    def reciprocal(self) -> 'Tensor':
-        return pypto.reciprocal(self)
+    def reciprocal(self, precision_type: RecipAlgorithm = RecipAlgorithm.INTRINSIC) -> 'Tensor':
+        return pypto.reciprocal(self, precision_type)
 
     @source_location
     def relu(self) -> 'Tensor':
         return pypto.relu(self)
+
+    @source_location
+    def permute(self, perm: List[int]) -> 'Tensor':
+        return pypto.permute(self, perm)
 
     @source_location
     def transpose(self, dim0: int, dim1: int) -> 'Tensor':
@@ -854,7 +879,8 @@ class Tensor:
     @source_location
     def index_add_(self, dim: int, index: 'Tensor', source: 'Tensor', *,
                     alpha: Union[int, float] = 1) -> 'Tensor':
-        return pypto.index_add_(self, dim, index, source, alpha=alpha)
+        pypto.index_add_(self, dim, index, source, alpha=alpha)
+        return self
 
     @source_location
     def index_add(self, dim: int, index: 'Tensor', source: 'Tensor', *,
@@ -942,12 +968,12 @@ class Tensor:
             key = (key,)
 
         if not isinstance(key, tuple):
-            raise RuntimeError("Invalid key type")
+            raise FeError(RuntimeError("Invalid key type"))
 
         if any(k is Ellipsis for k in key):
             ellipsis_count = sum(k is Ellipsis for k in key)
             if ellipsis_count > 1:
-                raise ValueError("Only one ... is supported")
+                raise FeError(ValueError("Only one ... is supported"))
 
             ellipsis_pos = next(i for i, k in enumerate(key) if k is Ellipsis)
             other_len = len(key) - 1
@@ -961,7 +987,8 @@ class Tensor:
             missing_dims = self.dim - len(key)
             key += (slice(None),) * missing_dims
 
-        assert self.dim == len(key), f"rank not match, expect {self.dim}, but got {len(key)}"
+        if self.dim != len(key):
+            raise IndexError(f"rank not match, expect {self.dim}, but got {len(key)}")
         key = self._negative_index_to_positive(key, self.shape)
         return key
 

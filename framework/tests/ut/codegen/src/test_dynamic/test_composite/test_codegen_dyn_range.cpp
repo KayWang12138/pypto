@@ -22,27 +22,15 @@
 #include "tilefwk/data_type.h"
 #include "codegen/codegen.h"
 #include "codegen/symbol_mgr/codegen_symbol.h"
-#include "codegen/cloudnpu/codegen_cloudnpu.h"
-#include "codegen/cloudnpu/codegen_op_cloudnpu.h"
+#include "codegen/npu/cloudnpu/codegen_cloudnpu.h"
+#include "codegen/npu/cloudnpu/codegen_op_cloudnpu.h"
 #include "test_codegen_utils.h"
 #include "test_codegen_common.h"
 
 namespace npu::tile_fwk {
-class TestCodegenDynRange : public ::testing::Test {
+class TestCodegenDynRange : public CodegenTestBase {
 public:
-    static void SetUpTestCase() {}
-
-    static void TearDownTestCase() {}
-
-    void SetUp() override
-    {
-        Program::GetInstance().Reset();
-        config::Reset();
-        config::SetHostOption(COMPILE_STAGE, CS_EXECUTE_GRAPH);
-        config::SetPlatformConfig(KEY_ENABLE_COST_MODEL, false);
-    }
-
-    void TearDown() override {}
+    TestCodegenDynRange() : CodegenTestBase({.compileStage = CS_EXECUTE_GRAPH}) {}
 };
 
 TEST_F(TestCodegenDynRange, TestDynOpRange)
@@ -65,13 +53,7 @@ TEST_F(TestCodegenDynRange, TestDynOpRange)
     SymbolicScalar tileIdx(idx);
     op.SetAttribute(OpAttributeKey::dynScalar, tileIdx);
 
-    std::shared_ptr<SymbolManager> symbolManager = std::make_shared<SymbolManager>();
-    CodeGenCtx ctx;
-    CodeGenCloudNPU cga(ctx);
-    cga.GenAllocForLocalBuffer(op, symbolManager);
-    CodeGenOpCloudNPUCtx opCtx(symbolManager, *function, *function->rootFunc_->programs_[0], op, {});
-    CodeGenOpCloudNPU cop(opCtx);
-    std::string res = cop.GenOpCode();
+    std::string res = GenOpCodeFromOp(*function, op);
     std::string expect =
         R"!!!(TileOp::DynRange<float, 64>((__ubuf__ float*)UB_S0_E0, 64, 1, 2, ((int64_t)(0)));
 )!!!";
@@ -89,7 +71,6 @@ TEST_F(TestCodegenDynRange, RangeTileTensor)
     localTensor->UpdateDynValidShape(dynValidShape);
     std::vector<SymbolicScalar> dynoffset = {0, 0};
     std::vector<int64_t> offset = {0, 0};
-    localTensor->UpdateOffset(TensorOffset(offset, dynoffset));
 
     auto& op = function->AddOperation(Opcode::OP_RANGE, {localTensor}, {localOutTensor});
     Element start(DataType::DT_FP32, 1.0);
@@ -97,13 +78,6 @@ TEST_F(TestCodegenDynRange, RangeTileTensor)
     op.SetAttribute(OP_ATTR_PREFIX + "STEP", start);
     op.SetAttribute(OP_ATTR_PREFIX + "SIZE", start);
 
-    std::shared_ptr<SymbolManager> rangeSymbolManager = std::make_shared<SymbolManager>();
-    CodeGenCtx ctx;
-    CodeGenCloudNPU cga(ctx);
-    cga.GenAllocForLocalBuffer(op, rangeSymbolManager);
-    CodeGenOpCloudNPUCtx opCtx(rangeSymbolManager, *function, *function->rootFunc_->programs_[0], op, {}, true);
-    CodeGenOpCloudNPU cop(opCtx);
-
-    cop.GenOpCode();
+    GenOpCodeFromOp(*function, op, {.isMainBlk = true});
 }
 } // namespace npu::tile_fwk

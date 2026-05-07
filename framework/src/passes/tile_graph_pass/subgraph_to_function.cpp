@@ -23,7 +23,10 @@
 #include "passes/pass_utils/parallel_tool.h"
 #include "passes/pass_check/subgraph_to_function_checker.h"
 #include "passes/pass_utils/graph_utils.h"
+#include "passes/pass_utils/subgraph_utils.h"
+#include "passes/pass_utils/pass_utils.h"
 #include "passes/pass_log/pass_log.h"
+#include "tilefwk/error_code.h"
 
 #undef MODULE_NAME
 #define MODULE_NAME "SubgraphToFunction"
@@ -123,6 +126,22 @@ void SubgraphToFunction::RecordConnectionWithProducers(RecordInfo recordInfo, Su
     }
 }
 
+bool isFromCast(LogicalTensorPtr &operand) {
+    if (!(operand->GetConsumers().empty()) && !(operand->GetProducers().empty())) {
+        std::set<int> boundTensorIDs;
+        for (auto &outOp : operand->GetConsumers()) {
+            boundTensorIDs.insert(outOp->GetSubgraphID());
+        }
+        for (auto &inOp : operand->GetProducers()) {
+            boundTensorIDs.insert(inOp->GetSubgraphID());
+        }
+        if (boundTensorIDs.size() == 1) {
+            return false;
+        }
+    }
+    return true;
+}
+
 void SubgraphToFunction::RecordIncastInfo(Function& function, RecordInfo recordInfo, SubfuncInvokeInfoTy& iter)
 {
     size_t i = recordInfo.i;
@@ -132,9 +151,14 @@ void SubgraphToFunction::RecordIncastInfo(Function& function, RecordInfo recordI
     Offset offset = recordInfo.offset;
     Shape shape = recordInfo.shape;
     auto& op = *nLIST[i][j];
+    if (!isFromCast(iOperand)) {
+        APASS_LOG_INFO_F(Elements::Tensor, "Tensor %d has consumer in same subgraph, cannot be incast.", 
+            iOperand->GetMagic());
+        return;
+    }
     // 这里逻辑可能有一些问题，期望是尽可能不要把inplace语义的COPY_OUT的输出变成leaf的incast
     if (op.HasAttribute(OpAttributeKey::inplaceIdx) && !iOperand->GetProducers().empty()) {
-        if (!iOperand->isSubGraphBoundary) {
+        if (!SubgraphUtils::IsBoundary(iOperand)) {
             return;
         }
     }
@@ -144,7 +168,7 @@ void SubgraphToFunction::RecordIncastInfo(Function& function, RecordInfo recordI
             iOperand, nLIST[i][j]->opmagic);
         return;
     }
-    if (!iOperand->isSubGraphBoundary || iOperand->GetMemoryTypeOriginal() != MemoryType::MEM_DEVICE_DDR) {
+    if (!SubgraphUtils::IsBoundary(iOperand) || iOperand->GetMemoryTypeOriginal() != MemoryType::MEM_DEVICE_DDR) {
         return;
     }
     auto producers = iOperand->GetProducers();
@@ -191,8 +215,14 @@ void SubgraphToFunction::RecordOutcastInfo(Function& function, RecordInfo record
     Offset offset = recordInfo.offset;
     Shape shape = recordInfo.shape;
     auto& op = *nLIST[i][j];
+    if (!isFromCast(oOperand)) {
+        APASS_LOG_INFO_F(Elements::Tensor, "Tensor %d has consumer in same subgraph, cannot be outcast.", 
+            oOperand->GetMagic());
+        return;
+    }
     if (op.HasAttribute(OpAttributeKey::inplaceIdx) &&
-        (op.GetOpcode() != Opcode::OP_COPY_OUT && op.GetOpcode() != Opcode::OP_INDEX_PUT)) {
+        (op.GetOpcode() != Opcode::OP_COPY_OUT && op.GetOpcode() != Opcode::OP_INDEX_PUT &&
+         op.GetOpcode() != Opcode::OP_INDEX_ADD)) {
         return;
     }
     if (function.IsFromOutCast(oOperand) || function.IsFromInCast(oOperand)) {
@@ -204,7 +234,7 @@ void SubgraphToFunction::RecordOutcastInfo(Function& function, RecordInfo record
     // boundary outCasts_
     int refCount = 0;
     typename SubfuncInvokeInfoTy::SuccessorIncastInfoTy relatedIncastList;
-    if (!oOperand->isSubGraphBoundary || oOperand->GetMemoryTypeOriginal() != MemoryType::MEM_DEVICE_DDR) {
+    if (!SubgraphUtils::IsBoundary(oOperand) || oOperand->GetMemoryTypeOriginal() != MemoryType::MEM_DEVICE_DDR) {
         return;
     }
     auto consumers = oOperand->GetConsumers();
@@ -215,7 +245,8 @@ void SubgraphToFunction::RecordOutcastInfo(Function& function, RecordInfo record
         }
         refCount++;
         int connectedTgtOperandIdx = oOperand->magic;
-        relatedIncastList.push_back(typename SubfuncInvokeInfoTy::SuccessorIncastRecTy(
+        relatedIncastList.push_back(
+            typename SubfuncInvokeInfoTy::SuccessorIncastRecTy(
             eSgId, connectedTgtOperandIdx, nullptr, consumer->GetOpMagic()));
     }
     iter.RecordOutcast(
@@ -308,7 +339,7 @@ void SubgraphToFunction::ProcessInputOperands(
         auto offset = iOperand->offset;
         auto shape = iOperand->shape;
         if (tileOp.HasAttribute(OpAttributeKey::inplaceIdx) && !iOperand->GetProducers().empty()) {
-            if (!iOperand->isSubGraphBoundary) {
+            if (!SubgraphUtils::IsBoundary(iOperand)) {
                 continue;
             }
         }
@@ -325,7 +356,7 @@ void SubgraphToFunction::ProcessInputOperands(
             tParamLoc++;
             continue;
         }
-        if (!iOperand->isSubGraphBoundary || iOperand->GetMemoryTypeOriginal() != MemoryType::MEM_DEVICE_DDR) {
+        if (!SubgraphUtils::IsBoundary(iOperand) || iOperand->GetMemoryTypeOriginal() != MemoryType::MEM_DEVICE_DDR) {
             continue;
         }
         pSgParamInfo.AppendIncastParam(
@@ -345,7 +376,8 @@ void SubgraphToFunction::ProcessOutputOperands(
         auto offset = oOperand->offset;
         auto shape = oOperand->shape;
         if (tileOp.HasAttribute(OpAttributeKey::inplaceIdx) &&
-            (tileOp.GetOpcode() != Opcode::OP_COPY_OUT && tileOp.GetOpcode() != Opcode::OP_INDEX_PUT)) {
+            (tileOp.GetOpcode() != Opcode::OP_COPY_OUT && tileOp.GetOpcode() != Opcode::OP_INDEX_PUT) &&
+            tileOp.GetOpcode() != Opcode::OP_INDEX_ADD) {
             return;
         }
         if (IsCopyOut(tileOp.GetOpcode())) {
@@ -359,7 +391,7 @@ void SubgraphToFunction::ProcessOutputOperands(
             tParamLoc++;
             continue;
         }
-        if (!oOperand->isSubGraphBoundary || oOperand->GetMemoryTypeOriginal() != MemoryType::MEM_DEVICE_DDR) {
+        if (!SubgraphUtils::IsBoundary(oOperand) || oOperand->GetMemoryTypeOriginal() != MemoryType::MEM_DEVICE_DDR) {
             continue;
         }
         pSgParamInfo.AppendOutcastParam(
@@ -414,6 +446,23 @@ void SubgraphToFunction::ProcessCopyOutOperand(
     }
 }
 
+void SubgraphToFunction::ProcessSymbolOfReshape(Function& function, Operation& op) const
+{
+    // ddr -> reshape -> ddr -> copyin
+    if (op.GetOpcode() == Opcode::OP_RESHAPE) {
+        if (function.IsFromInCast(op.GetOOperands().front())) {
+            op.GetOOperands().front()->tensor->SetSymbol(op.GetIOperands().front()->tensor->GetSymbol());
+        }
+    }
+    // copyout -> ddr -> reshape -> ddr
+    auto nextOp = *(op.GetOOperands().front()->GetConsumers().begin());
+    if (nextOp != nullptr && nextOp->GetOpcode() == Opcode::OP_RESHAPE) {
+        if (function.IsFromOutCast(op.GetOOperands().front())) {
+            op.GetOOperands().front()->tensor->SetSymbol(nextOp->GetOOperands().front()->tensor->GetSymbol());
+        }
+    }
+}
+
 void SubgraphToFunction::SymbolizeEachFunction(
     Function& rootFunc, std::vector<Function*>& mergedFuncList1, size_t i) const
 {
@@ -426,6 +475,7 @@ void SubgraphToFunction::SymbolizeEachFunction(
     auto& leafFunc = mergedFuncList1[i];
     for (auto& tileOp : leafFunc->Operations()) {
         // symbolic
+        ProcessSymbolOfReshape(rootFunc, tileOp);
         ProcessInputOperands(rootFunc, tileOp, pSgParamInfo, tParamLoc, iParamLoc);
         ProcessOutputOperands(rootFunc, tileOp, pSgParamInfo, tParamLoc, oParamLoc);
     }
@@ -669,13 +719,14 @@ static std::unordered_map<int, GetTensorDataOutcastDesc> GetTensorDataBuildOutca
     }
     for (auto& [index, desc] : getTensorDataOutcastDescDict) {
         (void)index;
-        ASSERT(desc.opListDict[Opcode::OP_ADDS].size() == 1) << "Expect the size is 1 for opListDict, but we get "
-                                                             << desc.opListDict[Opcode::OP_ADDS].size() << "OP_ADDS";
+        ASSERT(OperationErr::OP_SPECIAL_CONSTRAINT, desc.opListDict[Opcode::OP_ADDS].size() == 1)
+            << "Expect the size is 1 for opListDict, but we get " << desc.opListDict[Opcode::OP_ADDS].size() 
+            << "OP_ADDS";
         auto mark = desc.opListDict[Opcode::OP_ADDS][0];
 
         std::shared_ptr<LogicalTensor> addsOpOut = mark->GetOOperands()[0];
         auto copyout = *addsOpOut->GetConsumers().begin();
-        ASSERT(copyout->GetOpcode() == Opcode::OP_COPY_OUT)
+        ASSERT(OperationErr::OP_SPECIAL_CONSTRAINT, copyout->GetOpcode() == Opcode::OP_COPY_OUT)
             << "Expect Opcode OP_COPY_OUT, but we get " << copyout->GetOpcodeStr() << " at operation["
             << copyout->GetOpMagic() << "].";
         ;
@@ -721,6 +772,15 @@ std::shared_ptr<LogicalTensor> GetTensorDataSubgraphTensor(Operation& refOp)
         case Opcode::OP_SHMEM_GET_GM2UB:
             subgraphTensor = refOp.GetOOperands()[0];
             break;
+        case Opcode::OP_SHMEM_PUT_UB2GM:
+            subgraphTensor = refOp.GetIOperands()[1];
+            break;
+        case Opcode::OP_SHMEM_GET:
+            subgraphTensor = refOp.GetIOperands()[1];
+            break;
+        case Opcode::OP_SHMEM_PUT:
+            subgraphTensor = refOp.GetIOperands()[2];
+            break;
         case Opcode::OP_VIEW:
             subgraphTensor = refOp.GetOOperands()[0];
             break;
@@ -746,11 +806,11 @@ static std::vector<GetTensorDataUsageDesc> GetTensorDataBuildUsageDesc(Function&
         }
         // subgraphTensor should be the same subgraph to the copyin.
         std::shared_ptr<LogicalTensor> subgraphTensor = GetTensorDataSubgraphTensor(refOp);
-        ASSERT(subgraphTensor != nullptr)
+        ASSERT(TensorErr::TENSOR_NULL_POINTER, subgraphTensor != nullptr)
             << "Expect operation[" << refOp.GetOpMagic()
             << "] has valid IOperand/OOperand, but we get nullptr. Please check the operation.";
         MemoryType subgraphMemoryType = subgraphTensor->GetMemoryTypeToBe();
-        int subgraphID = subgraphTensor->GetSubgraphID();
+        int subgraphID = CommonUtils::GetTensorSubgraphID(subgraphTensor);
         getTensorDataUsageDescList.emplace_back(&refOp, usageDict, subgraphMemoryType, subgraphID);
     }
     return getTensorDataUsageDescList;
@@ -768,7 +828,7 @@ Status SubgraphToFunction::GetTensorDataDependencyInsert(Function& function)
             if (callList.size() == 0) {
                 APASS_LOG_ERROR_F(
                     Elements::Function,
-                    "Call list is empty in funciton %s. Please check whether the input graph is complete.",
+                    "Call list is empty in function %s. Please check whether the input graph is complete.",
                     function.GetRawName().c_str());
                 return FAILED;
             }
@@ -821,7 +881,6 @@ Status SubgraphToFunction::GetTensorDataDependencyInsert(Function& function)
                 return FAILED;
             }
 
-            copyInTensor->UpdateSubgraphID(subgraphID);
             copyInTensor->SetMemoryTypeBoth(subgraphMemoryType);
             auto& copyInOp = function.AddOperation(Opcode::OP_COPY_IN, {copyInSourceTensor}, {copyInTensor}, false);
             copyInOp.UpdateSubgraphID(subgraphID);

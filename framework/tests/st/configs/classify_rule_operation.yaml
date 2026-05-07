@@ -85,6 +85,11 @@ stest:
 
   operation_vector:
     cases:
+      - TestAxpy/AxpyOperationTest.TestAxpy/0
+      - TestAxpy/AxpyOperationTest.TestAxpy/4
+      - TestAxpy/AxpyOperationTest.TestAxpy/6
+      - TestAxpy/AxpyOperationTest.TestAxpy/12
+      - TestAxpy/AxpyOperationTest.TestAxpy/13   
       - TestRange/RangeOperationTest.TestRange/0
       - TestRange/RangeOperationTest.TestRange/1
       - TestAdd/AddOperationTest.TestAdd/10
@@ -207,6 +212,14 @@ stest:
       - TestTranspose/TransposeOperationTest.TestTranspose/13
       - TestTranspose/TransposeOperationTest.TestTranspose/15
       - TestTranspose/TransposeOperationTest.TestTranspose/18
+      - TestPermute/PermuteOperationTest.TestPermute/0
+      - TestPermute/PermuteOperationTest.TestPermute/1
+      - TestPermute/PermuteOperationTest.TestPermute/2
+      - TestPermute/PermuteOperationTest.TestPermute/3
+      - TestPermute/PermuteOperationTest.TestPermute/7
+      - TestPermute/PermuteOperationTest.TestPermute/8
+      - TestPermute/PermuteOperationTest.TestPermute/9
+      - TestPermute/PermuteOperationTest.TestPermute/10  
       - TestWhere/WhereOperationTest.TestWhere/0
       - TestWhere/WhereOperationTest.TestWhere/8
       - TestWhere/WhereOperationTest.TestWhere/15
@@ -223,6 +236,7 @@ stest:
       - TestIndexPut_/IndexPut_OperationTest.TestIndexPut_/42
       - TestExpand/ExpandOperationTest.TestExpand/4
       - TestExpand/ExpandOperationTest.TestExpand/20
+      - TestExpand/ExpandOperationTest.TestExpand/42
       - TestMinimum/MinimumOperationTest.TestMinimum/12
       - TestMaximum/MaximumOperationTest.TestMaximum/12
       - TestMinimum/MinimumOperationTest.TestMinimum/19
@@ -235,8 +249,10 @@ stest:
       - TestRemainder/RemainderOperationTest.TestRemainder/5
       - TestRemainderS/RemainderSOperationTest.TestRemainderS/3
       - TestRemainderRS/RemainderRSOperationTest.TestRemainderRS/9
-      - TestIndexAdd/IndexAddOperationTest.TestIndexAdd/20
-      - TestIndexAdd/IndexAddOperationTest.TestIndexAdd/21
+      - TestIndexAddUB/IndexAddUBOperationTest.TestIndexAddUB/20
+      - TestIndexAddUB/IndexAddUBOperationTest.TestIndexAddUB/21
+      - TestIndexAdd_/IndexAdd_OperationTest.TestIndexAdd_/19
+      - TestIndexAdd_/IndexAdd_OperationTest.TestIndexAdd_/30
       - TestLogicalAnd/LogicalAndOperationTest.TestLogicalAnd/0
       - TestBitwiseRightShift/BitwiseRightShiftOperationTest.TestBitwiseRightShift/0
       - TestBitwiseLeftShift/BitwiseLeftShiftOperationTest.TestBitwiseLeftShift/0
@@ -251,6 +267,8 @@ stest:
       - TestBitwiseAnds/BitwiseAndsOperationTest.TestBitwiseAnds/2
       - TestBitwiseOrs/BitwiseOrsOperationTest.TestBitwiseOrs/2
       - TestBitwiseXors/BitwiseXorsOperationTest.TestBitwiseXors/2
+      - TestSin/SinOperationTest.TestSin/1
+      - TestCos/CosOperationTest.TestCos/1
       - TestCopySign/CopySignOperationTest.TestCopySign/1
       - TestCopySign/CopySignOperationTest.TestCopySign/4
       - TestCopySign/CopySignOperationTest.TestCopySign/5
@@ -265,6 +283,12 @@ stest:
       - TestSign/SignOperationTest.TestSign/18
       - TestPReLU/PReLUOperationTest.TestPReLU/4
       - TestPReLU/PReLUOperationTest.TestPReLU/16
+      - TestQuantize/QuantizeOperationTest.TestQuantize/0
+      - TestQuantize/QuantizeOperationTest.TestQuantize/4
+      - TestDequantize/DequantizeOperationTest.TestDequantize/0
+      - TestDequantize/DequantizeOperationTest.TestDequantize/4
+      - TestSinh/SinhOperationTest.TestSinh/2
+      - TestCosh/CoshOperationTest.TestCosh/2
       # - GatherInL1Test.gather_in_a_unalign
       # - GatherInL1Test.gather_in_bt_with_valid_shape
       - GatherInUBTest.gather_in_a_

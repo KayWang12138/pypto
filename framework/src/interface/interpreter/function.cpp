@@ -15,7 +15,7 @@
 
 #include "interface/interpreter/function.h"
 #include "interface/interpreter/flow_verifier.h"
-#include "tilefwk/pypto_fwk_log.h"
+#include "interface/interpreter/interpreter_log.h"
 #include "interface/configs/config_manager.h"
 #include "interface/utils/file_utils.h"
 
@@ -67,12 +67,12 @@ void FunctionInterpreter::DumpFunctionHead(Function* func)
     auto outcast = func->DumpSSAOutcast(indent);
     auto attr = func->DumpSSAAttribute(indent);
     auto symbol = DumpSymbolDict();
-    VERIFY_LOGI("%s Function %s\n", execDumpFuncKey.c_str(), head.c_str());
-    VERIFY_LOGI("%s\n", raw.c_str());
-    VERIFY_LOGI("%s\n", incast.c_str());
-    VERIFY_LOGI("%s\n", outcast.c_str());
-    VERIFY_LOGI("%s\n", attr.c_str());
-    VERIFY_LOGI("%s\n", symbol.c_str());
+    INTERPRETER_LOGI("%s Function %s\n", execDumpFuncKey.c_str(), head.c_str());
+    INTERPRETER_LOGI("%s\n", raw.c_str());
+    INTERPRETER_LOGI("%s\n", incast.c_str());
+    INTERPRETER_LOGI("%s\n", outcast.c_str());
+    INTERPRETER_LOGI("%s\n", attr.c_str());
+    INTERPRETER_LOGI("%s\n", symbol.c_str());
     if (!execDumpFile) {
         return;
     }
@@ -92,7 +92,7 @@ void FunctionInterpreter::DumpOperation(Operation* op)
         return;
     int indent = GetFrameSize();
     auto dump = op->Dump();
-    VERIFY_LOGI("%s Operation: %s", execDumpFuncKey.c_str(), dump.c_str());
+    INTERPRETER_LOGI("%s Operation: %s", execDumpFuncKey.c_str(), dump.c_str());
     if (execDumpFile) {
         std::string tensorId = GetDumpTensorId(GetFrameCurr(), op);
         std::string operationId = GetDumpOperationId(GetFrameCurr(), op);
@@ -188,7 +188,7 @@ void FunctionInterpreter::DumpBinary(
     } else {
         size_t res = fwrite(data + offset[0] * dtypeSize, dtypeSize, shape[0], fdata);
         if (res != static_cast<size_t>(shape[0])) {
-            VERIFY_LOGW("Write size is not equal actual size.");
+            INTERPRETER_LOGW("Write size is not equal actual size.");
         }
     }
 }
@@ -210,7 +210,7 @@ void FunctionInterpreter::DumpTensorBinary(
     std::string dumpTensorFilePath = execDumpDir + "/" + dumpTensorFileName;
     auto rawShape = dataView->GetData()->GetShape();
     if (std::any_of(rawShape.begin(), rawShape.end(), [](const int64_t& val) { return val <= 0; })) {
-        VERIFY_LOGW("The tensor size is not greater than 0.");
+        INTERPRETER_LOGW("The tensor size is not greater than 0.");
         return;
     }
     auto validShape = dataView->GetValidShape();
@@ -313,17 +313,17 @@ void FunctionInterpreter::DumpTensorList(
 void FunctionInterpreter::FillOperationBasicInfo(Operation* op, FunctionFrame* frame, std::vector<std::string>& opInfo)
 {
     opInfo[toIndex(OpInfoCsvHeader::rootFuncID)] = std::to_string(frame->rootFuncIndex);
-    opInfo[toIndex(OpInfoCsvHeader::rootFuncHash)] = "'" + std::to_string(frame->rootFuncHash);
+    opInfo[toIndex(OpInfoCsvHeader::rootFuncHash)] = std::to_string(frame->rootFuncHash) + "'";
     opInfo[toIndex(OpInfoCsvHeader::rootFuncType)] = frame->rootFuncType;
     opInfo[toIndex(OpInfoCsvHeader::rootFuncGraphType)] = frame->rootFuncGraphType;
     opInfo[toIndex(OpInfoCsvHeader::funcID)] = std::to_string(frame->funcIndex);
-    opInfo[toIndex(OpInfoCsvHeader::funcHash)] = "'" + std::to_string(frame->funcHash);
+    opInfo[toIndex(OpInfoCsvHeader::funcHash)] = std::to_string(frame->funcHash) + "'";
     opInfo[toIndex(OpInfoCsvHeader::funcType)] = frame->funcType;
     opInfo[toIndex(OpInfoCsvHeader::funcGraphType)] = frame->funcGraphType;
     opInfo[toIndex(OpInfoCsvHeader::passName)] = execDumpPassName;
     opInfo[toIndex(OpInfoCsvHeader::pathFuncMagicName)] = execDumpFunPath;
     opInfo[toIndex(OpInfoCsvHeader::pathFuncMagic)] = std::to_string(pathFuncMagic);
-    opInfo[toIndex(OpInfoCsvHeader::pathFuncHash)] = "'" + std::to_string(pathFuncHash);
+    opInfo[toIndex(OpInfoCsvHeader::pathFuncHash)] = std::to_string(pathFuncHash) + "'";
     opInfo[toIndex(OpInfoCsvHeader::loopInfo)] = GetLoopSymbolString();
     opInfo[toIndex(OpInfoCsvHeader::opCode)] = op->GetOpcodeStr();
     opInfo[toIndex(OpInfoCsvHeader::opMagic)] = std::to_string(op->GetOpMagic());
@@ -418,11 +418,11 @@ void FunctionInterpreter::FillOperationOutputInfo(
             opInfo[toIndex(OpInfoCsvHeader::outputDtype)] = DataType2String(dataView->GetDataType(), true);
             opInfo[toIndex(OpInfoCsvHeader::tensorOffset)] = ShapeToString(dataView->GetOffset());
             opInfo[toIndex(OpInfoCsvHeader::outputTensor)] = dumpTensorFileName;
-            opInfo[toIndex(OpInfoCsvHeader::timeStamp)] = std::to_string(ts);
+            opInfo[toIndex(OpInfoCsvHeader::timeStamp)] = std::to_string(ts) + "'";
             opInfo[toIndex(OpInfoCsvHeader::outputSymbol)] = op->GetOOperands()[k]->GetRawTensor()->GetSymbol();
             opInfo[toIndex(OpInfoCsvHeader::outputFormat)] =
                 std::to_string(op->GetOOperands()[k]->GetRawTensor()->format);
-            opInfo[toIndex(OpInfoCsvHeader::ioflag)] = "output" + std::to_string(k);
+            opInfo[toIndex(OpInfoCsvHeader::ioflag)] = "o" + std::to_string(k);
 
             if (op->GetOpcode() == Opcode::OP_COPY_OUT) {
                 auto itTmp = frame->callopDataViewTensorDict.find(dataView);
@@ -485,7 +485,7 @@ void FunctionInterpreter::DumpPassTensorDiff(
         }
         for (size_t k = 0; k < tensorList.size(); k++) {
             auto tensor = tensorList[k];
-            VERIFY_LOGI(
+            INTERPRETER_LOGI(
                 "Dump tensor diff: %zu/%zu %s %s", k, tensorList.size(), tensor->Dump().c_str(),
                 tensor->GetRawTensor()->Dump().c_str());
             auto executionFileName = tensorDictExecution.find(tensor)->second;

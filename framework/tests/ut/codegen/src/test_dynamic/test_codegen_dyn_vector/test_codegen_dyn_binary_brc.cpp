@@ -16,35 +16,21 @@
 #include "gtest/gtest.h"
 
 #include "interface/tensor/logical_tensor.h"
-#include "tilefwk/tilefwk.h"
-#include "interface/inner/tilefwk.h"
 #include "interface/configs/config_manager.h"
 #include "interface/operation/operation.h"
 #include "tilefwk/data_type.h"
 #include "codegen/codegen.h"
 #include "codegen/symbol_mgr/codegen_symbol.h"
-#include "codegen/cloudnpu/codegen_cloudnpu.h"
-#include "codegen/cloudnpu/codegen_op_cloudnpu.h"
+#include "codegen/npu/cloudnpu/codegen_cloudnpu.h"
+#include "codegen/npu/cloudnpu/codegen_op_cloudnpu.h"
 #include "test_codegen_common.h"
 #include "test_codegen_utils.h"
 
 namespace npu::tile_fwk {
 
-class TestCodegenDynBinaryBrc : public ::testing::Test {
+class TestCodegenDynBinaryBrc : public CodegenTestBase {
 public:
-    static void SetUpTestCase() {}
-
-    static void TearDownTestCase() {}
-
-    void SetUp() override
-    {
-        Program::GetInstance().Reset();
-        config::Reset();
-        config::SetHostOption(COMPILE_STAGE, CS_EXECUTE_GRAPH);
-        config::SetPlatformConfig(KEY_ENABLE_COST_MODEL, false);
-    }
-
-    void TearDown() override {}
+    TestCodegenDynBinaryBrc() : CodegenTestBase({.compileStage = CS_EXECUTE_GRAPH}) {}
 };
 
 // mul (32, 512), (32, 1)
@@ -89,12 +75,7 @@ TEST_F(TestCodegenDynBinaryBrc, TestAddBrcTileTensorDynamic)
         for (auto& op : subFunc.second->Operations()) {
             if (op.GetOpcode() == Opcode::OP_ADD) {
                 op.SetAttribute(OpAttributeKey::brcbIdx, 1);
-                std::shared_ptr<SymbolManager> symbolManager = std::make_shared<SymbolManager>();
-                CodeGenCtx ctx;
-                CodeGenCloudNPU cga(ctx);
-                cga.GenAllocForLocalBuffer(op, symbolManager);
-                CodeGenOpCloudNPU cop({symbolManager, *function, *function->rootFunc_->programs_[0], op, {}});
-                std::string res = cop.GenOpCode();
+                std::string res = GenOpCodeFromOp(*function, op);
                 std::string expect =
                     R"!!!(TAdd<LastUse3Dim<0, 1, 1>, TileOp::BroadcastOperand::LEFT_OPERAND>(ubTensor_0, ubTensor_0, ubTensor_2);
 )!!!";

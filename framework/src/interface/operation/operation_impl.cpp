@@ -19,6 +19,7 @@
 #include "tilefwk/data_type.h"
 #include "interface/operation/operation.h"
 #include "interface/operation/vector/unary.h"
+#include "interface/utils/error.h"
 #include "distributed/distributed_expand.h"
 #include "interface/function/function.h"
 #include "tilefwk/symbolic_scalar.h"
@@ -83,7 +84,8 @@ void TiledAssemble(
     Function& function, const TileShape& tileShape, const std::shared_ptr<LogicalTensor>& operand,
     const std::shared_ptr<LogicalTensor>& result, std::shared_ptr<AssembleOpAttribute> attr)
 {
-    assert(operand->shape.size() == operand->offset.size());
+    ASSERT(VectorErrorCode::ERR_PARAM_INVALID, operand->shape.size() == operand->offset.size())
+        << "operand's shape size and offset size should be equal";
 
     TileInfo tileInfo(result->shape.size(), result->offset.size());
     auto input = Input{operand, tileInfo};
@@ -236,7 +238,8 @@ Tensor Compact(const Tensor& operand)
 {
     DECLARE_TRACER();
 
-    assert(operand.GetShape().size() == operand.GetStorage()->offset.size());
+    ASSERT(VectorErrorCode::ERR_PARAM_INVALID, operand.GetShape().size() == operand.GetStorage()->offset.size())
+        << "operand's shape size and offset size should be equal";
     Tensor result(operand.GetStorage()->tensor->datatype, {operand.GetShape()[0], 1});
     Tensor workspace(operand.GetStorage()->tensor->datatype, {operand.GetShape()[0], NUM_VALUE_8});
     Program::GetInstance().AddOperation(Opcode::OP_COMPACT, {operand.GetStorage()}, {result.GetStorage()});
@@ -402,13 +405,14 @@ void TiledInnerRegisterCopy(
 void TiledInnerCompact(
     Function& function, const TileShape& tileShape, const LogicalTensorPtr& operand, const LogicalTensorPtr& result)
 {
-    assert(operand->shape.size() == operand->offset.size());
+    ASSERT(VectorErrorCode::ERR_PARAM_INVALID, operand->shape.size() == operand->offset.size())
+        << "operand's shape size and offset size should be equal";
     auto workspace = std::make_shared<LogicalTensor>(
         function, operand->tensor->datatype, std::vector<int64_t>{operand->shape[0], NUM_VALUE_8});
 
     // 目前只支持2维操作
     if (operand->shape.size() != 2) {
-        assert(false && "unsupported dimension");
+        ASSERT(VectorErrorCode::ERR_PARAM_SHAPE_DIM_UNSUPPORTED, false) << "unsupported dimension";
     }
     auto& vecTile = tileShape.GetVecTile();
     int tileShape1 = std::min(operand->shape[1], vecTile[1]);
@@ -683,13 +687,13 @@ int NextPowerofTwo(int n)
 std::tuple<Tensor, Tensor> Sort(const Tensor& x, bool descending)
 {
     DECLARE_TRACER();
-    FUNCTION_ASSERT(x.GetShape().size() == NUM2);
-    FUNCTION_ASSERT(x.GetShape()[0] == 1);
+    FE_ASSERT(x.GetShape().size() == NUM2);
+    FE_ASSERT(x.GetShape()[0] == 1);
     auto& vecTile = TileShape::Current().GetVecTile();
-    FUNCTION_ASSERT(vecTile.size() == NUM2);
-    FUNCTION_ASSERT(vecTile[0] == 1);
+    FE_ASSERT(vecTile.size() == NUM2);
+    FE_ASSERT(vecTile[0] == 1);
     auto tileSize = vecTile[1];
-    FUNCTION_ASSERT(IsPowerOfTwo(tileSize));
+    FE_ASSERT(IsPowerOfTwo(tileSize));
     int length = x.GetShape()[1];
     int padLength = NextPowerofTwo(length);
 
@@ -742,13 +746,13 @@ std::tuple<Tensor, Tensor> Sort(const Tensor& x, bool descending)
 std::tuple<Tensor, Tensor> SortWithIndex(const Tensor& x, const Tensor& idx, bool descending)
 {
     DECLARE_TRACER();
-    FUNCTION_ASSERT(x.GetShape().size() == NUM2);
-    FUNCTION_ASSERT(x.GetShape()[0] == 1);
+    FE_ASSERT(x.GetShape().size() == NUM2);
+    FE_ASSERT(x.GetShape()[0] == 1);
     auto& vecTile = TileShape::Current().GetVecTile();
-    FUNCTION_ASSERT(vecTile.size() == NUM2);
-    FUNCTION_ASSERT(vecTile[0] == 1);
+    FE_ASSERT(vecTile.size() == NUM2);
+    FE_ASSERT(vecTile[0] == 1);
     auto tileSize = vecTile[1];
-    FUNCTION_ASSERT(IsPowerOfTwo(tileSize));
+    FE_ASSERT(IsPowerOfTwo(tileSize));
     int length = x.GetShape()[1];
     int padLength = NextPowerofTwo(length);
     int nTile = padLength / tileSize;
@@ -884,12 +888,12 @@ bool isInteger(float num)
 
 void FactorCheck(const Tensor& operand, const float factor)
 {
-    FUNCTION_ASSERT(factor > 0) << "factor must > 0";
+    FE_ASSERT(factor > 0) << "factor must > 0";
     if (factor > 1) {
-        FUNCTION_ASSERT(isInteger(factor)) << "factor must be int";
+        FE_ASSERT(isInteger(factor)) << "factor must be int";
     } else if (factor < 1) {
         auto lastDim = operand.GetShape()[operand.GetShape().size() - 1];
-        FUNCTION_ASSERT(isInteger(lastDim * factor))
+        FE_ASSERT(isInteger(lastDim * factor))
             << "lastDim * factor must be int,  lastDim = " << lastDim << ", factor = " << factor;
     }
 }
@@ -947,7 +951,8 @@ void TiledViewTypeOperation(
 void TiledViewTypeOperation(
     Function& function, const TileShape& tileShape, const LogicalTensorPtr& operand, const LogicalTensorPtr& result)
 {
-    assert(operand->shape.size() == operand->offset.size());
+    ASSERT(VectorErrorCode::ERR_PARAM_INVALID, operand->shape.size() == operand->offset.size())
+        << "operand's shape size and offset size should be equal";
 
     TileInfo operandTileInfo(operand->shape.size(), operand->offset.size());
     auto input = Input{operand, operandTileInfo};
@@ -957,7 +962,7 @@ void TiledViewTypeOperation(
     if (factor < 1) {
         auto vecTile = tileShape.GetVecTile();
         auto lastDim = vecTile[vecTile.size() - 1];
-        FUNCTION_ASSERT(isInteger(lastDim * factor)) << "TileShape lastDim * factor must be int";
+        FE_ASSERT(isInteger(lastDim * factor)) << "TileShape lastDim * factor must be int";
     }
     TiledViewTypeOperation(function, tileShape, 0, input, factor, result);
 }
@@ -1407,9 +1412,6 @@ Tensor Reshape(
 {
     DECLARE_TRACERX(lr);
     CHECK_OP(!inplace) << "The 'inplace' parameter must be false !!!";
-    if (operand.GetShape() == dstshape) {
-        return operand;
-    }
     std::vector<SymbolicScalar> validShapeDefault = validShape;
     auto newShape = CheckAndInferShape(operand.GetShape(), dstshape);
     if (validShape.empty()) {
@@ -1732,9 +1734,9 @@ void ExpandOperationInto(
             break;
         }
         default: {
-            FUNCTION_LOGE_E(
-                FError::NOT_EXIST, "Unsupported opcode %d, opmagic is %d", static_cast<int>(opCode), op.GetOpMagic());
-            FUNCTION_ASSERT(false) << "Unsupported opcode " << static_cast<int>(opCode) << ", opmagic is "
+            FE_LOGE(
+                FeError::NOT_EXIST, "Unsupported opcode %d, opmagic is %d", static_cast<int>(opCode), op.GetOpMagic());
+            FE_ASSERT(false) << "Unsupported opcode " << static_cast<int>(opCode) << ", opmagic is "
                                    << op.GetOpMagic();
         }
     }

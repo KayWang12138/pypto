@@ -38,8 +38,8 @@
 #include "interface/compiler_monitor/monitor_stage_scope.h"
 #include <dlfcn.h>
 #include "tilefwk/pypto_fwk_log.h"
-#include "machine/utils/machine_error.h"
-
+#include "tilefwk/error_code.h"
+#include "mix_info.h"
 using namespace npu::tile_fwk::dynamic;
 namespace npu::tile_fwk {
 
@@ -158,7 +158,8 @@ static void FindAllExpression(FunctionCache& cache, Linker& linker, Function* fu
             }
         }
     } else {
-        ASSERT(false) << "Impossible function type: " << GetFunctionTypeNameDict().Find(func->GetFunctionType());
+        ASSERT(DevCommonErr::PARAM_INVALID, false)
+            << "Impossible function type: " << GetFunctionTypeNameDict().Find(func->GetFunctionType());
     }
 }
 
@@ -222,7 +223,7 @@ static void ReplaceSlotIndex(
     for (Function* devRoot : attr->funcGroup.devRootList) {
         Function* devTile = attr->rootTileDict[devRoot];
 
-        ASSERT(inoutLink.ioslotDict.count(devTile))
+        ASSERT(DevCommonErr::PARAM_CHECK_FAILED, inoutLink.ioslotDict.count(devTile))
             << "Function pointer " << devTile->GetMagicName() << " not found in ioslotDict";
         IncastOutcastSlot& ioslot = inoutLink.ioslotDict[devTile];
 
@@ -284,7 +285,7 @@ static void SimplifySlots(DyndevFunctionAttribute* attr, std::unordered_map<int,
     for (Function* devRoot : attr->funcGroup.devRootList) {
         Function* devTile = attr->rootTileDict[devRoot];
 
-        ASSERT(inoutLink.ioslotDict.count(devTile))
+        ASSERT(DevCommonErr::PARAM_CHECK_FAILED, inoutLink.ioslotDict.count(devTile))
             << "Function pointer " << devTile->GetMagicName() << " not found in ioslotDict";
         IncastOutcastSlot& ioslot = inoutLink.ioslotDict[devTile];
 
@@ -311,11 +312,11 @@ static void SimplifySlots(DyndevFunctionAttribute* attr, std::unordered_map<int,
     for (Function* devRoot : attr->funcGroup.devRootList) {
         Function* devTile = attr->rootTileDict[devRoot];
 
-        ASSERT(inoutLink.ioslotDict.count(devTile))
+        ASSERT(DevCommonErr::PARAM_CHECK_FAILED, inoutLink.ioslotDict.count(devTile))
             << "Function pointer " << devTile->GetMagicName() << " not found in ioslotDict";
         IncastOutcastSlot& ioslot = inoutLink.ioslotDict[devTile];
         for (auto& outcastSlots : ioslot.outcastSlot) {
-            ASSERT(!outcastSlots.empty()) << "devTile: " << devTile->GetMagicName();
+            ASSERT(DevCommonErr::PARAM_CHECK_FAILED, !outcastSlots.empty()) << "devTile: " << devTile->GetMagicName();
             bool outcastSlotFound = false;
             for (auto& outcastSlot : outcastSlots) {
                 outcastSlotFound = outcastSlotFound || slotUsed.count(outcastSlot);
@@ -336,7 +337,7 @@ static void BuildSlotRootIncastOutcastDict(DyndevFunctionAttribute* attr)
         Function* devRoot = attr->funcGroup.devRootList[idx];
         Function* devTile = attr->rootTileDict[devRoot];
 
-        ASSERT(inoutLink.ioslotDict.count(devTile))
+        ASSERT(DevCommonErr::PARAM_CHECK_FAILED, inoutLink.ioslotDict.count(devTile))
             << "Function pointer " << devTile->GetMagicName() << " not found in ioslotDict";
         IncastOutcastSlot& ioslot = inoutLink.ioslotDict[devTile];
         for (size_t incastIndex = 0; incastIndex < ioslot.incastSlot.size(); incastIndex++) {
@@ -432,8 +433,8 @@ void GetReadyOnHostTensorsSet(std::unordered_set<int>& readyOnHostTensorsSet)
                 break;
             }
         }
-        ASSERT(i < inputSize) << "Tensor " << tensorStr
-                              << " not found in input list, please check [ready_on_host_tensors] config.";
+        ASSERT(DevCommonErr::PARAM_CHECK_FAILED, i < inputSize)
+            << "Tensor " << tensorStr << " not found in input list, please check [ready_on_host_tensors] config.";
     }
 }
 static bool NeedCrossDie(Function* func, bool isLoop = false)
@@ -452,6 +453,8 @@ static void BuildControlFlow(
     std::ostringstream& expressionOss, std::ostringstream& exprHeaderOss, int indent, const std::string& expName,
     std::vector<std::string>& exprSrcFiles, ValDependTensorMeta& valDependTensorMeta)
 {
+    bool supportParallelLoop =
+        (config::GetRuntimeOption<uint16_t>(DEVICE_SCHED_PARALLELISM) > 1); // enable by the parallism option
     auto funcType = func->GetFunctionType();
     if (funcType == FunctionType::DYNAMIC) {
         controlFlowOss << "#define __TILE_FWK_AICPU__ 1\n"
@@ -535,14 +538,14 @@ static void BuildControlFlow(
                         if (node->branchNodeList[0] != nullptr) {
                             condBuilder(node->branchNodeList[0], condIndent);
                         } else {
-                            ASSERT(false) << "Both conds is nullptr!";
+                            ASSERT(DevCommonErr::PARAM_CHECK_FAILED, false) << "Both conds is nullptr!";
                         }
                     }
                 }
             };
         controlFlowOss << std::setw(indent * TABSIZE) << ' ' << "// hash=" << func->GetFunctionHash() << "\n";
         auto attr = func->GetDynloopAttribute();
-        ASSERT(attr != nullptr) << "attr is nullptr!";
+        ASSERT(DevCommonErr::PARAM_CHECK_FAILED, attr != nullptr) << "attr is nullptr!";
         if (attr->submitBeforeLoop) {
             controlFlowOss << std::setw(indent * TABSIZE) << ' '
                            << "RUNTIME_RootStitch(RUNTIME_FUNCKEY_LOOP_BARRIER); // force submit before LOOP \n";
@@ -555,6 +558,7 @@ static void BuildControlFlow(
                 controlFlowOss << std::setw(indent * TABSIZE) << ' '
                                << "RUNTIME_RootStitch(RUNTIME_FUNCKEY_CACHESTOP); // force stop cache due to value "
                                   "depend in control\n";
+                valDependTensorMeta.disableCtrlFlowCache = true;
             }
         }
 
@@ -566,6 +570,10 @@ static void BuildControlFlow(
                        << iterEnd << ", " << iterStep << ") {\n";
         controlFlowOss << std::setw((indent + 1) * TABSIZE) << ' ' << "VALUE_" << attr->iterSymbolName << " = "
                        << iterVar << ";\n";
+        if (attr->parallel && supportParallelLoop) {
+            controlFlowOss << std::setw((indent + 1) * TABSIZE) << ' '
+                           << "RUNTIME_RootStitch(RUNTIME_FUNCKEY_PARALLEL_FOR_BEGIN); // entry parallel for loop \n";
+        }
         if (NeedCrossDie(func, true)) {
             controlFlowOss << std::setw((indent + 1) * TABSIZE) << ' ' << "RUNTIME_CalcLoopDieId("
                            << attr->iterSymbolName << ", " << iterVar << ", " << iterEnd << ", " << iterStep << ","
@@ -581,12 +589,16 @@ static void BuildControlFlow(
             pathRootList.push_back(attr->pathList[i].root);
         }
         std::sort(pathRootList.begin(), pathRootList.end());
-        ASSERT(calleeList == pathRootList)
+        ASSERT(DevCommonErr::PARAM_CHECK_FAILED, calleeList == pathRootList)
             << "calleeList size:" << calleeList.size() << " pathRootList size:" << pathRootList.size();
         condBuilder(pathNode, indent + 1);
         if (NeedCrossDie(func, true)) {
             controlFlowOss << std::setw((indent + 1) * TABSIZE) << ' ' << "RUNTIME_ClearLoopDieId("
                            << attr->iterSymbolName << ");\n";
+        }
+        if (attr->parallel && supportParallelLoop) {
+            controlFlowOss << std::setw((indent + 1) * TABSIZE) << ' '
+                           << "RUNTIME_RootStitch(RUNTIME_FUNCKEY_PARALLEL_FOR_END); // leave parallel for loop \n";
         }
         controlFlowOss << std::setw(indent * TABSIZE) << ' ' << "}\n";
     } else if (func->IsFunctionTypeAndGraphType(FunctionType::DYNAMIC_LOOP_PATH, GraphType::TENSOR_GRAPH)) {
@@ -617,7 +629,7 @@ static void BuildControlFlow(
         }
 
         auto currDynFuncAttr = Program::GetInstance().GetCurrentDynamicFunction()->GetDyndevAttribute();
-        ASSERT(rootTileDict.count(func)) << "Function not found in rootTileDict";
+        ASSERT(DevCommonErr::PARAM_CHECK_FAILED, rootTileDict.count(func)) << "Function not found in rootTileDict";
         Function* tile = rootTileDict[func];
         if (currDynFuncAttr->valueDependDescDict.count(tile)) {
             auto valueDependDesc = currDynFuncAttr->valueDependDescDict[tile];
@@ -625,6 +637,7 @@ static void BuildControlFlow(
                 controlFlowOss << std::setw(indent * TABSIZE) << ' '
                                << "RUNTIME_RootStitch(RUNTIME_FUNCKEY_CACHESTOP); // force stop cache due to value "
                                   "depend in data\n";
+                valDependTensorMeta.disableCtrlFlowCache = true;
             }
         }
 
@@ -643,7 +656,8 @@ static void BuildControlFlow(
         }
         controlFlowOss << std::setw(indent * TABSIZE) << ' ' << "RUNTIME_RootStitch(" << devRootKey << "ULL);\n";
     } else {
-        ASSERT(false) << "Impossible function type: " << GetFunctionTypeNameDict().Find(funcType);
+        ASSERT(DevCommonErr::PARAM_CHECK_FAILED, false)
+            << "Impossible function type: " << GetFunctionTypeNameDict().Find(funcType);
     }
 }
 
@@ -697,7 +711,19 @@ static void FillL2PrefetchInfo(std::shared_ptr<DyndevFunctionAttribute> attr)
     return;
 }
 
-static void SetDyndevProgBinary(Function* function)
+static void FindLiteNPUKernel(const std::map<uint64_t, Function*>& leafDict, std::string& kernelPath)
+{
+    for (auto& [hash, leaf] : leafDict) {
+        (void)hash;
+        auto leafAttr = leaf->GetLeafFuncAttribute();
+        if (leafAttr && !leafAttr->binPath.empty()) {
+            kernelPath = leafAttr->binPath;
+            return;
+        }
+    }
+}
+
+static void SetDyndevProgBinary(Function* function, bool disableCtrlFlowCache)
 {
     if (function == nullptr || function->GetDyndevAttribute() == nullptr) {
         return;
@@ -709,6 +735,7 @@ static void SetDyndevProgBinary(Function* function)
 
     dynamic::DevAscendProgram* devProg = reinterpret_cast<dynamic::DevAscendProgram*>(&dynAttrPtr->devProgBinary[0]);
     dynamic::EncodeDevAscendProgram(function, size, devProg);
+    devProg->disableCtrlFlowCache = disableCtrlFlowCache ? 1 : 0;
 
     if (config::GetPassDefaultConfig(npu::tile_fwk::KEY_PRINT_PROGRAM, false)) {
         devProg->DumpFile(config::LogTopFolder() + "/program.tifwkbintxt");
@@ -769,7 +796,7 @@ static void ConstructCodeInfo(
     int leafIndex = 1;
     for (auto& [hash, leaf] : leafDict) {
         auto leafFuncAttr = leaf->GetLeafFuncAttribute();
-        ASSERT(leafFuncAttr != nullptr) << "leafFuncAttr is null\n";
+        ASSERT(DevCommonErr::PARAM_CHECK_FAILED, leafFuncAttr != nullptr) << "leafFuncAttr is null\n";
         encodeDevAscendFunctionParam.calleeHashIndexDict[hash] = leafIndex;
         attr->devLeafIndex2Hash[leafIndex] = hash;
         MACHINE_LOGI("Dyndev.codegen: [ %d ] hash= %lu binpath= %s", leafIndex, hash, leafFuncAttr->binPath.c_str());
@@ -847,7 +874,7 @@ static bool IsNeedDumpAicpuKernel(const std::string& inputFile)
         // force dump, default is true
         return true;
     }
-    // not force dump
+    // not force dumprootTileDict
     if (npu::tile_fwk::FileExist(inputFile)) {
         return false;
     }
@@ -856,19 +883,23 @@ static bool IsNeedDumpAicpuKernel(const std::string& inputFile)
 static void OverCallOpMaxNum(Function* devRoot, DevAscendFunction* funcBin)
 {
     uint32_t CallOpSize = funcBin->GetOperationSize();
-    uint32_t CallOpmaxSize = config::GetRuntimeOption<uint32_t>(STITCH_FUNCTION_SIZE);
+    uint32_t CallOpmaxSize = MAX_STITCH_LEAFFUNC_NUM;
     auto funcMagicName = devRoot->GetRawName() + "_" + std::to_string(devRoot->GetFuncMagic());
     MACHINE_LOGE(
         DevCommonErr::PARAM_CHECK_FAILED,
         "the loop function operation: %s size is %u hitting the maxinum single-loop-operation limit:%u.\n",
         funcMagicName.c_str(), CallOpSize, CallOpmaxSize);
-    ASSERT(CallOpSize <= CallOpmaxSize) << " loopFunction: " << funcMagicName << " CallOpSize: " << CallOpSize
-                                        << " CallOpmaxSize: " << CallOpmaxSize;
+    ASSERT(DevCommonErr::PARAM_CHECK_FAILED, CallOpSize <= CallOpmaxSize)
+        << " loopFunction: " << funcMagicName << " CallOpSize: " << CallOpSize << " CallOpmaxSize: " << CallOpmaxSize;
 }
 
 static void CompileControlFlow(
     const std::string& aicpuDirPath, const std::string& funcName, const std::string& constrolFlow, std::string express)
 {
+    if (config::GetRuntimeOption<int64_t>(CFG_RUN_MODE) == CFG_RUN_MODE_SIM &&
+        (config::GetSimConfig(KEY_ACCURACY_LEVEL, 2) == 1)) {
+        return;
+    }
     if (std::getenv("ENABLE_CTRLFLOW_COMPILE") == nullptr) {
         return;
     }
@@ -887,20 +918,35 @@ static void CompileControlFlow(
         return;
     }
 #ifdef BUILD_WITH_CANN
-    if (config::GetRuntimeOption<int64_t>(CFG_RUN_MODE) != CFG_RUN_MODE_SIM) {
-        if (std::getenv("ASCEND_HOME_PATH") != nullptr) {
-            ASSERT(TileFwkAiCpuCompile(funcName, aicpuDirPath)) << ": PyPto Control Flow compile failed";
-        }
+    if (std::getenv("ASCEND_HOME_PATH") != nullptr) {
+        ASSERT(HostBackEndErr::GEN_DYNAMIC_OP_FAILED, TileFwkAiCpuCompile(funcName, aicpuDirPath))
+            << ": PyPto Control Flow compile failed";
     }
 #endif
 }
 
+int GetRootFuncNum(std::shared_ptr<DyndevFunctionAttribute> attr)
+{
+    bool enableVF = Platform::Instance().GetSoc().GetNPUArch() == NPUArch::DAV_3510 &&
+                    config::GetPassGlobalConfig(KEY_ENABLE_VF, false);
+    int rootFuncNum = static_cast<int>(attr->funcGroup.devRootList.size());
+    if (enableVF) {
+        rootFuncNum *= 2; // codegen with main block and tail block
+    }
+    return rootFuncNum;
+}
+
 static void CompileDyndevFunction(Function* function, FunctionCache& cache, [[maybe_unused]] const std::string& ccePath)
 {
-    ASSERT((PassManager::Instance().RunPass(Program::GetInstance(), *function, "ExecuteGraph") == SUCCESS));
-
+    ASSERT(
+        HostBackEndErr::RUN_PASS_FAILED,
+        (PassManager::Instance().RunPass(Program::GetInstance(), *function, "ExecuteGraph") == SUCCESS));
+    if (Platform::Instance().GetSoc().GetNPUArch() == NPUArch::DAV_3510 &&
+        config::GetDebugOption<int64_t>(CFG_RUNTIME_DBEUG_MODE) == CFG_DEBUG_ALL) {
+        mix_info::DumpMixInfo(function);
+    }
     std::shared_ptr<DyndevFunctionAttribute> attr = function->GetDyndevAttribute();
-    ASSERT(attr != nullptr) << "DyndevFunctionAttribute is nullptr\n";
+    ASSERT(DevCommonErr::PARAM_CHECK_FAILED, attr != nullptr) << "DyndevFunctionAttribute is nullptr\n";
     Linker linker(attr->symbolTable, attr->funcGroup, attr->exprTableDictGroup);
     FindAllExpression(cache, linker, function);
 
@@ -947,6 +993,9 @@ static void CompileDyndevFunction(Function* function, FunctionCache& cache, [[ma
     std::string controlFlowSource = controlFlowOss.str();
     std::string expressionSource = expressionOss.str();
     SimplifySlots(attr.get(), slotIdxMapping);
+    for (auto slot : slotIdxMapping) {
+        MACHINE_LOGD("slotIdx: %d, runtime slotIdx: %d", slot.first, slot.second);
+    }
     BuildSlotRootIncastOutcastDict(attr.get());
     BuildRootFuncKeyDict(attr.get());
 
@@ -988,6 +1037,8 @@ static void CompileDyndevFunction(Function* function, FunctionCache& cache, [[ma
     std::map<uint64_t, Function*> leafDict;
     std::mutex leafDictMutex;
 
+    MonitorManager::Instance().SetRootFuncCount(GetRootFuncNum(attr));
+
     std::deque<std::function<void(void)>> tasks;
     for (auto& devRoot : attr->funcGroup.devRootList) {
         std::function task = [&devRoot, &attr, &leafDict, &leafDictMutex]() {
@@ -1017,6 +1068,7 @@ static void CompileDyndevFunction(Function* function, FunctionCache& cache, [[ma
         tasks.push_back(task);
     }
 
+    MonitorManager::Instance().PrintCurrentTotalElapsed("Stage CodeGen cce code generation completed");
     unsigned threadNum = GetCGThreadNum();
     ParallelExecuteAndWait(threadNum, tasks);
 
@@ -1027,13 +1079,20 @@ static void CompileDyndevFunction(Function* function, FunctionCache& cache, [[ma
 
     std::string kernelPath;
 #ifdef BUILD_WITH_CANN
-    if (config::GetRuntimeOption<int64_t>(CFG_RUN_MODE) != CFG_RUN_MODE_SIM &&
-        config::GetHostOption<int64_t>(COMPILE_STAGE) != CS_CODEGEN_INSTRUCTION) {
-        int ret = CompileAICoreKernel(
-            leafDict, encodeDevAscendFunctionParam, ccePath, function->GetFunctionHash().Data(), kernelPath);
-        if (ret != 0) {
-            MACHINE_LOGE(HostBackEndErr::COMPILE_AICORE_FAILED, "Compile dynamic aicore.o failed.");
-            return;
+    bool enableCompile = (config::GetRuntimeOption<int64_t>(CFG_RUN_MODE) == CFG_RUN_MODE_NPU ||
+        ((config::GetSimConfig(KEY_ACCURACY_LEVEL, 2) == 2) &&
+        config::GetRuntimeOption<int64_t>(CFG_RUN_MODE) == CFG_RUN_MODE_SIM)) &&
+        config::GetHostOption<int64_t>(COMPILE_STAGE) != CS_CODEGEN_INSTRUCTION;
+    if (enableCompile) {
+        if (IsLiteNPU(Platform::Instance().GetSoc().GetNPUArch())) {
+            FindLiteNPUKernel(leafDict, kernelPath);
+        } else {
+            int ret = CompileAICoreKernel(
+                leafDict, encodeDevAscendFunctionParam, ccePath, function->GetFunctionHash().Data(), kernelPath);
+            if (ret != 0) {
+                MACHINE_LOGE(HostBackEndErr::COMPILE_AICORE_FAILED, "Compile dynamic aicore.o failed.");
+                return;
+            }
         }
     }
 #endif
@@ -1045,9 +1104,11 @@ static void CompileDyndevFunction(Function* function, FunctionCache& cache, [[ma
     for (auto& devRoot : attr->funcGroup.devRootList) {
         int devRootKey = attr->funcGroup.devRootList.GetIndex(devRoot);
         MACHINE_LOGI("Dyndev.encode: %s", devRoot->GetRawName().c_str());
-        ASSERT(attr->rootTileDict.count(devRoot)) << "devRoot not found in rootTileDict";
+        ASSERT(DevCommonErr::PARAM_CHECK_FAILED, attr->rootTileDict.count(devRoot))
+            << "devRoot not found in rootTileDict";
         Function* devTile = attr->rootTileDict[devRoot];
-        ASSERT(attr->inoutLink.ioslotDict.count(devTile)) << "devTile not found in rootTileDict";
+        ASSERT(DevCommonErr::PARAM_CHECK_FAILED, attr->inoutLink.ioslotDict.count(devTile))
+            << "devTile not found in rootTileDict";
         IncastOutcastSlot* slot = &attr->inoutLink.ioslotDict[devTile];
         encodeDevAscendFunctionParam.symbolTable = linker.GetSymbolTable();
         if (linker.GetExpressionTableDictGroup().devRootCoaDict.count(devRoot) != 0) {
@@ -1068,16 +1129,15 @@ static void CompileDyndevFunction(Function* function, FunctionCache& cache, [[ma
         funcBin->getTensorDataCount = 0;
         EncodeDevAscendFunction(function, encodeDevAscendFunctionParam, size, funcBin);
         funcBin->Reloc(-reinterpret_cast<int64_t>(funcBin), true);
-        uint32_t CallOpmaxSize = config::GetRuntimeOption<uint32_t>(STITCH_FUNCTION_SIZE);
-        ASSERT(CallOpmaxSize <= STITCH_FUNCTION_MAX_SIZE)
+        uint32_t CallOpmaxSize = MAX_STITCH_LEAFFUNC_NUM;
+        ASSERT(DevCommonErr::PARAM_CHECK_FAILED, CallOpmaxSize <= STITCH_FUNCTION_MAX_SIZE)
             << " CallOpmaxSize set: " << CallOpmaxSize << "exceeds the maximum allowed value of 65535.";
         if (funcBin->GetOperationSize() > CallOpmaxSize) {
             OverCallOpMaxNum(devRoot, funcBin);
         }
     }
 
-    // save dev prog binary
-    SetDyndevProgBinary(function);
+    return SetDyndevProgBinary(function, valDependTensorMeta.disableCtrlFlowCache);
 }
 
 MachineTask* GenCode(MachineTask* task, FunctionCache& cache)
@@ -1090,7 +1150,10 @@ MachineTask* GenCode(MachineTask* task, FunctionCache& cache)
      * the filepath of the object file is updated to the binPath_ member.
      */
     if (function->GetGraphType() == GraphType::TILE_GRAPH) {
+        MonitorManager::Instance().SetRootFuncCount(1);
         MonitorStageScope codeGenScope("CodeGen");
+        MonitorManager::Instance().SwitchStageReset();
+        MonitorManager::Instance().PrintCurrentTotalElapsed("Stage CodeGen start for TILE_GRAPH");
         COMPILER_LOGI("Start (TILE_GRAPH) CodeGen stage...");
         std::map<uint64_t, std::list<InvokeParaOffset>> invokeParaOffset;
         codeGen.GenCode(*function, {});
@@ -1098,6 +1161,8 @@ MachineTask* GenCode(MachineTask* task, FunctionCache& cache)
     } else {
         if (function->IsFunctionType(FunctionType::DYNAMIC)) {
             MonitorStageScope codeGenScope("CodeGen");
+            MonitorManager::Instance().SwitchStageReset();
+            MonitorManager::Instance().PrintCurrentTotalElapsed("Stage CodeGen start for DYNAMIC");
             COMPILER_LOGI("Start (DYNAMIC) CodeGen stage...");
             std::string cce_path = RealPath(codeGenCtx.cceDir) + "/";
             CompileDyndevFunction(function, cache, cce_path);

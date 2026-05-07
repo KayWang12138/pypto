@@ -22,6 +22,7 @@
 #include <unordered_set>
 #include <unordered_map>
 #include "interface/utils/common.h"
+#include "tilefwk/error_code.h"
 #include "tilefwk/data_type.h"
 #include "tilefwk/error.h"
 #include "verifier.h"
@@ -73,6 +74,7 @@ enum class Opcode {
     OP_BITWISEXORS,
     OP_TRIUL,
     OP_POW,
+    OP_POWS,
     OP_S_ADDS,
     OP_S_SUBS,
     OP_S_MULS,
@@ -83,6 +85,8 @@ enum class Opcode {
     OP_TRANSPOSE_MOVEOUT,
     OP_TRANSPOSE_VNCHWCONV,
     OP_ABS,
+    OP_PERMUTE,
+    OP_PERMUTE_ELEMENT,
     OP_LN,
     OP_ISFINITE,
     OP_HUB,
@@ -95,6 +99,10 @@ enum class Opcode {
     OP_SBITWISELEFTSHIFT,
     OP_BITWISENOT,
     OP_COPYSIGN,
+    OP_SIN,
+    OP_COS,
+    OP_SINH,
+    OP_COSH,
     // Binary Vector
     OP_ADD,
     OP_SUB,
@@ -128,6 +136,7 @@ enum class Opcode {
     OP_SCATTER_ELEMENT,
     OP_SCATTER,
     OP_INDEX_PUT,
+    OP_INDEX_ADD_UB,
     OP_INDEX_ADD,
     OP_CONCAT,
     OP_CUM_SUM,
@@ -162,6 +171,8 @@ enum class Opcode {
     OP_BITWISEXOR,
     OP_FLOORDIV,
     OP_FLOORDIVS,
+    OP_QUANT_MX,
+    OP_AXPY,
 
     // Cube
     OP_A_MUL_B,
@@ -286,6 +297,12 @@ enum class Opcode {
     OP_BIND_TENSOR,
     OP_MOE_DISTRIBUTED_COMBINE_SEND,
     OP_MOE_DISTRIBUTED_COMBINE_RECEIVE,
+
+    // Quantization
+    OP_QUANTIZE_SYM,   // Symmetric quantization: FP32 -> INT8
+    OP_QUANTIZE_ASYM,  // Asymmetric quantization: FP32 -> UINT8
+    OP_DEQUANTIZE,
+
     // Begin: add for TOPK and ArgSort
     OP_TOPK,
     OP_TILEDMRGSORT,
@@ -297,6 +314,7 @@ enum class Opcode {
     OP_TWOTILEMRGSORT,
     OP_EXTRACT_SINGLE,
     OP_SORT_UB,
+    OP_RADIX_SELECT,
     // End: add for TOPK and ArgSort
     // Begin: topk for DS3.2-Day0
     OP_TOPK_SORT,
@@ -312,6 +330,7 @@ enum class Opcode {
     // End: aicpu-aicore communication
     OP_MAX_POOL,
     OP_RANGE,
+    OP_UNIFORM,
     // Begin: parallel sort
     OP_SORT,
     OP_COMPARE_SWAP,
@@ -339,16 +358,19 @@ enum class OpCalcType {
     CALC_TYPE_BOTTOM
 };
 
+enum class AIVCore;
+
 class TileOpCfg {
 public:
     TileOpCfg(){};
-    TileOpCfg(std ::string code, PipeType pipeIdStart, PipeType pipeIdEnd, CoreType coreType)
-        : tileOpCode_(code), pipeIdStart_(pipeIdStart), pipeIdEnd_(pipeIdEnd), coreType_(coreType)
+    TileOpCfg(std ::string code, PipeType pipeIdStart, PipeType pipeIdEnd, CoreType coreType, AIVCore aivCore = static_cast<AIVCore>(-1))
+        : tileOpCode_(code), pipeIdStart_(pipeIdStart), pipeIdEnd_(pipeIdEnd), coreType_(coreType), aivCore_(aivCore)
     {}
     std::string tileOpCode_;
     PipeType pipeIdStart_{PipeType::PIPE_S};
     PipeType pipeIdEnd_{PipeType::PIPE_S};
     CoreType coreType_{CoreType::AIV};
+    AIVCore aivCore_{static_cast<AIVCore>(-1)};
 };
 
 class OpcodeManager {
@@ -366,6 +388,7 @@ public:
     void RegisterVectorUnary();
     void RegisterVectorSort();
     void RegisterVectorReduction();
+    void RegisterVectorQuant();
     void RegisterVector();
     void RegisterCube();
     void RegisterDistribute();
@@ -380,24 +403,24 @@ public:
     Opcode GetOpcode(const std::string& str) const
     {
         auto it = strToEnum_.find(str);
-        ASSERT(it != strToEnum_.end());
+        ASSERT(VectorErrorCode::ERR_PARAM_INVALID, it != strToEnum_.end()) << "str not found in strToEnum_";
         return it->second;
     }
     const std::string& GetOpcodeStr(Opcode opcode) const
     {
-        ASSERT(HasOpcode(opcode));
+        ASSERT(VectorErrorCode::ERR_PARAM_INVALID, HasOpcode(opcode)) << "opcode not found";
         return opcodeInfos_[static_cast<int>(opcode)].str;
     }
 
     OpCoreType GetCoreType(Opcode opcode) const
     {
-        ASSERT(HasOpcode(opcode)) << "Can't find op " << static_cast<int>(opcode) << std::endl;
+        ASSERT(VectorErrorCode::ERR_PARAM_INVALID, HasOpcode(opcode)) << "Can't find op";
         return opcodeInfos_[static_cast<int>(opcode)].coreType;
     }
 
     const TileOpCfg& GetTileOpCfg(Opcode opcode) const
     {
-        ASSERT(HasOpcode(opcode)) << "Can't find op " << static_cast<int>(opcode) << std::endl;
+        ASSERT(VectorErrorCode::ERR_PARAM_INVALID, HasOpcode(opcode)) << "Can't find op";
         return opcodeInfos_[static_cast<int>(opcode)].tileOpCfg;
     }
 
@@ -489,8 +512,9 @@ public:
                opCode == Opcode::OP_L1_COPY_OUT || opCode == Opcode::OP_TRANSPOSE_MOVEOUT ||
                opCode == Opcode::OP_INDEX_OUTCAST || opCode == Opcode::OP_INDEX_PUT || opCode == Opcode::OP_FFN_SCHED ||
                opCode == Opcode::OP_FFN_BATCHING || opCode == Opcode::OP_FFN_COMBINEINFO ||
-               opCode == Opcode::OP_FFN_VALIDCNT || opCode == Opcode::OP_COPY_TO_LOCAL_EXPERT ||
-               opCode == Opcode::OP_SHMEM_PUT || opCode == Opcode::OP_SHMEM_SIGNAL || opCode == Opcode::OP_SHMEM_GET ||
+               opCode == Opcode::OP_INDEX_ADD || opCode == Opcode::OP_FFN_VALIDCNT ||
+               opCode == Opcode::OP_COPY_TO_LOCAL_EXPERT || opCode == Opcode::OP_SHMEM_PUT ||
+               opCode == Opcode::OP_SHMEM_SIGNAL || opCode == Opcode::OP_SHMEM_GET ||
                opCode == Opcode::OP_SHMEM_PUT_UB2GM || opCode == Opcode::OP_RESHAPE_COPY_OUT ||
                opCode == Opcode::OP_MOE_DISTRIBUTED_COMBINE_SEND ||
                opCode == Opcode::OP_MOE_DISTRIBUTED_COMBINE_RECEIVE || opCode == Opcode::OP_L0C_COPY_OUT_CONV;
@@ -583,12 +607,12 @@ const std::unordered_set<Opcode> BINARY_OPS{
     Opcode::OP_EXPANDEXPDIF,
     Opcode::OP_COPYSIGN,
     Opcode::OP_FLOORDIV,
-    Opcode::OP_FLOORDIVS,
+    Opcode::OP_FLOORDIVS
 };
 
 const std::unordered_set<Opcode> BINARY_WITH_BRC_OPS{
     Opcode::OP_ADD_BRC, Opcode::OP_SUB_BRC, Opcode::OP_MUL_BRC,
-    Opcode::OP_DIV_BRC, Opcode::OP_MAX_BRC, Opcode::OP_MIN_BRC,
+    Opcode::OP_DIV_BRC, Opcode::OP_MAX_BRC, Opcode::OP_MIN_BRC
 };
 
 const std::unordered_set<Opcode> UNARY_OPS{
@@ -597,7 +621,9 @@ const std::unordered_set<Opcode> UNARY_OPS{
     Opcode::OP_EXPAND, Opcode::OP_RECIPROCAL, Opcode::OP_PAD,       Opcode::OP_FILLPAD,     Opcode::OP_ROWSUM,
     Opcode::OP_ROWMAX, Opcode::OP_ROWEXPSUM,  Opcode::OP_ROWEXPMAX, Opcode::OP_L1_TO_L1,    Opcode::OP_COPY_UB_TO_UB,
     Opcode::OP_ROUND,  Opcode::OP_ROWSUMLINE, Opcode::OP_ABS,       Opcode::OP_LN,          Opcode::OP_ISFINITE,
-    Opcode::OP_HUB,    Opcode::OP_BITWISENOT, Opcode::OP_SIGN,      Opcode::OP_ROWPRODLINE, Opcode::OP_SIGNBIT};
+    Opcode::OP_HUB,    Opcode::OP_BITWISENOT, Opcode::OP_SIGN,      Opcode::OP_ROWPRODLINE, Opcode::OP_SIGNBIT,
+    Opcode::OP_SIN,    Opcode::OP_COS,        Opcode::OP_COSH
+};
 
 const std::unordered_set<Opcode> UNARY_OPS_WITH_TMP{
     Opcode::OP_COMPACT,
@@ -611,7 +637,11 @@ const std::unordered_set<Opcode> UNARY_OPS_WITH_TMP{
     Opcode::OP_ROWARGMINLINE,
     Opcode::OP_ROWMAX_COMBINE_AXIS_SINGLE,
     Opcode::OP_ROWSUM_COMBINE_AXIS_SINGLE,
-    Opcode::OP_ROWPROD_SINGLE};
+    Opcode::OP_ROWPROD_SINGLE,
+    Opcode::OP_SIN,
+    Opcode::OP_COS,
+    Opcode::OP_SINH
+};
 
 const std::unordered_set<Opcode> VECTOR_SCALAR_OPS{
     Opcode::OP_ADDS,
@@ -644,7 +674,7 @@ const std::unordered_set<Opcode> GATHER_ELEMENT_OPS{Opcode::OP_GATHER_ELEMENT};
 const std::unordered_set<Opcode> GATHER_MASK_OPS{Opcode::OP_GATHER_MASK};
 const std::unordered_set<Opcode> SCATTER_ELEMENT_OPS{Opcode::OP_SCATTER_ELEMENT};
 const std::unordered_set<Opcode> SCATTER_OPS{Opcode::OP_SCATTER};
-const std::unordered_set<Opcode> INDEX_ADD_OPS{Opcode::OP_INDEX_ADD};
+const std::unordered_set<Opcode> INDEX_ADD_OPS{Opcode::OP_INDEX_ADD_UB, Opcode::OP_INDEX_ADD};
 const std::unordered_set<Opcode> INDEX_PUT_OPS{Opcode::OP_INDEX_PUT};
 const std::unordered_set<Opcode> CUM_SUM_OPS{Opcode::OP_CUM_SUM};
 
@@ -706,7 +736,6 @@ const std::unordered_set<Opcode> SUPPORT_DYNAMIC_UNALIGNED_OPS{
     Opcode::OP_LOGICALNOT,
     Opcode::OP_LOGICALAND,
     Opcode::OP_ONEHOT,
-    Opcode::OP_POW,
     Opcode::OP_INDEX_PUT,
     Opcode::OP_L1_TO_L0_BT,
     Opcode::OP_L1_TO_L0B,
@@ -730,6 +759,7 @@ const std::unordered_set<Opcode> SUPPORT_DYNAMIC_UNALIGNED_OPS{
     Opcode::OP_MAX_BRC,
     Opcode::OP_MIN_BRC,
     Opcode::OP_GATHER,
+    Opcode::OP_INDEX_ADD_UB,
     Opcode::OP_ROWARGMIN_SINGLE,
     Opcode::OP_ROWARGMINLINE,
     Opcode::OP_HYPOT,
@@ -750,11 +780,17 @@ const std::unordered_set<Opcode> SUPPORT_DYNAMIC_UNALIGNED_OPS{
     Opcode::OP_CMPS,
     Opcode::OP_EXTRACT,
     Opcode::OP_PRELU,
+    Opcode::OP_SIN,
+    Opcode::OP_COS,
     Opcode::OP_TILEDMRGSORT,
     Opcode::OP_ROWMAXLINE,
     Opcode::OP_PAIRMIN,
     Opcode::OP_ROWMIN_SINGLE,
     Opcode::OP_ROWMINLINE,
+    Opcode::OP_QUANTIZE_SYM,
+    Opcode::OP_QUANTIZE_ASYM,
+    Opcode::OP_DEQUANTIZE,
+
     Opcode::OP_TOPK_SORT,
     Opcode::OP_TOPK_MERGE,
     Opcode::OP_TOPK_EXTRACT,
@@ -802,16 +838,18 @@ const std::unordered_set<Opcode> SUPPORT_DYNAMIC_UNALIGNED_OPS{
     Opcode::OP_FLOORDIV,
     Opcode::OP_FLOORDIVS};
 
-const std::unordered_set<Opcode> UNSUPPORT_FP16_OPS{
-    Opcode::OP_MOD, Opcode::OP_MODS, Opcode::OP_REMRS, Opcode::OP_REMS, Opcode::OP_REM};
+const std::unordered_set<Opcode> UNSUPPORT_FP16_OPS{Opcode::OP_MOD,  Opcode::OP_MODS, Opcode::OP_REMRS,
+                                                    Opcode::OP_REMS, Opcode::OP_REM,  Opcode::OP_INDEX_ADD};
 
 const std::unordered_set<Opcode> UNSUPPORT_BF16_OPS{
+    Opcode::OP_INDEX_ADD,
     Opcode::OP_EXP,
     Opcode::OP_RSQRT,
     Opcode::OP_SQRT,
     Opcode::OP_RELU,
     Opcode::OP_RECIPROCAL,
     Opcode::OP_ABS,
+    Opcode::OP_AXPY,
     Opcode::OP_LN,
     Opcode::OP_LOGICALNOT,
     Opcode::OP_TRIUL,
@@ -893,13 +931,17 @@ const std::unordered_set<Opcode> UNSUPPORT_BF16_OPS{
     Opcode::OP_ROWARGMAXLINE,
     Opcode::OP_ROWPRODLINE,
     Opcode::OP_FLOORDIV,
-    Opcode::OP_FLOORDIVS};
+    Opcode::OP_FLOORDIVS,
+    Opcode::OP_SINH,
+    Opcode::OP_COSH};
 
 const std::unordered_set<Opcode> UNSUPPORT_BF16_ARCH35_OPS{
+    Opcode::OP_INDEX_ADD,
     Opcode::OP_EXP,
     Opcode::OP_RSQRT,
     Opcode::OP_SQRT,
     Opcode::OP_RELU,
+    Opcode::OP_RECIPROCAL,
     Opcode::OP_ABS,
     Opcode::OP_LOGICALNOT,
     Opcode::OP_LOGICALAND,
@@ -990,7 +1032,7 @@ inline bool IsCopyOut(const Opcode& op)
         op == Opcode::OP_COPY_TO_LOCAL_EXPERT || op == Opcode::OP_SHMEM_PUT || op == Opcode::OP_SHMEM_SIGNAL ||
         op == Opcode::OP_SHMEM_GET || op == Opcode::OP_SHMEM_SET || op == Opcode::OP_RESHAPE_COPY_OUT ||
         op == Opcode::OP_SHMEM_PUT_UB2GM || op == Opcode::OP_MOE_DISTRIBUTED_COMBINE_RECEIVE ||
-        op == Opcode::OP_MOE_DISTRIBUTED_COMBINE_SEND);
+        op == Opcode::OP_MOE_DISTRIBUTED_COMBINE_SEND || op == Opcode::OP_INDEX_ADD);
 }
 
 inline bool IsOpCodeSupportMultiProducers(Opcode opCode)
@@ -1002,5 +1044,5 @@ inline bool IsOpCodeSupportMultiProducers(Opcode opCode)
 extern std::unordered_map<Opcode, std::string> SUPPORT_TILETENSOR_OPS;
 extern std::unordered_set<Opcode> SUPPORT_VF_FUSE_OPS;
 extern std::unordered_set<Opcode> SKIP_OPCODE_FOR_CODEGEN;
-extern std::unordered_set<Opcode> SUPPORT_BRCINLINE;
+extern std::unordered_set<Opcode> SUPPORT_BRC_INLINE;
 } // namespace npu::tile_fwk

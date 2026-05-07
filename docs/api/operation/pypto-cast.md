@@ -1,4 +1,4 @@
-# pypto.cast
+﻿# pypto.cast
 
 ## 产品支持情况
 
@@ -167,6 +167,7 @@ cast(input: Tensor, dtype: DataType, mode: CastMode = CastMode.CAST_NONE,
     | DT_INT32 | DT_UINT16 | - | - | - |
     | DT_INT32 | DT_INT64 | - | - | - |
     | DT_INT32 | DT_UINT8 | - | - | - |
+    | DT_INT32 | DT_FP16 | - | - | - |
     | DT_UINT32 | DT_UINT8 | - | - | - |
     | DT_UINT32 | DT_UINT16 | - | - | - |
     | DT_UINT32 | DT_INT16 | - | - | - |
@@ -199,7 +200,7 @@ cast(input: Tensor, dtype: DataType, mode: CastMode = CastMode.CAST_NONE,
 
 TileShape维度应和输出一致。
 
-如输入intput shape为[m, n]，输出为[m, n]，TileShape设置为[m1, n1]，则m1, n1分别用于切分m, n轴。
+如输入input shape为[m, n]，输出为[m, n]，TileShape设置为[m1, n1]，则m1, n1分别用于切分m, n轴。
 
 ```python
 pypto.set_vec_tile_shapes(4, 16)

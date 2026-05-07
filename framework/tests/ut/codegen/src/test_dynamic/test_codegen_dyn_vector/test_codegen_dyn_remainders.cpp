@@ -19,27 +19,17 @@
 #include "interface/configs/config_manager.h"
 #include "interface/operation/operation.h"
 #include "tilefwk/data_type.h"
-#include "codegen/cloudnpu/codegen_cloudnpu.h"
+#include "codegen/npu/cloudnpu/codegen_cloudnpu.h"
 #include "test_codegen_common.h"
 #include "test_codegen_utils.h"
 
 namespace npu::tile_fwk {
 
-class TestCodegenDynRemainderS : public ::testing::Test {
+class TestCodegenDynRemainderS : public CodegenTestBase {
 public:
-    static void SetUpTestCase() {}
+    TestCodegenDynRemainderS() : CodegenTestBase({.compileStage = CS_CODEGEN_INSTRUCTION}) {}
 
     static void TearDownTestCase() { config::SetCodeGenConfig(KEY_CODEGEN_SUPPORT_TILE_TENSOR, true); }
-
-    void SetUp() override
-    {
-        Program::GetInstance().Reset();
-        config::Reset();
-        config::SetPlatformConfig(KEY_ENABLE_COST_MODEL, false);
-        config::SetHostOption(COMPILE_STAGE, CS_CODEGEN_INSTRUCTION);
-    }
-
-    void TearDown() override {}
 };
 
 TEST_F(TestCodegenDynRemainderS, TestRemainderS)

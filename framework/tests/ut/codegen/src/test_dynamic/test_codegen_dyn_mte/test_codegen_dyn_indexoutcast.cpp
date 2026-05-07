@@ -13,8 +13,6 @@
  * \brief Unit test for codegen.
  */
 
-#include <iostream>
-
 #include "gtest/gtest.h"
 
 #include "interface/operation/opcode.h"
@@ -26,29 +24,20 @@
 #include "codegen/symbol_mgr/codegen_symbol.h"
 #include "passes/pass_mgr/pass_manager.h"
 #include "codegen/codegen.h"
-#include "codegen/cloudnpu/codegen_op_cloudnpu.h"
-#include "codegen/cloudnpu/codegen_cloudnpu.h"
+#include "codegen/npu/cloudnpu/codegen_op_cloudnpu.h"
+#include "codegen/npu/cloudnpu/codegen_cloudnpu.h"
 #include "test_codegen_utils.h"
 #include "test_codegen_common.h"
 #include "interface/utils/id_gen.h"
 
 namespace npu::tile_fwk {
-class TestCodegenDynIndexOutCast : public ::testing::Test {
+class TestCodegenDynIndexOutCast : public CodegenTestBase {
 public:
+    TestCodegenDynIndexOutCast() : CodegenTestBase({.compileStage = CS_EXECUTE_GRAPH, .setIdGen = true}) {}
+
     static void SetUpTestCase() { config::SetCodeGenConfig(KEY_CODEGEN_SUPPORT_TILE_TENSOR, false); }
 
     static void TearDownTestCase() { config::SetCodeGenConfig(KEY_CODEGEN_SUPPORT_TILE_TENSOR, true); }
-
-    void SetUp() override
-    {
-        Program::GetInstance().Reset();
-        config::Reset();
-        config::SetHostOption(COMPILE_STAGE, CS_EXECUTE_GRAPH);
-        config::SetPlatformConfig(KEY_ENABLE_COST_MODEL, false);
-        IdGen<IdType::FUNCTION>::Inst().SetId(DummyFuncMagic);
-    }
-
-    void TearDown() override {}
 };
 
 TEST_F(TestCodegenDynIndexOutCast, IndexOutCast)
@@ -102,16 +91,9 @@ TEST_F(TestCodegenDynIndexOutCast, IndexOutCast)
     op.SetOpAttribute(std::make_shared<CopyOpAttribute>(MEM_UB, to_offset, shapeImme, shapeImme));
     auto copyAttr = std::static_pointer_cast<CopyOpAttribute>(op.GetOpAttribute());
     op.SetOOpAttrOffset(0, 0);
-    op.SetAttribute("GmTensorParamIdxInCallFunc", 0);
+    op.SetAttribute(OpAttributeKey::gmTensorParamIdxInCall, 0);
 
-    std::shared_ptr<SymbolManager> symbolManager = std::make_shared<SymbolManager>();
-    CodeGenCtx ctx;
-    CodeGenCloudNPU cga(ctx);
-    cga.GenAllocForLocalBuffer(op, symbolManager);
-    CodeGenOpCloudNPUCtx opCtx(symbolManager, *function, *function->rootFunc_->programs_[0], op, {});
-    CodeGenOpCloudNPU cop(opCtx);
-
-    std::string res = cop.GenOpCode();
+    std::string res = GenOpCodeFromOp(*function, op);
     std::string expect =
         R"!!!(TileOp::DynTIndexoutcast<float, float, 1, 1, 16, 1, 1, 16, 1, 1, 1, 0, 1>((__gm__ float*)GET_PARAM_ADDR(param, 0, 0), (__ubuf__ float*)UB_S0_E0, (__ubuf__ float*)UB_S0_E0, 1, 1, GET_PARAM_RAWSHAPE_2(param, 0, 0), 0, 0, 0, 0);
 )!!!";
@@ -140,7 +122,7 @@ TEST_F(TestCodegenDynIndexOutCast, TestIndexOutTileTensor)
     LogicalTensors outputs = {indexoutTensor};
 
     auto& indexoutOp = function->AddOperation(Opcode::OP_INDEX_OUTCAST, inputs, outputs);
-    indexoutOp.SetAttribute("GmTensorParamIdxInCallFunc", 0);
+    indexoutOp.SetAttribute(OpAttributeKey::gmTensorParamIdxInCall, 0);
     indexoutOp.SetAttribute("axis", 0);
     indexoutOp.SetAttribute(OpAttributeKey::panzBlockSize, 1);
     std::string cacheMode = "PA_BNSD";
@@ -150,14 +132,7 @@ TEST_F(TestCodegenDynIndexOutCast, TestIndexOutTileTensor)
     indexoutOp.SetOpAttribute(std::make_shared<CopyOpAttribute>(MEM_UB, to_offset, shapeImme, shapeImme));
     auto copyAttr = std::static_pointer_cast<CopyOpAttribute>(indexoutOp.GetOpAttribute());
     indexoutOp.SetOOpAttrOffset(0, 0);
-    std::shared_ptr<SymbolManager> symbolManager = std::make_shared<SymbolManager>();
-    CodeGenCtx ctx;
-    CodeGenCloudNPU cga(ctx);
-    cga.GenAllocForLocalBuffer(indexoutOp, symbolManager);
-    CodeGenOpCloudNPUCtx opCtx(symbolManager, *function, *function->rootFunc_->programs_[0], indexoutOp, {}, true);
-    CodeGenOpCloudNPU cop(opCtx);
-
-    std::string res = cop.GenOpCode();
+    std::string res = GenOpCodeFromOp(*function, indexoutOp, {.isMainBlk = true});
     std::string expect = R"!!!(TIndexOutcast<0, 1>(gmTensor_0, ubTensor_1, ubTensor_1, Coord2Dim(0, 0));
 )!!!";
     EXPECT_EQ(res, expect);
@@ -209,7 +184,7 @@ TEST_F(TestCodegenDynIndexOutCast, DynIndexOutUnaligned)
 
     std::string res = GetResultFromCpp(*function);
     std::string expect =
-        R"!!!(TileOp::DynTIndexoutcast<int32_t, int32_t, 1, 32, 32, 32, 0, 1>((__gm__ int32_t*)GET_PARAM_ADDR(param, 2, 28), (__ubuf__ int32_t*)UB_S0_E4096, (__ubuf__ int32_t*)UB_S4096_E8192, 1, 1, sym_6_dim_1, sym_9_dim_0, sym_9_dim_1, 1, 1, GET_PARAM_RAWSHAPE_2(param, 2, 28), 0, 0, (RUNTIME_COA_GET_PARAM_OFFSET(2, 28, 0)), (RUNTIME_COA_GET_PARAM_OFFSET(2, 28, 1)));
+        R"!!!(TileOp::DynTIndexoutcast<int32_t, int32_t, 1, 32, 32, 32, 0, 1>((__gm__ int32_t*)(RUNTIME_GET_PARAM_ADDR(RUNTIME_param, 2, 28)), (__ubuf__ int32_t*)UB_S0_E4096, (__ubuf__ int32_t*)UB_S4096_E8192, 1, 1, sym_6_dim_1, sym_9_dim_0, sym_9_dim_1, 1, 1, GET_PARAM_RAWSHAPE_2(param, 2, 28), 0, 0, (RUNTIME_COA_GET_PARAM_OFFSET(2, 28, 0)), (RUNTIME_COA_GET_PARAM_OFFSET(2, 28, 1)));
 )!!!";
     CheckStringExist(expect, res);
 }

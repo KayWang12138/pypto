@@ -44,7 +44,7 @@ std::array<DstT, N> GetParams(const std::string& filePath)
 inline DataType GetDataTypeNum(const int64_t typeNum)
 {
     if ((typeNum < 0) || (typeNum >= static_cast<int64_t>(DataType::DT_BOTTOM))) {
-        DISTRIBUTED_LOGE(
+        DISTRIBUTED_LOGE(DistributedErrorCode::UNKNOW_ERROR,
             "Invalid type code: %ld (Valid range: [0-%ld])", typeNum, static_cast<int64_t>(DataType::DT_BOTTOM));
         return DataType::DT_BOTTOM;
     }
@@ -111,7 +111,7 @@ bool CompareWithGolden(
             result = DoCompare<int32_t>(goldenFilename, outSize, dTypeSize, outPtrs, testParam, threshold);
             break;
         default:
-            DISTRIBUTED_LOGE("Unsupported dType: %lu", static_cast<uint64_t>(dType));
+            DISTRIBUTED_LOGE(DistributedErrorCode::UNKNOW_ERROR, "Unsupported dType: %lu", static_cast<uint64_t>(dType));
             break;
     }
     return result;
@@ -130,7 +130,7 @@ class HcclWin {
 public:
     HcclWin(uint64_t addr)
     {
-        (void)rtMemcpy(&param_, sizeof(param_), (uint8_t*)addr, sizeof(param_), RT_MEMCPY_DEVICE_TO_HOST);
+        (void)RuntimeMemcpy(&param_, sizeof(param_), (uint8_t*)addr, sizeof(param_), RtMemcpyKind::DEVICE_TO_HOST);
     }
 
     template <typename T>
@@ -144,9 +144,9 @@ public:
             count = maxDataCnt - offset;
         }
         std::vector<T> result(count, 0);
-        (void)rtMemcpy(
+        (void)RuntimeMemcpy(
             result.data(), count * sizeof(T), (uint8_t*)devAddr + offset * sizeof(T), count * sizeof(T),
-            RT_MEMCPY_DEVICE_TO_HOST);
+            RtMemcpyKind::DEVICE_TO_HOST);
         return result;
     }
 

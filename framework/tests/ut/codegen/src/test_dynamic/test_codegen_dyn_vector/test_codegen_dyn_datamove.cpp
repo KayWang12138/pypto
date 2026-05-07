@@ -23,26 +23,14 @@
 #include "tilefwk/data_type.h"
 #include "codegen/codegen.h"
 #include "codegen/symbol_mgr/codegen_symbol.h"
-#include "codegen/cloudnpu/codegen_cloudnpu.h"
+#include "codegen/npu/cloudnpu/codegen_cloudnpu.h"
 #include "test_codegen_common.h"
 
 namespace npu::tile_fwk {
 
-class TestCodegenDynDataMove : public ::testing::Test {
+class TestCodegenDynDataMove : public CodegenTestBase {
 public:
-    static void SetUpTestCase() {}
-
-    static void TearDownTestCase() {}
-
-    void SetUp() override
-    {
-        Program::GetInstance().Reset();
-        config::Reset();
-        config::SetHostOption(COMPILE_STAGE, CS_EXECUTE_GRAPH);
-        config::SetPlatformConfig(KEY_ENABLE_COST_MODEL, false);
-    }
-
-    void TearDown() override {}
+    TestCodegenDynDataMove() : CodegenTestBase({.compileStage = CS_EXECUTE_GRAPH}) {}
 };
 
 TEST_F(TestCodegenDynDataMove, TestDatamoveUnalignDim3)

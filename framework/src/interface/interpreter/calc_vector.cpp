@@ -15,7 +15,7 @@
 
 #include "interface/interpreter/function.h"
 #include "interface/interpreter/operation.h"
-#include "interface/interpreter/verify_error.h"
+#include "tilefwk/error_code.h"
 
 namespace npu::tile_fwk {
 
@@ -52,10 +52,10 @@ void ExecuteOpBinary(ExecuteOperationContext* ctx)
     }
 
     if (lhsFromBrcb || rhsFromBrcb) {
-        VERIFY_LOGW(
+        INTERPRETER_LOGW(
             "AxisCombine: detected by BRCB, opcode=%s lhsFromBrcb=%d rhsFromBrcb=%d", ctx->op->GetOpcodeStr().c_str(),
             static_cast<int>(lhsFromBrcb), static_cast<int>(rhsFromBrcb));
-        VERIFY_LOGW(
+        INTERPRETER_LOGW(
             "AxisCombine: lhs(shape=%s validShape=%s offset=%s) rhs(shape=%s validShape=%s offset=%s)",
             IntVecToStr(lhs->GetShape()).c_str(), IntVecToStr(lhs->GetValidShape()).c_str(),
             IntVecToStr(lhs->GetOffset()).c_str(), IntVecToStr(rhs->GetShape()).c_str(),
@@ -344,6 +344,12 @@ void ExecuteOpUnary(ExecuteOperationContext* ctx)
         case Opcode::OP_EXP:
             calc::Exp(ret, iop);
             break;
+        case Opcode::OP_SINH:
+            calc::Sinh(ret, iop);
+            break;
+        case Opcode::OP_COSH:
+            calc::Cosh(ret, iop);
+            break;
         case Opcode::OP_NEG:
             calc::Neg(ret, iop);
             break;
@@ -380,11 +386,19 @@ void ExecuteOpUnary(ExecuteOperationContext* ctx)
         case Opcode::OP_ISFINITE:
             calc::IsFinite(ret, iop);
             break;
+        case Opcode::OP_SIN:
+            calc::Sin(ret, iop);
+            break;
+        case Opcode::OP_COS:
+            calc::Cos(ret, iop);
+            break;
         default:
             ASSERT(ExecuteOperationScene::UNSUPPORTED_OPCODE, false);
     }
 }
 REGISTER_CALC_OP(OP_EXP, Opcode::OP_EXP, ExecuteOpUnary<Opcode::OP_EXP>);
+REGISTER_CALC_OP(OP_SINH, Opcode::OP_SINH, ExecuteOpUnary<Opcode::OP_SINH>);
+REGISTER_CALC_OP(OP_COSH, Opcode::OP_COSH, ExecuteOpUnary<Opcode::OP_COSH>);
 REGISTER_CALC_OP(OP_NEG, Opcode::OP_NEG, ExecuteOpUnary<Opcode::OP_NEG>);
 REGISTER_CALC_OP(OP_SIGN, Opcode::OP_SIGN, ExecuteOpUnary<Opcode::OP_SIGN>);
 REGISTER_CALC_OP(OP_SIGNBIT, Opcode::OP_SIGNBIT, ExecuteOpUnary<Opcode::OP_SIGNBIT>);
@@ -397,6 +411,8 @@ REGISTER_CALC_OP(OP_ABS, Opcode::OP_ABS, ExecuteOpUnary<Opcode::OP_ABS>);
 REGISTER_CALC_OP(OP_BRCB, Opcode::OP_BRCB, ExecuteOpUnary<Opcode::OP_BRCB>);
 REGISTER_CALC_OP(OP_LN, Opcode::OP_LN, ExecuteOpUnary<Opcode::OP_LN>);
 REGISTER_CALC_OP(OP_ISFINITE, Opcode::OP_ISFINITE, ExecuteOpUnary<Opcode::OP_ISFINITE>);
+REGISTER_CALC_OP(OP_SIN, Opcode::OP_SIN, ExecuteOpUnary<Opcode::OP_SIN>);
+REGISTER_CALC_OP(OP_COS, Opcode::OP_COS, ExecuteOpUnary<Opcode::OP_COS>);
 
 void ExecuteOpCeil(ExecuteOperationContext* ctx)
 {
@@ -550,6 +566,22 @@ void ExecuteOpTranspose(ExecuteOperationContext* ctx)
 }
 REGISTER_CALC_OP(OP_TRANSPOSE_VNCHWCONV, Opcode::OP_TRANSPOSE_VNCHWCONV, ExecuteOpTranspose);
 
+void ExecuteOpPermute(ExecuteOperationContext* ctx)
+{
+    ASSERT(ExecuteOperationScene::CTX_OUTPUT_COUNT_MISMATCH, ctx->ooperandInplaceDataViewList->size() <= SIZE_TWO);
+    ASSERT(ExecuteOperationScene::CTX_INPUT_COUNT_MISMATCH, ctx->ioperandDataViewList->size() == 1);
+    auto& oop = ctx->ooperandInplaceDataViewList->at(0);
+    auto& iop = ctx->ioperandDataViewList->at(0);
+
+    std::vector<int64_t> perm = ctx->op->GetVectorIntAttribute(OpAttributeKey::perm);
+
+    auto iopDataView = iop->View(iop->GetValidShape(), iop->GetOffset());
+    auto oopDataView = oop->View(oop->GetValidShape(), oop->GetOffset());
+    calc::Permute(oopDataView, iopDataView, perm);
+}
+REGISTER_CALC_OP(OP_PERMUTE, Opcode::OP_PERMUTE, ExecuteOpPermute);
+REGISTER_CALC_OP(OP_PERMUTE_ELEMENT, Opcode::OP_PERMUTE_ELEMENT, ExecuteOpPermute);
+
 void ExecuteOpLogicalNot(ExecuteOperationContext* ctx)
 {
     ASSERT(ExecuteOperationScene::CTX_INPUT_COUNT_MISMATCH, ctx->ioperandDataViewList->size() == 1);
@@ -581,11 +613,11 @@ void ExecuteOpIndexOutcast(ExecuteOperationContext* ctx)
     std::string cacheMode = ctx->op->GetStringAttribute(OpAttributeKey::cacheMode);
     auto actualOop = std::make_shared<LogicalTensorData>(dst->GetData());
     if (dst->GetSize() != oop->GetSize()) {
-        VERIFY_EVENT("%s", ctx->op->Dump().c_str());
-        VERIFY_EVENT(
+        INTERPRETER_EVENT("%s", ctx->op->Dump().c_str());
+        INTERPRETER_EVENT(
             "dst validShape: %s ---> oop validShape: %s", IntVecToStr(dst->GetShape()).c_str(),
             IntVecToStr(oop->GetShape()).c_str());
-        VERIFY_EVENT("IndexOutcast: oop validShape is not equal to dst validShape");
+        INTERPRETER_EVENT("IndexOutcast: oop validShape is not equal to dst validShape");
         calc::ScatterUpdate(actualOop, src, index, dst, axis, cacheMode, blockSize);
     } else {
         calc::ScatterUpdate(oop, src, index, dst, axis, cacheMode, blockSize);
@@ -662,12 +694,67 @@ void ExecuteOpRange(ExecuteOperationContext* ctx)
     } else if (start.GetDataType() == DT_FP32) {
         end = GetEndBySize<float, DT_FP32>(curStart, size, step);
     } else {
-        ASSERT(ExecuteOperationScene::INVALID_TENSOR_DTYPE, false) << "Unsupported DataType " << DataType2String(start.GetDataType());
+        ASSERT(ExecuteOperationScene::INVALID_TENSOR_DTYPE, false)
+            << "Unsupported DataType " << DataType2String(start.GetDataType());
     }
     calc::Range(oop, curStart, end, step);
 }
 REGISTER_CALC_OP(OP_RANGE, Opcode::OP_RANGE, ExecuteOpRange);
 
+void ExecuteOpUniform(ExecuteOperationContext* ctx)
+{
+    auto oop = ctx->ooperandInplaceDataViewList->at(0);
+
+    auto scalars = ctx->op->GetVectorElementAttribute(OpAttributeKey::vectorScalar);
+    Element key = scalars[0];
+    Element counter1 = scalars[1];
+    Element rounds = scalars[2];
+    DataType dtype = static_cast<DataType>(scalars[3].Cast<int32_t>());
+
+    Element counter0(DT_UINT64, static_cast<uint64_t>(0));
+    if (ctx->op->HasAttr(OpAttributeKey::dynScalar)) {
+        SymbolicScalar dynScalar = ctx->op->GetSymbolicScalarAttribute(OpAttributeKey::dynScalar);
+        if (dynScalar.ConcreteValid()) {
+            counter0 = Element(DT_UINT64, static_cast<uint64_t>(dynScalar.Concrete()));
+        }
+    }
+
+    calc::Uniform(oop, key, counter0, counter1, rounds, dtype);
+}
+REGISTER_CALC_OP(OP_UNIFORM, Opcode::OP_UNIFORM, ExecuteOpUniform);
+void ExecuteOpQuantMX(ExecuteOperationContext* ctx)
+{
+    ASSERT(ExecuteOperationScene::CTX_INPUT_COUNT_MISMATCH, ctx->ioperandDataViewList->size() == 1);
+    ASSERT(ExecuteOperationScene::CTX_OUTPUT_COUNT_MISMATCH, ctx->ooperandInplaceDataViewList->size() == 4);
+    int64_t mode = 0;
+    ASSERT(ExecuteOperationScene::RUNTIME_EXCEPTION, ctx->op->GetAttr(OpAttributeKey::mxQuantMode, mode))
+        << "QuantMX missing required attribute: " << OpAttributeKey::mxQuantMode;
+    constexpr int64_t kMxQuantModeRoundDown = 1;
+    ASSERT(ExecuteOperationScene::RUNTIME_EXCEPTION, mode == kMxQuantModeRoundDown)
+        << "QuantMX interpreter currently only supports ROUND_DOWN (OCP standard) mode.";
+    int64_t axis = 0;
+    ASSERT(ExecuteOperationScene::RUNTIME_EXCEPTION, ctx->op->GetAttr(OpAttributeKey::mxQuantAxis, axis))
+        << "QuantMX missing required attribute: " << OpAttributeKey::mxQuantAxis;
+    int64_t performanceMode = 0;
+    ASSERT(
+        ExecuteOperationScene::RUNTIME_EXCEPTION,
+        ctx->op->GetAttr(OpAttributeKey::mxQuantPerformanceMode, performanceMode))
+        << "QuantMX missing required attribute: " << OpAttributeKey::mxQuantPerformanceMode;
+    auto out = ctx->ooperandInplaceDataViewList->at(0);
+    auto exp = ctx->ooperandInplaceDataViewList->at(1);
+    auto max = ctx->ooperandInplaceDataViewList->at(2);
+    auto scaling = ctx->ooperandInplaceDataViewList->at(3);
+    auto src = ctx->ioperandDataViewList->at(0);
+    const auto srcRank = static_cast<int64_t>(src->GetShape().size());
+    const auto normalizedAxis = axis < 0 ? axis + srcRank : axis;
+    ASSERT(ExecuteOperationScene::RUNTIME_EXCEPTION, normalizedAxis >= 0 && normalizedAxis < srcRank)
+        << "QuantMX axis is out of range. Current axis: " << axis << ", input rank: " << srcRank;
+    ASSERT(ExecuteOperationScene::RUNTIME_EXCEPTION, normalizedAxis == srcRank - 1)
+        << "QuantMX interpreter currently only supports the last axis. Current axis: " << axis
+        << ", input rank: " << srcRank;
+    calc::QuantMX(out, exp, max, scaling, src, performanceMode != 0);
+}
+REGISTER_CALC_OP(OP_QUANT_MX, Opcode::OP_QUANT_MX, ExecuteOpQuantMX);
 void ExecuteOpLog1p(ExecuteOperationContext* ctx)
 {
     ASSERT(ExecuteOperationScene::CTX_OUTPUT_COUNT_MISMATCH, ctx->ooperandInplaceDataViewList->size() == 1);
@@ -768,7 +855,7 @@ void ExecuteOpIndexAdd(ExecuteOperationContext* ctx)
     int axis = ctx->op->GetIntAttribute(OP_ATTR_PREFIX + "axis");
     calc::IndexAdd(ret, self, src, indices, axis, alpha);
 }
-REGISTER_CALC_OP(OP_INDEX_ADD, Opcode::OP_INDEX_ADD, ExecuteOpIndexAdd);
+REGISTER_CALC_OP(OP_INDEX_ADD_UB, Opcode::OP_INDEX_ADD_UB, ExecuteOpIndexAdd);
 
 void ExecuteOpTri(ExecuteOperationContext* ctx)
 {
@@ -868,6 +955,36 @@ void ExecuteOpTopK(ExecuteOperationContext* ctx)
     calc::TopK(outValue, outIndex, src, kValue, topk_axis, descending);
 }
 REGISTER_CALC_OP(OP_TOPK, Opcode::OP_TOPK, ExecuteOpTopK);
+REGISTER_CALC_OP(OP_RADIX_SELECT, Opcode::OP_RADIX_SELECT, ExecuteOpTopK);
+
+void ExecuteOpQuantizeSym(ExecuteOperationContext* ctx)
+{
+    auto& ret = ctx->ooperandInplaceDataViewList->at(0);
+    auto& input = ctx->ioperandDataViewList->at(0);
+    auto& scale = ctx->ioperandDataViewList->at(1);
+    calc::Quantize(ret, input, scale, nullptr);
+}
+REGISTER_CALC_OP(OP_QUANTIZE_SYM, Opcode::OP_QUANTIZE_SYM, ExecuteOpQuantizeSym);
+
+void ExecuteOpQuantizeAsym(ExecuteOperationContext* ctx)
+{
+    auto& ret = ctx->ooperandInplaceDataViewList->at(0);
+    auto& input = ctx->ioperandDataViewList->at(0);
+    auto& scale = ctx->ioperandDataViewList->at(1);
+    auto& zeropoints = ctx->ioperandDataViewList->at(2);
+    calc::Quantize(ret, input, scale, zeropoints);
+}
+REGISTER_CALC_OP(OP_QUANTIZE_ASYM, Opcode::OP_QUANTIZE_ASYM, ExecuteOpQuantizeAsym);
+
+void ExecuteOpDequantize(ExecuteOperationContext* ctx)
+{
+    auto& ret = ctx->ooperandInplaceDataViewList->at(0);
+    auto& input = ctx->ioperandDataViewList->at(0);
+    auto& scale = ctx->ioperandDataViewList->at(1);
+    auto& zeropoints = ctx->ioperandDataViewList->at(2);
+    calc::Dequantize(ret, input, scale, zeropoints);
+}
+REGISTER_CALC_OP(OP_DEQUANTIZE, Opcode::OP_DEQUANTIZE, ExecuteOpDequantize);
 
 void ExecuteOpBitSort(ExecuteOperationContext* ctx)
 {
@@ -953,7 +1070,7 @@ template <Opcode opcode>
 void ExecuteOpBinaryScalar(ExecuteOperationContext* ctx)
 {
     if (opcode == Opcode::OP_BITWISEXOR || opcode == Opcode::OP_REMRS || opcode == Opcode::OP_FLOORDIVS ||
-        opcode == Opcode::OP_REMS) {
+        opcode == Opcode::OP_REMS || opcode == Opcode::OP_POWS) {
         ASSERT(ExecuteOperationScene::CTX_OUTPUT_COUNT_MISMATCH, ctx->ooperandInplaceDataViewList->size() <= SIZE_TWO);
     } else {
         ASSERT(ExecuteOperationScene::CTX_OUTPUT_COUNT_MISMATCH, ctx->ooperandInplaceDataViewList->size() == 1);
@@ -989,6 +1106,9 @@ void ExecuteOpBinaryScalar(ExecuteOperationContext* ctx)
             break;
         case Opcode::OP_REMS:
             calc::RemainderS(ret, lhs, element, reverse);
+            break;
+        case Opcode::OP_POWS:
+            calc::PowS(ret, lhs, element);
             break;
         case Opcode::OP_REMRS:
             calc::RemainderRS(ret, lhs, element, reverse);
@@ -1032,6 +1152,7 @@ REGISTER_CALC_OP(OP_BITWISEXORS, Opcode::OP_BITWISEXORS, ExecuteOpBinaryScalar<O
 REGISTER_CALC_OP(OP_GCDS, Opcode::OP_GCDS, ExecuteOpBinaryScalar<Opcode::OP_GCDS>);
 REGISTER_CALC_OP(OP_REMS, Opcode::OP_REMS, ExecuteOpBinaryScalar<Opcode::OP_REMS>);
 REGISTER_CALC_OP(OP_REMRS, Opcode::OP_REMRS, ExecuteOpBinaryScalar<Opcode::OP_REMRS>);
+REGISTER_CALC_OP(OP_POWS, Opcode::OP_POWS, ExecuteOpBinaryScalar<Opcode::OP_POWS>);
 REGISTER_CALC_OP(OP_S_ADDS, Opcode::OP_S_ADDS, ExecuteOpBinaryScalar<Opcode::OP_ADDS>);
 REGISTER_CALC_OP(OP_S_SUBS, Opcode::OP_S_SUBS, ExecuteOpBinaryScalar<Opcode::OP_SUBS>);
 REGISTER_CALC_OP(OP_S_MULS, Opcode::OP_S_MULS, ExecuteOpBinaryScalar<Opcode::OP_MULS>);

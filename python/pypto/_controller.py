@@ -22,6 +22,7 @@ from ._utils import to_sym, set_source_location, clear_source_location
 from .symbolic_scalar import SymbolicScalar, SymInt
 from .tensor import Tensor
 from .config import CubeTile, ConvTile, get_current_scope
+from .error import FeError
 from . import pypto_impl
 
 logging.basicConfig(level=logging.DEBUG)
@@ -56,7 +57,7 @@ class Controller:
     @classmethod
     def begin_function(cls):
         if cls.in_function:
-            raise RuntimeError("function nested is not allowed")
+            raise FeError(RuntimeError("function nested is not allowed"))
         cls.in_function = True
 
     @classmethod
@@ -348,7 +349,7 @@ def is_loop_begin(scalar: SymInt) -> SymbolicScalar:
                 ...
     """
     if not hasattr(scalar, "_loop_begin"):
-        raise ValueError("not loop index")
+        raise FeError(ValueError("not loop index"))
     # implementation
     return SymbolicScalar.from_base(
         pypto_impl.IsLoopBegin(to_sym(scalar), getattr(scalar, "_loop_begin")))
@@ -375,7 +376,7 @@ def is_loop_end(scalar: SymInt) -> SymbolicScalar:
                 ...
     """
     if not hasattr(scalar, "_loop_end"):
-        raise ValueError("not loop index")
+        raise FeError(ValueError("not loop index"))
     # implementation
     return SymbolicScalar.from_base(
         pypto_impl.IsLoopEnd(to_sym(scalar), getattr(scalar, "_loop_end")))
@@ -411,19 +412,27 @@ def function(name: str, *args) -> Iterator:
     """
     in_out_tensors = [item for item in args if isinstance(item, Tensor)]
     func = None
+    first_exc = None
     Controller.begin_function()
     try:
         set_source_location(level=2)
         func = pypto_impl.RecordFunc(name, [t.base() for t in in_out_tensors])
         clear_source_location()
-        yield func
+        for _ in loop(1, name="__main__"):
+            yield func
     except Exception as e:
-        logging.error("Record function %s failed: %s", name, e)
-        raise
+        first_exc = e
     finally:
-        assert func
-        func.EndFunction()
+        if func is None:
+            raise FeError(RuntimeError(f"function {name} recording failed"))
+        try:
+            func.EndFunction()
+        except Exception as e:
+            if first_exc is None:
+                first_exc = e
         Controller.end_function()
+        if first_exc is not None:
+            raise first_exc
 
 
 def cond(scalar: SymInt, file: Optional[str] = None, lineno: Optional[int] = None):
@@ -456,7 +465,7 @@ def cond(scalar: SymInt, file: Optional[str] = None, lineno: Optional[int] = Non
     """
     # allow caller to override source location; enforce both or none
     if (file is None) ^ (lineno is None):
-        raise ValueError("file and lineno must be provided together or omitted")
+        raise FeError(ValueError("file and lineno must be provided together or omitted"))
 
     if file is None:
         stack = inspect.stack()[1]
@@ -591,8 +600,8 @@ def _get_loop_range(*args):
     elif nargs == 3:
         start, stop, step = args
     else:
-        raise TypeError(
-            f"loop() takes 1 to 3 positional arguments but {nargs} were given")
+        raise FeError(TypeError(
+            f"loop() takes 1 to 3 positional arguments but {nargs} were given"))
     return start, stop, step
 
 
@@ -676,7 +685,6 @@ def loop_unroll(*args, **kwargs) -> Iterator[Tuple[SymbolicScalar, int]]:
         unroll_list.append(1)
 
     ori_name = kwargs.get("name", None)
-    ori_idx_name = kwargs.get("idx_name", None)
 
     nstart = start
     for p in unroll_list:

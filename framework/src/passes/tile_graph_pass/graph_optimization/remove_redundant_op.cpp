@@ -16,6 +16,7 @@
 #include "remove_redundant_op.h"
 #include "passes/pass_check/remove_redundant_op_checker.h"
 #include "passes/pass_utils/dead_operation_eliminate.h"
+#include "passes/pass_utils/infer_shape_utils.h"
 #include "passes/pass_utils/merge_view_assemble_utils.h"
 #include "passes/pass_utils/pass_utils.h"
 #include "passes/pass_log/pass_log.h"
@@ -58,29 +59,8 @@ bool EqualInOut(const Operation& op)
     return (equalShape && equalDynValidShape);
 }
 
-bool IsDdrToL1OperationWithFlag(const Operation& op)
-{
-    if (!op.HasAttr("op_attr_remain_redundant_op_flag")) {
-        return false;
-    }
-    auto in = op.GetIOperands().front();
-    auto out = op.GetOOperands().front();
-    if (in->GetMemoryTypeOriginal() != MemoryType::MEM_DEVICE_DDR) {
-        return false;
-    }
-    if (out->GetMemoryTypeOriginal() != MemoryType::MEM_L1) {
-        return false;
-    }
-    return true;
-}
-
 bool RemoveRedundantOp::ProcessRedundantOpWithDynShape(Operation& op) const
 {
-    if (IsDdrToL1OperationWithFlag(op)) {
-        APASS_LOG_DEBUG_F(
-            Elements::Operation, "op[%d] has attribute op_attr_remain_redundant_op_flag for DDR to L1 path, skip removing.", op.GetOpMagic());
-        return false;
-    }
     if (!EqualInOut(op)) {
         APASS_LOG_DEBUG_F(
             Elements::Operation, "op[%d]'s input and output has unequal shape and dynshape, skip removing.",
@@ -147,6 +127,7 @@ Status RemoveRedundantOp::RunOnFunction(Function& function)
     APASS_LOG_INFO_F(Elements::Function, "===> Start RemoveRedundantOp");
     operationUpdated = true;
     iterTime = 0U;
+    newOps_.clear();
     while (operationUpdated) {
         operationUpdated = false;
         if (RemoveDummyOps(function) != SUCCESS) {
@@ -163,6 +144,13 @@ Status RemoveRedundantOp::RunOnFunction(Function& function)
     if (status != SUCCESS) {
         APASS_LOG_ERROR_F(Elements::Function, "Merge assemble and view failed.");
         return status;
+    }
+    if (!newOps_.empty()) {
+        status = InferShapeUtils::InferShape(function, newOps_);
+        if (status != SUCCESS) {
+            APASS_LOG_ERROR_F(Elements::Function, "InferShape for new operations failed.");
+            return status;
+        }
     }
     APASS_LOG_INFO_F(Elements::Function, "===> End RemoveRedundantOp");
     return SUCCESS;
@@ -197,15 +185,16 @@ Status RemoveRedundantOp::RemoveDummyOps(Function& function)
 
 Status RemoveRedundantOp::ProcessViewAssemble(Function& function)
 {
-    for (auto& op : function.Operations()) {
-        auto opcode = op.GetOpcode();
+    auto opList = function.Operations().DuplicatedOpList();
+    for (auto& op : opList) {
+        auto opcode = op->GetOpcode();
         if (opcode != Opcode::OP_VIEW) {
             // 跳过非view的op
             continue;
         }
-        auto& startTensor = op.iOperand.front();
+        auto& startTensor = op->iOperand.front();
         auto inputMemtype = startTensor->GetMemoryTypeOriginal();
-        auto consumers = op.oOperand.front()->GetConsumers();
+        auto consumers = op->oOperand.front()->GetConsumers();
         // 获取view级联的assemble消费者
         for (const auto& consumer : consumers) {
             if (consumer->GetOpcode() != Opcode::OP_ASSEMBLE) {
@@ -228,7 +217,7 @@ Status RemoveRedundantOp::ProcessViewAssemble(Function& function)
                 //                            ---> view2  ---> tempTensor2  --->  assemble2
                 APASS_LOG_DEBUG_F(
                     Elements::Operation,
-                    "CASE1: Process OP_VIEW[%d]'s input and OP_ASSEMBLE[%d]'s output perfectMatch.", op.opmagic,
+                    "CASE1: Process OP_VIEW[%d]'s input and OP_ASSEMBLE[%d]'s output perfectMatch.", op->opmagic,
                     consumer->GetOpMagic());
                 ProcessPerfectMatch(function, startTensor, endTensor);
             } else {
@@ -243,8 +232,8 @@ Status RemoveRedundantOp::ProcessViewAssemble(Function& function)
                 //                             ---> view2  ---> tempTensor2  --->  assemble2
                 APASS_LOG_DEBUG_F(
                     Elements::Operation, "CASE2: Process OP_VIEW[%d]'s input is a part of OP_ASSEMBLE[%d]'s output.",
-                    op.opmagic, consumer->GetOpMagic());
-                GenerateNewView(function, op, startTensor, endTensor);
+                    op->opmagic, consumer->GetOpMagic());
+                GenerateNewView(function, *op, startTensor, endTensor);
             }
         }
     }
@@ -461,6 +450,7 @@ void RemoveRedundantOp::GenerateNewView(
         std::make_shared<ViewOpAttribute>(newoffset, newDynoffset, newViewTensor->GetDynValidShape());
     viewAttribute->SetToType(endTensor->GetMemoryTypeToBe());
     newViewOp.SetOpAttribute(viewAttribute);
+    newOps_.push_back(&newViewOp);
     operationUpdated = true;
 }
 

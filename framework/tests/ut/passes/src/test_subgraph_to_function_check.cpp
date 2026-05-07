@@ -71,13 +71,9 @@ static void RunColorOutGraphCheckTest(
         EXPECT_TRUE(G.AddTensor(DataType::DT_FP32, kShape88, "d"));
         EXPECT_TRUE(G.AddOp(Opcode::OP_ADD, {"b"}, {"d"}, "add3"));
         G.GetOp("add3")->UpdateSubgraphID(2);
-        G.GetTensor("d")->subGraphID = 2;
     }
     G.GetOp("add1")->UpdateSubgraphID(0);
     G.GetOp("add2")->UpdateSubgraphID(1);
-    G.GetTensor("a")->subGraphID = G.GetTensor("b")->subGraphID = 0;
-    G.GetTensor("c")->subGraphID = 1;
-    G.GetTensor("b")->isSubGraphBoundary = true;
     for (const auto& t : {"a", "b", "c"})
         G.GetTensor(t)->SetMemoryTypeBoth(MemoryType::MEM_UB);
     if (threeOpFork)
@@ -265,4 +261,91 @@ TEST_F(SubgraphToFunctionCheckTest, NOPCheckHasOutCtrlOperations)
     SubGraphToFuncChecker checker;
     Status ret = checker.NOPCheck(nopOp);
     EXPECT_EQ(ret, FAILED);
+}
+
+TEST_F(SubgraphToFunctionCheckTest, CheckSubGraphTopo_EmptySubgraph)
+{
+    constexpr int kTileSize = 32;
+    config::SetPassConfig("PVC2_OOO", "SubgraphToFunction", KEY_PRE_CHECK, true);
+    config::SetPassConfig("PVC2_OOO", "SubgraphToFunction", KEY_POST_CHECK, true);
+    TileShape::Current().SetVecTile(kTileSize, kTileSize);
+
+    auto func = std::make_shared<Function>(Program::GetInstance(), "EmptySubgraphTest", "EmptySubgraphTest", nullptr);
+    func->SetTotalSubGraphCount(1);
+
+    SubGraphToFuncChecker checker;
+    Status status = checker.CheckSubGraphTopo(*func);
+    EXPECT_EQ(status, FAILED);
+}
+
+
+TEST_F(SubgraphToFunctionCheckTest, CheckSubGraphBoundary_Rule1_DDR_NotBoundary)
+{
+    config::SetHostOption(COMPILE_STAGE, CS_EXECUTE_GRAPH);
+
+    auto f = std::make_shared<Function>(Program::GetInstance(), "test_rule1_ddr", "test_rule1_ddr", nullptr);
+    Program::GetInstance().InsertFuncToFunctionMap("test_rule1_ddr", f);
+
+    ComputationalGraphBuilder G(f.get());
+    G.AddTensor(DataType::DT_FP32, kShape88, "in");
+    G.AddTensor(DataType::DT_FP32, kShape88, "out");
+    G.AddOp(Opcode::OP_ADD, {"in"}, {"out"}, "add_op");
+
+    auto op = G.GetOp("add_op");
+    auto inTensor = G.GetTensor("in");
+    inTensor->SetMemoryTypeOriginal(MemoryType::MEM_DEVICE_DDR);
+    auto outTensor = G.GetTensor("out");
+    outTensor->SetMemoryTypeOriginal(MemoryType::MEM_DEVICE_DDR);
+    op->UpdateSubgraphID(0);
+
+    SubGraphToFuncChecker checker;
+    auto status = checker.CheckSubGraphBoundary(*f);
+    EXPECT_EQ(status, FAILED);
+}
+
+TEST_F(SubgraphToFunctionCheckTest, CheckSubGraphBoundary_Rule3_CopyIn_NoBoundary)
+{
+    config::SetHostOption(COMPILE_STAGE, CS_EXECUTE_GRAPH);
+
+    auto f = std::make_shared<Function>(Program::GetInstance(), "test_rule3_clean", "test_rule3_clean", nullptr);
+    Program::GetInstance().InsertFuncToFunctionMap("test_rule3_clean", f);
+
+    ComputationalGraphBuilder G(f.get());
+    G.AddTensor(DataType::DT_FP32, kShape88, "in");
+    G.AddTensor(DataType::DT_FP32, kShape88, "out");
+
+    G.AddOp(Opcode::OP_UB_COPY_IN, {"in"}, {"out"}, "copy_in");
+
+    auto op = G.GetOp("copy_in");
+    auto tensor = G.GetTensor("in");
+
+    op->UpdateSubgraphID(0);
+    SubGraphToFuncChecker checker;
+    auto status = checker.CheckSubGraphBoundary(*f);
+    EXPECT_EQ(status, SUCCESS);
+}
+
+TEST_F(SubgraphToFunctionCheckTest, CheckSubGraphBoundary_Output_DDR_Only)
+{
+    config::SetHostOption(COMPILE_STAGE, CS_EXECUTE_GRAPH);
+
+    auto f = std::make_shared<Function>(Program::GetInstance(), "test_out_ddr_clean", "test_out_ddr_clean", nullptr);
+    Program::GetInstance().InsertFuncToFunctionMap("test_out_ddr_clean", f);
+
+    ComputationalGraphBuilder G(f.get());
+    G.AddTensor(DataType::DT_FP32, kShape88, "in");
+    G.AddTensor(DataType::DT_FP32, kShape88, "out");
+    G.AddOp(Opcode::OP_ADD, {"in"}, {"out"}, "add_op");
+
+    auto op = G.GetOp("add_op");
+    auto in_tensor = G.GetTensor("in");
+    auto out_tensor = G.GetTensor("out");
+
+    op->UpdateSubgraphID(0);
+
+    out_tensor->SetMemoryTypeOriginal(MemoryType::MEM_DEVICE_DDR);
+
+    SubGraphToFuncChecker checker;
+    auto status = checker.CheckSubGraphBoundary(*f);
+    EXPECT_EQ(status, FAILED);
 }

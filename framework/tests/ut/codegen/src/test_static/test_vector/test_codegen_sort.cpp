@@ -25,30 +25,19 @@
 #include "tilefwk/data_type.h"
 #include "codegen/codegen.h"
 #include "codegen/symbol_mgr/codegen_symbol.h"
-#include "codegen/cloudnpu/codegen_cloudnpu.h"
-#include "codegen/cloudnpu/codegen_op_cloudnpu.h"
+#include "codegen/npu/cloudnpu/codegen_cloudnpu.h"
+#include "codegen/npu/cloudnpu/codegen_op_cloudnpu.h"
 #include "test_codegen_utils.h"
 #include "test_codegen_common.h"
 
 namespace npu::tile_fwk {
 constexpr const unsigned OP_MAGIC3 = 3;
 constexpr const unsigned OP_MAGIC4 = 4;
-class TestCodegenSort : public ::testing::Test {
+class TestCodegenSort : public CodegenTestBase {
 public:
-    static void SetUpTestCase() {}
+    TestCodegenSort() : CodegenTestBase({.compileStage = CS_EXECUTE_GRAPH, .buildStatic = true}) {}
 
     static void TearDownTestCase() { config::SetCodeGenConfig(KEY_CODEGEN_SUPPORT_TILE_TENSOR, true); }
-
-    void SetUp() override
-    {
-        Program::GetInstance().Reset();
-        config::Reset();
-        config::SetBuildStatic(true);
-        config::SetHostOption(COMPILE_STAGE, CS_EXECUTE_GRAPH);
-        config::SetPlatformConfig(KEY_ENABLE_COST_MODEL, false);
-    }
-
-    void TearDown() override {}
 };
 
 struct TopKParams {
@@ -91,10 +80,10 @@ void TopKOnBoardFunc(TopKParams& params)
     expect = R"(TMrgSort<1, 32, 32>(ubTensor_2, ubTensor_2, ubTensor_6); // [opMagic:10006])";
     CheckStringExist(expect, res);
 
-    expect = R"(TExtract<32, 1, 1>(ubTensor_8, ubTensor_2); // [opMagic:10008])";
+    expect = R"(TExtract<32, 0, 1>(ubTensor_8, ubTensor_2); // [opMagic:10007])";
     CheckStringExist(expect, res);
 
-    expect = R"(TExtract<32, 0, 1>(ubTensor_10, ubTensor_2); // [opMagic:10007])";
+    expect = R"(TExtract<32, 1, 1>(ubTensor_10, ubTensor_2); // [opMagic:10008])";
     CheckStringExist(expect, res);
 }
 

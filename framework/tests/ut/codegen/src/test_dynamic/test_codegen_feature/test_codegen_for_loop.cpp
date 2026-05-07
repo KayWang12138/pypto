@@ -25,30 +25,24 @@
 #include "tilefwk/data_type.h"
 #include "codegen/codegen.h"
 #include "codegen/symbol_mgr/codegen_symbol.h"
-#include "codegen/cloudnpu/codegen_cloudnpu.h"
+#include "codegen/npu/cloudnpu/codegen_cloudnpu.h"
 #include "test_codegen_utils.h"
 #include "test_codegen_common.h"
 #include "passes/pass_mgr/pass_manager.cpp"
 
 namespace npu::tile_fwk {
-class TestCodegenForLoop : public ::testing::Test {
+class TestCodegenForLoop : public CodegenTestBase {
 public:
-    static void SetUpTestCase() {}
+    TestCodegenForLoop() : CodegenTestBase({.compileStage = CS_EXECUTE_GRAPH, .setIdGen = true}) {}
 
     static void TearDownTestCase() { config::SetCodeGenConfig(KEY_CODEGEN_SUPPORT_TILE_TENSOR, true); }
 
     void SetUp() override
     {
-        Program::GetInstance().Reset();
-        config::Reset();
+        CodegenTestBase::SetUp();
         config::SetPassGlobalConfig(KEY_VF_OPT_MARK_FOR, true);
-        config::SetHostOption(COMPILE_STAGE, CS_EXECUTE_GRAPH);
-        config::SetPlatformConfig(KEY_ENABLE_COST_MODEL, false);
         config::SetHostConfig(KEY_STRATEGY, "LoopAxesPassTestStrategy");
-        IdGen<IdType::FUNCTION>::Inst().SetId(DummyFuncMagic);
     }
-
-    void TearDown() override {}
 };
 
 TEST_F(TestCodegenForLoop, TestForLoop)
@@ -102,8 +96,9 @@ TEST_F(TestCodegenForLoop, TestForLoop)
             auto res3 = Mul(res1, res2);
             auto res4 = Cast(res3, DT_FP16);
             auto res5 = Cast(res4, DT_INT8, CAST_NONE, SaturationMode::ON);
-            auto res6 = Cast(res5, DT_FP32);
-            output = Sum(res6, -1, true);
+            auto res6 = Cast(res5, DT_FP16);
+            auto res7 = Cast(res6, DT_FP32);
+            output = Sum(res7, -1, true);
         }
     }
 
@@ -123,7 +118,7 @@ TEST_F(TestCodegenForLoop, TestForLoop)
 
     // 定义第一个待检查的目标代码片段
     const std::string expect1 = R"(
-        auto tileOffsets = TileOffset(idx0, idx1, idx2);
+        auto tileOffsets = TileOffset(0, idx1, idx2);
         ubTensor_10_low2DimInLoop.SetAddr(ubTensor_10.GetLinearAddr(tileOffsets));
         ubTensor_2_low2DimInLoop.SetAddr(ubTensor_2.GetLinearAddr(tileOffsets));
         ubTensor_0_low2DimInLoop.SetAddr(ubTensor_0.GetLinearAddr(tileOffsets));
@@ -136,7 +131,7 @@ TEST_F(TestCodegenForLoop, TestForLoop)
     CheckStringExist(expect1, res);
 
     const std::string expect2 = R"(
-        auto tileOffsets = TileOffset(idx0, idx1, idx2);
+        auto tileOffsets = TileOffset(0, idx1, idx2);
         ubTensor_10_low2DimInLoop.SetAddr(ubTensor_10.GetLinearAddr(tileOffsets));
         ubTensor_4_low2DimInLoop.SetAddr(ubTensor_4.GetLinearAddr(tileOffsets));
         TMul<LastUse3Dim<0, 1, 1>>(ubTensor_4_low2DimInLoop, ubTensor_4_low2DimInLoop, ubTensor_10_low2DimInLoop);
@@ -146,10 +141,10 @@ TEST_F(TestCodegenForLoop, TestForLoop)
     CheckStringExist(expect2, res);
 
     const std::string expect3 = R"(
-        auto tileOffsets = TileOffset(idx0, idx1, idx2);
-        ubTensor_31_low2DimInLoop.SetAddr(ubTensor_31.GetLinearAddr(tileOffsets));
+        auto tileOffsets = TileOffset(0, idx1, idx2);
         ubTensor_35_low2DimInLoop.SetAddr(ubTensor_35.GetLinearAddr(tileOffsets));
-        TRowSumSingle<LastUse3Dim<0, 0, 0>>(ubTensor_35_low2DimInLoop, ubTensor_31_low2DimInLoop, ubTensor_36);
+        ubTensor_39_low2DimInLoop.SetAddr(ubTensor_39.GetLinearAddr(tileOffsets));
+        TRowSumSingle<LastUse3Dim<0, 0, 0>>(ubTensor_39_low2DimInLoop, ubTensor_35_low2DimInLoop, ubTensor_40);
 )";
     CheckStringExist(expect3, res);
 }

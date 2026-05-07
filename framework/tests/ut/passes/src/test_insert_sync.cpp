@@ -116,6 +116,7 @@ public:
 
     void AdjustCopyOpTileCfg(Operation& op, TileOpCfg& opcfg)
     {
+        opcfg.aivCore_ = AIVCore::AIV0;
         if (op.GetOpcode() == Opcode::OP_COPY_IN) {
             opcfg.pipeIdStart_ = PipeType::PIPE_MTE2;
             opcfg.pipeIdEnd_ = PipeType::PIPE_MTE2;
@@ -134,7 +135,7 @@ public:
         for (size_t i = 0; i < opLogPtr.size(); i++) {
             auto opcfg = OpcodeManager::Inst().GetTileOpCfg(opLogPtr[i]->GetOpcode());
             AdjustCopyOpTileCfg(*opLogPtr[i], opcfg);
-            PipeSync::DepOp op(i, {opcfg.pipeIdStart_, opcfg.pipeIdEnd_, opcfg.coreType_});
+            PipeSync::DepOp op(i, {opcfg.pipeIdStart_, opcfg.pipeIdEnd_, opcfg.coreType_, opcfg.aivCore_});
             PipeSync::DepOp& currOp = ps.depOps_.emplace_back(op);
             auto dataDependencySet = dataDependencySearcher.Find(opLogPtr[i]);
             for (auto it = dataDependencySet.rbegin(); it != dataDependencySet.rend(); it++) {
@@ -284,7 +285,7 @@ TEST_F(InsertSyncTest, TestFindDep)
     for (size_t i = 0; i < opLogPtr.size(); i++) {
         auto opcfg = OpcodeManager::Inst().GetTileOpCfg(opLogPtr[i]->GetOpcode());
         AdjustCopyOpTileCfg(*opLogPtr[i], opcfg);
-        PipeSync::DepOp op(i, {opcfg.pipeIdStart_, opcfg.pipeIdEnd_, opcfg.coreType_});
+        PipeSync::DepOp op(i, {opcfg.pipeIdStart_, opcfg.pipeIdEnd_, opcfg.coreType_, opcfg.aivCore_});
         ps.depOps_.emplace_back(op);
         auto dataDependencySet = dataDependencySearcher.Find(opLogPtr[i]);
         // start tests
@@ -420,7 +421,7 @@ TEST_F(InsertSyncTest, TestUpdateDep)
     for (size_t i = 0; i < opLogPtr.size(); i++) {
         auto opcfg = OpcodeManager::Inst().GetTileOpCfg(opLogPtr[i]->GetOpcode());
         AdjustCopyOpTileCfg(*opLogPtr[i], opcfg);
-        PipeSync::DepOp op(i, {opcfg.pipeIdStart_, opcfg.pipeIdEnd_, opcfg.coreType_});
+        PipeSync::DepOp op(i, {opcfg.pipeIdStart_, opcfg.pipeIdEnd_, opcfg.coreType_, opcfg.aivCore_});
         auto& currOp = ps.depOps_.emplace_back(op);
         auto dataDependencySet = dataDependencySearcher.Find(opLogPtr[i]);
         for (auto it = dataDependencySet.rbegin(); it != dataDependencySet.rend(); it++) {
@@ -473,11 +474,11 @@ void AddOpForTestHandleEventID(std::vector<Operation*>& opLogPtr, std::shared_pt
     tensor5->memoryrange.start = IS_NUM700;
     tensor5->memoryrange.end = IS_NUM800;
     auto& copyin1 = currFunctionPtr->AddRawOperation(Opcode::OP_COPY_IN, {tensor1}, {tensor2});
-    opLogPtr.emplace_back(&copyin1);
-    auto& cast = currFunctionPtr->AddRawOperation(Opcode::OP_CAST, {tensor2}, {tensor3});
-    opLogPtr.emplace_back(&cast);
+    opLogPtr.emplace_back(&copyin1);  // index 0
     auto& copyin2 = currFunctionPtr->AddRawOperation(Opcode::OP_COPY_IN, {tensor4}, {tensor5});
-    opLogPtr.emplace_back(&copyin2);
+    opLogPtr.emplace_back(&copyin2);  // index 1 - moved before cast to satisfy AdjustOpDep conditions
+    auto& cast = currFunctionPtr->AddRawOperation(Opcode::OP_CAST, {tensor2}, {tensor3});
+    opLogPtr.emplace_back(&cast);     // index 2
 }
 
 TEST_F(InsertSyncTest, TestHandleEventID)
@@ -494,35 +495,56 @@ TEST_F(InsertSyncTest, TestHandleEventID)
     AddOpForTestHandleEventID(opLogPtr, currFunctionPtr);
 
     PipeSync ps;
+    ps.InitIssueQueue();  // Initialize issueState_ before BuildDeps
     DataDependencySearcher dataDependencySearcher;
     ProcessOpList(ps, dataDependencySearcher, opLogPtr);
     std::vector<IndexOp> synced;
     BuildDeps(ps, dataDependencySearcher, opLogPtr, synced);
-    EXPECT_EQ(ps.depOps_[0].setPipe[0], IS_NUM1);
-    EXPECT_EQ(ps.depOps_[IS_NUM1].waitPipe[0], 0);
+    // After reorder: copyin1(0), copyin2(1), cast(2)
+    EXPECT_EQ(ps.depOps_[0].setPipe[0], IS_NUM2);  // copyin1 sets for cast
+    EXPECT_EQ(ps.depOps_[IS_NUM2].waitPipe[0], 0);  // cast waits for copyin1
 
-    // HandleEventID
+    // HandleEventID - Test AdjustOpDep path
+    // Set up conditions to trigger AdjustOpDep:
+    // 1. currIssueNum >= maxIssueNum (both set to 8)
+    // 2. deadlock = true
+    // 3. issueQ has enough elements for nextOp
     bool eventIdDeadlock = true;
     bool res = false;
     PipeSync::IssueNum issuenum;
+    // issueState_[4] is AIV0_MTE2 queue, contains copyin1(0) and copyin2(1)
     PipeSync::IssueQueue& issueQ = ps.issueState_[IS_NUM4];
-    PipeSync::DepOp& handleOp = ps.depOps_[0];
-    PipeSync::DepOp& eleOp = ps.depOps_[IS_NUM1];
-    PipeSync::PipeCoreReal currPipeCore(handleOp.selfPipeCore.pipeEnd, handleOp.selfPipeCore.core);
-    PipeSync::PipeCoreReal elePipeCore(eleOp.selfPipeCore.pipeStart, eleOp.selfPipeCore.core);
-    PipeSync::PipePair pp{currPipeCore, elePipeCore};
-    issuenum.maxIssueNum.emplace(pp, IS_NUM8);
-    issuenum.currIssueNum.emplace(pp, IS_NUM8);
-    ps.HandleEventID(handleOp, issueQ, issuenum, eventIdDeadlock, res);
-    EXPECT_EQ(ps.depOps_[IS_NUM1].waitPipe[0], IS_NUM2);
-    EXPECT_EQ(ps.depOps_[IS_NUM2].setPipe[0], IS_NUM1);
+    PipeSync::DepOp& handleOp = ps.depOps_[0];    // copyin1
+    PipeSync::DepOp& eleOp = ps.depOps_[IS_NUM2]; // cast
+    PipeSync::PipeCoreRealEx currPipeCoreEx(handleOp.selfPipeCore.pipeEnd, handleOp.selfPipeCore.core, handleOp.selfPipeCore.aivCore);
+    PipeSync::PipeCoreRealEx elePipeCoreEx(eleOp.selfPipeCore.pipeStart, eleOp.selfPipeCore.core, eleOp.selfPipeCore.aivCore);
+    PipeSync::PipePairEx pp{currPipeCoreEx, elePipeCoreEx};
+
+    // Pre-set issuenum to trigger AdjustOpDep: currIssueNum >= maxIssueNum
+    issuenum.maxIssueNum[pp] = IS_NUM8;
+    issuenum.currIssueNum[pp] = IS_NUM8;
+
+    // Verify initial state before HandleEventID
+    EXPECT_EQ(ps.depOps_[IS_NUM2].waitPipe[0], 0);  // cast waits for copyin1
+    EXPECT_EQ(ps.depOps_[0].setPipe[0], IS_NUM2);   // copyin1 sets for cast
+
+    ps.HandleEventID(handleOp, issueQ, issuenum, eventIdDeadlock, res, synced);
+    issueQ.DumpIssueQueue(ps.oriOpList_);
+    ps.DumpLatestPipeDepMap();
+
+    // After HandleEventID with AdjustOpDep:
+    // RemoveOpDep: copyin1's setPipe removes cast, cast's waitPipe removes copyin1
+    // AddOpDep: copyin2's setPipe adds cast, cast's waitPipe adds copyin2
+    EXPECT_EQ(ps.depOps_[IS_NUM2].waitPipe[0], IS_NUM1);  // cast now waits for copyin2
+    EXPECT_EQ(ps.depOps_[IS_NUM1].setPipe[0], IS_NUM2);   // copyin2 sets for cast
+    EXPECT_EQ(ps.depOps_[0].setPipe.size(), 0);           // copyin1 has no setPipe
 
     // InitCVEventIdQ
     PipeSync::CoreTypeDetail setCore = {CoreType::AIC, AIVCore::UNSPECIFIED};
     PipeSync::CoreTypeDetail waitCore = {CoreType::AIV, AIVCore::AIV1};
     PipeSync::CorePair corePair = {setCore, waitCore};
     PipeSync::CorePair corePairReverse = {waitCore, setCore};
-    ps.InitCVEventIdQ(true, corePair, corePairReverse);
+    ps.InitCVEventIdQ(corePair);
     EXPECT_EQ(ps.crossCoreFreeEventId_[corePair].size(), IS_NUM16);
     EXPECT_EQ(ps.crossCoreFreeEventId_[corePairReverse].size(), IS_NUM16);
 }
@@ -734,7 +756,7 @@ TEST_F(InsertSyncTest, TestRelaxFakeDataDep)
         size_t issuedTest = IS_NUM100;
         for (int i = 0; i < static_cast<int>(PipeSeq::PIPE_END); i++) {
             std::vector<size_t> issuedOps;
-            ps.PopFromQueue(ps.issueState_[i], issuedOps, eventIdDeadlock);
+            ps.PopFromQueue(ps.issueState_[i], issuedOps, eventIdDeadlock, synced);
             issued += issuedOps.size();
             if (i == IS_NUM4) {
                 issuedTest = issuedOps.size();
@@ -768,6 +790,14 @@ TEST_F(InsertSyncTest, TestGetDepInfoSizeMismatch)
     auto pipePair = PipeSync::dataDepPair[0];
     PipeSync::DataDepInfo depInfo;
     EXPECT_EQ(ps.GetDepInfo(emptySyncedOpLog, pipePair, depInfo), FAILED);
+    EXPECT_EQ(ps.PipeSeqName(PipeSeq::AIV0_MTE2), "AIV0_MTE2");
+    EXPECT_EQ(ps.PipeSeqName(PipeSeq::AIV1_MTE2), "AIV1_MTE2");
+    EXPECT_EQ(ps.PipeSeqName(PipeSeq::AIV0_V), "AIV0_V");
+    EXPECT_EQ(ps.PipeSeqName(PipeSeq::AIV1_V), "AIV1_V");
+    EXPECT_EQ(ps.PipeSeqName(PipeSeq::AIV0_MTE3), "AIV0_MTE3");
+    EXPECT_EQ(ps.PipeSeqName(PipeSeq::AIV1_MTE3), "AIV1_MTE3");
+    EXPECT_EQ(ps.PipeSeqName(PipeSeq::AIV0_S), "AIV0_S");
+    EXPECT_EQ(ps.PipeSeqName(PipeSeq::AIV1_S), "AIV1_S");
 }
 } // namespace tile_fwk
 } // namespace npu

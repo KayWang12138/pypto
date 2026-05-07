@@ -6,9 +6,9 @@
 
 ## 错误码定义与使用说明
 
-相关错误码的统一定义，参见 `framework/src/interface/utils/function_error.h` 文件。
+相关错误码的枚举与码值统一定义在 `framework/include/tilefwk/error_code.h`。
 
-该文件中定义了以下错误码（FError）：
+其中定义了以下错误码（`FeError`）：
 
 ### 通用错误码（0x21001U - 0x21008U）
 
@@ -217,6 +217,33 @@ y = pypto.view(x, [16, 16, 8, 8], [0, 0, 0], [])
 # 正确示例
 y = pypto.view(x, [16, 16, 8, 8], [0, 0, 0, 0], [])
 ```
+#### 使用动态Shape的Tensor进行计算表达
+```python
+# 错误示例
+@pypto.frontend.jit
+def kernel_with_dynamic(
+    a: pypto.Tensor([pypto.DYNAMIC, ...]),
+    out: pypto.Tensor([pypto.DYNAMIC, ...]),
+):
+    pypto.set_vec_tile_shapes(16, 16)
+    # 用动态Shape的Tensor进行计算表达
+    out[:] = pypto.exp(a)
+
+# 正确示例
+@pypto.frontend.jit
+def kernel_with_dynamic(
+    a: pypto.Tensor([pypto.DYNAMIC, ...]),
+    out: pypto.Tensor([pypto.DYNAMIC, ...]),
+):
+    pypto.set_vec_tile_shapes(16, 16)
+    view = 32
+    # 在loop中view出静态shape后，再做计算
+    count = (a.shape[0] - 1 + view) // view
+    for idx in pypto.loop(count):
+        temp = a[idx: idx + view, :]
+        out[idx: idx + view, :] = pypto.exp(temp)
+```
+
 
 ---
 
@@ -236,7 +263,7 @@ y = pypto.view(x, [16, 16, 8, 8], [0, 0, 0, 0], [])
 
 ```cpp
 // 错误示例 - Tensor 构造函数中 storage_ 为 nullptr
-Tensor tensor(nullptr);  // 触发 FError::INVALID_PTR 错误
+Tensor tensor(nullptr);  // 触发 FeError::INVALID_PTR 错误
 ```
 
 ---
@@ -287,7 +314,7 @@ def correct_view_offset_example(x):
 // 错误 - 配置值溢出
 // C++ 代码调用 SetOptionsNg
 config::SetOptionsNg("runtime.device_sched_mode", 4);  // 超出范围 [0, 3]，会报错
-config::SetOptionsNg("runtime.stitch_function_num_initial", 129);  // 超出范围 [1, 128]，会报错
+config::SetOptionsNg("runtime.stitch_function_max_num", 1025);  // 超出范围 [1, 1024]，会报错
 
 // tile_fwk_config_schema.json 中定义了范围
 {
@@ -299,10 +326,10 @@ config::SetOptionsNg("runtime.stitch_function_num_initial", 129);  // 超出范�
                     "minimum": 0,
                     "maximum": 3
                 },
-                "stitch_function_num_initial": {
+                "stitch_function_max_num": {
                     "type": "integer",
                     "minimum": 1,
-                    "maximum": 128
+                    "maximum": 1024
                 }
             }
         }

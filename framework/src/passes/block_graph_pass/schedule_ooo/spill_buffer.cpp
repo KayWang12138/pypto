@@ -13,51 +13,129 @@
  * \brief
  */
 
-#include "scheduler.h"
+#include "ooo_scheduler.h"
 #include "passes/pass_log/pass_log.h"
-
-#define MODULE_NAME "OoOSchedule"
 
 namespace npu::tile_fwk {
 
 constexpr int32_t TWO_ISSUE = 2;
 constexpr int32_t DEFAULT_LATENCY = 511;
 
-OoOSchedulerCheck::SpillInfo OoOScheduler::RecordSpillInfo(
-    MemoryType bufferType, int memId, LocalBufferPtr allocBuffer, LogicalTensorPtr spillOutTensor, bool needCopyOut)
+static bool IsAnyDimSmaller(const std::vector<int64_t>& a, const std::vector<int64_t>& b)
 {
-    OoOSchedulerCheck::SpillInfo spillInfo;
-    spillInfo.spillType = bufferType;
-    spillInfo.bufferCurrUsage = oooCheck.bufferLastUsage[bufferType];
-    spillInfo.spillTensorSize = localBufferMap[memId]->size;
-    spillInfo.spillTensorMagic = spillOutTensor->GetMagic();
-    spillInfo.triggerTensorSize = allocBuffer->size;
-    int allocOccupied = 0;
-    for (const auto &pair : tensorOccupyMap[bufferType]) {
-        if (opIsAllocMap[pair.second]) {
-            allocOccupied += localBufferMap[pair.first]->size;
+    if (a.size() != b.size()) {
+        return false;
+    }
+    for (size_t i = 0; i < a.size(); ++i) {
+        if (a[i] < b[i]) {
+            return true;
         }
     }
-    spillInfo.allocOccupiedSize = allocOccupied;
-    if (needCopyOut) {
-        auto dtype = spillOutTensor->tensor->datatype;
-        spillInfo.spillCopyoutSize =
-            std::accumulate(spillOutTensor->shape.begin(), spillOutTensor->shape.end(), 1, std::multiplies<int64_t>()) *
-            BytesOf(dtype);
-    } else {
-        spillInfo.spillCopyoutSize = 0;
+    return false;
+}
+
+bool OoOScheduler::IsSupportedPartialWriteProducer(const Operation &op) const
+{
+    return op.GetOpcode() == Opcode::OP_ASSEMBLE || op.GetOpcode() == Opcode::OP_L0C_TO_L1 ||
+        IsAllocOpCode(op.GetOpcode());
+}
+
+Status OoOScheduler::GetPartialWriteReplayAttr(Operation* producerOp, std::vector<int64_t> &toOffset,
+    std::vector<SymbolicScalar> &toDynOffset, std::vector<SymbolicScalar> &fromDynValidShape) const
+{
+    if (producerOp->GetOpcode() == Opcode::OP_ASSEMBLE) {
+        auto attr = std::static_pointer_cast<AssembleOpAttribute>(producerOp->GetOpAttribute());
+        if (attr == nullptr) {
+            APASS_LOG_ERROR_F(Elements::Operation, "Invalid AssembleOpAttribute.");
+            return FAILED;
+        }
+        toOffset = attr->GetToOffset();
+        toDynOffset = attr->GetToDynOffset();
+        fromDynValidShape = attr->GetFromDynValidShape();
+        return SUCCESS;
+    } else if (producerOp->GetOpcode() == Opcode::OP_L0C_TO_L1) {
+        auto attr = std::static_pointer_cast<CopyOpAttribute>(producerOp->GetOpAttribute());
+        if (attr == nullptr) {
+            APASS_LOG_ERROR_F(Elements::Operation, "Invalid CopyOpAttribute.");
+            return FAILED;
+        }
+        auto iOperand = producerOp->GetInputOperand(0);
+        for (const auto &offsetImm : attr->GetToOffset()) {
+            if (!offsetImm.IsSpecified() || !offsetImm.GetSpecifiedValue().ConcreteValid()) {
+                APASS_LOG_ERROR_F(Elements::Operation, "L0C_TO_L1 replay only supports static concrete toOffset.");
+                return FAILED;
+            }
+            toOffset.push_back(static_cast<int64_t>(offsetImm.GetSpecifiedValue()));
+        }
+        fromDynValidShape = iOperand->GetDynValidShape();
+        if (fromDynValidShape.empty() && !attr->GetToDynValidShape().empty()) {
+            fromDynValidShape = OpImmediate::ToSpecified(attr->GetToDynValidShape());
+        }
+        return SUCCESS;
     }
-    return spillInfo;
+    APASS_LOG_ERROR_F(Elements::Operation, "Unsupported producer opcode in SpillParticalBuffer.");
+    return FAILED;
+}
+
+Operation* OoOScheduler::FindAllocForAssembleProducers(const std::vector<Operation*> &assembleOps) const
+{
+    for (auto *op : assembleOps) {
+        if (op->GetOpcode() != Opcode::OP_ASSEMBLE) {
+            continue;
+        }
+        for (auto *producer : op->ProducerOps()) {
+            if (producer->GetOpcodeStr().find("ALLOC") != std::string::npos) {
+                return producer;
+            }
+        }
+    }
+    return nullptr;
+}
+
+bool OoOScheduler::HasNZHorizontalSlice(const std::vector<Operation*> &assembleOps) const
+{
+    for (auto *op : assembleOps) {
+        if (op->GetOpcode() != Opcode::OP_L0C_TO_L1) {
+            continue;
+        }
+        int64_t isNZ = 0;
+        op->GetAttr(OpAttributeKey::copyIsNZ, isNZ);
+        if (isNZ == 0) {
+            continue;
+        }
+        auto attr = std::static_pointer_cast<CopyOpAttribute>(op->GetOpAttribute());
+        if (attr == nullptr) {
+            continue;
+        }
+        for (const auto &offsetImm : attr->GetToOffset()) {
+            if (!offsetImm.IsSpecified() || !offsetImm.GetSpecifiedValue().ConcreteValid()) {
+                return true; // dynamic offset, conservatively reject
+            }
+        }
+        // NZ format: offset[0] is the M (row) dimension; non-zero means horizontal slice
+        const auto &toOffset = attr->GetToOffset();
+        if (!toOffset.empty() && static_cast<int64_t>(toOffset[0].GetSpecifiedValue()) != 0) {
+            APASS_LOG_INFO_F(Elements::Operation,
+                "Reject spill-assemble for %s[%d]: NZ horizontal slice (toOffset[0]=%lld).",
+                op->GetOpcodeStr().c_str(), op->GetOpMagic(),
+                static_cast<long long>(static_cast<int64_t>(toOffset[0].GetSpecifiedValue())));
+            return true;
+        }
+    }
+    return false;
 }
 
 int OoOScheduler::GetBufNextUseOrder(Operation* op, int curMemId) {
-    int execOrder = opExecOrderMap[op];
-    auto it = std::find_if(orderedOps.begin(), orderedOps.end(), [this, execOrder, curMemId](Operation* a) {
-        if (!a || opExecOrderMap[a] <= execOrder) return false;
-        auto& reqMemIds = opReqMemIdsMap[a];
-        return std::find(reqMemIds.begin(), reqMemIds.end(), curMemId) != reqMemIds.end();
-    });
-    return (it != orderedOps.end()) ? opExecOrderMap[*it] : -1;
+    (void)op;
+    for (size_t i = 0; i < orderedOps.size(); ++i) {
+        auto& a = orderedOps[i];
+        if (opIsRetiredMap[a]) continue;
+        auto& reqMemIds = GetOpMemIds(a);
+        if (std::find(reqMemIds.begin(), reqMemIds.end(), curMemId) != reqMemIds.end()) {
+            return opExecOrderMap[a];
+        }
+    }
+    return -1;
 }
 
 int OoOScheduler::GetBufLastUseOrder(Operation* op, int curMemId) {
@@ -69,7 +147,7 @@ int OoOScheduler::GetBufLastUseOrder(Operation* op, int curMemId) {
     for (auto it = std::make_reverse_iterator(targetIt); it != orderedOps.rend(); it++) {
         Operation* curOp = *it;
         if (curOp && opExecOrderMap[curOp] < execOrder) {
-            auto& reqMemIds = opReqMemIdsMap[curOp];
+            auto& reqMemIds = GetOpMemIds(curOp);
             if (std::find(reqMemIds.begin(), reqMemIds.end(), curMemId) != reqMemIds.end()) {
                 return opExecOrderMap[curOp];
             }
@@ -107,19 +185,19 @@ Status OoOScheduler::UpdateTensorAttr(
     tensor->UpdateDynValidShape(spillTensor->GetDynValidShape());
     tensor->tensor->rawshape = spillTensor->tensor->rawshape;
     if (memType == MEM_DEVICE_DDR) {
-        if (localBufferMap.find(spillMemId) == localBufferMap.end()) {
-            APASS_LOG_ERROR_F(Elements::Tensor, "Cannot find Tensor[%d] in localBufferMap.", spillMemId);
+        if (localBufferMap_.find(spillMemId) == localBufferMap_.end()) {
+            APASS_LOG_ERROR_F(Elements::Tensor, "Cannot find Tensor[%d] in localBufferMap_.", spillMemId);
             return FAILED;
         }
         tensor->memoryrange =
-            TileRange(workspaceOffset, workspaceOffset + localBufferMap[spillMemId]->size, workspaceMemId++);
-        workspaceOffset += localBufferMap[spillMemId]->size;
+            TileRange(workspaceOffset, workspaceOffset + localBufferMap_[spillMemId]->size, workspaceMemId++);
+        workspaceOffset += localBufferMap_[spillMemId]->size;
     } else {
         int rawMagic = tensor->GetRawTensor()->GetRawMagic();
         tensor->memoryrange.memId = rawMagic;
-        localBufferMap[rawMagic] =
+        localBufferMap_[rawMagic] =
             std::make_shared<LocalBuffer>(rawMagic, tensor->tensor->GetRawDataSize(), tensor->GetMemoryTypeOriginal());
-        if (localBufferMap[rawMagic] == nullptr) {
+        if (localBufferMap_[rawMagic] == nullptr) {
             APASS_LOG_ERROR_F(Elements::Tensor, "Init Tensor[%d] localBuffer failed.", rawMagic);
             return FAILED;
         }
@@ -135,24 +213,55 @@ void OoOScheduler::UpdateOpInternalSubgraphID(Operation &op, Operation* srcOp) {
     }
 }
 
+// A5 中：L1 发生 spill 时， copy_in的rawshape属性来源于实际spill的tensor，offset属性来源于spill op
+void OoOScheduler::GetActualSpillInfo(Operation* spillOp, std::pair<LogicalTensorPtr, Operation*>& actualInfo)
+{
+    auto actualSpillTensor = spillOp->GetInputOperand(0);
+    auto copyOp = spillOp;
+    Operation* actualSpillOp = nullptr;
+    for (auto &op : depManager_.GetPredecessors(spillOp)) {
+        if (!opIsAllocMap[op]) {
+            actualSpillOp = op;
+        }
+    }
+    if (spillOp->GetOpcode() == Opcode::OP_RESHAPE && actualSpillOp) {
+        actualSpillTensor = actualSpillOp->GetInputOperand(0);
+        copyOp = actualSpillOp;
+    }
+    actualInfo = std::make_pair(actualSpillTensor, copyOp);
+}
+
 void OoOScheduler::UpdateOpAttr(Operation &op, int opLatency, LogicalTensorPtr spillTensor,
-        std::vector<int64_t> offset, Operation* spillOp, int64_t workspaceBaseOffset) {
+    std::vector<int64_t> offset, Operation* spillOp, bool isSpecialL1)
+{
     if (op.GetOpcode() == Opcode::OP_COPY_OUT) {
-        op.SetAttr(OpAttributeKey::workspaceBaseOffset, workspaceBaseOffset);
-        op.SetOpAttribute(std::make_shared<CopyOpAttribute>(
-            spillTensor->GetMemoryTypeOriginal(), OpImmediate::Specified(offset),
-            OpImmediate::Specified(spillTensor->GetShape()),
+        op.SetOpAttribute(std::make_shared<CopyOpAttribute>(spillTensor->GetMemoryTypeOriginal(),
+            OpImmediate::Specified(offset), OpImmediate::Specified(spillTensor->GetShape()),
             OpImmediate::Specified(spillTensor->GetRawTensor()->GetDynRawShape())));
     } else if (op.GetOpcodeStr().find("ALLOC") == std::string::npos) {
         if (spillOp->GetOpcode() == Opcode::OP_COPY_IN) {
             op.SetOpAttribute(spillOp->GetOpAttribute()->Clone());
             op.inParamLocation_ = spillOp->inParamLocation_;
-        } else {
-            op.SetAttr(OpAttributeKey::workspaceBaseOffset, workspaceBaseOffset);
+        } else if (!isSpecialL1) {
+            int64_t isNZ = 0;
+            spillOp->GetAttr(OpAttributeKey::copyIsNZ, isNZ);
+            op.SetAttr(OpAttributeKey::copyIsNZ, isNZ);
             op.SetOpAttribute(std::make_shared<CopyOpAttribute>(
                 OpImmediate::Specified(offset), spillTensor->GetMemoryTypeOriginal(),
                 OpImmediate::Specified(spillTensor->GetShape()),
                 OpImmediate::Specified(spillTensor->tensor->GetDynRawShape())));
+        } else {
+            std::pair<LogicalTensorPtr, Operation*> actualInfo;
+            GetActualSpillInfo(spillOp, actualInfo);
+            auto attr = std::dynamic_pointer_cast<CopyOpAttribute>(actualInfo.second->GetOpAttribute());
+            if (attr == nullptr) {
+                APASS_LOG_INFO_F(Elements::Tensor, "Op %s attribute is nullptr", GetOpInfo(actualInfo.second).c_str());
+                return;
+            }
+            op.SetOpAttribute(std::make_shared<CopyOpAttribute>(
+                attr->GetFromOffset(), spillTensor->GetMemoryTypeOriginal(),
+                OpImmediate::Specified(spillTensor->GetShape()),
+                OpImmediate::Specified(actualInfo.first->tensor->GetDynRawShape())));
         }
     }
     op.UpdateLatency(opLatency);
@@ -187,7 +296,7 @@ void OoOScheduler::ReplaceViewOpChainMemId(LogicalTensorPtr startTensor, int old
 
 void OoOScheduler::ReplaceTensorMemId(Operation* op, int oldMemId, int newMemId)
 {
-    auto& reqMemIds = opReqMemIdsMap[op];
+    auto& reqMemIds = GetOpMemIds(op);
     for (auto memId : reqMemIds) {
         if (memId == oldMemId) {
             std::replace(reqMemIds.begin(), reqMemIds.end(), oldMemId, newMemId);
@@ -203,7 +312,7 @@ void OoOScheduler::ReplaceTensorMemId(Operation* op, int oldMemId, int newMemId)
 
 Status OoOScheduler::UpdateRemainOpBufId(int oldMemId, int newMemId) {
     if (bufRefCount_.find(oldMemId) == bufRefCount_.end()) {
-        APASS_LOG_ERROR_F(Elements::Tensor, "bufRefCount cannot find Tensor[%d].", oldMemId);
+        APASS_LOG_ERROR_F(Elements::Tensor, "bufRefCount cannot find Tensor[%d]. ", oldMemId);
         return FAILED;
     }
     bufRefCount_[newMemId] = bufRefCount_[oldMemId] + TWO_ISSUE;
@@ -254,10 +363,10 @@ void OoOScheduler::UpdateTensorInputForView(Operation& op, Operation* spillSrcOp
 }
 
 Status OoOScheduler::UpdateReloadIssueDepend(Operation* reloadCopyin, Operation* spillOp, int spillMemId) {
-    auto& successors = GetSuccessors(spillOp);
+    auto& successors = depManager_.GetSuccessors(spillOp);
     for (auto succOp : successors) {
         if (!opIsRetiredMap[succOp]) {
-            auto& reqMemIds = opReqMemIdsMap[succOp];
+            auto& reqMemIds = GetOpMemIds(succOp);
             if (std::count(reqMemIds.begin(), reqMemIds.end(), spillMemId) > 0) {
                 depManager_.InsertSuccessor(reloadCopyin, succOp);
                 if (depManager_.RemovePredecessor(succOp, spillOp) == 0) {
@@ -294,9 +403,9 @@ void OoOScheduler::InsertOrdered(Operation* insertOp) {
 }
 
 Status OoOScheduler::UpdateReloadIssueInfo(Operation* reloadAlloc, Operation* reloadCopyin, Operation* spillOp, int spillMemId, Operation* allocOp) {
-    opReqMemIdsMap[reloadAlloc] = {reloadAlloc->GetOutputOperand(0)->memoryrange.memId};
+    SetOpMemIds(reloadAlloc, {reloadAlloc->GetOutputOperand(0)->memoryrange.memId});
     depManager_.AddAllocDependency(reloadAlloc, reloadCopyin);
-    opReqMemIdsMap[reloadCopyin] = {reloadAlloc->GetOutputOperand(0)->memoryrange.memId};
+    SetOpMemIds(reloadCopyin, {reloadAlloc->GetOutputOperand(0)->memoryrange.memId});
     int bufNextUseOrder = GetBufNextUseOrder(allocOp, spillMemId);
     if (bufNextUseOrder == -1) {
         APASS_LOG_ERROR_F(Elements::Tensor, "Get Tensor[%d] next use order failed.", spillMemId);
@@ -321,17 +430,17 @@ Status OoOScheduler::UpdateReloadIssueInfo(Operation* reloadAlloc, Operation* re
     if (UpdateReloadIssueDepend(reloadCopyin, spillOp, spillMemId) != SUCCESS) {
         return FAILED;
     }
-    if (UpdateRemainOpBufId(spillMemId, opReqMemIdsMap[reloadAlloc][0])) {
+    if (UpdateRemainOpBufId(spillMemId, GetOpMemIds(reloadAlloc)[0])) {
         return FAILED;
     }
     for (auto& op : orderedOps) {
         if (opIsRetiredMap[op] || opIsAllocMap[op]) {
             continue;
         }
-        auto predecessors = GetPredecessors(op);
+        auto predecessors = depManager_.GetPredecessors(op);
         for (auto predOp : predecessors) {
             if (opIsAllocMap[predOp]) {
-                auto& predReqMemIds = opReqMemIdsMap[predOp];
+                auto& predReqMemIds = GetOpMemIds(predOp);
                 if (std::find(predReqMemIds.begin(), predReqMemIds.end(), spillMemId) != predReqMemIds.end()) {
                     depManager_.RemovePredecessor(op, predOp);
                     depManager_.InsertPredecessor(op, reloadAlloc);
@@ -345,7 +454,8 @@ Status OoOScheduler::UpdateReloadIssueInfo(Operation* reloadAlloc, Operation* re
 }
 
 Status OoOScheduler::CreateSpillReloadIssue(LogicalTensorPtr spillOutTensor,
-    LogicalTensorPtr spillTensor, Operation* spillOp, std::pair<Operation*, Operation*> &reloadOps) {
+    LogicalTensorPtr spillTensor, Operation* spillOp, std::pair<Operation*, Operation*> &reloadOps,  bool isSpecialL1)
+{
     MemoryType memType = spillTensor->GetMemoryTypeOriginal();
     // 创建将spill搬出数据搬回OP_COPY_IN的tensor
     LogicalTensorPtr localTensor = std::make_shared<LogicalTensor>(
@@ -365,11 +475,9 @@ Status OoOScheduler::CreateSpillReloadIssue(LogicalTensorPtr spillOutTensor,
     if (spillOp->GetOpcode() == Opcode::OP_COPY_IN) {
         spillCopyInOp.SetIOpAttrOffset(0, spillOp->GetIOpAttrOffset(0));
     }
-    int64_t base = 0;
-    GetWorkspaceBaseOffset(spillOutTensor, base);
     // 设置ODO copy_in op offset
-    UpdateOpAttr(spillAllocOp, 1, localTensor, {}, spillOp, 0);
-    UpdateOpAttr(spillCopyInOp, DEFAULT_LATENCY, localTensor, spillOutTensor->GetOffset(), spillOp, base);
+    UpdateOpAttr(spillAllocOp, 1, localTensor, {}, spillOp, isSpecialL1);
+    UpdateOpAttr(spillCopyInOp, DEFAULT_LATENCY, localTensor, spillOutTensor->GetOffset(), spillOp, isSpecialL1);
     // DDR->COPY_IN->spillTensor 场景不标记 copy_in_mode
     if (spillOp->GetOpcode() != Opcode::OP_COPY_IN && UpdateCopyInMode(spillCopyInOp) != SUCCESS) {
         APASS_LOG_ERROR_F(Elements::Operation, "UpdateCopyInMode failed!");
@@ -384,7 +492,7 @@ Status OoOScheduler::CreateSpillReloadIssue(LogicalTensorPtr spillOutTensor,
     opPipeTypeMap[allocOpPtr] = RescheduleUtils::GetOpPipeType(allocOpPtr);
     opIsAllocMap[allocOpPtr] = true;
     opIsRetiredMap[allocOpPtr] = false;
-    opReqMemIdsMap[allocOpPtr] = std::vector<int>();
+    SetOpMemIds(allocOpPtr, {});
 
     depManager_.RegisterOp(allocOpPtr);
     InitOpViewOps(allocOpPtr);
@@ -394,7 +502,7 @@ Status OoOScheduler::CreateSpillReloadIssue(LogicalTensorPtr spillOutTensor,
     opPipeTypeMap[copyInOpPtr] = RescheduleUtils::GetOpPipeType(copyInOpPtr);
     opIsAllocMap[copyInOpPtr] = false;
     opIsRetiredMap[copyInOpPtr] = false;
-    opReqMemIdsMap[copyInOpPtr] = std::vector<int>();
+    SetOpMemIds(copyInOpPtr, {});
 
     depManager_.RegisterOp(copyInOpPtr);
     InitOpViewOps(copyInOpPtr);
@@ -407,9 +515,9 @@ Status OoOScheduler::CreateSpillReloadIssue(LogicalTensorPtr spillOutTensor,
 }
 
 Status OoOScheduler::UpdateReshapeDependAndBuf(Operation* allocOp, SpillInfo &spillInfo, LogicalTensorPtr reshapeTensor) {
-    auto& corePair = opCoreLocationMap[allocOp];
+    auto& coreLocation = opCoreLocationMap[allocOp];
     // 依赖 reqmemId
-    if (bufferManagerMap[corePair.first][corePair.second][spillInfo.spillTensor_->GetMemoryTypeOriginal()].Free(
+    if (bufferManagerMap[coreLocation][spillInfo.spillTensor_->GetMemoryTypeOriginal()].Free(
             spillInfo.spillMemId_) != SUCCESS) {
         APASS_LOG_ERROR_F(Elements::Operation, "Free spill tensor[%d] failed!", spillInfo.spillMemId_);
         return FAILED;
@@ -423,7 +531,7 @@ Status OoOScheduler::UpdateReshapeDependAndBuf(Operation* allocOp, SpillInfo &sp
         if (opIsRetiredMap[op]) {
             continue;
         }
-        auto& reqMemIds = opReqMemIdsMap[op];
+        auto& reqMemIds = GetOpMemIds(op);
         for (auto memId : reqMemIds) {
             if (memId == reshapeTensor->memoryrange.memId) {
                 bufRefCount_[reshapeTensor->memoryrange.memId]++;
@@ -463,7 +571,7 @@ Status OoOScheduler::SpillReshapeParticalBuffer(SpillInfo &spillInfo, Operation*
     auto spillAllocOpPtr = UpdateIssueAttr(spillAllocOp, {reshapeTensor->memoryrange.memId}, allocOp, bufNextUseOrder, isGenSpill);
     // 创建 copyin
     Operation* preOp = nullptr;
-    auto& predecessors = GetPredecessors(spillInfo.spillOp_);
+    auto& predecessors = depManager_.GetPredecessors(spillInfo.spillOp_);
     for (auto predOp : predecessors) {
         if (!opIsAllocMap[predOp]) {
             preOp = predOp;
@@ -484,9 +592,8 @@ Status OoOScheduler::SpillReshapeParticalBuffer(SpillInfo &spillInfo, Operation*
     if (preOp->GetOpcode() == Opcode::OP_COPY_IN) {
         spillCopyInOp.SetIOpAttrOffset(0, preOp->GetIOpAttrOffset(0));
     }
-    int64_t base = 0;
-    GetWorkspaceBaseOffset(spillInfo.ddrTensor_, base);
-    UpdateOpAttr(spillCopyInOp, DEFAULT_LATENCY, newTensor, spillInfo.ddrTensor_->GetOffset(), preOp, base);
+    UpdateOpAttr(spillCopyInOp, DEFAULT_LATENCY, newTensor, spillInfo.ddrTensor_->GetOffset(), preOp,
+        spillInfo.isSpecialL1_);
     auto spillCopyInOpPtr = UpdateIssueAttr(spillCopyInOp, {reshapeTensor->memoryrange.memId}, allocOp, bufNextUseOrder, isGenSpill);
     // A5 下 DDR->COPY_IN->L1->RESHAPE->L1 场景不标记 copy_in_mode
     if (preOp->GetOpcode() != Opcode::OP_COPY_IN && UpdateCopyInMode(spillCopyInOp) != SUCCESS) {
@@ -515,10 +622,10 @@ Status OoOScheduler::SpillInReshapeBuffer(SpillInfo &spillInfo, Operation* alloc
         APASS_LOG_ERROR_F(Elements::Operation, "UpdateTensorAttr reshape tensor failed!");
         return FAILED;
     }
-    auto &successors = GetSuccessors(spillInfo.spillOp_);
+    auto &successors = depManager_.GetSuccessors(spillInfo.spillOp_);
     for (auto succOp : successors) {
         if (!opIsRetiredMap[succOp]) {
-            auto& reqMemIds = opReqMemIdsMap[succOp];
+            auto& reqMemIds = GetOpMemIds(succOp);
             if (std::count(reqMemIds.begin(), reqMemIds.end(), spillInfo.spillMemId_) > 0) {
                 UpdateTensorInputFor(succOp, spillInfo.spillOp_, reshapeTensor);
             }
@@ -551,7 +658,7 @@ Status OoOScheduler::SpillInBuffer(SpillInfo &spillInfo, Operation* allocOp, Mem
     Operation* reloadAlloc = nullptr;
     std::pair<Operation*, Operation*> reloadOps = {reloadAlloc, reloadCopyin};
     if (CreateSpillReloadIssue(spillInfo.ddrTensor_, spillInfo.spillTensor_, spillInfo.spillOp_,
-        reloadOps) != SUCCESS) {
+        reloadOps, spillInfo.isSpecialL1_) != SUCCESS) {
         APASS_LOG_ERROR_F(Elements::Operation, "CreateSpillReloadIssue failed!");
         return FAILED;
     }
@@ -565,11 +672,13 @@ Status OoOScheduler::SpillInBuffer(SpillInfo &spillInfo, Operation* allocOp, Mem
         APASS_LOG_ERROR_F(Elements::Operation, "UpdateReloadIssueInfo failed!");
         return FAILED;
     }
-    auto corePair = opCoreLocationMap[allocOp];
+    auto coreLocation = opCoreLocationMap[allocOp];
     if (!isGenSpill) {
-        allocIssueQueue[corePair.first][corePair.second][bufferType].Insert(reloadAlloc);
+        opExecOrderMap[allocIssueQueue[coreLocation][bufferType].Front()] > opExecOrderMap[reloadAlloc] ?
+        allocIssueQueue[coreLocation][bufferType].ForceInsertAfterFirst(reloadAlloc) :
+        allocIssueQueue[coreLocation][bufferType].Insert(reloadAlloc);
     }
-    if (bufferManagerMap[corePair.first][corePair.second][bufferType].Free(spillInfo.spillMemId_) != SUCCESS) {
+    if (bufferManagerMap[coreLocation][bufferType].Free(spillInfo.spillMemId_) != SUCCESS) {
         APASS_LOG_ERROR_F(Elements::Tensor, "Free spill tensor[%d] failed!", spillInfo.spillMemId_);
         return FAILED;
     }
@@ -584,9 +693,9 @@ Status OoOScheduler::CreateSpillCopyout(Operation* spillOp, LogicalTensorPtr spi
     std::shared_ptr<RawTensor> ddrRawTensor =
         (spillInfo.spillOp_ != spillOp && spillTensor->GetMemoryTypeOriginal() == MemoryType::MEM_L0C) ?
         std::make_shared<RawTensor>(spillInfo.spillTensor_->Datatype(), spillTensor->tensor->rawshape,
-        TileOpFormat::TILEOP_ND, "WorkspaceGm", SYMBOL_STACK_BASE) :
+        TileOpFormat::TILEOP_ND, "WorkspaceGm") :
         std::make_shared<RawTensor>(spillTensor->Datatype(), spillTensor->tensor->rawshape,
-        TileOpFormat::TILEOP_ND, "WorkspaceGm", SYMBOL_STACK_BASE);
+        TileOpFormat::TILEOP_ND, "WorkspaceGm");
     if (ddrRawTensor == nullptr) {
         APASS_LOG_ERROR_F(Elements::Tensor, "Create DDR raw tensor failed!");
         return FAILED;
@@ -600,7 +709,7 @@ Status OoOScheduler::CreateSpillCopyout(Operation* spillOp, LogicalTensorPtr spi
         return FAILED;
     }
     // workspaceOffset 会在 UpdateTensorAttr 中被更新，但 UpdateOpAttr 需要使用当前的 workspaceOffset
-    int64_t workspaceOffsetTemp = workspaceOffset;
+    ddrTensor->SetAttr(OpAttributeKey::workspaceBaseOffset, workspaceOffset);
     if (UpdateTensorAttr(ddrTensor, MEM_DEVICE_DDR, spillTensor, spillMemId) != SUCCESS) {
         APASS_LOG_ERROR_F(Elements::Tensor, "UpdateTensorAttr DDR tensor failed!");
         return FAILED;
@@ -609,7 +718,7 @@ Status OoOScheduler::CreateSpillCopyout(Operation* spillOp, LogicalTensorPtr spi
     // 创建spill搬出所需的DDR OP_COPY_OUT
     Operation &spillOutOp = function_.AddRawOperation(Opcode::OP_COPY_OUT, {spillTensor}, {ddrTensor});
     spillCopyoutOp = &spillOutOp;
-    UpdateOpAttr(spillOutOp, DEFAULT_LATENCY, spillTensor, offset, spillOp, workspaceOffsetTemp);
+    UpdateOpAttr(spillOutOp, DEFAULT_LATENCY, spillTensor, offset, spillOp, spillInfo.isSpecialL1_);
     if (spillInfo.spillOp_ != spillOp && spillTensor->GetMemoryTypeOriginal() == MemoryType::MEM_L0C) {
         // L0C_L1 上的 op_attr_scale_value 属性迁移至 L0C_COPY_OUT 上
         Element scaleValue = Element(DataType::DT_UINT64, 0);
@@ -621,13 +730,13 @@ Status OoOScheduler::CreateSpillCopyout(Operation* spillOp, LogicalTensorPtr spi
         }
     }
     // 设置 spillCopyoutOp 的属性
-    opReqMemIdsMap[spillCopyoutOp] = {spillMemId};
+    SetOpMemIds(spillCopyoutOp, {spillMemId});
     depManager_.AddDependency(spillOp, spillCopyoutOp);
     opIsRetiredMap[spillCopyoutOp] = true;
     opIsAllocMap[spillCopyoutOp] = false;
     opPipeTypeMap[spillCopyoutOp] = RescheduleUtils::GetOpPipeType(spillCopyoutOp);
     opViewOpsMap[spillCopyoutOp] = std::vector<Operation*>();
-    for (auto preOp : GetPredecessors(spillOp)) {
+    for (auto preOp : depManager_.GetPredecessors(spillOp)) {
         if (opIsAllocMap[preOp]) {
             opCoreLocationMap[spillCopyoutOp] = opCoreLocationMap[preOp];
             UpdateOpInternalSubgraphID(*spillCopyoutOp, preOp);
@@ -681,7 +790,42 @@ Status OoOScheduler::UpdateCopyInMode(Operation& copyInOp)
     return SUCCESS;
 }
 
-Status OoOScheduler::CreateSpecialL1Copyout(SpillInfo &spillInfo, Operation* &spillCopyoutOp, int &bufLastUseOrder, bool &isFinish) {
+Status OoOScheduler::HandleReshapeSpillPath(SpillInfo &spillInfo, Operation* &actualSpillOp,
+    LogicalTensorPtr &actualSpillTensor, bool &isFinish, bool isGenSpill, size_t &pcIdx)
+{
+    if (actualSpillOp->GetOpcodeStr().find("COPY_IN") != std::string::npos) {
+        spillInfo.ddrTensor_ = actualSpillOp->GetInputOperand(0);
+        isFinish = true;
+        APASS_LOG_DEBUG_F(Elements::Operation, "Spill out finish in A5: DDR->copy_in->L1->reshape->L1");
+        return SUCCESS;
+    }
+    if (actualSpillOp->GetInputOperand(0)->GetMemoryTypeOriginal() != MemoryType::MEM_UB &&
+        actualSpillOp->GetInputOperand(0)->GetMemoryTypeOriginal() != MemoryType::MEM_L0C) {
+        APASS_LOG_ERROR_F(Elements::Operation, "SpillOp is Reshape, preop: %s, ioperand of L1: %s",
+            GetOpInfo(actualSpillOp).c_str(),
+            MemoryTypeToString(actualSpillOp->GetInputOperand(0)->GetMemoryTypeOriginal()).c_str());
+        return FAILED;
+    }
+    // RESHAPE 路径下，若 actualSpillOp 是 UB_COPY_L1 / L0C_COPY_L1
+    // 且 input.shape 任一维 < output.shape，同样走 small-shape 多生产者搬出逻辑。
+    if (TryCreateSpillCopyoutForSmallShape(spillInfo, actualSpillOp, isFinish, isGenSpill, pcIdx) != SUCCESS) {
+        return FAILED;
+    }
+    if (isFinish) {
+        return SUCCESS;
+    }
+    actualSpillTensor = actualSpillOp->GetInputOperand(0);
+    for (auto &preOp : depManager_.GetPredecessors(actualSpillOp)) {
+        if (!opIsAllocMap[preOp]) {
+            actualSpillOp = preOp;
+        }
+    }
+    return SUCCESS;
+}
+
+Status OoOScheduler::CreateSpecialL1Copyout(SpillInfo &spillInfo, Operation* &spillCopyoutOp, int &bufLastUseOrder,
+    bool &isFinish, bool isGenSpill, size_t &pcIdx)
+{
     auto spillOp = spillInfo.spillOp_;
     auto preTensor = spillOp->GetInputOperand(0);
     if (spillOp->GetOpcode() != Opcode::OP_RESHAPE && preTensor->GetMemoryTypeOriginal() != MemoryType::MEM_UB && preTensor->GetMemoryTypeOriginal() != MemoryType::MEM_L0C) {
@@ -690,34 +834,31 @@ Status OoOScheduler::CreateSpecialL1Copyout(SpillInfo &spillInfo, Operation* &sp
     }
     auto actualSpillTensor = preTensor;
     Operation* actualSpillOp = nullptr;
-    for (auto &preOp : GetPredecessors(spillOp)) {
+    for (auto &preOp : depManager_.GetPredecessors(spillOp)) {
         if (!opIsAllocMap[preOp]) {
             actualSpillOp = preOp;
         }
     }
     if (spillOp->GetOpcode() == Opcode::OP_RESHAPE) {
-        if (actualSpillOp->GetOpcodeStr().find("COPY_IN") != std::string::npos) {
-            spillInfo.ddrTensor_ = actualSpillOp->GetInputOperand(0);
-            isFinish = true;
-            APASS_LOG_DEBUG_F(Elements::Operation, "Spill out finish in A5: DDR->copy_in->L1->reshape->L1");
-            return SUCCESS;
-        }
-        if (actualSpillOp->GetInputOperand(0)->GetMemoryTypeOriginal() != MemoryType::MEM_UB &&
-            actualSpillOp->GetInputOperand(0)->GetMemoryTypeOriginal() != MemoryType::MEM_L0C) {
-            APASS_LOG_ERROR_F(Elements::Operation, "SpillOp is Reshape, preop: %s, ioperand of L1: %s", GetOpInfo(actualSpillOp).c_str(),
-                MemoryTypeToString(actualSpillOp->GetInputOperand(0)->GetMemoryTypeOriginal()).c_str());
+        if (HandleReshapeSpillPath(spillInfo, actualSpillOp, actualSpillTensor, isFinish, isGenSpill, pcIdx) !=
+            SUCCESS) {
             return FAILED;
         }
-        actualSpillTensor = actualSpillOp->GetInputOperand(0);
-        for (auto &preOp : GetPredecessors(actualSpillOp)) {
-            if (!opIsAllocMap[preOp]) {
-                actualSpillOp = preOp;
-            }
+        if (isFinish) {
+            return SUCCESS;
         }
     }
     if (actualSpillOp->GetOpcodeStr().find("COPY_IN") != std::string::npos) {
         APASS_LOG_ERROR_F(Elements::Operation, "A5 does not support the COPY_IN-actualSpillOp. ");
         return FAILED;
+    }
+    // A5 L1 small-shape spill: spillInfo.spillOp_ 为 UB_COPY_L1 / L0C_COPY_L1 且其 input.shape 任一维 < output.shape，
+    // 说明 L1 是被多个生产者拼接式写入，需为每个生产者分别插 COPY_OUT 落到同一块 DDR。
+    if (TryCreateSpillCopyoutForSmallShape(spillInfo, spillOp, isFinish, isGenSpill, pcIdx) != SUCCESS) {
+        return FAILED;
+    }
+    if (isFinish) {
+        return SUCCESS;
     }
     if (CreateSpillCopyout(actualSpillOp, actualSpillTensor, actualSpillTensor->memoryrange.memId, spillCopyoutOp, spillInfo) != SUCCESS) {
         APASS_LOG_ERROR_F(Elements::Operation, "CreateSpillCopyout failed for specialL1 spill! %s", GetFormatBacktrace(*spillOp).c_str());
@@ -733,6 +874,208 @@ Status OoOScheduler::CreateSpecialL1Copyout(SpillInfo &spillInfo, Operation* &sp
     return SUCCESS;
 }
 
+Status OoOScheduler::TryCreateSpillCopyoutForSmallShape(SpillInfo &spillInfo, Operation* candidateOp, bool &isFinish,
+    bool isGenSpill, size_t &pcIdx)
+{
+    if (candidateOp == nullptr) {
+        return SUCCESS;
+    }
+    auto inOpd = candidateOp->GetInputOperand(0);
+    auto outOpd = candidateOp->GetOutputOperand(0);
+    if (inOpd == nullptr || outOpd == nullptr) {
+        return SUCCESS;
+    }
+    auto inMem = inOpd->GetMemoryTypeOriginal();
+    if (inMem != MemoryType::MEM_UB && inMem != MemoryType::MEM_L0C) {
+        return SUCCESS;
+    }
+    if (!IsAnyDimSmaller(inOpd->GetShape(), outOpd->GetShape())) {
+        return SUCCESS;
+    }
+    if (CreateSpillCopyoutForSmallShape(spillInfo, outOpd, isFinish, isGenSpill, pcIdx) != SUCCESS) {
+        APASS_LOG_ERROR_F(Elements::Operation,
+            "CreateSpillCopyoutForSmallShape failed! %s",
+            GetFormatBacktrace(*spillInfo.spillOp_).c_str());
+        return FAILED;
+    }
+    return SUCCESS;
+}
+
+Status OoOScheduler::CreateSpillCopyoutForSmallShape(SpillInfo &spillInfo, LogicalTensorPtr l1Tensor, bool &isFinish,
+    bool isGenSpill, size_t &pcIdx)
+{
+    LogicalTensorPtr ddrTensor;
+    if (BuildSmallShapeDdrTensor(spillInfo, l1Tensor, ddrTensor) != SUCCESS) {
+        return FAILED;
+    }
+    for (auto* producerOp : l1Tensor->GetProducers()) {
+        if (producerOp == nullptr || IsAllocOpCode(producerOp->GetOpcode())) {
+            continue;
+        }
+        if (CreateSmallShapeCopyout(spillInfo, producerOp, ddrTensor, isGenSpill, pcIdx) !=
+            SUCCESS) {
+            return FAILED;
+        }
+    }
+    isFinish = true;
+    return SUCCESS;
+}
+
+Status OoOScheduler::BuildSmallShapeDdrTensor(SpillInfo &spillInfo, LogicalTensorPtr l1Tensor,
+    LogicalTensorPtr &ddrTensor)
+{
+    // 建一整块 DDR tensor（属性参考 l1Tensor — 常规场景为 spillInfo.spillTensor_，
+    // RESHAPE 场景为 RESHAPE 上一层 op 的 output，即真正承载数据的 L1 tensor）
+    if (l1Tensor == nullptr) {
+        APASS_LOG_ERROR_F(Elements::Tensor, "SmallShape spill: l1Tensor is null!");
+        return FAILED;
+    }
+    auto ddrRawTensor = std::make_shared<RawTensor>(
+        l1Tensor->Datatype(), l1Tensor->tensor->rawshape,
+        TileOpFormat::TILEOP_ND, "WorkspaceGm");
+    if (ddrRawTensor == nullptr) {
+        APASS_LOG_ERROR_F(Elements::Tensor, "Create DDR raw tensor failed in SmallShape spill!");
+        return FAILED;
+    }
+    ddrTensor = std::make_shared<LogicalTensor>(
+        function_, ddrRawTensor, l1Tensor->GetOffset(), l1Tensor->GetShape());
+    if (ddrTensor == nullptr) {
+        APASS_LOG_ERROR_F(Elements::Tensor, "Create DDR tensor failed in SmallShape spill!");
+        return FAILED;
+    }
+    ddrTensor->SetAttr(OpAttributeKey::workspaceBaseOffset, workspaceOffset);
+    if (UpdateTensorAttr(ddrTensor, MEM_DEVICE_DDR, l1Tensor, spillInfo.spillMemId_) != SUCCESS) {
+        APASS_LOG_ERROR_F(Elements::Tensor, "UpdateTensorAttr DDR tensor failed in SmallShape spill!");
+        return FAILED;
+    }
+    spillInfo.ddrTensor_ = ddrTensor;
+    return SUCCESS;
+}
+
+Status OoOScheduler::ResolveSmallShapeActualSpill(Operation* producerOp,
+    Operation* &actualOp, LogicalTensorPtr &actualTensor)
+{
+    auto producerIn = producerOp->GetInputOperand(0);
+    if (producerIn == nullptr) {
+        APASS_LOG_ERROR_F(Elements::Operation,
+            "SmallShape spill: producer %s has null input.", GetOpInfo(producerOp).c_str());
+        return FAILED;
+    }
+    auto producerInMem = producerIn->GetMemoryTypeOriginal();
+    if (producerInMem != MemoryType::MEM_UB && producerInMem != MemoryType::MEM_L0C) {
+        APASS_LOG_ERROR_F(Elements::Operation,
+            "SmallShape spill: producer %s input memType is %s, expect UB/L0C.",
+            GetOpInfo(producerOp).c_str(), MemoryTypeToString(producerInMem).c_str());
+        return FAILED;
+    }
+    actualOp = producerOp;
+    actualTensor = producerIn;
+    if (producerInMem == MemoryType::MEM_UB) {
+        // 强制两层：producer -> UB_COPY_ND2NZ -> UB1
+        Operation* prevOp = nullptr;
+        for (auto &preOp : depManager_.GetPredecessors(producerOp)) {
+            if (!opIsAllocMap[preOp]) {
+                prevOp = preOp;
+            }
+        }
+        if (prevOp == nullptr || prevOp->GetOpcode() != Opcode::OP_UB_COPY_ND2NZ) {
+            APASS_LOG_ERROR_F(Elements::Operation,
+                "SmallShape spill: UB-producer %s does not have UB_COPY_ND2NZ predecessor.",
+                GetOpInfo(producerOp).c_str());
+            return FAILED;
+        }
+        actualOp = prevOp;
+        actualTensor = prevOp->GetInputOperand(0);
+    }
+    if (actualTensor == nullptr) {
+        APASS_LOG_ERROR_F(Elements::Operation,
+            "SmallShape spill: actualTensor is null for producer %s.", GetOpInfo(producerOp).c_str());
+        return FAILED;
+    }
+    return SUCCESS;
+}
+
+Status OoOScheduler::ConfigSmallShapeCopyoutAttrs(Operation &copyOutOp, Operation* producerOp,
+    LogicalTensorPtr actualTensor)
+{
+    // 用 producerOp 取 tooffset 属性
+    auto producerL1Out = producerOp->GetOutputOperand(0);
+    if (producerL1Out == nullptr) {
+        APASS_LOG_ERROR_F(Elements::Operation,
+            "SmallShape spill: producer %s has null L1 output.", GetOpInfo(producerOp).c_str());
+        return FAILED;
+    }
+    auto attr = std::dynamic_pointer_cast<CopyOpAttribute>(producerOp->GetOpAttribute());
+    if (attr == nullptr) {
+        APASS_LOG_INFO_F(Elements::Tensor, "Op %s attribute is nullptr", GetOpInfo(producerOp).c_str());
+        return FAILED;
+    }
+    copyOutOp.SetOpAttribute(std::make_shared<CopyOpAttribute>(
+        actualTensor->GetMemoryTypeOriginal(),
+        attr->GetToOffset(),
+        OpImmediate::Specified(actualTensor->GetShape()),
+        OpImmediate::Specified(producerL1Out->tensor->GetDynRawShape())));
+    copyOutOp.UpdateLatency(DEFAULT_LATENCY);
+    if (actualTensor->GetMemoryTypeOriginal() == MemoryType::MEM_L0C) {
+        Element scaleValue = Element(DataType::DT_UINT64, 0);
+        if (producerOp->GetAttr(OpAttributeKey::scaleValue, scaleValue)) {
+            copyOutOp.SetAttribute(OpAttributeKey::scaleValue, scaleValue);
+        }
+    }
+    return SUCCESS;
+}
+
+// 场景1 actualTensor(UB)->actualOp(UB_COPY_ND2NZ)->UB->producerOp UB_COPY_L1->L1
+// 场景2 actualTensor(L0C)->actualOp L0C_COPY_L1->L1
+Status OoOScheduler::CreateSmallShapeCopyout(SpillInfo &spillInfo, Operation* producerOp,
+    LogicalTensorPtr ddrTensor, bool isGenSpill, size_t &pcIdx)
+{
+    Operation* actualOp = nullptr;
+    LogicalTensorPtr actualTensor;
+    if (ResolveSmallShapeActualSpill(producerOp, actualOp, actualTensor) != SUCCESS) {
+        return FAILED;
+    }
+    Operation &copyOutOp = function_.AddRawOperation(Opcode::OP_COPY_OUT, {actualTensor}, {ddrTensor});
+    if (ConfigSmallShapeCopyoutAttrs(copyOutOp, producerOp, actualTensor) != SUCCESS) {
+        return FAILED;
+    }
+    for (auto preOp : depManager_.GetPredecessors(actualOp)) {
+        if (!opIsAllocMap[preOp]) {
+            depManager_.AddDependency(preOp, &copyOutOp);
+            for (auto allocOp : depManager_.GetPredecessors(preOp)) {
+                if (opIsAllocMap[allocOp]) {
+                    opCoreLocationMap[&copyOutOp] = opCoreLocationMap[allocOp];
+                    UpdateOpInternalSubgraphID(copyOutOp, allocOp);
+                }
+            }
+        }
+    }
+    SetOpMemIds(&copyOutOp, {spillInfo.spillMemId_});
+    opIsRetiredMap[&copyOutOp] = true;
+    opIsAllocMap[&copyOutOp] = false;
+    opPipeTypeMap[&copyOutOp] = RescheduleUtils::GetOpPipeType(&copyOutOp);
+    opViewOpsMap[&copyOutOp] = std::vector<Operation*>();
+    if (UpdateCopyOutMode(copyOutOp) != SUCCESS) {
+        APASS_LOG_ERROR_F(Elements::Operation, "UpdateCopyOutMode failed in SmallShape spill!");
+        return FAILED;
+    }
+    int order = opExecOrderMap[actualOp];
+    SetExecOrder(&copyOutOp, order + 1);
+    InsertOrdered(&copyOutOp);
+    if (isGenSpill) {
+        pcIdx++;
+        numTotalIssues++;
+    } else {
+        auto spillOpIt = std::find(newOperations_.begin(), newOperations_.end(), actualOp);
+        if (spillOpIt != newOperations_.end()) {
+            size_t pos = std::distance(newOperations_.begin(), spillOpIt);
+            newOperations_.insert(newOperations_.begin() + pos + 1, &copyOutOp);
+            APASS_LOG_DEBUG_F(Elements::Operation, "SmallShape spill insert op: %s.", GetOpInfo(&copyOutOp).c_str());
+        }
+    }
+    return SUCCESS;
+}
+
 Status OoOScheduler::SpillOutBuffer(SpillInfo &spillInfo, Operation* op, size_t &pcIdx, bool isGenSpill) {
     if (spillInfo.spillOp_->GetOpcodeStr().find("COPY_IN") != std::string::npos) {
         spillInfo.ddrTensor_ = spillInfo.spillOp_->GetInputOperand(0);
@@ -743,7 +1086,8 @@ Status OoOScheduler::SpillOutBuffer(SpillInfo &spillInfo, Operation* op, size_t 
     if (spillInfo.isSpecialL1_) {
         // actualSpillOp 为 copy_in
         bool isFinish = false;
-        if (CreateSpecialL1Copyout(spillInfo, spillCopyoutOp, bufLastUseOrder, isFinish) != SUCCESS) {
+        if (CreateSpecialL1Copyout(spillInfo, spillCopyoutOp, bufLastUseOrder, isFinish, isGenSpill, pcIdx) !=
+            SUCCESS) {
             APASS_LOG_ERROR_F(Elements::Operation, "SpecialL1 CreateSpillCopyout failed!");
             return FAILED;
         }
@@ -799,22 +1143,14 @@ Status OoOScheduler::SpillBuffer(SpillInfo &spillInfo, Operation* allocOp, size_
         APASS_LOG_ERROR_F(Elements::Operation, "SpillOutBuffer failed. %s", GetFormatBacktrace(*spillInfo.spillOp_).c_str());
         return FAILED;
     }
-    // Healthcheck record - spill info
-    if (oooCheck.doHealthCheck) {
-        oooCheck.spillInfoVec.emplace_back(
-            RecordSpillInfo(allocBuffer->memType, spillInfo.spillMemId_, allocBuffer, spillInfo.ddrTensor_,
-                spillInfo.spillOp_->GetOpcodeStr().find("COPY_IN") == std::string::npos));
-    }
+    NotifySpill(spillInfo, allocBuffer);
     if (SpillInBuffer(spillInfo, allocOp, allocBuffer->memType, isGenSpill) != SUCCESS) {
         APASS_LOG_ERROR_F(Elements::Operation, "SpillInBuffer failed. %s", GetFormatBacktrace(*spillInfo.spillOp_).c_str());
         return FAILED;
     }
     if (!isGenSpill) {
-        // Healthcheck record - update buffer usage statistics
-        if (oooCheck.doHealthCheck) {
-            UpdateBufferUsage(allocBuffer->memType, spillInfo.spillMemId_, true);
-        }
-        localBufferMap[spillInfo.spillMemId_]->retireCycle = clock;
+        NotifyBufferFreed(allocBuffer->memType, spillInfo.spillMemId_);
+        localBufferMap_[spillInfo.spillMemId_]->retireCycle = clock;
         if (tensorOccupyMap[allocBuffer->memType].erase(spillInfo.spillMemId_) == 0) {
             APASS_LOG_ERROR_F(Elements::Tensor, "Erase tensor[%d] failed.", spillInfo.spillMemId_);
             return FAILED;
@@ -825,11 +1161,14 @@ Status OoOScheduler::SpillBuffer(SpillInfo &spillInfo, Operation* allocOp, size_
 
 Status OoOScheduler::FindAssembleWithSpillTensor(SpillInfo &spillInfo, std::vector<Operation*> &assembleOps) {
     for (auto producer : spillInfo.spillTensor_->GetProducers()) {
-        if (producer->GetOpcode() != Opcode::OP_ASSEMBLE) {
+        if (!IsSupportedPartialWriteProducer(*producer)) {
             APASS_LOG_ERROR_F(Elements::Operation,
-                "All producer of Tensor[%d] must be assemble, now has %s[%d].",
+                "All producer of Tensor[%d] must be assemble/l0c_to_l1/alloc, now has %s[%d].",
                 spillInfo.spillTensor_->GetMagic(), producer->GetOpcodeStr().c_str(), producer->GetOpMagic());
             return FAILED;
+        }
+        if (IsAllocOpCode(producer->GetOpcode())) {
+            continue;
         }
         for (auto op : orderedOps) {
             if (op == producer) {
@@ -841,40 +1180,8 @@ Status OoOScheduler::FindAssembleWithSpillTensor(SpillInfo &spillInfo, std::vect
     return SUCCESS;
 }
 
-int64_t OoOScheduler::CalcWorkspaceOffset(std::vector<int64_t> shape, std::vector<int64_t> offset, DataType dataType)
-{
-    if (shape.size() != offset.size()) {
-        return -1;
-    }
-    if (shape.size() == 0) {
-        return 0;
-    }
-
-    int64_t linearOffset = 0;
-    int64_t stride = 1;
-    // 从最低维到最高维计算
-    for (size_t i = shape.size(); i > 0; --i) {
-        linearOffset += offset[i - 1] * stride;
-        if (i > 0) {
-            stride *= shape[i - 1];
-        }
-    }
-    return linearOffset * BytesOf(dataType);
-}
-
-void OoOScheduler::GetWorkspaceBaseOffset(LogicalTensorPtr ddrTensor, int64_t& base)
-{
-    for (auto* producer : ddrTensor->GetProducers()) {
-        if (producer->GetOpcode() == Opcode::OP_COPY_OUT) {
-            // 如果没有设置 workspaceBaseOffset，GetAttr 失败，base 默认为 0
-            producer->GetAttr(OpAttributeKey::workspaceBaseOffset, base);
-        }
-    }
-}
-
 LogicalTensorPtr OoOScheduler::CreateAssemblePartTensor(
-    LogicalTensorPtr iOperand, LogicalTensorPtr assembleTensor, SpillInfo& spillInfo,
-    std::shared_ptr<AssembleOpAttribute> assembleAttr)
+    LogicalTensorPtr iOperand, LogicalTensorPtr assembleTensor, const std::vector<int64_t> &toOffset)
 {
     LogicalTensorPtr localTensor =
         std::make_shared<LogicalTensor>(function_, iOperand->Datatype(), iOperand->shape, iOperand->Format());
@@ -883,15 +1190,15 @@ LogicalTensorPtr OoOScheduler::CreateAssemblePartTensor(
     localTensor->oriShape = iOperand->shape;
     localTensor->tensor = assembleTensor->tensor;
     localTensor->memoryrange.memId = assembleTensor->memoryrange.memId;
-    localTensor->UpdateDynValidShape(spillInfo.spillTensor_->GetDynValidShape());
-    localTensor->offset = assembleAttr->GetToOffset();
-    tensorAllocCoreMap[localTensor->memoryrange.memId] = tensorAllocCoreMap[iOperand->memoryrange.memId];
+    localTensor->UpdateDynValidShape(iOperand->GetDynValidShape());
+    localTensor->offset = toOffset;
+    tensorAllocCoreMap[localTensor->memoryrange.memId] = tensorAllocCoreMap[assembleTensor->memoryrange.memId];
     return localTensor;
 }
 
 Operation* OoOScheduler::UpdateIssueAttr(Operation &newOp, std::vector<int> memIds, Operation* allocOp, int &bufNextUseOrder, bool isGenSpill) {
     UpdateOpInternalSubgraphID(newOp, allocOp);
-    auto& corePair = opCoreLocationMap[allocOp];
+    auto& coreLocation = opCoreLocationMap[allocOp];
     Operation* newOpPtr = &newOp;
 
     // 初始化Operation属性到map
@@ -900,35 +1207,39 @@ Operation* OoOScheduler::UpdateIssueAttr(Operation &newOp, std::vector<int> memI
     opPipeTypeMap[newOpPtr] = RescheduleUtils::GetOpPipeType(newOpPtr);
     opIsAllocMap[newOpPtr] = (newOp.GetOpcodeStr().find("ALLOC") != std::string::npos);
     opIsRetiredMap[newOpPtr] = false;
-    opReqMemIdsMap[newOpPtr] = memIds;
+    SetOpMemIds(newOpPtr, memIds);
 
     depManager_.RegisterOp(newOpPtr);
     opViewOpsMap[newOpPtr] = std::vector<Operation*>();
-    opCoreLocationMap[newOpPtr] = corePair;
+    opCoreLocationMap[newOpPtr] = coreLocation;
     InitOpViewOps(newOpPtr);
 
     // 插入orderedOps
     InsertOrdered(newOpPtr);
 
     if (opIsAllocMap[newOpPtr] && !isGenSpill) {
-        allocIssueQueue[corePair.first][corePair.second][newOp.GetOutputOperand(0)->GetMemoryTypeOriginal()].Insert(newOpPtr);
+        opExecOrderMap[allocIssueQueue[coreLocation][newOp.GetOutputOperand(0)->GetMemoryTypeOriginal()].Front()] > opExecOrderMap[newOpPtr] ?
+        allocIssueQueue[coreLocation][newOp.GetOutputOperand(0)->GetMemoryTypeOriginal()].ForceInsertAfterFirst(newOpPtr) :
+        allocIssueQueue[coreLocation][newOp.GetOutputOperand(0)->GetMemoryTypeOriginal()].Insert(newOpPtr);
     }
     return newOpPtr;
 }
 
-Status OoOScheduler::SpillParticalBuffer(SpillInfo &spillInfo, Operation* allocOp, Operation* assembleOp,
-    LogicalTensorPtr assembleTensor, bool &isFirst, bool isGenSpill) {
-    auto iOperand = assembleOp->GetInputOperand(0);
-    auto assembleAttr = std::static_pointer_cast<AssembleOpAttribute>(assembleOp->GetOpAttribute());
-    LogicalTensorPtr localTensor = CreateAssemblePartTensor(iOperand, assembleTensor, spillInfo, assembleAttr);
-    int bufNextUseOrder = GetBufNextUseOrder(allocOp, spillInfo.spillMemId_);
-    if (bufNextUseOrder == -1) {
-        APASS_LOG_ERROR_F(Elements::Operation, "Get Tensor[%d] next use order failed.", spillInfo.spillMemId_);
+Status OoOScheduler::SpillParticalBuffer(SpillInfo &spillInfo, Operation* allocOp, Operation* producerOp,
+    LogicalTensorPtr assembleTensor, bool &isFirst, bool isGenSpill)
+{
+    auto iOperand = producerOp->GetInputOperand(0);
+    std::vector<int64_t> toOffset;
+    std::vector<SymbolicScalar> toDynOffset, fromDynValidShape;
+    if (GetPartialWriteReplayAttr(producerOp, toOffset, toDynOffset, fromDynValidShape) != SUCCESS) {
         return FAILED;
     }
+    LogicalTensorPtr localTensor = CreateAssemblePartTensor(iOperand, assembleTensor, toOffset);
+    int bufNextUseOrder = GetBufNextUseOrder(allocOp, spillInfo.spillMemId_);
+    if (bufNextUseOrder == -1) return FAILED;
     if (isFirst) {
-        // alloc
-        Opcode allocOpCode = assembleTensor->GetMemoryTypeToBe() == MemoryType::MEM_UB ? Opcode::OP_UB_ALLOC : Opcode::OP_L1_ALLOC;
+        Opcode allocOpCode = assembleTensor->GetMemoryTypeToBe() == MemoryType::MEM_UB ?
+            Opcode::OP_UB_ALLOC : Opcode::OP_L1_ALLOC;
         auto &spillAllocOp = function_.AddRawOperation(allocOpCode, {}, {localTensor});
         spillAllocOp.UpdateLatency(1);
         UpdateIssueAttr(spillAllocOp, {assembleTensor->memoryrange.memId}, allocOp, bufNextUseOrder, isGenSpill);
@@ -936,18 +1247,12 @@ Status OoOScheduler::SpillParticalBuffer(SpillInfo &spillInfo, Operation* allocO
         numTotalIssues++;
     }
     // copyin
-    std::vector<int64_t> offset = assembleAttr->GetToOffset();
-    int64_t gmRelatOffset = CalcWorkspaceOffset(assembleTensor->GetShape(), assembleAttr->GetToOffset(), assembleTensor->Datatype());
-    if (gmRelatOffset == -1) {
-        APASS_LOG_ERROR_F(Elements::Operation, "CalcWorkspaceOffset failed.");
-        return FAILED;
-    }
     auto& spillCopyInOp = function_.AddRawOperation(Opcode::OP_COPY_IN, {spillInfo.ddrTensor_}, {localTensor});
-    int64_t base = 0;
-    GetWorkspaceBaseOffset(spillInfo.ddrTensor_, base);
-    spillCopyInOp.SetAttr(OpAttributeKey::workspaceBaseOffset, gmRelatOffset + base);
+    int64_t isNZ = 0;
+    producerOp->GetAttr(OpAttributeKey::copyIsNZ, isNZ);
+    spillCopyInOp.SetAttr(OpAttributeKey::copyIsNZ, isNZ);
     spillCopyInOp.SetOpAttribute(std::make_shared<CopyOpAttribute>(
-        OpImmediate::Specified(offset), iOperand->GetMemoryTypeOriginal(), OpImmediate::Specified(iOperand->GetShape()),
+        OpImmediate::Specified(toOffset), localTensor->GetMemoryTypeOriginal(), OpImmediate::Specified(spillInfo.ddrTensor_->GetShape()),
         OpImmediate::Specified(assembleTensor->tensor->GetDynRawShape())));
     spillCopyInOp.UpdateLatency(DEFAULT_LATENCY);
     if (UpdateCopyInMode(spillCopyInOp) != SUCCESS) {
@@ -956,19 +1261,21 @@ Status OoOScheduler::SpillParticalBuffer(SpillInfo &spillInfo, Operation* allocO
     }
     UpdateIssueAttr(spillCopyInOp, {assembleTensor->memoryrange.memId}, allocOp, bufNextUseOrder, isGenSpill);
     // assemble
-    auto &newAssembleOp = function_.AddRawOperation(Opcode::OP_ASSEMBLE, {localTensor}, {assembleTensor});
-    newAssembleOp.SetOpAttribute(std::make_shared<AssembleOpAttribute>(assembleAttr->GetFrom(),
-        assembleAttr->GetToOffset(), assembleAttr->GetToDynOffset(), assembleAttr->GetFromDynValidShape()));
-    newAssembleOp.UpdateLatency(1);
-    UpdateIssueAttr(newAssembleOp, {assembleTensor->memoryrange.memId, assembleTensor->memoryrange.memId}, allocOp, bufNextUseOrder, isGenSpill);
+    auto &assembleOp = function_.AddRawOperation(Opcode::OP_ASSEMBLE, {localTensor}, {assembleTensor});
+    assembleOp.SetOpAttribute(std::make_shared<AssembleOpAttribute>(
+        localTensor->GetMemoryTypeOriginal(), toOffset, toDynOffset, fromDynValidShape));
+    assembleOp.SetAttr(OpAttributeKey::copyIsNZ, isNZ);
+    assembleOp.UpdateLatency(1);
+    UpdateIssueAttr(assembleOp, {assembleTensor->memoryrange.memId, assembleTensor->memoryrange.memId},
+        allocOp, bufNextUseOrder, isGenSpill);
     numTotalIssues += TWO_ISSUE;
     return SUCCESS;
 }
 
 Status OoOScheduler::UpdateAssembleBuffer(SpillInfo &spillInfo, LocalBufferPtr allocBuffer,
     LogicalTensorPtr assembleTensor) {
-    auto corePair = tensorAllocCoreMap[allocBuffer->id];
-    if (bufferManagerMap[corePair.first][corePair.second][allocBuffer->memType].Free(spillInfo.spillMemId_) !=
+    auto coreLocation = tensorAllocCoreMap[allocBuffer->id];
+    if (bufferManagerMap[coreLocation][allocBuffer->memType].Free(spillInfo.spillMemId_) !=
         SUCCESS) {
         APASS_LOG_ERROR_F(Elements::Operation, "Free spill tensor[%d] failed!", spillInfo.spillMemId_);
         return FAILED;
@@ -982,7 +1289,7 @@ Status OoOScheduler::UpdateAssembleBuffer(SpillInfo &spillInfo, LocalBufferPtr a
         if (opIsRetiredMap[op]) {
             continue;
         }
-        auto& reqMemIds = opReqMemIdsMap[op];
+        auto& reqMemIds = GetOpMemIds(op);
         for (auto memId : reqMemIds) {
             if (memId == assembleTensor->memoryrange.memId) {
                 bufRefCount_[assembleTensor->memoryrange.memId]++;
@@ -993,13 +1300,54 @@ Status OoOScheduler::UpdateAssembleBuffer(SpillInfo &spillInfo, LocalBufferPtr a
     return SUCCESS;
 }
 
+Status OoOScheduler::RejectIfNZHorizontalSlice(SpillInfo &spillInfo, std::vector<Operation*> &assembleOps)
+{
+    if (FindAssembleWithSpillTensor(spillInfo, assembleOps) != SUCCESS) {
+        APASS_LOG_ERROR_F(Elements::Operation, "FindAssembleWithSpillTensor failed.");
+        return FAILED;
+    }
+    if (HasNZHorizontalSlice(assembleOps)) {
+        APASS_LOG_ERROR_F(Elements::Operation,
+            "Spill-assemble rejected for Tensor[%d]: NZ horizontal slice not supported by DMA.",
+            spillInfo.spillTensor_->GetMagic());
+        return FAILED;
+    }
+    return SUCCESS;
+}
+
+Status OoOScheduler::ReplayPartialWriteProducers(SpillInfo &spillInfo, Operation* allocOp,
+    LogicalTensorPtr assembleTensor, const std::vector<Operation*> &assembleOps, bool isGenSpill)
+{
+    Operation *memIdAlloc = FindAllocForAssembleProducers(assembleOps);
+    bool isAllocHandoffDone = false;
+    bool isFirst = true;
+    for (auto producerOp : assembleOps) {
+        if (opIsRetiredMap[producerOp]) {
+            if (!isAllocHandoffDone && memIdAlloc != nullptr &&
+                producerOp->GetOpcode() == Opcode::OP_ASSEMBLE) {
+                memIdAlloc->UpdateOutputOperand(0, producerOp->GetInputOperand(0));
+                isAllocHandoffDone = true;
+            }
+            if (SpillParticalBuffer(spillInfo, allocOp, producerOp, assembleTensor, isFirst, isGenSpill) != SUCCESS) {
+                return FAILED;
+            }
+        } else {
+            producerOp->ReplaceOutput(assembleTensor, spillInfo.spillTensor_);
+        }
+    }
+    return SUCCESS;
+}
+
 Status OoOScheduler::SpillAssembleBuffer(SpillInfo &spillInfo, Operation* allocOp, size_t &pcIdx,
     LocalBufferPtr allocBuffer, bool isGenSpill) {
+    std::vector<Operation*> assembleOps;
+    if (RejectIfNZHorizontalSlice(spillInfo, assembleOps) != SUCCESS) {
+        return FAILED;
+    }
     if (SpillOutBuffer(spillInfo, allocOp, pcIdx, isGenSpill) != SUCCESS) {
         APASS_LOG_ERROR_F(Elements::Operation, "SpillOutBuffer failed.");
         return FAILED;
     }
-
     LogicalTensorPtr assembleTensor = std::make_shared<LogicalTensor>(function_,
         spillInfo.spillTensor_->Datatype(), spillInfo.spillTensor_->shape, spillInfo.spillTensor_->Format());
     if (assembleTensor == nullptr) {
@@ -1010,32 +1358,14 @@ Status OoOScheduler::SpillAssembleBuffer(SpillInfo &spillInfo, Operation* allocO
         APASS_LOG_ERROR_F(Elements::Operation, "UpdateTensorAttr local tensor failed!");
         return FAILED;
     }
-    for (auto &succOp : GetSuccessors(spillInfo.spillOp_)) {
+    for (auto &succOp : depManager_.GetSuccessors(spillInfo.spillOp_)) {
         if (!opIsRetiredMap[succOp] &&
-            (std::count(opReqMemIdsMap[succOp].begin(), opReqMemIdsMap[succOp].end(), spillInfo.spillMemId_) > 0)) {
+            (std::count(GetOpMemIds(succOp).begin(), GetOpMemIds(succOp).end(), spillInfo.spillMemId_) > 0)) {
             UpdateTensorInputFor(succOp, spillInfo.spillOp_, assembleTensor);
         }
     }
-    std::vector<Operation*> assembleOps;
-    FindAssembleWithSpillTensor(spillInfo, assembleOps);
-    Operation *memIdAlloc = nullptr;
-    for (auto assemble : assembleOps) {
-        for (auto producer : assemble->ProducerOps()) {
-            if (producer->GetOpcodeStr().find("ALLOC") != std::string::npos) {
-                memIdAlloc = producer;
-            }
-        }
-    }
-    bool isFirst = true;
-    for (auto assemble : assembleOps) {
-        if (opIsRetiredMap[assemble]) {
-            if (isFirst) {
-                memIdAlloc->UpdateOutputOperand(0, assemble->GetInputOperand(0));
-            }
-            SpillParticalBuffer(spillInfo, allocOp, assemble, assembleTensor, isFirst, isGenSpill);
-        } else {
-            assemble->ReplaceOutput(assembleTensor, spillInfo.spillTensor_);
-        }
+    if (ReplayPartialWriteProducers(spillInfo, allocOp, assembleTensor, assembleOps, isGenSpill) != SUCCESS) {
+        return FAILED;
     }
     if (UpdateAssembleBuffer(spillInfo, allocBuffer, assembleTensor) != SUCCESS) {
         return FAILED;
@@ -1068,6 +1398,27 @@ Status OoOScheduler::GetSpillInfo(Operation* allocOp, int spillMemId, bool isGen
     return SUCCESS;
 }
 
+bool OoOScheduler::IsPartialWrite(const Operation &op) const
+{
+    const auto opcode = op.GetOpcode();
+    if (opcode != Opcode::OP_ASSEMBLE && opcode != Opcode::OP_L0C_TO_L1) {
+        return false;
+    }
+    if (opcode == Opcode::OP_L0C_TO_L1 &&
+        Platform::Instance().GetSoc().GetNPUArch() == NPUArch::DAV_3510) {
+        return false;
+    }
+    const auto &inShape = op.GetInputOperand(0)->shape;
+    const auto &outShape = op.GetOutputOperand(0)->shape;
+    const size_t dims = std::min(inShape.size(), outShape.size());
+    for (size_t i = 0; i < dims; ++i) {
+        if (outShape[i] > inShape[i]) {
+            return true;
+        }
+    }
+    return false;
+}
+
 Status OoOScheduler::SpillMultiBuffer(Operation* allocOp, std::vector<int> spillGroup, size_t &pcIdx,
     LocalBufferPtr allocBuffer, bool isGenSpill) {
     for (auto &spillMemId : spillGroup) {
@@ -1076,11 +1427,13 @@ Status OoOScheduler::SpillMultiBuffer(Operation* allocOp, std::vector<int> spill
             APASS_LOG_ERROR_F(Elements::Operation, "GetSpillInfo failed. %s", GetFormatBacktrace(*spillInfo.spillOp_).c_str());
             return FAILED;
         }
-        if (spillInfo.spillOp_->GetOpcode() == Opcode::OP_ASSEMBLE) {
-            if (Platform::Instance().GetSoc().GetNPUArch() == NPUArch::DAV_3510 && allocOp->GetOpcodeStr().find("L1_ALLOC") != std::string::npos) {
+        if (spillInfo.spillOp_->GetOpcode() == Opcode::OP_ASSEMBLE &&
+            Platform::Instance().GetSoc().GetNPUArch() == NPUArch::DAV_3510 &&
+            allocOp->GetOpcodeStr().find("L1_ALLOC") != std::string::npos) {
                 APASS_LOG_ERROR_F(Elements::Operation, "Failed to spill %d in L1 spill. SpillIssue is assemble op.", spillMemId);
                 return FAILED;
-            }
+        }
+        if (IsPartialWrite(*spillInfo.spillOp_)) {
             if (SpillAssembleBuffer(spillInfo, allocOp, pcIdx, allocBuffer, isGenSpill) != SUCCESS) {
                 APASS_LOG_ERROR_F(Elements::Operation, "SpillAssembleBuffer[%d] failed.", spillMemId);
                 return FAILED;
@@ -1096,18 +1449,18 @@ Status OoOScheduler::SpillMultiBuffer(Operation* allocOp, std::vector<int> spill
 }
 
 void OoOScheduler::FindFilterLtags(Operation* allocOp, std::set<Operation*> &filterLtags) {
-    auto dstOpList = GetSuccessors(allocOp);
+    auto dstOpList = depManager_.GetSuccessors(allocOp);
     auto dstOp = *dstOpList.begin();
     if (COPY_IN_OPS.find(dstOp->GetOpcode()) != COPY_IN_OPS.end()) {
-        for (auto &dstOpId : GetSuccessors(dstOp)) {
+        for (auto &dstOpId : depManager_.GetSuccessors(dstOp)) {
             auto dstOp_level0 = dstOpId;
-            for (auto &inOp : GetPredecessors(dstOp_level0)) {
+            for (auto &inOp : depManager_.GetPredecessors(dstOp_level0)) {
                 filterLtags.insert(inOp);
             }
         }
     }
     for (auto &dstOp_level1 : dstOpList) {
-        for (auto &inOp : GetPredecessors(dstOp_level1)) {
+        for (auto &inOp : depManager_.GetPredecessors(dstOp_level1)) {
             filterLtags.insert(inOp);
         }
     }
@@ -1127,27 +1480,10 @@ bool OoOScheduler::CheckMachineAndL1(Operation* spillOp, Operation* allocOp) {
     return true;
 }
 
-bool OoOScheduler::CheckParallelL0C2L1(Operation* spillOp) {
-    if (spillOp->GetOpcode() != Opcode::OP_L0C_TO_L1) {
-        return true;
-    }
-    auto tensor = spillOp->GetOutputOperand(0);
-    if (tensor == nullptr) {
-        return true;
-    }
-
-    for (auto *producer : tensor->GetProducers()) {
-        if (producer != spillOp && producer->GetOpcode() == Opcode::OP_L0C_TO_L1) {
-            return false;
-        }
-    }
-    return true;
-}
-
 bool OoOScheduler::IsBelongSpillBlackList(Operation* spillOp, Operation* op) {
     std::set<Operation*> filterLtags;
     FindFilterLtags(op, filterLtags);
-    if (opIsAllocMap[spillOp] || filterLtags.count(spillOp) != 0 || !CheckMachineAndL1(spillOp, op) || !CheckParallelL0C2L1(spillOp)) {
+    if (opIsAllocMap[spillOp] || filterLtags.count(spillOp) != 0 || !CheckMachineAndL1(spillOp, op)) {
         return true;
     }
     return false;
@@ -1157,7 +1493,7 @@ Operation* OoOScheduler::GetSpillIssue(Operation* allocOp, int memId, bool isGen
     if (isGenSpill) {
         return GetBufLastWriteOp(allocOp, memId);
     }
-    return tensorOccupyMap[localBufferMap[opReqMemIdsMap[allocOp][0]]->memType][memId];
+    return tensorOccupyMap[localBufferMap_[GetOpMemIds(allocOp)[0]]->memType][memId];
 }
 
 Status OoOScheduler::GetGroupNextUseOrder(std::vector<int> group, Operation* allocOp,
@@ -1200,9 +1536,9 @@ bool OoOScheduler::CanAllocateAll(std::vector<LocalBufferPtr> tensors, MemoryTyp
         APASS_LOG_INFO_F(Elements::Operation, "CanAllocateAll input tensors is empty.");
         return true;
     }
-    auto corePair = tensorAllocCoreMap[tensors[0]->id];
+    auto coreLocation = tensorAllocCoreMap[tensors[0]->id];
     std::map<uint64_t, std::map<uint64_t, uint64_t>> freeIntervals =
-        bufferManagerMap[corePair.first][corePair.second][memType].FindFreeIntervals();
+        bufferManagerMap[coreLocation][memType].FindFreeIntervals();
     for (auto tensor : tensors) {
         bool canAlloc = false;
         std::pair<uint64_t, uint64_t> newInterval;
@@ -1238,7 +1574,7 @@ int OoOScheduler::GetMemidAllocPriority(int memId) {
         if (!opIsAllocMap[op]) {
             continue;
         }
-        auto& reqMemIds = opReqMemIdsMap[op];
+        auto& reqMemIds = GetOpMemIds(op);
         if (!reqMemIds.empty() && reqMemIds[0] == memId) {
             return opExecOrderMap[op];
         }
@@ -1253,16 +1589,16 @@ bool OoOScheduler::HasEnoughBuffer(Operation* allocOp, MemoryType memType) {
         APASS_LOG_ERROR_F(Elements::Operation, "%s must only have one ooperand.", GetFormatBacktrace(*allocOp).c_str());
         return false;
     }
-    for (auto &succOp : GetSuccessors(allocOp)) {
+    for (auto &succOp : depManager_.GetSuccessors(allocOp)) {
         if (succOp != *(allocOp->GetOutputOperand(0)->GetProducers().begin())) {
             continue;
         }
-        for (auto &memId : opReqMemIdsMap[succOp]) {
-            if (localBufferMap[memId]->memType != memType) {
+        for (auto &memId : GetOpMemIds(succOp)) {
+            if (localBufferMap_[memId]->memType != memType) {
                 continue;
             }
-            auto corePair = tensorAllocCoreMap[memId];
-            if (bufferManagerMap[corePair.first][corePair.second][memType].isAllocate(memId)) {
+            auto coreLocation = tensorAllocCoreMap[memId];
+            if (bufferManagerMap[coreLocation][memType].isAllocate(memId)) {
                 continue;
             }
             if (std::count(memIds.begin(), memIds.end(), memId) == 0) {
@@ -1276,7 +1612,7 @@ bool OoOScheduler::HasEnoughBuffer(Operation* allocOp, MemoryType memType) {
         return priorA < priorB;
     });
     for (auto memId : memIds) {
-        tensors.push_back(localBufferMap[memId]);
+        tensors.push_back(localBufferMap_[memId]);
     }
     return CanAllocateAll(tensors, memType);
 }
@@ -1285,8 +1621,9 @@ Status OoOScheduler::SelectSpillBuffers(LocalBufferPtr allocBuffer, Operation* a
     std::vector<int> &spillGroup, bool isGenSpill) {
     // 查找出可以spill 单个或多个tensor的集合
     std::vector<std::vector<int>> canSpillGroups;
-    auto corePair = opCoreLocationMap[allocOp];
-    if (bufferManagerMap[corePair.first][corePair.second][allocBuffer->memType].GetSpillGroup(allocBuffer->size, canSpillGroups) != SUCCESS) {
+    auto coreLocation = opCoreLocationMap[allocOp];
+    auto memType = allocBuffer->memType;
+    if (bufferManagerMap[coreLocation][memType].GetSpillGroup(allocBuffer->size, canSpillGroups) != SUCCESS) {
         APASS_LOG_ERROR_F(Elements::Operation, "GetSpillGroup failed.");
         return FAILED;
     }
@@ -1311,8 +1648,10 @@ Status OoOScheduler::SelectSpillBuffers(LocalBufferPtr allocBuffer, Operation* a
     return SUCCESS;
 }
 
-Status OoOScheduler::RearrangeBuffer(Operation* allocOp, MemoryType memType, std::pair<OpCoreType, int> corePair, bool isGenSpill) {
-    std::vector<int> memIds = bufferManagerMap[corePair.first][corePair.second][memType].GetAddrSortedBufs();
+Status OoOScheduler::RearrangeBuffer(Operation* allocOp, MemoryType memType, CoreLocationType coreLocation,
+    bool isGenSpill)
+{
+    std::vector<int> memIds = bufferManagerMap[coreLocation][memType].GetAddrSortedBufs();
     for (auto memId : memIds) {
         auto op = GetSpillIssue(allocOp, memId, isGenSpill);
         if (op == nullptr) {
@@ -1323,13 +1662,13 @@ Status OoOScheduler::RearrangeBuffer(Operation* allocOp, MemoryType memType, std
             return FAILED;
         }
     }
-    return bufferManagerMap[corePair.first][corePair.second][memType].CompactBufferSlices(localBufferMap);
+    return bufferManagerMap[coreLocation][memType].CompactBufferSlices(localBufferMap_);
 }
 
 Status OoOScheduler::SpillAllBuffer(Operation* allocOp, size_t &pcIdx, bool isGenSpill, LocalBufferPtr allocBuffer) {
     MemoryType memType = allocBuffer->memType;
-    auto corePair = opCoreLocationMap[allocOp];
-    std::vector<int> memIds = bufferManagerMap[corePair.first][corePair.second][memType].GetAddrSortedBufs();
+    auto coreLocation = opCoreLocationMap[allocOp];
+    std::vector<int> memIds = bufferManagerMap[coreLocation][memType].GetAddrSortedBufs();
 
     for (auto memId : memIds) {
         Operation* spillOp = isGenSpill ? GetBufLastWriteOp(allocOp, memId) : tensorOccupyMap[memType][memId];
@@ -1338,7 +1677,7 @@ Status OoOScheduler::SpillAllBuffer(Operation* allocOp, size_t &pcIdx, bool isGe
             return FAILED;
         }
 
-        if (spillOp->GetOpcodeStr().find("ALLOC") != std::string::npos || !CheckMachineAndL1(spillOp, allocOp) || !CheckParallelL0C2L1(spillOp) ||
+        if (spillOp->GetOpcodeStr().find("ALLOC") != std::string::npos || !CheckMachineAndL1(spillOp, allocOp) ||
             IsViewOp(*spillOp) || spillOp->GetOpcode() == Opcode::OP_ASSEMBLE) {
             continue;
         }
@@ -1357,7 +1696,7 @@ Status OoOScheduler::SpillAllBuffer(Operation* allocOp, size_t &pcIdx, bool isGe
     }
 
     // Alloc内存整理
-    if (RearrangeBuffer(allocOp, memType, corePair, isGenSpill) != SUCCESS) {
+    if (RearrangeBuffer(allocOp, memType, coreLocation, isGenSpill) != SUCCESS) {
         APASS_LOG_WARN_F(Elements::Operation, "RearrangeBuffer failed at SpillAllBuffer. %s", GetFormatBacktrace(*allocOp).c_str());
     }
 
@@ -1380,14 +1719,14 @@ Status OoOScheduler::SpillAllBuffer(Operation* allocOp, size_t &pcIdx, bool isGe
 Status OoOScheduler::GenBufferSpill(Operation* allocOp) {
     std::vector<int> spillGroup;
     bool spillFailed = false;
-    if (SelectSpillBuffers(localBufferMap[opReqMemIdsMap[allocOp][0]], allocOp, spillGroup, false) != SUCCESS) {
+    if (SelectSpillBuffers(localBufferMap_[GetOpMemIds(allocOp)[0]], allocOp, spillGroup, false) != SUCCESS) {
         spillFailed = true;
     }
     size_t temp = 1;
     if (spillFailed) {
-        return SpillAllBuffer(allocOp, temp, false, localBufferMap[opReqMemIdsMap[allocOp][0]]);
+        return SpillAllBuffer(allocOp, temp, false, localBufferMap_[GetOpMemIds(allocOp)[0]]);
     } else {
-        if (SpillMultiBuffer(allocOp, spillGroup, temp, localBufferMap[opReqMemIdsMap[allocOp][0]], false) != SUCCESS) {
+        if (SpillMultiBuffer(allocOp, spillGroup, temp, localBufferMap_[GetOpMemIds(allocOp)[0]], false) != SUCCESS) {
             APASS_LOG_ERROR_F(Elements::Operation, "SpillMultiBuffer failed! %s", GetFormatBacktrace(*allocOp).c_str());
             return FAILED;
         }
@@ -1398,7 +1737,7 @@ Status OoOScheduler::GenBufferSpill(Operation* allocOp) {
 Status OoOScheduler::GenSpillOp(size_t& pcIdx)
 {
     APASS_LOG_DEBUG_F(Elements::Operation, "START: SPILL tensor!");
-    LocalBufferPtr allocBuffer = localBufferMap[opReqMemIdsMap[orderedOps[pcIdx]][0]];
+    LocalBufferPtr allocBuffer = localBufferMap_[GetOpMemIds(orderedOps[pcIdx])[0]];
     if (allocBuffer->memType != MemoryType::MEM_L1 && allocBuffer->memType != MemoryType::MEM_UB) {
         if (PrintSpillFailedInfo(orderedOps[pcIdx], true) != SUCCESS) {
             APASS_LOG_ERROR_F(Elements::Operation, "PrintSpillFailedInfo failed; Please check the PrintSpillFailedInfo method.");

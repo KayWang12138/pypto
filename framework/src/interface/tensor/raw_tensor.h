@@ -35,7 +35,6 @@ public:
     int memoryId{-1};
     int actualRawmagic = -1;
     Shape rawshape;
-    Shape oriRawshape;
     std::vector<SymbolicScalar> dynRawShape;
     DataType datatype;
     TileOpFormat format;
@@ -93,7 +92,7 @@ public:
         cachePolicy_[static_cast<int>(policy)] = value;
         if (value && (cachePolicy_[static_cast<int>(CachePolicy::PREFETCH)] ==
                       cachePolicy_[static_cast<int>(CachePolicy::NONE_CACHEABLE)])) {
-            FUNCTION_LOGW("Prefetch and none cacheable can not apply at same time, use the first config policy.");
+            FE_LOGW("Prefetch and none cacheable can not apply at same time, use the first config policy.");
             cachePolicy_[static_cast<int>(policy)] = false;
         }
     }

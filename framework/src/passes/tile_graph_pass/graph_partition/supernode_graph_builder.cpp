@@ -25,6 +25,8 @@
 
 namespace npu::tile_fwk {
 
+const std::unordered_set<Opcode> nodeScopeSkipCode{Opcode::OP_ASSEMBLE, Opcode::OP_VIEW};
+
 uint64_t OperationGraphInfo::GetHash(const Operation* op) const
 {
     std::string hashString;
@@ -97,7 +99,7 @@ bool OperationGraphInfo::CoreTypeMergeable(const std::set<OpCoreType>& coreTypes
     return false;
 }
 
-int32_t NodeGraphInfo::FindParent(std::vector<int32_t>& parent, int32_t i)
+inline int32_t FindParent(std::vector<int32_t>& parent, int32_t i)
 {
     if (i < 0 || i >= static_cast<int32_t>(parent.size())) {
         APASS_LOG_ERROR_F(Elements::Operation, "Call FindParent with illegal parameter %d.", i);
@@ -185,7 +187,7 @@ Status NodeGraphInfo::MergeSrcToDstIsland(
         (!operationGraphInfo->CoreTypeMergeable(coreTypes))) {
         APASS_LOG_ERROR_F(
             Elements::Operation, "Try to merge operations with different OpCoreType in building SuperNode.");
-        std::set<int> mergeIdxs{src, srcParent, dst, dstParent};
+        std::vector<int> mergeIdxs{src, srcParent, dst, dstParent};
         for (int mergeIdx : mergeIdxs) {
             auto& mergeOp = operationGraphInfo->opList_[mergeIdx];
             APASS_LOG_ERROR_F(
@@ -316,23 +318,9 @@ Status NodeGraphInfo::Build(
             return FAILED;
         }
     }
-    op2Node_.resize(opList.size());
-    nodeCycles_.resize(opList.size());
-    std::vector<int32_t> nodeScopeTmp(node2Op_.size(), -1);
-    nodeScope_.swap(nodeScopeTmp);
-    for (size_t nodeIdx = 0; nodeIdx < node2Op_.size(); nodeIdx++) {
-        nodeCycles_[nodeIdx] = 0;
-        for (size_t opNodeIdx = 0; opNodeIdx < node2Op_[nodeIdx].size(); opNodeIdx++) {
-            int32_t opIdx = node2Op_[nodeIdx][opNodeIdx];
-            op2Node_[opIdx] = nodeIdx;
-            nodeCycles_[nodeIdx] += operationGraphInfo->opList_[opIdx]->GetLatency();
-            int32_t scopeId = operationGraphInfo->opList_[opIdx]->GetScopeId();
-            if (scopeId != -1) {
-                nodeScope_[nodeIdx] = scopeId;
-            }
-        }
-    }
-    BuildInOutGraph(operationGraphInfo, markIsCube);
+    BuildNodeMapping(operationGraphInfo);
+    BuildInOutGraph(operationGraphInfo);
+    SetNodeCoreTypeAndMergeable(operationGraphInfo, markIsCube);
     return SUCCESS;
 }
 
@@ -345,19 +333,19 @@ bool NodeGraphInfo::GetNodeMergeable(const std::shared_ptr<OperationGraphInfo> o
            (nodeInGraph_[nodeIdx].size() > 1 && nodeOutGraph_[nodeIdx].empty()) ||
            (nodeInGraph_[nodeIdx].empty() && nodeOutGraph_[nodeIdx].size() > 1)));
     for (auto opIdx : node2Op_[nodeIdx]) {
-        if (operationGraphInfo->opList_[opIdx]->GetScopeId() != -1) {
+        if (operationGraphInfo->opList_[opIdx]->GetScopeId() != -1 && !operationGraphInfo->opList_[opIdx]->GetAllowCrossScopeMerge()) {
             isMergeable = false;
         }
     }
     return isMergeable;
 }
 
-Status NodeGraphInfo::BuildInOutGraph(const std::shared_ptr<OperationGraphInfo> operationGraphInfo, bool markIsCube)
+Status NodeGraphInfo::BuildInOutGraph(const std::shared_ptr<OperationGraphInfo> operationGraphInfo)
 {
-    nodeInGraph_.resize(node2Op_.size());
-    nodeOutGraph_.resize(node2Op_.size());
-    nodeInGraphList_.resize(node2Op_.size());
-    nodeOutGraphList_.resize(node2Op_.size());
+    nodeInGraph_.assign(node2Op_.size(), std::set<int32_t>());
+    nodeOutGraph_.assign(node2Op_.size(), std::set<int32_t>());
+    nodeInGraphList_.assign(node2Op_.size(), std::vector<int32_t>());
+    nodeOutGraphList_.assign(node2Op_.size(), std::vector<int32_t>());
     for (size_t i = 0; i < node2Op_.size(); i++) {
         std::vector<int32_t>& currNode = node2Op_[i];
         for (int32_t opIdx : currNode) {
@@ -374,6 +362,12 @@ Status NodeGraphInfo::BuildInOutGraph(const std::shared_ptr<OperationGraphInfo> 
         nodeInGraphList_[i].insert(nodeInGraphList_[i].begin(), nodeInGraph_[i].begin(), nodeInGraph_[i].end());
         nodeOutGraphList_[i].insert(nodeOutGraphList_[i].begin(), nodeOutGraph_[i].begin(), nodeOutGraph_[i].end());
     }
+    return SUCCESS;
+}
+
+void NodeGraphInfo::SetNodeCoreTypeAndMergeable(
+    const std::shared_ptr<OperationGraphInfo> operationGraphInfo, bool markIsCube)
+{
     nodeCoreType_.resize(node2Op_.size());
     nodeMergeable_.resize(node2Op_.size());
     for (size_t i = 0; i < node2Op_.size(); i++) {
@@ -399,7 +393,6 @@ Status NodeGraphInfo::BuildInOutGraph(const std::shared_ptr<OperationGraphInfo> 
             operationGraphInfo->opList_[j]->SetAttribute(OpAttributeKey::isCube, isCube);
         }
     }
-    return SUCCESS;
 }
 
 int32_t NodeGraphInfo::GetNodeCycle(int32_t nodeIdx) const
@@ -453,7 +446,7 @@ inline bool IsL0cToL1MoveOp(Operation* op)
            op->GetOOperands()[0]->GetMemoryTypeOriginal() == MemoryType::MEM_L1;
 }
 
-inline bool SuperNodeGraphBuilder::L1CopyInCombine(
+bool SuperNodeGraphBuilder::L1CopyInCombine(
     const std::shared_ptr<OperationGraphInfo> operationInfo, std::vector<Operation*>& opList, int32_t i,
     std::vector<std::pair<int32_t, int32_t>>& mergePair)
 {
@@ -491,7 +484,7 @@ inline bool SuperNodeGraphBuilder::L1CopyInCombine(
     return false;
 }
 
-inline bool SuperNodeGraphBuilder::ConvertCombine(
+bool SuperNodeGraphBuilder::ConvertCombine(
     const std::shared_ptr<OperationGraphInfo> operationInfo, std::vector<Operation*>& opList, int32_t i,
     std::vector<std::pair<int32_t, int32_t>>& mergePair)
 {
@@ -528,7 +521,7 @@ inline bool SuperNodeGraphBuilder::ConvertCombine(
     return true;
 }
 
-inline bool SuperNodeGraphBuilder::AssembleCombine(
+bool SuperNodeGraphBuilder::AssembleCombine(
     const std::shared_ptr<OperationGraphInfo> operationInfo, std::vector<Operation*>& opList, int32_t i,
     std::vector<std::pair<int32_t, int32_t>>& mergePair)
 {
@@ -556,7 +549,7 @@ inline bool SuperNodeGraphBuilder::AssembleCombine(
     return false;
 }
 
-inline bool SuperNodeGraphBuilder::CopyOutCombine(
+bool SuperNodeGraphBuilder::CopyOutCombine(
     const std::shared_ptr<OperationGraphInfo> operationInfo, std::vector<Operation*>& opList, int32_t i,
     std::vector<std::pair<int32_t, int32_t>>& mergePair, bool assembleScene)
 {
@@ -577,7 +570,7 @@ inline bool SuperNodeGraphBuilder::CopyOutCombine(
     return false;
 }
 
-inline bool SuperNodeGraphBuilder::CopyInCombine(
+bool SuperNodeGraphBuilder::CopyInCombine(
     const std::shared_ptr<OperationGraphInfo> operationInfo, std::vector<Operation*>& opList, int32_t i,
     std::vector<std::pair<int32_t, int32_t>>& mergePair)
 {
@@ -597,7 +590,7 @@ inline bool SuperNodeGraphBuilder::CopyInCombine(
     return false;
 }
 
-inline bool SuperNodeGraphBuilder::MulAccCombine(
+bool SuperNodeGraphBuilder::MulAccCombine(
     const std::shared_ptr<OperationGraphInfo> operationInfo, std::vector<Operation*>& opList, int32_t i,
     std::vector<std::pair<int32_t, int32_t>>& mergePair)
 {
@@ -628,7 +621,30 @@ inline bool SuperNodeGraphBuilder::MulAccCombine(
     return false;
 }
 
-inline bool SuperNodeGraphBuilder::AssembleToCopyoutScene(Operation* op)
+bool SuperNodeGraphBuilder::ExpandCombine(
+    const std::shared_ptr<OperationGraphInfo> operationInfo,
+    std::vector<Operation*>& opList,
+    int32_t i,
+    std::vector<std::pair<int32_t, int32_t>>& mergePair)
+{
+    if (i < 0 || i >= static_cast<int32_t>(opList.size())) {
+        return false;
+    }
+    // Expand operation with only one child
+    if (opList[i]->GetOpcode() == Opcode::OP_EXPAND) {
+        if (operationInfo->outGraph_[i].size() == 1U) {
+            mergePair.emplace_back(i, *(operationInfo->outGraph_[i].begin()));
+            APASS_LOG_DEBUG_F(Elements::Operation,
+                "Combine %d and %d for Expand in building SuperNode.",
+                opList[i]->GetOpMagic(),
+                opList[*(operationInfo->outGraph_[i].begin())]->GetOpMagic());
+            return true;
+        }
+    }
+    return false;
+}
+
+bool SuperNodeGraphBuilder::AssembleToCopyoutScene(Operation* op)
 {
     auto assembleIn = op->iOperand.front();
     auto parentOp = *assembleIn->GetProducers().begin();
@@ -640,21 +656,41 @@ inline bool SuperNodeGraphBuilder::AssembleToCopyoutScene(Operation* op)
     return true;
 }
 
-inline void UpdateScopeId(std::vector<Operation*>& opList)
+inline void UpdateConsumerScopeId(Operation* op, Operation::ScopeInfo targetScope)
+{
+    op->SetScopeInfo(targetScope);
+    for (auto& consumer : op->ConsumerOps()) {
+        if (consumer->GetScopeId() == -1 && consumer->GetOpcode() == Opcode::OP_ASSEMBLE) {
+            UpdateConsumerScopeId(consumer, targetScope);
+        }
+    }
+}
+
+inline void UpdateProducerScopeId(Operation* op, Operation::ScopeInfo targetScope)
+{
+    op->SetScopeInfo(targetScope);
+    for (auto& producer : op->ProducerOps()) {
+        if (producer->GetScopeId() == -1 && producer->GetOpcode() == Opcode::OP_VIEW) {
+            UpdateProducerScopeId(producer, targetScope);
+        }
+    }
+}
+
+inline void PropagateScopeInfo(std::vector<Operation*>& opList)
 {
     for (size_t i = 0; i < opList.size(); i++) {
-        int targetScope = opList[i]->GetScopeId();
-        if (targetScope == DEFAULT_SCOPE_ID) {
+        auto targetScope = opList[i]->GetScopeInfo();
+        if (targetScope.scopeId == DEFAULT_SCOPE_ID) {
             continue;
         }
         for (auto& consumer : opList[i]->ConsumerOps()) {
-            if (consumer->GetScopeId() == -1 && consumer->GetOpcode() == Opcode::OP_ASSEMBLE) {
-                consumer->SetScopeId(targetScope);
+            if (consumer->GetScopeId() != targetScope.scopeId && consumer->GetOpcode() == Opcode::OP_ASSEMBLE) {
+                UpdateConsumerScopeId(consumer, targetScope);
             }
         }
         for (auto& producer : opList[i]->ProducerOps()) {
-            if (producer->GetScopeId() == -1 && producer->GetOpcode() == Opcode::OP_VIEW) {
-                producer->SetScopeId(targetScope);
+            if (producer->GetScopeId() != targetScope.scopeId && producer->GetOpcode() == Opcode::OP_VIEW) {
+                UpdateProducerScopeId(producer, targetScope);
             }
         }
     }
@@ -668,18 +704,7 @@ Status SuperNodeGraphBuilder::BuildSuperNodeGraph()
         return FAILED;
     }
     std::vector<std::pair<int32_t, int32_t>> mergePair;
-    UpdateScopeId(opList);
-    for (size_t i = 0; i < opList.size(); i++) {
-        auto targetScope = opList[i]->GetScopeId();
-        if (targetScope == -1) {
-            continue;
-        }
-        for (auto outputNode : operationInfo_->outGraph_[i]) {
-            if (opList[outputNode]->GetScopeId() == targetScope) {
-                mergePair.emplace_back(outputNode, i);
-            }
-        }
-    }
+    PropagateScopeInfo(opList);
     for (size_t i = 0; i < opList.size(); i++) {
         if (ConvertCombine(operationInfo_, opList, i, mergePair)) {
             continue;
@@ -705,22 +730,238 @@ Status SuperNodeGraphBuilder::BuildSuperNodeGraph()
         APASS_LOG_ERROR_F(Elements::Function, "Create SuperNodeInfo failed.");
         return FAILED;
     }
-    if (superNodeInfo_->Build(operationInfo_, mergePair, !useCVMixPartition_) != SUCCESS) {
+    if (superNodeInfo_->Build(operationInfo_, mergePair, true) != SUCCESS) {
         APASS_LOG_ERROR_F(Elements::Function, "Build SuperNodeInfo Failed.");
         return FAILED;
+    }
+    return ProcessScopeMerge();
+}
+
+void NodeGraphInfo::BuildNodeMapping(const std::shared_ptr<OperationGraphInfo> operationGraphInfo)
+{
+    int32_t numNodes = static_cast<int32_t>(node2Op_.size());
+    op2Node_.resize(operationGraphInfo->opList_.size());
+    nodeScope_.assign(numNodes, Operation::ScopeInfo());
+    nodeCycles_.assign(numNodes, 0);
+    for (int32_t nodeIdx = 0; nodeIdx < numNodes; nodeIdx++) {
+        bool allSkipCode = std::all_of(node2Op_[nodeIdx].begin(), node2Op_[nodeIdx].end(),
+            [&](int32_t opIdx) {
+                return nodeScopeSkipCode.count(operationGraphInfo->opList_[opIdx]->GetOpcode()) > 0;
+            });
+        for (int32_t opIdx : node2Op_[nodeIdx]) {
+            op2Node_[opIdx] = nodeIdx;
+            const auto& op = operationGraphInfo->opList_[opIdx];
+            const auto& scopeInfo = op->GetScopeInfo();
+            if (scopeInfo.scopeId != -1) {
+                bool isSkipCode = nodeScopeSkipCode.count(op->GetOpcode()) > 0;
+                if (!isSkipCode || allSkipCode) {
+                    nodeScope_[nodeIdx] = scopeInfo;
+                }
+            }
+            nodeCycles_[nodeIdx] += op->GetLatency();
+        }
+    }
+}
+
+SuperNodeGraphBuilder::ScopeCollectResult SuperNodeGraphBuilder::CollectScopeInfo(int32_t numNodes)
+{
+    ScopeCollectResult result;
+    for (int32_t nodeIdx = 0; nodeIdx < numNodes; nodeIdx++) {
+        const auto& scopeInfo = superNodeInfo_->nodeScope_[nodeIdx];
+        if (scopeInfo.scopeId == -1) {
+            continue;
+        }
+        result.scope2Nodes[scopeInfo.scopeId].push_back(nodeIdx);
+        if (scopeInfo.allowParallelMerge) {
+            result.scopeAllowParallel[scopeInfo.scopeId] = true;
+        }
+    }
+    for (size_t opIdx = 0; opIdx < operationInfo_->opList_.size(); opIdx++) {
+        const auto& scopeInfo = operationInfo_->opList_[opIdx]->GetScopeInfo();
+        if (scopeInfo.scopeId == -1) {
+            continue;
+        }
+        if (nodeScopeSkipCode.count(operationInfo_->opList_[opIdx]->GetOpcode()) > 0) {
+            continue;
+        }
+        bool isCube = operationInfo_->opList_[opIdx]->HasAttr(OpAttributeKey::isCube) &&
+                      operationInfo_->opList_[opIdx]->GetBoolAttribute(OpAttributeKey::isCube);
+        if (isCube) {
+            result.scopeCoreTypes[scopeInfo.scopeId].hasCube = true;
+        } else {
+            result.scopeCoreTypes[scopeInfo.scopeId].hasVector = true;
+        }
+    }
+    return result;
+}
+
+Status SuperNodeGraphBuilder::ValidateScopeCoreTypes(
+    int32_t scopeId, const ScopeCoreTypeInfo& coreTypeInfo, bool isCVMix,
+    std::map<int32_t, int32_t>& scopeToCvFuseId)
+{
+    if (!coreTypeInfo.hasCube || !coreTypeInfo.hasVector) {
+        return SUCCESS;
+    }
+    if (isCVMix) {
+        scopeToCvFuseId[scopeId] = nextCvFuseId_++;
+        return SUCCESS;
+    }
+    APASS_LOG_ERROR_F(
+        Elements::Function, "Cannot mix cube and vector op on a CV separate platform, scopeId=%d", scopeId);
+    return FAILED;
+}
+
+void SuperNodeGraphBuilder::MergeScopeNodesParallel(
+    const std::vector<int32_t>& nodes, int32_t scopeId, std::vector<int32_t>& snParent, bool& needRebuild)
+{
+    int32_t firstNode = -1;
+    int32_t p1 = -1;
+    for (int32_t nodeIdx : nodes) {
+        if (firstNode == -1) {
+            firstNode = nodeIdx;
+            p1 = FindParent(snParent, firstNode);
+        } else {
+            int32_t p2 = FindParent(snParent, nodeIdx);
+            snParent[p2] = p1;
+            APASS_LOG_DEBUG_F(
+                Elements::Operation, "Combine %d and %d for ScopeMerge(parallel) scopeId=%d in building SuperNode.",
+                operationInfo_->opList_[superNodeInfo_->node2Op_[nodeIdx][0]]->GetOpMagic(),
+                operationInfo_->opList_[superNodeInfo_->node2Op_[firstNode][0]]->GetOpMagic(),
+                scopeId);
+            needRebuild = true;
+        }
+    }
+}
+
+void SuperNodeGraphBuilder::MergeScopeNodesSequential(
+    const std::vector<int32_t>& nodes, int32_t scopeId, std::vector<int32_t>& snParent, bool& needRebuild)
+{
+    for (int32_t nodeIdx : nodes) {
+        int32_t p1 = FindParent(snParent, nodeIdx);
+        for (int32_t outNodeIdx : superNodeInfo_->nodeOutGraph_[nodeIdx]) {
+            if (superNodeInfo_->nodeScope_[outNodeIdx].scopeId == scopeId) {
+                int32_t p2 = FindParent(snParent, outNodeIdx);
+                snParent[p2] = p1;
+                APASS_LOG_DEBUG_F(
+                    Elements::Operation, "Combine %d and %d for ScopeMerge scopeId=%d in building SuperNode.",
+                    operationInfo_->opList_[superNodeInfo_->node2Op_[outNodeIdx][0]]->GetOpMagic(),
+                    operationInfo_->opList_[superNodeInfo_->node2Op_[nodeIdx][0]]->GetOpMagic(),
+                    scopeId);
+                needRebuild = true;
+            }
+        }
+    }
+}
+
+Status SuperNodeGraphBuilder::CheckAndMergeScopes(
+    const ScopeCollectResult& scopeInfo, std::vector<int32_t>& snParent, bool& needRebuild,
+    std::map<int32_t, int32_t>& scopeToCvFuseId)
+{
+    bool isCVMix = GraphUtils::IsCVMixPlatform();
+    for (auto& [scopeId, coreTypeInfo] : scopeInfo.scopeCoreTypes) {
+        if (ValidateScopeCoreTypes(scopeId, coreTypeInfo, isCVMix, scopeToCvFuseId) != SUCCESS) {
+            return FAILED;
+        }
+        if (coreTypeInfo.hasCube && coreTypeInfo.hasVector) {
+            continue;
+        }
+        auto nodesIt = scopeInfo.scope2Nodes.find(scopeId);
+        if (nodesIt == scopeInfo.scope2Nodes.end()) {
+            APASS_LOG_DEBUG_F(Elements::Operation, "ScopeId=%d has no supernode to merge, skip.", scopeId);
+            continue;
+        }
+        bool allowParallel =
+            scopeInfo.scopeAllowParallel.count(scopeId) > 0 && scopeInfo.scopeAllowParallel.at(scopeId);
+        if (allowParallel) {
+            MergeScopeNodesParallel(nodesIt->second, scopeId, snParent, needRebuild);
+        } else {
+            MergeScopeNodesSequential(nodesIt->second, scopeId, snParent, needRebuild);
+        }
+    }
+    return SUCCESS;
+}
+
+void SuperNodeGraphBuilder::RebuildSuperNodes(std::vector<int32_t>& snParent, int32_t numNodes)
+{
+    std::vector<int32_t> parentToNewNode(numNodes, -1);
+    std::vector<std::vector<int32_t>> newNode2Op;
+
+    for (int32_t nodeIdx = 0; nodeIdx < numNodes; nodeIdx++) {
+        int32_t p = FindParent(snParent, nodeIdx);
+        if (parentToNewNode[p] == -1) {
+            parentToNewNode[p] = static_cast<int32_t>(newNode2Op.size());
+            newNode2Op.push_back({});
+        }
+        for (int32_t opIdx : superNodeInfo_->node2Op_[nodeIdx]) {
+            newNode2Op[parentToNewNode[p]].push_back(opIdx);
+        }
+    }
+
+    superNodeInfo_->node2Op_ = std::move(newNode2Op);
+    superNodeInfo_->BuildNodeMapping(operationInfo_);
+    superNodeInfo_->BuildInOutGraph(operationInfo_);
+    superNodeInfo_->SetNodeCoreTypeAndMergeable(operationInfo_, false);
+}
+
+void SuperNodeGraphBuilder::ApplyCvFuseIds(const std::map<int32_t, int32_t>& scopeToCvFuseId)
+{
+    // 遍历所有supernode，若supernode中存在任一op的scopeId在scopeToCvFuseId中，
+    // 则将该supernode中所有op标记为该scope对应的cvFuseId
+    for (size_t nodeIdx = 0; nodeIdx < superNodeInfo_->node2Op_.size(); nodeIdx++) {
+        int32_t cvFuseId = -1;
+        for (int32_t opIdx : superNodeInfo_->node2Op_[nodeIdx]) {
+            int32_t scopeId = operationInfo_->opList_[opIdx]->GetScopeId();
+            auto it = scopeToCvFuseId.find(scopeId);
+            if (it != scopeToCvFuseId.end()) {
+                cvFuseId = it->second;
+                break;
+            }
+        }
+        if (cvFuseId != -1) {
+            for (int32_t opIdx : superNodeInfo_->node2Op_[nodeIdx]) {
+                operationInfo_->opList_[opIdx]->scopeInfo_.SetCvFuseId(cvFuseId);
+            }
+        }
+    }
+}
+
+Status SuperNodeGraphBuilder::ProcessScopeMerge()
+{
+    int32_t numNodes = static_cast<int32_t>(superNodeInfo_->node2Op_.size());
+    auto scopeInfo = CollectScopeInfo(numNodes);
+
+    std::vector<int32_t> snParent(numNodes);
+    for (int32_t i = 0; i < numNodes; i++) {
+        snParent[i] = i;
+    }
+
+    bool needRebuild = false;
+    std::map<int32_t, int32_t> scopeToCvFuseId;
+    Status ret = CheckAndMergeScopes(scopeInfo, snParent, needRebuild, scopeToCvFuseId);
+    if (ret != SUCCESS) {
+        return ret;
+    }
+
+    if (needRebuild) {
+        RebuildSuperNodes(snParent, numNodes);
+        scopeInfo = CollectScopeInfo(static_cast<int32_t>(superNodeInfo_->node2Op_.size()));
+    }
+
+    if (GraphUtils::IsCVMixPlatform()) {
+        ApplyCvFuseIds(scopeToCvFuseId);
     }
     return SUCCESS;
 }
 
 uint64_t SuperNodeGraphBuilder::CombineHash(const uint64_t h1, const uint64_t h2) const
 {
-    const uint64_t mask52 = 0xFFFFFFFFFFFFF;
-    const uint64_t maskXor = 0x12345678;
-    const uint64_t prime = 881;
-    uint64_t h1Trunc = h1 & mask52;
-    uint64_t h2Trunc = h2 & mask52;
-    uint64_t h3 = (h1Trunc * prime) + (h2Trunc ^ maskXor);
-    return h3;
+    const uint64_t kMul = 0x9ddfea08eb382d69ULL;
+    uint64_t a = (h1 ^ h2) * kMul;
+    a ^= (a >> 47);
+    uint64_t b = (h2 ^ a) * kMul;
+    b ^= (b >> 47);
+    b *= kMul;
+    return b;
 }
 
 std::vector<std::pair<int32_t, int32_t>> SuperNodeGraphBuilder::GetReduceNodeMergePair() const

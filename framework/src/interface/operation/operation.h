@@ -67,6 +67,7 @@ public:
     static const std::string tag;
     static const std::string distTilingInfo;
     static const std::string sameInOut;
+    static const std::string expandDims;
     static const std::string inputCombineAxis;
     static const std::string outputCombineAxis;
     static const std::string inputCombineAxisDone;
@@ -80,11 +81,13 @@ public:
     static const std::string bindTensor;
     static const std::string startOffset;
     static const std::string distOpAttr;
+    static const std::string isDistCopyOut;
     static const std::string subBlockIdx;
     static const std::string accumulate;
     static const std::string indicesSize;
     static const std::string brcbIdx;
     static const std::string brcpIdx;
+    static const std::string topkAlgo;
     static const std::string quantFlag;
     static const std::string loopGroup;
     static const std::string loopAxes;
@@ -102,6 +105,12 @@ public:
     static const std::string rowPad;
     static const std::string ownerRank;
     static const std::string maxTileNum;
+    static const std::string precisionType;
+    static const std::string perm;
+    static const std::string mxQuantMode;
+    static const std::string mxQuantAxis;
+    static const std::string mxQuantPerformanceMode;
+    static const std::string gmTensorParamIdxInCall;
 };
 
 class ConvOpAttributeKey {
@@ -151,6 +160,11 @@ public:
     static const std::string poolw;
 };
 
+class TensorAttributeKey {
+public:
+    static const std::string tensorAddr;
+};
+
 enum class FbBufferSpace { QUANT_PRE = 0, RELU_PRE, RELU_POST, QUANT_POST, ANTIQ_ELT, ANTIQ_MTE2 };
 
 enum class AIVCore {
@@ -167,6 +181,26 @@ public:
     struct MixSubgraphFields {
         int internalSubgraphID{NOT_IN_SUBGRAPH};
         AIVCore aivCore{AIVCore::UNSPECIFIED};
+    };
+
+    // sg_set_scope 相关字段的结构体
+    struct ScopeInfo {
+        int scopeId{-1};
+        bool allowParallelMerge{false};
+        bool allowCrossScopeMerge{false};
+        int cvFuseId{-1}; // 仅由graph_partition标记
+
+        ScopeInfo() = default;
+        explicit ScopeInfo(int id) : scopeId(id) {}
+        static ScopeInfo FromConfig(const std::vector<int64_t>& config)
+        {
+            ScopeInfo info;
+            info.scopeId = static_cast<int>(config[0]);
+            info.allowParallelMerge = static_cast<bool>(config[1]);
+            info.allowCrossScopeMerge = static_cast<bool>(config[2]);
+            return info;
+        }
+        void SetCvFuseId(int id) { cvFuseId = id; }
     };
     friend class Function;
     LogicalTensors iOperand;      // Input operands (now actual objects, not shared_ptr)
@@ -282,6 +316,25 @@ public:
     static std::shared_ptr<Operation> LoadJson(
         Function& cur, const std::unordered_map<int, std::shared_ptr<LogicalTensor>>& tensorDict, const Json& opDump);
 
+private:
+    void DumpOperandsJson(Json& opDump, bool dumpTensor) const;
+    void DumpCalleeHashJson(Json& opDump) const;
+    void DumpLocationJson(Json& opDump) const;
+    void DumpParamLocationJson(Json& opDump) const;
+    void DumpCallOpInfoJson(Json& opDump) const;
+    void DumpTileInfoJson(Json& opDump) const;
+    void DumpAttributesJson(Json& opDump) const;
+
+    static void LoadOperandsFromJson(
+        const Json& opDump, const std::unordered_map<int, std::shared_ptr<LogicalTensor>>& tensorDict,
+        std::vector<std::shared_ptr<LogicalTensor>>& ioperands, std::vector<std::shared_ptr<LogicalTensor>>& ooperands);
+    void LoadLocationFromJson(const Json& opDump);
+    void LoadBasicInfoFromJson(const Json& opDump);
+    void LoadTileInfoFromJson(const Json& opDump);
+    void LoadOpAttributeFromJson(const Json& opDump, Opcode opcode);
+    void LoadExtraInfoFromJson(const Json& opDump);
+
+public:
     [[nodiscard]] std::string DumpSSA(const std::string& prefix = "") const;
 
     [[nodiscard]] std::string Dump() const;
@@ -341,9 +394,14 @@ public:
 
     void ClearOutCtrlOperations() { outputCtrlOps.clear(); }
 
-    int scopeId_{-1};
-    void SetScopeId(int scopeId) { scopeId_ = scopeId; };
-    int GetScopeId() const { return scopeId_; };
+    ScopeInfo scopeInfo_;
+    void SetScopeId(int scopeId) { scopeInfo_.scopeId = scopeId; };
+    void SetScopeInfo(const ScopeInfo& info) { scopeInfo_ = info; };
+    const ScopeInfo& GetScopeInfo() const { return scopeInfo_; };
+    int GetScopeId() const { return scopeInfo_.scopeId; };
+    bool GetAllowParallelMerge() const { return scopeInfo_.allowParallelMerge; };
+    bool GetAllowCrossScopeMerge() const { return scopeInfo_.allowCrossScopeMerge; };
+    int GetCvFuseId() const { return scopeInfo_.cvFuseId; };
 
     void AddInCtrlOperation(Operation& operation);
 
@@ -381,6 +439,7 @@ public:
             Opcode::OP_L1_COPY_OUT,
             Opcode::OP_COPY_IN,
             Opcode::OP_L0C_TO_L1,
+            Opcode::OP_L0C_COPY_UB,
             Opcode::OP_L1_TO_BT,
             Opcode::OP_L1_TO_FIX_QUANT_PRE,
             Opcode::OP_L1_TO_L0A,
@@ -393,6 +452,7 @@ public:
             Opcode::OP_RESHAPE_COPY_OUT,
             Opcode::OP_INDEX_OUTCAST,
             Opcode::OP_INDEX_PUT,
+            Opcode::OP_INDEX_ADD,
             Opcode::OP_TRANSPOSE_MOVEIN,
             Opcode::OP_TRANSPOSE_MOVEOUT,
             Opcode::OP_FFN_SCHED,
@@ -416,42 +476,42 @@ public:
             Opcode::OP_L1_COPY_IN_CONV,
             Opcode::OP_L0C_COPY_OUT_CONV};
         if (copyOpAttrOpTypes.count(opcode_) > 0) {
-            ASSERT(std::dynamic_pointer_cast<CopyOpAttribute>(opAttribute_) != nullptr);
+            FE_ASSERT(std::dynamic_pointer_cast<CopyOpAttribute>(opAttribute_) != nullptr);
             return;
         }
 
         switch (opcode_) {
             case Opcode::OP_VIEW: {
-                ASSERT(std::dynamic_pointer_cast<ViewOpAttribute>(opAttribute_) != nullptr);
+                FE_ASSERT(std::dynamic_pointer_cast<ViewOpAttribute>(opAttribute_) != nullptr);
                 break;
             }
             case Opcode::OP_ASSEMBLE: {
-                ASSERT(std::dynamic_pointer_cast<AssembleOpAttribute>(opAttribute_) != nullptr);
+                FE_ASSERT(std::dynamic_pointer_cast<AssembleOpAttribute>(opAttribute_) != nullptr);
                 break;
             }
             case Opcode::OP_ASSEMBLE_SSA:
-                ASSERT(
+                FE_ASSERT(
                     std::dynamic_pointer_cast<AssembleOpAttribute>(opAttribute_) != nullptr ||
                     std::dynamic_pointer_cast<CopyOpAttribute>(opAttribute_) != nullptr);
                 break;
             case Opcode::OP_BLOCK_CALL:
             case Opcode::OP_CALL: {
-                ASSERT(std::dynamic_pointer_cast<CallOpAttribute>(opAttribute_) != nullptr);
+                FE_ASSERT(std::dynamic_pointer_cast<CallOpAttribute>(opAttribute_) != nullptr);
                 break;
             }
             case Opcode::OP_CONVERT: {
-                ASSERT(std::dynamic_pointer_cast<ConvertOpAttribute>(opAttribute_) != nullptr);
+                FE_ASSERT(std::dynamic_pointer_cast<ConvertOpAttribute>(opAttribute_) != nullptr);
                 break;
             }
             default:
-                ASSERT(opAttribute_ == nullptr);
+                FE_ASSERT(opAttribute_ == nullptr);
         }
     }
 
     void SetAssembleOpAttribute(
         const std::vector<int64_t>& toOffset, const std::vector<SymbolicScalar>& toDynOffset = {})
     {
-        ASSERT(opcode_ == Opcode::OP_ASSEMBLE || opcode_ == Opcode::OP_ASSEMBLE_SSA);
+        FE_ASSERT(opcode_ == Opcode::OP_ASSEMBLE || opcode_ == Opcode::OP_ASSEMBLE_SSA);
         SetOpAttribute(std::make_shared<AssembleOpAttribute>(toOffset, toDynOffset));
     }
 
@@ -460,7 +520,7 @@ public:
 
     std::string GetCalleeMagicName() const
     {
-        ASSERT(IsCall());
+        FE_ASSERT(IsCall());
         return std::static_pointer_cast<CallOpAttribute>(opAttribute_)->GetCalleeMagicName();
     }
 
@@ -471,7 +531,7 @@ public:
 
     const FunctionHash& GetCalleeHash() const
     {
-        ASSERT(IsCall() || opcode_ == Opcode::OP_BLOCK_CALL);
+        FE_ASSERT(IsCall() || opcode_ == Opcode::OP_BLOCK_CALL);
         auto callop = std::dynamic_pointer_cast<CallOpAttribute>(opAttribute_);
         return callop->GetCalleeHash();
     }
@@ -497,6 +557,12 @@ public:
         return mixSubgraphFields_ ? mixSubgraphFields_->internalSubgraphID : NOT_IN_SUBGRAPH;
     }
     void UpdateSubgraphID(int subgraphID) { subgraphID_ = subgraphID; }
+    int GetL1ReuseHashOrder() const { return l1ReuseHashOrder_; }
+    void UpdateL1ReuseHashOrder(int hashOrder) { l1ReuseHashOrder_ = hashOrder; }
+    int GetCubeMergeHashOrder() const { return cubeMergeHashOrder_; }
+    void UpdateCubeMergeHashOrder(int hashOrder) { cubeMergeHashOrder_ = hashOrder; }
+    int GetVecMergeHashOrder() const { return vecMergeHashOrder_; }
+    void UpdateVecMergeHashOrder(int hashOrder) { vecMergeHashOrder_ = hashOrder; }
     void UpdateInternalSubgraphID(int internalSubgraphID)
     {
         ensureMixSubgraphFields();
@@ -533,7 +599,7 @@ public:
     SubfuncInvokeInfoTy& GetSubFuncInvokeInfo()
     {
         auto callAttr = std::dynamic_pointer_cast<CallOpAttribute>(opAttribute_);
-        ASSERT(callAttr != nullptr);
+        FE_ASSERT(callAttr != nullptr);
         return *(callAttr->invokeInfo_);
     }
 
@@ -574,6 +640,9 @@ public:
 private:
     Opcode opcode_{Opcode::OP_UNKNOWN};
     int subgraphID_{NOT_IN_SUBGRAPH};
+    int l1ReuseHashOrder_{-1};
+    int cubeMergeHashOrder_{-1};
+    int vecMergeHashOrder_{-1};
     bool isTileOp_{false};
     TileShape tileShape_;
     std::shared_ptr<OpAttribute> opAttribute_;

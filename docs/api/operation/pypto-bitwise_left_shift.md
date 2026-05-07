@@ -1,4 +1,4 @@
-# pypto.bitwise_left_shift
+﻿# pypto.bitwise_left_shift
 
 ## 产品支持情况
 
@@ -13,7 +13,7 @@
 逐元素地将input左移other位。计算公式如下：
 
 $$
-res_i = input_i >> other_i
+res_i = input_i << other_i
 $$
 
 ## 函数原型
@@ -26,8 +26,8 @@ bitwise_left_shift(input: Union[Tensor, int], other: Union[Tensor, int]) -> Tens
 
 | 参数名 | 输入/输出 | 说明                                                                                                                                                                                                                      |
 | ------ | --------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| input  | 输入      | 源操作数。 <br> 支持的类型为：为int以及Tensor类型。 <br> Tensor支持的数据类型为：DT_INT16。 <br> 不支持空Tensor；Shape仅支持2-4维，支持按照单个维度广播到相同形状；Shape Size不大于2147483647（即INT32_MAX）。 |
-| other  | 输入      | 源操作数。 <br> 支持的类型为int以及Tensor类型。 <br> Tensor支持的数据类型为：DT_INT16。 <br> 不支持空Tensor；Shape仅支持2-4维，支持按照单个维度广播到相同形状；Shape Size不大于2147483647（即INT32_MAX）。     |
+| input  | 输入      | 源操作数。 <br> 支持的类型为：为int以及Tensor类型。 <br> Tensor支持的数据类型为：DT_INT16。 <br> 不支持空Tensor；Shape仅支持1-4维，支持按照单个维度广播到相同形状；Shape Size不大于2147483647（即INT32_MAX）。 |
+| other  | 输入      | 源操作数。 <br> 支持的类型为int以及Tensor类型。 <br> Tensor支持的数据类型为：DT_INT16。 <br> 不支持空Tensor；Shape仅支持1-4维，支持按照单个维度广播到相同形状；Shape Size不大于2147483647（即INT32_MAX）。     |
 
 ## 返回值说明
 
@@ -45,9 +45,9 @@ bitwise_left_shift(input: Union[Tensor, int], other: Union[Tensor, int]) -> Tens
 
 TileShape维度应和输出一致。
 
-如非广播场景，输入intput shape为[m, n]，other为[m, n]，输出为[m, n]，TileShape设置为[m1, n1]，则m1, n1分别用于切分m, n轴。
+如非广播场景，输入input shape为[m, n]，other为[m, n]，输出为[m, n]，TileShape设置为[m1, n1]，则m1, n1分别用于切分m, n轴。
 
-广播场景，输入intput shape为[m, n]，other为[m, 1]，输出为[m, n]，TileShape设置为[m1, n1]，则m1, n1分别用于切分m, n轴。
+广播场景，输入input shape为[m, n]，other为[m, 1]，输出为[m, n]，TileShape设置为[m1, n1]，则m1, n1分别用于切分m, n轴。
 
 ```python
 pypto.set_vec_tile_shapes(4, 16)
