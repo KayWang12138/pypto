@@ -108,5 +108,33 @@ std::string CostModelRunOnceDataFromHost(
     return "";
 }
 
-void BindCostModelRuntime(py::module& m) { m.def("CostModelRunOnceDataFromHost", &CostModelRunOnceDataFromHost); }
+std::string CostModelRunSubgraphLine(
+    const std::vector<DeviceTensorData>& inputs, const std::vector<DeviceTensorData>& outputs, uint64_t pSgId)
+{
+    if (config::GetHostOption<int64_t>(COMPILE_STAGE) != CS_ALL_COMPLETE) {
+        Json error;
+        error["status"] = "error";
+        error["error_msg"] = "compile not complete";
+        return error.dump();
+    }
+
+    std::string initResult = InitInputOutputData(inputs, outputs);
+    if (!initResult.empty()) {
+        Json error;
+        error["status"] = "error";
+        error["error_msg"] = initResult;
+        return error.dump();
+    }
+
+    Function* func = Program::GetInstance().GetLastFunction();
+    Json result = CostModelLauncher::CostModelRunSubgraph(func, pSgId);
+    CopyTensorFromModel(inputs, outputs);
+    return result.dump();
+}
+
+void BindCostModelRuntime(py::module& m)
+{
+    m.def("CostModelRunOnceDataFromHost", &CostModelRunOnceDataFromHost);
+    m.def("CostModelRunSubgraphLine", &CostModelRunSubgraphLine);
+}
 } // namespace pypto

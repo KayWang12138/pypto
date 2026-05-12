@@ -394,7 +394,14 @@ public:
     std::string Dump(bool outDetail = false);
 };
 
-class Subgraph {};
+class Subgraph {
+public:
+    int pSgId = -1;
+    std::string name;
+    std::vector<uint64_t> leafFunctionHashes;
+    bool hasFullIR = false;
+    bool hasTopology = false;
+};
 
 class FunctionInvokeInfo {
 public:

@@ -182,6 +182,29 @@ public:
         runner.RunDynamic(inputs, outputs);
     }
 
+    static Json CostModelRunSubgraph(Function* function, uint64_t pSgId)
+    {
+        Json result;
+        result["status"] = "success";
+        result["error_msg"] = "";
+
+        // Phase 1: LEAF_FUNCTION — 只仿真子图内的 leaf func, 收集 functionTime
+        result["functions"] = RunSubgraphCostModel(function, pSgId);
+
+        // Phase 2: NORMAL — 过滤后的拓扑, 获取子图调度耗时
+        uint64_t subgraphTotalCycles = RunSubgraphDynCostModel(function, pSgId);
+        if (subgraphTotalCycles == UINT64_MAX) {
+            result["status"] = "error";
+            result["error_msg"] = "subgraph simulation failed (no tasks found)";
+        }
+
+        result["p_sg_id"] = pSgId;
+        result["subgraph_total_cycles"] = subgraphTotalCycles;
+        result["output_dir"] = config::GetAbsoluteTopFolder() + "/" + "CostModelSimulationOutput";
+
+        return result;
+    }
+
 private:
     CostModelLauncher(Function* function, const DeviceLauncherConfig& config) : function_(function), config_(config) {}
 
@@ -263,6 +286,63 @@ private:
         costModelAgent.SubmitLeafFunctionsToCostModel();
         costModelAgent.RunCostModel();
         costModelAgent.TerminateCostModel();
+    }
+
+    static Json RunSubgraphCostModel(Function* function, uint64_t pSgId)
+    {
+        Json functionsJson = Json::array();
+
+        config::SetSimConfig(KEY_SIM_MODE, CostModel::SimMode::LEAF_FUNCTION);
+
+        CostModelAgent costModelAgent;
+        costModelAgent.SubmitLeafFunctionsBySubgraph(pSgId);
+        auto costModel = costModelAgent.GetCostModel();
+        if (costModel == nullptr) {
+            return functionsJson;
+        }
+        costModelAgent.RunCostModel();
+        costModelAgent.TerminateCostModel();
+
+        auto sim = costModel->sim;
+        if (sim == nullptr) {
+            return functionsJson;
+        }
+
+        for (auto& [hash, cycles] : sim->leafFunctionTime) {
+            Json funcJson;
+            funcJson["hash"] = hash;
+            funcJson["cycles"] = cycles;
+            auto it = sim->functionCache.cache.find(hash);
+            if (it != sim->functionCache.cache.end()) {
+                funcJson["name"] = it->second->funcName;
+                funcJson["machine_type"] = static_cast<int>(it->second->machineType);
+            }
+            functionsJson.push_back(funcJson);
+        }
+
+        return functionsJson;
+    }
+
+    static uint64_t RunSubgraphDynCostModel(Function* function, uint64_t pSgId)
+    {
+        config::SetSimConfig(KEY_SIM_MODE, CostModel::SimMode::NORMAL);
+
+        CostModelAgent costModelAgent;
+        std::string path = config::LogTopFolder() + "/dyn_topo.txt";
+        costModelAgent.SubmitSubgraphTopoByPid(path, pSgId);
+        costModelAgent.SubmitLeafFunctionsBySubgraph(pSgId);
+        auto costModel = costModelAgent.GetCostModel();
+        if (costModel == nullptr) {
+            return UINT64_MAX;
+        }
+        costModelAgent.RunCostModel();
+        costModelAgent.TerminateCostModel();
+
+        auto sim = costModel->sim;
+        if (sim == nullptr) {
+            return UINT64_MAX;
+        }
+        return sim->globalCycles;
     }
 
     void RunPvModel(DeviceKernelArgs& kArgs, const std::vector<RawTensorDataPtr>& inputs,

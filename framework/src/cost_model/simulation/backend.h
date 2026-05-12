@@ -32,6 +32,10 @@ public:
     void SubmitSingleFuncToCostModel(Function* func);
     void SubmitLeafFunctionsToCostModel();
 
+    void SubmitLeafFunctionsBySubgraph(uint64_t pSgId);
+    void SubmitSubgraphTopoByPid(std::string& path, uint64_t pSgId);
+    std::shared_ptr<CostModel::CostModelInterface> GetCostModel() const { return costModel; }
+
     uint64_t pos = 0;
     uint64_t seqPos = pos++;
     uint64_t taskIdPos = pos++;

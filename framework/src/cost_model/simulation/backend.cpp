@@ -16,6 +16,7 @@
 #include "simulation/backend.h"
 
 #include <cctype>
+#include <unordered_set>
 #include "interface/configs/config_manager.h"
 #include "interface/cache/function_cache.h"
 #include "interface/machine/host/machine_task.h"
@@ -247,6 +248,140 @@ void CostModelAgent::GetFunctionFromJson(const std::string& jsonPath)
                      << "Json file: " << jsonPath << " parsing error: " << e.what();
     }
     Program::GetInstance().LoadJson(jsonData);
+}
+
+void CostModelAgent::SubmitLeafFunctionsBySubgraph(uint64_t pSgId)
+{
+    BuildCostModel();
+
+    auto* rootFunc = Program::GetInstance().GetLastFunction();
+    if (rootFunc == nullptr) {
+        SIMULATION_LOGE(CostModel::ExternalErrorScene::FILE_CONTENT_ERROR,
+            "No compiled function found, cannot submit leaf functions by subgraph");
+        return;
+    }
+    if (rootFunc->programs_.empty()) {
+        SIMULATION_LOGE(CostModel::ExternalErrorScene::FILE_CONTENT_ERROR,
+            "Root function has no programs_, cannot filter by subgraph");
+        return;
+    }
+
+    std::unordered_set<uint64_t> targetHashes;
+    for (auto& [sgId, leafFunc] : rootFunc->programs_) {
+        if (sgId == pSgId) {
+            targetHashes.insert(leafFunc->GetFunctionHash().GetHash());
+        }
+    }
+
+    if (targetHashes.empty()) {
+        SIMULATION_LOGI("No leaf functions found for pSgId=%lu", pSgId);
+        return;
+    }
+
+    SIMULATION_LOGI("Submitting %zu leaf functions for pSgId=%lu", targetHashes.size(), pSgId);
+    std::vector<npu::tile_fwk::Function*> funcs;
+    for (auto& [name, f] : Program::GetInstance().GetFunctionMap()) {
+        if (targetHashes.count(f->GetFunctionHash().GetHash())) {
+            funcs.push_back(f.get());
+        }
+    }
+    costModel->Submit(funcs, false, "");
+}
+
+void CostModelAgent::SubmitSubgraphTopoByPid(std::string& path, uint64_t pSgId)
+{
+    // ── 第一遍：收集目标子图的所有 taskId ──
+    std::unordered_set<uint64_t> targetTaskIds;
+    {
+        std::ifstream file(path);
+        if (!file.is_open()) {
+            SIMULATION_LOGE(CostModel::ExternalErrorScene::FILE_OPEN_FAILED, "Cannot open: %s", path.c_str());
+            return;
+        }
+        std::string line;
+        while (std::getline(file, line)) {
+            if (line.empty() || std::isalpha(static_cast<unsigned char>(line[0]))) {
+                continue;
+            }
+            std::vector<uint64_t> fields;
+            std::stringstream ss(line);
+            std::string item;
+            while (std::getline(ss, item, ',')) {
+                try {
+                    fields.push_back(std::stoull(item));
+                } catch (const std::invalid_argument&) {
+                } catch (const std::out_of_range&) {
+                }
+            }
+            if (fields.size() > psgIdPos && fields[psgIdPos] == pSgId) {
+                targetTaskIds.insert(fields[taskIdPos]);
+            }
+        }
+    }
+
+    if (targetTaskIds.empty()) {
+        SIMULATION_LOGI("No tasks found for pSgId=%lu in %s", pSgId, path.c_str());
+        topoJsonPath = config::LogTopFolder() + "/tmp_topo_json.json";
+        Json emptyArray = Json::array();
+        std::ofstream file(topoJsonPath);
+        file << emptyArray.dump(1) << std::endl;
+        return;
+    }
+
+    // ── 第二遍：保留目标行，截断 successors ──
+    Json topoJson = Json::array();
+    std::ifstream file(path);
+    std::string line;
+    while (std::getline(file, line)) {
+        if (line.empty() || std::isalpha(static_cast<unsigned char>(line[0]))) {
+            continue;
+        }
+        std::vector<uint64_t> fields;
+        std::stringstream ss(line);
+        std::string item;
+        while (std::getline(ss, item, ',')) {
+            try {
+                fields.push_back(std::stoull(item));
+            } catch (const std::invalid_argument&) {
+            } catch (const std::out_of_range&) {
+                SIMULATION_LOGE(CostModel::ExternalErrorScene::FILE_CONTENT_ERROR, "Out of range");
+            }
+        }
+        if (fields[psgIdPos] != pSgId) {
+            continue;
+        }
+
+        Json taskJson;
+        taskJson["uniqueKey"] = static_cast<uint64_t>(fields[seqPos]) << seqNumOffset | fields[taskIdPos];
+        taskJson["seqNo"] = fields[seqPos];
+        taskJson["taskId"] = fields[taskIdPos];
+        taskJson["rootIndex"] = fields[rootIndexPos];
+        taskJson["rootHash"] = fields[rootHashpos];
+        taskJson["leafIndex"] = fields[leafIndexPos];
+        taskJson["opmagic"] = fields[opmagicPos];
+        taskJson["funcHash"] = fields[funcHashPos];
+        auto coreType = static_cast<npu::tile_fwk::CoreType>(fields[coreTypePos]);
+        taskJson["coreType"] = npu::tile_fwk::GetCoreTypeDict().Find(coreType);
+        taskJson["psgId"] = fields[psgIdPos];
+        taskJson["wrapId"] = fields[wrapIdPos];
+
+        Json successorsJson = Json::array();
+        for (size_t i = succStartPos; i < fields.size(); i++) {
+            if (targetTaskIds.count(fields[i])) {
+                successorsJson.push_back(fields[i]);
+            }
+        }
+        taskJson["successors"] = successorsJson;
+        topoJson.push_back(taskJson);
+    }
+
+    topoJsonPath = config::LogTopFolder() + "/tmp_topo_json.json";
+    std::ofstream outFile(topoJsonPath);
+    outFile << topoJson.dump(1) << std::endl;
+    outFile.close();
+
+    SIMULATION_LOGI("Filtered topo for pSgId=%lu: %zu tasks written to %s",
+        pSgId, topoJson.size(), topoJsonPath.c_str());
 }
 
 extern "C" int32_t ExecuteSimulation(const MachineTask* task, FunctionCache& cache)

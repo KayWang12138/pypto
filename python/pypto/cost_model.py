@@ -10,7 +10,9 @@
 # -----------------------------------------------------------------------------------------------------------
 """
 """
-from typing import List, overload
+from typing import List
+
+import json
 
 import pypto
 import torch
@@ -20,6 +22,7 @@ from .converter import _dtype_from, from_torch, _gen_pto_tensor
 
 __all__ = [
     "_cost_model_run_once_data_from_host",
+    "_cost_model_run_subgraph_line",
 ]
 
 
@@ -69,3 +72,31 @@ def _cost_model_run_once_data_from_host(inputs: List[pypto.Tensor], outputs: Lis
     if isDevice:
         _host_to_device_tensor_datas(inputs, input_datas);
         _host_to_device_tensor_datas(outputs, output_datas);
+
+
+def _cost_model_run_subgraph_line(
+    inputs: List[pypto.Tensor],
+    outputs: List[pypto.Tensor],
+    *,
+    p_sg_id: int,
+) -> dict:
+    isDevice = False
+    for t in inputs:
+        if t.device != torch.device("cpu"):
+            isDevice = True
+            break
+
+    if isDevice:
+        input_datas = _device_to_host_tensor_datas(inputs)
+        output_datas = _device_to_host_tensor_datas(outputs)
+    else:
+        input_datas = _pto_to_tensor_data(inputs)
+        output_datas = _pto_to_tensor_data(outputs)
+
+    result_json = pypto_impl.CostModelRunSubgraphLine(input_datas, output_datas, p_sg_id)
+
+    if isDevice:
+        _host_to_device_tensor_datas(inputs, input_datas)
+        _host_to_device_tensor_datas(outputs, output_datas)
+
+    return json.loads(result_json)
