@@ -178,6 +178,7 @@ public:
     void DumpTasksTopo(const TaskMap& taskMap, std::string prefix = "");
     void ResetStat(bool start);
     void PrintCoreStat();
+    void PrintPipelineSummaryCsv();
     void PrintStat();
     uint64_t RegisterQueuePid(std::string key);
     void GetDeviceReadyQueueInfo(size_t& devicePid, std::set<uint64_t>& readyQueueTidSet);

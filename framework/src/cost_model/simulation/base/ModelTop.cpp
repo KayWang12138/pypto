@@ -15,6 +15,7 @@
 
 #include <cstdlib>
 #include <iostream>
+#include <fstream>
 #include "cost_model/simulation/base/ModelTop.h"
 
 #include "cost_model/simulation/base/Machine.h"
@@ -784,6 +785,46 @@ void SimSys::PrintCoreStat()
     reporter.ReportValAndPct("Average MTE_OUT Usage", averagePipeUseCycles[int(CorePipeType::PIPE_MTE_OUT)], cycles);
 }
 
+void SimSys::PrintPipelineSummaryCsv()
+{
+    std::string outPath = outdir + "/pipeline_summary.csv";
+    std::ofstream ofs(outPath);
+    if (!ofs.is_open()) {
+        SIMULATION_LOGW("Failed to open pipeline_summary.csv for write: %s", outPath.c_str());
+        return;
+    }
+
+    // CSV header
+    ofs << "CoreType,CoreIdx";
+    for (int pt = 0; pt < static_cast<int>(CorePipeType::TOTAL_CORE_PIPE_TYPE); ++pt) {
+        ofs << "," << CorePipeName(static_cast<CorePipeType>(pt));
+    }
+    ofs << "\n";
+
+    // Per-core rows: AIC -> AIV -> MIXAICORE
+    std::vector<MachineType> coreTypes = {
+        MachineType::AIC, MachineType::AIV, MachineType::MIXAICORE
+    };
+    for (auto mtype : coreTypes) {
+        for (auto& machine : machineGroup[static_cast<int>(mtype)]) {
+            auto corePtr = std::dynamic_pointer_cast<CoreMachine>(machine);
+            int coreIdx = GetMachineSeq(corePtr->machineId);
+            ofs << MachineName(mtype) << ",Core-" << coreIdx;
+            for (int pt = 0; pt < static_cast<int>(CorePipeType::TOTAL_CORE_PIPE_TYPE); ++pt) {
+                uint64_t cycles = 0;
+                auto it = corePtr->stats->totalPipeUseCycles.find(pt);
+                if (it != corePtr->stats->totalPipeUseCycles.end()) {
+                    cycles = it->second;
+                }
+                ofs << "," << cycles;
+            }
+            ofs << "\n";
+        }
+    }
+    ofs.close();
+    SIMULATION_LOGW("Pipeline Summary CSV: %s", outPath.c_str());
+}
+
 void SimSys::PrintStat()
 {
     std::streambuf* coutBuf = nullptr;
@@ -802,6 +843,7 @@ void SimSys::PrintStat()
     }
 
     PrintCoreStat();
+    PrintPipelineSummaryCsv();
 
     if (config.mteUseL2Cache) {
         l2Cache->Report();
