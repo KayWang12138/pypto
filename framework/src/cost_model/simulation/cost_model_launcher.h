@@ -288,7 +288,7 @@ private:
         costModelAgent.TerminateCostModel();
     }
 
-    static Json RunSubgraphCostModel(Function* function, uint64_t pSgId)
+    static Json RunSubgraphCostModel(Function* /*function*/, uint64_t pSgId)
     {
         Json functionsJson = Json::array();
 
@@ -323,7 +323,7 @@ private:
         return functionsJson;
     }
 
-    static uint64_t RunSubgraphDynCostModel(Function* function, uint64_t pSgId)
+    static uint64_t RunSubgraphDynCostModel(Function* /*function*/, uint64_t pSgId)
     {
         config::SetSimConfig(KEY_SIM_MODE, CostModel::SimMode::NORMAL);
 
