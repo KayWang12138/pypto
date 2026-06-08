@@ -118,15 +118,17 @@ std::string CostModelRunSubgraphLine(
         return error.dump();
     }
 
-    std::string initResult = InitInputOutputData(inputs, outputs);
-    if (!initResult.empty()) {
+    // Skip InitInputOutputData: ProgramData is already populated by the preceding
+    // whole-graph costmodel run. Calling it again would append (not replace) and
+    // cause "mismatch input/output" due to ProgramData's append-only behavior.
+    Function* func = Program::GetInstance().GetLastFunction();
+    if (func == nullptr) {
         Json error;
         error["status"] = "error";
-        error["error_msg"] = initResult;
+        error["error_msg"] = "no compiled function found";
         return error.dump();
     }
 
-    Function* func = Program::GetInstance().GetLastFunction();
     Json result = CostModelLauncher::CostModelRunSubgraph(func, pSgId);
     CopyTensorFromModel(inputs, outputs);
     return result.dump();
