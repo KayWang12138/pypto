@@ -7,21 +7,21 @@
 #
 # 功能:
 #   1. 检查环境变量
-#   2. cmake + make 编译
+#   2. cmake + make 编译（只编 costmodel 相关 target，跳过测试算子）
 #   3. 查找编译产物
 #   4. 运行子图 costmodel 测试
 # -----------------------------------------------------------------------------------------------------------
 
 set -e
 
-# ─── 颜色 ───
+# 颜色
 RED='\033[0;31m'
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 CYAN='\033[0;36m'
 NC='\033[0m'
 
-# ─── 项目根目录（假设脚本在项目根目录或 scripts/ 下）───
+# 项目根目录
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 if [ -f "$SCRIPT_DIR/CMakeLists.txt" ]; then
     PROJECT_DIR="$SCRIPT_DIR"
@@ -61,8 +61,8 @@ if [ -z "$ASCEND_PATH" ]; then
 fi
 
 export TILE_FWK_DEVICE_ID=${TILE_FWK_DEVICE_ID:-0}
-echo -e "  ASCEND_PATH=$ASCEND_PATH"
-echo -e "  TILE_FWK_DEVICE_ID=$TILE_FWK_DEVICE_ID"
+echo "  ASCEND_PATH=$ASCEND_PATH"
+echo "  TILE_FWK_DEVICE_ID=$TILE_FWK_DEVICE_ID"
 
 # ─── Step 1: cmake 配置 ───
 echo ""
@@ -72,19 +72,39 @@ BUILD_DIR="$PROJECT_DIR/build"
 mkdir -p "$BUILD_DIR"
 cd "$BUILD_DIR"
 
+# 查找 toolchain 文件
+TOOLCHAIN_FLAG=""
+for tc in ubuntu18.04-x86_64-llvm-toolchain.cmake toolchain.cmake; do
+    if [ -f "$PROJECT_DIR/$tc" ]; then
+        TOOLCHAIN_FLAG="-DCMAKE_TOOLCHAIN_FILE=$tc"
+        break
+    fi
+done
+
 if [ ! -f "$BUILD_DIR/CMakeCache.txt" ]; then
     echo "  首次 cmake ..."
-    cmake .. -DENABLE_TESTS_STEST=ON
+    cmake .. $TOOLCHAIN_FLAG
 else
     echo "  CMakeCache 已存在，跳过 cmake（如需重新配置请删除 build/ 目录）"
 fi
 
-# ─── Step 2: make 编译 ───
+# ─── Step 2: make 编译（只编 costmodel 需要的 target，跳过测试算子）───
 echo ""
-echo -e "${CYAN}[Step 2] make 编译 (make -j$(nproc)) ...${NC}"
+echo -e "${CYAN}[Step 2] make 编译（仅 costmodel 相关 target，跳过测试算子）...${NC}"
 
 cd "$BUILD_DIR"
-make -j$(nproc)
+NPROC=$(nproc 2>/dev/null || echo 8)
+
+# 核心库：simulation 是 costmodel 仿真必需的
+echo "  编译 tile_fwk_simulation ..."
+make tile_fwk_simulation -j"$NPROC"
+
+# Python 绑定
+PTO_TARGET=$(make help 2>/dev/null | grep -iE "pto_impl|pto\.impl" | head -1 | sed 's/^[[:space:]]*//' | awk '{print $NF}' || true)
+if [ -n "$PTO_TARGET" ]; then
+    echo "  编译 Python 绑定: $PTO_TARGET"
+    make "$PTO_TARGET" -j"$NPROC"
+fi
 
 echo -e "${GREEN}  编译完成${NC}"
 
@@ -93,8 +113,6 @@ echo ""
 echo -e "${CYAN}[Step 3] 查找编译产物 ...${NC}"
 
 cd "$PROJECT_DIR"
-
-# 创建 output 目录
 mkdir -p ./output/libs
 
 # 复制 .so 文件
@@ -110,23 +128,21 @@ for so in \
     framework/src/machine/libtile_fwk_compiler.so; do
     if [ -f "$BUILD_DIR/$so" ]; then
         cp "$BUILD_DIR/$so" ./output/libs/
-        echo -e "  ${GREEN}✓${NC} $(basename $so)"
+        echo -e "  ${GREEN}OK${NC} $(basename $so)"
     fi
 done
 
 # 查找 pto_impl 绑定模块
 PTO_IMPL_SO=$(find "$BUILD_DIR" -name "pto_impl*.so" 2>/dev/null | head -1)
 if [ -z "$PTO_IMPL_SO" ]; then
-    # 可能在 python/ 目录下
     PTO_IMPL_SO=$(find "$PROJECT_DIR/python" -name "pto_impl*.so" 2>/dev/null | head -1)
 fi
 
 if [ -n "$PTO_IMPL_SO" ]; then
     PTO_IMPL_DIR=$(dirname "$PTO_IMPL_SO")
-    echo -e "  ${GREEN}✓${NC} pto_impl: $PTO_IMPL_SO"
+    echo -e "  ${GREEN}OK${NC} pto_impl: $PTO_IMPL_SO"
 else
-    echo -e "  ${YELLOW}⚠ 未找到 pto_impl*.so，可能需要单独编译 Python 绑定${NC}"
-    echo -e "  尝试: cd build && make pto_impl -j"
+    echo -e "  ${YELLOW}WARN 未找到 pto_impl*.so，运行时可能需要手动设置 PYTHONPATH${NC}"
     PTO_IMPL_DIR=""
 fi
 
@@ -137,13 +153,14 @@ echo -e "${CYAN}[Step 4] 设置运行环境 ...${NC}"
 cd "$PROJECT_DIR"
 
 export LD_LIBRARY_PATH="$PROJECT_DIR/output/libs:${ASCEND_PATH}/lib64:${LD_LIBRARY_PATH:-}"
-echo "  LD_LIBRARY_PATH=$LD_LIBRARY_PATH"
+echo "  LD_LIBRARY_PATH 已设置"
 
 if [ -n "$PTO_IMPL_DIR" ]; then
     export PYTHONPATH="$PTO_IMPL_DIR:$PROJECT_DIR/python:${PYTHONPATH:-}"
-    echo "  PYTHONPATH 包含 pto_impl 路径"
+    echo "  PYTHONPATH 已设置（含 pto_impl 路径）"
 else
     export PYTHONPATH="$PROJECT_DIR/python:${PYTHONPATH:-}"
+    echo "  PYTHONPATH 已设置"
 fi
 
 # ─── Step 5: 运行子图 costmodel 测试 ───
