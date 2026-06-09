@@ -1,3 +1,8 @@
+cp ./build/python/src/pto_impl.so ./python/pto/
+
+  python3 python/tests/st/test_costmodel_subgraph.py
+
+
 # 子图 CostModel 移植与验证指南
 
 > **目标读者**: 另一台服务器上的 Agent，需要在不同于原始开发的 CANN 版本和源码基础上，实现并跑通子图 costmodel 功能。
