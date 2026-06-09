@@ -18,13 +18,10 @@
 #include "cost_model/simulation/cache/CacheMachine.h"
 #include "cost_model/simulation/base/ModelTop.h"
 #include "cost_model/simulation/common/ISA.h"
-#include "cost_model/simulation/base/ModelLogger.h"
+#include "tilefwk/pypto_fwk_log.h"
 
 namespace CostModel {
-PipeMachine::PipeMachine()
-{
-    machineType = MachineType::PIPE;
-}
+PipeMachine::PipeMachine() { machineType = MachineType::PIPE; }
 
 PipeMachine::PipeMachine(CostModel::MachineType mType, CostModel::CorePipeType pType, int pId) : PipeMachine()
 {
@@ -75,10 +72,7 @@ void PipeMachine::Xfer()
     GetSim()->UpdateNextCycles(nextCycles);
 }
 
-std::shared_ptr<SimSys> PipeMachine::GetSim()
-{
-    return sim;
-}
+std::shared_ptr<SimSys> PipeMachine::GetSim() { return sim; }
 
 void PipeMachine::Report() {}
 
@@ -121,15 +115,13 @@ uint64_t PipeMachine::GetQueueNextCycles()
 
 bool PipeMachine::IsTerminate()
 {
-    return (!executingTask && submissionQueue.IsTerminate() && completionQueue.IsTerminate() &&
-            outcastReferenceQueue.IsTerminate() && incastReferenceQueue.IsTerminate() &&
-            releaseQueue.IsTerminate() && cacheRespQueue.IsTerminate());
+    return (
+        !executingTask && submissionQueue.IsTerminate() && completionQueue.IsTerminate() &&
+        outcastReferenceQueue.IsTerminate() && incastReferenceQueue.IsTerminate() && releaseQueue.IsTerminate() &&
+        cacheRespQueue.IsTerminate());
 }
 
-void PipeMachine::RunAtBegin()
-{
-    nextCycles = INT_MAX;
-}
+void PipeMachine::RunAtBegin() { nextCycles = INT_MAX; }
 
 void PipeMachine::RunAtEnd()
 {
@@ -149,16 +141,15 @@ void PipeMachine::RunAtEnd()
         if (tileOp != nullptr) {
             tileOp->exeInfo.cycleInfo.executeEndCycle = GetSim()->GetCycles();
             info += tileOp->Dump(true);
-            info += " SUBGRAPH[" + std::to_string(tileOp->subgraphId) + "] TASK[" +
-                    std::to_string(executingTaskId) + "] ";
+            info +=
+                " SUBGRAPH[" + std::to_string(tileOp->subgraphId) + "] TASK[" + std::to_string(executingTaskId) + "] ";
             info += "(" + DecimalTo26(executingTaskId) + ")";
             sCycle = tileOp->exeInfo.cycleInfo.executeStartCycle;
             eCycle = tileOp->exeInfo.cycleInfo.executeEndCycle;
         } else if (tile != nullptr) {
             tile->exeInfo.cycleInfo.executeEndCycle = GetSim()->GetCycles();
             info += tile->Dump();
-            info +=
-                " SUBGRAPH[" + std::to_string(tile->subgraphId) + "] TASK[" + std::to_string(executingTaskId) + "]";
+            info += " SUBGRAPH[" + std::to_string(tile->subgraphId) + "] TASK[" + std::to_string(executingTaskId) + "]";
             sCycle = tile->exeInfo.cycleInfo.executeStartCycle;
             eCycle = tile->exeInfo.cycleInfo.executeEndCycle;
         }
@@ -185,8 +176,9 @@ void PipeMachine::ReceivePacket()
     tile = packet.tileopTask.tile;
     tileOp = packet.tileopTask.tileOp;
     executingTaskId = packet.taskId;
-    MLOG_INFO("[Cycle:", GetSim()->GetCycles(), "][PipeMachine:", machineId, "][ReceivePacket] ", "get task ",
-              packet.taskId, " magic ", packet.tileopTask.magic);
+    SIMULATION_LOGI(
+        "[Cycle: %lu][PipeMachine: %zu][ReceivePacket] get task %lu magic %d", GetSim()->GetCycles(), machineId,
+        packet.taskId, packet.tileopTask.magic);
     SetMachineExecuting(true);
     LoggerRecordPipeWL(pipeId, CounterType::QUEUE_PUSH);
 }
@@ -199,7 +191,8 @@ void PipeMachine::ReceiveL2Packet()
     CachePacket packet;
     cacheRespQueue.Dequeue(packet);
     // Process Packet
-    MLOG_INFO("[Cycle:", GetSim()->GetCycles(), "][PipeMachine:", machineId, "][ReceiveL2Resp] ", packet.pid);
+    SIMULATION_LOGI("[Cycle: %lu][PipeMachine: %zu][ReceiveL2Resp] %lu", GetSim()->GetCycles(), machineId, packet.pid);
+
     waitL2CacheResponse = false;
     nextCycles = GetSim()->GetCycles() + 1;
     GetSim()->UpdateNextCycles(GetSim()->GetCycles() + 1);
@@ -218,7 +211,8 @@ void PipeMachine::SendCachePacket(bool read)
     auto l2Cache = std::dynamic_pointer_cast<CacheMachine>(l2cacheMachine);
     l2Cache->RequestData(packet);
     waitL2CacheResponse = true;
-    MLOG_INFO("[Cycle:", GetSim()->GetCycles(), "][PipeMachine:", machineId, "][SendL2Request] ", packet.Dump());
+    SIMULATION_LOGI(
+        "[Cycle: %lu][PipeMachine: %zu][SendL2Request] %s", GetSim()->GetCycles(), machineId, packet.Dump().c_str());
 }
 
 void PipeMachine::ProcessTileOp()
@@ -231,7 +225,7 @@ void PipeMachine::ProcessTileOp()
     uint64_t latency = 0;
     if (tileOp != nullptr) {
         latency = pipeImpl->PostSimulate(tileOp);
-        MLOG_INFO("[task:", tileOp->taskId, "][op:", tileOp->opcode, "] latency:", latency);
+        SIMULATION_LOGI("[task: %lu][op: %s] latency: %lu", tileOp->taskId, tileOp->opcode.c_str(), latency);
         if (sim->config.calendarMode != static_cast<uint64_t>(CalendarMode::DEVICE)) {
             // For calendar schuedule fluctuate
             float basePercent = 100.0;
@@ -240,7 +234,6 @@ void PipeMachine::ProcessTileOp()
         if (tileOp->specialOp) {
             latency = 1;
         }
-        ASSERT(latency > 0);
         if (l2cacheMachine) {
             if (pipeType == CostModel::CorePipeType::PIPE_MTE_IN) {
                 latency = INT_MAX;
@@ -259,7 +252,7 @@ void PipeMachine::ProcessTileOp()
         tile->exeInfo.cycleInfo.executeStartCycle = GetSim()->GetCycles();
         magic = tile->magic;
     }
-    MLOG_INFO("[Cycle:", GetSim()->GetCycles(), "][PipeMachine:", machineId, "] latency:", latency);
+    SIMULATION_LOGI("[Cycle: %lu][PipeMachine: %zu] latency: %lu", GetSim()->GetCycles(), machineId, latency);
     nextCycles = GetSim()->GetCycles() + latency;
     GetSim()->UpdateNextCycles(GetSim()->GetCycles() + latency);
     retireCycle = GetSim()->GetCycles() + latency;
@@ -267,8 +260,9 @@ void PipeMachine::ProcessTileOp()
 
 void PipeMachine::PushCompletion(int taskId, int curMagic)
 {
-    MLOG_INFO("[Cycle:", GetSim()->GetCycles(), "][PipeMachine:", machineId, "][PushCompletion] ", "push task ",
-              taskId, " magic ", magic, " in completion queue");
+    SIMULATION_LOGI(
+        "[Cycle: %lu][PipeMachine: %zu][PushCompletion] push task %d magic %d  in completion queue.",
+        GetSim()->GetCycles(), machineId, taskId, magic);
     CompletedPacket packet;
     packet.taskId = taskId;
     packet.currentType = machineType;
@@ -280,4 +274,4 @@ void PipeMachine::LoggerRecordPipeWL(size_t pId, CounterType type)
 {
     GetSim()->GetLogger()->AddCounterEvent(parentMachine->machineId, pId + parentMachine->reversedTidNum, type);
 }
-}
+} // namespace CostModel

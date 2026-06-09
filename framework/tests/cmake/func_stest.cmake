@@ -1,5 +1,5 @@
 # -----------------------------------------------------------------------------------------------------------
-# Copyright (c) 2025 Huawei Technologies Co., Ltd.
+# Copyright (c) 2025-2026 Huawei Technologies Co., Ltd.
 # This program is free software, you can redistribute it and/or modify it under the terms and conditions of
 # CANN Open Software License Agreement Version 2.0 (the "License").
 # Please refer to the License for details. You may not use this file except in compliance with the License.
@@ -14,9 +14,6 @@ set(PTO_Fwk_STestCaseGoldenScriptPathList  "" CACHE INTERNAL "" FORCE)     # STe
 
 # 切换完成前, 增加原有目录
 set(PTO_Fwk_STestCaseGoldenScriptPathList ${PTO_Fwk_STestCaseGoldenScriptPathList} ${PTO_FWK_SRC_ROOT}/framework/tests/cmake/scripts/golden/net/deepseekv3/mla CACHE INTERNAL "" FORCE)
-set(PTO_Fwk_STestCaseGoldenScriptPathList ${PTO_Fwk_STestCaseGoldenScriptPathList} ${PTO_FWK_SRC_ROOT}/framework/tests/cmake/scripts/golden/net/deepseekv3/moe CACHE INTERNAL "" FORCE)
-set(PTO_Fwk_STestCaseGoldenScriptPathList ${PTO_Fwk_STestCaseGoldenScriptPathList} ${PTO_FWK_SRC_ROOT}/framework/tests/cmake/scripts/golden/net/deepseekv3/quant CACHE INTERNAL "" FORCE)
-set(PTO_Fwk_STestCaseGoldenScriptPathList ${PTO_Fwk_STestCaseGoldenScriptPathList} ${PTO_FWK_SRC_ROOT}/framework/tests/cmake/scripts/golden/net/llama CACHE INTERNAL "" FORCE)
 set(PTO_Fwk_STestCaseGoldenScriptPathList ${PTO_Fwk_STestCaseGoldenScriptPathList} ${PTO_FWK_SRC_ROOT}/framework/tests/cmake/scripts/golden/net/deepseekv3/nsa CACHE INTERNAL "" FORCE)
 set(PTO_Fwk_STestCaseGoldenScriptPathList ${PTO_Fwk_STestCaseGoldenScriptPathList} ${PTO_FWK_SRC_ROOT}/framework/tests/cmake/scripts/golden/op CACHE INTERNAL "" FORCE)
 set(PTO_Fwk_STestCaseGoldenScriptPathList ${PTO_Fwk_STestCaseGoldenScriptPathList} ${PTO_FWK_SRC_ROOT}/framework/tests/st/operator/src/test_deepseek_v3.2_exp CACHE INTERNAL "" FORCE)
@@ -49,9 +46,6 @@ function(PTO_Fwk_STest_AddLib)
                 ${PTO_Fwk_STestNamePrefix}_utils
                 GTest::gtest
     )
-    # 后检查
-    PTO_Fwk_AnalysisTargetHeaderFiles(TARGET ${ARG_TARGET})
-    # STest 暂不支持并行执行
     set(PTO_Fwk_STestCaseLibraries            ${PTO_Fwk_STestCaseLibraries}            ${ARG_TARGET}            CACHE INTERNAL "" FORCE)
     set(PTO_Fwk_STestCaseLdLibrariesExt       ${PTO_Fwk_STestCaseLdLibrariesExt}       ${ARG_LD_LIBRARIES_EXT}  CACHE INTERNAL "" FORCE)
     set(PTO_Fwk_STestCaseGoldenScriptPathList ${PTO_Fwk_STestCaseGoldenScriptPathList} ${ARG_GOLDEN_SCRIPT_DIR} CACHE INTERNAL "" FORCE)
@@ -71,90 +65,6 @@ function(PTO_Fwk_STest_GetGTestFilterList GTEST_FILTER_LIST)
     set(${GTEST_FILTER_LIST} ${GTestFilterList} PARENT_SCOPE)
     list(LENGTH GTestFilterList RstGTestFilterListLen)
     message(STATUS "GetSTestFilterList: Yaml(${YamlGTestFilterListLen}), Total(${RstGTestFilterListLen})")
-endfunction()
-
-# STest 执行可执行程序 (性能工具)
-function(PTO_Fwk_STest_RunExe_ToolsProf)
-    cmake_parse_arguments(
-            ARG
-            ""
-            "TARGET"
-            "LD_LIBRARIES_EXT;ENV_LINES_EXT;GTEST_FILTER_LIST"
-            ""
-            ${ARGN}
-    )
-    if (ENABLE_STEST_TOOLS_PROF)
-        # 命令行参数处理
-        PTO_Fwk_GTest_RunExe_GetPreExecSetup(PyCmdSetup PyEnvLines BashCmdSetup
-                TARGET              ${ARG_TARGET}
-                ENV_LINES_EXT       ${ARG_ENV_LINES_EXT}
-                LD_LIBRARIES_EXT    ${ARG_LD_LIBRARIES_EXT}
-        )
-        set(_Args)
-        set(_CommentExt)
-        # 脚本参数组织(主命令)
-        if (ENABLE_STEST_TOOLS_OUTPUT_CLEAN)
-            list(APPEND _Args "--clean")
-        endif ()
-        if (ENABLE_STEST_TOOLS_INTERCEPT)
-            list(APPEND _Args "--intercept")
-        endif ()
-        # 脚本参数组织(子命令 run)
-        list(APPEND _Args "run")
-        set(_Target $<TARGET_FILE:${ARG_TARGET}>)
-        list(APPEND _Args "--target=${_Target}")
-        if (NOT "${PyEnvLines}x" STREQUAL "x")
-            list(APPEND _Args "--env" "${PyEnvLines}")
-        endif ()
-        foreach (DevId ${PTO_Fwk_StestExecuteDeviceIdList})
-            list(APPEND _Args "--device=${DevId}")
-        endforeach ()
-        if (ENABLE_STEST_TOOLS_CASE_FILE)
-            get_filename_component(_CsvFile "${ENABLE_STEST_TOOLS_CASE_FILE}" REALPATH)
-            list(APPEND _Args "--cases_csv_file=${_CsvFile}")
-            set(_CommentExt "CsvFile(${_CsvFile})")
-        elseif (ARG_GTEST_FILTER_LIST)
-            list(LENGTH ARG_GTEST_FILTER_LIST GtestFilterListLen)
-            string(REPLACE ";" ":" GtestFilterStr "${ARG_GTEST_FILTER_LIST}")
-            list(APPEND _Args "--cases=${GtestFilterStr}")
-            set(_CommentExt "GTestFilter(${GtestFilterListLen})=${GtestFilterStr}")
-        else ()
-            set(_CommentExt "")
-        endif ()
-        list(REMOVE_DUPLICATES PTO_Fwk_STestCaseGoldenScriptPathList)
-        foreach (_Path ${PTO_Fwk_STestCaseGoldenScriptPathList})
-            list(APPEND _Args "--golden_impl_path=${_Path}")
-        endforeach ()
-        list(APPEND _Args "--golden_output_path=${ENABLE_STEST_GOLDEN_PATH}")
-        if (ENABLE_STEST_GOLDEN_PATH_CLEAN)
-            list(APPEND _Args "--golden_output_clean")
-        endif ()
-        # 脚本参数组织(子命令 run.profiling)
-        list(APPEND _Args "profiling")
-        if (ENABLE_STEST_TOOLS_PROF_LEVEL)
-            list(APPEND _Args "--level=${ENABLE_STEST_TOOLS_PROF_LEVEL}")
-        endif ()
-        if (NOT "${ENABLE_STEST_TOOLS_PROF_WARN_UP_CNT}" STREQUAL "OFF")
-            list(APPEND _Args "--warn_up_cnt=${ENABLE_STEST_TOOLS_PROF_WARN_UP_CNT}")
-        endif ()
-        if (NOT "${ENABLE_STEST_TOOLS_PROF_TRY_CNT}" STREQUAL "OFF")
-            list(APPEND _Args "--try_cnt=${ENABLE_STEST_TOOLS_PROF_TRY_CNT}")
-        endif ()
-        if (NOT "${ENABLE_STEST_TOOLS_PROF_MAX_CNT}" STREQUAL "OFF")
-            list(APPEND _Args "--max_cnt=${ENABLE_STEST_TOOLS_PROF_MAX_CNT}")
-        endif ()
-
-        # 脚本调用
-        message(STATUS "Run GTest(${ARG_TARGET}) XSAN(ASAN:${ENABLE_ASAN} UBSAN:${ENABLE_UBSAN}) With Tools.run.profiling, ${_CommentExt}")
-        get_filename_component(ToolsPy    "${PTO_FWK_SRC_ROOT}/framework/tests/cmake/scripts/python/tools.py" REALPATH)
-        get_filename_component(ToolsPyCwd "${PTO_FWK_SRC_ROOT}/framework/tests/cmake/scripts/python" REALPATH)
-        add_custom_command(
-                TARGET ${ARG_TARGET} POST_BUILD
-                COMMAND ${PyCmdSetup} ${Python3_EXECUTABLE} ${ToolsPy} ARGS ${_Args}
-                COMMENT "Run GTest(${ARG_TARGET}) XSAN(ASAN:${ENABLE_ASAN} UBSAN:${ENABLE_UBSAN}) With Tools.run.profiling"
-                WORKING_DIRECTORY ${ToolsPyCwd}
-        )
-    endif ()
 endfunction()
 
 # STest 生成 Golden 数据
@@ -178,7 +88,6 @@ function(PTO_Fwk_STest_RunExe_GenerateGolden)
         set(_Args)
         list(APPEND _Args "-o=${ENABLE_STEST_GOLDEN_PATH}")
 
-        list(FILTER ARG_GTEST_FILTER_LIST EXCLUDE REGEX "PARALLEL_SEPARATOR")
         string(REPLACE ";" ":" GTestFilterStr "${ARG_GTEST_FILTER_LIST}")
         list(APPEND _Args "-c=${GTestFilterStr}")
         list(REMOVE_DUPLICATES PTO_Fwk_STestCaseGoldenScriptPathList)
@@ -190,8 +99,8 @@ function(PTO_Fwk_STest_RunExe_GenerateGolden)
             list(APPEND _Args "--clean")
         endif ()
 
-        get_filename_component(GoldenCtrlPy    "${PTO_FWK_SRC_ROOT}/framework/tests/cmake/scripts/golden_ctrl.py" REALPATH)
-        get_filename_component(GoldenCtrlPyCwd "${PTO_FWK_SRC_ROOT}/framework/tests/cmake/scripts" REALPATH)
+        get_filename_component(GoldenCtrlPy    "${PTO_FWK_SRC_ROOT}/cmake/scripts/golden_ctrl.py" REALPATH)
+        get_filename_component(GoldenCtrlPyCwd "${PTO_FWK_SRC_ROOT}/cmake/scripts" REALPATH)
         list(LENGTH ARG_GTEST_FILTER_LIST GTestFilterListLen)
         add_custom_command(
                 TARGET ${ARG_TARGET} POST_BUILD
@@ -242,18 +151,15 @@ function(PTO_Fwk_STest_RunExe)
             if (ENABLE_TESTS_EXECUTE_PARALLEL OR (DeviceIdListLen GREATER 1))
                 # 仅在使能并行执行全局开关, 且需要做 filter 时才进行执行加速
                 set(_File $<TARGET_FILE:${ARG_TARGET}>)
-                set(_Args "-t=${_File}" "--gtest_filter=${GtestFilterStr}" "--halt_on_error")
+                set(_Args "-t=${_File}" "--cases=${GtestFilterStr}" "--halt_on_error")
                 foreach (DevId ${PTO_Fwk_StestExecuteDeviceIdList})
                     list(APPEND _Args "--device=${DevId}")
                 endforeach ()
-                if (ENABLE_TESTS_EXECUTE_PARALLEL_TIMEOUT)
-                    list(APPEND _Args "--timeout=${ENABLE_TESTS_EXECUTE_PARALLEL_TIMEOUT}")
-                endif ()
                 if (PyEnvLines)
                     list(APPEND _Args "--env" "${PyEnvLines}")
                 endif ()
-                get_filename_component(ParallelPy    "${PTO_FWK_SRC_ROOT}/framework/tests/cmake/scripts/python/stest_accelerate.py" REALPATH)
-                get_filename_component(ParallelPyCwd "${PTO_FWK_SRC_ROOT}/framework/tests/cmake/scripts/python" REALPATH)
+                get_filename_component(ParallelPy    "${PTO_FWK_SRC_ROOT}/cmake/scripts/stest_accelerate.py" REALPATH)
+                get_filename_component(ParallelPyCwd "${PTO_FWK_SRC_ROOT}/cmake/scripts" REALPATH)
                 add_custom_command(
                         TARGET ${ARG_TARGET} POST_BUILD
                         COMMAND ${PyCmdSetup} ${Python3_EXECUTABLE} ${ParallelPy} ARGS ${_Args}
@@ -300,21 +206,25 @@ function(PTO_Fwk_STest_AddExe_RunExe)
     execute_process(COMMAND touch ${_Sources})
     list(REMOVE_DUPLICATES PTO_Fwk_STestCaseLibraries)
     set(PTO_Fwk_Libraries
-            tile_fwk_passes
+            tile_fwk_utils
+            tile_fwk_adapter
+            tile_fwk_cann_host_runtime
+            tile_fwk_platform
             tile_fwk_interface
             tile_fwk_codegen
             tile_fwk_compiler
             tile_fwk_runtime
             tile_fwk_simulation
-            tile_fwk_simulation_ca
             tile_fwk_operator
     )
     PTO_Fwk_GTest_AddExe(
             TARGET                      ${ARG_TARGET}
             SOURCES                     ${_Sources}
-            PRIVATE_LINK_LIBRARIES      ${PTO_Fwk_STestNamePrefix}_intf_pub ${PTO_Fwk_Libraries} ${PTO_Fwk_STestCaseLibraries}
+            PRIVATE_LINK_LIBRARIES      ${PTO_Fwk_STestNamePrefix}_utils ${PTO_Fwk_Libraries} ${PTO_Fwk_STestCaseLibraries}
     )
-    add_dependencies(${ARG_TARGET} tile_fwk_server)
+    if (ENABLE_TORCH_VERIFIER)
+        add_dependencies(${ARG_TARGET} tile_fwk_calculator)
+    endif()
 
     #
     # 执行
@@ -340,14 +250,6 @@ function(PTO_Fwk_STest_AddExe_RunExe)
     if ("${GTestFilterList}x" STREQUAL "x")
         message(STATUS "No Case to Execute")
     else ()
-        # 性能用例
-        PTO_Fwk_STest_RunExe_ToolsProf(
-                TARGET              ${ARG_TARGET}
-                ENV_LINES_EXT       ${EnvLinesExt}
-                LD_LIBRARIES_EXT    ${PTO_Fwk_STestCaseLdLibrariesExt}
-                GTEST_FILTER_LIST   ${GTestFilterList}
-        )
-
         # 精度用例
         PTO_Fwk_STest_RunExe_GenerateGolden(TARGET ${ARG_TARGET} GTEST_FILTER_LIST ${GTestFilterList})
         PTO_Fwk_STest_RunExe(
@@ -483,24 +385,48 @@ function(PTO_Fwk_STest_Distributed_RunExe)
             # Golden 生成
             PTO_Fwk_STest_RunExe_GenerateGolden(TARGET ${ARG_TARGET} GTEST_FILTER_LIST ${GTestFilterList})
             # 执行流程
-            set(GtestFilterListIdx 1)
-            list(LENGTH GTestFilterList GtestFilterListLen)
+            math(EXPR MaxRankSizeTimes2 "${MaxRankSize} * 2")
             string(REPLACE ";" ":" GtestFilterStr "${GTestFilterList}")
-            message(STATUS "Run GTest(${ARG_TARGET}) XSAN(ASAN:${ENABLE_ASAN} UBSAN:${ENABLE_UBSAN}) GTestFilter(${GtestFilterListLen})=${GtestFilterStr}")
+            list(LENGTH PTO_Fwk_StestExecuteDeviceIdList DeviceIdListLen)
             set(Comment "Run GTest(${ARG_TARGET}) XSAN(ASAN:${ENABLE_ASAN} UBSAN:${ENABLE_UBSAN})")
-            foreach (Filter ${GTestFilterList})
-                PTO_Fwk_STest_Distributed_GetRankSize(RankSize
-                        GTEST_FILTER        ${Filter}
-                        GTEST_FILTER_CONFIG ${ARG_GTEST_FILTER_CONFIG}
-                )
+            if(ENABLE_TESTS_EXECUTE_PARALLEL OR (DeviceIdListLen GREATER_EQUAL MaxRankSizeTimes2))
+                set(_File $<TARGET_FILE:${ARG_TARGET}>)
+                set(_Args "-t=${_File}" "--cases=${GtestFilterStr}" "--halt_on_error")
+                foreach (DevId ${PTO_Fwk_StestExecuteDeviceIdList})
+                    list(APPEND _Args "--device=${DevId}")
+                endforeach ()
+                if (ENABLE_TESTS_EXECUTE_PARALLEL_TIMEOUT)
+                    list(APPEND _Args "--timeout=${ENABLE_TESTS_EXECUTE_PARALLEL_TIMEOUT}")
+                endif ()
+                if (PyEnvLines)
+                    list(APPEND _Args "--env" "${PyEnvLines}")
+                endif ()
+                list(APPEND _Args "--rank_size" "${MaxRankSize}")
+                get_filename_component(ParallelPy    "${PTO_FWK_SRC_ROOT}/cmake/scripts/distributed_stest_accelerate.py" REALPATH)
+                get_filename_component(ParallelPyCwd "${PTO_FWK_SRC_ROOT}/cmake/scripts" REALPATH)
                 add_custom_command(
                         TARGET ${ARG_TARGET} POST_BUILD
-                        COMMAND ${BashCmdSetup} mpirun -n ${RankSize} ./${ARG_TARGET} ARGS '--gtest_filter=${Filter}'
-                        COMMENT "${Comment} [${GtestFilterListIdx}/${GtestFilterListLen}] With --gtest_filter=${Filter}"
-                        WORKING_DIRECTORY ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}
+                        COMMAND ${PyCmdSetup} ${Python3_EXECUTABLE} ${ParallelPy} ARGS ${_Args}
+                        COMMENT "${Comment} With Parallel Execute Accelerate"
+                        WORKING_DIRECTORY ${ParallelPyCwd}
                 )
-                math(EXPR GtestFilterListIdx "${GtestFilterListIdx} + 1")
-            endforeach ()
+            else ()
+                set(GtestFilterListIdx 1)
+                message(STATUS "Run GTest(${ARG_TARGET}) XSAN(ASAN:${ENABLE_ASAN} UBSAN:${ENABLE_UBSAN}) GTestFilter(${GtestFilterListLen})=${GtestFilterStr}")
+                foreach (Filter ${GTestFilterList})
+                    PTO_Fwk_STest_Distributed_GetRankSize(RankSize
+                            GTEST_FILTER        ${Filter}
+                            GTEST_FILTER_CONFIG ${ARG_GTEST_FILTER_CONFIG}
+                    )
+                    add_custom_command(
+                            TARGET ${ARG_TARGET} POST_BUILD
+                            COMMAND ${BashCmdSetup} mpirun -n ${RankSize} ./${ARG_TARGET} ARGS '--gtest_filter=${Filter}'
+                            COMMENT "${Comment} [${GtestFilterListIdx}/${GtestFilterListLen}] With --gtest_filter=${Filter}"
+                            WORKING_DIRECTORY ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}
+                    )
+                    math(EXPR GtestFilterListIdx "${GtestFilterListIdx} + 1")
+                endforeach ()
+            endif ()
         endif ()
     endif ()
 endfunction()

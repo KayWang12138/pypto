@@ -128,7 +128,6 @@ def build_swim_info(swim_data):
                 total_pipe_events[pipe_name].append(entry)
 
         total_cores[core_idx] = core_entry
-    print("Parse Pipe Swim json End")
 
 
 def sample_work_data():
@@ -185,10 +184,10 @@ def draw_pipe_swim_lane_png(path):
     # 绘制泳道栅格
     for core_idx in range(num_cores):
         base_stage = core_idx * stages_per_core  # 当前核心的基础阶段偏移量
-        
+
         for stage in range(stages_per_core):
             current_color = colors[stage % len(colors)]  # 循环使用颜色
-            
+
             # 绘制该阶段的时间序列
             for t in range(total_time):
                 if work_data[core_idx, stage, t]:  # 如果该时刻工作
@@ -201,8 +200,8 @@ def draw_pipe_swim_lane_png(path):
                         linewidth=0.5,               # 边框宽度
                     )
                     ax.add_patch(rect)               # 添加到图表
-                    
-    # 设置坐标系    
+
+    # 设置坐标系
     ax.set_xlim(0, total_time)
     ax.set_ylim(0, num_cores * stages_per_core)
 
@@ -211,7 +210,7 @@ def draw_pipe_swim_lane_png(path):
         ax.axhline(y=split_line, color='black', linestyle='-', linewidth=0.8)
 
     # 设置Y轴标签
-    core_centers = [(core_id * stages_per_core) + stages_per_core / 2 
+    core_centers = [(core_id * stages_per_core) + stages_per_core / 2
                     for core_id in range(num_cores)]
     ax.set_yticks(core_centers)
     ax.set_yticklabels([f'{total_cores[i].core_type}_{i}' for i in sorted(total_cores.keys())])
@@ -325,8 +324,6 @@ if __name__ == '__main__':
     # 绘制包含pipe信息的泳道图
     output_path = os.path.join(dir_name, 'pipe_swimlane.png')
     draw_pipe_swim_lane_png(output_path)
-    print("Generated Pipe Swimlane png:", output_path)
 
     output_path = os.path.join(dir_name, 'pipe_swimlane.html')
     draw_pipe_swim_lane_html(output_path)
-    print("Generated Pipe Swimlane html:", output_path)

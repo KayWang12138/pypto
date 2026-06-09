@@ -4,6 +4,7 @@
 
 | 产品             | 是否支持 |
 |:-----------------|:--------:|
+| Ascend 950PR/Ascend 950DT |    √     |
 | Atlas A3 训练系列产品/Atlas A3 推理系列产品 |    √     |
 | Atlas A2 训练系列产品/Atlas A2 推理系列产品 |    √     |
 
@@ -35,7 +36,19 @@ gather_in_ub(param: Tensor, indices: Tensor, block_table: Tensor,
 
 返回输出 Tensor，Tensor的数据类型和 param 相同，Shape 为\[k, hidden\_dim\]，即 选中 token kv cache。
 
-## 调用说明
+## 调用示例
+
+### TileShape设置示例
+
+调用该operation接口前，应通过set_vec_tile_shapes设置TileShape。
+
+TileShape 的维度设置须与输出张量保持一致，用于控制输出 Tile 块的大小。
+
+以输入$ param[token_size,hidden_dim]$ 、索引 $indices[1,k]$ 、轴 $\text{axis}=-2$ 、输出 $output[k,hidden_dim]$  为例：
+
+设 TileShape 为$[k_1, hidden_dim_1]$，该配置直接作用于输出 output 的各维度，同时映射至输入与索引。其中 $k_1$ 切分 indices 的 k 维 ，$ hidden_dim_1$ 切分 param 的特征维 $hidden_dim$ 。Tile 内存占用须满足约束 $b_1 \cdot k_1 \cdot hidden_dim_1 \cdot \text{sizeof}(\mathbf{output}) < \text{UB_Size}$
+
+### 接口调用示例
 
 ![](../figures/zh-cn_image_0000002524825989.png)
 
@@ -65,7 +78,7 @@ result = pypto.experimental.gather_in_ub(param , indices , blockTable, blockSize
 结果示例如下：
 
 ```python
-输入数据param : 
+输入数据param :
 [
   # token 0
   [  0,  1,  2,  3],
@@ -82,11 +95,10 @@ result = pypto.experimental.gather_in_ub(param , indices , blockTable, blockSize
 ]
 输入数据indices : [0, 4, 3]
 输入数据blockTable : [0, 2, 1]
-输出数据out: 
+输出数据out:
 [
    [  0,  1,  2,  3],
    [ 20, 21, 22, 23],
    [ 50, 51, 52, 53],
 ]
 ```
-

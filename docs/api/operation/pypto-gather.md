@@ -4,6 +4,7 @@
 
 | 产品             | 是否支持 |
 |:-----------------|:--------:|
+| Ascend 950PR/Ascend 950DT |    √     |
 | Atlas A3 训练系列产品/Atlas A3 推理系列产品 |    √     |
 | Atlas A2 训练系列产品/Atlas A2 推理系列产品 |    √     |
 
@@ -30,9 +31,9 @@ gather(input: Tensor, dim: int, index: Tensor) -> Tensor
 
 | 参数名  | 输入/输出 | 说明                                                                 |
 |---------|-----------|----------------------------------------------------------------------|
-| input   | 输入      | 源操作数。 <br> 支持的类型为：Tensor。 <br> Tensor支持的数据类型为：DT_FP32, DT_FP16, DT_INT16, DT_INT32。 <br> 不支持空 Tensor，Shape 支持2-4维，且shape size不大于2147483647（即INT32_MAX）。 |
+| input   | 输入      | 源操作数。 <br> 支持的类型为：Tensor。 <br> Tensor支持的数据类型为：DT_FP32，DT_FP16，DT_BF16，DT_INT16，DT_INT32。 <br> 不支持空 Tensor，Shape 支持1-4维，且shape size不大于2147483647（即INT32_MAX）。 |
 | dim     | 输入      | 源操作数。 <br> 支持任意合法的维度索引 ，范围为：-input.dim 到 input.dim - 1。 |
-| index   | 输入      | 源操作数。 <br> 支持的类型为：Tensor。 <br> Tensor支持的数据类型为：DT_INT32, DT_INT64。 <br> 不支持空 Tensor，Shape 支持2-4维，需保证 index 所有轴上的 Shape 大小不超过 input 的对应 Shape 大小，且值为合法索引，即不超过 input 在 dim 轴上的 Shape 大小。 |
+| index   | 输入      | 源操作数。 <br> 支持的类型为：Tensor。 <br> Tensor支持的数据类型为：DT_INT32，DT_INT64。 <br> 不支持空 Tensor，Shape 支持1-4维，需保证 index 所有轴上的 Shape 大小不超过 input 的对应 Shape 大小，且值为合法索引，即不超过 input 在 dim 轴上的 Shape 大小。 |
 
 ## 返回值说明
 
@@ -40,15 +41,29 @@ gather(input: Tensor, dim: int, index: Tensor) -> Tensor
 
 ## 约束说明
 
-1. index.dim = input.dim，且 index.shape\[i\] <= input.shap\[i\]，值为合法索引，即不能超出 input.shape\[dim\]；
+1. index.dim = input.dim，且 index.shape\[i\] <= input.shape\[i\] (i != dim)，值为合法索引，即不能超出 input.shape\[dim\]；
 
 2. dim: -input.dim <= dim < input.dim；
 
 3. input.shape 的 dim 轴不可切，要求 viewshape\[dim\] \>= max\( input.shape\[dim\], index.shape\[dim\] \)，其余维度的 Shape 大小不做限制；
 
-4. TileShape的维度与 result 相同，用于切分 result 和 index，TileShape\[dim\] = viewshape\[dim\]，所有输入和输出的 TileShape 大小总和不能超过UB内存的大小。
+4. TileShape的维度与 index 相同，用于切分 input 和 index，input 的 dim 轴不可切，且所有输入和输出的 TileShape 大小总和不能超过UB内存的大小。
 
 ## 调用示例
+
+### TileShape设置示例
+
+调用该operation接口前，应通过set_vec_tile_shapes设置TileShape。
+
+TileShape维度应和输出一致。
+
+如输入input为[x, y, z]，dim为1，输入index为[m, t, p]，输出为[m, t, p]，其中 m <= x，p <= z，TileShape设置为[m1, t1, p1]，则m1, t1, p1分别用于切分m, t, p轴。 y轴不可切，必须保证y轴全载。
+
+```python
+pypto.set_vec_tile_shapes(4, 16, 32)
+```
+
+### 接口调用示例
 
 ```python
 x = pypto.tensor([3, 5], pypto.DT_INT32)        # shape (3, 5)
@@ -70,4 +85,3 @@ y = pypto.gather(x, dim, index)
              [5,  11, 2,  8],
              [10, 11, 7,  3]]
 ```
-

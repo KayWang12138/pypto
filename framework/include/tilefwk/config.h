@@ -40,75 +40,9 @@ enum class MachineScheduleConfig {
 };
 
 namespace config {
-namespace experimental {
-    bool IsType(const std::string &key, const std::type_info &type);
-    void SetOption(const std::string &key, bool value);
-    void SetOption(const std::string &key, int64_t value);
-    void SetOption(const std::string &key, const char *value);
-    void SetOption(const std::string &key, const std::string &value);
-    void SetOption(const std::string &key, const std::vector<int64_t> &value);
-    void SetOption(const std::string &key, const std::vector<std::string> &value);
-    void SetOption(const std::string &key, const std::map<int64_t, int64_t> &value);
-}
 
-/**
- * \brief Check if option exists
- *
- * \param key config option key
- * \return true if option exists, false otherwise
- */
-bool HasOption(const std::string &key);
-
-/**
- * \brief Check if option type is compatible with T
- *
- * \tparam T type to check compatibility with
- * \param key config option key
- * \return true if option type is compatible with T, false otherwise
- */
 template <typename T>
-bool IsType(const std::string &key) {
-    using type = std::decay_t<T>;
-    if constexpr (std::is_same_v<type, bool>) {
-        return experimental::IsType(key, typeid(bool));
-    } else if constexpr (std::is_integral_v<type>) {
-        return experimental::IsType(key, typeid(int64_t));
-    } else if constexpr (std::is_same_v<type, char *>) {
-        return experimental::IsType(key, typeid(std::string));
-    } else {
-        return experimental::IsType(key, typeid(T));
-    }
-    return false;
-}
-
-/**
- * \brief Set config option value
- *
- * \tparam T type of config option value
- * \param key config option key
- * \param value config option value
- */
-template <typename T>
-void SetOption(const std::string &key, T &&value) {
-    if (!HasOption(key)) {
-        throw std::runtime_error("Option " + key + " does not exist");
-    }
-    if (!IsType<T>(key)) {
-        throw std::runtime_error("Option " + key + " bad type");
-    }
-    using type = std::decay_t<T>;
-    if constexpr (std::is_same_v<type, bool>) {
-        experimental::SetOption(key, value);
-    } else if constexpr (std::is_integral_v<type>) {
-        experimental::SetOption(key, static_cast<int64_t>(value));
-    } else {
-        experimental::SetOption(key, value);
-    }
-}
-
-inline void SetOption(const std::string &key, const char *value) {
-    SetOption(key, std::string(value));
-}
+void SetOptionsNg(const std::string& key, const T& value);
 
 /**
  * \brief Set pass options
@@ -123,8 +57,9 @@ inline void SetOption(const std::string &key, const char *value) {
  * \param value config option value
  */
 template <typename T>
-void SetPassOption(const std::string &key, const T &value) {
-    SetOption("pass." + key, value);
+void SetPassOption(const std::string& key, const T& value)
+{
+    SetOptionsNg("pass." + key, value);
 }
 
 /**
@@ -134,8 +69,9 @@ void SetPassOption(const std::string &key, const T &value) {
  * \param value config option value
  */
 template <typename T>
-void SetCodeGenOption(const std::string &key, const T &value) {
-    SetOption("codegen." + key, value);
+void SetCodeGenOption(const std::string& key, const T& value)
+{
+    SetOptionsNg("codegen." + key, value);
 }
 
 /**
@@ -145,8 +81,9 @@ void SetCodeGenOption(const std::string &key, const T &value) {
  * \param value config option value
  */
 template <typename T>
-void SetRuntimeOption(const std::string &key, const T &value) {
-    SetOption("runtime." + key, value);
+void SetRuntimeOption(const std::string& key, const T& value)
+{
+    SetOptionsNg("runtime." + key, value);
 }
 
 /**
@@ -156,8 +93,9 @@ void SetRuntimeOption(const std::string &key, const T &value) {
  * \param value config option value
  */
 template <typename T>
-void SetHostOption(const std::string &key, const T &value) {
-    SetOption("host." + key, value);
+void SetHostOption(const std::string& key, const T& value)
+{
+    SetOptionsNg("host." + key, value);
 }
 
 /**
@@ -167,8 +105,33 @@ void SetHostOption(const std::string &key, const T &value) {
  * \param value config option value
  */
 template <typename T>
-void SetVerifyOption(const std::string &key, const T &value) {
-    SetOption("verify." + key, value);
+void SetVerifyOption(const std::string& key, const T& value)
+{
+    SetOptionsNg("verify." + key, value);
+}
+
+/**
+ * \brief Set Operation options
+ *
+ * \param key config option key
+ * \param value config option value
+ */
+template <typename T>
+void SetOperationOption(const std::string& key, const T& value)
+{
+    SetOptionsNg("operation." + key, value);
+}
+
+/**
+ * \brief Set Debug options
+ *
+ * \param key config option key
+ * \param value config option value
+ */
+template <typename T>
+void SetDebugOption(const std::string& key, const T& value)
+{
+    SetOptionsNg("debug." + key, value);
 }
 
 /**
@@ -187,8 +150,7 @@ void SetPrintOptions(int edgeItems, int precision, int threshold, int linewidth)
  * \param label semantic label
  * \note label will be attached to subsequent operations
  */
-void SetSemanticLabel(const std::string &label, const char *filename = __builtin_FILE(),
-                      int lineno = __builtin_LINE());
+void SetSemanticLabel(const std::string& label, const char* filename = __builtin_FILE(), int lineno = __builtin_LINE());
 
 /**
  * \brief Set the Build static function or not

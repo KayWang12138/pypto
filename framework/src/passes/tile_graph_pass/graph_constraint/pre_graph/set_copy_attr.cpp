@@ -19,21 +19,26 @@
 #define MODULE_NAME "PreGraphProcess"
 
 namespace npu::tile_fwk {
-void SetCopyAttr::ProcessSpecialMTEOperation(Operation &op) const {
+void SetCopyAttr::ProcessSpecialMTEOperation(Operation& op) const
+{
     APASS_LOG_DEBUG_F(Elements::Operation, "Process Special MTE Operation %d.", op.opmagic);
     auto inputTensor = op.iOperand.front();
     auto outputTensor = op.oOperand.front();
     if ((inputTensor == nullptr) || (outputTensor == nullptr)) {
         return;
     }
+    if (op.GetOpcode() == Opcode::OP_INDEX_PUT || op.GetOpcode() == Opcode::OP_INDEX_ADD) {
+        outputTensor = inputTensor;
+    }
     /* transpose datamove 输入和输出的shape不相同 */
-    op.SetOpAttribute(std::make_shared<CopyOpAttribute>(MemoryType::MEM_UB,
-        OpImmediate::Specified(outputTensor->GetTensorOffset()), OpImmediate::Specified(outputTensor->GetShape()),
+    op.SetOpAttribute(std::make_shared<CopyOpAttribute>(
+        MemoryType::MEM_UB, OpImmediate::Specified(outputTensor->GetTensorOffset()),
+        OpImmediate::Specified(outputTensor->GetShape()),
         OpImmediate::Specified(outputTensor->tensor->GetDynRawShape())));
-    op.oOperand[0]->isSubGraphBoundary = true;
 }
 
-void SetCopyAttr::ProcessMoveInOperation(Operation &op) const {
+void SetCopyAttr::ProcessMoveInOperation(Operation& op) const
+{
     APASS_LOG_DEBUG_F(Elements::Operation, "Process MoveIn Operation %d.", op.opmagic);
     auto inputTensor = op.iOperand.front();
     if (inputTensor == nullptr) {
@@ -44,22 +49,22 @@ void SetCopyAttr::ProcessMoveInOperation(Operation &op) const {
     if (!producers.empty()) {
         auto pre = *(producers.begin());
         if (pre != nullptr && pre->GetOpcode() == Opcode::OP_VIEW) {
-            auto attr = dynamic_cast<ViewOpAttribute *>(pre->GetOpAttribute().get());
+            auto attr = dynamic_cast<ViewOpAttribute*>(pre->GetOpAttribute().get());
             if (attr != nullptr) {
                 op.SetOpAttribute(std::make_shared<CopyOpAttribute>(
                     OpImmediate::Specified(TensorOffset(attr->GetFromOffset(), attr->GetFromDynOffset())),
                     MemoryType::MEM_UB, OpImmediate::Specified(inputTensor->GetShape()),
                     OpImmediate::Specified(inputTensor->tensor->GetDynRawShape()),
                     OpImmediate::Specified(inputTensor->GetDynValidShape())));
-                op.iOperand[0]->isSubGraphBoundary = true;
                 return;
             }
         }
     }
-    op.SetOpAttribute(std::make_shared<CopyOpAttribute>(OpImmediate::Specified(offset),
-        MemoryType::MEM_UB, OpImmediate::Specified(inputTensor->GetShape()),
-        OpImmediate::Specified(inputTensor->tensor->GetDynRawShape()),
-        OpImmediate::Specified(inputTensor->GetDynValidShape())));
-    op.iOperand[0]->isSubGraphBoundary = true;
+    if (op.GetOpcode() != Opcode::OP_L1_COPY_IN_A_SCALE && op.GetOpcode() != Opcode::OP_L1_COPY_IN_B_SCALE) {
+        op.SetOpAttribute(std::make_shared<CopyOpAttribute>(
+            OpImmediate::Specified(offset), MemoryType::MEM_UB, OpImmediate::Specified(inputTensor->GetShape()),
+            OpImmediate::Specified(inputTensor->tensor->GetDynRawShape()),
+            OpImmediate::Specified(inputTensor->GetDynValidShape())));
+    }
 }
 } // namespace npu::tile_fwk

@@ -52,10 +52,7 @@ constexpr float F_0 = 0.0;
 constexpr float F_NEGA_1 = -1.0;
 constexpr double DF_1E_20 = 1e-20;
 
-enum GateMode {
-    standard,
-    simple
-};
+enum GateMode { standard, simple };
 
 struct MlaTileConfig {
     int tileB = 8; // tileB is 8
@@ -64,7 +61,7 @@ struct MlaTileConfig {
 };
 
 struct SaTileShapeConfig {
-    int gTile; // 由于没有处理尾块，当前仅支持因子切分
+    int gTile;                                   // 由于没有处理尾块，当前仅支持因子切分
     int sKvTile;
     std::array<int, TILE_CUBE_DIMS> c1TileShape; // (m, M), (k, K), (n, N)
     std::array<int, TILE_VEC_DIMS> v1TileShape;
@@ -131,7 +128,8 @@ struct NSASimpleParams {
     IndexerTile indexTileCfg;
     IndexerTileShapeConfig indexerTileConfigs;
     RopeTileShapeConfig ropeTileConfigs;
-    static NSASimpleParams getCommonParams() {
+    static NSASimpleParams getCommonParams()
+    {
         NSASimpleParams params;
         params.h = NUM_7168;
         params.q_lora_rank = NUM_1536;
@@ -158,7 +156,8 @@ struct NSASimpleParams {
         return params;
     }
 
-    static NSASimpleParams getDecodeParams() {
+    static NSASimpleParams getDecodeParams()
+    {
         NSASimpleParams params = getCommonParams();
         params.b = NUM_32;
         params.s1 = NUM_1;
@@ -168,7 +167,8 @@ struct NSASimpleParams {
         return params;
     }
 
-    static NSASimpleParams getMTPParams() {
+    static NSASimpleParams getMTPParams()
+    {
         NSASimpleParams params = getCommonParams();
         params.b = NUM_32;
         params.s1 = NUM_2;
@@ -178,7 +178,6 @@ struct NSASimpleParams {
         return params;
     }
 };
-
 
 } // namespace npu::tile_fwk
 

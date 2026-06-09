@@ -24,7 +24,11 @@
 
 ```bash
 # 配置 CANN 环境变量
-source /usr/local/Ascend/ascend-toolkit/latest/bin/setenv.bash
+# 安装完成后请配置环境变量，请用户根据set_env.sh的实际路径执行如下命令。
+# 上述环境变量配置只在当前窗口生效，用户可以按需将以上命令写入环境变量配置文件（如.bashrc文件）。
+
+# 默认路径安装，以root用户为例（非root用户，将/usr/local替换为${HOME}）
+source /usr/local/Ascend/ascend-toolkit/set_env.sh
 
 # 设置设备 ID
 export TILE_FWK_DEVICE_ID=0
@@ -33,7 +37,7 @@ export TILE_FWK_DEVICE_ID=0
 ### 执行脚本
 
 ```bash
-cd nn/attention
+cd attention
 python3 attention.py
 ```
 
@@ -42,4 +46,3 @@ python3 attention.py
 1. 注意力机制是现代深度学习的基石，建议深入阅读 `attention/README.md` 了解算法细节。
 2. 尝试修改 `attention.py` 中的 Tiling 配置，观察其对运行性能的影响。
 3. 参考 `models` 目录下的真实模型代码，了解如何将本目录的组件应用到工业级项目中。
-

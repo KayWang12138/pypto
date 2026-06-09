@@ -15,14 +15,13 @@
 
 #pragma once
 
+#include "tilefwk/platform.h"
 #include "PvModel.h"
 
-namespace CostModel
-{
-    class PvModelFactory
-    {
-    public:
-        static std::shared_ptr<PvModel> Create(std::string arch = "A2A3");
-        static std::shared_ptr<DynPvModel> CreateDyn(std::string arch = "A2A3");
-    };
+namespace CostModel {
+class PvModelFactory {
+public:
+    static std::shared_ptr<PvModel> Create();
+    static std::shared_ptr<DynPvModel> CreateDyn();
+};
 } // namespace CostModel

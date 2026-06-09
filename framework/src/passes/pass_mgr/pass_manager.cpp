@@ -15,13 +15,11 @@
 
 #include "pass_manager.h"
 
-#include <cstdlib>
 #include <unistd.h>
 #include "interface/configs/config_manager.h"
 #include "passes/pass_interface/pass.h"
 #include "passes/pass_interface/pass_type.h"
 #include "pass_registry.h"
-#include "interface/tensor/expected_value.h"
 #include "tilefwk/error.h"
 #include "tilefwk/platform.h"
 #include "pass_dependency.h"
@@ -34,6 +32,8 @@
 #include "passes/tensor_graph_pass/loop_unroll.h"
 //  tile graph pass
 #include "passes/tile_graph_pass/graph_partition/graph_partition.h"
+#include "passes/tile_graph_pass/graph_partition/l1_copy_reuse.h"
+#include "passes/tile_graph_pass/graph_partition/n_buffer_merge.h"
 #include "passes/tile_graph_pass/graph_optimization/graph_optimization.h"
 #include "passes/tile_graph_pass/graph_constraint/graph_constraint.h"
 #include "passes/tile_graph_pass/data_path/data_path.h"
@@ -47,14 +47,23 @@
 #include "passes/block_graph_pass/copy_out_resolve.h"
 #include "passes/block_graph_pass/dyn_attr_to_static.h"
 #include "passes/block_graph_pass/mix_subgraph_split.h"
+#include "passes/block_graph_pass/loopaxes_proc.h"
+#include "passes/block_graph_pass/tune_tileopseq_for_vf.h"
+#include "passes/block_graph_pass/tune_sync_for_vf.h"
+#include "passes/pass_log/pass_log.h"
+
+#undef MODULE_NAME
+#define MODULE_NAME "PassManager"
 
 namespace npu::tile_fwk {
-PassManager &PassManager::Instance() {
+PassManager& PassManager::Instance()
+{
     static PassManager instance;
     return instance;
 }
 
-void RegPass() {
+void RegPass()
+{
     REG_PASS(GlobalMemoryReuse);
     REG_PASS(SubgraphToFunction);
     REG_PASS(GraphPartition);
@@ -95,70 +104,78 @@ void RegPass() {
     REG_PASS(MixSubgraphSplit);
     REG_PASS(DuplicateOp);
     REG_PASS(AxisCombine);
+    REG_PASS(InsertOpForViewAssemble);
+    REG_PASS(LoopaxesProc);
+    REG_PASS(TuneTileOpSeqForVF);
+    REG_PASS(TuneSyncForVF);
 }
 
-void PassManager::RegDefaultStrategy() {
+void PassManager::RegDefaultStrategy()
+{
     RegisterStrategy(
         "PVC2_OOO", {
-            {   "RemoveRedundantReshape",   "RemoveRedundantReshape"},
-            {                 "AutoCast",                 "AutoCast"},
-            {      "InferMemoryConflict",      "InferMemoryConflict"},
-            {       "RemoveUndrivenView",       "RemoveUndrivenView"},
-            {           "ExpandFunction",           "ExpandFunction"},
-            {        "MergeViewAssemble",        "MergeViewAssemble"},
-            {             "SplitReshape",             "SplitReshape"},
-            {           "SplitRawTensor",           "SplitRawTensor"},
-            {   "SplitLargeFanoutTensor",   "SplitLargeFanoutTensor"},
-            {              "DuplicateOp",              "DuplicateOp"},
-            {         "AssignMemoryType",         "AssignMemoryType"},
-            {  "InferDiscontinuousInput",  "InferDiscontinuousInput"},
-            {        "RemoveRedundantOp",        "RemoveRedundantOp"},
-            {                   "SplitK",                   "SplitK"},
-            {           "GraphPartition",           "GraphPartition"},
-            {          "ReduceCopyMerge",          "ReduceCopyMerge"},
-            {             "NBufferMerge",             "NBufferMerge"},
-            {       "L1CopyInReuseMerge",       "L1CopyInReuseMerge"},
-            {     "IntraSubgraphAdapter",     "IntraSubgraphAdapter"},
-            {           "GenerateMoveOp",           "GenerateMoveOp"},
-            { "CommonOperationEliminate", "CommonOperationEliminate"},
-            {              "AxisCombine",              "AxisCombine"},
-            {           "PadLocalBuffer",           "PadLocalBuffer"},
-            {   "RemoveUnalignedReshape",   "RemoveUnalignedReshape"},
-            {          "ReplaceTensor",              "ReplaceTensor"},
-            {          "PreGraphProcess",          "PreGraphProcess"},
-            {            "InferDynShape",            "InferDynShape"},
-            {       "SubgraphToFunction",       "SubgraphToFunction"},
-            {          "InferParamIndex",          "InferParamIndex"},
-            {        "SrcDstBufferMerge",        "SrcDstBufferMerge"},
-            {                 "AddAlloc",                 "AddAlloc"},
-            {              "OoOSchedule",              "OoOSchedule"},
-            {        "GlobalMemoryReuse",        "GlobalMemoryReuse"},
-            {              "RemoveAlloc",              "RemoveAlloc"},
-            {           "CopyOutResolve",           "CopyOutResolve"},
-            {               "InsertSync",               "InsertSync"},
-            {         "MixSubgraphSplit",         "MixSubgraphSplit"},
-            {           "CodegenPreproc",           "CodegenPreproc"},
-    });
-    RegisterStrategy(
-        "FunctionUnroll", {
-            {               "LoopUnroll",               "LoopUnroll"}
-    });
+                        {"RemoveRedundantReshape", PassName::REMOVE_REDUNDANT_RESHAPE},
+                        {"AutoCast", PassName::AUTO_CAST},
+                        {"InferMemoryConflict", PassName::INFER_MEMORY_CONFLICT},
+                        {"RemoveUndrivenView", PassName::REMOVE_UNDRIVEN_VIEW},
+                        {"ExpandFunction", PassName::EXPAND_FUNCTION},
+                        {"MergeViewAssemble", PassName::MERGE_VIEW_ASSEMBLE},
+                        {"SplitReshape", PassName::SPLIT_RESHAPE},
+                        {"SplitRawTensor", PassName::SPLIT_RAW_TENSOR},
+                        {"SplitLargeFanoutTensor", PassName::SPLIT_LARGE_FANOUT_TENSOR},
+                        {"DuplicateOp", PassName::DUPLICATE_OP},
+                        {"AssignMemoryType", PassName::ASSIGN_MEMORY_TYPE},
+                        {"InferDiscontinuousInput", PassName::INFER_DISCONTINUOUS_INPUT},
+                        {"RemoveRedundantOp", PassName::REMOVE_REDUNDANT_OP},
+                        {"InsertOpForViewAssemble", PassName::INSERT_OP_FOR_VIEWASSEMBLE},
+                        {"SplitK", PassName::SPLIT_K},
+                        {"GraphPartition", PassName::GRAPH_PARTITION},
+                        {"NBufferMerge", PassName::N_BUFFER_MERGE},
+                        {"L1CopyInReuseMerge", PassName::L1_COPY_IN_REUSE_MERGE},
+                        {"ReduceCopyMerge", PassName::REDUCE_COPY_MERGE},
+                        {"IntraSubgraphAdapter", PassName::INTRA_SUBGRAPH_ADAPTER},
+                        {"GenerateMoveOp", PassName::GENERATE_MOVE_OP},
+                        {"CommonOperationEliminate", PassName::COMMON_OPERATION_ELIMINATE},
+                        {"AxisCombine", PassName::AXIS_COMBINE},
+                        {"PadLocalBuffer", PassName::PAD_LOCAL_BUFFER},
+                        {"RemoveUnalignedReshape", PassName::REMOVE_UNALIGNED_RESHAPE},
+                        {"ReplaceTensor", PassName::REPLACE_TENSOR},
+                        {"PreGraphProcess", PassName::PRE_GRAPH_PROCESS},
+                        {"InferDynShape", PassName::INFER_DYN_SHAPE},
+                        {"SubgraphToFunction", PassName::SUBGRAPH_TO_FUNCTION},
+                        {"InferParamIndex", PassName::INFER_PARAM_INDEX},
+                        {"SrcDstBufferMerge", PassName::SRC_DST_BUFFER_MERGE},
+                        {"AddAlloc", PassName::ADD_ALLOC},
+                        {"OoOSchedule", PassName::OOO_SCHEDULE},
+                        {"TuneTileOpSeqForVF", PassName::TUNE_TILEOP_SEQ_FOR_VF},
+                        {"RemoveAlloc", PassName::REMOVE_ALLOC},
+                        {"CopyOutResolve", PassName::COPY_OUT_RESOLVE},
+                        {"InsertSync", PassName::INSERT_SYNC},
+                        {"TuneSyncForVF", PassName::TUNE_SYNC_FOR_VF},
+                        {"MixSubgraphSplit", PassName::MIX_SUBGRAPH_SPLIT},
+                        {"GlobalMemoryReuse", PassName::GLOBAL_MEMORY_REUSE},
+                        {"CodegenPreproc", PassName::CODEGEN_PREPROC},
+                    });
+    RegisterStrategy("FunctionUnroll", {{"LoopUnroll", PassName::LOOP_UNROLL}});
     RegisterStrategy(
         "ExecuteGraph", {
-            {          "DynAttrToStatic",          "DynAttrToStatic"},
-    });
+                            {"DynAttrToStatic", PassName::DYN_ATTR_TO_STATIC},
+                            {"LoopaxesProc", PassName::LOOPAXES_PROC},
+                        });
 }
 
-PassManager::PassManager() {
+PassManager::PassManager()
+{
     RegPass();
     // Register strategies
     RegDefaultStrategy();
 }
 
-void PassManager::RegisterStrategy(const std::string &strategy, const std::vector<PassEntry> &passEntries) {
+void PassManager::RegisterStrategy(const std::string& strategy, const std::vector<PassEntry>& passEntries)
+{
     // check pass dependency
-    std::vector<std::string> passes;
-    for (const auto &passEntry : passEntries){
+    std::vector<PassName> passes;
+    for (const auto& passEntry : passEntries) {
         passes.emplace_back(passEntry.passName);
     }
     PassDependency::Instance().CheckStrategyDependency(strategy, passes);
@@ -166,9 +183,9 @@ void PassManager::RegisterStrategy(const std::string &strategy, const std::vecto
     // check identifiers duplication
     std::vector<PassEntry> newPassEntries;
     std::set<std::string> identifiers;
-    for (auto &pass : passEntries) {
+    for (auto& pass : passEntries) {
         if (!(identifiers.insert(pass.identifier).second)) {
-            ALOG_WARN_F("Duplicated identifier: %s.", pass.identifier.c_str());
+            APASS_LOG_WARN_F(Elements::Function, "Duplicated identifier: %s.", pass.identifier.c_str());
             continue;
         }
         newPassEntries.push_back(pass);
@@ -179,38 +196,40 @@ void PassManager::RegisterStrategy(const std::string &strategy, const std::vecto
         return;
     }
     strategyPasses->second = newPassEntries;
-    ALOG_WARN_F("Strategy %s has been changed.", strategy.c_str());
+    APASS_LOG_WARN_F(Elements::Function, "Strategy %s has been changed.", strategy.c_str());
 }
 
-std::vector<PassManager::PassEntry> PassManager::GetStrategyPasses(const std::string &strategy) const {
+std::vector<PassManager::PassEntry> PassManager::GetStrategyPasses(const std::string& strategy) const
+{
     auto it = strategies_.find(strategy);
     if (it == strategies_.end()) {
-        ALOG_WARN_F("Strategy %s does not exist.", strategy.c_str());
+        APASS_LOG_WARN_F(Elements::Function, "Strategy %s does not exist.", strategy.c_str());
         auto emptyPass = std::vector<PassManager::PassEntry>();
         return emptyPass;
     }
     NPUArch currArch = Platform::Instance().GetSoc().GetNPUArch();
- 	auto selectedPass = std::vector<PassManager::PassEntry>();
- 	for (auto &currPassEntry : it->second) {
- 	    const auto &passName = currPassEntry.passName;
- 	    auto pass = PassRegistry::GetInstance().CreatePass(passName);
- 	    if (pass == nullptr) {
-            ALOG_WARN_F("Pass %s does not exist.", passName.c_str());
- 	        continue;
- 	    }
- 	    std::vector<NPUArch> &arches = pass->GetSupportedArches();
- 	    if ((!arches.empty()) && (std::find(arches.begin(), arches.end(), currArch) == arches.end())) {
- 	        continue;
- 	    }
- 	    selectedPass.push_back(currPassEntry);
- 	}
- 	return selectedPass;
+    auto selectedPass = std::vector<PassManager::PassEntry>();
+    for (auto& currPassEntry : it->second) {
+        const auto& passName = PassNameStr(currPassEntry.passName);
+        auto pass = PassRegistry::GetInstance().CreatePass(passName);
+        if (pass == nullptr) {
+            APASS_LOG_WARN_F(Elements::Function, "Pass %s does not exist.", passName);
+            continue;
+        }
+        std::vector<NPUArch>& arches = pass->GetSupportedArches();
+        if ((!arches.empty()) && (std::find(arches.begin(), arches.end(), currArch) == arches.end())) {
+            continue;
+        }
+        selectedPass.push_back(currPassEntry);
+    }
+    return selectedPass;
 }
 
-std::string PassManager::GetResumePath(const std::string &strategy) {
+std::string PassManager::GetResumePath(const std::string& strategy)
+{
     auto strategyPasses = GetStrategyPasses(strategy);
     for (size_t i = 0; i < strategyPasses.size(); i++) {
-        const auto &identifier = strategyPasses[i].identifier;
+        const auto& identifier = strategyPasses[i].identifier;
         auto passDfxCfg = ConfigManager::Instance().GetPassConfigs(strategy, identifier);
         if (passDfxCfg.resumePath != "") {
             if (access(passDfxCfg.resumePath.c_str(), F_OK) == 0) {
@@ -223,51 +242,106 @@ std::string PassManager::GetResumePath(const std::string &strategy) {
     return "";
 }
 
-Status PassManager::RunPass(Program &program, Function &function, const std::string &strategy) const {
-    Platform::Instance().ObtainPlatformInfo();
+static bool ShouldTerminateAtStage(const std::string& identifier)
+{
+    static const std::unordered_map<std::string, int64_t> kPassToStageMap = {
+        {"ExpandFunction", CS_TENSOR_GRAPH},
+        {"SubgraphToFunction", CS_TILE_GRAPH},
+    };
+    auto it = kPassToStageMap.find(identifier);
+    if (it != kPassToStageMap.end() && it->second == config::GetHostOption<int64_t>(COMPILE_STAGE)) {
+        APASS_LOG_INFO_F(Elements::Function, "Compile stage terminates after %s.", identifier.c_str());
+        return true;
+    }
+    return false;
+}
+
+Status PassManager::RunPass(Program& program, Function& function, const std::string& strategy) const
+{
     auto strategyPasses = GetStrategyPasses(strategy);
+    std::unique_ptr<Pass> pass = nullptr;
     std::vector<std::string> identifiers;
-    std::transform(strategyPasses.begin(), strategyPasses.end(), std::back_inserter(identifiers),
-        [](const PassEntry &elem) { return elem.identifier; });
+    std::transform(
+        strategyPasses.begin(), strategyPasses.end(), std::back_inserter(identifiers),
+        [](const PassEntry& elem) { return elem.identifier; });
     ConfigManager::Instance().PassConfigsDebugInfo(strategy, identifiers);
     for (size_t i = startIdx; i < strategyPasses.size(); i++) {
-        const auto &identifier = strategyPasses[i].identifier;
-        const auto &passName = strategyPasses[i].passName;
-        auto pass = PassRegistry::GetInstance().CreatePass(passName);
+        const auto& identifier = strategyPasses[i].identifier;
+        if (ShouldTerminateAtStage(identifier)) {
+            return SUCCESS;
+        }
+        const auto& passName = strategyPasses[i].passName;
+        pass = PassRegistry::GetInstance().CreatePass(PassNameStr(passName));
         if (pass == nullptr) {
-            ALOG_ERROR_F("Pass [%s] does not exist.", passName.c_str());
+            APASS_LOG_ERROR_F(Elements::Function, "Pass [%s] does not exist.", PassNameStr(passName));
             return FAILED;
         }
-        std::string originLogOutPath = config::LogFile();
-        std::string logFolder = pass->LogFolder(config::LogTopFolder(), i);
-        std::string logfilePath = logFolder + "/" + (pass->GetName() + function.GetMagicName() + ".log");
-        LoggerManager::FileLoggerReplace(originLogOutPath, logfilePath, true);
-        Defer rollback([logfilePath, originLogOutPath]() {
-            LoggerManager::FileLoggerReplace(logfilePath, originLogOutPath, true);
-        });
+        PassLogUtil logUtil(*pass, function, i);
         auto passDfxCfg = ConfigManager::Instance().GetPassConfigs(strategy, identifier);
         if (config::GetDebugOption<int64_t>(CFG_COMPILE_DBEUG_MODE) == CFG_DEBUG_ALL) {
             passDfxCfg.printGraph = true;
             passDfxCfg.dumpGraph = true;
         }
         pass->SetPassConfigs(passDfxCfg);
-        ALOG_INFO_F("[PassManager] Apply pass <%s> on function: %s.", identifier.c_str(), function.GetMagicName().c_str());
+        APASS_LOG_INFO_F(
+            Elements::Function, "Apply pass <%s> on function: %s.", identifier.c_str(),
+            function.GetMagicName().c_str());
         auto start = std::chrono::high_resolution_clock::now();
         if (pass->Run(function, strategy, identifier, i) != SUCCESS) {
-            ALOG_ERROR_F("Run pass <%s> failed.", identifier.c_str());
+            APASS_LOG_ERROR_F(Elements::Function, "Run pass <%s> failed.", identifier.c_str());
             return FAILED;
         }
         if (passDfxCfg.dumpPassTimeCost) {
-            auto end = std::chrono::high_resolution_clock::now();
-            auto duration = std::chrono::duration_cast<std::chrono::microseconds>(end - start);
-            ALOG_INFO_F("Runtime of pass %s for program %s function %s is %ld us.", identifier.c_str(), program.Name().c_str(),
-                function.GetMagicName().c_str(), duration.count());
+            LogPassRuntime(identifier, program, function, start);
         }
         if (config::GetVerifyOption<bool>(KEY_ENABLE_PASS_VERIFY)) {
             Program::GetInstance().VerifyPass(&function, i, identifier);
         }
     }
+    if (config::GetDebugOption<int64_t>(CFG_COMPILE_DBEUG_MODE) == CFG_DEBUG_ALL && pass != nullptr) {
+        ExtractPassLogByFunction(function);
+    }
     return SUCCESS;
 }
 
+void PassManager::ResetAllPasses()
+{
+    APASS_LOG_INFO_F(Elements::Function, "ResetAllPasses: resetting all passes from all strategies");
+    // 用于记录已经 reset 过的 Pass，避免重复 reset
+    std::unordered_set<PassName> resetPasses;
+    // 遍历所有策略
+    for (auto& strategyPair : strategies_) {
+        const auto& strategyName = strategyPair.first;
+        const auto& passEntries = strategyPair.second;
+        
+        APASS_LOG_DEBUG_F(Elements::Function, "ResetAllPasses: processing strategy: %s", strategyName.c_str());
+        
+        // 遍历策略中的所有 Pass
+        for (const auto& passEntry : passEntries) {
+            PassName passName = passEntry.passName;
+            
+            // 避免重复 reset 同一个 Pass
+            if (resetPasses.find(passName) != resetPasses.end()) {
+                continue;
+            }
+            
+            auto pass = PassRegistry::GetInstance().CreatePass(PassNameStr(passName));
+            if (pass == nullptr) {
+                APASS_LOG_WARN_F(Elements::Function, "ResetAllPasses: Pass [%s] does not exist.", 
+                                 PassNameStr(passName));
+                continue;
+            }
+            
+            APASS_LOG_DEBUG_F(Elements::Function, "ResetAllPasses: resetting pass: %s", 
+                              PassNameStr(passName));
+            
+            // 调用 Pass 的 Reset 方法
+            pass->Reset();
+            
+            // 记录已 reset 的 Pass
+            resetPasses.insert(passName);
+        }
+    }
+    APASS_LOG_INFO_F(Elements::Function, "ResetAllPasses: reset %zu unique passes", resetPasses.size());
+}
 } // namespace npu::tile_fwk

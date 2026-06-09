@@ -22,77 +22,62 @@
 #include "tilefwk/data_type.h"
 #include "codegen/codegen.h"
 #include "codegen/symbol_mgr/codegen_symbol.h"
-#include "codegen/cloudnpu/codegen_cloudnpu.h"
-#include "codegen/cloudnpu/codegen_op_cloudnpu.h"
+#include "codegen/npu/cloudnpu/codegen_cloudnpu.h"
+#include "codegen/npu/cloudnpu/codegen_op_cloudnpu.h"
 #include "test_codegen_utils.h"
 #include "test_codegen_common.h"
 
 namespace npu::tile_fwk {
-class TestCodegenDynRange : public ::testing::Test {
+class TestCodegenDynRange : public CodegenTestBase {
 public:
-    static void SetUpTestCase() {}
-
-    static void TearDownTestCase() {}
-
-    void SetUp() override {
-        Program::GetInstance().Reset();
-        config::Reset();
-        config::SetPlatformConfig(KEY_ONLY_HOST_COMPILE, true);
-        config::SetPlatformConfig("ENABLE_COST_MODEL", false);
-    }
-
-    void TearDown() override {}
+    TestCodegenDynRange() : CodegenTestBase({.compileStage = CS_EXECUTE_GRAPH}) {}
 };
 
-TEST_F(TestCodegenDynRange, TestDynOpRange) {
+TEST_F(TestCodegenDynRange, TestDynOpRange)
+{
+    config::SetCodeGenConfig(KEY_CODEGEN_SUPPORT_TILE_TENSOR, false);
 
+    auto function = GenMockFuncDyn("TestDynOpRange");
     std::vector<int64_t> shape = {64, 64};
-    auto shapeImme = OpImmediate::Specified(shape);
-    TileShape::Current().SetVecTile(shape);
-    Tensor inputA(DT_FP32, shape, "A");
-    Tensor inputB(DT_FP32, shape, "B");
-    Tensor output(DT_FP32, shape, "C");
-
+    std::vector<SymbolicScalar> dynValidShape = {64, 64};
     Element start(DataType::DT_FP32, 1.0);
     Element step(DataType::DT_FP32, 2.0);
     Element size(DataType::DT_FP32, 3.0);
     int64_t idx = 0;
+    auto localTensor = CreateLogicalTensor({*function, DataType::DT_FP32, MemoryType::MEM_UB, shape, dynValidShape});
 
-    std::string funcName = "TestDynOpRange";
-    FUNCTION(funcName, {inputA, inputB, output}) {
-        LOOP(funcName, FunctionType::DYNAMIC_LOOP, i, LoopRange(1)) {
-            (void)i;
-            output = Add(inputA, inputB);
-        }
-    }
-    auto function =
-        Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + funcName + SUB_FUNC_SUFFIX + HIDDEN_FUNC_SUFFIX);
-    function->SetUnderDynamicFunction(true);
-    std::vector<SymbolicScalar> dynValidShape = {64, 64};
-    auto localTensor = CreateLogicalTensor({*function, DataType::DT_FP32, MemoryType::MEM_UB, shape});
-    localTensor->UpdateDynValidShape(dynValidShape);
-
-    auto &op = function->AddOperation(Opcode::OP_RANGE, {}, {localTensor});
-    op.SetAttribute("GmTensorParamIdxInCallFunc", 0);
+    auto& op = function->AddOperation(Opcode::OP_RANGE, {}, {localTensor});
     op.SetAttribute(OP_ATTR_PREFIX + "START", start);
     op.SetAttribute(OP_ATTR_PREFIX + "STEP", step);
     op.SetAttribute(OP_ATTR_PREFIX + "SIZE", size);
     SymbolicScalar tileIdx(idx);
- 	op.SetAttribute(OpAttributeKey::dynScalar, tileIdx); 
+    op.SetAttribute(OpAttributeKey::dynScalar, tileIdx);
 
-    std::shared_ptr<SymbolManager> symbolManager = std::make_shared<SymbolManager>();
-    CodeGenCtx ctx;
-    CodeGenCloudNPU cga(ctx);
-    cga.GenAllocForLocalBuffer(op, symbolManager);
-    CodeGenOpCloudNPU cop(symbolManager, FunctionType::DYNAMIC_LOOP_PATH, {}, true);
-    function->GetTensorMap().inverseMap_[localTensor->GetMagic()] = localTensor;
-
-    cop.Init(op);
-    std::string res = cop.GenOpCode();
+    std::string res = GenOpCodeFromOp(*function, op);
     std::string expect =
-        R"!!!(TileOp::DynRange<float, 64>((__ubuf__ float*)UB_S0_E0, 64, 1.000000, 2.000000, ((int64_t)(0)));
+        R"!!!(TileOp::DynRange<float, 64>((__ubuf__ float*)UB_S0_E0, 64, 1, 2, ((int64_t)(0)));
 )!!!";
     EXPECT_EQ(res, expect);
 }
 
+TEST_F(TestCodegenDynRange, RangeTileTensor)
+{
+    auto function = GenMockFuncDyn("RangeTileTensor");
+    std::vector<int64_t> rangeShape = {64, 64};
+    std::vector<SymbolicScalar> dynValidShape = {64, 64};
+    auto localTensor = CreateLogicalTensor({*function, DataType::DT_FP32, MemoryType::MEM_UB, rangeShape});
+    auto localOutTensor = CreateLogicalTensor({*function, DataType::DT_FP32, MemoryType::MEM_UB, rangeShape});
+    localOutTensor->UpdateDynValidShape(dynValidShape);
+    localTensor->UpdateDynValidShape(dynValidShape);
+    std::vector<SymbolicScalar> dynoffset = {0, 0};
+    std::vector<int64_t> offset = {0, 0};
+
+    auto& op = function->AddOperation(Opcode::OP_RANGE, {localTensor}, {localOutTensor});
+    Element start(DataType::DT_FP32, 1.0);
+    op.SetAttribute(OP_ATTR_PREFIX + "START", start);
+    op.SetAttribute(OP_ATTR_PREFIX + "STEP", start);
+    op.SetAttribute(OP_ATTR_PREFIX + "SIZE", start);
+
+    GenOpCodeFromOp(*function, op, {.isMainBlk = true});
+}
 } // namespace npu::tile_fwk

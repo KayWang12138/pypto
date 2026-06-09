@@ -16,17 +16,15 @@
 #include "test_suite_stest_ops.h"
 #include "interface/interpreter/raw_tensor_data.h"
 #include "operator/models/deepseek/page_attention.h"
-#include "machine/utils/dynamic/dev_encode.h"
-#include "machine/runtime/runtime.h"
 #include "cost_model/simulation/backend.h"
 #include "test_dev_func_runner.h"
 
 using namespace npu::tile_fwk;
 using namespace npu::tile_fwk::dynamic;
 class DynamicGatherTest : public npu::tile_fwk::stest::TestSuite_STest_Ops_Aihac {};
-TEST_F(DynamicGatherTest, TestDynamicGatherDim2) {
+TEST_F(DynamicGatherTest, TestDynamicGatherDim2)
+{
     SetInterpreterConfig();
-    config::SetHostOption(ONLY_CODEGEN, true);
     TileShape::Current().SetVecTile(64, 64);
 
     int s1 = 128;
@@ -64,8 +62,10 @@ TEST_F(DynamicGatherTest, TestDynamicGatherDim2) {
         RawTensorData::CreateTensor<float>(out, golden),
     });
 
-    FUNCTION("main", {q, indices, actSeqs}, {out}) {
-        LOOP("L0", FunctionType::DYNAMIC_LOOP, batchId, LoopRange(b)) {
+    FUNCTION("main", {q, indices, actSeqs}, {out})
+    {
+        LOOP("L0", FunctionType::DYNAMIC_LOOP, batchId, LoopRange(b))
+        {
             int axis = 0;
             SymbolicScalar curSeq = GetTensorData(actSeqs, {batchId, 0});
 
@@ -79,12 +79,12 @@ TEST_F(DynamicGatherTest, TestDynamicGatherDim2) {
     DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
 
     auto outs = npu::tile_fwk::ProgramData::GetInstance().GetOutputData(0);
-    EXPECT_TRUE(resultCmp(golden, (float *)outs->data(), 0.001f));
+    EXPECT_TRUE(resultCmp(golden, (float*)outs->data(), 0.001f));
 }
 
-TEST_F(DynamicGatherTest, TestDynamicGatherDim3) {
+TEST_F(DynamicGatherTest, TestDynamicGatherDim3)
+{
     SetInterpreterConfig();
-    config::SetHostOption(ONLY_CODEGEN, true);
     TileShape::Current().SetVecTile(1, 1, 64);
 
     int s1 = 32;
@@ -123,8 +123,10 @@ TEST_F(DynamicGatherTest, TestDynamicGatherDim3) {
         RawTensorData::CreateTensor<float>(out, golden),
     });
 
-    FUNCTION("main", {q, indices, actSeqs}, {out}) {
-        LOOP("L0", FunctionType::DYNAMIC_LOOP, batchId, LoopRange(b)) {
+    FUNCTION("main", {q, indices, actSeqs}, {out})
+    {
+        LOOP("L0", FunctionType::DYNAMIC_LOOP, batchId, LoopRange(b))
+        {
             int axis = 0;
             SymbolicScalar curSeq = GetTensorData(actSeqs, {batchId, 0});
 
@@ -138,5 +140,5 @@ TEST_F(DynamicGatherTest, TestDynamicGatherDim3) {
     DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
 
     auto outs = npu::tile_fwk::ProgramData::GetInstance().GetOutputData(0);
-    EXPECT_TRUE(resultCmp(golden, (float *)outs->data(), 0.001f));
+    EXPECT_TRUE(resultCmp(golden, (float*)outs->data(), 0.001f));
 }

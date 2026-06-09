@@ -50,6 +50,25 @@ class FFNConfig:
     run_mode: pypto.RunMode = pypto.RunMode.NPU
 
 
+def _peek_run_mode_from_argv(default: str = "npu") -> str:
+    """Read run_mode early so module-level decorators can use it."""
+    for idx, arg in enumerate(sys.argv):
+        if arg == "--run_mode" and idx + 1 < len(sys.argv):
+            value = sys.argv[idx + 1]
+            if value in ("npu", "sim"):
+                return value
+        if arg.startswith("--run_mode="):
+            value = arg.split("=", 1)[1]
+            if value in ("npu", "sim"):
+                return value
+    return default
+
+
+global_run_mode = pypto.RunMode.NPU
+if _peek_run_mode_from_argv("npu") == "sim":
+    global_run_mode = pypto.RunMode.SIM
+
+
 def get_device_id():
     """
     Get and validate TILE_FWK_DEVICE_ID from environment variable.
@@ -58,9 +77,7 @@ def get_device_id():
         int: The device ID if valid, None otherwise.
     """
     if 'TILE_FWK_DEVICE_ID' not in os.environ:
-        print("If no NPU environment is available, set --run_mode sim to run in simulation mode;")
-        print("otherwise, set the environment variable TILE_FWK_DEVICE_ID.")
-        print("Please set it before running this example:")
+        print("Please set the environment variable TILE_FWK_DEVICE_ID before running:")
         print("  export TILE_FWK_DEVICE_ID=0")
         return None
 
@@ -80,7 +97,7 @@ def gelu_torch(x):
 def swiglu_torch(gate, up):
     """PyTorch reference for SwiGLU."""
     swish = gate * torch.sigmoid(gate)
-    return swish * up   
+    return swish * up
 
 
 def ceil_div(a, b):
@@ -124,12 +141,14 @@ def gelu_activation_core(x: pypto.tensor) -> pypto.tensor:
         GELU activated tensor
     """
     pypto.set_vec_tile_shapes(*x.shape[:2] if len(x.shape) >= 2 else (32, 128))
-    x_scaled = pypto.mul(x, GELU_COEFF)
+    x_fp32 = pypto.cast(x, pypto.DT_FP32)
+    x_scaled = pypto.mul(x_fp32, GELU_COEFF)
     x_neg = pypto.mul(x_scaled, F_NEGA_1)
     exp_neg = pypto.exp(x_neg)
     ones = pypto.full(exp_neg.shape, 1.0, exp_neg.dtype, valid_shape=exp_neg.shape)
     sigmoid = pypto.div(ones, pypto.add(exp_neg, F_1))
-    return pypto.mul(x, sigmoid)
+    activated = pypto.cast(pypto.mul(x_fp32, sigmoid), pypto.DT_BF16)
+    return activated
 
 
 def swiglu_activation_core(gate: pypto.tensor, up: pypto.tensor) -> pypto.tensor:
@@ -149,20 +168,33 @@ def swiglu_activation_core(gate: pypto.tensor, up: pypto.tensor) -> pypto.tensor
     pypto.tensor
         SwiGLU activated tensor
     """
+    gate_fp32 = pypto.cast(gate, pypto.DT_FP32)
+    up_fp32 = pypto.cast(up, pypto.DT_FP32)
     pypto.set_vec_tile_shapes(*gate.shape[:2] if len(gate.shape) >= 2 else (32, 128))
 
-    gate_neg = pypto.mul(gate, F_NEGA_1)
+    gate_neg = pypto.mul(gate_fp32, F_NEGA_1)
     exp_neg = pypto.exp(gate_neg)
     ones = pypto.full(exp_neg.shape, F_1, exp_neg.dtype, valid_shape=exp_neg.shape)
     sigmoid = pypto.div(ones, pypto.add(exp_neg, ones))
-    swish = pypto.mul(gate, sigmoid)
+    swish = pypto.mul(gate_fp32, sigmoid)
 
     # Multiply with up projection
-    return pypto.mul(swish, up)
+    return pypto.cast(pypto.mul(swish, up_fp32), pypto.DT_BF16)
 
 
-def dynamic_gelu_activation_core(output: pypto.tensor, hidden_states: pypto.tensor, 
-    gate_proj_weight: pypto.tensor, down_proj_weight: pypto.tensor, config: FFNConfig) -> None:
+@pypto.frontend.jit(runtime_options={"run_mode": global_run_mode})
+def dynamic_gelu_activation_core(
+    hidden_states: pypto.tensor(),
+    gate_proj_weight: pypto.tensor(),
+    down_proj_weight: pypto.tensor(),
+    output: pypto.tensor(),
+    config: FFNConfig):
+    pypto.set_cube_tile_shapes(
+        [config.cube_tile_shape[0], config.cube_tile_shape[0]],
+        [config.cube_tile_shape[1], config.cube_tile_shape[1]],
+        [config.cube_tile_shape[2], config.cube_tile_shape[2]]
+    )
+    pypto.set_vec_tile_shapes(*config.vec_tile_shape)
     hidden_size, intermediate_size = config.hidden_size, config.intermediate_size
     basic_batch = config.basic_batch
     if basic_batch == 0:
@@ -180,8 +212,6 @@ def dynamic_gelu_activation_core(output: pypto.tensor, hidden_states: pypto.tens
             [batch_offset, 0],
             valid_shape=[(batch_size - batch_offset).min(basic_batch), hidden_size]
         )
-        # Configure tiling for matrix operations
-        pypto.set_matrix_size([basic_batch, hidden_size, intermediate_size])
         # Gate projection
         gate = pypto.matmul(hidden_chunk, gate_proj_weight, config.dtype)
         pypto.set_vec_tile_shapes(*config.vec_tile_shape)
@@ -196,56 +226,45 @@ def dynamic_gelu_activation_core(output: pypto.tensor, hidden_states: pypto.tens
         output_chunk = pypto.matmul(activated, down_proj_weight, config.dtype, b_trans=False)
         # Assemble result back to output
         pypto.assemble(output_chunk, [batch_offset, 0], output)
-    return
 
 
-def ffn(config: FFNConfig) -> torch.Tensor:
+@pypto.frontend.jit(runtime_options={"run_mode": global_run_mode})
+def ffn_activation_kernel(
+    hidden_states: pypto.tensor(),
+    gate_proj_weight: pypto.tensor(),
+    up_proj_weight: pypto.tensor(),
+    down_proj_weight: pypto.tensor(),
+    output: pypto.tensor(),
+    config: FFNConfig):
+    # Configure tiling for matrix operations
+    pypto.set_cube_tile_shapes(
+        [config.cube_tile_shape[0], config.cube_tile_shape[0]],
+        [config.cube_tile_shape[1], config.cube_tile_shape[1]],
+        [config.cube_tile_shape[2], config.cube_tile_shape[2]]
+    )
+    pypto.set_vec_tile_shapes(*config.vec_tile_shape)
 
-    batch_size, hidden_size, intermediate_size = config.batch_size, config.hidden_size, config.intermediate_size
-    
-    @pypto.frontend.jit(runtime_options={"run_mode": config.run_mode})
-    def ffn_activation_kernel(
-        hidden_states: pypto.tensor((batch_size, hidden_size), config.dtype),
-        gate_proj_weight: pypto.tensor((hidden_size, intermediate_size), config.dtype),
-        up_proj_weight: pypto.tensor((hidden_size, intermediate_size), config.dtype),
-        down_proj_weight: pypto.tensor((intermediate_size, hidden_size), config.dtype),
-    ) -> pypto.tensor((batch_size, hidden_size), config.dtype):
-        # Configure tiling for matrix operations
-        pypto.set_cube_tile_shapes(
-            [config.cube_tile_shape[0], config.cube_tile_shape[0]],
-            [config.cube_tile_shape[1], config.cube_tile_shape[1]],
-            [config.cube_tile_shape[2], config.cube_tile_shape[2]]
-        )
-        pypto.set_vec_tile_shapes(*config.vec_tile_shape)
+    # Gate projection: [batch_size, hidden_size] @ [hidden_size, intermediate_size]
+    gate = pypto.matmul(hidden_states, gate_proj_weight, config.dtype)
 
-        # Gate projection: [batch_size, hidden_size] @ [hidden_size, intermediate_size]
-        gate = pypto.matmul(hidden_states, gate_proj_weight, config.dtype)
-        
-        if config.use_dynamic_shape == True and config.activation == "gelu":
-            # Dynamic GELU activation
-            output = pypto.tensor(hidden_states.shape, config.dtype)
-            dynamic_gelu_activation_core(output, hidden_states, gate_proj_weight, down_proj_weight, config)
-        elif config.activation == "gelu":
-            # GELU activation
-            activated = gelu_activation_core(gate)
-        elif config.activation == "swiglu":
-            # SwiGLU activation
-            up_proj_weight = pypto.matmul(hidden_states, up_proj_weight, config.dtype)
-            activated = swiglu_activation_core(gate, up_proj_weight)
-        elif config.activation == "relu":
-            # ReLU activation
-            activated = relu_activation_core(gate) 
-        else:
-            raise ValueError(f"Unsupported activation: {config.activation}")
+    if config.activation == "gelu":
+        # GELU activation
+        activated = gelu_activation_core(gate)
+    elif config.activation == "swiglu":
+        # SwiGLU activation
+        up_proj_weight[:] = pypto.matmul(hidden_states, up_proj_weight, config.dtype)
+        activated = swiglu_activation_core(gate, up_proj_weight)
+    elif config.activation == "relu":
+        # ReLU activation
+        activated = relu_activation_core(gate)
+    else:
+        raise ValueError(f"Unsupported activation: {config.activation}")
 
-        if config.use_dynamic_shape == False:
-            output = pypto.matmul(activated, down_proj_weight, config.dtype, b_trans=False)
-        return output
-    
-    return ffn_activation_kernel
+    result = pypto.matmul(activated, down_proj_weight, config.dtype, b_trans=False)
+    pypto.assemble(result, [0, 0], output)
 
 
-def test_ffn_static_gelu(device_id=None, run_mode: str = "npu"):
+def test_ffn_static_gelu(device_id=None):
     """Test static FFN with GELU activation."""
     print("=" * 60)
     print("Testing Static FFN with GELU Activation")
@@ -255,7 +274,7 @@ def test_ffn_static_gelu(device_id=None, run_mode: str = "npu"):
     hidden_size = 128
     intermediate_size = 1024
     dtype = torch.bfloat16
-    device = f'npu:{device_id}' if (run_mode == "npu" and device_id is not None) else 'cpu'
+    device = f'npu:{device_id}' if global_run_mode == pypto.RunMode.NPU and device_id is not None else 'cpu'
 
     config = FFNConfig(
         batch_size=batch_size,
@@ -266,16 +285,16 @@ def test_ffn_static_gelu(device_id=None, run_mode: str = "npu"):
         use_dynamic_shape=False,
         vec_tile_shape=(16, 32),
         cube_tile_shape=(16, 32, 32),
-        run_mode=pypto.RunMode.NPU if run_mode == "npu" else pypto.RunMode.SIM
+        run_mode=pypto.RunMode.NPU if global_run_mode == pypto.RunMode.NPU else pypto.RunMode.SIM
     )
 
-    hidden_states_torch = torch.randn(batch_size, hidden_size, 
+    hidden_states_torch = torch.randn(batch_size, hidden_size,
                                         dtype=dtype, device=device) / math.sqrt(batch_size)
-    gate_proj_weight_torch = torch.randn(hidden_size, intermediate_size, 
+    gate_proj_weight_torch = torch.randn(hidden_size, intermediate_size,
                                         dtype=dtype, device=device) / math.sqrt(batch_size)
-    up_proj_weight_torch = torch.randn(hidden_size, intermediate_size, 
+    up_proj_weight_torch = torch.randn(hidden_size, intermediate_size,
                                         dtype=dtype, device=device) / math.sqrt(batch_size)
-    down_proj_weight_torch = torch.randn(intermediate_size, hidden_size, 
+    down_proj_weight_torch = torch.randn(intermediate_size, hidden_size,
                                         dtype=dtype, device=device) / math.sqrt(batch_size)
 
     print(f"Input shape: {hidden_states_torch.shape}")
@@ -285,9 +304,11 @@ def test_ffn_static_gelu(device_id=None, run_mode: str = "npu"):
     gate_torch = torch.matmul(hidden_states_torch, gate_proj_weight_torch)
     gate_activated_torch = gelu_torch(gate_torch.float()).to(dtype)
     output_torch_ref = torch.matmul(gate_activated_torch, down_proj_weight_torch)
+    output = torch.empty(batch_size, hidden_size, dtype=dtype, device=device)
 
-    output = ffn(config)(hidden_states_torch, gate_proj_weight_torch, up_proj_weight_torch, down_proj_weight_torch)
-    if run_mode == "npu":
+    ffn_activation_kernel(hidden_states_torch, gate_proj_weight_torch, up_proj_weight_torch,
+                            down_proj_weight_torch, output, config)
+    if global_run_mode == pypto.RunMode.NPU:
         assert_allclose(output.cpu().to(torch.float32), output_torch_ref.cpu().to(torch.float32), rtol=3e-3, atol=3e-3)
     print(f"Output shape: {output_torch_ref.shape}")
     print(f"Output range: [{output_torch_ref.min().item():.4f}, {output_torch_ref.max().item():.4f}]")
@@ -295,7 +316,7 @@ def test_ffn_static_gelu(device_id=None, run_mode: str = "npu"):
     print()
 
 
-def test_ffn_static_swiglu(device_id=None, run_mode: str = "npu"):
+def test_ffn_static_swiglu(device_id=None):
     """Test static FFN with SwiGLU activation."""
     print("=" * 60)
     print("Testing Static FFN with SwiGLU Activation")
@@ -305,7 +326,7 @@ def test_ffn_static_swiglu(device_id=None, run_mode: str = "npu"):
     hidden_size = 128
     intermediate_size = 1024
     dtype = torch.bfloat16
-    device = f'npu:{device_id}' if (run_mode == "npu" and device_id is not None) else 'cpu'
+    device = f'npu:{device_id}' if global_run_mode == pypto.RunMode.NPU and device_id is not None else 'cpu'
     config = FFNConfig(
         batch_size=batch_size,
         hidden_size=hidden_size,
@@ -315,25 +336,27 @@ def test_ffn_static_swiglu(device_id=None, run_mode: str = "npu"):
         use_dynamic_shape=False,
         vec_tile_shape=(16, 32),
         cube_tile_shape=(16, 32, 32),
-        run_mode=pypto.RunMode.NPU if run_mode == "npu" else pypto.RunMode.SIM
+        run_mode=pypto.RunMode.NPU if global_run_mode == pypto.RunMode.NPU else pypto.RunMode.SIM
     )
     # Create PyTorch tensors
-    hidden_states_torch = torch.randn(batch_size, hidden_size, 
+    hidden_states_torch = torch.randn(batch_size, hidden_size,
                                         dtype=dtype, device=device) / math.sqrt(batch_size)
-    gate_proj_weight_torch = torch.randn(hidden_size, intermediate_size, 
+    gate_proj_weight_torch = torch.randn(hidden_size, intermediate_size,
                                         dtype=dtype, device=device) / math.sqrt(batch_size)
-    up_proj_weight_torch = torch.randn(hidden_size, intermediate_size, 
+    up_proj_weight_torch = torch.randn(hidden_size, intermediate_size,
                                         dtype=dtype, device=device) / math.sqrt(batch_size)
-    down_proj_weight_torch = torch.randn(intermediate_size, hidden_size, 
+    down_proj_weight_torch = torch.randn(intermediate_size, hidden_size,
                                         dtype=dtype, device=device) / math.sqrt(batch_size)
-    
+
     # PyTorch reference computation
     gate_torch = torch.matmul(hidden_states_torch, gate_proj_weight_torch)
     up_torch = torch.matmul(hidden_states_torch, up_proj_weight_torch)
     activated_torch = swiglu_torch(gate_torch.float(), up_torch.float()).to(dtype)
     output_torch_ref = torch.matmul(activated_torch, down_proj_weight_torch)
+    output = torch.empty(batch_size, hidden_size, dtype=dtype, device=device)
 
-    output = ffn(config)(hidden_states_torch, gate_proj_weight_torch, up_proj_weight_torch, down_proj_weight_torch)
+    ffn_activation_kernel(hidden_states_torch, gate_proj_weight_torch, up_proj_weight_torch,
+                          down_proj_weight_torch, output, config)
     print(f"Input shape: {hidden_states_torch.shape}")
     print(f"Gate weight shape: {gate_proj_weight_torch.shape}")
     print(f"Up weight shape: {up_proj_weight_torch.shape}")
@@ -341,13 +364,13 @@ def test_ffn_static_swiglu(device_id=None, run_mode: str = "npu"):
     print(f"Output shape: {output_torch_ref.shape}")
     print(f"Output range: [{output_torch_ref.min().item():.4f}, {output_torch_ref.max().item():.4f}]")
 
-    if run_mode == "npu":
+    if global_run_mode == pypto.RunMode.NPU:
         assert_allclose(output.cpu().to(torch.float32), output_torch_ref.cpu().to(torch.float32), rtol=3e-3, atol=3e-3)
     print("✓ Static FFN with SwiGLU test completed")
     print()
 
 
-def test_ffn_dynamic_gelu(device_id: int = None, run_mode: str = "npu", dynamic: bool = True):
+def test_ffn_dynamic_gelu(device_id: int = None, dynamic: bool = True):
     """Test dynamic FFN with GELU activation."""
     print("=" * 60)
     print("Testing Dynamic FFN with GELU Activation")
@@ -358,7 +381,7 @@ def test_ffn_dynamic_gelu(device_id: int = None, run_mode: str = "npu", dynamic:
     intermediate_size = 1024
     basic_batch = 16
     dtype = torch.bfloat16
-    device = f'npu:{device_id}' if (run_mode == "npu" and device_id is not None) else 'cpu'
+    device = f'npu:{device_id}' if global_run_mode == pypto.RunMode.NPU and device_id is not None else 'cpu'
 
     config = FFNConfig(
         batch_size=batch_size,
@@ -366,11 +389,11 @@ def test_ffn_dynamic_gelu(device_id: int = None, run_mode: str = "npu", dynamic:
         intermediate_size=intermediate_size,
         activation="gelu",
         dtype=pypto.DT_BF16,
-        use_dynamic_shape=True,
+        use_dynamic_shape=dynamic,
         vec_tile_shape=(32, 64),
         cube_tile_shape=(32, 64, 64),
         basic_batch=basic_batch,
-        run_mode=pypto.RunMode.NPU if run_mode == "npu" else pypto.RunMode.SIM
+        run_mode=pypto.RunMode.NPU if global_run_mode == pypto.RunMode.NPU else pypto.RunMode.SIM
     )
 
     # Create PyTorch tensors
@@ -382,7 +405,7 @@ def test_ffn_dynamic_gelu(device_id: int = None, run_mode: str = "npu", dynamic:
         hidden_size, intermediate_size, dtype=dtype, device=device) / math.sqrt(batch_size)
     down_proj_weight_torch = torch.randn(
         intermediate_size, hidden_size, dtype=dtype, device=device) / math.sqrt(batch_size)
-    
+
     # PyTorch reference computation
     gate_torch = torch.matmul(hidden_states_torch, gate_proj_weight_torch)
     gate_activated_torch = gelu_torch(gate_torch.float()).to(dtype)
@@ -393,16 +416,22 @@ def test_ffn_dynamic_gelu(device_id: int = None, run_mode: str = "npu", dynamic:
     print(f"Number of iterations: {(batch_size + basic_batch - 1) // basic_batch}")
     print(f"Output shape: {output_torch_ref.shape}")
     print(f"Output range: [{output_torch_ref.min().item():.4f}, {output_torch_ref.max().item():.4f}]")
-    
-    output = ffn(config)(hidden_states_torch, gate_proj_weight_torch, up_proj_weight_torch, down_proj_weight_torch)
-    if run_mode == "npu":
+
+    output = torch.empty(batch_size, hidden_size, dtype=dtype, device=device)
+    if config.use_dynamic_shape == True and config.activation == "gelu":
+        dynamic_gelu_activation_core(hidden_states_torch, gate_proj_weight_torch,
+                                     down_proj_weight_torch, output, config)
+    else:
+        ffn_activation_kernel(hidden_states_torch, gate_proj_weight_torch, up_proj_weight_torch,
+                               down_proj_weight_torch, output, config)
+    if global_run_mode == pypto.RunMode.NPU:
         assert_allclose(output.cpu().to(torch.float32), output_torch_ref.cpu().to(torch.float32), rtol=3e-3, atol=3e-3)
-    
+
     print("✓ Dynamic FFN with GELU test completed")
     print()
 
 
-def test_ffn_static_relu(device_id: int = None, run_mode: str = "npu", dynamic: bool = True):
+def test_ffn_static_relu(device_id: int = None):
     """Test static FFN with ReLU activation."""
     print("=" * 60)
     print("Testing Static FFN with ReLU Activation")
@@ -412,7 +441,7 @@ def test_ffn_static_relu(device_id: int = None, run_mode: str = "npu", dynamic: 
     hidden_size = 128
     intermediate_size = 1024
     dtype = torch.float16
-    device = f'npu:{device_id}' if (run_mode == "npu" and device_id is not None) else 'cpu'
+    device = f'npu:{device_id}' if global_run_mode == pypto.RunMode.NPU and device_id is not None else 'cpu'
 
     config = FFNConfig(
         batch_size=batch_size,
@@ -423,31 +452,33 @@ def test_ffn_static_relu(device_id: int = None, run_mode: str = "npu", dynamic: 
         use_dynamic_shape=False,
         vec_tile_shape=(32, 64),
         cube_tile_shape=(32, 64, 64),
-        run_mode=pypto.RunMode.NPU if run_mode == "npu" else pypto.RunMode.SIM
+        run_mode=pypto.RunMode.NPU if global_run_mode == pypto.RunMode.NPU else pypto.RunMode.SIM
     )
 
     # Create PyTorch tensors
     hidden_states_torch = torch.randn(batch_size, hidden_size,
                                       dtype=dtype, device=device) / math.sqrt(batch_size)
-    gate_proj_weight_torch = torch.randn(hidden_size, intermediate_size, 
+    gate_proj_weight_torch = torch.randn(hidden_size, intermediate_size,
                                         dtype=dtype, device=device) / math.sqrt(batch_size)
-    up_proj_weight_torch = torch.randn(hidden_size, intermediate_size, 
+    up_proj_weight_torch = torch.randn(hidden_size, intermediate_size,
                                         dtype=dtype, device=device) / math.sqrt(batch_size)
-    down_proj_weight_torch = torch.randn(intermediate_size, hidden_size, 
+    down_proj_weight_torch = torch.randn(intermediate_size, hidden_size,
                                         dtype=dtype, device=device) / math.sqrt(batch_size)
-    
+
     # PyTorch reference computation
     gate_torch = torch.matmul(hidden_states_torch, gate_proj_weight_torch)
     gate_activated_torch = torch.relu(gate_torch)
     output_torch_ref = torch.matmul(gate_activated_torch, down_proj_weight_torch)
-    
-    output = ffn(config)(hidden_states_torch, gate_proj_weight_torch, up_proj_weight_torch, down_proj_weight_torch)
+
+    output = torch.empty(batch_size, hidden_size, dtype=dtype, device=device)
+    ffn_activation_kernel(hidden_states_torch, gate_proj_weight_torch, up_proj_weight_torch,
+                          down_proj_weight_torch, output, config)
     max_diff = np.abs((output.cpu().numpy() - output_torch_ref.cpu().numpy())).max()
     print(f"Input shape: {hidden_states_torch.shape}")
     print(f"Output shape: {output_torch_ref.shape}")
     print(f"Output range: [{output_torch_ref.min().item():.4f}, {output_torch_ref.max().item():.4f}]")
     print(f"Max difference: {max_diff:.6f}")
-    if run_mode == "npu":
+    if global_run_mode == pypto.RunMode.NPU:
         assert_allclose(output.cpu().to(torch.float32), output_torch_ref.cpu().to(torch.float32), rtol=3e-3, atol=3e-3)
     print("✓ Static FFN with ReLU test completed")
     print()
@@ -487,9 +518,9 @@ Examples:
         '--run_mode',
         type=str,
         nargs='?',
-        default="npu",
+        default='npu',
         choices=["npu", "sim"],
-        help='Run mode, such as npu/sim etc.'
+        help='Run mode, supports npu and sim.'
     )
 
     args = parser.parse_args()
@@ -565,7 +596,7 @@ Examples:
     try:
         for ex_id, ex_info in examples_to_run:
             print(f"Running Example {ex_id}: {ex_info['name']}")
-            ex_info['function'](device_id, args.run_mode)
+            ex_info['function'](device_id)
 
         if len(examples_to_run) > 1:
             print("=" * 60)

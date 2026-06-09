@@ -16,6 +16,8 @@
 #include <cassert>
 #include <algorithm>
 #include "cycles.h"
+#include "tilefwk/error_code.h"
+#include "tilefwk/error.h"
 
 namespace npu::tile_fwk {
 constexpr const int BYTES_PER_REPEAT = 256;
@@ -23,7 +25,8 @@ constexpr const int DEFAULT_MAX_PARALLELISM = 128;
 constexpr const int DEFAULT_LATENCY = 10;
 
 // get element per cycle
-int GetParallelism(const std::string &op, DataType dtype) {
+int GetParallelism(const std::string& op, DataType dtype)
+{
     auto iterTileOp = INTRIN_PARALLELISM_IN_OP.find(op);
     if (iterTileOp == INTRIN_PARALLELISM_IN_OP.end()) {
         return DEFAULT_MAX_PARALLELISM;
@@ -36,7 +39,8 @@ int GetParallelism(const std::string &op, DataType dtype) {
 }
 
 // used to extend in future
-int GetLatency(const std::string &op, DataType dtype) {
+int GetLatency(const std::string& op, DataType dtype)
+{
     auto iterTileOp = INTRIN_LATENCY_IN_OP.find(op);
     if (iterTileOp == INTRIN_LATENCY_IN_OP.end()) {
         return DEFAULT_LATENCY;
@@ -48,9 +52,10 @@ int GetLatency(const std::string &op, DataType dtype) {
     return iterDtype->second;
 }
 
-int64_t GetMaxShapeSize(const std::vector<std::vector<int64_t>> &shape) {
+int64_t GetMaxShapeSize(const std::vector<std::vector<int64_t>>& shape)
+{
     int64_t maxTotalSize = 0;
-    for (const auto &i : shape) {
+    for (const auto& i : shape) {
         int64_t totalSize = 1;
         for (auto dimVal : i) {
             totalSize *= dimVal;
@@ -60,7 +65,34 @@ int64_t GetMaxShapeSize(const std::vector<std::vector<int64_t>> &shape) {
     return maxTotalSize;
 }
 
-int64_t CalcCyclesCommon(const std::string &op, int64_t shapeSize, DataType dtype) {
+int64_t GetGatherInUBResultShapeSize(const std::vector<std::vector<int64_t>>& shape)
+{
+    // GatherInUB fixed scenario:
+    // param: [token_size, hidden_dim], indices: [1, k], block_table: [1, ...]
+    // result: [k, hidden_dim]
+    // Use result tile size for sparse gather estimation.
+    if (shape.size() < 2 || shape[0].empty() || shape[1].empty()) {
+        return GetMaxShapeSize(shape);
+    }
+
+    int64_t hiddenDim = shape[0].back();
+    if (hiddenDim <= 0) {
+        return GetMaxShapeSize(shape);
+    }
+
+    int64_t gatheredCount = 1;
+    for (int64_t dimVal : shape[1]) {
+        if (dimVal <= 0) {
+            return GetMaxShapeSize(shape);
+        }
+        gatheredCount *= dimVal;
+    }
+
+    return gatheredCount * hiddenDim;
+}
+
+int64_t CalcCyclesCommon(const std::string& op, int64_t shapeSize, DataType dtype)
+{
     int64_t totalSize = shapeSize * BytesOf(dtype);
 
     int64_t elePerRepeat = BYTES_PER_REPEAT / BytesOf(dtype);
@@ -77,7 +109,8 @@ int64_t CalcCyclesCommon(const std::string &op, int64_t shapeSize, DataType dtyp
 }
 
 // according to implementation in tile op instruction
-int64_t CalcUBCompactCycles(const std::vector<std::vector<int64_t>> &shape, DataType dtype) {
+int64_t CalcUBCompactCycles(const std::vector<std::vector<int64_t>>& shape, DataType dtype)
+{
     int64_t srcShape0 = shape[1][0];
     int64_t dstShape0 = shape[0][0];
     constexpr int32_t SRC_SHAPE_16 = 16;
@@ -96,7 +129,8 @@ int64_t CalcUBCompactCycles(const std::vector<std::vector<int64_t>> &shape, Data
     return vnchwconvCycle + copyUbToUbCycle;
 }
 
-int64_t GetCycles(const std::string &op, const std::vector<std::vector<int64_t>> &shape, DataType dtype) {
+int64_t GetCycles(const std::string& op, const std::vector<std::vector<int64_t>>& shape, DataType dtype)
+{
     if (op == "NOP") {
         return 0;
     }
@@ -106,11 +140,16 @@ int64_t GetCycles(const std::string &op, const std::vector<std::vector<int64_t>>
         return iterSyncOp->second;
     }
 
-    assert(!shape.empty() && !shape[0].empty() && "shape is invalid");
+    ASSERT(VectorErrorCode::ERR_PARAM_INVALID, !shape.empty() && !shape[0].empty()) << "shape is invalid";
 
     // assume that the cycle of UB_ALLOC, L1_ALLOC, etc. is 1
     if (op.find("_ALLOC") != std::string::npos) {
         return 1;
+    }
+
+    if (op == "GATHER_IN_UB") {
+        int64_t shapeSize = GetGatherInUBResultShapeSize(shape);
+        return CalcCyclesCommon(op, shapeSize, dtype);
     }
 
     auto iterCombineIntrin = COMINE_INTRIN_CYCLES_IN_OP.find(op);

@@ -14,7 +14,7 @@
  */
 
 #include "gtest/gtest.h"
-
+#include "test_codegen_common.h"
 #include "codegen/codegen.h"
 #include "tilefwk/tilefwk.h"
 #include "interface/inner/tilefwk.h"
@@ -23,25 +23,13 @@
 
 namespace npu::tile_fwk {
 
-class TestCodegenDynFFN : public ::testing::Test {
+class TestCodegenDynFFN : public CodegenTestBase {
 public:
-    static void SetUpTestCase() {}
-
-    static void TearDownTestCase() {}
-
-    void SetUp() override {
-        Program::GetInstance().Reset();
-        config::Reset();
-        config::SetPlatformConfig(KEY_ONLY_HOST_COMPILE, true);
-        config::SetPlatformConfig("ENABLE_COST_MODEL", false);
-    }
-
-    void TearDown() override {}
+    TestCodegenDynFFN() : CodegenTestBase({.compileStage = CS_EXECUTE_GRAPH}) {}
 };
 
-void testffnquant() {
-    config::SetHostOption(ONLY_CODEGEN, true);
-
+void testffnquant()
+{
     TileShape::Current().SetVecTile(32, 128);
     TileShape::Current().SetCubeTile({32, 32}, {128, 128}, {128, 128});
 
@@ -66,11 +54,10 @@ void testffnquant() {
     Tensor ffnScale3(DT_FP32, {1, H}, "ffnScale3");
     Tensor ffnout(DT_FP32, OutShape, "ffnout");
 
-    DynamicFFNQuant(hiddenStates, hiddenStatesScale, ffnWeight1, ffnWeight2, ffnWeight3, ffnScale1, ffnScale2,
-        ffnScale3, ffnout, BASIC_BATCH);
+    DynamicFFNQuant(
+        hiddenStates, hiddenStatesScale, ffnWeight1, ffnWeight2, ffnWeight3, ffnScale1, ffnScale2, ffnScale3, ffnout,
+        BASIC_BATCH);
 }
 
-TEST_F(TestCodegenDynFFN, FFNQuantDynamicTest) {
-    testffnquant();
-}
+TEST_F(TestCodegenDynFFN, FFNQuantDynamicTest) { testffnquant(); }
 } // namespace npu::tile_fwk

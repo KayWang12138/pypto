@@ -12,7 +12,7 @@
 """PTO Script Parser - Core Parsing Infrastructure.
 
 This module provides the PTO Script Parser implementation, which parses Python
-functions decorated with @pypto.jit or @pypto.frontend.function and converts them
+functions decorated with @pypto.frontend.jit or @pypto.frontend.function and converts them
 to PTO intermediate representation (IR). The parser is inspired by TVM's Script
 Parser and provides a robust, extensible system for compiling Python code to
 optimized PTO operations.
@@ -22,7 +22,6 @@ Architecture
 The parser follows a multi-stage pipeline:
 1. Source extraction (diagnostics.Source)
 2. Python AST parsing (ast.parse)
-3. Doc AST conversion (doc.to_doc)
 4. Liveness analysis (liveness.LivenessAnalyzer)
 5. IR generation (parser.Parser)
 6. Runtime integration (entry.JitCallableWrapper)
@@ -36,15 +35,6 @@ jit : decorator
 function : decorator
     Nested function decorator for inline expansion.
     Marks functions for inlining when called from JIT kernels.
-
-doc_core : module
-    Core AST node definitions providing a stable abstraction layer
-    over Python's standard AST. Includes base classes AST, NodeVisitor,
-    and NodeTransformer.
-
-doc : module
-    Bidirectional conversion system between Python AST and doc AST.
-    Provides parse(), to_doc(), from_doc(), and registration decorators.
 
 error : module
     Exception classes and error handling utilities. Includes ParserError
@@ -81,5 +71,5 @@ y = my_kernel(x)
 For detailed developer documentation, see developer_doc.md in the frontend directory.
 """
 
-from . import doc_core, doc, error
+from ... import error
 from .entry import jit, function

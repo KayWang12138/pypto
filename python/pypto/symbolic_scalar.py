@@ -11,23 +11,8 @@
 import re
 from typing import Union
 
-import sympy
-
 from . import pypto_impl
-
-_replacements = {
-    "RUNTIME_Min": "min",
-    "RUNTIME_Max": "max",
-    "RUNTIME_Eq": "Eq",
-    "RUNTIME_Ne": "Ne",
-    "/": "//",  # 'a' / 8 * 8 may be optomized by sympy, that's bad
-}
-
-_REPLACE_PATTERN = re.compile("|".join(_replacements.keys()))
-
-
-def _expr_preprocess(s: str) -> str:
-    return _REPLACE_PATTERN.sub(lambda m: _replacements[m.group(0)], s)
+from .error import FeError
 
 
 class SymbolicScalar:
@@ -56,7 +41,7 @@ class SymbolicScalar:
         elif isinstance(arg0, SymbolicScalar):
             self._base = arg0._base
         else:
-            raise ValueError(f"Invalid arguments")
+            raise FeError(ValueError(f"Invalid arguments"))
 
     def __str__(self) -> str:
         return self._base.Dump()
@@ -155,7 +140,10 @@ class SymbolicScalar:
         if self.is_concrete():
             return self._base.Concrete()
         else:
-            raise ValueError("Not concrete value")
+            raise FeError(ValueError("Not concrete value"))
+
+    def simplify(self) -> 'SymbolicScalar':
+        return self.from_base(self._base.Simplify())
 
     def as_variable(self) -> None:
         self._base.AsIntermediateVariable()
@@ -181,18 +169,6 @@ class SymbolicScalar:
             else:
                 out = self.from_base(sym_bop(self._base, other._base))
 
-        if not out.is_concrete():
-            expr = _expr_preprocess(str(out))
-            try:
-                expr = sympy.simplify(expr)
-                if isinstance(expr, sympy.Integer):
-                    out = SymbolicScalar(int(expr))
-                elif expr == sympy.true:
-                    out = SymbolicScalar(1)
-                elif expr == sympy.false:
-                    out = SymbolicScalar(0)
-            except Exception:
-                pass
         return out
 
     def _unary_ops(self, uop, sym_uop):

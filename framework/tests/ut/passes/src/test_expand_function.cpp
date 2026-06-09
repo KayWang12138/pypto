@@ -31,21 +31,24 @@ public:
 
     static void TearDownTestCase() {}
 
-    void SetUp() override {
+    void SetUp() override
+    {
         Program::GetInstance().Reset();
         config::Reset();
-        config::SetPlatformConfig(KEY_ONLY_HOST_COMPILE, true);
+        config::SetHostOption(COMPILE_STAGE, CS_EXECUTE_GRAPH);
         config::SetHostConfig(KEY_STRATEGY, "ExpandFunctionTestStrategy");
-        config::SetPlatformConfig("ENABLE_COST_MODEL", false);
+        config::SetPlatformConfig(KEY_ENABLE_COST_MODEL, false);
     }
     void TearDown() override {}
 };
 
-TEST_F(TestExpandFunction, ExpandFunctionTest) {
-    PassManager &passManager = PassManager::Instance();
-    passManager.RegisterStrategy("ExpandFunctionTestStrategy", {
-        {   "RemoveRedundantReshape",   "RemoveRedundantReshape"},
-    });
+TEST_F(TestExpandFunction, ExpandFunctionTest)
+{
+    PassManager& passManager = PassManager::Instance();
+    passManager.RegisterStrategy(
+        "ExpandFunctionTestStrategy", {
+                                          {"RemoveRedundantReshape", PassName::REMOVE_REDUNDANT_RESHAPE},
+                                      });
 
     std::vector<int64_t> shape{64, 64};
     Tensor a(DT_FP32, shape, "a");
@@ -54,9 +57,7 @@ TEST_F(TestExpandFunction, ExpandFunctionTest) {
     constexpr int TILE_SHAPE = 32;
     TileShape::Current().SetVecTile(TILE_SHAPE, TILE_SHAPE);
 
-    FUNCTION("A") {
-        c = Div(a, b);
-    }
+    FUNCTION("A") { c = Div(a, b); }
 
     std::string jsonFilePath = "./config/pass/json/expand_function.json";
     bool dumpJsonFlag = true;
@@ -72,7 +73,7 @@ TEST_F(TestExpandFunction, ExpandFunctionTest) {
     auto opListBefore = currentFunction->Operations().DuplicatedOpList();
     int divNumBefore = 0;
     int divNumAfter = 0;
-    for (auto &op : opListBefore) {
+    for (auto& op : opListBefore) {
         if (op->GetOpcodeStr().find("DIV") != std::string::npos) {
             divNumBefore++;
         }
@@ -81,7 +82,7 @@ TEST_F(TestExpandFunction, ExpandFunctionTest) {
     ExpandFunction expandFunction;
     expandFunction.RunOnFunction(*currentFunction);
     auto opListAfter = currentFunction->Operations().DuplicatedOpList();
-    for (auto &op : opListAfter) {
+    for (auto& op : opListAfter) {
         if (op->GetOpcodeStr().find("DIV") != std::string::npos) {
             divNumAfter++;
         }

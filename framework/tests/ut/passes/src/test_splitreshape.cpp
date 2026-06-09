@@ -25,7 +25,7 @@
 #include "passes/tile_graph_pass/graph_optimization/split_reshape.h"
 
 namespace npu {
-namespace tile_fwk{
+namespace tile_fwk {
 static const uint32_t kNumZero = 0u;
 static const uint32_t kNumOne = 1u;
 static const uint32_t kNumTwo = 2u;
@@ -43,6 +43,7 @@ static const uint32_t kExpEight = 256u;
 static const size_t kSizeZero = 0UL;
 static const size_t kSizeOne = 1UL;
 static const size_t kSizeTwo = 2UL;
+static const size_t kSizeThree = 3UL;
 static const size_t kSizeFour = 4UL;
 
 class TestSplitReshapePass : public ::testing::Test {
@@ -51,107 +52,118 @@ public:
 
     static void TearDownTestCase() {}
 
-    void SetUp() override {
+    void SetUp() override
+    {
         Program::GetInstance().Reset();
         config::Reset();
-        config::SetPlatformConfig(KEY_ONLY_HOST_COMPILE, true);
+        config::SetHostOption(COMPILE_STAGE, CS_EXECUTE_GRAPH);
         config::SetHostConfig(KEY_STRATEGY, "SplitReshapeTestStrategy");
-        config::SetPlatformConfig("ENABLE_COST_MODEL", false);
+        config::SetPlatformConfig(KEY_ENABLE_COST_MODEL, false);
     }
     void TearDown() override {}
 };
 
-TEST_F(TestSplitReshapePass, TestInit) {
-    auto currFunctionPtr = std::make_shared<Function>(Program::GetInstance(), "TestReshapeSplit", "TestReshapeSplit", nullptr);
+TEST_F(TestSplitReshapePass, TestInit)
+{
+    auto currFunctionPtr =
+        std::make_shared<Function>(Program::GetInstance(), "TestReshapeSplit", "TestReshapeSplit", nullptr);
     EXPECT_TRUE(currFunctionPtr != nullptr);
 
     SplitReshape pass;
     auto status = pass.Init();
     EXPECT_EQ(status, SUCCESS);
 
-    EXPECT_EQ(pass.AssembleOutToInput.size(), kSizeZero);
-    EXPECT_EQ(pass.reshapeSources.size(), kSizeZero);
-    EXPECT_EQ(pass.mapOffset.size(), kSizeZero);
-    EXPECT_EQ(pass.assembles.size(), kSizeZero);
-    EXPECT_EQ(pass.reshapes.size(), kSizeZero);
-    EXPECT_EQ(pass.redundantViewops.size(), kSizeZero);
-    EXPECT_EQ(pass.reshapeRawOutputs.size(), kSizeZero);
+    EXPECT_EQ(pass.assembleOutToInput_.size(), kSizeZero);
+    EXPECT_EQ(pass.reshapeSources_.size(), kSizeZero);
+    EXPECT_EQ(pass.mapOffset_.size(), kSizeZero);
+    EXPECT_EQ(pass.assembles_.size(), kSizeZero);
+    EXPECT_EQ(pass.reshapes_.size(), kSizeZero);
+    EXPECT_EQ(pass.redundantViewops_.size(), kSizeZero);
+    EXPECT_EQ(pass.reshapeRawOutputs_.size(), kSizeZero);
 }
 
-TEST_F(TestSplitReshapePass, TestCollectCopyOut) {
-    auto currFunctionPtr = std::make_shared<Function>(Program::GetInstance(), "TestReshapeSplit", "TestReshapeSplit", nullptr);
-    EXPECT_TRUE(currFunctionPtr != nullptr);
-    // Prepare the graph
+void BuildGraphForCollectCopyOut(
+    std::shared_ptr<Function>& func, std::shared_ptr<LogicalTensor>& input1, std::shared_ptr<LogicalTensor>& input2,
+    std::shared_ptr<LogicalTensor>& ubTensor, std::shared_ptr<LogicalTensor>& output, std::vector<int64_t>& offset1,
+    std::vector<int64_t>& offset2, std::vector<SymbolicScalar>& validShape)
+{
+    func = std::make_shared<Function>(Program::GetInstance(), "TestReshapeSplit", "TestReshapeSplit", nullptr);
 
     std::vector<int64_t> shape = {kNumTwo, kNumOne, kNumEight};
-    std::vector<int64_t> offset1 = {kNumZero, kNumZero, kNumZero};
-    std::vector<int64_t> offset2 = {kNumOne, kNumZero, kNumZero};
+    offset1 = {kNumZero, kNumZero, kNumZero};
+    offset2 = {kNumOne, kNumZero, kNumZero};
     std::vector<int64_t> offset3 = {kNumTwo, kNumZero, kNumZero};
+
     std::vector<int64_t> shape1 = {kNumOne, kNumOne, kNumEight};
     std::vector<int64_t> shape2 = {kNumThree, kNumOne, kNumEight};
     std::vector<int64_t> shape3 = {kNumThree, kNumEight};
 
-    std::shared_ptr<RawTensor> ddrRawTensor = std::make_shared<RawTensor>(DT_FP32, shape);
-    auto input1 = std::make_shared<LogicalTensor>(*currFunctionPtr, ddrRawTensor, offset1, shape1);
-    auto input2 = std::make_shared<LogicalTensor>(*currFunctionPtr, ddrRawTensor, offset2, shape1);
-    auto input3 = std::make_shared<LogicalTensor>(*currFunctionPtr, ddrRawTensor, offset3, shape1);
-    auto copyTensor = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape1);
-    auto ubTensor = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape2);
-    auto output = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape3);
+    auto ddrRawTensor = std::make_shared<RawTensor>(DT_FP32, shape);
+    auto input3 = std::make_shared<LogicalTensor>(*func, ddrRawTensor, offset3, shape1);
+    auto copyTensor = std::make_shared<LogicalTensor>(*func, DT_FP32, shape1);
 
-    auto &assemble_op1 = currFunctionPtr->AddOperation(Opcode::OP_ASSEMBLE, {input1}, {ubTensor});
-    auto assemble_Attr1 = std::make_shared<AssembleOpAttribute>(MEM_DEVICE_DDR, offset1);
-    assemble_op1.SetOpAttribute(assemble_Attr1);
+    input1 = std::make_shared<LogicalTensor>(*func, ddrRawTensor, offset1, shape1);
+    input2 = std::make_shared<LogicalTensor>(*func, ddrRawTensor, offset2, shape1);
+    ubTensor = std::make_shared<LogicalTensor>(*func, DT_FP32, shape2);
+    output = std::make_shared<LogicalTensor>(*func, DT_FP32, shape3);
 
-    auto &assemble_op2 = currFunctionPtr->AddOperation(Opcode::OP_ASSEMBLE, {input2}, {ubTensor});
-    auto assemble_Attr2 = std::make_shared<AssembleOpAttribute>(MEM_DEVICE_DDR, offset2);
-    assemble_op2.SetOpAttribute(assemble_Attr2);
+    auto& assemble_op1 = func->AddOperation(Opcode::OP_ASSEMBLE, {input1}, {ubTensor});
+    assemble_op1.SetOpAttribute(std::make_shared<AssembleOpAttribute>(MEM_DEVICE_DDR, offset1));
 
-    currFunctionPtr->AddOperation(Opcode::OP_COPY_OUT, {input3}, {copyTensor});
-    
-    auto &assemble_op3 = currFunctionPtr->AddOperation(Opcode::OP_ASSEMBLE, {copyTensor}, {ubTensor});
-    auto assemble_Attr3 = std::make_shared<AssembleOpAttribute>(MEM_DEVICE_DDR, offset3);
-    assemble_op3.SetOpAttribute(assemble_Attr3);
+    auto& assemble_op2 = func->AddOperation(Opcode::OP_ASSEMBLE, {input2}, {ubTensor});
+    assemble_op2.SetOpAttribute(std::make_shared<AssembleOpAttribute>(MEM_DEVICE_DDR, offset2));
 
-    std::vector<SymbolicScalar> validShape = {SymbolicScalar("a"), kNumEight};
-    auto &reshape_op = currFunctionPtr->AddOperation(Opcode::OP_RESHAPE, {ubTensor}, {output});
+    func->AddOperation(Opcode::OP_COPY_OUT, {input3}, {copyTensor});
+
+    auto& assemble_op3 = func->AddOperation(Opcode::OP_ASSEMBLE, {copyTensor}, {ubTensor});
+    assemble_op3.SetOpAttribute(std::make_shared<AssembleOpAttribute>(MEM_DEVICE_DDR, offset3));
+
+    validShape = {SymbolicScalar("a"), kNumEight};
+    auto& reshape_op = func->AddOperation(Opcode::OP_RESHAPE, {ubTensor}, {output});
     reshape_op.SetAttribute(OP_ATTR_PREFIX + "validShape", validShape);
-
-    SplitReshape pass;
-    auto status = pass.CollectCopyOut(*currFunctionPtr);
-    EXPECT_EQ(status, SUCCESS);
-
-    EXPECT_EQ(pass.reshapeSources.size(), kSizeOne);
-    auto iter1 = pass.reshapeSources.find(output->tensor->rawmagic);
-    EXPECT_NE(iter1, pass.reshapeSources.end());
-    EXPECT_EQ(iter1->second, ubTensor);
-
-    EXPECT_EQ(pass.reshapeDynOutput.size(), kSizeOne);
-    auto iter2 = pass.reshapeDynOutput.find(output->tensor->rawmagic);
-    EXPECT_NE(iter2, pass.reshapeDynOutput.end());
-    for (size_t i = 0; i < kSizeTwo; ++i) {
-        EXPECT_EQ(iter2->second[i].Dump(), validShape[i].Dump());
-    }
-
-    EXPECT_EQ(pass.AssembleOutToInput.size(), kSizeOne);
-    auto iter3 = pass.AssembleOutToInput.find(ubTensor->tensor->rawmagic);
-    EXPECT_NE(iter3, pass.AssembleOutToInput.end());
-    EXPECT_EQ(iter3->second.size(), kNumTwo);
-    EXPECT_EQ(iter3->second.count(input1), kNumOne);
-    EXPECT_EQ(iter3->second.count(input2), kNumOne);
-
-    EXPECT_EQ(pass.mapOffset.size(), kSizeTwo);
-    EXPECT_EQ(pass.mapOffset.count(copyTensor->magic), kNumZero);
-    EXPECT_EQ(pass.mapOffset.count(input1->magic), kNumOne);
-    EXPECT_EQ(pass.mapOffset[input1->magic].count(ubTensor->magic), kNumOne);
-    EXPECT_EQ(pass.mapOffset[input1->magic][ubTensor->magic], offset1);
-    EXPECT_EQ(pass.mapOffset.count(input2->magic), kNumOne);
-    EXPECT_EQ(pass.mapOffset[input2->magic].count(ubTensor->magic), kNumOne);
-    EXPECT_EQ(pass.mapOffset[input2->magic][ubTensor->magic], offset2);
 }
 
-TEST_F(TestSplitReshapePass, TestCheckSplit) {
-    auto currFunctionPtr = std::make_shared<Function>(Program::GetInstance(), "TestReshapeSplit", "TestReshapeSplit", nullptr);
+TEST_F(TestSplitReshapePass, TestCollectCopyOut)
+{
+    std::shared_ptr<Function> func;
+    std::shared_ptr<LogicalTensor> input1, input2, ubTensor, output;
+    std::vector<int64_t> offset1, offset2;
+    std::vector<SymbolicScalar> validShape;
+
+    BuildGraphForCollectCopyOut(func, input1, input2, ubTensor, output, offset1, offset2, validShape);
+    ASSERT_TRUE(func != nullptr);
+
+    SplitReshape pass;
+    EXPECT_EQ(pass.CollectCopyOut(*func), SUCCESS);
+
+    EXPECT_EQ(pass.reshapeSources_.size(), kSizeOne);
+    auto it1 = pass.reshapeSources_.find(output->tensor->rawmagic);
+    EXPECT_NE(it1, pass.reshapeSources_.end());
+    EXPECT_EQ(it1->second, ubTensor);
+
+    EXPECT_EQ(pass.reshapeDynOutput_.size(), kSizeOne);
+    auto it2 = pass.reshapeDynOutput_.find(output->tensor->rawmagic);
+    EXPECT_NE(it2, pass.reshapeDynOutput_.end());
+    for (size_t i = 0; i < kSizeTwo; ++i) {
+        EXPECT_EQ(it2->second[i].Dump(), validShape[i].Dump());
+    }
+
+    EXPECT_EQ(pass.assembleOutToInput_.size(), kSizeOne);
+    auto it3 = pass.assembleOutToInput_.find(ubTensor->tensor->rawmagic);
+    EXPECT_NE(it3, pass.assembleOutToInput_.end());
+    EXPECT_EQ(it3->second.size(), kNumThree);
+    EXPECT_EQ(it3->second.count(input1), kNumOne);
+    EXPECT_EQ(it3->second.count(input2), kNumOne);
+
+    EXPECT_EQ(pass.mapOffset_.size(), kSizeThree);
+    EXPECT_EQ(pass.mapOffset_[std::make_pair(input1->magic, ubTensor->magic)], offset1);
+    EXPECT_EQ(pass.mapOffset_[std::make_pair(input2->magic, ubTensor->magic)], offset2);
+}
+
+TEST_F(TestSplitReshapePass, TestCheckSplit)
+{
+    auto currFunctionPtr =
+        std::make_shared<Function>(Program::GetInstance(), "TestReshapeSplit", "TestReshapeSplit", nullptr);
     EXPECT_TRUE(currFunctionPtr != nullptr);
     // Prepare the graph
 
@@ -169,10 +181,10 @@ TEST_F(TestSplitReshapePass, TestCheckSplit) {
     auto case1Input2 = std::make_shared<LogicalTensor>(*currFunctionPtr, ddrRawTensor1, offset2, shape1);
     auto case1UbTensor = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape2);
     auto case1Output = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape3);
-    auto &assemble_op1 = currFunctionPtr->AddOperation(Opcode::OP_ASSEMBLE, {case1Input1}, {case1UbTensor});
+    auto& assemble_op1 = currFunctionPtr->AddOperation(Opcode::OP_ASSEMBLE, {case1Input1}, {case1UbTensor});
     auto assemble_Attr1 = std::make_shared<AssembleOpAttribute>(MEM_DEVICE_DDR, offset1);
     assemble_op1.SetOpAttribute(assemble_Attr1);
-    auto &assemble_op2 = currFunctionPtr->AddOperation(Opcode::OP_ASSEMBLE, {case1Input2}, {case1UbTensor});
+    auto& assemble_op2 = currFunctionPtr->AddOperation(Opcode::OP_ASSEMBLE, {case1Input2}, {case1UbTensor});
     auto assemble_Attr2 = std::make_shared<AssembleOpAttribute>(MEM_DEVICE_DDR, offset2);
     assemble_op2.SetOpAttribute(assemble_Attr2);
     currFunctionPtr->AddOperation(Opcode::OP_RESHAPE, {case1UbTensor}, {case1Output});
@@ -185,10 +197,10 @@ TEST_F(TestSplitReshapePass, TestCheckSplit) {
     auto case3Input2 = std::make_shared<LogicalTensor>(*currFunctionPtr, ddrRawTensor2, offset2, shape1);
     auto case3UbTensor = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape2);
     auto case3Output = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape3);
-    auto &assemble_op3 = currFunctionPtr->AddOperation(Opcode::OP_ASSEMBLE, {case3Input1}, {case3UbTensor});
+    auto& assemble_op3 = currFunctionPtr->AddOperation(Opcode::OP_ASSEMBLE, {case3Input1}, {case3UbTensor});
     auto assemble_Attr3 = std::make_shared<AssembleOpAttribute>(MEM_DEVICE_DDR, offset1);
     assemble_op3.SetOpAttribute(assemble_Attr3);
-    auto &assemble_op4 = currFunctionPtr->AddOperation(Opcode::OP_ASSEMBLE, {case3Input2}, {case3UbTensor});
+    auto& assemble_op4 = currFunctionPtr->AddOperation(Opcode::OP_ASSEMBLE, {case3Input2}, {case3UbTensor});
     auto assemble_Attr4 = std::make_shared<AssembleOpAttribute>(MEM_DEVICE_DDR, offset2);
     assemble_op4.SetOpAttribute(assemble_Attr4);
     currFunctionPtr->AddOperation(Opcode::OP_RESHAPE, {case3UbTensor}, {case3Output});
@@ -196,7 +208,7 @@ TEST_F(TestSplitReshapePass, TestCheckSplit) {
     auto case4Input1 = std::make_shared<LogicalTensor>(*currFunctionPtr, ddrRawTensor1, offset1, shape1);
     auto case4UbTensor = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape2);
     auto case4Output = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape3);
-    auto &assemble_op5 = currFunctionPtr->AddOperation(Opcode::OP_ASSEMBLE, {case4Input1}, {case4UbTensor});
+    auto& assemble_op5 = currFunctionPtr->AddOperation(Opcode::OP_ASSEMBLE, {case4Input1}, {case4UbTensor});
     auto assemble_Attr5 = std::make_shared<AssembleOpAttribute>(MEM_DEVICE_DDR, offset1);
     assemble_op5.SetOpAttribute(assemble_Attr5);
     currFunctionPtr->AddOperation(Opcode::OP_RESHAPE, {case4UbTensor}, {case4Output});
@@ -210,7 +222,8 @@ TEST_F(TestSplitReshapePass, TestCheckSplit) {
     EXPECT_EQ(pass.CheckSameRawInput(case4UbTensor), true);
 }
 
-TEST_F(TestSplitReshapePass, TestCheckDynStatus) {
+TEST_F(TestSplitReshapePass, TestCheckDynStatus)
+{
     std::vector<int64_t> input;
     std::vector<int64_t> output;
     std::vector<int64_t> alignedShape;
@@ -260,8 +273,10 @@ TEST_F(TestSplitReshapePass, TestCheckDynStatus) {
     EXPECT_EQ(pass.CheckDynStatus(alignedShape, input, output, dynOutput), SUCCESS);
 }
 
-TEST_F(TestSplitReshapePass, TestShapeAlign) {
-    auto currFunctionPtr = std::make_shared<Function>(Program::GetInstance(), "TestReshapeSplit", "TestReshapeSplit", nullptr);
+TEST_F(TestSplitReshapePass, TestShapeAlign)
+{
+    auto currFunctionPtr =
+        std::make_shared<Function>(Program::GetInstance(), "TestReshapeSplit", "TestReshapeSplit", nullptr);
     EXPECT_TRUE(currFunctionPtr != nullptr);
     // Prepare the graph
     SplitReshape pass;
@@ -301,8 +316,10 @@ TEST_F(TestSplitReshapePass, TestShapeAlign) {
     EXPECT_EQ(status, WARNING);
 }
 
-TEST_F(TestSplitReshapePass, TestRawToAlign) {
-    auto currFunctionPtr = std::make_shared<Function>(Program::GetInstance(), "TestReshapeSplit", "TestReshapeSplit", nullptr);
+TEST_F(TestSplitReshapePass, TestRawToAlign)
+{
+    auto currFunctionPtr =
+        std::make_shared<Function>(Program::GetInstance(), "TestReshapeSplit", "TestReshapeSplit", nullptr);
     EXPECT_TRUE(currFunctionPtr != nullptr);
     // Prepare the graph
     SplitReshape pass;
@@ -375,8 +392,10 @@ TEST_F(TestSplitReshapePass, TestRawToAlign) {
     EXPECT_EQ(status, WARNING);
 }
 
-TEST_F(TestSplitReshapePass, TestAlignToRaw) {
-    auto currFunctionPtr = std::make_shared<Function>(Program::GetInstance(), "TestReshapeSplit", "TestReshapeSplit", nullptr);
+TEST_F(TestSplitReshapePass, TestAlignToRaw)
+{
+    auto currFunctionPtr =
+        std::make_shared<Function>(Program::GetInstance(), "TestReshapeSplit", "TestReshapeSplit", nullptr);
     EXPECT_TRUE(currFunctionPtr != nullptr);
     // Prepare the graph
     SplitReshape pass;
@@ -441,8 +460,10 @@ TEST_F(TestSplitReshapePass, TestAlignToRaw) {
     EXPECT_EQ(newOffset, expectOffset);
 }
 
-TEST_F(TestSplitReshapePass, TestAlignToRawSpecialCase) {
-    auto currFunctionPtr = std::make_shared<Function>(Program::GetInstance(), "TestReshapeSplit", "TestReshapeSplit", nullptr);
+TEST_F(TestSplitReshapePass, TestAlignToRawSpecialCase)
+{
+    auto currFunctionPtr =
+        std::make_shared<Function>(Program::GetInstance(), "TestReshapeSplit", "TestReshapeSplit", nullptr);
     EXPECT_TRUE(currFunctionPtr != nullptr);
     // Prepare the graph
     SplitReshape pass;
@@ -482,8 +503,10 @@ TEST_F(TestSplitReshapePass, TestAlignToRawSpecialCase) {
 rawShape = {2, 4}
 {2, 4} -> assemble -> {2, 4} -> reshape -> {2, 2, 2}
 */
-TEST_F(TestSplitReshapePass, TestObtainCopyOutTileBeCovered) {
-    auto currFunctionPtr = std::make_shared<Function>(Program::GetInstance(), "TestReshapeSplit", "TestReshapeSplit", nullptr);
+TEST_F(TestSplitReshapePass, TestObtainCopyOutTileBeCovered)
+{
+    auto currFunctionPtr =
+        std::make_shared<Function>(Program::GetInstance(), "TestReshapeSplit", "TestReshapeSplit", nullptr);
     EXPECT_TRUE(currFunctionPtr != nullptr);
     // Prepare the graph
 
@@ -493,6 +516,9 @@ TEST_F(TestSplitReshapePass, TestObtainCopyOutTileBeCovered) {
     std::vector<int64_t> shape1 = {kNumTwo, kNumTwo};
     std::vector<int64_t> shape2 = {kNumTwo, kNumFour};
     std::vector<int64_t> shape3 = {kNumTwo, kNumTwo, kNumTwo};
+    std::vector<int64_t> newOutputTileOffset = {kNumZero, kNumZero, kNumZero};
+    std::vector<int64_t> newOutputTileShape = {kNumTwo, kNumTwo, kNumTwo};
+    std::vector<int64_t> alignedShape = {kNumTwo, kNumTwo, kNumTwo};
 
     std::shared_ptr<RawTensor> ddrRawTensor = std::make_shared<RawTensor>(DT_FP32, shape);
     auto input1 = std::make_shared<LogicalTensor>(*currFunctionPtr, ddrRawTensor, offset1, shape1);
@@ -500,23 +526,21 @@ TEST_F(TestSplitReshapePass, TestObtainCopyOutTileBeCovered) {
     auto ubTensor = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape2);
     auto output = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape3);
 
-    auto &assemble_op1 = currFunctionPtr->AddOperation(Opcode::OP_ASSEMBLE, {input1}, {ubTensor});
+    auto& assemble_op1 = currFunctionPtr->AddOperation(Opcode::OP_ASSEMBLE, {input1}, {ubTensor});
     auto assemble_Attr1 = std::make_shared<AssembleOpAttribute>(MEM_DEVICE_DDR, offset1);
     assemble_op1.SetOpAttribute(assemble_Attr1);
-    auto &assemble_op2 = currFunctionPtr->AddOperation(Opcode::OP_ASSEMBLE, {input2}, {ubTensor});
+    auto& assemble_op2 = currFunctionPtr->AddOperation(Opcode::OP_ASSEMBLE, {input2}, {ubTensor});
     auto assemble_Attr2 = std::make_shared<AssembleOpAttribute>(MEM_DEVICE_DDR, offset2);
     assemble_op2.SetOpAttribute(assemble_Attr2);
-    currFunctionPtr->AddOperation(Opcode::OP_RESHAPE, {ubTensor}, {output});
+    auto& reshapeOp = currFunctionPtr->AddOperation(Opcode::OP_RESHAPE, {ubTensor}, {output});
 
     SplitReshape pass;
     LogicalTensors overlaps;
     LogicalTensors newOverlaps;
     std::vector<SymbolicScalar> validShape;
-    std::vector<int64_t> newOutputTileOffset = {kNumZero, kNumZero, kNumZero};
-    std::vector<int64_t> newOutputTileShape = {kNumTwo, kNumTwo, kNumTwo};
-    std::vector<int64_t> alignedShape = {kNumTwo, kNumTwo, kNumTwo};
-    auto newOutput = std::make_shared<LogicalTensor>(*currFunctionPtr, output->tensor, newOutputTileOffset, newOutputTileShape, validShape);
-    copyOutTilePara copyOutTile = {ubTensor, output, newOutput, alignedShape};
+    auto newOutput = std::make_shared<LogicalTensor>(
+        *currFunctionPtr, output->tensor, newOutputTileOffset, newOutputTileShape, validShape);
+    copyOutTilePara copyOutTile = {ubTensor, reshapeOp.GetOpMagic(), output, newOutput, alignedShape};
     EXPECT_EQ(pass.CollectCopyOut(*currFunctionPtr), SUCCESS);
     EXPECT_EQ(pass.ObtainCopyOutTile(*currFunctionPtr, copyOutTile, overlaps, newOverlaps), SUCCESS);
     EXPECT_EQ(overlaps.size(), kSizeTwo);
@@ -530,8 +554,10 @@ TEST_F(TestSplitReshapePass, TestObtainCopyOutTileBeCovered) {
 rawShape = {2, 2, 2}
 {2, 2, 2} -> assemble -> {2, 2, 2} -> reshape -> {4, 2}
 */
-TEST_F(TestSplitReshapePass, TestObtainCopyOutTilePerfectlyMatched) {
-    auto currFunctionPtr = std::make_shared<Function>(Program::GetInstance(), "TestReshapeSplit", "TestReshapeSplit", nullptr);
+TEST_F(TestSplitReshapePass, TestObtainCopyOutTilePerfectlyMatched)
+{
+    auto currFunctionPtr =
+        std::make_shared<Function>(Program::GetInstance(), "TestReshapeSplit", "TestReshapeSplit", nullptr);
     EXPECT_TRUE(currFunctionPtr != nullptr);
     // Prepare the graph
 
@@ -545,10 +571,10 @@ TEST_F(TestSplitReshapePass, TestObtainCopyOutTilePerfectlyMatched) {
     auto ubTensor = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape1);
     auto output = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape2);
 
-    auto &assemble_op = currFunctionPtr->AddOperation(Opcode::OP_ASSEMBLE, {input}, {ubTensor});
+    auto& assemble_op = currFunctionPtr->AddOperation(Opcode::OP_ASSEMBLE, {input}, {ubTensor});
     auto assemble_Attr = std::make_shared<AssembleOpAttribute>(MEM_DEVICE_DDR, offset);
     assemble_op.SetOpAttribute(assemble_Attr);
-    currFunctionPtr->AddOperation(Opcode::OP_RESHAPE, {ubTensor}, {output});
+    auto& reshapeOp = currFunctionPtr->AddOperation(Opcode::OP_RESHAPE, {ubTensor}, {output});
 
     SplitReshape pass;
     LogicalTensors overlaps;
@@ -557,8 +583,9 @@ TEST_F(TestSplitReshapePass, TestObtainCopyOutTilePerfectlyMatched) {
     std::vector<int64_t> newOutputTileOffset = {kNumZero, kNumZero, kNumZero};
     std::vector<int64_t> newOutputTileShape = {kNumTwo, kNumTwo, kNumTwo};
     std::vector<int64_t> alignedShape = {kNumTwo, kNumTwo, kNumTwo};
-    auto newOutput = std::make_shared<LogicalTensor>(*currFunctionPtr, output->tensor, newOutputTileOffset, newOutputTileShape, validShape);
-    copyOutTilePara copyOutTile = {ubTensor, output, newOutput, alignedShape};
+    auto newOutput = std::make_shared<LogicalTensor>(
+        *currFunctionPtr, output->tensor, newOutputTileOffset, newOutputTileShape, validShape);
+    copyOutTilePara copyOutTile = {ubTensor, reshapeOp.GetOpMagic(), output, newOutput, alignedShape};
     EXPECT_EQ(pass.CollectCopyOut(*currFunctionPtr), SUCCESS);
     EXPECT_EQ(pass.ObtainCopyOutTile(*currFunctionPtr, copyOutTile, overlaps, newOverlaps), SUCCESS);
     EXPECT_EQ(overlaps.size(), kSizeOne);
@@ -572,10 +599,13 @@ TEST_F(TestSplitReshapePass, TestObtainCopyOutTilePerfectlyMatched) {
 验证一对一场景下数据的处理
 rawShape = {2, 2, 2}
 {2, 2, 2}(ddr) -> assemble -> {2, 2, 2}(unknown) -> reshape -> {4, 2}(unknown) -> view -> {4,2}(ddr) -> OP
-{2, 2, 2}(ddr) -> assemble -> {2, 2, 2}(unknown) -> reshape(一个ReshapeOp成员) -> {4, 2}(unknown) -> view -> {4,2}(ddr) -> OP
+{2, 2, 2}(ddr) -> assemble -> {2, 2, 2}(unknown) -> reshape(一个ReshapeOp成员) -> {4, 2}(unknown) -> view -> {4,2}(ddr)
+-> OP
 */
-TEST_F(TestSplitReshapePass, TestUpdateForPerfectlyMatch) {
-    auto currFunctionPtr = std::make_shared<Function>(Program::GetInstance(), "TestReshapeSplit", "TestReshapeSplit", nullptr);
+TEST_F(TestSplitReshapePass, TestUpdateForPerfectlyMatch)
+{
+    auto currFunctionPtr =
+        std::make_shared<Function>(Program::GetInstance(), "TestReshapeSplit", "TestReshapeSplit", nullptr);
     EXPECT_TRUE(currFunctionPtr != nullptr);
     // Prepare the graph
 
@@ -594,11 +624,11 @@ TEST_F(TestSplitReshapePass, TestUpdateForPerfectlyMatch) {
     auto output = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape2);
     output->SetMemoryTypeOriginal(MemoryType::MEM_DEVICE_DDR, false);
 
-    auto &assemble_op = currFunctionPtr->AddOperation(Opcode::OP_ASSEMBLE, {input}, {ubTensor1});
+    auto& assemble_op = currFunctionPtr->AddOperation(Opcode::OP_ASSEMBLE, {input}, {ubTensor1});
     auto assemble_Attr = std::make_shared<AssembleOpAttribute>(MEM_DEVICE_DDR, offset);
     assemble_op.SetOpAttribute(assemble_Attr);
     currFunctionPtr->AddOperation(Opcode::OP_RESHAPE, {ubTensor1}, {ubTensor2});
-    auto &view_op = currFunctionPtr->AddOperation(Opcode::OP_VIEW, {ubTensor2}, {output});
+    auto& view_op = currFunctionPtr->AddOperation(Opcode::OP_VIEW, {ubTensor2}, {output});
     std::vector<int64_t> view_offset = {0, 0};
     auto view_Attr = std::make_shared<ViewOpAttribute>(view_offset);
     view_op.SetOpAttribute(view_Attr);
@@ -609,7 +639,8 @@ TEST_F(TestSplitReshapePass, TestUpdateForPerfectlyMatch) {
     std::vector<int64_t> newTileShape = {kNumTwo, kNumTwo, kNumTwo};
     para.alignedShape = {kNumTwo, kNumTwo, kNumTwo};
     para.overlaps = {input};
-    para.newOverlaps = {std::make_shared<LogicalTensor>(*currFunctionPtr, input->tensor, newTileOffset, newTileShape, validShape)};
+    para.newOverlaps = {
+        std::make_shared<LogicalTensor>(*currFunctionPtr, input->tensor, newTileOffset, newTileShape, validShape)};
     para.reshapeSource = ubTensor1;
     para.input = ubTensor2;
     para.output = output;
@@ -619,16 +650,16 @@ TEST_F(TestSplitReshapePass, TestUpdateForPerfectlyMatch) {
     EXPECT_EQ(pass.CollectCopyOut(*currFunctionPtr), SUCCESS);
     EXPECT_EQ(pass.ProcessOnetoOne(*currFunctionPtr, view_op, para), SUCCESS);
     auto newReshapeOutput = view_op.GetInputOperand(kSizeZero);
-    EXPECT_NE(newReshapeOutput, ubTensor2);
-    EXPECT_EQ(newReshapeOutput->GetMemoryTypeOriginal(), MemoryType::MEM_UNKNOWN);
-    EXPECT_EQ(pass.reshapes.size(), kSizeOne);
-    auto reshape = pass.reshapes.begin()->second;
-    EXPECT_EQ(pass.assembles.size(), kSizeOne);
-    auto assemble = pass.assembles.begin();
+    EXPECT_EQ(pass.assembles_.size(), kSizeOne);
+    auto assemble = pass.assembles_.begin();
+    auto reshape = pass.reshapes_.begin()->second;
     auto newReshapeSource = reshape->input;
     EXPECT_EQ(reshape->output, newReshapeOutput);
     EXPECT_EQ(newReshapeSource->GetMemoryTypeOriginal(), MemoryType::MEM_UNKNOWN);
-    auto viewOpAttribute = dynamic_cast<ViewOpAttribute *>(view_op.GetOpAttribute().get());
+    EXPECT_NE(newReshapeOutput, ubTensor2);
+    EXPECT_EQ(newReshapeOutput->GetMemoryTypeOriginal(), MemoryType::MEM_UNKNOWN);
+    EXPECT_EQ(pass.reshapes_.size(), kSizeOne);
+    auto viewOpAttribute = dynamic_cast<ViewOpAttribute*>(view_op.GetOpAttribute().get());
     EXPECT_EQ(viewOpAttribute->GetFromOffset(), view_offset);
     EXPECT_EQ(assemble->from, MemoryType::MEM_DEVICE_DDR);
     EXPECT_EQ(assemble->toOffset, offset);
@@ -641,10 +672,13 @@ TEST_F(TestSplitReshapePass, TestUpdateForPerfectlyMatch) {
 rawShape = {2, 2, 2}
 {2, 2, 2}(ddr) -> assemble -> {2, 2, 2}(unknown) -> reshape -> {4, 2}(unknown) -> view -> {4,2}(ddr) -> OP
                                                      {4, a}
-{2, 2, 2}(ddr) -> assemble -> {2, 2, 2}(unknown) -> reshape(一个ReshapeOp成员) -> {4, 2}(unknown) -> view -> {4,2}(ddr) -> OP
+{2, 2, 2}(ddr) -> assemble -> {2, 2, 2}(unknown) -> reshape(一个ReshapeOp成员) -> {4, 2}(unknown) -> view -> {4,2}(ddr)
+-> OP
 */
-TEST_F(TestSplitReshapePass, TestDynUpdateForPerfectlyMatch) {
-    auto currFunctionPtr = std::make_shared<Function>(Program::GetInstance(), "TestReshapeSplit", "TestReshapeSplit", nullptr);
+TEST_F(TestSplitReshapePass, TestDynUpdateForPerfectlyMatch)
+{
+    auto currFunctionPtr =
+        std::make_shared<Function>(Program::GetInstance(), "TestReshapeSplit", "TestReshapeSplit", nullptr);
     EXPECT_TRUE(currFunctionPtr != nullptr);
     // Prepare the graph
 
@@ -665,11 +699,11 @@ TEST_F(TestSplitReshapePass, TestDynUpdateForPerfectlyMatch) {
     auto output = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape2);
     output->SetMemoryTypeOriginal(MemoryType::MEM_DEVICE_DDR, false);
 
-    auto &assemble_op = currFunctionPtr->AddOperation(Opcode::OP_ASSEMBLE, {input}, {ubTensor1});
+    auto& assemble_op = currFunctionPtr->AddOperation(Opcode::OP_ASSEMBLE, {input}, {ubTensor1});
     auto assemble_Attr = std::make_shared<AssembleOpAttribute>(MEM_DEVICE_DDR, offset);
     assemble_op.SetOpAttribute(assemble_Attr);
     currFunctionPtr->AddOperation(Opcode::OP_RESHAPE, {ubTensor1}, {ubTensor2});
-    auto &view_op = currFunctionPtr->AddOperation(Opcode::OP_VIEW, {ubTensor2}, {output});
+    auto& view_op = currFunctionPtr->AddOperation(Opcode::OP_VIEW, {ubTensor2}, {output});
     auto view_Attr = std::make_shared<ViewOpAttribute>(view_offset);
     view_op.SetOpAttribute(view_Attr);
 
@@ -693,23 +727,21 @@ TEST_F(TestSplitReshapePass, TestDynUpdateForPerfectlyMatch) {
     auto newReshapeOutput = view_op.GetInputOperand(kSizeZero);
     EXPECT_NE(newReshapeOutput, ubTensor2);
     EXPECT_EQ(newReshapeOutput->GetMemoryTypeOriginal(), MemoryType::MEM_UNKNOWN);
-    EXPECT_EQ(pass.reshapes.size(), kSizeOne);
-    auto reshape = pass.reshapes.begin()->second;
-    EXPECT_EQ(pass.assembles.size(), kSizeOne);
-    auto assemble = pass.assembles.begin();
+    EXPECT_EQ(pass.reshapes_.size(), kSizeOne);
+    auto reshape = pass.reshapes_.begin()->second;
+    EXPECT_EQ(pass.assembles_.size(), kSizeOne);
+    auto assemble = pass.assembles_.begin();
     auto newReshapeSource = reshape->input;
     EXPECT_EQ(reshape->output, newReshapeOutput);
     EXPECT_EQ(reshape->dynValidShapes.size(), kSizeOne);
     EXPECT_EQ(reshape->dynValidShapes[0].size(), kSizeTwo);
     std::vector<std::string> expectValidShape = {
-        "4",
-        "(RUNTIME_GetViewValidShapeDim(a,0,2)*RUNTIME_Ne(RUNTIME_GetViewValidShapeDim(a,0,2), 0))"
-    };
+        "4", "(RUNTIME_GetViewValidShapeDim(a,0,2)*RUNTIME_Ne(RUNTIME_GetViewValidShapeDim(a,0,2), 0))"};
     for (size_t i = 0; i < kSizeTwo; ++i) {
         EXPECT_EQ(reshape->dynValidShapes[0][i].Dump(), expectValidShape[i]);
     }
     EXPECT_EQ(newReshapeSource->GetMemoryTypeOriginal(), MemoryType::MEM_UNKNOWN);
-    auto viewOpAttribute = dynamic_cast<ViewOpAttribute *>(view_op.GetOpAttribute().get());
+    auto viewOpAttribute = dynamic_cast<ViewOpAttribute*>(view_op.GetOpAttribute().get());
     EXPECT_EQ(viewOpAttribute->GetFromOffset(), view_offset);
     EXPECT_EQ(assemble->from, MemoryType::MEM_DEVICE_DDR);
     EXPECT_EQ(assemble->input, input);
@@ -724,8 +756,10 @@ rawShape = {2, 2, 2}
 {2, 2, 2}(ddr) -> assemble -> {2, 2, 2} -> reshape -> {2, 4}(unknown) -> view -> {2, 2}
                                                                       -> view -> {2, 2}
 */
-TEST_F(TestSplitReshapePass, TestUpdateForBeCovered) {
-    auto currFunctionPtr = std::make_shared<Function>(Program::GetInstance(), "TestReshapeSplit", "TestReshapeSplit", nullptr);
+TEST_F(TestSplitReshapePass, TestUpdateForBeCovered)
+{
+    auto currFunctionPtr =
+        std::make_shared<Function>(Program::GetInstance(), "TestReshapeSplit", "TestReshapeSplit", nullptr);
     EXPECT_TRUE(currFunctionPtr != nullptr);
     // Prepare the graph
     std::vector<int64_t> shape1 = {kNumTwo, kNumTwo, kNumTwo};
@@ -748,14 +782,14 @@ TEST_F(TestSplitReshapePass, TestUpdateForBeCovered) {
     auto output2 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape3);
     output2->SetMemoryTypeOriginal(MemoryType::MEM_DEVICE_DDR, false);
 
-    auto &assemble_op = currFunctionPtr->AddOperation(Opcode::OP_ASSEMBLE, {input}, {ubTensor1});
+    auto& assemble_op = currFunctionPtr->AddOperation(Opcode::OP_ASSEMBLE, {input}, {ubTensor1});
     auto assemble_Attr = std::make_shared<AssembleOpAttribute>(MEM_DEVICE_DDR, offset1);
     assemble_op.SetOpAttribute(assemble_Attr);
     currFunctionPtr->AddOperation(Opcode::OP_RESHAPE, {ubTensor1}, {ubTensor2});
-    auto &view_op1 = currFunctionPtr->AddOperation(Opcode::OP_VIEW, {ubTensor2}, {output1});
+    auto& view_op1 = currFunctionPtr->AddOperation(Opcode::OP_VIEW, {ubTensor2}, {output1});
     auto view_Attr1 = std::make_shared<ViewOpAttribute>(view_offset1);
     view_op1.SetOpAttribute(view_Attr1);
-    auto &view_op2 = currFunctionPtr->AddOperation(Opcode::OP_VIEW, {ubTensor2}, {output2});
+    auto& view_op2 = currFunctionPtr->AddOperation(Opcode::OP_VIEW, {ubTensor2}, {output2});
     auto view_Attr2 = std::make_shared<ViewOpAttribute>(view_offset2);
     view_op2.SetOpAttribute(view_Attr2);
 
@@ -767,7 +801,8 @@ TEST_F(TestSplitReshapePass, TestUpdateForBeCovered) {
     std::vector<int64_t> newCopyOutTileShape = {kNumTwo, kNumTwo, kNumTwo};
     para.alignedShape = {kNumTwo, kNumTwo, kNumTwo};
     para.overlaps = {input};
-    para.newOverlaps = {std::make_shared<LogicalTensor>(*currFunctionPtr, input->tensor, newCopyOutTileOffset, newCopyOutTileShape, validShape)};
+    para.newOverlaps = {std::make_shared<LogicalTensor>(
+        *currFunctionPtr, input->tensor, newCopyOutTileOffset, newCopyOutTileShape, validShape)};
     para.reshapeSource = ubTensor1;
     para.input = ubTensor2;
     para.output = output1;
@@ -784,21 +819,21 @@ TEST_F(TestSplitReshapePass, TestUpdateForBeCovered) {
     para.newInputViewTileOffset = {kNumZero, kNumOne, kNumZero};
     EXPECT_EQ(pass.ProcessOnetoMulti(*currFunctionPtr, view_op2, para), SUCCESS);
 
-    EXPECT_EQ(pass.reshapes.size(), kSizeOne);
-    auto newReshape = pass.reshapes.begin()->second;
+    EXPECT_EQ(pass.reshapes_.size(), kSizeOne);
+    auto newReshape = pass.reshapes_.begin()->second;
     auto newReshapeResource = newReshape->input;
     EXPECT_NE(newReshape->output, ubTensor2);
     EXPECT_EQ(newReshape->output->GetMemoryTypeOriginal(), MemoryType::MEM_UNKNOWN);
-    EXPECT_EQ(pass.assembles.size(), kSizeOne);
-    auto newAssemble = pass.assembles.begin();
+    auto viewOpAttribute1 = dynamic_cast<ViewOpAttribute*>(view_op1.GetOpAttribute().get());
+    EXPECT_EQ(viewOpAttribute1->GetFromOffset(), view_offset1);
+    auto viewOpAttribute2 = dynamic_cast<ViewOpAttribute*>(view_op2.GetOpAttribute().get());
+    EXPECT_EQ(viewOpAttribute2->GetFromOffset(), view_offset2);
+    EXPECT_EQ(pass.assembles_.size(), kSizeOne);
+    auto newAssemble = pass.assembles_.begin();
     EXPECT_EQ(newAssemble->from, MemoryType::MEM_DEVICE_DDR);
     EXPECT_EQ(newAssemble->toOffset, offset1);
     EXPECT_EQ(newAssemble->input, input);
     EXPECT_EQ(newAssemble->output, newReshapeResource);
-    auto viewOpAttribute1 = dynamic_cast<ViewOpAttribute *>(view_op1.GetOpAttribute().get());
-    EXPECT_EQ(viewOpAttribute1->GetFromOffset(), view_offset1);
-    auto viewOpAttribute2 = dynamic_cast<ViewOpAttribute *>(view_op2.GetOpAttribute().get());
-    EXPECT_EQ(viewOpAttribute2->GetFromOffset(), view_offset2);
 }
 
 /*
@@ -806,12 +841,14 @@ TEST_F(TestSplitReshapePass, TestUpdateForBeCovered) {
 rawShape = {2, 2, 2}
 {2, 2, 2}(ddr) -> assemble -> {2, 2, 2} -> reshape -> {2, 4}(unknown) -> view -> {2, 2}(ddr)
                                                                       -> view -> {2, 2}(ddr)
-                                            {a, 4}                                                                   {a, 2}/{b, 0}
-{2, 2, 2}(ddr) -> assemble -> {2, 2, 2} -> reshape -> {2, 4}(unknown) -> view -> {2, 2}
+                                            {a, 4}                                                                   {a,
+2}/{b, 0} {2, 2, 2}(ddr) -> assemble -> {2, 2, 2} -> reshape -> {2, 4}(unknown) -> view -> {2, 2}
                                                                       -> view -> {2, 2}
 */
-TEST_F(TestSplitReshapePass, TestDynUpdateForBeCovered) {
-    auto currFunctionPtr = std::make_shared<Function>(Program::GetInstance(), "TestReshapeSplit", "TestReshapeSplit", nullptr);
+TEST_F(TestSplitReshapePass, TestDynUpdateForBeCovered)
+{
+    auto currFunctionPtr =
+        std::make_shared<Function>(Program::GetInstance(), "TestReshapeSplit", "TestReshapeSplit", nullptr);
     EXPECT_TRUE(currFunctionPtr != nullptr);
     // Prepare the graph
     std::vector<int64_t> shape1 = {kNumTwo, kNumTwo, kNumTwo};
@@ -835,14 +872,14 @@ TEST_F(TestSplitReshapePass, TestDynUpdateForBeCovered) {
     auto output2 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape3);
     output2->SetMemoryTypeOriginal(MemoryType::MEM_DEVICE_DDR, false);
 
-    auto &assemble_op = currFunctionPtr->AddOperation(Opcode::OP_ASSEMBLE, {input}, {ubTensor1});
+    auto& assemble_op = currFunctionPtr->AddOperation(Opcode::OP_ASSEMBLE, {input}, {ubTensor1});
     auto assemble_Attr = std::make_shared<AssembleOpAttribute>(MEM_DEVICE_DDR, offset1);
     assemble_op.SetOpAttribute(assemble_Attr);
     currFunctionPtr->AddOperation(Opcode::OP_RESHAPE, {ubTensor1}, {ubTensor2});
-    auto &view_op1 = currFunctionPtr->AddOperation(Opcode::OP_VIEW, {ubTensor2}, {output1});
+    auto& view_op1 = currFunctionPtr->AddOperation(Opcode::OP_VIEW, {ubTensor2}, {output1});
     auto view_Attr1 = std::make_shared<ViewOpAttribute>(view_offset1);
     view_op1.SetOpAttribute(view_Attr1);
-    auto &view_op2 = currFunctionPtr->AddOperation(Opcode::OP_VIEW, {ubTensor2}, {output2});
+    auto& view_op2 = currFunctionPtr->AddOperation(Opcode::OP_VIEW, {ubTensor2}, {output2});
     auto view_Attr2 = std::make_shared<ViewOpAttribute>(view_offset2);
     view_op2.SetOpAttribute(view_Attr2);
 
@@ -852,7 +889,8 @@ TEST_F(TestSplitReshapePass, TestDynUpdateForBeCovered) {
     std::vector<int64_t> newCopyOutTileShape = {kNumTwo, kNumTwo, kNumTwo};
     para.alignedShape = {kNumTwo, kNumTwo, kNumTwo};
     para.overlaps = {input};
-    auto newOverlap = std::make_shared<LogicalTensor>(*currFunctionPtr, input->tensor, newCopyOutTileOffset, newCopyOutTileShape);
+    auto newOverlap =
+        std::make_shared<LogicalTensor>(*currFunctionPtr, input->tensor, newCopyOutTileOffset, newCopyOutTileShape);
     para.newOverlaps = {newOverlap};
     para.reshapeSource = ubTensor1;
     para.input = ubTensor2;
@@ -875,8 +913,8 @@ TEST_F(TestSplitReshapePass, TestDynUpdateForBeCovered) {
     EXPECT_EQ(pass.ProcessOnetoMulti(*currFunctionPtr, view_op2, para), SUCCESS);
 
     std::vector<SymbolicScalar> expectShape = {SymbolicScalar("a") * 1, kNumFour};
-    EXPECT_EQ(pass.reshapes.size(), kSizeOne);
-    auto newReshape = pass.reshapes.begin()->second;
+    EXPECT_EQ(pass.reshapes_.size(), kSizeOne);
+    auto newReshape = pass.reshapes_.begin()->second;
     auto newReshapeResource = newReshape->input;
     EXPECT_NE(newReshape->output, ubTensor2);
     auto reshapeOutput = newReshape->output;
@@ -884,29 +922,25 @@ TEST_F(TestSplitReshapePass, TestDynUpdateForBeCovered) {
     EXPECT_EQ(newReshape->dynValidShapes[0].size(), kSizeTwo);
     EXPECT_EQ(newReshape->dynValidShapes[1].size(), kSizeTwo);
     std::vector<std::string> expectValidShape1 = {
-        "(RUNTIME_GetViewValidShapeDim(a,0,2)*RUNTIME_Ne(RUNTIME_GetViewValidShapeDim(a,0,2), 0))",
-        "2"
-    };
+        "(RUNTIME_GetViewValidShapeDim(a,0,2)*RUNTIME_Ne(RUNTIME_GetViewValidShapeDim(a,0,2), 0))", "2"};
     for (size_t i = 0; i < kSizeTwo; ++i) {
         EXPECT_EQ(newReshape->dynValidShapes[0][i].Dump(), expectValidShape1[i]);
     }
     std::vector<std::string> expectValidShape2 = {
-        "(RUNTIME_GetViewValidShapeDim(a,0,2)*RUNTIME_Ne(RUNTIME_GetViewValidShapeDim(a,0,2), 0))",
-        "4"
-    };
+        "(RUNTIME_GetViewValidShapeDim(a,0,2)*RUNTIME_Ne(RUNTIME_GetViewValidShapeDim(a,0,2), 0))", "4"};
     for (size_t i = 0; i < kSizeTwo; ++i) {
         EXPECT_EQ(newReshape->dynValidShapes[1][i].Dump(), expectValidShape2[i]);
     }
     EXPECT_EQ(reshapeOutput->GetMemoryTypeOriginal(), MemoryType::MEM_UNKNOWN);
-    EXPECT_EQ(pass.assembles.size(), kSizeOne);
-    auto newAssemble = pass.assembles.begin();
+    EXPECT_EQ(pass.assembles_.size(), kSizeOne);
+    auto newAssemble = pass.assembles_.begin();
     EXPECT_EQ(newAssemble->from, MemoryType::MEM_DEVICE_DDR);
     EXPECT_EQ(newAssemble->toOffset, offset1);
     EXPECT_EQ(newAssemble->input, input);
     EXPECT_EQ(newAssemble->output, newReshapeResource);
-    auto viewOpAttribute1 = dynamic_cast<ViewOpAttribute *>(view_op1.GetOpAttribute().get());
+    auto viewOpAttribute1 = dynamic_cast<ViewOpAttribute*>(view_op1.GetOpAttribute().get());
     EXPECT_EQ(viewOpAttribute1->GetFromOffset(), view_offset1);
-    auto viewOpAttribute2 = dynamic_cast<ViewOpAttribute *>(view_op2.GetOpAttribute().get());
+    auto viewOpAttribute2 = dynamic_cast<ViewOpAttribute*>(view_op2.GetOpAttribute().get());
     EXPECT_EQ(viewOpAttribute2->GetFromOffset(), view_offset2);
 }
 
@@ -918,8 +952,10 @@ rawShape = {2, 4}
 {2, 2}(ddr) -> {2, 4}(unknown) -> reshape -> {2, 2, 2}(ddr) -> view -> {2, 2}
 {2, 2}(ddr) ->
 */
-TEST_F(TestSplitReshapePass, TestUpdateForPerfectlyMatchWithAll) {
-    auto currFunctionPtr = std::make_shared<Function>(Program::GetInstance(), "TestReshapeSplit", "TestReshapeSplit", nullptr);
+TEST_F(TestSplitReshapePass, TestUpdateForPerfectlyMatchWithAll)
+{
+    auto currFunctionPtr =
+        std::make_shared<Function>(Program::GetInstance(), "TestReshapeSplit", "TestReshapeSplit", nullptr);
     EXPECT_TRUE(currFunctionPtr != nullptr);
     // Prepare the graph
     std::vector<int64_t> shape1 = {kNumTwo, kNumFour};
@@ -941,14 +977,14 @@ TEST_F(TestSplitReshapePass, TestUpdateForPerfectlyMatchWithAll) {
     auto output = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape3);
     output->SetMemoryTypeOriginal(MemoryType::MEM_DEVICE_DDR, false);
 
-    auto &assemble_op1 = currFunctionPtr->AddOperation(Opcode::OP_ASSEMBLE, {input1}, {ubTensor1});
+    auto& assemble_op1 = currFunctionPtr->AddOperation(Opcode::OP_ASSEMBLE, {input1}, {ubTensor1});
     auto assemble_Attr1 = std::make_shared<AssembleOpAttribute>(MEM_DEVICE_DDR, offset1);
     assemble_op1.SetOpAttribute(assemble_Attr1);
-    auto &assemble_op2 = currFunctionPtr->AddOperation(Opcode::OP_ASSEMBLE, {input2}, {ubTensor1});
+    auto& assemble_op2 = currFunctionPtr->AddOperation(Opcode::OP_ASSEMBLE, {input2}, {ubTensor1});
     auto assemble_Attr2 = std::make_shared<AssembleOpAttribute>(MEM_DEVICE_DDR, offset2);
     assemble_op2.SetOpAttribute(assemble_Attr2);
     currFunctionPtr->AddOperation(Opcode::OP_RESHAPE, {ubTensor1}, {ubTensor2});
-    auto &view_op = currFunctionPtr->AddOperation(Opcode::OP_VIEW, {ubTensor2}, {output});
+    auto& view_op = currFunctionPtr->AddOperation(Opcode::OP_VIEW, {ubTensor2}, {output});
     auto view_Attr = std::make_shared<ViewOpAttribute>(view_offset);
     view_op.SetOpAttribute(view_Attr);
 
@@ -960,10 +996,12 @@ TEST_F(TestSplitReshapePass, TestUpdateForPerfectlyMatchWithAll) {
     para.overlaps = {input1, input2};
     std::vector<int64_t> newInput1TileOffset = {kNumZero, kNumZero, kNumZero};
     std::vector<int64_t> newInput1TileShape = {kNumTwo, kNumOne, kNumTwo};
-    auto newInput1 = std::make_shared<LogicalTensor>(*currFunctionPtr, input1->tensor, newInput1TileOffset, newInput1TileShape, validShape);
+    auto newInput1 = std::make_shared<LogicalTensor>(
+        *currFunctionPtr, input1->tensor, newInput1TileOffset, newInput1TileShape, validShape);
     std::vector<int64_t> newInput2TileOffset = {kNumZero, kNumOne, kNumZero};
     std::vector<int64_t> newInput2TileShape = {kNumTwo, kNumOne, kNumTwo};
-    auto newInput2 = std::make_shared<LogicalTensor>(*currFunctionPtr, input2->tensor, newInput2TileOffset, newInput2TileShape, validShape);
+    auto newInput2 = std::make_shared<LogicalTensor>(
+        *currFunctionPtr, input2->tensor, newInput2TileOffset, newInput2TileShape, validShape);
     para.newOverlaps = {newInput1, newInput2};
     para.reshapeSource = ubTensor1;
     para.input = ubTensor2;
@@ -974,15 +1012,15 @@ TEST_F(TestSplitReshapePass, TestUpdateForPerfectlyMatchWithAll) {
     para.inputView = inputView;
     EXPECT_EQ(pass.CollectCopyOut(*currFunctionPtr), SUCCESS);
     EXPECT_EQ(pass.ProcessMultitoOne(*currFunctionPtr, view_op, para), SUCCESS);
-    EXPECT_EQ(pass.redundantViewops.size(), kSizeZero);
-    EXPECT_EQ(pass.reshapes.size(), kSizeOne);
-    auto reshape = pass.reshapes.begin()->second;
+    EXPECT_EQ(pass.redundantViewops_.size(), kSizeZero);
+    EXPECT_EQ(pass.reshapes_.size(), kSizeOne);
+    auto reshape = pass.reshapes_.begin()->second;
     auto newReshapeSource = reshape->input;
     auto newReshapeOutput = view_op.GetInputOperand(kSizeZero);
     EXPECT_EQ(reshape->output, newReshapeOutput);
     EXPECT_EQ(newReshapeSource->GetMemoryTypeOriginal(), MemoryType::MEM_UNKNOWN);
     EXPECT_EQ(newReshapeOutput->GetMemoryTypeOriginal(), MemoryType::MEM_DEVICE_DDR);
-    auto viewOpAttribute = dynamic_cast<ViewOpAttribute *>(view_op.GetOpAttribute().get());
+    auto viewOpAttribute = dynamic_cast<ViewOpAttribute*>(view_op.GetOpAttribute().get());
     EXPECT_EQ(viewOpAttribute->GetFromOffset(), inputView->offset);
 }
 
@@ -995,8 +1033,10 @@ rawShape = {2, 4}
 {2, 2}(ddr) -> {2, 4}(unknown) -> reshape -> {2, 2, 2}(ddr) -> view -> {2, 2}
 {2, 2}(ddr) ->
 */
-TEST_F(TestSplitReshapePass, TestDynUpdateForPerfectlyMatchWithAll) {
-    auto currFunctionPtr = std::make_shared<Function>(Program::GetInstance(), "TestReshapeSplit", "TestReshapeSplit", nullptr);
+TEST_F(TestSplitReshapePass, TestDynUpdateForPerfectlyMatchWithAll)
+{
+    auto currFunctionPtr =
+        std::make_shared<Function>(Program::GetInstance(), "TestReshapeSplit", "TestReshapeSplit", nullptr);
     EXPECT_TRUE(currFunctionPtr != nullptr);
     // Prepare the graph
     std::vector<int64_t> shape1 = {kNumTwo, kNumFour};
@@ -1019,14 +1059,14 @@ TEST_F(TestSplitReshapePass, TestDynUpdateForPerfectlyMatchWithAll) {
     auto output = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape3);
     output->SetMemoryTypeOriginal(MemoryType::MEM_DEVICE_DDR, false);
 
-    auto &assemble_op1 = currFunctionPtr->AddOperation(Opcode::OP_ASSEMBLE, {input1}, {ubTensor1});
+    auto& assemble_op1 = currFunctionPtr->AddOperation(Opcode::OP_ASSEMBLE, {input1}, {ubTensor1});
     auto assemble_Attr1 = std::make_shared<AssembleOpAttribute>(MEM_DEVICE_DDR, offset1);
     assemble_op1.SetOpAttribute(assemble_Attr1);
-    auto &assemble_op2 = currFunctionPtr->AddOperation(Opcode::OP_ASSEMBLE, {input2}, {ubTensor1});
+    auto& assemble_op2 = currFunctionPtr->AddOperation(Opcode::OP_ASSEMBLE, {input2}, {ubTensor1});
     auto assemble_Attr2 = std::make_shared<AssembleOpAttribute>(MEM_DEVICE_DDR, offset2);
     assemble_op2.SetOpAttribute(assemble_Attr2);
     currFunctionPtr->AddOperation(Opcode::OP_RESHAPE, {ubTensor1}, {ubTensor2});
-    auto &view_op = currFunctionPtr->AddOperation(Opcode::OP_VIEW, {ubTensor2}, {output});
+    auto& view_op = currFunctionPtr->AddOperation(Opcode::OP_VIEW, {ubTensor2}, {output});
     auto view_Attr = std::make_shared<ViewOpAttribute>(view_offset);
     view_op.SetOpAttribute(view_Attr);
 
@@ -1036,12 +1076,14 @@ TEST_F(TestSplitReshapePass, TestDynUpdateForPerfectlyMatchWithAll) {
     para.overlaps = {input1, input2};
     std::vector<int64_t> newInput1TileOffset = {kNumZero, kNumZero, kNumZero};
     std::vector<int64_t> newInput1TileShape = {kNumTwo, kNumOne, kNumTwo};
-    auto newInput1 = std::make_shared<LogicalTensor>(*currFunctionPtr, input1->tensor, newInput1TileOffset, newInput1TileShape);
+    auto newInput1 =
+        std::make_shared<LogicalTensor>(*currFunctionPtr, input1->tensor, newInput1TileOffset, newInput1TileShape);
     std::vector<int64_t> newInput2TileOffset = {kNumZero, kNumOne, kNumZero};
     std::vector<int64_t> newInput2TileShape = {kNumTwo, kNumOne, kNumTwo};
     std::vector<SymbolicScalar> newInput2DynOffset = {SymbolicScalar("b"), kNumOne, kNumZero};
     std::vector<SymbolicScalar> newInput2DynShape = {SymbolicScalar("a"), kNumOne, kNumTwo};
-    auto newInput2 = std::make_shared<LogicalTensor>(*currFunctionPtr, input2->tensor, newInput2TileOffset, newInput2TileShape);
+    auto newInput2 =
+        std::make_shared<LogicalTensor>(*currFunctionPtr, input2->tensor, newInput2TileOffset, newInput2TileShape);
     para.newOverlaps = {newInput1, newInput2};
     para.reshapeSource = ubTensor1;
     para.input = ubTensor2;
@@ -1054,16 +1096,13 @@ TEST_F(TestSplitReshapePass, TestDynUpdateForPerfectlyMatchWithAll) {
     para.inputView = inputView;
     EXPECT_EQ(pass.CollectCopyOut(*currFunctionPtr), SUCCESS);
     EXPECT_EQ(pass.ProcessMultitoOne(*currFunctionPtr, view_op, para), SUCCESS);
-    EXPECT_EQ(pass.redundantViewops.size(), kSizeZero);
-    EXPECT_EQ(pass.reshapes.size(), kSizeOne);
-    auto reshape = pass.reshapes.begin()->second;
+    EXPECT_EQ(pass.redundantViewops_.size(), kSizeZero);
+    EXPECT_EQ(pass.reshapes_.size(), kSizeOne);
+    auto reshape = pass.reshapes_.begin()->second;
     EXPECT_EQ(reshape->dynValidShapes.size(), kNumOne);
     EXPECT_EQ(reshape->dynValidShapes[0].size(), kNumThree);
     std::vector<std::string> expectValidShape = {
-        "(RUNTIME_GetViewValidShapeDim(a,0,2)*RUNTIME_Ne(RUNTIME_GetViewValidShapeDim(a,0,2), 0))",
-        "2",
-        "2"
-    };
+        "(RUNTIME_GetViewValidShapeDim(a,0,2)*RUNTIME_Ne(RUNTIME_GetViewValidShapeDim(a,0,2), 0))", "2", "2"};
     for (size_t i = 0; i < kNumThree; ++i) {
         EXPECT_EQ(reshape->dynValidShapes[0][i].Dump(), expectValidShape[i]);
     }
@@ -1072,16 +1111,19 @@ TEST_F(TestSplitReshapePass, TestDynUpdateForPerfectlyMatchWithAll) {
     EXPECT_EQ(reshape->output, newReshapeOutput);
     EXPECT_EQ(newReshapeSource->GetMemoryTypeOriginal(), MemoryType::MEM_UNKNOWN);
     EXPECT_EQ(newReshapeOutput->GetMemoryTypeOriginal(), MemoryType::MEM_DEVICE_DDR);
-    auto viewOpAttribute = dynamic_cast<ViewOpAttribute *>(view_op.GetOpAttribute().get());
+    auto viewOpAttribute = dynamic_cast<ViewOpAttribute*>(view_op.GetOpAttribute().get());
     EXPECT_EQ(viewOpAttribute->GetFromOffset(), inputView->offset);
 }
 
-void RunPassStra(Function &func, const std::string passName) {
-    std::string strategyName = passName + "Strategy";
-    PassManager &passManager = PassManager::Instance();
-    passManager.RegisterStrategy(strategyName, {
-        {passName, passName},
-    });
+void RunPassStra(Function& func, const PassName passName)
+{
+    std::string passNameStr = PassNameStr(passName);
+    std::string strategyName = passNameStr + "Strategy";
+    PassManager& passManager = PassManager::Instance();
+    passManager.RegisterStrategy(
+        strategyName, {
+                          {passNameStr, passName},
+                      });
     EXPECT_EQ(passManager.RunPass(Program::GetInstance(), func, strategyName), SUCCESS);
 }
 
@@ -1097,18 +1139,19 @@ struct CheckReshapeStruct {
     const uint32_t reshapeOpNum;
 };
 
-void CheckOpReshape(Function *func, CheckReshapeStruct expectReshape) {
+void CheckOpReshape(Function* func, CheckReshapeStruct expectReshape)
+{
     int reshapeOp = 0;
-    for (auto &op : func->Operations()) {
+    for (auto& op : func->Operations()) {
         if (op.GetOpcode() == Opcode::OP_RESHAPE) {
             EXPECT_EQ(op.GetInputOperandSize(), kSizeOne);
             auto reshapeInput = op.GetInputOperand(kSizeZero);
             EXPECT_NE(reshapeInput, nullptr);
             EXPECT_EQ(reshapeInput->shape, expectReshape.reshapeInputShape);
             EXPECT_EQ(reshapeInput->GetProducers().size(), expectReshape.reshapeInputProducerSize);
-            for (const auto &producer : reshapeInput->GetProducers()) {
+            for (const auto& producer : reshapeInput->GetProducers()) {
                 EXPECT_EQ(producer->GetOpcode(), Opcode::OP_ASSEMBLE);
-                if (expectReshape.checkProducer){
+                if (expectReshape.checkProducer) {
                     EXPECT_EQ(producer->GetInputOperandSize(), kSizeOne);
                     EXPECT_EQ(producer->GetInputOperand(kSizeZero)->shape, expectReshape.reshapeInputOperandShape);
                 }
@@ -1118,9 +1161,9 @@ void CheckOpReshape(Function *func, CheckReshapeStruct expectReshape) {
             EXPECT_NE(reshapeOutput, nullptr);
             EXPECT_EQ(reshapeOutput->shape, expectReshape.reshapeOutputShape);
             EXPECT_EQ(reshapeOutput->GetConsumers().size(), expectReshape.reshapeOutputProducerSize);
-            for (const auto &consumer : reshapeOutput->GetConsumers()) {
+            for (const auto& consumer : reshapeOutput->GetConsumers()) {
                 EXPECT_EQ(consumer->GetOpcode(), Opcode::OP_VIEW);
-                if (expectReshape.checkConsumer){
+                if (expectReshape.checkConsumer) {
                     EXPECT_EQ(consumer->GetOutputOperandSize(), kSizeOne);
                     EXPECT_EQ(consumer->GetOutputOperand(kSizeZero)->shape, expectReshape.reshapeOutputOperandShape);
                 }
@@ -1143,8 +1186,9 @@ exp -> {2,2,2} -> assemble                         -> view -> {2,2,1,2} -> exp -
 exp -> {2,2,2} -> assemble -> reshape -> {2,2,1,2} -> view -> {2,2,1,2} -> exp -> {2,2,1,2}
 exp -> {2,2,2} -> assemble -> reshape -> {2,2,1,2} -> view -> {2,2,1,2} -> exp -> {2,2,1,2}
 */
-TEST_F(TestSplitReshapePass, TestPerfectlyMatchedSTest) {
-    //Define the shape of the Tensors
+TEST_F(TestSplitReshapePass, TestPerfectlyMatchedSTest)
+{
+    // Define the shape of the Tensors
     std::vector<int64_t> origShape = {kNumTwo, kNumTwo, kNumFour};
     std::vector<int64_t> reshapeShape = {kNumTwo, kNumTwo, kNumOne, kNumFour};
     std::vector<int64_t> tiledShape = {kNumTwo, kNumTwo, kNumTwo, kNumTwo};
@@ -1155,19 +1199,22 @@ TEST_F(TestSplitReshapePass, TestPerfectlyMatchedSTest) {
     Tensor input(DT_FP32, origShape, "input");
     Tensor output(DT_FP32, reshapeShape, "output");
 
-    FUNCTION("STCase1") {
+    FUNCTION("STCase1")
+    {
         Tensor exp = Exp(input);
         Tensor reshape = Reshape(exp, reshapeShape);
         output = Exp(reshape);
     }
 
     Function* func = Program::GetInstance().GetFunctionByRawName("TENSOR_STCase1");
-    
-    RunPassStra(*func, "ExpandFunction");
-    CheckOpReshape(func, CheckReshapeStruct{origShape, kSizeTwo, false, {}, reshapeShape, kSizeTwo, false, {}, kNumOne});
 
-    RunPassStra(*func, "SplitReshape");
-    CheckOpReshape(func, CheckReshapeStruct{tiledorigShape, kSizeOne, false, {}, tiledreshapeShape, kSizeOne, false, {}, kNumTwo});
+    RunPassStra(*func, PassName::EXPAND_FUNCTION);
+    CheckOpReshape(
+        func, CheckReshapeStruct{origShape, kSizeTwo, false, {}, reshapeShape, kSizeTwo, false, {}, kNumOne});
+
+    RunPassStra(*func, PassName::SPLIT_RESHAPE);
+    CheckOpReshape(
+        func, CheckReshapeStruct{tiledorigShape, kSizeOne, false, {}, tiledreshapeShape, kSizeOne, false, {}, kNumTwo});
 }
 
 /*
@@ -1186,8 +1233,9 @@ exp -> {2,2,2} -> assemble -> reshape -> {2,4} -> view -> {2,2} -> exp -> {2,2}
 exp -> {2,2,2} -> assemble -> reshape -> {2,4} -> view -> {2,2} -> exp -> {2,2}
                                                -> view -> {2,2} -> exp -> {2,2}
 */
-TEST_F(TestSplitReshapePass, TestBeCoveredSTest) {
-    //Define the shape of the Tensors
+TEST_F(TestSplitReshapePass, TestBeCoveredSTest)
+{
+    // Define the shape of the Tensors
     std::vector<int64_t> origShape = {kNumFour, kNumTwo, kNumTwo};
     std::vector<int64_t> reshapeShape = {kNumFour, kNumFour};
     std::vector<int64_t> tiledShape = {kNumTwo, kNumTwo, kNumTwo};
@@ -1199,7 +1247,8 @@ TEST_F(TestSplitReshapePass, TestBeCoveredSTest) {
     Tensor input(DT_FP32, origShape, "input");
     Tensor output(DT_FP32, reshapeShape, "output");
 
-    FUNCTION("STCase2") {
+    FUNCTION("STCase2")
+    {
         Tensor exp = Exp(input);
         Tensor reshape = Reshape(exp, reshapeShape);
         output = Exp(reshape);
@@ -1207,11 +1256,14 @@ TEST_F(TestSplitReshapePass, TestBeCoveredSTest) {
 
     Function* func = Program::GetInstance().GetFunctionByRawName("TENSOR_STCase2");
 
-    RunPassStra(*func, "ExpandFunction");
-    CheckOpReshape(func, CheckReshapeStruct{origShape, kSizeTwo, false, {}, reshapeShape, kSizeFour, false, {}, kNumOne});
+    RunPassStra(*func, PassName::EXPAND_FUNCTION);
+    CheckOpReshape(
+        func, CheckReshapeStruct{origShape, kSizeTwo, false, {}, reshapeShape, kSizeFour, false, {}, kNumOne});
 
-    RunPassStra(*func, "SplitReshape");
-    CheckOpReshape(func, CheckReshapeStruct{tiledorigShape, kSizeOne, false, {}, tiledreshapeShape, kSizeTwo, true, tiledviewShape, kNumTwo});
+    RunPassStra(*func, PassName::SPLIT_RESHAPE);
+    CheckOpReshape(
+        func, CheckReshapeStruct{
+                  tiledorigShape, kSizeOne, false, {}, tiledreshapeShape, kSizeTwo, true, tiledviewShape, kNumTwo});
 }
 
 /*
@@ -1230,8 +1282,9 @@ exp -> {2,2,2} -> assemble -> reshape -> {2,2,2,2} -> view -> {2,2,2,2} -> exp -
 exp -> {2,2,2} -> assemble -> reshape -> {2,2,2,2} -> view -> {2,2,2,2} -> exp -> {2,2,2,2}
 exp -> {2,2,2} -> assemble ->
 */
-TEST_F(TestSplitReshapePass, TestPerfectlyMatchedWithallSTest) {
-    //Define the shape of the Tensors
+TEST_F(TestSplitReshapePass, TestPerfectlyMatchedWithallSTest)
+{
+    // Define the shape of the Tensors
     std::vector<int64_t> origShape = {kNumTwo, kNumFour, kNumFour};
     std::vector<int64_t> reshapeShape = {kNumTwo, kNumFour, kNumTwo, kNumTwo};
     std::vector<int64_t> tiledShape = {kNumTwo, kNumTwo, kNumTwo, kNumTwo};
@@ -1243,7 +1296,8 @@ TEST_F(TestSplitReshapePass, TestPerfectlyMatchedWithallSTest) {
     Tensor input(DT_FP32, origShape, "input");
     Tensor output(DT_FP32, reshapeShape, "output");
 
-    FUNCTION("STCase3") {
+    FUNCTION("STCase3")
+    {
         Tensor exp = Exp(input);
         Tensor reshape = Reshape(exp, reshapeShape);
         output = Exp(reshape);
@@ -1251,25 +1305,32 @@ TEST_F(TestSplitReshapePass, TestPerfectlyMatchedWithallSTest) {
 
     Function* func = Program::GetInstance().GetFunctionByRawName("TENSOR_STCase3");
 
-    RunPassStra(*func, "ExpandFunction");
-    CheckOpReshape(func, CheckReshapeStruct{origShape, kSizeFour, false, {}, reshapeShape, kSizeTwo, false, {}, kNumOne});
+    RunPassStra(*func, PassName::EXPAND_FUNCTION);
+    CheckOpReshape(
+        func, CheckReshapeStruct{origShape, kSizeFour, false, {}, reshapeShape, kSizeTwo, false, {}, kNumOne});
 
-    RunPassStra(*func, "SplitReshape");
-    CheckOpReshape(func, CheckReshapeStruct{tiledreshapeShape, kSizeTwo, true, tiledassembleShape, tiledviewShape, kSizeOne, true, tiledviewShape, kNumTwo});
+    RunPassStra(*func, PassName::SPLIT_RESHAPE);
+    CheckOpReshape(
+        func, CheckReshapeStruct{
+                  tiledreshapeShape, kSizeTwo, true, tiledassembleShape, tiledviewShape, kSizeOne, true, tiledviewShape,
+                  kNumTwo});
 }
 
-void CollectOperations(std::shared_ptr<Function> func, std::unordered_map<LogicalTensorPtr, int> &inputsWeight, std::unordered_map<LogicalTensorPtr, Operation*> &newAssembles,
-    const uint32_t expectReshapeOp, const uint32_t expectViewOp, int expectAssembleOp){
+void CollectOperations(
+    std::shared_ptr<Function> func, std::unordered_map<LogicalTensorPtr, int>& inputsWeight,
+    std::unordered_map<LogicalTensorPtr, Operation*>& newAssembles, const uint32_t expectReshapeOp,
+    const uint32_t expectViewOp, int expectAssembleOp)
+{
     int reshapeOp = 0;
     int assembleOp = 0;
     int viewOp = 0;
 
-    for (auto &op : func->Operations().DuplicatedOpList()) {
+    for (auto& op : func->Operations().DuplicatedOpList()) {
         if (op->GetOpcode() == Opcode::OP_RESHAPE) {
             reshapeOp++;
         } else if (op->GetOpcode() == Opcode::OP_ASSEMBLE) {
-            for (auto [input, weight] : inputsWeight){
-                if (op->GetInputOperand(kSizeZero) == input){
+            for (auto [input, weight] : inputsWeight) {
+                if (op->GetInputOperand(kSizeZero) == input) {
                     newAssembles[input] = op;
                     assembleOp += weight;
                 }
@@ -1283,17 +1344,23 @@ void CollectOperations(std::shared_ptr<Function> func, std::unordered_map<Logica
     EXPECT_EQ(assembleOp, expectAssembleOp);
 }
 
-void CheckNewAssembles(std::unordered_map<LogicalTensorPtr, Operation*> &newAssembles, std::unordered_map<LogicalTensorPtr, std::vector<int64_t>> &expectAssembleOffset,
-    std::vector<std::string> &expectAssembleDynShape, std::unordered_map<LogicalTensorPtr, std::vector<std::string>> &expectValidShapes,
-    std::vector<SymbolicScalar> &dynInputShape, LogicalTensors &reshapeOutputs, const uint32_t reshapeOutputSize = kNumFour) {
+void CheckNewAssembles(
+    std::unordered_map<LogicalTensorPtr, Operation*>& newAssembles,
+    std::unordered_map<LogicalTensorPtr, std::vector<int64_t>>& expectAssembleOffset,
+    std::vector<std::string>& expectAssembleDynShape,
+    std::unordered_map<LogicalTensorPtr, std::vector<std::string>>& expectValidShapes,
+    std::vector<SymbolicScalar>& dynInputShape, LogicalTensors& reshapeOutputs,
+    const uint32_t reshapeOutputSize = kNumFour)
+{
     for (auto [input, newAssemble] : newAssembles) {
         EXPECT_NE(newAssemble, nullptr);
-        auto assembleDynValidShape = dynamic_cast<AssembleOpAttribute *>(newAssemble->GetOpAttribute().get())->GetFromDynValidShape();
+        auto assembleDynValidShape =
+            dynamic_cast<AssembleOpAttribute*>(newAssemble->GetOpAttribute().get())->GetFromDynValidShape();
         EXPECT_EQ(assembleDynValidShape.size(), kNumThree);
         for (size_t i = 0; i < kNumThree; ++i) {
             EXPECT_EQ(assembleDynValidShape[i].Dump(), dynInputShape[i].Dump());
         }
-        auto assembleOpAttribute = dynamic_cast<AssembleOpAttribute *>(newAssemble->GetOpAttribute().get());
+        auto assembleOpAttribute = dynamic_cast<AssembleOpAttribute*>(newAssemble->GetOpAttribute().get());
         EXPECT_EQ(assembleOpAttribute->GetToOffset(), expectAssembleOffset[input]);
         auto reshapeSource = newAssemble->GetOutputOperand(kSizeZero);
         std::vector<SymbolicScalar> assembleDynOutput = reshapeSource->GetDynValidShape();
@@ -1316,7 +1383,8 @@ void CheckNewAssembles(std::unordered_map<LogicalTensorPtr, Operation*> &newAsse
     }
 }
 
-LogicalTensors BuildDynPerfectlyMatchFunc(std::shared_ptr<Function> func){
+LogicalTensors BuildDynPerfectlyMatchFunc(std::shared_ptr<Function> func)
+{
     std::vector<int64_t> shape1 = {kNumTwo, kNumTwo, kNumTwo};
     std::vector<int64_t> shape2 = {kNumTwo, kNumTwo, kNumFour};
     std::vector<int64_t> shape3 = {kNumTwo, kNumTwo, kNumOne, kNumFour};
@@ -1343,18 +1411,18 @@ LogicalTensors BuildDynPerfectlyMatchFunc(std::shared_ptr<Function> func){
     auto output2 = std::make_shared<LogicalTensor>(*func, ddrRawTensor2, viewOffset2, shape4);
     output2->SetMemoryTypeOriginal(MemoryType::MEM_DEVICE_DDR, false);
 
-    auto &assemble_op1 = func->AddOperation(Opcode::OP_ASSEMBLE, {input1}, {ubTensor1});
+    auto& assemble_op1 = func->AddOperation(Opcode::OP_ASSEMBLE, {input1}, {ubTensor1});
     auto assemble_Attr1 = std::make_shared<AssembleOpAttribute>(MEM_DEVICE_DDR, assembleOffset1);
     assemble_op1.SetOpAttribute(assemble_Attr1);
-    auto &assemble_op2 = func->AddOperation(Opcode::OP_ASSEMBLE, {input2}, {ubTensor1});
+    auto& assemble_op2 = func->AddOperation(Opcode::OP_ASSEMBLE, {input2}, {ubTensor1});
     auto assemble_Attr2 = std::make_shared<AssembleOpAttribute>(MEM_DEVICE_DDR, assembleOffset2);
     assemble_op2.SetOpAttribute(assemble_Attr2);
-    auto &reshape_op = func->AddOperation(Opcode::OP_RESHAPE, {ubTensor1}, {ubTensor2});
+    auto& reshape_op = func->AddOperation(Opcode::OP_RESHAPE, {ubTensor1}, {ubTensor2});
     reshape_op.SetAttribute(OP_ATTR_PREFIX + "validShape", validShape);
-    auto &view_op1 = func->AddOperation(Opcode::OP_VIEW, {ubTensor2}, {output1});
+    auto& view_op1 = func->AddOperation(Opcode::OP_VIEW, {ubTensor2}, {output1});
     auto view_Attr1 = std::make_shared<ViewOpAttribute>(viewOffset1);
     view_op1.SetOpAttribute(view_Attr1);
-    auto &view_op2 = func->AddOperation(Opcode::OP_VIEW, {ubTensor2}, {output2});
+    auto& view_op2 = func->AddOperation(Opcode::OP_VIEW, {ubTensor2}, {output2});
     auto view_Attr2 = std::make_shared<ViewOpAttribute>(viewOffset2);
     view_op2.SetOpAttribute(view_Attr2);
 
@@ -1379,7 +1447,8 @@ LogicalTensors BuildDynPerfectlyMatchFunc(std::shared_ptr<Function> func){
 {a0,a1,2}             {a0,a1,2}              {a0,a1,1,2}
 {a0,a1,2}             {a0,a1,2}              {a0,a1,1,2}
 */
-TEST_F(TestSplitReshapePass, TestDynPerfectlyMatchSTest) {
+TEST_F(TestSplitReshapePass, TestDynPerfectlyMatchSTest)
+{
     auto func = std::make_shared<Function>(Program::GetInstance(), "TestReshapeSplit", "TestReshapeSplit", nullptr);
     EXPECT_TRUE(func != nullptr);
     std::vector<int64_t> assembleOffset1 = {kNumZero, kNumZero, kNumZero};
@@ -1388,44 +1457,34 @@ TEST_F(TestSplitReshapePass, TestDynPerfectlyMatchSTest) {
 
     auto inputs = BuildDynPerfectlyMatchFunc(func);
 
-    RunPassStra(*func, "SplitReshape");
+    RunPassStra(*func, PassName::SPLIT_RESHAPE);
 
-    std::unordered_map<LogicalTensorPtr, int> inputsWeight = {
-        {inputs[0], 1},
-        {inputs[1], 10}
-    };
-    std::unordered_map<LogicalTensorPtr, Operation*> newAssembles = {
-        {inputs[0], nullptr},
-        {inputs[1], nullptr}
-    };
+    std::unordered_map<LogicalTensorPtr, int> inputsWeight = {{inputs[0], 1}, {inputs[1], 10}};
+    std::unordered_map<LogicalTensorPtr, Operation*> newAssembles = {{inputs[0], nullptr}, {inputs[1], nullptr}};
     CollectOperations(func, inputsWeight, newAssembles, kNumTwo, kNumTwo, 11);
 
     std::unordered_map<LogicalTensorPtr, std::vector<int64_t>> expectAssembleOffset = {
-        {inputs[0], assembleOffset1},
-        {inputs[1], assembleOffset2}
-    };
+        {inputs[0], assembleOffset1}, {inputs[1], assembleOffset2}};
     LogicalTensors reshapeOutputs;
     std::vector<std::string> expectAssembleDynShape = {
-        "RUNTIME_Max(0, (a0*RUNTIME_Ne(a0, 0)))",
-        "RUNTIME_Max(0, (a1*RUNTIME_Ne(a1, 0)))",
-        "2"
-    };
+        "RUNTIME_Max((a0*RUNTIME_Ne(a0, 0)), 0)", "RUNTIME_Max((a1*RUNTIME_Ne(a1, 0)), 0)", "2"};
     std::vector<std::string> expectReshapeDynShape = {
-        "RUNTIME_Max(0, ((RUNTIME_GetViewValidShapeDim(a0,0,2)*RUNTIME_Ne(RUNTIME_GetViewValidShapeDim(a0,0,2), 0))-0))",
-        "RUNTIME_Max(0, ((RUNTIME_GetViewValidShapeDim(a1,0,2)*RUNTIME_Ne(RUNTIME_GetViewValidShapeDim(a1,0,2), 0))-0))",
-        "1",
-        "2"
-    };
+        "RUNTIME_Max(((RUNTIME_GetViewValidShapeDim(a0,0,2)*RUNTIME_Ne(RUNTIME_GetViewValidShapeDim(a0,0,2), 0))-0), "
+        "0)",
+        "RUNTIME_Max(((RUNTIME_GetViewValidShapeDim(a1,0,2)*RUNTIME_Ne(RUNTIME_GetViewValidShapeDim(a1,0,2), 0))-0), "
+        "0)",
+        "1", "2"};
     std::unordered_map<LogicalTensorPtr, std::vector<std::string>> expectValidShapes = {
-        {inputs[0], expectReshapeDynShape},
-        {inputs[1], expectReshapeDynShape}
-    };
-    CheckNewAssembles(newAssembles, expectAssembleOffset, expectAssembleDynShape, expectValidShapes, dynInputShape, reshapeOutputs, kNumFour);
+        {inputs[0], expectReshapeDynShape}, {inputs[1], expectReshapeDynShape}};
+    CheckNewAssembles(
+        newAssembles, expectAssembleOffset, expectAssembleDynShape, expectValidShapes, dynInputShape, reshapeOutputs,
+        kNumFour);
     EXPECT_NE(reshapeOutputs[0], reshapeOutputs[1]);
     EXPECT_NE(*(reshapeOutputs[0]->GetConsumers().begin()), *(reshapeOutputs[1]->GetConsumers().begin()));
 }
 
-LogicalTensors BuildDynBeCoveredFunc(std::shared_ptr<Function> func){
+LogicalTensors BuildDynBeCoveredFunc(std::shared_ptr<Function> func)
+{
     std::vector<int64_t> shape1 = {kNumTwo, kNumTwo, kNumTwo};
     std::vector<int64_t> shape2 = {kNumTwo, kNumTwo, kNumFour};
     std::vector<int64_t> shape3 = {kNumFour, kNumFour};
@@ -1458,19 +1517,19 @@ LogicalTensors BuildDynBeCoveredFunc(std::shared_ptr<Function> func){
     auto output4 = std::make_shared<LogicalTensor>(*func, ddrRawTensor2, viewOffset4, shape4);
     output4->SetMemoryTypeOriginal(MemoryType::MEM_DEVICE_DDR, false);
 
-    auto &assemble_op1 = func->AddOperation(Opcode::OP_ASSEMBLE, {input1}, {ubTensor1});
+    auto& assemble_op1 = func->AddOperation(Opcode::OP_ASSEMBLE, {input1}, {ubTensor1});
     assemble_op1.SetOpAttribute(std::make_shared<AssembleOpAttribute>(MEM_DEVICE_DDR, assembleOffset1));
-    auto &assemble_op2 = func->AddOperation(Opcode::OP_ASSEMBLE, {input2}, {ubTensor1});
+    auto& assemble_op2 = func->AddOperation(Opcode::OP_ASSEMBLE, {input2}, {ubTensor1});
     assemble_op2.SetOpAttribute(std::make_shared<AssembleOpAttribute>(MEM_DEVICE_DDR, assembleOffset2));
-    auto &reshape_op = func->AddOperation(Opcode::OP_RESHAPE, {ubTensor1}, {ubTensor2});
+    auto& reshape_op = func->AddOperation(Opcode::OP_RESHAPE, {ubTensor1}, {ubTensor2});
     reshape_op.SetAttribute(OP_ATTR_PREFIX + "validShape", validShape);
-    auto &view_op1 = func->AddOperation(Opcode::OP_VIEW, {ubTensor2}, {output1});
+    auto& view_op1 = func->AddOperation(Opcode::OP_VIEW, {ubTensor2}, {output1});
     view_op1.SetOpAttribute(std::make_shared<ViewOpAttribute>(viewOffset1));
-    auto &view_op2 = func->AddOperation(Opcode::OP_VIEW, {ubTensor2}, {output2});
+    auto& view_op2 = func->AddOperation(Opcode::OP_VIEW, {ubTensor2}, {output2});
     view_op2.SetOpAttribute(std::make_shared<ViewOpAttribute>(viewOffset2));
-    auto &view_op3 = func->AddOperation(Opcode::OP_VIEW, {ubTensor2}, {output3});
+    auto& view_op3 = func->AddOperation(Opcode::OP_VIEW, {ubTensor2}, {output3});
     view_op3.SetOpAttribute(std::make_shared<ViewOpAttribute>(viewOffset3));
-    auto &view_op4 = func->AddOperation(Opcode::OP_VIEW, {ubTensor2}, {output4});
+    auto& view_op4 = func->AddOperation(Opcode::OP_VIEW, {ubTensor2}, {output4});
     view_op4.SetOpAttribute(std::make_shared<ViewOpAttribute>(viewOffset4));
 
     func->inCasts_ = {input1, input2};
@@ -1496,7 +1555,8 @@ LogicalTensors BuildDynBeCoveredFunc(std::shared_ptr<Function> func){
 {2,2,a}                {2,2,a}               {4,a}
                    {4, Max(0, GetViewValidShapeDim(a,2,2))}
 */
-TEST_F(TestSplitReshapePass, TestDynBeCoveredSTest) {
+TEST_F(TestSplitReshapePass, TestDynBeCoveredSTest)
+{
     auto func = std::make_shared<Function>(Program::GetInstance(), "TestReshapeSplit", "TestReshapeSplit", nullptr);
     EXPECT_TRUE(func != nullptr);
 
@@ -1505,29 +1565,27 @@ TEST_F(TestSplitReshapePass, TestDynBeCoveredSTest) {
     std::vector<SymbolicScalar> dynInputShape = {kNumTwo, kNumTwo, SymbolicScalar("a")};
 
     auto inputs = BuildDynBeCoveredFunc(func);
-    RunPassStra(*func, "SplitReshape");
+    RunPassStra(*func, PassName::SPLIT_RESHAPE);
 
     std::unordered_map<LogicalTensorPtr, int> inputsWeight = {{inputs[0], 1}, {inputs[1], 10}};
     std::unordered_map<LogicalTensorPtr, Operation*> newAssembles = {{inputs[0], nullptr}, {inputs[1], nullptr}};
     CollectOperations(func, inputsWeight, newAssembles, kNumTwo, kNumFour, 11);
 
     LogicalTensors reshapeOutputs;
-    std::vector<std::string> expectAssembleDynShape = {
-        "2",
-        "2",
-        "RUNTIME_Max(0, (a*RUNTIME_Ne(a, 0)))"
-    };
+    std::vector<std::string> expectAssembleDynShape = {"2", "2", "RUNTIME_Max((a*RUNTIME_Ne(a, 0)), 0)"};
     std::vector<std::string> expectValidShape1 = {
         "4",
-        "RUNTIME_Max(RUNTIME_Max(0, ((RUNTIME_GetViewValidShapeDim(a,0,2)*RUNTIME_Ne(RUNTIME_GetViewValidShapeDim(a,0,2), 0))-0)), ((RUNTIME_GetViewValidShapeDim(a,0,2)*RUNTIME_Ne(RUNTIME_GetViewValidShapeDim(a,0,2), 0))-0))"
-    };
+        "RUNTIME_Max(((RUNTIME_GetViewValidShapeDim(a,0,2)*RUNTIME_Ne(RUNTIME_GetViewValidShapeDim(a,0,2), 0))-0), 0)"};
     std::vector<std::string> expectValidShape2 = {
-        "4",
-        "RUNTIME_Max(RUNTIME_Max(0, (((RUNTIME_GetViewValidShapeDim(a,2,2)+2)*RUNTIME_Ne(RUNTIME_GetViewValidShapeDim(a,2,2), 0))-2)), (((RUNTIME_GetViewValidShapeDim(a,2,2)+2)*RUNTIME_Ne(RUNTIME_GetViewValidShapeDim(a,2,2), 0))-2))"
-    };
-    std::unordered_map<LogicalTensorPtr, std::vector<int64_t>> expectAssembleOffset = {{inputs[0], assembleOffset1}, {inputs[1], assembleOffset2}};
-    std::unordered_map<LogicalTensorPtr, std::vector<std::string>> expectValidShapes = {{inputs[0], expectValidShape1}, {inputs[1], expectValidShape2}};
-    CheckNewAssembles(newAssembles, expectAssembleOffset, expectAssembleDynShape, expectValidShapes, dynInputShape, reshapeOutputs, kNumTwo);
+        "4", "RUNTIME_Max((((RUNTIME_GetViewValidShapeDim(a,2,2)+2)*RUNTIME_Ne(RUNTIME_GetViewValidShapeDim(a,2,2), "
+             "0))-2), 0)"};
+    std::unordered_map<LogicalTensorPtr, std::vector<int64_t>> expectAssembleOffset = {
+        {inputs[0], assembleOffset1}, {inputs[1], assembleOffset2}};
+    std::unordered_map<LogicalTensorPtr, std::vector<std::string>> expectValidShapes = {
+        {inputs[0], expectValidShape1}, {inputs[1], expectValidShape2}};
+    CheckNewAssembles(
+        newAssembles, expectAssembleOffset, expectAssembleDynShape, expectValidShapes, dynInputShape, reshapeOutputs,
+        kNumTwo);
     std::vector<int64_t> expectedShape = {kNumFour, kNumTwo};
     EXPECT_EQ(reshapeOutputs[0]->shape, expectedShape);
     EXPECT_EQ(reshapeOutputs[1]->shape, expectedShape);
@@ -1543,7 +1601,8 @@ TEST_F(TestSplitReshapePass, TestDynBeCoveredSTest) {
     EXPECT_NE(view1, view4);
 }
 
-LogicalTensors BuildDynPerfectlyMatchWithAllFunc(std::shared_ptr<Function> func){
+LogicalTensors BuildDynPerfectlyMatchWithAllFunc(std::shared_ptr<Function> func)
+{
     std::vector<int64_t> shape1 = {kNumTwo, kNumTwo, kNumTwo};
     std::vector<int64_t> shape2 = {kNumTwo, kNumEight, kNumTwo};
     std::vector<int64_t> shape3 = {kNumTwo, kNumFour, kNumTwo, kNumTwo};
@@ -1576,19 +1635,19 @@ LogicalTensors BuildDynPerfectlyMatchWithAllFunc(std::shared_ptr<Function> func)
     auto output2 = std::make_shared<LogicalTensor>(*func, ddrRawTensor2, viewOffset2, shape4);
     output2->SetMemoryTypeOriginal(MemoryType::MEM_DEVICE_DDR, false);
 
-    auto &assemble_op1 = func->AddOperation(Opcode::OP_ASSEMBLE, {input1}, {ubTensor1});
+    auto& assemble_op1 = func->AddOperation(Opcode::OP_ASSEMBLE, {input1}, {ubTensor1});
     assemble_op1.SetOpAttribute(std::make_shared<AssembleOpAttribute>(MEM_DEVICE_DDR, assembleOffset1));
-    auto &assemble_op2 = func->AddOperation(Opcode::OP_ASSEMBLE, {input2}, {ubTensor1});
+    auto& assemble_op2 = func->AddOperation(Opcode::OP_ASSEMBLE, {input2}, {ubTensor1});
     assemble_op2.SetOpAttribute(std::make_shared<AssembleOpAttribute>(MEM_DEVICE_DDR, assembleOffset2));
-    auto &assemble_op3 = func->AddOperation(Opcode::OP_ASSEMBLE, {input3}, {ubTensor1});
+    auto& assemble_op3 = func->AddOperation(Opcode::OP_ASSEMBLE, {input3}, {ubTensor1});
     assemble_op3.SetOpAttribute(std::make_shared<AssembleOpAttribute>(MEM_DEVICE_DDR, assembleOffset3));
-    auto &assemble_op4 = func->AddOperation(Opcode::OP_ASSEMBLE, {input4}, {ubTensor1});
+    auto& assemble_op4 = func->AddOperation(Opcode::OP_ASSEMBLE, {input4}, {ubTensor1});
     assemble_op4.SetOpAttribute(std::make_shared<AssembleOpAttribute>(MEM_DEVICE_DDR, assembleOffset4));
-    auto &reshape_op = func->AddOperation(Opcode::OP_RESHAPE, {ubTensor1}, {ubTensor2});
+    auto& reshape_op = func->AddOperation(Opcode::OP_RESHAPE, {ubTensor1}, {ubTensor2});
     reshape_op.SetAttribute(OP_ATTR_PREFIX + "validShape", validShape);
-    auto &view_op1 = func->AddOperation(Opcode::OP_VIEW, {ubTensor2}, {output1});
+    auto& view_op1 = func->AddOperation(Opcode::OP_VIEW, {ubTensor2}, {output1});
     view_op1.SetOpAttribute(std::make_shared<ViewOpAttribute>(viewOffset1));
-    auto &view_op2 = func->AddOperation(Opcode::OP_VIEW, {ubTensor2}, {output2});
+    auto& view_op2 = func->AddOperation(Opcode::OP_VIEW, {ubTensor2}, {output2});
     view_op2.SetOpAttribute(std::make_shared<ViewOpAttribute>(viewOffset2));
 
     func->inCasts_ = {input1, input2, input3, input4};
@@ -1613,7 +1672,8 @@ LogicalTensors BuildDynPerfectlyMatchWithAllFunc(std::shared_ptr<Function> func)
 {2,2,a}           {2,4,a}         {2,2,2,a}
                         {2,2,2,Max(0, RUNTIME_GetViewValidShapeDim(a,0,2))}
 */
-TEST_F(TestSplitReshapePass, TestDynPerfectlyMatchWithAllSTest) {
+TEST_F(TestSplitReshapePass, TestDynPerfectlyMatchWithAllSTest)
+{
     auto func = std::make_shared<Function>(Program::GetInstance(), "TestReshapeSplit", "TestReshapeSplit", nullptr);
     EXPECT_TRUE(func != nullptr);
 
@@ -1624,52 +1684,116 @@ TEST_F(TestSplitReshapePass, TestDynPerfectlyMatchWithAllSTest) {
     std::vector<SymbolicScalar> dynInputShape = {kNumTwo, kNumTwo, SymbolicScalar("a")};
 
     auto inputs = BuildDynPerfectlyMatchWithAllFunc(func);
-    RunPassStra(*func, "SplitReshape");
+    RunPassStra(*func, PassName::SPLIT_RESHAPE);
 
     std::unordered_map<LogicalTensorPtr, int> inputsWeight = {
-        {inputs[0], 1}, {inputs[1], 10},
-        {inputs[2], 100}, {inputs[3], 1000}
-    };
+        {inputs[0], 1}, {inputs[1], 10}, {inputs[2], 100}, {inputs[3], 1000}};
     std::unordered_map<LogicalTensorPtr, Operation*> newAssembles = {
-        {inputs[0], nullptr}, {inputs[1], nullptr},
-        {inputs[2], nullptr}, {inputs[3], nullptr}
-    };
+        {inputs[0], nullptr}, {inputs[1], nullptr}, {inputs[2], nullptr}, {inputs[3], nullptr}};
     CollectOperations(func, inputsWeight, newAssembles, kNumTwo, kNumTwo, 1111);
 
     std::unordered_map<LogicalTensorPtr, std::vector<int64_t>> expectAssembleOffset = {
-        {inputs[0], assembleOffset1}, {inputs[1], assembleOffset2},
-        {inputs[2], assembleOffset3}, {inputs[3], assembleOffset4}
-    };
+        {inputs[0], assembleOffset1},
+        {inputs[1], assembleOffset2},
+        {inputs[2], assembleOffset3},
+        {inputs[3], assembleOffset4}};
     LogicalTensors reshapeOutputs;
 
-    std::vector<std::string> expectAssembleDynShape = {
-        "2",
-        "4",
-        "RUNTIME_Max(RUNTIME_Max(0, (a*RUNTIME_Ne(a, 0))), (a*RUNTIME_Ne(a, 0)))"
-    };
+    std::vector<std::string> expectAssembleDynShape = {"2", "4", "RUNTIME_Max((a*RUNTIME_Ne(a, 0)), 0)"};
     std::vector<std::string> expectValidShape = {
-        "2",
-        "2",
-        "2",
-        "RUNTIME_Max(0, ((RUNTIME_GetViewValidShapeDim(a,0,2)*RUNTIME_Ne(RUNTIME_GetViewValidShapeDim(a,0,2), 0))-0))"
-    };
+        "2", "2", "2",
+        "RUNTIME_Max(((RUNTIME_GetViewValidShapeDim(a,0,2)*RUNTIME_Ne(RUNTIME_GetViewValidShapeDim(a,0,2), 0))-0), 0)"};
     std::unordered_map<LogicalTensorPtr, std::vector<std::string>> expectValidShapes = {
-        {inputs[0], expectValidShape}, {inputs[1], expectValidShape},
-        {inputs[2], expectValidShape}, {inputs[3], expectValidShape}
-    };
-    CheckNewAssembles(newAssembles, expectAssembleOffset, expectAssembleDynShape, expectValidShapes, dynInputShape, reshapeOutputs, kNumFour);
-    EXPECT_NE(reshapeOutputs[0], reshapeOutputs[3]);
-    EXPECT_EQ(reshapeOutputs[0]->GetConsumers().size(), kNumOne);
-    EXPECT_EQ(reshapeOutputs[3]->GetConsumers().size(), kNumOne);
-    EXPECT_NE(*(reshapeOutputs[0]->GetConsumers().begin()), *(reshapeOutputs[3]->GetConsumers().begin()));
+        {inputs[0], expectValidShape},
+        {inputs[1], expectValidShape},
+        {inputs[2], expectValidShape},
+        {inputs[3], expectValidShape}};
+    CheckNewAssembles(
+        newAssembles, expectAssembleOffset, expectAssembleDynShape, expectValidShapes, dynInputShape, reshapeOutputs,
+        kNumFour);
+    int eqCount = (reshapeOutputs[0] == reshapeOutputs[1]) + (reshapeOutputs[0] == reshapeOutputs[2]) +
+                  (reshapeOutputs[0] == reshapeOutputs[3]) + (reshapeOutputs[1] == reshapeOutputs[2]) +
+                  (reshapeOutputs[1] == reshapeOutputs[3]) + (reshapeOutputs[2] == reshapeOutputs[3]);
+    const int expectEqCount = 2;
+    EXPECT_EQ(eqCount, expectEqCount); // reshapeOutput共四个，两两相等，两组之间不等，所以预期相等数量为2。
+    for (const auto& outputTensor : reshapeOutputs) {
+        EXPECT_EQ(outputTensor->GetConsumers().size(), kNumOne);
+    }
+}
+
+namespace {
+const int scopeId = 10;
+const std::string keyInt = "key_int";
+const int attrInt = 0;
+const std::string keyBool = "key_bool";
+const bool attrBool = true;
+const std::string keyElement = "key_element";
+const DataType eleDatatype = DT_INT4;
+const int32_t eleValue = 1;
+const Element attrElement = Element(eleDatatype, eleValue);
+const std::string keyInt64 = "key_int64";
+const int64_t attrInt64 = 2;
+const std::string keyCastmode = "key_castmode";
+const CastMode attrCastmode = CAST_FLOOR;
+const std::string keyString = "key_string";
+const std::string attrString = "attr_string";
+const std::string keySymbolicScalar = "key_symbolicScalar";
+const SymbolicScalar attrSymbolicScalar = SymbolicScalar(4);
+} // namespace
+
+// 测试新生成的op是否继承了原op的scopeID和attribute。
+TEST_F(TestSplitReshapePass, TestInheritAttribute)
+{
+    std::vector<int64_t> origShape = {kNumFour, kNumTwo, kNumTwo};
+    std::vector<int64_t> reshapeShape = {kNumFour, kNumFour};
+    std::vector<int64_t> tiledShape = {kNumTwo, kNumTwo, kNumTwo};
+    std::vector<int64_t> tiledorigShape = {kNumTwo, kNumTwo, kNumTwo};
+    std::vector<int64_t> tiledreshapeShape = {kNumTwo, kNumFour};
+    std::vector<int64_t> tiledviewShape = {kNumTwo, kNumTwo};
+    TileShape::Current().SetVecTile(tiledShape);
+    Tensor input(DT_FP32, origShape, "input");
+    Tensor output(DT_FP32, reshapeShape, "output");
+
+    FUNCTION("STCase4")
+    {
+        Tensor exp = Exp(input);
+        Tensor reshape = Reshape(exp, reshapeShape);
+        output = Exp(reshape);
+    }
+
+    Function* func = Program::GetInstance().GetFunctionByRawName("TENSOR_STCase4");
+    RunPassStra(*func, PassName::EXPAND_FUNCTION);
+    for (auto& op : func->Operations()) {
+        op.SetScopeId(scopeId);
+        op.SetAttribute(keyInt, attrInt);
+        op.SetAttribute(keyBool, attrBool);
+        op.SetAttribute(keyElement, attrElement);
+        op.SetAttribute(keyInt64, attrInt64);
+        op.SetAttribute(keyCastmode, attrCastmode);
+        op.SetAttribute(keyString, attrString);
+        op.SetAttribute(keySymbolicScalar, attrSymbolicScalar);
+    }
+    RunPassStra(*func, PassName::SPLIT_RESHAPE);
+    for (const auto& op : func->Operations()) {
+        EXPECT_EQ(scopeId, op.GetScopeId());
+        EXPECT_EQ(attrInt, op.GetIntAttribute(keyInt));
+        EXPECT_EQ(attrBool, op.GetBoolAttribute(keyBool));
+        EXPECT_EQ(eleDatatype, op.GetElementAttribute(keyElement).GetDataType());
+        EXPECT_EQ(eleValue, op.GetElementAttribute(keyElement).GetUnsignedData());
+        EXPECT_EQ(attrInt64, op.GetIntAttribute(keyInt64));
+        EXPECT_EQ(attrCastmode, op.GetCastModeAttribute(keyCastmode));
+        EXPECT_EQ(attrString, op.GetStringAttribute(keyString));
+        EXPECT_EQ(attrSymbolicScalar, op.GetSymbolicScalarAttribute(keySymbolicScalar));
+    }
 }
 
 // check the number of reshape operations
 // return the number of total operations
-int CheckOpNum(Function* func, const uint32_t expectReshapeNum){
+int CheckOpNum(Function* func, const uint32_t expectReshapeNum)
+{
     int reshapeOp = 0;
     int OpNum = 0;
-    for (auto &op : func->Operations()) {
+    for (auto& op : func->Operations()) {
         if (op.GetOpcode() == Opcode::OP_RESHAPE) {
             reshapeOp++;
         }
@@ -1693,8 +1817,9 @@ exp -> {1,1,2,4} -> assemble                      -> view -> {1,4} -> exp -> {1,
                                                   -> view -> {1,4} -> exp -> {1,4}
                                                   -> view -> {1,4} -> exp -> {1,4}
 */
-TEST_F(TestSplitReshapePass, TestExceptionCase1) {
-    //Define the shape of the Tensors
+TEST_F(TestSplitReshapePass, TestExceptionCase1)
+{
+    // Define the shape of the Tensors
     std::vector<int64_t> origShape = {kNumOne, kNumOne, kNumTwo, kNumEight};
     std::vector<int64_t> reshapeShape = {kNumOne, kExpFour};
     std::vector<int64_t> tiledShape1 = {kNumTwo, kNumOne, kNumTwo, kNumFour};
@@ -1703,7 +1828,8 @@ TEST_F(TestSplitReshapePass, TestExceptionCase1) {
     Tensor input(DT_FP32, origShape, "input");
     Tensor output(DT_FP32, reshapeShape, "output");
 
-    FUNCTION("STCase5") {
+    FUNCTION("STCase5")
+    {
         TileShape::Current().SetVecTile(tiledShape1);
         Tensor exp = Exp(input);
         Tensor reshape = Reshape(exp, reshapeShape);
@@ -1713,9 +1839,9 @@ TEST_F(TestSplitReshapePass, TestExceptionCase1) {
 
     Function* func = Program::GetInstance().GetFunctionByRawName("TENSOR_STCase5");
 
-    RunPassStra(*func, "ExpandFunction");
+    RunPassStra(*func, PassName::EXPAND_FUNCTION);
     int OpNum = CheckOpNum(func, kNumOne);
-    RunPassStra(*func, "SplitReshape");
+    RunPassStra(*func, PassName::SPLIT_RESHAPE);
     int AfterOpNum = CheckOpNum(func, kNumOne);
     EXPECT_EQ(AfterOpNum, OpNum);
 }
@@ -1735,8 +1861,9 @@ exp -> {32,2} -> assemble                                -> view -> {32,2} -> ex
 exp -> {32,2} -> assemble                                -> view -> {32,2} -> exp -> {32,2}
 exp -> {32,2} -> assemble                                -> view -> {32,2} -> exp -> {32,2}
 */
-TEST_F(TestSplitReshapePass, TestExceptionCase2) {
-    //Define the shape of the Tensors
+TEST_F(TestSplitReshapePass, TestExceptionCase2)
+{
+    // Define the shape of the Tensors
     std::vector<int64_t> origShape = {kExpSix, kNumSix};
     std::vector<int64_t> reshapeShape = {kNumNineSix, kNumFour};
     std::vector<int64_t> tiledShape = {kExpFive, kNumTwo};
@@ -1745,7 +1872,8 @@ TEST_F(TestSplitReshapePass, TestExceptionCase2) {
     Tensor input(DT_FP32, origShape, "input");
     Tensor output(DT_FP32, reshapeShape, "output");
 
-    FUNCTION("STCase6") {
+    FUNCTION("STCase6")
+    {
         Tensor exp = Exp(input);
         Tensor reshape = Reshape(exp, reshapeShape);
         output = Exp(reshape);
@@ -1753,10 +1881,10 @@ TEST_F(TestSplitReshapePass, TestExceptionCase2) {
 
     Function* func = Program::GetInstance().GetFunctionByRawName("TENSOR_STCase6");
 
-    RunPassStra(*func, "ExpandFunction");
+    RunPassStra(*func, PassName::EXPAND_FUNCTION);
 
     CheckOpNum(func, kNumOne);
-    RunPassStra(*func, "SplitReshape");
+    RunPassStra(*func, PassName::SPLIT_RESHAPE);
     CheckOpNum(func, kNumOne);
 }
 
@@ -1775,8 +1903,9 @@ exp -> {2,4} -> assemble                               -> view -> {4,2} -> exp -
 exp -> {2,4} -> assemble                               -> view -> {4,2} -> exp -> {4,2}
 exp -> {2,4} -> assemble                               -> view -> {4,2} -> exp -> {4,2}
 */
-TEST_F(TestSplitReshapePass, TestExceptionCase3) {
-    //Define the shape of the Tensors
+TEST_F(TestSplitReshapePass, TestExceptionCase3)
+{
+    // Define the shape of the Tensors
     std::vector<int64_t> origShape = {kNumEight, kNumEight};
     std::vector<int64_t> reshapeShape = {kExpFour, kNumFour};
     std::vector<int64_t> tiledShape1 = {kNumTwo, kNumFour};
@@ -1785,7 +1914,8 @@ TEST_F(TestSplitReshapePass, TestExceptionCase3) {
     Tensor input(DT_FP32, origShape, "input");
     Tensor output(DT_FP32, reshapeShape, "output");
 
-    FUNCTION("STCase7") {
+    FUNCTION("STCase7")
+    {
         TileShape::Current().SetVecTile(tiledShape1);
         Tensor exp = Exp(input);
         Tensor reshape = Reshape(exp, reshapeShape);
@@ -1795,10 +1925,10 @@ TEST_F(TestSplitReshapePass, TestExceptionCase3) {
 
     Function* func = Program::GetInstance().GetFunctionByRawName("TENSOR_STCase7");
 
-    RunPassStra(*func, "ExpandFunction");
+    RunPassStra(*func, PassName::EXPAND_FUNCTION);
 
     CheckOpNum(func, kNumOne);
-    RunPassStra(*func, "SplitReshape");
+    RunPassStra(*func, PassName::SPLIT_RESHAPE);
     CheckOpNum(func, kNumOne);
 }
 
@@ -1809,8 +1939,9 @@ splitreshape pass不起作用的场景
 {2,2,2} -> assemble -> {2,2,4} -> reshape -> {2,2,2,2} -> view -> {2,2,1,2}
 {2,2,2} -> assemble                                    -> view -> {2,2,1,2}
 */
-TEST_F(TestSplitReshapePass, TestExceptionCase4) {
-    //Define the shape of the Tensors
+TEST_F(TestSplitReshapePass, TestExceptionCase4)
+{
+    // Define the shape of the Tensors
     auto func = std::make_shared<Function>(Program::GetInstance(), "TestReshapeSplit", "TestReshapeSplit", nullptr);
     EXPECT_TRUE(func != nullptr);
 
@@ -1839,15 +1970,15 @@ TEST_F(TestSplitReshapePass, TestExceptionCase4) {
     auto output2 = std::make_shared<LogicalTensor>(*func, ddrRawTensor2, viewOffset2, shape4);
     output2->SetMemoryTypeOriginal(MemoryType::MEM_DEVICE_DDR, false);
 
-    auto &reshape_op = func->AddOperation(Opcode::OP_RESHAPE, {ubTensor1}, {ubTensor2});
+    auto& reshape_op = func->AddOperation(Opcode::OP_RESHAPE, {ubTensor1}, {ubTensor2});
     reshape_op.SetAttribute(OP_ATTR_PREFIX + "validShape", validShape);
-    auto &view_op1 = func->AddOperation(Opcode::OP_VIEW, {ubTensor2}, {output1});
+    auto& view_op1 = func->AddOperation(Opcode::OP_VIEW, {ubTensor2}, {output1});
     view_op1.SetOpAttribute(std::make_shared<ViewOpAttribute>(viewOffset1));
-    auto &view_op2 = func->AddOperation(Opcode::OP_VIEW, {ubTensor2}, {output2});
+    auto& view_op2 = func->AddOperation(Opcode::OP_VIEW, {ubTensor2}, {output2});
     view_op2.SetOpAttribute(std::make_shared<ViewOpAttribute>(viewOffset2));
-    auto &assemble_op1 = func->AddOperation(Opcode::OP_ASSEMBLE, {input1}, {ubTensor1});
+    auto& assemble_op1 = func->AddOperation(Opcode::OP_ASSEMBLE, {input1}, {ubTensor1});
     assemble_op1.SetOpAttribute(std::make_shared<AssembleOpAttribute>(MEM_DEVICE_DDR, assembleOffset1));
-    auto &assemble_op2 = func->AddOperation(Opcode::OP_ASSEMBLE, {input2}, {ubTensor1});
+    auto& assemble_op2 = func->AddOperation(Opcode::OP_ASSEMBLE, {input2}, {ubTensor1});
     assemble_op2.SetOpAttribute(std::make_shared<AssembleOpAttribute>(MEM_DEVICE_DDR, assembleOffset2));
 
     func->inCasts_.push_back(input1);
@@ -1856,7 +1987,7 @@ TEST_F(TestSplitReshapePass, TestExceptionCase4) {
     func->outCasts_.push_back(output2);
 
     CheckOpNum(func.get(), kNumOne);
-    RunPassStra(*func, "SplitReshape");
+    RunPassStra(*func, PassName::SPLIT_RESHAPE);
     CheckOpNum(func.get(), kNumOne);
 }
 
@@ -1869,8 +2000,9 @@ exp -> {1,4} -> assemble                                   -> view -> {1,1,2,4} 
 exp -> {1,4} -> assemble
 exp -> {1,4} -> assemble
 */
-TEST_F(TestSplitReshapePass, TestExceptionCase5) {
-    //Define the shape of the Tensors
+TEST_F(TestSplitReshapePass, TestExceptionCase5)
+{
+    // Define the shape of the Tensors
     std::vector<int64_t> origShape = {kNumOne, kExpFour};
     std::vector<int64_t> reshapeShape = {kNumOne, kNumOne, kNumTwo, kNumEight};
     std::vector<int64_t> tiledShape1 = {kNumOne, kNumFour};
@@ -1882,7 +2014,8 @@ TEST_F(TestSplitReshapePass, TestExceptionCase5) {
     Tensor input(DT_FP32, origShape, "input");
     Tensor output(DT_FP32, reshapeShape, "output");
 
-    FUNCTION("STCase8") {
+    FUNCTION("STCase8")
+    {
         TileShape::Current().SetVecTile(tiledShape1);
         Tensor exp = Exp(input);
         Tensor reshape = Reshape(exp, reshapeShape);
@@ -1892,11 +2025,300 @@ TEST_F(TestSplitReshapePass, TestExceptionCase5) {
 
     Function* func = Program::GetInstance().GetFunctionByRawName("TENSOR_STCase8");
 
-    RunPassStra(*func, "ExpandFunction");
+    RunPassStra(*func, PassName::EXPAND_FUNCTION);
     int OpNum = CheckOpNum(func, kNumOne);
-    RunPassStra(*func, "SplitReshape");
+    RunPassStra(*func, PassName::SPLIT_RESHAPE);
     int AfterOpNum = CheckOpNum(func, kNumOne);
     EXPECT_EQ(AfterOpNum, OpNum);
 }
+
+TEST_F(TestSplitReshapePass, TestShapeAlignIndexExceeded)
+{
+    auto currFunctionPtr =
+        std::make_shared<Function>(Program::GetInstance(), "TestReshapeSplit", "TestReshapeSplit", nullptr);
+    ASSERT_TRUE(currFunctionPtr != nullptr);
+    SplitReshape pass;
+    // shape1 单维先耗尽：第一轮 i1=0,i2=0 得到 prod1=1,i1=1,i2=1；下一轮 prod1==1&&prod2==1 时 i1>=shape1.size() 触发
+    // line 393
+    std::vector<int64_t> shape1 = {kNumTwo};          // 1 dim
+    std::vector<int64_t> shape2 = {kNumTwo, kNumTwo}; // 2 dims
+    std::vector<int64_t> alignedShape;
+    Status status = pass.ShapeAlign(shape1, shape2, alignedShape);
+    EXPECT_EQ(status, FAILED); // line 393: i1 >= shape1.size() || i2 >= shape2.size()
 }
+
+TEST_F(TestSplitReshapePass, TestRawToAlignUpdateShapeOffsetTailCond)
+{
+    auto currFunctionPtr =
+        std::make_shared<Function>(Program::GetInstance(), "TestReshapeSplit", "TestReshapeSplit", nullptr);
+    ASSERT_TRUE(currFunctionPtr != nullptr);
+    SplitReshape pass;
+    ReshapeTilePara shapePara;
+    std::vector<int64_t> rawShape = {kNumEight};
+    std::vector<int64_t> alignedShape = {kNumTwo, kNumTwo, kNumTwo};
+    std::vector<int64_t> tileOffset = {kNumThree}; // currentOffset=3
+    std::vector<int64_t> tileShape = {kNumTwo};    // currentShape=2, stride becomes 4 -> 3+2>4
+    shapePara = {rawShape, alignedShape, tileOffset, tileShape};
+    std::vector<int64_t> newOffset, newShape;
+    Status status = pass.RawToAlign(shapePara, newOffset, newShape);
+    EXPECT_EQ(status, WARNING); // line 420: currentOffset + currentShape > stride
 }
+
+TEST_F(TestSplitReshapePass, TestRawToAlignUpdateShapeOffsetOffsetNotDivisible)
+{
+    auto currFunctionPtr =
+        std::make_shared<Function>(Program::GetInstance(), "TestReshapeSplit", "TestReshapeSplit", nullptr);
+    ASSERT_TRUE(currFunctionPtr != nullptr);
+    SplitReshape pass;
+    ReshapeTilePara shapePara;
+    std::vector<int64_t> rawShape = {kNumEight};
+    std::vector<int64_t> alignedShape = {kNumTwo, kNumFour};
+    std::vector<int64_t> tileOffset = {kNumThree}; // currentOffset=3, stride becomes 4 -> 3%4!=0
+    std::vector<int64_t> tileShape = {kNumEight};
+    shapePara = {rawShape, alignedShape, tileOffset, tileShape};
+    std::vector<int64_t> newOffset, newShape;
+    Status status = pass.RawToAlign(shapePara, newOffset, newShape);
+    EXPECT_EQ(status, WARNING); // line 426: currentOffset % stride != 0
+}
+
+TEST_F(TestSplitReshapePass, TestRawToAlignUpdateShapeOffsetShapeNotDivisible)
+{
+    auto currFunctionPtr =
+        std::make_shared<Function>(Program::GetInstance(), "TestReshapeSplit", "TestReshapeSplit", nullptr);
+    ASSERT_TRUE(currFunctionPtr != nullptr);
+    SplitReshape pass;
+    ReshapeTilePara shapePara;
+    std::vector<int64_t> rawShape = {kNumEight};
+    std::vector<int64_t> alignedShape = {kNumTwo, kNumFour};
+    std::vector<int64_t> tileOffset = {kNumZero};
+    std::vector<int64_t> tileShape = {kNumSix}; // currentShape=5 would be 5%4!=0; use 6 so first block no, then 6%4!=0
+    shapePara = {rawShape, alignedShape, tileOffset, tileShape};
+    std::vector<int64_t> newOffset, newShape;
+    Status status = pass.RawToAlign(shapePara, newOffset, newShape);
+    EXPECT_EQ(status, WARNING); // line 430: currentShape % stride != 0
+}
+
+TEST_F(TestSplitReshapePass, TestRawToAlignConstructShapeOffsetStrideNotDivisible)
+{
+    auto currFunctionPtr =
+        std::make_shared<Function>(Program::GetInstance(), "TestReshapeSplit", "TestReshapeSplit", nullptr);
+    ASSERT_TRUE(currFunctionPtr != nullptr);
+    SplitReshape pass;
+    ReshapeTilePara shapePara;
+    static const int64_t kNine = 9;
+    std::vector<int64_t> rawShape = {kNine}; // 9 % 2 != 0
+    std::vector<int64_t> alignedShape = {kNumTwo, kNumTwo};
+    std::vector<int64_t> tileOffset = {kNumZero};
+    std::vector<int64_t> tileShape = {kNine};
+    shapePara = {rawShape, alignedShape, tileOffset, tileShape};
+    std::vector<int64_t> newOffset, newShape;
+    Status status = pass.RawToAlign(shapePara, newOffset, newShape);
+    EXPECT_EQ(status, WARNING); // line 454: stride % alignedShape[i] != 0
+}
+
+TEST_F(TestSplitReshapePass, TestRawToAlignShapeOneTileInvalid)
+{
+    auto currFunctionPtr =
+        std::make_shared<Function>(Program::GetInstance(), "TestReshapeSplit", "TestReshapeSplit", nullptr);
+    ASSERT_TRUE(currFunctionPtr != nullptr);
+    SplitReshape pass;
+    ReshapeTilePara shapePara;
+    std::vector<int64_t> rawShape = {kNumOne, kNumEight};
+    std::vector<int64_t> alignedShape = {kNumTwo, kNumTwo, kNumTwo};
+    std::vector<int64_t> tileOffset = {kNumOne, kNumTwo}; // shape[0]=1 but tileOffset[0]=1 (should be 0)
+    std::vector<int64_t> tileShape = {kNumOne, kNumTwo};
+    shapePara = {rawShape, alignedShape, tileOffset, tileShape};
+    std::vector<int64_t> newOffset, newShape;
+    Status status = pass.RawToAlign(shapePara, newOffset, newShape);
+    EXPECT_EQ(status, FAILED); // line 492: Shape[%zu] is 1, but tileOffset/tileShape invalid
+}
+
+TEST_F(TestSplitReshapePass, TestAlignToRawRawShapeZero)
+{
+    auto currFunctionPtr =
+        std::make_shared<Function>(Program::GetInstance(), "TestReshapeSplit", "TestReshapeSplit", nullptr);
+    ASSERT_TRUE(currFunctionPtr != nullptr);
+    SplitReshape pass;
+    ReshapeTilePara shapePara;
+    std::vector<int64_t> alignedShape = {kNumZero, kNumTwo}; // rawShape in AlignToRaw = shapePara.shape
+    std::vector<int64_t> rawShape = {kNumSix};
+    std::vector<int64_t> tileOffset = {kNumZero, kNumZero};
+    std::vector<int64_t> tileShape = {kNumZero, kNumThree};
+    shapePara = {alignedShape, rawShape, tileOffset, tileShape};
+    std::vector<int64_t> newOffset, newShape;
+    Status status = pass.AlignToRaw(shapePara, newOffset, newShape);
+    EXPECT_EQ(status, FAILED); // line 537: rawShape[i] is 0
+}
+
+TEST_F(TestSplitReshapePass, TestAlignToRawStrideNotDivisibleByRawShape)
+{
+    auto currFunctionPtr =
+        std::make_shared<Function>(Program::GetInstance(), "TestReshapeSplit", "TestReshapeSplit", nullptr);
+    ASSERT_TRUE(currFunctionPtr != nullptr);
+    SplitReshape pass;
+    ReshapeTilePara shapePara;
+    std::vector<int64_t> alignedShape = {kNumFour}; // rawShape = [4]
+    std::vector<int64_t> rawShape = {kNumSix};      // newRawshape = [6], stride=6, 6%4!=0
+    std::vector<int64_t> tileOffset = {kNumZero};
+    std::vector<int64_t> tileShape = {kNumFour};
+    shapePara = {alignedShape, rawShape, tileOffset, tileShape};
+    std::vector<int64_t> newOffset, newShape;
+    Status status = pass.AlignToRaw(shapePara, newOffset, newShape);
+    EXPECT_EQ(status, FAILED); // line 541: stride % rawShape[i] != 0
+}
+
+/*
+ * Test CollectCopyOut with input that has CopyOut producer.
+ * After removing CheckProducerCopyOut check, assemble ops whose input has CopyOut producer
+ * should also be collected.
+ * Graph: ubTensor(UB) -> CopyOut -> ddrTensor(DDR) -> Assemble -> ddrTensor2(DDR) -> Reshape -> output
+ * CopyOut: UB -> DDR
+ */
+TEST_F(TestSplitReshapePass, TestCollectCopyOutWithCopyOutProducer)
+{
+    auto currFunctionPtr =
+        std::make_shared<Function>(Program::GetInstance(), "TestReshapeSplit", "TestReshapeSplit", nullptr);
+    ASSERT_TRUE(currFunctionPtr != nullptr);
+
+    std::vector<int64_t> shape = {kNumTwo, kNumFour};
+    std::vector<int64_t> reshapeOutputShape = {kNumTwo, kNumTwo, kNumTwo};
+    std::vector<int64_t> offset = {kNumZero, kNumZero};
+
+    auto ubTensor = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape);
+    ubTensor->SetMemoryTypeOriginal(MemoryType::MEM_UB, false);
+
+    auto ddrRawTensor = std::make_shared<RawTensor>(DT_FP32, shape);
+    auto ddrTensor = std::make_shared<LogicalTensor>(*currFunctionPtr, ddrRawTensor, offset, shape);
+    ddrTensor->SetMemoryTypeOriginal(MemoryType::MEM_DEVICE_DDR, false);
+
+    auto ddrTensor2 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape);
+    ddrTensor2->SetMemoryTypeOriginal(MemoryType::MEM_DEVICE_DDR, false);
+
+    auto reshapeOutput = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, reshapeOutputShape);
+
+    currFunctionPtr->AddOperation(Opcode::OP_COPY_OUT, {ubTensor}, {ddrTensor});
+
+    auto& assembleOp = currFunctionPtr->AddOperation(Opcode::OP_ASSEMBLE, {ddrTensor}, {ddrTensor2});
+    assembleOp.SetOpAttribute(std::make_shared<AssembleOpAttribute>(MEM_DEVICE_DDR, offset));
+
+    auto& reshapeOp = currFunctionPtr->AddOperation(Opcode::OP_RESHAPE, {ddrTensor2}, {reshapeOutput});
+    std::vector<SymbolicScalar> validShape = {kNumTwo, kNumTwo, kNumTwo};
+    reshapeOp.SetAttribute(OP_ATTR_PREFIX + "validShape", validShape);
+
+    SplitReshape pass;
+    EXPECT_EQ(pass.CollectCopyOut(*currFunctionPtr), SUCCESS);
+
+    EXPECT_EQ(pass.assembleOutToInput_.size(), kSizeOne);
+    auto it = pass.assembleOutToInput_.find(ddrTensor2->tensor->rawmagic);
+    EXPECT_NE(it, pass.assembleOutToInput_.end());
+    EXPECT_EQ(it->second.size(), kNumOne);
+    EXPECT_EQ(it->second.count(ddrTensor), kNumOne);
+
+    EXPECT_EQ(pass.mapOffset_.size(), kSizeOne);
+    EXPECT_EQ(pass.mapOffset_[std::make_pair(ddrTensor->magic, ddrTensor2->magic)], offset);
+}
+
+/*
+ * Test SplitReshape with multiple parallel CopyOut->Assemble paths.
+ * Multiple independent UB tensors go through CopyOut->Assemble to different offsets
+ * of the same DDR tensor, then Reshape changes shape from [6,4] to [3,8],
+ * followed by multiple Views from different offsets, each consumed by ADDS.
+ */
+struct MultipleParallelCopyOutAssembleShapes {
+    std::vector<int64_t> ubShape{kNumTwo, kNumFour};
+    std::vector<int64_t> ddrBigShape{kNumSix, kNumFour};
+    std::vector<int64_t> reshapeShape{kNumThree, kNumEight};
+    std::vector<int64_t> viewOutShape{kNumOne, kNumEight};
+    std::vector<std::vector<int64_t>> assembleOffsets{{kNumZero, kNumZero}, {kNumTwo, kNumZero}, {kNumFour, kNumZero}};
+    std::vector<std::vector<int64_t>> viewOffsets{{kNumZero, kNumZero}, {kNumOne, kNumZero}, {kNumTwo, kNumZero}};
+};
+
+void BuildMultipleParallelCopyOutAssembleGraph(
+    std::shared_ptr<Function>& func, const MultipleParallelCopyOutAssembleShapes& shapes,
+    std::vector<std::shared_ptr<LogicalTensor>>& inputs, std::vector<std::shared_ptr<LogicalTensor>>& outputs)
+{
+    auto sharedDdrRawTensor = std::make_shared<RawTensor>(DT_FP32, shapes.ddrBigShape);
+    std::vector<std::shared_ptr<LogicalTensor>> ddrTensors;
+    for (size_t i = 0; i < kNumThree; i++) {
+        auto input = std::make_shared<LogicalTensor>(*func, DT_FP32, shapes.ubShape);
+        input->SetMemoryTypeOriginal(MemoryType::MEM_UB, false);
+        inputs.push_back(input);
+        auto ddrTensor =
+            std::make_shared<LogicalTensor>(*func, sharedDdrRawTensor, shapes.assembleOffsets[i], shapes.ubShape);
+        ddrTensor->SetMemoryTypeOriginal(MemoryType::MEM_DEVICE_DDR, false);
+        ddrTensors.push_back(ddrTensor);
+        func->AddOperation(Opcode::OP_COPY_OUT, {input}, {ddrTensor});
+    }
+    auto ddrBigTensor = std::make_shared<LogicalTensor>(*func, DT_FP32, shapes.ddrBigShape);
+    ddrBigTensor->SetMemoryTypeOriginal(MemoryType::MEM_DEVICE_DDR, false);
+    for (size_t i = 0; i < kNumThree; i++) {
+        auto& assembleOp = func->AddOperation(Opcode::OP_ASSEMBLE, {ddrTensors[i]}, {ddrBigTensor});
+        assembleOp.SetOpAttribute(std::make_shared<AssembleOpAttribute>(MEM_DEVICE_DDR, shapes.assembleOffsets[i]));
+    }
+    auto ddrReshape = std::make_shared<LogicalTensor>(*func, DT_FP32, shapes.reshapeShape);
+    ddrReshape->SetMemoryTypeOriginal(MemoryType::MEM_DEVICE_DDR, false);
+    auto& reshapeOp = func->AddOperation(Opcode::OP_RESHAPE, {ddrBigTensor}, {ddrReshape});
+    reshapeOp.SetAttribute(OP_ATTR_PREFIX + "validShape", std::vector<SymbolicScalar>{kNumThree, kNumEight});
+    for (size_t i = 0; i < kNumThree; i++) {
+        auto ubOut = std::make_shared<LogicalTensor>(*func, DT_FP32, shapes.viewOutShape);
+        ubOut->SetMemoryTypeOriginal(MemoryType::MEM_UB, false);
+        auto& viewOp = func->AddOperation(Opcode::OP_VIEW, {ddrReshape}, {ubOut});
+        viewOp.SetOpAttribute(std::make_shared<ViewOpAttribute>(shapes.viewOffsets[i]));
+        auto output = std::make_shared<LogicalTensor>(*func, DT_FP32, shapes.viewOutShape);
+        func->AddOperation(Opcode::OP_ADDS, {ubOut}, {output});
+        outputs.push_back(output);
+    }
+    func->inCasts_ = inputs;
+    func->outCasts_ = outputs;
+}
+
+void VerifyMultipleParallelCopyOutAssembleSplit(
+    std::shared_ptr<Function>& func, const std::vector<int64_t>& expectedInputShape,
+    const std::vector<int64_t>& expectedOutputShape, int expectedCount)
+{
+    int reshapeOpCount = 0;
+    for (auto& op : func->Operations()) {
+        if (op.GetOpcode() == Opcode::OP_RESHAPE) {
+            reshapeOpCount++;
+            auto reshapeInput = op.GetInputOperand(kSizeZero);
+            EXPECT_NE(reshapeInput, nullptr);
+            EXPECT_EQ(reshapeInput->shape, expectedInputShape);
+            auto reshapeOutput = op.GetOutputOperand(kSizeZero);
+            EXPECT_NE(reshapeOutput, nullptr);
+            EXPECT_EQ(reshapeOutput->shape, expectedOutputShape);
+            EXPECT_EQ(reshapeInput->GetProducers().size(), kSizeOne);
+            for (const auto& producer : reshapeInput->GetProducers()) {
+                EXPECT_EQ(producer->GetOpcode(), Opcode::OP_ASSEMBLE);
+            }
+            EXPECT_GE(reshapeOutput->GetConsumers().size(), kSizeOne);
+        }
+    }
+    EXPECT_EQ(reshapeOpCount, expectedCount);
+}
+
+TEST_F(TestSplitReshapePass, TestSplitReshapeWithMultipleParallelCopyOutAssemble)
+{
+    auto func = std::make_shared<Function>(Program::GetInstance(), "TestReshapeSplit", "TestReshapeSplit", nullptr);
+    ASSERT_TRUE(func != nullptr);
+
+    MultipleParallelCopyOutAssembleShapes shapes;
+    std::vector<std::shared_ptr<LogicalTensor>> inputs;
+    std::vector<std::shared_ptr<LogicalTensor>> outputs;
+    BuildMultipleParallelCopyOutAssembleGraph(func, shapes, inputs, outputs);
+
+    int reshapeCountBefore = 0;
+    for (auto& op : func->Operations()) {
+        if (op.GetOpcode() == Opcode::OP_RESHAPE) {
+            reshapeCountBefore++;
+        }
+    }
+    EXPECT_EQ(reshapeCountBefore, kNumOne);
+
+    SplitReshape pass;
+    pass.Init();
+    EXPECT_EQ(pass.RunOnFunction(*func), SUCCESS);
+    VerifyMultipleParallelCopyOutAssembleSplit(func, shapes.ubShape, shapes.viewOutShape, kNumThree);
+}
+
+} // namespace tile_fwk
+} // namespace npu

@@ -41,6 +41,9 @@ def get_pto_dtype_by_name(name: str):
         "fp32": pypto.DT_FP32,
         "hf4": pypto.DT_HF4,
         "hf8": pypto.DT_HF8,
+        "fp8e4m3": pypto.DT_FP8E4M3,
+        "fp8e5m2": pypto.DT_FP8E5M2,
+        "fp8e8m0": pypto.DT_FP8E8M0,
         "uint8": pypto.DT_UINT8,
         "uint16": pypto.DT_UINT16,
         "uint32": pypto.DT_UINT32,
@@ -139,14 +142,6 @@ class PTOTestCaseRunner(TestCaseRunner):
 
     def exec_dyn_func(self, input_tensors: list, output_tensors: list):
         loop_range_tuple = self.gen_loop_range_tuple()
-        loop_desc = [
-            ['"b0"', '"bIdx"', "bloop"],
-            ['"s0"', '"sIdx"', "sloop"],
-            ['"h0"', '"hIdx"', "hloop"],
-            ['"n0"', '"nIdx"', "nloop"],
-        ]
-        tab = "    "
-        prefix = tab
         function = "import pypto\n"
         function += """import os\n"""
         function += """import torch\n"""
@@ -155,32 +150,38 @@ class PTOTestCaseRunner(TestCaseRunner):
         function += """device_id = int(os.environ.get('TILE_FWK_DEVICE_ID', 0))\n"""
         function += """torch.npu.set_device(device_id)\n"""
         function += "\n"
-        function += (
-            f"with pypto.function('{self._operation}', *input_tensors, *output_tensors):\n"
-        )
-        for index in list(range(len(loop_range_tuple))):
-            function += prefix + (tab * (index + 1))
-            function += f"with pypto._controller._loop_function({loop_desc[index][0]}, {loop_desc[index][1]}, "
-            function += f"pypto._controller._loop_range({loop_range_tuple[index]})) as {loop_desc[index][2]}:\n"
-        prefix = tab * (len(loop_range_tuple) + 1)
-        for index in list(range(len(loop_range_tuple))):
-            function += prefix + (tab * (index + 1))
-            function += f"for {loop_desc[index][1][1:-1]} in {loop_desc[index][2]}:\n"
-        prefix = tab * 2 * (len(loop_range_tuple) + 1)
+        function += f"with pypto.function('{self._operation}', *input_tensors, *output_tensors):\n"
+        tab = "    "
+        prefix = tab
+        for index, value in enumerate(loop_range_tuple):
+            function += prefix + (tab * index)
+            function += f"for index_{index} in pypto.loop({value}):\n"
+        loop_range_len = len(loop_range_tuple)
+        prefix = tab * (loop_range_len + 1)
         function += prefix + "input_data = []\n"
         view_offset = [
-            f"{loop_desc[index][1][1:-1]} * {self._view_shape[index]}"
-            for index in range(len(loop_range_tuple))
+            f"index_{index} * {self._view_shape[index]}"
+            for index, _ in enumerate(loop_range_tuple)
         ]
-        for index in list(range(len(input_tensors))):
+        for index, tensor in enumerate(input_tensors):
             function += prefix
-            function += f"input_{index} = pypto.view(input_tensors[{index}], {self._view_shape}, ["
+            view_shape = [
+                min(dim, view_dim)
+                for dim, view_dim in zip(tensor.shape, self._view_shape)
+            ]
+            view_offset = [
+                "0" if dim == 1 else offset
+                for dim, offset in zip(tensor.shape, view_offset)
+            ]
+            function += (
+                f"input_{index} = pypto.view(input_tensors[{index}], {view_shape}, ["
+            )
             for offset in view_offset:
                 function += offset + ", "
             function += "])\n"
             function += prefix + f"input_data.append(input_{index})\n"
         function += prefix + f"res = []\n"
-        function += prefix + f"for _index in range(len(output_tensors)):\n"
+        function += prefix + f"for _ in enumerate(output_tensors):\n"
         function += prefix + f"    res.append(pypto.tensor())\n"
         function += prefix + f"if len(res) == 1:\n"
         function += prefix + f"    res[0].move(op_func(input_data, params))\n"
@@ -208,7 +209,6 @@ class PTOTestCaseRunner(TestCaseRunner):
         function += prefix + "for tmp in res:\n"
         function += prefix + "    del tmp\n"
         logging.info(function)
-        pypto.set_host_options(only_codegen=True)
         pypto.set_vec_tile_shapes(*self.tile_shape)
         exec(
             function,

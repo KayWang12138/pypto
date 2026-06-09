@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # coding: utf-8
-# Copyright (c) 2025 Huawei Technologies Co., Ltd.
+# Copyright (c) 2026 Huawei Technologies Co., Ltd.
 # This program is free software, you can redistribute it and/or modify it under the terms and conditions of
 # CANN Open Software License Agreement Version 2.0 (the "License").
 # Please refer to the License for details. You may not use this file except in compliance with the License.
@@ -16,11 +16,11 @@ regardless of whether the CANN is installed in the environment or not.
 import os
 import sys
 import argparse
-import pypto
-import torch
 import json
+import pypto
 import numpy as np
 from numpy.testing import assert_allclose
+import torch
 
 
 def safe_json_load(file_path):
@@ -33,7 +33,7 @@ def safe_json_load(file_path):
     except json.JSONDecodeError as e:
         return None, f"Invalid json format: {e}"
     except PermissionError:
-        return None, "Permission Erro"
+        return None, "Permission Error"
     except Exception as e:
         return None, f"Load json fail, unknow error: {e}"
 
@@ -78,15 +78,11 @@ def softmax_core(input_tensor: pypto.tensor) -> pypto.tensor:
     return pypto.div(exp, esum)
 
 
-@pypto.jit(
+@pypto.frontend.jit(
     runtime_options={
-        "cfgcache_device_task_num": 100,
-        "cfgcache_root_task_num": 100,
-        "cfgcache_leaf_task_num": 10000,
-        "run_mode": 1
-    }
+    "run_mode": 1}
 )
-def softmax(input_tensor, output_tensor):
+def softmax(input_tensor: pypto.Tensor(), output_tensor: pypto.Tensor()):
     """
     Softmax implementation with dynamic batch size support.
 
@@ -102,7 +98,6 @@ def softmax(input_tensor, output_tensor):
         List containing output tensor [batch, n1, n2, dim]
     """
 
-
     # After the dynamic axis of tensor is marked, get the tensor shape accordingly
     tensor_shape = input_tensor.shape
     b = tensor_shape[0]  # Dynamic batch size
@@ -113,7 +108,8 @@ def softmax(input_tensor, output_tensor):
     # Tiling shape setting for efficient execution
     pypto.set_vec_tile_shapes(1, 4, 1, 64)
 
-    for idx in pypto.loop(0, b_loop, 1, name="LOOP_L0_bIdx", idx_name="idx"):
+    # for idx in pypto.loop(0, b_loop, 1, name="LOOP_L0_bIdx", idx_name="idx"):
+    for idx in range(b_loop):
         b_offset = idx * tile_b
         b_offset_end = (idx + 1) * tile_b
 
@@ -142,19 +138,7 @@ def test_softmax():
     input_data = torch.rand(shape, dtype=torch.float32)
     output_data = torch.zeros(shape, dtype=torch.float32)
 
-    # Initialize PyPTO inputs and outputs
-    # Mark dynamic axis: the actual size of the axis can be any integer number during runtime
-    inputs = {
-        input_data: [0]
-    }
-    outputs = {
-        output_data: [0]
-    }
-    pto_inputs = [pypto.from_torch(tensor, dynamic_axis=axis) for tensor, axis in inputs.items()]
-    pto_outputs = [pypto.from_torch(tensor, dynamic_axis=axis) for tensor, axis in outputs.items()]
-
-    # Launch the kernel
-    softmax(*pto_inputs, *pto_outputs)
+    softmax(input_data, output_data)
 
     # Verify against PyTorch reference
     torch_softmax = torch.softmax(input_data, dim=3)
@@ -166,8 +150,9 @@ def test_softmax():
     output_path = get_out_put_path()
     assert output_path
 
-    merged_swimlane, error = safe_json_load(os.path.join(output_path, 'CostModelSimulationOutput/merged_swimlane.json'))
-    assert not error
+    merged_swimlane_path = os.path.join(output_path, "CostModelSimulationOutput", "merged_swimlane.json")
+    merged_swimlane, error = safe_json_load(merged_swimlane_path)
+    assert not error, f"safe_json_load({merged_swimlane_path}): {error}"
 
 
 if __name__ == "__main__":

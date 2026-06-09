@@ -21,22 +21,55 @@
 #include "machine/device/dynamic/context/device_stitch_context.h"
 #include "machine/device/dynamic/context/device_task_context.h"
 #include "machine/device/dynamic/costmodel_utils.h"
+#include "../device_trace.h"
 
 namespace npu::tile_fwk::dynamic {
 
-using DeviceTaskInspectorEntry = void (*)(void *inspector_, DeviceExecuteContext *execCtx, DynDeviceTask *task);
+using DeviceTaskInspectorEntry = void (*)(void* inspector_, DeviceExecuteContext* execCtx, DynDeviceTask* task);
+
+struct ParallelForContext {
+    ParallelInfo info;
+    bool isInParallelForScope{false};
+
+    void Begin() {
+        if (info.forId == 0) { // first loop is parallel for, forid cannot equal 0
+            ++info.forId;
+        }
+        ++info.iterId;
+        isInParallelForScope = true;
+        if (++info.wsId == info.parallelism) {
+            info.wsId = 0;
+        }
+    }
+
+    void End() {
+        isInParallelForScope = false;
+    }
+
+    void SwitchDefaultWorkspace() {
+        info.wsId = 0;
+    }
+
+    void ChangeForId() {
+        ++info.forId;
+        info.iterId = 0; // begin a new prallel for
+    }
+
+    void InitParallel(uint32_t parallelism) { info.parallelism = parallelism; }
+};
 
 struct DeviceExecuteContext {
-    using PushTaskEntry = std::function<void(DynDeviceTask *, DeviceExecuteContext *)>;
+    using PushTaskEntry = std::function<void(DynDeviceTask*, DeviceExecuteContext*)>;
     PushTaskEntry pushTask;
 
-    DevStartArgs *args{nullptr};
+    DevStartArgs* args{nullptr};
     uint64_t taskId{0};
     bool isFirstTaskSend{true};
+    ParallelForContext  parallelCtx;
 
-    DevAscendProgram *devProg{nullptr};
+    DevAscendProgram* devProg{nullptr};
     DeviceExecuteProgram execProg;
-    uint16_t stitchTaskLoopNumThreshold{MAX_CACHED_FUNC_NUM};
+    uint16_t stitchTaskLoopNumThreshold{MAX_STITCH_FUNC_NUM};
 
     DeviceWorkspaceAllocator workspace;
 
@@ -50,84 +83,81 @@ struct DeviceExecuteContext {
 
     DevAscendFunctionDupped currDevRootDup;
 
-    CostModel::ModelData *costModelData{nullptr};
+    CostModel::ModelData* costModelData{nullptr};
 
-    void *aicoreModel{nullptr};
+    void* aicoreModel{nullptr};
 
-    SPSCQueue<DynDeviceTask *, SUBMMIT_TASK_QUE_SIZE> submmitTaskQueue_;
+    SPSCQueue<DynDeviceTask*, SUBMMIT_TASK_QUE_SIZE> submmitTaskQueue_;
 
     uint64_t duppedRootCount{0};
     bool controlFlowCacheActivated{false};
+
+    uint64_t shmemAddrOffset[2] = {0};
+
+    int8_t loopDieId_ = -1;
 
     bool DuppedRootCached();
 
     bool DuppedRootUpdateAndCachedAllSubmitted();
 
-    static uint64_t GetInputShapeDimSize(DeviceExecuteContext *ctx, uint64_t inputIndex);
-    static uint64_t GetInputShapeDim(DeviceExecuteContext *ctx, uint64_t inputIndex, uint64_t n);
-    static int64_t GetInputDataInt32Dim1(DeviceExecuteContext *ctx, uint64_t inputIndex, uint64_t off0);
-    static int64_t GetInputDataInt32Dim2(DeviceExecuteContext *ctx, uint64_t inputIndex, uint64_t off0, uint64_t off1);
-    static int64_t GetInputDataInt32Dim3(DeviceExecuteContext *ctx, uint64_t inputIndex, uint64_t off0, uint64_t off1,
-        uint64_t off2);
-    static int64_t GetInputDataInt32Dim4(DeviceExecuteContext *ctx, uint64_t inputIndex, uint64_t off0, uint64_t off1,
-        uint64_t off2, uint64_t off3);
-
-    static void *SymbolHandlerIdToHandler(SymbolHandlerId id);
-
-    DeviceExecuteContext(DevStartArgs *startArgs);
+    DeviceExecuteContext(DevStartArgs* startArgs);
 
     void ShowStats();
 
-    int RunInit(DevStartArgs *startArgs, PushTaskEntry tPushTask);
+    int RunInit(DevStartArgs* startArgs, PushTaskEntry tPushTask);
 
-    void PushTask(DynDeviceTask *dynTask);
+    void PushTask(DynDeviceTask* dynTask);
 
-    void GELaunchRunCached(DevStartArgs *startArgs, PushTaskEntry tPushTask);
+    void GELaunchRunCached(DevStartArgs* startArgs, PushTaskEntry tPushTask);
 
-    int RunControlFlow(DevStartArgs *startArgs);
+    int RunControlFlow(DevStartArgs* startArgs);
 
-    int GELaunchFullCacheRunControlFlow(DevStartArgs *startArgs, PushTaskEntry tPushTask);
+    int GELaunchFullCacheRunControlFlow(DevStartArgs* startArgs, PushTaskEntry tPushTask);
 
-    void GELaunchFullCache(DevStartArgs *startArgs, PushTaskEntry tPushTask);
+    void GELaunchFullCache(DevStartArgs* startArgs, PushTaskEntry tPushTask);
 
-    int GELaunchPartialCache(DevStartArgs *startArgs, PushTaskEntry tPushTask);
+    int GELaunchPartialCache(DevStartArgs* startArgs, PushTaskEntry tPushTask);
 
-    int GELaunch(DevStartArgs *startArgs, PushTaskEntry tPushTask);
+    int GELaunch(DevStartArgs* startArgs, PushTaskEntry tPushTask);
 
     bool AiCoreFree();
 
-    static void DumpDeviceTask(uint64_t taskId, DynDeviceTask *deviceTask);
+    static void DumpDeviceTask(uint64_t taskId, DynDeviceTask* deviceTask);
 
-    int SubmitToAicoreAndRecycleMemory(bool withoutTail, bool isLastTask = false);
+    int SubmitToAicoreAndRecycleMemory(bool withoutTail, bool isLastTask = false, bool isParallelIterLast = false);
+
+    void ProcessControlFlowCacheRecord(DynDeviceTask* dynTask);
 
     schema::RUid GetRuid(uint64_t rootKey, bool afterAppend = false);
 
     int ControlFlowCacheStopCache(uint64_t rootKey);
 
-    void *CallRootFunctionAlloc(uint64_t rootKey);
+    void* CallRootFunctionAlloc(uint64_t rootKey);
 
-    void *CallRootFunctionStitch(uint64_t rootKey);
+    void* CallRootFunctionStitch(uint64_t rootKey);
+
+    bool NeedSubmmitDevTask(uint64_t rootkey);
+
+    void ParallelForBegin();
 
     void MarkSlotNeedAlloc(int slotIndex);
-
-    int GetErrorState() const {
-        return errorState_;
-    }
-    void SetErrorState(int errorState) {
-        errorState_ = errorState;
-    }
+    void SetLoopDieId(int8_t rootKey);
+    int GetErrorState() const { return errorState_; }
+    void SetErrorState(int errorState) { errorState_ = errorState; }
 
 private:
-    static void *DeviceExecuteRuntimeCallRootAlloc(void *ctx_, uint64_t rootKey);
+    static void* DeviceExecuteRuntimeCallRootAlloc(void* ctx_, uint64_t rootKey);
 
-    static void *DeviceExecuteRuntimeCallRootStitch(void *ctx_, uint64_t rootKey);
+    static void* DeviceExecuteRuntimeCallRootStitch(void* ctx_, uint64_t rootKey);
 
-    static void *DeviceExecuteRuntimeCallLog(void *ctx_, uint64_t value);
+    static void* DeviceExecuteRuntimeCallLog(void* ctx_, uint64_t value);
 
-    static void *DeviceExecuteRuntimeCallShmemAllocator(void *ctx_, uint64_t value);
+    static void* DeviceExecuteRuntimeCallShmemAllocator(void* ctx_, uint64_t value);
 
-    static void *DeviceExecuteRuntimeCallSlotMarkNeedAlloc(void *ctx_, uint64_t slotIndex);
+    static void* DeviceExecuteRuntimeCallSlotMarkNeedAlloc(void* ctx_, uint64_t slotIndex);
+    static void* DeviceExecuteRuntimeCallGetLoopDieId(void* ctx_, uint64_t rootKey);
 
+    static void* DeviceExecuteRuntimeCallSetLoopDieId(void* ctx_, uint64_t rootKey);
     int errorState_{DEVICE_MACHINE_OK};
 };
-}
+} // namespace npu::tile_fwk::dynamic

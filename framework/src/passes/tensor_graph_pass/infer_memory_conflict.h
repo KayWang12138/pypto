@@ -33,30 +33,39 @@ public:
     ~InferMemoryConflict() override = default;
 
 private:
-    Status RunOnFunction(Function &function) override;
+    Status RunOnFunction(Function& function) override;
     Status Init(Function& function);
-    Status ForwardPropagation(Function &function);
-    Status UpdateForwardTensor(Function &function, const LogicalTensorPtr &curTensor, Operation* consumer, std::queue<LogicalTensorPtr> &curTensors);
-    Status BackwardPropagation(Function &function);
-    Status UpdateBackwardTensor(const LogicalTensorPtr &curTensor, Operation* producer, std::queue<LogicalTensorPtr> &curTensors);
-    Status InsertPrecededCopys(Function &function);
-    Status InsertPostCopys(Function &function);
+    Status ForwardPropagation(Function& function);
+    Status UpdateForwardTensor(
+        Function& function, const LogicalTensorPtr& curTensor, Operation* consumer,
+        std::queue<LogicalTensorPtr>& curTensors);
+    Status BackwardPropagation(Function& function);
+    Status UpdateBackwardTensor(
+        const LogicalTensorPtr& curTensor, Operation* producer, std::queue<LogicalTensorPtr>& curTensors);
+    Status InsertPrecededCopys(Function& function);
+    Status InsertPostCopys(Function& function);
     Status InsertCopys(Function& function);
-    Status ObtainReshapeTile(Operation &op, Shape &inTileShape, Shape &outTileShape);
-    Status InferTileShape(Operation &op, const LogicalTensorPtr &tensor, TileShape parentTile, Shape &reshapeTile);
-    Status SetDefaultShape(const LogicalTensorPtr &tensor, std::vector<int64_t> &defaultTile);
+    Status ObtainReshapeTile(Operation& op, Shape& inTileShape, Shape& outTileShape);
+    Status InferTileShape(Operation& op, const LogicalTensorPtr& tensor, TileShape parentTile, Shape& reshapeTile);
+    Status SetDefaultShape(const LogicalTensorPtr& tensor, std::vector<int64_t>& defaultTile);
 
-    TileShape ObtainTileShape(const std::unordered_set<Operation *> &origOp);
+    TileShape ObtainTileShape(const std::unordered_set<Operation*>& origOp);
 
-    bool CheckTransmit(Operation &curOp);
-    bool CheckConflict(const LogicalTensorPtr &inTensor, const LogicalTensorPtr &outTensor);
-    bool CheckRawShapeConflict(const LogicalTensorPtr &inTensor, const LogicalTensorPtr &outTensor);
-    bool IsValidTileShape(const Operation &op) const;
+    bool CheckTransmit(Operation& curOp);
+    bool CheckConflict(const LogicalTensorPtr& inTensor, const LogicalTensorPtr& outTensor);
+    bool CheckRawShapeConflict(
+        const LogicalTensorPtr& inTensor, const LogicalTensorPtr& outTensor, const Operation* reshapeOp);
+    bool IsValidTileShape(const Operation& op) const;
+    bool MatchReshapePattern(const LogicalTensorPtr& reshapeInput, const LogicalTensorPtr& reshapeOut);
+    bool MatMulPattern(const LogicalTensorPtr& reshapeInput, const LogicalTensorPtr& reshapeOut);
 
     std::set<Operation*> preregcopys;
     std::set<Operation*> postregcopys;
     std::unordered_map<LogicalTensorPtr, LogicalTensorPtr> memoryInfo;
-    std::unordered_map<DataType, int> viewTypeTable = {{DT_INT8, 1}, {DT_BF16, 2}, {DT_FP16, 2}, {DT_FP32, 4}};
+    std::unordered_map<DataType, int> viewTypeTable = {
+        {DT_INT8, 1}, {DT_BF16, 2}, {DT_FP16, 2}, {DT_FP32, 4},
+        {DT_FP8E4M3, 1}, {DT_FP8E5M2, 1}, {DT_FP8E8M0, 1}
+    };
 };
 } // namespace tile_fwk
 } // namespace npu

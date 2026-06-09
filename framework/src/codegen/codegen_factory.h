@@ -25,17 +25,23 @@
 #include "interface/inner/tilefwk.h"
 #include "interface/program/program.h"
 #include "interface/configs/config_manager.h"
-#include "cloudnpu/codegen_cloudnpu.h"
+#include "npu/cloudnpu/codegen_cloudnpu.h"
+#include "tilefwk/error_code.h"
+#include "npu/litenpu/codegen_litenpu.h"
 
 namespace npu::tile_fwk {
 class CodeGenFactory {
 public:
-    static std::shared_ptr<CodeGenCCE> GetCodeGenCCE(const CodeGenCtx &ctx) {
+    static std::shared_ptr<CodeGenCCE> GetCodeGenCCE(const CodeGenCtx& ctx)
+    {
         auto platform = Platform::Instance().GetSoc().GetNPUArch();
         if (platform == NPUArch::DAV_2201 || platform == NPUArch::DAV_3510) {
             return std::make_shared<CodeGenCloudNPU>(ctx);
+        } else if (platform == NPUArch::DAV_3113) {
+            return std::make_shared<CodeGenLiteNPU>(ctx);
         }
-        ASSERT(false) << "can not support this platform";
+        ASSERT(FwkErr::PLATFORM_NOT_SUPPORTED, false)
+            << " can not support this platform: " << ToUnderlying(platform) << ", please check environment";
         return nullptr;
     }
 };

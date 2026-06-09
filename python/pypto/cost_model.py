@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # coding: utf-8
-# Copyright (c) 2025 Huawei Technologies Co., Ltd.
+# Copyright (c) 2025-2026 Huawei Technologies Co., Ltd.
 # This program is free software, you can redistribute it and/or modify it under the terms and conditions of
 # CANN Open Software License Agreement Version 2.0 (the "License").
 # Please refer to the License for details. You may not use this file except in compliance with the License.
@@ -10,16 +10,19 @@
 # -----------------------------------------------------------------------------------------------------------
 """
 """
-from typing import List, overload
+from typing import List
+
+import json
 
 import pypto
 import torch
 
 from . import pypto_impl
-from .converter import _dtype_from, from_torch
+from .converter import _dtype_from, from_torch, _gen_pto_tensor
 
 __all__ = [
     "_cost_model_run_once_data_from_host",
+    "_cost_model_run_subgraph_line",
 ]
 
 
@@ -37,6 +40,19 @@ def _pto_to_tensor_data(tensors: List[pypto.Tensor]) -> List[pypto_impl.DeviceTe
     return datas
 
 
+def _device_to_host_tensor_datas(dev_tensors):
+    host_tensors, _ = _gen_pto_tensor(dev_tensors)
+    host_tensor_datas = _pto_to_tensor_data(host_tensors)
+    for i, dev_tensor_data in enumerate(_pto_to_tensor_data(dev_tensors)):
+        pypto_impl.CopyToHost(dev_tensor_data, host_tensor_datas[i])
+    return host_tensor_datas
+
+
+def _host_to_device_tensor_datas(dev_tensors, host_tensors):
+    for i, dev_tensor_data in enumerate(_pto_to_tensor_data(dev_tensors)):
+        pypto_impl.CopyToDev(dev_tensor_data, host_tensors[i])
+
+
 def _cost_model_run_once_data_from_host(inputs: List[pypto.Tensor], outputs: List[pypto.Tensor]):
     isDevice = False
     for t in inputs:
@@ -44,11 +60,43 @@ def _cost_model_run_once_data_from_host(inputs: List[pypto.Tensor], outputs: Lis
             isDevice = True
             break
 
-    input_datas = _pto_to_tensor_data(inputs)
-    output_datas = _pto_to_tensor_data(outputs)
-
     if isDevice:
-        input_datas = [pypto_impl.CopyToHost(t) for t in input_datas]
-        output_datas = [pypto_impl.CopyToHost(t) for t in output_datas]
+        input_datas = _device_to_host_tensor_datas(inputs)
+        output_datas = _device_to_host_tensor_datas(outputs)
+    else:
+        input_datas = _pto_to_tensor_data(inputs)
+        output_datas = _pto_to_tensor_data(outputs)
 
     pypto_impl.CostModelRunOnceDataFromHost(input_datas, output_datas)
+
+    if isDevice:
+        _host_to_device_tensor_datas(inputs, input_datas);
+        _host_to_device_tensor_datas(outputs, output_datas);
+
+
+def _cost_model_run_subgraph_line(
+    inputs: List[pypto.Tensor],
+    outputs: List[pypto.Tensor],
+    *,
+    p_sg_id: int,
+) -> dict:
+    isDevice = False
+    for t in inputs:
+        if t.device != torch.device("cpu"):
+            isDevice = True
+            break
+
+    if isDevice:
+        input_datas = _device_to_host_tensor_datas(inputs)
+        output_datas = _device_to_host_tensor_datas(outputs)
+    else:
+        input_datas = _pto_to_tensor_data(inputs)
+        output_datas = _pto_to_tensor_data(outputs)
+
+    result_json = pypto_impl.CostModelRunSubgraphLine(input_datas, output_datas, p_sg_id)
+
+    if isDevice:
+        _host_to_device_tensor_datas(inputs, input_datas)
+        _host_to_device_tensor_datas(outputs, output_datas)
+
+    return json.loads(result_json)

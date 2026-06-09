@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2025 Huawei Technologies Co., Ltd.
+ * Copyright (c) 2025-2026 Huawei Technologies Co., Ltd.
  * This program is free software, you can redistribute it and/or modify it under the terms and conditions of
  * CANN Open Software License Agreement Version 2.0 (the "License").
  * Please refer to the License for details. You may not use this file except in compliance with the License.
@@ -26,6 +26,7 @@
 #include "interface/program/program.h"
 #include "interface/function/function.h"
 #include "passes/pass_utils/pass_utils.h"
+#include "passes/pass_check/split_raw_tensor_checker.h"
 
 namespace npu {
 namespace tile_fwk {
@@ -34,15 +35,19 @@ class SplitRawTensor : public Pass {
 public:
     SplitRawTensor() : Pass("SplitRawTensor") {}
     ~SplitRawTensor() override = default;
-    Status RunOnFunction(Function &function) override;
+    Status RunOnFunction(Function& function) override;
 
 private:
-    void UpdateConsumerView(Function &function, const LogicalTensorPtr &logicalTensor) const;
-    void UpdateProducerAssemble(Function &function, const LogicalTensorPtr &logicalTensor) const;
-    void SplitRaw(Function &function) const;
+    void UpdateConsumerView(Function& function, const LogicalTensorPtr& logicalTensor) const;
+    void UpdateProducerAssemble(Function& function, const LogicalTensorPtr& logicalTensor) const;
+    void SplitRaw(Function& function) const;
     bool ShouldProcessTensor(Function& function, const LogicalTensorPtr& singleTensor) const;
-    std::vector<int64_t> UpdateOffset(std::vector<int64_t> &offset, const std::vector<int64_t> &diff) const;
-    std::vector<SymbolicScalar> UpdateDynOffset(std::vector<SymbolicScalar> &offset, const std::vector<SymbolicScalar> &diff) const;
+    std::vector<int64_t> UpdateOffset(std::vector<int64_t>& offset, const std::vector<int64_t>& diff) const;
+    std::vector<SymbolicScalar> UpdateDynOffset(
+        std::vector<SymbolicScalar>& offset, const std::vector<SymbolicScalar>& diff) const;
+
+    Status PostCheck(Function& function) override;
+    SplitRawTensorChecker checker;
 };
 } // namespace tile_fwk
 } // namespace npu

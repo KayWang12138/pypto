@@ -32,7 +32,7 @@ namespace CostModel {
 
 constexpr uint64_t RAW_MAGIC_MAX_SIZE = 1024 * 1024;
 
-const std::map<std::string, CorePipeType> SCHED_CORE_PIPE_TYPE {
+const std::map<std::string, CorePipeType> SCHED_CORE_PIPE_TYPE{
     // Unary Vector
     {"EXP", CorePipeType::PIPE_VECTOR_ALU},
     {"NEG", CorePipeType::PIPE_VECTOR_ALU},
@@ -68,9 +68,23 @@ const std::map<std::string, CorePipeType> SCHED_CORE_PIPE_TYPE {
     {"TRANSPOSE_MOVEOUT", CorePipeType::PIPE_MTE_OUT},
     {"TRANSPOSE_VNCHWCONV", CorePipeType::PIPE_VECTOR_ALU},
     {"ABS", CorePipeType::PIPE_VECTOR_ALU},
+    {"PERMUTE", CorePipeType::PIPE_S},
+    {"PERMUTE_ELEMENT", CorePipeType::PIPE_S},
     {"LN", CorePipeType::PIPE_VECTOR_ALU},
+    {"ISFINITE", CorePipeType::PIPE_VECTOR_ALU},
     {"HUB", CorePipeType::PIPE_VECTOR_ALU},
     {"BRCB", CorePipeType::PIPE_VECTOR_ALU},
+    {"FLOOR", CorePipeType::PIPE_VECTOR_ALU},
+    {"CEIL", CorePipeType::PIPE_VECTOR_ALU},
+    {"ROUND", CorePipeType::PIPE_VECTOR_ALU},
+    {"TRUNC", CorePipeType::PIPE_VECTOR_ALU},
+    {"SIGN", CorePipeType::PIPE_VECTOR_ALU},
+    {"SIGNBIT", CorePipeType::PIPE_VECTOR_ALU},
+    {"BITWISENOT", CorePipeType::PIPE_VECTOR_ALU},
+    {"FILLPAD", CorePipeType::PIPE_VECTOR_ALU},
+    {"BITWISENOT", CorePipeType::PIPE_VECTOR_ALU},
+    {"RELU", CorePipeType::PIPE_VECTOR_ALU},
+    {"EXPM1", CorePipeType::PIPE_VECTOR_ALU},
     // Binary Vector
     {"ADD", CorePipeType::PIPE_VECTOR_ALU},
     {"SUB", CorePipeType::PIPE_VECTOR_ALU},
@@ -162,7 +176,7 @@ const std::map<std::string, CorePipeType> SCHED_CORE_PIPE_TYPE {
     {"REG_ALLOC", CorePipeType::PIPE_S},
     {"VLD", CorePipeType::PIPE_S},
     {"VST", CorePipeType::PIPE_S},
-    
+
     // Cube
     {"L1_ALLOC", CorePipeType::PIPE_CUBE_BMU_L1},
     {"L0A_ALLOC", CorePipeType::PIPE_CUBE_BMU_L0A},
@@ -233,10 +247,9 @@ const std::map<std::string, CorePipeType> SCHED_CORE_PIPE_TYPE {
     {"SHMEM_WAIT_UNTIL", CorePipeType::PIPE_S},
     {"SHMEM_GET", CorePipeType::PIPE_MTE_IN},
     {"SHMEM_GET_GM2UB", CorePipeType::PIPE_MTE_IN},
-    {"SHMEM_REDUCE", CorePipeType::PIPE_MTE_OUT},
     {"BIND_TENSOR", CorePipeType::PIPE_S},
-    {"SHMEM_MOE_COMBINE_SEND", CorePipeType::PIPE_MTE_OUT},
-    {"SHMEM_MOE_COMBINE_RECEIVE", CorePipeType::PIPE_MTE_IN},
+    {"MOE_DISTRIBUTED_COMBINE_SEND", CorePipeType::PIPE_MTE_OUT},
+    {"MOE_DISTRIBUTED_COMBINE_RECEIVE", CorePipeType::PIPE_MTE_IN},
     // TOPK and ArgSort
     {"TOPK", CorePipeType::PIPE_VECTOR_ALU},
     {"TILEDMRGSORT", CorePipeType::PIPE_VECTOR_ALU},
@@ -262,8 +275,7 @@ const std::map<std::string, CorePipeType> SCHED_CORE_PIPE_TYPE {
     {"COMP_SWAP", CorePipeType::PIPE_VECTOR_ALU},
     {"MERGE", CorePipeType::PIPE_VECTOR_ALU},
 
-    {"UNKNOWN", CorePipeType::PIPE_UNKNOW}
-};
+    {"UNKNOWN", CorePipeType::PIPE_UNKNOW}};
 
 struct ExecuteInfo {
     int exePipeId = -1;
@@ -337,7 +349,7 @@ public:
     std::vector<std::vector<uint64_t>> tileData;
 
     explicit Tile() {}
-    explicit Tile(const std::string &str);
+    explicit Tile(const std::string& str);
     void GetPipeType();
     void Print();
     std::string Dump();
@@ -366,7 +378,7 @@ public:
     std::vector<TilePtr> iOperand;
     std::vector<TilePtr> oOperand;
 
-    npu::tile_fwk::Operation *operation{};
+    npu::tile_fwk::Operation* operation{};
     FunctionPtr funcPtr = nullptr;
 
     explicit TileOp() = default;
@@ -382,16 +394,22 @@ public:
     std::string Dump(bool outDetail = false);
 };
 
-class Subgraph {};
+class Subgraph {
+public:
+    int pSgId = -1;
+    std::string name;
+    std::vector<uint64_t> leafFunctionHashes;
+    bool hasFullIR = false;
+    bool hasTopology = false;
+};
 
-
-class FunctionInvokeInfo
-{
+class FunctionInvokeInfo {
 public:
     std::unordered_set<int> args;
     std::unordered_map<int, TilePtr> binds;
 
-    TilePtr Bind(int magic) {
+    TilePtr Bind(int magic)
+    {
         if (binds.count(magic)) {
             return binds[magic];
         }
@@ -404,7 +422,7 @@ public:
     int magic = -1;
     int pSgId = -1; // SubgraphId
     CostModel::MachineType machineType;
-    npu::tile_fwk::Function *parentFunction;
+    npu::tile_fwk::Function* parentFunction;
     uint64_t functionHash = -1;
     std::string funcName = "";
     std::vector<TileOpPtr> tileOps;
@@ -430,7 +448,7 @@ public:
     // TILEOP sequence from ooo pass. <magic, seq>
     std::unordered_map<int, uint64_t> opSequenceAfterOOO_;
     std::vector<int> opMagicSequence;
-    void GetOpSequeceAfterOOO(int opmagic, uint64_t &index);
+    void GetOpSequeceAfterOOO(int opmagic, uint64_t& index);
 
     // semanticLabels
     std::string semanticLabels;
@@ -445,4 +463,4 @@ public:
     uint64_t GetOpRelativeReadyCycle(TileOpPtr tileOp, uint64_t newBaseCycle);
     void CalculateRelativeCycle(uint64_t newBaseCycle, double proportion);
 };
-}  // namespace CostModel
+} // namespace CostModel

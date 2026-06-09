@@ -13,7 +13,6 @@
  * \brief
  */
 
-#include "distributed_op_test_suite.h"
 #include "distributed_op_test_common.h"
 #include "tilefwk/tilefwk.h"
 #include "interface/inner/tilefwk.h"
@@ -24,56 +23,49 @@
 namespace npu::tile_fwk {
 namespace Distributed {
 
-template<typename T>
-void TestDynAllGather(OpTestParam &testParam)
+template <typename T>
+void TestAllGather(OpTestParam& testParam, std::string& goldenDir)
 {
-    constexpr size_t paramsSize = 3;
-    auto [M, N, typeNum] = GetParams<paramsSize>(GetGoldenDir() + "/params.bin");
+    constexpr size_t paramsSize = 7;
+    auto [row, col, validRow, validCol, typeNum, tileRow, tileCol] = GetParams<paramsSize>(goldenDir + "/params.bin");
 
     DataType dType = GetDataTypeNum(typeNum);
 
-    int32_t outSize = M * N * testParam.rankSize;
-
-    Shape shape{M, N};
-    Shape outShape{testParam.rankSize * M, N};
+    Shape shape{row, col};
+    Shape outShape{testParam.rankSize * row, col};
     Tensor in(dType, shape, "in");
-    Tensor barrierDummy(DT_INT32, {1, 1}, "barrierDummy");
     Tensor out(dType, outShape, "out");
 
-    std::vector<T> inPtr = ReadToVector<T>(GetGoldenDir() + "/input_rank_" + std::to_string(testParam.rankId) + ".bin", shape);
+    std::vector<T> inPtr =
+        ReadToVector<T>(goldenDir + "/input_rank_" + std::to_string(testParam.rankId) + ".bin", shape);
 
-    int32_t tileNum1 = 8;
-    int32_t tileNum2 = 8;
-    FUNCTION("ALLGATHER", {in, barrierDummy}, {out}) {
-        TileShape::Current().SetDistTile(
-            {M / tileNum1, tileNum1, M % tileNum1},
-            {N / tileNum2, tileNum2, N % tileNum2},
-            {1, testParam.rankSize, 0});
-        ShmemAllGather(in, barrierDummy, testParam.group, out);
+    Shape shmemDataShape{testParam.rankSize * row, col};
+    FUNCTION("ALLGATHER", {in}, {out})
+    {
+        in.GetStorage()->UpdateDynValidShape(std::vector<SymbolicScalar>{validRow, validCol});
+        TileShape::Current().SetVecTile({tileRow, tileCol});
+        ShmemTensor shmemTensor;
+        LOOP("CreateShmemTensor", FunctionType::DYNAMIC_LOOP, index, LoopRange(1))
+        {
+            (void)index;
+            CreateShmemTensor(testParam.group, testParam.rankSize, dType, shmemDataShape, shmemTensor);
+        }
+        AllGather(in, in, shmemTensor, out);
     }
 
-    ProgramData::GetInstance().AppendInputs({
-        RawTensorData::CreateTensor<T>(in, inPtr),
-        RawTensorData::CreateTensorZero(barrierDummy)
-    });
-    ProgramData::GetInstance().AppendOutputs({
-        RawTensorData::CreateTensorZero(out)
-    });
+    ProgramData::GetInstance().AppendInputs({RawTensorData::CreateTensor<T>(in, inPtr)});
+    ProgramData::GetInstance().AppendOutputs({RawTensorData::CreateTensorZero(out)});
 
-    auto dynAttr = Program::GetInstance().GetLastFunction()->GetDyndevAttribute();
-    auto hcclContext = GetHcclContext(dynAttr->commGroupNames);
-    DeviceLauncherConfig config;
-    config.runModel = false;
-    config.hcclContext = hcclContext;
-    DevFuncRunner::Run(Program::GetInstance().GetLastFunction(), config);
-
+    RunTest();
     auto outPtr = ProgramData::GetInstance().GetOutputData(0)->GetDevPtr();
-    EXPECT_TRUE(CompareWithGolden<uint8_t*>(dType, "/output_rank_", outSize, outPtr, testParam));
+    int32_t outSize = row * col * testParam.rankSize;
+    EXPECT_TRUE(CompareWithGolden<uint8_t*>(dType, goldenDir + "/output_rank_", outSize, outPtr, testParam));
 }
-template void TestDynAllGather<int32_t>(OpTestParam &testParam);
-template void TestDynAllGather<float>(OpTestParam &testParam);
-template void TestDynAllGather<float16>(OpTestParam &testParam);
-template void TestDynAllGather<bfloat16>(OpTestParam &testParam);
+
+template void TestAllGather<int32_t>(OpTestParam& testParam, std::string& goldenDir);
+template void TestAllGather<float>(OpTestParam& testParam, std::string& goldenDir);
+template void TestAllGather<float16>(OpTestParam& testParam, std::string& goldenDir);
+template void TestAllGather<bfloat16>(OpTestParam& testParam, std::string& goldenDir);
 
 } // namespace Distributed
 } // namespace npu::tile_fwk

@@ -22,32 +22,36 @@
 #include "interface/inner/tilefwk.h"
 #include "interface/program/program.h"
 #include "interface/function/function.h"
+#include "passes/pass_mgr/pass_dependency.h"
 
 namespace npu::tile_fwk {
 
 class PassManager {
 public:
-    static PassManager &Instance();
+    static PassManager& Instance();
 
-    PassManager(const PassManager &) = delete;
-    void operator=(const PassManager &) = delete;
-    Status RunPass(Program &program, Function &function, const std::string &strategy) const;
-    std::string GetResumePath(const std::string &strategy);
+    PassManager(const PassManager&) = delete;
+    void operator=(const PassManager&) = delete;
+
+    Status RunPass(Program& program, Function& function, const std::string& strategy) const;
+    // 重置所有已注册的 Pass
+    void ResetAllPasses();
+    std::string GetResumePath(const std::string& strategy);
 
     struct PassEntry {
         std::string identifier;
-        std::string passName;
-        PassEntry(std::string id, std::string name) : identifier(id), passName(name) {}
+        PassName passName;
+        PassEntry(std::string id, PassName name) : identifier(id), passName(name) {}
     };
 
-    void RegisterStrategy(const std::string &strategy, const std::vector<PassEntry> &passEntries);
+    void RegisterStrategy(const std::string& strategy, const std::vector<PassEntry>& passEntries);
 
 private:
     PassManager();
     ~PassManager() = default;
     void RegDefaultStrategy();
 
-    std::vector<PassEntry> GetStrategyPasses(const std::string &strategy) const;
+    std::vector<PassEntry> GetStrategyPasses(const std::string& strategy) const;
 
     std::unordered_map<std::string, std::vector<PassEntry>> strategies_;
 

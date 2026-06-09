@@ -23,28 +23,18 @@
 #include "tilefwk/data_type.h"
 #include "codegen/codegen.h"
 #include "codegen/symbol_mgr/codegen_symbol.h"
-#include "codegen/cloudnpu/codegen_cloudnpu.h"
+#include "codegen/npu/cloudnpu/codegen_cloudnpu.h"
 #include "test_codegen_common.h"
 
 namespace npu::tile_fwk {
 
-class TestCodegenDynVdup : public ::testing::Test {
+class TestCodegenDynVdup : public CodegenTestBase {
 public:
-    static void SetUpTestCase() {}
-
-    static void TearDownTestCase() {}
-
-    void SetUp() override {
-        Program::GetInstance().Reset();
-        config::Reset();
-        config::SetPlatformConfig(KEY_ONLY_HOST_COMPILE, true);
-        config::SetPlatformConfig("ENABLE_COST_MODEL", false);
-    }
-
-    void TearDown() override {}
+    TestCodegenDynVdup() : CodegenTestBase({.compileStage = CS_EXECUTE_GRAPH}) {}
 };
 
-TEST_F(TestCodegenDynVdup, TestDynVdupUnaligned) {
+TEST_F(TestCodegenDynVdup, TestDynVdupUnaligned)
+{
     std::vector<int64_t> shape{2, 256, 7};
     Element src(DataType::DT_FP32, 2.0);
 
@@ -53,31 +43,98 @@ TEST_F(TestCodegenDynVdup, TestDynVdupUnaligned) {
     Tensor output(DataType::DT_FP32, shape, "C");
     std::string funcName = "TestDynVdupUnaligned";
 
-    FUNCTION(funcName, {output}) {
-        LOOP(funcName, FunctionType::DYNAMIC_LOOP, i, LoopRange(1)) {
+    FUNCTION(funcName, {output})
+    {
+        LOOP(funcName, FunctionType::DYNAMIC_LOOP, i, LoopRange(1))
+        {
             (void)i;
             output = npu::tile_fwk::Full(src, DataType::DT_FP32, shape);
         }
     }
     auto function =
         Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + funcName + SUB_FUNC_SUFFIX + HIDDEN_FUNC_SUFFIX);
-    function->SetFunctionType(FunctionType::DYNAMIC_LOOP_PATH);
     function->SetUnderDynamicFunction(true);
-    for (auto &subFunc : function->rootFunc_->programs_) {
-        for (auto &op : subFunc.second->Operations()) {
-            if (OpcodeManager::Inst().IsCopyIn(op.GetOpcode()) || OpcodeManager::Inst().IsCopyOut(op.GetOpcode())) {
-                if (IsCopyIn(op.GetOpcode()))
-                    op.SetIOpAttrOffset(0, 0);
-                else
-                    op.SetOOpAttrOffset(0, 0);
-                op.SetAttribute("GmTensorParamIdxInCallFunc", 0);
-            }
+
+    npu::tile_fwk::CodeGenCtx ctx;
+    npu::tile_fwk::CodeGenCloudNPU codeGen(ctx);
+    codeGen.GenCode(*function, {});
+}
+
+TEST_F(TestCodegenDynVdup, TestDynVdupInt16)
+{
+    std::vector<int64_t> shape{2, 256, 7};
+    Element src(DataType::DT_INT16, static_cast<int16_t>(2));
+
+    TileShape::Current().SetVecTile({1, 256, 16});
+
+    Tensor output(DataType::DT_INT16, shape, "C");
+    std::string funcName = "TestDynVdupInt16";
+
+    FUNCTION(funcName, {output})
+    {
+        LOOP(funcName, FunctionType::DYNAMIC_LOOP, i, LoopRange(1))
+        {
+            (void)i;
+            output = npu::tile_fwk::Full(src, DataType::DT_INT16, shape);
         }
-        DynParamInfo fakeParam = {3, 0, 0, DynParamInfoType::VALID_SHAPE, 0, SymbolicScalar(), false, ""};
-        subFunc.second->dynParamTable_.emplace("sym_23_dim_0", fakeParam);
-        subFunc.second->dynParamTable_.emplace("sym_23_dim_1", fakeParam);
-        subFunc.second->dynParamTable_.emplace("sym_23_dim_2", fakeParam);
     }
+    auto function =
+        Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + funcName + SUB_FUNC_SUFFIX + HIDDEN_FUNC_SUFFIX);
+    function->SetUnderDynamicFunction(true);
+
+    npu::tile_fwk::CodeGenCtx ctx;
+    npu::tile_fwk::CodeGenCloudNPU codeGen(ctx);
+    codeGen.GenCode(*function, {});
+}
+
+TEST_F(TestCodegenDynVdup, TestDynVdupUInt16)
+{
+    std::vector<int64_t> shape{2, 256, 7};
+    Element src(DataType::DT_UINT16, static_cast<uint16_t>(2));
+
+    TileShape::Current().SetVecTile({1, 256, 16});
+
+    Tensor output(DataType::DT_UINT16, shape, "C");
+    std::string funcName = "TestDynVdupUInt16";
+
+    FUNCTION(funcName, {output})
+    {
+        LOOP(funcName, FunctionType::DYNAMIC_LOOP, i, LoopRange(1))
+        {
+            (void)i;
+            output = npu::tile_fwk::Full(src, DataType::DT_UINT16, shape);
+        }
+    }
+    auto function =
+        Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + funcName + SUB_FUNC_SUFFIX + HIDDEN_FUNC_SUFFIX);
+    function->SetUnderDynamicFunction(true);
+
+    npu::tile_fwk::CodeGenCtx ctx;
+    npu::tile_fwk::CodeGenCloudNPU codeGen(ctx);
+    codeGen.GenCode(*function, {});
+}
+
+TEST_F(TestCodegenDynVdup, TestDynVdupUInt32)
+{
+    std::vector<int64_t> shape{2, 256, 7};
+    Element src(DataType::DT_UINT32, static_cast<uint32_t>(2));
+
+    TileShape::Current().SetVecTile({1, 256, 16});
+
+    Tensor output(DataType::DT_UINT32, shape, "C");
+    std::string funcName = "TestDynVdupUInt32";
+
+    FUNCTION(funcName, {output})
+    {
+        LOOP(funcName, FunctionType::DYNAMIC_LOOP, i, LoopRange(1))
+        {
+            (void)i;
+            output = npu::tile_fwk::Full(src, DataType::DT_UINT32, shape);
+        }
+    }
+    auto function =
+        Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + funcName + SUB_FUNC_SUFFIX + HIDDEN_FUNC_SUFFIX);
+    function->SetUnderDynamicFunction(true);
 
     npu::tile_fwk::CodeGenCtx ctx;
     npu::tile_fwk::CodeGenCloudNPU codeGen(ctx);

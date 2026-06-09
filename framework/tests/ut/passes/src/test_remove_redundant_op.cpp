@@ -22,30 +22,49 @@
 #include "interface/configs/config_manager.h"
 #include "ut_json/ut_json_tool.h"
 #include "passes/tile_graph_pass/graph_optimization/remove_redundant_op.h"
+#include "computational_graph_builder.h"
+#include "interface/operation/attribute.h"
 #include <fstream>
 #include <vector>
 #include <string>
 
 using namespace npu::tile_fwk;
 
-void PrintGraphInfoRemoveRedundantOp(Function* func) {
-    std::cout << "func->Operations().size() = "  << func->Operations().size() << std::endl;
-    for (auto &op : func->Operations()) {
-        std::cout << "Op:" << op.GetOpMagic() << " " <<  op.GetOpcodeStr() << std::endl;
+void PrintGraphInfoRemoveRedundantOp(Function* func)
+{
+    std::cout << "func->Operations().size() = " << func->Operations().size() << std::endl;
+    for (auto& op : func->Operations()) {
+        std::cout << "Op:" << op.GetOpMagic() << " " << op.GetOpcodeStr() << std::endl;
         std::cout << "input operation:";
-        for (const std::shared_ptr<LogicalTensor> &input_tensor : op.GetIOperands()) {
-            for (const auto &item_op : input_tensor->GetProducers()) {
+        for (const std::shared_ptr<LogicalTensor>& input_tensor : op.GetIOperands()) {
+            for (const auto& item_op : input_tensor->GetProducers()) {
                 std::cout << "(" << item_op->opmagic << ", " << item_op->GetOpcodeStr() << ") ";
             }
         }
         std::cout << std::endl << "output operation:";
-        for (const std::shared_ptr<LogicalTensor> &output_tensor : op.GetOOperands()) {
-            for (const auto &item_op : output_tensor->GetConsumers()) {
+        for (const std::shared_ptr<LogicalTensor>& output_tensor : op.GetOOperands()) {
+            for (const auto& item_op : output_tensor->GetConsumers()) {
                 std::cout << "(" << item_op->opmagic << ", " << item_op->GetOpcodeStr() << ") ";
             }
         }
         std::cout << std::endl;
     }
+}
+
+void SetUpPassStrategy()
+{
+    PassManager& passManager = PassManager::Instance();
+    passManager.RegisterStrategy(
+        "RemoveRedundantOpTestStrategy", {
+                                             {"RemoveRedundantReshape", PassName::REMOVE_REDUNDANT_RESHAPE},
+                                             {"InferMemoryConflict", PassName::INFER_MEMORY_CONFLICT},
+                                             {"ExpandFunction", PassName::EXPAND_FUNCTION},
+                                             {"DuplicateOp", PassName::DUPLICATE_OP},
+                                             {"MergeViewAssemble", PassName::MERGE_VIEW_ASSEMBLE},
+                                             {"AssignMemoryType", PassName::ASSIGN_MEMORY_TYPE},
+                                             {"SplitLargeFanoutTensor", PassName::SPLIT_LARGE_FANOUT_TENSOR},
+                                             {"SplitReshape", PassName::SPLIT_RESHAPE},
+                                         });
 }
 
 class RemoveRedundantOpTest : public testing::Test {
@@ -54,41 +73,34 @@ public:
 
     static void TearDownTestCase() {}
 
-    void SetUp() override {
+    void SetUp() override
+    {
         Program::GetInstance().Reset();
         config::Reset();
-        config::SetPlatformConfig(KEY_ONLY_HOST_COMPILE, true);
+        config::SetHostOption(COMPILE_STAGE, CS_EXECUTE_GRAPH);
         config::SetHostConfig(KEY_STRATEGY, "RemoveRedundantOpTestStrategy");
-        config::SetPlatformConfig("ENABLE_COST_MODEL", false);
+        config::SetPlatformConfig(KEY_ENABLE_COST_MODEL, false);
     }
     void TearDown() override {}
 };
 
-TEST_F(RemoveRedundantOpTest, TestIntermediateOutcast) {
-    config::SetPlatformConfig(KEY_ONLY_HOST_COMPILE, true);
+TEST_F(RemoveRedundantOpTest, TestIntermediateOutcast)
+{
+    config::SetHostOption(COMPILE_STAGE, CS_EXECUTE_GRAPH);
     int bs = 1;
     int n = 32;
     int d = 128;
     std::vector<int64_t> shape{bs, n, d};
     std::vector<int64_t> resShape{bs, n, d};
-    PassManager &passManager = PassManager::Instance();
-    passManager.RegisterStrategy("RemoveRedundantOpTestStrategy", {
-    {   "RemoveRedundantReshape",   "RemoveRedundantReshape"},
-    {      "InferMemoryConflict",      "InferMemoryConflict"},
-    {           "ExpandFunction",           "ExpandFunction"},
-    {              "DuplicateOp",              "DuplicateOp"},
-    {        "MergeViewAssemble",        "MergeViewAssemble"},
-    {         "AssignMemoryType",         "AssignMemoryType"},
-    {   "SplitLargeFanoutTensor",   "SplitLargeFanoutTensor"},
-    {             "SplitReshape",             "SplitReshape"},
-    });
+    SetUpPassStrategy();
     ConfigManager::Instance();
 
     Tensor input(DataType::DT_FP32, shape, "input");
     Tensor output(DataType::DT_FP32, resShape, "res");
     Tensor output_add(DataType::DT_FP32, resShape, "res_add");
     config::SetBuildStatic(true);
-    FUNCTION("RemoveRedundantOpFunction", {input, output, output_add}) {
+    FUNCTION("RemoveRedundantOpFunction", {input, output, output_add})
+    {
         TileShape::Current().SetVecTile(1, 32, 128);
         output = Transpose(input, {0, 1});
         TileShape::Current().SetVecTile(8, 1, 128);
@@ -101,7 +113,7 @@ TEST_F(RemoveRedundantOpTest, TestIntermediateOutcast) {
     EXPECT_EQ(oriOpList.size(), 15) << "Before the Pass, there should be 15 operations";
     int ori_view_count = 0;
     int ori_assemble_count = 0;
-    for (auto &op : oriOpList) {
+    for (auto& op : oriOpList) {
         if (op.GetOpcode() == Opcode::OP_VIEW) {
             ori_view_count += 1;
         } else if (op.GetOpcode() == Opcode::OP_ASSEMBLE) {
@@ -122,7 +134,7 @@ TEST_F(RemoveRedundantOpTest, TestIntermediateOutcast) {
     int view_count = 0;
     int assemble_count = 0;
 
-    for (auto &op : updated_operations) {
+    for (auto& op : updated_operations) {
         if (op.GetOpcode() == Opcode::OP_VIEW) {
             view_count += 1;
         } else if (op.GetOpcode() == Opcode::OP_ASSEMBLE) {
@@ -133,30 +145,22 @@ TEST_F(RemoveRedundantOpTest, TestIntermediateOutcast) {
     EXPECT_EQ(assemble_count, 4) << "There shoule be 5 ASSEMBLE op after RemoveRedundantOp";
 }
 
-TEST_F(RemoveRedundantOpTest, TestInternalAssembleView) {
-    config::SetPlatformConfig(KEY_ONLY_HOST_COMPILE, true);
+TEST_F(RemoveRedundantOpTest, TestInternalAssembleView)
+{
+    config::SetHostOption(COMPILE_STAGE, CS_EXECUTE_GRAPH);
     int bs = 4;
     int n = 32;
     int d = 128;
     std::vector<int64_t> shape{bs, n, d};
     std::vector<int64_t> resShape{bs, n, d};
-    PassManager &passManager = PassManager::Instance();
-    passManager.RegisterStrategy("RemoveRedundantOpTestStrategy", {
-    {   "RemoveRedundantReshape",   "RemoveRedundantReshape"},
-    {      "InferMemoryConflict",      "InferMemoryConflict"},
-    {           "ExpandFunction",           "ExpandFunction"},
-    {              "DuplicateOp",              "DuplicateOp"},
-    {        "MergeViewAssemble",        "MergeViewAssemble"},
-    {         "AssignMemoryType",         "AssignMemoryType"},
-    {   "SplitLargeFanoutTensor",   "SplitLargeFanoutTensor"},
-    {             "SplitReshape",             "SplitReshape"},
-    });
+    SetUpPassStrategy();
     ConfigManager::Instance();
 
     Tensor input(DataType::DT_FP32, shape, "input");
     Tensor output(DataType::DT_FP32, resShape, "res");
     config::SetBuildStatic(true);
-    FUNCTION("RemoveRedundantOpFunction", {input, output}) {
+    FUNCTION("RemoveRedundantOpFunction", {input, output})
+    {
         TileShape::Current().SetVecTile(1, 32, 128);
         auto tmp = Transpose(input, {0, 1}); // [32, 4, 128]
         TileShape::Current().SetVecTile(8, 1, 64);
@@ -168,7 +172,7 @@ TEST_F(RemoveRedundantOpTest, TestInternalAssembleView) {
     auto oriOpList = func->Operations(true);
     int ori_view_count = 0;
     int ori_assemble_count = 0;
-    for (auto &op : oriOpList) {
+    for (auto& op : oriOpList) {
         if (op.GetOpcode() == Opcode::OP_VIEW) {
             ori_view_count += 1;
         } else if (op.GetOpcode() == Opcode::OP_ASSEMBLE) {
@@ -184,7 +188,7 @@ TEST_F(RemoveRedundantOpTest, TestInternalAssembleView) {
     int view_count = 0;
     int assemble_count = 0;
 
-    for (auto &op : updated_operations) {
+    for (auto& op : updated_operations) {
         if (op.GetOpcode() == Opcode::OP_VIEW) {
             view_count += 1;
         } else if (op.GetOpcode() == Opcode::OP_ASSEMBLE) {
@@ -195,3 +199,79 @@ TEST_F(RemoveRedundantOpTest, TestInternalAssembleView) {
     EXPECT_EQ(view_count, ori_view_count) << "No VIEW op should be removed in RemoveRedundantOp";
     EXPECT_EQ(assemble_count, ori_assemble_count) << "No ASSEMBLE op should be removed in RemoveRedundantOp";
 }
+
+std::shared_ptr<Function> SetUpParallelAssembleWithReshapeGraph()
+{
+    auto func = std::make_shared<Function>(Program::GetInstance(),
+        "ProcessRedundantOpParallelAssembleWithReshape",
+        "ProcessRedundantOpParallelAssembleWithReshape", nullptr);
+
+    std::vector<int64_t> inputShape = {32, 128};
+    std::vector<int64_t> outputShape1 = {64, 128};
+    std::vector<int64_t> outputShape2 = {32, 128};
+
+    auto oriInput = std::make_shared<LogicalTensor>(*func, DT_FP32, inputShape);
+    oriInput->SetMemoryTypeBoth(MemoryType::MEM_UB, true);
+    auto sharedInput = std::make_shared<LogicalTensor>(*func, DT_FP32, inputShape);
+    sharedInput->SetMemoryTypeBoth(MemoryType::MEM_UB, true);
+    auto anotherInput = std::make_shared<LogicalTensor>(*func, DT_FP32, inputShape);
+    anotherInput->SetMemoryTypeBoth(MemoryType::MEM_UB, true);
+    auto outputA = std::make_shared<LogicalTensor>(*func, DT_FP32, outputShape1);
+    outputA->SetMemoryTypeBoth(MemoryType::MEM_UB, true);
+    auto outputB = std::make_shared<LogicalTensor>(*func, DT_FP32, outputShape2);
+    outputB->SetMemoryTypeBoth(MemoryType::MEM_UB, true);
+
+    func->AddRawOperation(Opcode::OP_ADDS, {oriInput}, {sharedInput}, true);
+    func->AddRawOperation(Opcode::OP_ADDS, {oriInput}, {anotherInput}, true);
+
+    auto& assemble1 = func->AddRawOperation(Opcode::OP_ASSEMBLE, {anotherInput}, {outputA}, true);
+    assemble1.SetOpAttribute(std::make_shared<AssembleOpAttribute>(std::vector<int64_t>{0, 0}));
+    auto& assemble2 = func->AddRawOperation(Opcode::OP_ASSEMBLE, {sharedInput}, {outputA}, true);
+    assemble2.SetOpAttribute(std::make_shared<AssembleOpAttribute>(std::vector<int64_t>{32, 0}));
+    auto& assemble3 = func->AddRawOperation(Opcode::OP_ASSEMBLE, {sharedInput}, {outputB}, true);
+    assemble3.SetOpAttribute(std::make_shared<AssembleOpAttribute>(std::vector<int64_t>{0, 0}));
+
+    std::vector<int64_t> reshapeShape = {4096};
+    auto reshapeOut = std::make_shared<LogicalTensor>(*func, DT_FP32, reshapeShape);
+    reshapeOut->SetMemoryTypeBoth(MemoryType::MEM_UB, true);
+    func->AddRawOperation(Opcode::OP_RESHAPE, {outputB}, {reshapeOut}, true);
+
+    func->inCasts_.push_back(oriInput);
+    func->outCasts_.push_back(outputA);
+    func->outCasts_.push_back(reshapeOut);
+    return func;
+}
+
+TEST_F(RemoveRedundantOpTest, ProcessParallelAssembleWithReshape)
+{
+    auto currFunctionPtr = SetUpParallelAssembleWithReshapeGraph();
+    EXPECT_TRUE(currFunctionPtr != nullptr);
+
+    Function* func = currFunctionPtr.get();
+    EXPECT_NE(func, nullptr);
+
+    auto oriOpList = func->Operations(true);
+    int oriAssembleCount = 0;
+    for (auto& op : oriOpList) {
+        if (op.GetOpcode() == Opcode::OP_ASSEMBLE) {
+            oriAssembleCount++;
+        }
+    }
+    EXPECT_EQ(oriAssembleCount, 3) << "Should have 3 ASSEMBLE ops before pass";
+
+    RemoveRedundantOp removeRedundantOp;
+    removeRedundantOp.PreCheck(*func);
+    removeRedundantOp.RunOnFunction(*func);
+    removeRedundantOp.PostCheck(*func);
+
+    auto updatedOps = func->Operations(true);
+    int newAssembleCount = 0;
+    for (auto& op : updatedOps) {
+        if (op.GetOpcode() == Opcode::OP_ASSEMBLE) {
+            newAssembleCount++;
+        }
+    }
+    EXPECT_EQ(newAssembleCount, oriAssembleCount)
+        << "ASSEMBLE ops should NOT be deleted when hasParallelAssemble=true and hasReshapeConsumer=true";
+}
+

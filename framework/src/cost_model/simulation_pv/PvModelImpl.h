@@ -21,29 +21,44 @@
 #include <iterator>
 #include <list>
 #include <regex>
+#include <dlfcn.h>
+#include <fstream>
 #include "interface/utils/file_utils.h"
 #include "cost_model/simulation/pv/PvModel.h"
 #include "cost_model/simulation_pv/PvMemAllocator.h"
-#include "cost_model/simulation/base/ModelLogger.h"
-#include "codegen/cloudnpu/codegen_cloudnpu.h"
+#include "cost_model/simulation/common/CommonTools.h"
+#include "codegen/npu/cloudnpu/codegen_cloudnpu.h"
 #include "tilefwk/core_func_data.h"
 #include "interface/configs/config_manager.h"
-
+#include "tilefwk/platform.h"
+#include "tilefwk/pypto_fwk_log.h"
+#include "tilefwk/error.h"
+#include "tilefwk/file.h"
+#include "tilefwk/error_code.h"
 
 constexpr int INVALID_ARG_INDEX = 0xFFFFFFFF;
+using namespace npu::tile_fwk;
 
 namespace CostModel {
-
-inline int64_t CalcShapeSizeFunc(const std::vector<int64_t> &shape) {
+const uint32_t PV_REG_PC = 0;
+const uint32_t PV_REG_PARA_BASE = 4;
+const uint32_t PV_REG_BLOCK_DIM = 9;
+const uint32_t PV_REG_TASK_CFG = 163;
+const uint32_t PV_STEP_PIPE_ID = 2;
+const uint32_t PV_SYS_VA_BASE = 67;
+const uint32_t PV_SYS_PHY_BASE = 68;
+uint32_t HBM_PARA_BASE = 0xffff8000;
+inline int64_t CalcShapeSizeFunc(const std::vector<int64_t>& shape)
+{
     int64_t size = 1;
-    for (auto &i : shape) {
+    for (auto& i : shape) {
         size *= i;
     }
     return size;
 }
 
 struct InvokeParaOffset {
-    uint8_t *rawTensorAddr{nullptr}; // 原始input output tensor基地址, 如果是子图间workspace incast outcast 则为null
+    uint8_t* rawTensorAddr{nullptr}; // 原始input output tensor基地址, 如果是子图间workspace incast outcast 则为null
     uint64_t offset{0};
     uint64_t rawTensorOffset{0};
     bool isTensorParam{false};
@@ -58,8 +73,9 @@ struct InvokeParaOffset {
     int opMagic{0};
     npu::tile_fwk::DataType datatype{npu::tile_fwk::DataType::DT_INT32};
     std::vector<int64_t> rawTensorShape;
-    void LogRawTensor(std::shared_ptr<npu::tile_fwk::RawTensor> rawTensor) {
-        auto &rawShape = rawTensor->GetRawShape();
+    void LogRawTensor(std::shared_ptr<npu::tile_fwk::RawTensor> rawTensor)
+    {
+        auto& rawShape = rawTensor->GetRawShape();
         rawShapeSize = CalcShapeSizeFunc(rawShape) * BytesOf(rawTensor->GetDataType());
         rawMagic = rawTensor->GetRawMagic();
         rawSymbol = rawTensor->GetSymbol();
@@ -68,7 +84,7 @@ struct InvokeParaOffset {
 };
 
 struct PvModelInvoke {
-    uint64_t programFunctionCnt; // 同构后的funciton 个数
+    uint64_t programFunctionCnt;    // 同构后的funciton 个数
     uint64_t coreFunctionCnt;
     uint64_t workSpaceStackSize{0}; // ooo 调度use stack workspace
     uint64_t invokeParaWorkSpaceSize{0};
@@ -111,34 +127,34 @@ public:
 
 class PvModelBinHelper {
 public:
-    static void ReadBin(std::string path, std::vector<uint8_t> &bytes);
+    static void ReadBin(std::string path, std::vector<uint8_t>& bytes);
     static uint64_t GetBinSize(std::string path);
-    static void DumpBin(std::vector<uint8_t> &bytes, uint64_t size, std::string path);
+    static void DumpBin(std::vector<uint8_t>& bytes, uint64_t size, std::string path);
 };
 
 template <typename SystemConfig, typename CaseConfig>
 class PvModelImpl : public PvModel {
 private:
     std::string arch_;
-    npu::tile_fwk::Function *func_;
+    npu::tile_fwk::Function* func_;
     std::string dir_;
     std::string funcDir_;
-    PvData *data_;
+    PvData* data_;
     PvModelTask task_;
     int level_;
     std::unique_ptr<PvMemAllocator> allocator_;
 
 public:
     PvModelImpl(std::string arch) : arch_(arch) {}
-    void Submit(npu::tile_fwk::Function *func, PvData *data, int level, std::string dir);
+    void Submit(npu::tile_fwk::Function* func, PvData* data, int level, std::string dir);
     void Run(int esgId, int psgId);
 
 private:
-    void Prepare(npu::tile_fwk::Function *func);
-    void CodeGen(npu::tile_fwk::Function *func);
-    void BinGen(npu::tile_fwk::Function *func);
-    void CalcInvokeWorkespace(npu::tile_fwk::Function *function, PvModelInvoke &invoke);
-    void PrepareInvoke(int esgId, std::vector<uint64_t> &invokeOffsetVec, std::vector<uint64_t> &invokeOffsetOriVec);
+    void Prepare(npu::tile_fwk::Function* func);
+    void CodeGen(npu::tile_fwk::Function* func);
+    void BinGen(npu::tile_fwk::Function* func);
+    void CalcInvokeWorkespace(npu::tile_fwk::Function* function, PvModelInvoke& invoke);
+    void PrepareInvoke(int esgId, std::vector<uint64_t>& invokeOffsetVec, std::vector<uint64_t>& invokeOffsetOriVec);
     void SetUp(int esgId, int psgId, std::string esgDir);
     void RunModel(std::string esgDir);
     void TearDown(std::string esgDir);
@@ -146,7 +162,8 @@ private:
 
 class PvModelCodegen {
 public:
-    static void AddGlobalAttr(std::string srcPath) {
+    static void AddGlobalAttr(std::string srcPath)
+    {
         const std::string searchStr = "[aicore]";
         const std::string replaceStr = "extern \"C\" __global__ [aicore]";
 
@@ -171,7 +188,8 @@ public:
         outFile.close();
     }
 
-    static void AddKernelEntry(std::string srcPath) {
+    static void AddKernelEntry(std::string srcPath)
+    {
         std::ifstream file(srcPath);
         if (!file.is_open()) {
             return;
@@ -190,19 +208,19 @@ public:
         std::string line;
         std::string include_lines;
         std::string other_lines;
-        SeparateHeadersAndContent(content, include_lines, other_lines);
+        SeparateHeadersAndContent(include_lines, content, other_lines);
 
         outFile << include_lines;
         auto name = ExtractFunctionName(content);
 
         std::string decName = R"!!!(
-extern "C" [aicore] void {KernelName}(CoreFuncParam* param, int64_t GMStackBase, __gm__ int64_t *hcclContext, __gm__ GMTensorInfo* oriAddrParam);
+extern "C" [aicore] void {KernelName}(CoreFuncParam* param, int64_t GMStackBase, __gm__ int64_t *hcclContext, __gm__ TaskStat* taskStat);
 
 )!!!";
         std::string entry = R"!!!(
-extern "C" __global__ [aicore] void PvModelKernelEntry(__gm__ npu::tile_fwk::DynFuncData *funcData, __gm__ uint64_t *opAttrOffset) {
-    CoreFuncParam param = {funcData, &funcData->opAttrs[opAttrOffset[0]], funcData->exprTbl};
-    {KernelName}(&param, funcData->stackWorkSpaceAddr, (__gm__ int64_t *)funcData->hcclContext, (__gm__ GMTensorInfo*)NULL);
+extern "C" __global__ [aicore] void PvModelKernelEntry(__gm__ npu::tile_fwk::DynFuncData *funcData, __gm__ uint64_t *opAttrs) {
+    CoreFuncParam param = {funcData, opAttrs, funcData->exprTbl};
+    {KernelName}(&param, funcData->stackWorkSpaceAddr, (__gm__ int64_t *)funcData->startArgs->commContexts, (__gm__ TaskStat*)NULL);
 }
 
 )!!!";
@@ -215,20 +233,22 @@ extern "C" __global__ [aicore] void PvModelKernelEntry(__gm__ npu::tile_fwk::Dyn
     }
 
 private:
-    static void SeparateHeadersAndContent(const std::string &content, std::string &headers, std::string &otherContent) {
+    static void SeparateHeadersAndContent(std::string& headers, const std::string& content, std::string& otherContent)
+    {
         std::istringstream stream(content);
         std::string line;
 
-        while(std::getline(stream, line)){
-            if(line.find("#include") == 0){
-                headers += line +"\n";
-            }else{
+        while (std::getline(stream, line)) {
+            if (line.find("#include") == 0) {
+                headers += line + "\n";
+            } else {
                 otherContent += line + "\n";
             }
         }
     }
 
-    static std::string ReplaceAll(std::string str, const std::string &from, const std::string &to) {
+    static std::string ReplaceAll(std::string str, const std::string& from, const std::string& to)
+    {
         size_t startPos = 0;
         while ((startPos = str.find(from, startPos)) != std::string::npos) {
             str.replace(startPos, from.length(), to);
@@ -237,7 +257,8 @@ private:
         return str;
     }
 
-    static std::string ExtractFunctionName(const std::string &code) {
+    static std::string ExtractFunctionName(const std::string& code)
+    {
         std::string functionName;
         std::regex functionPattern(R"(\b\w+\s+(\w+)\s*\([^)]*\))");
         std::smatch match;
@@ -253,15 +274,13 @@ private:
 };
 
 // Dynamic
-template <typename SystemConfig, typename CaseConfig>
 class DynPvModelImpl : public DynPvModel {
 private:
-    std::string arch_;
-    npu::tile_fwk::Function *func_;
+    npu::tile_fwk::Function* func_;
     std::string dir_;
     std::unique_ptr<PvMemAllocator> allocator_;
     struct DataMap {
-        uint64_t hostPtr;
+        uint8_t* data;
         uint64_t devPtr;
         uint64_t size;
     };
@@ -275,13 +294,27 @@ private:
         npu::tile_fwk::CoreType coreType;
         std::string srcPath;
         std::string binPath;
-        PvModelCceBin(uint32_t p, uint64_t h, npu::tile_fwk::CoreType t, std::string s = "", std::string b = "") : psgId(p), funcHash(h), coreType(t), srcPath(s), binPath(b) {
-        }
+        PvModelCceBin(uint32_t p, uint64_t h, npu::tile_fwk::CoreType t, std::string s = "", std::string b = "")
+            : psgId(p), funcHash(h), coreType(t), srcPath(s), binPath(b)
+        {}
     };
     std::vector<PvModelCceBin> cceBin;
+    uint64_t subcoreId_ = 0;
+    uint64_t coreId_ = 0;
 
 public:
-    explicit DynPvModelImpl(std::string arch) : arch_(arch) {
+    using PvInitFunc = void (*)(int pv_mode, int hj_switch, int pv_wrap, const char* out_dir, uint32_t core_id);
+    using PvLaunchSubCoreFunc = void (*)(uint64_t pc, const char* bin_file, uint32_t sub_core_id, uint32_t core_id);
+    using PvStepFunc = uint32_t (*)(uint32_t pipe_id, uint32_t sub_core_id, uint32_t core_id, uint32_t warp_id);
+    using PvMemWriteFunc =
+        void (*)(uint32_t mem_type, uint64_t addr, uint64_t size, uint8_t* buf, uint32_t sub_core_id, uint32_t core_id);
+    using PvMemReadFunc =
+        void (*)(uint32_t mem_type, uint64_t addr, uint64_t size, uint8_t* buf, uint32_t sub_core_id, uint32_t core_id);
+    using PvRegWriteFunc =
+        void (*)(uint32_t reg_type, uint32_t reg_id, uint8_t* buf, uint32_t sub_core_id, uint32_t core_id);
+
+    explicit DynPvModelImpl()
+    {
         allocator_ = std::make_unique<PvMemAllocator>();
         dir_ = npu::tile_fwk::config::LogTopFolder() + "/PvModelOutput";
         if (npu::tile_fwk::IsPathExist(dir_)) {
@@ -290,100 +323,179 @@ public:
         npu::tile_fwk::CreateDir(dir_);
     }
 
-    void Codegen(npu::tile_fwk::Function *func) {
+    void InitPv()
+    {
+        auto archType = npu::tile_fwk::Platform::Instance().GetSoc().GetNPUArch();
+        const char* ascendHome = std::getenv("ASCEND_HOME_PATH");
+        if (ascendHome == nullptr) {
+            throw std::runtime_error("ASCEND_HOME_PATH environment variable not set");
+        }
+        std::string archTypeStr = NPUArchToString(archType);
+        std::transform(archTypeStr.begin(), archTypeStr.end(), archTypeStr.begin(), ::tolower);
+        std::string soPath =
+            std::string(ascendHome) + "/toolkit/tools/simulator/" + archTypeStr + "/lib/libpem_davinci.so";
+        void* handle = dlopen((soPath.c_str()), RTLD_LAZY);
+        if (!handle) {
+            throw std::runtime_error("can not load library: " + soPath);
+        }
+        // Load function symbols
+        this->pv_init_ = (PvInitFunc)load_symbol(handle, "pv_init");
+        this->pv_launch_sub_core_ = (PvLaunchSubCoreFunc)load_symbol(handle, "pv_launch_sub_core");
+        this->pv_step_ = (PvStepFunc)load_symbol(handle, "pv_step");
+        this->pv_mem_write_ = (PvMemWriteFunc)load_symbol(handle, "pv_mem_write");
+        this->pv_mem_read_ = (PvMemReadFunc)load_symbol(handle, "pv_mem_read");
+        this->pv_reg_write_ = (PvRegWriteFunc)load_symbol(handle, "pv_reg_write");
+
+        CostModel::OutputSilencer silencer;
+        silencer.silence();
+        uint8_t* value_0_ptr = new uint8_t(0);
+        uint8_t* value_1_ptr = new uint8_t(1);
+        uint8_t* value_34603008_ptr = reinterpret_cast<uint8_t*>(new uint64_t(34603008));
+        pv_init_(0, 0, 1, (dir_ + std::string("/pvlog/")).c_str(), coreId_);
+        pv_reg_write_(static_cast<uint32_t>(1), PV_REG_PARA_BASE, (uint8_t*)&HBM_PARA_BASE, 0, coreId_);
+        pv_reg_write_(static_cast<uint32_t>(1), PV_REG_PARA_BASE, (uint8_t*)&HBM_PARA_BASE, 1, coreId_);
+        pv_reg_write_(static_cast<uint32_t>(1), PV_REG_BLOCK_DIM, value_1_ptr, 0, coreId_);
+        pv_reg_write_(static_cast<uint32_t>(1), PV_REG_BLOCK_DIM, value_1_ptr, 1, coreId_);
+        pv_reg_write_(static_cast<uint32_t>(1), PV_REG_TASK_CFG, value_1_ptr, 0, coreId_);
+        pv_reg_write_(static_cast<uint32_t>(1), PV_REG_TASK_CFG, value_1_ptr, 1, coreId_);
+        pv_reg_write_(static_cast<uint32_t>(1), PV_SYS_VA_BASE, value_0_ptr, 0, coreId_);
+        pv_reg_write_(static_cast<uint32_t>(1), PV_SYS_VA_BASE, value_0_ptr, 1, coreId_);
+        pv_reg_write_(static_cast<uint32_t>(1), PV_SYS_PHY_BASE, value_34603008_ptr, 0, coreId_);
+        pv_reg_write_(static_cast<uint32_t>(1), PV_SYS_PHY_BASE, value_34603008_ptr, 1, coreId_);
+        silencer.restore();
+        SIMULATION_LOGI("pvlog path: %s", (dir_ + std::string("/pvlog/")).c_str());
+    }
+
+    void* load_symbol(void* handle, std::string symbol)
+    {
+        void* func = dlsym(handle, symbol.c_str());
+        if (!func) {
+            dlclose(handle);
+            throw std::runtime_error("Cannot load symbol: " + symbol);
+        }
+        return func;
+    }
+
+    void Codegen(npu::tile_fwk::Function* func)
+    {
         auto attr = func->GetDyndevAttribute();
-        std::map<std::string, npu::tile_fwk::Function *> leafDict;
+        std::map<std::uint64_t, npu::tile_fwk::Function*> leafDict;
         for (size_t i = 0; i < attr->funcGroup.devRootList.size(); i++) {
-            npu::tile_fwk::Function *devRoot = attr->funcGroup.devRootList[i];
-            for (auto &[hash, leaf] : devRoot->programs_) {
-                (void) hash;
-                if (!leafDict.count(leaf->GetRawName())) {
-                    leafDict[leaf->GetRawName()] = leaf;
+            npu::tile_fwk::Function* devRoot = attr->funcGroup.devRootList[i];
+            for (auto& [hash, leaf] : devRoot->programs_) {
+                (void)hash;
+                if (!leafDict.count(leaf->GetFunctionHash().GetHash())) {
+                    leafDict[leaf->GetFunctionHash().GetHash()] = leaf;
                 }
             }
         }
 
         cceBin.emplace_back(PvModelCceBin(0, 0, npu::tile_fwk::CoreType::HUB));
-        int Len2 = 2;
-        int Len3 = 3;
-        for (auto &[name, leaf] : leafDict) {
-            (void) name;
+        for (auto& [hash, leaf] : leafDict) {
+            (void)hash;
             if (leaf->IsDummyFunction()) {
-                cceBin.emplace_back(PvModelCceBin(leaf->GetProgramId(), leaf->GetFunctionHash().GetHash(), npu::tile_fwk::CoreType::HUB));
+                cceBin.emplace_back(PvModelCceBin(
+                    leaf->GetProgramId(), leaf->GetFunctionHash().GetHash(), npu::tile_fwk::CoreType::HUB));
             } else {
                 auto leafFuncAttr = leaf->GetLeafFuncAttribute();
                 auto binPath = leafFuncAttr == nullptr ? "" : leafFuncAttr->binPath;
-                auto orgSrcPath = binPath.substr(0, binPath.length() - 1) + "cpp";
-                auto srcPath = binPath.substr(0, binPath.length() - Len2) + "_pvmodel.cpp";
-                npu::tile_fwk::CopyFile(orgSrcPath, srcPath);
-                PvModelCodegen::AddKernelEntry(srcPath);
-
-                auto objPath = srcPath.substr(0, srcPath.length() - Len3) + "o";
-                npu::tile_fwk::CodeGenCtx ctx;
-                npu::tile_fwk::CodeGenCloudNPU cga(ctx);
-                auto coreType = leafFuncAttr == nullptr ? npu::tile_fwk::CoreType::INVALID : leafFuncAttr->coreType;
-                bool isCube = coreType == npu::tile_fwk::CoreType::AIC;
-                npu::tile_fwk::CompileInfo compileInfo(
-                    *func, ctx, {leaf->GetProgramId(), leaf}, isCube, leaf->IsUnderDynamicFunction());
-                compileInfo.SetCCEAbsPath(srcPath);
-                compileInfo.SetBinAbsPath(objPath);
-                cga.CompileCCE(compileInfo, "");
-
-                binPath = srcPath.substr(0, srcPath.length() - Len3) + "bin";
-                constexpr int cmdLen = 2048;
-                char cmd[cmdLen];
-                (void)snprintf_s(cmd, sizeof(cmd), sizeof(cmd)-1, "llvm-objcopy -O binary -j .text %s %s", objPath.c_str(), binPath.c_str());
-
-                int ret = std::system(cmd);
-                if (ret != 0) {
-                    MLOG_ERROR("cmd error: ", cmd);
+                CompileCode(func, leaf, leafFuncAttr->binPath);
+                if (!leafFuncAttr->binPathMainBlock.empty()) {
+                    CompileCode(func, leaf, leafFuncAttr->binPathMainBlock);
                 }
-
-                cceBin.emplace_back(
-                    PvModelCceBin(leaf->GetProgramId(), leaf->GetFunctionHash().GetHash(), coreType, srcPath, binPath));
             }
         }
     }
 
-    uint8_t *CopyToDev(const uint8_t *data, uint64_t size) {
+    void CompileCode(npu::tile_fwk::Function* func, npu::tile_fwk::Function* leaf, std::string binPath)
+    {
+        int Len2 = 2;
+        int Len3 = 3;
+        auto leafFuncAttr = leaf->GetLeafFuncAttribute();
+        auto orgSrcPath = binPath.substr(0, binPath.length() - 1) + "cpp";
+        auto srcPath = binPath.substr(0, binPath.length() - Len2) + "_pvmodel.cpp";
+        npu::tile_fwk::CopyFile(orgSrcPath, srcPath);
+        PvModelCodegen::AddKernelEntry(srcPath);
+
+        auto objPath = srcPath.substr(0, srcPath.length() - Len3) + "o";
+        npu::tile_fwk::CodeGenCtx ctx;
+        npu::tile_fwk::CodeGenCloudNPU cga(ctx);
+        auto coreType = leafFuncAttr == nullptr ? npu::tile_fwk::CoreType::INVALID : leafFuncAttr->coreType;
+        bool isCube = coreType == npu::tile_fwk::CoreType::AIC;
+        npu::tile_fwk::CompileInfo compileInfo(
+            *func, ctx, {leaf->GetProgramId(), leaf}, isCube, leaf->IsUnderDynamicFunction());
+        compileInfo.SetCCEAbsPath(srcPath);
+        compileInfo.SetBinAbsPath(objPath);
+        cga.CompileCode(cga.PrepareCmd(compileInfo, ""));
+
+        binPath = srcPath.substr(0, srcPath.length() - Len3) + "bin";
+        constexpr int cmdLen = 2048;
+        char cmd[cmdLen];
+        CHECK(static_cast<unsigned>(CostModel::ExternalErrorScene::INVALID_PATH), npu::tile_fwk::FileExist(objPath))
+            << "obj file does not exist. objPath: " << objPath;
+        int ret = snprintf_s(
+            cmd, sizeof(cmd), sizeof(cmd) - 1, "llvm-objcopy -O binary -j .text %s %s", objPath.c_str(),
+            binPath.c_str());
+        if (ret < 0 || ret >= static_cast<int>(sizeof(cmd))) {
+            SIMULATION_LOGE(CostModel::PrecisionSimErrorScene::CMD_ERROR, "snprintf_s: %s", cmd);
+        }
+
+        ret = std::system(cmd);
+        if (ret != 0) {
+            SIMULATION_LOGE(CostModel::PrecisionSimErrorScene::CMD_ERROR, "cmd error: %s", cmd);
+        }
+
+        cceBin.emplace_back(
+            PvModelCceBin(leaf->GetProgramId(), leaf->GetFunctionHash().GetHash(), coreType, srcPath, binPath));
+    }
+
+    uint8_t* CopyToDev(uint8_t* data, uint64_t size)
+    {
         std::vector<uint8_t> s(data, data + size);
-        uint8_t *hostPtr = s.data();
+        uint8_t* hostPtr = s.data();
         storage_.emplace_back(std::move(s));
         return hostPtr;
     }
 
-    uint8_t *CopyTensorToDev(const uint8_t *data, uint64_t size) {
+    uint8_t* CopyTensorToDev(uint8_t* data, uint64_t size)
+    {
         std::vector<uint8_t> s(data, data + size);
-        uint8_t *hostPtr = s.data();
+        uint8_t* devPtr = s.data();
+        pv_mem_write_(0, reinterpret_cast<uint64_t>(devPtr), size, devPtr, 0, 0);
         storage_.emplace_back(std::move(s));
-        uint64_t devPtr = allocator_->AllocArg(size);
-        DataMap m = {reinterpret_cast<uint64_t>(hostPtr), devPtr, size};
+        DataMap m = {data, reinterpret_cast<uint64_t>(devPtr), size};
         data_.emplace_back(m);
-        std::cout << "[PVMODEL]tensor map host: " << std::hex << m.hostPtr << ", dev: " << std::hex << m.devPtr << ", size: " << m.size << std::endl;
-        return hostPtr;
+        return devPtr;
     }
 
-    void CopyFromDev(uint8_t *data, uint8_t *devPtr, uint64_t size) { memcpy_s(data, size, devPtr, size); }
-
-    uint8_t *AllocWorkspaceDev(size_t size) {
+    uint8_t* AllocWorkspace(uint64_t size)
+    {
         std::vector<uint8_t> s(size, 0);
-        uint8_t *hostPtr = s.data();
+        uint8_t *devPtr = s.data();
         storage_.emplace_back(std::move(s));
-        uint64_t devPtr = allocator_->AllocWorkspace(size);
-        DataMap m = {reinterpret_cast<uint64_t>(hostPtr), devPtr, size};
+        DataMap m = {nullptr, reinterpret_cast<uint64_t>(devPtr), size};
         workspace_ = m;
-        std::cout << "[PVMODEL]workspace map host: " << std::hex << m.hostPtr << ", dev: " << std::hex << m.devPtr << ", size: " << m.size << std::endl;
-        return hostPtr;
+        return devPtr;
     }
 
-    void Run(npu::tile_fwk::DynFuncData *funcdata, int coreId, int funcId, int taskId);
+    void CopyTensorFromDev()
+    {
+        for (auto& d : data_) {
+            pv_mem_read_(0, d.devPtr, d.size, d.data, 0, 0);
+        }
+    }
+
+    void Run(DynFuncData* funcdata, int coreId, int funcId, int taskId);
 
 private:
-    void SetUp(PvModelCceBin *cce, npu::tile_fwk::DynFuncData *funcdata, uint64_t opAttrOffset, std::string dir, npu::tile_fwk::DynFuncData *dupData);
-    void RunModel(std::string dir);
-    void TearDown(std::string dir, npu::tile_fwk::DynFuncData *fundata);
-    void BuildFuncData(npu::tile_fwk::DynFuncData *funcdata, std::string dir, npu::tile_fwk::DynFuncData *dupData, uint64_t *refAddr, uint64_t *refSize);
-    uint64_t LookupWorkspace(uint64_t addr);
-    uint64_t LookupData(uint64_t addr);
+    void RunModel(PvModelCceBin* cce, DynFuncData* funcdata, uint64_t* opAttrs);
+
+    PvInitFunc pv_init_;
+    PvLaunchSubCoreFunc pv_launch_sub_core_;
+    PvStepFunc pv_step_;
+    PvMemWriteFunc pv_mem_write_;
+    PvMemReadFunc pv_mem_read_;
+    PvRegWriteFunc pv_reg_write_;
+    enum class step_status_t { END = 0, NORMAL = 1, TIME_OUT = 2, CONTINUE = 3, UNDEF };
 };
 } // namespace CostModel

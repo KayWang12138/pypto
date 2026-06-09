@@ -16,19 +16,21 @@
 #pragma once
 
 #include <cstdint>
+#include <variant>
+
 #include "tilefwk/data_type.h"
 #include "tilefwk/error.h"
-#include <limits>
-#include <cmath>
-#include <variant>
 
 namespace npu::tile_fwk {
 class Element {
 public:
     Element() : type_(DT_BOTTOM) {}
 
+    explicit Element(DataType type, int16_t sData) { Init(type, sData); }
     explicit Element(DataType type, int32_t sData) { Init(type, sData); }
     explicit Element(DataType type, int64_t sData) { Init(type, sData); }
+    explicit Element(DataType type, uint16_t uData) { Init(type, uData); }
+    explicit Element(DataType type, uint32_t uData) { Init(type, uData); }
     explicit Element(DataType type, uint64_t uData) { Init(type, uData); }
     explicit Element(DataType type, double fData) { Init(type, fData); }
 
@@ -36,7 +38,8 @@ public:
     int64_t GetSignedData() const { return data_.sData; }
     uint64_t GetUnsignedData() const { return data_.uData; }
     double GetFloatData() const { return data_.fData; }
-    std::variant<int64_t, uint64_t, double> GetVariantData() const {
+    std::variant<int64_t, uint64_t, double> GetVariantData() const
+    {
         if (IsSigned()) {
             return static_cast<int64_t>(data_.sData);
         } else if (IsUnsigned()) {
@@ -44,43 +47,47 @@ public:
         } else if (IsFloat()) {
             return static_cast<double>(data_.fData);
         }
-        ASSERT(false);
+        FE_ASSERT(false);
         return int64_t(0);
     }
 
-    bool IsSigned() const {
-        return type_ == DT_INT4 || type_ == DT_INT8 || type_ == DT_INT16 || type_ == DT_INT32 ||
-               type_ == DT_INT64 || type_ == DT_BOOL;
+    bool IsSigned() const
+    {
+        return type_ == DT_INT4 || type_ == DT_INT8 || type_ == DT_INT16 || type_ == DT_INT32 || type_ == DT_INT64 ||
+               type_ == DT_BOOL;
     }
-    bool IsUnsigned() const {
+    bool IsUnsigned() const
+    {
         return type_ == DT_UINT8 || type_ == DT_UINT16 || type_ == DT_UINT32 || type_ == DT_UINT64;
     }
-    bool IsFloat() const {
-        return type_ == DT_FP8 || type_ == DT_FP16 || type_ == DT_FP32 || type_ == DT_BF16 ||
-               type_ == DT_HF4 || type_ == DT_HF8 || type_ == DT_DOUBLE;
+    bool IsFloat() const
+    {
+        return type_ == DT_FP8 || type_ == DT_FP16 || type_ == DT_FP32 || type_ == DT_BF16 || type_ == DT_HF4 ||
+               type_ == DT_HF8 || type_ == DT_DOUBLE;
     }
 
     template <typename T>
     T Cast() const;
-    Element operator+(const Element &rhs) const;
-    Element operator-(const Element &rhs) const;
-    Element operator*(const Element &rhs) const;
-    Element operator/(const Element &rhs) const;
-    Element operator%(const Element &rhs) const;
-    bool operator==(const Element &rhs) const;
-    bool operator!=(const Element &rhs) const;
-    bool operator<(const Element &rhs) const;
-    bool operator<=(const Element &rhs) const;
-    bool operator>(const Element &rhs) const;
-    bool operator>=(const Element &rhs) const;
+    Element operator+(const Element& rhs) const;
+    Element operator-(const Element& rhs) const;
+    Element operator*(const Element& rhs) const;
+    Element operator/(const Element& rhs) const;
+    Element operator%(const Element& rhs) const;
+    bool operator==(const Element& rhs) const;
+    bool operator!=(const Element& rhs) const;
+    bool operator<(const Element& rhs) const;
+    bool operator<=(const Element& rhs) const;
+    bool operator>(const Element& rhs) const;
+    bool operator>=(const Element& rhs) const;
 
-    uint64_t my_abs(uint64_t value1, uint64_t value2) const;
-    int64_t my_abs(int64_t value1, int64_t value2) const;
-    double my_abs(double value1, double value2) const;
+    uint64_t Abs(uint64_t value1, uint64_t value2) const;
+    int64_t Abs(int64_t value1, int64_t value2) const;
+    double Abs(double value1, double value2) const;
 
 private:
     template <typename T>
-    void Init(DataType type, T value) {
+    void Init(DataType type, T value)
+    {
         type_ = type;
         if (IsSigned()) {
             data_.sData = static_cast<int64_t>(value);

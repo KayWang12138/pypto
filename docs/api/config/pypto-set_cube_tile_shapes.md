@@ -9,12 +9,13 @@
 
 ## 功能说明
 
-设置cube计算中的TileShape大小。
+在调用`pypto.matmul`前必须调用本接口设置矩阵运算的切分大小，具体切分配置可参考[Matmul高性能编程](https://gitcode.com/cann/pypto/blob/master/docs/tutorials/debug/matmul_performance_guide.md)。
+
 
 ## 函数原型
 
 ```python
-set_cube_tile_shapes(m: List[int], k: List[int], n: List[int], set_l1_tile: bool = False, enable_split_k: bool = False) -> None
+set_cube_tile_shapes(m: List[int], k: List[int], n: List[int], enable_split_k: bool = False) -> None
 ```
 
 ## 参数说明
@@ -22,11 +23,10 @@ set_cube_tile_shapes(m: List[int], k: List[int], n: List[int], set_l1_tile: bool
 
 | 参数名            | 输入/输出 | 说明                                                                 |
 |-------------------|-----------|----------------------------------------------------------------------|
-| m                 | 输入      | m维度在L0和L1上的TileShape（切片形状）的切分大小，分别对应mL0和mL1的切分大小 |
-| k                 | 输入      | k维度在L0和L1上的TileShape（切片形状）的切分大小，分别对应kL0和kL1的切分大小 |
-| n                 | 输入      | n维度在L0和L1上的TileShape（切片形状）的切分大小，分别对应nL0和nL1的切分大小 |
-| set_l1_tile       | 输入      | 设置True表示使能matmul的L1大包搬运功能，False表示未使能L1的大包搬运，默认为False |
-| enable_split_k    | 输入      | 设置True表示使能matmul的多核切K功能，False表示未使能多核切K，默认为False |
+| m                      | 输入      | m维度在L0和L1上的TileShape（切片形状）的切分大小，分别对应mL0和mL1的切分大小 |
+| k                      | 输入      | k维度在L0和L1上的TileShape（切片形状）的切分大小，分别对应kL0和kL1的切分大小 |
+| n                      | 输入      | n维度在L0和L1上的TileShape（切片形状）的切分大小，分别对应nL0和nL1的切分大小 |
+| enable_split_k         | 输入      | 设置True表示使能matmul的多核切K功能，False表示未使能多核切K，默认为False |
 
 ## 返回值说明
 
@@ -37,7 +37,7 @@ void
 TileShape需要满足以下约束条件：
 
 -   对齐约束：
-    -   要求kL0、kL1、nL0、nL1均满足32字节对齐。例如，输入矩阵的数据类型为DT\_FP16时，kL0 \* sizeof\(DT\_FP16\) % 32 == 0。
+    -   要求kL0、kL1、nL0、nL1均满足32字节对齐（DT\_FP32输入场景要求满足16元素对齐）。例如：输入矩阵的数据类型为DT\_FP16时，kL0 \* sizeof\(DT\_FP16\) % 32 == 0。
     -   A矩阵在format为ND且转置场景时（即数据排布为\(K, M\)），要求mL0满足32字节对齐。
     -   A、B矩阵在format为NZ场景时，要求外轴切分大小满足16元素对齐，内轴切分大小满足32字节对齐。例如，在A矩阵非转置场景，外轴为M、内轴为K，要求mL0、mL1满足16元素对齐，kL0、kL1满足32字节对齐。
     -   0 < mL0 <= mL1 且 mL1 % mL0 == 0
@@ -104,7 +104,7 @@ Output需要满足以下约束条件：
 
 -   格式约束：当输出为NZ格式时，需要满足内轴（N轴）32字节对齐
 
-当输入矩阵维度为3维或4维时，set\_l1\_tile、enable\_split\_k参数仅支持False，即不支持使能L1大包搬运及多核切K功能。
+当输入矩阵维度为3维或4维时，enable\_split\_k参数仅支持False，不支持使能多核切K功能。
 
 多核切K场景支持数据类型：
 
@@ -116,6 +116,5 @@ Output需要满足以下约束条件：
 ## 调用示例
 
 ```python
-pypto.set_cube_tile_shapes([128, 128], [128, 128], [128, 128], False, True)
+pypto.set_cube_tile_shapes([128, 128], [128, 128], [128, 128], True)
 ```
-

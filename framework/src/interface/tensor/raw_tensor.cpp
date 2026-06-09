@@ -21,38 +21,43 @@
 #include "interface/utils/serialization.h"
 #include "raw_tensor.h"
 #include <string>
+#include <cstdint>
 
 using namespace npu::tile_fwk;
+
 RawTensor::RawTensor(DataType t, std::vector<int64_t> tshape, TileOpFormat tformat, std::string tname, int trawmagic)
     : rawmagic((trawmagic == -1) ? IdGen<IdType::RAW_TENSOR>::Inst().NewId() : trawmagic),
       rawshape(std::move(tshape)),
       datatype(t),
       format(tformat),
-      symbol(std::move(tname)) {
+      symbol(std::move(tname))
+{
     dynRawShape = SymbolicScalar::FromConcrete(rawshape);
     memoryId = rawmagic;
 }
 
-Json RawTensor::DumpJson() const {
-    Json rawTensorDump;
-    rawTensorDump[T_FIELD_KIND] = static_cast<int>(Kind::T_KIND_RAW_TENSOR);
-    rawTensorDump["datatype"] = datatype;
-    rawTensorDump["format"] = format;
-    rawTensorDump["rawshape"] = rawshape;
-    rawTensorDump["ori_rawshape"] = oriRawshape;
-    rawTensorDump["rawmagic"] = rawmagic;
+Json RawTensor::DumpJson() const
+{
+    Json result;
+    result[T_FIELD_KIND] = static_cast<int>(Kind::T_KIND_RAW_TENSOR);
+    result["datatype"] = datatype;
+    result["format"] = format;
+    result["rawshape"] = rawshape;
+    result["rawmagic"] = rawmagic;
     if (actualRawmagic != -1) {
-        rawTensorDump["actual_rawmagic"] = actualRawmagic;
+        result["actual_rawmagic"] = actualRawmagic;
     }
 
     if (symbol != "") {
-        rawTensorDump["symbol"] = symbol;
+        result["symbol"] = symbol;
     }
-    return rawTensorDump;
+    return result;
 }
 
-std::shared_ptr<RawTensor> RawTensor::LoadJson(const Json &rawTensorDump) {
-    ASSERT(rawTensorDump[T_FIELD_KIND].get<int>() == static_cast<int>(Kind::T_KIND_RAW_TENSOR));
+std::shared_ptr<RawTensor> RawTensor::LoadJson(const Json& rawTensorDump)
+{
+    FE_ASSERT(rawTensorDump[T_FIELD_KIND].get<int>() == static_cast<int>(Kind::T_KIND_RAW_TENSOR))
+        << rawTensorDump[T_FIELD_KIND].get<int>() << " != " << static_cast<int>(Kind::T_KIND_RAW_TENSOR);
     DataType dtype = static_cast<DataType>(rawTensorDump["datatype"].get<int>());
     TileOpFormat format = static_cast<TileOpFormat>(rawTensorDump["format"].get<int>());
     std::vector<int64_t> rawshapeJson = rawTensorDump["rawshape"].get<std::vector<int64_t>>();
@@ -65,13 +70,13 @@ std::shared_ptr<RawTensor> RawTensor::LoadJson(const Json &rawTensorDump) {
     if (rawTensorDump.count("actual_rawmagic") != 0) {
         ret->actualRawmagic = rawTensorDump["actual_rawmagic"].get<int>();
     }
-    ret->oriRawshape = rawTensorDump["ori_rawshape"].get<std::vector<int64_t>>();
     return ret;
 }
 
-std::string RawTensor::DumpType() const {
+std::string RawTensor::DumpType() const
+{
     std::string result = "<";
-    for (auto &value : rawshape) {
+    for (auto& value : rawshape) {
         result += std::to_string((value)) + " x ";
     }
     result += DataType2String(datatype);
@@ -82,7 +87,8 @@ std::string RawTensor::DumpType() const {
     return result;
 }
 
-std::string RawTensor::DumpSSA(bool showType, bool showSymbol) const {
+std::string RawTensor::DumpSSA(bool showType, bool showSymbol) const
+{
     std::ostringstream oss;
     if (showType) {
         oss << DumpType() << " ";
@@ -96,31 +102,31 @@ std::string RawTensor::DumpSSA(bool showType, bool showSymbol) const {
     return oss.str();
 }
 
-std::string RawTensor::Dump() const {
-    return DumpSSA();
-}
+std::string RawTensor::Dump() const { return DumpSSA(); }
 
-bool RawTensor::IsDummy() const {
-    return isDummy_;
-}
+bool RawTensor::IsDummy() const { return isDummy_; }
 
-void RawTensor::SetIsDummy(bool dummy) {
-    isDummy_ = dummy;
-}
+void RawTensor::SetIsDummy(bool dummy) { isDummy_ = dummy; }
 
-void RawTensor::AddRefCount(int value) {
-    ASSERT(value == 1 || value == -1);
+void RawTensor::AddRefCount(int value)
+{
+    FE_ASSERT(value == 1 || value == -1) << "value: " << value;
     refCount_ += value;
     if (refCount_ < 0) {
-        ALOG_INFO("rawmagic = ", rawmagic, " refCount_ is negative: ", refCount_);
+        FE_LOGI("rawmagic = %d, refCount_ is negative: %d", rawmagic, refCount_);
     }
 }
 
-int64_t RawTensor::GetRawDataSize() const {
+int64_t RawTensor::GetRawDataSize() const
+{
+    if (HasNegativeNum<int64_t>(rawshape)) {
+        FE_LOGD("Raw tensor shape has negative. It has dynamic axis.");
+        return INT64_MAX;
+    }
     return GetRawShapeSize() * BytesOf(datatype);
 }
 
-
-int64_t RawTensor::GetRawShapeSize() const {
+int64_t RawTensor::GetRawShapeSize() const
+{
     return std::accumulate(rawshape.begin(), rawshape.end(), INT64_C(1), std::multiplies<int64_t>());
 }

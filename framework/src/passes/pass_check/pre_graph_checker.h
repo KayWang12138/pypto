@@ -26,12 +26,13 @@ namespace npu {
 namespace tile_fwk {
 class PreGraphProcessChecker : Checker {
 public:
-    Status DoPreCheck(Function &function) override;
-    Status DoPostCheck(Function &function) override;
+    Status DoPreCheck(Function& function) override;
+    Status DoPostCheck(Function& function) override;
+
 private:
-    Status PostCheckHelpFunc(const LogicalTensor &singleTensor);
-    Status PostCheckReshape(const Operation &op);
+    Status PostCheckHelpFunc(const LogicalTensor& singleTensor);
+    Status PostCheckReshape(const Operation& op);
 };
 } // namespace tile_fwk
 } // namespace npu
-#endif  // PRE_GRAPH_CHECKER_H
+#endif // PRE_GRAPH_CHECKER_H

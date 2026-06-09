@@ -14,6 +14,7 @@
  */
 
 #include <gtest/gtest.h>
+#include "test_codegen_common.h"
 #include "interface/function/function.h"
 #include "tilefwk/tilefwk.h"
 #include "interface/inner/tilefwk.h"
@@ -21,27 +22,17 @@
 #include "codegen/codegen.h"
 #include <vector>
 #include <string>
-#include "codegen/cloudnpu/codegen_cloudnpu.h"
+#include "codegen/npu/cloudnpu/codegen_cloudnpu.h"
 
 namespace npu::tile_fwk {
 
-class TestCodegenArgSort : public ::testing::Test {
+class TestCodegenArgSort : public CodegenTestBase {
 public:
-    static void SetUpTestCase() {}
-
-    static void TearDownTestCase() {}
-
-    void SetUp() override {
-        Program::GetInstance().Reset();
-        config::Reset();
-        config::SetPlatformConfig(KEY_ONLY_HOST_COMPILE, true);
-        config::SetPlatformConfig("ENABLE_COST_MODEL", false);
-    }
-
-    void TearDown() override {}
+    TestCodegenArgSort() : CodegenTestBase({.compileStage = CS_EXECUTE_GRAPH}) {}
 };
 
-TEST_F(TestCodegenArgSort, TestArgSort) {
+TEST_F(TestCodegenArgSort, TestArgSort)
+{
     constexpr const int32_t shape0 = 64;
 
     std::vector<int64_t> input_shape = {shape0};
@@ -53,9 +44,7 @@ TEST_F(TestCodegenArgSort, TestArgSort) {
 
     std::string funcName = "ARGSORT_T";
     config::SetBuildStatic(true);
-    FUNCTION(funcName, {input_a, output}) {
-        output = ArgSort(input_a, -1);
-    }
+    FUNCTION(funcName, {input_a, output}) { output = ArgSort(input_a, -1); }
     auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + funcName);
     npu::tile_fwk::CodeGenCtx ctx;
     npu::tile_fwk::CodeGenCloudNPU codeGen(ctx);

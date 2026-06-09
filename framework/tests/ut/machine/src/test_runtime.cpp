@@ -13,12 +13,12 @@
  * \brief
  */
 
-#include <regex>
 #include <gtest/gtest.h>
-#include "machine/runtime/runtime.h"
-#include "tilefwk/tilefwk.h"
-#include "interface/inner/tilefwk.h"
+#include <regex>
 #include <iostream>
+#include "interface/inner/tilefwk.h"
+#include "machine/runtime/runtime_agent.h"
+
 #include "interface/configs/config_manager.h"
 using namespace npu::tile_fwk;
 
@@ -28,16 +28,17 @@ public:
 
     static void TearDownTestCase() {}
 
-    void SetUp() override {
+    void SetUp() override
+    {
         npu::tile_fwk::Program::GetInstance().Reset();
-        npu::tile_fwk::config::SetPlatformConfig(npu::tile_fwk::KEY_ONLY_HOST_COMPILE, true);
+        config::SetHostOption(COMPILE_STAGE, CS_EXECUTE_GRAPH);
     }
 
     void TearDown() override {}
 };
 
-TEST(RuntimeTest, Runtime01) {
+TEST(RuntimeTest, Runtime01)
+{
     std::cout << "start to test runtime" << std::endl;
     machine::GetRA()->MapAiCoreReg();
 }
-

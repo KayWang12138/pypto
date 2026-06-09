@@ -12,6 +12,7 @@
 from dataclasses import dataclass, field
 from typing import List, Optional, Tuple
 import pypto
+from conftest import duration_estimate
 
 
 SHAPE_DIM_0 = 0
@@ -37,9 +38,6 @@ NUM_1127 = 1127
 NUM_1536 = 1536
 NUM_7168 = 7168
 
-KEY_ONLY_CODEGEN = "ONLY_CODEGEN"
-KEY_VEC_NBUFFER_MODE = "VEC_NBUFFER_MODE"
-KEY_CUBE_L1_REUSE_MODE = "CUBE_L1_REUSE_MODE"
 KEY_CUBE_NBUFFER_SETTING = "CUBE_NBUFFER_SETTING"
 KEY_MG_COPYIN_UPPER_BOUND = "MG_COPYIN_UPPER_BOUND"
 
@@ -168,7 +166,7 @@ def quantize(
         out_fp32 = x / scale_quant
         out_int_32 = pypto.cast(out_fp32, pypto.DT_INT32, pypto.CastMode.CAST_RINT)
         out_half = pypto.cast(out_int_32, pypto.DT_FP16, pypto.CastMode.CAST_ROUND)
-        out_int_8 = pypto.cast(out_half, pypto.DT_INT8, pypto.CastMode.CAST_TRUNC)
+        out_int_8 = pypto.cast(out_half, pypto.DT_INT8, pypto.CastMode.CAST_TRUNC, satmode=pypto.SaturationMode.ON)
         scale_dequant = ones / scale_quant
 
         return out_int_8, scale_dequant
@@ -182,7 +180,7 @@ def quantize(
 
         out_int_32 = pypto.cast(out_fp32, pypto.DT_INT32, pypto.CastMode.CAST_RINT)
         out_half = pypto.cast(out_int_32, pypto.DT_FP16, pypto.CastMode.CAST_ROUND)
-        out_int_8 = pypto.cast(out_half, pypto.DT_INT8, pypto.CastMode.CAST_TRUNC)
+        out_int_8 = pypto.cast(out_half, pypto.DT_INT8, pypto.CastMode.CAST_TRUNC, satmode=pypto.SaturationMode.ON)
 
         return out_int_8, scale_dequant
 
@@ -561,12 +559,9 @@ class MlaBuildConfig:
 
 
 def setup_codegen_passes():
-    pypto.set_host_options(only_codegen=True)
     pypto.set_pass_options(
-        vec_nbuffer_mode=NUM_1,
-        cube_l1_reuse_mode=NUM_4,
+        cube_l1_reuse_setting={-1: NUM_4},
         cube_nbuffer_setting={NUM_3: NUM_4},
-        mg_copyin_upper_bound=NUM_2 * NUM_1024 * NUM_1024,
     )
 
 
@@ -686,6 +681,7 @@ def build_args(cfg: MlaBuildConfig):
     return MlaArgs(params=params, tensors=tensors, quant=MlaQuantInputs())
 
 
+@duration_estimate(12)
 def test_dynamic_mla_prolog():
     args = build_args(MlaBuildConfig())
     setup_codegen_passes()

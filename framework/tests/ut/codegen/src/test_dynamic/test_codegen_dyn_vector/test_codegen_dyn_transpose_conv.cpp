@@ -23,35 +23,28 @@
 #include "tilefwk/data_type.h"
 #include "codegen/codegen.h"
 #include "codegen/symbol_mgr/codegen_symbol.h"
-#include "codegen/cloudnpu/codegen_cloudnpu.h"
+#include "codegen/npu/cloudnpu/codegen_cloudnpu.h"
 #include "test_codegen_common.h"
 
 namespace npu::tile_fwk {
 
-class TestCodegenDynVnchwconv : public ::testing::Test {
+class TestCodegenDynVnchwconv : public CodegenTestBase {
 public:
-    static void SetUpTestCase() {}
-
-    static void TearDownTestCase() {}
-
-    void SetUp() override {
-        Program::GetInstance().Reset();
-        config::Reset();
-        config::SetPlatformConfig(KEY_ONLY_HOST_COMPILE, true);
-        config::SetPlatformConfig("ENABLE_COST_MODEL", false);
-    }
-
-    void TearDown() override {}
+    TestCodegenDynVnchwconv() : CodegenTestBase({.compileStage = CS_EXECUTE_GRAPH}) {}
 };
 
-void TestDynVnchwconvBody(std::vector<int64_t> shape, std::vector<int64_t> outShape, std::vector<int> transposeShape,
-    std::vector<int64_t> tileShape, std::string funcName) {
+void TestDynVnchwconvBody(
+    std::vector<int64_t> shape, std::vector<int64_t> outShape, std::vector<int> transposeShape,
+    std::vector<int64_t> tileShape, std::string funcName)
+{
     TileShape::Current().SetVecTile(tileShape);
     Tensor input(DT_FP32, shape, "input");
     Tensor output(DT_FP32, outShape, "output");
 
-    FUNCTION(funcName, {input, output}) {
-        LOOP(funcName, FunctionType::DYNAMIC_LOOP, i, LoopRange(1)) {
+    FUNCTION(funcName, {input, output})
+    {
+        LOOP(funcName, FunctionType::DYNAMIC_LOOP, i, LoopRange(1))
+        {
             (void)i;
             output = Transpose(input, transposeShape);
         }
@@ -59,30 +52,15 @@ void TestDynVnchwconvBody(std::vector<int64_t> shape, std::vector<int64_t> outSh
 
     auto function =
         Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + funcName + SUB_FUNC_SUFFIX + HIDDEN_FUNC_SUFFIX);
-    function->SetFunctionType(FunctionType::DYNAMIC_LOOP_PATH);
     function->SetUnderDynamicFunction(true);
-    for (auto &subFunc : function->rootFunc_->programs_) {
-        for (auto &op : subFunc.second->Operations()) {
-            if (OpcodeManager::Inst().IsCopyIn(op.GetOpcode()) || OpcodeManager::Inst().IsCopyOut(op.GetOpcode())) {
-                if (IsCopyIn(op.GetOpcode()))
-                    op.SetIOpAttrOffset(0, 0);
-                else
-                    op.SetOOpAttrOffset(0, 0);
-                op.SetAttribute("GmTensorParamIdxInCallFunc", 0);
-            }
-        }
-        DynParamInfo fakeParam = {4, 0, 0, DynParamInfoType::VALID_SHAPE, 0, SymbolicScalar(), false, ""};
-        subFunc.second->dynParamTable_.emplace("sym_21_dim_0", fakeParam);
-        subFunc.second->dynParamTable_.emplace("sym_21_dim_1", fakeParam);
-        subFunc.second->dynParamTable_.emplace("sym_21_dim_2", fakeParam);
-        subFunc.second->dynParamTable_.emplace("sym_21_dim_3", fakeParam);
-    }
+
     npu::tile_fwk::CodeGenCtx ctx;
     npu::tile_fwk::CodeGenCloudNPU codeGen(ctx);
     codeGen.GenCode(*function, {});
 }
 
-TEST_F(TestCodegenDynVnchwconv, TransposeDynVnchwconvDim3) {
+TEST_F(TestCodegenDynVnchwconv, TransposeDynVnchwconvDim3)
+{
     TestDynVnchwconvBody({2, 32, 16}, {2, 16, 32}, {2, 1}, {1, 16, 16}, "TRANSPOSE_DYN_VNCHWCONV_DIM4");
 }
 } // namespace npu::tile_fwk

@@ -6,8 +6,8 @@
 
 高级样例涵盖以下核心领域：
 
-### 1. 复杂神经网络架构 ([nn](nn/))
-- **Attention Mechanism ([attention](nn/attention/))**:
+### 1. 复杂神经网络架构 ([advanced_nn](advanced_nn/))
+- **Attention Mechanism ([attention](advanced_nn/attention/))**:
     - 实现缩放点积注意力（Scaled Dot-Product Attention）。
     - 支持多头注意力（Multi-head Attention）。
     - 支持动态 Batch 和动态序列长度（Sequence Length）。
@@ -39,7 +39,14 @@
 在运行任何样例之前，请确保已配置 CANN 环境并设置了设备 ID：
 
 ```bash
-source /usr/local/Ascend/ascend-toolkit/latest/bin/setenv.bash
+# 配置 CANN 环境变量
+# 安装完成后请配置环境变量，请用户根据set_env.sh的实际路径执行如下命令。
+# 上述环境变量配置只在当前窗口生效，用户可以按需将以上命令写入环境变量配置文件（如.bashrc文件）。
+
+# 默认路径安装，以root用户为例（非root用户，将/usr/local替换为${HOME}）
+source /usr/local/Ascend/ascend-toolkit/set_env.sh
+
+# 设置设备 ID
 export TILE_FWK_DEVICE_ID=0
 ```
 
@@ -47,6 +54,6 @@ export TILE_FWK_DEVICE_ID=0
 
 ## 学习建议
 
-1. 首先深入学习 `nn/attention`，这是所有现代 LLM 的核心。
+1. 首先深入学习 `advanced_nn/attention`，这是所有现代 LLM 的核心。
 2. 通过 `patterns/function` 学习如何组织大型算子项目。
 3. 参考 `models` 目录下的真实模型实现，将这些高级特性应用到实际生产中。

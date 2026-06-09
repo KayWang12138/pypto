@@ -29,21 +29,15 @@ using namespace npu::tile_fwk::machine;
 
 class UnitTestBase : public ::testing::Test {
 protected:
-    void SetUp() override {
+    void SetUp() override
+    {
         Program::GetInstance().Reset();
         ProgramData::GetInstance().Reset();
 
         config::SetPlatformConfig(KEY_ENABLE_AIHAC_BACKEND, true);
-        config::SetHostOption(ONLY_CODEGEN, true);
-
-        testing::UnitTest *ut = testing::UnitTest::GetInstance();
-        const testing::TestInfo *testInfo = ut->current_test_info();
-        std::string logFilePrefix = std::string(testInfo->test_suite_name()) + "." + testInfo->name() + "_";
-        SetLogFilePrefix(logFilePrefix);
     }
 
-    void TearDown() override {
-    }
+    void TearDown() override {}
 };
 
-extern "C" int PyptoKernelCtrlServerRegisterTaskInspector(DeviceTaskInspectorEntry inspectorEntry, void *inspector);
+extern "C" int PyptoKernelCtrlServerRegisterTaskInspector(DeviceTaskInspectorEntry inspectorEntry, void* inspector);

@@ -15,6 +15,7 @@
 
 #ifndef DISTRIBUTED_OP_TEST_SUITE_H
 #define DISTRIBUTED_OP_TEST_SUITE_H
+#include <string>
 
 namespace npu::tile_fwk {
 namespace Distributed {
@@ -25,17 +26,19 @@ struct OpTestParam {
     int rankId;
 };
 
-void TestShmemMoeCombine(OpTestParam &testParam);
-void TestAllGatherAttentionPostReducescatter(OpTestParam &testParam);
-template<typename T>
-void TestDynAllGather(OpTestParam &testParam);
-template<typename T>
-void TestShmemReduceScatter(OpTestParam &testParam);
-template<typename T, bool useTwoShot>
-void TestShmemAllReduce(OpTestParam &testParam);
-void TestShmemMoeDispatch(OpTestParam &testParam);
-template<typename T>
-void TestShmemAllReduceAddAllReduce(OpTestParam &testParam);
+template <typename T>
+void TestMoeDistributedCombine(OpTestParam& testParam, std::string& goldenDir);
+void TestAllGatherAttentionPostReducescatter(OpTestParam& testParam, std::string& goldenDir);
+template <typename T>
+void TestAllGather(OpTestParam& testParam, std::string& goldenDir);
+template <typename T>
+void TestReduceScatter(OpTestParam& testParam, std::string& goldenDir);
+template <typename T>
+void TestAllReduce(OpTestParam& testParam, std::string& goldenDir);
+template <typename T>
+void TestShmemMoeDispatch(OpTestParam& testParam, std::string& goldenDir);
+template <typename T>
+void TestAllReduceAddAllReduce(OpTestParam& testParam, std::string& goldenDir);
 } // namespace Distributed
 } // namespace npu::tile_fwk
 

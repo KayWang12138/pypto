@@ -20,7 +20,8 @@ using namespace npu::tile_fwk;
 
 class GatherElementOnBoardTest : public npu::tile_fwk::stest::TestSuite_STest_Ops_Aihac {};
 
-TEST_F(GatherElementOnBoardTest, test_gather_element_float_16_70_8_40_1) {
+TEST_F(GatherElementOnBoardTest, test_gather_element_float_16_70_8_40_1)
+{
     int S0 = 16;
     int S1 = 70;
     int D0 = 8;
@@ -34,28 +35,30 @@ TEST_F(GatherElementOnBoardTest, test_gather_element_float_16_70_8_40_1) {
     int capacity1 = shape1[0] * shape1[1];
     int capacity2 = shape2[0] * shape2[1];
 
-    aclInit(nullptr);
-    rtSetDevice(GetDeviceIdByEnvVar());
+    AclInit(nullptr);
+    RuntimeSetDevice(GetDeviceIdByEnvVar());
     uint64_t outputSize = capacity2 * sizeof(float);
     uint8_t* out_ptr = allocDevAddr(outputSize);
-    PROGRAM("GatherElement") {
-        void *params_ptr = readToDev(GetGoldenDir() + "/params.bin", capacity0);
-        void *indices_ptr = readToDev(GetGoldenDir() + "/indices.bin", capacity1);
+    PROGRAM("GatherElement")
+    {
+        void* params_ptr = readToDev(GetGoldenDir() + "/params.bin", capacity0);
+        void* indices_ptr = readToDev(GetGoldenDir() + "/indices.bin", capacity1);
         TileShape::Current().SetVecTile({4, 32});
 
-        Tensor input_src0(DataType::DT_FP32, shape0, (uint8_t *)params_ptr, "params");
-        Tensor input_src1(DataType::DT_INT32, shape1, (uint8_t *)indices_ptr, "indices");
+        Tensor input_src0(DataType::DT_FP32, shape0, (uint8_t*)params_ptr, "params");
+        Tensor input_src1(DataType::DT_INT32, shape1, (uint8_t*)indices_ptr, "indices");
         Tensor output(DataType::DT_FP32, shape2, out_ptr, "output");
 
         config::SetBuildStatic(true);
-        FUNCTION("GATHER_ELEMET_T", {input_src0, input_src1, output}) {
+        FUNCTION("GATHER_ELEMET_T", {input_src0, input_src1, output})
+        {
             output = GatherElements(input_src0, input_src1, axis);
         }
     }
     DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
     std::vector<float> golden(capacity2);
     std::vector<float> dev_res(capacity2);
-    machine::GetRA()->CopyFromTensor((uint8_t *)dev_res.data(), (uint8_t *)out_ptr, outputSize);
+    machine::GetRA()->CopyFromTensor((uint8_t*)dev_res.data(), (uint8_t*)out_ptr, outputSize);
     readInput(GetGoldenDir() + "/res_golden.bin", golden);
     std::cout << "====== output size:" << capacity2 << std::endl;
 
@@ -63,7 +66,8 @@ TEST_F(GatherElementOnBoardTest, test_gather_element_float_16_70_8_40_1) {
     EXPECT_EQ(ret, true);
 }
 
-TEST_F(GatherElementOnBoardTest, test_gather_element_float_16_64_8_32_1) {
+TEST_F(GatherElementOnBoardTest, test_gather_element_float_16_64_8_32_1)
+{
     int S0 = 16;
     int S1 = 64;
     int D0 = 8;
@@ -77,28 +81,30 @@ TEST_F(GatherElementOnBoardTest, test_gather_element_float_16_64_8_32_1) {
     int capacity1 = shape1[0] * shape1[1];
     int capacity2 = shape2[0] * shape2[1];
 
-    aclInit(nullptr);
-    rtSetDevice(GetDeviceIdByEnvVar());
+    AclInit(nullptr);
+    RuntimeSetDevice(GetDeviceIdByEnvVar());
     uint64_t outputSize = capacity2 * sizeof(float);
     uint8_t* out_ptr = allocDevAddr(outputSize);
-    PROGRAM("GatherElement") {
-        void *params_ptr = readToDev(GetGoldenDir() + "/params.bin", capacity0);
-        void *indices_ptr = readToDev(GetGoldenDir() + "/indices.bin", capacity1);
+    PROGRAM("GatherElement")
+    {
+        void* params_ptr = readToDev(GetGoldenDir() + "/params.bin", capacity0);
+        void* indices_ptr = readToDev(GetGoldenDir() + "/indices.bin", capacity1);
         TileShape::Current().SetVecTile({4, 32});
 
-        Tensor input_src0(DataType::DT_FP32, shape0, (uint8_t *)params_ptr, "params");
-        Tensor input_src1(DataType::DT_INT32, shape1, (uint8_t *)indices_ptr, "indices");
+        Tensor input_src0(DataType::DT_FP32, shape0, (uint8_t*)params_ptr, "params");
+        Tensor input_src1(DataType::DT_INT32, shape1, (uint8_t*)indices_ptr, "indices");
         Tensor output(DataType::DT_FP32, shape2, out_ptr, "output");
 
         config::SetBuildStatic(true);
-        FUNCTION("GATHER_ELEMET_T", {input_src0, input_src1, output}) {
+        FUNCTION("GATHER_ELEMET_T", {input_src0, input_src1, output})
+        {
             output = GatherElements(input_src0, input_src1, axis);
         }
     }
     DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
     std::vector<float> golden(capacity2);
     std::vector<float> dev_res(capacity2);
-    machine::GetRA()->CopyFromTensor((uint8_t *)dev_res.data(), (uint8_t *)out_ptr, outputSize);
+    machine::GetRA()->CopyFromTensor((uint8_t*)dev_res.data(), (uint8_t*)out_ptr, outputSize);
     readInput(GetGoldenDir() + "/res_golden.bin", golden);
     std::cout << "====== output size:" << capacity2 << std::endl;
 
@@ -106,7 +112,8 @@ TEST_F(GatherElementOnBoardTest, test_gather_element_float_16_64_8_32_1) {
     EXPECT_EQ(ret, true);
 }
 
-TEST_F(GatherElementOnBoardTest, test_gather_element_float_16_64_7_32_1) {
+TEST_F(GatherElementOnBoardTest, test_gather_element_float_16_64_7_32_1)
+{
     int S0 = 16;
     int S1 = 64;
     int D0 = 7;
@@ -121,21 +128,23 @@ TEST_F(GatherElementOnBoardTest, test_gather_element_float_16_64_7_32_1) {
     int capacity1 = shape1[0] * shape1[1];
     int capacity2 = shape2[0] * shape2[1];
 
-    aclInit(nullptr);
-    rtSetDevice(GetDeviceIdByEnvVar());
+    AclInit(nullptr);
+    RuntimeSetDevice(GetDeviceIdByEnvVar());
     uint64_t outputSize = capacity2 * sizeof(float);
     uint8_t* out_ptr = allocDevAddr(outputSize);
-    PROGRAM("GatherElement") {
-        void *params_ptr = readToDev(GetGoldenDir() + "/params.bin", capacity0);
-        void *indices_ptr = readToDev(GetGoldenDir() + "/indices.bin", capacity1);
+    PROGRAM("GatherElement")
+    {
+        void* params_ptr = readToDev(GetGoldenDir() + "/params.bin", capacity0);
+        void* indices_ptr = readToDev(GetGoldenDir() + "/indices.bin", capacity1);
         TileShape::Current().SetVecTile({4, 32});
 
-        Tensor input_src0(DataType::DT_FP32, shape0, (uint8_t *)params_ptr, "params");
-        Tensor input_src1(DataType::DT_INT32, shape1, (uint8_t *)indices_ptr, "indices");
+        Tensor input_src0(DataType::DT_FP32, shape0, (uint8_t*)params_ptr, "params");
+        Tensor input_src1(DataType::DT_INT32, shape1, (uint8_t*)indices_ptr, "indices");
         Tensor output(DataType::DT_FP32, shape2, out_ptr, "output");
 
         config::SetBuildStatic(true);
-        FUNCTION("GATHER_ELEMET_T", {input_src0, input_src1, output}) {
+        FUNCTION("GATHER_ELEMET_T", {input_src0, input_src1, output})
+        {
             output = GatherElements(input_src0, input_src1, axis);
         }
     }
@@ -143,7 +152,7 @@ TEST_F(GatherElementOnBoardTest, test_gather_element_float_16_64_7_32_1) {
 
     std::vector<float> golden(capacity2);
     std::vector<float> dev_res(capacity2);
-    machine::GetRA()->CopyFromTensor((uint8_t *)dev_res.data(), (uint8_t *)out_ptr, outputSize);
+    machine::GetRA()->CopyFromTensor((uint8_t*)dev_res.data(), (uint8_t*)out_ptr, outputSize);
     readInput(GetGoldenDir() + "/res_golden.bin", golden);
     std::cout << "====== output size:" << capacity2 << std::endl;
 
@@ -151,7 +160,8 @@ TEST_F(GatherElementOnBoardTest, test_gather_element_float_16_64_7_32_1) {
     EXPECT_EQ(ret, true);
 }
 
-TEST_F(GatherElementOnBoardTest, test_gather_element_float_16_64_7_32_0) {
+TEST_F(GatherElementOnBoardTest, test_gather_element_float_16_64_7_32_0)
+{
     int S0 = 16;
     int S1 = 64;
     int D0 = 7;
@@ -165,28 +175,30 @@ TEST_F(GatherElementOnBoardTest, test_gather_element_float_16_64_7_32_0) {
     int capacity1 = shape1[0] * shape1[1];
     int capacity2 = shape2[0] * shape2[1];
 
-    aclInit(nullptr);
-    rtSetDevice(GetDeviceIdByEnvVar());
+    AclInit(nullptr);
+    RuntimeSetDevice(GetDeviceIdByEnvVar());
     uint64_t outputSize = capacity2 * sizeof(float);
     uint8_t* out_ptr = allocDevAddr(outputSize);
-    PROGRAM("GatherElement") {
-        void *params_ptr = readToDev(GetGoldenDir() + "/params.bin", capacity0);
-        void *indices_ptr = readToDev(GetGoldenDir() + "/indices.bin", capacity1);
+    PROGRAM("GatherElement")
+    {
+        void* params_ptr = readToDev(GetGoldenDir() + "/params.bin", capacity0);
+        void* indices_ptr = readToDev(GetGoldenDir() + "/indices.bin", capacity1);
         TileShape::Current().SetVecTile({4, 32});
 
-        Tensor input_src0(DataType::DT_FP32, shape0, (uint8_t *)params_ptr, "params");
-        Tensor input_src1(DataType::DT_INT32, shape1, (uint8_t *)indices_ptr, "indices");
+        Tensor input_src0(DataType::DT_FP32, shape0, (uint8_t*)params_ptr, "params");
+        Tensor input_src1(DataType::DT_INT32, shape1, (uint8_t*)indices_ptr, "indices");
         Tensor output(DataType::DT_FP32, shape2, out_ptr, "output");
 
         config::SetBuildStatic(true);
-        FUNCTION("GATHER_ELEMET_T", {input_src0, input_src1, output}) {
+        FUNCTION("GATHER_ELEMET_T", {input_src0, input_src1, output})
+        {
             output = GatherElements(input_src0, input_src1, axis);
         }
         DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
 
         std::vector<float> golden(capacity2);
         std::vector<float> dev_res(capacity2);
-        machine::GetRA()->CopyFromTensor((uint8_t *)dev_res.data(), (uint8_t *)out_ptr, outputSize);
+        machine::GetRA()->CopyFromTensor((uint8_t*)dev_res.data(), (uint8_t*)out_ptr, outputSize);
         readInput(GetGoldenDir() + "/res_golden.bin", golden);
         std::cout << "====== output size:" << capacity2 << std::endl;
 

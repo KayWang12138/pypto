@@ -11,7 +11,7 @@
 """ ifa op 相关用例 Golden 生成逻辑.
 
 本脚本有 2 种执行模式:
-1. CI批跑时, 由 tests/cmake/scripts/golden_ctrl.py 调用, 为避免日志过多, 此时 logging 级别为 logging.INFO;
+1. CI批跑时, 由 cmake/scripts/golden_ctrl.py 调用, 为避免日志过多, 此时 logging 级别为 logging.INFO;
 2. 单独调试时, 本脚本单独被调用, 此时 logging 级别为 logging.DEBUG;
 """
 import sys
@@ -30,7 +30,7 @@ if __name__ == "__main__":
     # 系统 import 路径
     g_src_root: Path = Path(Path(__file__).parent, "../../../../../").resolve()
     logging.debug("SrcRoot: %s", g_src_root)
-    g_ctrl_path: Path = Path(g_src_root, "tests/cmake/scripts")
+    g_ctrl_path: Path = Path(g_src_root, "cmake/scripts")
     if str(g_ctrl_path) not in sys.path:
         sys.path.append(str(g_ctrl_path))
     # 单独调试 import 失败, 需确认上文中 '系统 import 路径' 配置正确
@@ -303,6 +303,7 @@ def gen_gather_data_3d(
         "OnBoardIFATest.test_32_128_tileop_exp",
         "OnBoardIFATest.test_32_1_tileop_exp",
         "OnBoardIFATest.test_32_1_maximum",
+        "OnBoardIFATest.test_32_1_tileop_log1p",
         "OnBoardIFATest.test_32_1_reciprocal",
         "OnBoardIFATest.test_operation_32_128_row_max_single",
         "OnBoardIFATest.test_operation_32_128_row_sum_single",
@@ -589,6 +590,21 @@ def gen_ifa_op_golden(case_name: str, output: Path) -> bool:
             x = np.random.uniform(-1, 1, shape).astype(dtype)
             x.tofile(x_path)
             x = np.reciprocal(x)
+            x.tofile(o_path)
+            return True
+    elif case_name == "OnBoardIFATest.test_32_1_tileop_log1p":
+        dtype = np.float32
+        shape = [32, 1]
+        x_path = Path(output, 'x.bin')
+        o_path = Path(output, 'res.bin')
+        complete = x_path.exists() and o_path.exists()
+        if complete:
+            logging.debug("Case(%s), Golden complete.", case_name)
+            return True
+        else:
+            x = np.random.uniform(-1, 1, shape).astype(dtype)
+            x.tofile(x_path)
+            x = np.log1p(x)
             x.tofile(o_path)
             return True
     elif case_name == "OnBoardIFATest.test_operation_32_128_row_max_single":

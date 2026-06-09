@@ -13,6 +13,9 @@
 from typing import List, Optional
 from functools import wraps
 
+from .error import VerifyError
+
+from ._utils import get_torch_npu
 from .enum import DataType, TileOpFormat
 from .tensor import Tensor
 
@@ -22,19 +25,36 @@ def _count_calls(func):
 
     @wraps(func)
     def wrapper(tensor, name: str = "", *, dynamic_axis: Optional[List[int]] = None,
-                tensor_format: Optional[TileOpFormat] = None):
+                tensor_format: Optional[TileOpFormat] = None, dtype: Optional[DataType] = None):
         nonlocal count
         count += 1
         if name == "":
             name = f"TENSOR_{count}"
-        return func(tensor, name, dynamic_axis, tensor_format)
+        return func(tensor, name, dynamic_axis, tensor_format, dtype)
 
     return wrapper
 
 
+def _check_inner_shape(tensor, dtype, is_nz):
+    if tensor.dim() <= 0:
+        return
+    is_b4 = dtype == DataType.DT_FP4_E2M1X2 or dtype == DataType.DT_FP4_E1M2X2
+    shape_back = tensor.shape[-1]
+    if shape_back == -1:
+        return
+    if is_nz:
+        block_align_bytes = 64 if is_b4 else 32
+        total_bytes = shape_back if is_b4 else shape_back * tensor.element_size()
+        if total_bytes % block_align_bytes != 0:
+            raise RuntimeError("NZ format inner axis must be aligned to 32B(4bit dtype must be aligned to 64).")
+    elif is_b4:
+        if shape_back % 2 != 0:
+            raise RuntimeError("ND format and 4bit dtype inner axis must be even number.")
+
+
 @_count_calls
 def from_torch(tensor, name: str = "", dynamic_axis: Optional[List[int]] = None,
-               tensor_format: Optional[TileOpFormat] = None):
+               tensor_format: Optional[TileOpFormat] = None, dtype: Optional[DataType] = None):
     """
     convert the input into a PyPTO Tensor
 
@@ -46,6 +66,10 @@ def from_torch(tensor, name: str = "", dynamic_axis: Optional[List[int]] = None,
         The name of the resulting PyPTO Tensor.
     dynamic_axis: List[int]
         Specifies which axes of the tensor should be marked as dynamic.
+    tensor_format: TileOpFormat
+        Specifies the format of the resulting PyPTO Tensor.
+    dtype: DataType
+        Specifies the data type of the resulting PyPTO Tensor.
 
     Returns
     -------
@@ -54,7 +78,8 @@ def from_torch(tensor, name: str = "", dynamic_axis: Optional[List[int]] = None,
         - shape: The dimensions of the tensor.
         - name: The specified name of the tensor.
         - data_ptr: The memory address of the tensor data.
-        - format: The format of the tensor (e.g., TILEOP_ND or  TILEOP_NZ).
+        - format: The format of the tensor (e.g., TILEOP_ND or TILEOP_NZ).
+        - dtype: The dtype of the tensor.
 
     Examples
     --------
@@ -70,6 +95,10 @@ def from_torch(tensor, name: str = "", dynamic_axis: Optional[List[int]] = None,
     >>> y_pto = pypto.from_torch(y, "input_tensor", tensor_format=pypto.TileOpFormat.TILEOP_NZ)
     >>> print(y_pto.format)
     TileOpFormat.TILEOP_NZ
+    >>> y = torch.randn(2, 3)
+    >>> y_pto = pypto.from_torch(y, "input_tensor", dtype=pypto.DataType.DT_INT32)
+    >>> print(y_pto.dtype)
+    DataType.DT_INT32
     """
     import torch
 
@@ -79,15 +108,18 @@ def from_torch(tensor, name: str = "", dynamic_axis: Optional[List[int]] = None,
     if not tensor.is_contiguous():
         raise RuntimeError("not all tensors are contiguous")
 
+    dtype = _dtype_from(tensor.dtype) if dtype is None else dtype
     if tensor_format is None:
         tensor_format = TileOpFormat.TILEOP_ND
         if tensor.device.type == "npu":
-            import torch_npu
+            torch_npu = get_torch_npu()
 
-            if torch_npu.get_npu_format(tensor) == 29:
+            if torch_npu is not None and torch_npu.get_npu_format(tensor) == 29:
                 tensor_format = TileOpFormat.TILEOP_NZ
+                _check_inner_shape(tensor, dtype, is_nz=True)
+            else:
+                _check_inner_shape(tensor, dtype, is_nz=False)
 
-    dtype = _dtype_from(tensor.dtype)
     if tensor.dim() == 0:
         return Tensor(
             shape=tuple([1]),
@@ -126,10 +158,14 @@ _dtype_dict = {
     "torch.int64": DataType.DT_INT64,
     "torch.uint64": DataType.DT_UINT64,
     "torch.bool": DataType.DT_BOOL,
+    "torch.float8_e4m3fn": DataType.DT_FP8E4M3,
+    "torch.float8_e5m2": DataType.DT_FP8E5M2,
+    "torch.float8_e8m0fnu": DataType.DT_FP8E8M0,
+    "torch.float4_e2m1fn_x2": DataType.DT_FP4_E2M1X2,
 }
 
 
-def _dtype_from(dtype: str) -> DataType:
+def _dtype_from(dtype: 'torch.dtype') -> DataType:
     pto_dtype = _dtype_dict.get(dtype.__str__())
     if pto_dtype is None:
         raise ValueError(f"Input torch.dtype is not supported. Got {dtype}")
@@ -138,7 +174,9 @@ def _dtype_from(dtype: str) -> DataType:
 
 def _torch_dtype_from(dtype: DataType) -> "torch.dtype":
     """
-    convert the input into a torch.dtype
+    Convert the input into a torch.dtype.
+    Dynamically checks for all FP8 support to ensure maximum compatibility
+    across different PyTorch versions (including older versions without FP8).
 
     Parameters
     ----------
@@ -148,7 +186,13 @@ def _torch_dtype_from(dtype: DataType) -> "torch.dtype":
     Returns
     -------
     torch.dtype
-        The torch.dtype string.
+        The corresponding torch.dtype.
+
+    Raises
+    ------
+    ValueError
+        If the dtype is not supported or if a specific FP8 type is requested
+        but not available in the current PyTorch version.
     """
     import torch
 
@@ -166,17 +210,48 @@ def _torch_dtype_from(dtype: DataType) -> "torch.dtype":
         DataType.DT_INT64: torch.int64,
         DataType.DT_UINT64: torch.uint64,
         DataType.DT_BOOL: torch.bool,
+        DataType.DT_HF8: torch.uint8,
     }
+
+    fp8_mappings = [
+        (DataType.DT_FP8E4M3, 'float8_e4m3fn'),
+        (DataType.DT_FP8E5M2, 'float8_e5m2'),
+        (DataType.DT_FP8E8M0, 'float8_e8m0fnu'),
+    ]
+
+    for pto_dtype, attr_name in fp8_mappings:
+        torch_attr = getattr(torch, attr_name, None)
+        if torch_attr is not None:
+            _torch_dtype_dict[pto_dtype] = torch_attr
 
     torch_dtype = _torch_dtype_dict.get(dtype)
     if torch_dtype is None:
-        raise ValueError(f"Input pypto.DataType is not supported. Got {dtype}")
+        if dtype == DataType.DT_FP8E8M0:
+            raise VerifyError(ValueError(
+                f"DataType.DT_FP8E8M0 requires 'torch.float8_e8m0fnu', which is NOT available "
+                f"in your current PyTorch version ({torch.__version__}).\n"
+                "Action: Please upgrade your torch-npu / PyTorch to a version supporting this specific FP8 format."
+            ))
+        elif dtype == DataType.DT_FP8E4M3:
+            raise VerifyError(ValueError(
+                f"DataType.DT_FP8E4M3 requires 'torch.float8_e4m3fn', which is NOT available "
+                f"in your current PyTorch version ({torch.__version__}).\n"
+                "Action: Please upgrade your torch-npu / PyTorch to a version supporting this specific FP8 format."
+            ))
+        elif dtype == DataType.DT_FP8E5M2:
+            raise VerifyError(ValueError(
+                f"DataType.DT_FP8E5M2 requires 'torch.float8_e5m2', which is NOT available "
+                f"in your current PyTorch version ({torch.__version__}).\n"
+                "Action: Please upgrade your torch-npu / PyTorch to a version supporting this specific FP8 format."
+            ))
+        else:
+            raise ValueError(f"Input pypto.DataType is not supported or mapped to None. Got {dtype}")
     return torch_dtype
 
 
 def _gen_pto_tensor(input_tensors):
     import torch
-    
+
     torch_tensors = []
     pto_tensors = []
     for t in input_tensors:

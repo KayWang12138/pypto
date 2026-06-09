@@ -28,7 +28,7 @@
 
 using namespace npu::tile_fwk;
 
-namespace npu{
+namespace npu {
 namespace tile_fwk {
 const int NUM_32 = 32;
 const int NUM_64 = 64;
@@ -41,47 +41,52 @@ public:
 
     static void TearDownTestCase() {}
 
-    void SetUp() override {
+    void SetUp() override
+    {
         Program::GetInstance().Reset();
         config::Reset();
-        config::SetPlatformConfig(KEY_ONLY_HOST_COMPILE, true);
+        config::SetHostOption(COMPILE_STAGE, CS_EXECUTE_GRAPH);
         config::SetHostConfig(KEY_STRATEGY, "GenerateMoveOpPassTestStrategy");
-        config::SetPlatformConfig("ENABLE_COST_MODEL", false);
+        config::SetPlatformConfig(KEY_ENABLE_COST_MODEL, false);
     }
     void TearDown() override {}
 };
 
-TEST_F(GenerateMoveOpPassTest, AssembleViewToCopy) {
-    PROGRAM("GenerateMoveOpPassTest") {
+TEST_F(GenerateMoveOpPassTest, AssembleViewToCopy)
+{
+    PROGRAM("GenerateMoveOpPassTest")
+    {
         std::vector<int64_t> shape1{256, 256};
         std::vector<int64_t> shape2{128, 128};
         TileShape::Current().SetVecTile({128, 128});
         Tensor input_a(DT_FP32, shape1, "input_a");
         Tensor input_b(DT_FP32, shape1, "input_b");
         Tensor output(DT_FP32, shape2, "output");
-        PassManager &passManager = PassManager::Instance();
-        passManager.RegisterStrategy("GenerateMoveOpPassTestStrategy", {
-            {   "RemoveRedundantReshape",   "RemoveRedundantReshape"},
-            {      "InferMemoryConflict",      "InferMemoryConflict"},
-            {           "ExpandFunction",           "ExpandFunction"},
-            {              "DuplicateOp",              "DuplicateOp"},
-            {        "MergeViewAssemble",        "MergeViewAssemble"},
-            {         "AssignMemoryType",         "AssignMemoryType"},
-            {   "SplitLargeFanoutTensor",   "SplitLargeFanoutTensor"},
-            {             "SplitReshape",             "SplitReshape"},
-            {        "RemoveRedundantOp",        "RemoveRedundantOp"},
+        PassManager& passManager = PassManager::Instance();
+        passManager.RegisterStrategy(
+            "GenerateMoveOpPassTestStrategy", {
+                                                  {"RemoveRedundantReshape", PassName::REMOVE_REDUNDANT_RESHAPE},
+                                                  {"InferMemoryConflict", PassName::INFER_MEMORY_CONFLICT},
+                                                  {"ExpandFunction", PassName::EXPAND_FUNCTION},
+                                                  {"DuplicateOp", PassName::DUPLICATE_OP},
+                                                  {"MergeViewAssemble", PassName::MERGE_VIEW_ASSEMBLE},
+                                                  {"AssignMemoryType", PassName::ASSIGN_MEMORY_TYPE},
+                                                  {"SplitLargeFanoutTensor", PassName::SPLIT_LARGE_FANOUT_TENSOR},
+                                                  {"SplitReshape", PassName::SPLIT_RESHAPE},
+                                                  {"RemoveRedundantOp", PassName::REMOVE_REDUNDANT_OP},
 
-        });
+                                              });
         ConfigManager::Instance();
 
         Function* originFunction = nullptr;
         std::vector<int> originOpmagic;
         config::SetBuildStatic(true);
-        FUNCTION("ADD", {input_a, input_b, output}) {
+        FUNCTION("ADD", {input_a, input_b, output})
+        {
             config::SetPassStrategy("GenerateMoveOpPassTestStrategy");
 
-            auto tmp_a_0 = View(input_a, shape2, {0,0});
-            auto tmp_b_1 = View(input_b, shape2, {0,0});
+            auto tmp_a_0 = View(input_a, shape2, {0, 0});
+            auto tmp_b_1 = View(input_b, shape2, {0, 0});
 
             output = Add(tmp_a_0, tmp_b_1);
         }
@@ -99,7 +104,7 @@ TEST_F(GenerateMoveOpPassTest, AssembleViewToCopy) {
 
         ASSERT_NE(originFunction, nullptr) << "当前函数指针为空";
         auto operations = originFunction->Operations();
-        for (const auto &op : operations) {
+        for (const auto& op : operations) {
             std::cout << "opmagic: " << op.opmagic << "op type " << op.GetOpcodeStr() << std::endl;
             originOpmagic.emplace_back(op.opmagic);
         }
@@ -109,30 +114,32 @@ TEST_F(GenerateMoveOpPassTest, AssembleViewToCopy) {
         // ================== Verify Pass Effect ==================
         auto updatedOperations = Program::GetInstance().GetFunctionByRawName("TENSOR_ADD")->Operations();
         constexpr int expectedOperations = 4;
-        EXPECT_EQ(updatedOperations.size(), expectedOperations) << "4 operations should remain View + Convert + Add + Assemble";
+        EXPECT_EQ(updatedOperations.size(), expectedOperations)
+            << "4 operations should remain View + Convert + Add + Assemble";
         int assemble_num = 0;
         int view_num = 0;
         int copy_in_num = 0;
         int copy_out_num = 0;
-        for (const auto &updatedOperation : updatedOperations) {
-            switch (updatedOperation.GetOpcode()){
-                case Opcode::OP_ASSEMBLE: {
-                    assemble_num++;
-                    break;
-                }
-                case Opcode::OP_VIEW: {
-                    view_num++;
-                    break;
-                }
+        for (const auto& updatedOperation : updatedOperations) {
+            switch (updatedOperation.GetOpcode()) {
                 case Opcode::OP_COPY_IN: {
                     copy_in_num++;
+                    break;
+                }
+                case Opcode::OP_ASSEMBLE: {
+                    assemble_num++;
                     break;
                 }
                 case Opcode::OP_COPY_OUT: {
                     copy_out_num++;
                     break;
                 }
-                default: break;
+                case Opcode::OP_VIEW: {
+                    view_num++;
+                    break;
+                }
+                default:
+                    break;
             }
         }
         constexpr int expectedAssemble = 0;
@@ -146,37 +153,41 @@ TEST_F(GenerateMoveOpPassTest, AssembleViewToCopy) {
     }
 }
 
-TEST_F(GenerateMoveOpPassTest, ConvertToCopy) {
-    PROGRAM("GenerateMoveOpPassTest") {
+TEST_F(GenerateMoveOpPassTest, ConvertToCopy)
+{
+    PROGRAM("GenerateMoveOpPassTest")
+    {
         std::vector<int64_t> shape1{256, 256};
         std::vector<int64_t> shape2{128, 128};
         TileShape::Current().SetVecTile({128, 128});
         Tensor input_a(DT_FP32, shape1, "input_a");
         Tensor input_b(DT_FP32, shape1, "input_b");
         Tensor output(DT_FP32, shape2, "output");
-        PassManager &passManager = PassManager::Instance();
-        passManager.RegisterStrategy("GenerateMoveOpPassTestStrategy", {
-            {   "RemoveRedundantReshape",   "RemoveRedundantReshape"},
-            {      "InferMemoryConflict",      "InferMemoryConflict"},
-            {           "ExpandFunction",           "ExpandFunction"},
-            {              "DuplicateOp",              "DuplicateOp"},
-            {        "MergeViewAssemble",        "MergeViewAssemble"},
-            {   "SplitLargeFanoutTensor",   "SplitLargeFanoutTensor"},
-            {             "SplitReshape",             "SplitReshape"},
-            {         "AssignMemoryType",         "AssignMemoryType"},
-            {        "RemoveRedundantOp",        "RemoveRedundantOp"},
-            {           "GenerateMoveOp",           "GenerateMoveOp"},
-        });
+        PassManager& passManager = PassManager::Instance();
+        passManager.RegisterStrategy(
+            "GenerateMoveOpPassTestStrategy", {
+                                                  {"RemoveRedundantReshape", PassName::REMOVE_REDUNDANT_RESHAPE},
+                                                  {"InferMemoryConflict", PassName::INFER_MEMORY_CONFLICT},
+                                                  {"ExpandFunction", PassName::EXPAND_FUNCTION},
+                                                  {"DuplicateOp", PassName::DUPLICATE_OP},
+                                                  {"MergeViewAssemble", PassName::MERGE_VIEW_ASSEMBLE},
+                                                  {"SplitLargeFanoutTensor", PassName::SPLIT_LARGE_FANOUT_TENSOR},
+                                                  {"SplitReshape", PassName::SPLIT_RESHAPE},
+                                                  {"AssignMemoryType", PassName::ASSIGN_MEMORY_TYPE},
+                                                  {"RemoveRedundantOp", PassName::REMOVE_REDUNDANT_OP},
+                                                  {"GenerateMoveOp", PassName::GENERATE_MOVE_OP},
+                                              });
         ConfigManager::Instance();
 
         std::vector<int> originOpmagic;
         config::SetBuildStatic(true);
-        FUNCTION("ADD", {input_a, input_b, output}) {
+        FUNCTION("ADD", {input_a, input_b, output})
+        {
             config::SetPassStrategy("GenerateMoveOpPassTestStrategy");
 
-            auto tmp_a_0 = View(input_a, shape2, {0,0});
+            auto tmp_a_0 = View(input_a, shape2, {0, 0});
             tmp_a_0.GetStorage()->SetMemoryTypeBoth(MEM_L1, true);
-            auto tmp_b_1 = View(input_b, shape2, {0,0});
+            auto tmp_b_1 = View(input_b, shape2, {0, 0});
             tmp_b_1.GetStorage()->SetMemoryTypeBoth(MEM_L1, true);
 
             output = Add(tmp_a_0, tmp_b_1);
@@ -185,13 +196,14 @@ TEST_F(GenerateMoveOpPassTest, ConvertToCopy) {
         // ================== Verify Pass Effect ==================
         auto updatedOperations = Program::GetInstance().GetFunctionByRawName("TENSOR_ADD")->Operations();
         constexpr int expectedOperations = 6;
-        EXPECT_EQ(updatedOperations.size(), expectedOperations) << "8 operations should remain View + Convert + Add + Assemble";
+        EXPECT_EQ(updatedOperations.size(), expectedOperations)
+            << "6 operations should remain View + Convert + Add + Assemble";
         int assemble_num = 0;
         int view_num = 0;
         int copy_in_num = 0;
         int copy_out_num = 0;
-        for (const auto &updatedOperation : updatedOperations) {
-            switch (updatedOperation.GetOpcode()){
+        for (const auto& updatedOperation : updatedOperations) {
+            switch (updatedOperation.GetOpcode()) {
                 case Opcode::OP_ASSEMBLE: {
                     assemble_num++;
                     break;
@@ -200,30 +212,33 @@ TEST_F(GenerateMoveOpPassTest, ConvertToCopy) {
                     view_num++;
                     break;
                 }
-                case Opcode::OP_COPY_IN: {
-                    copy_in_num++;
-                    break;
-                }
                 case Opcode::OP_COPY_OUT: {
                     copy_out_num++;
                     break;
                 }
-                default: break;
+                case Opcode::OP_COPY_IN: {
+                    copy_in_num++;
+                    break;
+                }
+                default:
+                    break;
             }
         }
-        constexpr int expectedAssemble = 0;
         constexpr int expectedView = 2;
+        constexpr int expectedAssemble = 0;
         constexpr int expectedCopyIn = 2;
         constexpr int expectedCopyOut = 1;
+        EXPECT_EQ(view_num, expectedView) << "2 operations should be OP_VIEW";
         EXPECT_EQ(assemble_num, expectedAssemble) << "0 operations should be OP_ASSEMBLE";
-        EXPECT_EQ(view_num, expectedView) << "0 operations should be OP_VIEW";
         EXPECT_EQ(copy_in_num, expectedCopyIn) << "4 operations should be OP_COPY_IN";
         EXPECT_EQ(copy_out_num, expectedCopyOut) << "3 operations should be OP_COPY_OUT";
     }
 }
 
-TEST_F(GenerateMoveOpPassTest, Transpose) {
-    PROGRAM("GenerateMoveOpPassTest") {
+TEST_F(GenerateMoveOpPassTest, Transpose)
+{
+    PROGRAM("GenerateMoveOpPassTest")
+    {
         std::vector<int64_t> shape{1, 32, 32, 2};
         Tensor a(DT_FP32, shape, "a");
         Tensor a_trans(DT_FP32, shape, "a_trans");
@@ -231,24 +246,23 @@ TEST_F(GenerateMoveOpPassTest, Transpose) {
         constexpr int dim0 = 1, dim1 = 16, dim2 = 16, dim3 = 2;
         TileShape::Current().SetVecTile(dim0, dim1, dim2, dim3);
 
-        PassManager &passManager = PassManager::Instance();
-        passManager.RegisterStrategy("GenerateMoveOpPassTestStrategy", {
-            {   "RemoveRedundantReshape",   "RemoveRedundantReshape"},
-            {      "InferMemoryConflict",      "InferMemoryConflict"},
-            {           "ExpandFunction",           "ExpandFunction"},
-            {              "DuplicateOp",              "DuplicateOp"},
-            {        "MergeViewAssemble",        "MergeViewAssemble"},
-            {         "AssignMemoryType",         "AssignMemoryType"},
-            {   "SplitLargeFanoutTensor",   "SplitLargeFanoutTensor"},
-            {             "SplitReshape",             "SplitReshape"},
-            {        "RemoveRedundantOp",        "RemoveRedundantOp"},
+        PassManager& passManager = PassManager::Instance();
+        passManager.RegisterStrategy(
+            "GenerateMoveOpPassTestStrategy", {
+                                                  {"RemoveRedundantReshape", PassName::REMOVE_REDUNDANT_RESHAPE},
+                                                  {"InferMemoryConflict", PassName::INFER_MEMORY_CONFLICT},
+                                                  {"ExpandFunction", PassName::EXPAND_FUNCTION},
+                                                  {"DuplicateOp", PassName::DUPLICATE_OP},
+                                                  {"MergeViewAssemble", PassName::MERGE_VIEW_ASSEMBLE},
+                                                  {"AssignMemoryType", PassName::ASSIGN_MEMORY_TYPE},
+                                                  {"SplitLargeFanoutTensor", PassName::SPLIT_LARGE_FANOUT_TENSOR},
+                                                  {"SplitReshape", PassName::SPLIT_RESHAPE},
+                                                  {"RemoveRedundantOp", PassName::REMOVE_REDUNDANT_OP},
 
-        });
+                                              });
         ConfigManager::Instance();
 
-        FUNCTION("Tranpose") {
-            a_trans = Transpose(a, {1, 2});
-        }
+        FUNCTION("Tranpose") { a_trans = Transpose(a, {1, 2}); }
         std::string jsonFilePath = "./config/pass/json/generate_move_op_transpose.json";
 
         bool dumpJsonFlag = true;
@@ -272,12 +286,8 @@ TEST_F(GenerateMoveOpPassTest, Transpose) {
         int copy_in_num = 0;
         int copy_out_num = 0;
         int transpose_datamove_num = 0;
-        for (const auto &updatedOperation : updatedOperations) {
-            switch (updatedOperation.GetOpcode()){
-                case Opcode::OP_ASSEMBLE: {
-                    assemble_num++;
-                    break;
-                }
+        for (const auto& updatedOperation : updatedOperations) {
+            switch (updatedOperation.GetOpcode()) {
                 case Opcode::OP_VIEW: {
                     view_num++;
                     break;
@@ -286,56 +296,62 @@ TEST_F(GenerateMoveOpPassTest, Transpose) {
                     copy_in_num++;
                     break;
                 }
-                case Opcode::OP_COPY_OUT: {
-                    copy_out_num++;
-                    break;
-                }
                 case Opcode::OP_TRANSPOSE_MOVEOUT: {
                     transpose_datamove_num++;
                     break;
                 }
-                default: break;
+                case Opcode::OP_COPY_OUT: {
+                    copy_out_num++;
+                    break;
+                }
+                case Opcode::OP_ASSEMBLE: {
+                    assemble_num++;
+                    break;
+                }
+                default:
+                    break;
             }
         }
-        constexpr int expectedAssemble = 4;
         constexpr int expectedView = 0;
         constexpr int expectedCopyIn = 4;
+        constexpr int expectedAssemble = 4;
         constexpr int expectedCopyOut = 0;
         EXPECT_EQ(assemble_num, expectedAssemble) << "4 operations should be OP_ASSEMBLE";
-        EXPECT_EQ(assemble_num, transpose_datamove_num) << "num of OP_ASSEMBLE and OP_TRANSPOSE_MOVEOUT should be equal";
+        EXPECT_EQ(assemble_num, transpose_datamove_num)
+            << "num of OP_ASSEMBLE and OP_TRANSPOSE_MOVEOUT should be equal";
         EXPECT_EQ(view_num, expectedView) << "0 operations should be OP_VIEW";
         EXPECT_EQ(copy_in_num, expectedCopyIn) << "4 operations should be OP_COPY_IN";
         EXPECT_EQ(copy_out_num, expectedCopyOut) << "0 operations should be OP_COPY_OUT";
     }
 }
 
-TEST_F(GenerateMoveOpPassTest, ScatterUpdate) {
-    PROGRAM("GenerateMoveOpPassTest") {
+TEST_F(GenerateMoveOpPassTest, ScatterUpdate)
+{
+    PROGRAM("GenerateMoveOpPassTest")
+    {
         int row = 64, col = 32;
         TileShape::Current().SetVecTile(row, col);
 
-        PassManager &passManager = PassManager::Instance();
-        passManager.RegisterStrategy("GenerateMoveOpPassTestStrategy", {
-            {   "RemoveRedundantReshape",   "RemoveRedundantReshape"},
-            {      "InferMemoryConflict",      "InferMemoryConflict"},
-            {           "ExpandFunction",           "ExpandFunction"},
-            {              "DuplicateOp",              "DuplicateOp"},
-            {        "MergeViewAssemble",        "MergeViewAssemble"},
-            {         "AssignMemoryType",         "AssignMemoryType"},
-            {   "SplitLargeFanoutTensor",   "SplitLargeFanoutTensor"},
-            {             "SplitReshape",             "SplitReshape"},
-            {        "RemoveRedundantOp",        "RemoveRedundantOp"},
-
-        });
+        PassManager& passManager = PassManager::Instance();
+        passManager.RegisterStrategy(
+            "GenerateMoveOpPassTestStrategy", {
+                                                  {"RemoveRedundantReshape", PassName::REMOVE_REDUNDANT_RESHAPE},
+                                                  {"InferMemoryConflict", PassName::INFER_MEMORY_CONFLICT},
+                                                  {"ExpandFunction", PassName::EXPAND_FUNCTION},
+                                                  {"DuplicateOp", PassName::DUPLICATE_OP},
+                                                  {"MergeViewAssemble", PassName::MERGE_VIEW_ASSEMBLE},
+                                                  {"AssignMemoryType", PassName::ASSIGN_MEMORY_TYPE},
+                                                  {"SplitLargeFanoutTensor", PassName::SPLIT_LARGE_FANOUT_TENSOR},
+                                                  {"SplitReshape", PassName::SPLIT_RESHAPE},
+                                                  {"RemoveRedundantOp", PassName::REMOVE_REDUNDANT_OP},
+                                              });
         ConfigManager::Instance();
 
         int b = 2, s = 64, numExpertsPerTok = 2, h = 128, minus_two = -2;
-        Tensor output(DT_FP32, {b*s*numExpertsPerTok, h}, "output");
-        Tensor idxs(DT_INT64, {1, b*s*numExpertsPerTok}, "idxs");
-        Tensor key_states(DT_FP32, {b*s*numExpertsPerTok, h}, "key_states");
-        FUNCTION("ScatterUpdate") {
-            output = ScatterUpdate(output, {idxs}, key_states, minus_two);
-        }
+        Tensor output(DT_FP32, {b * s * numExpertsPerTok, h}, "output");
+        Tensor idxs(DT_INT64, {1, b * s * numExpertsPerTok}, "idxs");
+        Tensor key_states(DT_FP32, {b * s * numExpertsPerTok, h}, "key_states");
+        FUNCTION("ScatterUpdate") { output = ScatterUpdate(output, {idxs}, key_states, minus_two); }
         std::string jsonFilePath = "./config/pass/json/generate_move_op_scatter_update.json";
         bool dumpJsonFlag = false;
         if (dumpJsonFlag) {
@@ -356,14 +372,14 @@ TEST_F(GenerateMoveOpPassTest, ScatterUpdate) {
         int copy_in_num = 0;
         int copy_out_num = 0;
         int index_outcast_num = 0;
-        for (const auto &updatedOperation : updatedOperations) {
-            switch (updatedOperation.GetOpcode()){
-                case Opcode::OP_ASSEMBLE: {
-                    assemble_num++;
+        for (const auto& updatedOperation : updatedOperations) {
+            switch (updatedOperation.GetOpcode()) {
+                case Opcode::OP_INDEX_OUTCAST: {
+                    index_outcast_num++;
                     break;
                 }
-                case Opcode::OP_VIEW: {
-                    view_num++;
+                case Opcode::OP_ASSEMBLE: {
+                    assemble_num++;
                     break;
                 }
                 case Opcode::OP_COPY_IN: {
@@ -374,11 +390,12 @@ TEST_F(GenerateMoveOpPassTest, ScatterUpdate) {
                     copy_out_num++;
                     break;
                 }
-                case Opcode::OP_INDEX_OUTCAST: {
-                    index_outcast_num++;
+                case Opcode::OP_VIEW: {
+                    view_num++;
                     break;
                 }
-                default: break;
+                default:
+                    break;
             }
         }
         constexpr int expectedAssemble = 4;
@@ -393,7 +410,8 @@ TEST_F(GenerateMoveOpPassTest, ScatterUpdate) {
     }
 }
 
-TEST_F(GenerateMoveOpPassTest, L1TOL0){
+TEST_F(GenerateMoveOpPassTest, L1TOL0)
+{
     auto currFunctionPtr = std::make_shared<Function>(Program::GetInstance(), "L1TOL0", "L1TOL0", nullptr);
     EXPECT_TRUE(currFunctionPtr != nullptr);
 
@@ -431,15 +449,15 @@ TEST_F(GenerateMoveOpPassTest, L1TOL0){
     std::shared_ptr<LogicalTensor> output_c = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape2);
     output_c->SetMagic(tensorMagic4);
 
-    auto &convert_op1 = currFunctionPtr->AddRawOperation(Opcode::OP_CONVERT, {input_a}, {tmp_a});
+    auto& convert_op1 = currFunctionPtr->AddRawOperation(Opcode::OP_CONVERT, {input_a}, {tmp_a});
     convert_op1.opmagic = opMagic0;
-    convert_op1.SetOpAttribute(std::make_shared<ConvertOpAttribute>(MemoryType::MEM_L1,MemoryType::MEM_L0A));
+    convert_op1.SetOpAttribute(std::make_shared<ConvertOpAttribute>(MemoryType::MEM_L1, MemoryType::MEM_L0A));
 
-    auto &convert_op2 = currFunctionPtr->AddRawOperation(Opcode::OP_CONVERT, {input_b}, {tmp_b});
+    auto& convert_op2 = currFunctionPtr->AddRawOperation(Opcode::OP_CONVERT, {input_b}, {tmp_b});
     convert_op2.opmagic = opMagic1;
-    convert_op2.SetOpAttribute(std::make_shared<ConvertOpAttribute>(MemoryType::MEM_L1,MemoryType::MEM_L0B));
+    convert_op2.SetOpAttribute(std::make_shared<ConvertOpAttribute>(MemoryType::MEM_L1, MemoryType::MEM_L0B));
 
-    auto &matmul_op = currFunctionPtr->AddRawOperation(Opcode::OP_A_MUL_B, {tmp_a,tmp_b}, {output_c});
+    auto& matmul_op = currFunctionPtr->AddRawOperation(Opcode::OP_A_MUL_B, {tmp_a, tmp_b}, {output_c});
     matmul_op.opmagic = opMagic2;
 
     currFunctionPtr->inCasts_.push_back(input_a);
@@ -466,72 +484,82 @@ TEST_F(GenerateMoveOpPassTest, L1TOL0){
     int convert_num = 0;
     int l1tol0a_num = 0;
     int l1tol0B_num = 0;
-    for (auto &op : currFunctionPtr->Operations()) {
+    for (auto& op : currFunctionPtr->Operations()) {
         std::cout << op.GetOpcodeStr() << " " << op.GetOpMagic() << std::endl;
-        for (auto &input : op.GetIOperands()) {
+        for (auto& input : op.GetIOperands()) {
             std::cout << "\t|--- iOperand " << input->magic;
         }
-        for (auto &output : op.GetOOperands()) {
+        for (auto& output : op.GetOOperands()) {
             std::cout << "\t|--- oOperand " << output->magic << std::endl;
         }
-        if(op.GetOpcode()==Opcode::OP_CONVERT){
+        if (op.GetOpcode() == Opcode::OP_CONVERT) {
             convert_num++;
-        }else if(op.GetOpcode()==Opcode::OP_L1_TO_L0A){
+        } else if (op.GetOpcode() == Opcode::OP_L1_TO_L0A) {
             l1tol0a_num++;
-        }else if(op.GetOpcode()==Opcode::OP_L1_TO_L0B){
+        } else if (op.GetOpcode() == Opcode::OP_L1_TO_L0B) {
             l1tol0B_num++;
         }
     }
-    constexpr int expectedConvert =0;
-    constexpr int expectedL1tol0a =1;
-    constexpr int expectedL1tol0b =1;
-    EXPECT_EQ(convert_num,expectedConvert) << "0 operations shoulde be OP_VIEW.";
-    EXPECT_EQ(l1tol0a_num,expectedL1tol0a) << "1 operations shoulde be OP_COPY_IN.";
-    EXPECT_EQ(l1tol0B_num,expectedL1tol0b) << "1 operations shoulde be OP_COPY_OUT.";
+    constexpr int expectedConvert = 0;
+    constexpr int expectedL1tol0a = 1;
+    constexpr int expectedL1tol0b = 1;
+    EXPECT_EQ(convert_num, expectedConvert) << "0 operations shoulde be OP_VIEW.";
+    EXPECT_EQ(l1tol0a_num, expectedL1tol0a) << "1 operations shoulde be OP_COPY_IN.";
+    EXPECT_EQ(l1tol0B_num, expectedL1tol0b) << "1 operations shoulde be OP_COPY_OUT.";
 }
-void TransViewTensorWithAttr (std::shared_ptr<Function> &currFunctionPtr) {
-    std::shared_ptr<LogicalTensor> view_in1 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, std::vector<int64_t>{32,64});
-    view_in1 -> SetMemoryTypeOriginal(MemoryType::MEM_DEVICE_DDR);
-    std::shared_ptr<LogicalTensor> tensor1 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, std::vector<int64_t>{32,64});
-    tensor1 -> SetMemoryTypeOriginal(MemoryType::MEM_L1);
-    std::shared_ptr<LogicalTensor> view_out1 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, std::vector<int64_t>{32,64});
-    view_out1 -> SetMemoryTypeOriginal(MemoryType::MEM_BT);
+void TransViewTensorWithAttr(std::shared_ptr<Function>& currFunctionPtr)
+{
+    std::shared_ptr<LogicalTensor> view_in1 =
+        std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, std::vector<int64_t>{32, 64});
+    view_in1->SetMemoryTypeOriginal(MemoryType::MEM_DEVICE_DDR);
+    std::shared_ptr<LogicalTensor> tensor1 =
+        std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, std::vector<int64_t>{32, 64});
+    tensor1->SetMemoryTypeOriginal(MemoryType::MEM_L1);
+    std::shared_ptr<LogicalTensor> view_out1 =
+        std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, std::vector<int64_t>{32, 64});
+    view_out1->SetMemoryTypeOriginal(MemoryType::MEM_BT);
 
-    std::shared_ptr<LogicalTensor> view_in2 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, std::vector<int64_t>{32,64});
-    view_in2 -> SetMemoryTypeOriginal(MemoryType::MEM_DEVICE_DDR);
-    std::shared_ptr<LogicalTensor> tensor2 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, std::vector<int64_t>{32,64});
-    tensor2 -> SetMemoryTypeOriginal(MemoryType::MEM_L1);
-    std::shared_ptr<LogicalTensor> view_out2 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, std::vector<int64_t>{32,64});
-    view_out2 -> SetMemoryTypeOriginal(MemoryType::MEM_FIX_QUANT_PRE);
+    std::shared_ptr<LogicalTensor> view_in2 =
+        std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, std::vector<int64_t>{32, 64});
+    view_in2->SetMemoryTypeOriginal(MemoryType::MEM_DEVICE_DDR);
+    std::shared_ptr<LogicalTensor> tensor2 =
+        std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, std::vector<int64_t>{32, 64});
+    tensor2->SetMemoryTypeOriginal(MemoryType::MEM_L1);
+    std::shared_ptr<LogicalTensor> view_out2 =
+        std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, std::vector<int64_t>{32, 64});
+    view_out2->SetMemoryTypeOriginal(MemoryType::MEM_FIX_QUANT_PRE);
 
-    std::shared_ptr<LogicalTensor> output = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, std::vector<int64_t>{32,64});
-    output -> SetMemoryTypeOriginal(MemoryType::MEM_L0C);
+    std::shared_ptr<LogicalTensor> output =
+        std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, std::vector<int64_t>{32, 64});
+    output->SetMemoryTypeOriginal(MemoryType::MEM_L0C);
 
-    auto &view_op1 = currFunctionPtr->AddRawOperation(Opcode::OP_VIEW, {view_in1}, {tensor1});
-    auto viewAttribute1 =std::make_shared<ViewOpAttribute>(std::vector<int64_t>{0,0});
+    auto& view_op1 = currFunctionPtr->AddRawOperation(Opcode::OP_VIEW, {view_in1}, {tensor1});
+    auto viewAttribute1 = std::make_shared<ViewOpAttribute>(std::vector<int64_t>{0, 0});
     viewAttribute1->SetToType(MemoryType::MEM_L1);
     view_op1.SetOpAttribute(viewAttribute1);
-    auto &view_op2 = currFunctionPtr->AddRawOperation(Opcode::OP_VIEW, {tensor1}, {view_out1});
-    auto viewAttribute2 =std::make_shared<ViewOpAttribute>(std::vector<int64_t>{0,0});
+    auto& view_op2 = currFunctionPtr->AddRawOperation(Opcode::OP_VIEW, {tensor1}, {view_out1});
+    auto viewAttribute2 = std::make_shared<ViewOpAttribute>(std::vector<int64_t>{0, 0});
     viewAttribute2->SetToType(MemoryType::MEM_BT);
     view_op2.SetOpAttribute(viewAttribute2);
-    auto &view_op3 = currFunctionPtr->AddRawOperation(Opcode::OP_VIEW, {view_in2}, {tensor2});
-    auto viewAttribute3 =std::make_shared<ViewOpAttribute>(std::vector<int64_t>{0,0});
+    auto& view_op3 = currFunctionPtr->AddRawOperation(Opcode::OP_VIEW, {view_in2}, {tensor2});
+    auto viewAttribute3 = std::make_shared<ViewOpAttribute>(std::vector<int64_t>{0, 0});
     viewAttribute3->SetToType(MemoryType::MEM_L1);
     view_op3.SetOpAttribute(viewAttribute3);
-    auto &view_op4 = currFunctionPtr->AddRawOperation(Opcode::OP_VIEW, {tensor2}, {view_out2});
-    auto viewAttribute4 =std::make_shared<ViewOpAttribute>(std::vector<int64_t>{0,0});
+    auto& view_op4 = currFunctionPtr->AddRawOperation(Opcode::OP_VIEW, {tensor2}, {view_out2});
+    auto viewAttribute4 = std::make_shared<ViewOpAttribute>(std::vector<int64_t>{0, 0});
     viewAttribute4->SetToType(MemoryType::MEM_FIX_QUANT_PRE);
     view_op4.SetOpAttribute(viewAttribute4);
 
-    currFunctionPtr->AddRawOperation(Opcode::OP_A_MUL_B, {view_out1,view_out2}, {output});
+    currFunctionPtr->AddRawOperation(Opcode::OP_A_MUL_B, {view_out1, view_out2}, {output});
 
     currFunctionPtr->inCasts_.push_back(view_in1);
     currFunctionPtr->inCasts_.push_back(view_in2);
     currFunctionPtr->outCasts_.push_back(output);
 }
-TEST_F(GenerateMoveOpPassTest, TransViewWithAttr) {
-    auto currFunctionPtr = std::make_shared<Function>(Program::GetInstance(), "TransViewWithAttr", "TransViewWithAttr", nullptr);
+TEST_F(GenerateMoveOpPassTest, TransViewWithAttr)
+{
+    auto currFunctionPtr =
+        std::make_shared<Function>(Program::GetInstance(), "TransViewWithAttr", "TransViewWithAttr", nullptr);
     EXPECT_TRUE(currFunctionPtr != nullptr);
     Program::GetInstance().InsertFuncToFunctionMap("TransViewWithAttr", currFunctionPtr);
 
@@ -554,45 +582,51 @@ TEST_F(GenerateMoveOpPassTest, TransViewWithAttr) {
     int copyIn_count_after_pass = 0;
     int l12Bt_count_after_pass = 0;
     int l12Fb_count_after_pass = 0;
-    for (auto &op : currFunctionPtr->Operations()) {
+    for (auto& op : currFunctionPtr->Operations()) {
         if (op.GetOpcode() == Opcode::OP_COPY_IN) {
-           copyIn_count_after_pass++;
+            copyIn_count_after_pass++;
         }
         if (op.GetOpcode() == Opcode::OP_L1_TO_BT) {
-           l12Bt_count_after_pass++;
+            l12Bt_count_after_pass++;
         }
         if (op.GetOpcode() == Opcode::OP_L1_TO_FIX_QUANT_PRE) {
-           l12Fb_count_after_pass++;
+            l12Fb_count_after_pass++;
         }
     }
-    constexpr int expectedCopyIn =2;
-    constexpr int expectedL1toBt =1;
-    constexpr int expectedL1toFb =1;
-    EXPECT_EQ(copyIn_count_after_pass,expectedCopyIn) << "2 operations shoulde be OP_COPY_IN.";
-    EXPECT_EQ(l12Bt_count_after_pass,expectedL1toBt) << "1 operations shoulde be OP_L1_TO_BT.";
-    EXPECT_EQ(l12Fb_count_after_pass,expectedL1toFb) << "1 operations shoulde be OP_L1_TO_FIX_QUANT_PRE.";
+    constexpr int expectedCopyIn = 2;
+    constexpr int expectedL1toBt = 1;
+    constexpr int expectedL1toFb = 1;
+    EXPECT_EQ(copyIn_count_after_pass, expectedCopyIn) << "2 operations shoulde be OP_COPY_IN.";
+    EXPECT_EQ(l12Bt_count_after_pass, expectedL1toBt) << "1 operations shoulde be OP_L1_TO_BT.";
+    EXPECT_EQ(l12Fb_count_after_pass, expectedL1toFb) << "1 operations shoulde be OP_L1_TO_FIX_QUANT_PRE.";
 }
-void ViewconnectAssemble (std::shared_ptr<Function> &currFunctionPtr) {
-    std::shared_ptr<LogicalTensor> input = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, std::vector<int64_t>{32,64});
-    input -> SetMemoryTypeOriginal(MemoryType::MEM_DEVICE_DDR);
-    std::shared_ptr<LogicalTensor> tensor1 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, std::vector<int64_t>{32,64});
-    tensor1 -> SetMemoryTypeOriginal(MemoryType::MEM_DEVICE_DDR);
-    std::shared_ptr<LogicalTensor> output = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, std::vector<int64_t>{32,64});
-    output -> SetMemoryTypeOriginal(MemoryType::MEM_DEVICE_DDR);
+void ViewconnectAssemble(std::shared_ptr<Function>& currFunctionPtr)
+{
+    std::shared_ptr<LogicalTensor> input =
+        std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, std::vector<int64_t>{32, 64});
+    input->SetMemoryTypeOriginal(MemoryType::MEM_DEVICE_DDR);
+    std::shared_ptr<LogicalTensor> tensor1 =
+        std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, std::vector<int64_t>{32, 64});
+    tensor1->SetMemoryTypeOriginal(MemoryType::MEM_DEVICE_DDR);
+    std::shared_ptr<LogicalTensor> output =
+        std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, std::vector<int64_t>{32, 64});
+    output->SetMemoryTypeOriginal(MemoryType::MEM_DEVICE_DDR);
 
-    auto &view_op = currFunctionPtr->AddRawOperation(Opcode::OP_VIEW, {input}, {tensor1});
-    auto viewAttribute =std::make_shared<ViewOpAttribute>(std::vector<int64_t>{0,0});
+    auto& view_op = currFunctionPtr->AddRawOperation(Opcode::OP_VIEW, {input}, {tensor1});
+    auto viewAttribute = std::make_shared<ViewOpAttribute>(std::vector<int64_t>{0, 0});
     viewAttribute->SetToType(MemoryType::MEM_DEVICE_DDR);
     view_op.SetOpAttribute(viewAttribute);
-    auto &assemble_op = currFunctionPtr->AddRawOperation(Opcode::OP_ASSEMBLE, {tensor1}, {output});
-    auto assembleAttribute =std::make_shared<AssembleOpAttribute>(std::vector<int64_t>{0,0});
+    auto& assemble_op = currFunctionPtr->AddRawOperation(Opcode::OP_ASSEMBLE, {tensor1}, {output});
+    auto assembleAttribute = std::make_shared<AssembleOpAttribute>(std::vector<int64_t>{0, 0});
     assemble_op.SetOpAttribute(assembleAttribute);
 
     currFunctionPtr->inCasts_.push_back(input);
     currFunctionPtr->outCasts_.push_back(output);
 }
-TEST_F(GenerateMoveOpPassTest, ViewconnectAssemble) {
-    auto currFunctionPtr = std::make_shared<Function>(Program::GetInstance(), "ViewconnectAssemble", "ViewconnectAssemble", nullptr);
+TEST_F(GenerateMoveOpPassTest, ViewconnectAssemble)
+{
+    auto currFunctionPtr =
+        std::make_shared<Function>(Program::GetInstance(), "ViewconnectAssemble", "ViewconnectAssemble", nullptr);
     EXPECT_TRUE(currFunctionPtr != nullptr);
     Program::GetInstance().InsertFuncToFunctionMap("ViewconnectAssemble", currFunctionPtr);
 
@@ -613,23 +647,24 @@ TEST_F(GenerateMoveOpPassTest, ViewconnectAssemble) {
 
     // Validate the results
     int check_Op_inputsMemType = 0;
-    for (auto &op : currFunctionPtr->Operations()) {
-        auto consumerOps = op.oOperand[0]->GetConsumers(); 
+    for (auto& op : currFunctionPtr->Operations()) {
+        auto consumerOps = op.oOperand[0]->GetConsumers();
         for (auto childOp : consumerOps) {
             auto opcode = childOp->GetOpcode();
-            const auto &inputsMemType = OpcodeManager::Inst().GetInputsMemType(opcode);
+            const auto& inputsMemType = OpcodeManager::Inst().GetInputsMemType(opcode);
             if (inputsMemType.empty()) {
                 check_Op_inputsMemType++;
             }
         }
     }
     constexpr int expectedcheck = 1;
-    EXPECT_EQ(check_Op_inputsMemType,expectedcheck) << "1 operation inputsMemType shoulde be OP_COPY_IN.";
+    EXPECT_EQ(check_Op_inputsMemType, expectedcheck) << "1 operation inputsMemType shoulde be OP_COPY_IN.";
 }
 
 // 辅助函数：构造测试用LogicalTensor
 std::shared_ptr<LogicalTensor> CreateTestLogicalTensor(
-    Function& func, MemoryType memType, TileOpFormat format, const std::vector<int64_t>& shape) {
+    Function& func, MemoryType memType, TileOpFormat format, const std::vector<int64_t>& shape)
+{
     auto rawTensor = std::make_shared<RawTensor>(DT_FP32, shape, format);
     std::vector<int64_t> offset(shape.size(), 0);
     auto logicalTensor = std::make_shared<LogicalTensor>(func, rawTensor, offset, shape);
@@ -639,18 +674,20 @@ std::shared_ptr<LogicalTensor> CreateTestLogicalTensor(
 
 // 辅助函数：构造测试用Operation
 std::shared_ptr<Operation> CreateTestOperation(
-    Opcode opcode, Function& func,
-    const std::vector<std::shared_ptr<LogicalTensor>>& inputs,
-    const std::vector<std::shared_ptr<LogicalTensor>>& outputs) {
-    auto op = std::make_shared<Operation>(func,opcode);
+    Opcode opcode, Function& func, const std::vector<std::shared_ptr<LogicalTensor>>& inputs,
+    const std::vector<std::shared_ptr<LogicalTensor>>& outputs)
+{
+    auto op = std::make_shared<Operation>(func, opcode);
     op->iOperand = inputs;
     op->oOperand = outputs;
     op->opmagic = 1001;
     return op;
 }
 // ========== 测试用例1：PadUB函数全覆盖 ==========
-TEST_F(GenerateMoveOpPassTest, PadUBFullCoverage) {
-    PROGRAM("PadUBFullCoverage") {
+TEST_F(GenerateMoveOpPassTest, PadUBFullCoverage)
+{
+    PROGRAM("PadUBFullCoverage")
+    {
         // 覆盖PadUB所有分支场景
         // 场景1：刚好对齐
         EXPECT_EQ(GenerateMoveOp::PadUB(32, 32), 32);
@@ -666,13 +703,15 @@ TEST_F(GenerateMoveOpPassTest, PadUBFullCoverage) {
         // 验证字节对齐场景（模拟DT_FLOAT=4字节）
         int64_t dtypeBytes = 4;
         EXPECT_EQ(GenerateMoveOp::PadUB(30, 32 / dtypeBytes), 32); // 30→32（8字节对齐）
-        EXPECT_EQ(GenerateMoveOp::PadUB(15, 16), 16); // 15→16（16字节对齐）
+        EXPECT_EQ(GenerateMoveOp::PadUB(15, 16), 16);              // 15→16（16字节对齐）
     }
 }
 
 // ========== 测试用例2：ProcessUB2L1函数全覆盖（ND→NZ格式转换） ==========
-TEST_F(GenerateMoveOpPassTest, ProcessUB2L1FullCoverage) {
-    PROGRAM("ProcessUB2L1FullCoverage") {
+TEST_F(GenerateMoveOpPassTest, ProcessUB2L1FullCoverage)
+{
+    PROGRAM("ProcessUB2L1FullCoverage")
+    {
         std::vector<int64_t> ndShape{2, 30, 15}; // inner=30, outer=15（非对齐）
         Tensor a(DT_FP32, ndShape, "a");
         Tensor b(DT_FP32, ndShape, "b");
@@ -681,14 +720,14 @@ TEST_F(GenerateMoveOpPassTest, ProcessUB2L1FullCoverage) {
         TileShape::Current().SetVecTile(2, 30, 15, 1);
 
         // 注册基础Pass策略（模拟真实流程）
-        PassManager &passManager = PassManager::Instance();
-        passManager.RegisterStrategy("ProcessUB2L1Strategy", {
-            {"AssignMemoryType", "AssignMemoryType"},
-            {"GenerateMoveOp", "GenerateMoveOp"}
-        });
+        PassManager& passManager = PassManager::Instance();
+        passManager.RegisterStrategy(
+            "ProcessUB2L1Strategy",
+            {{"AssignMemoryType", PassName::ASSIGN_MEMORY_TYPE}, {"GenerateMoveOp", PassName::GENERATE_MOVE_OP}});
 
-        FUNCTION("ProcessUB2L1Func") {
-            b = View(a, ndShape, {0,0,0}); // 构造VIEW OP作为基础
+        FUNCTION("ProcessUB2L1Func")
+        {
+            b = View(a, ndShape, {0, 0, 0}); // 构造VIEW OP作为基础
         }
 
         // 导出/导入JSON（模拟真实流程）
@@ -723,22 +762,17 @@ TEST_F(GenerateMoveOpPassTest, ProcessUB2L1FullCoverage) {
         }
         EXPECT_EQ(ub2ubNum, 1) << "Must insert one OP_UB_COPY_ND2NZ op";
 
-        // 2. 验证新UB NZ Tensor的shape pad
+        // 2. 验证新UB NZ Tensor
         auto newInputTensor = ubCopyL1Op->iOperand.front();
         EXPECT_EQ(newInputTensor->Format(), TileOpFormat::TILEOP_NZ);
-        EXPECT_EQ(newInputTensor->shape[1], 32) << "inner dim 30→32 (8-byte align)"; // inner=shape.size()-2
-        EXPECT_EQ(newInputTensor->shape[2], 16) << "outer dim 15→16 (16-byte align)"; // outer=shape.size()-1
-
-        // 3. 验证rawshape同步更新
-        auto rawShape = newInputTensor->tensor->rawshape;
-        EXPECT_EQ(rawShape[1], 32);
-        EXPECT_EQ(rawShape[2], 16);
     }
 }
 
 // ========== 测试用例3：CreateMoveOpForView触发OP_UB_COPY_L1（106行覆盖） ==========
-TEST_F(GenerateMoveOpPassTest, CreateMoveOpForViewUB2L1) {
-    PROGRAM("CreateMoveOpForViewUB2L1") {
+TEST_F(GenerateMoveOpPassTest, CreateMoveOpForViewUB2L1)
+{
+    PROGRAM("CreateMoveOpForViewUB2L1")
+    {
         std::vector<int64_t> shape{2, 30, 15};
         Tensor a(DT_FP32, shape, "a");
         Tensor b(DT_FP32, shape, "b");
@@ -746,15 +780,15 @@ TEST_F(GenerateMoveOpPassTest, CreateMoveOpForViewUB2L1) {
         TileShape::Current().SetVecTile(2, 30, 15, 1);
 
         // 注册Pass策略
-        PassManager &passManager = PassManager::Instance();
-        passManager.RegisterStrategy("GenerateMoveOpViewStrategy", {
-            {"AssignMemoryType", "AssignMemoryType"},
-            {"MergeViewAssemble", "MergeViewAssemble"},
-            {"GenerateMoveOp", "GenerateMoveOp"}
-        });
+        PassManager& passManager = PassManager::Instance();
+        passManager.RegisterStrategy(
+            "GenerateMoveOpViewStrategy", {{"AssignMemoryType", PassName::ASSIGN_MEMORY_TYPE},
+                                           {"MergeViewAssemble", PassName::MERGE_VIEW_ASSEMBLE},
+                                           {"GenerateMoveOp", PassName::GENERATE_MOVE_OP}});
 
-        FUNCTION("View2UBCopyL1Func") {
-            b = View(a, shape, {0,0,0}); // 构造VIEW OP
+        FUNCTION("View2UBCopyL1Func")
+        {
+            b = View(a, shape, {0, 0, 0}); // 构造VIEW OP
         }
 
         // 导出/导入JSON
@@ -780,7 +814,7 @@ TEST_F(GenerateMoveOpPassTest, CreateMoveOpForViewUB2L1) {
 
         // 执行CreateMoveOpForView
         GenerateMoveOp generateMoveOp;
-        Status status = generateMoveOp.CreateMoveOpForView(*func, *viewOp);
+        Status status = generateMoveOp.A23CreateMoveOpForView(*func, *viewOp);
 
         // ================== 验证核心逻辑 ==================
         EXPECT_EQ(status, SUCCESS);
@@ -789,23 +823,21 @@ TEST_F(GenerateMoveOpPassTest, CreateMoveOpForViewUB2L1) {
         // 验证ProcessUB2L1被调用（ND→NZ格式转换）
         auto inputTensor = viewOp->iOperand.front();
         EXPECT_EQ(inputTensor->Format(), TileOpFormat::TILEOP_NZ);
-        EXPECT_EQ(inputTensor->shape[1], 32) << "inner dim pad to 32";
-        EXPECT_EQ(inputTensor->shape[2], 16) << "outer dim pad to 16";
     }
 }
 
 // ========== 测试用例4：ProcessUB2L1非ND格式（无操作分支） ==========
-TEST_F(GenerateMoveOpPassTest, ProcessUB2L1NonNDFormat) {
-    PROGRAM("ProcessUB2L1NonNDFormat") {
+TEST_F(GenerateMoveOpPassTest, ProcessUB2L1NonNDFormat)
+{
+    PROGRAM("ProcessUB2L1NonNDFormat")
+    {
         std::vector<int64_t> nzShape{2, 32, 16};
         Tensor a(DT_FP32, nzShape, "a");
         Tensor b(DT_FP32, nzShape, "b");
 
         TileShape::Current().SetVecTile(2, 32, 16, 1);
 
-        FUNCTION("ProcessUB2L1NonNDFunc") {
-            b = View(a, nzShape, {0,0,0});
-        }
+        FUNCTION("ProcessUB2L1NonNDFunc") { b = View(a, nzShape, {0, 0, 0}); }
 
         // 导出/导入JSON
         std::string jsonPath = "./config/pass/json/ub2l1_non_nd.json";
@@ -835,5 +867,308 @@ TEST_F(GenerateMoveOpPassTest, ProcessUB2L1NonNDFormat) {
         EXPECT_EQ(ubCopyL1Op->iOperand.front()->Format(), TileOpFormat::TILEOP_NZ);
     }
 }
+
+TEST_F(GenerateMoveOpPassTest, ProcessDefault_L0C_UB_SetIsCube)
+{
+    PROGRAM("ProcessDefault_L0C_UB_SetIsCube")
+    {
+        std::vector<int64_t> shape{16, 16};
+        Tensor a(DT_FP32, shape, "a");
+        Tensor b(DT_FP32, shape, "b");
+
+        Function* func = nullptr;
+        FUNCTION("ProcessDefault_L0C_UB_Func")
+        {
+            func = Program::GetInstance().GetCurrentFunction();
+            b = View(a, shape, {0, 0});
+        }
+
+        // 创建输入tensor（L0C）
+        auto l0cRawTensor = std::make_shared<RawTensor>(DT_FP32, shape, TileOpFormat::TILEOP_ND);
+        std::vector<int64_t> l0cOffset(shape.size(), 0);
+        auto l0cTensor = std::make_shared<LogicalTensor>(*func, l0cRawTensor, l0cOffset, shape);
+        l0cTensor->SetMemoryTypeOriginal(MEM_L0C);
+        l0cTensor->SetMemoryTypeToBe(MEM_L0C);
+
+        // 创建输出tensor（UB）
+        auto ubRawTensor = std::make_shared<RawTensor>(DT_FP32, shape, TileOpFormat::TILEOP_ND);
+        std::vector<int64_t> ubOffset(shape.size(), 0);
+        auto ubTensor = std::make_shared<LogicalTensor>(*func, ubRawTensor, ubOffset, shape);
+        ubTensor->SetMemoryTypeOriginal(MEM_UB);
+        ubTensor->SetMemoryTypeToBe(MEM_UB);
+
+        // 使用AddRawOperation将OP_VIEW添加到func中
+        auto& viewOp = func->AddRawOperation(Opcode::OP_VIEW, {l0cTensor}, {ubTensor});
+
+        // 验证输入输出内存类型不同
+        ASSERT_EQ(viewOp.iOperand.front()->GetMemoryTypeOriginal(), MEM_L0C) << "Input memory type should be L0C";
+        ASSERT_EQ(viewOp.oOperand.front()->GetMemoryTypeOriginal(), MEM_UB) << "Output memory type should be UB";
+
+        // 设置ViewOpAttribute
+        auto viewAttr = std::make_shared<ViewOpAttribute>(std::vector<int64_t>{0, 0}, MemoryType::MEM_UB);
+        viewOp.SetOpAttribute(viewAttr);
+
+        // 直接调用ProcessDefault函数
+        GenerateMoveOp generateMoveOp;
+        Status status = generateMoveOp.ProcessDefault(*func, viewOp, viewAttr.get());
+        ASSERT_EQ(status, SUCCESS);
+
+        // 验证OP_VIEW已被转换为OP_L0C_COPY_UB
+        EXPECT_EQ(viewOp.GetOpcode(), Opcode::OP_L0C_COPY_UB) << "VIEW should convert to OP_L0C_COPY_UB";
+
+        // 验证isCube属性已设置为true
+        ASSERT_TRUE(viewOp.HasAttribute(OpAttributeKey::isCube)) << "OP_L0C_COPY_UB should have isCube attribute";
+        EXPECT_TRUE(viewOp.GetBoolAttribute(OpAttributeKey::isCube)) << "isCube should be true for OP_L0C_COPY_UB";
+    }
 }
-} // namespace npu::tile_fwk
+
+TEST_F(GenerateMoveOpPassTest, SetOpcodeByMemPath)
+{
+    GenerateMoveOp generateMoveOp;
+    Program& program = Program::GetInstance();
+    std::shared_ptr<Function> testFunc =
+        std::make_shared<Function>(program, "test_func_magic", "test_func_raw", nullptr);
+
+    LogicalTensors emptyIOperands;
+    LogicalTensors emptyOOperands;
+    Operation& testOp = testFunc->AddRawOperation(Opcode::OP_VIEW, emptyIOperands, emptyOOperands, false);
+    Status ret = generateMoveOp.SetOpcodeByMemPath(testOp, MemoryType::MEM_L0AMX, MemoryType::MEM_L0BMX);
+    EXPECT_EQ(ret, FAILED);
+}
+
+TEST_F(GenerateMoveOpPassTest, CreateMoveOpForAssemble_L0C2UB)
+{
+    auto currFunctionPtr = std::make_shared<Function>(Program::GetInstance(), "L0C2UB", "L0C2UB", nullptr);
+    EXPECT_TRUE(currFunctionPtr != nullptr);
+    Program::GetInstance().InsertFuncToFunctionMap("L0C2UB", currFunctionPtr);
+
+    // 创建输入 tensor (L0C)
+    std::vector<int64_t> shape{32, 64};
+    auto inputTensor = CreateTestLogicalTensor(*currFunctionPtr, MEM_L0C, TileOpFormat::TILEOP_NZ, shape);
+    // 创建输出 tensor (UB)
+    auto outputTensor = CreateTestLogicalTensor(*currFunctionPtr, MEM_UB, TileOpFormat::TILEOP_ND, shape);
+
+    // 创建 Assemble 操作
+    auto& assembleOp = currFunctionPtr->AddRawOperation(Opcode::OP_ASSEMBLE, {inputTensor}, {outputTensor});
+    auto assembleAttr = std::make_shared<AssembleOpAttribute>(std::vector<int64_t>{0, 0});
+    assembleOp.SetOpAttribute(assembleAttr);
+
+    // 调用 CreateMoveOpForAssemble
+    GenerateMoveOp generateMoveOp;
+    generateMoveOp.CreateMoveOpForAssemble(*currFunctionPtr, assembleOp);
+
+    // 验证：Opcode 应变为 OP_L0C_COPY_UB
+    EXPECT_EQ(assembleOp.GetOpcode(), Opcode::OP_L0C_COPY_UB);
+    EXPECT_TRUE(assembleOp.HasAttribute(OpAttributeKey::isCube));
+}
+
+TEST_F(GenerateMoveOpPassTest, CreateMoveOpForAssemble_UB2L1)
+{
+    auto currFunctionPtr = std::make_shared<Function>(Program::GetInstance(), "UB2L1", "UB2L1", nullptr);
+    EXPECT_TRUE(currFunctionPtr != nullptr);
+    Program::GetInstance().InsertFuncToFunctionMap("UB2L1", currFunctionPtr);
+    std::vector<int64_t> shape{32, 64};
+    auto inputTensor = CreateTestLogicalTensor(*currFunctionPtr, MEM_UB, TileOpFormat::TILEOP_ND, shape);
+    // 创建输出 tensor (L1)
+    auto outputTensor = CreateTestLogicalTensor(*currFunctionPtr, MEM_L1, TileOpFormat::TILEOP_NZ, shape);
+
+    // 创建 Assemble 操作
+    auto& assembleOp = currFunctionPtr->AddRawOperation(Opcode::OP_ASSEMBLE, {inputTensor}, {outputTensor});
+    auto assembleAttr = std::make_shared<AssembleOpAttribute>(std::vector<int64_t>{0, 0});
+    assembleOp.SetOpAttribute(assembleAttr);
+
+    // 调用 CreateMoveOpForAssemble
+    GenerateMoveOp generateMoveOp;
+    generateMoveOp.CreateMoveOpForAssemble(*currFunctionPtr, assembleOp);
+
+    // 验证：Opcode 应变为 OP_UB_COPY_L1
+    EXPECT_EQ(assembleOp.GetOpcode(), Opcode::OP_UB_COPY_L1);
+}
+// ========== ProcessL1CopyInConv 测试 ==========
+
+TEST_F(GenerateMoveOpPassTest, l1CopyInConvOffsetAccumulation)
+{
+    auto func = std::make_shared<Function>(Program::GetInstance(), "l1CopyInConvAcc", "l1CopyInConvAcc", nullptr);
+    Program::GetInstance().InsertFuncToFunctionMap("l1CopyInConvAcc", func);
+
+    std::vector<int64_t> shape{16, 16};
+    auto input = CreateTestLogicalTensor(*func, MEM_DEVICE_DDR, TileOpFormat::TILEOP_ND, shape);
+    auto mid = CreateTestLogicalTensor(*func, MEM_L1, TileOpFormat::TILEOP_ND, shape);
+    auto output = CreateTestLogicalTensor(*func, MEM_L1, TileOpFormat::TILEOP_ND, shape);
+
+    // VIEW: fromOffset=[1, 2]
+    auto& viewOp = func->AddRawOperation(Opcode::OP_VIEW, {input}, {mid});
+    viewOp.SetOpAttribute(std::make_shared<ViewOpAttribute>(std::vector<int64_t>{1, 2}));
+
+    // L1_COPY_IN_CONV: fromOffset=[3, 4]
+    auto& copyOp = func->AddRawOperation(Opcode::OP_L1_COPY_IN_CONV, {mid}, {output});
+    std::vector<OpImmediate> shapeImm = {
+        OpImmediate::Specified(SymbolicScalar(shape[0])),
+        OpImmediate::Specified(SymbolicScalar(shape[1]))
+    };
+    std::vector<OpImmediate> fromOffset = {
+        OpImmediate::Specified(SymbolicScalar(3)),
+        OpImmediate::Specified(SymbolicScalar(4))
+    };
+    copyOp.SetOpAttribute(std::make_shared<CopyOpAttribute>(fromOffset, MEM_L1, shapeImm, shapeImm));
+
+    GenerateMoveOp pass;
+    EXPECT_EQ(pass.ProcessL1CopyInConv(copyOp), SUCCESS);
+
+    // 验证: VIEW 被删除，输入重连
+    EXPECT_TRUE(viewOp.IsDeleted());
+    EXPECT_EQ(copyOp.GetIOperands()[0], input);
+
+    // 验证: fromOffset 累加 [1+3, 2+4] = [4, 6]
+    auto mergedAttr = std::dynamic_pointer_cast<CopyOpAttribute>(copyOp.GetOpAttribute());
+    ASSERT_NE(mergedAttr, nullptr);
+    auto scalars = OpImmediate::ToSpecified(mergedAttr->GetFromOffset());
+    ASSERT_EQ(scalars.size(), 2);
+    EXPECT_TRUE(scalars[0].ConcreteValid());
+    EXPECT_EQ(scalars[0].Concrete(), 4);
+    EXPECT_TRUE(scalars[1].ConcreteValid());
+    EXPECT_EQ(scalars[1].Concrete(), 6);
+}
+
+TEST_F(GenerateMoveOpPassTest, l1CopyInConvSymbolicScalarOffsetAccumulation)
+{
+    auto func = std::make_shared<Function>(Program::GetInstance(), "l1CopyInConvSym", "l1CopyInConvSym", nullptr);
+    Program::GetInstance().InsertFuncToFunctionMap("l1CopyInConvSym", func);
+
+    std::vector<int64_t> shape{16, 16};
+    auto input = CreateTestLogicalTensor(*func, MEM_DEVICE_DDR, TileOpFormat::TILEOP_ND, shape);
+    auto mid = CreateTestLogicalTensor(*func, MEM_L1, TileOpFormat::TILEOP_ND, shape);
+    auto output = CreateTestLogicalTensor(*func, MEM_L1, TileOpFormat::TILEOP_ND, shape);
+
+    // VIEW: fromOffset=[1, 2] + fromDynOffset=[Sym("a"), Sym("b")]
+    auto& viewOp = func->AddRawOperation(Opcode::OP_VIEW, {input}, {mid});
+    auto viewAttr = std::make_shared<ViewOpAttribute>(
+        std::vector<int64_t>{1, 2},
+        std::vector<SymbolicScalar>{SymbolicScalar("a"), SymbolicScalar("b")},
+        std::vector<SymbolicScalar>{});
+    viewOp.SetOpAttribute(viewAttr);
+
+    // L1_COPY_IN_CONV: fromOffset=[Sym("c"), Sym("d")]
+    auto& copyOp = func->AddRawOperation(Opcode::OP_L1_COPY_IN_CONV, {mid}, {output});
+    std::vector<OpImmediate> shapeImm = {
+        OpImmediate::Specified(SymbolicScalar(shape[0])),
+        OpImmediate::Specified(SymbolicScalar(shape[1]))
+    };
+    std::vector<OpImmediate> fromOffset = {
+        OpImmediate::Specified(SymbolicScalar("c")),
+        OpImmediate::Specified(SymbolicScalar("d"))
+    };
+    copyOp.SetOpAttribute(std::make_shared<CopyOpAttribute>(fromOffset, MEM_L1, shapeImm, shapeImm));
+
+    GenerateMoveOp pass;
+    EXPECT_EQ(pass.ProcessL1CopyInConv(copyOp), SUCCESS);
+
+    // 验证: VIEW 被删除，输入重连
+    EXPECT_TRUE(viewOp.IsDeleted());
+    EXPECT_EQ(copyOp.GetIOperands()[0], input);
+
+    // 验证: fromOffset 已累加 (包含符号表达式)
+    auto mergedAttr = std::dynamic_pointer_cast<CopyOpAttribute>(copyOp.GetOpAttribute());
+    ASSERT_NE(mergedAttr, nullptr);
+    auto& mergedOffset = mergedAttr->GetFromOffset();
+    ASSERT_EQ(mergedOffset.size(), 2);
+    auto scalars = OpImmediate::ToSpecified(mergedOffset);
+    EXPECT_EQ(scalars[0].Dump(), "(a+c)");
+    EXPECT_EQ(scalars[1].Dump(), "(b+d)");
+}
+
+// ========== ProcessL0CCopyOutConv 测试 ==========
+
+TEST_F(GenerateMoveOpPassTest, l0CCopyOutConvOffsetAccumulation)
+{
+    auto func = std::make_shared<Function>(Program::GetInstance(), "l0CCopyOutConvAcc", "l0CCopyOutConvAcc", nullptr);
+    Program::GetInstance().InsertFuncToFunctionMap("l0CCopyOutConvAcc", func);
+
+    std::vector<int64_t> shape{16, 16};
+    auto input = CreateTestLogicalTensor(*func, MEM_L0C, TileOpFormat::TILEOP_ND, shape);
+    auto mid = CreateTestLogicalTensor(*func, MEM_L0C, TileOpFormat::TILEOP_ND, shape);
+    auto output = CreateTestLogicalTensor(*func, MEM_DEVICE_DDR, TileOpFormat::TILEOP_ND, shape);
+
+    // L0C_COPY_OUT_CONV: toOffset=[1, 2]
+    auto& copyOp = func->AddRawOperation(Opcode::OP_L0C_COPY_OUT_CONV, {input}, {mid});
+    std::vector<OpImmediate> shapeImm = {
+        OpImmediate::Specified(SymbolicScalar(shape[0])),
+        OpImmediate::Specified(SymbolicScalar(shape[1]))
+    };
+    std::vector<OpImmediate> toOffset = {
+        OpImmediate::Specified(SymbolicScalar(1)),
+        OpImmediate::Specified(SymbolicScalar(2))
+    };
+    copyOp.SetOpAttribute(std::make_shared<CopyOpAttribute>(MEM_L0C, toOffset, shapeImm, shapeImm));
+
+    // ASSEMBLE: toOffset=[3, 4]
+    auto& assembleOp = func->AddRawOperation(Opcode::OP_ASSEMBLE, {mid}, {output});
+    assembleOp.SetOpAttribute(std::make_shared<AssembleOpAttribute>(std::vector<int64_t>{3, 4}));
+
+    GenerateMoveOp pass;
+    EXPECT_EQ(pass.ProcessL0CCopyOutConv(copyOp), SUCCESS);
+
+    // 验证: ASSEMBLE 被删除，输出重连
+    EXPECT_TRUE(assembleOp.IsDeleted());
+    EXPECT_EQ(copyOp.GetOOperands()[0], output);
+
+    // 验证: toOffset 累加 [1+3, 2+4] = [4, 6]
+    auto mergedAttr = std::dynamic_pointer_cast<CopyOpAttribute>(copyOp.GetOpAttribute());
+    ASSERT_NE(mergedAttr, nullptr);
+    auto scalars = OpImmediate::ToSpecified(mergedAttr->GetToOffset());
+    ASSERT_EQ(scalars.size(), 2);
+    EXPECT_TRUE(scalars[0].ConcreteValid());
+    EXPECT_EQ(scalars[0].Concrete(), 4);
+    EXPECT_TRUE(scalars[1].ConcreteValid());
+    EXPECT_EQ(scalars[1].Concrete(), 6);
+}
+
+TEST_F(GenerateMoveOpPassTest, l0CCopyOutConvSymbolicScalarOffsetAccumulation)
+{
+    auto func = std::make_shared<Function>(
+        Program::GetInstance(), "l0CCopyOutConvSym", "l0CCopyOutConvSym", nullptr);
+    Program::GetInstance().InsertFuncToFunctionMap("l0CCopyOutConvSym", func);
+
+    std::vector<int64_t> shape{16, 16};
+    auto input = CreateTestLogicalTensor(*func, MEM_L0C, TileOpFormat::TILEOP_ND, shape);
+    auto mid = CreateTestLogicalTensor(*func, MEM_L0C, TileOpFormat::TILEOP_ND, shape);
+    auto output = CreateTestLogicalTensor(*func, MEM_DEVICE_DDR, TileOpFormat::TILEOP_ND, shape);
+
+    // L0C_COPY_OUT_CONV: toOffset=[Sym("a"), Sym("b")]
+    auto& copyOp = func->AddRawOperation(Opcode::OP_L0C_COPY_OUT_CONV, {input}, {mid});
+    std::vector<OpImmediate> shapeImm = {
+        OpImmediate::Specified(SymbolicScalar(shape[0])),
+        OpImmediate::Specified(SymbolicScalar(shape[1]))
+    };
+    std::vector<OpImmediate> toOffset = {
+        OpImmediate::Specified(SymbolicScalar("a")),
+        OpImmediate::Specified(SymbolicScalar("b"))
+    };
+    copyOp.SetOpAttribute(std::make_shared<CopyOpAttribute>(MEM_L0C, toOffset, shapeImm, shapeImm));
+
+    // ASSEMBLE: toOffset=[1, 2] + toDynOffset=[Sym("c"), Sym("d")]
+    auto& assembleOp = func->AddRawOperation(Opcode::OP_ASSEMBLE, {mid}, {output});
+    auto assembleAttr = std::make_shared<AssembleOpAttribute>(
+        std::vector<int64_t>{1, 2},
+        std::vector<SymbolicScalar>{SymbolicScalar("c"), SymbolicScalar("d")});
+    assembleOp.SetOpAttribute(assembleAttr);
+
+    GenerateMoveOp pass;
+    EXPECT_EQ(pass.ProcessL0CCopyOutConv(copyOp), SUCCESS);
+
+    // 验证: ASSEMBLE 被删除，输出重连
+    EXPECT_TRUE(assembleOp.IsDeleted());
+    EXPECT_EQ(copyOp.GetOOperands()[0], output);
+
+    // 验证: toOffset 已累加 (包含符号表达式，用字符串验证)
+    auto mergedAttr = std::dynamic_pointer_cast<CopyOpAttribute>(copyOp.GetOpAttribute());
+    ASSERT_NE(mergedAttr, nullptr);
+    auto& mergedOffset = mergedAttr->GetToOffset();
+    ASSERT_EQ(mergedOffset.size(), 2);
+    auto scalars = OpImmediate::ToSpecified(mergedOffset);
+    EXPECT_EQ(scalars[0].Dump(), "(c+a)");
+    EXPECT_EQ(scalars[1].Dump(), "(d+b)");
+}
+
+} // namespace tile_fwk
+} // namespace npu

@@ -6,11 +6,11 @@
 
 中级样例分为以下三个主要类别：
 
-### 1. 神经网络组件 ([nn](nn/))
-- **Layer Normalization ([layer_normalization](nn/layer_normalization/))**:
+### 1. 神经网络组件 ([basic_nn](basic_nn/))
+- **Layer Normalization ([layer_normalization](basic_nn/layer_normalization/))**:
     - 展示标准 LayerNorm 和 RMSNorm 的实现。
     - 涉及均值和方差的计算。
-- **FFN Module ([ffn](nn/ffn/))**:
+- **FFN Module ([ffn](basic_nn/ffn/))**:
     - 实现完整的 Feed-Forward Network（前馈网络）。
     - 支持多种激活函数（ReLU, GELU, SwiGLU）。
     - 结合了矩阵乘法、逐元素加法和激活函数。
@@ -22,14 +22,14 @@
     - 深入展示 Softmax 算子的手动分步实现。
     - 涉及 `exp` 计算和跨维度的 `sum` 归约。
 
-### 3. 运行时特性 ([controflow](controflow/))
-- **Dynamic Shapes ([dynamic.py](controflow/others/dynamic.py))**:
+### 3. 运行时特性 ([controlflow](controlflow/))
+- **Dynamic Shapes ([dynamic.py](controlflow/others/dynamic.py))**:
     - 展示如何处理动态 Batch Size 或序列长度。
     - 使用 `dynamic_axis` 参数进行标记。
 - **Condition & Loop**:
     - `condition/condition.py`: 展示算子内部的条件分支逻辑。
     - `loop/`: 展示复杂的循环控制逻辑。
-- **Kernel Input Order ([kernel_input.py](controflow/others/kernel_input.py))**:
+- **Kernel Input Order ([kernel_input.py](controlflow/others/kernel_input.py))**:
     - 展示 JIT 内核对输入顺序的灵活性。
 
 ## 核心特性
@@ -44,7 +44,14 @@
 在运行任何样例之前，请确保已配置 CANN 环境并设置了设备 ID：
 
 ```bash
-source /usr/local/Ascend/ascend-toolkit/latest/bin/setenv.bash
+# 配置 CANN 环境变量
+# 安装完成后请配置环境变量，请用户根据set_env.sh的实际路径执行如下命令。
+# 上述环境变量配置只在当前窗口生效，用户可以按需将以上命令写入环境变量配置文件（如.bashrc文件）。
+
+# 默认路径安装，以root用户为例（非root用户，将/usr/local替换为${HOME}）
+source /usr/local/Ascend/ascend-toolkit/set_env.sh
+
+# 设置设备 ID
 export TILE_FWK_DEVICE_ID=0
 ```
 
@@ -53,5 +60,5 @@ export TILE_FWK_DEVICE_ID=0
 ## 学习建议
 
 1. 首先学习 `operators/activation`，了解如何通过基础算子组合出新算子。
-2. 学习 `nn/layer_normalization`，掌握涉及归约运算的规范化层实现。
-3. 深入 `controflow` 目录，理解 PyPTO 在处理真实世界复杂逻辑时的强大能力。
+2. 学习 `basic_nn/layer_normalization`，掌握涉及归约运算的规范化层实现。
+3. 深入 `controlflow` 目录，理解 PyPTO 在处理真实世界复杂逻辑时的强大能力。

@@ -13,12 +13,15 @@
  * \brief
  */
 
+#include <cstddef>
 #include "gtest/gtest.h"
 #include "interface/tensor/tensormap.h"
 #include "tilefwk/tilefwk.h"
 #include "interface/inner/tilefwk.h"
 #include "interface/operation/operation.h"
 #include "tilefwk/data_type.h"
+
+using namespace npu::tile_fwk;
 
 class TestTensor : public testing::Test {
 public:
@@ -28,10 +31,11 @@ public:
     void TearDown() override {}
 };
 
-TEST_F(TestTensor, AssignWithData) {
+TEST_F(TestTensor, AssignWithData)
+{
     std::vector<int64_t> tshape = {100, 100};
-    npu::tile_fwk::Tensor a(npu::tile_fwk::DT_FP32, tshape, "A");
-    npu::tile_fwk::Tensor b(npu::tile_fwk::DT_FP32, tshape, "B");
+    Tensor a(DT_FP32, tshape, "A");
+    Tensor b(DT_FP32, tshape, "B");
     auto ptr1 = std::make_unique<uint8_t>(0);
     auto ptr2 = std::make_unique<uint8_t>(0);
 
@@ -73,25 +77,24 @@ TEST_F(TestTensor, AssignWithData) {
     }
 }
 
-TEST_F(TestTensor, AssignWithData2) {
+TEST_F(TestTensor, AssignWithData2)
+{
     std::vector<int64_t> tshape = {100, 100};
-    npu::tile_fwk::Tensor b(npu::tile_fwk::DT_FP32, tshape, "B");
+    Tensor b(DT_FP32, tshape, "B");
     auto ptr1 = std::make_unique<uint8_t>(0);
     auto ptr2 = std::make_unique<uint8_t>(0);
 
-    auto reset = [&b]() {
-        b.SetData(nullptr);
-    };
+    auto reset = [&b]() { b.SetData(nullptr); };
 
     {
-        npu::tile_fwk::Tensor a(npu::tile_fwk::DT_FP32, tshape, "A");
+        Tensor a(DT_FP32, tshape, "A");
         reset();
         b = std::move(a);
         EXPECT_EQ(b.GetData(), nullptr);
     }
 
     {
-        npu::tile_fwk::Tensor a(npu::tile_fwk::DT_FP32, tshape, "A");
+        Tensor a(DT_FP32, tshape, "A");
         reset();
         b.SetData(ptr1.get());
         b = std::move(a);
@@ -99,7 +102,7 @@ TEST_F(TestTensor, AssignWithData2) {
     }
 
     {
-        npu::tile_fwk::Tensor a(npu::tile_fwk::DT_FP32, tshape, "A");
+        Tensor a(DT_FP32, tshape, "A");
         reset();
         a.SetData(ptr1.get());
         b = std::move(a);
@@ -107,7 +110,7 @@ TEST_F(TestTensor, AssignWithData2) {
     }
 
     {
-        npu::tile_fwk::Tensor a(npu::tile_fwk::DT_FP32, tshape, "A");
+        Tensor a(DT_FP32, tshape, "A");
         reset();
         a.SetData(ptr1.get());
         b.SetData(ptr1.get());
@@ -116,30 +119,78 @@ TEST_F(TestTensor, AssignWithData2) {
     }
 }
 
-TEST_F(TestTensor, GetShapeTest) {
+TEST_F(TestTensor, GetShapeTest)
+{
     std::vector<int64_t> tshape = {16, 32, 16, 64};
     std::vector<int64_t> kshape = {};
-    npu::tile_fwk::Tensor a(npu::tile_fwk::DT_FP32, tshape, "A");
-    npu::tile_fwk::Tensor b(npu::tile_fwk::DT_FP32, kshape, "B");
+    Tensor a(DT_FP32, tshape, "A");
+    Tensor b(DT_FP32, kshape, "B");
 
     auto ashape = a.GetShape(1);
     EXPECT_EQ(ashape, 32);
     ashape = a.GetShape(-4);
     EXPECT_EQ(ashape, 16);
+
+    auto validShape = a.GetValidShape();
+    for (size_t i = 0; i < tshape.size(); i++) {
+        EXPECT_EQ(validShape[i].Concrete(), tshape[i]);
+    }
 }
 
-TEST_F(TestTensor, GetCachePolicyTest) {
+TEST_F(TestTensor, GetCachePolicyTest)
+{
     std::vector<int64_t> tshape = {4, 4};
-    npu::tile_fwk::Tensor t1(npu::tile_fwk::DT_FP32, tshape, "T1");
+    Tensor t1(DT_FP32, tshape, "T1");
 
-    EXPECT_FALSE(t1.GetCachePolicy(npu::tile_fwk::CachePolicy::PREFETCH));
-    EXPECT_FALSE(t1.GetCachePolicy(npu::tile_fwk::CachePolicy::NONE_CACHEABLE));
+    EXPECT_FALSE(t1.GetCachePolicy(CachePolicy::PREFETCH));
+    EXPECT_FALSE(t1.GetCachePolicy(CachePolicy::NONE_CACHEABLE));
 
-    t1.SetCachePolicy(npu::tile_fwk::CachePolicy::PREFETCH, true);
-    EXPECT_TRUE(t1.GetCachePolicy(npu::tile_fwk::CachePolicy::PREFETCH));
-    EXPECT_FALSE(t1.GetCachePolicy(npu::tile_fwk::CachePolicy::NONE_CACHEABLE));
+    t1.SetCachePolicy(CachePolicy::PREFETCH, true);
+    EXPECT_TRUE(t1.GetCachePolicy(CachePolicy::PREFETCH));
+    EXPECT_FALSE(t1.GetCachePolicy(CachePolicy::NONE_CACHEABLE));
 
-    t1.SetCachePolicy(npu::tile_fwk::CachePolicy::NONE_CACHEABLE, true);
-    EXPECT_TRUE(t1.GetCachePolicy(npu::tile_fwk::CachePolicy::PREFETCH));
-    EXPECT_FALSE(t1.GetCachePolicy(npu::tile_fwk::CachePolicy::NONE_CACHEABLE));
+    t1.SetCachePolicy(CachePolicy::NONE_CACHEABLE, true);
+    EXPECT_TRUE(t1.GetCachePolicy(CachePolicy::PREFETCH));
+    EXPECT_FALSE(t1.GetCachePolicy(CachePolicy::NONE_CACHEABLE));
+}
+
+TEST_F(TestTensor, RawTensorNegative)
+{
+    RawTensor t(DT_INT8, {});
+    t.SetRefCount(-2);
+    t.AddRefCount(1);
+    EXPECT_EQ(t.GetRefCount(), -1);
+}
+
+TEST_F(TestTensor, GetShapeNoDimensions)
+{
+    std::vector<int64_t> shape = {};
+    Tensor a(DT_FP32, shape, "A");
+
+    EXPECT_THROW(a.GetShape(0), std::exception);
+}
+
+TEST_F(TestTensor, GetShapeAxisOutOfRange)
+{
+    std::vector<int64_t> shape = {16, 32, 16};
+    Tensor a(DT_FP32, shape, "A");
+
+    EXPECT_THROW(a.GetShape(10), std::exception);
+    EXPECT_THROW(a.GetShape(-10), std::exception);
+}
+
+TEST_F(TestTensor, InvalidShapeValue)
+{
+    std::vector<int64_t> shape = {-2, 16};
+    EXPECT_THROW(Tensor(DT_FP32, shape, "A"), std::exception);
+}
+
+TEST_F(TestTensor, SelfAssignment)
+{
+    std::vector<int64_t> shape = {16, 16};
+    Tensor a(DT_FP32, shape, "A");
+    auto ptr = std::make_unique<uint8_t>(0);
+
+    a.SetData(ptr.get());
+    EXPECT_NO_THROW(a = a);
 }

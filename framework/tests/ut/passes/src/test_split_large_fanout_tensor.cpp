@@ -23,7 +23,9 @@
 #include "passes/pass_mgr/pass_manager.h"
 #include "interface/configs/config_manager.h"
 #include "ut_json/ut_json_tool.h"
+#define private public
 #include "passes/tile_graph_pass/graph_optimization/split_large_fanout_tensor.h"
+#undef private
 #include "computational_graph_builder.h"
 
 using namespace npu::tile_fwk;
@@ -37,18 +39,48 @@ public:
 
     static void TearDownTestCase() {}
 
-    void SetUp() override {
+    void SetUp() override
+    {
         Program::GetInstance().Reset();
         config::Reset();
-        config::SetPlatformConfig(KEY_ONLY_HOST_COMPILE, true);
+        config::SetHostOption(COMPILE_STAGE, CS_EXECUTE_GRAPH);
         config::SetHostConfig(KEY_STRATEGY, "SplitLargeFanoutTensorTestStrategy");
-        config::SetPlatformConfig("ENABLE_COST_MODEL", false);
+        config::SetPlatformConfig(KEY_ENABLE_COST_MODEL, false);
     }
     void TearDown() override {}
 
-    std::vector<int64_t> CountViewAssemble(Function &func) {
+    void SetTestStrategy()
+    {
+        PassManager& passManager = PassManager::Instance();
+        passManager.RegisterStrategy(
+            "SplitLargeFanoutTensorTestStrategy", {
+                                                      {"RemoveRedundantReshape", PassName::REMOVE_REDUNDANT_RESHAPE},
+                                                      {"AutoCast", PassName::AUTO_CAST},
+                                                      {"InferMemoryConflict", PassName::INFER_MEMORY_CONFLICT},
+                                                      {"RemoveUndrivenView", PassName::REMOVE_UNDRIVEN_VIEW},
+                                                      {"ExpandFunction", PassName::EXPAND_FUNCTION},
+                                                      {"MergeViewAssemble", PassName::MERGE_VIEW_ASSEMBLE},
+                                                      {"SplitReshape", PassName::SPLIT_RESHAPE},
+                                                      {"SplitRawTensor", PassName::SPLIT_RAW_TENSOR},
+                                                      {"SplitLargeFanoutTensor", PassName::SPLIT_LARGE_FANOUT_TENSOR},
+                                                  });
+        ConfigManager::Instance();
+    }
+
+    void ExecutePass(Function* function, bool enableMoreSplit)
+    {
+        npu::tile_fwk::SplitLargeFanoutTensor splitLargeFanoutTensor;
+        splitLargeFanoutTensor.SetEnableMoreSplit(enableMoreSplit);
+        splitLargeFanoutTensor.PreCheck(*function);
+        splitLargeFanoutTensor.RunOnFunction(*function);
+        splitLargeFanoutTensor.PostCheck(*function);
+        std::cout << "Run Pass Done." << std::endl;
+    }
+
+    std::vector<int64_t> CountViewAssemble(Function& func)
+    {
         std::vector<int64_t> result = {0, 0};
-        for (auto &op : func.Operations()) {
+        for (auto& op : func.Operations()) {
             std::cout << op.GetOpcodeStr() << " " << op.GetOpMagic() << std::endl;
             if (op.GetOpcode() == Opcode::OP_VIEW) {
                 result[0]++;
@@ -60,7 +92,8 @@ public:
     }
 
     // [16, 16] --> View --> [8, 8] --> Sub --> [8, 8] --> Assemble --> [16, 16]
-    void TileExpandSub(ComputationalGraphBuilder &G, const int N, const int T) {
+    void TileExpandSub(ComputationalGraphBuilder& G, const int N, const int T)
+    {
         std::vector<int64_t> tileShape{T, T};
         std::vector<SymbolicScalar> dynShape{SymbolicScalar("a"), T};
         for (int i = 0; i < N; i++) {
@@ -100,7 +133,8 @@ public:
         }
     }
     // multiConsumer means a tensor before the large tensor has more than one assemble op
-    void BuildGraphForMToM(ComputationalGraphBuilder &G, bool multiConsumer = false) {
+    void BuildGraphForMToM(ComputationalGraphBuilder& G, bool multiConsumer = false)
+    {
         int NUM_64 = 64;
         int NUM_128 = 128;
         int NUM_192 = 192;
@@ -126,7 +160,7 @@ public:
         tiledA->UpdateDynValidShape(dynShapeA);
         tiledA->SetMemoryTypeBoth(MemoryType::MEM_UNKNOWN, true);
         G.AddOp(Opcode::OP_VIEW, {"a"}, {"tiledA"}, "View_A");
-        auto View_A =  G.GetOp("View_A");
+        auto View_A = G.GetOp("View_A");
         std::vector<int64_t> offsetA = {NUM_64, 0};
         auto attrA = std::make_shared<ViewOpAttribute>(offsetA, MemoryType::MEM_UNKNOWN);
         View_A->SetOpAttribute(attrA);
@@ -136,7 +170,7 @@ public:
         tiledB->UpdateDynValidShape(dynShapeA);
         tiledB->SetMemoryTypeBoth(MemoryType::MEM_UNKNOWN, true);
         G.AddOp(Opcode::OP_VIEW, {"a"}, {"tiledB"}, "View_B");
-        auto View_B =  G.GetOp("View_B");
+        auto View_B = G.GetOp("View_B");
         std::vector<int64_t> offsetB = {NUM_192, 0};
         auto attrB = std::make_shared<ViewOpAttribute>(offsetB, MemoryType::MEM_UNKNOWN);
         View_B->SetOpAttribute(attrB);
@@ -153,7 +187,7 @@ public:
         tiledC->UpdateDynValidShape(dynShapeC);
         tiledC->SetMemoryTypeBoth(MemoryType::MEM_UNKNOWN, true);
         G.AddOp(Opcode::OP_VIEW, {"c"}, {"tiledC"}, "View_C");
-        auto View_C =  G.GetOp("View_C");
+        auto View_C = G.GetOp("View_C");
         std::vector<int64_t> offsetC = {NUM_64, 0};
         auto attrC = std::make_shared<ViewOpAttribute>(offsetC, MemoryType::MEM_UNKNOWN);
         View_C->SetOpAttribute(attrC);
@@ -163,7 +197,7 @@ public:
         tiledD->UpdateDynValidShape(dynShapeC);
         tiledD->SetMemoryTypeBoth(MemoryType::MEM_UNKNOWN, true);
         G.AddOp(Opcode::OP_VIEW, {"c"}, {"tiledD"}, "View_D");
-        auto View_D =  G.GetOp("View_D");
+        auto View_D = G.GetOp("View_D");
         std::vector<int64_t> offsetD = {NUM_192, 0};
         auto attrD = std::make_shared<ViewOpAttribute>(offsetD, MemoryType::MEM_UNKNOWN);
         View_D->SetOpAttribute(attrD);
@@ -173,7 +207,7 @@ public:
             auto out3 = G.GetTensor("out3");
             out3->SetMemoryTypeBoth(MemoryType::MEM_UNKNOWN, true);
             G.AddOp(Opcode::OP_VIEW, {"tiledC"}, {"out3"}, "View_C1");
-            auto View_C1 =  G.GetOp("View_C1");
+            auto View_C1 = G.GetOp("View_C1");
             std::vector<int64_t> offsetC1 = {0, 0};
             auto attrC1 = std::make_shared<ViewOpAttribute>(offsetC1, MemoryType::MEM_UNKNOWN);
             View_C1->SetOpAttribute(attrC1);
@@ -185,19 +219,22 @@ public:
         auto largeTensor = G.GetTensor("largeTensor");
         largeTensor->SetMemoryTypeBoth(MemoryType::MEM_UNKNOWN, true);
         G.AddOp(Opcode::OP_ASSEMBLE, {"tiledA"}, {"largeTensor"}, "Assemble_A");
-        auto attrAssembleA = std::make_shared<AssembleOpAttribute>(MemoryType::MEM_UNKNOWN, std::vector<int64_t> {0, 0});
+        auto attrAssembleA = std::make_shared<AssembleOpAttribute>(MemoryType::MEM_UNKNOWN, std::vector<int64_t>{0, 0});
         auto assembleA = G.GetOp("Assemble_A");
         assembleA->SetOpAttribute(attrAssembleA);
         G.AddOp(Opcode::OP_ASSEMBLE, {"tiledB"}, {"largeTensor"}, "Assemble_B");
-        auto attrAssembleB = std::make_shared<AssembleOpAttribute>(MemoryType::MEM_UNKNOWN, std::vector<int64_t> {NUM_64, 0});
+        auto attrAssembleB =
+            std::make_shared<AssembleOpAttribute>(MemoryType::MEM_UNKNOWN, std::vector<int64_t>{NUM_64, 0});
         auto assembleB = G.GetOp("Assemble_B");
         assembleB->SetOpAttribute(attrAssembleB);
         G.AddOp(Opcode::OP_ASSEMBLE, {"tiledC"}, {"largeTensor"}, "Assemble_C");
-        auto attrAssembleC = std::make_shared<AssembleOpAttribute>(MemoryType::MEM_UNKNOWN, std::vector<int64_t> {0, NUM_256});
+        auto attrAssembleC =
+            std::make_shared<AssembleOpAttribute>(MemoryType::MEM_UNKNOWN, std::vector<int64_t>{0, NUM_256});
         auto assembleC = G.GetOp("Assemble_C");
         assembleC->SetOpAttribute(attrAssembleC);
         G.AddOp(Opcode::OP_ASSEMBLE, {"tiledD"}, {"largeTensor"}, "Assemble_D");
-        auto attrAssembleD = std::make_shared<AssembleOpAttribute>(MemoryType::MEM_UNKNOWN, std::vector<int64_t> {NUM_64, NUM_256});
+        auto attrAssembleD =
+            std::make_shared<AssembleOpAttribute>(MemoryType::MEM_UNKNOWN, std::vector<int64_t>{NUM_64, NUM_256});
         auto assembleD = G.GetOp("Assemble_D");
         assembleD->SetOpAttribute(attrAssembleD);
 
@@ -207,7 +244,7 @@ public:
         auto tiledView_1 = G.GetTensor("tiledView_1");
         tiledView_1->SetMemoryTypeBoth(MemoryType::MEM_UNKNOWN, true);
         G.AddOp(Opcode::OP_VIEW, {"largeTensor"}, {"tiledView_1"}, "View_1");
-        auto View_1 =  G.GetOp("View_1");
+        auto View_1 = G.GetOp("View_1");
         std::vector<int64_t> offset1 = {0, 0};
         auto attr1 = std::make_shared<ViewOpAttribute>(offset1, MemoryType::MEM_UNKNOWN);
         View_1->SetOpAttribute(attr1);
@@ -218,7 +255,7 @@ public:
         auto tiledView_2 = G.GetTensor("tiledView_2");
         tiledView_2->SetMemoryTypeBoth(MemoryType::MEM_UNKNOWN, true);
         G.AddOp(Opcode::OP_VIEW, {"largeTensor"}, {"tiledView_2"}, "View_2");
-        auto View_2 =  G.GetOp("View_2");
+        auto View_2 = G.GetOp("View_2");
         std::vector<int64_t> offset2 = {0, 0};
         auto attr2 = std::make_shared<ViewOpAttribute>(offset2, MemoryType::MEM_UNKNOWN);
         View_2->SetOpAttribute(attr2);
@@ -229,7 +266,7 @@ public:
         auto tiledView_3 = G.GetTensor("tiledView_3");
         tiledView_3->SetMemoryTypeBoth(MemoryType::MEM_UNKNOWN, true);
         G.AddOp(Opcode::OP_VIEW, {"largeTensor"}, {"tiledView_3"}, "View_3");
-        auto View_3 =  G.GetOp("View_3");
+        auto View_3 = G.GetOp("View_3");
         std::vector<int64_t> offset3 = {0, 256};
         auto attr3 = std::make_shared<ViewOpAttribute>(offset3, MemoryType::MEM_UNKNOWN);
         View_3->SetOpAttribute(attr3);
@@ -245,7 +282,7 @@ public:
         auto out1 = G.GetTensor("out1");
         out1->SetMemoryTypeBoth(MemoryType::MEM_UNKNOWN, true);
         G.AddOp(Opcode::OP_ASSEMBLE, {"add_out"}, {"out1"}, "Assemble_1");
-        auto attrAssemble1 = std::make_shared<AssembleOpAttribute>(MemoryType::MEM_UNKNOWN, std::vector<int64_t> {0, 0});
+        auto attrAssemble1 = std::make_shared<AssembleOpAttribute>(MemoryType::MEM_UNKNOWN, std::vector<int64_t>{0, 0});
         auto assemble1 = G.GetOp("Assemble_1");
         assemble1->SetOpAttribute(attrAssemble1);
 
@@ -260,20 +297,201 @@ public:
         auto out2 = G.GetTensor("out2");
         out2->SetMemoryTypeBoth(MemoryType::MEM_UNKNOWN, true);
         G.AddOp(Opcode::OP_ASSEMBLE, {"exp_out"}, {"out2"}, "Assemble_2");
-        auto attrAssemble2 = std::make_shared<AssembleOpAttribute>(MemoryType::MEM_UNKNOWN, std::vector<int64_t> {0, 0});
+        auto attrAssemble2 = std::make_shared<AssembleOpAttribute>(MemoryType::MEM_UNKNOWN, std::vector<int64_t>{0, 0});
         auto assemble2 = G.GetOp("Assemble_2");
         assemble2->SetOpAttribute(attrAssemble2);
 
         G.SetInCast({"a", "c"});
-        if (multiConsumer){
+        if (multiConsumer) {
             G.SetOutCast({"out1", "out2", "out3"});
         } else {
             G.SetOutCast({"out1", "out2"});
         }
     }
+    void PerfectlyMatchWithAll_FullConstruct(ComputationalGraphBuilder& G)
+    {
+        int N = 2;
+        int T = 8;
+        std::vector<int64_t> shape0{N * T, N * T};
+        std::vector<int64_t> shape1{T, T};
+        std::vector<int64_t> shape2{N * T, T};
+        G.AddTensor(DataType::DT_FP32, shape0, "a");
+        G.AddTensor(DataType::DT_FP32, shape0, "b");
+        G.AddTensor(DataType::DT_FP32, shape2, "out");
+        G.AddTensor(DataType::DT_FP32, shape0, "sub_out");
+        // [16, 16] --> View --> [8, 8] --> Sub --> [8, 8] --> Assemble --> [16, 16]
+        TileExpandSub(G, N, T);
+        auto subOut = G.GetTensor("sub_out");
+        subOut->SetMemoryTypeBoth(MemoryType::MEM_UNKNOWN, true);
+
+        // View 获取 [16, 16] 左半边 [16, 8]
+        G.AddTensor(DataType::DT_FP32, shape2, "sub_out_left");
+        auto subOutLeft = G.GetTensor("sub_out_left");
+        subOutLeft->SetMemoryTypeBoth(MemoryType::MEM_UNKNOWN, true);
+        G.AddOp(Opcode::OP_VIEW, {"sub_out"}, {"sub_out_left"}, "View_Left");
+        auto View_Left = G.GetOp("View_Left");
+        std::vector<int64_t> offsetLeft = {0, 0};
+        auto attrLeft = std::make_shared<ViewOpAttribute>(offsetLeft, MemoryType::MEM_UNKNOWN);
+        View_Left->SetOpAttribute(attrLeft);
+
+        // View 获取 [16, 16] 右半边 [16, 8]
+        G.AddTensor(DataType::DT_FP32, shape2, "sub_out_right");
+        auto subOutRight = G.GetTensor("sub_out_right");
+        subOutRight->SetMemoryTypeBoth(MemoryType::MEM_UNKNOWN, true);
+        G.AddOp(Opcode::OP_VIEW, {"sub_out"}, {"sub_out_right"}, "View_Right");
+        auto View_UR = G.GetOp("View_Right");
+        std::vector<int64_t> offsetRight = {0, T};
+        auto attrUR = std::make_shared<ViewOpAttribute>(offsetRight, MemoryType::MEM_UNKNOWN);
+        View_UR->SetOpAttribute(attrUR);
+
+        // 左半边 [16, 8] + 右半边 [16, 8]
+        std::vector<SymbolicScalar> subDynShape = {SymbolicScalar("a"), T};
+        G.AddTensor(DataType::DT_FP32, shape2, "add_out");
+        G.AddOp(Opcode::OP_ADD, {"sub_out_right", "sub_out_left"}, {"add_out"}, "Add");
+        auto addOut = G.GetTensor("add_out");
+        addOut->SetMemoryTypeBoth(MemoryType::MEM_UNKNOWN, true);
+        addOut->UpdateDynValidShape(subDynShape);
+
+        G.AddOp(Opcode::OP_ASSEMBLE, {"add_out"}, {"out"}, "Assemble_final");
+        auto attrAssembleFinal =
+            std::make_shared<AssembleOpAttribute>(MemoryType::MEM_UNKNOWN, std::vector<int64_t>{0, 0});
+        auto Op = G.GetOp("Assemble_final");
+        Op->SetOpAttribute(attrAssembleFinal);
+
+        auto a = G.GetTensor("a");
+        a->SetMemoryTypeBoth(MemoryType::MEM_UNKNOWN, true);
+        auto b = G.GetTensor("b");
+        b->SetMemoryTypeBoth(MemoryType::MEM_UNKNOWN, true);
+        auto out = G.GetTensor("out");
+        out->UpdateDynValidShape(subDynShape);
+
+        G.SetInCast({"a", "b"});
+        G.SetOutCast({"out"});
+    }
+    
+    void BuildPerfectlyMatchWithInferShapeGraph(ComputationalGraphBuilder& G, bool setDynShape = false)
+    {
+        int N = 2;
+        int T = 8;
+        std::vector<int64_t> shape0{N * T, N * T};
+        std::vector<int64_t> shape1{T, T};
+        G.AddTensor(DataType::DT_FP32, shape0, "a");
+        G.AddTensor(DataType::DT_FP32, shape0, "b");
+        G.AddTensor(DataType::DT_FP32, shape1, "out");
+        G.AddTensor(DataType::DT_FP32, shape0, "sub_out");
+        TileExpandSub(G, N, T);
+        G.GetTensor("sub_out")->SetMemoryTypeBoth(MemoryType::MEM_UNKNOWN, true);
+
+        G.AddTensor(DataType::DT_FP32, shape1, "sub_out_upper_right");
+        G.GetTensor("sub_out_upper_right")->SetMemoryTypeBoth(MemoryType::MEM_UNKNOWN, true);
+        G.AddOp(Opcode::OP_VIEW, {"sub_out"}, {"sub_out_upper_right"}, "View_Upper_Right");
+        std::vector<int64_t> offsetUR = {0, T};
+        auto attrUR = std::make_shared<ViewOpAttribute>(offsetUR, MemoryType::MEM_UNKNOWN);
+        G.GetOp("View_Upper_Right")->SetOpAttribute(attrUR);
+
+        G.AddTensor(DataType::DT_FP32, shape1, "sub_out_lower_left");
+        G.GetTensor("sub_out_lower_left")->SetMemoryTypeBoth(MemoryType::MEM_UNKNOWN, true);
+        G.AddOp(Opcode::OP_VIEW, {"sub_out"}, {"sub_out_lower_left"}, "View_Lower_Left");
+        std::vector<int64_t> offsetLL = {T, 0};
+        auto attrLL = std::make_shared<ViewOpAttribute>(offsetLL, MemoryType::MEM_UNKNOWN);
+        G.GetOp("View_Lower_Left")->SetOpAttribute(attrLL);
+
+        std::vector<SymbolicScalar> addDynShape = {SymbolicScalar("a"), T};
+        G.AddTensor(DataType::DT_FP32, shape1, "add_out");
+        G.AddOp(Opcode::OP_ADD, {"sub_out_upper_right", "sub_out_lower_left"}, {"add_out"}, "Add");
+        G.GetTensor("add_out")->SetMemoryTypeBoth(MemoryType::MEM_UNKNOWN, true);
+        G.AddOp(Opcode::OP_ASSEMBLE, {"add_out"}, {"out"}, "Assemble_final");
+        auto attrAssembleFinal =
+            std::make_shared<AssembleOpAttribute>(MemoryType::MEM_UNKNOWN, std::vector<int64_t>{0, 0});
+        auto assembleOp = G.GetOp("Assemble_final");
+        assembleOp->SetOpAttribute(attrAssembleFinal);
+
+        G.GetTensor("a")->SetMemoryTypeBoth(MemoryType::MEM_UNKNOWN, true);
+        G.GetTensor("b")->SetMemoryTypeBoth(MemoryType::MEM_UNKNOWN, true);
+        auto out = G.GetTensor("out");
+        G.GetTensor("out")->SetMemoryTypeBoth(MemoryType::MEM_UNKNOWN, true);
+        if (setDynShape) {
+            G.GetTensor("sub_out_upper_right")->UpdateDynValidShape(addDynShape);
+            G.GetTensor("sub_out_lower_left")->UpdateDynValidShape(addDynShape);
+            G.GetTensor("add_out")->UpdateDynValidShape(addDynShape);
+            G.GetTensor("out")->UpdateDynValidShape(addDynShape);
+        }
+
+        G.SetInCast({"a", "b"});
+        G.SetOutCast({"out"});
+    }
+
+    void BuildPerfectlyMatchFullV2_BaseTensorsAndExp(ComputationalGraphBuilder& G)
+    {
+        int N = 2;
+        int T = 8;
+        std::vector<int64_t> shape0{N * T, N * T};
+        std::vector<int64_t> shape1{T, T};
+        G.AddTensor(DataType::DT_FP32, shape0, "a");
+        G.AddTensor(DataType::DT_FP32, shape0, "b");
+        G.AddTensor(DataType::DT_FP32, shape0, "sub_out");
+        G.AddTensor(DataType::DT_FP32, shape1, "out");
+        G.AddTensor(DataType::DT_FP32, shape0, "out2");
+        // [16, 16] --> View --> [8, 8] --> Sub --> [8, 8] --> Assemble --> [16, 16]
+        TileExpandSub(G, N, T);
+        auto subOut = G.GetTensor("sub_out");
+        subOut->SetMemoryTypeBoth(MemoryType::MEM_UNKNOWN, true);
+
+        // [16, 16] --> exp --> [16, 16] --> Assemble --> OCAST
+        G.AddTensor(DataType::DT_FP32, shape0, "expOut");
+        auto expOut = G.GetTensor("expOut");
+        expOut->SetMemoryTypeBoth(MemoryType::MEM_UNKNOWN, true);
+        G.AddOp(Opcode::OP_EXP, {"sub_out"}, {"expOut"}, "Exp");
+        G.AddOp(Opcode::OP_ASSEMBLE, {"expOut"}, {"out2"}, "Assemble_exp");
+        auto attrAssembleExp =
+            std::make_shared<AssembleOpAttribute>(MemoryType::MEM_UNKNOWN, std::vector<int64_t>{0, 0});
+        G.GetOp("Assemble_exp")->SetOpAttribute(attrAssembleExp);
+    }
+
+    void BuildPerfectlyMatchFullV2_ViewsAndAdd(ComputationalGraphBuilder& G)
+    {
+        int T = 8;
+        std::vector<int64_t> shape1{T, T};
+        // View 获取 [16, 16] 右上角 [8, 8]
+        G.AddTensor(DataType::DT_FP32, shape1, "sub_out_lower_left");
+        auto subOutLL = G.GetTensor("sub_out_lower_left");
+        subOutLL->SetMemoryTypeBoth(MemoryType::MEM_UNKNOWN, true);
+        G.AddOp(Opcode::OP_VIEW, {"sub_out"}, {"sub_out_lower_left"}, "View_Lower_Left");
+        auto View_LL = G.GetOp("View_Lower_Left");
+        std::vector<int64_t> offsetLL = {T, 0};
+        auto attrLL = std::make_shared<ViewOpAttribute>(offsetLL, MemoryType::MEM_UNKNOWN);
+        View_LL->SetOpAttribute(attrLL);
+
+        // View 获取 [16, 16] 左上角 [8, 8]
+        G.AddTensor(DataType::DT_FP32, shape1, "sub_out_upper_right");
+        auto subOutUR = G.GetTensor("sub_out_upper_right");
+        subOutUR->SetMemoryTypeBoth(MemoryType::MEM_UNKNOWN, true);
+        G.AddOp(Opcode::OP_VIEW, {"sub_out"}, {"sub_out_upper_right"}, "View_Upper_Right");
+        auto View_UR = G.GetOp("View_Upper_Right");
+        std::vector<int64_t> offsetUR = {0, T};
+        auto attrUR = std::make_shared<ViewOpAttribute>(offsetUR, MemoryType::MEM_UNKNOWN);
+        View_UR->SetOpAttribute(attrUR);
+
+        // 左上角 [8, 8] + 右上角 [8, 8] --> [8, 8]
+        G.AddTensor(DataType::DT_FP32, shape1, "add_out");
+        G.AddOp(Opcode::OP_ADD, {"sub_out_upper_right", "sub_out_lower_left"}, {"add_out"}, "Add");
+        G.GetTensor("add_out")->SetMemoryTypeBoth(MemoryType::MEM_UNKNOWN, true);
+        G.AddOp(Opcode::OP_ASSEMBLE, {"add_out"}, {"out"}, "Assemble_final");
+        auto attrAssembleFinal =
+            std::make_shared<AssembleOpAttribute>(MemoryType::MEM_UNKNOWN, std::vector<int64_t>{0, 0});
+        G.GetOp("Assemble_final")->SetOpAttribute(attrAssembleFinal);
+
+        G.GetTensor("a")->SetMemoryTypeBoth(MemoryType::MEM_UNKNOWN, true);
+        G.GetTensor("b")->SetMemoryTypeBoth(MemoryType::MEM_UNKNOWN, true);
+        G.GetTensor("out")->SetMemoryTypeBoth(MemoryType::MEM_UNKNOWN, true);
+        G.GetTensor("out2")->SetMemoryTypeBoth(MemoryType::MEM_UNKNOWN, true);
+        G.SetInCast({"a", "b"});
+        G.SetOutCast({"out", "out2"});
+    }
 };
 
-TEST_F(SplitLargeFanoutTensorTest, TestLCM) {
+TEST_F(SplitLargeFanoutTensorTest, TestLCM)
+{
     int64_t NUM_16 = 16;
     int64_t NUM_2 = 2;
     int64_t NUM_3 = 3;
@@ -291,7 +509,35 @@ TEST_F(SplitLargeFanoutTensorTest, TestLCM) {
     EXPECT_EQ(lcm, NUM_96);
 }
 
-TEST_F(SplitLargeFanoutTensorTest, BeCovered_Full) {
+TEST_F(SplitLargeFanoutTensorTest, CalLcmShape_DimMismatch)
+{
+    npu::tile_fwk::SplitLargeFanoutTensor pass;
+    std::vector<int64_t> toShape = {16, 32};
+    std::vector<int64_t> fromShape = {8, 16, 4};
+    std::vector<int64_t> lcmShape;
+    EXPECT_NE(pass.CalLcmShape(toShape, fromShape, lcmShape), SUCCESS);
+}
+
+TEST_F(SplitLargeFanoutTensorTest, CalLcmShape_LcmFail)
+{
+    npu::tile_fwk::SplitLargeFanoutTensor pass;
+    std::vector<int64_t> toShape = {0, 32};
+    std::vector<int64_t> fromShape = {0, 16};
+    std::vector<int64_t> lcmShape(2);
+    EXPECT_NE(pass.CalLcmShape(toShape, fromShape, lcmShape), SUCCESS);
+}
+
+TEST_F(SplitLargeFanoutTensorTest, CalGcdShape_DimMismatch)
+{
+    npu::tile_fwk::SplitLargeFanoutTensor pass;
+    std::vector<int64_t> toShape = {16, 32};
+    std::vector<int64_t> fromShape = {8};
+    std::vector<int64_t> gcdShape;
+    EXPECT_NE(pass.CalGcdShape(toShape, fromShape, gcdShape), SUCCESS);
+}
+
+TEST_F(SplitLargeFanoutTensorTest, BeCovered_Full)
+{
     int NUM_2 = 2;
     int NUM_32 = 32;
     int NUM_64 = 64;
@@ -320,7 +566,7 @@ TEST_F(SplitLargeFanoutTensorTest, BeCovered_Full) {
     tiledA->UpdateDynValidShape(dynShapeA);
     tiledA->SetMemoryTypeBoth(MemoryType::MEM_UNKNOWN, true);
     G.AddOp(Opcode::OP_VIEW, {"a"}, {"tiledA"}, "View_A");
-    auto View_A =  G.GetOp("View_A");
+    auto View_A = G.GetOp("View_A");
     std::vector<int64_t> offsetA = {NUM_64, 0};
     auto attrA = std::make_shared<ViewOpAttribute>(offsetA, MemoryType::MEM_UNKNOWN);
     View_A->SetOpAttribute(attrA);
@@ -336,7 +582,7 @@ TEST_F(SplitLargeFanoutTensorTest, BeCovered_Full) {
     tiledB->UpdateDynValidShape(dynShapeB);
     tiledB->SetMemoryTypeBoth(MemoryType::MEM_UNKNOWN, true);
     G.AddOp(Opcode::OP_VIEW, {"b"}, {"tiledB"}, "View_B");
-    auto View_B =  G.GetOp("View_B");
+    auto View_B = G.GetOp("View_B");
     std::vector<int64_t> offsetB = {NUM_64, 0};
     auto attrB = std::make_shared<ViewOpAttribute>(offsetB, MemoryType::MEM_UNKNOWN);
     View_B->SetOpAttribute(attrB);
@@ -346,11 +592,12 @@ TEST_F(SplitLargeFanoutTensorTest, BeCovered_Full) {
     auto tiledConcat = G.GetTensor("tiledConcat");
     tiledConcat->SetMemoryTypeBoth(MemoryType::MEM_UNKNOWN, true);
     G.AddOp(Opcode::OP_ASSEMBLE, {"tiledA"}, {"tiledConcat"}, "Assemble_A");
-    auto attrAssembleA = std::make_shared<AssembleOpAttribute>(MemoryType::MEM_UNKNOWN, std::vector<int64_t> {0, 0});
+    auto attrAssembleA = std::make_shared<AssembleOpAttribute>(MemoryType::MEM_UNKNOWN, std::vector<int64_t>{0, 0});
     auto assembleA = G.GetOp("Assemble_A");
     assembleA->SetOpAttribute(attrAssembleA);
     G.AddOp(Opcode::OP_ASSEMBLE, {"tiledB"}, {"tiledConcat"}, "Assemble_B");
-    auto attrAssembleB = std::make_shared<AssembleOpAttribute>(MemoryType::MEM_UNKNOWN, std::vector<int64_t> {0, NUM_512});
+    auto attrAssembleB =
+        std::make_shared<AssembleOpAttribute>(MemoryType::MEM_UNKNOWN, std::vector<int64_t>{0, NUM_512});
     auto assembleB = G.GetOp("Assemble_B");
     assembleB->SetOpAttribute(attrAssembleB);
 
@@ -360,7 +607,7 @@ TEST_F(SplitLargeFanoutTensorTest, BeCovered_Full) {
     auto tiledView_1 = G.GetTensor("tiledView_1");
     tiledView_1->SetMemoryTypeBoth(MemoryType::MEM_UNKNOWN, true);
     G.AddOp(Opcode::OP_VIEW, {"tiledConcat"}, {"tiledView_1"}, "View_1");
-    auto View_1 =  G.GetOp("View_1");
+    auto View_1 = G.GetOp("View_1");
     std::vector<int64_t> offset1 = {0, 0};
     auto attr1 = std::make_shared<ViewOpAttribute>(offset1, MemoryType::MEM_UNKNOWN);
     View_1->SetOpAttribute(attr1);
@@ -371,7 +618,7 @@ TEST_F(SplitLargeFanoutTensorTest, BeCovered_Full) {
     auto tiledView_2 = G.GetTensor("tiledView_2");
     tiledView_2->SetMemoryTypeBoth(MemoryType::MEM_UNKNOWN, true);
     G.AddOp(Opcode::OP_VIEW, {"tiledConcat"}, {"tiledView_2"}, "View_2");
-    auto View_2 =  G.GetOp("View_2");
+    auto View_2 = G.GetOp("View_2");
     std::vector<int64_t> offset2 = {0, NUM_256};
     auto attr2 = std::make_shared<ViewOpAttribute>(offset2, MemoryType::MEM_UNKNOWN);
     View_2->SetOpAttribute(attr2);
@@ -382,7 +629,7 @@ TEST_F(SplitLargeFanoutTensorTest, BeCovered_Full) {
     auto tiledView_3 = G.GetTensor("tiledView_3");
     tiledView_3->SetMemoryTypeBoth(MemoryType::MEM_UNKNOWN, true);
     G.AddOp(Opcode::OP_VIEW, {"tiledConcat"}, {"tiledView_3"}, "View_3");
-    auto View_3 =  G.GetOp("View_3");
+    auto View_3 = G.GetOp("View_3");
     std::vector<int64_t> offset3 = {0, NUM_512};
     auto attr3 = std::make_shared<ViewOpAttribute>(offset3, MemoryType::MEM_UNKNOWN);
     View_3->SetOpAttribute(attr3);
@@ -398,7 +645,7 @@ TEST_F(SplitLargeFanoutTensorTest, BeCovered_Full) {
     auto out1 = G.GetTensor("out1");
     out1->SetMemoryTypeBoth(MemoryType::MEM_UNKNOWN, true);
     G.AddOp(Opcode::OP_ASSEMBLE, {"add_out"}, {"out1"}, "Assemble_1");
-    auto attrAssemble1 = std::make_shared<AssembleOpAttribute>(MemoryType::MEM_UNKNOWN, std::vector<int64_t> {0, 0});
+    auto attrAssemble1 = std::make_shared<AssembleOpAttribute>(MemoryType::MEM_UNKNOWN, std::vector<int64_t>{0, 0});
     auto assemble1 = G.GetOp("Assemble_1");
     assemble1->SetOpAttribute(attrAssemble1);
 
@@ -413,13 +660,13 @@ TEST_F(SplitLargeFanoutTensorTest, BeCovered_Full) {
     auto out2 = G.GetTensor("out2");
     out2->SetMemoryTypeBoth(MemoryType::MEM_UNKNOWN, true);
     G.AddOp(Opcode::OP_ASSEMBLE, {"exp_out"}, {"out2"}, "Assemble_2");
-    auto attrAssemble2 = std::make_shared<AssembleOpAttribute>(MemoryType::MEM_UNKNOWN, std::vector<int64_t> {0, 0});
+    auto attrAssemble2 = std::make_shared<AssembleOpAttribute>(MemoryType::MEM_UNKNOWN, std::vector<int64_t>{0, 0});
     auto assemble2 = G.GetOp("Assemble_2");
     assemble2->SetOpAttribute(attrAssemble2);
 
     G.SetInCast({"a", "b"});
     G.SetOutCast({"out1", "out2"});
-    Function *function = G.GetFunction();
+    Function* function = G.GetFunction();
 
     // 确认构图完毕
     constexpr int opNumBefore = 11;
@@ -433,11 +680,11 @@ TEST_F(SplitLargeFanoutTensorTest, BeCovered_Full) {
     EXPECT_EQ(assembleNumCount, assembleNumBefore) << assembleNumBefore << " OP_ASSEMBLE before pass";
     std::cout << "Build Graph Done." << std::endl;
     std::unordered_map<int, std::vector<int64_t>> viewOpToUbBfore;
-    for (auto &op : function->Operations()) {
+    for (auto& op : function->Operations()) {
         if (op.GetOpcode() != Opcode::OP_VIEW) {
             continue;
         }
-        auto viewAttr = dynamic_cast<ViewOpAttribute *>(op.GetOpAttribute().get());
+        auto viewAttr = dynamic_cast<ViewOpAttribute*>(op.GetOpAttribute().get());
         MemoryType toType = viewAttr->GetTo();
         if (toType != MemoryType::MEM_UNKNOWN) {
             continue;
@@ -468,11 +715,11 @@ TEST_F(SplitLargeFanoutTensorTest, BeCovered_Full) {
     EXPECT_EQ(viewNumCount, viewNumAfter) << viewNumAfter << " OP_VIEW after pass";
     EXPECT_EQ(assembleNumCount, assembleNumAfter) << assembleNumAfter << " OP_ASSEMBLE after pass";
 
-    for (auto &op : function->Operations()) {
+    for (auto& op : function->Operations()) {
         if (op.GetOpcode() != Opcode::OP_VIEW) {
             continue;
         }
-        auto viewAttr = dynamic_cast<ViewOpAttribute *>(op.GetOpAttribute().get());
+        auto viewAttr = dynamic_cast<ViewOpAttribute*>(op.GetOpAttribute().get());
         MemoryType toType = viewAttr->GetTo();
         if (toType != MemoryType::MEM_UNKNOWN) {
             continue;
@@ -497,11 +744,12 @@ TEST_F(SplitLargeFanoutTensorTest, BeCovered_Full) {
 [64, 256][64, 64]
 [64, 256][64, 64] --> [128, 128][128, 128][128, 64]
 */
-TEST_F(SplitLargeFanoutTensorTest, MtoM) {
+TEST_F(SplitLargeFanoutTensorTest, MtoM)
+{
     int NUM_2 = 2;
     ComputationalGraphBuilder G;
     BuildGraphForMToM(G);
-    Function *function = G.GetFunction();
+    Function* function = G.GetFunction();
 
     // 确认构图完毕
     constexpr int opNumBefore = 15;
@@ -537,17 +785,17 @@ TEST_F(SplitLargeFanoutTensorTest, MtoM) {
     EXPECT_EQ(assembleNumCount, assembleNumBefore) << assembleNumBefore << " OP_ASSEMBLE after pass";
 
     constexpr int singleViewOpmagic = 10010;
-    for (auto &op : function->Operations()) {
+    for (auto& op : function->Operations()) {
         if (op.GetOpMagic() == singleViewOpmagic) {
-            auto viewAttr = dynamic_cast<ViewOpAttribute *>(op.GetOpAttribute().get());
+            auto viewAttr = dynamic_cast<ViewOpAttribute*>(op.GetOpAttribute().get());
             auto offset = viewAttr->GetFromOffset();
             EXPECT_EQ(accumulate(offset.begin(), offset.end(), 0), 0) << "OP_VIEW offset should be all zero";
             auto dynOffset = viewAttr->GetFromDynOffset();
-            EXPECT_EQ(dynOffset.size(), 0);
+            EXPECT_EQ(dynOffset.size(), NUM_2);
             auto input = op.GetIOperands().front();
             auto inputDynShape = input->GetDynValidShape();
             EXPECT_EQ(inputDynShape.size(), NUM_2);
-            EXPECT_EQ(inputDynShape[0].Dump(), "RUNTIME_Max(RUNTIME_Max(0, (c*RUNTIME_Ne(c, 0))), ((c+64)*RUNTIME_Ne(c, 0)))");
+            EXPECT_EQ(inputDynShape[0].Dump(), "RUNTIME_Max(c, RUNTIME_Max(((c+64)*RUNTIME_Ne(c, 0)), 0))");
         }
     }
 }
@@ -556,10 +804,11 @@ TEST_F(SplitLargeFanoutTensorTest, MtoM) {
 [64, 256][64, 64]
 [64, 256][64, 64] --> [128, 128][128, 128][128, 64]
 */
-TEST_F(SplitLargeFanoutTensorTest, MtoMtoMoreSplit) {
+TEST_F(SplitLargeFanoutTensorTest, MtoMtoMoreSplit)
+{
     ComputationalGraphBuilder G;
     BuildGraphForMToM(G);
-    Function *function = G.GetFunction();
+    Function* function = G.GetFunction();
 
     // 确认构图完毕
     constexpr int opNumBefore = 15;
@@ -579,7 +828,7 @@ TEST_F(SplitLargeFanoutTensorTest, MtoMtoMoreSplit) {
     */
     // 单独执行pass
     npu::tile_fwk::SplitLargeFanoutTensor splitLargeFanoutTensor;
-    splitLargeFanoutTensor.enableMoreSplit = true;
+    splitLargeFanoutTensor.enableMoreSplit_ = true;
     splitLargeFanoutTensor.PreCheck(*function);
     splitLargeFanoutTensor.RunOnFunction(*function);
     splitLargeFanoutTensor.PostCheck(*function);
@@ -588,8 +837,8 @@ TEST_F(SplitLargeFanoutTensorTest, MtoMtoMoreSplit) {
     dump graph after Pass
     function->DumpJsonFile(jsonFilePath);
     */
-    constexpr int opNumAfter = 20;
-    constexpr int viewNumAfter = 10;
+    constexpr int opNumAfter = 16;
+    constexpr int viewNumAfter = 6;
     constexpr int assembleNumAfter = 8;
 
     auto countResultAfter = CountViewAssemble(*function);
@@ -600,7 +849,86 @@ TEST_F(SplitLargeFanoutTensorTest, MtoMtoMoreSplit) {
     EXPECT_EQ(assembleNumCount, assembleNumAfter) << assembleNumAfter << " OP_ASSEMBLE after pass";
 }
 
-TEST_F(SplitLargeFanoutTensorTest, Unmatched) {
+TEST_F(SplitLargeFanoutTensorTest, MtoMGetCorrectAssemble)
+{
+    ComputationalGraphBuilder G;
+    BuildGraphForMToM(G, true);
+    Function* function = G.GetFunction();
+
+    std::cout << "Build Graph Done" << std::endl;
+    // 执行pass, 不发生segmentFault即为获取assemble正常
+    npu::tile_fwk::SplitLargeFanoutTensor splitLargeFanoutTensor;
+    splitLargeFanoutTensor.enableMoreSplit_ = true;
+    EXPECT_EQ(SUCCESS, splitLargeFanoutTensor.PreCheck(*function));
+    EXPECT_EQ(SUCCESS, splitLargeFanoutTensor.RunOnFunction(*function));
+    EXPECT_EQ(SUCCESS, splitLargeFanoutTensor.PostCheck(*function));
+    std::cout << "Run Pass Done" << std::endl;
+}
+
+void Build1ToMMultiConsumers(ComputationalGraphBuilder& G)
+{
+    int NUM_16 = 16;
+    int NUM_32 = 32;
+
+    // 定义所有张量的形状和名称并添加
+    std::map<std::string, std::vector<int64_t>> tensors = {
+        {"incast0", {NUM_16, NUM_32}},     {"incast1", {NUM_16, NUM_32}},  {"outcast0", {NUM_16, NUM_16}},
+        {"outcast1", {NUM_16, NUM_16}},    {"outcast2", {NUM_16, NUM_16}}, {"outcast3", {NUM_16, NUM_16}},
+        {"largeTensor", {NUM_32, NUM_32}}, {"outcast", {NUM_16, NUM_16}}};
+    for (const auto& [name, shape] : tensors) {
+        G.AddTensor(DataType::DT_FP32, shape, name);
+        auto tensor = G.GetTensor(name);
+        tensor->SetMemoryTypeBoth(MemoryType::MEM_DEVICE_DDR, true);
+    }
+
+    G.AddOp(Opcode::OP_VIEW, {"incast0"}, {"outcast"}, "view");
+    auto viewEX = G.GetOp("view");
+    Offset offsetEX = {0, 0};
+    viewEX->SetOpAttribute(std::make_shared<ViewOpAttribute>(offsetEX, MemoryType::MEM_DEVICE_DDR));
+
+    // 定义所有ASSEMBLE操作并添加
+    std::vector<std::tuple<std::string, std::string, std::vector<int64_t>>> assembleOps = {
+        {"incast0", "assemble0", {0, 0}}, {"incast1", "assemble1", {16, 0}}};
+    for (const auto& [input, opName, offset] : assembleOps) {
+        G.AddOp(Opcode::OP_ASSEMBLE, {input}, {"largeTensor"}, opName);
+        auto assembleOp = G.GetOp(opName);
+        assembleOp->SetOpAttribute(std::make_shared<AssembleOpAttribute>(MemoryType::MEM_DEVICE_DDR, offset));
+    }
+
+    // 定义所有VIEW操作并添加
+    std::vector<std::tuple<std::string, std::string, std::vector<int64_t>>> viewOps = {
+        {"outcast0", "view0", {0, 0}},
+        {"outcast1", "view1", {0, 16}},
+        {"outcast2", "view2", {16, 0}},
+        {"outcast3", "view3", {16, 16}}};
+    for (const auto& [output, opName, offset] : viewOps) {
+        G.AddOp(Opcode::OP_VIEW, {"largeTensor"}, {output}, opName);
+        auto viewOp = G.GetOp(opName);
+        viewOp->SetOpAttribute(std::make_shared<ViewOpAttribute>(offset, MemoryType::MEM_DEVICE_DDR));
+    }
+
+    G.SetInCast({"incast0", "incast1"});
+    G.SetOutCast({"outcast0", "outcast1", "outcast2", "outcast3", "outcast"});
+}
+
+TEST_F(SplitLargeFanoutTensorTest, 1ToMGetCorrectAssemble)
+{
+    ComputationalGraphBuilder G;
+    Build1ToMMultiConsumers(G);
+    Function* function = G.GetFunction();
+
+    std::cout << "Build Graph Done." << std::endl;
+    // 单独执行pass, 不发生segmentFault即为获取assemble正常
+    npu::tile_fwk::SplitLargeFanoutTensor splitLargeFanoutTensor;
+    splitLargeFanoutTensor.enableMoreSplit_ = false;
+    EXPECT_EQ(SUCCESS, splitLargeFanoutTensor.PreCheck(*function));
+    EXPECT_EQ(SUCCESS, splitLargeFanoutTensor.RunOnFunction(*function));
+    EXPECT_EQ(SUCCESS, splitLargeFanoutTensor.PostCheck(*function));
+    std::cout << "Run Pass Done." << std::endl;
+}
+
+TEST_F(SplitLargeFanoutTensorTest, Unmatched)
+{
     int N = 2;
     int T = 8;
     std::vector<int64_t> shape0{N * T, N * T};
@@ -624,7 +952,7 @@ TEST_F(SplitLargeFanoutTensorTest, Unmatched) {
         auto viewOut = G.GetTensor("viewOut_" + std::to_string(i));
         viewOut->SetMemoryTypeBoth(MemoryType::MEM_UNKNOWN, true);
         G.AddOp(Opcode::OP_VIEW, {"sub_out"}, {"viewOut_" + std::to_string(i)}, "View_" + std::to_string(i));
-        auto viewOp =  G.GetOp("View_" + std::to_string(i));
+        auto viewOp = G.GetOp("View_" + std::to_string(i));
         std::vector<int64_t> offset = {i * T / N, 0};
         auto attr = std::make_shared<ViewOpAttribute>(offset, MemoryType::MEM_UNKNOWN);
         viewOp->SetOpAttribute(attr);
@@ -633,11 +961,14 @@ TEST_F(SplitLargeFanoutTensorTest, Unmatched) {
         G.AddTensor(DataType::DT_FP32, shape3, "expOut_" + std::to_string(i));
         auto expOut = G.GetTensor("expOut_" + std::to_string(i));
         expOut->SetMemoryTypeBoth(MemoryType::MEM_UNKNOWN, true);
-        G.AddOp(Opcode::OP_EXP, {"viewOut_" + std::to_string(i)}, {"expOut_" + std::to_string(i)}, "Exp_" + std::to_string(i));
+        G.AddOp(
+            Opcode::OP_EXP, {"viewOut_" + std::to_string(i)}, {"expOut_" + std::to_string(i)},
+            "Exp_" + std::to_string(i));
 
         // Assemble
         G.AddOp(Opcode::OP_ASSEMBLE, {"expOut_" + std::to_string(i)}, {"out"}, "AssembleFinal_" + std::to_string(i));
-        auto attrAssemble = std::make_shared<AssembleOpAttribute>(MemoryType::MEM_UNKNOWN, std::vector<int64_t> {i * T / N, 0});
+        auto attrAssemble =
+            std::make_shared<AssembleOpAttribute>(MemoryType::MEM_UNKNOWN, std::vector<int64_t>{i * T / N, 0});
         auto assembleOp = G.GetOp("AssembleFinal_" + std::to_string(i));
         assembleOp->SetOpAttribute(attrAssemble);
     }
@@ -651,7 +982,7 @@ TEST_F(SplitLargeFanoutTensorTest, Unmatched) {
 
     G.SetInCast({"a", "b"});
     G.SetOutCast({"out"});
-    Function *function = G.GetFunction();
+    Function* function = G.GetFunction();
     // 确认构图完毕
     constexpr int opNumBefore = 28;
     constexpr int viewNumBefore = 12;
@@ -679,66 +1010,13 @@ TEST_F(SplitLargeFanoutTensorTest, Unmatched) {
     EXPECT_EQ(assembleNumCount, assembleNumBefore) << assembleNumBefore << " OP_ASSEMBLE after pass";
 }
 
-TEST_F(SplitLargeFanoutTensorTest, PerfectlyMatchWithAll_Full) {
+TEST_F(SplitLargeFanoutTensorTest, PerfectlyMatchWithAll_Full)
+{
     int NUM_2 = 2;
-    int N = 2;
-    int T = 8;
-    std::vector<int64_t> shape0{N * T, N * T};
-    std::vector<int64_t> shape1{T, T};
-    std::vector<int64_t> shape2{N * T, T};
     ComputationalGraphBuilder G;
-    G.AddTensor(DataType::DT_FP32, shape0, "a");
-    G.AddTensor(DataType::DT_FP32, shape0, "b");
-    G.AddTensor(DataType::DT_FP32, shape2, "out");
-    G.AddTensor(DataType::DT_FP32, shape0, "sub_out");
-    // [16, 16] --> View --> [8, 8] --> Sub --> [8, 8] --> Assemble --> [16, 16]
-    TileExpandSub(G, N, T);
-    auto subOut = G.GetTensor("sub_out");
-    subOut->SetMemoryTypeBoth(MemoryType::MEM_UNKNOWN, true);
+    PerfectlyMatchWithAll_FullConstruct(G);
 
-    // View 获取 [16, 16] 左半边 [16, 8]
-    G.AddTensor(DataType::DT_FP32, shape2, "sub_out_left");
-    auto subOutLeft = G.GetTensor("sub_out_left");
-    subOutLeft->SetMemoryTypeBoth(MemoryType::MEM_UNKNOWN, true);
-    G.AddOp(Opcode::OP_VIEW, {"sub_out"}, {"sub_out_left"}, "View_Left");
-    auto View_Left =  G.GetOp("View_Left");
-    std::vector<int64_t> offsetLeft = {0, 0};
-    auto attrLeft = std::make_shared<ViewOpAttribute>(offsetLeft, MemoryType::MEM_UNKNOWN);
-    View_Left->SetOpAttribute(attrLeft);
-
-    // View 获取 [16, 16] 右半边 [16, 8]
-    G.AddTensor(DataType::DT_FP32, shape2, "sub_out_right");
-    auto subOutRight = G.GetTensor("sub_out_right");
-    subOutRight->SetMemoryTypeBoth(MemoryType::MEM_UNKNOWN, true);
-    G.AddOp(Opcode::OP_VIEW, {"sub_out"}, {"sub_out_right"}, "View_Right");
-    auto View_UR =  G.GetOp("View_Right");
-    std::vector<int64_t> offsetRight = {0, T};
-    auto attrUR = std::make_shared<ViewOpAttribute>(offsetRight, MemoryType::MEM_UNKNOWN);
-    View_UR->SetOpAttribute(attrUR);
-
-    // 左半边 [16, 8] + 右半边 [16, 8]
-    std::vector<SymbolicScalar> subDynShape = {SymbolicScalar("a"), T};
-    G.AddTensor(DataType::DT_FP32, shape2, "add_out");
-    G.AddOp(Opcode::OP_ADD, {"sub_out_right", "sub_out_left"}, {"add_out"}, "Add");
-    auto addOut = G.GetTensor("add_out");
-    addOut->SetMemoryTypeBoth(MemoryType::MEM_UNKNOWN, true);
-    addOut->UpdateDynValidShape(subDynShape);
-
-    G.AddOp(Opcode::OP_ASSEMBLE, {"add_out"}, {"out"}, "Assemble_final");
-    auto attrAssembleFinal = std::make_shared<AssembleOpAttribute>(MemoryType::MEM_UNKNOWN, std::vector<int64_t> {0, 0});
-    auto Op = G.GetOp("Assemble_final");
-    Op->SetOpAttribute(attrAssembleFinal);
-
-    auto a = G.GetTensor("a");
-    a->SetMemoryTypeBoth(MemoryType::MEM_UNKNOWN, true);
-    auto b = G.GetTensor("b");
-    b->SetMemoryTypeBoth(MemoryType::MEM_UNKNOWN, true);
-    auto out = G.GetTensor("out");
-    out->UpdateDynValidShape(subDynShape);
-
-    G.SetInCast({"a", "b"});
-    G.SetOutCast({"out"});
-    Function *function = G.GetFunction();
+    Function* function = G.GetFunction();
     // 确认构图完毕
     constexpr int singleViewOpmagic = 10017;
     constexpr int opNumBefore = 20;
@@ -751,9 +1029,9 @@ TEST_F(SplitLargeFanoutTensorTest, PerfectlyMatchWithAll_Full) {
     EXPECT_EQ(viewNumCount, viewNumBefore) << viewNumBefore << " OP_VIEW before pass";
     EXPECT_EQ(assembleNumCount, assembleNumBefore) << assembleNumBefore << " OP_ASSEMBLE before pass";
     std::cout << "Build Graph Done." << std::endl;
-    for (auto &op : function->Operations()) {
+    for (auto& op : function->Operations()) {
         if (op.GetOpMagic() == singleViewOpmagic) {
-            auto viewAttr = dynamic_cast<ViewOpAttribute *>(op.GetOpAttribute().get());
+            auto viewAttr = dynamic_cast<ViewOpAttribute*>(op.GetOpAttribute().get());
             auto offset = viewAttr->GetFromOffset();
             EXPECT_NE(accumulate(offset.begin(), offset.end(), 0), 0) << "OP_VIEW offset should be all zero";
         }
@@ -778,77 +1056,24 @@ TEST_F(SplitLargeFanoutTensorTest, PerfectlyMatchWithAll_Full) {
     EXPECT_EQ(function->Operations().size(), opNumBefore) << opNumBefore << " operations after pass";
     EXPECT_EQ(viewNumCount, viewNumBefore) << viewNumBefore << " OP_VIEW after pass";
     EXPECT_EQ(assembleNumCount, assembleNumBefore) << assembleNumBefore << " OP_ASSEMBLE after pass";
-    for (auto &op : function->Operations()) {
+    for (auto& op : function->Operations()) {
         if (op.GetOpMagic() == singleViewOpmagic) {
-            auto viewAttr = dynamic_cast<ViewOpAttribute *>(op.GetOpAttribute().get());
+            auto viewAttr = dynamic_cast<ViewOpAttribute*>(op.GetOpAttribute().get());
             auto offset = viewAttr->GetFromOffset();
             EXPECT_EQ(accumulate(offset.begin(), offset.end(), 0), 0) << "OP_VIEW offset should be all zero";
-            auto dynOffset = viewAttr->GetFromDynOffset();
-            EXPECT_EQ(dynOffset.size(), 0);
             auto input = op.GetIOperands().front();
             auto inputDynShape = input->GetDynValidShape();
             EXPECT_EQ(inputDynShape.size(), NUM_2);
-            EXPECT_EQ(inputDynShape[0].Dump(), "RUNTIME_Max(RUNTIME_Max(0, (a*RUNTIME_Ne(a, 0))), ((a+8)*RUNTIME_Ne(a, 0)))");
+            EXPECT_EQ(inputDynShape[0].Dump(), "RUNTIME_Max(a, RUNTIME_Max(((a+8)*RUNTIME_Ne(a, 0)), 0))");
         }
     }
 }
 
-TEST_F(SplitLargeFanoutTensorTest, PerfectlyMatch_Full) {
-    int N = 2;
-    int T = 8;
-    std::vector<int64_t> shape0{N * T, N * T};
-    std::vector<int64_t> shape1{T, T};
+TEST_F(SplitLargeFanoutTensorTest, PerfectlyMatch_Full)
+{
     ComputationalGraphBuilder G;
-    G.AddTensor(DataType::DT_FP32, shape0, "a");
-    G.AddTensor(DataType::DT_FP32, shape0, "b");
-    G.AddTensor(DataType::DT_FP32, shape1, "out");
-    G.AddTensor(DataType::DT_FP32, shape0, "sub_out");
-    // [16, 16] --> View --> [8, 8] --> Sub --> [8, 8] --> Assemble --> [16, 16]
-    TileExpandSub(G, N, T);
-    auto subOut = G.GetTensor("sub_out");
-    subOut->SetMemoryTypeBoth(MemoryType::MEM_UNKNOWN, true);
-
-    // View 获取 [16, 16] 左上角 [8, 8]
-    G.AddTensor(DataType::DT_FP32, shape1, "sub_out_upper_right");
-    auto subOutUR = G.GetTensor("sub_out_upper_right");
-    subOutUR->SetMemoryTypeBoth(MemoryType::MEM_UNKNOWN, true);
-    G.AddOp(Opcode::OP_VIEW, {"sub_out"}, {"sub_out_upper_right"}, "View_Upper_Right");
-    auto View_UR =  G.GetOp("View_Upper_Right");
-    std::vector<int64_t> offsetUR = {0, T};
-    auto attrUR = std::make_shared<ViewOpAttribute>(offsetUR, MemoryType::MEM_UNKNOWN);
-    View_UR->SetOpAttribute(attrUR);
-
-    // View 获取 [16, 16] 右上角 [8, 8]
-    G.AddTensor(DataType::DT_FP32, shape1, "sub_out_lower_left");
-    auto subOutLL = G.GetTensor("sub_out_lower_left");
-    subOutLL->SetMemoryTypeBoth(MemoryType::MEM_UNKNOWN, true);
-    G.AddOp(Opcode::OP_VIEW, {"sub_out"}, {"sub_out_lower_left"}, "View_Lower_Left");
-    auto View_LL =  G.GetOp("View_Lower_Left");
-    std::vector<int64_t> offsetLL = {T, 0};
-    auto attrLL = std::make_shared<ViewOpAttribute>(offsetLL, MemoryType::MEM_UNKNOWN);
-    View_LL->SetOpAttribute(attrLL);
-
-    // 左上角 [8, 8] + 右上角 [8, 8] --> [8, 8]
-    G.AddTensor(DataType::DT_FP32, shape1, "add_out");
-    G.AddOp(Opcode::OP_ADD, {"sub_out_upper_right", "sub_out_lower_left"}, {"add_out"}, "Add");
-    auto addOut = G.GetTensor("add_out");
-    addOut->SetMemoryTypeBoth(MemoryType::MEM_UNKNOWN, true);
-
-    G.AddOp(Opcode::OP_ASSEMBLE, {"add_out"}, {"out"}, "Assemble_final");
-    auto attrAssembleFinal = std::make_shared<AssembleOpAttribute>(MemoryType::MEM_UNKNOWN, std::vector<int64_t> {0, 0});
-    auto Op = G.GetOp("Assemble_final");
-    Op->SetOpAttribute(attrAssembleFinal);
-
-    auto a = G.GetTensor("a");
-    a->SetMemoryTypeBoth(MemoryType::MEM_UNKNOWN, true);
-    auto b = G.GetTensor("b");
-    b->SetMemoryTypeBoth(MemoryType::MEM_UNKNOWN, true);
-    auto out = G.GetTensor("out");
-    out->SetMemoryTypeBoth(MemoryType::MEM_UNKNOWN, true);
-
-    G.SetInCast({"a", "b"});
-    G.SetOutCast({"out"});
-    Function *function = G.GetFunction();
+    BuildPerfectlyMatchWithInferShapeGraph(G);
+    Function* function = G.GetFunction();
     // 确认构图完毕
     constexpr int opNumBefore = 20;
     constexpr int viewNumBefore = 10;
@@ -882,75 +1107,12 @@ TEST_F(SplitLargeFanoutTensorTest, PerfectlyMatch_Full) {
     EXPECT_EQ(assembleNumCount, assembleNumAfter) << assembleNumAfter << " OP_ASSEMBLE after pass";
 }
 
-TEST_F(SplitLargeFanoutTensorTest, PerfectlyMatch_Full_V2) {
-    int N = 2;
-    int T = 8;
-    std::vector<int64_t> shape0{N * T, N * T};
-    std::vector<int64_t> shape1{T, T};
+TEST_F(SplitLargeFanoutTensorTest, PerfectlyMatch_Full_V2)
+{
     ComputationalGraphBuilder G;
-    G.AddTensor(DataType::DT_FP32, shape0, "a");
-    G.AddTensor(DataType::DT_FP32, shape0, "b");
-    G.AddTensor(DataType::DT_FP32, shape1, "out");
-    G.AddTensor(DataType::DT_FP32, shape0, "out2");
-    G.AddTensor(DataType::DT_FP32, shape0, "sub_out");
-    // [16, 16] --> View --> [8, 8] --> Sub --> [8, 8] --> Assemble --> [16, 16]
-    TileExpandSub(G, N, T);
-    auto subOut = G.GetTensor("sub_out");
-    subOut->SetMemoryTypeBoth(MemoryType::MEM_UNKNOWN, true);
-
-    // [16, 16] --> exp --> [16, 16] --> Assemble --> OCAST
-    G.AddTensor(DataType::DT_FP32, shape0, "expOut");
-    auto expOut = G.GetTensor("expOut");
-    expOut->SetMemoryTypeBoth(MemoryType::MEM_UNKNOWN, true);
-    G.AddOp(Opcode::OP_EXP, {"sub_out"}, {"expOut"}, "Exp");
-    G.AddOp(Opcode::OP_ASSEMBLE, {"expOut"}, {"out2"}, "Assemble_exp");
-    auto attrAssembleExp = std::make_shared<AssembleOpAttribute>(MemoryType::MEM_UNKNOWN, std::vector<int64_t> {0, 0});
-    auto assembleExp = G.GetOp("Assemble_exp");
-    assembleExp->SetOpAttribute(attrAssembleExp);
-
-    // View 获取 [16, 16] 左上角 [8, 8]
-    G.AddTensor(DataType::DT_FP32, shape1, "sub_out_upper_right");
-    auto subOutUR = G.GetTensor("sub_out_upper_right");
-    subOutUR->SetMemoryTypeBoth(MemoryType::MEM_UNKNOWN, true);
-    G.AddOp(Opcode::OP_VIEW, {"sub_out"}, {"sub_out_upper_right"}, "View_Upper_Right");
-    auto View_UR =  G.GetOp("View_Upper_Right");
-    std::vector<int64_t> offsetUR = {0, T};
-    auto attrUR = std::make_shared<ViewOpAttribute>(offsetUR, MemoryType::MEM_UNKNOWN);
-    View_UR->SetOpAttribute(attrUR);
-
-    // View 获取 [16, 16] 右上角 [8, 8]
-    G.AddTensor(DataType::DT_FP32, shape1, "sub_out_lower_left");
-    auto subOutLL = G.GetTensor("sub_out_lower_left");
-    subOutLL->SetMemoryTypeBoth(MemoryType::MEM_UNKNOWN, true);
-    G.AddOp(Opcode::OP_VIEW, {"sub_out"}, {"sub_out_lower_left"}, "View_Lower_Left");
-    auto View_LL =  G.GetOp("View_Lower_Left");
-    std::vector<int64_t> offsetLL = {T, 0};
-    auto attrLL = std::make_shared<ViewOpAttribute>(offsetLL, MemoryType::MEM_UNKNOWN);
-    View_LL->SetOpAttribute(attrLL);
-
-    // 左上角 [8, 8] + 右上角 [8, 8] --> [8, 8]
-    G.AddTensor(DataType::DT_FP32, shape1, "add_out");
-    G.AddOp(Opcode::OP_ADD, {"sub_out_upper_right", "sub_out_lower_left"}, {"add_out"}, "Add");
-    auto addOut = G.GetTensor("add_out");
-    addOut->SetMemoryTypeBoth(MemoryType::MEM_UNKNOWN, true);
-
-    G.AddOp(Opcode::OP_ASSEMBLE, {"add_out"}, {"out"}, "Assemble_final");
-    auto attrAssembleFinal = std::make_shared<AssembleOpAttribute>(MemoryType::MEM_UNKNOWN, std::vector<int64_t> {0, 0});
-    auto Op = G.GetOp("Assemble_final");
-    Op->SetOpAttribute(attrAssembleFinal);
-
-    auto a = G.GetTensor("a");
-    a->SetMemoryTypeBoth(MemoryType::MEM_UNKNOWN, true);
-    auto b = G.GetTensor("b");
-    b->SetMemoryTypeBoth(MemoryType::MEM_UNKNOWN, true);
-    auto out = G.GetTensor("out");
-    out->SetMemoryTypeBoth(MemoryType::MEM_UNKNOWN, true);
-    auto out2 = G.GetTensor("out2");
-    out2->SetMemoryTypeBoth(MemoryType::MEM_UNKNOWN, true);
-
-    G.SetInCast({"a", "b"});
-    G.SetOutCast({"out", "out2"});
-    Function *function = G.GetFunction();
+    BuildPerfectlyMatchFullV2_BaseTensorsAndExp(G);
+    BuildPerfectlyMatchFullV2_ViewsAndAdd(G);
+    Function* function = G.GetFunction();
     // 确认构图完毕
     constexpr int opNumBefore = 22;
     constexpr int viewNumBefore = 10;
@@ -981,7 +1143,8 @@ TEST_F(SplitLargeFanoutTensorTest, PerfectlyMatch_Full_V2) {
     EXPECT_EQ(assembleNumCount, assembleNumBefore) << assembleNumBefore << " OP_ASSEMBLE after pass";
 }
 
-TEST_F(SplitLargeFanoutTensorTest, OneViewOneAssemble) {
+TEST_F(SplitLargeFanoutTensorTest, OneViewOneAssemble)
+{
     int NUM_32 = 32;
     int NUM_64 = 64;
     int NUM_96 = 96;
@@ -1002,20 +1165,21 @@ TEST_F(SplitLargeFanoutTensorTest, OneViewOneAssemble) {
     auto a_ub = G.GetTensor("a_ub");
     a_ub->SetMemoryTypeBoth(MemoryType::MEM_UNKNOWN, true);
     G.AddOp(Opcode::OP_VIEW, {"a"}, {"a_ub"}, "View_To_Ub");
-    auto view2ub =  G.GetOp("View_To_Ub");
+    auto view2ub = G.GetOp("View_To_Ub");
     std::vector<int64_t> offset2ub = {0, 0};
     auto attr2ub = std::make_shared<ViewOpAttribute>(offset2ub, MemoryType::MEM_UNKNOWN);
     view2ub->SetOpAttribute(attr2ub);
 
     /*
     a_ub[128, 64] --> View1(32, 0) --> tensor1[32, 64] --> Assemble1(0, 0) -->\
-                  \--> View2(96, 0) --> tensor2[32, 64] --> Assemble2(32, 0) --> tensor3[64, 64] --> Exp --> tensor4 --> Assemble --> out
+                  \--> View2(96, 0) --> tensor2[32, 64] --> Assemble2(32, 0) --> tensor3[64, 64] --> Exp --> tensor4 -->
+    Assemble --> out
     */
     G.AddTensor(DataType::DT_FP32, shape1, "tensor1");
     auto tensor1 = G.GetTensor("tensor1");
     tensor1->SetMemoryTypeBoth(MemoryType::MEM_UNKNOWN, true);
     G.AddOp(Opcode::OP_VIEW, {"a_ub"}, {"tensor1"}, "View_1");
-    auto viewOp1 =  G.GetOp("View_1");
+    auto viewOp1 = G.GetOp("View_1");
     std::vector<int64_t> offset1 = {NUM_32, 0};
     auto attrView1 = std::make_shared<ViewOpAttribute>(offset1, MemoryType::MEM_UNKNOWN);
     viewOp1->SetOpAttribute(attrView1);
@@ -1024,7 +1188,7 @@ TEST_F(SplitLargeFanoutTensorTest, OneViewOneAssemble) {
     auto tensor2 = G.GetTensor("tensor2");
     tensor2->SetMemoryTypeBoth(MemoryType::MEM_UNKNOWN, true);
     G.AddOp(Opcode::OP_VIEW, {"a_ub"}, {"tensor2"}, "View_2");
-    auto viewOp2 =  G.GetOp("View_2");
+    auto viewOp2 = G.GetOp("View_2");
     std::vector<int64_t> offset2 = {NUM_96, 0};
     auto attrView2 = std::make_shared<ViewOpAttribute>(offset2, MemoryType::MEM_UNKNOWN);
     viewOp2->SetOpAttribute(attrView2);
@@ -1033,11 +1197,12 @@ TEST_F(SplitLargeFanoutTensorTest, OneViewOneAssemble) {
     auto tensor3 = G.GetTensor("tensor3");
     tensor3->SetMemoryTypeBoth(MemoryType::MEM_UNKNOWN, true);
     G.AddOp(Opcode::OP_ASSEMBLE, {"tensor1"}, {"tensor3"}, "Assemble_1");
-    auto attrAssemble1 = std::make_shared<AssembleOpAttribute>(MemoryType::MEM_UNKNOWN, std::vector<int64_t> {0, 0});
+    auto attrAssemble1 = std::make_shared<AssembleOpAttribute>(MemoryType::MEM_UNKNOWN, std::vector<int64_t>{0, 0});
     auto assembleOp1 = G.GetOp("Assemble_1");
     assembleOp1->SetOpAttribute(attrAssemble1);
     G.AddOp(Opcode::OP_ASSEMBLE, {"tensor2"}, {"tensor3"}, "Assemble_2");
-    auto attrAssemble2 = std::make_shared<AssembleOpAttribute>(MemoryType::MEM_UNKNOWN, std::vector<int64_t> {NUM_32, 0});
+    auto attrAssemble2 =
+        std::make_shared<AssembleOpAttribute>(MemoryType::MEM_UNKNOWN, std::vector<int64_t>{NUM_32, 0});
     auto assembleOp2 = G.GetOp("Assemble_2");
     assembleOp2->SetOpAttribute(attrAssemble2);
 
@@ -1046,13 +1211,13 @@ TEST_F(SplitLargeFanoutTensorTest, OneViewOneAssemble) {
     tensor4->SetMemoryTypeBoth(MemoryType::MEM_UNKNOWN, true);
     G.AddOp(Opcode::OP_EXP, {"tensor3"}, {"tensor4"}, "Exp");
     G.AddOp(Opcode::OP_ASSEMBLE, {"tensor4"}, {"out"}, "Assemble_Final");
-    auto attrAssembleFinal = std::make_shared<AssembleOpAttribute>(MemoryType::MEM_UNKNOWN, std::vector<int64_t> {0, 0});
+    auto attrAssembleFinal = std::make_shared<AssembleOpAttribute>(MemoryType::MEM_UNKNOWN, std::vector<int64_t>{0, 0});
     auto assembleFinal = G.GetOp("Assemble_Final");
     assembleFinal->SetOpAttribute(attrAssembleFinal);
 
     G.SetInCast({"a"});
     G.SetOutCast({"out"});
-    Function *function = G.GetFunction();
+    Function* function = G.GetFunction();
     // 确认构图完毕
     constexpr int opNumBefore = 7;
     constexpr int viewNumBefore = 3;
@@ -1086,7 +1251,8 @@ TEST_F(SplitLargeFanoutTensorTest, OneViewOneAssemble) {
     EXPECT_EQ(assembleNumCount, assembleNumAfter) << assembleNumAfter << " OP_ASSEMBLE after pass";
 }
 
-TEST_F(SplitLargeFanoutTensorTest, OneViewMultiAssemble) {
+TEST_F(SplitLargeFanoutTensorTest, OneViewMultiAssemble)
+{
     int NUM_32 = 32;
     int NUM_64 = 64;
     int NUM_128 = 128;
@@ -1109,7 +1275,7 @@ TEST_F(SplitLargeFanoutTensorTest, OneViewMultiAssemble) {
     auto a_ub = G.GetTensor("a_ub");
     a_ub->SetMemoryTypeBoth(MemoryType::MEM_UNKNOWN, true);
     G.AddOp(Opcode::OP_VIEW, {"a"}, {"a_ub"}, "View_To_Ub");
-    auto view2ub =  G.GetOp("View_To_Ub");
+    auto view2ub = G.GetOp("View_To_Ub");
     std::vector<int64_t> offset2ub = {0, 0};
     auto attr2ub = std::make_shared<ViewOpAttribute>(offset2ub, MemoryType::MEM_UNKNOWN);
     view2ub->SetOpAttribute(attr2ub);
@@ -1120,13 +1286,14 @@ TEST_F(SplitLargeFanoutTensorTest, OneViewMultiAssemble) {
 
     /*
     a_ub_new[64, 64] --> View1(0, 0) --> tensor1[32, 64] --> Assemble1(0, 0) -->\
-                  \--> View2(32, 0) --> tensor2[32, 64] --> Assemble2(32, 0) --> tensor3[64, 64] --> Exp --> tensor4 --> AssembleOut1 --> out1
+                  \--> View2(32, 0) --> tensor2[32, 64] --> Assemble2(32, 0) --> tensor3[64, 64] --> Exp --> tensor4 -->
+    AssembleOut1 --> out1
     */
     G.AddTensor(DataType::DT_FP32, shape0, "tensor1");
     auto tensor1 = G.GetTensor("tensor1");
     tensor1->SetMemoryTypeBoth(MemoryType::MEM_UNKNOWN, true);
     G.AddOp(Opcode::OP_VIEW, {"a_ub_new"}, {"tensor1"}, "View_1");
-    auto viewOp1 =  G.GetOp("View_1");
+    auto viewOp1 = G.GetOp("View_1");
     std::vector<int64_t> offset1 = {0, 0};
     auto attrView1 = std::make_shared<ViewOpAttribute>(offset1, MemoryType::MEM_UNKNOWN);
     viewOp1->SetOpAttribute(attrView1);
@@ -1135,7 +1302,7 @@ TEST_F(SplitLargeFanoutTensorTest, OneViewMultiAssemble) {
     auto tensor2 = G.GetTensor("tensor2");
     tensor2->SetMemoryTypeBoth(MemoryType::MEM_UNKNOWN, true);
     G.AddOp(Opcode::OP_VIEW, {"a_ub_new"}, {"tensor2"}, "View_2");
-    auto viewOp2 =  G.GetOp("View_2");
+    auto viewOp2 = G.GetOp("View_2");
     std::vector<int64_t> offset2 = {NUM_32, 0};
     auto attrView2 = std::make_shared<ViewOpAttribute>(offset2, MemoryType::MEM_UNKNOWN);
     viewOp2->SetOpAttribute(attrView2);
@@ -1144,11 +1311,12 @@ TEST_F(SplitLargeFanoutTensorTest, OneViewMultiAssemble) {
     auto tensor3 = G.GetTensor("tensor3");
     tensor3->SetMemoryTypeBoth(MemoryType::MEM_UNKNOWN, true);
     G.AddOp(Opcode::OP_ASSEMBLE, {"tensor1"}, {"tensor3"}, "Assemble_1");
-    auto attrAssemble1 = std::make_shared<AssembleOpAttribute>(MemoryType::MEM_UNKNOWN, std::vector<int64_t> {0, 0});
+    auto attrAssemble1 = std::make_shared<AssembleOpAttribute>(MemoryType::MEM_UNKNOWN, std::vector<int64_t>{0, 0});
     auto assembleOp1 = G.GetOp("Assemble_1");
     assembleOp1->SetOpAttribute(attrAssemble1);
     G.AddOp(Opcode::OP_ASSEMBLE, {"tensor2"}, {"tensor3"}, "Assemble_2");
-    auto attrAssemble2 = std::make_shared<AssembleOpAttribute>(MemoryType::MEM_UNKNOWN, std::vector<int64_t> {NUM_32, 0});
+    auto attrAssemble2 =
+        std::make_shared<AssembleOpAttribute>(MemoryType::MEM_UNKNOWN, std::vector<int64_t>{NUM_32, 0});
     auto assembleOp2 = G.GetOp("Assemble_2");
     assembleOp2->SetOpAttribute(attrAssemble2);
 
@@ -1157,23 +1325,25 @@ TEST_F(SplitLargeFanoutTensorTest, OneViewMultiAssemble) {
     tensor4->SetMemoryTypeBoth(MemoryType::MEM_UNKNOWN, true);
     G.AddOp(Opcode::OP_EXP, {"tensor3"}, {"tensor4"}, "Exp");
     G.AddOp(Opcode::OP_ASSEMBLE, {"tensor4"}, {"out1"}, "Assemble_Out1");
-    auto attrAssembleOut1 = std::make_shared<AssembleOpAttribute>(MemoryType::MEM_UNKNOWN, std::vector<int64_t> {0, 0});
+    auto attrAssembleOut1 = std::make_shared<AssembleOpAttribute>(MemoryType::MEM_UNKNOWN, std::vector<int64_t>{0, 0});
     auto assembleOut1 = G.GetOp("Assemble_Out1");
     assembleOut1->SetOpAttribute(attrAssembleOut1);
 
     /*
     a_ub_new[64, 64] --> View1(0, 0) --> tensor1[32, 64] --> Assemble3(0, 0) -->\
-                  \--> View2(32, 0) --> tensor2[32, 64] --> Assemble4(0, 64) --> tensor5[32, 128] --> Exp --> tensor6 --> AssembleOut2 --> out2
+                  \--> View2(32, 0) --> tensor2[32, 64] --> Assemble4(0, 64) --> tensor5[32, 128] --> Exp --> tensor6
+    --> AssembleOut2 --> out2
     */
     G.AddTensor(DataType::DT_FP32, shape2, "tensor5");
     auto tensor5 = G.GetTensor("tensor5");
     tensor5->SetMemoryTypeBoth(MemoryType::MEM_UNKNOWN, true);
     G.AddOp(Opcode::OP_ASSEMBLE, {"tensor1"}, {"tensor5"}, "Assemble_3");
-    auto attrAssemble3 = std::make_shared<AssembleOpAttribute>(MemoryType::MEM_UNKNOWN, std::vector<int64_t> {0, 0});
+    auto attrAssemble3 = std::make_shared<AssembleOpAttribute>(MemoryType::MEM_UNKNOWN, std::vector<int64_t>{0, 0});
     auto assembleOp3 = G.GetOp("Assemble_3");
     assembleOp3->SetOpAttribute(attrAssemble3);
     G.AddOp(Opcode::OP_ASSEMBLE, {"tensor2"}, {"tensor5"}, "Assemble_4");
-    auto attrAssemble4 = std::make_shared<AssembleOpAttribute>(MemoryType::MEM_UNKNOWN, std::vector<int64_t> {0, NUM_64});
+    auto attrAssemble4 =
+        std::make_shared<AssembleOpAttribute>(MemoryType::MEM_UNKNOWN, std::vector<int64_t>{0, NUM_64});
     auto assembleOp4 = G.GetOp("Assemble_4");
     assembleOp4->SetOpAttribute(attrAssemble4);
 
@@ -1182,13 +1352,13 @@ TEST_F(SplitLargeFanoutTensorTest, OneViewMultiAssemble) {
     tensor6->SetMemoryTypeBoth(MemoryType::MEM_UNKNOWN, true);
     G.AddOp(Opcode::OP_ABS, {"tensor5"}, {"tensor6"}, "Abs");
     G.AddOp(Opcode::OP_ASSEMBLE, {"tensor6"}, {"out2"}, "Assemble_Out2");
-    auto attrAssembleOut2 = std::make_shared<AssembleOpAttribute>(MemoryType::MEM_UNKNOWN, std::vector<int64_t> {0, 0});
+    auto attrAssembleOut2 = std::make_shared<AssembleOpAttribute>(MemoryType::MEM_UNKNOWN, std::vector<int64_t>{0, 0});
     auto assembleOut2 = G.GetOp("Assemble_Out2");
     assembleOut2->SetOpAttribute(attrAssembleOut2);
 
     G.SetInCast({"a"});
     G.SetOutCast({"out1", "out2"});
-    Function *function = G.GetFunction();
+    Function* function = G.GetFunction();
     // 确认构图完毕
     constexpr int opNumBefore = 12;
     constexpr int viewNumBefore = 3;
@@ -1219,30 +1389,38 @@ TEST_F(SplitLargeFanoutTensorTest, OneViewMultiAssemble) {
     EXPECT_EQ(assembleNumCount, assembleNumBefore) << assembleNumBefore << " OP_ASSEMBLE after pass";
 }
 
-void BuildComplexOverlap(ComputationalGraphBuilder &G){
+void BuildComplexOverlap(ComputationalGraphBuilder& G)
+{
     int NUM_8 = 8;
     int NUM_16 = 16;
     int NUM_32 = 32;
 
     // 定义所有张量的形状和名称并添加
     std::map<std::string, std::vector<int64_t>> tensors = {
-        {"a", {NUM_8, NUM_32}}, {"b", {NUM_8, NUM_32}}, {"c", {NUM_16, NUM_8}},
-        {"d", {NUM_16, NUM_8}}, {"e", {NUM_8, NUM_16}}, {"f", {NUM_8, NUM_16}},
-        {"out1", {NUM_8, NUM_16}}, {"out2", {NUM_8, NUM_16}}, {"out3", {NUM_32, NUM_8}},
-        {"out4", {NUM_32, NUM_8}}, {"out5", {NUM_16, NUM_8}}, {"out6", {NUM_16, NUM_8}},
-        {"largeTensor", {NUM_32, NUM_32}}
-    };
+        {"a", {NUM_8, NUM_32}},           {"b", {NUM_8, NUM_32}},    {"c", {NUM_16, NUM_8}},
+        {"d", {NUM_16, NUM_8}},           {"e", {NUM_8, NUM_16}},    {"f", {NUM_8, NUM_16}},
+        {"a1", {NUM_8, NUM_32}},          {"b1", {NUM_8, NUM_32}},  {"c1", {NUM_16, NUM_8}},
+        {"d1", {NUM_16, NUM_8}},          {"e1", {NUM_8, NUM_16}},  {"f1", {NUM_8, NUM_16}},
+        {"out1", {NUM_8, NUM_16}},        {"out2", {NUM_8, NUM_16}}, {"out3", {NUM_32, NUM_8}},
+        {"out4", {NUM_32, NUM_8}},        {"out5", {NUM_16, NUM_8}}, {"out6", {NUM_16, NUM_8}},
+        {"largeTensor", {NUM_32, NUM_32}}};
     for (const auto& [name, shape] : tensors) {
         G.AddTensor(DataType::DT_FP32, shape, name);
         auto tensor = G.GetTensor(name);
         tensor->SetMemoryTypeBoth(MemoryType::MEM_DEVICE_DDR, true);
     }
 
+    // 定义所有CopyIn操作并添加
+    std::vector<std::tuple<std::string, std::string, std::string>> copyInOps = {
+        {"a", "copyIn1", "a1"}, {"b", "copyIn2", "b1"}, {"c", "copyIn3", "c1"},
+        {"d", "copyIn4", "d1"}, {"e", "copyIn5", "e1"},{"f", "copyIn6", "f1"}};
+    for (const auto& [input, opName, output] : copyInOps) {
+        G.AddOp(Opcode::OP_COPY_IN, {input}, {output}, opName);
+    }
     // 定义所有ASSEMBLE操作并添加
     std::vector<std::tuple<std::string, std::string, std::vector<int64_t>>> assembleOps = {
-        {"a", "Assemble_A", {0, 0}}, {"b", "Assemble_B", {24, 0}}, {"c", "Assemble_C", {8, 0}},
-        {"d", "Assemble_D", {8, 24}}, {"e", "Assemble_E", {8, 8}}, {"f", "Assemble_F", {16, 8}}
-    };
+        {"a1", "Assemble_A", {0, 0}},  {"b1", "Assemble_B", {24, 0}}, {"c1", "Assemble_C", {8, 0}},
+        {"d1", "Assemble_D", {8, 24}}, {"e1", "Assemble_E", {8, 8}},  {"f1", "Assemble_F", {16, 8}}};
     for (const auto& [input, opName, offset] : assembleOps) {
         G.AddOp(Opcode::OP_ASSEMBLE, {input}, {"largeTensor"}, opName);
         auto assembleOp = G.GetOp(opName);
@@ -1251,9 +1429,7 @@ void BuildComplexOverlap(ComputationalGraphBuilder &G){
 
     // 定义所有VIEW操作并添加
     std::vector<std::tuple<std::string, std::vector<int64_t>>> viewOps = {
-        {"out1", {0, 8}}, {"out2", {24, 8}}, {"out3", {0, 0}},
-        {"out4", {0, 24}}, {"out5", {8, 8}}, {"out6", {8, 16}}
-    };
+        {"out1", {0, 8}}, {"out2", {24, 8}}, {"out3", {0, 0}}, {"out4", {0, 24}}, {"out5", {8, 8}}, {"out6", {8, 16}}};
     for (const auto& [output, offset] : viewOps) {
         std::string opName = "View_" + output.substr(3);
         G.AddOp(Opcode::OP_VIEW, {"largeTensor"}, {output}, opName);
@@ -1272,36 +1448,44 @@ void BuildComplexOverlap(ComputationalGraphBuilder &G){
     view offset:        [0, 8]      [24, 8]     [0, 0]      [0, 24]     [8, 8]      [8, 16]
     output[shape]:      out1[8, 16] out2[8, 16] out3[32, 8] out4[32, 8] out5[16, 8] out6[16, 8]
 */
-TEST_F(SplitLargeFanoutTensorTest, ComplexOverlap) {
+TEST_F(SplitLargeFanoutTensorTest, ComplexOverlap)
+{
     ComputationalGraphBuilder G;
     BuildComplexOverlap(G);
-    Function *function = G.GetFunction();
+    Function* function = G.GetFunction();
 
     std::cout << "Build Graph Done." << std::endl;
     // 单独执行pass
     npu::tile_fwk::SplitLargeFanoutTensor splitLargeFanoutTensor;
-    splitLargeFanoutTensor.enableMoreSplit = false;
+    splitLargeFanoutTensor.enableMoreSplit_ = false;
     splitLargeFanoutTensor.PreCheck(*function);
     splitLargeFanoutTensor.RunOnFunction(*function);
     splitLargeFanoutTensor.PostCheck(*function);
     std::cout << "Run Pass Done." << std::endl;
 
-    // 验证：
-    // 拆分后除了两个incast分别各cover一个outcast的场景会被单独拆出以外
-    // 其余场景均不会被拆分，依旧走原largeTensor
-    std::unordered_map<int, int> recordAssemble;
-    std::unordered_map<int, int> recordView;
-    for (auto &op: function->Operations()) {
-        if (op.GetOpcode() == Opcode::OP_ASSEMBLE) {
-            recordAssemble[op.oOperand.front()->GetMagic()]++;
-        }
-        if (op.GetOpcode() == Opcode::OP_VIEW) {
-            recordView[op.iOperand.front()->GetMagic()]++;
-        }
-    }
-    for (auto &[k, v]: recordAssemble) {
-        EXPECT_EQ(recordView[k], (v == 1) ? 1 : 4); //6个output，排除两个被input包含的，剩余4个
-    }
+    // 验证： 
+     // 拆分后除了两个incast分别各cover一个outcast的场景会被单独拆出 
+     // 中间的[16, 32]会被拆除形成对两个[8, 32]的多对多 
+     // 剩余两个会被保留 
+     std::unordered_map<int, int> recordAssemble; 
+     std::unordered_map<int, int> recordView; 
+     for (auto& op : function->Operations()) { 
+         if (op.GetOpcode() == Opcode::OP_ASSEMBLE) { 
+             recordAssemble[op.oOperand.front()->GetMagic()]++; 
+         } 
+         if (op.GetOpcode() == Opcode::OP_VIEW) { 
+             recordView[op.iOperand.front()->GetMagic()]++; 
+         } 
+     } 
+     for (auto& [k, v] : recordAssemble) { 
+         // 1. out1被输入a包含，out2被输入b包含，拆为1对1 
+         // 2. 输入e, f组成的[16, 16]tile和out5,out6匹配，拆出2对2 
+         // 3. 剩余无法继续拆分，保留从largeTensor进行view 
+         // 故对于拆分后view和assemble的中间tensor， 
+         // 如果只有一个assemble（场景1），则只有一个view 
+         // 否则（场景2，3）会有两个view 
+         EXPECT_EQ(recordView[k], (v == 1) ? 1 : 2); 
+     }
 }
 
 /*
@@ -1317,32 +1501,38 @@ TEST_F(SplitLargeFanoutTensorTest, ComplexOverlap) {
     {16， 656}
     {16， 656}
 */
-void BuildPartialInputUnusedGraph(ComputationalGraphBuilder &G){
+void BuildPartialInputUnusedGraph(ComputationalGraphBuilder& G)
+{
     G.AddTensor(DataType::DT_FP32, {128, 656}, "largeTensor");
     auto largeTensor = G.GetTensor("largeTensor");
     largeTensor->SetMemoryTypeBoth(MemoryType::MEM_DEVICE_DDR, true);
 
     std::map<std::string, Shape> logicTensors = {
-        {"in1", {16, 656}}, {"in2", {16, 656}}, {"in3", {16, 656}}, {"in4", {16, 656}},
-        {"in5", {16, 656}}, {"in6", {16, 656}}, {"in7", {16, 656}}, {"in8", {16, 656}},
-        {"out11", {16, 512}}, {"out81", {16, 512}},
-        {"out22", {16, 128}}, {"out82", {16, 128}},
-        {"out33", {16, 16}}, {"out83", {16, 16}}
-    };
+        {"in1", {16, 656}},   {"in2", {16, 656}},   {"in3", {16, 656}},  {"in4", {16, 656}},   {"in5", {16, 656}},
+        {"in6", {16, 656}},   {"in7", {16, 656}},   {"in8", {16, 656}},  {"in1Tensor", {16, 656}},   
+        {"in2Tensor", {16, 656}},   {"in3Tensor", {16, 656}},   {"in4Tensor", {16, 656}},   {"in5Tensor", {16, 656}},  
+        {"in6Tensor", {16, 656}},   {"in7Tensor", {16, 656}},   {"in8Tensor", {16, 656}},   {"out11", {16, 512}}, 
+        {"out81", {16, 512}},  {"out22", {16, 128}}, {"out82", {16, 128}}, {"out33", {16, 16}}, {"out83", {16, 16}}};
     for (const auto& [name, shape] : logicTensors) {
         G.AddTensor(DataType::DT_FP32, shape, name);
         auto logicTensor = G.GetTensor(name);
         logicTensor->SetMemoryTypeBoth(MemoryType::MEM_DEVICE_DDR, true);
     }
+    // 定义所有CopyIn操作并添加
+    std::vector<std::tuple<std::string, std::string, std::string>> copyInOps = {
+        {"in1", "copyIn1", "in1Tensor"}, {"in2", "copyIn2", "in2Tensor"}, {"in3", "copyIn3", "in3Tensor"}, {"in4", "copyIn4", "in4Tensor"},
+        {"in5", "copyIn5", "in5Tensor"}, {"in6", "copyIn6", "in6Tensor"}, {"in7", "copyIn7", "in7Tensor"}, {"in8", "copyIn8", "in8Tensor"}};
+    for (const auto& [input, opName, output] : copyInOps) {
+        G.AddOp(Opcode::OP_COPY_IN, {input}, {output}, opName);
+    }
     G.SetInCast({"in1", "in2", "in3", "in4", "in5", "in6", "in7", "in8"});
     G.SetOutCast({"out11", "out22", "out81", "out82"});
 
     std::vector<std::tuple<std::string, std::string, std::string, Shape>> assembleOps = {
-        {"in1", "largeTensor", "assemble1", {0, 0}}, {"in2", "largeTensor", "assemble2", {16, 0}},
-        {"in3", "largeTensor", "assemble3", {32, 0}}, {"in4", "largeTensor", "assemble4", {48, 0}},
-        {"in5", "largeTensor", "assemble5", {64, 0}}, {"in6", "largeTensor", "assemble6", {80, 0}},
-        {"in7", "largeTensor", "assemble7", {96, 0}}, {"in8", "largeTensor", "assemble8", {112, 0}}
-    };
+        {"in1Tensor", "largeTensor", "assemble1", {0, 0}},  {"in2Tensor", "largeTensor", "assemble2", {16, 0}},
+        {"in3Tensor", "largeTensor", "assemble3", {32, 0}}, {"in4Tensor", "largeTensor", "assemble4", {48, 0}},
+        {"in5Tensor", "largeTensor", "assemble5", {64, 0}}, {"in6Tensor", "largeTensor", "assemble6", {80, 0}},
+        {"in7Tensor", "largeTensor", "assemble7", {96, 0}}, {"in8Tensor", "largeTensor", "assemble8", {112, 0}}};
     for (const auto& [input, output, opName, offset] : assembleOps) {
         G.AddOp(Opcode::OP_ASSEMBLE, {input}, {output}, opName);
         auto assembleOp = G.GetOp(opName);
@@ -1350,9 +1540,10 @@ void BuildPartialInputUnusedGraph(ComputationalGraphBuilder &G){
     }
 
     std::vector<std::tuple<std::string, std::string, std::string, Shape>> viewOps = {
-        {"largeTensor", "out11", "view11", {0, 0}}, {"largeTensor", "out81", "view81", {112, 0}},
-        {"largeTensor", "out22", "view22", {16, 512}}, {"largeTensor", "out82", "view82", {112, 512}}
-    };
+        {"largeTensor", "out11", "view11", {0, 0}},
+        {"largeTensor", "out81", "view81", {112, 0}},
+        {"largeTensor", "out22", "view22", {16, 512}},
+        {"largeTensor", "out82", "view82", {112, 512}}};
     for (const auto& [input, output, opName, offset] : viewOps) {
         G.AddOp(Opcode::OP_VIEW, {input}, {output}, opName);
         auto viewOp = G.GetOp(opName);
@@ -1360,15 +1551,16 @@ void BuildPartialInputUnusedGraph(ComputationalGraphBuilder &G){
     }
 }
 
-TEST_F(SplitLargeFanoutTensorTest, TestPartialInputUnused) {
+TEST_F(SplitLargeFanoutTensorTest, TestPartialInputUnused)
+{
     ComputationalGraphBuilder G;
     BuildPartialInputUnusedGraph(G);
-    Function *function = G.GetFunction();
+    Function* function = G.GetFunction();
 
     std::cout << "Build Graph Done." << std::endl;
     // 单独执行pass
     npu::tile_fwk::SplitLargeFanoutTensor splitLargeFanoutTensor;
-    splitLargeFanoutTensor.enableMoreSplit = false;
+    splitLargeFanoutTensor.enableMoreSplit_ = false;
     splitLargeFanoutTensor.PreCheck(*function);
     splitLargeFanoutTensor.RunOnFunction(*function);
     splitLargeFanoutTensor.PostCheck(*function);
@@ -1381,58 +1573,49 @@ TEST_F(SplitLargeFanoutTensorTest, TestPartialInputUnused) {
     EXPECT_EQ(assembleNum, countResultAfter[1]) << countResultAfter[1] << "OP_ASSEMBLE after pass, should be 0";
 }
 
-void BuildOneDim(ComputationalGraphBuilder &G, bool shouldSplit){
+void BuildOneDim(ComputationalGraphBuilder& G, bool shouldSplit)
+{
     int NUM_1 = 1;
     int NUM_15 = 15;
     int NUM_16 = 16;
     int NUM_32 = 32;
-    std::vector<int64_t> shape1{NUM_1};
-    std::vector<int64_t> shape15{NUM_15};
-    std::vector<int64_t> shape16{NUM_16};
-    std::vector<int64_t> shape32{NUM_32};
 
-    G.AddTensor(DataType::DT_FP32, shape1, "a");
-    auto a = G.GetTensor("a");
-    a->SetMemoryTypeBoth(MemoryType::MEM_DEVICE_DDR, true);
-    G.AddTensor(DataType::DT_FP32, shouldSplit ? shape15 : shape16, "b");
-    auto b = G.GetTensor("b");
-    b->SetMemoryTypeBoth(MemoryType::MEM_DEVICE_DDR, true);
-    G.AddTensor(DataType::DT_FP32, shouldSplit ? shape16 : shape15, "c");
-    auto c = G.GetTensor("c");
-    c->SetMemoryTypeBoth(MemoryType::MEM_DEVICE_DDR, true);
+    std::map<std::string, std::vector<int64_t>> tensors = {
+        {"a", {NUM_1}},
+        {"b", shouldSplit ? std::vector<int64_t>{NUM_15} : std::vector<int64_t>{NUM_16}},
+        {"c", shouldSplit ? std::vector<int64_t>{NUM_16} : std::vector<int64_t>{NUM_15}},
+        {"a1", {NUM_1}},
+        {"b1", shouldSplit ? std::vector<int64_t>{NUM_15} : std::vector<int64_t>{NUM_16}},
+        {"c1", shouldSplit ? std::vector<int64_t>{NUM_16} : std::vector<int64_t>{NUM_15}},
+        {"out1", {NUM_16}}, {"out2", {NUM_16}},
+        {"largeTensor", {NUM_32}}};
+    for (const auto& [name, shape] : tensors) {
+        G.AddTensor(DataType::DT_FP32, shape, name);
+        auto tensor = G.GetTensor(name);
+        tensor->SetMemoryTypeBoth(MemoryType::MEM_DEVICE_DDR, true);
+    }
 
-    G.AddTensor(DataType::DT_FP32, shape16, "out1");
-    auto out1 = G.GetTensor("out1");
-    out1->SetMemoryTypeBoth(MemoryType::MEM_DEVICE_DDR, true);
-    G.AddTensor(DataType::DT_FP32, shape16, "out2");
-    auto out2 = G.GetTensor("out2");
-    out2->SetMemoryTypeBoth(MemoryType::MEM_DEVICE_DDR, true);
+    std::vector<std::tuple<std::string, std::string, std::string>> copyInOps = {
+        {"a", "copyIn1", "a1"}, {"b", "copyIn2", "b1"}, {"c", "copyIn3", "c1"}};
+    for (const auto& [input, opName, output] : copyInOps) {
+        G.AddOp(Opcode::OP_ASSEMBLE, {input}, {output}, opName);
+    }
 
-    G.AddTensor(DataType::DT_FP32, shape32, "largeTensor");
-    auto largeTensor = G.GetTensor("largeTensor");
-    largeTensor->SetMemoryTypeBoth(MemoryType::MEM_DEVICE_DDR, true);
+    std::vector<std::tuple<std::string, std::string, std::vector<int64_t>>> assembleOps = {
+        {"a1", "assemble1", {0}}, {"b1", "assemble2", {1}}, {"c1", "assemble3", {shouldSplit ? 16 : 17}}};
+    for (const auto& [input, opName, offset] : assembleOps) {
+        G.AddOp(Opcode::OP_ASSEMBLE, {input}, {"largeTensor"}, opName);
+        auto assembleOp = G.GetOp(opName);
+        assembleOp->SetOpAttribute(std::make_shared<AssembleOpAttribute>(MemoryType::MEM_DEVICE_DDR, offset));
+    }
 
-    G.AddOp(Opcode::OP_ASSEMBLE, {"a"}, {"largeTensor"}, "Assemble_A");
-    auto attrAssembleA = std::make_shared<AssembleOpAttribute>(MemoryType::MEM_DEVICE_DDR, std::vector<int64_t> {0});
-    auto assembleA = G.GetOp("Assemble_A");
-    assembleA->SetOpAttribute(attrAssembleA);
-    G.AddOp(Opcode::OP_ASSEMBLE, {"b"}, {"largeTensor"}, "Assemble_B");
-    auto attrAssembleB = std::make_shared<AssembleOpAttribute>(MemoryType::MEM_DEVICE_DDR, std::vector<int64_t> {1});
-    auto assembleB = G.GetOp("Assemble_B");
-    assembleB->SetOpAttribute(attrAssembleB);
-    G.AddOp(Opcode::OP_ASSEMBLE, {"c"}, {"largeTensor"}, "Assemble_C");
-    auto attrAssembleC = std::make_shared<AssembleOpAttribute>(MemoryType::MEM_DEVICE_DDR, std::vector<int64_t> {shouldSplit ? 16 : 17});
-    auto assembleC = G.GetOp("Assemble_C");
-    assembleC->SetOpAttribute(attrAssembleC);
-
-    G.AddOp(Opcode::OP_VIEW, {"largeTensor"}, {"out1"}, "View_1");
-    auto View_1 = G.GetOp("View_1");
-    auto attr1 = std::make_shared<ViewOpAttribute>(std::vector<int64_t> {0}, MemoryType::MEM_DEVICE_DDR);
-    View_1->SetOpAttribute(attr1);
-    G.AddOp(Opcode::OP_VIEW, {"largeTensor"}, {"out2"}, "View_2");
-    auto View_2 = G.GetOp("View_2");
-    auto attr2 = std::make_shared<ViewOpAttribute>(std::vector<int64_t> {16}, MemoryType::MEM_DEVICE_DDR);
-    View_2->SetOpAttribute(attr2);
+    std::vector<std::tuple<std::string, std::vector<int64_t>>> viewOps = {{"out1", {0}}, {"out2", {16}}};
+    for (const auto& [output, offset] : viewOps) {
+        std::string opName = "view" + output.substr(3);
+        G.AddOp(Opcode::OP_VIEW, {"largeTensor"}, {output}, opName);
+        auto viewOp = G.GetOp(opName);
+        viewOp->SetOpAttribute(std::make_shared<ViewOpAttribute>(offset, MemoryType::MEM_DEVICE_DDR));
+    }
 
     G.SetInCast({"a", "b", "c"});
     G.SetOutCast({"out1", "out2"});
@@ -1441,55 +1624,54 @@ void BuildOneDim(ComputationalGraphBuilder &G, bool shouldSplit){
 // {1} + {15} + {16} --assemble--> {32} --view--> {16} + {16}
 // =>   {1} + {15} --assemble--> {16} --view--> {16}
 //      {16} --view--> {16}
-TEST_F(SplitLargeFanoutTensorTest, OneDimShouldSplit) {
+TEST_F(SplitLargeFanoutTensorTest, OneDimShouldSplit)
+{
     ComputationalGraphBuilder G;
     BuildOneDim(G, true);
-    Function *function = G.GetFunction();
+    Function* function = G.GetFunction();
 
     std::cout << "Build Graph Done." << std::endl;
-    // 单独执行pass
-    npu::tile_fwk::SplitLargeFanoutTensor splitLargeFanoutTensor;
-    splitLargeFanoutTensor.enableMoreSplit = false;
-    splitLargeFanoutTensor.PreCheck(*function);
-    splitLargeFanoutTensor.RunOnFunction(*function);
-    splitLargeFanoutTensor.PostCheck(*function);
-    std::cout << "Run Pass Done." << std::endl;
+    ExecutePass(function, false);
 
     // 验证：
     // 依据UT注释展示，共会出现2个view和2个assemble
     auto countResultAfter = CountViewAssemble(*function);
-    const int viewAssembleNum = 2;
-    EXPECT_EQ(viewAssembleNum, countResultAfter[0]) << countResultAfter[0] << " OP_VIEW after pass, should be 2";
-    EXPECT_EQ(viewAssembleNum, countResultAfter[1]) << countResultAfter[1] << " OP_ASSEMBLE after pass, should be 2";
+    const int viewNum = 2;
+    const int assembleNum = 0;
+    EXPECT_EQ(viewNum, countResultAfter[0]) << countResultAfter[0] << " OP_VIEW after pass, should be 2";
+    EXPECT_EQ(assembleNum, countResultAfter[1]) << countResultAfter[1] << " OP_ASSEMBLE after pass, should be 0";
 }
 
 // {1} + {16} + {15} --assemble--> {32} --view--> {16} + {16}
 // 不进行拆分
-TEST_F(SplitLargeFanoutTensorTest, OneDimNotSplit) {
+TEST_F(SplitLargeFanoutTensorTest, OneDimNotSplit)
+{
     ComputationalGraphBuilder G;
     BuildOneDim(G, false);
-    Function *function = G.GetFunction();
+    Function* function = G.GetFunction();
 
     std::cout << "Build Graph Done." << std::endl;
     auto countResultBefore = CountViewAssemble(*function);
     // 单独执行pass
     npu::tile_fwk::SplitLargeFanoutTensor splitLargeFanoutTensor;
-    splitLargeFanoutTensor.enableMoreSplit = false;
+    splitLargeFanoutTensor.enableMoreSplit_ = false;
     splitLargeFanoutTensor.PreCheck(*function);
     splitLargeFanoutTensor.RunOnFunction(*function);
     splitLargeFanoutTensor.PostCheck(*function);
     std::cout << "Run Pass Done." << std::endl;
 
-    // 验证：pass不会切分，所以前后一致
+    // 验证：pass不会切分，所以前后一致, 但由于MergeViewAssemble影响，所以Assemble数量不相等
     auto countResultAfter = CountViewAssemble(*function);
-    EXPECT_EQ(countResultBefore[0], countResultAfter[0]) << countResultBefore[0] 
-        << "OP_VIEW before pass; " << countResultAfter[0] << " OP_VIEW after pass, should equal.";
-    EXPECT_EQ(countResultBefore[1], countResultAfter[1]) << countResultBefore[1] 
-        << "OP_ASSEMBLE before pass; " << countResultAfter[1] << " OP_ASSEMBLE after pass, should equal.";
+    EXPECT_EQ(countResultBefore[0], countResultAfter[0]) << countResultBefore[0] << "OP_VIEW before pass; "
+                                                         << countResultAfter[0] << " OP_VIEW after pass, should equal.";
+    EXPECT_NE(countResultBefore[1], countResultAfter[1])
+        << countResultBefore[1] << "OP_ASSEMBLE before pass; " << countResultAfter[1]
+        << " OP_ASSEMBLE after pass, should equal.";
 }
 
 // {1} + {2} + {1} + {1} --assemble--> {5} --view--> {3} + {1}
-void BuildDiffLcmShape(ComputationalGraphBuilder &G){
+void BuildDiffLcmShape(ComputationalGraphBuilder& G)
+{
     int NUM_1 = 1;
     int NUM_2 = 2;
     int NUM_3 = 3;
@@ -1498,20 +1680,23 @@ void BuildDiffLcmShape(ComputationalGraphBuilder &G){
     // 定义所有张量的形状和名称并添加
     std::map<std::string, std::vector<int64_t>> tensors = {
         {"a", {NUM_1}}, {"b", {NUM_2}}, {"c", {NUM_1}}, {"d", {NUM_1}},
-        {"out1", {NUM_3}}, {"out2", {NUM_1}},
-        {"largeTensor", {NUM_5}}
-    };
+        {"a1", {NUM_1}}, {"b1", {NUM_2}}, {"c1", {NUM_1}}, {"d1", {NUM_1}},        
+        {"out1", {NUM_3}}, {"out2", {NUM_1}}, {"largeTensor", {NUM_5}}};
     for (const auto& [name, shape] : tensors) {
         G.AddTensor(DataType::DT_FP32, shape, name);
         auto tensor = G.GetTensor(name);
         tensor->SetMemoryTypeBoth(MemoryType::MEM_DEVICE_DDR, true);
     }
 
+    // 定义所有CopyIn操作并添加
+    std::vector<std::tuple<std::string, std::string, std::string>> copyInOps = {
+        {"a", "copyIn1", "a1"}, {"b", "copyIn2", "b1"}, {"c", "copyIn3", "c1"}, {"d", "copyIn4", "d1"}};
+    for (const auto& [input, opName, output] : copyInOps) {
+        G.AddOp(Opcode::OP_COPY_IN, {input}, {output}, opName);
+    }
     // 定义所有ASSEMBLE操作并添加
     std::vector<std::tuple<std::string, std::string, std::vector<int64_t>>> assembleOps = {
-        {"a", "Assemble_A", {0}}, {"b", "Assemble_B", {1}},
-        {"c", "Assemble_C", {3}}, {"d", "Assemble_D", {4}}
-    };
+        {"a1", "Assemble_A", {0}}, {"b1", "Assemble_B", {1}}, {"c1", "Assemble_C", {3}}, {"d1", "Assemble_D", {4}}};
     for (const auto& [input, opName, offset] : assembleOps) {
         G.AddOp(Opcode::OP_ASSEMBLE, {input}, {"largeTensor"}, opName);
         auto assembleOp = G.GetOp(opName);
@@ -1519,9 +1704,7 @@ void BuildDiffLcmShape(ComputationalGraphBuilder &G){
     }
 
     // 定义所有VIEW操作并添加
-    std::vector<std::tuple<std::string, std::vector<int64_t>>> viewOps = {
-        {"out1", {0}}, {"out2", {3}}
-    };
+    std::vector<std::tuple<std::string, std::vector<int64_t>>> viewOps = {{"out1", {0}}, {"out2", {3}}};
     for (const auto& [output, offset] : viewOps) {
         std::string opName = "View_" + output.substr(3);
         G.AddOp(Opcode::OP_VIEW, {"largeTensor"}, {output}, opName);
@@ -1539,30 +1722,25 @@ void BuildDiffLcmShape(ComputationalGraphBuilder &G){
 // 用于验证小的LcmShape被优先尝试拆分，否则第二组拆分结果会得到：
 // {1} + {1} --assemble--> {2} --view--> {1}
 // 存在冗余的assemble，不符合预期
-TEST_F(SplitLargeFanoutTensorTest, SplitSmallTileFirst) {
+TEST_F(SplitLargeFanoutTensorTest, SplitSmallTileFirst)
+{
     ComputationalGraphBuilder G;
     BuildDiffLcmShape(G);
-    Function *function = G.GetFunction();
+    Function* function = G.GetFunction();
 
     std::cout << "Build Graph Done." << std::endl;
-    // 单独执行pass
-    npu::tile_fwk::SplitLargeFanoutTensor splitLargeFanoutTensor;
-    splitLargeFanoutTensor.enableMoreSplit = false;
-    splitLargeFanoutTensor.PreCheck(*function);
-    splitLargeFanoutTensor.RunOnFunction(*function);
-    splitLargeFanoutTensor.PostCheck(*function);
-    std::cout << "Run Pass Done." << std::endl;
+    ExecutePass(function, false);
 
-    // 验证：
-    // 依据UT注释展示，共会出现2个view和2个assemble
     auto countResultAfter = CountViewAssemble(*function);
-    const int viewAssembleNum = 2;
-    EXPECT_EQ(viewAssembleNum, countResultAfter[0]) << countResultAfter[0] << " OP_VIEW after pass, should be 2";
-    EXPECT_EQ(viewAssembleNum, countResultAfter[1]) << countResultAfter[1] << " OP_ASSEMBLE after pass, should be 2";
+    const int viewNum = 2;
+    const int AssembleNum = 2;
+    EXPECT_EQ(viewNum, countResultAfter[0]) << countResultAfter[0] << " OP_VIEW after pass, should be 2";
+    EXPECT_EQ(AssembleNum, countResultAfter[1]) << countResultAfter[1] << " OP_ASSEMBLE after pass, should be 2";
 }
 
 // {2} + {2} + {3} --assemble--> {7} --view--> {5}
-void BuildCoprimeInputOutput(ComputationalGraphBuilder &G){
+void BuildCoprimeInputOutput(ComputationalGraphBuilder& G)
+{
     int NUM_2 = 2;
     int NUM_3 = 3;
     int NUM_5 = 5;
@@ -1570,10 +1748,7 @@ void BuildCoprimeInputOutput(ComputationalGraphBuilder &G){
 
     // 定义所有张量的形状和名称并添加
     std::map<std::string, std::vector<int64_t>> tensors = {
-        {"a", {NUM_2}}, {"b", {NUM_2}}, {"c", {NUM_3}},
-        {"out1", {NUM_5}},
-        {"largeTensor", {NUM_7}}
-    };
+        {"a", {NUM_2}}, {"b", {NUM_2}}, {"c", {NUM_3}}, {"out1", {NUM_5}}, {"largeTensor", {NUM_7}}};
     for (const auto& [name, shape] : tensors) {
         G.AddTensor(DataType::DT_FP32, shape, name);
         auto tensor = G.GetTensor(name);
@@ -1582,8 +1757,7 @@ void BuildCoprimeInputOutput(ComputationalGraphBuilder &G){
 
     // 定义所有ASSEMBLE操作并添加
     std::vector<std::tuple<std::string, std::string, std::vector<int64_t>>> assembleOps = {
-        {"a", "Assemble_A", {0}}, {"b", "Assemble_B", {2}}, {"c", "Assemble_C", {4}}
-    };
+        {"a", "Assemble_A", {0}}, {"b", "Assemble_B", {2}}, {"c", "Assemble_C", {4}}};
     for (const auto& [input, opName, offset] : assembleOps) {
         G.AddOp(Opcode::OP_ASSEMBLE, {input}, {"largeTensor"}, opName);
         auto assembleOp = G.GetOp(opName);
@@ -1591,9 +1765,7 @@ void BuildCoprimeInputOutput(ComputationalGraphBuilder &G){
     }
 
     // 定义所有VIEW操作并添加
-    std::vector<std::tuple<std::string, std::vector<int64_t>>> viewOps = {
-        {"out1", {0}}
-    };
+    std::vector<std::tuple<std::string, std::vector<int64_t>>> viewOps = {{"out1", {0}}};
     for (const auto& [output, offset] : viewOps) {
         std::string opName = "View_" + output.substr(3);
         G.AddOp(Opcode::OP_VIEW, {"largeTensor"}, {output}, opName);
@@ -1607,39 +1779,231 @@ void BuildCoprimeInputOutput(ComputationalGraphBuilder &G){
 
 // {2} + {2} + {3} --assemble--> {7} --view--> {5}
 // 不进行拆分，不会生成新的lcmTile
-TEST_F(SplitLargeFanoutTensorTest, NoSplitLcmLargerThanLargeTensor) {
+TEST_F(SplitLargeFanoutTensorTest, NoSplitLcmLargerThanLargeTensor)
+{
     ComputationalGraphBuilder G;
     BuildCoprimeInputOutput(G);
-    Function *function = G.GetFunction();
+    Function* function = G.GetFunction();
 
     std::cout << "Build Graph Done." << std::endl;
     auto countResultBefore = CountViewAssemble(*function);
     std::vector<int> opMagicBefore;
-    for (auto &op : function->Operations()) {
+    for (auto& op : function->Operations()) {
         opMagicBefore.emplace_back(op.GetOpMagic());
     }
 
     // 单独执行pass
     npu::tile_fwk::SplitLargeFanoutTensor splitLargeFanoutTensor;
-    splitLargeFanoutTensor.enableMoreSplit = false;
+    splitLargeFanoutTensor.enableMoreSplit_ = false;
     splitLargeFanoutTensor.PreCheck(*function);
     splitLargeFanoutTensor.RunOnFunction(*function);
     splitLargeFanoutTensor.PostCheck(*function);
     std::cout << "Run Pass Done." << std::endl;
 
-    // 验证：pass不会切分，所以前后一致
+    // 验证：pass不会切分，所以前后一致, 但由于MergeViewAssemble功能会合并View和Assemble，导致结果不一致
     auto countResultAfter = CountViewAssemble(*function);
     std::vector<int> opMagicAfter;
-    for (auto &op : function->Operations()) {
+    for (auto& op : function->Operations()) {
         opMagicAfter.emplace_back(op.GetOpMagic());
     }
-    EXPECT_EQ(countResultBefore[0], countResultAfter[0]) << countResultBefore[0] 
-        << "OP_VIEW before pass; " << countResultAfter[0] << " OP_VIEW after pass, should equal.";
-    EXPECT_EQ(countResultBefore[1], countResultAfter[1]) << countResultBefore[1] 
-        << "OP_ASSEMBLE before pass; " << countResultAfter[1] << " OP_ASSEMBLE after pass, should equal.";
-    EXPECT_EQ(CommonUtils::ContainerToStr(opMagicBefore), CommonUtils::ContainerToStr(opMagicAfter))
+    EXPECT_EQ(countResultBefore[0], countResultAfter[0]) << countResultBefore[0] << "OP_VIEW before pass; "
+                                                         << countResultAfter[0] << " OP_VIEW after pass, should equal.";
+    EXPECT_NE(countResultBefore[1], countResultAfter[1])
+        << countResultBefore[1] << "OP_ASSEMBLE before pass; " << countResultAfter[1]
+        << " OP_ASSEMBLE after pass, should equal.";
+    EXPECT_NE(CommonUtils::ContainerToStr(opMagicBefore), CommonUtils::ContainerToStr(opMagicAfter))
         << "All op magic before pass: " << CommonUtils::ContainerToStr(opMagicBefore)
-        << "; All op magic after pass: " << CommonUtils::ContainerToStr(opMagicAfter) << "; Op should not change.";
+        << "; All op magic after pass: " << CommonUtils::ContainerToStr(opMagicAfter) << "; Op should change.";
+}
+
+TEST_F(SplitLargeFanoutTensorTest, TestSplitTailTile)
+{
+    config::SetHostConfig(KEY_STRATEGY, "SplitLargeFanoutTensorTestStrategy");
+    std::vector<int64_t> shape0 = {112, 112};
+    std::vector<int64_t> shape1 = {16, 112};
+    std::vector<int64_t> shape2 = {112, 48};
+    std::vector<int64_t> shape3 = {16, 48};
+    std::vector<int64_t> shape4 = {128, 272};
+    PROGRAM("SplitLargeFanoutTensorTest")
+    {
+        Tensor input1a(DataType::DT_FP32, shape0, "In1a");
+        Tensor input1b(DataType::DT_FP32, shape0, "In1b");
+        Tensor input2a(DataType::DT_FP32, shape1, "In2a");
+        Tensor input2b(DataType::DT_FP32, shape1, "In2b");
+        Tensor input3a(DataType::DT_FP32, shape0, "In3a");
+        Tensor input3b(DataType::DT_FP32, shape0, "In3b");
+        Tensor input4a(DataType::DT_FP32, shape1, "In4a");
+        Tensor input4b(DataType::DT_FP32, shape1, "In4b");
+        Tensor input5a(DataType::DT_FP32, shape2, "In5a");
+        Tensor input5b(DataType::DT_FP32, shape2, "In5b");
+        Tensor input6a(DataType::DT_FP32, shape3, "In6a");
+        Tensor input6b(DataType::DT_FP32, shape3, "In6b");
+        Tensor output1(DataType::DT_FP32, shape3, "Out1");
+        SetTestStrategy();
+        Function* originFunction = nullptr;
+        config::SetBuildStatic(true);
+        FUNCTION(
+            "TestSplitTailTile", {input1a, input1b, input2a, input2b, input3a, input3b, input4a, input4b, input5a,
+                                  input5b, input6a, input6b, output1})
+        {
+            TileShape::Current().SetVecTile(256, 256);
+            Tensor t1 = Add(input1a, input1b);
+            Tensor t2 = Add(input2a, input2b);
+            Tensor t3 = Add(input3a, input3b);
+            Tensor t4 = Add(input4a, input4b);
+            Tensor t5 = Add(input5a, input5b);
+            Tensor t6 = Add(input6a, input6b);
+            Tensor lt(DT_FP32, shape4, "lt");
+            Assemble(t1, {0, 0}, lt);
+            Assemble(t2, {112, 0}, lt);
+            Assemble(t3, {0, 112}, lt);
+            Assemble(t4, {112, 112}, lt);
+            Assemble(t5, {0, 224}, lt);
+            Assemble(t6, {112, 224}, lt);
+            output1 = View(lt, shape3, {112, 224});
+        }
+        originFunction = Program::GetInstance().GetFunctionByRawName("TENSOR_TestSplitTailTile");
+        ASSERT_NE(originFunction, nullptr) << "当前函数指针为空";
+        auto countResultAfter = CountViewAssemble(*originFunction);
+        const int expectViewCount = 3;
+        const int expectAssembleCount = 1;
+        EXPECT_EQ(countResultAfter[0], expectViewCount);
+        EXPECT_EQ(countResultAfter[1], expectAssembleCount);
+    }
+}
+
+// 当输入同时存在头块和尾块时，tileOffset是头块大小加n倍中间块大小的情况暂不切分，避免级联场景validShape表达式过长。
+TEST_F(SplitLargeFanoutTensorTest, TestHeadTileOffsetNoSplit)
+{
+    config::SetHostConfig(KEY_STRATEGY, "SplitLargeFanoutTensorTestStrategy");
+    std::vector<int64_t> shape0 = {256};
+    std::vector<int64_t> shape1 = {512};
+    std::vector<int64_t> shape2 = {352};
+    std::vector<int64_t> shape3 = {96};
+    std::vector<int64_t> shape4 = {2656};
+    PROGRAM("SplitLargeFanoutTensorTest")
+    {
+        Tensor input1(DataType::DT_FP32, shape0, "In1");
+        Tensor input2(DataType::DT_FP32, shape1, "In2");
+        Tensor input3(DataType::DT_FP32, shape1, "In3");
+        Tensor input4(DataType::DT_FP32, shape1, "In4");
+        Tensor input5(DataType::DT_FP32, shape1, "In5");
+        Tensor input6(DataType::DT_FP32, shape2, "In6");
+        Tensor output1(DataType::DT_FP32, shape1, "Out1");
+        Tensor output2(DataType::DT_FP32, shape1, "Out2");
+        Tensor output3(DataType::DT_FP32, shape1, "Out3");
+        Tensor output4(DataType::DT_FP32, shape1, "Out4");
+        Tensor output5(DataType::DT_FP32, shape1, "Out5");
+        Tensor output6(DataType::DT_FP32, shape3, "Out6");
+        SetTestStrategy();
+        Function* originFunction = nullptr;
+        config::SetBuildStatic(true);
+        FUNCTION(
+            "TestHeadTileOffsetNoSplit",
+            {input1, input2, input3, input4, input5, input6, output1, output2, output3, output4, output5, output6})
+        {
+            TileShape::Current().SetVecTile(1024);
+            Tensor lt(DT_FP32, shape4, "lt");
+            Assemble(input1, {0}, lt);
+            Assemble(input2, {256}, lt);
+            Assemble(input3, {768}, lt);
+            Assemble(input4, {1280}, lt);
+            Assemble(input5, {1792}, lt);
+            Assemble(input6, {2304}, lt);
+            output1 = View(lt, shape1, {0});
+            output2 = View(lt, shape1, {512});
+            output3 = View(lt, shape1, {1024});
+            output4 = View(lt, shape1, {1536});
+            output5 = View(lt, shape1, {2048});
+            output6 = View(lt, shape3, {2560});
+        }
+        originFunction = Program::GetInstance().GetFunctionByRawName("TENSOR_TestHeadTileOffsetNoSplit");
+        ASSERT_NE(originFunction, nullptr) << "当前函数指针为空";
+        auto countResultAfter = CountViewAssemble(*originFunction);
+        const int expectViewCount = 12;
+        const int expectAssembleCount = 15;
+        EXPECT_EQ(countResultAfter[0], expectViewCount);
+        EXPECT_EQ(countResultAfter[1], expectAssembleCount);
+    }
+}
+
+TEST_F(SplitLargeFanoutTensorTest, TestSimplifyOverlapDualOverlap)
+{
+    config::SetHostConfig(KEY_STRATEGY, "SplitLargeFanoutTensorTestStrategy");
+    std::vector<int64_t> shape0 = {64};
+    std::vector<int64_t> shape1 = {128};
+    std::vector<int64_t> shape2 = {32};
+    std::vector<int64_t> shape3 = {96};
+    PROGRAM("SplitLargeFanoutTensorTest")
+    {
+        Tensor input1(DataType::DT_FP32, shape1, "In1");
+        Tensor input2(DataType::DT_FP32, shape1, "In2");
+        Tensor input3(DataType::DT_FP32, shape1, "In3");
+        Tensor input4(DataType::DT_FP32, shape1, "In4");
+        Tensor input5(DataType::DT_FP32, shape1, "In5");
+        Tensor input6(DataType::DT_FP32, shape2, "In6");
+        Tensor output1(DataType::DT_FP32, shape0, "Out1");
+        Tensor output2(DataType::DT_FP32, shape1, "Out2");
+        Tensor output3(DataType::DT_FP32, shape1, "Out3");
+        Tensor output4(DataType::DT_FP32, shape1, "Out4");
+        Tensor output5(DataType::DT_FP32, shape1, "Out5");
+        Tensor output6(DataType::DT_FP32, shape3, "Out6");
+        SetTestStrategy();
+        config::SetBuildStatic(true);
+        FUNCTION(
+            "TestSimplifyOverlapDualOverlap",
+            {input1, input2, input3, input4, input5, input6, output1, output2, output3, output4, output5, output6})
+        {
+            TileShape::Current().SetVecTile(1024);
+            Tensor lt(DT_FP32, {672}, "lt");
+            Assemble(input1, {0}, lt);
+            Assemble(input2, {128}, lt);
+            Assemble(input3, {256}, lt);
+            Assemble(input4, {384}, lt);
+            Assemble(input5, {512}, lt);
+            Assemble(input6, {640}, lt);
+            output1 = View(lt, shape0, {0});
+            output2 = View(lt, shape1, {64});
+            output3 = View(lt, shape1, {192});
+            output4 = View(lt, shape1, {320});
+            output5 = View(lt, shape1, {448});
+            output6 = View(lt, shape3, {576});
+        }
+        Function* originFunction = Program::GetInstance().GetFunctionByRawName("TENSOR_TestSimplifyOverlapDualOverlap");
+        ASSERT_NE(originFunction, nullptr) << "当前函数指针为空";
+        auto countResultAfter = CountViewAssemble(*originFunction);
+        const int expectViewCount = 12;
+        const int expectAssembleCount = 15;
+        EXPECT_EQ(countResultAfter[0], expectViewCount);
+        EXPECT_EQ(countResultAfter[1], expectAssembleCount);
+    }
+}
+
+
+TEST_F(SplitLargeFanoutTensorTest, TestInferShapeHaveDynValidShape)
+{
+    ComputationalGraphBuilder G;
+    BuildPerfectlyMatchWithInferShapeGraph(G, true);
+    Function* function = G.GetFunction();
+    ASSERT_NE(function, nullptr);
+
+    npu::tile_fwk::SplitLargeFanoutTensor splitLargeFanoutTensor;
+    EXPECT_EQ(SUCCESS, splitLargeFanoutTensor.PreCheck(*function));
+    EXPECT_EQ(SUCCESS, splitLargeFanoutTensor.RunOnFunction(*function));
+    EXPECT_EQ(SUCCESS, splitLargeFanoutTensor.PostCheck(*function));
+
+    for (auto& op : function->Operations()) {
+        if (op.GetOpcode() == Opcode::OP_VIEW) {
+            const auto& in_shape = op.iOperand[0]->GetDynValidShape();
+            const auto& out_shape = op.oOperand[0]->GetDynValidShape();
+            ASSERT_EQ(in_shape.size(), out_shape.size()) << "Size mismatch";
+            for (size_t i = 0; i < in_shape.size(); ++i) {
+                EXPECT_EQ(in_shape[i].Dump(), out_shape[i].Dump())
+                    << "Mismatch at dim " << i << " intput " <<
+                    in_shape[i].Dump() << " output " << out_shape[i].Dump();
+            }
+        }
+    }
 }
 } // namespace tile_fwk
 } // namespace npu

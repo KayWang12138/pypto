@@ -20,9 +20,10 @@ using namespace npu::tile_fwk;
 
 class RowMaxSumSingleOnBoardTest : public npu::tile_fwk::stest::TestSuite_STest_Ops_Aihac {};
 
-TEST_F(RowMaxSumSingleOnBoardTest, test_operation_row_max_single) {
-    aclInit(nullptr);
-    rtSetDevice(GetDeviceIdByEnvVar());
+TEST_F(RowMaxSumSingleOnBoardTest, test_operation_row_max_single)
+{
+    AclInit(nullptr);
+    RuntimeSetDevice(GetDeviceIdByEnvVar());
 
     int shape0 = 257;
     int shape1 = 128;
@@ -33,24 +34,23 @@ TEST_F(RowMaxSumSingleOnBoardTest, test_operation_row_max_single) {
     uint64_t outputSize = outputCapacity * sizeof(float);
     uint8_t* out_ptr = allocDevAddr(outputSize);
 
-    PROGRAM("RowMaxSingle") {
+    PROGRAM("RowMaxSingle")
+    {
         TileShape::Current().SetVecTile({128, 64});
 
-        void *x_ptr = readToDev(GetGoldenDir() + "/257_128/x.bin", inputCapacity);
-        Tensor input_a(DataType::DT_FP32, shape, (uint8_t *)x_ptr, "A");
+        void* x_ptr = readToDev(GetGoldenDir() + "/257_128/x.bin", inputCapacity);
+        Tensor input_a(DataType::DT_FP32, shape, (uint8_t*)x_ptr, "A");
         Tensor output(DataType::DT_FP32, outshape, out_ptr, "C");
 
         ConfigManager::Instance();
         config::SetBuildStatic(true);
-        FUNCTION("RowMaxSingle", {input_a, output}) {
-            output = Amax(input_a, -1, true);
-        }
+        FUNCTION("RowMaxSingle", {input_a, output}) { output = Amax(input_a, -1, true); }
     }
     DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
 
     std::vector<float> golden(outputCapacity);
     std::vector<float> res(outputCapacity);
-    machine::GetRA()->CopyFromTensor((uint8_t *)res.data(), (uint8_t *)out_ptr, outputSize);
+    machine::GetRA()->CopyFromTensor((uint8_t*)res.data(), (uint8_t*)out_ptr, outputSize);
 
     readInput(GetGoldenDir() + "/257_128/max_res.bin", golden);
 
@@ -58,9 +58,10 @@ TEST_F(RowMaxSumSingleOnBoardTest, test_operation_row_max_single) {
     EXPECT_EQ(ret, true);
 }
 
-TEST_F(RowMaxSumSingleOnBoardTest, test_operation_row_sum_single) {
-    aclInit(nullptr);
-    rtSetDevice(GetDeviceIdByEnvVar());
+TEST_F(RowMaxSumSingleOnBoardTest, test_operation_row_sum_single)
+{
+    AclInit(nullptr);
+    RuntimeSetDevice(GetDeviceIdByEnvVar());
 
     int shape0 = 257;
     int shape1 = 128;
@@ -71,24 +72,23 @@ TEST_F(RowMaxSumSingleOnBoardTest, test_operation_row_sum_single) {
     uint64_t outputSize = outputCapacity * sizeof(float);
     uint8_t* out_ptr = allocDevAddr(outputSize);
 
-    PROGRAM("RowSumSingle") {
+    PROGRAM("RowSumSingle")
+    {
         TileShape::Current().SetVecTile({128, 64});
 
-        void *x_ptr = readToDev(GetGoldenDir() + "/257_128/x.bin", inputCapacity);
-        Tensor input_a(DataType::DT_FP32, shape, (uint8_t *)x_ptr, "A");
+        void* x_ptr = readToDev(GetGoldenDir() + "/257_128/x.bin", inputCapacity);
+        Tensor input_a(DataType::DT_FP32, shape, (uint8_t*)x_ptr, "A");
         Tensor output(DataType::DT_FP32, outshape, out_ptr, "C");
 
         ConfigManager::Instance();
         config::SetBuildStatic(true);
-        FUNCTION("RowSumSingle", {input_a, output}) {
-            output = Sum(input_a, -1, true);
-        }
+        FUNCTION("RowSumSingle", {input_a, output}) { output = Sum(input_a, -1, true); }
     }
     DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
 
     std::vector<float> golden(outputCapacity);
     std::vector<float> res(outputCapacity);
-    machine::GetRA()->CopyFromTensor((uint8_t *)res.data(), (uint8_t *)out_ptr, outputSize);
+    machine::GetRA()->CopyFromTensor((uint8_t*)res.data(), (uint8_t*)out_ptr, outputSize);
 
     readInput(GetGoldenDir() + "/257_128/sum_res.bin", golden);
 
@@ -96,9 +96,10 @@ TEST_F(RowMaxSumSingleOnBoardTest, test_operation_row_sum_single) {
     EXPECT_EQ(ret, true);
 }
 
-TEST_F(RowMaxSumSingleOnBoardTest, test_operation_row_max_single_3dim) {
-    aclInit(nullptr);
-    rtSetDevice(GetDeviceIdByEnvVar());
+TEST_F(RowMaxSumSingleOnBoardTest, test_operation_row_max_single_3dim)
+{
+    AclInit(nullptr);
+    RuntimeSetDevice(GetDeviceIdByEnvVar());
 
     int shape0 = 8;
     int shape1 = 4;
@@ -110,24 +111,23 @@ TEST_F(RowMaxSumSingleOnBoardTest, test_operation_row_max_single_3dim) {
     uint64_t outputSize = outputCapacity * sizeof(float);
     uint8_t* out_ptr = allocDevAddr(outputSize);
 
-    PROGRAM("RowMaxSingle") {
+    PROGRAM("RowMaxSingle")
+    {
         TileShape::Current().SetVecTile({2, 1, 64});
 
-        void *x_ptr = readToDev(GetGoldenDir() + "/8_4_128/x.bin", inputCapacity);
-        Tensor input_a(DataType::DT_FP32, shape, (uint8_t *)x_ptr, "A");
+        void* x_ptr = readToDev(GetGoldenDir() + "/8_4_128/x.bin", inputCapacity);
+        Tensor input_a(DataType::DT_FP32, shape, (uint8_t*)x_ptr, "A");
         Tensor output(DataType::DT_FP32, outshape, out_ptr, "C");
 
         ConfigManager::Instance();
         config::SetBuildStatic(true);
-        FUNCTION("RowMaxSingle", {input_a, output}) {
-            output = Amax(input_a, -1, true);
-        }
+        FUNCTION("RowMaxSingle", {input_a, output}) { output = Amax(input_a, -1, true); }
     }
     DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
 
     std::vector<float> golden(outputCapacity);
     std::vector<float> res(outputCapacity);
-    machine::GetRA()->CopyFromTensor((uint8_t *)res.data(), (uint8_t *)out_ptr, outputSize);
+    machine::GetRA()->CopyFromTensor((uint8_t*)res.data(), (uint8_t*)out_ptr, outputSize);
 
     readInput(GetGoldenDir() + "/8_4_128/max_res.bin", golden);
 
@@ -135,9 +135,10 @@ TEST_F(RowMaxSumSingleOnBoardTest, test_operation_row_max_single_3dim) {
     EXPECT_EQ(ret, true);
 }
 
-TEST_F(RowMaxSumSingleOnBoardTest, test_operation_row_sum_single_3dim_mla_rmsNorm) {
-    aclInit(nullptr);
-    rtSetDevice(GetDeviceIdByEnvVar());
+TEST_F(RowMaxSumSingleOnBoardTest, test_operation_row_sum_single_3dim_mla_rmsNorm)
+{
+    AclInit(nullptr);
+    RuntimeSetDevice(GetDeviceIdByEnvVar());
 
     // rmsNorm:[B,S,qLoraRank]
     int shape0 = 16;
@@ -150,24 +151,23 @@ TEST_F(RowMaxSumSingleOnBoardTest, test_operation_row_sum_single_3dim_mla_rmsNor
     uint64_t outputSize = outputCapacity * sizeof(float);
     uint8_t* out_ptr = allocDevAddr(outputSize);
 
-    PROGRAM("RowSumSingle") {
+    PROGRAM("RowSumSingle")
+    {
         TileShape::Current().SetVecTile({8, 1, 128});
 
-        void *x_ptr = readToDev(GetGoldenDir() + "/16_1_1536/x.bin", inputCapacity);
-        Tensor input_a(DataType::DT_FP32, shape, (uint8_t *)x_ptr, "A");
+        void* x_ptr = readToDev(GetGoldenDir() + "/16_1_1536/x.bin", inputCapacity);
+        Tensor input_a(DataType::DT_FP32, shape, (uint8_t*)x_ptr, "A");
         Tensor output(DataType::DT_FP32, outshape, out_ptr, "C");
 
         ConfigManager::Instance();
         config::SetBuildStatic(true);
-        FUNCTION("RowSumSingle", {input_a, output}) {
-            output = Sum(input_a, -1, true);
-        }
+        FUNCTION("RowSumSingle", {input_a, output}) { output = Sum(input_a, -1, true); }
     }
     DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
 
     std::vector<float> golden(outputCapacity);
     std::vector<float> res(outputCapacity);
-    machine::GetRA()->CopyFromTensor((uint8_t *)res.data(), (uint8_t *)out_ptr, outputSize);
+    machine::GetRA()->CopyFromTensor((uint8_t*)res.data(), (uint8_t*)out_ptr, outputSize);
 
     readInput(GetGoldenDir() + "/16_1_1536/sum_res.bin", golden);
 
@@ -175,9 +175,10 @@ TEST_F(RowMaxSumSingleOnBoardTest, test_operation_row_sum_single_3dim_mla_rmsNor
     EXPECT_EQ(ret, true);
 }
 
-TEST_F(RowMaxSumSingleOnBoardTest, test_operation_row_max_single_4dim_softmax) {
-    aclInit(nullptr);
-    rtSetDevice(GetDeviceIdByEnvVar());
+TEST_F(RowMaxSumSingleOnBoardTest, test_operation_row_max_single_4dim_softmax)
+{
+    AclInit(nullptr);
+    RuntimeSetDevice(GetDeviceIdByEnvVar());
 
     // softmax rowmax: [B,N,1,S2]
     int shape0 = 2;
@@ -191,24 +192,23 @@ TEST_F(RowMaxSumSingleOnBoardTest, test_operation_row_max_single_4dim_softmax) {
     uint64_t outputSize = outputCapacity * sizeof(float);
     uint8_t* out_ptr = allocDevAddr(outputSize);
 
-    PROGRAM("RowMaxSingle") {
+    PROGRAM("RowMaxSingle")
+    {
         TileShape::Current().SetVecTile({1, 64, 1, 64});
 
-        void *x_ptr = readToDev(GetGoldenDir() + "/2_128_1_256/x.bin", inputCapacity);
-        Tensor input_a(DataType::DT_FP32, shape, (uint8_t *)x_ptr, "A");
+        void* x_ptr = readToDev(GetGoldenDir() + "/2_128_1_256/x.bin", inputCapacity);
+        Tensor input_a(DataType::DT_FP32, shape, (uint8_t*)x_ptr, "A");
         Tensor output(DataType::DT_FP32, outshape, out_ptr, "C");
 
         ConfigManager::Instance();
         config::SetBuildStatic(true);
-        FUNCTION("RowMaxSingle", {input_a, output}) {
-            output = Amax(input_a, -1, true);
-        }
+        FUNCTION("RowMaxSingle", {input_a, output}) { output = Amax(input_a, -1, true); }
     }
     DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
 
     std::vector<float> golden(outputCapacity);
     std::vector<float> res(outputCapacity);
-    machine::GetRA()->CopyFromTensor((uint8_t *)res.data(), (uint8_t *)out_ptr, outputSize);
+    machine::GetRA()->CopyFromTensor((uint8_t*)res.data(), (uint8_t*)out_ptr, outputSize);
 
     readInput(GetGoldenDir() + "/2_128_1_256/max_res.bin", golden);
 
@@ -216,9 +216,10 @@ TEST_F(RowMaxSumSingleOnBoardTest, test_operation_row_max_single_4dim_softmax) {
     EXPECT_EQ(ret, true);
 }
 
-TEST_F(RowMaxSumSingleOnBoardTest, test_operation_row_max_single_4dim_softmax_unalign) {
-    aclInit(nullptr);
-    rtSetDevice(GetDeviceIdByEnvVar());
+TEST_F(RowMaxSumSingleOnBoardTest, test_operation_row_max_single_4dim_softmax_unalign)
+{
+    AclInit(nullptr);
+    RuntimeSetDevice(GetDeviceIdByEnvVar());
 
     // softmax rowmax: [B,N,1,S2]
     int shape0 = 1;
@@ -232,24 +233,23 @@ TEST_F(RowMaxSumSingleOnBoardTest, test_operation_row_max_single_4dim_softmax_un
     uint64_t outputSize = outputCapacity * sizeof(float);
     uint8_t* out_ptr = allocDevAddr(outputSize);
 
-    PROGRAM("RowMaxSingle") {
+    PROGRAM("RowMaxSingle")
+    {
         TileShape::Current().SetVecTile({1, 64, 1, 64});
 
-        void *x_ptr = readToDev(GetGoldenDir() + "/1_128_1_248/x.bin", inputCapacity);
-        Tensor input_a(DataType::DT_FP32, shape, (uint8_t *)x_ptr, "A");
+        void* x_ptr = readToDev(GetGoldenDir() + "/1_128_1_248/x.bin", inputCapacity);
+        Tensor input_a(DataType::DT_FP32, shape, (uint8_t*)x_ptr, "A");
         Tensor output(DataType::DT_FP32, outshape, out_ptr, "C");
 
         ConfigManager::Instance();
         config::SetBuildStatic(true);
-        FUNCTION("RowMaxSingle", {input_a, output}) {
-            output = Amax(input_a, -1, true);
-        }
+        FUNCTION("RowMaxSingle", {input_a, output}) { output = Amax(input_a, -1, true); }
     }
     DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
 
     std::vector<float> golden(outputCapacity);
     std::vector<float> res(outputCapacity);
-    machine::GetRA()->CopyFromTensor((uint8_t *)res.data(), (uint8_t *)out_ptr, outputSize);
+    machine::GetRA()->CopyFromTensor((uint8_t*)res.data(), (uint8_t*)out_ptr, outputSize);
 
     readInput(GetGoldenDir() + "/1_128_1_248/max_res.bin", golden);
 
@@ -257,9 +257,10 @@ TEST_F(RowMaxSumSingleOnBoardTest, test_operation_row_max_single_4dim_softmax_un
     EXPECT_EQ(ret, true);
 }
 
-TEST_F(RowMaxSumSingleOnBoardTest, test_operation_row_sum_single_4dim_softmax) {
-    aclInit(nullptr);
-    rtSetDevice(GetDeviceIdByEnvVar());
+TEST_F(RowMaxSumSingleOnBoardTest, test_operation_row_sum_single_4dim_softmax)
+{
+    AclInit(nullptr);
+    RuntimeSetDevice(GetDeviceIdByEnvVar());
 
     // softmax rowsum: [B,N,1,S2]
     int shape0 = 32;
@@ -273,35 +274,34 @@ TEST_F(RowMaxSumSingleOnBoardTest, test_operation_row_sum_single_4dim_softmax) {
     uint64_t outputSize = outputCapacity * sizeof(float);
     uint8_t* out_ptr = allocDevAddr(outputSize);
 
-    PROGRAM("RowSumSingle") {
+    PROGRAM("RowSumSingle")
+    {
         TileShape::Current().SetVecTile({1, 64, 1, 128});
 
-        void *x_ptr = readToDev(GetGoldenDir() + "/32_128_1_256/x.bin", inputCapacity);
-        Tensor input_a(DataType::DT_FP32, shape, (uint8_t *)x_ptr, "A");
+        void* x_ptr = readToDev(GetGoldenDir() + "/32_128_1_256/x.bin", inputCapacity);
+        Tensor input_a(DataType::DT_FP32, shape, (uint8_t*)x_ptr, "A");
         Tensor output(DataType::DT_FP32, outshape, out_ptr, "C");
 
         ConfigManager::Instance();
         config::SetBuildStatic(true);
-        FUNCTION("RowSumSingle", {input_a, output}) {
-            output = Sum(input_a, -1, true);
-        }
+        FUNCTION("RowSumSingle", {input_a, output}) { output = Sum(input_a, -1, true); }
     }
     DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
 
     std::vector<float> golden(outputCapacity);
     std::vector<float> res(outputCapacity);
-    machine::GetRA()->CopyFromTensor((uint8_t *)res.data(), (uint8_t *)out_ptr, outputSize);
+    machine::GetRA()->CopyFromTensor((uint8_t*)res.data(), (uint8_t*)out_ptr, outputSize);
 
     readInput(GetGoldenDir() + "/32_128_1_256/sum_res.bin", golden);
-
 
     int ret = resultCmp(golden, res, 0.001f);
     EXPECT_EQ(ret, true);
 }
 
-TEST_F(RowMaxSumSingleOnBoardTest, test_operation_row_sum_single_3dim_moe) {
-    aclInit(nullptr);
-    rtSetDevice(GetDeviceIdByEnvVar());
+TEST_F(RowMaxSumSingleOnBoardTest, test_operation_row_sum_single_3dim_moe)
+{
+    AclInit(nullptr);
+    RuntimeSetDevice(GetDeviceIdByEnvVar());
 
     int shape0 = 6;
     int shape1 = 1;
@@ -313,23 +313,22 @@ TEST_F(RowMaxSumSingleOnBoardTest, test_operation_row_sum_single_3dim_moe) {
     int outputCapacity = std::accumulate(outshape.begin(), outshape.end(), 1, std::multiplies<>());
     uint64_t outputSize = outputCapacity * sizeof(float);
     uint8_t* out_ptr = allocDevAddr(outputSize);
-    PROGRAM("Reduce") {
+    PROGRAM("Reduce")
+    {
         TileShape::Current().SetVecTile({2, 8, 512});
 
-        void *x_ptr = readToDev(GetGoldenDir() + "/6_1_8_1024/x.bin", inputCapacity);
-        Tensor input_a(DataType::DT_FP32, shape, (uint8_t *)x_ptr, "A");
+        void* x_ptr = readToDev(GetGoldenDir() + "/6_1_8_1024/x.bin", inputCapacity);
+        Tensor input_a(DataType::DT_FP32, shape, (uint8_t*)x_ptr, "A");
         Tensor output(DataType::DT_FP32, outshape, out_ptr, "C");
 
         config::SetBuildStatic(true);
-        FUNCTION("Reduce3dimMoe", {input_a, output}) {
-            output = Sum(input_a, 1, true);
-        }
+        FUNCTION("Reduce3dimMoe", {input_a, output}) { output = Sum(input_a, 1, true); }
     }
     DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
 
     std::vector<float> golden(outputCapacity);
     std::vector<float> res(outputCapacity);
-    machine::GetRA()->CopyFromTensor((uint8_t *)res.data(), (uint8_t *)out_ptr, outputSize);
+    machine::GetRA()->CopyFromTensor((uint8_t*)res.data(), (uint8_t*)out_ptr, outputSize);
 
     readInput(GetGoldenDir() + "/6_1_8_1024/sum_res.bin", golden);
 
@@ -337,9 +336,10 @@ TEST_F(RowMaxSumSingleOnBoardTest, test_operation_row_sum_single_3dim_moe) {
     EXPECT_EQ(ret, true);
 }
 
-TEST_F(RowMaxSumSingleOnBoardTest, test_operation_row_sum_single_3dim_big_moe) {
-    aclInit(nullptr);
-    rtSetDevice(GetDeviceIdByEnvVar());
+TEST_F(RowMaxSumSingleOnBoardTest, test_operation_row_sum_single_3dim_big_moe)
+{
+    AclInit(nullptr);
+    RuntimeSetDevice(GetDeviceIdByEnvVar());
 
     int B = 8;
     int S = 1;
@@ -351,24 +351,23 @@ TEST_F(RowMaxSumSingleOnBoardTest, test_operation_row_sum_single_3dim_big_moe) {
     int outputCapacity = std::accumulate(outshape.begin(), outshape.end(), 1, std::multiplies<>());
     uint64_t outputSize = outputCapacity * sizeof(float);
     uint8_t* out_ptr = allocDevAddr(outputSize);
-    PROGRAM("Reduce") {
+    PROGRAM("Reduce")
+    {
         TileShape::Current().SetVecTile({1, 8, 512});
 
-        void *x_ptr = readToDev(GetGoldenDir() + "/8_1_8_7168/x.bin", inputCapacity);
+        void* x_ptr = readToDev(GetGoldenDir() + "/8_1_8_7168/x.bin", inputCapacity);
         // void *x_ptr = readToDev(GetGoldenDir() + "/6_1_8_1024/x.bin", inputCapacity);
-        Tensor input_a(DataType::DT_FP32, shape, (uint8_t *)x_ptr, "A");
+        Tensor input_a(DataType::DT_FP32, shape, (uint8_t*)x_ptr, "A");
         Tensor output(DataType::DT_FP32, outshape, out_ptr, "C");
 
         config::SetBuildStatic(true);
-        FUNCTION("Reduce3dimMoeBig", {input_a, output}) {
-            output = Sum(input_a, 1, true);
-        }
+        FUNCTION("Reduce3dimMoeBig", {input_a, output}) { output = Sum(input_a, 1, true); }
     }
     DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
 
     std::vector<float> golden(outputCapacity);
     std::vector<float> res(outputCapacity);
-    machine::GetRA()->CopyFromTensor((uint8_t *)res.data(), (uint8_t *)out_ptr, outputSize);
+    machine::GetRA()->CopyFromTensor((uint8_t*)res.data(), (uint8_t*)out_ptr, outputSize);
 
     readInput(GetGoldenDir() + "/8_1_8_7168/sum_res.bin", golden);
 
@@ -376,9 +375,10 @@ TEST_F(RowMaxSumSingleOnBoardTest, test_operation_row_sum_single_3dim_big_moe) {
     EXPECT_EQ(ret, true);
 }
 
-TEST_F(RowMaxSumSingleOnBoardTest, test_operation_row_sum_single_2dim_moe) {
-    aclInit(nullptr);
-    rtSetDevice(GetDeviceIdByEnvVar());
+TEST_F(RowMaxSumSingleOnBoardTest, test_operation_row_sum_single_2dim_moe)
+{
+    AclInit(nullptr);
+    RuntimeSetDevice(GetDeviceIdByEnvVar());
 
     int B = 8;
     int S = 1;
@@ -389,23 +389,22 @@ TEST_F(RowMaxSumSingleOnBoardTest, test_operation_row_sum_single_2dim_moe) {
     int outputCapacity = std::accumulate(outshape.begin(), outshape.end(), 1, std::multiplies<>());
     uint64_t outputSize = outputCapacity * sizeof(float);
     uint8_t* out_ptr = allocDevAddr(outputSize);
-    PROGRAM("Reduce") {
+    PROGRAM("Reduce")
+    {
         TileShape::Current().SetVecTile({8, 256});
 
-        void *x_ptr = readToDev(GetGoldenDir() + "/8_1_1_256/x.bin", inputCapacity);
-        Tensor input_a(DataType::DT_FP32, shape, (uint8_t *)x_ptr, "A");
+        void* x_ptr = readToDev(GetGoldenDir() + "/8_1_1_256/x.bin", inputCapacity);
+        Tensor input_a(DataType::DT_FP32, shape, (uint8_t*)x_ptr, "A");
         Tensor output(DataType::DT_FP32, outshape, out_ptr, "C");
 
         config::SetBuildStatic(true);
-        FUNCTION("Reduce2dimMoeBig", {input_a, output}) {
-            output = Sum(input_a, 0, true);
-        }
+        FUNCTION("Reduce2dimMoeBig", {input_a, output}) { output = Sum(input_a, 0, true); }
     }
     DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
 
     std::vector<float> golden(outputCapacity);
     std::vector<float> res(outputCapacity);
-    machine::GetRA()->CopyFromTensor((uint8_t *)res.data(), (uint8_t *)out_ptr, outputSize);
+    machine::GetRA()->CopyFromTensor((uint8_t*)res.data(), (uint8_t*)out_ptr, outputSize);
 
     readInput(GetGoldenDir() + "/8_1_1_256/sum_res.bin", golden);
 
@@ -413,9 +412,10 @@ TEST_F(RowMaxSumSingleOnBoardTest, test_operation_row_sum_single_2dim_moe) {
     EXPECT_EQ(ret, true);
 }
 
-TEST_F(RowMaxSumSingleOnBoardTest, test_row_sum_single_4dim_axis0_unalign) {
-    aclInit(nullptr);
-    rtSetDevice(GetDeviceIdByEnvVar());
+TEST_F(RowMaxSumSingleOnBoardTest, test_row_sum_single_4dim_axis0_unalign)
+{
+    AclInit(nullptr);
+    RuntimeSetDevice(GetDeviceIdByEnvVar());
 
     int shape0 = 6;
     int shape1 = 2;
@@ -426,24 +426,23 @@ TEST_F(RowMaxSumSingleOnBoardTest, test_row_sum_single_4dim_axis0_unalign) {
     int inputCapacity = std::accumulate(shape.begin(), shape.end(), 1, std::multiplies<>());
     int outputCapacity = std::accumulate(outShape.begin(), outShape.end(), 1, std::multiplies<>());
     uint64_t outputSize = outputCapacity * sizeof(float);
-    uint8_t *out_ptr = allocDevAddr(outputSize);
-    PROGRAM("Reduce") {
+    uint8_t* out_ptr = allocDevAddr(outputSize);
+    PROGRAM("Reduce")
+    {
         TileShape::Current().SetVecTile({8, 2, 8, 256});
 
-        void *x_ptr = readToDev(GetGoldenDir() + "/6_2_8_255/x.bin", inputCapacity);
-        Tensor input_a(DataType::DT_FP32, shape, (uint8_t *)x_ptr, "A");
+        void* x_ptr = readToDev(GetGoldenDir() + "/6_2_8_255/x.bin", inputCapacity);
+        Tensor input_a(DataType::DT_FP32, shape, (uint8_t*)x_ptr, "A");
         Tensor output(DataType::DT_FP32, outShape, out_ptr, "C");
 
         config::SetBuildStatic(true);
-        FUNCTION("Reduce4dimMoe", {input_a, output}) {
-            output = Sum(input_a, 0, true);
-        }
+        FUNCTION("Reduce4dimMoe", {input_a, output}) { output = Sum(input_a, 0, true); }
     }
     DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
 
     std::vector<float> golden(outputCapacity);
     std::vector<float> res(outputCapacity);
-    machine::GetRA()->CopyFromTensor((uint8_t *)res.data(), (uint8_t *)out_ptr, outputSize);
+    machine::GetRA()->CopyFromTensor((uint8_t*)res.data(), (uint8_t*)out_ptr, outputSize);
 
     readInput(GetGoldenDir() + "/6_2_8_255/sum_res.bin", golden);
 
@@ -451,9 +450,10 @@ TEST_F(RowMaxSumSingleOnBoardTest, test_row_sum_single_4dim_axis0_unalign) {
     EXPECT_EQ(ret, true);
 }
 
-TEST_F(RowMaxSumSingleOnBoardTest, test_row_sum_single_4dim_axis1_unalign) {
-    aclInit(nullptr);
-    rtSetDevice(GetDeviceIdByEnvVar());
+TEST_F(RowMaxSumSingleOnBoardTest, test_row_sum_single_4dim_axis1_unalign)
+{
+    AclInit(nullptr);
+    RuntimeSetDevice(GetDeviceIdByEnvVar());
 
     int shape0 = 4;
     int shape1 = 2;
@@ -464,33 +464,33 @@ TEST_F(RowMaxSumSingleOnBoardTest, test_row_sum_single_4dim_axis1_unalign) {
     int inputCapacity = std::accumulate(shape.begin(), shape.end(), 1, std::multiplies<>());
     int outputCapacity = std::accumulate(outShape.begin(), outShape.end(), 1, std::multiplies<>());
     uint64_t outputSize = outputCapacity * sizeof(float);
-    uint8_t *out_ptr = allocDevAddr(outputSize);
-    PROGRAM("Reduce") {
+    uint8_t* out_ptr = allocDevAddr(outputSize);
+    PROGRAM("Reduce")
+    {
         TileShape::Current().SetVecTile({2, 8, 8, 256});
 
-        void *x_ptr = readToDev(GetGoldenDir() + "/4_2_8_255/x.bin", inputCapacity);
-        Tensor input_a(DataType::DT_FP32, shape, (uint8_t *)x_ptr, "A");
+        void* x_ptr = readToDev(GetGoldenDir() + "/4_2_8_255/x.bin", inputCapacity);
+        Tensor input_a(DataType::DT_FP32, shape, (uint8_t*)x_ptr, "A");
         Tensor output(DataType::DT_FP32, outShape, out_ptr, "C");
 
         config::SetBuildStatic(true);
-        FUNCTION("Reduce4dimMoe", {input_a, output}) {
-            output = Sum(input_a, 1, true);
-        }
+        FUNCTION("Reduce4dimMoe", {input_a, output}) { output = Sum(input_a, 1, true); }
     }
     DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
 
     std::vector<float> golden(outputCapacity);
     std::vector<float> res(outputCapacity);
-    machine::GetRA()->CopyFromTensor((uint8_t *)res.data(), (uint8_t *)out_ptr, outputSize);
+    machine::GetRA()->CopyFromTensor((uint8_t*)res.data(), (uint8_t*)out_ptr, outputSize);
     readInput(GetGoldenDir() + "/4_2_8_255/sum_res.bin", golden);
 
     int ret = resultCmp(golden, res, 0.001f);
     EXPECT_EQ(ret, true);
 }
 
-TEST_F(RowMaxSumSingleOnBoardTest, test_row_sum_single_4dim_axis2_unalign) {
-    aclInit(nullptr);
-    rtSetDevice(GetDeviceIdByEnvVar());
+TEST_F(RowMaxSumSingleOnBoardTest, test_row_sum_single_4dim_axis2_unalign)
+{
+    AclInit(nullptr);
+    RuntimeSetDevice(GetDeviceIdByEnvVar());
 
     int shape0 = 3;
     int shape1 = 2;
@@ -501,33 +501,33 @@ TEST_F(RowMaxSumSingleOnBoardTest, test_row_sum_single_4dim_axis2_unalign) {
     int inputCapacity = std::accumulate(shape.begin(), shape.end(), 1, std::multiplies<>());
     int outputCapacity = std::accumulate(outShape.begin(), outShape.end(), 1, std::multiplies<>());
     uint64_t outputSize = outputCapacity * sizeof(float);
-    uint8_t *out_ptr = allocDevAddr(outputSize);
-    PROGRAM("Reduce") {
+    uint8_t* out_ptr = allocDevAddr(outputSize);
+    PROGRAM("Reduce")
+    {
         TileShape::Current().SetVecTile({2, 8, 8, 256});
 
-        void *x_ptr = readToDev(GetGoldenDir() + "/3_2_8_255/x.bin", inputCapacity);
-        Tensor input_a(DataType::DT_FP32, shape, (uint8_t *)x_ptr, "A");
+        void* x_ptr = readToDev(GetGoldenDir() + "/3_2_8_255/x.bin", inputCapacity);
+        Tensor input_a(DataType::DT_FP32, shape, (uint8_t*)x_ptr, "A");
         Tensor output(DataType::DT_FP32, outShape, out_ptr, "C");
 
         config::SetBuildStatic(true);
-        FUNCTION("Reduce4dimMoe", {input_a, output}) {
-            output = Sum(input_a, 2, true);
-        }
+        FUNCTION("Reduce4dimMoe", {input_a, output}) { output = Sum(input_a, 2, true); }
     }
     DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
 
     std::vector<float> golden(outputCapacity);
     std::vector<float> res(outputCapacity);
-    machine::GetRA()->CopyFromTensor((uint8_t *)res.data(), (uint8_t *)out_ptr, outputSize);
+    machine::GetRA()->CopyFromTensor((uint8_t*)res.data(), (uint8_t*)out_ptr, outputSize);
 
     readInput(GetGoldenDir() + "/3_2_8_255/sum_res.bin", golden);
     int ret = resultCmp(golden, res, 0.001f);
     EXPECT_EQ(ret, true);
 }
 
-TEST_F(RowMaxSumSingleOnBoardTest, test_row_sum_single_unalign) {
-    aclInit(nullptr);
-    rtSetDevice(GetDeviceIdByEnvVar());
+TEST_F(RowMaxSumSingleOnBoardTest, test_row_sum_single_unalign)
+{
+    AclInit(nullptr);
+    RuntimeSetDevice(GetDeviceIdByEnvVar());
 
     int shape0 = 4;
     int shape1 = 530;
@@ -536,26 +536,25 @@ TEST_F(RowMaxSumSingleOnBoardTest, test_row_sum_single_unalign) {
     int inputCapacity = shape0 * shape1;
     int outputCapacity = shape0 * 1;
     uint64_t outputSize = outputCapacity * sizeof(float);
-    uint8_t *out_ptr = allocDevAddr(outputSize);
+    uint8_t* out_ptr = allocDevAddr(outputSize);
 
-    PROGRAM("RowSumSingle") {
+    PROGRAM("RowSumSingle")
+    {
         TileShape::Current().SetVecTile({4, 1024});
 
-        void *x_ptr = readToDev(GetGoldenDir() + "/4_530/x.bin", inputCapacity);
-        Tensor input_a(DataType::DT_FP32, shape, (uint8_t *)x_ptr, "A");
+        void* x_ptr = readToDev(GetGoldenDir() + "/4_530/x.bin", inputCapacity);
+        Tensor input_a(DataType::DT_FP32, shape, (uint8_t*)x_ptr, "A");
         Tensor output(DataType::DT_FP32, outshape, out_ptr, "C");
 
         ConfigManager::Instance();
         config::SetBuildStatic(true);
-        FUNCTION("RowSumSingle", {input_a, output}) {
-            output = Sum(input_a, -1, true);
-        }
+        FUNCTION("RowSumSingle", {input_a, output}) { output = Sum(input_a, -1, true); }
     }
     DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
 
     std::vector<float> golden(outputCapacity);
     std::vector<float> res(outputCapacity);
-    machine::GetRA()->CopyFromTensor((uint8_t *)res.data(), (uint8_t *)out_ptr, outputSize);
+    machine::GetRA()->CopyFromTensor((uint8_t*)res.data(), (uint8_t*)out_ptr, outputSize);
 
     readInput(GetGoldenDir() + "/4_530/sum_res.bin", golden);
 
@@ -563,9 +562,10 @@ TEST_F(RowMaxSumSingleOnBoardTest, test_row_sum_single_unalign) {
     EXPECT_EQ(ret, true);
 }
 
-TEST_F(RowMaxSumSingleOnBoardTest, test_row_sum_single_unalign_4_93) {
-    aclInit(nullptr);
-    rtSetDevice(GetDeviceIdByEnvVar());
+TEST_F(RowMaxSumSingleOnBoardTest, test_row_sum_single_unalign_4_93)
+{
+    AclInit(nullptr);
+    RuntimeSetDevice(GetDeviceIdByEnvVar());
 
     int shape0 = 4;
     int shape1 = 93;
@@ -574,26 +574,25 @@ TEST_F(RowMaxSumSingleOnBoardTest, test_row_sum_single_unalign_4_93) {
     int inputCapacity = shape0 * shape1;
     int outputCapacity = shape0 * 1;
     uint64_t outputSize = outputCapacity * sizeof(float);
-    uint8_t *out_ptr = allocDevAddr(outputSize);
+    uint8_t* out_ptr = allocDevAddr(outputSize);
 
-    PROGRAM("RowSumSingle") {
+    PROGRAM("RowSumSingle")
+    {
         TileShape::Current().SetVecTile({4, 1024});
 
-        void *x_ptr = readToDev(GetGoldenDir() + "/4_93/x.bin", inputCapacity);
-        Tensor input_a(DataType::DT_FP32, shape, (uint8_t *)x_ptr, "A");
+        void* x_ptr = readToDev(GetGoldenDir() + "/4_93/x.bin", inputCapacity);
+        Tensor input_a(DataType::DT_FP32, shape, (uint8_t*)x_ptr, "A");
         Tensor output(DataType::DT_FP32, outshape, out_ptr, "C");
 
         ConfigManager::Instance();
         config::SetBuildStatic(true);
-        FUNCTION("RowSumSingle", {input_a, output}) {
-            output = Sum(input_a, -1, true);
-        }
+        FUNCTION("RowSumSingle", {input_a, output}) { output = Sum(input_a, -1, true); }
     }
     DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
 
     std::vector<float> golden(outputCapacity);
     std::vector<float> res(outputCapacity);
-    machine::GetRA()->CopyFromTensor((uint8_t *)res.data(), (uint8_t *)out_ptr, outputSize);
+    machine::GetRA()->CopyFromTensor((uint8_t*)res.data(), (uint8_t*)out_ptr, outputSize);
 
     readInput(GetGoldenDir() + "/4_93/sum_res.bin", golden);
 
@@ -601,9 +600,10 @@ TEST_F(RowMaxSumSingleOnBoardTest, test_row_sum_single_unalign_4_93) {
     EXPECT_EQ(ret, true);
 }
 
-TEST_F(RowMaxSumSingleOnBoardTest, test_row_sum_single_unalign_4d) {
-    aclInit(nullptr);
-    rtSetDevice(GetDeviceIdByEnvVar());
+TEST_F(RowMaxSumSingleOnBoardTest, test_row_sum_single_unalign_4d)
+{
+    AclInit(nullptr);
+    RuntimeSetDevice(GetDeviceIdByEnvVar());
 
     int shape0 = 3;
     int shape1 = 3;
@@ -614,26 +614,25 @@ TEST_F(RowMaxSumSingleOnBoardTest, test_row_sum_single_unalign_4d) {
     int inputCapacity = shape0 * shape1 * shape2 * shape3;
     int outputCapacity = shape0 * shape1 * shape2 * 1;
     uint64_t outputSize = outputCapacity * sizeof(float);
-    uint8_t *out_ptr = allocDevAddr(outputSize);
+    uint8_t* out_ptr = allocDevAddr(outputSize);
 
-    PROGRAM("RowSumSingle") {
+    PROGRAM("RowSumSingle")
+    {
         TileShape::Current().SetVecTile({4, 4, 4, 1024});
 
-        void *x_ptr = readToDev(GetGoldenDir() + "/3_3_4_530/x.bin", inputCapacity);
-        Tensor input_a(DataType::DT_FP32, shape, (uint8_t *)x_ptr, "A");
+        void* x_ptr = readToDev(GetGoldenDir() + "/3_3_4_530/x.bin", inputCapacity);
+        Tensor input_a(DataType::DT_FP32, shape, (uint8_t*)x_ptr, "A");
         Tensor output(DataType::DT_FP32, outshape, out_ptr, "C");
 
         ConfigManager::Instance();
         config::SetBuildStatic(true);
-        FUNCTION("RowSumSingle", {input_a, output}) {
-            output = Sum(input_a, -1, true);
-        }
+        FUNCTION("RowSumSingle", {input_a, output}) { output = Sum(input_a, -1, true); }
     }
     DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
 
     std::vector<float> golden(outputCapacity);
     std::vector<float> res(outputCapacity);
-    machine::GetRA()->CopyFromTensor((uint8_t *)res.data(), (uint8_t *)out_ptr, outputSize);
+    machine::GetRA()->CopyFromTensor((uint8_t*)res.data(), (uint8_t*)out_ptr, outputSize);
 
     readInput(GetGoldenDir() + "/3_3_4_530/sum_res.bin", golden);
 
@@ -641,9 +640,10 @@ TEST_F(RowMaxSumSingleOnBoardTest, test_row_sum_single_unalign_4d) {
     EXPECT_EQ(ret, true);
 }
 
-TEST_F(RowMaxSumSingleOnBoardTest, test_row_max_single_unalign) {
-    aclInit(nullptr);
-    rtSetDevice(GetDeviceIdByEnvVar());
+TEST_F(RowMaxSumSingleOnBoardTest, test_row_max_single_unalign)
+{
+    AclInit(nullptr);
+    RuntimeSetDevice(GetDeviceIdByEnvVar());
 
     int shape0 = 4;
     int shape1 = 93;
@@ -652,26 +652,25 @@ TEST_F(RowMaxSumSingleOnBoardTest, test_row_max_single_unalign) {
     int inputCapacity = shape0 * shape1;
     int outputCapacity = shape0 * 1;
     uint64_t outputSize = outputCapacity * sizeof(float);
-    uint8_t *out_ptr = allocDevAddr(outputSize);
+    uint8_t* out_ptr = allocDevAddr(outputSize);
 
-    PROGRAM("RowMaxSingle") {
+    PROGRAM("RowMaxSingle")
+    {
         TileShape::Current().SetVecTile({4, 1024});
 
-        void *x_ptr = readToDev(GetGoldenDir() + "/4_93/x.bin", inputCapacity);
-        Tensor input_a(DataType::DT_FP32, shape, (uint8_t *)x_ptr, "A");
+        void* x_ptr = readToDev(GetGoldenDir() + "/4_93/x.bin", inputCapacity);
+        Tensor input_a(DataType::DT_FP32, shape, (uint8_t*)x_ptr, "A");
         Tensor output(DataType::DT_FP32, outshape, out_ptr, "C");
 
         ConfigManager::Instance();
         config::SetBuildStatic(true);
-        FUNCTION("RowMaxSingle", {input_a, output}) {
-            output = Amax(input_a, -1, true);
-        }
+        FUNCTION("RowMaxSingle", {input_a, output}) { output = Amax(input_a, -1, true); }
     }
     DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
 
     std::vector<float> golden(outputCapacity);
     std::vector<float> res(outputCapacity);
-    machine::GetRA()->CopyFromTensor((uint8_t *)res.data(), (uint8_t *)out_ptr, outputSize);
+    machine::GetRA()->CopyFromTensor((uint8_t*)res.data(), (uint8_t*)out_ptr, outputSize);
 
     readInput(GetGoldenDir() + "/4_93/max_res.bin", golden);
 
@@ -679,9 +678,10 @@ TEST_F(RowMaxSumSingleOnBoardTest, test_row_max_single_unalign) {
     EXPECT_EQ(ret, true);
 }
 
-TEST_F(RowMaxSumSingleOnBoardTest, test_row_max_single_unalign_4_93) {
-    aclInit(nullptr);
-    rtSetDevice(GetDeviceIdByEnvVar());
+TEST_F(RowMaxSumSingleOnBoardTest, test_row_max_single_unalign_4_93)
+{
+    AclInit(nullptr);
+    RuntimeSetDevice(GetDeviceIdByEnvVar());
 
     int shape0 = 4;
     int shape1 = 93;
@@ -690,26 +690,25 @@ TEST_F(RowMaxSumSingleOnBoardTest, test_row_max_single_unalign_4_93) {
     int inputCapacity = shape0 * shape1;
     int outputCapacity = shape0 * 1;
     uint64_t outputSize = outputCapacity * sizeof(float);
-    uint8_t *out_ptr = allocDevAddr(outputSize);
+    uint8_t* out_ptr = allocDevAddr(outputSize);
 
-    PROGRAM("RowMaxSingle") {
+    PROGRAM("RowMaxSingle")
+    {
         TileShape::Current().SetVecTile({4, 1024});
 
-        void *x_ptr = readToDev(GetGoldenDir() + "/4_93/x.bin", inputCapacity);
-        Tensor input_a(DataType::DT_FP32, shape, (uint8_t *)x_ptr, "A");
+        void* x_ptr = readToDev(GetGoldenDir() + "/4_93/x.bin", inputCapacity);
+        Tensor input_a(DataType::DT_FP32, shape, (uint8_t*)x_ptr, "A");
         Tensor output(DataType::DT_FP32, outshape, out_ptr, "C");
 
         ConfigManager::Instance();
         config::SetBuildStatic(true);
-        FUNCTION("RowMaxSingle", {input_a, output}) {
-            output = Amax(input_a, -1, true);
-        }
+        FUNCTION("RowMaxSingle", {input_a, output}) { output = Amax(input_a, -1, true); }
     }
     DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
 
     std::vector<float> golden(outputCapacity);
     std::vector<float> res(outputCapacity);
-    machine::GetRA()->CopyFromTensor((uint8_t *)res.data(), (uint8_t *)out_ptr, outputSize);
+    machine::GetRA()->CopyFromTensor((uint8_t*)res.data(), (uint8_t*)out_ptr, outputSize);
 
     readInput(GetGoldenDir() + "/4_93/max_res.bin", golden);
 
@@ -717,9 +716,10 @@ TEST_F(RowMaxSumSingleOnBoardTest, test_row_max_single_unalign_4_93) {
     EXPECT_EQ(ret, true);
 }
 
-TEST_F(RowMaxSumSingleOnBoardTest, test_row_max_single_unalign_4d) {
-    aclInit(nullptr);
-    rtSetDevice(GetDeviceIdByEnvVar());
+TEST_F(RowMaxSumSingleOnBoardTest, test_row_max_single_unalign_4d)
+{
+    AclInit(nullptr);
+    RuntimeSetDevice(GetDeviceIdByEnvVar());
 
     int shape0 = 3;
     int shape1 = 3;
@@ -730,26 +730,25 @@ TEST_F(RowMaxSumSingleOnBoardTest, test_row_max_single_unalign_4d) {
     int inputCapacity = shape0 * shape1 * shape2 * shape3;
     int outputCapacity = shape0 * shape1 * shape2 * 1;
     uint64_t outputSize = outputCapacity * sizeof(float);
-    uint8_t *out_ptr = allocDevAddr(outputSize);
+    uint8_t* out_ptr = allocDevAddr(outputSize);
 
-    PROGRAM("RowMaxSingle") {
+    PROGRAM("RowMaxSingle")
+    {
         TileShape::Current().SetVecTile({4, 4, 4, 1024});
 
-        void *x_ptr = readToDev(GetGoldenDir() + "/3_3_4_530/x.bin", inputCapacity);
-        Tensor input_a(DataType::DT_FP32, shape, (uint8_t *)x_ptr, "A");
+        void* x_ptr = readToDev(GetGoldenDir() + "/3_3_4_530/x.bin", inputCapacity);
+        Tensor input_a(DataType::DT_FP32, shape, (uint8_t*)x_ptr, "A");
         Tensor output(DataType::DT_FP32, outshape, out_ptr, "C");
 
         ConfigManager::Instance();
         config::SetBuildStatic(true);
-        FUNCTION("RowMaxSingle", {input_a, output}) {
-            output = Amax(input_a, -1, true);
-        }
+        FUNCTION("RowMaxSingle", {input_a, output}) { output = Amax(input_a, -1, true); }
     }
     DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
 
     std::vector<float> golden(outputCapacity);
     std::vector<float> res(outputCapacity);
-    machine::GetRA()->CopyFromTensor((uint8_t *)res.data(), (uint8_t *)out_ptr, outputSize);
+    machine::GetRA()->CopyFromTensor((uint8_t*)res.data(), (uint8_t*)out_ptr, outputSize);
 
     readInput(GetGoldenDir() + "/3_3_4_530/max_res.bin", golden);
 

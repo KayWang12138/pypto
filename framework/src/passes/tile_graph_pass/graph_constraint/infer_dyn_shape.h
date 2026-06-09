@@ -18,18 +18,15 @@
 #include "interface/operation/op_infer_shape_impl.h"
 #include "passes/pass_interface/pass.h"
 #include "interface/function/function.h"
-#include "passes/pass_utils/topo_program.h"
 namespace npu {
 namespace tile_fwk {
 class InferDynShape : public Pass {
 public:
     InferDynShape() : Pass("InferDynShape") {}
     ~InferDynShape() override {}
-    Status RunOnFunction(Function &function) override;
-    Status PostCheck(Function &function) override;
-private:
-    Status InferShape(Function& function);
+    Status RunOnFunction(Function& function) override;
+    Status PostCheck(Function& function) override;
 };
-}
-}
+} // namespace tile_fwk
+} // namespace npu
 #endif

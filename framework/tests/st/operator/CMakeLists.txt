@@ -15,7 +15,7 @@ file(GLOB_RECURSE _Sources src/*.cpp)
 PTO_Fwk_STest_AddLib(
         TARGET ${_Target}
         SOURCES ${_Sources}
-        LD_LIBRARIES_EXT tile_fwk_compiler tile_fwk_simulation tile_fwk_simulation_ca tile_fwk_simulation_pv
+        LD_LIBRARIES_EXT tile_fwk_compiler tile_fwk_simulation tile_fwk_simulation_pv
         GOLDEN_SCRIPT_DIR ${CMAKE_CURRENT_SOURCE_DIR}/src
 )
 add_custom_command(
@@ -24,7 +24,7 @@ add_custom_command(
         COMMAND ${CMAKE_COMMAND} -E copy ${PTO_FWK_SRC_ROOT}/framework/src/cost_model/simulation/scripts/print_swim_lane.py         ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/scripts/
         COMMAND ${CMAKE_COMMAND} -E copy ${PTO_FWK_SRC_ROOT}/framework/src/cost_model/simulation/scripts/draw_comm_swim_lane_png.py ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/scripts/
         COMMAND ${CMAKE_COMMAND} -E copy ${PTO_FWK_SRC_ROOT}/framework/src/cost_model/simulation/scripts/draw_pipe_swim_lane.py     ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/scripts/
-        COMMAND ${CMAKE_COMMAND} -E copy ${PTO_FWK_SRC_ROOT}/tools/draw_swim_lane.py                                                ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/scripts/
-        COMMAND ${CMAKE_COMMAND} -E copy ${PTO_FWK_SRC_ROOT}/tools/function_json_convert.py                                         ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/scripts/
+        COMMAND ${CMAKE_COMMAND} -E copy ${PTO_FWK_SRC_ROOT}/tools/profiling/draw_swim_lane.py                                      ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/scripts/
+        COMMAND ${CMAKE_COMMAND} -E copy ${PTO_FWK_SRC_ROOT}/tools/profiling/function_json_convert.py                               ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/scripts/
         COMMENT "Soft link of ${_Target} dependence scripts file has been created at ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/scripts"
 )

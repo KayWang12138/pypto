@@ -10,34 +10,44 @@
 
 #include <mutex>
 #include <dlfcn.h>
-#include <iostream>
 
 #include "tilefwk/error.h"
-
+#include "interface/interpreter/interpreter_log.h"
 #include "interface/utils/file_utils.h"
+#include "tilefwk/error_code.h"
 
 namespace npu::tile_fwk::calc {
 
 typedef struct CalcOps* (*GetCalcOpsFunc)();
 
-struct CalcOps *GetCalcOps() {
+struct CalcOps* GetCalcOps()
+{
     static std::once_flag once_;
-    static struct CalcOps *calcOps = nullptr;
+    static struct CalcOps* calcOps = nullptr;
 
     std::call_once(once_, []() {
+    /* whl 包场景在 whl 包 init 时即完成 so 加载, 故可直接从当前进程加载符号 */
+#ifndef ENABLE_TESTS
+        auto handle = dlopen(nullptr, RTLD_LAZY | RTLD_NOLOAD);
+        if (handle == nullptr) {
+            INTERPRETER_LOGE_FULL(VerifyEnableScene::VERIFY_LOAD_CALC_OPS_FAILED, "Can't get program handle");
+            return;
+        }
+#else
         std::string path = GetCurrentSharedLibPath() + "/libtile_fwk_calculator.so";
         if (!FileExist(path)) {
             return;
         }
         auto handle = dlopen(path.c_str(), RTLD_LAZY);
         if (handle == nullptr) {
-            std::cout << "torch not found please check the library path or import torch first" << std::endl;
+            INTERPRETER_LOGI("torch not found please check the library path or import torch first");
             return;
         }
+#endif
         auto func = dlsym(handle, "GetCalcOps");
         calcOps = reinterpret_cast<GetCalcOpsFunc>(func)();
     });
 
     return calcOps;
 }
-}
+} // namespace npu::tile_fwk::calc

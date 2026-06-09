@@ -4,6 +4,7 @@
 
 | 产品             | 是否支持 |
 |:-----------------|:--------:|
+| Ascend 950PR/Ascend 950DT |    √     |
 | Atlas A3 训练系列产品/Atlas A3 推理系列产品 |    √     |
 | Atlas A2 训练系列产品/Atlas A2 推理系列产品 |    √     |
 
@@ -50,9 +51,9 @@ where(
 
 | 参数名      | 输入/输出 | 说明                                                                 |
 |-------------|-----------|----------------------------------------------------------------------|
-| condition   | 输入      | 支持的类型为：Tensor。<br> Tensor支持的数据类型为：DT_BOOL。<br> 不支持空Tensor；Shape仅支持2-4维；Shape Size不大于2147483647（即INT32_MAX）。<br> 作为条件选择input或者other的元素。 |
-| input       | 输入      | 支持的类型为 float\Element\Tensor类型。<br> 当为float类型时会自动转换为 Element 类型，float 对应 DT_FP32。当需要使用其他数据类型时，可以通过 Element 构建。<br> Tensor和Element支持的数据类型为：DT_FP32\DT_FP16。<br> 不支持空Tensor；Shape仅支持2-4维；Shape Size不大于2147483647（即INT32_MAX）。 |
-| other       | 输入      | 支持的类型为 float\Element\Tensor类型。<br> 当为float类型时会自动转换为 Element 类型，float 对应 DT_FP32。当需要使用其他数据类型时，可以通过 Element 构建。<br> Tensor和Element支持的数据类型为：DT_FP32\DT_FP16。<br> 不支持空Tensor；Shape仅支持2-4维；Shape Size不大于2147483647（即INT32_MAX）。 |
+| condition   | 输入      | 支持的类型为：Tensor。<br> Tensor支持的数据类型为：DT_BOOL。<br> 不支持空Tensor；Shape仅支持1-4维；Shape Size不大于2147483647（即INT32_MAX）。<br> 作为条件选择input或者other的元素。 |
+| input       | 输入      | 支持的类型为 float\Element\Tensor类型。<br> 当为float类型时会自动转换为 Element 类型，float 对应 DT_FP32。当需要使用其他数据类型时，可以通过 Element 构建。<br> Tensor和Element支持的数据类型为：DT_FP32，DT_FP16，DT_BF16。<br> 不支持空Tensor；Shape仅支持1-4维；Shape Size不大于2147483647（即INT32_MAX）。 |
+| other       | 输入      | 支持的类型为 float\Element\Tensor类型。<br> 当为float类型时会自动转换为 Element 类型，float 对应 DT_FP32。当需要使用其他数据类型时，可以通过 Element 构建。<br> Tensor和Element支持的数据类型为：DT_FP32，DT_FP16，DT_BF16。<br> 不支持空Tensor；Shape仅支持1-4维；Shape Size不大于2147483647（即INT32_MAX）。 |
 
 ## 返回值说明
 
@@ -60,9 +61,29 @@ result ：Tensor，Shape由输入的广播得到，详细广播场景可看上�
 
 ## 约束说明
 
-1. 建议优先使用 Element，传入 float 标量对于 fp16 场景，不保证正确性。
+1. 建议优先使用 Element，传入 float 标量，对于 fp16 场景，不保证正确性。
 
 ## 调用示例
+
+### TileShape设置示例
+
+说明：调用该operation接口前，应通过set_vec_tile_shapes设置TileShape。
+
+TileShape维度应和输出一致。
+
+示例1：非广播场景，输入condition为[m, n]，input为[m, n]，other为[m, n]，输出为[m, n]，TileShape设置为[m1, n1], 则m1, n1分别用于切分m, n轴。
+
+```python
+pypto.set_vec_tile_shapes(4, 16)
+```
+
+示例2：广播场景，输入condition为[m, 1]，input为[m, n]，other为[m, n]，输出为[m, n]，TileShape设置为[m1, n1], 则m1, n1分别用于切分m, n轴。
+
+```python
+pypto.set_vec_tile_shapes(4, 16)
+```
+
+### 接口调用示例
 
 ```python
 cond1 = pypto.tensor([4], pypto.DT_BOOL)
@@ -71,11 +92,11 @@ b1 = pypto.tensor([4], pypto.DT_FP32)
 out1 = pypto.where(cond1, a1, b1)
 
 # Using scalar inputs
-out2 = pypto.where(cond1, 1, 0) 
+out2 = pypto.where(cond1, 1, 0)
 
 # Broadcasting example
-cond2 = pypto.tensor([2, 2], pypto.DT_BOOL) 
-a2 = pypto.tensor([2], pypto.DT_FP32)  
+cond2 = pypto.tensor([2, 2], pypto.DT_BOOL)
+a2 = pypto.tensor([2], pypto.DT_FP32)
 b2 = 0.0
 out3 = pypto.where(cond2, a2, b2)
 ```
@@ -84,15 +105,14 @@ out3 = pypto.where(cond2, a2, b2)
 
 ```python
 输入数据cond1: [True, False, True, False]
-输入数据a1:    [1.0  2.0  3.0  4.0] 
-输入数据b1:    [10.0 20.0 30.0 40.0] 
+输入数据a1:    [1.0  2.0  3.0  4.0]
+输入数据b1:    [10.0 20.0 30.0 40.0]
 输出数据out1:  [1.0  20.0 3.0  40.0]
 
 输出数据out2:  [1.0 0.0 1.0 0.0]
 
 输入数据cond2 = [[True, False], [False, True]]
 输入数据a2:      [1.0 2.0]
-输出数据out3:   [[1.0 0.0], 
+输出数据out3:   [[1.0 0.0],
                  [0.0 2.0]]
 ```
-

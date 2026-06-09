@@ -20,11 +20,11 @@
 #include <set>
 
 #include "interface/utils/file_utils.h"
-#include "cost_model/simulation/base/ModelLogger.h"
+#include "tilefwk/pypto_fwk_log.h"
 
 namespace CostModel {
 
-void ModelVisualizer::DrawTile(std::ofstream &os, TilePtr tensor, bool debug) const
+void ModelVisualizer::DrawTile(std::ofstream& os, TilePtr tensor, bool debug) const
 {
     std::string label = "\"Tile\\n" + tensor->Dump();
     std::string fillColor = GetColor(tensor->magic);
@@ -39,7 +39,7 @@ void ModelVisualizer::DrawTile(std::ofstream &os, TilePtr tensor, bool debug) co
     os << "];" << std::endl;
 }
 
-void ModelVisualizer::DrawTileOp(std::ofstream &os, TileOpPtr tileop, FunctionPtr func, bool debug) const
+void ModelVisualizer::DrawTileOp(std::ofstream& os, TileOpPtr tileop, FunctionPtr func, bool debug) const
 {
     std::string label = "\"TileOp\\nopmagic:" + std::to_string(tileop->magic) + "\\nopcode:" + tileop->opcode;
     std::string fillColor = GetColor(tileop->magic);
@@ -58,7 +58,7 @@ void ModelVisualizer::DrawTileOp(std::ofstream &os, TileOpPtr tileop, FunctionPt
     os << "];" << std::endl;
 }
 
-void ModelVisualizer::DrawTask(std::ofstream &os, std::shared_ptr<Task> task, bool detail)
+void ModelVisualizer::DrawTask(std::ofstream& os, std::shared_ptr<Task> task, bool detail)
 {
     std::string label = "\"TaskID:" + std::to_string(task->taskId);
     if (detail) {
@@ -75,7 +75,7 @@ void ModelVisualizer::DrawTask(std::ofstream &os, std::shared_ptr<Task> task, bo
     os << "];" << std::endl;
 }
 
-void ModelVisualizer::DrawFunction(FunctionPtr func, const std::string &outdir, bool debug) const
+void ModelVisualizer::DrawFunction(FunctionPtr func, const std::string& outdir, bool debug) const
 {
     std::string path = outdir + "/" + func->funcName + "_graph.dot";
     std::ofstream os(path);
@@ -98,11 +98,12 @@ void ModelVisualizer::DrawFunction(FunctionPtr func, const std::string &outdir, 
     }
     os << "}" << std::endl;
     os.close();
-    MLOG_WARN(" Path:", path.c_str());
+    SIMULATION_LOGW("Path: %s", path.c_str());
 }
 
-void ModelVisualizer::DebugFunction(FunctionPtr func, std::unordered_map<int, TilePtr> &tiles,
-                                     std::unordered_map<int, TileOpPtr> &tileOps, const std::string &outdir) const
+void ModelVisualizer::DebugFunction(
+    FunctionPtr func, std::unordered_map<int, TilePtr>& tiles, std::unordered_map<int, TileOpPtr>& tileOps,
+    const std::string& outdir) const
 {
     std::string path = outdir + "/" + func->funcName + ".deadlock_debug_graph.dot";
     std::ofstream os(path);
@@ -125,10 +126,10 @@ void ModelVisualizer::DebugFunction(FunctionPtr func, std::unordered_map<int, Ti
     }
     os << "}" << std::endl;
     os.close();
-    MLOG_WARN(" Path:", path.c_str());
+    SIMULATION_LOGW("Path: %s", path.c_str());
 }
 
-void ModelVisualizer::DrawTasks(const TaskMap &taskMap, bool drawDetail, std::string outPath)
+void ModelVisualizer::DrawTasks(const TaskMap& taskMap, bool drawDetail, std::string outPath)
 {
     std::string globalLabel = drawDetail ? "Tasks Graph" : "Tasks Thumbnail Graph";
     std::ofstream os(outPath);
@@ -137,12 +138,12 @@ void ModelVisualizer::DrawTasks(const TaskMap &taskMap, bool drawDetail, std::st
     os << "\tlabel=\"" << globalLabel << "\";" << std::endl;
     os << "\trankdir=LR;" << std::endl;
 
-    for (auto &task : taskMap) {
+    for (auto& task : taskMap) {
         DrawTask(os, task.second, true);
     }
 
-    for (auto &task : taskMap) {
-        for (auto &src : task.second->predecessors) {
+    for (auto& task : taskMap) {
+        for (auto& src : task.second->predecessors) {
             os << "\tN" << src << " -> N" << task.second->taskId << ";" << std::endl;
         }
     }
@@ -248,4 +249,4 @@ std::string ModelVisualizer::GetTaskFontColor(CostModel::MachineType type, uint6
     }
     return "white";
 }
-}  // namespace CostModel
+} // namespace CostModel

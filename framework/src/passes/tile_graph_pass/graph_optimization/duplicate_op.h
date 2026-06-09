@@ -19,7 +19,8 @@
 #include "passes/pass_interface/pass.h"
 namespace npu::tile_fwk {
 /*
-    DuplicateOp: 对于一个View OP，如果存在多消费者的情况，则为每一个消费者创建一个新的View OP;对于一个GatherIn OP，如果存在多消费者的情况，则为每一个消费者创建一个新的GatherIn OP
+    DuplicateOp: 对于一个View OP，如果存在多消费者的情况，则为每一个消费者创建一个新的View OP;对于一个GatherIn
+   OP，如果存在多消费者的情况，则为每一个消费者创建一个新的GatherIn OP
 */
 class DuplicateOp : public Pass {
 public:
@@ -27,11 +28,13 @@ public:
     ~DuplicateOp() override = default;
 
 private:
-    Status RunOnFunction(Function &function) override;
-    Status ProcessOp(Function &function, Operation &operation) const;
-    Status Process(Function &function) const;
-    Status ProcessGatherIn(Function &function, Operation &operation) const;
-    Status ProcessView(Function &function, Operation &operation) const;
+    Status PreCheck(Function& function) override;
+    Status PostCheck(Function& function) override;
+    Status RunOnFunction(Function& function) override;
+    Status ProcessOp(Function& function, Operation& operation, std::vector<Operation*>& newOps) const;
+    Status Process(Function& function, std::vector<Operation*>& newOps) const;
+    Status ProcessGatherIn(Function& function, Operation& operation, std::vector<Operation*>& newOps) const;
+    Status ProcessView(Function& function, Operation& operation, std::vector<Operation*>& newOps) const;
 };
 
-}
+} // namespace npu::tile_fwk

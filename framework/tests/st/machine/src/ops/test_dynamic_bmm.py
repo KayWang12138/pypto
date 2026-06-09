@@ -11,7 +11,7 @@
 
 """ 相关用例 Golden 生成逻辑.
 本脚本有 2 种执行模式:
-1. CI批跑时, 由 tests/cmake/scripts/golden_ctrl.py 调用, 为避免日志过多, 此时 logging 级别为 logging.INFO;
+1. CI批跑时, 由 cmake/scripts/golden_ctrl.py 调用, 为避免日志过多, 此时 logging 级别为 logging.INFO;
 2. 单独调用时, 本脚本单独被调用, 此时 logging 级别为 logging.DEBUG;
 """
 
@@ -226,4 +226,3 @@ def gen_dynamic_bmm_golden(case_name: str, output: Path) -> bool:
     else:
         logging.error("Can't get func to gen golden, case(%s)", case_name)
         return False
-

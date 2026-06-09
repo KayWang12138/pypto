@@ -22,33 +22,23 @@
 namespace npu {
 namespace tile_fwk {
 constexpr size_t INPUT_SIZE = 2;
-const std::unordered_set<Opcode> NEED_BRC_OPS{
-    Opcode::OP_ADD,
-    Opcode::OP_SUB,
-    Opcode::OP_MUL,
-    Opcode::OP_DIV,
-    Opcode::OP_MAXIMUM,
-    Opcode::OP_MINIMUM,
-};
 
-bool InsertCondition(const Opcode &code) {
-    if (NEED_BRC_OPS.count(code) > 0) {
-        return true;
-    }
-    return false;
-}
+bool InsertCondition(const Opcode& code) { return SUPPORT_BRC_INLINE.count(code) > 0; }
 
-void AlignedIfNeed(int64_t &currentDim, int64_t &padValue) {
+Status AlignedIfNeed(int64_t& currentDim, int64_t padValue)
+{
     if (padValue == 0) {
-        APASS_LOG_ERROR_F(Elements::Config, "invalid pad base %d.", padValue);
-        return;
+        APASS_LOG_ERROR_F(Elements::Config, "invalid pad base %ld.", static_cast<long>(padValue));
+        return FAILED;
     }
     if (currentDim % padValue != 0) {
         currentDim = (currentDim + padValue - 1) / padValue * padValue;
     }
+    return SUCCESS;
 }
 
-Status GetPaddingValue(const LogicalTensorPtr &tensor, int64_t &padValue) {
+Status GetPaddingValue(const LogicalTensorPtr& tensor, int64_t& padValue)
+{
     auto bytes = BytesOf(tensor->Datatype());
     auto paddingIter = BLOCK_PADDING_DIM.find(bytes);
     if (paddingIter == BLOCK_PADDING_DIM.end()) {
@@ -59,53 +49,121 @@ Status GetPaddingValue(const LogicalTensorPtr &tensor, int64_t &padValue) {
     return SUCCESS;
 }
 
-Status AlignBroadCastOpInputs(Function &function, Operation &op) {
+inline int GetExpandDim(const std::vector<int64_t>& lhsShape, const std::vector<int64_t>& rhsShape)
+{
+    for (int i = static_cast<int>(lhsShape.size() - 1); i >= 0; --i) {
+        if (lhsShape[i] != rhsShape[i]) {
+            return i;
+        }
+    }
+    return -1;
+}
+
+static LogicalTensorPtr CreateAlignedTensor(
+    Function& function, const LogicalTensorPtr& srcTensor, const std::vector<int64_t>& alignedShape)
+{
+    auto alignedTensor =
+        std::make_shared<LogicalTensor>(function, srcTensor->Datatype(), alignedShape, srcTensor->Format());
+    alignedTensor->SetMemoryTypeBoth(MemoryType::MEM_UB, true);
+    return alignedTensor;
+}
+
+static void UpdateOperand(
+    Operation& op, size_t idx, const LogicalTensorPtr& oldTensor, const LogicalTensorPtr& newTensor,
+    std::vector<LogicalTensorPtr>& inputTensor)
+{
+    oldTensor->RemoveConsumer(op);
+    op.ReplaceIOperand(idx, newTensor);
+    inputTensor[idx] = newTensor;
+}
+
+static void SetAttrForExpand(Operation& op, LogicalTensors& inputTensor, int idx, Shape& shape)
+{
+    int expandDim = inputTensor[idx]->GetShape().size() - 1;
+    op.SetAttribute(OpAttributeKey::expandDims, std::vector<int>{expandDim});
+    auto dynValidShape = SymbolicScalar::FromConcrete(shape);
+    if (!(inputTensor[idx]->GetDynValidShape().empty())) {
+        dynValidShape = inputTensor[idx]->GetDynValidShape();
+    }
+    if (!(inputTensor[idx ^ 1]->GetDynValidShape().empty())) {
+        dynValidShape[expandDim] = SymbolicScalar(inputTensor[idx ^ 1]->GetDynValidShape()[expandDim]);
+    } else {
+        dynValidShape[expandDim] = SymbolicScalar(inputTensor[idx ^ 1]->GetShape()[expandDim]);
+    }
+    op.SetAttribute(OP_ATTR_PREFIX + "validShape", dynValidShape);
+}
+
+Status AxisCombine::AlignBroadCastOpInputs([[maybe_unused]] Function& function, Operation& op)
+{
     auto inputTensor = op.GetIOperands();
-    auto inTensor0 = inputTensor[0];
-    auto inTensor1 = inputTensor[1];
-    if (inTensor0->GetShape() == inTensor1->GetShape()) {
+    auto& inTensor0 = inputTensor[0];
+    auto& inTensor1 = inputTensor[1];
+    const auto& shape0 = inTensor0->GetShape();
+    const auto& shape1 = inTensor1->GetShape();
+    if (shape0 == shape1 || shape0.back() == shape1.back()) {
         return SUCCESS;
     }
-    for (int64_t idx = 0; idx < static_cast<int16_t>(inputTensor.size()); ++idx) {
+    for (size_t idx = 0; idx < INPUT_SIZE; ++idx) {
         auto srcTensor = inputTensor[idx];
+        auto otherTensor = inputTensor[idx ^ 1];
         auto alignedShape = srcTensor->GetShape();
-        if (alignedShape.back() == 1) {
-            int64_t padValue = 0;
-            if (GetPaddingValue(srcTensor, padValue) != SUCCESS) {
+        if (alignedShape.back() != 1) {
+            continue;
+        }
+        int64_t padValue = 0;
+        if (GetPaddingValue(srcTensor, padValue) != SUCCESS) {
+            return FAILED;
+        }
+        const bool enableAxisCombine = axisCombineMarker.IsTensorEnableAxisCombine(srcTensor);
+        const bool isDAV3510 = Platform::Instance().GetSoc().GetNPUArch() == NPUArch::DAV_3510;
+        if (!enableAxisCombine) {
+            padValue = otherTensor->GetShape().back();
+            if (AlignedIfNeed(alignedShape.back(), padValue) != SUCCESS) {
                 return FAILED;
             }
-            AlignedIfNeed(alignedShape.back(), padValue);
-            auto alignedTensor = std::make_shared<LogicalTensor>(function, srcTensor->Datatype(), alignedShape, srcTensor->Format());
-            alignedTensor->SetMemoryTypeBoth(MemoryType::MEM_UB, true);
-            auto &brcb = function.AddRawOperation(Opcode::OP_BRCB, {srcTensor}, {alignedTensor});
+            auto alignedTensor = CreateAlignedTensor(function, srcTensor, alignedShape);
+            auto& expand = function.AddRawOperation(Opcode::OP_EXPAND, {srcTensor}, {alignedTensor});
+            SetAttrForExpand(expand, inputTensor, idx, alignedShape);
+            expand.UpdateSubgraphID(op.GetSubgraphID());
+            UpdateOperand(op, idx, srcTensor, alignedTensor, inputTensor);
+            continue;
+        } else if (!isDAV3510) {
+            if (AlignedIfNeed(alignedShape.back(), padValue) != SUCCESS) {
+                return FAILED;
+            }
+            auto alignedTensor = CreateAlignedTensor(function, srcTensor, alignedShape);
+            auto& brcb = function.AddRawOperation(Opcode::OP_BRCB, {srcTensor}, {alignedTensor});
             brcb.UpdateSubgraphID(op.GetSubgraphID());
-            srcTensor->RemoveConsumer(op);
-            op.ReplaceInputOperand(srcTensor, alignedTensor);
-            op.SetAttribute(OpAttributeKey::brcbIdx, idx + 1);
-            inputTensor[idx] = alignedTensor;
+            UpdateOperand(op, idx, srcTensor, alignedTensor, inputTensor);
         }
+        op.SetAttribute(OpAttributeKey::brcbIdx, static_cast<int64_t>(idx + 1));
     }
     return SUCCESS;
 }
 
-Status AxisCombine::Process(Function &function) {   
-    for (auto &op : function.Operations()) {
+Status AxisCombine::Process(Function& function)
+{
+    for (auto& op : function.Operations()) {
         if (InsertCondition(op.GetOpcode()) && op.GetIOperands().size() == INPUT_SIZE) {
             if (AlignBroadCastOpInputs(function, op) != SUCCESS) {
-                    APASS_LOG_ERROR_F(Elements::Operation, "operation %d's aligned faild. %s", op.GetOpMagic(), op.GetOpcodeStr().c_str());
-                    return FAILED;
-            } 
+                APASS_LOG_ERROR_F(
+                    Elements::Operation, "operation %d's aligned faild. %s", op.GetOpMagic(),
+                    op.GetOpcodeStr().c_str());
+                return FAILED;
+            }
         }
     }
     return SUCCESS;
 }
 
-Status AxisCombine::RunOnFunction(Function &function) {
+Status AxisCombine::RunOnFunction(Function& function)
+{
     APASS_LOG_INFO_F(Elements::Function, "===> Start AxisCombine.");
-    if (!ConfigManager::Instance().GetOperationConfig("COMBINE_AXIS", false)) {
+    if (!function.paramConfigs_.combineAxis) {
         APASS_LOG_INFO_F(Elements::Operation, "AxisCombine is skipped.");
         return SUCCESS;
     }
+    axisCombineMarker.Run(function);
     if (Process(function) != SUCCESS) {
         APASS_LOG_ERROR_F(Elements::Function, "AxisCombine process failed.");
         return FAILED;
@@ -113,5 +171,6 @@ Status AxisCombine::RunOnFunction(Function &function) {
     APASS_LOG_INFO_F(Elements::Function, "===> End AxisCombine.");
     return SUCCESS;
 }
+
 } // namespace tile_fwk
 } // namespace npu

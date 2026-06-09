@@ -24,52 +24,58 @@
 #include <string>
 #include <regex>
 #include "tilefwk/error.h"
+#include "tilefwk/pypto_fwk_log.h"
+#include "tilefwk/error_code.h"
 
 namespace CostModel {
 
 class Config {
 protected:
     std::string prefix;
-    std::map<std::string, std::function<void(std::string const &)>> dispatcher;
+    std::map<std::string, std::function<void(std::string const&)>> dispatcher;
 
 public:
     std::map<std::string, std::function<std::string()>> recorder;
     Config() = default;
     virtual ~Config() = default;
 
-    virtual void OverrideDefaultConfig(std::vector<std::string> *cfgs) final
+    virtual void OverrideDefaultConfig(std::vector<std::string>* cfgs) final
     {
         std::regex r{"([\\w.]+)=(\\S+)"};
         std::smatch sm;
         size_t parameterNum = 3;
-        for (auto &c : *cfgs) {
+        for (auto& c : *cfgs) {
             regex_match(c, sm, r);
-            ASSERT(sm.size() == parameterNum);
+            ASSERT(sm.size() == parameterNum)
+                << "ErrCode: F" << static_cast<unsigned>(CostModel::ExternalErrorScene::INVALID_CONFIG)
+                << ",[SIMULATION]: "
+                << "the config regex size is 3. the format is error: " << c;
             std::string cfgName{sm.str(1)};
             std::string cfgValue{sm.str(2)};
             ParseConfig(cfgName, cfgValue);
         }
     }
 
-    void ParseConfig(std::string const &cfgName, std::string const &cfgValue)
+    void ParseConfig(std::string const& cfgName, std::string const& cfgValue)
     {
         if (cfgName.substr(0, prefix.size()) == prefix) {
-            ASSERT(cfgName[prefix.size()] == '.');
+            ASSERT(cfgName[prefix.size()] == '.')
+                << "ErrCode: F" << static_cast<unsigned>(CostModel::ExternalErrorScene::INVALID_CONFIG)
+                << ",[SIMULATION]: "
+                << "cfgName format is error: " << cfgName;
             auto it = dispatcher.find(cfgName.substr(prefix.size() + 1));
             if (it != dispatcher.end()) {
                 it->second(cfgValue);
             } else {
-                std::cerr << "Invalid config name: " << cfgName << std::endl;
+                SIMULATION_LOGE(CostModel::ExternalErrorScene::INVALID_CONFIG_NAME,
+                    "Invalid config name: %s", cfgName.c_str());
             }
         }
     }
 
-    virtual std::string const &ParseString(std::string const &v) final
-    {
-        return v;
-    }
+    virtual std::string const& ParseString(std::string const& v) final { return v; }
 
-    virtual uint64_t ParseInteger(std::string const &v) final
+    virtual uint64_t ParseInteger(std::string const& v) final
     {
         int readWidth = 16;
         if (v[0] == '0' && (v[1] == 'x' || v[1] == 'X')) {
@@ -79,7 +85,7 @@ public:
         }
     }
 
-    virtual bool ParseBoolean(std::string const &v) final
+    virtual bool ParseBoolean(std::string const& v) final
     {
         if (v == "false") {
             return false;
@@ -89,7 +95,7 @@ public:
         return false;
     }
 
-    virtual void ParseIntVec(std::string const &v, std::vector<uint64_t> &array) final
+    virtual void ParseIntVec(std::string const& v, std::vector<uint64_t>& array) final
     {
         std::size_t pos = 0;
         array.clear();
@@ -101,7 +107,7 @@ public:
         array.push_back(stoull(vv.substr(0, pos)));
     }
 
-    virtual void ParseStrVec(std::string const &v, std::vector<std::string> &array) final
+    virtual void ParseStrVec(std::string const& v, std::vector<std::string>& array) final
     {
         std::size_t pos = 0;
         array.clear();
@@ -113,33 +119,24 @@ public:
         array.push_back(vv.substr(0, pos));
     }
 
-    virtual std::string ParameterToStr(bool parameter) final
-    {
-        return std::to_string(parameter);
-    }
+    virtual std::string ParameterToStr(bool parameter) final { return std::to_string(parameter); }
 
-    virtual std::string ParameterToStr(uint64_t parameter) final
-    {
-        return std::to_string(parameter);
-    }
+    virtual std::string ParameterToStr(uint64_t parameter) final { return std::to_string(parameter); }
 
-    virtual std::string ParameterToStr(std::vector<uint64_t> &parameter) final
+    virtual std::string ParameterToStr(std::vector<uint64_t>& parameter) final
     {
         std::stringstream oss;
         oss << "[";
-        for (auto &it : parameter) {
+        for (auto& it : parameter) {
             oss << it << ",";
         }
         oss << "]";
         return oss.str();
     }
 
-    virtual std::string ParameterToStr(const std::string &parameter) final
-    {
-        return parameter;
-    }
+    virtual std::string ParameterToStr(const std::string& parameter) final { return parameter; }
 
-    virtual std::string ParameterToStr(std::vector<std::string> &parameter) final
+    virtual std::string ParameterToStr(std::vector<std::string>& parameter) final
     {
         std::stringstream oss;
         oss << "[";
@@ -157,7 +154,7 @@ public:
     {
         std::stringstream oss;
         oss << "[" << prefix << "]" << std::endl;
-        for (auto &it : recorder) {
+        for (auto& it : recorder) {
             oss << it.second() << std::endl;
         }
         oss << std::endl;
@@ -165,4 +162,4 @@ public:
     }
 };
 
-}
+} // namespace CostModel

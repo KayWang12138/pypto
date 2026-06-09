@@ -33,13 +33,36 @@ Example:
 """
 
 import ast
+import builtins
 from typing import Any
 
 import pypto
 
-from . import doc
+from pypto.error import ParserError, FeError
 from .diagnostics import Diagnostics
-from .error import ParserError
+
+
+def _min(*args: Any, **kwargs: Any) -> Any:
+    if (
+        len(args) == 2
+        and not kwargs
+        and any(isinstance(arg, pypto.SymbolicScalar) for arg in args)
+    ):
+        return pypto.min(args[0], args[1])
+    return builtins.min(*args, **kwargs)
+
+
+def _max(*args: Any, **kwargs: Any) -> Any:
+    if (
+        len(args) == 2
+        and not kwargs
+        and any(isinstance(arg, pypto.SymbolicScalar) for arg in args)
+    ):
+        return pypto.max(args[0], args[1])
+    return builtins.max(*args, **kwargs)
+
+
+_EVAL_BUILTIN_OVERRIDES = {"min": _min, "max": _max}
 
 
 class ExprEvaluator:
@@ -53,7 +76,7 @@ class ExprEvaluator:
         self.diag = diag
 
     @staticmethod
-    def eval(node: doc.expr, var_table: dict[str, Any], diag: Diagnostics) -> Any:
+    def eval(node: ast.expr, var_table: dict[str, Any], diag: Diagnostics) -> Any:
         """Evaluate an expression node using the provided variable table.
 
         This is the main entry point for expression evaluation during parsing.
@@ -62,7 +85,7 @@ class ExprEvaluator:
 
         Parameters
         ----------
-        node : doc.expr
+        node : ast.expr
             The expression AST node to evaluate.
         var_table : dict[str, Any]
             Variable table containing available names and their values.
@@ -83,12 +106,38 @@ class ExprEvaluator:
         result = self.visit(node)
         return result
 
-    def visit(self, node: doc.expr) -> Any:
+    @staticmethod
+    def _is_safe_expression(node: ast.expr) -> bool:
+        """Verify that the expression does not contain dangerous operations"""
+        dangerous_attrs = {
+            '__class__', '__bases__', '__subclasses__',
+            '__dict__', '__globals__', '__code__',
+            '__builtins__', '__import__', '__loader__',
+        }
+        dangerous_funcs = {
+            'eval', 'exec', 'compile', '__import__',
+            'open', 'input', 'breakpoint',
+        }
+
+        for node_item in ast.walk(node):
+            if isinstance(node_item, (ast.Import, ast.ImportFrom)):
+                return False
+
+            if isinstance(node_item, ast.Attribute) and node_item.attr in dangerous_attrs:
+                return False
+
+            if isinstance(node_item, ast.Call) and isinstance(node_item.func, ast.Name):
+                if node_item.func.id in dangerous_funcs:
+                    return False
+
+        return True
+
+    def visit(self, node: ast.expr) -> Any:
         """Visit and evaluate an expression node.
 
         Parameters
         ----------
-        node : doc.expr
+        node : ast.expr
             The expression node to visit.
 
         Returns
@@ -98,8 +147,9 @@ class ExprEvaluator:
         """
         return self._eval_by_python(node, self.var_table)
 
-    def _eval_by_python(self, node: doc.expr, var_table: dict[str, Any]) -> Any:
-        node = doc.from_doc(node)
+    def _eval_by_python(self, node: ast.expr, var_table: dict[str, Any]) -> Any:
+        if not self._is_safe_expression(node):
+            raise ParserError(node, "Expression contains unsafe operations")
         if isinstance(node, ast.expr):
             # Case 1: a simple expression
             mod = ast.fix_missing_locations(ast.Expression(body=node))
@@ -109,6 +159,7 @@ class ExprEvaluator:
             for key, value in dict_locals.items():
                 if isinstance(value, pypto.SymbolicScalar) and value.is_concrete():
                     dict_locals[key] = value.concrete()
+            dict_locals.update(_EVAL_BUILTIN_OVERRIDES)
             try:
                 return eval(exe, {}, dict_locals)  # pylint: disable=eval-used
             except Exception as e:
@@ -122,11 +173,12 @@ class ExprEvaluator:
             for key, value in dict_locals.items():
                 if isinstance(value, pypto.SymbolicScalar) and value.is_concrete():
                     dict_locals[key] = value.concrete()
+            dict_locals.update(_EVAL_BUILTIN_OVERRIDES)
             try:
-                exec(exe, {}, dict_locals)  # pylint: disable=exec-used
+                return exec(exe, {}, dict_locals)  # pylint: disable=exec-used
             except Exception as e:
                 raise ParserError(node, f"{type(e).__name__}: {e}") from e
         else:
             # Other unsupported expression types, raise python native error,
             # which will be caught by the parser and reported as a bug.
-            raise NotImplementedError("Unsupported expression type.")
+            raise FeError(NotImplementedError("Unsupported expression type."))

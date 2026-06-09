@@ -1,11 +1,11 @@
-# Copyright (c) Huawei Technologies Co., Ltd. 2025. All rights reserved.
-# This file is a part of the CANN Open Software.
-# Licensed under CANN Open Software License Agreement Version 1.0 (the "License").
+# Copyright (c) 2025 Huawei Technologies Co., Ltd.
+# This program is free software, you can redistribute it and/or modify it under the terms and conditions of
+# CANN Open Software License Agreement Version 2.0 (the "License").
 # Please refer to the License for details. You may not use this file except in compliance with the License.
 # THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED,
 # INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
 # See LICENSE in the root of the software repository for the full text of the License.
-# ======================================================================================================================
+# -----------------------------------------------------------------------------------------------------------
 
 # 说明:
 #   本文件用于 Tests 用例分类分组定义
@@ -79,35 +79,46 @@ stest:
       # - MatmulOnBoardTest.test_mm_float32_32_128_128
       # - MatmulOnBoardTest.test_mm_unalign_float32_2_128_128
       # - MatmulOnBoardTest.test_mm_unalign_float32_16_35_32
-      # - OnBoardTest.test_BMM_Simple
-      # - OnBoardTest.test_BMM_3D_Brc
-      # - OnBoardTest.test_BMM_3D_Brc_Transpose
-      # - OnBoardTest.test_BMM_4D_Brc_Transpose
-      # - OnBoardTest.test_BMM_UNALIGN_2_1024_32
-      # - OnBoardTest.test_BMM_post
-      # - OnBoardTest.test_BMM_NZ_1_32_32_32
-      # - OnBoardTest.test_BMM_NZ_1_32_32_320
-      # - OnBoardTest.test_BMM_NZ_1_64_32_16
       # - MatmulOnBoardTest.test_mm_float32_32_128_64
       # - MatmulOnBoardTest.test_mm_float32_32_192_64
       # - MatmulOnBoardTest.test_mm_int8_32_128_64
 
   operation_vector:
     cases:
+      - TestAxpy/AxpyOperationTest.TestAxpy/0
+      - TestAxpy/AxpyOperationTest.TestAxpy/4
+      - TestAxpy/AxpyOperationTest.TestAxpy/6
+      - TestAxpy/AxpyOperationTest.TestAxpy/12
+      - TestAxpy/AxpyOperationTest.TestAxpy/13   
       - TestRange/RangeOperationTest.TestRange/0
       - TestRange/RangeOperationTest.TestRange/1
       - TestAdd/AddOperationTest.TestAdd/10
       - TestAdd/AddOperationTest.TestAdd/11
+      - TestAdd/AddOperationTest.TestAdd/18
+      - TestFmod/FmodOperationTest.TestFmod/0
+      - TestFmod/FmodOperationTest.TestFmod/1
+      - TestLReLU/LReLUOperationTest.TestLReLU/0
+      - TestLReLU/LReLUOperationTest.TestLReLU/1
       - TestConcat/ConcatOperationTest.TestConcat/0
       - TestConcat/ConcatOperationTest.TestConcat/1
-      - TestCumSum/CumSumOperationTest.TestCumSum/0
-      - TestCumSum/CumSumOperationTest.TestCumSum/1
+      - TestGcd/GcdOperationTest.TestGcd/3
+      - TestGcd/GcdOperationTest.TestGcd/4
+      - TestGcds/GcdsOperationTest.TestGcds/1
+      - TestGcds/GcdsOperationTest.TestGcds/2
+      - TestCumProd/CumProdOperationTest.TestCumProd/0
+      - TestCumProd/CumProdOperationTest.TestCumProd/1
+      - TestCumSum/CumSumOperationTest.TestCumSum/2
+      - TestCumSum/CumSumOperationTest.TestCumSum/3
       - TestGatherElement/GatherElementOperationTest.TestGatherElement/0
       - TestGatherElement/GatherElementOperationTest.TestGatherElement/4
       - TestGatherElement/GatherElementOperationTest.TestGatherElement/14
+      - TestGatherMask/GatherMaskOperationTest.TestGatherMask/19
+      - TestGatherMask/GatherMaskOperationTest.TestGatherMask/18
       - TestAdds/AddsOperationTest.TestAdds/20
       - TestAdds/AddsOperationTest.TestAdds/21
       - TestAdds/AddsOperationTest.TestAdds/22
+      - TestFmods/FmodsOperationTest.TestFmods/0
+      - TestFmods/FmodsOperationTest.TestFmods/1
       - TestCast/CastOperationTest.TestCast/10
       - TestCast/CastOperationTest.TestCast/11
       - TestCast/CastOperationTest.TestCast/12
@@ -118,6 +129,16 @@ stest:
       - TestDivs/DivsOperationTest.TestDivs/2
       - TestExp/ExpOperationTest.TestExp/18
       - TestExp/ExpOperationTest.TestExp/19
+      - TestExp2/Exp2OperationTest.TestExp2/17
+      - TestExp2/Exp2OperationTest.TestExp2/18
+      - TestExp2/Exp2OperationTest.TestExp2/19
+      - TestExpm1/Expm1OperationTest.TestExpm1/19
+      - TestExpm1/Expm1OperationTest.TestExpm1/20
+      - TestExpm1/Expm1OperationTest.TestExpm1/21
+      - TestExpm1/Expm1OperationTest.TestExpm1/22
+      - TestExpm1/Expm1OperationTest.TestExpm1/23
+      - TestExpandExpDif/ExpandExpDifOperationTest.TestExpandExpDif/12
+      - TestExpandExpDif/ExpandExpDifOperationTest.TestExpandExpDif/13
       - TestMul/MulOperationTest.TestMul/21
       - TestMul/MulOperationTest.TestMul/22
       - TestMul/MulOperationTest.TestMul/25
@@ -128,30 +149,52 @@ stest:
       - TestMuls/MulsOperationTest.TestMuls/15
       - TestAmin/AminOperationTest.TestAmin/0
       - TestAmin/AminOperationTest.TestAmin/1
+      - TestAmin/AminOperationTest.TestAmin/32
       - TestSum/SumOperationTest.TestSum/61
       - TestSum/SumOperationTest.TestSum/62
+      - TestSum/SumOperationTest.TestSum/75
       - TestAmax/AmaxOperationTest.TestAmax/65
       - TestAmax/AmaxOperationTest.TestAmax/64
       - TestAmax/AmaxOperationTest.TestAmax/63
-      - TestScatter_/Scatter_OperationTest.TestScatter_/0
-      - TestScatter_/Scatter_OperationTest.TestScatter_/1
+      - TestAmax/AmaxOperationTest.TestAmax/74
       - TestScatter/ScatterOperationTest.TestScatter/0
       - TestScatter/ScatterOperationTest.TestScatter/2
+      - TestScatterTensor/ScatterTensorOperationTest.TestScatterTensor/8
+      - TestScatterTensor/ScatterTensorOperationTest.TestScatterTensor/16
       - TestScatterUpdate/ScatterUpdateOperationTest.TestScatterUpdate/0
       - TestScatterUpdate/ScatterUpdateOperationTest.TestScatterUpdate/1
+      - TestVar/VarOperationTest.TestVar/0
+      - TestVar/VarOperationTest.TestVar/1
       - TestRsqrt/RsqrtOperationTest.TestRsqrt/0
       - TestRsqrt/RsqrtOperationTest.TestRsqrt/2
       - TestRsqrt/RsqrtOperationTest.TestRsqrt/3
+      - TestCeil/CeilOperationTest.TestCeil/0
+      - TestCeil/CeilOperationTest.TestCeil/1
+      - TestFloor/FloorOperationTest.TestFloor/0
+      - TestFloor/FloorOperationTest.TestFloor/1
+      - TestTrunc/TruncOperationTest.TestTrunc/0
+      - TestTrunc/TruncOperationTest.TestTrunc/1
+      - TestRound/RoundOperationTest.TestRound/0
+      - TestRound/RoundOperationTest.TestRound/1
+      - TestRound/RoundOperationTest.TestRound/2
+      - TestRound/RoundOperationTest.TestRound/13
+      - TestRound/RoundOperationTest.TestRound/14
+      - TestFloorDiv/FloorDivOperationTest.TestFloorDiv/0
+      - TestFloorDivs/FloorDivsOperationTest.TestFloorDivs/0
       - TestPows/PowsOperationTest.TestPows/12
       - TestPows/PowsOperationTest.TestPows/13
       - TestPows/PowsOperationTest.TestPows/14
       - TestPows/PowsOperationTest.TestPows/15
+      - TestPow/PowOperationTest.TestPow/0
+      - TestPow/PowOperationTest.TestPow/1
       - TestOneHot/OneHotOperationTest.TestOneHot/7
       - TestOneHot/OneHotOperationTest.TestOneHot/14
       - TestOneHot/OneHotOperationTest.TestOneHot/16
       - TestSqrt/SqrtOperationTest.TestSqrt/0
       - TestLog/LogOperationTest.TestLog/2
       - TestLog/LogOperationTest.TestLog/5
+      - TestLog1p/Log1pOperationTest.TestLog1p/0
+      - TestLog1p/Log1pOperationTest.TestLog1p/7
       - TestSub/SubOperationTest.TestSub/2
       - TestSub/SubOperationTest.TestSub/3
       - TestSubs/SubsOperationTest.TestSubs/0
@@ -159,6 +202,8 @@ stest:
       - TestTopK/TopKOperationTest.TestTopK/0
       - TestTopK/TopKOperationTest.TestTopK/4
       - TestTopK/TopKOperationTest.TestTopK/6
+      - TestArgSort/ArgSortOperationTest.TestArgSort/0
+      - TestArgSort/ArgSortOperationTest.TestArgSort/2
       - TestGather/GatherOperationTest.TestGather/6
       - TestGather/GatherOperationTest.TestGather/0
       - TestGather/GatherOperationTest.TestGather/22
@@ -167,6 +212,14 @@ stest:
       - TestTranspose/TransposeOperationTest.TestTranspose/13
       - TestTranspose/TransposeOperationTest.TestTranspose/15
       - TestTranspose/TransposeOperationTest.TestTranspose/18
+      - TestPermute/PermuteOperationTest.TestPermute/0
+      - TestPermute/PermuteOperationTest.TestPermute/1
+      - TestPermute/PermuteOperationTest.TestPermute/2
+      - TestPermute/PermuteOperationTest.TestPermute/3
+      - TestPermute/PermuteOperationTest.TestPermute/7
+      - TestPermute/PermuteOperationTest.TestPermute/8
+      - TestPermute/PermuteOperationTest.TestPermute/9
+      - TestPermute/PermuteOperationTest.TestPermute/10  
       - TestWhere/WhereOperationTest.TestWhere/0
       - TestWhere/WhereOperationTest.TestWhere/8
       - TestWhere/WhereOperationTest.TestWhere/15
@@ -179,16 +232,63 @@ stest:
       - TestLogicalNot/LogicalNotOperationTest.TestLogicalNot/4
       - TestCompare/CompareOperationTest.TestCompare/1
       - TestCompare/CompareOperationTest.TestCompare/13
+      - TestIndexPut_/IndexPut_OperationTest.TestIndexPut_/37
+      - TestIndexPut_/IndexPut_OperationTest.TestIndexPut_/42
       - TestExpand/ExpandOperationTest.TestExpand/4
       - TestExpand/ExpandOperationTest.TestExpand/20
+      - TestExpand/ExpandOperationTest.TestExpand/42
       - TestMinimum/MinimumOperationTest.TestMinimum/12
       - TestMaximum/MaximumOperationTest.TestMaximum/12
       - TestMinimum/MinimumOperationTest.TestMinimum/19
       - TestMaximum/MaximumOperationTest.TestMaximum/19
       - TestClip/ClipOperationTest.TestClip/29
-      - TestIndexAdd/IndexAddOperationTest.TestIndexAdd/1
-      - TestIndexAdd/IndexAddOperationTest.TestIndexAdd/7
+      - TestTriU/TriUOperationTest.TestTriU/8
+      - TestTriU/TriUOperationTest.TestTriU/10
+      - TestTriL/TriLOperationTest.TestTriL/1
+      - TestRemainder/RemainderOperationTest.TestRemainder/3
+      - TestRemainder/RemainderOperationTest.TestRemainder/5
+      - TestRemainderS/RemainderSOperationTest.TestRemainderS/3
+      - TestRemainderRS/RemainderRSOperationTest.TestRemainderRS/9
+      - TestIndexAddUB/IndexAddUBOperationTest.TestIndexAddUB/20
+      - TestIndexAddUB/IndexAddUBOperationTest.TestIndexAddUB/21
+      - TestIndexAdd_/IndexAdd_OperationTest.TestIndexAdd_/19
+      - TestIndexAdd_/IndexAdd_OperationTest.TestIndexAdd_/30
       - TestLogicalAnd/LogicalAndOperationTest.TestLogicalAnd/0
+      - TestBitwiseRightShift/BitwiseRightShiftOperationTest.TestBitwiseRightShift/0
+      - TestBitwiseLeftShift/BitwiseLeftShiftOperationTest.TestBitwiseLeftShift/0
+      - TestBitwiseRightShifts/BitwiseRightShiftsOperationTest.TestBitwiseRightShifts/0
+      - TestBitwiseLeftShifts/BitwiseLeftShiftsOperationTest.TestBitwiseLeftShifts/0
+      - TestSBitwiseRightShift/SBitwiseRightShiftOperationTest.TestSBitwiseRightShift/0
+      - TestSBitwiseLeftShift/SBitwiseLeftShiftOperationTest.TestSBitwiseLeftShift/0
+      - TestBitwiseAnd/BitwiseAndOperationTest.TestBitwiseAnd/1
+      - TestBitwiseOr/BitwiseOrOperationTest.TestBitwiseOr/1
+      - TestBitwiseXor/BitwiseXorOperationTest.TestBitwiseXor/1
+      - TestBitwiseNot/BitwiseNotOperationTest.TestBitwiseNot/2
+      - TestBitwiseAnds/BitwiseAndsOperationTest.TestBitwiseAnds/2
+      - TestBitwiseOrs/BitwiseOrsOperationTest.TestBitwiseOrs/2
+      - TestBitwiseXors/BitwiseXorsOperationTest.TestBitwiseXors/2
+      - TestSin/SinOperationTest.TestSin/1
+      - TestCos/CosOperationTest.TestCos/1
+      - TestCopySign/CopySignOperationTest.TestCopySign/1
+      - TestCopySign/CopySignOperationTest.TestCopySign/4
+      - TestCopySign/CopySignOperationTest.TestCopySign/5
+      - TestProd/ProdOperationTest.TestProd/1
+      - TestProd/ProdOperationTest.TestProd/9
+      - TestProd/ProdOperationTest.TestProd/30
+      - TestRelu/ReluOperationTest.TestRelu/0
+      - TestRelu/ReluOperationTest.TestRelu/3
+      - TestHypot/HypotOperationTest.TestHypot/0
+      - TestHypot/HypotOperationTest.TestHypot/3
+      - TestSign/SignOperationTest.TestSign/3
+      - TestSign/SignOperationTest.TestSign/18
+      - TestPReLU/PReLUOperationTest.TestPReLU/4
+      - TestPReLU/PReLUOperationTest.TestPReLU/16
+      - TestQuantize/QuantizeOperationTest.TestQuantize/0
+      - TestQuantize/QuantizeOperationTest.TestQuantize/4
+      - TestDequantize/DequantizeOperationTest.TestDequantize/0
+      - TestDequantize/DequantizeOperationTest.TestDequantize/4
+      - TestSinh/SinhOperationTest.TestSinh/2
+      - TestCosh/CoshOperationTest.TestCosh/2
       # - GatherInL1Test.gather_in_a_unalign
       # - GatherInL1Test.gather_in_bt_with_valid_shape
       - GatherInUBTest.gather_in_a_
@@ -217,15 +317,6 @@ stest:
       # - AbsOnBoardTest.test_abs_8_4608
       # - AbsOnBoardTest.test_abs_8_4609
       # - AbsOnBoardTest.test_abs_1_16384
-      # - OnBoardTest.test_operation_tensor_16_16_64_65_tileop_add_unalign
-      # - OnBoardTest.test_operation_tensor_16_16_39_65_tileop_add_unalign
-      # - OnBoardTest.test_operation_tensor_32_1_tileop_sub_unalign
-      # - OnBoardTest.test_operation_tensor_32_1_tileop_mul_unalign
-      # - OnBoardTest.test_operation_tensor_32_1_tileop_add_unalign
-      # - OnBoardTest.test_operation_add_vs_dim2_unalign
-      # - OnBoardTest.test_operation_mul_vs_dim3_unalign
-      # - OnBoardTest.test_operation_sub_vs_dim4_unalign
-      # - OnBoardTest.test_operation_div_vs_dim1_unalign
       # - OnBoardIFATest.test_32_1_sub_32_1
       # - OnBoardIFATest.test_32_1_mul_32_1
       # - OnBoardIFATest.test_32_1_maximum
@@ -233,53 +324,6 @@ stest:
       # - OnBoardIFATest.test_32_1_reciprocal
       # - OnBoardIFATest.test_page_attention_static_low_latency
       #
-      # - OnBoardTest.test_operation_tensor_dim2_add
-      # - OnBoardTest.test_operation_scalar_dim2_add_FP16
-      # - OnBoardTest.test_operation_tensor_dim4_add
-      # - OnBoardTest.test_operation_tensor_16_16_64_64_tileop_add
-      # - OnBoardTest.test_operation_tensor_16_16_64_64_tileop_sub
-      # - OnBoardTest.test_operation_tensor_16_16_64_64_tileop_mul
-      # - OnBoardTest.test_operation_tensor_16_16_64_64_tileop_div
-      # - OnBoardTest.test_operation_tensor_8_80_80_tileop_add
-      # - OnBoardTest.test_operation_tensor_8_80_80_tileop_sub
-      # - OnBoardTest.test_operation_tensor_8_80_80_tileop_mul
-      # - OnBoardTest.test_operation_tensor_8_80_80_tileop_div
-      # - OnBoardTest.test_operation_tensor_64_128_tileop_add
-      # - OnBoardTest.test_operation_tensor_1_n_to_m_n_mul
-      # - OnBoardTest.test_operation_tensor_64_128_tileop_sub
-      # - OnBoardTest.test_operation_tensor_64_128_tileop_mul
-      # - OnBoardTest.test_operation_tensor_64_128_tileop_div
-      # - OnBoardTest.test_operation_scalar_dim2_add
-      # - OnBoardTest.test_operation_scalar_dim3_add
-      # - OnBoardTest.test_operation_scalar_dim4_add
-      # - OnBoardTest.test_operation_scalar_dim2_sub
-      # - OnBoardTest.test_operation_scalar_dim3_sub
-      # - OnBoardTest.test_operation_scalar_dim4_sub
-      # - OnBoardTest.test_operation_scalar_dim2_mul
-      # - OnBoardTest.test_operation_scalar_dim3_mul
-      # - OnBoardTest.test_operation_scalar_dim4_mul
-      # - OnBoardTest.test_operation_scalar_dim2_div
-      # - OnBoardTest.test_operation_scalar_dim1_div
-      # - OnBoardTest.test_operation_scalar_dim3_div
-      # - OnBoardTest.test_operation_scalar_dim4_div
-      # - OnBoardTest.test_operation_scalar_dim1_div
-      # - OnBoardTest.test_operation_scalar_32_32_1_256_mul
-      # - OnBoardTest.test_operation_tensor_2_2_8_8_expand_add
-      # - OnBoardTest.test_operation_tensor_4_4_16_16_expand_add
-      # - OnBoardTest.test_operation_tensor_1_1_32_to_16_32_32_expand_add
-      # - OnBoardTest.test_operation_tensor_8_16_1_to_8_16_16_expand_add
-      # - OnBoardTest.test_operation_tensor_8_8_1_to_8_8_7168_expand_Mul_moe
-      # - OnBoardTest.test_operation_tensor_8_1_16_to_8_16_16_expand_add
-      # - OnBoardTest.test_operation_tensor_1_16_16_to_8_16_16_expand_add
-      # - OnBoardTest.test_operation_tensor_8_1_1_to_8_16_16_expand_add
-      # - OnBoardTest.test_operation_tensor_16_32_32_to_16_32_1_tileop_mul
-      # - OnBoardTest.test_operation_tensor_8_8_1_1_to_8_8_1_256_tileop_sub
-      # - OnBoardTest.test_operation_tensor_1_1_1_64_to_1_128_1_64_tileop_mul01
-      # - OnBoardTest.test_operation_tensor_32_32_1_1_to_32_32_1_256_tileop_add
-      # - OnBoardTest.test_operation_tensor_32_32_1_1_to_32_32_1_256_tileop_div
-      # - OnBoardTest.test_operation_tensor_8_8_1_to_8_8_7168_expand_mul
-      # - OnBoardTest.test_operation_tensor_8_8_1_to_8_8_7168_expand_sub
-      # - OnBoardTest.test_mul_large_row
       # - CastOnBoard.test_cast_fp32toint32rint_1_4608
       # - CastOnBoard.test_cast_int32tofp16none_1_4608
       # - CastOnBoard.test_cast_fp16toint8trunc_1_4608
@@ -313,10 +357,4 @@ stest:
       # - TopkOnBoardTest.test_operation_tensor_4_32_8_topk
       # - TopkOnBoardTest.test_operation_tensor_2_288_15_topk
       # - TopkOnBoardTest.test_operation_tensor_2_288_15_topk_reverse
-      # - MlpTest.test_256_512_tileop
-      # - ArgsortOnBoardTest.test_operation_tensor_128_32_argsort
-      # - ArgsortOnBoardTest.test_operation_tensor_4_32_argsort
-      # - ArgsortOnBoardTest.test_operation_tensor_2_16_argsort
-      # - ArgsortOnBoardTest.test_operation_tensor_64_argsort
-      # - ArgsortOnBoardTest.test_operation_tensor_4_32__argsort
       # - VecdupTest.TestVecDup

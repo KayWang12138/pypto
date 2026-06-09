@@ -24,36 +24,38 @@
 #include "interface/configs/config_manager.h"
 
 namespace npu::tile_fwk::stest {
-template<typename TestBase>
+template <typename TestBase>
 class TestSuiteBase : public TestBase {
 public:
     static void SetUpTestCase() {}
 
     static void TearDownTestCase() {}
 
-    void SetUp() override {
+    void SetUp() override
+    {
         // 使能 Aihac 后端
         oriEnableAihacBackend = config::GetPlatformConfig(KEY_ENABLE_AIHAC_BACKEND, oriEnableAihacBackend);
         config::SetPlatformConfig(KEY_ENABLE_AIHAC_BACKEND, true);
 #ifdef ENABLE_STEST_BINARY_CACHE
         // BinaryCache
-        oriEnableBinaryCache = config::GetHostConfig(KEY_ENABLE_BINARY_CACHE, oriEnableBinaryCache);
-        config::SetHostConfig(KEY_ENABLE_BINARY_CACHE, true);
+        oriEnableBinaryCache = config::GetPassGlobalConfig(KEY_ENABLE_BINARY_CACHE, oriEnableBinaryCache);
+        config::SetPassGlobalConfig(KEY_ENABLE_BINARY_CACHE, true);
 #endif
 #ifdef ENABLE_STEST_DUMP_JSsON
         oriEnableDumpJson = config::GetPassConfig(KEY_PRINT_GRAPH, oriEnableDumpJson);
         config::GetPassConfig(KEY_PRINT_GRAPH, true);
 #endif
         // Reset Program
-        rtSetDevice(GetDeviceIdByEnvVar());
+        RuntimeSetDevice(GetDeviceIdByEnvVar());
         Program::GetInstance().Reset();
         ProgramData::GetInstance().Reset();
     }
 
-    void TearDown() override {
+    void TearDown() override
+    {
         config::SetPlatformConfig(KEY_ENABLE_AIHAC_BACKEND, oriEnableAihacBackend);
 #ifdef ENABLE_STEST_BINARY_CACHE
-        config::SetHostConfig(KEY_ENABLE_BINARY_CACHE, oriEnableBinaryCache);
+        config::SetPassGlobalConfig(KEY_ENABLE_BINARY_CACHE, oriEnableBinaryCache);
 #endif
 #ifdef ENABLE_STEST_DUMO_JSON
         config::SetHostConfig(KEY_PRINT_GRAPH, oriEnablePrintJson);
@@ -70,7 +72,7 @@ protected:
 #endif
 };
 
-template<typename T>
+template <typename T>
 class TestSuite_STest_Ops_Aihac_param : public TestSuiteBase<testing::TestWithParam<T>> {};
 
 class TestSuite_STest_Ops_Aihac : public TestSuiteBase<testing::Test> {};

@@ -1,5 +1,6 @@
 cmake-build-*
 .idea
+.arts
 .vscode
 .codemate
 build/
@@ -10,6 +11,7 @@ dist/
 *.trace
 .clion.source.upload.marker
 *~
+.arts/
 
 pre-commit
 compile_commands.json
@@ -37,3 +39,10 @@ python/pypto/pypto_impl*.so
 # 三方软件
 third_party_path/
 fusion_result.json
+
+# esl simulation
+log
+run_log
+log_ca
+cannsim*
+trace_*

@@ -4,6 +4,7 @@
 
 | 产品             | 是否支持 |
 |:-----------------|:--------:|
+| Ascend 950PR/Ascend 950DT |    √     |
 | Atlas A3 训练系列产品/Atlas A3 推理系列产品 |    √     |
 | Atlas A2 训练系列产品/Atlas A2 推理系列产品 |    √     |
 
@@ -22,7 +23,7 @@ concat(tensors: List[Tensor], dim: int = 0) -> Tensor
 
 | 参数名  | 输入/输出 | 说明                                                                 |
 |---------|-----------|----------------------------------------------------------------------|
-| tensors | 输入      | 源操作数。 <br> 支持的类型为：Tensor。 <br> Tensor支持的数据类型为：DT_BF16, DT_FP32, DT_FP16, DT_INT8, DT_INT16, DT_INT32。 <br> 不支持空Tensor；Shape仅支持2-4维；Shape Size不大于2147483647（即INT32_MAX）。 |
+| tensors | 输入      | 源操作数。 <br> 支持的类型为：Tensor。 <br> Tensor支持的数据类型为：DT_BF16，DT_FP32，DT_FP16，DT_INT8，DT_INT16，DT_INT32。 <br> 不支持空Tensor；Shape Size不大于2147483647（即INT32_MAX）。 |
 | dim     | 输入      | 源操作数。 <br> 支持的数据类型为：int，默认为0。                      |
 
 ## 返回值说明
@@ -41,10 +42,24 @@ concat(tensors: List[Tensor], dim: int = 0) -> Tensor
 
 ## 调用示例
 
+### TileShape设置示例
+
+调用该operation接口前，应通过set_vec_tile_shapes设置TileShape。
+
+TileShape维度应和输出一致。
+
+如输入tensors维度为[m, c1, p]，[m, c2, p]，输出为[m, c1+c2, p]，TileShape设置为[m1, n1, p1]，则m1, p1分别用于切分m, p轴，n1用于切分c1和c2轴。
+
+```python
+pypto.set_vec_tile_shapes(4, 16, 32)
+```
+
+### 接口调用示例
+
 ```python
 a = pypto.tensor([2, 2], pypto.DT_FP32)  # 2x2 tensor with all 1s
 b = pypto.tensor([2, 2], pypto.DT_FP32)  # 2x2 tensor with all 0s
-out = pypto.concat([a, b], dim = 0) 
+out = pypto.concat([a, b], dim = 0)
 ```
 
 结果示例如下：
@@ -60,4 +75,3 @@ out = pypto.concat([a, b], dim = 0)
               [0.0 0.0]]
 
 ```
-

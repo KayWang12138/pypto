@@ -19,13 +19,13 @@
 #include <string>
 #include <functional>
 
-#include "test_cost_model.h"
 #include "test_suite_stest_ops.h"
-#include "interface/inner/config.h"
+#include "interface/configs/config_manager.h"
 #include "interface/interpreter/raw_tensor_data.h"
 #include "machine/utils/dynamic/dev_encode.h"
 #include "test_dev_func_runner.h"
 #include "interface/tensor/float.h"
+#include "cost_model/simulation/cost_model_launcher.h"
 
 namespace tile_fwk {
 namespace test_operation {
@@ -35,18 +35,15 @@ struct OpFuncArgs {
     std::unordered_map<size_t, size_t> inplaceInfo;
 };
 
-inline SymbolicScalar CeilDivSymbolicScalar(SymbolicScalar a, int b) {
+inline SymbolicScalar CeilDivSymbolicScalar(SymbolicScalar a, int b)
+{
     if (b == 0) {
         return a;
     }
     return (a + b - 1) / b;
 }
 
-using OpFunc = std::function<void(
-    const std::vector<Tensor>&,
-    std::vector<Tensor>&,
-    const OpFuncArgs*
-)>;
+using OpFunc = std::function<void(const std::vector<Tensor>&, std::vector<Tensor>&, const OpFuncArgs*)>;
 
 struct TestCaseDesc {
     std::vector<Tensor> inputTensors;
@@ -79,21 +76,19 @@ struct MatmulTestCaseParam {
 
 class TestExecutor {
 public:
-    static void setGMNotClear() {
-        gmClearFlag = false;
-    }
-    static void runTest(const TestCaseDesc& testCase) {
+    static void setGMNotClear() { gmClearFlag = false; }
+    static void runTest(const TestCaseDesc& testCase)
+    {
         init();
         verifyOpResults(testCase);
     }
 
 private:
     static inline bool gmClearFlag = true;
-    static void init() {
-        config::SetHostOption(ONLY_CODEGEN, true);
-    }
+    static void init() {}
 
-    static void verifyOpResults(const TestCaseDesc& testCase) {
+    static void verifyOpResults(const TestCaseDesc& testCase)
+    {
         // 设置输入数据
         std::vector<RawTensorDataPtr> inputs;
         ASSERT_EQ(testCase.inputTensors.size(), testCase.inputPaths.size());
@@ -123,10 +118,12 @@ private:
                 } else {
                     switch (testCase.outputTensors[i].GetDataType()) {
                         case DataType::DT_FP32:
-                            outputs.push_back(RawTensorData::CreateConstantTensor<float>(testCase.outputTensors[i], 1.0));
+                            outputs.push_back(
+                                RawTensorData::CreateConstantTensor<float>(testCase.outputTensors[i], 1.0));
                             break;
                         case DataType::DT_INT32:
-                            outputs.push_back(RawTensorData::CreateConstantTensor<int32_t>(testCase.outputTensors[i], 1));
+                            outputs.push_back(
+                                RawTensorData::CreateConstantTensor<int32_t>(testCase.outputTensors[i], 1));
                             break;
                         default:
                             ASSERT_TRUE(false) << "no support dtype " << testCase.outputTensors[i].GetDataType();
@@ -143,14 +140,16 @@ private:
         if (testCase.onBoard) {
             DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
         } else {
-            CostModelDynFuncRunner::Run(Program::GetInstance().GetLastFunction());
+            config::SetRuntimeOption(CFG_RUN_MODE, CFG_RUN_MODE_SIM);
+            CostModelLauncher::CostModelRunOnce(Program::GetInstance().GetLastFunction());
         }
 
         ASSERT_EQ(testCase.goldenPaths.size(), testCase.outputTensors.size());
         readGoldenCmpType(testCase);
     }
 
-    static void readGoldenCmpType(const TestCaseDesc& testCase) {
+    static void readGoldenCmpType(const TestCaseDesc& testCase)
+    {
         for (size_t i = 0; i < testCase.outputTensors.size(); ++i) {
             auto& tensor = testCase.outputTensors[i];
             switch (tensor.GetDataType()) {
@@ -190,6 +189,18 @@ private:
                 case DataType::DT_UINT64:
                     readGoldenCmp<uint64_t>(tensor, testCase.goldenPaths[i], i, 0);
                     break;
+                case DataType::DT_HF8:
+                    readGoldenCmp<uint8_t>(tensor, testCase.goldenPaths[i], i, 0);
+                    break;
+                case DataType::DT_FP8E4M3:
+                    readGoldenCmp<uint8_t>(tensor, testCase.goldenPaths[i], i, 0);
+                    break;
+                case DataType::DT_FP8E5M2:
+                    readGoldenCmp<uint8_t>(tensor, testCase.goldenPaths[i], i, 0);
+                    break;
+                case DataType::DT_FP8E8M0:
+                    readGoldenCmp<uint8_t>(tensor, testCase.goldenPaths[i], i, 0);
+                    break;
                 default:
                     ASSERT_TRUE(false) << "no support dtype " << tensor.GetDataType();
                     break;
@@ -197,8 +208,9 @@ private:
         }
     }
 
-    template<typename T>
-    static void readGoldenCmp(const Tensor& tensor, const std::string& goldenPath, size_t index, T tolerance) {
+    template <typename T>
+    static void readGoldenCmp(const Tensor& tensor, const std::string& goldenPath, size_t index, T tolerance)
+    {
         size_t elementCount = 1;
         for (int dim : tensor.GetShape()) {
             elementCount *= dim;
@@ -214,20 +226,21 @@ private:
 
 class TestFlowVerifier {
 public:
-    static void runTest(const TestCaseDesc& testCase) {
+    static void runTest(const TestCaseDesc& testCase)
+    {
         init();
         verifyOpResults(testCase);
     }
 
 private:
-    static void init() {
+    static void init()
+    {
         config::SetVerifyOption(KEY_ENABLE_PASS_VERIFY, true);
         config::SetVerifyOption(KEY_PASS_VERIFY_SAVE_TENSOR, true);
-
-        config::SetHostOption(ONLY_CODEGEN, true);
     }
 
-    static void verifyOpResults(const TestCaseDesc& testCase) {
+    static void verifyOpResults(const TestCaseDesc& testCase)
+    {
         // 设置输出Tensor
         std::vector<RawTensorDataPtr> outputs;
         for (const auto& tensor : testCase.outputTensors) {
@@ -260,7 +273,8 @@ private:
         testCase.opFunc(testCase.inputTensors, nonConstOutputs, testCase.args);
     }
 
-    static void appendGoldenType(const TestCaseDesc& testCase) {
+    static void appendGoldenType(const TestCaseDesc& testCase)
+    {
         for (size_t i = 0; i < testCase.outputTensors.size(); ++i) {
             auto& tensor = testCase.outputTensors[i];
             switch (tensor.GetDataType()) {
@@ -304,8 +318,9 @@ private:
         }
     }
 
-    template<typename T>
-    static void appendGolden(const Tensor& tensor, const std::string& goldenPath) {
+    template <typename T>
+    static void appendGolden(const Tensor& tensor, const std::string& goldenPath)
+    {
         size_t elementCount = 1;
         for (int dim : tensor.GetShape()) {
             elementCount *= dim;
@@ -318,38 +333,32 @@ private:
     }
 };
 
-static DataType GetDataType(const std::string &name) {
+static DataType GetDataType(const std::string& name)
+{
     static const std::map<std::string, DataType> name_to_dtype = {
-        {  "int4",   DataType::DT_INT4},
-        {  "int8",   DataType::DT_INT8},
-        { "int16",  DataType::DT_INT16},
-        { "int32",  DataType::DT_INT32},
-        { "int64",  DataType::DT_INT64},
-        {   "fp8",    DataType::DT_FP8},
-        {  "fp16",   DataType::DT_FP16},
-        {  "fp32",   DataType::DT_FP32},
-        {  "bf16",   DataType::DT_BF16},
-        {   "hf4",    DataType::DT_HF4},
-        {   "hf8",    DataType::DT_HF8},
-        { "uint8",  DataType::DT_UINT8},
-        {"uint16", DataType::DT_UINT16},
-        {"uint32", DataType::DT_UINT32},
-        {"uint64", DataType::DT_UINT64},
-        {  "bool",   DataType::DT_BOOL},
-        {"double", DataType::DT_DOUBLE},
+        {"int4", DataType::DT_INT4},       {"int8", DataType::DT_INT8},     {"int16", DataType::DT_INT16},
+        {"int32", DataType::DT_INT32},     {"int64", DataType::DT_INT64},   {"fp8", DataType::DT_FP8},
+        {"fp16", DataType::DT_FP16},       {"fp32", DataType::DT_FP32},     {"bf16", DataType::DT_BF16},
+        {"hf4", DataType::DT_HF4},         {"hf8", DataType::DT_HF8},       {"uint8", DataType::DT_UINT8},
+        {"uint16", DataType::DT_UINT16},   {"uint32", DataType::DT_UINT32}, {"uint64", DataType::DT_UINT64},
+        {"bool", DataType::DT_BOOL},       {"double", DataType::DT_DOUBLE}, {"fp8e4m3", DataType::DT_FP8E4M3},
+        {"fp8e5m2", DataType::DT_FP8E5M2}, {"fp8e8m0", DataType::DT_FP8E8M0},
+        {"fp4_e2m1x2", DataType::DT_FP4_E2M1X2},
+        {"fp4_e1m2x2", DataType::DT_FP4_E1M2X2},
     };
     if (name_to_dtype.find(name) == name_to_dtype.end()) {
-        ALOG_ERROR << "Not support type " << name << " yet, return fp32 as default.";
+        MATMUL_LOGW("Not support type %s yet, return fp32 as default.", name.c_str());
         return DataType::DT_FP32;
     }
     return name_to_dtype.at(name);
 }
 
-static std::vector<Tensor> GetTensors(const nlohmann::json &json_data, bool is_input = true) {
+static std::vector<Tensor> GetTensors(const nlohmann::json& json_data, bool is_input = true)
+{
     std::cout << "Create Tensors For " << json_data << std::endl;
     std::vector<Tensor> tensors;
     auto key = is_input ? "input_tensors" : "output_tensors";
-    for (const auto &tensor_config : json_data.at(key)) {
+    for (const auto& tensor_config : json_data.at(key)) {
         auto shape = tensor_config.at("shape").get<std::vector<int64_t>>();
         auto dtype = GetDataType(tensor_config.at("dtype").get<std::string>());
         auto name = tensor_config.at("name").get<std::string>();
@@ -358,14 +367,16 @@ static std::vector<Tensor> GetTensors(const nlohmann::json &json_data, bool is_i
     return tensors;
 }
 
-[[maybe_unused]] static std::vector<Tensor> GetInputTensors(const nlohmann::json &json_data) {
+[[maybe_unused]] static std::vector<Tensor> GetInputTensors(const nlohmann::json& json_data)
+{
     return GetTensors(json_data, true);
 }
 
-[[maybe_unused]] static std::vector<Tensor> GetMatmulTensors(const nlohmann::json &json_data, const std::string key) {
+[[maybe_unused]] static std::vector<Tensor> GetMatmulTensors(const nlohmann::json& json_data, const std::string key)
+{
     std::cout << "Create Matmul Tensors For " << json_data << std::endl;
     std::vector<Tensor> tensors;
-    for (const auto &tensor_config : json_data.at(key)) {
+    for (const auto& tensor_config : json_data.at(key)) {
         auto shape = tensor_config.at("shape").get<std::vector<int64_t>>();
         auto dtype = GetDataType(tensor_config.at("dtype").get<std::string>());
         auto name = tensor_config.at("name").get<std::string>();
@@ -381,12 +392,13 @@ static std::vector<Tensor> GetTensors(const nlohmann::json &json_data, bool is_i
     return tensors;
 }
 
-[[maybe_unused]] static Tensor GetParamTensor(const nlohmann::json &json_data, const std::string key) {
+[[maybe_unused]] static Tensor GetParamTensor(const nlohmann::json& json_data, const std::string key)
+{
     std::cout << "Create Param Tensors For " << json_data << std::endl;
     if (json_data.at("params").find(key) == json_data.at("params").end()) {
         return Tensor();
     }
-    const auto &tensor_config = json_data.at("params").at(key);
+    const auto& tensor_config = json_data.at("params").at(key);
     auto format = tensor_config.at("format").get<std::string>();
     auto name = tensor_config.at("name").get<std::string>();
     auto dtype = GetDataType(tensor_config.at("dtype").get<std::string>());
@@ -400,12 +412,14 @@ static std::vector<Tensor> GetTensors(const nlohmann::json &json_data, bool is_i
     }
 }
 
-[[maybe_unused]] static std::vector<Tensor> GetOutputTensors(const nlohmann::json &json_data) {
+[[maybe_unused]] static std::vector<Tensor> GetOutputTensors(const nlohmann::json& json_data)
+{
     return GetTensors(json_data, false);
 }
 
 template <typename T>
-T GetValueByName(const nlohmann::json &json_data, const std::string &name) {
+T GetValueByName(const nlohmann::json& json_data, const std::string& name)
+{
     nlohmann::json data = json_data;
     if (json_data.find(name) == json_data.end()) {
         data = json_data.at("params");
@@ -415,7 +429,8 @@ T GetValueByName(const nlohmann::json &json_data, const std::string &name) {
 }
 
 template <typename T>
-T GetValueByNameWithKey(const nlohmann::json &json_data, const std::string &name, const std::string &key) {
+T GetValueByNameWithKey(const nlohmann::json& json_data, const std::string& name, const std::string& key)
+{
     nlohmann::json data = json_data;
     if (json_data.find(name) == json_data.end()) {
         data = json_data.at("params").at(key);
@@ -425,7 +440,8 @@ T GetValueByNameWithKey(const nlohmann::json &json_data, const std::string &name
 }
 
 template <typename T1, typename T2>
-T2 GetMapValByName(const std::map<T1, T2> &map_data, const T1 &name) {
+T2 GetMapValByName(const std::map<T1, T2>& map_data, const T1& name)
+{
     auto it = map_data.find(name);
     if (it != map_data.end()) {
         return it->second;
@@ -434,23 +450,27 @@ T2 GetMapValByName(const std::map<T1, T2> &map_data, const T1 &name) {
     return T2(0);
 }
 
-[[maybe_unused]] static std::vector<int64_t> GetViewShape(const nlohmann::json &json_data) {
+[[maybe_unused]] static std::vector<int64_t> GetViewShape(const nlohmann::json& json_data)
+{
     return GetValueByName<std::vector<int64_t>>(json_data, "view_shape");
 }
 
-[[maybe_unused]] static std::vector<int64_t> GetTileShape(const nlohmann::json &json_data) {
+[[maybe_unused]] static std::vector<int64_t> GetTileShape(const nlohmann::json& json_data)
+{
     return GetValueByName<std::vector<int64_t>>(json_data, "tile_shape");
 }
 
-[[maybe_unused]] static int GetFuncId(const nlohmann::json &json_data) {
+[[maybe_unused]] static int GetFuncId(const nlohmann::json& json_data)
+{
     return GetValueByName<int>(json_data, "func_id");
 }
 
-[[maybe_unused]] static std::vector<std::vector<int64_t>> GetMatmulTileShape(const nlohmann::json &json_data) {
+[[maybe_unused]] static std::vector<std::vector<int64_t>> GetMatmulTileShape(const nlohmann::json& json_data)
+{
     std::vector<std::vector<int64_t>> tileShape;
-    for (const auto &shape : json_data["tile_shape"]) {
+    for (const auto& shape : json_data["tile_shape"]) {
         std::vector<int64_t> tile;
-        for (const auto &num : shape) {
+        for (const auto& num : shape) {
             tile.push_back(num);
         }
         tileShape.push_back(tile);
@@ -458,7 +478,33 @@ T2 GetMapValByName(const std::map<T1, T2> &map_data, const T1 &name) {
     return tileShape;
 }
 
-[[maybe_unused]] static MatmulTestCaseParam GetMatmulParam(const nlohmann::json &json_data) {
+[[maybe_unused]] static Element GetElementByType(DataType dataType, nlohmann::json test_data, const std::string& name)
+{
+    if (dataType == DT_FP32 || dataType == DT_BF16 || dataType == DT_FP16) {
+        {
+            Element element(dataType, GetValueByName<float>(test_data, name));
+            return element;
+        }
+    } else if (dataType == DT_INT8) {
+        Element element(dataType, GetValueByName<int8_t>(test_data, name));
+        return element;
+    } else if (dataType == DT_INT16) {
+        Element element(dataType, GetValueByName<int16_t>(test_data, name));
+        return element;
+    } else if (dataType == DT_INT32) {
+        Element element(dataType, GetValueByName<int32_t>(test_data, name));
+        return element;
+    } else if (dataType == DT_INT64) {
+        Element element(dataType, GetValueByName<int64_t>(test_data, name));
+        return element;
+    } else {
+        std::string errorMessage = "Unsupported DataType " + std::string(DataType2String(dataType));
+        throw std::invalid_argument(errorMessage.c_str());
+    }
+}
+
+[[maybe_unused]] static MatmulTestCaseParam GetMatmulParam(const nlohmann::json& json_data)
+{
     MatmulTestCaseParam param;
     param.transA = json_data.at("input_tensors")[0].at("need_trans");
     param.transB = json_data.at("input_tensors")[1].at("need_trans");
@@ -485,12 +531,12 @@ T2 GetMapValByName(const std::map<T1, T2> &map_data, const T1 &name) {
     }
     if (json_data.at("params").find("l0c2l1_params") != json_data.at("params").end()) {
         if (json_data.at("params").at("l0c2l1_params").find("is_l0c2l1_trans") !=
-                json_data.at("params").at("l0c2l1_params").end()) {
+            json_data.at("params").at("l0c2l1_params").end()) {
             param.l0c2l1IsTrans = GetValueByNameWithKey<bool>(json_data, "is_l0c2l1_trans", "l0c2l1_params");
-            param.enable_l0c2l1 =true;
+            param.enable_l0c2l1 = true;
         }
         if (json_data.at("params").at("l0c2l1_params").find("is_as_left_matrix") !=
-                json_data.at("params").at("l0c2l1_params").end()) {
+            json_data.at("params").at("l0c2l1_params").end()) {
             param.l0c2l1AsLeftMatrix = GetValueByNameWithKey<bool>(json_data, "is_as_left_matrix", "l0c2l1_params");
         }
     }
@@ -498,26 +544,27 @@ T2 GetMapValByName(const std::map<T1, T2> &map_data, const T1 &name) {
     return param;
 }
 
-template <typename T>
-std::vector<T> GetOpMetaData(const std::vector<OpFunc> &opFuncs, const std::string &op) {
+template <typename T, size_t func_offset = 2>
+std::vector<T> GetOpMetaData(const std::vector<OpFunc>& opFuncs, const std::string& op)
+{
     auto case_file = "../../../framework/tests/st/operation/test_case/" + op + "_st_test_cases.json";
     std::ifstream json_file(case_file);
     if (!json_file.is_open()) {
-        ALOG_INFO << "Not find any input data for " << case_file << ".";
+        MATMUL_LOGI("Not find any input data for %s.", case_file.c_str());
         return {};
     }
     nlohmann::json json_data = nlohmann::json::parse(json_file);
     std::vector<T> test_case_list;
-    for (const auto &test_case : json_data.at("test_cases")) {
+    for (const auto& test_case : json_data.at("test_cases")) {
         if (test_case.at("operation") != op) {
             continue;
         }
         auto func_id = GetFuncId(test_case);
         if (func_id < 0 || static_cast<size_t>(func_id) >= opFuncs.size()) {
-            if (GetViewShape(test_case).size() < 2) { // cut function start from 2 dim
+            if (GetViewShape(test_case).size() < func_offset) { // cut function start from 2 dim
                 func_id = 0;
             } else {
-                func_id = GetViewShape(test_case).size() - 2;
+                func_id = GetViewShape(test_case).size() - func_offset;
             }
         }
         test_case_list.push_back(T(opFuncs[func_id], test_case));
@@ -526,18 +573,20 @@ std::vector<T> GetOpMetaData(const std::vector<OpFunc> &opFuncs, const std::stri
 }
 
 template <typename T>
-TestCaseDesc CreateTestCaseDesc(const T &param, const OpFuncArgs *args) {
+TestCaseDesc CreateTestCaseDesc(const T& param, const OpFuncArgs* args)
+{
     TestCaseDesc testCase;
     auto test_data = param.test_data_;
     testCase.inputTensors = GetInputTensors(test_data);
     testCase.outputTensors = GetOutputTensors(test_data);
     testCase.args = args;
     testCase.opFunc = param.opFunc_;
-    std::transform(testCase.inputTensors.begin(), testCase.inputTensors.end(), std::back_inserter(testCase.inputPaths),
-        [](const auto &tensor) { return GetGoldenDir() + "/" + tensor.GetStorage()->Symbol() + ".bin"; });
-    std::transform(testCase.outputTensors.begin(), testCase.outputTensors.end(),
-        std::back_inserter(testCase.goldenPaths),
-        [](const auto &tensor) { return GetGoldenDir() + "/" + tensor.GetStorage()->Symbol() + ".bin"; });
+    std::transform(
+        testCase.inputTensors.begin(), testCase.inputTensors.end(), std::back_inserter(testCase.inputPaths),
+        [](const auto& tensor) { return GetGoldenDir() + "/" + tensor.GetStorage()->Symbol() + ".bin"; });
+    std::transform(
+        testCase.outputTensors.begin(), testCase.outputTensors.end(), std::back_inserter(testCase.goldenPaths),
+        [](const auto& tensor) { return GetGoldenDir() + "/" + tensor.GetStorage()->Symbol() + ".bin"; });
     auto params_dict = test_data.at("params");
     testCase.onBoard = params_dict.find("on_board") == params_dict.end() || GetValueByName<bool>(test_data, "on_board");
     return testCase;

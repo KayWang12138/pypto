@@ -16,17 +16,15 @@
 #include "test_suite_stest_ops.h"
 #include "interface/interpreter/raw_tensor_data.h"
 #include "operator/models/deepseek/page_attention.h"
-#include "machine/utils/dynamic/dev_encode.h"
-#include "machine/runtime/runtime.h"
 #include "cost_model/simulation/backend.h"
 #include "test_dev_func_runner.h"
 
 using namespace npu::tile_fwk;
 using namespace npu::tile_fwk::dynamic;
 class DynamicDatamoveTest : public npu::tile_fwk::stest::TestSuite_STest_Ops_Aihac {};
-TEST_F(DynamicDatamoveTest, TestDynamicDatamove) {
+TEST_F(DynamicDatamoveTest, TestDynamicDatamove)
+{
     SetInterpreterConfig();
-    config::SetHostOption(ONLY_CODEGEN, true);
     TileShape::Current().SetVecTile(1, 32, 64);
 
     int n = 1;
@@ -59,8 +57,10 @@ TEST_F(DynamicDatamoveTest, TestDynamicDatamove) {
         RawTensorData::CreateTensor<float>(out, golden),
     });
 
-    FUNCTION("main", {input, actSeqs}, {out}) {
-        LOOP("L0", FunctionType::DYNAMIC_LOOP, batchId, LoopRange(b)) {
+    FUNCTION("main", {input, actSeqs}, {out})
+    {
+        LOOP("L0", FunctionType::DYNAMIC_LOOP, batchId, LoopRange(b))
+        {
             SymbolicScalar curSeq = GetTensorData(actSeqs, {batchId, 0});
 
             Tensor input0 = View(input, {n, sq, d}, {n, curSeq, d}, {batchId, 0, 0});
@@ -73,5 +73,5 @@ TEST_F(DynamicDatamoveTest, TestDynamicDatamove) {
     DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
 
     auto outs = npu::tile_fwk::ProgramData::GetInstance().GetOutputData(0);
-    EXPECT_TRUE(resultCmp(golden, (float *)outs->data(), 0.001f));
+    EXPECT_TRUE(resultCmp(golden, (float*)outs->data(), 0.001f));
 }

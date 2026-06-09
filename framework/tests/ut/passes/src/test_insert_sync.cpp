@@ -14,9 +14,9 @@
  */
 #include <gtest/gtest.h>
 #include "tilefwk/platform.h"
+#define private public
 #include "passes/block_graph_pass/insert_sync.h"
 #include "ut_json/ut_json_tool.h"
-#define private public
 
 namespace npu {
 namespace tile_fwk {
@@ -105,16 +105,18 @@ public:
 
     static void TearDownTestCase() {}
 
-    void SetUp() override {
+    void SetUp() override
+    {
         Program::GetInstance().Reset();
         config::Reset();
-        config::SetPlatformConfig(KEY_ONLY_HOST_COMPILE, true);
-        config::SetPlatformConfig("ENABLE_COST_MODEL", false);
-        Platform::Instance().ObtainPlatformInfo();
+        config::SetHostOption(COMPILE_STAGE, CS_EXECUTE_GRAPH);
+        config::SetPlatformConfig(KEY_ENABLE_COST_MODEL, false);
     }
     void TearDown() override {}
 
-    void AdjustCopyOpTileCfg(Operation &op, TileOpCfg &opcfg) {
+    void AdjustCopyOpTileCfg(Operation& op, TileOpCfg& opcfg)
+    {
+        opcfg.aivCore_ = AIVCore::AIV0;
         if (op.GetOpcode() == Opcode::OP_COPY_IN) {
             opcfg.pipeIdStart_ = PipeType::PIPE_MTE2;
             opcfg.pipeIdEnd_ = PipeType::PIPE_MTE2;
@@ -126,16 +128,19 @@ public:
         }
     }
 
-    void BuildDeps(PipeSync &ps, DataDependencySearcher &dataDependencySearcher, std::vector<Operation *> &opLogPtr, std::vector<IndexOp> &synced) {
+    void BuildDeps(
+        PipeSync& ps, DataDependencySearcher& dataDependencySearcher, std::vector<Operation*>& opLogPtr,
+        std::vector<IndexOp>& synced)
+    {
         for (size_t i = 0; i < opLogPtr.size(); i++) {
             auto opcfg = OpcodeManager::Inst().GetTileOpCfg(opLogPtr[i]->GetOpcode());
             AdjustCopyOpTileCfg(*opLogPtr[i], opcfg);
-            PipeSync::DepOp op(i, {opcfg.pipeIdStart_, opcfg.pipeIdEnd_, opcfg.coreType_});
-            PipeSync::DepOp &currOp = ps.depOps_.emplace_back(op);
+            PipeSync::DepOp op(i, {opcfg.pipeIdStart_, opcfg.pipeIdEnd_, opcfg.coreType_, opcfg.aivCore_});
+            PipeSync::DepOp& currOp = ps.depOps_.emplace_back(op);
             auto dataDependencySet = dataDependencySearcher.Find(opLogPtr[i]);
             for (auto it = dataDependencySet.rbegin(); it != dataDependencySet.rend(); it++) {
                 size_t k = *it;
-                PipeSync::DepOp &prevOp = ps.depOps_[k];
+                PipeSync::DepOp& prevOp = ps.depOps_[k];
                 if (ps.HasDataDependency(*opLogPtr[k], *opLogPtr[i], k, i)) {
                     ps.UpdateDep(currOp, prevOp);
                 }
@@ -146,10 +151,12 @@ public:
     }
 };
 
-TEST_F(InsertSyncTest, TestEnableDebug) {
+TEST_F(InsertSyncTest, TestEnableDebug)
+{
     auto rootFuncPtr = std::make_shared<Function>(Program::GetInstance(), "TestParams", "TestParams", nullptr);
     rootFuncPtr->rootFunc_ = rootFuncPtr.get();
-    auto currFunctionPtr = std::make_shared<Function>(Program::GetInstance(), "TestAddParams", "TestAddParams", rootFuncPtr.get());
+    auto currFunctionPtr =
+        std::make_shared<Function>(Program::GetInstance(), "TestAddParams", "TestAddParams", rootFuncPtr.get());
     EXPECT_TRUE(currFunctionPtr != nullptr);
     rootFuncPtr->rootFunc_->programs_.emplace(currFunctionPtr->GetFuncMagic(), currFunctionPtr.get());
 
@@ -163,14 +170,14 @@ TEST_F(InsertSyncTest, TestEnableDebug) {
     auto ubTensor3 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape);
     auto outCast = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape);
 
-    auto &copy_op1 = currFunctionPtr->AddRawOperation(Opcode::OP_COPY_IN, {incast1}, {ubTensor1});
-    (void) copy_op1;
-    auto &copy_op2 = currFunctionPtr->AddRawOperation(Opcode::OP_COPY_IN, {incast2}, {ubTensor2});
-    (void) copy_op2;
+    auto& copy_op1 = currFunctionPtr->AddRawOperation(Opcode::OP_COPY_IN, {incast1}, {ubTensor1});
+    (void)copy_op1;
+    auto& copy_op2 = currFunctionPtr->AddRawOperation(Opcode::OP_COPY_IN, {incast2}, {ubTensor2});
+    (void)copy_op2;
     auto& add_op = currFunctionPtr->AddRawOperation(Opcode::OP_ADD, {ubTensor1, ubTensor2}, {ubTensor3});
-    (void) add_op;
+    (void)add_op;
     auto& copy_out_op = currFunctionPtr->AddRawOperation(Opcode::OP_COPY_OUT, {ubTensor3}, {outCast});
-    (void) copy_out_op;
+    (void)copy_out_op;
     currFunctionPtr->inCasts_.push_back(incast1);
     currFunctionPtr->inCasts_.push_back(incast2);
     currFunctionPtr->outCasts_.push_back(outCast);
@@ -180,7 +187,9 @@ TEST_F(InsertSyncTest, TestEnableDebug) {
     EXPECT_TRUE(true);
 }
 
-std::vector<std::shared_ptr<LogicalTensor>> AddOpForTestFindDep(std::vector<Operation *>& opLogPtr, std::shared_ptr<Function> currFunctionPtr) {
+std::vector<std::shared_ptr<LogicalTensor>> AddOpForTestFindDep(
+    std::vector<Operation*>& opLogPtr, std::shared_ptr<Function> currFunctionPtr)
+{
     // Build graph
     std::vector<int64_t> shape1 = {IS_NUM16, IS_NUM16};
     std::vector<int64_t> shape2 = {IS_NUM8, IS_NUM16};
@@ -208,20 +217,22 @@ std::vector<std::shared_ptr<LogicalTensor>> AddOpForTestFindDep(std::vector<Oper
     tensor6->SetMemoryTypeBoth(MemoryType::MEM_UB);
     tensor6->memoryrange.start = IS_NUM150;
     tensor6->memoryrange.end = IS_NUM200;
-    auto &expend = currFunctionPtr->AddRawOperation(Opcode::OP_EXPAND, {tensor1}, {tensor2});
+    auto& expend = currFunctionPtr->AddRawOperation(Opcode::OP_EXPAND, {tensor1}, {tensor2});
     opLogPtr.emplace_back(&expend);
-    auto &copyin1 = currFunctionPtr->AddRawOperation(Opcode::OP_COPY_IN, {tensor2}, {tensor3});
+    auto& copyin1 = currFunctionPtr->AddRawOperation(Opcode::OP_COPY_IN, {tensor2}, {tensor3});
     opLogPtr.emplace_back(&copyin1);
-    auto &copyin2 = currFunctionPtr->AddRawOperation(Opcode::OP_COPY_IN, {tensor2}, {tensor4});
+    auto& copyin2 = currFunctionPtr->AddRawOperation(Opcode::OP_COPY_IN, {tensor2}, {tensor4});
     opLogPtr.emplace_back(&copyin2);
-    auto &copyin3 = currFunctionPtr->AddRawOperation(Opcode::OP_COPY_IN, {tensor2}, {tensor5});
+    auto& copyin3 = currFunctionPtr->AddRawOperation(Opcode::OP_COPY_IN, {tensor2}, {tensor5});
     opLogPtr.emplace_back(&copyin3);
-    auto &exp = currFunctionPtr->AddRawOperation(Opcode::OP_EXP, {tensor3}, {tensor6});
+    auto& exp = currFunctionPtr->AddRawOperation(Opcode::OP_EXP, {tensor3}, {tensor6});
     opLogPtr.emplace_back(&exp);
     return {tensor1, tensor2, tensor3, tensor4, tensor5, tensor6};
 }
 
-void CheckDependencyForTestFindDep(PipeSync &ps, std::set<int> dataDependencySet, std::vector<Operation *> &opLogPtr, size_t i) {
+void CheckDependencyForTestFindDep(
+    PipeSync& ps, std::set<int> dataDependencySet, std::vector<Operation*>& opLogPtr, size_t i)
+{
     for (auto it = dataDependencySet.rbegin(); it != dataDependencySet.rend(); it++) {
         size_t k = *it;
         // start tests
@@ -244,8 +255,10 @@ void CheckDependencyForTestFindDep(PipeSync &ps, std::set<int> dataDependencySet
     }
 }
 
-void ProcessOpList(PipeSync &ps, DataDependencySearcher &dataDependencySearcher, std::vector<Operation *> &opLogPtr) {
-    for (auto &op : opLogPtr) {
+void ProcessOpList(PipeSync& ps, DataDependencySearcher& dataDependencySearcher, std::vector<Operation*>& opLogPtr)
+{
+    ps.oriOpList_ = opLogPtr;
+    for (auto& op : opLogPtr) {
         bool isCubeComponent = op->HasAttr(OpAttributeKey::isCube) && op->GetAttr<bool>(OpAttributeKey::isCube);
         if (!isCubeComponent) {
             op->SetAIVCore(AIVCore::AIV0);
@@ -255,14 +268,16 @@ void ProcessOpList(PipeSync &ps, DataDependencySearcher &dataDependencySearcher,
     dataDependencySearcher.ubTensorRangeMap = ps.ubTensorRangeMap;
 }
 
-TEST_F(InsertSyncTest, TestFindDep) {
+TEST_F(InsertSyncTest, TestFindDep)
+{
     auto rootFuncPtr = std::make_shared<Function>(Program::GetInstance(), "TestFindDep", "TestFindDep", nullptr);
     rootFuncPtr->rootFunc_ = rootFuncPtr.get();
-    auto currFunctionPtr = std::make_shared<Function>(Program::GetInstance(), "TestFindDepLeaf", "TestFindDepLeaf", rootFuncPtr.get());
+    auto currFunctionPtr =
+        std::make_shared<Function>(Program::GetInstance(), "TestFindDepLeaf", "TestFindDepLeaf", rootFuncPtr.get());
     EXPECT_TRUE(currFunctionPtr != nullptr);
     rootFuncPtr->rootFunc_->programs_.emplace(currFunctionPtr->GetFuncMagic(), currFunctionPtr.get());
 
-    std::vector<Operation *> opLogPtr;
+    std::vector<Operation*> opLogPtr;
     auto tensors = AddOpForTestFindDep(opLogPtr, currFunctionPtr);
     PipeSync ps;
     DataDependencySearcher dataDependencySearcher;
@@ -270,7 +285,7 @@ TEST_F(InsertSyncTest, TestFindDep) {
     for (size_t i = 0; i < opLogPtr.size(); i++) {
         auto opcfg = OpcodeManager::Inst().GetTileOpCfg(opLogPtr[i]->GetOpcode());
         AdjustCopyOpTileCfg(*opLogPtr[i], opcfg);
-        PipeSync::DepOp op(i, {opcfg.pipeIdStart_, opcfg.pipeIdEnd_, opcfg.coreType_});
+        PipeSync::DepOp op(i, {opcfg.pipeIdStart_, opcfg.pipeIdEnd_, opcfg.coreType_, opcfg.aivCore_});
         ps.depOps_.emplace_back(op);
         auto dataDependencySet = dataDependencySearcher.Find(opLogPtr[i]);
         // start tests
@@ -301,16 +316,19 @@ TEST_F(InsertSyncTest, TestFindDep) {
     tensor7->SetMemoryTypeBoth(MemoryType::MEM_UB);
     tensor7->memoryrange.start = IS_NUM1000;
     tensor7->memoryrange.end = IS_NUM1100;
-    auto &copyout = currFunctionPtr->AddRawOperation(Opcode::OP_COPY_OUT, {tensors[4]}, {tensor7});
+    auto& copyout = currFunctionPtr->AddRawOperation(Opcode::OP_COPY_OUT, {tensors[4]}, {tensor7});
     opLogPtr.emplace_back(&copyout);
     auto opcfg2 = OpcodeManager::Inst().GetTileOpCfg(opLogPtr[IS_NUM1]->GetOpcode());
     EXPECT_EQ(ps.AdjustOpCfg(opcfg2, *opLogPtr[IS_NUM5]), FAILED);
 }
 
-TEST_F(InsertSyncTest, TestPhaseKernelProcess) {
-    auto rootFuncPtr = std::make_shared<Function>(Program::GetInstance(), "TestPhaseKernelProcess", "TestPhaseKernelProcess", nullptr);
+TEST_F(InsertSyncTest, TestPhaseKernelProcess)
+{
+    auto rootFuncPtr =
+        std::make_shared<Function>(Program::GetInstance(), "TestPhaseKernelProcess", "TestPhaseKernelProcess", nullptr);
     rootFuncPtr->rootFunc_ = rootFuncPtr.get();
-    auto currFunctionPtr = std::make_shared<Function>(Program::GetInstance(), "TestPhaseKernelProcessLeaf", "TestPhaseKernelProcessLeaf", rootFuncPtr.get());
+    auto currFunctionPtr = std::make_shared<Function>(
+        Program::GetInstance(), "TestPhaseKernelProcessLeaf", "TestPhaseKernelProcessLeaf", rootFuncPtr.get());
     EXPECT_TRUE(currFunctionPtr != nullptr);
     rootFuncPtr->rootFunc_->programs_.emplace(currFunctionPtr->GetFuncMagic(), currFunctionPtr.get());
 
@@ -321,24 +339,25 @@ TEST_F(InsertSyncTest, TestPhaseKernelProcess) {
     auto tensor4 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape);
     auto tensor5 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape);
     auto tensor6 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape);
-    std::vector<Operation *> opLogPtr;
-    auto &copyin1 = currFunctionPtr->AddRawOperation(Opcode::OP_COPY_IN, {tensor1}, {tensor3});
+    std::vector<Operation*> opLogPtr;
+    auto& copyin1 = currFunctionPtr->AddRawOperation(Opcode::OP_COPY_IN, {tensor1}, {tensor3});
     opLogPtr.emplace_back(&copyin1);
-    auto &copyin2 = currFunctionPtr->AddRawOperation(Opcode::OP_COPY_IN, {tensor2}, {tensor4});
+    auto& copyin2 = currFunctionPtr->AddRawOperation(Opcode::OP_COPY_IN, {tensor2}, {tensor4});
     opLogPtr.emplace_back(&copyin2);
-    auto &add = currFunctionPtr->AddRawOperation(Opcode::OP_ADD, {tensor3, tensor4}, {tensor5});
+    auto& add = currFunctionPtr->AddRawOperation(Opcode::OP_ADD, {tensor3, tensor4}, {tensor5});
     opLogPtr.emplace_back(&add);
-    auto &copyout = currFunctionPtr->AddRawOperation(Opcode::OP_COPY_OUT, {tensor5}, {tensor6});
+    auto& copyout = currFunctionPtr->AddRawOperation(Opcode::OP_COPY_OUT, {tensor5}, {tensor6});
     opLogPtr.emplace_back(&copyout);
 
     PipeSync ps;
-    std::vector<Operation *> resLogPtr;
+    std::vector<Operation*> resLogPtr;
     ps.PhaseKernelProcess(*currFunctionPtr, opLogPtr, resLogPtr);
     EXPECT_EQ(resLogPtr[0]->GetOpcode(), Opcode::OP_PHASE1);
     EXPECT_EQ(resLogPtr[IS_NUM3]->GetOpcode(), Opcode::OP_PHASE2);
 }
 
-void AddOpForTestUpdateDep(std::vector<Operation *>& opLogPtr, std::shared_ptr<Function> currFunctionPtr) {
+void AddOpForTestUpdateDep(std::vector<Operation*>& opLogPtr, std::shared_ptr<Function> currFunctionPtr)
+{
     std::vector<int64_t> shape = {IS_NUM16, IS_NUM16};
     auto tensor1 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape);
     tensor1->SetMemoryTypeBoth(MemoryType::MEM_UB);
@@ -372,26 +391,28 @@ void AddOpForTestUpdateDep(std::vector<Operation *>& opLogPtr, std::shared_ptr<F
     tensor8->SetMemoryTypeBoth(MemoryType::MEM_UB);
     tensor8->memoryrange.start = IS_NUM101;
     tensor8->memoryrange.end = IS_NUM199;
-    auto &copyin1 = currFunctionPtr->AddRawOperation(Opcode::OP_COPY_IN, {tensor1}, {tensor8});
+    auto& copyin1 = currFunctionPtr->AddRawOperation(Opcode::OP_COPY_IN, {tensor1}, {tensor8});
     opLogPtr.emplace_back(&copyin1);
-    auto &copyin2 = currFunctionPtr->AddRawOperation(Opcode::OP_COPY_IN, {tensor2}, {tensor3});
+    auto& copyin2 = currFunctionPtr->AddRawOperation(Opcode::OP_COPY_IN, {tensor2}, {tensor3});
     opLogPtr.emplace_back(&copyin2);
-    auto &cast1 = currFunctionPtr->AddRawOperation(Opcode::OP_CAST, {tensor3}, {tensor4});
+    auto& cast1 = currFunctionPtr->AddRawOperation(Opcode::OP_CAST, {tensor3}, {tensor4});
     opLogPtr.emplace_back(&cast1);
-    auto &cast2 = currFunctionPtr->AddRawOperation(Opcode::OP_CAST, {tensor5}, {tensor6});
+    auto& cast2 = currFunctionPtr->AddRawOperation(Opcode::OP_CAST, {tensor5}, {tensor6});
     opLogPtr.emplace_back(&cast2);
-    auto &copyout = currFunctionPtr->AddRawOperation(Opcode::OP_COPY_OUT, {tensor6}, {tensor7});
+    auto& copyout = currFunctionPtr->AddRawOperation(Opcode::OP_COPY_OUT, {tensor6}, {tensor7});
     opLogPtr.emplace_back(&copyout);
 }
 
-TEST_F(InsertSyncTest, TestUpdateDep) {
+TEST_F(InsertSyncTest, TestUpdateDep)
+{
     auto rootFuncPtr = std::make_shared<Function>(Program::GetInstance(), "TestUpdateDep", "TestUpdateDep", nullptr);
     rootFuncPtr->rootFunc_ = rootFuncPtr.get();
-    auto currFunctionPtr = std::make_shared<Function>(Program::GetInstance(), "TestUpdateDepLeaf", "TestUpdateDepLeaf", rootFuncPtr.get());
+    auto currFunctionPtr =
+        std::make_shared<Function>(Program::GetInstance(), "TestUpdateDepLeaf", "TestUpdateDepLeaf", rootFuncPtr.get());
     EXPECT_TRUE(currFunctionPtr != nullptr);
     rootFuncPtr->rootFunc_->programs_.emplace(currFunctionPtr->GetFuncMagic(), currFunctionPtr.get());
 
-    std::vector<Operation *> opLogPtr;
+    std::vector<Operation*> opLogPtr;
     AddOpForTestUpdateDep(opLogPtr, currFunctionPtr);
 
     PipeSync ps;
@@ -400,27 +421,26 @@ TEST_F(InsertSyncTest, TestUpdateDep) {
     for (size_t i = 0; i < opLogPtr.size(); i++) {
         auto opcfg = OpcodeManager::Inst().GetTileOpCfg(opLogPtr[i]->GetOpcode());
         AdjustCopyOpTileCfg(*opLogPtr[i], opcfg);
-        PipeSync::DepOp op(i, {opcfg.pipeIdStart_, opcfg.pipeIdEnd_, opcfg.coreType_});
-        auto &currOp = ps.depOps_.emplace_back(op);
+        PipeSync::DepOp op(i, {opcfg.pipeIdStart_, opcfg.pipeIdEnd_, opcfg.coreType_, opcfg.aivCore_});
+        auto& currOp = ps.depOps_.emplace_back(op);
         auto dataDependencySet = dataDependencySearcher.Find(opLogPtr[i]);
         for (auto it = dataDependencySet.rbegin(); it != dataDependencySet.rend(); it++) {
             size_t k = *it;
-            auto &prevOp = ps.depOps_[k];
+            auto& prevOp = ps.depOps_[k];
             if (ps.HasDataDependency(*opLogPtr[k], *opLogPtr[i], k, i)) {
                 // start tests
                 ps.UpdateDep(currOp, prevOp);
-                PipeSync::PipeCoreReal pcCurr(PipeType::PIPE_MTE3, CoreType::AIV);
-                PipeSync::PipeCoreReal pcSet1(PipeType::PIPE_V, CoreType::AIV);
-                PipeSync::PipeCoreReal pcSet2(PipeType::PIPE_MTE2, CoreType::AIV);
+                PipeSync::PipeCoreRealEx pcCurr(PipeType::PIPE_MTE3, CoreType::AIV, AIVCore::AIV0);
+                PipeSync::PipeCoreRealEx pcSet1(PipeType::PIPE_V, CoreType::AIV, AIVCore::AIV0);
+                PipeSync::PipeCoreRealEx pcSet2(PipeType::PIPE_MTE2, CoreType::AIV, AIVCore::AIV0);
                 auto setPipeIdx1 = ps.latestPipeDep_[pcCurr].setPipes[pcSet1];
                 auto setPipeIdx2 = ps.latestPipeDep_[pcCurr].setPipes[pcSet2];
+                ps.latestPipeDep_[pcCurr].DumpPipeDepInfo();
                 if (i == IS_NUM4 && k == IS_NUM3) {
-                    ALOG_DEBUG_F("%s", ps.DumpLatestPipeDepMap().c_str());
                     EXPECT_EQ(setPipeIdx1, IS_NUM3);
                     EXPECT_EQ(setPipeIdx2, IS_NUM1);
                 }
                 if (i == IS_NUM4 && k == 0) {
-                    ALOG_DEBUG_F("%s", ps.DumpLatestPipeDepMap().c_str());
                     EXPECT_EQ(setPipeIdx1, IS_NUM3);
                     EXPECT_EQ(setPipeIdx2, IS_NUM1);
                 }
@@ -430,7 +450,8 @@ TEST_F(InsertSyncTest, TestUpdateDep) {
     }
 }
 
-void AddOpForTestHandleEventID(std::vector<Operation *>& opLogPtr, std::shared_ptr<Function> currFunctionPtr) {
+void AddOpForTestHandleEventID(std::vector<Operation*>& opLogPtr, std::shared_ptr<Function> currFunctionPtr)
+{
     std::vector<int64_t> shape = {IS_NUM16, IS_NUM16};
     auto tensor1 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape);
     tensor1->SetMemoryTypeBoth(MemoryType::MEM_UB);
@@ -452,62 +473,89 @@ void AddOpForTestHandleEventID(std::vector<Operation *>& opLogPtr, std::shared_p
     tensor5->SetMemoryTypeBoth(MemoryType::MEM_UB);
     tensor5->memoryrange.start = IS_NUM700;
     tensor5->memoryrange.end = IS_NUM800;
-    auto &copyin1 = currFunctionPtr->AddRawOperation(Opcode::OP_COPY_IN, {tensor1}, {tensor2});
-    opLogPtr.emplace_back(&copyin1);
-    auto &cast = currFunctionPtr->AddRawOperation(Opcode::OP_CAST, {tensor2}, {tensor3});
-    opLogPtr.emplace_back(&cast);
-    auto &copyin2 = currFunctionPtr->AddRawOperation(Opcode::OP_COPY_IN, {tensor4}, {tensor5});
-    opLogPtr.emplace_back(&copyin2);
+    auto& copyin1 = currFunctionPtr->AddRawOperation(Opcode::OP_COPY_IN, {tensor1}, {tensor2});
+    opLogPtr.emplace_back(&copyin1);  // index 0
+    auto& copyin2 = currFunctionPtr->AddRawOperation(Opcode::OP_COPY_IN, {tensor4}, {tensor5});
+    opLogPtr.emplace_back(&copyin2);  // index 1 - moved before cast to satisfy AdjustOpDep conditions
+    auto& cast = currFunctionPtr->AddRawOperation(Opcode::OP_CAST, {tensor2}, {tensor3});
+    opLogPtr.emplace_back(&cast);     // index 2
 }
 
-TEST_F(InsertSyncTest, TestHandleEventID) {
-    auto rootFuncPtr = std::make_shared<Function>(Program::GetInstance(), "TestHandleEventID", "TestHandleEventID", nullptr);
+TEST_F(InsertSyncTest, TestHandleEventID)
+{
+    auto rootFuncPtr =
+        std::make_shared<Function>(Program::GetInstance(), "TestHandleEventID", "TestHandleEventID", nullptr);
     rootFuncPtr->rootFunc_ = rootFuncPtr.get();
-    auto currFunctionPtr = std::make_shared<Function>(Program::GetInstance(), "TestHandleEventIDLeaf", "TestHandleEventIDLeaf", rootFuncPtr.get());
+    auto currFunctionPtr = std::make_shared<Function>(
+        Program::GetInstance(), "TestHandleEventIDLeaf", "TestHandleEventIDLeaf", rootFuncPtr.get());
     EXPECT_TRUE(currFunctionPtr != nullptr);
     rootFuncPtr->rootFunc_->programs_.emplace(currFunctionPtr->GetFuncMagic(), currFunctionPtr.get());
 
-    std::vector<Operation *> opLogPtr;
+    std::vector<Operation*> opLogPtr;
     AddOpForTestHandleEventID(opLogPtr, currFunctionPtr);
 
     PipeSync ps;
+    ps.InitIssueQueue();  // Initialize issueState_ before BuildDeps
     DataDependencySearcher dataDependencySearcher;
     ProcessOpList(ps, dataDependencySearcher, opLogPtr);
     std::vector<IndexOp> synced;
     BuildDeps(ps, dataDependencySearcher, opLogPtr, synced);
-    EXPECT_EQ(ps.depOps_[0].setPipe[0], IS_NUM1);
-    EXPECT_EQ(ps.depOps_[IS_NUM1].waitPipe[0], 0);
+    // After reorder: copyin1(0), copyin2(1), cast(2)
+    EXPECT_EQ(ps.depOps_[0].setPipe[0], IS_NUM2);  // copyin1 sets for cast
+    EXPECT_EQ(ps.depOps_[IS_NUM2].waitPipe[0], 0);  // cast waits for copyin1
 
-    // HandleEventID
+    // HandleEventID - Test AdjustOpDep path
+    // Set up conditions to trigger AdjustOpDep:
+    // 1. currIssueNum >= maxIssueNum (both set to 8)
+    // 2. deadlock = true
+    // 3. issueQ has enough elements for nextOp
     bool eventIdDeadlock = true;
     bool res = false;
     PipeSync::IssueNum issuenum;
-    PipeSync::IssueQueue &issueQ = ps.issueState_[IS_NUM4];
-    PipeSync::DepOp &handleOp = ps.depOps_[0];
-    PipeSync::DepOp &eleOp = ps.depOps_[IS_NUM1];
-    PipeSync::PipeCoreReal currPipeCore(handleOp.selfPipeCore.pipeEnd, handleOp.selfPipeCore.core);
-    PipeSync::PipeCoreReal elePipeCore(eleOp.selfPipeCore.pipeStart, eleOp.selfPipeCore.core);
-    PipeSync::PipePair pp{currPipeCore, elePipeCore};
-    issuenum.maxIssueNum.emplace(pp, IS_NUM8);
-    issuenum.currIssueNum.emplace(pp, IS_NUM8);
-    ps.HandleEventID(handleOp, issueQ, issuenum, eventIdDeadlock, res);
-    EXPECT_EQ(ps.depOps_[IS_NUM1].waitPipe[0], IS_NUM2);
-    EXPECT_EQ(ps.depOps_[IS_NUM2].setPipe[0], IS_NUM1);
+    // issueState_[4] is AIV0_MTE2 queue, contains copyin1(0) and copyin2(1)
+    PipeSync::IssueQueue& issueQ = ps.issueState_[IS_NUM4];
+    PipeSync::DepOp& handleOp = ps.depOps_[0];    // copyin1
+    PipeSync::DepOp& eleOp = ps.depOps_[IS_NUM2]; // cast
+    PipeSync::PipeCoreRealEx currPipeCoreEx(handleOp.selfPipeCore.pipeEnd, handleOp.selfPipeCore.core, handleOp.selfPipeCore.aivCore);
+    PipeSync::PipeCoreRealEx elePipeCoreEx(eleOp.selfPipeCore.pipeStart, eleOp.selfPipeCore.core, eleOp.selfPipeCore.aivCore);
+    PipeSync::PipePairEx pp{currPipeCoreEx, elePipeCoreEx};
+
+    // Pre-set issuenum to trigger AdjustOpDep: currIssueNum >= maxIssueNum
+    issuenum.maxIssueNum[pp] = IS_NUM8;
+    issuenum.currIssueNum[pp] = IS_NUM8;
+
+    // Verify initial state before HandleEventID
+    EXPECT_EQ(ps.depOps_[IS_NUM2].waitPipe[0], 0);  // cast waits for copyin1
+    EXPECT_EQ(ps.depOps_[0].setPipe[0], IS_NUM2);   // copyin1 sets for cast
+
+    ps.HandleEventID(handleOp, issueQ, issuenum, eventIdDeadlock, res, synced);
+    issueQ.DumpIssueQueue(ps.oriOpList_);
+    ps.DumpLatestPipeDepMap();
+
+    // After HandleEventID with AdjustOpDep:
+    // RemoveOpDep: copyin1's setPipe removes cast, cast's waitPipe removes copyin1
+    // AddOpDep: copyin2's setPipe adds cast, cast's waitPipe adds copyin2
+    EXPECT_EQ(ps.depOps_[IS_NUM2].waitPipe[0], IS_NUM1);  // cast now waits for copyin2
+    EXPECT_EQ(ps.depOps_[IS_NUM1].setPipe[0], IS_NUM2);   // copyin2 sets for cast
+    EXPECT_EQ(ps.depOps_[0].setPipe.size(), 0);           // copyin1 has no setPipe
 
     // InitCVEventIdQ
     PipeSync::CoreTypeDetail setCore = {CoreType::AIC, AIVCore::UNSPECIFIED};
     PipeSync::CoreTypeDetail waitCore = {CoreType::AIV, AIVCore::AIV1};
     PipeSync::CorePair corePair = {setCore, waitCore};
     PipeSync::CorePair corePairReverse = {waitCore, setCore};
-    ps.InitCVEventIdQ(true, corePair, corePairReverse);
+    ps.InitCVEventIdQ(corePair);
     EXPECT_EQ(ps.crossCoreFreeEventId_[corePair].size(), IS_NUM16);
     EXPECT_EQ(ps.crossCoreFreeEventId_[corePairReverse].size(), IS_NUM16);
 }
 
-TEST_F(InsertSyncTest, TestRelaxFakeDataDep) {
-    auto rootFuncPtr = std::make_shared<Function>(Program::GetInstance(), "TestRelaxFakeDataDep", "TestRelaxFakeDataDep", nullptr);
+TEST_F(InsertSyncTest, TestRelaxFakeDataDep)
+{
+    auto rootFuncPtr =
+        std::make_shared<Function>(Program::GetInstance(), "TestRelaxFakeDataDep", "TestRelaxFakeDataDep", nullptr);
     rootFuncPtr->rootFunc_ = rootFuncPtr.get();
-    auto currFunctionPtr = std::make_shared<Function>(Program::GetInstance(), "TestRelaxFakeDataDepLeaf", "TestRelaxFakeDataDepLeaf", rootFuncPtr.get());
+    auto currFunctionPtr = std::make_shared<Function>(
+        Program::GetInstance(), "TestRelaxFakeDataDepLeaf", "TestRelaxFakeDataDepLeaf", rootFuncPtr.get());
     EXPECT_TRUE(currFunctionPtr != nullptr);
     rootFuncPtr->rootFunc_->programs_.emplace(currFunctionPtr->GetFuncMagic(), currFunctionPtr.get());
 
@@ -628,62 +676,62 @@ TEST_F(InsertSyncTest, TestRelaxFakeDataDep) {
     tensor29->SetMemoryTypeBoth(MemoryType::MEM_UB);
     tensor29->memoryrange.start = IS_NUM180;
     tensor29->memoryrange.end = IS_NUM189;
-    std::vector<Operation *> opLogPtr;
-    auto &copyin1 = currFunctionPtr->AddRawOperation(Opcode::OP_COPY_IN, {tensor1}, {tensor2});
+    std::vector<Operation*> opLogPtr;
+    auto& copyin1 = currFunctionPtr->AddRawOperation(Opcode::OP_COPY_IN, {tensor1}, {tensor2});
     opLogPtr.emplace_back(&copyin1);
-    auto &copyin2 = currFunctionPtr->AddRawOperation(Opcode::OP_COPY_IN, {tensor1}, {tensor3});
+    auto& copyin2 = currFunctionPtr->AddRawOperation(Opcode::OP_COPY_IN, {tensor1}, {tensor3});
     opLogPtr.emplace_back(&copyin2);
-    auto &copyin3 = currFunctionPtr->AddRawOperation(Opcode::OP_COPY_IN, {tensor1}, {tensor4});
+    auto& copyin3 = currFunctionPtr->AddRawOperation(Opcode::OP_COPY_IN, {tensor1}, {tensor4});
     opLogPtr.emplace_back(&copyin3);
-    auto &copyin4 = currFunctionPtr->AddRawOperation(Opcode::OP_COPY_IN, {tensor1}, {tensor5});
+    auto& copyin4 = currFunctionPtr->AddRawOperation(Opcode::OP_COPY_IN, {tensor1}, {tensor5});
     opLogPtr.emplace_back(&copyin4);
-    auto &copyin5 = currFunctionPtr->AddRawOperation(Opcode::OP_COPY_IN, {tensor1}, {tensor6});
+    auto& copyin5 = currFunctionPtr->AddRawOperation(Opcode::OP_COPY_IN, {tensor1}, {tensor6});
     opLogPtr.emplace_back(&copyin5);
-    auto &copyin6 = currFunctionPtr->AddRawOperation(Opcode::OP_COPY_IN, {tensor1}, {tensor7});
+    auto& copyin6 = currFunctionPtr->AddRawOperation(Opcode::OP_COPY_IN, {tensor1}, {tensor7});
     opLogPtr.emplace_back(&copyin6);
-    auto &copyin7 = currFunctionPtr->AddRawOperation(Opcode::OP_COPY_IN, {tensor1}, {tensor8});
+    auto& copyin7 = currFunctionPtr->AddRawOperation(Opcode::OP_COPY_IN, {tensor1}, {tensor8});
     opLogPtr.emplace_back(&copyin7);
-    auto &copyin8 = currFunctionPtr->AddRawOperation(Opcode::OP_COPY_IN, {tensor1}, {tensor9});
+    auto& copyin8 = currFunctionPtr->AddRawOperation(Opcode::OP_COPY_IN, {tensor1}, {tensor9});
     opLogPtr.emplace_back(&copyin8);
-    auto &copyin9 = currFunctionPtr->AddRawOperation(Opcode::OP_COPY_IN, {tensor1}, {tensor10});
+    auto& copyin9 = currFunctionPtr->AddRawOperation(Opcode::OP_COPY_IN, {tensor1}, {tensor10});
     opLogPtr.emplace_back(&copyin9);
-    auto &copyin10 = currFunctionPtr->AddRawOperation(Opcode::OP_COPY_IN, {tensor1}, {tensor11});
+    auto& copyin10 = currFunctionPtr->AddRawOperation(Opcode::OP_COPY_IN, {tensor1}, {tensor11});
     opLogPtr.emplace_back(&copyin10);
-    auto &cast1 = currFunctionPtr->AddRawOperation(Opcode::OP_CAST, {tensor1}, {tensor22});
+    auto& cast1 = currFunctionPtr->AddRawOperation(Opcode::OP_CAST, {tensor1}, {tensor22});
     opLogPtr.emplace_back(&cast1);
-    auto &cast2 = currFunctionPtr->AddRawOperation(Opcode::OP_CAST, {tensor1}, {tensor23});
+    auto& cast2 = currFunctionPtr->AddRawOperation(Opcode::OP_CAST, {tensor1}, {tensor23});
     opLogPtr.emplace_back(&cast2);
-    auto &cast3 = currFunctionPtr->AddRawOperation(Opcode::OP_CAST, {tensor1}, {tensor24});
+    auto& cast3 = currFunctionPtr->AddRawOperation(Opcode::OP_CAST, {tensor1}, {tensor24});
     opLogPtr.emplace_back(&cast3);
-    auto &cast4 = currFunctionPtr->AddRawOperation(Opcode::OP_CAST, {tensor1}, {tensor25});
+    auto& cast4 = currFunctionPtr->AddRawOperation(Opcode::OP_CAST, {tensor1}, {tensor25});
     opLogPtr.emplace_back(&cast4);
-    auto &cast5 = currFunctionPtr->AddRawOperation(Opcode::OP_CAST, {tensor1}, {tensor26});
+    auto& cast5 = currFunctionPtr->AddRawOperation(Opcode::OP_CAST, {tensor1}, {tensor26});
     opLogPtr.emplace_back(&cast5);
-    auto &cast6 = currFunctionPtr->AddRawOperation(Opcode::OP_CAST, {tensor1}, {tensor27});
+    auto& cast6 = currFunctionPtr->AddRawOperation(Opcode::OP_CAST, {tensor1}, {tensor27});
     opLogPtr.emplace_back(&cast6);
-    auto &cast7 = currFunctionPtr->AddRawOperation(Opcode::OP_CAST, {tensor1}, {tensor28});
+    auto& cast7 = currFunctionPtr->AddRawOperation(Opcode::OP_CAST, {tensor1}, {tensor28});
     opLogPtr.emplace_back(&cast7);
-    auto &cast8 = currFunctionPtr->AddRawOperation(Opcode::OP_CAST, {tensor1}, {tensor29});
+    auto& cast8 = currFunctionPtr->AddRawOperation(Opcode::OP_CAST, {tensor1}, {tensor29});
     opLogPtr.emplace_back(&cast8);
-    auto &cast9 = currFunctionPtr->AddRawOperation(Opcode::OP_CAST, {tensor2}, {tensor12});
+    auto& cast9 = currFunctionPtr->AddRawOperation(Opcode::OP_CAST, {tensor2}, {tensor12});
     opLogPtr.emplace_back(&cast9);
-    auto &cast10 = currFunctionPtr->AddRawOperation(Opcode::OP_CAST, {tensor3}, {tensor13});
+    auto& cast10 = currFunctionPtr->AddRawOperation(Opcode::OP_CAST, {tensor3}, {tensor13});
     opLogPtr.emplace_back(&cast10);
-    auto &cast11 = currFunctionPtr->AddRawOperation(Opcode::OP_CAST, {tensor4}, {tensor14});
+    auto& cast11 = currFunctionPtr->AddRawOperation(Opcode::OP_CAST, {tensor4}, {tensor14});
     opLogPtr.emplace_back(&cast11);
-    auto &cast12 = currFunctionPtr->AddRawOperation(Opcode::OP_CAST, {tensor5}, {tensor15});
+    auto& cast12 = currFunctionPtr->AddRawOperation(Opcode::OP_CAST, {tensor5}, {tensor15});
     opLogPtr.emplace_back(&cast12);
-    auto &cast13 = currFunctionPtr->AddRawOperation(Opcode::OP_CAST, {tensor6}, {tensor16});
+    auto& cast13 = currFunctionPtr->AddRawOperation(Opcode::OP_CAST, {tensor6}, {tensor16});
     opLogPtr.emplace_back(&cast13);
-    auto &cast14 = currFunctionPtr->AddRawOperation(Opcode::OP_CAST, {tensor7}, {tensor17});
+    auto& cast14 = currFunctionPtr->AddRawOperation(Opcode::OP_CAST, {tensor7}, {tensor17});
     opLogPtr.emplace_back(&cast14);
-    auto &cast15 = currFunctionPtr->AddRawOperation(Opcode::OP_CAST, {tensor8}, {tensor18});
+    auto& cast15 = currFunctionPtr->AddRawOperation(Opcode::OP_CAST, {tensor8}, {tensor18});
     opLogPtr.emplace_back(&cast15);
-    auto &cast16 = currFunctionPtr->AddRawOperation(Opcode::OP_CAST, {tensor9}, {tensor19});
+    auto& cast16 = currFunctionPtr->AddRawOperation(Opcode::OP_CAST, {tensor9}, {tensor19});
     opLogPtr.emplace_back(&cast16);
-    auto &cast17 = currFunctionPtr->AddRawOperation(Opcode::OP_CAST, {tensor10}, {tensor20});
+    auto& cast17 = currFunctionPtr->AddRawOperation(Opcode::OP_CAST, {tensor10}, {tensor20});
     opLogPtr.emplace_back(&cast17);
-    auto &cast18 = currFunctionPtr->AddRawOperation(Opcode::OP_CAST, {tensor11}, {tensor21});
+    auto& cast18 = currFunctionPtr->AddRawOperation(Opcode::OP_CAST, {tensor11}, {tensor21});
     opLogPtr.emplace_back(&cast18);
 
     PipeSync ps;
@@ -708,7 +756,7 @@ TEST_F(InsertSyncTest, TestRelaxFakeDataDep) {
         size_t issuedTest = IS_NUM100;
         for (int i = 0; i < static_cast<int>(PipeSeq::PIPE_END); i++) {
             std::vector<size_t> issuedOps;
-            ps.PopFromQueue(ps.issueState_[i], issuedOps, eventIdDeadlock);
+            ps.PopFromQueue(ps.issueState_[i], issuedOps, eventIdDeadlock, synced);
             issued += issuedOps.size();
             if (i == IS_NUM4) {
                 issuedTest = issuedOps.size();
@@ -733,6 +781,23 @@ TEST_F(InsertSyncTest, TestRelaxFakeDataDep) {
         eventIdDeadlockEnterTimes = static_cast<size_t>(0);
         break;
     }
+}
+
+TEST_F(InsertSyncTest, TestGetDepInfoSizeMismatch)
+{
+    PipeSync ps;
+    std::vector<IndexOp> emptySyncedOpLog;
+    auto pipePair = PipeSync::dataDepPair[0];
+    PipeSync::DataDepInfo depInfo;
+    EXPECT_EQ(ps.GetDepInfo(emptySyncedOpLog, pipePair, depInfo), FAILED);
+    EXPECT_EQ(ps.PipeSeqName(PipeSeq::AIV0_MTE2), "AIV0_MTE2");
+    EXPECT_EQ(ps.PipeSeqName(PipeSeq::AIV1_MTE2), "AIV1_MTE2");
+    EXPECT_EQ(ps.PipeSeqName(PipeSeq::AIV0_V), "AIV0_V");
+    EXPECT_EQ(ps.PipeSeqName(PipeSeq::AIV1_V), "AIV1_V");
+    EXPECT_EQ(ps.PipeSeqName(PipeSeq::AIV0_MTE3), "AIV0_MTE3");
+    EXPECT_EQ(ps.PipeSeqName(PipeSeq::AIV1_MTE3), "AIV1_MTE3");
+    EXPECT_EQ(ps.PipeSeqName(PipeSeq::AIV0_S), "AIV0_S");
+    EXPECT_EQ(ps.PipeSeqName(PipeSeq::AIV1_S), "AIV1_S");
 }
 } // namespace tile_fwk
 } // namespace npu

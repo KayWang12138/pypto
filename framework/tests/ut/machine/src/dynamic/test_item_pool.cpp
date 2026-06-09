@@ -19,29 +19,25 @@
 using namespace npu::tile_fwk::dynamic;
 class ItemPoolTest : public ::testing::Test {
 protected:
-    void SetUp() override {
-    }
+    void SetUp() override {}
 
-    void TearDown() override {
-    }
+    void TearDown() override {}
 };
 
 #define BASE 10000
 struct Object {
-    static int &GetDestructorCount() {
+    static int& GetDestructorCount()
+    {
         static int destructorCount = 0;
         return destructorCount;
     }
     int value;
-    Object(int n) {
-        value = BASE + n;
-    }
-    ~Object() {
-        GetDestructorCount()++;
-    }
+    Object(int n) { value = BASE + n; }
+    ~Object() { GetDestructorCount()++; }
 };
 
-TEST_F(ItemPoolTest, FreeList) {
+TEST_F(ItemPoolTest, FreeList)
+{
     uint64_t workspaceSize = 0x1000 * 0x100;
     std::vector<uint8_t> workspace(workspaceSize, 0x0);
     SeqWsAllocator aicpuCoherentAllocator;

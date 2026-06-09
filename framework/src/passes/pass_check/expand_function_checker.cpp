@@ -15,47 +15,45 @@
 
 #include "expand_function_checker.h"
 #include "passes/pass_log/pass_log.h"
+#include "tilefwk/error_code.h"
+
 
 #define MODULE_NAME "ExpandFunction"
 
 namespace npu {
 namespace tile_fwk {
-Status ExpandFunctionChecker::DoPreCheck(Function &function) {
-    APASS_LOG_INFO_F(Elements::Function, "PreCheck for ExpandFunction.");
+Status ExpandFunctionChecker::DoDefaultEnabledPreCheck(Function& function)
+{
+    APASS_LOG_INFO_F(Elements::Function, "DoDefaultEnabledPreCheck for ExpandFunction!");
     if (!function.OperationLoopCheck()) {
-        APASS_LOG_ERROR_F(Elements::Function, "Operation Loop detected before expand function; Please validate the operation input specifications.");
+        APASS_LOG_ERROR_C(GraphErr::GRAPH_LOOP_DETECTION, Elements::Function, "Operation Loop detected before expand function; Please validate the operation input specifications.");
         return FAILED;
     }
-    std::unordered_set<OpCalcType> calTypes{OpCalcType::ELMWISE, OpCalcType::BROADCAST, OpCalcType::REDUCE,
-                                            OpCalcType::CONV};
-    for (auto &op : function.Operations().DuplicatedOpList()) {
-        OpCalcType opCalType = OpcodeManager::Inst().GetOpCalcType(op->GetOpcode());
-        if (calTypes.count(opCalType) > 0) {
-            for (auto &itensor: op->GetIOperands()) {
-                if (itensor->tensor->datatype == DT_BF16) {
-                    APASS_LOG_ERROR_F(Elements::Tensor, "Calculation Op [%d] has BF16 operand %d.", op->GetOpMagic(), itensor->GetMagic());
-                    return FAILED;
-                }
-            }
-            for (auto &otensor: op->GetOOperands()) {
-                if (otensor->tensor->datatype == DT_BF16) {
-                    APASS_LOG_ERROR_F(Elements::Tensor, "Calculation Op [%d] has BF16 operand %d.", op->GetOpMagic(), otensor->GetMagic());
-                    return FAILED;
-                }
-            }
-        }
+    InplaceConflictChecker inplaceConflictChecker;
+    if (inplaceConflictChecker.CheckIndexOutcastDisorderedCoverage(function) != SUCCESS) {
+        APASS_LOG_WARN_F(
+            Elements::Function,
+            "Function[%d] has tensor serves both the dst of OP_INDEX_OUTCAST and the input of other Operations, the precision may be abnormal.",
+            function.GetFuncMagic());
+    }
+    if (inplaceConflictChecker.CheckInplaceOperationConflict(function) != SUCCESS) {
+        APASS_LOG_WARN_F(Elements::Function, "Function[%d] CheckInplaceOperationConflict failed, the precision may be abnormal.", function.GetFuncMagic());
     }
     return SUCCESS;
 }
 
-Status ExpandFunctionChecker::DoPostCheck(Function &function) {
-    APASS_LOG_INFO_F(Elements::Function, "PostCheck for ExpandFunction.");
+Status ExpandFunctionChecker::DoPostCheck(Function& function)
+{
+    APASS_LOG_INFO_F(Elements::Function, "PostCheck for ExpandFunction!");
     if (function.expandFunctionAccelerate != false) {
-        APASS_LOG_ERROR_F(Elements::Function, "ExpandFunctionAccelerate should equal to false after ExpandFunction process.");
+        APASS_LOG_ERROR_F(
+            Elements::Function, "ExpandFunctionAccelerate should equal to false after ExpandFunction process.");
         return FAILED;
     }
     if (!function.OperationLoopCheck()) {
-        APASS_LOG_ERROR_F(Elements::Function, "Operation Loop detected after expand function; Please review the error messages generated during the processing procedure.");
+        APASS_LOG_ERROR_F(
+            Elements::Function, "Operation Loop detected after expand function; Please review the error messages "
+                                "generated during the processing procedure.");
         return FAILED;
     }
     if (CheckDynAttrForView(function) != SUCCESS) {

@@ -15,6 +15,7 @@
 
 #include <cstdlib>
 #include <iostream>
+#include <fstream>
 #include "cost_model/simulation/base/ModelTop.h"
 
 #include "cost_model/simulation/base/Machine.h"
@@ -22,7 +23,11 @@
 #include "cost_model/simulation/tools/visualizer.h"
 #include "cost_model/simulation/arch/PipeFactory.h"
 #include "cost_model/simulation/pv/PvModelFactory.h"
+#include "tilefwk/error_code.h"
 #include "interface/utils/file_utils.h"
+#include "tilefwk/pypto_fwk_log.h"
+#include "tilefwk/error.h"
+#include "tilefwk/file.h"
 
 namespace CostModel {
 
@@ -36,10 +41,7 @@ SimSys::SimSys()
     stats = std::make_shared<ModelStats>(GetReporter());
     stats->Reset();
 }
-std::shared_ptr<SimSys> SimSys::GetShared()
-{
-    return shared_from_this();
-}
+std::shared_ptr<SimSys> SimSys::GetShared() { return shared_from_this(); }
 
 bool SimSys::IsMachine(CostModel::Pid pid, CostModel::Tid tid)
 {
@@ -57,18 +59,18 @@ void SimSys::BuildPvModel()
     if (pvLevel == PVModelLevel::PV_NON) {
         return;
     }
-    pv = PvModelFactory::Create(config.deviceArch);
+    pv = PvModelFactory::Create();
 }
 
-
-bool SimSys::IsQueue(CostModel::Tid tid) {
+bool SimSys::IsQueue(CostModel::Tid tid)
+{
     if (tid <= machines[0]->coreTid || tid >= machines[0]->reversedTidNum) {
         return false;
     }
     return true;
 }
 
-bool SimSys::IsWorkPipe(CostModel::Pid pid, CostModel::Tid tid, std::string &name)
+bool SimSys::IsWorkPipe(CostModel::Pid pid, CostModel::Tid tid, std::string& name)
 {
     if (!IsCoreMachine(GetMachineType(pid))) {
         return false;
@@ -86,11 +88,11 @@ bool SimSys::IsWorkPipe(CostModel::Pid pid, CostModel::Tid tid, std::string &nam
 void SimSys::InitMachineStartSeq()
 {
     machineTypeSeq[MachineType::AIC] = 0;
-    machineTypeSeq[MachineType::AIV] = config.deviceMachineNumber * config.aicpuMachineNumber *
-                                       config.cubeMachineNumberPerAICPU;
+    machineTypeSeq[MachineType::AIV] =
+        config.deviceMachineNumber * config.aicpuMachineNumber * config.cubeMachineNumberPerAICPU;
     machineTypeSeq[MachineType::MIXAICORE] = 0;
-    machineTypeSeq[MachineType::DEVICE] = config.deviceMachineNumber * config.aicpuMachineNumber *
-                                          config.coreMachineNumberPerAICPU;
+    machineTypeSeq[MachineType::DEVICE] =
+        config.deviceMachineNumber * config.aicpuMachineNumber * config.coreMachineNumberPerAICPU;
     machineTypeSeq[MachineType::CPU] = machineTypeSeq[MachineType::DEVICE] + config.deviceMachineNumber;
     machineTypeSeq[MachineType::HUB] = machineTypeSeq[MachineType::CPU] + config.aicpuMachineNumber;
     machineTypeSeq[MachineType::PIPE] = 0;
@@ -100,7 +102,9 @@ void SimSys::BuildCaches()
 {
     functionCache.SetSim(GetShared());
     functionCache.SetMaxCacheSize(config.functionCacheSize);
-    MLOG_INFO("[ModelTop][BuildCache] FunctionCache max size: ", functionCache.GetMaxCacheSize());
+    SIMULATION_LOGI(
+        "[ModelTop][BuildCache] FunctionCache max size: %lu",
+        static_cast<unsigned long>(functionCache.GetMaxCacheSize()));
 
     // Create the L2 cache.
     auto l2BankId = 0;
@@ -142,8 +146,8 @@ void SimSys::BuildPipes(uint64_t index, std::shared_ptr<CoreMachine> coreMachine
         uint64_t pipeNum = coreMachine->GetPipeNum(static_cast<CorePipeType>(pipeType));
         for (uint64_t num = 0; num < pipeNum; num++) {
             int pipeSeq = machineTypeSeq[MachineType::PIPE]++;
-            auto pipeMachine = std::make_shared<PipeMachine>(MachineType::PIPE, static_cast<CorePipeType>(pipeType),
-                                                             pipeId);
+            auto pipeMachine =
+                std::make_shared<PipeMachine>(MachineType::PIPE, static_cast<CorePipeType>(pipeType), pipeId);
             pipeMachine->machineType = MachineType::PIPE;
             pipeMachine->machineId = GetProcessID(MachineType::PIPE, pipeSeq);
             pipeMachine->pipeImpl = GetPipeImpl(static_cast<CorePipeType>(pipeType));
@@ -173,11 +177,12 @@ void SimSys::CalendarDispatchTasksToCore(int key, std::shared_ptr<CoreMachine> c
     if (config.calendarMode == static_cast<uint64_t>(CalendarMode::DEVICE)) {
         return;
     }
-    for (const auto &task : corePacketMap[key]) {
+    for (const auto& task : corePacketMap[key]) {
         TaskPack packet;
         packet.taskId = task.first;
         packet.task.taskPtr = calendarTaskMap[task.first];
-        assert(packet.task.taskPtr != nullptr);
+        ASSERT(packet.task.taskPtr != nullptr) << "[SIMULATION]: "
+                                               << "task does not exist. taskId=" << packet.taskId;
         packet.task.functionHash = task.second;
         coreMachine->SubmitTask(packet);
     }
@@ -197,7 +202,7 @@ void SimSys::InitCalendarMode()
         if (!IsCoreMachine(mType)) {
             continue;
         }
-        for (auto &aiCore : machineGroup[mType]) {
+        for (auto& aiCore : machineGroup[mType]) {
             auto coreIdx = GetMachineSeq(aiCore->machineId);
             auto corePtr = std::dynamic_pointer_cast<CoreMachine>(aiCore);
             CalendarDispatchTasksToCore(coreIdx, corePtr);
@@ -217,10 +222,7 @@ void SimSys::BuildHUBCore()
     AddMachine(coreMachine);
 }
 
-MachinePtr SimSys::GetHUBCore()
-{
-    return machineGroup[int(MachineType::HUB)][0];
-}
+MachinePtr SimSys::GetHUBCore() { return machineGroup[int(MachineType::HUB)][0]; }
 
 void SimSys::BuildCore(DevicePtr device, AICPUPtr cpu, uint64_t idInCPU, MachineType type)
 {
@@ -231,10 +233,10 @@ void SimSys::BuildCore(DevicePtr device, AICPUPtr cpu, uint64_t idInCPU, Machine
     coreMachine->Build();
     coreMachine->l2cacheMachine = config.mteUseL2Cache ? l2Cache : nullptr;
     coreMachine->SetQueueCounter();
-    coreMachine->parentMachine = cpu;  // set AICPU as parent
+    coreMachine->parentMachine = cpu; // set AICPU as parent
     coreMachine->SetTileState(device->tileState);
 
-    cpu->subMachines.emplace_back(coreMachine);  // add coreMachine to AICPU's sub_machines
+    cpu->subMachines.emplace_back(coreMachine); // add coreMachine to AICPU's sub_machines
 
     LogRegisterMachine(coreMachine, coreIdx, coreIdx);
 
@@ -252,7 +254,9 @@ void SimSys::BuildAICPU(DevicePtr device, uint64_t idInDevice)
     uint64_t aicNum = config.cubeMachineNumberPerAICPU;
     uint64_t aivNum = config.vecMachineNumberPerAICPU;
     uint64_t mixedCoreNum = 0;
-    ASSERT(config.coreMachineNumberPerAICPU == (aicNum + aivNum));
+    ASSERT(static_cast<unsigned>(CostModel::ExternalErrorScene::INVALID_CONFIG), config.coreMachineNumberPerAICPU == (aicNum + aivNum))
+        << "[SIMULATION]: "
+        << "The number of cores must be equal to the sum of the aic and aiv. Please reconfigure them.";
     if (config.cubeVecMixMode) {
         mixedCoreNum = config.coreMachineNumberPerAICPU;
         aicNum = 0;
@@ -270,11 +274,11 @@ void SimSys::BuildAICPU(DevicePtr device, uint64_t idInDevice)
     aicpuMachine->l2cacheMachine = config.mteUseL2Cache ? l2Cache : nullptr;
     aicpuMachine->SetQueueCounter();
     AddMachine(aicpuMachine);
-    aicpuMachine->parentMachine = device;  // set Device as parent
+    aicpuMachine->parentMachine = device; // set Device as parent
     aicpuMachine->top = device;
     LogRegisterMachine(aicpuMachine, idInDevice, aicpuIdx);
 
-    device->subMachines.emplace_back(aicpuMachine);  // add AICPU to Device's subMachines
+    device->subMachines.emplace_back(aicpuMachine); // add AICPU to Device's subMachines
 
     // assign AIC
     for (uint64_t aicId = 0; aicId < aicNum; aicId++) {
@@ -326,8 +330,8 @@ void SimSys::BuildSystemStat()
     }
     stats->deviceMachineNum = uint64_t(machineGroup[int(MachineType::DEVICE)].size());
     stats->aicpuMachineNum = uint64_t(machineGroup[int(MachineType::CPU)].size());
-    stats->coreMachineNum = uint64_t(machineGroup[int(MachineType::AIC)].size() +
-                            machineGroup[int(MachineType::AIV)].size());
+    stats->coreMachineNum =
+        uint64_t(machineGroup[int(MachineType::AIC)].size() + machineGroup[int(MachineType::AIV)].size());
     stats->cubeMachineNum = uint64_t(machineGroup[int(MachineType::AIC)].size());
     stats->vecMachineNum = uint64_t(machineGroup[int(MachineType::AIV)].size());
     stats->cvMixedCoreMachineNum = uint64_t(machineGroup[int(MachineType::MIXAICORE)].size());
@@ -374,10 +378,7 @@ void SimSys::BuildSystem()
     BuildSystemStat();
 }
 
-void SimSys::InitCoreTask()
-{
-    testSingleFunc = true;
-}
+void SimSys::InitCoreTask() { testSingleFunc = true; }
 
 void SimSys::Reset()
 {
@@ -404,12 +405,13 @@ void SimSys::AddMachine(std::shared_ptr<Machine> m)
 
 void SimSys::Step()
 {
-    MLOG_INFO("[ModelTop][Step] ========== ", globalCycles, " ========== [ModelTop][Step]");
-    for (const auto &machine : machines) {
+    SIMULATION_LOGI(
+        "[ModelTop][Step] ========== %lu ========== [ModelTop][Step]", static_cast<unsigned long>(globalCycles));
+    for (const auto& machine : machines) {
         machine->Step();
     }
 
-    for (const auto &machine : machines) {
+    for (const auto& machine : machines) {
         machine->Xfer();
     }
 
@@ -427,7 +429,7 @@ void SimSys::Step()
 bool SimSys::CheckAllEmpty()
 {
     bool isEmpty = true;
-    for (const auto &machine : machines) {
+    for (const auto& machine : machines) {
         if (!machine->IsTerminate()) {
             isEmpty = false;
             break;
@@ -436,21 +438,17 @@ bool SimSys::CheckAllEmpty()
     return isEmpty;
 }
 
-bool SimSys::IsTerminate() const
-{
-    return terminate;
-}
+bool SimSys::IsTerminate() const { return terminate; }
 
 void SimSys::ReportDeadlock(size_t machineId)
 {
     deadlock = true;
-    MLOG_ERROR("[ReportDeadlock] Machine ", machineId, " is deadlock at cycle ", globalCycles);
+    SIMULATION_LOGE(CostModel::ForwardSimErrorScene::DEAD_LOCK,
+        "[ReportDeadlock] Machine %zu is deadlock at cycle %lu", machineId,
+        static_cast<unsigned long>(globalCycles));
 }
 
-bool SimSys::IsDeadlock() const
-{
-    return deadlock;
-}
+bool SimSys::IsDeadlock() const { return deadlock; }
 
 void SimSys::LoggerRecordCoreStart(std::string name, size_t machineId, std::string hint)
 {
@@ -462,7 +460,7 @@ void SimSys::LoggerRecordCoreCompleted(size_t machineId)
     totalTraceLogger->AddEventEnd(topMachineViewPid, machineId, GetCycles());
 }
 
-std::string SimSys::GetFileName(const std::string &file)
+std::string SimSys::GetFileName(const std::string& file)
 {
     size_t lastSlashPos = file.find_last_of("/\\");
     if (lastSlashPos != std::string::npos) {
@@ -472,13 +470,13 @@ std::string SimSys::GetFileName(const std::string &file)
     }
 }
 
-std::string SimSys::GetFileName(const std::string &dir, const std::string &inputFile, const std::string &preFix,
-                                const std::string &suffix)
+std::string SimSys::GetFileName(
+    const std::string& dir, const std::string& inputFile, const std::string& preFix, const std::string& suffix)
 {
     std::string filename = GetFileName(inputFile);
     std::string outFile = preFix + "_simulate." + suffix;
     size_t dotPos = filename.find_last_of('.');
-    if (dotPos != std::string::npos) {  // 检查是否存在 "."
+    if (dotPos != std::string::npos) { // 检查是否存在 "."
         filename.replace(dotPos + 1, std::string::npos, suffix);
         outFile = preFix + filename;
     }
@@ -486,34 +484,34 @@ std::string SimSys::GetFileName(const std::string &dir, const std::string &input
     return outPath;
 }
 
-void SimSys::ProcessTaskMap(TaskMap &taskMap, std::string prefix)
+void SimSys::ProcessTaskMap(TaskMap& taskMap, std::string prefix)
 {
     DumpTasksTopo(taskMap, prefix);
     DrawTasks(taskMap, prefix);
     GetCalendarGenerator()->InitTaskTopoInfo(taskMap);
 }
 
-void SimSys::DrawTasks(const TaskMap &taskMap, std::string prefix)
+void SimSys::DrawTasks(const TaskMap& taskMap, std::string prefix)
 {
     if (drawGraph) {
         ModelVisualizer visualizer;
         std::string outPath = GetFileName(graphsOutdir, jsonPath, prefix, startFuncName + ".taskGraph.dot");
         visualizer.DrawTasks(taskMap, true, outPath);
-        MLOG_WARN("Task Graph Path:", outPath);
+        SIMULATION_LOGW("Task Graph Path: %s", outPath.c_str());
     }
 }
 
-void SimSys::DebugDrawFunc(FunctionPtr func, std::unordered_map<int, TilePtr> &tiles,
-                           std::unordered_map<int, TileOpPtr> &tileOps)
+void SimSys::DebugDrawFunc(
+    FunctionPtr func, std::unordered_map<int, TilePtr>& tiles, std::unordered_map<int, TileOpPtr>& tileOps)
 {
     ModelVisualizer visualizer;
     visualizer.DebugFunction(func, tiles, tileOps, outdir);
 }
 
-void SimSys::DumpTasksTopo(const TaskMap &taskMap, std::string prefix)
+void SimSys::DumpTasksTopo(const TaskMap& taskMap, std::string prefix)
 {
     Json totalTopoJson;
-    for (const auto &task : taskMap) {
+    for (const auto& task : taskMap) {
         Json sJson;
         sJson["taskId"] = task.second->taskId;
         sJson["funcName"] = task.second->functionName;
@@ -521,10 +519,10 @@ void SimSys::DumpTasksTopo(const TaskMap &taskMap, std::string prefix)
         sJson["predecessors"] = Json::array();
         sJson["remainingPredecessors"] = task.second->remainingPredecessors;
         sJson["semanticLabel"] = task.second->semanticLabel;
-        for (const auto &successor : task.second->successors) {
+        for (const auto& successor : task.second->successors) {
             sJson["successors"].push_back(successor);
         }
-        for (const auto &predecessor : task.second->predecessors) {
+        for (const auto& predecessor : task.second->predecessors) {
             sJson["predecessors"].push_back(predecessor);
         }
         totalTopoJson.push_back(sJson);
@@ -532,7 +530,7 @@ void SimSys::DumpTasksTopo(const TaskMap &taskMap, std::string prefix)
 
     std::string fileName = GetFileName(outdir, jsonPath, prefix, "topo.json");
     topoOutFile = fileName;
-    MLOG_WARN("Topo File Path:", fileName);
+    SIMULATION_LOGW("Topo File Path: %s", fileName.c_str());
     std::ofstream ofs(fileName);
     ofs << totalTopoJson.dump(1) << std::endl;
     ofs.close();
@@ -544,8 +542,8 @@ void SimSys::OutputTrace(std::string prefix)
     std::ofstream os(outPath);
     totalTraceLogger->ToTrace(os);
     os.close();
-    MLOG_WARN("Please Use Smartperf For Visualization:");
-    MLOG_WARN("Trace Path:", outPath, "\n");
+    SIMULATION_LOGW("Please Use Smartperf For Visualization:");
+    SIMULATION_LOGW("Trace Path: %s \n", outPath.c_str());
 }
 
 void SimSys::OutputPerfettoTrace(std::string prefix)
@@ -555,8 +553,8 @@ void SimSys::OutputPerfettoTrace(std::string prefix)
     Json trace = totalTraceLogger->ToJson();
     os << trace.dump(1) << std::endl;
     os.close();
-    MLOG_WARN("Please Use Perfetto For Visualization:");
-    MLOG_WARN("Perfetto Trace Path:", outPath, "\n");
+    SIMULATION_LOGW("Please Use Perfetto For Visualization:");
+    SIMULATION_LOGW("Perfetto Trace Path: %s \n", outPath.c_str());
 }
 
 void SimSys::DumpFunctionExecuteTime(std::string prefix)
@@ -564,7 +562,7 @@ void SimSys::DumpFunctionExecuteTime(std::string prefix)
     std::string outPath = GetFileName(outdir, jsonPath, prefix, "leafFuncs.executetime.json");
     std::ofstream os(outPath);
     Json log;
-    for (auto &func : functionCache.cache) {
+    for (auto& func : functionCache.cache) {
         log.emplace_back(func.second->DumpExecuteInfo());
     }
     os << log.dump(1) << std::endl;
@@ -581,15 +579,18 @@ void SimSys::OutputLogForPipeSwimLane(std::string prefix)
     totalTraceLogger->ToPipeTrace(osPipeSwim);
     osPipeSwim.close();
 
-    MLOG_WARN("Pipe SwimLane Graph Generated (PNG & HTML):", pipeDetailPath);
-    std::string drawScriptPath =  GetCurrentSharedLibPath() + "/scripts/draw_pipe_swim_lane.py";
+    SIMULATION_LOGW("Pipe SwimLane Graph Generated (PNG & HTML): %s", pipeDetailPath.c_str());
+    std::string drawScriptPath = GetCurrentSharedLibPath() + "/scripts/draw_pipe_swim_lane.py";
+    CHECK(static_cast<unsigned>(CostModel::ExternalErrorScene::INVALID_PATH), npu::tile_fwk::FileExist(drawScriptPath))
+         << "draw_pipe_swim_lane.py does not exist. drawScriptPath: " << drawScriptPath;
+    CHECK(static_cast<unsigned>(CostModel::ExternalErrorScene::INVALID_PATH), npu::tile_fwk::FileExist(pipeDetailPath))
+         << "pipe.swim.json does not exist. pipeDetailPath: " << pipeDetailPath;
     std::string cmd = "python3 " + drawScriptPath + " " + pipeDetailPath;
     int ret = system(cmd.c_str());
     if (ret != 0) {
-        MLOG_ERROR("cmd error: ", cmd.c_str());
+        SIMULATION_LOGE(CostModel::ExternalErrorScene::PYTHON_CMD_ERROR, "cmd error: %s", cmd.c_str());
     }
 }
-
 
 void SimSys::OutputLogForSwimLane(std::string prefix)
 {
@@ -612,33 +613,46 @@ void SimSys::OutputLogForSwimLane(std::string prefix)
     if (globalCycles > config.drawPngThresholdCycle) {
         return;
     }
-    MLOG_WARN("SwimLane Graph Generated (PNG):", outSwimPath);
-    std::string drawScriptPath =  GetCurrentSharedLibPath() + "/scripts/print_swim_lane.py";
+    SIMULATION_LOGW("SwimLane Graph Generated (PNG): %s", outSwimPath.c_str());
+    std::string drawScriptPath = GetCurrentSharedLibPath() + "/scripts/print_swim_lane.py";
+    CHECK(static_cast<unsigned>(CostModel::ExternalErrorScene::INVALID_PATH), npu::tile_fwk::FileExist(drawScriptPath))
+         << "draw_pipe_swim_lane.py does not exist. drawScriptPath: " << drawScriptPath;
+    CHECK(static_cast<unsigned>(CostModel::ExternalErrorScene::INVALID_PATH), npu::tile_fwk::FileExist(outSwimPath))
+         << "swim.json does not exist. outSwimPath: " << outSwimPath;
     std::string cmd = "python3 " + drawScriptPath + " " + outSwimPath + " -t";
     int result1 = system(cmd.c_str());
     if (result1 != 0) {
-        MLOG_ERROR("cmd error: ", cmd.c_str());
+        SIMULATION_LOGE(CostModel::ExternalErrorScene::PYTHON_CMD_ERROR, "cmd error: %s", cmd.c_str());
     }
 
-    std::string mergeScriptPath =  GetCurrentSharedLibPath() + "/scripts/draw_swim_lane.py";
+    std::string mergeScriptPath = GetCurrentSharedLibPath() + "/scripts/draw_swim_lane.py";
     auto devicePtr = std::dynamic_pointer_cast<DeviceMachine>(machineGroup[int(MachineType::DEVICE)][0]);
-    MLOG_WARN("devicePtr->config.submitTopo: ", devicePtr->config.submitTopo);
+    SIMULATION_LOGW("devicePtr->config.submitTopo: %d", devicePtr->config.submitTopo);
     std::string topo_txt_path = outdir + "/../" + "dyn_topo.txt";
-    MLOG_INFO("topo_txt_path: ", topo_txt_path);
+    SIMULATION_LOGI("topo_txt_path: %s", topo_txt_path.c_str());
     std::string program_json_path = outdir + "/../" + "program.json";
-    MLOG_INFO("program_json_path: ", program_json_path);
+    SIMULATION_LOGI("program_json_path: %s", program_json_path.c_str());
     std::string label_type = "--label_type=1 --time_convert_denominator=1800"; // default 1.8GHz
-    MLOG_INFO("label_type: ", label_type);
+    SIMULATION_LOGI("label_type: %s", label_type.c_str());
+    CHECK(static_cast<unsigned>(CostModel::ExternalErrorScene::INVALID_PATH), npu::tile_fwk::FileExist(mergeScriptPath)) 
+        << "draw_pipe_swim_lane.py does not exist. drawScriptPath: " << mergeScriptPath;
     if (devicePtr->config.submitTopo) {
-        cmd = "python3 " + mergeScriptPath + " " + outSwimPath + " " + topo_txt_path + " " + program_json_path + " " + label_type;
+        CHECK(static_cast<unsigned>(CostModel::ExternalErrorScene::INVALID_PATH), npu::tile_fwk::FileExist(topo_txt_path))
+            << "dyn_topo.txt does not exist. topo_txt_path: " << topo_txt_path;
+        CHECK(static_cast<unsigned>(CostModel::ExternalErrorScene::INVALID_PATH), npu::tile_fwk::FileExist(program_json_path))
+            << "program.json does not exist. program_json_path: " << program_json_path;
+        cmd = "python3 " + mergeScriptPath + " " + outSwimPath + " " + topo_txt_path + " " + program_json_path + " " +
+              label_type;
     } else {
-        MLOG_WARN("devicePtr->config.submitTopo: ", devicePtr->config.submitTopo);
+        CHECK(static_cast<unsigned>(CostModel::ExternalErrorScene::INVALID_PATH), npu::tile_fwk::FileExist(topoOutFile))
+            << "topo.json does not exist. topoOutFile: " << topoOutFile;
+        SIMULATION_LOGW("devicePtr->config.submitTopo: %d", devicePtr->config.submitTopo);
         cmd = "python3 " + mergeScriptPath + " " + outSwimPath + " " + topoOutFile;
     }
-    MLOG_INFO("cmd: ", cmd);
+    SIMULATION_LOGI("cmd: %s", cmd.c_str());
     int result2 = system(cmd.c_str());
     if (result2 != 0) {
-        MLOG_ERROR("cmd error: ", cmd.c_str());
+        SIMULATION_LOGE(CostModel::ExternalErrorScene::PYTHON_CMD_ERROR, "cmd error: %s", cmd.c_str());
     }
 }
 
@@ -649,13 +663,13 @@ void SimSys::OutputCalendarScheduleCpp(std::string prefix)
     }
     std::string outPath = GetFileName(outdir, jsonPath, prefix, ".calendar.cpp");
     calendarGenerator->GenCalendarCpp(outPath);
-    MLOG_WARN("Genearte Calendar File:", outPath);
+    SIMULATION_LOGW("Genearte Calendar File: %s", outPath.c_str());
 }
 
 void SimSys::OutputConfig(std::string prefix)
 {
     std::string outPath = GetFileName(outdir, jsonPath, prefix, "config.ini");
-    MLOG_WARN("Config Path:", outPath);
+    SIMULATION_LOGW("Config Path: %s", outPath.c_str());
     std::ofstream os(outPath);
     os << config.DumpParameters() << std::endl;
     if (!machineGroup[int(MachineType::DEVICE)].empty()) {
@@ -690,27 +704,27 @@ void SimSys::ResetStat(bool start)
     if (!start) {
         stats->Reset();
     }
-    for (auto &device : machineGroup[int(MachineType::DEVICE)]) {
+    for (auto& device : machineGroup[int(MachineType::DEVICE)]) {
         auto devicePtr = std::dynamic_pointer_cast<DeviceMachine>(device);
         devicePtr->stats->Reset();
     }
-    for (auto &aicpu : machineGroup[int(MachineType::CPU)]) {
+    for (auto& aicpu : machineGroup[int(MachineType::CPU)]) {
         auto aicpuPtr = std::dynamic_pointer_cast<AICPUMachine>(aicpu);
         aicpuPtr->stats->Reset();
     }
-    for (auto &aiCore : machineGroup[int(MachineType::AIV)]) {
+    for (auto& aiCore : machineGroup[int(MachineType::AIV)]) {
         auto aiCorePtr = std::dynamic_pointer_cast<CoreMachine>(aiCore);
         aiCorePtr->stats->Reset();
     }
-    for (auto &aiCore : machineGroup[int(MachineType::AIC)]) {
+    for (auto& aiCore : machineGroup[int(MachineType::AIC)]) {
         auto aiCorePtr = std::dynamic_pointer_cast<CoreMachine>(aiCore);
         aiCorePtr->stats->Reset();
     }
-    for (auto &aiCore : machineGroup[int(MachineType::MIXAICORE)]) {
+    for (auto& aiCore : machineGroup[int(MachineType::MIXAICORE)]) {
         auto aiCorePtr = std::dynamic_pointer_cast<CoreMachine>(aiCore);
         aiCorePtr->stats->Reset();
     }
-    for (auto &cache : machineGroup[int(MachineType::CACHE)]) {
+    for (auto& cache : machineGroup[int(MachineType::CACHE)]) {
         auto cachePtr = std::dynamic_pointer_cast<CacheMachine>(cache);
         cachePtr->stats->Reset();
     }
@@ -723,34 +737,34 @@ void SimSys::PrintCoreStat()
     std::map<int, uint64_t> totalPipeUseCycles;
     std::map<int, float> averagePipeUseCycles;
 
-    for (auto &aiCore : machineGroup[int(MachineType::AIC)]) {
+    for (auto& aiCore : machineGroup[int(MachineType::AIC)]) {
         auto corePtr = std::dynamic_pointer_cast<CoreMachine>(aiCore);
-        for (auto &statEntry : corePtr->stats->totalPipeUseCycles) {
+        for (auto& statEntry : corePtr->stats->totalPipeUseCycles) {
             if (statEntry.second != 0) {
                 totalPipeNumber[statEntry.first]++;
                 totalPipeUseCycles[statEntry.first] += statEntry.second;
             }
         }
     }
-    for (auto &aiCore : machineGroup[int(MachineType::AIV)]) {
+    for (auto& aiCore : machineGroup[int(MachineType::AIV)]) {
         auto corePtr = std::dynamic_pointer_cast<CoreMachine>(aiCore);
-        for (auto &statEntry : corePtr->stats->totalPipeUseCycles) {
+        for (auto& statEntry : corePtr->stats->totalPipeUseCycles) {
             if (statEntry.second != 0) {
                 totalPipeNumber[statEntry.first]++;
                 totalPipeUseCycles[statEntry.first] += statEntry.second;
             }
         }
     }
-    for (auto &aiCore : machineGroup[int(MachineType::MIXAICORE)]) {
+    for (auto& aiCore : machineGroup[int(MachineType::MIXAICORE)]) {
         auto corePtr = std::dynamic_pointer_cast<CoreMachine>(aiCore);
-        for (auto &statEntry : corePtr->stats->totalPipeUseCycles) {
+        for (auto& statEntry : corePtr->stats->totalPipeUseCycles) {
             if (statEntry.second != 0) {
                 totalPipeNumber[statEntry.first]++;
                 totalPipeUseCycles[statEntry.first] += statEntry.second;
             }
         }
     }
-    for (auto &pipe : totalPipeNumber) {
+    for (auto& pipe : totalPipeNumber) {
         if (pipe.second == 0) {
             continue;
         }
@@ -762,8 +776,7 @@ void SimSys::PrintCoreStat()
     reporter.ReportVal("Used Cube Pipe Number", totalPipeNumber[int(CorePipeType::PIPE_CUBE)]);
     reporter.ReportValAndPct("Average Cube Usage", averagePipeUseCycles[int(CorePipeType::PIPE_CUBE)], cycles);
     reporter.ReportVal("Used Vector Pipe Number", totalPipeNumber[int(CorePipeType::PIPE_VECTOR_ALU)]);
-    reporter.ReportValAndPct("Average Vector Usage", averagePipeUseCycles[int(CorePipeType::PIPE_VECTOR_ALU)],
-                             cycles);
+    reporter.ReportValAndPct("Average Vector Usage", averagePipeUseCycles[int(CorePipeType::PIPE_VECTOR_ALU)], cycles);
     reporter.ReportVal("Used MTE_IN Pipe Number", totalPipeNumber[int(CorePipeType::PIPE_MTE_IN)]);
     reporter.ReportValAndPct("Average MTE_IN Usage", averagePipeUseCycles[int(CorePipeType::PIPE_MTE_IN)], cycles);
     reporter.ReportVal("Used MTE1 Pipe Number", totalPipeNumber[int(CorePipeType::PIPE_MTE1)]);
@@ -772,12 +785,52 @@ void SimSys::PrintCoreStat()
     reporter.ReportValAndPct("Average MTE_OUT Usage", averagePipeUseCycles[int(CorePipeType::PIPE_MTE_OUT)], cycles);
 }
 
+void SimSys::PrintPipelineSummaryCsv()
+{
+    std::string outPath = outdir + "/pipeline_summary.csv";
+    std::ofstream ofs(outPath);
+    if (!ofs.is_open()) {
+        SIMULATION_LOGW("Failed to open pipeline_summary.csv for write: %s", outPath.c_str());
+        return;
+    }
+
+    // CSV header
+    ofs << "CoreType,CoreIdx";
+    for (int pt = 0; pt < static_cast<int>(CorePipeType::TOTAL_CORE_PIPE_TYPE); ++pt) {
+        ofs << "," << CorePipeName(static_cast<CorePipeType>(pt));
+    }
+    ofs << "\n";
+
+    // Per-core rows: AIC -> AIV -> MIXAICORE
+    std::vector<MachineType> coreTypes = {
+        MachineType::AIC, MachineType::AIV, MachineType::MIXAICORE
+    };
+    for (auto mtype : coreTypes) {
+        for (auto& machine : machineGroup[static_cast<int>(mtype)]) {
+            auto corePtr = std::dynamic_pointer_cast<CoreMachine>(machine);
+            int coreIdx = GetMachineSeq(corePtr->machineId);
+            ofs << MachineName(mtype) << ",Core-" << coreIdx;
+            for (int pt = 0; pt < static_cast<int>(CorePipeType::TOTAL_CORE_PIPE_TYPE); ++pt) {
+                uint64_t cycles = 0;
+                auto it = corePtr->stats->totalPipeUseCycles.find(pt);
+                if (it != corePtr->stats->totalPipeUseCycles.end()) {
+                    cycles = it->second;
+                }
+                ofs << "," << cycles;
+            }
+            ofs << "\n";
+        }
+    }
+    ofs.close();
+    SIMULATION_LOGW("Pipeline Summary CSV: %s", outPath.c_str());
+}
+
 void SimSys::PrintStat()
 {
-    std::streambuf *coutBuf = nullptr;
+    std::streambuf* coutBuf = nullptr;
     if (config.statisticReportToFile) {
         std::string outPath = GetFileName(outdir, jsonPath, "", "stat.report.txt");
-        MLOG_WARN("Statistic Path:", outPath);
+        SIMULATION_LOGW("Statistic Path: %s", outPath.c_str());
         coutBuf = reporter.ReportSetOutStreamFile(outPath);
     }
     if (deadlock) {
@@ -785,11 +838,12 @@ void SimSys::PrintStat()
     }
     std::string topName = "ASC++ MachineModel Report";
     stats->Report(topName);
-    for (auto &device : machineGroup[int(MachineType::DEVICE)]) {
+    for (auto& device : machineGroup[int(MachineType::DEVICE)]) {
         device->Report();
     }
 
     PrintCoreStat();
+    PrintPipelineSummaryCsv();
 
     if (config.mteUseL2Cache) {
         l2Cache->Report();
@@ -799,17 +853,15 @@ void SimSys::PrintStat()
     if (config.statisticReportToFile) {
         reporter.ReportResetOutStreamCout(coutBuf);
     }
-    // Reset the output format of floating point numbers to avoid affecting subsequent output.
-    std::cout << std::defaultfloat;
 }
 
-uint64_t SimSys::GetCycles() const
+uint64_t SimSys::GetCycles() const { return globalCycles; }
+
+void SimSys::UpdateNextCycles(uint64_t nextCycle)
 {
-    return globalCycles;
-}
-
-void SimSys::UpdateNextCycles(uint64_t nextCycle) {
-    ASSERT(nextCycle > globalCycles);
+    ASSERT(nextCycle > globalCycles) << "[SIMULATION]: "
+                                     << "nextCycle is less than or equels to globalCycles. nextCycles=" << nextCycle
+                                     << ", globalCycles=" << globalCycles;
     nextSimulationCycles = std::min(nextSimulationCycles, nextCycle);
 }
 
@@ -819,25 +871,13 @@ void SimSys::ResetCycles(uint64_t cycles)
     nextSimulationCycles = cycles + 1;
 }
 
-void SimSys::AddCycles(uint64_t overTime)
-{
-    globalCycles += overTime;
-}
+void SimSys::AddCycles(uint64_t overTime) { globalCycles += overTime; }
 
-std::shared_ptr<TraceLogger> SimSys::GetLogger()
-{
-    return totalTraceLogger;
-}
+std::shared_ptr<TraceLogger> SimSys::GetLogger() { return totalTraceLogger; }
 
-std::shared_ptr<GenCalendar> SimSys::GetCalendarGenerator()
-{
-    return calendarGenerator;
-}
+std::shared_ptr<GenCalendar> SimSys::GetCalendarGenerator() { return calendarGenerator; }
 
-CostModel::Reporter *SimSys::GetReporter()
-{
-    return &reporter;
-}
+CostModel::Reporter* SimSys::GetReporter() { return &reporter; }
 
 void SimSys::LogRegisterMachine(MachinePtr machine, size_t id, int coreIdx)
 {
@@ -854,21 +894,21 @@ uint64_t SimSys::RegisterQueuePid(std::string key)
     return queuePidMap[key];
 }
 
-void SimSys::GetDeviceReadyQueueInfo(size_t &devicePid, std::set<uint64_t> &readyQueueTidSet)
+void SimSys::GetDeviceReadyQueueInfo(size_t& devicePid, std::set<uint64_t>& readyQueueTidSet)
 {
     if (machineGroup[int(MachineType::DEVICE)].empty()) {
         return;
     }
-    auto &device = machineGroup[int(MachineType::DEVICE)][0];
+    auto& device = machineGroup[int(MachineType::DEVICE)][0];
     auto devicePtr = std::dynamic_pointer_cast<DeviceMachine>(device);
     devicePid = devicePtr->readyQueuePid;
     readyQueueTidSet.insert(devicePtr->readyQueueTotalTid);
-    for (auto &tid : devicePtr->readyQueueTid) {
+    for (auto& tid : devicePtr->readyQueueTid) {
         readyQueueTidSet.insert(tid.second);
     }
 }
 
-void SimSys::InitBufferThreshold(PipeConfig &pipeConfig)
+void SimSys::InitBufferThreshold(PipeConfig& pipeConfig)
 {
     bufferSizeThreshold[CorePipeType::PIPE_VECTOR_BMU] = pipeConfig.ubSizeThreshold;
     bufferSizeThreshold[CorePipeType::PIPE_CUBE_BMU_L1] = pipeConfig.l1SizeThreshold;
@@ -877,8 +917,5 @@ void SimSys::InitBufferThreshold(PipeConfig &pipeConfig)
     bufferSizeThreshold[CorePipeType::PIPE_CUBE_BMU_L0C] = pipeConfig.l0cSizeThreshold * 2;
 }
 
-uint64_t SimSys::GetBufferThreshold(CorePipeType pType)
-{
-    return bufferSizeThreshold.at(pType);
-}
-}
+uint64_t SimSys::GetBufferThreshold(CorePipeType pType) { return bufferSizeThreshold.at(pType); }
+} // namespace CostModel

@@ -20,6 +20,7 @@
 #include <list>
 #include <stack>
 #include <mutex>
+#include <typeindex>
 #include <climits>
 #include <utility>
 
@@ -27,226 +28,323 @@
 
 #include "interface/inner/any.h"
 #include "interface/utils/common.h"
-#include "interface/utils/log.h"
 #include "interface/utils/file_utils.h"
 #include "interface/utils/string_utils.h"
 
 #include "config_manager_ng.h"
 #include "tilefwk/tile_shape.h"
-
+#include "tilefwk/pypto_fwk_log.h"
+#include "interface/utils/error.h"
 
 namespace npu::tile_fwk {
 
 namespace {
-    std::mutex mtx;
+std::mutex mtx;
+
+std::string GetReadableTypeName(const std::type_info& type)
+{
+    static const std::unordered_map<std::type_index, std::string> kTypeNames = {
+        {typeid(void), "unknown"},
+        {typeid(bool), "bool"},
+        {typeid(int64_t), "int64"},
+        {typeid(double), "double"},
+        {typeid(std::string), "string"},
+        {typeid(std::vector<int64_t>), "list[int64]"},
+        {typeid(std::vector<double>), "list[double]"},
+        {typeid(std::vector<std::string>), "list[string]"},
+        {typeid(std::map<int64_t, int64_t>), "dict[int64, int64]"},
+        {typeid(CubeTile), "CubeTile"},
+        {typeid(ConvTile), "ConvTile"},
+        {typeid(DistTile), "DistTile"},
+    };
+
+    auto it = kTypeNames.find(std::type_index(type));
+    return it != kTypeNames.end() ? it->second : type.name();
 }
+} // namespace
 
 struct TypeInfo {
     TypeInfo() = default;
 
-    void LoadConf(const std::string &path) {
+    void LoadConf(const std::string& path)
+    {
         std::ifstream infile(path);
-        ASSERT(infile.is_open()) << "Open file " << path << " failed";
-        nlohmann::json jdata;
-        infile >> jdata;
+        FE_ASSERT(FeError::BAD_FD, infile.is_open()) << "Open file " << path << " failed";
+        nlohmann::json jData;
+        infile >> jData;
 
-        build_type_infos(jdata, "");
+        build_type_infos(jData, "");
     }
 
-    void build_type_infos(const nlohmann::json &jdata, const std::string &prefix) {
-        if (jdata.contains("properties")) {
-            auto &properties = jdata["properties"];
-            for (auto &it : properties.items()) {
-                const std::string &key = it.key();
-                const nlohmann::json &value = it.value();
-                if (prefix.empty()) {
-                    build_type_infos(value, key);
-                } else {
-                    build_type_infos(value, prefix + "." + key);
-                }
+    void build_type_infos(const nlohmann::json& jData, const std::string& prefix)
+    {
+        if (jData.contains("properties")) {
+            // 递归解析properties字段
+            const auto& properties = jData["properties"];
+            for (const auto& [key, value] : properties.items()) {
+                const std::string new_prefix = prefix.empty() ? key : prefix + "." + key;
+                build_type_infos(value, new_prefix);
             }
-        } else if (jdata.contains("type")) {
-            const std::string &type = jdata["type"];
+        } else if (jData.contains("type")) {
+            // 处理type字段
+            const std::string& type = jData["type"];
             if (type == "string") {
                 typeInfos.insert({prefix, typeid(std::string)});
             } else if (type == "integer") {
                 typeInfos.insert({prefix, typeid(int64_t)});
-                int64_t minBound =
-                    jdata.contains("minimum") ? jdata["minimum"].get<int64_t>() : INT_MIN;
-                int64_t maxBound =
-                    jdata.contains("maximum") ? jdata["maximum"].get<int64_t>() : INT_MAX;
-                rangeInfos.insert({prefix, {minBound, maxBound}});
+                parse_range_info(jData, prefix, "minimum", "maximum");
             } else if (type == "boolean") {
                 typeInfos.insert({prefix, typeid(bool)});
             } else if (type == "array") {
-                auto &jitem_type = jdata["items"]["type"];
-                if (jitem_type == "string") {
-                    typeInfos.insert({prefix, typeid(std::vector<std::string>)});
-                } else if (jitem_type == "integer") {
-                    typeInfos.insert({prefix, typeid(std::vector<int64_t>)});
-                }
+                parse_array_type(jData, prefix);
             } else if (type == "object") {
-                const std::string &typeHints = jdata["typeHints"];
-                if (typeHints == "intmap") {
-                    typeInfos.insert({prefix, typeid(std::map<int64_t, int64_t>)});
-                    int64_t minBound =
-                        jdata.contains("key_minimum") ? jdata["key_minimum"].get<int64_t>() : INT_MIN;
-                    int64_t maxBound =
-                        jdata.contains("key_maximum") ? jdata["key_maximum"].get<int64_t>() : INT_MAX;
-                    rangeInfos.insert({prefix + "_key", {minBound, maxBound}});
-                    minBound =
-                        jdata.contains("value_minimum") ? jdata["value_minimum"].get<int64_t>() : INT_MIN;
-                    maxBound =
-                        jdata.contains("value_maximum") ? jdata["value_maximum"].get<int64_t>() : INT_MAX;
-                    rangeInfos.insert({prefix + "_val", {minBound, maxBound}});
-                }
+                parse_object_type(jData, prefix);
             } else {
-                ALOG_ERROR("invalid type: ", type, " at ", prefix);
+                FE_LOGE(FeError::INVALID_TYPE, "invalid type: %s at %s", type.c_str(), prefix.c_str());
             }
         } else {
-            ALOG_ERROR("type field missing");
+            FE_LOGE(
+                FeError::NOT_EXIST, "Label<%s> field['type', 'properties'] not found in tile_fwk_config_schema.json",
+                prefix.c_str());
         }
     }
 
-    const std::type_info &Type(const std::string &name) const {
+    void parse_range_info(
+        const nlohmann::json& jData, const std::string& prefix, const std::string& min_key, const std::string& max_key)
+    {
+        int64_t minBound = jData.contains(min_key) ? jData[min_key].get<int64_t>() : INT_MIN;
+        int64_t maxBound = jData.contains(max_key) ? jData[max_key].get<int64_t>() : INT_MAX;
+        rangeInfos.insert({prefix, {minBound, maxBound}});
+    }
+
+    void parse_array_type(const nlohmann::json& jData, const std::string& prefix)
+    {
+        const std::string& jitem_type = jData["items"]["type"];
+        if (jitem_type == "string") {
+            typeInfos.insert({prefix, typeid(std::vector<std::string>)});
+        } else if (jitem_type == "integer") {
+            typeInfos.insert({prefix, typeid(std::vector<int64_t>)});
+        } else if (jitem_type == "double") {
+            typeInfos.insert({prefix, typeid(std::vector<double>)});
+        }
+    }
+
+    void parse_object_type(const nlohmann::json& jData, const std::string& prefix)
+    {
+        const std::string& typeHints = jData["typeHints"];
+        if (typeHints == "intmap") {
+            typeInfos.insert({prefix, typeid(std::map<int64_t, int64_t>)});
+            parse_range_info(jData, prefix + "_key", "key_minimum", "key_maximum");
+            parse_range_info(jData, prefix + "_val", "value_minimum", "value_maximum");
+        } else if (typeHints == "stringmap") {
+            typeInfos.insert({prefix, typeid(std::map<std::string, int64_t>)});
+        }
+    }
+
+    const std::type_info& Type(const std::string& name) const
+    {
         if (typeInfos.find(name) == typeInfos.end()) {
             return typeid(void);
         }
         return typeInfos.at(name);
     }
 
-    std::map<std::string, const std::type_info &> typeInfos;
+    std::map<std::string, const std::type_info&> typeInfos;
     std::map<std::string, std::pair<int64_t, int64_t>> rangeInfos;
 };
 
-const Any &ConfigScope::GetConfig(const std::string &key) const {
+const Any& ConfigScope::GetAnyConfig(const std::string& key) const
+{
     if (values_.find(key) == values_.end()) {
         if (parent_) {
-            return parent_->GetConfig(key);
-        } else {
-            if (Type(key) == typeid(std::map<int64_t, int64_t>)){
-                static const Any emptyMap = std::map<int64_t, int64_t>{};
-                return emptyMap;
-            }
+            return parent_->GetAnyConfig(key);
         }
         throw std::runtime_error("Config " + key + " not found");
     }
     return values_.at(key);
 }
 
-bool ConfigScope::HasConfig(const std::string &key) const {
+bool ConfigScope::HasConfig(const std::string& key) const
+{
+    if (key == "matrix_size" || key == "vec_tile_shapes" || key == "conv_tile_shapes" || key == "cube_tile_shapes") {
+        return true;
+    }
+
     return values_.find(key) != values_.end() || (parent_ && parent_->HasConfig(key));
 }
 
-const std::type_info &ConfigScope::Type(const std::string &key) const {
+void ConfigScope::Clear()
+{
+    values_.clear();
+    FE_LOGD("Clear config scope successfully.");
+}
+
+const std::type_info& ConfigScope::Type(const std::string& key) const
+{
     return ConfigManagerNg::GetInstance().Type(key);
 }
 
-ConfigScope::ConfigScope(ConfigScopePtr parent) : parent_(parent) {
+ConfigScope::ConfigScope(ConfigScopePtr parent) : parent_(parent)
+{
     if (parent_) {
         parent_->children_.push_back(this);
     }
 }
 
-TileShape ConfigScope::GenerateTileShape() const {
-    TileShape tileShape;
+TileShape ConfigScope::GenerateTileShape() const
+{
+    std::vector<int64_t> vecTile = GetConfig<std::vector<int64_t>>("vec_tile_shapes");
     CubeTile cubeTile = GetConfig<CubeTile>("cube_tile_shapes");
-    std::vector<int64_t> vec1 = GetConfig<std::vector<int64_t>>("vec_tile_shapes");
-    std::vector<int64_t> vec2 = GetConfig<std::vector<int64_t>>("matrix_size");
-    tileShape.SetCubeTile(cubeTile.m, cubeTile.k, cubeTile.n, cubeTile.setL1Tile, cubeTile.enableSplitK);
-    tileShape.SetVecTile(vec1);
-    tileShape.SetMatrixSize(vec2);
+    ConvTile convTile = GetConfig<ConvTile>("conv_tile_shapes");
+    DistTile distTile = GetConfig<DistTile>("dist_tile_shapes");
+    std::vector<int64_t> matrixSize = GetConfig<std::vector<int64_t>>("matrix_size");
+    TileShape tileShape(vecTile, cubeTile, convTile, distTile, matrixSize);
     return tileShape;
 }
 
-ConfigScope::~ConfigScope() {
+ConfigScope::~ConfigScope()
+{
     if (parent_) {
         parent_->children_.remove(this);
     }
 }
 
-void DumpValues(std::stringstream &os, const std::map<std::string, Any> &values,
-    const std::string &prefix) {
-    for (auto &[key, val] : values) {
-        os << prefix << key << ": ";
-        if (val.Type() == typeid(int64_t)) {
-            os << (AnyCast<int64_t>(val));
-        } else if (val.Type() == typeid(bool)) {
-            os << AnyCast<bool>(val);
-        } else if (val.Type() == typeid(std::string)) {
-            os << (AnyCast<std::string>(val));
-        } else if (val.Type() == typeid(std::vector<int64_t>)) {
-            os << (AnyCast<std::vector<int64_t>>(val));
-        } else if (val.Type() == typeid(std::vector<std::string>)) {
-            os << (AnyCast<std::vector<std::string>>(val));
-        } else if (val.Type() == typeid(std::map<int64_t, int64_t>)) {
-            os << '{';
-            bool is_first = true;
-            for (auto &[k, v] : AnyCast<std::map<int64_t, int64_t>>(val)) {
-                if (!is_first)
-                    os << ", ";
-                os << "{" << k << ", " << v << "}";
-                is_first = false;
-            }
-            os << '}';
-        } else if (val.Type() == typeid(CubeTile)) {
-            os << (AnyCast<CubeTile>(val).ToString());
-        } else {
-            os << "unknow type: " << val.Type().name();
+void DumpMap(std::stringstream& os, const std::map<int64_t, int64_t>& map)
+{
+    os << '{';
+    bool is_first = true;
+    for (const auto& [k, v] : map) {
+        if (!is_first) {
+            os << ", ";
         }
+        os << "{" << k << ", " << v << "}";
+        is_first = false;
+    }
+    os << '}';
+}
+
+void DumpValue(std::stringstream& os, const std::string& key, const Any& val, const std::string& prefix)
+{
+    os << prefix << key << ": ";
+    const auto& type = val.Type();
+
+    if (type == typeid(int64_t)) {
+        os << AnyCast<int64_t>(val);
+    } else if (type == typeid(bool)) {
+        os << AnyCast<bool>(val);
+    } else if (type == typeid(std::string)) {
+        os << AnyCast<std::string>(val);
+    } else if (type == typeid(std::vector<int64_t>)) {
+        os << AnyCast<std::vector<int64_t>>(val);
+    } else if (type == typeid(std::vector<std::string>)) {
+        os << AnyCast<std::vector<std::string>>(val);
+    } else if (type == typeid(std::map<int64_t, int64_t>)) {
+        DumpMap(os, AnyCast<std::map<int64_t, int64_t>>(val));
+    } else if (type == typeid(CubeTile)) {
+        os << AnyCast<CubeTile>(val).ToString();
+    } else if (type == typeid(DistTile)) {
+        os << AnyCast<DistTile>(val).ToString();
+    } else {
+        os << "unknow type: " << type.name();
+    }
+}
+
+void DumpValues(std::stringstream& os, const std::map<std::string, Any>& values, const std::string& prefix)
+{
+    for (const auto& [key, val] : values) {
+        DumpValue(os, key, val, prefix);
+        os << "\n";
     }
 }
 
 void DumpRange(
-    std::stringstream &os,
-    const std::type_info &type,
-    const std::string &key,
-    const std::map<std::string, std::pair<int64_t, int64_t>> &rangeInfos) {
+    std::stringstream& os, const std::type_info& type, const std::string& key,
+    const std::map<std::string, std::pair<int64_t, int64_t>>& rangeInfos)
+{
     os << "Range: ";
     if (type == typeid(std::map<int64_t, int64_t>)) {
-        os << "{[" << rangeInfos.at(key + "_key").first <<
-            ", " << rangeInfos.at(key + "_key").second <<
-            "], [" << rangeInfos.at(key + "_val").first <<
-            ", " << rangeInfos.at(key + "_val").second << "]}";
+        os << "{[" << rangeInfos.at(key + "_key").first << ", " << rangeInfos.at(key + "_key").second << "], ["
+           << rangeInfos.at(key + "_val").first << ", " << rangeInfos.at(key + "_val").second << "]}";
     } else {
-        os << "[" << rangeInfos.at(key).first <<
-            ", " << rangeInfos.at(key).second << "]";
+        os << "[" << rangeInfos.at(key).first << ", " << rangeInfos.at(key).second << "]";
     }
 }
 
-std::string ConfigScope::ToString() const{
-    std::map<std::string, Any> values;
-    auto scope = this;
-    while (scope) {
-        for (auto &[key, val] : scope->values_) {
-            if (!values.count(key)) {
-                values[key] = val;
-            }
-        }
-        scope = scope->parent_.get();
+bool HasRangeConstraint(
+    const std::string& key, const std::type_info& type,
+    const std::map<std::string, std::pair<int64_t, int64_t>>& rangeInfos)
+{
+    if (rangeInfos.count(key) != 0) {
+        return true;
     }
+
+    if (type == typeid(std::map<int64_t, int64_t>)) {
+        return rangeInfos.count(key + "_key") != 0 && rangeInfos.count(key + "_val") != 0;
+    }
+
+    return false;
+}
+
+void ValidateConfigValueType(const std::string& key, const Any& value)
+{
+    const auto& expectedType = ConfigManagerNg::GetInstance().Type(key);
+    if (expectedType == typeid(void) || value.Type() == expectedType) {
+        return;
+    }
+
+    std::stringstream os;
+    os << "Option '" << key << "' has invalid type. Expected " << GetReadableTypeName(expectedType) << ", but got "
+       << GetReadableTypeName(value.Type());
+    CHECK(FeError::INVALID_TYPE, false) << os.str();
+}
+
+std::string ConfigScope::ToString() const
+{
+    auto values = GetAllConfig();
     std::stringstream os;
     DumpValues(os, values, "");
     os << "\n";
     return os.str();
 }
 
-void ConfigScope::AddValue(const std::string &key, Any value) {
+const std::map<std::string, Any> ConfigScope::GetAllConfig() const
+{
+    std::map<std::string, Any> values;
+    auto scope = this;
+    while (scope) {
+        for (auto& [key, val] : scope->values_) {
+            if (!values.count(key)) {
+                values[key] = val;
+            }
+        }
+        scope = scope->parent_.get();
+    }
+    return values;
+}
+
+void ConfigScope::AddValue(const std::string& key, Any value)
+{
     std::lock_guard<std::mutex> lock(mtx);
     values_[key] = value;
 }
 
-void ConfigScope::UpdateValue(const std::string &key, Any value) {
-    if (!ConfigManagerNg::GetInstance().IsWithinRange(key, value)) {
+void ConfigScope::UpdateValueWithAny(const std::string& key, Any value)
+{
+    ValidateConfigValueType(key, value);
+    const auto& rangeInfos = ConfigManagerNg::GetInstance().Range();
+    if (HasRangeConstraint(key, value.Type(), rangeInfos) &&
+        !ConfigManagerNg::GetInstance().IsWithinRange(key, value)) {
         std::stringstream os("Option:");
         std::map<std::string, Any> node;
         node[key] = value;
         DumpValues(os, node, "");
-        os << ", its value doesn't within the value range.";
-        DumpRange(os, value.Type(), key, ConfigManagerNg::GetInstance().Range());
-        os << "\n";
-        throw std::runtime_error(os.str().c_str());
+        os << "its value doesn't within the value range. ";
+        DumpRange(os, value.Type(), key, rangeInfos);
+        CHECK(FeError::INVALID_VAL, false) << os.str();
     }
+    std::stringstream oss;
+    DumpValue(oss, key, value, "");
+    FE_LOGD("Set option successfully: %s ", oss.str().c_str());
     std::lock_guard<std::mutex> lock(mtx);
     values_[key] = value;
 }
@@ -256,7 +354,8 @@ struct ConfigManagerImpl {
     std::stack<ConfigScopePtr> scopes;
     ConfigScopePtr root;
 
-    ConfigManagerImpl() {
+    ConfigManagerImpl()
+    {
         typeInfo.LoadConf(GetConfDir() + "tile_fwk_config_schema.json");
         root = std::make_shared<ConfigScope>(nullptr);
         root->name_ = "default";
@@ -268,26 +367,38 @@ struct ConfigManagerImpl {
         scopes.push(global);
     }
 
-    inline bool IntervalJudge(const int64_t &stand, const int64_t &lf, const int64_t &rf) const {
-        return stand >= lf && stand <=rf;
+    void PushScope(ConfigScopePtr scope)
+    {
+        // Ensure the provided scope is not null
+        FE_ASSERT(scope != nullptr) << "Cannot push a null scope.";
+        scopes.push(scope);
     }
 
-    bool IsWithinRange(const std::string &properties, const int64_t &value) const {
-        return IntervalJudge(value, typeInfo.rangeInfos.at(properties).first, typeInfo.rangeInfos.at(properties).second);
+    inline bool IntervalJudge(const int64_t& stand, const int64_t& lf, const int64_t& rf) const
+    {
+        return stand >= lf && stand <= rf;
     }
 
-    bool IsWithinRange(const std::string &properties, const std::map<int64_t, int64_t> &value) const {
-        auto ins = typeInfo.rangeInfos;
-        for (auto &[lf, rf] : value) {
+    bool IsWithinRange(const std::string& properties, const int64_t& value) const
+    {
+        return IntervalJudge(
+            value, typeInfo.rangeInfos.at(properties).first, typeInfo.rangeInfos.at(properties).second);
+    }
+
+    bool IsWithinRange(const std::string& properties, const std::map<int64_t, int64_t>& value) const
+    {
+        const auto& ins = typeInfo.rangeInfos;
+        for (auto& [lf, rf] : value) {
             if (!IntervalJudge(lf, ins.at(properties + "_key").first, ins.at(properties + "_key").second) ||
-            !IntervalJudge(rf, ins.at(properties + "_val").first, ins.at(properties + "_val").second)) {
+                !IntervalJudge(rf, ins.at(properties + "_val").first, ins.at(properties + "_val").second)) {
                 return false;
             }
         }
         return true;
     }
 
-    void BeginScope(const std::string &name, std::map<std::string, Any> &&values, const char *file, int lino) {
+    void BeginScope(const std::string& name, std::map<std::string, Any>&& values, const char* file, int lino)
+    {
         auto scope = std::make_shared<ConfigScope>(scopes.top());
         scope->values_ = std::move(values);
         scope->begin_file_ = file;
@@ -296,16 +407,18 @@ struct ConfigManagerImpl {
         scopes.push(scope);
     }
 
-    void EndScope(const char *file, int lino) {
+    void EndScope(const char* file, int lino)
+    {
         /* at least default and global two levels */
-        ASSERT(scopes.size() >= 0x2) << "No scope to pop";
-        auto &scope = scopes.top();
+        FE_ASSERT(scopes.size() >= 0x2) << "No scope to pop.";
+        auto& scope = scopes.top();
         scope->end_file_ = file;
         scope->end_lino_ = lino;
         scopes.pop();
     }
 
-    void SetScope(std::map<std::string, Any> &&values, const char *file, int lino) {
+    void SetScope(std::map<std::string, Any>&& values, const char* file, int lino)
+    {
         auto scope = scopes.top();
         if (scope.use_count() > 1) { // clone if shared
             auto oldvalues = scopes.top()->values_;
@@ -314,12 +427,31 @@ struct ConfigManagerImpl {
             BeginScope(name, std::move(oldvalues), file, lino);
             scope = scopes.top();
         }
-        for (auto &it : values) {
-            scope->AddValue(it.first, it.second);
+        for (auto& it : values) {
+            CHECK(FeError::INVALID_VAL, scope->HasConfig(it.first))
+                << "key: " << it.first.c_str() << " does not exist.";
+            scope->UpdateValueWithAny(it.first, it.second);
         }
     }
 
-    void Dump(std::stringstream &os, ConfigScope *node, const std::string &prefix) {
+    void SetGlobalConfig(std::map<std::string, Any>&& values, const char* file, int lino)
+    {
+        if (values.empty()) {
+            FE_LOGW("No values provided to set in global config. Locations: %s:%d", file, lino);
+            return;
+        }
+        for (auto& it : values) {
+            try {
+                root->AddValue(it.first, it.second);
+                FE_LOGD("Set option successfully, Key: %s", it.first.c_str());
+            } catch (const std::exception& e) {
+                FE_LOGE(FeError::INVALID_VAL, "Failed to set option. Key: %s, Error: %s", it.first.c_str(), e.what());
+            }
+        }
+    }
+
+    void Dump(std::stringstream& os, ConfigScope* node, const std::string& prefix)
+    {
         if (!node->begin_file_.empty()) {
             os << prefix << "scope_start: " << node->begin_file_ << ":" << node->begin_lino_ << "\n";
         }
@@ -337,7 +469,8 @@ struct ConfigManagerImpl {
         }
     }
 
-    std::string GetOptionsTree() {
+    std::string GetOptionsTree()
+    {
         std::stringstream os;
         Dump(os, root.get(), "");
         return os.str();
@@ -346,22 +479,42 @@ struct ConfigManagerImpl {
 private:
     std::string GetConfDir() { return GetCurrentSharedLibPath() + "/configs/"; }
 
-    void LoadConf(const nlohmann::json &jdata, const std::string &prefix) {
-        if (jdata.is_string()) {
-            root->AddValue(prefix, jdata.get<std::string>());
-        } else if (jdata.is_number()) {
-            root->AddValue(prefix, jdata.get<int64_t>());
-        } else if (jdata.is_boolean()) {
-            root->AddValue(prefix, jdata.get<bool>());
-        } else if (jdata.is_array()) {
-            if (typeInfo.Type(prefix) == typeid(std::vector<int64_t>)) {
-                root->AddValue(prefix, jdata.get<std::vector<int64_t>>());
-            } else {
-                root->AddValue(prefix, jdata.get<std::vector<std::string>>());
+    void LoadConf(const nlohmann::json& jData, const std::string& prefix)
+    {
+        if (jData.is_string()) {
+            root->AddValue(prefix, jData.get<std::string>());
+        } else if (jData.is_number()) {
+            root->AddValue(prefix, jData.get<int64_t>());
+        } else if (jData.is_boolean()) {
+            root->AddValue(prefix, jData.get<bool>());
+        } else if (typeInfo.Type(prefix) == typeid(std::map<int64_t, int64_t>)) {
+            std::map<int64_t, int64_t> mapJson;
+            for (const auto& pair : jData) {
+                auto arr = pair.get<std::vector<int64_t>>();
+                if (arr.size() >= 2) {
+                    mapJson[arr[0]] = arr[1];
+                }
             }
-        } else if (jdata.is_object()) {
-            for (auto &it : jdata.items()) {
-                const std::string &key = it.key();
+            root->AddValue(prefix, mapJson);
+        } else if (typeInfo.Type(prefix) == typeid(std::map<std::string, int64_t>)) {
+            std::map<std::string, int64_t> mapJson;
+            if (jData.is_object()) {
+                for (auto& it : jData.items()) {
+                    mapJson[it.key()] = it.value().get<int64_t>();
+                }
+            }
+            root->AddValue(prefix, mapJson);
+        } else if (jData.is_array()) {
+            if (typeInfo.Type(prefix) == typeid(std::vector<int64_t>)) {
+                root->AddValue(prefix, jData.get<std::vector<int64_t>>());
+            } else if (typeInfo.Type(prefix) == typeid(std::vector<double>)) {
+                root->AddValue(prefix, jData.get<std::vector<double>>());
+            } else {
+                root->AddValue(prefix, jData.get<std::vector<std::string>>());
+            }
+        } else if (jData.is_object()) {
+            for (auto& it : jData.items()) {
+                const std::string& key = it.key();
                 if (prefix.empty()) {
                     LoadConf(it.value(), key);
                 } else {
@@ -371,76 +524,127 @@ private:
         }
     }
 
-    void LoadConf() {
+    void LoadConf()
+    {
         std::string confPath = GetEnvVar("TILEFWK_CONFIG_PATH");
         if (confPath.empty()) {
-            confPath = GetConfDir() + "tile_fwk_config_ng.json";
+            confPath = GetConfDir() + "tile_fwk_config.json";
         }
         std::ifstream ifs(confPath);
-        ASSERT(ifs.is_open()) << "Open file " << confPath << " failed";
-        nlohmann::json jdata;
-        ifs >> jdata;
-        LoadConf(jdata, "");
+        CHECK(FeError::BAD_FD, ifs.is_open()) << "Open file: " << confPath << " failed";
+        nlohmann::json jData;
+        ifs >> jData;
+        LoadConf(jData, "");
     }
 
-    void InitTileShape() {
+    void InitTileShape()
+    {
         TileShape tileShape;
         tileShape.Reset();
         root->AddValue("cube_tile_shapes", tileShape.GetCubeTile());
         root->AddValue("vec_tile_shapes", tileShape.GetVecTile().tile);
+        root->AddValue("conv_tile_shapes", tileShape.GetConvTile());
         root->AddValue("matrix_size", tileShape.GetMatrixSize());
+        root->AddValue("dist_tile_shapes", tileShape.GetDistTile());
     }
 };
 
 void ConfigManagerNg::BeginScope(
-    const std::string &name, std::map<std::string, Any> &&values, const char *file, int lino) {
+    const std::string& name, std::map<std::string, Any>&& values, const char* file, int lino)
+{
     impl_->BeginScope(name, std::move(values), file, lino);
 }
 
-void ConfigManagerNg::EndScope(const char *file, int lino) {
-    impl_->EndScope(file, lino);
+void ConfigManagerNg::EndScope(const char* file, int lino) { impl_->EndScope(file, lino); }
+
+ConfigManagerNg::ScopedRestore::ScopedRestore(std::shared_ptr<ConfigScope> scope)
+{
+    ConfigManagerNg::GetInstance().PushScope(std::move(scope));
 }
 
-void ConfigManagerNg::SetScope(std::map<std::string, Any> &&values, const char *file, int lino) {
+ConfigManagerNg::ScopedRestore::~ScopedRestore() { ConfigManagerNg::GetInstance().EndScope(); }
+
+ConfigManagerNg::JitScopeGuard::JitScopeGuard(
+    const std::string& name, std::map<std::string, Any>&& values, const char* file, int lino)
+{
+    ConfigManagerNg::GetInstance().BeginScope(name, std::move(values), file, lino);
+}
+
+ConfigManagerNg::JitScopeGuard::~JitScopeGuard() { ConfigManagerNg::GetInstance().EndScope(); }
+
+void ConfigManagerNg::SetScope(std::map<std::string, Any>&& values, const char* file, int lino)
+{
     return impl_->SetScope(std::move(values), file, lino);
 }
 
-std::shared_ptr<ConfigScope> ConfigManagerNg::CurrentScope() const {
-    return impl_->scopes.top();
+void ConfigManagerNg::SetGlobalConfig(std::map<std::string, Any>&& values, const char* file, int lino)
+{
+    return impl_->SetGlobalConfig(std::move(values), file, lino);
 }
 
-bool ConfigManagerNg::IsWithinRange(const std::string &properties, Any &value) const {
+void ConfigManagerNg::PushScope(ConfigScopePtr scope) { impl_->PushScope(scope); }
+
+std::shared_ptr<ConfigScope> ConfigManagerNg::CurrentScope() { return GetInstance().impl_->scopes.top(); }
+
+std::shared_ptr<ConfigScope> ConfigManagerNg::GlobalScope() { return GetInstance().impl_->root; }
+
+bool ConfigManagerNg::IsWithinRange(const std::string& properties, Any& value) const
+{
     try {
         if (value.Type() == typeid(std::map<int64_t, int64_t>)) {
             return impl_->IsWithinRange(properties, AnyCast<std::map<int64_t, int64_t>>(value));
         } else if (value.Type() == typeid(int64_t)) {
             return impl_->IsWithinRange(properties, AnyCast<int64_t>(value));
         }
-    } catch (const std::out_of_range &e) {
-        ALOG_ERROR_F("key[%s] has been not loaded form tile_fwk_config_schema.json.", properties.c_str());
+    } catch (const std::out_of_range& e) {
+        FE_LOGE(
+            FeError::INVALID_VAL, "key[%s] has been not loaded form tile_fwk_config_schema.json.", properties.c_str());
         return false;
     }
     return true;
 }
 
-const std::type_info &ConfigManagerNg::Type(const std::string &key) const {
-    return impl_->typeInfo.Type(key);
-}
+const std::type_info& ConfigManagerNg::Type(const std::string& key) const { return impl_->typeInfo.Type(key); }
 
-const std::map<std::string, std::pair<int64_t, int64_t>> &ConfigManagerNg::Range() const {
+const std::map<std::string, std::pair<int64_t, int64_t>>& ConfigManagerNg::Range() const
+{
     return impl_->typeInfo.rangeInfos;
 }
 
-std::string ConfigManagerNg::GetOptionsTree() {
-    return impl_->GetOptionsTree();
-}
+std::string ConfigManagerNg::GetOptionsTree() { return impl_->GetOptionsTree(); }
 
-ConfigManagerNg::ConfigManagerNg() : impl_(std::make_unique<ConfigManagerImpl>()) {}
+ConfigManagerNg::ConfigManagerNg() : impl_(std::make_unique<ConfigManagerImpl>()) { globalScope = impl_->root; }
 
-ConfigManagerNg &ConfigManagerNg::GetInstance() {
+ConfigManagerNg& ConfigManagerNg::GetInstance()
+{
     static ConfigManagerNg instance;
     return instance;
 }
 
 ConfigManagerNg::~ConfigManagerNg() = default;
+
+namespace config {
+
+template <typename T>
+void SetOptionsNg(const std::string& key, const T& value)
+{
+    ConfigManagerNg::CurrentScope()->UpdateValue(key, value);
+}
+
+template void SetOptionsNg<bool>(const std::string& key, const bool& value);
+template void SetOptionsNg<int>(const std::string& key, const int& value);
+template void SetOptionsNg<double>(const std::string& key, const double& value);
+template void SetOptionsNg<std::string>(const std::string& key, const std::string& value);
+template void SetOptionsNg<long>(const std::string& key, const long& value);
+template void SetOptionsNg<uint8_t>(const std::string& key, const uint8_t& value);
+template void SetOptionsNg<std::map<int, int>>(const std::string& key, const std::map<int, int>& value);
+template void SetOptionsNg<std::map<long, long>>(const std::string& key, const std::map<long, long>& value);
+template void SetOptionsNg<std::vector<int>>(const std::string& key, const std::vector<int>& value);
+template void SetOptionsNg<std::vector<std::string>>(const std::string& key, const std::vector<std::string>& value);
+template void SetOptionsNg<std::vector<double>>(const std::string& key, const std::vector<double>& value);
+template void SetOptionsNg<std::vector<int64_t>>(const std::string& key, const std::vector<int64_t>& value);
+
+std::shared_ptr<ConfigScope> Duplicate() { return ConfigManagerNg::CurrentScope(); }
+
+} // namespace config
 } // namespace npu::tile_fwk

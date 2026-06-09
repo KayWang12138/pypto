@@ -12,7 +12,7 @@
 from typing import Optional, Tuple, Union
 from .._element import Element
 from .. import pypto_impl
-from ..enum import OpType, OutType
+from ..enum import OpType, OutType, TopKAlgo
 from .._op_wrapper import op_wrapper
 from ..tensor import Tensor
 
@@ -299,7 +299,7 @@ def le(input: Tensor, other: Union[Tensor, float, Element]) -> Tensor:
 
 @op_wrapper
 def topk(
-    input: Tensor, k: int, dim: Optional[int] = None, largest: bool = True
+    input: Tensor, k: int, dim: Optional[int] = None, largest: bool = True, algo: TopKAlgo = TopKAlgo.MERGE_SORT
 ) -> Tuple[Tensor, Tensor]:
     """Returns the k largest elements of the given input tensor along a given dimension.
 
@@ -339,4 +339,94 @@ def topk(
                   [2 1]]
     """
 
-    return pypto_impl.TopK(input, k, (-1 if dim is None else dim), largest)
+    return pypto_impl.TopK(input, k, (-1 if dim is None else dim), largest, algo)
+
+
+@op_wrapper
+def argsort(
+    input: Tensor, dim: Optional[int] = None, descending: bool = False
+) -> Tensor:
+    """
+    Returns the indices that sort a tensor along a given dimension.
+
+    Parameters
+    ----------
+    input : Tensor
+        The input tensor.
+    dim : int, optional
+        The dimension to sort along, if dim is not given, the last dimension of the input is chosen.
+    descending : bool
+        Controls the order of sorting.
+        If `True`, the tensor will be sorted in descending order;
+        if `False`, it will be sorted in ascending order.
+
+    Returns
+    -------
+    Tensor
+        The indices tensor along a given dimension in descending or ascending.
+
+    Examples
+    --------
+    x = pypto.tensor([2, 3], pypto.DT_FP32)
+    y = pypto.argsort(x, -1, True)
+
+    Input x:     [[1.0 2.0 3.0],
+                  [1.0 2.0 3.0]]
+    Output y: [[2 1 0],
+               [2 1 0]]
+    """
+    return pypto_impl.ArgSort(input, (-1 if dim is None else dim), descending)
+
+
+@op_wrapper
+def sort32(
+    input: Tensor, index: Optional[int] = None
+) -> Tensor:
+    """
+    Returns interleaved the values and indices that sort every 32 numbers.
+
+    Parameters
+    ----------
+    input : Tensor
+        The input tensor.
+    index : int, optional
+        The start index of the sorting dimension.
+
+    Returns
+    -------
+    Tensor
+        The output tensor.
+
+    Examples
+    --------
+    x = pypto.tensor([2, 3], pypto.DT_FP32)
+    y = pypto.sort32(x, 0)
+
+    Input x:     [[1.0 2.0 3.0],
+                  [1.0 2.0 3.0]]
+    Output y: [[3.0 2 2.0 1 1.0 0],
+               [3.0 2 2.0 1 1.0 0]]
+    """
+    return pypto_impl.Sort32(input, (0 if index is None else index))
+
+
+@op_wrapper
+def mrgsort(
+    input: Tensor, mergesize: int
+) -> Tensor:
+    """
+    Returns the tensor that merge sort base on merge size.
+
+    Parameters
+    ----------
+    input : Tensor
+        The input tensor.
+    mergesize : int
+        The start index of the sorting dimension.
+
+    Returns
+    -------
+    Tensor
+        The output tensor.
+    """
+    return pypto_impl.MrgSort(input, mergesize)

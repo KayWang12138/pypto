@@ -31,7 +31,8 @@ using namespace npu::tile_fwk::dynamic;
 class DynKVCmp : public npu::tile_fwk::stest::TestSuite_STest_Ops_Aihac {};
 
 template <typename T>
-static std::shared_ptr<RawTensorData> CreateTensorData(Tensor tensor, std::string fileName) {
+static std::shared_ptr<RawTensorData> CreateTensorData(Tensor tensor, std::string fileName)
+{
     auto shape = tensor.GetShape();
     int capacity = std::accumulate(shape.begin(), shape.end(), 1, std::multiplies<>());
     std::vector<T> values(capacity, 0);
@@ -40,9 +41,8 @@ static std::shared_ptr<RawTensorData> CreateTensorData(Tensor tensor, std::strin
 }
 
 template <typename T = npu::tile_fwk::bfloat16>
-void TestCmpKv(CmpAttnTile &tileConfig) {
-    config::SetHostOption(ONLY_CODEGEN, true);
-
+void TestCmpKv(CmpAttnTile& tileConfig)
+{
     int paramsSize = 13;
     std::vector<int32_t> input_param(paramsSize);
     readInput<int32_t>(GetGoldenDir() + "/input_param.bin", input_param);
@@ -75,28 +75,6 @@ void TestCmpKv(CmpAttnTile &tileConfig) {
         dType = DT_FP32;
     }
     DataType kType = dType;
-
-    ALOG_EVENT_F(R"(
-KVCompress params:
-    blockSize=%d
-    b=%d
-    s1=%d
-    dN=%d
-    dQ=%d
-    dR=%d
-    n2=%d
-    blockNum=%d
-    cmpBlockNum=%d
-    maxBlockNum=%d
-    cmpBlockSize=%d
-    slcBlockSize=%d
-    stride=%d
-    rs=%d
-    rc=%d
-    auxVecLen=%d
-)",
-        blockSize, b, s1, dN, dQ, dR, n2, blockNum, cmpBlockNum, maxBlockNum, cmpBlockSize, slcBlockSize, stride, rs,
-        rc, auxVecLen);
 
     // Construct input tensors
     Tensor kvCache(kType, {blockNum * blockSize, n2 * dN}, "kvCache");
@@ -137,8 +115,9 @@ KVCompress params:
     readInput(GetGoldenDir() + "/kr_cache_out_compress.bin", cmpKrCacheOutGolden);
     readInput(GetGoldenDir() + "/aux_tensor.bin", auxTensorGolden);
 
-    std::vector<RawTensorDataPtr> inputDataList = {kvCacheInput, krCacheInput, cmpKvCacheInput, cmpKrCacheInput,
-        blockTableInput, cmpCacheIndexInput, actSeqInput, wk1Input, wk2Input, cosInput, sinInput};
+    std::vector<RawTensorDataPtr> inputDataList = {
+        kvCacheInput, krCacheInput, cmpKvCacheInput, cmpKrCacheInput, blockTableInput, cmpCacheIndexInput,
+        actSeqInput,  wk1Input,     wk2Input,        cosInput,        sinInput};
     std::vector<RawTensorDataPtr> outputDataList = {cmpKvCacheInput, cmpKrCacheInput, auxTensorOutput};
     ProgramData::GetInstance().AppendInputs(inputDataList);
     ProgramData::GetInstance().AppendOutputs(outputDataList);
@@ -148,23 +127,25 @@ KVCompress params:
         RawTensorData::CreateTensor<float>(auxTensor, auxTensorGolden),
     });
 
-    compressKv(kvCache, krCache, cmpKvCache, cmpKrCache, blockTable, cmpCacheIndex, actSeqLen, mlpWk1, mlpWk2, mlpCos,
-        mlpSin, cmpKvCache, cmpKrCache, auxTensor, cmpBlockSize, cmpStride, rs, tileConfig);
+    compressKv(
+        kvCache, krCache, cmpKvCache, cmpKrCache, blockTable, cmpCacheIndex, actSeqLen, mlpWk1, mlpWk2, mlpCos, mlpSin,
+        cmpKvCache, cmpKrCache, auxTensor, cmpBlockSize, cmpStride, rs, tileConfig);
 
     DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
     auto actualCmpKvCacheOutput = npu::tile_fwk::ProgramData::GetInstance().GetOutputData(0);
     auto actualCmpKrCacheOutput = npu::tile_fwk::ProgramData::GetInstance().GetOutputData(1);
     auto actualAuxTensorOutput = npu::tile_fwk::ProgramData::GetInstance().GetOutputData(2);
     float eps = 0.005f;
-    auto result1 = resultCmp(cmpKvCacheOutGolden, (T *)actualCmpKvCacheOutput->data(), eps);
-    auto result2 = resultCmp(cmpKrCacheOutGolden, (T *)actualCmpKrCacheOutput->data(), eps);
-    auto auxTensorResult = resultCmp<float>(auxTensorGolden, (float *)actualAuxTensorOutput->data(), eps);
+    auto result1 = resultCmp(cmpKvCacheOutGolden, (T*)actualCmpKvCacheOutput->data(), eps);
+    auto result2 = resultCmp(cmpKrCacheOutGolden, (T*)actualCmpKrCacheOutput->data(), eps);
+    auto auxTensorResult = resultCmp<float>(auxTensorGolden, (float*)actualAuxTensorOutput->data(), eps);
     EXPECT_TRUE(result1);
     EXPECT_TRUE(result2);
     EXPECT_TRUE(auxTensorResult);
 }
 
-TEST_F(DynKVCmp, KVCmpBatch48float16) {
+TEST_F(DynKVCmp, KVCmpBatch48float16)
+{
     SetInterpreterConfig();
 
     CmpAttnTile config;
@@ -184,7 +165,8 @@ TEST_F(DynKVCmp, KVCmpBatch48float16) {
     TestCmpKv<npu::tile_fwk::float16>(config);
 }
 
-TEST_F(DynKVCmp, KVCmpBatch32bf16) {
+TEST_F(DynKVCmp, KVCmpBatch32bf16)
+{
     SetInterpreterConfig();
 
     CmpAttnTile config;
@@ -205,9 +187,8 @@ TEST_F(DynKVCmp, KVCmpBatch32bf16) {
 }
 
 template <typename T = npu::tile_fwk::bfloat16>
-void TestAuxTensor() {
-    config::SetHostOption(ONLY_CODEGEN, true);
-
+void TestAuxTensor()
+{
     int paramsSize = 13;
     std::vector<int32_t> input_param(paramsSize);
     readInput<int32_t>(GetGoldenDir() + "/input_param.bin", input_param);
@@ -217,8 +198,6 @@ void TestAuxTensor() {
     const int rs = slcBlockSize / stride;
     const int rc = cmpBlockSize / stride;
     const int auxVecLen = 128;
-    ALOG_EVENT_F("AuxTensor params: \ncmpBlockSize=%d\nslcBlockSize=%d\nstride=%d\nrs=%d\nrc=%d\nauxVecLen=%d",
-        cmpBlockSize, slcBlockSize, stride, rs, rc, auxVecLen);
 
     DataType dType = DT_FP32;
     ASSERT((std::is_same<T, float>::value)) << "We only support FP32 for auxTensor now";
@@ -226,13 +205,15 @@ void TestAuxTensor() {
     std::vector<T> auxTensorGolden((rc + rs - 1) * auxVecLen, 0.0);
     readInput(GetGoldenDir() + "/aux_tensor.bin", auxTensorGolden);
 
-    FUNCTION("FuncAuxTensor", {}, {auxTensor}) {
-        LOOP("COMPRESS_LOOP_BATCH", FunctionType::DYNAMIC_LOOP, bIdx, LoopRange(1)) {
+    FUNCTION("FuncAuxTensor", {}, {auxTensor})
+    {
+        LOOP("COMPRESS_LOOP_BATCH", FunctionType::DYNAMIC_LOOP, bIdx, LoopRange(1))
+        {
             (void)bIdx;
             TileShape::Current().SetVecTile(1, auxVecLen);
             for (int i = 0; i < rs + rc - 1; i++) {
-                auto auxVector = npu::tile_fwk::Full(
-                    Element(dType, float(min(i + 1, rc) - max(i - rs, 0))), dType, {1, auxVecLen});
+                auto auxVector =
+                    npu::tile_fwk::Full(Element(dType, float(min(i + 1, rc) - max(i - rs, 0))), dType, {1, auxVecLen});
                 Assemble(auxVector, {i, 0}, auxTensor);
             }
         }
@@ -241,12 +222,13 @@ void TestAuxTensor() {
     auto auxTensorOutput = RawTensorData::CreateConstantTensor<T>(auxTensor, 0.0f);
     std::vector<RawTensorDataPtr> inputDataList = {};
     std::vector<RawTensorDataPtr> outputDataList = {auxTensorOutput};
-    DevFuncRunner::Run(Program::GetInstance().GetLastFunction(),inputDataList, outputDataList);
+    DevFuncRunner::Run(Program::GetInstance().GetLastFunction(), inputDataList, outputDataList);
 
-    EXPECT_TRUE(resultCmp<T>(auxTensorGolden, (T *)auxTensorOutput->data(), 0.008f));
+    EXPECT_TRUE(resultCmp<T>(auxTensorGolden, (T*)auxTensorOutput->data(), 0.008f));
 }
 
-TEST_F(DynKVCmp, AuxVectorBuildFloat32) {
+TEST_F(DynKVCmp, AuxVectorBuildFloat32)
+{
     // // 精度工具
     // config::SetVerifyOption(KEY_VERIFY_TENSOR_GRAPH, true);
     // config::SetVerifyOption(KEY_VERIFY_PASS, true);

@@ -33,12 +33,13 @@ Example:
     # delete_after = {stmt_id: {'temp1', 'temp2'}, ...}
 """
 
+import ast
 from typing import Optional
 
-from . import doc
+from pypto.error import FeError
 
 
-class LivenessAnalyzer(doc.NodeVisitor):
+class LivenessAnalyzer(ast.NodeVisitor):
     """Analyzes variable liveness in the AST.
 
     Tracks variable uses and determines after which statements variables
@@ -64,13 +65,13 @@ class LivenessAnalyzer(doc.NodeVisitor):
         self.vars_defined_in_loop: set[str] = set()
 
     def analyze(
-        self, node: doc.AST, exempt_vars: Optional[set[str]] = None
+        self, node: ast.AST, exempt_vars: Optional[set[str]] = None
     ) -> dict[int, set[str]]:
         """Analyze the AST and return deletion points.
 
         Parameters
         ----------
-        node : doc.AST
+        node : ast.AST
             The AST node to analyze.
         exempt_vars : Optional[set[str]]
             Variables that should not be auto-deleted (e.g., function arguments).
@@ -86,18 +87,12 @@ class LivenessAnalyzer(doc.NodeVisitor):
         self._compute_deletion_points()
         return self.delete_after
 
-    def visit(self, node: doc.AST):
+    def visit(self, node: ast.AST):
         """Visit a node."""
-        if isinstance(node, (list, tuple)):
-            for item in node:
-                self.visit(item)
-            return
-        if not isinstance(node, doc.AST):
-            return
-        return super().visit(node)
+        self.generic_visit(node)
 
     # Statement visitors
-    def visit_function_def(self, node: doc.FunctionDef):
+    def visit_function_def(self, node: ast.FunctionDef):
         """Visit function definition."""
         # Mark function arguments as exempt
         for arg in node.args.args:
@@ -106,7 +101,7 @@ class LivenessAnalyzer(doc.NodeVisitor):
         for stmt in node.body:
             self.visit(stmt)
 
-    def visit_assign(self, node: doc.Assign):
+    def visit_assign(self, node: ast.Assign):
         """Visit assignment statement."""
         self.current_stmt_id = _get_node_id(node)
         # Visit RHS first to record uses
@@ -115,14 +110,14 @@ class LivenessAnalyzer(doc.NodeVisitor):
         for target in node.targets:
             self._visit_assign_target(target, is_def=True)
 
-    def visit_ann_assign(self, node: doc.AnnAssign):
+    def visit_ann_assign(self, node: ast.AnnAssign):
         """Visit annotated assignment."""
         self.current_stmt_id = _get_node_id(node)
         if node.value:
             self.visit(node.value)
         self._visit_assign_target(node.target, is_def=True)
 
-    def visit_aug_assign(self, node: doc.AugAssign):
+    def visit_aug_assign(self, node: ast.AugAssign):
         """Visit augmented assignment."""
         self.current_stmt_id = _get_node_id(node)
         # Visit the value expression first to record uses
@@ -132,7 +127,7 @@ class LivenessAnalyzer(doc.NodeVisitor):
         # Then record definition on the target (for writing the new value)
         self._visit_assign_target(node.target, is_def=True)
 
-    def visit_for(self, node: doc.For):
+    def visit_for(self, node: ast.For):
         """Visit for loop."""
         stmt_id = _get_node_id(node)
         self.current_stmt_id = stmt_id
@@ -140,32 +135,37 @@ class LivenessAnalyzer(doc.NodeVisitor):
         # Visit iterator expression (outside the loop scope)
         self.visit(node.iter)
 
-        # Save variables defined in outer loop scope
-        saved_vars_defined_in_loop = self.vars_defined_in_loop.copy()
-
-        # Enter loop scope - variables used inside will be deleted after loop exits
+        # Enter loop scope
         self.loop_scope_stack.append(stmt_id)
-        # Reset for this loop body
-        self.vars_defined_in_loop = set()
+        # Keep vars_defined_in_loop accumulating to support cross-loop variable tracking
 
         # Loop variable is defined here
-        if isinstance(node.target, doc.Name):
+        # Support both single variable and tuple unpacking
+        if isinstance(node.target, ast.Name):
             self._record_var_def(node.target.id)
             self.exempt_vars.add(node.target.id)  # Loop vars not auto-deleted
+        elif isinstance(node.target, (ast.Tuple, ast.List)):
+            # Tuple unpacking: for x, y in iterator
+            for elt in node.target.elts:
+                if isinstance(elt, ast.Name):
+                    self._record_var_def(elt.id)
+                    self.exempt_vars.add(elt.id)  # Loop vars not auto-deleted
+                # Note: nested tuples in loop targets are not supported
+                # (e.g., for (x, (y, z)) in iterator is not allowed)
 
         # Visit body
         for stmt in node.body:
             self.visit(stmt)
 
-        # Exit loop scope and restore outer loop's vars
+        # Exit loop scope
         self.loop_scope_stack.pop()
-        self.vars_defined_in_loop = saved_vars_defined_in_loop
+        # Keep vars_defined_in_loop accumulated (no restore)
 
-    def visit_while(self, node: doc.While):
+    def visit_while(self, node: ast.While):
         """Visit while loop."""
-        raise NotImplementedError("While loop is not supported yet.")
+        raise FeError(NotImplementedError("While loop is not supported yet."))
 
-    def visit_if(self, node: doc.If):
+    def visit_if(self, node: ast.If):
         """Visit if statement."""
         self.current_stmt_id = _get_node_id(node)
         # Visit condition
@@ -177,37 +177,37 @@ class LivenessAnalyzer(doc.NodeVisitor):
             for stmt in node.orelse:
                 self.visit(stmt)
 
-    def visit_return(self, node: doc.Return):
+    def visit_return(self, node: ast.Return):
         """Visit return statement."""
         self.current_stmt_id = _get_node_id(node)
         if node.value:
             self.visit(node.value)
 
-    def visit_delete(self, node: doc.Delete):
+    def visit_delete(self, node: ast.Delete):
         """Visit delete statement."""
         self.current_stmt_id = _get_node_id(node)
         # Explicit delete - mark these vars as exempt from auto-delete
         for target in node.targets:
-            if isinstance(target, doc.Name):
+            if isinstance(target, ast.Name):
                 self.exempt_vars.add(target.id)
 
-    def visit_expr(self, node: doc.Expr):
+    def visit_expr(self, node: ast.Expr):
         """Visit expression statement."""
         self.current_stmt_id = _get_node_id(node)
         self.visit(node.value)
 
-    def visit_pass(self, node: doc.Pass):
+    def visit_pass(self, node: ast.Pass):
         """Visit pass statement."""
         self.current_stmt_id = _get_node_id(node)
 
     # Expression visitors
-    def visit_name(self, node: doc.Name):
+    def visit_name(self, node: ast.Name):
         """Visit name (variable reference)."""
-        if isinstance(node.ctx, doc.Load):
+        if isinstance(node.ctx, ast.Load):
             # This is a use/read
             self._record_var_use(node.id)
 
-    def visit_call(self, node: doc.Call):
+    def visit_call(self, node: ast.Call):
         """Visit function call."""
         self.visit(node.func)
         for arg in node.args:
@@ -215,41 +215,41 @@ class LivenessAnalyzer(doc.NodeVisitor):
         for keyword in node.keywords:
             self.visit(keyword.value)
 
-    def visit_attribute(self, node: doc.Attribute):
+    def visit_attribute(self, node: ast.Attribute):
         """Visit attribute access."""
         self.visit(node.value)
 
-    def visit_subscript(self, node: doc.Subscript):
+    def visit_subscript(self, node: ast.Subscript):
         """Visit subscript."""
         self.visit(node.value)
         self.visit(node.slice)
 
-    def visit_bin_op(self, node: doc.BinOp):
+    def visit_bin_op(self, node: ast.BinOp):
         """Visit binary operation."""
         self.visit(node.left)
         self.visit(node.right)
 
-    def visit_unary_op(self, node: doc.UnaryOp):
+    def visit_unary_op(self, node: ast.UnaryOp):
         """Visit unary operation."""
         self.visit(node.operand)
 
-    def visit_compare(self, node: doc.Compare):
+    def visit_compare(self, node: ast.Compare):
         """Visit comparison."""
         self.visit(node.left)
         for comparator in node.comparators:
             self.visit(comparator)
 
-    def visit_tuple(self, node: doc.Tuple):
+    def visit_tuple(self, node: ast.Tuple):
         """Visit tuple."""
         for elt in node.elts:
             self.visit(elt)
 
-    def visit_list(self, node: doc.List):
+    def visit_list(self, node: ast.List):
         """Visit list."""
         for elt in node.elts:
             self.visit(elt)
 
-    def visit_slice(self, node: doc.Slice):
+    def visit_slice(self, node: ast.Slice):
         """Visit slice."""
         if node.lower:
             self.visit(node.lower)
@@ -285,21 +285,14 @@ class LivenessAnalyzer(doc.NodeVisitor):
     def _record_var_use(self, var_name: str):
         """Record a variable use at the current statement.
 
-        If inside a loop scope, records the use at the loop level to ensure
-        variables aren't deleted inside the loop body, UNLESS the variable
-        was defined inside the loop (in which case it can be deleted per-iteration).
+        Use Python function-level scoping semantics, uniformly use current statement ID
+        to record variable usage. Variable deletion timing is determined by
+        _compute_deletion_points based on the last use location.
         """
         if self.current_stmt_id is not None:
             if var_name not in self.var_uses:
                 self.var_uses[var_name] = []
-            # If we're inside a loop and the variable was defined OUTSIDE the loop,
-            # use the loop's statement ID to delete after loop exits.
-            # If defined INSIDE the loop, use actual statement ID to delete per-iteration.
-            if self.loop_scope_stack and var_name not in self.vars_defined_in_loop:
-                stmt_id = self.loop_scope_stack[-1]  # Use innermost loop scope
-            else:
-                stmt_id = self.current_stmt_id
-            self.var_uses[var_name].append(stmt_id)
+            self.var_uses[var_name].append(self.current_stmt_id)
 
     def _record_var_def(self, var_name: str):
         """Record a variable definition at the current statement."""
@@ -309,20 +302,20 @@ class LivenessAnalyzer(doc.NodeVisitor):
             if self.loop_scope_stack:
                 self.vars_defined_in_loop.add(var_name)
 
-    def _visit_assign_target(self, target: doc.expr, is_def: bool = False):
+    def _visit_assign_target(self, target: ast.expr, is_def: bool = False):
         """Visit assignment target."""
-        if isinstance(target, doc.Name):
+        if isinstance(target, ast.Name):
             if is_def:
                 self._record_var_def(target.id)
-        elif isinstance(target, (doc.Tuple, doc.List)):
+        elif isinstance(target, (ast.Tuple, ast.List)):
             for elt in target.elts:
                 self._visit_assign_target(elt, is_def)
-        elif isinstance(target, doc.Subscript):
+        elif isinstance(target, ast.Subscript):
             # a[i] = x means 'a' is used, not defined
             self.visit(target.value)
             self.visit(target.slice)
 
 
-def _get_node_id(node: doc.AST) -> int:
+def _get_node_id(node: ast.AST) -> int:
     """Get a unique ID for a node."""
     return id(node)

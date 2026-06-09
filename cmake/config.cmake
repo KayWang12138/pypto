@@ -62,23 +62,13 @@ if (BUILD_WITH_CANN)
     else ()
         set(ASCEND_CANN_PACKAGE_PATH)
     endif ()
-    if (BUILD_OPEN_PROJECT)
-        if ("${ASCEND_CANN_PACKAGE_PATH}x" STREQUAL "x" OR NOT EXISTS "${ASCEND_CANN_PACKAGE_PATH}")
-            set(BUILD_WITH_CANN OFF)
-            message(STATUS "ASCEND_CANN_PACKAGE_PATH=${ASCEND_CANN_PACKAGE_PATH} is empty or not exist, auto turn off BUILD_WITH_CANN")
-        else ()
-            if (EXISTS "${ASCEND_CANN_PACKAGE_PATH}/hcomm" OR EXISTS "${ASCEND_CANN_PACKAGE_PATH}/pkg_inc/runtime")
-                set(BUILD_WITH_CANN_SUB ON)
-            endif ()
-        endif ()
-    else ()
-        set(ASCEND_CANN_PACKAGE_PATH)
+    if ("${ASCEND_CANN_PACKAGE_PATH}x" STREQUAL "x" OR NOT EXISTS "${ASCEND_CANN_PACKAGE_PATH}")
+        set(BUILD_WITH_CANN OFF)
+        message(STATUS "ASCEND_CANN_PACKAGE_PATH=${ASCEND_CANN_PACKAGE_PATH} is empty or not exist, auto turn off BUILD_WITH_CANN")
     endif ()
 endif ()
 message(STATUS "ASCEND_CANN_PACKAGE_PATH=${ASCEND_CANN_PACKAGE_PATH}")
 message(STATUS "BUILD_WITH_CANN=${BUILD_WITH_CANN}")
-message(STATUS "BUILD_WITH_CANN_SUB=${BUILD_WITH_CANN_SUB}")
-
 
 # 获取 3rd Path
 if (PYPTO_THIRD_PARTY_PATH)
@@ -174,19 +164,14 @@ set(CMAKE_CXX_EXTENSIONS OFF)  # 禁用 C 编译器扩展, 使用纯 ISO C++17 �
 
 # 构建阶段(Build)
 #   CCACHE 配置
-if (BUILD_OPEN_PROJECT)
-    find_program(CCACHE_PROGRAM ccache)
-    if (CCACHE_PROGRAM)
-        set(CMAKE_C_COMPILER_LAUNCHER   ${CCACHE_PROGRAM} CACHE PATH "C cache Compiler")
-        set(CMAKE_CXX_COMPILER_LAUNCHER ${CCACHE_PROGRAM} CACHE PATH "CXX cache Compiler")
-        if (NOT DEFINED ENV{CCACHE_BASEDIR})
-            set(ENV{CCACHE_BASEDIR} ${PTO_FWK_SRC_ROOT})
-        endif ()
-        message(STATUS "Use ccache, CCACHE_BASEDIR=$ENV{CCACHE_BASEDIR}")
-    else ()
-        message(STATUS "ccache not found.")
-    endif ()
-endif()
+find_program(CCACHE_PROGRAM ccache)
+if (CCACHE_PROGRAM)
+    set(CMAKE_C_COMPILER_LAUNCHER   ${CCACHE_PROGRAM} CACHE PATH "C cache Compiler")
+    set(CMAKE_CXX_COMPILER_LAUNCHER ${CCACHE_PROGRAM} CACHE PATH "CXX cache Compiler")
+    message(STATUS "Use ccache, CCACHE_BASEDIR=$ENV{CCACHE_BASEDIR}")
+else ()
+    message(STATUS "ccache not found.")
+endif ()
 
 # 构建阶段(Build)
 #   输出路径
@@ -208,9 +193,7 @@ message(STATUS "CMAKE_INSTALL_PREFIX=${CMAKE_INSTALL_PREFIX}")
 ########################################################################################################################
 # 预处理
 ########################################################################################################################
-if (BUILD_OPEN_PROJECT)
-    set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
-endif()
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 if (NOT "${CMAKE_C_COMPILER_ID}" STREQUAL "GNU")
     if (ENABLE_GCOV)
@@ -230,17 +213,11 @@ endif ()
 
 
 # ASAN / UBSAN 场景随编译执行用例场景下, 将相关检查在编译前执行, 避免出现编译完成后又无法执行的情况, 影响使用体验.
-if (ENABLE_FEATURE_PYTHON_FRONT_END)
-    if (ENABLE_ASAN)
-        set(ENABLE_ASAN OFF)
-        message(WARNING "ASan only supported in C++ front-end scene, Current front-end type python3, Auto turn off it.")
-    endif ()
-    if (ENABLE_UBSAN)
-        set(ENABLE_UBSAN OFF)
-        message(WARNING "UBSan only supported in C++ front-end scene, Current front-end type python3, Auto turn off it.")
-    endif ()
-endif ()
-if ((ENABLE_ASAN OR ENABLE_UBSAN) AND ENABLE_TESTS_EXECUTE)
+if ((ENABLE_ASAN OR ENABLE_UBSAN) AND (ENABLE_TESTS_EXECUTE OR ENABLE_FEATURE_PYTHON_FRONT_END))
+    # 用于向外传递 XSAN 相关配置, 以保证 whl 包 ASan 场景的兼容性
+    set(XSAN_CONFIG_FILE "${PTO_FWK_BIN_ROOT}/_pypto_xsan_config.txt")
+    file(WRITE "${XSAN_CONFIG_FILE}" "")
+
     # LD_PRELOAD, 仅 GNU 编译器需要设置
     set(XSAN_LD_PRELOAD)
     if (CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
@@ -294,6 +271,9 @@ if ((ENABLE_ASAN OR ENABLE_UBSAN) AND ENABLE_TESTS_EXECUTE)
         string(REPLACE ";" ":" XSAN_LD_PRELOAD "${XSAN_LD_PRELOAD}")
         set(XSAN_LD_PRELOAD "LD_PRELOAD=${XSAN_LD_PRELOAD}")
     endif ()
+    if (XSAN_LD_PRELOAD)
+        file(APPEND "${XSAN_CONFIG_FILE}" "${XSAN_LD_PRELOAD}\n")
+    endif ()
 
     set(ASAN_OPTIONS)
     if (ENABLE_ASAN)
@@ -304,7 +284,14 @@ if ((ENABLE_ASAN OR ENABLE_UBSAN) AND ENABLE_TESTS_EXECUTE)
         # strict_init_order, 动态初始化器永远不能访问来自其他模块的全局变量, 及时或者已经初始化
         # strict_string_checks, 检查字符串参数是否正确以 null 终止
         # detect_leaks=1, 内存泄漏检测
-        set(ASAN_OPTIONS "ASAN_OPTIONS=halt_on_error=0,detect_stack_use_after_return=1,check_initialization_order=1,strict_init_order=1,strict_string_checks=1,detect_leaks=1")
+        set(ASAN_OPTIONS "ASAN_OPTIONS=halt_on_error=1,detect_stack_use_after_return=1,check_initialization_order=1,strict_init_order=1,strict_string_checks=1,symbolize=1,detect_leaks=1")
+        if (ENABLE_FEATURE_PYTHON_FRONT_END)
+            set(LSAN_OPTIONS "LSAN_OPTIONS=suppressions=${PTO_FWK_SRC_ROOT}/cmake/asan_suppressions.txt")
+            file(APPEND "${XSAN_CONFIG_FILE}" "${LSAN_OPTIONS}\n")
+        endif ()
+    endif ()
+    if (ASAN_OPTIONS)
+        file(APPEND "${XSAN_CONFIG_FILE}" "${ASAN_OPTIONS}\n")
     endif ()
 
     set(UBSAN_OPTIONS)
@@ -314,6 +301,9 @@ if ((ENABLE_ASAN OR ENABLE_UBSAN) AND ENABLE_TESTS_EXECUTE)
         # print_stacktrace=1, 出错时打印调用栈
         set(UBSAN_OPTIONS "UBSAN_OPTIONS=halt_on_error=0,print_stacktrace=1")
     endif ()
+    if (UBSAN_OPTIONS)
+        file(APPEND "${XSAN_CONFIG_FILE}" "${UBSAN_OPTIONS}\n")
+    endif ()
 endif ()
 
 
@@ -322,7 +312,8 @@ endif ()
 ########################################################################################################################
 
 # torch optional
-if (ENABLE_TESTS OR ENABLE_FEATURE_PYTHON_FRONT_END)
+set(ENABLE_TORCH_VERIFIER OFF)
+if (ENABLE_TESTS)
     if ("${PY3_MOD_TORCH_VERSION}" STRGREATER_EQUAL "2.1.0")
         if ((CMAKE_CXX_COMPILER_ID STREQUAL "GNU" AND CMAKE_CXX_COMPILER_VERSION VERSION_GREATER_EQUAL "9.4.0") OR
             (CMAKE_CXX_COMPILER_ID STREQUAL "Clang" AND CMAKE_CXX_COMPILER_VERSION VERSION_GREATER_EQUAL "15.0.0"))
@@ -330,3 +321,4 @@ if (ENABLE_TESTS OR ENABLE_FEATURE_PYTHON_FRONT_END)
         endif()
     endif()
 endif()
+message(STATUS "ENABLE_TORCH_VERIFIER=${ENABLE_TORCH_VERIFIER}")

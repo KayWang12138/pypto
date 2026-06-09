@@ -10,7 +10,7 @@
 # -----------------------------------------------------------------------------------------------------------
 """
 """
-
+import sys
 import inspect
 import itertools
 import logging
@@ -21,6 +21,9 @@ from .enum import *  # noqa
 from ._utils import to_sym, set_source_location, clear_source_location
 from .symbolic_scalar import SymbolicScalar, SymInt
 from .tensor import Tensor
+from .config import CubeTile, ConvTile, get_current_scope
+from .error import FeError
+from . import pypto_impl
 
 logging.basicConfig(level=logging.DEBUG)
 
@@ -30,6 +33,8 @@ __all__ = [
     "get_vec_tile_shapes",
     "set_cube_tile_shapes",
     "get_cube_tile_shapes",
+    "set_conv_tile_shapes",
+    "get_conv_tile_shapes",
     "set_matrix_size",
 
     "function",
@@ -52,7 +57,7 @@ class Controller:
     @classmethod
     def begin_function(cls):
         if cls.in_function:
-            raise RuntimeError("function nested is not allowed")
+            raise FeError(RuntimeError("function nested is not allowed"))
         cls.in_function = True
 
     @classmethod
@@ -84,7 +89,10 @@ def set_vec_tile_shapes(*shapes: int):
 
     """
     # implementation
-    pypto_impl.SetVecTile(*shapes)
+    concrete_shapes = [
+        it.concrete() if isinstance(it, SymbolicScalar) else it for it in shapes
+    ]
+    pypto_impl.SetScope({"vec_tile_shapes": concrete_shapes})
 
 
 def get_vec_tile_shapes() -> List[int]:
@@ -106,11 +114,11 @@ def get_vec_tile_shapes() -> List[int]:
 
     """
     # implementation
-    return pypto_impl.GetVecTile()
+    scope = get_current_scope()
+    return scope.get_vec_tile_shapes()
 
 
-def set_cube_tile_shapes(m: List[int], k: List[int], n: List[int], set_l1_tile: bool = False,
-                        enable_split_k: bool = False):
+def set_cube_tile_shapes(m: List[int], k: List[int], n: List[int], enable_split_k: bool = False):
     """ set the tile shapes in cube computation
 
     This operation sets the value of the tile shapes
@@ -131,10 +139,6 @@ def set_cube_tile_shapes(m: List[int], k: List[int], n: List[int], set_l1_tile: 
         the value of the tile shape in n dimension
         The length of the list must be 2.
 
-    set_l1_tile: bool
-        whether the process of moving L1 to L0 is multi data load.
-        default is false (i.e. not multi data load)
-
     enable_split_k: bool
         whether the matmul result accumulated in the GM.
         default is false (i.e. not GM ACC)
@@ -151,10 +155,11 @@ def set_cube_tile_shapes(m: List[int], k: List[int], n: List[int], set_l1_tile: 
 
     """
     # implementation
-    pypto_impl.SetCubeTile(m, k, n, set_l1_tile, enable_split_k)
+    cube_tile = CubeTile(m, k, n, enable_split_k)
+    pypto_impl.SetScope({"cube_tile_shapes": cube_tile.impl()})
 
 
-def get_cube_tile_shapes() -> Tuple[List[int], List[int], List[int], bool, bool]:
+def get_cube_tile_shapes() -> Tuple[List[int], List[int], List[int], bool]:
     """ get the tile shapes in cube computation
 
     This operation gets the value of the tile shapes
@@ -171,15 +176,106 @@ def get_cube_tile_shapes() -> Tuple[List[int], List[int], List[int], bool, bool]
     --------
     >>> pypto.set_cube_tile_shapes([16, 16], [256, 512], [128, 128], True)
     >>> print(pypto.get_cube_tile_shapes())
-    [[16, 16], [256, 512], [128, 128], True, False]
+    [[16, 16], [256, 512], [128, 128], True]
 
     """
     # implementation
-    return pypto_impl.GetCubeTile()
+    scope = get_current_scope()
+    cube_tile = scope.get_cube_tile_shapes()
+    return tuple([cube_tile.m, cube_tile.k, cube_tile.n, cube_tile.enableSplitK])
+
+
+def set_conv_tile_shapes(tile_l1_info: pypto_impl.TileL1Info, tile_l0_info: pypto_impl.TileL0Info = None):
+    """ set the tile shapes in conv computation
+
+    This operation sets the value of the tile shapes in each dimension in conv computation,
+    together with the cache level (L1/L0).
+
+    Parameters
+    ----------
+    tile_l1_info: pypto_impl.TileL1Info
+        the value of the tile shape information in L1 cache level for conv computation.
+
+    tile_l0_info: pypto_impl.TileL0Info, optional
+        the value of the tile shape information in L0 cache level for conv computation.
+        If not specified, a default TileL0Info instance will be used and L0 tile setting will be disabled.
+        default is None.
+
+    Returns
+    -------
+    None
+
+    Examples
+    --------
+    >>> l1_tile = pypto_impl.TileL1Info(
+            tileHin=4,
+            tileHout=4,
+            tileWin=8,
+            tileWout=8,
+            tileCinFmap=16,
+            tileCinWeight=32,
+            tileCout=16,
+            tileN=1)
+    >>> l0_tile = pypto_impl.TileL0Info(
+            tileH=2,
+            tileW=8,
+            tileK=16,
+            tileN=16)
+    >>> pypto.set_conv_tile_shapes(tile_l1_info, tile_l0_info)
+    >>> conv_tile = pypto.get_conv_tile_shapes()
+    (TileL1Info([4, 4, 8, 8, 16, 32, 16, 1]), TileL0Info([2, 8, 16, 16]), True)
+    """
+    if tile_l0_info is None:
+        tile_l0_info = pypto_impl.TileL0Info()
+        set_l0_tile = False
+    else:
+        set_l0_tile = True
+    conv_tile = ConvTile(tile_l1_info, tile_l0_info, set_l0_tile)
+    pypto_impl.SetScope({"conv_tile_shapes": conv_tile.impl()})
+
+
+def get_conv_tile_shapes() -> Tuple[pypto_impl.TileL1Info, pypto_impl.TileL0Info, bool]:
+    """ get the tile shapes in conv computation
+
+    This operation gets the value of the tile shapes in each dimension in conv computation,
+    together with the cache level (L1/L0) and whether L0 tile setting is enabled.
+
+    Returns
+    -------
+    Tuple[pypto_impl.TileL1Info, pypto_impl.TileL0Info, bool]
+        The tuple includes:
+        - tile_l1_info: tile shape information in L1 cache level for conv computation
+        - tile_l0_info: tile shape information in L0 cache level for conv computation
+        - set_l0_tile: whether the L0 tile setting is enabled
+
+    Examples
+    --------
+    >>> l1_tile = pypto_impl.TileL1Info(
+            tileHin=4,
+            tileHout=4,
+            tileWin=8,
+            tileWout=8,
+            tileCinFmap=16,
+            tileCinWeight=32,
+            tileN=16,
+            tileBatch=1)
+    >>> l0_tile = pypto_impl.TileL0Info(
+            tileH=2,
+            tileW=8,
+            tileK=16,
+            tileN=16)
+    >>> pypto.set_conv_tile_shapes(tile_l1_info=l1_tile, tile_l0_info=l0_tile)
+    >>> conv_tile = pypto.get_conv_tile_shapes()
+    (TileL1Info([4, 4, 8, 8, 16, 32, 16, 1]), TileL0Info([2, 8, 16, 16]), True)
+    """
+    # implementation
+    scope = get_current_scope()
+    conv_tile = scope.get_conv_tile_shapes()
+    return tuple([conv_tile.tileL1Info, conv_tile.tileL0Info, conv_tile.setL0Tile])
 
 
 def set_matrix_size(size: List[int]):
-    pypto_impl.SetMatrixSize(size)
+    pypto_impl.SetScope({"matrix_size": size})
 
 
 def set_build_static(static: bool):
@@ -253,7 +349,7 @@ def is_loop_begin(scalar: SymInt) -> SymbolicScalar:
                 ...
     """
     if not hasattr(scalar, "_loop_begin"):
-        raise ValueError("not loop index")
+        raise FeError(ValueError("not loop index"))
     # implementation
     return SymbolicScalar.from_base(
         pypto_impl.IsLoopBegin(to_sym(scalar), getattr(scalar, "_loop_begin")))
@@ -280,7 +376,7 @@ def is_loop_end(scalar: SymInt) -> SymbolicScalar:
                 ...
     """
     if not hasattr(scalar, "_loop_end"):
-        raise ValueError("not loop index")
+        raise FeError(ValueError("not loop index"))
     # implementation
     return SymbolicScalar.from_base(
         pypto_impl.IsLoopEnd(to_sym(scalar), getattr(scalar, "_loop_end")))
@@ -316,19 +412,27 @@ def function(name: str, *args) -> Iterator:
     """
     in_out_tensors = [item for item in args if isinstance(item, Tensor)]
     func = None
+    first_exc = None
     Controller.begin_function()
     try:
         set_source_location(level=2)
         func = pypto_impl.RecordFunc(name, [t.base() for t in in_out_tensors])
         clear_source_location()
-        yield func
+        for _ in loop(1, name="__main__"):
+            yield func
     except Exception as e:
-        logging.error("Record function %s failed: %s", name, e)
-        raise
+        first_exc = e
     finally:
-        assert func
-        func.EndFunction()
+        if func is None:
+            raise FeError(RuntimeError(f"function {name} recording failed"))
+        try:
+            func.EndFunction()
+        except Exception as e:
+            if first_exc is None:
+                first_exc = e
         Controller.end_function()
+        if first_exc is not None:
+            raise first_exc
 
 
 def cond(scalar: SymInt, file: Optional[str] = None, lineno: Optional[int] = None):
@@ -361,7 +465,7 @@ def cond(scalar: SymInt, file: Optional[str] = None, lineno: Optional[int] = Non
     """
     # allow caller to override source location; enforce both or none
     if (file is None) ^ (lineno is None):
-        raise ValueError("file and lineno must be provided together or omitted")
+        raise FeError(ValueError("file and lineno must be provided together or omitted"))
 
     if file is None:
         stack = inspect.stack()[1]
@@ -386,11 +490,11 @@ class _LoopFunction:
             setattr(scalar, "_loop_end", self._end)
             return scalar
 
-    def __init__(self, name, loop_name, loop_range, unroll_list, submit_before_loop):
+    def __init__(self, name, loop_name, loop_range, unroll_list, submit_before_loop, parallel):
         loop_range = loop_range.base()
         self._base = pypto_impl.RecordLoopFunc(name, pypto_impl.FunctionType.DYNAMIC_LOOP,
                                              loop_name, loop_range,
-                                             unroll_list, submit_before_loop)
+                                             unroll_list, submit_before_loop, parallel)
         self._begin = loop_range.Begin()
         self._end = loop_range.End()
 
@@ -405,6 +509,7 @@ def _loop_function(
     loop_range: LoopRange,
     unroll_list: Optional[List[int]] = None,
     submit_before_loop: bool = False,
+    parallel: bool = False,
 ):
     if unroll_list is None:
         unroll_set = set()
@@ -413,8 +518,10 @@ def _loop_function(
     rlf = None
     try:
         set_source_location(level=3)
+        frame = sys._getframe(3)
+        pypto_impl.BeginScope(name, {}, frame.f_code.co_filename, frame.f_lineno)
         rlf = _LoopFunction(name, loop_name, loop_range,
-                            unroll_set, submit_before_loop)
+                            unroll_set, submit_before_loop, parallel)
         clear_source_location()
         yield rlf
     except Exception as e:
@@ -422,6 +529,7 @@ def _loop_function(
         raise
     finally:
         del rlf
+        pypto_impl.EndScope()
 
 
 @overload
@@ -492,8 +600,8 @@ def _get_loop_range(*args):
     elif nargs == 3:
         start, stop, step = args
     else:
-        raise TypeError(
-            f"loop() takes 1 to 3 positional arguments but {nargs} were given")
+        raise FeError(TypeError(
+            f"loop() takes 1 to 3 positional arguments but {nargs} were given"))
     return start, stop, step
 
 
@@ -527,9 +635,10 @@ def loop(
     idx_name = kwargs.get("idx_name", f"loop_idx_{loop_idx}")
     unroll_list = kwargs.get("unroll_list", None)
     submit_before_loop = kwargs.get("submit_before_loop", False)
+    parallel = kwargs.get("parallel", False)
     with _loop_function(
         name, idx_name, _loop_range(
-            start, stop, step), unroll_list, submit_before_loop
+            start, stop, step), unroll_list, submit_before_loop, parallel
     ) as rlf:
         for k in rlf:
             yield k
@@ -561,10 +670,10 @@ def loop_unroll(*args, **kwargs) -> Iterator[Tuple[SymbolicScalar, int]]:
     Returns
     --------
     return an iterator and unroll factor.
-    
+
     Examples
     --------
-        for idx in pypto.loop_unroll(0, 10, 1, name="LOOP_L0_bIdx", 
+        for idx in pypto.loop_unroll(0, 10, 1, name="LOOP_L0_bIdx",
                                                       idx_name="bIdx", unroll_list=[4, 2, 1]):
             b[:] = a + idx
     """
@@ -576,14 +685,14 @@ def loop_unroll(*args, **kwargs) -> Iterator[Tuple[SymbolicScalar, int]]:
         unroll_list.append(1)
 
     ori_name = kwargs.get("name", None)
-    ori_idx_name = kwargs.get("idx_name", None)
 
     nstart = start
     for p in unroll_list:
         if ori_name:
-            kwargs["name"] = f"{ori_name}_{p}"
-        if ori_idx_name:
-            kwargs["idx_name"] = f"{ori_idx_name}_{p}"
+            # "_LoopUnroll" is used by the backend to parse the unroll_times in function
+            kwargs["name"] = f"{ori_name}_LoopUnroll{p}"
+        else:
+            kwargs["name"] = f"_LoopUnroll{p}"
 
         nstep = step * p
         left = (stop - start) % nstep

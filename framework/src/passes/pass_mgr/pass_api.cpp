@@ -11,11 +11,18 @@
 #include "pass_manager.h"
 
 namespace npu::tile_fwk {
-extern "C" bool RunPass(Program &program, Function &function, const std::string &strategy) {
+extern "C" bool RunPass(Program& program, Function& function, const std::string& strategy)
+{
     return PassManager::Instance().RunPass(program, function, strategy) == SUCCESS;
 }
 
-extern "C" std::string GetResumePath(const std::string &strategy) {
+extern "C" std::string GetResumePath(const std::string& strategy)
+{
     return PassManager::Instance().GetResumePath(strategy);
 }
+
+extern "C" void ResetAllPasses()
+{
+    PassManager::Instance().ResetAllPasses();
 }
+} // namespace npu::tile_fwk

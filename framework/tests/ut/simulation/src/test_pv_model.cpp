@@ -15,12 +15,14 @@
 
 #include <fstream>
 #include "gtest/gtest.h"
+#include "tilefwk/platform.h"
 #include "cost_model/simulation_pv/PvModelImpl.h"
 #include "cost_model/simulation/pv/PvModelFactory.h"
 
 namespace CostModel {
 
-TEST(PvModelTest, TestAddGlobalAttr) {
+TEST(PvModelTest, TestAddGlobalAttr)
+{
     std::string path("./local_function.cpp");
     std::fstream file(path, std::ios::out);
 
@@ -30,9 +32,9 @@ TEST(PvModelTest, TestAddGlobalAttr) {
     }
 
     std::string code = R"!!!(
-[aicore] void TENSOR_Matmul_T_root_3_0(__gm__ GMTensorInfo* param, uint64_t GMStackBase, __gm__ int64_t *hcclContext, __gm__ GMTensorInfo* oriAddrParam) {
+[aicore] void TENSOR_Matmul_T_root_3_0(__gm__ GMTensorInfo* param, uint64_t GMStackBase, __gm__ int64_t *hcclContext, __gm__ TaskStat* taskStat) {
 }
-[aicore] void TENSOR_Matmul_T_root_3_1(__gm__ GMTensorInfo* param, uint64_t GMStackBase, __gm__ int64_t *hcclContext, __gm__ GMTensorInfo* oriAddrParam) {
+[aicore] void TENSOR_Matmul_T_root_3_1(__gm__ GMTensorInfo* param, uint64_t GMStackBase, __gm__ int64_t *hcclContext, __gm__ TaskStat* taskStat) {
 }
 )!!!";
 
@@ -53,9 +55,9 @@ TEST(PvModelTest, TestAddGlobalAttr) {
     ifile.close();
 
     std::string expect = R"!!!(
-extern "C" __global__ [aicore] void TENSOR_Matmul_T_root_3_0(__gm__ GMTensorInfo* param, uint64_t GMStackBase, __gm__ int64_t *hcclContext, __gm__ GMTensorInfo* oriAddrParam) {
+extern "C" __global__ [aicore] void TENSOR_Matmul_T_root_3_0(__gm__ GMTensorInfo* param, uint64_t GMStackBase, __gm__ int64_t *hcclContext, __gm__ TaskStat* taskStat) {
 }
-extern "C" __global__ [aicore] void TENSOR_Matmul_T_root_3_1(__gm__ GMTensorInfo* param, uint64_t GMStackBase, __gm__ int64_t *hcclContext, __gm__ GMTensorInfo* oriAddrParam) {
+extern "C" __global__ [aicore] void TENSOR_Matmul_T_root_3_1(__gm__ GMTensorInfo* param, uint64_t GMStackBase, __gm__ int64_t *hcclContext, __gm__ TaskStat* taskStat) {
 }
 
 )!!!";
@@ -63,28 +65,26 @@ extern "C" __global__ [aicore] void TENSOR_Matmul_T_root_3_1(__gm__ GMTensorInfo
     ASSERT_EQ(actual, expect);
 }
 
+TEST(PvModelTest, TestFactory)
+{
+    auto pv = CostModel::PvModelFactory::Create();
+    EXPECT_NE(pv, nullptr);
+}
 
-TEST(PvModelTest, TestDynFactory) {
+TEST(PvModelTest, TestDynFactory)
+{
     auto pv = CostModel::PvModelFactory::CreateDyn();
     EXPECT_NE(pv, nullptr);
-    EXPECT_THROW(CostModel::PvModelFactory::CreateDyn("UnKnown"), std::runtime_error);
-    EXPECT_THROW(CostModel::PvModelFactory::Create("UnKnown"), std::runtime_error);
+    npu::tile_fwk::Platform::Instance().GetSoc().SetNPUArch(npu::tile_fwk::NPUArch::DAV_3510);
+    pv = CostModel::PvModelFactory::CreateDyn();
+    EXPECT_NE(pv, nullptr);
 }
 
-TEST(PvModelTest, TestDynImpl) {
-    auto pv = CostModel::PvModelFactory::CreateDyn();
-    std::vector<uint8_t> test(16);
-    auto addr = pv->CopyToDev(test.data(), test.size());
-    EXPECT_NE(addr, nullptr);
-    addr = pv->AllocWorkspaceDev(128);
-    EXPECT_NE(addr, nullptr);
-    std::vector<uint8_t> copy(16);
-}
-
-TEST(PvModelTest, TestDynCodegen) {
+TEST(PvModelTest, TestDynCodegen)
+{
     std::string org = R"!!!(
 #include "TileOpImpl.h"
-[aicore] void TENSOR_PATH0_4_0(CoreFuncParam *param, int64_t GMStackBase, __gm__ int64_t *hcclContext, __gm__ GMTensorInfo *oriAddrParam) {
+[aicore] void TENSOR_PATH0_4_0(CoreFuncParam *param, int64_t GMStackBase, __gm__ int64_t *hcclContext, __gm__ TaskStat *taskStat) {
 }
 )!!!";
     std::string srcFile("TENSOR_PATH0_4_0.cpp");
@@ -102,18 +102,18 @@ TEST(PvModelTest, TestDynCodegen) {
     file.close();
     std::string expect = R"!!!(#include "TileOpImpl.h"
 
-extern "C" [aicore] void TENSOR_PATH0_4_0(CoreFuncParam* param, int64_t GMStackBase, __gm__ int64_t *hcclContext, __gm__ GMTensorInfo* oriAddrParam);
+extern "C" [aicore] void TENSOR_PATH0_4_0(CoreFuncParam* param, int64_t GMStackBase, __gm__ int64_t *hcclContext, __gm__ TaskStat* taskStat);
 
 
-extern "C" __global__ [aicore] void PvModelKernelEntry(__gm__ npu::tile_fwk::DynFuncData *funcData, __gm__ uint64_t *opAttrOffset) {
-    CoreFuncParam param = {funcData, &funcData->opAttrs[opAttrOffset[0]], funcData->exprTbl};
-    TENSOR_PATH0_4_0(&param, funcData->stackWorkSpaceAddr, (__gm__ int64_t *)funcData->hcclContext, (__gm__ GMTensorInfo*)NULL);
+extern "C" __global__ [aicore] void PvModelKernelEntry(__gm__ npu::tile_fwk::DynFuncData *funcData, __gm__ uint64_t *opAttrs) {
+    CoreFuncParam param = {funcData, opAttrs, funcData->exprTbl};
+    TENSOR_PATH0_4_0(&param, funcData->stackWorkSpaceAddr, (__gm__ int64_t *)funcData->startArgs->commContexts, (__gm__ TaskStat*)NULL);
 }
 
 
-[aicore] void TENSOR_PATH0_4_0(CoreFuncParam *param, int64_t GMStackBase, __gm__ int64_t *hcclContext, __gm__ GMTensorInfo *oriAddrParam) {
+[aicore] void TENSOR_PATH0_4_0(CoreFuncParam *param, int64_t GMStackBase, __gm__ int64_t *hcclContext, __gm__ TaskStat *taskStat) {
 }
 )!!!";
     EXPECT_EQ(expect, content);
 }
-}
+} // namespace CostModel

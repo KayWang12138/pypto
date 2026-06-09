@@ -23,26 +23,26 @@ using ConnectionMatrixImplPtr = std::shared_ptr<ConnectionMatrixImpl>;
 
 class ConnectionMatrix {
 public:
-    explicit ConnectionMatrix(Function *func);
+    explicit ConnectionMatrix(Function* func);
     ~ConnectionMatrix() = default;
 
-    bool IsConnected(const Operation &a, const Operation &b) const;
+    bool IsConnected(const Operation& a, const Operation& b) const;
 
     bool IsConnected(uint64_t indexA, uint64_t indexB) const;
 
-    void SetConnectivity(const std::unordered_set<Operation *> &producers, Operation &op);
+    void SetConnectivity(const std::unordered_set<Operation*>& producers, Operation& op);
 
-    void Generate(Function *func);
-    
-    uint64_t GetIndex(const Operation &op) const;
+    void Generate(Function* func);
 
-    const LargeBitmap &GetBitMap(const Operation &op) const;
+    uint64_t GetIndex(const Operation& op) const;
 
-    const LargeBitmap &GetBitMap(uint64_t index) const;
-    
+    const LargeBitmap& GetBitMap(const Operation& op) const;
+
+    const LargeBitmap& GetBitMap(uint64_t index) const;
+
     static constexpr uint64_t INVALID_INDEX = std::numeric_limits<uint64_t>::max();
 
 private:
     ConnectionMatrixImplPtr impl_{nullptr};
 };
-}
+} // namespace npu::tile_fwk

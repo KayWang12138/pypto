@@ -24,7 +24,7 @@ namespace CostModel {
 
 Reporter::Reporter() = default;
 
-void Reporter::PrintName(string const &name, uint32_t len)
+void Reporter::PrintName(string const& name, uint32_t len)
 {
     if (len == 0) {
         cout << left << setw(NAME_WIDTH - 1) << setfill('.') << name << ':';
@@ -34,7 +34,7 @@ void Reporter::PrintName(string const &name, uint32_t len)
     cout << left << setw(NAME_WIDTH - 1) << setfill('.') << output << ':';
 }
 
-void Reporter::ReportTitle(string const &title)
+void Reporter::ReportTitle(string const& title)
 {
     int fillWidth = TOTAL_WIDTH - title.length();
     int leftWidth = fillWidth / 2;
@@ -42,7 +42,7 @@ void Reporter::ReportTitle(string const &title)
     cout << string(leftWidth, '=') << title << string(rightWidth, '=') << endl;
 }
 
-void Reporter::ReportMap(const std::string &name, std::map<uint64_t, uint64_t> &vals)
+void Reporter::ReportMap(const std::string& name, std::map<uint64_t, uint64_t>& vals)
 {
     cout << left << setw(NAME_WIDTH - 1) << setfill('.') << name << ':' << endl;
 
@@ -51,7 +51,7 @@ void Reporter::ReportMap(const std::string &name, std::map<uint64_t, uint64_t> &
     size_t count = 0;
 
     // 收集数据并计算宽度
-    for (const auto &val : vals) {
+    for (const auto& val : vals) {
         string index = to_string(val.first);
         string value = to_string(val.second);
         columns.emplace_back(index, value);
@@ -64,7 +64,7 @@ void Reporter::ReportMap(const std::string &name, std::map<uint64_t, uint64_t> &
         count++;
     }
 
-    int displayWidth = 6;  // 设置一行显示多少组数据
+    int displayWidth = 6; // 设置一行显示多少组数据
 
     for (size_t i = 0; i < columns.size(); i++) {
         if (i % displayWidth == 0) {
@@ -92,14 +92,14 @@ void Reporter::ReportMap(const std::string &name, std::map<uint64_t, uint64_t> &
     }
 }
 
-void Reporter::ReportMapAndPct(const std::string &name, std::map<int, uint64_t> &vals, const uint64_t &baseVal)
+void Reporter::ReportMapAndPct(const std::string& name, std::map<int, uint64_t>& vals, const uint64_t& baseVal)
 {
     cout << left << setw(NAME_WIDTH - 1) << setfill('.') << name << ':' << endl;
 
     vector<pair<string, string>> columns;
     vector<size_t> widths;
     size_t count = 0;
-    for (const auto &val : vals) {
+    for (const auto& val : vals) {
         string index = to_string(val.first);
         stringstream ss;
         ss << fixed << setprecision(floatPrec) << (float(val.second) / float(baseVal) * basePercent) << "%";
@@ -114,7 +114,7 @@ void Reporter::ReportMapAndPct(const std::string &name, std::map<int, uint64_t> 
         count++;
     }
 
-    int displayWidth = 6;  // 设置一行显示多少组数据
+    int displayWidth = 6; // 设置一行显示多少组数据
 
     for (size_t i = 0; i < columns.size(); i++) {
         if (i % displayWidth == 0) {
@@ -140,15 +140,15 @@ void Reporter::ReportMapAndPct(const std::string &name, std::map<int, uint64_t> 
     }
 }
 
-void Reporter::ReportMapsAndPct(const std::string &name, std::map<int, uint64_t> &vals,
-                                std::map<int, uint64_t> &baseVals)
+void Reporter::ReportMapsAndPct(
+    const std::string& name, std::map<int, uint64_t>& vals, std::map<int, uint64_t>& baseVals)
 {
     cout << left << setw(NAME_WIDTH - 1) << setfill('.') << name << ':' << endl;
 
     vector<pair<string, string>> columns;
     vector<size_t> widths;
     size_t count = 0;
-    for (const auto &val : vals) {
+    for (const auto& val : vals) {
         string index = to_string(val.first);
         stringstream ss;
         // 确保在base_vals中存在对应的键
@@ -169,7 +169,7 @@ void Reporter::ReportMapsAndPct(const std::string &name, std::map<int, uint64_t>
         count++;
     }
 
-    int displayWidth = 6;  // 设置一行显示多少组数据
+    int displayWidth = 6; // 设置一行显示多少组数据
 
     for (size_t i = 0; i < columns.size(); i++) {
         if (i % displayWidth == 0) {
@@ -195,47 +195,38 @@ void Reporter::ReportMapsAndPct(const std::string &name, std::map<int, uint64_t>
     }
 }
 
-void Reporter::ReportValWithLvl(const std::string &name, uint64_t val, uint32_t level)
+void Reporter::ReportValWithLvl(const std::string& name, uint64_t val, uint32_t level)
 {
     PrintName(name, level);
     cout << right << setw(VAL_WIDTH) << setfill(' ') << dec << val << endl;
 }
 
-void Reporter::ReportValWithLvl(const std::string &name, float val, uint32_t level)
+void Reporter::ReportValWithLvl(const std::string& name, float val, uint32_t level)
 {
     PrintName(name, level);
     cout << right << setw(VAL_WIDTH) << setfill(' ') << setiosflags(ios::fixed) << setprecision(floatPrec) << val
          << endl;
 }
 
-void Reporter::ReportValWithLvl(const std::string &name, double val, uint32_t level)
+void Reporter::ReportValWithLvl(const std::string& name, double val, uint32_t level)
 {
     PrintName(name, level);
     cout << right << setw(VAL_WIDTH) << setfill(' ') << setiosflags(ios::fixed) << setprecision(floatPrec) << val
          << endl;
 }
 
-void Reporter::ReportVal(string const &name, uint64_t val)
-{
-    ReportValWithLvl(name, val, 0);
-}
+void Reporter::ReportVal(string const& name, uint64_t val) { ReportValWithLvl(name, val, 0); }
 
-void Reporter::ReportVal(string const &name, float val)
-{
-    ReportValWithLvl(name, val, 0);
-}
+void Reporter::ReportVal(string const& name, float val) { ReportValWithLvl(name, val, 0); }
 
-void Reporter::ReportVal(string const &name, double val)
-{
-    ReportValWithLvl(name, val, 0);
-}
+void Reporter::ReportVal(string const& name, double val) { ReportValWithLvl(name, val, 0); }
 
-void Reporter::ReportAvg(string const &name, uint64_t numerator, uint64_t denominator)
+void Reporter::ReportAvg(string const& name, uint64_t numerator, uint64_t denominator)
 {
     ReportAvg(name, static_cast<float>(numerator), static_cast<float>(denominator));
 }
 
-void Reporter::ReportAvg(string const &name, float numerator, float denominator)
+void Reporter::ReportAvg(string const& name, float numerator, float denominator)
 {
     PrintName(name, 0);
     cout << right << setw(VAL_WIDTH) << setfill(' ') << setiosflags(ios::fixed) << setprecision(floatPrec);
@@ -246,19 +237,19 @@ void Reporter::ReportAvg(string const &name, float numerator, float denominator)
     }
 }
 
-void Reporter::ReportPctWithLvl(const std::string &name, float rate, uint32_t level)
+void Reporter::ReportPctWithLvl(const std::string& name, float rate, uint32_t level)
 {
     PrintName(name, level);
     cout << right << setw(VAL_WIDTH) << setfill(' ');
     cout << fixed << setprecision(floatPrec) << rate * basePercent << '%' << endl;
 }
 
-void Reporter::ReportPct(string const &name, uint64_t numerator, uint64_t denominator)
+void Reporter::ReportPct(string const& name, uint64_t numerator, uint64_t denominator)
 {
     ReportPct(name, static_cast<float>(numerator), static_cast<float>(denominator));
 }
 
-void Reporter::ReportPct(string const &name, float numerator, float denominator)
+void Reporter::ReportPct(string const& name, float numerator, float denominator)
 {
     PrintName(name, 0);
     cout << right << setw(VAL_WIDTH) << setfill(' ');
@@ -269,12 +260,9 @@ void Reporter::ReportPct(string const &name, float numerator, float denominator)
     }
 }
 
-void Reporter::ReportPct(string const &name, float rate)
-{
-    ReportPctWithLvl(name, rate, 0);
-}
+void Reporter::ReportPct(string const& name, float rate) { ReportPctWithLvl(name, rate, 0); }
 
-void Reporter::ReportValAndPctWithLvl(const std::string &name, uint64_t numerator, uint64_t denominator, uint32_t level)
+void Reporter::ReportValAndPctWithLvl(const std::string& name, uint64_t numerator, uint64_t denominator, uint32_t level)
 {
     PrintName(name, level);
     cout << right << setw(VAL_WIDTH) << setfill(' ') << dec << numerator << ' ';
@@ -286,12 +274,12 @@ void Reporter::ReportValAndPctWithLvl(const std::string &name, uint64_t numerato
     }
 }
 
-void Reporter::ReportValAndPct(string const &name, uint64_t numerator, uint64_t denominator)
+void Reporter::ReportValAndPct(string const& name, uint64_t numerator, uint64_t denominator)
 {
     ReportValAndPctWithLvl(name, numerator, denominator, 0);
 }
 
-void Reporter::ReportValAndPctWithLvl(const std::string &name, float numerator, uint64_t denominator, uint32_t level)
+void Reporter::ReportValAndPctWithLvl(const std::string& name, float numerator, uint64_t denominator, uint32_t level)
 {
     PrintName(name, level);
     cout << right << setw(VAL_WIDTH) << setfill(' ') << dec << numerator << ' ';
@@ -303,12 +291,12 @@ void Reporter::ReportValAndPctWithLvl(const std::string &name, float numerator, 
     }
 }
 
-void Reporter::ReportValAndPct(const string &name, float numerator, uint64_t denominator)
+void Reporter::ReportValAndPct(const string& name, float numerator, uint64_t denominator)
 {
     ReportValAndPctWithLvl(name, numerator, denominator, 0);
 }
 
-void Reporter::ReportValAndPctFlWithLvl(const std::string &name, double numerator, double denominator, uint32_t level)
+void Reporter::ReportValAndPctFlWithLvl(const std::string& name, double numerator, double denominator, uint32_t level)
 {
     PrintName(name, level);
     cout << right << setw(VAL_WIDTH) << setfill(' ') << dec << numerator << ' ';
@@ -320,18 +308,18 @@ void Reporter::ReportValAndPctFlWithLvl(const std::string &name, double numerato
     }
 }
 
-void Reporter::ReportValAndPctFl(string const &name, double numerator, double denominator)
+void Reporter::ReportValAndPctFl(string const& name, double numerator, double denominator)
 {
     ReportValAndPctFlWithLvl(name, numerator, denominator, 0);
 }
 
-void Reporter::ReportHexCounter(const std::string &name, uint64_t pc, uint64_t counter)
+void Reporter::ReportHexCounter(const std::string& name, uint64_t pc, uint64_t counter)
 {
     cout << left << name << setw((NAME_WIDTH - 1) - name.length()) << setfill('.') << hex << pc << ':';
     cout << right << setw(VAL_WIDTH) << setfill(' ') << dec << counter << endl;
 }
 
-void Reporter::ReportStallLoc(string const &name, uint64_t localBpc, uint64_t localTpc, uint64_t peerBpc, uint64_t val)
+void Reporter::ReportStallLoc(string const& name, uint64_t localBpc, uint64_t localTpc, uint64_t peerBpc, uint64_t val)
 {
     stringstream ss;
     string newName;
@@ -342,7 +330,7 @@ void Reporter::ReportStallLoc(string const &name, uint64_t localBpc, uint64_t lo
          << endl;
 }
 
-std::streambuf *Reporter::ReportSetOutStreamFile(string const &fileName)
+std::streambuf* Reporter::ReportSetOutStreamFile(string const& fileName)
 {
     if (fout.is_open()) {
         fout.close();
@@ -352,7 +340,7 @@ std::streambuf *Reporter::ReportSetOutStreamFile(string const &fileName)
     return cout.rdbuf(fout.rdbuf());
 }
 
-std::streambuf *Reporter::ReportSetOutStreamFile(string const &fileName, bool isApp)
+std::streambuf* Reporter::ReportSetOutStreamFile(string const& fileName, bool isApp)
 {
     if (fout.is_open()) {
         fout.close();
@@ -368,7 +356,7 @@ std::streambuf *Reporter::ReportSetOutStreamFile(string const &fileName, bool is
     return cout.rdbuf(fout.rdbuf());
 }
 
-void Reporter::ReportResetOutStreamCout(std::streambuf *pOld)
+void Reporter::ReportResetOutStreamCout(std::streambuf* pOld)
 {
     if (pOld == nullptr) {
         return;
@@ -379,4 +367,4 @@ void Reporter::ReportResetOutStreamCout(std::streambuf *pOld)
         fout.close();
     }
 }
-}
+} // namespace CostModel

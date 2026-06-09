@@ -9,7 +9,7 @@
 # See LICENSE in the root of the software repository for the full text of the License.
 # -----------------------------------------------------------------------------------------------------------
 """ """
-from typing import Optional, Union, List
+from typing import Optional, Union, List, overload, Sequence, Tuple
 
 from . import pypto_impl
 from .enum import DataType
@@ -19,23 +19,23 @@ from .symbolic_scalar import SymbolicScalar
 from .tensor import Tensor
 
 
-@op_wrapper
+@overload
 def assemble(
-        input: Tensor, offsets: List[Union[int, SymbolicScalar]], out: Tensor
+    src: Tensor, offsets: List[Union[int, SymbolicScalar]], dst: Tensor
 ) -> None:
     """
     Assembles a small Tensor into a larger Tensor based on specified offsets.
 
     Parameters
     ---------
-    input: Tensor
+    src: Tensor
         The small input tensor to be assembled into the larger tensor
 
     offsets : List[int] or List[SymbolicScalar]
         List of offset values indicating where the input tensor should be placed in the output tensor.
         It is required that the offsets is smaller than the shape of out.
 
-    out: Tensor
+    dst: Tensor
         The larger output tensor that will contain the assembled input tensor
     Examples
     ---------
@@ -56,7 +56,59 @@ def assemble(
                 [0 0 0 0]
                 [0 0 0 0]]
     """
-    pypto_impl.Assemble(input, to_syms(offsets), out)
+    ...
+
+
+@overload
+def assemble(
+    srcs: Sequence[Tuple[Tensor, List[Union[int, SymbolicScalar]]]],
+    dst: Tensor, parallel: bool = False
+) -> None:
+    """
+    Assembles multiple small Tensors into a larger Tensor based on specified offsets.
+
+    Parameters
+    ---------
+    srcs: Sequence[Tuple[Tensor, List[Union[int, SymbolicScalar]]]]
+        Collect multiple small tensors into a larger output tensor.
+
+    dst: Tensor
+        The larger output tensor
+    Examples
+    ---------
+    x = pypto.tensor([2, 2], pypto.DT_FP32)
+    y = pypto.tensor([2, 2], pypto.DT_FP32)
+    out = pypto.tensor([4, 4], pypto.DT_FP32)
+    inputs = [(x, [0, 0]), (y, [2, 2])]
+    pypto.assemble([(x, [0, 0]), (y, [2, 2])], out, parallel=True)
+
+    Input x:[[1 1],
+            [1,1]]
+          y:[[1, 1],
+            [1, 1]]
+          out:[[0 0 0 0],
+               [0 0 0 0],
+               [0 0 0 0],
+               [0 0 0 0]]
+
+    Output out:[[1 1 0 0]
+                [1 1 0 0]
+                [0 0 1 1]
+                [0 0 1 1]]
+    """
+    ...
+
+
+def assemble(*args, parallel: bool = False) -> None:
+    if isinstance(args[0], Sequence):
+        srcs, dst = args
+        if len(srcs) == 0:
+            return
+        srcs = [(src.base(), to_syms(offsets)) for src, offsets in srcs]
+        pypto_impl.Assemble(srcs, dst.base(), parallel)
+    else:
+        src, offsets, dst = args
+        pypto_impl.Assemble(src.base(), to_syms(offsets), dst.base())
 
 
 def min(a: "SymbolicScalar | int", b: "SymbolicScalar | int") -> "SymbolicScalar":
@@ -89,6 +141,7 @@ def reshape(
 
     shape : List[int]
         The new shape of the tensor. The total number of elements must match the input tensor.
+        If shape is [-1], all dimensions will be flattened to 1D.
 
     valid_shape : List[int], optional
         An optional parameter specifying the valid shape for partial reshapeing or padding.
@@ -128,10 +181,21 @@ def reshape(
     input x: [[1, 2],
               [3, 4]]
     output y: [1, 2, 3, 4]
+
+    # flatten to 1D
+    x = pypto.tensor([4, 3, 2, 2], pypto.DT_FP32)
+    y = pypto.reshape(x, [-1])
+    # output y shape: [48]
     """
     if inplace:
         out = pypto_impl.Reshape(input, to_syms(shape), inplace)
     else:
+        if not all(isinstance(s, int) for s in shape):
+            raise TypeError(
+                f"reshape() requires integer shape when 'inplace=False', "
+                f"but got [{', '.join(type(s).__name__ for s in shape)}]. "
+                f"Use 'inplace=True' for dynamic shapes."
+            )
         if valid_shape is None:
             out = pypto_impl.Reshape(input, shape)
         else:

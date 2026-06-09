@@ -16,6 +16,7 @@
 #include "test_dev_func_runner.h"
 #include "test_suite_stest_ops.h"
 #include "operator/models/deepseek/dynamic_mla.h"
+#include "test_cost_macro.h"
 
 using namespace npu::tile_fwk;
 using namespace npu::tile_fwk::dynamic;
@@ -37,15 +38,16 @@ struct TestShapeParams {
     int blockSize;
 };
 
-void PerformanceConfig() {
-    config::SetPassOption(VEC_NBUFFER_MODE, 1);
-    config::SetPassOption(CUBE_L1_REUSE_MODE, 4);
+void PerformanceConfig()
+{
+    config::SetPassOption(CUBE_L1_REUSE_SETTING, std::map<int64_t, int64_t>{{-1, 4}});
     config::SetPassOption(CUBE_NBUFFER_SETTING, std::map<int64_t, int64_t>{{3, 4}});
     config::SetPassOption(MG_COPYIN_UPPER_BOUND, 2 * 1024 * 1024);
 }
 
 template <typename T>
-static std::shared_ptr<RawTensorData> CreateTensorData(Tensor tensor, std::vector<int64_t> shape, std::string fileName) {
+static std::shared_ptr<RawTensorData> CreateTensorData(Tensor tensor, std::vector<int64_t> shape, std::string fileName)
+{
     uint64_t capacity = std::accumulate(shape.begin(), shape.end(), uint64_t{1}, std::multiplies<uint64_t>());
     std::vector<T> values(capacity, 0);
     readInput<T>(GetGoldenDir() + fileName, values);
@@ -53,18 +55,20 @@ static std::shared_ptr<RawTensorData> CreateTensorData(Tensor tensor, std::vecto
 }
 
 template <typename T>
-static std::vector<T> getGoldenVec(std::vector<int64_t> shape, std::string fileName) {
+static std::vector<T> getGoldenVec(std::vector<int64_t> shape, std::string fileName)
+{
     uint64_t capacity = std::accumulate(shape.begin(), shape.end(), uint64_t{1}, std::multiplies<uint64_t>());
     std::vector<T> golden(capacity, 0);
     readInput<T>(GetGoldenDir() + fileName, golden);
     return golden;
 }
 
-template <typename T = npu::tile_fwk::float16,  typename wDtype = int8_t, bool isQuantA = false, bool isQuantB = true,
+template <
+    typename T = npu::tile_fwk::float16, typename wDtype = int8_t, bool isQuantA = false, bool isQuantB = true,
     bool isSmooth = true, bool nz = true, bool usePrefetch = true>
 void TestDynamicMlaProlog(
-    const TestShapeParams &params, const MlaTileConfig &tileConfig, std::string cacheMode = "PA_NZ") {
-    config::SetHostOption(ONLY_CODEGEN, true);
+    const TestShapeParams& params, const MlaTileConfig& tileConfig, std::string cacheMode = "PA_NZ")
+{
     SetInterpreterConfig();
 
     int b = params.b;
@@ -112,7 +116,7 @@ void TestDynamicMlaProlog(
     TileOpFormat weightFormat = nz ? TileOpFormat::TILEOP_NZ : TileOpFormat::TILEOP_ND;
     Tensor wDq(dTypeQuantA, wDqShape, "wDq", weightFormat);
     Tensor wUqQr(dTypeQuantB, wUqQrShape, "wUqQr", weightFormat);
-    if constexpr (usePrefetch) {  // TODO 放到接口实现里
+    if constexpr (usePrefetch) { // TODO 放到接口实现里
         wDq.SetCachePolicy(CachePolicy::PREFETCH, true);
         wUqQr.SetCachePolicy(CachePolicy::PREFETCH, true);
     }
@@ -167,9 +171,9 @@ void TestDynamicMlaProlog(
     auto outputQRopeData = RawTensorData::CreateConstantTensor<T>(outputQRope, 0.0);
 
     std::vector<RawTensorDataPtr> outputDataList = {outputQData, outputQRopeData, outKvCacheData, outKrCacheData};
-    std::vector<RawTensorDataPtr> inputDataList =
-        {xData, wDqData, wUqQrData, wUkData, wDkvKrData, gammaCqData, gammaCkvData, sinData, cosData, kvLenData,
-         kvCacheData, krCacheData};
+    std::vector<RawTensorDataPtr> inputDataList = {xData,      wDqData,     wUqQrData,    wUkData,
+                                                   wDkvKrData, gammaCqData, gammaCkvData, sinData,
+                                                   cosData,    kvLenData,   kvCacheData,  krCacheData};
     MlaQuantInputs quantInputs;
     if (isQuantA) {
         auto scaleWDqData = CreateTensorData<float>(scaleWDq, scaleWDqShape, "/w_qa_scale.bin");
@@ -207,25 +211,27 @@ void TestDynamicMlaProlog(
         RawTensorData::CreateTensor<T>(outputKrCache, golden4),
     });
 
-    MlaProlog(dynamicX, wDq, wUqQr, wUk, wDkvKr, gammaCq, gammaCkv, dynamicSin, dynamicCos, dynamicCacheIndex,
-        kvCache, krCache, quantInputs, tileConfig,
-        dynamicOutputQ, dynamicOutputQRope, outputKvCache, outputKrCache, 1e-5f, 1e-5f, cacheMode);
+    MlaProlog(
+        dynamicX, wDq, wUqQr, wUk, wDkvKr, gammaCq, gammaCkv, dynamicSin, dynamicCos, dynamicCacheIndex, kvCache,
+        krCache, quantInputs, tileConfig, dynamicOutputQ, dynamicOutputQRope, outputKvCache, outputKrCache, 1e-5f,
+        1e-5f, cacheMode);
 
 #ifdef BUILD_WITH_CANN
     DevFuncRunner::Run(Program::GetInstance().GetLastFunction(), inputDataList, outputDataList);
     std::cout << "qNope ====== " << std::endl;
-    EXPECT_TRUE(resultCmp<T>(golden1, (T *)outputQData->data(), 0.008f));
+    EXPECT_TRUE(resultCmp<T>(golden1, (T*)outputQData->data(), 0.008f));
     std::cout << "qRope ======" << std::endl;
-    EXPECT_TRUE(resultCmp<T>(golden2, (T *)outputQRopeData->data(), 0.005f));
+    EXPECT_TRUE(resultCmp<T>(golden2, (T*)outputQRopeData->data(), 0.005f));
     std::cout << "kv ====== " << std::endl;
-    EXPECT_TRUE(resultCmp<T>(golden3, (T *)outKvCacheData->data(), 0.003f));
+    EXPECT_TRUE(resultCmp<T>(golden3, (T*)outKvCacheData->data(), 0.003f));
     std::cout << "kr ====== " << std::endl;
-    EXPECT_TRUE(resultCmp<T>(golden4, (T *)outKrCacheData->data(), 0.003f));
+    EXPECT_TRUE(resultCmp<T>(golden4, (T*)outKrCacheData->data(), 0.003f));
 #endif
 }
 
 ////// fp16, quant, weight nz, "PA_NZ"
-TEST_F(MlaPrologSTest, b16_s1_pa_nz_fp16_quant) {
+TEST_F(MlaPrologSTest, b16_s1_pa_nz_fp16_quant)
+{
     // b, s, s2, n, h, qLoraRank, qkNopeHeadDim, qkRopeHeadDim, kvLoraRank, blockSize
     TestShapeParams params = {16, 1, 8192, 128, 7168, 1536, 128, 64, 512, 128};
     std::string cacheMode = "PA_NZ";
@@ -235,7 +241,8 @@ TEST_F(MlaPrologSTest, b16_s1_pa_nz_fp16_quant) {
     TestDynamicMlaProlog<npu::tile_fwk::float16, int8_t, false, true, true, true, true>(params, tileConfig, cacheMode);
 }
 
-TEST_F(MlaPrologSTest, b16_s2_pa_nz_fp16_quant) {
+TEST_F(MlaPrologSTest, b16_s2_pa_nz_fp16_quant)
+{
     // b, s, s2, n, h, qLoraRank, qkNopeHeadDim, qkRopeHeadDim, kvLoraRank, blockSize
     TestShapeParams params = {16, 2, 8192, 128, 7168, 1536, 128, 64, 512, 128};
     std::string cacheMode = "PA_NZ";
@@ -245,7 +252,8 @@ TEST_F(MlaPrologSTest, b16_s2_pa_nz_fp16_quant) {
     TestDynamicMlaProlog<npu::tile_fwk::float16, int8_t, false, true, true, true, true>(params, tileConfig, cacheMode);
 }
 
-TEST_F(MlaPrologSTest, b32_s1_pa_nz_fp16_quant) {
+TEST_F(MlaPrologSTest, b32_s1_pa_nz_fp16_quant)
+{
     // b, s, s2, n, h, qLoraRank, qkNopeHeadDim, qkRopeHeadDim, kvLoraRank, blockSize
     TestShapeParams params = {32, 1, 8192, 128, 7168, 1536, 128, 64, 512, 128};
     std::string cacheMode = "PA_NZ";
@@ -255,7 +263,8 @@ TEST_F(MlaPrologSTest, b32_s1_pa_nz_fp16_quant) {
     TestDynamicMlaProlog<npu::tile_fwk::float16, int8_t, false, true, true, true, true>(params, tileConfig, cacheMode);
 }
 
-TEST_F(MlaPrologSTest, b32_s2_pa_nz_fp16_quant) {
+TEST_F(MlaPrologSTest, b32_s2_pa_nz_fp16_quant)
+{
     // b, s, s2, n, h, qLoraRank, qkNopeHeadDim, qkRopeHeadDim, kvLoraRank, blockSize
     TestShapeParams params = {32, 2, 8192, 128, 7168, 1536, 128, 64, 512, 128};
     std::string cacheMode = "PA_NZ";
@@ -265,7 +274,8 @@ TEST_F(MlaPrologSTest, b32_s2_pa_nz_fp16_quant) {
     TestDynamicMlaProlog<npu::tile_fwk::float16, int8_t, false, true, true, true, true>(params, tileConfig, cacheMode);
 }
 
-TEST_F(MlaPrologSTest, b64_s1_pa_nz_fp16_quant) {
+TEST_F(MlaPrologSTest, b64_s1_pa_nz_fp16_quant)
+{
     // b, s, s2, n, h, qLoraRank, qkNopeHeadDim, qkRopeHeadDim, kvLoraRank, blockSize
     TestShapeParams params = {64, 1, 8192, 128, 7168, 1536, 128, 64, 512, 128};
     std::string cacheMode = "PA_NZ";
@@ -275,7 +285,8 @@ TEST_F(MlaPrologSTest, b64_s1_pa_nz_fp16_quant) {
     TestDynamicMlaProlog<npu::tile_fwk::float16, int8_t, false, true, true, true, true>(params, tileConfig, cacheMode);
 }
 
-TEST_F(MlaPrologSTest, b64_s2_pa_nz_fp16_quant) {
+TEST_F(MlaPrologSTest, b64_s2_pa_nz_fp16_quant)
+{
     // b, s, s2, n, h, qLoraRank, qkNopeHeadDim, qkRopeHeadDim, kvLoraRank, blockSize
     TestShapeParams params = {64, 2, 8192, 128, 7168, 1536, 128, 64, 512, 128};
     std::string cacheMode = "PA_NZ";
@@ -285,7 +296,8 @@ TEST_F(MlaPrologSTest, b64_s2_pa_nz_fp16_quant) {
     TestDynamicMlaProlog<npu::tile_fwk::float16, int8_t, false, true, true, true, true>(params, tileConfig, cacheMode);
 }
 
-TEST_F(MlaPrologSTest, b24_s1_pa_nz_fp16_quant) {
+TEST_F(MlaPrologSTest, b24_s1_pa_nz_fp16_quant)
+{
     // b, s, s2, n, h, qLoraRank, qkNopeHeadDim, qkRopeHeadDim, kvLoraRank, blockSize
     TestShapeParams params = {24, 1, 8192, 128, 7168, 1536, 128, 64, 512, 128};
     std::string cacheMode = "PA_NZ";
@@ -295,7 +307,8 @@ TEST_F(MlaPrologSTest, b24_s1_pa_nz_fp16_quant) {
     TestDynamicMlaProlog<npu::tile_fwk::float16, int8_t, false, true, true, true, true>(params, tileConfig, cacheMode);
 }
 
-TEST_F(MlaPrologSTest, b24_s2_pa_nz_fp16_quant) {
+TEST_F(MlaPrologSTest, b24_s2_pa_nz_fp16_quant)
+{
     // b, s, s2, n, h, qLoraRank, qkNopeHeadDim, qkRopeHeadDim, kvLoraRank, blockSize
     TestShapeParams params = {24, 2, 8192, 128, 7168, 1536, 128, 64, 512, 128};
     std::string cacheMode = "PA_NZ";
@@ -305,7 +318,8 @@ TEST_F(MlaPrologSTest, b24_s2_pa_nz_fp16_quant) {
     TestDynamicMlaProlog<npu::tile_fwk::float16, int8_t, false, true, true, true, true>(params, tileConfig, cacheMode);
 }
 
-TEST_F(MlaPrologSTest, b48_s1_pa_nz_fp16_quant) {
+TEST_F(MlaPrologSTest, b48_s1_pa_nz_fp16_quant)
+{
     // b, s, s2, n, h, qLoraRank, qkNopeHeadDim, qkRopeHeadDim, kvLoraRank, blockSize
     TestShapeParams params = {48, 1, 8192, 128, 7168, 1536, 128, 64, 512, 128};
     std::string cacheMode = "PA_NZ";
@@ -315,7 +329,8 @@ TEST_F(MlaPrologSTest, b48_s1_pa_nz_fp16_quant) {
     TestDynamicMlaProlog<npu::tile_fwk::float16, int8_t, false, true, true, true, true>(params, tileConfig, cacheMode);
 }
 
-TEST_F(MlaPrologSTest, b48_s2_pa_nz_fp16_quant) {
+TEST_F(MlaPrologSTest, b48_s2_pa_nz_fp16_quant)
+{
     // b, s, s2, n, h, qLoraRank, qkNopeHeadDim, qkRopeHeadDim, kvLoraRank, blockSize
     TestShapeParams params = {48, 2, 8192, 128, 7168, 1536, 128, 64, 512, 128};
     std::string cacheMode = "PA_NZ";
@@ -325,7 +340,8 @@ TEST_F(MlaPrologSTest, b48_s2_pa_nz_fp16_quant) {
     TestDynamicMlaProlog<npu::tile_fwk::float16, int8_t, false, true, true, true, true>(params, tileConfig, cacheMode);
 }
 
-TEST_F(MlaPrologSTest, b96_s1_pa_nz_fp16_quant) {
+TEST_F(MlaPrologSTest, b96_s1_pa_nz_fp16_quant)
+{
     // b, s, s2, n, h, qLoraRank, qkNopeHeadDim, qkRopeHeadDim, kvLoraRank, blockSize
     TestShapeParams params = {96, 1, 8192, 128, 7168, 1536, 128, 64, 512, 128};
     std::string cacheMode = "PA_NZ";
@@ -335,7 +351,8 @@ TEST_F(MlaPrologSTest, b96_s1_pa_nz_fp16_quant) {
     TestDynamicMlaProlog<npu::tile_fwk::float16, int8_t, false, true, true, true, true>(params, tileConfig, cacheMode);
 }
 
-TEST_F(MlaPrologSTest, b96_s2_pa_nz_fp16_quant) {
+TEST_F(MlaPrologSTest, b96_s2_pa_nz_fp16_quant)
+{
     // b, s, s2, n, h, qLoraRank, qkNopeHeadDim, qkRopeHeadDim, kvLoraRank, blockSize
     TestShapeParams params = {96, 2, 8192, 128, 7168, 1536, 128, 64, 512, 128};
     std::string cacheMode = "PA_NZ";
@@ -346,7 +363,8 @@ TEST_F(MlaPrologSTest, b96_s2_pa_nz_fp16_quant) {
 }
 
 ////// bf16, quant, weight nz, "PA_NZ"
-TEST_F(MlaPrologSTest, b16_s1_pa_nz_bf16_quant) {
+TEST_F(MlaPrologSTest, b16_s1_pa_nz_bf16_quant)
+{
     // b, s, s2, n, h, qLoraRank, qkNopeHeadDim, qkRopeHeadDim, kvLoraRank, blockSize
     TestShapeParams params = {16, 1, 8192, 128, 7168, 1536, 128, 64, 512, 128};
     std::string cacheMode = "PA_NZ";
@@ -356,7 +374,8 @@ TEST_F(MlaPrologSTest, b16_s1_pa_nz_bf16_quant) {
     TestDynamicMlaProlog<npu::tile_fwk::bfloat16, int8_t, false, true, true, true, true>(params, tileConfig, cacheMode);
 }
 
-TEST_F(MlaPrologSTest, b16_s2_pa_nz_bf16_quant) {
+TEST_F(MlaPrologSTest, b16_s2_pa_nz_bf16_quant)
+{
     // b, s, s2, n, h, qLoraRank, qkNopeHeadDim, qkRopeHeadDim, kvLoraRank, blockSize
     TestShapeParams params = {16, 2, 8192, 128, 7168, 1536, 128, 64, 512, 128};
     std::string cacheMode = "PA_NZ";
@@ -366,7 +385,8 @@ TEST_F(MlaPrologSTest, b16_s2_pa_nz_bf16_quant) {
     TestDynamicMlaProlog<npu::tile_fwk::bfloat16, int8_t, false, true, true, true, true>(params, tileConfig, cacheMode);
 }
 
-TEST_F(MlaPrologSTest, b32_s1_pa_nz_bf16_quant) {
+TEST_F(MlaPrologSTest, b32_s1_pa_nz_bf16_quant)
+{
     // b, s, s2, n, h, qLoraRank, qkNopeHeadDim, qkRopeHeadDim, kvLoraRank, blockSize
     TestShapeParams params = {32, 1, 8192, 128, 7168, 1536, 128, 64, 512, 128};
     std::string cacheMode = "PA_NZ";
@@ -376,7 +396,8 @@ TEST_F(MlaPrologSTest, b32_s1_pa_nz_bf16_quant) {
     TestDynamicMlaProlog<npu::tile_fwk::bfloat16, int8_t, false, true, true, true, true>(params, tileConfig, cacheMode);
 }
 
-TEST_F(MlaPrologSTest, b32_s2_pa_nz_bf16_quant) {
+TEST_F(MlaPrologSTest, b32_s2_pa_nz_bf16_quant)
+{
     // b, s, s2, n, h, qLoraRank, qkNopeHeadDim, qkRopeHeadDim, kvLoraRank, blockSize
     TestShapeParams params = {32, 2, 8192, 128, 7168, 1536, 128, 64, 512, 128};
     std::string cacheMode = "PA_NZ";
@@ -386,7 +407,8 @@ TEST_F(MlaPrologSTest, b32_s2_pa_nz_bf16_quant) {
     TestDynamicMlaProlog<npu::tile_fwk::bfloat16, int8_t, false, true, true, true, true>(params, tileConfig, cacheMode);
 }
 
-TEST_F(MlaPrologSTest, b64_s1_pa_nz_bf16_quant) {
+TEST_F(MlaPrologSTest, b64_s1_pa_nz_bf16_quant)
+{
     // b, s, s2, n, h, qLoraRank, qkNopeHeadDim, qkRopeHeadDim, kvLoraRank, blockSize
     TestShapeParams params = {64, 1, 8192, 128, 7168, 1536, 128, 64, 512, 128};
     std::string cacheMode = "PA_NZ";
@@ -396,7 +418,8 @@ TEST_F(MlaPrologSTest, b64_s1_pa_nz_bf16_quant) {
     TestDynamicMlaProlog<npu::tile_fwk::bfloat16, int8_t, false, true, true, true, true>(params, tileConfig, cacheMode);
 }
 
-TEST_F(MlaPrologSTest, b64_s2_pa_nz_bf16_quant) {
+TEST_F(MlaPrologSTest, b64_s2_pa_nz_bf16_quant)
+{
     // b, s, s2, n, h, qLoraRank, qkNopeHeadDim, qkRopeHeadDim, kvLoraRank, blockSize
     TestShapeParams params = {64, 2, 8192, 128, 7168, 1536, 128, 64, 512, 128};
     std::string cacheMode = "PA_NZ";
@@ -406,7 +429,8 @@ TEST_F(MlaPrologSTest, b64_s2_pa_nz_bf16_quant) {
     TestDynamicMlaProlog<npu::tile_fwk::bfloat16, int8_t, false, true, true, true, true>(params, tileConfig, cacheMode);
 }
 
-TEST_F(MlaPrologSTest, b24_s1_pa_nz_bf16_quant) {
+TEST_F(MlaPrologSTest, b24_s1_pa_nz_bf16_quant)
+{
     // b, s, s2, n, h, qLoraRank, qkNopeHeadDim, qkRopeHeadDim, kvLoraRank, blockSize
     TestShapeParams params = {24, 1, 8192, 128, 7168, 1536, 128, 64, 512, 128};
     std::string cacheMode = "PA_NZ";
@@ -416,7 +440,8 @@ TEST_F(MlaPrologSTest, b24_s1_pa_nz_bf16_quant) {
     TestDynamicMlaProlog<npu::tile_fwk::bfloat16, int8_t, false, true, true, true, true>(params, tileConfig, cacheMode);
 }
 
-TEST_F(MlaPrologSTest, b24_s2_pa_nz_bf16_quant) {
+TEST_F(MlaPrologSTest, b24_s2_pa_nz_bf16_quant)
+{
     // b, s, s2, n, h, qLoraRank, qkNopeHeadDim, qkRopeHeadDim, kvLoraRank, blockSize
     TestShapeParams params = {24, 2, 8192, 128, 7168, 1536, 128, 64, 512, 128};
     std::string cacheMode = "PA_NZ";
@@ -426,7 +451,8 @@ TEST_F(MlaPrologSTest, b24_s2_pa_nz_bf16_quant) {
     TestDynamicMlaProlog<npu::tile_fwk::bfloat16, int8_t, false, true, true, true, true>(params, tileConfig, cacheMode);
 }
 
-TEST_F(MlaPrologSTest, b48_s1_pa_nz_bf16_quant) {
+TEST_F(MlaPrologSTest, b48_s1_pa_nz_bf16_quant)
+{
     // b, s, s2, n, h, qLoraRank, qkNopeHeadDim, qkRopeHeadDim, kvLoraRank, blockSize
     TestShapeParams params = {48, 1, 8192, 128, 7168, 1536, 128, 64, 512, 128};
     std::string cacheMode = "PA_NZ";
@@ -436,7 +462,8 @@ TEST_F(MlaPrologSTest, b48_s1_pa_nz_bf16_quant) {
     TestDynamicMlaProlog<npu::tile_fwk::bfloat16, int8_t, false, true, true, true, true>(params, tileConfig, cacheMode);
 }
 
-TEST_F(MlaPrologSTest, b48_s2_pa_nz_bf16_quant) {
+TEST_F(MlaPrologSTest, b48_s2_pa_nz_bf16_quant)
+{
     // b, s, s2, n, h, qLoraRank, qkNopeHeadDim, qkRopeHeadDim, kvLoraRank, blockSize
     TestShapeParams params = {48, 2, 8192, 128, 7168, 1536, 128, 64, 512, 128};
     std::string cacheMode = "PA_NZ";
@@ -446,7 +473,8 @@ TEST_F(MlaPrologSTest, b48_s2_pa_nz_bf16_quant) {
     TestDynamicMlaProlog<npu::tile_fwk::bfloat16, int8_t, false, true, true, true, true>(params, tileConfig, cacheMode);
 }
 
-TEST_F(MlaPrologSTest, b96_s1_pa_nz_bf16_quant) {
+TEST_F(MlaPrologSTest, b96_s1_pa_nz_bf16_quant)
+{
     // b, s, s2, n, h, qLoraRank, qkNopeHeadDim, qkRopeHeadDim, kvLoraRank, blockSize
     TestShapeParams params = {96, 1, 8192, 128, 7168, 1536, 128, 64, 512, 128};
     std::string cacheMode = "PA_NZ";
@@ -456,7 +484,8 @@ TEST_F(MlaPrologSTest, b96_s1_pa_nz_bf16_quant) {
     TestDynamicMlaProlog<npu::tile_fwk::bfloat16, int8_t, false, true, true, true, true>(params, tileConfig, cacheMode);
 }
 
-TEST_F(MlaPrologSTest, b96_s2_pa_nz_bf16_quant) {
+TEST_F(MlaPrologSTest, b96_s2_pa_nz_bf16_quant)
+{
     // b, s, s2, n, h, qLoraRank, qkNopeHeadDim, qkRopeHeadDim, kvLoraRank, blockSize
     TestShapeParams params = {96, 2, 8192, 128, 7168, 1536, 128, 64, 512, 128};
     std::string cacheMode = "PA_NZ";
@@ -467,7 +496,8 @@ TEST_F(MlaPrologSTest, b96_s2_pa_nz_bf16_quant) {
 }
 
 ////// fp16, quant, weight nd, "PA_BSND"
-TEST_F(MlaPrologSTest, b32_s1_pa_nd_fp16_quant) {
+TEST_F(MlaPrologSTest, b32_s1_pa_nd_fp16_quant)
+{
     // b, s, s2, n, h, qLoraRank, qkNopeHeadDim, qkRopeHeadDim, kvLoraRank, blockSize
     TestShapeParams params = {32, 1, 8192, 128, 7168, 1536, 128, 64, 512, 128};
     std::string cacheMode = "PA_BSND";
@@ -477,7 +507,8 @@ TEST_F(MlaPrologSTest, b32_s1_pa_nd_fp16_quant) {
     TestDynamicMlaProlog<npu::tile_fwk::float16, int8_t, false, true, true, false, true>(params, tileConfig, cacheMode);
 }
 
-TEST_F(MlaPrologSTest, b32_s2_pa_nd_fp16_quant) {
+TEST_F_WITH_COST(MlaPrologSTest, b32_s2_pa_nd_fp16_quant, 15)
+{
     // b, s, s2, n, h, qLoraRank, qkNopeHeadDim, qkRopeHeadDim, kvLoraRank, blockSize
     TestShapeParams params = {32, 2, 8192, 128, 7168, 1536, 128, 64, 512, 128};
     std::string cacheMode = "PA_BSND";
@@ -487,7 +518,8 @@ TEST_F(MlaPrologSTest, b32_s2_pa_nd_fp16_quant) {
     TestDynamicMlaProlog<npu::tile_fwk::float16, int8_t, false, true, true, false, true>(params, tileConfig, cacheMode);
 }
 
-TEST_F(MlaPrologSTest, b48_s1_pa_nd_fp16_quant) {
+TEST_F(MlaPrologSTest, b48_s1_pa_nd_fp16_quant)
+{
     // b, s, s2, n, h, qLoraRank, qkNopeHeadDim, qkRopeHeadDim, kvLoraRank, blockSize
     TestShapeParams params = {48, 1, 8192, 128, 7168, 1536, 128, 64, 512, 128};
     std::string cacheMode = "PA_BSND";
@@ -497,7 +529,8 @@ TEST_F(MlaPrologSTest, b48_s1_pa_nd_fp16_quant) {
     TestDynamicMlaProlog<npu::tile_fwk::float16, int8_t, false, true, true, false, true>(params, tileConfig, cacheMode);
 }
 
-TEST_F(MlaPrologSTest, b48_s2_pa_nd_fp16_quant) {
+TEST_F(MlaPrologSTest, b48_s2_pa_nd_fp16_quant)
+{
     // b, s, s2, n, h, qLoraRank, qkNopeHeadDim, qkRopeHeadDim, kvLoraRank, blockSize
     TestShapeParams params = {48, 2, 8192, 128, 7168, 1536, 128, 64, 512, 128};
     std::string cacheMode = "PA_BSND";
@@ -508,100 +541,119 @@ TEST_F(MlaPrologSTest, b48_s2_pa_nd_fp16_quant) {
 }
 
 ////// bf16, quant, weight nd, "PA_BSND"
-TEST_F(MlaPrologSTest, b64_s1_pa_nd_bf16_quant) {
+TEST_F(MlaPrologSTest, b64_s1_pa_nd_bf16_quant)
+{
     // b, s, s2, n, h, qLoraRank, qkNopeHeadDim, qkRopeHeadDim, kvLoraRank, blockSize
     TestShapeParams params = {64, 1, 8192, 128, 7168, 1536, 128, 64, 512, 128};
     std::string cacheMode = "PA_BSND";
     MlaTileConfig tileConfig = {32, 1};
 
     PerformanceConfig();
-    TestDynamicMlaProlog<npu::tile_fwk::bfloat16, int8_t, false, true, true, false, true>(params, tileConfig, cacheMode);
+    TestDynamicMlaProlog<npu::tile_fwk::bfloat16, int8_t, false, true, true, false, true>(
+        params, tileConfig, cacheMode);
 }
 
-TEST_F(MlaPrologSTest, b64_s2_pa_nd_bf16_quant) {
+TEST_F(MlaPrologSTest, b64_s2_pa_nd_bf16_quant)
+{
     // b, s, s2, n, h, qLoraRank, qkNopeHeadDim, qkRopeHeadDim, kvLoraRank, blockSize
     TestShapeParams params = {64, 2, 8192, 128, 7168, 1536, 128, 64, 512, 128};
     std::string cacheMode = "PA_BSND";
     MlaTileConfig tileConfig = {32, 1};
 
     PerformanceConfig();
-    TestDynamicMlaProlog<npu::tile_fwk::bfloat16, int8_t, false, true, true, false, true>(params, tileConfig, cacheMode);
+    TestDynamicMlaProlog<npu::tile_fwk::bfloat16, int8_t, false, true, true, false, true>(
+        params, tileConfig, cacheMode);
 }
 
-TEST_F(MlaPrologSTest, b96_s1_pa_nd_bf16_quant) {
+TEST_F(MlaPrologSTest, b96_s1_pa_nd_bf16_quant)
+{
     // b, s, s2, n, h, qLoraRank, qkNopeHeadDim, qkRopeHeadDim, kvLoraRank, blockSize
     TestShapeParams params = {96, 1, 8192, 128, 7168, 1536, 128, 64, 512, 128};
     std::string cacheMode = "PA_BSND";
     MlaTileConfig tileConfig = {32, 1};
 
     PerformanceConfig();
-    TestDynamicMlaProlog<npu::tile_fwk::bfloat16, int8_t, false, true, true, false, true>(params, tileConfig, cacheMode);
+    TestDynamicMlaProlog<npu::tile_fwk::bfloat16, int8_t, false, true, true, false, true>(
+        params, tileConfig, cacheMode);
 }
 
-TEST_F(MlaPrologSTest, b96_s2_pa_nd_bf16_quant) {
+TEST_F(MlaPrologSTest, b96_s2_pa_nd_bf16_quant)
+{
     // b, s, s2, n, h, qLoraRank, qkNopeHeadDim, qkRopeHeadDim, kvLoraRank, blockSize
     TestShapeParams params = {96, 2, 8192, 128, 7168, 1536, 128, 64, 512, 128};
     std::string cacheMode = "PA_BSND";
     MlaTileConfig tileConfig = {32, 1};
 
     PerformanceConfig();
-    TestDynamicMlaProlog<npu::tile_fwk::bfloat16, int8_t, false, true, true, false, true>(params, tileConfig, cacheMode);
+    TestDynamicMlaProlog<npu::tile_fwk::bfloat16, int8_t, false, true, true, false, true>(
+        params, tileConfig, cacheMode);
 }
 
 ////// fp16, no quant, weight nz, "PA_NZ"
-TEST_F(MlaPrologSTest, b32_s1_pa_nz_fp16) {
+TEST_F(MlaPrologSTest, b32_s1_pa_nz_fp16)
+{
     // b, s, s2, n, h, qLoraRank, qkNopeHeadDim, qkRopeHeadDim, kvLoraRank, blockSize
     TestShapeParams params = {32, 1, 8192, 128, 7168, 1536, 128, 64, 512, 128};
     std::string cacheMode = "PA_NZ";
     MlaTileConfig tileConfig = {32, 1};
 
     PerformanceConfig();
-    TestDynamicMlaProlog<npu::tile_fwk::float16, npu::tile_fwk::float16, false, false, false, true, true>(params, tileConfig, cacheMode);
+    TestDynamicMlaProlog<npu::tile_fwk::float16, npu::tile_fwk::float16, false, false, false, true, true>(
+        params, tileConfig, cacheMode);
 }
 
-TEST_F(MlaPrologSTest, b32_s2_pa_nz_fp16) {
+TEST_F(MlaPrologSTest, b32_s2_pa_nz_fp16)
+{
     // b, s, s2, n, h, qLoraRank, qkNopeHeadDim, qkRopeHeadDim, kvLoraRank, blockSize
     TestShapeParams params = {32, 2, 8192, 128, 7168, 1536, 128, 64, 512, 128};
     std::string cacheMode = "PA_NZ";
     MlaTileConfig tileConfig = {32, 1};
 
     PerformanceConfig();
-    TestDynamicMlaProlog<npu::tile_fwk::float16, npu::tile_fwk::float16, false, false, false, true, true>(params, tileConfig, cacheMode);
+    TestDynamicMlaProlog<npu::tile_fwk::float16, npu::tile_fwk::float16, false, false, false, true, true>(
+        params, tileConfig, cacheMode);
 }
 
 ////// fp16, no quant, weight nd, "PA_BSND"
-TEST_F(MlaPrologSTest, b32_s1_pa_nd_fp16) {
+TEST_F(MlaPrologSTest, b32_s1_pa_nd_fp16)
+{
     // b, s, s2, n, h, qLoraRank, qkNopeHeadDim, qkRopeHeadDim, kvLoraRank, blockSize
     TestShapeParams params = {32, 1, 8192, 128, 7168, 1536, 128, 64, 512, 128};
     std::string cacheMode = "PA_BSND";
     MlaTileConfig tileConfig = {32, 1};
 
     PerformanceConfig();
-    TestDynamicMlaProlog<npu::tile_fwk::float16, npu::tile_fwk::float16, false, false, false, false, true>(params, tileConfig, cacheMode);
+    TestDynamicMlaProlog<npu::tile_fwk::float16, npu::tile_fwk::float16, false, false, false, false, true>(
+        params, tileConfig, cacheMode);
 }
 
-TEST_F(MlaPrologSTest, b32_s2_pa_nd_fp16) {
+TEST_F(MlaPrologSTest, b32_s2_pa_nd_fp16)
+{
     // b, s, s2, n, h, qLoraRank, qkNopeHeadDim, qkRopeHeadDim, kvLoraRank, blockSize
     TestShapeParams params = {32, 2, 8192, 128, 7168, 1536, 128, 64, 512, 128};
     std::string cacheMode = "PA_BSND";
     MlaTileConfig tileConfig = {32, 1};
 
     PerformanceConfig();
-    TestDynamicMlaProlog<npu::tile_fwk::float16, npu::tile_fwk::float16, false, false, false, false, true>(params, tileConfig, cacheMode);
+    TestDynamicMlaProlog<npu::tile_fwk::float16, npu::tile_fwk::float16, false, false, false, false, true>(
+        params, tileConfig, cacheMode);
 }
 
 // small shape
-TEST_F(MlaPrologSTest, b16_s2_pa_nd_fp16_small) {
+TEST_F(MlaPrologSTest, b16_s2_pa_nd_fp16_small)
+{
     // b, s, s2, n, h, qLoraRank, qkNopeHeadDim, qkRopeHeadDim, kvLoraRank, blockSize
     TestShapeParams params = {16, 2, 256, 128, 256, 256, 128, 64, 512, 128};
     std::string cacheMode = "PA_BSND";
     MlaTileConfig tileConfig = {16, 1};
 
     PerformanceConfig();
-    TestDynamicMlaProlog<npu::tile_fwk::float16, npu::tile_fwk::float16, false, false, false, false, true>(params, tileConfig, cacheMode);
+    TestDynamicMlaProlog<npu::tile_fwk::float16, npu::tile_fwk::float16, false, false, false, false, true>(
+        params, tileConfig, cacheMode);
 }
 
-TEST_F(MlaPrologSTest, b16_s1_pa_nd_bf16_allquant) {
+TEST_F(MlaPrologSTest, b16_s1_pa_nd_bf16_allquant)
+{
     // b, s1, s2, n, h, qLoraRank, qkNopeHeadDim, qkRopeHeadDim, kvLoraRank, blockSize
     TestShapeParams params = {16, 1, 1024 * 8, 128, 7168, 1536, 128, 64, 512, 128};
     std::string cacheMode = "PA_BSND";

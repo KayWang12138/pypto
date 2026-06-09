@@ -17,11 +17,10 @@
 
 ## 代码结构
 
-- **`layer_normalization/`**: 
+- **`layer_normalization/`**:
   - `layer_norm.py`: 包含 LayerNorm 和 RMSNorm 的核心实现及其精度验证。
 - **`ffn/`**:
-  - `ffn_module_impl.py`: FFN 模块的逻辑定义与配置类。
-  - `ffn_module.py`: FFN 模块的各种场景测试。
+  - `ffn_module.py`: FFN 模块的核心实现与各种场景测试。
 
 ## 运行方法
 
@@ -29,7 +28,11 @@
 
 ```bash
 # 配置 CANN 环境变量
-source /usr/local/Ascend/ascend-toolkit/latest/bin/setenv.bash
+# 安装完成后请配置环境变量，请用户根据set_env.sh的实际路径执行如下命令。
+# 上述环境变量配置只在当前窗口生效，用户可以按需将以上命令写入环境变量配置文件（如.bashrc文件）。
+
+# 默认路径安装，以root用户为例（非root用户，将/usr/local替换为${HOME}）
+source /usr/local/Ascend/ascend-toolkit/set_env.sh
 
 # 设置设备 ID
 export TILE_FWK_DEVICE_ID=0
@@ -54,4 +57,3 @@ python3 ffn_module.py
 1. 建议先从 `layer_normalization` 开始学习，掌握基础的归约计算模式。
 2. 随后学习 `ffn`，了解如何整合矩阵乘法与复杂的激活函数逻辑。
 3. 参考各目录下的子 README 获取更详细的算法说明。
-

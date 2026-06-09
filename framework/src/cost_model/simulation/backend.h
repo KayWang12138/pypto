@@ -28,9 +28,13 @@ public:
     std::string agentJsonPath = "";
     std::string topoJsonPath = "";
     void BuildCostModel();
-    void SubmitToCostModel(Function *rootFunc);
-    void SubmitSingleFuncToCostModel(Function *func);
+    void SubmitToCostModel(Function* rootFunc);
+    void SubmitSingleFuncToCostModel(Function* func);
     void SubmitLeafFunctionsToCostModel();
+
+    void SubmitLeafFunctionsBySubgraph(uint64_t pSgId);
+    void SubmitSubgraphTopoByPid(std::string& path, uint64_t pSgId);
+    std::shared_ptr<CostModel::CostModelInterface> GetCostModel() const { return costModel; }
 
     uint64_t pos = 0;
     uint64_t seqPos = pos++;
@@ -42,14 +46,15 @@ public:
     uint64_t funcHashPos = pos++;
     uint64_t coreTypePos = pos++;
     uint64_t psgIdPos = pos++;
+    uint64_t wrapIdPos = pos++;
     uint64_t succStartPos = pos++;
     uint64_t seqNumOffset = 32;
-    Json ParseDynTopo(std::string &path);
-    void SubmitTopo(std::string &path);
+    Json ParseDynTopo(std::string& path);
+    void SubmitTopo(std::string& path);
     void RunCostModel();
     void TerminateCostModel();
-    void DebugSingleFunc(Function *func);
-    void GetFunctionFromJson(const std::string &jsonPath);
+    void DebugSingleFunc(Function* func);
+    void GetFunctionFromJson(const std::string& jsonPath);
     uint64_t GetLeafFunctionTimeCost(uint64_t hash);
 
 private:

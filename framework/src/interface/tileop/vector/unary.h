@@ -19,75 +19,1060 @@
 #include "utils/layout.h"
 #include "utils/tile_tensor.h"
 
-template <UnaryOp op, typename T0, typename T1>
-TILEOP void UnaryComputeImpl(T0 dst, T1 src) {
+#include <cmath>
+
+TILEOP void SyncV()
+{
+#ifdef __DAV_V220
+    pipe_barrier(PIPE_V);
+#endif
+}
+
+template <typename DType>
+TILEOP constexpr bool IsIntegralType()
+{
+    return std::is_same_v<DType, int32_t> || std::is_same_v<DType, uint32_t> || std::is_same_v<DType, int8_t> ||
+           std::is_same_v<DType, uint8_t> || std::is_same_v<DType, int16_t> || std::is_same_v<DType, uint16_t> ||
+           std::is_same_v<DType, int64_t> || std::is_same_v<DType, uint64_t>;
+}
+
+template <UnaryOp op, auto PrecisionType = 0, typename LastUse, typename T0, typename T1>
+TILEOP void UnaryComputeImpl(T0 dst, T1 src)
+{
+    constexpr auto n1 = Std::tuple_element<DIM_1ST, LastUse>::type::value;
+    constexpr auto n2 = Std::tuple_element<DIM_2ND, LastUse>::type::value;
     if constexpr (op == UnaryOp::EXP) {
-        pto::TEXP(dst, src);
+        PTO_WITH_LAST_USE(pto::TEXP<PrecisionType>(dst, src), n1, n2);
         return;
     }
     if constexpr (op == UnaryOp::RSQRT) {
-        pto::TRSQRT(dst, src);
+        PTO_WITH_LAST_USE(pto::TRSQRT(dst, src), n1, n2);
         return;
     }
     if constexpr (op == UnaryOp::SQRT) {
-        pto::TSQRT(dst, src);
+        PTO_WITH_LAST_USE(pto::TSQRT<PrecisionType>(dst, src), n1, n2);
+        return;
+    }
+    if constexpr (op == UnaryOp::BRCB) {
+        PTO_WITH_LAST_USE(pto::TROWEXPAND(dst, src), n1, n2);
+        return;
+    }
+    if constexpr (op == UnaryOp::ABS) {
+        PTO_WITH_LAST_USE(pto::TABS(dst, src), n1, n2);
+        return;
+    }
+    if constexpr (op == UnaryOp::RECIPROCAL) {
+        PTO_WITH_LAST_USE(pto::TRECIP<PrecisionType>(dst, src), n1, n2);
+        return;
+    }
+    if constexpr (op == UnaryOp::BITWISENOT) {
+        PTO_WITH_LAST_USE(pto::TNOT(dst, src), n1, n2);
+        return;
+    }
+    if constexpr (op == UnaryOp::RELU) {
+        pto::TMAXS(dst, src, 0.0f);
+        return;
+    }
+    if constexpr (op == UnaryOp::LN) {
+        pto::TLOG<PrecisionType>(dst, src);
         return;
     }
 }
 
-template <UnaryOp op, typename T0, typename T1>
-TILEOP void UnaryCompute(T0 dst, T1 src) {
-    constexpr auto shapeSize = Std::tuple_size<typename T0::Shape>::value;
+template <typename T, typename HalfTileDefineSrc, typename TileDefineDst, typename B16TileDefineSrc>
+TILEOP void IsFiniteCalcImpl(
+    TileDefineDst dst, B16TileDefineSrc src, B16TileDefineSrc bufferB16, HalfTileDefineSrc bufferFP16)
+{
+    int16_t mask = 0;
+    if constexpr (std::is_same_v<T, bfloat16_t>) {
+        mask = 0x7F80;
+    } else if constexpr (std::is_same_v<T, half> || std::is_same_v<T, float>) {
+        mask = 0x7C00;
+    }
+    pto::TANDS(bufferB16, src, mask);
+    SyncV();
+    pto::TSUBS(bufferB16, bufferB16, mask);
+    SyncV();
+    pto::TMAXS(bufferB16, bufferB16, (int16_t)-1);
+    SyncV();
+    pto::TMULS(bufferB16, bufferB16, (int16_t)-1);
+    SyncV();
+    pto::TCVT(dst, bufferFP16, pto::RoundMode::CAST_CEIL);
+    SyncV();
+}
+
+template <typename T, typename HalfTileDefineSrc, bool CombineAxis, typename TileDefineDst, typename B16TileDefineSrc>
+TILEOP void IsFiniteComputeImpl(TileDefineDst dst, B16TileDefineSrc src, HalfTileDefineSrc buffer)
+{
+    if constexpr (!CombineAxis) {
+        HalfTileDefineSrc bufferFP16(src.GetValidRow(), src.GetValidCol());
+        pto::TASSIGN(bufferFP16, reinterpret_cast<std::uintptr_t>(buffer.data()));
+        B16TileDefineSrc bufferB16(src.GetValidRow(), src.GetValidCol());
+        pto::TASSIGN(bufferB16, reinterpret_cast<std::uintptr_t>(buffer.data()));
+        IsFiniteCalcImpl<T>(dst, src, bufferB16, bufferFP16);
+    } else {
+        HalfTileDefineSrc bufferFP16;
+        pto::TASSIGN(bufferFP16, reinterpret_cast<std::uintptr_t>(buffer.data()));
+        B16TileDefineSrc bufferB16;
+        pto::TASSIGN(bufferB16, reinterpret_cast<std::uintptr_t>(buffer.data()));
+        IsFiniteCalcImpl<T>(dst, src, bufferB16, bufferFP16);
+    }
+}
+
+template <UnaryOp op, auto PrecisionType = 0, typename LastUse, typename T0, typename T1>
+TILEOP void UnaryCompute(T0 dst, T1 src)
+{
     if constexpr (TileOp::IsConstContinous<T0, T1>() == true) {
-        auto dstTile = PtoTile<T0>().Tile();
-        auto srcTile = PtoTile<T1>().Tile();
+        auto dstTile = PtoTile<T0, pto::BLayout::RowMajor, true>().Data();
+        auto srcTile = PtoTile<T1, pto::BLayout::RowMajor, true>().Data();
         pto::TASSIGN(dstTile, (uint64_t)dst.GetAddr());
         pto::TASSIGN(srcTile, (uint64_t)src.GetAddr());
-        UnaryComputeImpl<op>(dstTile, srcTile);
+        UnaryComputeImpl<op, PrecisionType, LastUse>(dstTile, srcTile);
         return;
     }
-    constexpr size_t expectSize = 5;
     const auto dstLayout = dst.GetLayout();
-    auto shape0 = dstLayout.template GetShapeDim<DIM_1ST, expectSize>();
-    auto shape1 = dstLayout.template GetShapeDim<DIM_2ND, expectSize>();
-    auto shape2 = dstLayout.template GetShapeDim<DIM_3RD, expectSize>();
-    auto stride0 = dstLayout.template GetStrideDim<DIM_1ST, expectSize>();
-    auto stride1 = dstLayout.template GetStrideDim<DIM_2ND, expectSize>();
-    auto stride2 = dstLayout.template GetStrideDim<DIM_3RD, expectSize>();
-    const auto srcLayout = src.GetLayout();
-    auto srcStride0 = srcLayout.template GetStrideDim<DIM_1ST, expectSize>();
-    auto srcStride1 = srcLayout.template GetStrideDim<DIM_2ND, expectSize>();
-    auto srcStride2 = srcLayout.template GetStrideDim<DIM_3RD, expectSize>();
+    auto shape0 = dstLayout.template GetShapeDim<DIM_1ST, MAX_DIMS>();
+    auto shape1 = dstLayout.template GetShapeDim<DIM_2ND, MAX_DIMS>();
+    auto shape2 = dstLayout.template GetShapeDim<DIM_3RD, MAX_DIMS>();
 
-    auto dstTile = DynPtoTile<T0>(dst).Tile();
-    auto srcTile = DynPtoTile<T1>(src).Tile();
-    constexpr auto dstTypeSize = sizeof(typename T0::Type);
-    constexpr auto srcTypeSize = sizeof(typename T1::Type);
-    for (size_t n0Index = 0; n0Index < shape0; ++n0Index) {
-        for (size_t n1Index = 0; n1Index < shape1; ++n1Index) {
-            for (size_t n2Index = 0; n2Index < shape2; ++n2Index) {
-                auto offset = n0Index * stride0 + n1Index * stride1 + n2Index * stride2;
-                auto srcOffset = n0Index * srcStride0 + n1Index * srcStride1 + n2Index * srcStride2;
-                pto::TASSIGN(dstTile, (uint64_t)(dst.GetAddr() + offset * dstTypeSize));
-                pto::TASSIGN(srcTile, (uint64_t)(src.GetAddr() + srcOffset * srcTypeSize));
-                UnaryComputeImpl<op>(dstTile, srcTile);
+    auto dstTile = PtoTile<T0>(dst);
+    auto srcTile = PtoTile<T1>(src);
+    for (LoopVar n0Index = 0; n0Index < shape0; ++n0Index) {
+        for (LoopVar n1Index = 0; n1Index < shape1; ++n1Index) {
+            for (LoopVar n2Index = 0; n2Index < shape2; ++n2Index) {
+                auto tileOffsets = TileOffset(n0Index, n1Index, n2Index);
+                dstTile.Assign(dst, tileOffsets);
+                srcTile.Assign(src, tileOffsets);
+                UnaryComputeImpl<op, PrecisionType, LastUse>(dstTile.Data(), srcTile.Data());
             }
         }
     }
 }
 
-template <typename T0, typename T1>
-TILEOP void TExp(T0 dst, T1 src) {
-    UnaryCompute<UnaryOp::EXP>(dst, src);
+#define OP_TILE_OP_EXP TExp
+template <typename LastUse, typename T0, typename T1>
+TILEOP void BrcbCompute(T0 dst, T1 src)
+{
+    const auto dstLayout = dst.GetLayout();
+    auto shape0 = dstLayout.template GetShapeDim<DIM_1ST, MAX_DIMS>();
+    auto shape1 = dstLayout.template GetShapeDim<DIM_2ND, MAX_DIMS>();
+    auto shape2 = dstLayout.template GetShapeDim<DIM_3RD, MAX_DIMS>();
+    auto dstStride0 = dstLayout.template GetStrideDim<DIM_1ST, MAX_DIMS>();
+    auto dstStride1 = dstLayout.template GetStrideDim<DIM_2ND, MAX_DIMS>();
+    auto dstStride2 = dstLayout.template GetStrideDim<DIM_3RD, MAX_DIMS>();
+    const auto srcLayout = src.GetLayout();
+    auto srcStride0 = srcLayout.template GetStrideDim<DIM_1ST, MAX_DIMS>();
+    auto srcStride1 = srcLayout.template GetStrideDim<DIM_2ND, MAX_DIMS>();
+    auto srcStride2 = srcLayout.template GetStrideDim<DIM_3RD, MAX_DIMS>();
+
+    constexpr auto srcTileH = TileOp::GetTensorTileShapeDim<T1, DIM_4TH, MAX_DIMS>();
+    constexpr auto srcTileW = TileOp::GetTensorTileShapeDim<T1, DIM_5TH, MAX_DIMS>();
+    constexpr auto dstTileH = TileOp::GetTensorTileShapeDim<T0, DIM_4TH, MAX_DIMS>();
+    constexpr auto dstTileW = TileOp::GetTensorTileShapeDim<T0, DIM_5TH, MAX_DIMS>();
+
+    using DstTileDefine = pto::Tile<pto::TileType::Vec, typename T0::Type, dstTileH, dstTileW, pto::BLayout::RowMajor>;
+    using SrcTileDefine = typename std::conditional<
+        (srcTileW == 1), pto::Tile<pto::TileType::Vec, typename T1::Type, srcTileH, srcTileW, pto::BLayout::ColMajor>,
+        pto::Tile<pto::TileType::Vec, typename T1::Type, srcTileW, srcTileH, pto::BLayout::ColMajor>>::type;
+
+    SrcTileDefine srcTile;
+    DstTileDefine dstTile;
+    for (LoopVar n0Index = 0; n0Index < shape0; ++n0Index) {
+        for (LoopVar n1Index = 0; n1Index < shape1; ++n1Index) {
+            for (LoopVar n2Index = 0; n2Index < shape2; ++n2Index) {
+                auto dstTileOffsets = n0Index * dstStride0 + n1Index * dstStride1 + n2Index * dstStride2;
+                auto srcTileOffsets = n0Index * srcStride0 + n1Index * srcStride1 + n2Index * srcStride2;
+                pto::TASSIGN(dstTile, (uint64_t)(dst.GetAddr() + dstTileOffsets * sizeof(typename T0::Type)));
+                pto::TASSIGN(srcTile, (uint64_t)(src.GetAddr() + srcTileOffsets * sizeof(typename T1::Type)));
+                UnaryComputeImpl<UnaryOp::BRCB, 0, LastUse>(dstTile, srcTile);
+            }
+        }
+    }
 }
 
-template <typename T0, typename T1>
-TILEOP void TRsqrt(T0 dst, T1 src) {
-    UnaryCompute<UnaryOp::RSQRT>(dst, src);
+#define OP_TILE_OP_EXP TExp
+template <auto PrecisionType = pto::ExpAlgorithm::DEFAULT, typename LastUse = LastUse2Dim<0, 0>, typename T0, typename T1>
+TILEOP void TExp(T0 dst, T1 src)
+{
+    UnaryCompute<UnaryOp::EXP, PrecisionType, LastUse>(dst, src);
 }
 
+#define OP_TILE_OP_RSQRT TRsqrt
+template <typename LastUse = LastUse2Dim<0, 0>, typename T0, typename T1>
+TILEOP void TRsqrt(T0 dst, T1 src)
+{
+    UnaryCompute<UnaryOp::RSQRT, 0, LastUse>(dst, src);
+}
+
+#define OP_TILE_OP_SQRT TSqrt
+template <auto PrecisionType = pto::SqrtAlgorithm::DEFAULT, typename LastUse = LastUse2Dim<0, 0>, typename T0, typename T1>
+TILEOP void TSqrt(T0 dst, T1 src)
+{
+    UnaryCompute<UnaryOp::SQRT, PrecisionType, LastUse>(dst, src);
+}
+
+template <typename DstTileTensor, typename SrcTileTensor, typename BufferTileTensor>
+TILEOP void TIsFiniteCombineAxis(DstTileTensor dst, SrcTileTensor src, BufferTileTensor buffer)
+{
+    using DstType =
+        std::conditional_t<std::is_same_v<typename DstTileTensor::Type, bool>, uint8_t, typename DstTileTensor::Type>;
+    using SrcType = typename SrcTileTensor::Type;
+
+    constexpr size_t tileSrcH = GetMergedAxisIfNeed<SrcTileTensor, true>();
+    constexpr size_t tileSrcW = TileOp::GetTensorTileShapeDim<SrcTileTensor, DIM_5TH, MAX_DIMS>();
+    constexpr size_t tileDstH = GetMergedAxisIfNeed<DstTileTensor, true>();
+    constexpr size_t tileDstW = TileOp::GetTensorTileShapeDim<DstTileTensor, DIM_5TH, MAX_DIMS>();
+
+    constexpr int validH = GetValidHeight<SrcTileTensor, true>();
+    constexpr int validW = GetValidWidth<SrcTileTensor>();
+
+    if constexpr (IsIntegralType<SrcType>()) {
+        using TileDefineDst = pto::Tile<
+            pto::TileType::Vec, int16_t, tileDstH, (tileDstW + 1) / 2, pto::BLayout::RowMajor, validH,
+            (validW + 1) / 2>;
+        TileDefineDst dstTile;
+        pto::TASSIGN(dstTile, dst.GetAddr());
+        int16_t mask = 0x0101;
+        TANDS(dstTile, dstTile, 0);
+        SyncV();
+        TORS(dstTile, dstTile, mask);
+        SyncV();
+        return;
+    } else {
+        using TileDefineDst =
+            pto::Tile<pto::TileType::Vec, DstType, tileDstH, tileDstW, pto::BLayout::RowMajor, validH, validW>;
+        using HalfTileDefineSrc = pto::Tile<
+            pto::TileType::Vec, half, tileSrcH, tileSrcW * sizeof(SrcType) / sizeof(half), pto::BLayout::RowMajor,
+            validH, validW>;
+        using B16TileDefineSrc = pto::Tile<
+            pto::TileType::Vec, int16_t, tileSrcH, tileSrcW * sizeof(SrcType) / sizeof(int16_t), pto::BLayout::RowMajor,
+            validH, validW>;
+
+        HalfTileDefineSrc bufferTile;
+        TileDefineDst dstTile;
+        B16TileDefineSrc srcTile;
+        pto::TASSIGN(bufferTile, buffer.GetAddr());
+        pto::TASSIGN(dstTile, dst.GetAddr());
+        pto::TASSIGN(srcTile, src.GetAddr());
+
+        if constexpr (std::is_same_v<SrcType, float>) {
+            using FP32TileDefineSrc =
+                pto::Tile<pto::TileType::Vec, float, tileSrcH, tileSrcW, pto::BLayout::RowMajor, validH, validW>;
+            FP32TileDefineSrc srcFP32;
+            HalfTileDefineSrc srcFP16;
+            pto::TASSIGN(srcFP32, src.GetAddr());
+            pto::TASSIGN(srcFP16, src.GetAddr());
+            pto::TCVT(srcFP16, srcFP32, pto::RoundMode::CAST_NONE);
+            SyncV();
+        }
+
+        IsFiniteComputeImpl<SrcType, HalfTileDefineSrc, true>(dstTile, srcTile, bufferTile);
+    }
+}
+
+template <typename DstTileTensor, typename SrcTileTensor>
+TILEOP void TIsFinite4Integral(DstTileTensor dst, SrcTileTensor src)
+{
+    using DstType =
+        std::conditional_t<std::is_same_v<typename DstTileTensor::Type, bool>, uint8_t, typename DstTileTensor::Type>;
+    using SrcType = typename SrcTileTensor::Type;
+    constexpr size_t tileSrcH = GetMergedAxisIfNeed<SrcTileTensor, false>();
+    constexpr size_t tileSrcW = TileOp::GetTensorTileShapeDim<SrcTileTensor, DIM_5TH, MAX_DIMS>();
+    constexpr size_t tileDstH = GetMergedAxisIfNeed<DstTileTensor, false>();
+    constexpr size_t tileDstW = TileOp::GetTensorTileShapeDim<DstTileTensor, DIM_5TH, MAX_DIMS>();
+
+    int validH = src.GetLayout().template GetShapeDim<DIM_4TH, MAX_DIMS>();
+    int validW = src.GetLayout().template GetShapeDim<DIM_5TH, MAX_DIMS>();
+
+    using TileDefineDst =
+        pto::Tile<pto::TileType::Vec, int16_t, tileDstH, tileDstW / 2, pto::BLayout::RowMajor, -1, -1>;
+    TileDefineDst dstTile(validH, (validW + 1) / 2);
+    pto::TASSIGN(dstTile, dst.GetAddr());
+    const auto dstLayout = dst.GetLayout();
+    auto shape0 = dstLayout.template GetShapeDim<DIM_1ST, MAX_DIMS>();
+    auto shape1 = dstLayout.template GetShapeDim<DIM_2ND, MAX_DIMS>();
+    auto shape2 = dstLayout.template GetShapeDim<DIM_3RD, MAX_DIMS>();
+    int16_t mask = 0x0101;
+
+    for (LoopVar n0Index = 0; n0Index < shape0; ++n0Index) {
+        for (LoopVar n1Index = 0; n1Index < shape1; ++n1Index) {
+            for (LoopVar n2Index = 0; n2Index < shape2; ++n2Index) {
+                auto tileOffsets = TileOffset(n0Index, n1Index, n2Index);
+                pto::TASSIGN(dstTile, dst.GetAddr() + GenTileOffset(dst, tileOffsets) * sizeof(DstType));
+                TANDS(dstTile, dstTile, 0);
+                SyncV();
+                TORS(dstTile, dstTile, mask);
+                SyncV();
+            }
+        }
+    }
+}
+
+template <typename DstTileTensor, typename SrcTileTensor, typename BufferTileTensor>
+TILEOP void TIsFinite4Floats(DstTileTensor dst, SrcTileTensor src, BufferTileTensor buffer)
+{
+    using SrcType = typename SrcTileTensor::Type;
+    using DstType =
+        std::conditional_t<std::is_same_v<typename DstTileTensor::Type, bool>, uint8_t, typename DstTileTensor::Type>;
+    constexpr size_t tileSrcH = GetMergedAxisIfNeed<SrcTileTensor, false>();
+    constexpr size_t tileSrcW = TileOp::GetTensorTileShapeDim<SrcTileTensor, DIM_5TH, MAX_DIMS>();
+    constexpr size_t tileDstH = GetMergedAxisIfNeed<DstTileTensor, false>();
+    constexpr size_t tileDstW = TileOp::GetTensorTileShapeDim<DstTileTensor, DIM_5TH, MAX_DIMS>();
+
+    int validH = src.GetLayout().template GetShapeDim<DIM_4TH, MAX_DIMS>();
+    int validW = src.GetLayout().template GetShapeDim<DIM_5TH, MAX_DIMS>();
+
+    using TileDefineDst = pto::Tile<pto::TileType::Vec, DstType, tileDstH, tileDstW, pto::BLayout::RowMajor, -1, -1>;
+    using HalfTileDefineSrc = pto::Tile<
+        pto::TileType::Vec, half, tileSrcH, tileSrcW * sizeof(SrcType) / sizeof(half), pto::BLayout::RowMajor, -1, -1>;
+    using B16TileDefineSrc = pto::Tile<
+        pto::TileType::Vec, int16_t, tileSrcH, tileSrcW * sizeof(SrcType) / sizeof(int16_t), pto::BLayout::RowMajor, -1,
+        -1>;
+
+    HalfTileDefineSrc bufferTile(validH, validW);
+    pto::TASSIGN(bufferTile, buffer.GetAddr());
+
+    TileDefineDst dstTile(validH, validW);
+    B16TileDefineSrc srcTile(validH, validW);
+
+    const auto dstLayout = dst.GetLayout();
+    auto shape0 = dstLayout.template GetShapeDim<DIM_1ST, MAX_DIMS>();
+    auto shape1 = dstLayout.template GetShapeDim<DIM_2ND, MAX_DIMS>();
+    auto shape2 = dstLayout.template GetShapeDim<DIM_3RD, MAX_DIMS>();
+    for (LoopVar n0Index = 0; n0Index < shape0; ++n0Index) {
+        for (LoopVar n1Index = 0; n1Index < shape1; ++n1Index) {
+            for (LoopVar n2Index = 0; n2Index < shape2; ++n2Index) {
+                auto tileOffsets = TileOffset(n0Index, n1Index, n2Index);
+                pto::TASSIGN(dstTile, dst.GetAddr() + GenTileOffset(dst, tileOffsets) * sizeof(DstType));
+                pto::TASSIGN(srcTile, src.GetAddr() + GenTileOffset(src, tileOffsets) * sizeof(int16_t));
+                if constexpr (std::is_same_v<SrcType, float>) {
+                    using FP32TileDefineSrc =
+                        pto::Tile<pto::TileType::Vec, float, tileSrcH, tileSrcW, pto::BLayout::RowMajor, -1, -1>;
+                    FP32TileDefineSrc srcFP32(validH, validW);
+                    HalfTileDefineSrc srcFP16(validH, validW);
+                    pto::TASSIGN(srcFP32, src.GetAddr() + GenTileOffset(dst, tileOffsets) * sizeof(float));
+                    pto::TASSIGN(srcFP16, src.GetAddr() + GenTileOffset(dst, tileOffsets) * sizeof(half));
+                    pto::TCVT(srcFP16, srcFP32, pto::RoundMode::CAST_NONE);
+                    SyncV();
+                }
+                IsFiniteComputeImpl<SrcType, HalfTileDefineSrc, false>(dstTile, srcTile, bufferTile);
+            }
+        }
+    }
+}
+
+#define OP_TILE_OP_ISFINITE TIsFinite
+template <typename DstTileTensor, typename SrcTileTensor, typename BufferTileTensor>
+TILEOP void TIsFinite(DstTileTensor dst, SrcTileTensor src, BufferTileTensor buffer)
+{
+    if constexpr (TileOp::IsConstContinous<DstTileTensor, SrcTileTensor>()) {
+        TIsFiniteCombineAxis(dst, src, buffer);
+        return;
+    }
+
+    using SrcType = typename SrcTileTensor::Type;
+    if constexpr (IsIntegralType<SrcType>()) {
+        TIsFinite4Integral(dst, src);
+    } else {
+        TIsFinite4Floats(dst, src, buffer);
+    }
+}
+
+#define OP_TILE_OP_BRCB Tbrcb
+template <typename LastUse = LastUse2Dim<0, 0>, typename T0, typename T1>
+TILEOP void Tbrcb(T0 dst, T1 src)
+{
+    BrcbCompute<LastUse>(dst, src);
+}
+
+#define OP_TILE_OP_ABS TAbs
+template <typename LastUse = LastUse2Dim<0, 0>, typename T0, typename T1>
+TILEOP void TAbs(T0 dst, T1 src)
+{
+    UnaryCompute<UnaryOp::ABS, 0, LastUse>(dst, src);
+}
+
+#define OP_TILE_OP_BITWISENOT TBitwiseNot
+template <typename LastUse = LastUse2Dim<0, 0>, typename T0, typename T1>
+TILEOP void TBitwiseNot(T0 dst, T1 src)
+{
+    UnaryCompute<UnaryOp::BITWISENOT, 0, LastUse>(dst, src);
+}
+
+#define OP_TILE_OP_LOG TLog
+template <auto PrecisionType = pto::LogAlgorithm::DEFAULT, typename T0, typename T1>
+TILEOP void TLog(T0 dst, T1 src)
+{
+    UnaryCompute<UnaryOp::LN, PrecisionType, LastUse2Dim<0, 0>>(dst, src);
+}
+
+template <typename Ttemp, typename T0, typename T1>
+TILEOP void CeilComputeImpl(T0 dst, T1 src)
+{
+    pto::TCVT(dst, src, pto::RoundMode::CAST_CEIL);
+}
+#define OP_TILE_OP_CEIL TCEIL
 template <typename T0, typename T1>
-TILEOP void TSqrt(T0 dst, T1 src) {
-    UnaryCompute<UnaryOp::SQRT>(dst, src);
+TILEOP void TCeil(T0 dst, T1 src)
+{
+    if constexpr (TileOp::IsConstContinous<T0, T1>() == true) {
+        auto dstTile = PtoTile<T0, pto::BLayout::RowMajor, true>().Data();
+        auto srcTile = PtoTile<T1, pto::BLayout::RowMajor, true>().Data();
+        pto::TASSIGN(dstTile, (uint64_t)dst.GetAddr());
+        pto::TASSIGN(srcTile, (uint64_t)src.GetAddr());
+        CeilComputeImpl<float>(dstTile, srcTile);
+        return;
+    }
+
+    const auto dstLayout = dst.GetLayout();
+    auto shape0 = dstLayout.template GetShapeDim<DIM_1ST, MAX_DIMS>();
+    auto shape1 = dstLayout.template GetShapeDim<DIM_2ND, MAX_DIMS>();
+    auto shape2 = dstLayout.template GetShapeDim<DIM_3RD, MAX_DIMS>();
+
+    auto dstTile = PtoTile<T0>(dst);
+    auto srcTile = PtoTile<T1>(src);
+
+    for (LoopVar n0Index = 0; n0Index < shape0; ++n0Index) {
+        for (LoopVar n1Index = 0; n1Index < shape1; ++n1Index) {
+            for (LoopVar n2Index = 0; n2Index < shape2; ++n2Index) {
+                auto tileOffsets = TileOffset(n0Index, n1Index, n2Index);
+                dstTile.Assign(dst, tileOffsets);
+                srcTile.Assign(src, tileOffsets);
+                CeilComputeImpl<float>(dstTile.Data(), srcTile.Data());
+            }
+        }
+    }
+}
+
+template <typename Ttemp, typename T0, typename T1>
+TILEOP void FloorComputeImpl(T0 dst, T1 src)
+{
+    pto::TCVT(dst, src, pto::RoundMode::CAST_FLOOR);
+}
+#define OP_TILE_OP_FLOOR TFLOOR
+template <typename T0, typename T1>
+TILEOP void TFloor(T0 dst, T1 src)
+{
+    if constexpr (TileOp::IsConstContinous<T0, T1>() == true) {
+        auto dstTile = PtoTile<T0, pto::BLayout::RowMajor, true>().Data();
+        auto srcTile = PtoTile<T1, pto::BLayout::RowMajor, true>().Data();
+        pto::TASSIGN(dstTile, (uint64_t)dst.GetAddr());
+        pto::TASSIGN(srcTile, (uint64_t)src.GetAddr());
+        FloorComputeImpl<float>(dstTile, srcTile);
+        return;
+    }
+
+    const auto dstLayout = dst.GetLayout();
+    auto shape0 = dstLayout.template GetShapeDim<DIM_1ST, MAX_DIMS>();
+    auto shape1 = dstLayout.template GetShapeDim<DIM_2ND, MAX_DIMS>();
+    auto shape2 = dstLayout.template GetShapeDim<DIM_3RD, MAX_DIMS>();
+
+    auto dstTile = PtoTile<T0>(dst);
+    auto srcTile = PtoTile<T1>(src);
+
+    for (LoopVar n0Index = 0; n0Index < shape0; ++n0Index) {
+        for (LoopVar n1Index = 0; n1Index < shape1; ++n1Index) {
+            for (LoopVar n2Index = 0; n2Index < shape2; ++n2Index) {
+                auto tileOffsets = TileOffset(n0Index, n1Index, n2Index);
+                dstTile.Assign(dst, tileOffsets);
+                srcTile.Assign(src, tileOffsets);
+                FloorComputeImpl<float>(dstTile.Data(), srcTile.Data());
+            }
+        }
+    }
+}
+
+template <typename Ttemp, typename T0, typename T1>
+TILEOP void TruncComputeImpl(T0 dst, T1 src)
+{
+    pto::TCVT(dst, src, pto::RoundMode::CAST_TRUNC);
+}
+#define OP_TILE_OP_TRUNC TTRUNC
+template <typename T0, typename T1>
+TILEOP void TTrunc(T0 dst, T1 src)
+{
+    if constexpr (TileOp::IsConstContinous<T0, T1>() == true) {
+        auto dstTile = PtoTile<T0, pto::BLayout::RowMajor, true>().Data();
+        auto srcTile = PtoTile<T1, pto::BLayout::RowMajor, true>().Data();
+        pto::TASSIGN(dstTile, (uint64_t)dst.GetAddr());
+        pto::TASSIGN(srcTile, (uint64_t)src.GetAddr());
+        TruncComputeImpl<float>(dstTile, srcTile);
+        return;
+    }
+
+    const auto dstLayout = dst.GetLayout();
+    auto shape0 = dstLayout.template GetShapeDim<DIM_1ST, MAX_DIMS>();
+    auto shape1 = dstLayout.template GetShapeDim<DIM_2ND, MAX_DIMS>();
+    auto shape2 = dstLayout.template GetShapeDim<DIM_3RD, MAX_DIMS>();
+
+    auto dstTile = PtoTile<T0>(dst);
+    auto srcTile = PtoTile<T1>(src);
+
+    for (LoopVar n0Index = 0; n0Index < shape0; ++n0Index) {
+        for (LoopVar n1Index = 0; n1Index < shape1; ++n1Index) {
+            for (LoopVar n2Index = 0; n2Index < shape2; ++n2Index) {
+                auto tileOffsets = TileOffset(n0Index, n1Index, n2Index);
+                dstTile.Assign(dst, tileOffsets);
+                srcTile.Assign(src, tileOffsets);
+                TruncComputeImpl<float>(dstTile.Data(), srcTile.Data());
+            }
+        }
+    }
+}
+
+#define OP_TILE_OP_EXP2 TExp2
+template <typename T0, typename T1, typename T2, typename T3>
+TILEOP void TExp2(T0 dst, T1 tmp, T2 tmp2, T3 src)
+{
+    const auto dstLayout = dst.GetLayout();
+    auto shape0 = dstLayout.template GetShapeDim<DIM_1ST, MAX_DIMS>();
+    auto shape1 = dstLayout.template GetShapeDim<DIM_2ND, MAX_DIMS>();
+    auto shape2 = dstLayout.template GetShapeDim<DIM_3RD, MAX_DIMS>();
+
+    auto dstTile = PtoTile<T0>(dst);
+    auto tmpTile = PtoTile<T1>(tmp);
+    auto tmpTile2 = PtoTile<T2>(tmp2);
+    auto srcTile = PtoTile<T3>(src);
+    for (LoopVar n0Index = 0; n0Index < shape0; ++n0Index) {
+        for (LoopVar n1Index = 0; n1Index < shape1; ++n1Index) {
+            for (LoopVar n2Index = 0; n2Index < shape2; ++n2Index) {
+                auto tileOffsets = TileOffset(n0Index, n1Index, n2Index);
+                dstTile.Assign(dst, tileOffsets);
+                tmpTile.Assign(tmp, tileOffsets);
+                tmpTile2.Assign(tmp2, tileOffsets);
+                srcTile.Assign(src, tileOffsets);
+
+                if constexpr (std::is_same_v<typename T3::Type, float>) {
+                    pto::TEXPANDS(tmpTile2.Data(), 2.0f);
+#ifdef __DAV_V220
+                    pipe_barrier(PIPE_V);
+#endif
+                    pto::TLOG(tmpTile2.Data(), tmpTile2.Data());
+#ifdef __DAV_V220
+                    pipe_barrier(PIPE_V);
+#endif
+                    pto::TMUL(tmpTile2.Data(), srcTile.Data(), tmpTile2.Data());
+#ifdef __DAV_V220
+                    pipe_barrier(PIPE_V);
+#endif
+                    pto::TEXP(dstTile.Data(), tmpTile2.Data());
+#ifdef __DAV_V220
+                    pipe_barrier(PIPE_V);
+#endif
+                } else {
+                    pto::TCVT(tmpTile.Data(), srcTile.Data(), pto::RoundMode::CAST_NONE);
+#ifdef __DAV_V220
+                    pipe_barrier(PIPE_V);
+#endif
+                    pto::TEXPANDS(tmpTile2.Data(), 2.0f);
+#ifdef __DAV_V220
+                    pipe_barrier(PIPE_V);
+#endif
+                    pto::TLOG(tmpTile2.Data(), tmpTile2.Data());
+#ifdef __DAV_V220
+                    pipe_barrier(PIPE_V);
+#endif
+                    pto::TMUL(tmpTile.Data(), tmpTile.Data(), tmpTile2.Data());
+#ifdef __DAV_V220
+                    pipe_barrier(PIPE_V);
+#endif
+                    if constexpr (
+                        std::is_same_v<typename T3::Type, half> || std::is_same_v<typename T3::Type, bfloat16_t>) {
+                        pto::TEXP(tmpTile2.Data(), tmpTile.Data());
+#ifdef __DAV_V220
+                        pipe_barrier(PIPE_V);
+#endif
+                        pto::TCVT(dstTile.Data(), tmpTile2.Data(), pto::RoundMode::CAST_RINT);
+                    } else {
+                        pto::TEXP(dstTile.Data(), tmpTile.Data());
+                    }
+                }
+            }
+        }
+    }
+}
+
+#define OP_TILE_OP_ROUND TRound
+template <typename Scalar, typename T0, typename T1, typename T2>
+TILEOP void TRound(T0 dst, T1 tmp, T2 src, Scalar powDecimals)
+{
+    const auto dstLayout = dst.GetLayout();
+    auto shape0 = dstLayout.template GetShapeDim<DIM_1ST, MAX_DIMS>();
+    auto shape1 = dstLayout.template GetShapeDim<DIM_2ND, MAX_DIMS>();
+    auto shape2 = dstLayout.template GetShapeDim<DIM_3RD, MAX_DIMS>();
+
+    auto dstTile = PtoTile<T0>(dst);
+    auto tmpTile = PtoTile<T1>(tmp);
+    auto srcTile = PtoTile<T2>(src);
+    for (LoopVar n0Index = 0; n0Index < shape0; ++n0Index) {
+        for (LoopVar n1Index = 0; n1Index < shape1; ++n1Index) {
+            for (LoopVar n2Index = 0; n2Index < shape2; ++n2Index) {
+                auto tileOffsets = TileOffset(n0Index, n1Index, n2Index);
+                dstTile.Assign(dst, tileOffsets);
+                tmpTile.Assign(tmp, tileOffsets);
+                srcTile.Assign(src, tileOffsets);
+
+                if constexpr (std::is_same_v<typename T2::Type, float>) {
+                    pto::TMULS(srcTile.Data(), srcTile.Data(), powDecimals);
+#ifdef __DAV_V220
+                    pipe_barrier(PIPE_V);
+#endif
+                    pto::TCVT(srcTile.Data(), srcTile.Data(), pto::RoundMode::CAST_RINT);
+#ifdef __DAV_V220
+                    pipe_barrier(PIPE_V);
+#endif
+                    pto::TDIVS(dstTile.Data(), srcTile.Data(), powDecimals);
+                } else {
+                    pto::TCVT(tmpTile.Data(), srcTile.Data(), pto::RoundMode::CAST_NONE);
+#ifdef __DAV_V220
+                    pipe_barrier(PIPE_V);
+#endif
+                    pto::TMULS(tmpTile.Data(), tmpTile.Data(), powDecimals);
+#ifdef __DAV_V220
+                    pipe_barrier(PIPE_V);
+#endif
+                    pto::TCVT(tmpTile.Data(), tmpTile.Data(), pto::RoundMode::CAST_RINT);
+#ifdef __DAV_V220
+                    pipe_barrier(PIPE_V);
+#endif
+                    pto::TMULS(tmpTile.Data(), tmpTile.Data(), 1.0f / powDecimals);
+#ifdef __DAV_V220
+                    pipe_barrier(PIPE_V);
+#endif
+                    pto::TCVT(dstTile.Data(), tmpTile.Data(), pto::RoundMode::CAST_RINT);
+                }
+            }
+        }
+    }
+}
+
+#define OP_TILE_OP_EXPM1 TExpm1
+template <typename T0, typename T1, typename T2>
+TILEOP void TExpm1(T0 dst, T1 tmp, T2 src)
+{
+    const auto dstLayout = dst.GetLayout();
+    auto shape0 = dstLayout.template GetShapeDim<DIM_1ST, MAX_DIMS>();
+    auto shape1 = dstLayout.template GetShapeDim<DIM_2ND, MAX_DIMS>();
+    auto shape2 = dstLayout.template GetShapeDim<DIM_3RD, MAX_DIMS>();
+
+    auto dstTile = PtoTile<T0>(dst);
+    auto tmpTile = PtoTile<T1>(tmp);
+    auto srcTile = PtoTile<T2>(src);
+    for (LoopVar n0Index = 0; n0Index < shape0; ++n0Index) {
+        for (LoopVar n1Index = 0; n1Index < shape1; ++n1Index) {
+            for (LoopVar n2Index = 0; n2Index < shape2; ++n2Index) {
+                auto tileOffsets = TileOffset(n0Index, n1Index, n2Index);
+                dstTile.Assign(dst, tileOffsets);
+                tmpTile.Assign(tmp, tileOffsets);
+                srcTile.Assign(src, tileOffsets);
+
+                if constexpr (std::is_same_v<typename T2::Type, float>) {
+                    pto::TEXP(dstTile.Data(), srcTile.Data());
+#ifdef __DAV_V220
+                    pipe_barrier(PIPE_V);
+#endif
+                    pto::TADDS(dstTile.Data(), dstTile.Data(), -1.0f);
+                } else {
+                    pto::TCVT(tmpTile.Data(), srcTile.Data(), pto::RoundMode::CAST_NONE);
+#ifdef __DAV_V220
+                    pipe_barrier(PIPE_V);
+#endif
+                    pto::TEXP(tmpTile.Data(), tmpTile.Data());
+#ifdef __DAV_V220
+                    pipe_barrier(PIPE_V);
+#endif
+                    if constexpr (
+                        std::is_same_v<typename T2::Type, half> || std::is_same_v<typename T2::Type, bfloat16_t>) {
+                        pto::TADDS(tmpTile.Data(), tmpTile.Data(), -1.0f);
+#ifdef __DAV_V220
+                        pipe_barrier(PIPE_V);
+#endif
+                        pto::TCVT(dstTile.Data(), tmpTile.Data(), pto::RoundMode::CAST_RINT);
+                    } else {
+                        pto::TADDS(dstTile.Data(), tmpTile.Data(), -1.0f);
+                    }
+                }
+            }
+        }
+    }
+}
+
+#define OP_TILE_OP_RECIPROCAL TReciprocal
+template <auto PrecisionType = pto::RecipAlgorithm::DEFAULT, typename LastUse = LastUse2Dim<0, 0>, typename T0, typename T1>
+TILEOP void TReciprocal(T0 dst, T1 src)
+{
+    UnaryCompute<UnaryOp::RECIPROCAL, PrecisionType, LastUse>(dst, src);
+}
+
+#define OP_TILE_OP_RELU TRelu
+template <typename LastUse = LastUse2Dim<0, 0>, typename T0, typename T1>
+TILEOP void TRelu(T0 dst, T1 src)
+{
+    UnaryCompute<UnaryOp::RELU, 0, LastUse>(dst, src);
+}
+
+#define OP_TILE_OP_SINH TSinh
+template <typename T0, typename T1, typename T2>
+TILEOP void TSinh(T0 dst, T1 src, T2 tmp)
+{
+    const auto dstLayout = dst.GetLayout();
+    auto dstShape0 = dstLayout.template GetShapeDim<DIM_1ST, MAX_DIMS>();
+    auto dstShape1 = dstLayout.template GetShapeDim<DIM_2ND, MAX_DIMS>();
+    auto dstShape2 = dstLayout.template GetShapeDim<DIM_3RD, MAX_DIMS>();
+    auto dstShape3 = dstLayout.template GetShapeDim<DIM_4TH, MAX_DIMS>();
+    auto dstShape4 = dstLayout.template GetShapeDim<DIM_5TH, MAX_DIMS>();
+    auto dstStride0 = dstLayout.template GetStrideDim<DIM_1ST, MAX_DIMS>();
+    auto dstStride1 = dstLayout.template GetStrideDim<DIM_2ND, MAX_DIMS>();
+    auto dstStride2 = dstLayout.template GetStrideDim<DIM_3RD, MAX_DIMS>();
+    auto dstStride3 = dstLayout.template GetStrideDim<DIM_4TH, MAX_DIMS>();
+
+    constexpr float SCALAR_ZERO_0199 = 0.0001998459335617813754003f;
+    constexpr float SCALAR_ZERO_0833 = 0.00833308538698833f;
+    constexpr float SCALAR_ZERO_166 = 0.16666668254541f;
+    constexpr float SCALAR_ZERO_48 = 0.48f;
+    constexpr float SCALAR_ONE = 1.0f;
+    constexpr float SCALAR_ZERO_POINT_FIVE = 0.5f;
+    constexpr float SCALAR_NEGATIVE_15 = -1.5f;
+    constexpr float SCALAR_NEGATIVE_ONE = -1.0f;
+    constexpr float SCALAR_ZERO = 0.0f;
+
+    constexpr auto tileW = TileOp::GetTensorTileShapeDim<T0, DIM_5TH, MAX_DIMS>();
+    constexpr auto dstTypeSize = sizeof(typename T0::Type);
+
+    for (LoopVar n0Index = 0; n0Index < dstShape0; n0Index ++ ) {
+        for (LoopVar n1Index = 0; n1Index < dstShape1; n1Index ++ ) {
+            for (LoopVar n2Index = 0; n2Index < dstShape2; n2Index ++ ) {
+                for (LoopVar n3Index = 0; n3Index < dstShape3; n3Index ++ ) {
+                    auto offset = n0Index * dstStride0 + n1Index * dstStride1 + n2Index * dstStride2 + n3Index * dstStride3;
+
+                    using DataTileDefine =
+                        pto::Tile<pto::TileType::Vec, typename T0::Type, 1, tileW, pto::BLayout::RowMajor, -1, -1>;
+                    using MaskTileDefine =
+                        pto::Tile<pto::TileType::Vec, uint8_t, 1, tileW * 4, pto::BLayout::RowMajor, -1, -1>;
+                    
+                    DataTileDefine dstTile(1, dstShape4);
+                    DataTileDefine srcTile(1, dstShape4);
+
+                    pto::TASSIGN(dstTile, (uint64_t)(dst.GetAddr() + offset * dstTypeSize));
+                    pto::TASSIGN(srcTile, (uint64_t)(src.GetAddr() + offset * dstTypeSize));
+
+                    DataTileDefine tmp0Tile(1, dstShape4);
+                    DataTileDefine tmp1Tile(1, dstShape4);
+                    DataTileDefine tmp2Tile(1, dstShape4);
+                    DataTileDefine tmp3Tile(1, dstShape4);
+                    
+                    pto::TASSIGN(tmp0Tile, (uint64_t)(tmp.GetAddr()));
+                    pto::TASSIGN(tmp1Tile, (uint64_t)(tmp.GetAddr() + tileW * dstTypeSize));
+                    pto::TASSIGN(tmp2Tile, (uint64_t)(tmp.GetAddr() + 2 * tileW * dstTypeSize));
+                    pto::TASSIGN(tmp3Tile, (uint64_t)(tmp.GetAddr() + 3 * tileW * dstTypeSize));
+
+                    MaskTileDefine tmp1MaskTile(1, dstShape4);
+                    pto::TASSIGN(tmp1MaskTile, (uint64_t)(tmp.GetAddr() + tileW * dstTypeSize));
+
+                    // sinh(x) = x + x^3 / 3! + x^5 / 5! + x^7 / 7! for small x
+                    pto::TABS(tmp0Tile, srcTile);
+                    SyncV();
+                    pto::TMUL(tmp1Tile, tmp0Tile, tmp0Tile);
+                    SyncV();
+                    pto::TMULS(tmp2Tile, tmp1Tile, SCALAR_ZERO_0199);
+                    SyncV();
+                    pto::TADDS(tmp2Tile, tmp2Tile, SCALAR_ZERO_0833);
+                    SyncV();
+                    pto::TMUL(tmp2Tile, tmp2Tile, tmp1Tile);
+                    SyncV();
+                    pto::TADDS(tmp2Tile, tmp2Tile, SCALAR_ZERO_166);
+                    SyncV();
+                    pto::TMUL(tmp2Tile, tmp2Tile, tmp1Tile);
+                    SyncV();
+                    pto::TADDS(tmp2Tile, tmp2Tile, SCALAR_ONE);
+                    SyncV();
+                    pto::TMUL(tmp2Tile, tmp2Tile, tmp0Tile);
+                    SyncV();
+
+                    // sinh(x) = 1/2 * (e^{x/2} - e^{-3x/2}) * e^{x/2} for large x
+                    pto::TMULS(tmp1Tile, tmp0Tile, SCALAR_ZERO_POINT_FIVE);
+                    SyncV();
+                    pto::TEXP<pto::ExpAlgorithm::HIGH_PRECISION>(tmp1Tile, tmp1Tile);
+                    SyncV();
+                    pto::TMULS(tmp3Tile, tmp0Tile, SCALAR_NEGATIVE_15);
+                    SyncV();
+                    pto::TEXP<pto::ExpAlgorithm::HIGH_PRECISION>(tmp3Tile, tmp3Tile);
+                    SyncV();
+                    pto::TSUB(tmp3Tile, tmp1Tile, tmp3Tile);
+                    SyncV();
+                    pto::TMULS(tmp3Tile, tmp3Tile, SCALAR_ZERO_POINT_FIVE);
+                    SyncV();
+                    pto::TMUL(tmp3Tile, tmp3Tile, tmp1Tile);
+                    SyncV();
+
+                    pto::TCMPS(tmp1MaskTile, tmp0Tile, SCALAR_ZERO_48, pto::CmpMode::LT);
+                    SyncV();
+                    pto::TSEL(dstTile, tmp1MaskTile, tmp2Tile, tmp3Tile, tmp0Tile);
+                    SyncV();
+
+                    pto::TMULS(tmp2Tile, dstTile, SCALAR_NEGATIVE_ONE);
+                    SyncV();
+                    pto::TCMPS(tmp1MaskTile, srcTile, SCALAR_ZERO, pto::CmpMode::GE);
+                    SyncV();
+                    pto::TSEL(dstTile, tmp1MaskTile, dstTile, tmp2Tile, tmp0Tile);
+                    SyncV();
+                }
+            }
+        }
+    }
+}
+
+#define OP_TILE_OP_COSH TCosh
+template <typename T0, typename T1>
+TILEOP void TCosh(T0 dst, T1 src)
+{
+    const auto dstLayout = dst.GetLayout();
+    auto dstShape0 = dstLayout.template GetShapeDim<DIM_1ST, MAX_DIMS>();
+    auto dstShape1 = dstLayout.template GetShapeDim<DIM_2ND, MAX_DIMS>();
+    auto dstShape2 = dstLayout.template GetShapeDim<DIM_3RD, MAX_DIMS>();
+    auto dstShape3 = dstLayout.template GetShapeDim<DIM_4TH, MAX_DIMS>();
+    auto dstShape4 = dstLayout.template GetShapeDim<DIM_5TH, MAX_DIMS>();
+
+    constexpr float SCALAR_ZERO_POINT_FIVE = 0.5f;
+    constexpr float SCALAR_NEGATIVE_ONE_POINT_FIVE = -1.5f;
+    
+    constexpr auto tileW = TileOp::GetTensorTileShapeDim<T0, DIM_5TH, MAX_DIMS>();
+    constexpr auto dstTypeSize = sizeof(typename T0::Type);
+
+    auto dstStride0 = dstLayout.template GetStrideDim<DIM_1ST, MAX_DIMS>();
+    auto dstStride1 = dstLayout.template GetStrideDim<DIM_2ND, MAX_DIMS>();
+    auto dstStride2 = dstLayout.template GetStrideDim<DIM_3RD, MAX_DIMS>();
+    auto dstStride3 = dstLayout.template GetStrideDim<DIM_4TH, MAX_DIMS>();
+
+    for (LoopVar n0Index = 0; n0Index < dstShape0; n0Index ++ ) {
+        for (LoopVar n1Index = 0; n1Index < dstShape1; n1Index ++ ) {
+            for (LoopVar n2Index = 0; n2Index < dstShape2; n2Index ++ ) {
+                for (LoopVar n3Index = 0; n3Index < dstShape3; n3Index ++ ) {
+                    auto offset = n0Index * dstStride0 + n1Index * dstStride1 + n2Index * dstStride2 + n3Index * dstStride3;
+
+                    using DataTileDefine =
+                        pto::Tile<pto::TileType::Vec, typename T0::Type, 1, tileW, pto::BLayout::RowMajor, -1, -1>;
+                    
+                    DataTileDefine dstTile(1, dstShape4);
+                    DataTileDefine srcTile(1, dstShape4);
+                    
+                    pto::TASSIGN(dstTile, (uint64_t)(dst.GetAddr() + offset * dstTypeSize));
+                    pto::TASSIGN(srcTile, (uint64_t)(src.GetAddr() + offset * dstTypeSize));
+
+                    // cosh(x) = 1/2 * (e^{x/2} + e^{-3x/2}) * e^{x/2}
+                    pto::TABS(srcTile, srcTile);
+                    SyncV();
+                    pto::TMULS(dstTile, srcTile, SCALAR_NEGATIVE_ONE_POINT_FIVE);
+                    SyncV();
+                    pto::TMULS(srcTile, srcTile, SCALAR_ZERO_POINT_FIVE);
+                    SyncV();
+                    pto::TEXP<pto::ExpAlgorithm::HIGH_PRECISION>(srcTile, srcTile);
+                    SyncV();
+                    pto::TEXP<pto::ExpAlgorithm::HIGH_PRECISION>(dstTile, dstTile);
+                    SyncV();
+                    pto::TADD(dstTile, dstTile, srcTile);
+                    SyncV();
+                    pto::TMULS(dstTile, dstTile, SCALAR_ZERO_POINT_FIVE);
+                    SyncV();
+                    pto::TMUL(dstTile, dstTile, srcTile);
+                    SyncV();
+                }
+            }
+        }
+    }
+}
+
+template <UnaryOp op, typename T0, typename T1, typename T2, typename T3, typename T4>
+TILEOP void reduceKCompute(T0 dst, T1 tmp0, T2 tmp1, T3 tmp2, T4 src0)
+{
+    // define the number of x div pi
+    constexpr float PI_FOR_X_TODIV = 0.3183098733425140380859375;
+    // define the PI for compute
+    constexpr float PI_V2 = 3.140625;
+    constexpr float KPI_FIRS_PI_MULS = 0.0009670257568359375;
+    constexpr float KPI_TWI_PI_MULS = 6.2771141529083251953125e-7;
+    constexpr float KPI_THIR_PI_MULS = 1.21644916362129151821136474609375e-10;
+    constexpr float KPI_FOR_PI_MULS = -1.0290623200529979163359041220560e-13;
+    constexpr float POINT_FIVE = 0.5;
+    constexpr float K2_SCA = -2.0;
+    constexpr float M4_SCA = 4.0;
+    constexpr float TRIG_ZERO = 0.0;
+    constexpr float TRIG_ONE = 1.0;
+    // define the number of down of pi_div
+    constexpr float PI_DOWN = 1.57079637050628662109375;
+    // kpi_2
+    constexpr float PI_RESDOWN_ADDS_NEG = -0.00000004371139000189375;
+
+    pto::TMULS(tmp0, src0, TRIG_ZERO);
+    SyncV();
+    pto::TADD(tmp2, src0, tmp0);
+    SyncV();
+    //  k=round(x/π), x0=x-kπ, x0 belongs to [-π/2, π/2]
+    //  cos(x) = (-1)^k * sin(x0 + π/2)
+    pto::TMULS(tmp0, tmp2, PI_FOR_X_TODIV);
+    SyncV();
+    if constexpr (op == UnaryOp::SIN) {
+        pto::TCVT(tmp1, tmp0, pto::RoundMode::CAST_ROUND);
+        SyncV();
+    }
+    if constexpr (op == UnaryOp::COS) {
+        pto::TADDS(tmp0, tmp0, POINT_FIVE);
+        SyncV();
+        pto::TCVT(tmp1, tmp0, pto::RoundMode::CAST_RINT);
+        SyncV();
+    }
+    pto::TCVT(tmp0, tmp1, pto::RoundMode::CAST_NONE);
+    SyncV();
+
+    // x -= k * pi_0
+    pto::TMULS(dst, tmp0, PI_V2);
+    SyncV();
+    pto::TSUB(tmp2, tmp2, dst);
+    SyncV();
+    // x -= k * pi_1
+    pto::TMULS(dst, tmp0, KPI_FIRS_PI_MULS);
+    SyncV();
+    pto::TSUB(tmp2, tmp2, dst);
+    SyncV();
+    // x = x + PI_DOWN
+    if constexpr (op == UnaryOp::COS) {
+        pto::TADDS(tmp2, tmp2, PI_DOWN);
+        SyncV();
+    }
+    // x -= k * pi_2
+    pto::TMULS(dst, tmp0, KPI_TWI_PI_MULS);
+    SyncV();
+    pto::TSUB(tmp2, tmp2, dst);
+    SyncV();
+    // x -= k * pi_3
+    pto::TMULS(dst, tmp0, KPI_THIR_PI_MULS);
+    SyncV();
+    pto::TSUB(tmp2, tmp2, dst);
+    SyncV();
+    // x -= k * pi_4
+    pto::TMULS(dst, tmp0, KPI_FOR_PI_MULS);
+    SyncV();
+    pto::TSUB(tmp2, tmp2, dst);
+    SyncV();
+
+    if constexpr (op == UnaryOp::COS) {
+        // x = x + PI_RESDOWN_ADDS_NEG
+        pto::TADDS(tmp2, tmp2, PI_RESDOWN_ADDS_NEG);
+        SyncV();
+    }
+    // kover2
+    pto::TMULS(dst, tmp0, POINT_FIVE);
+    SyncV();
+    pto::TCVT(tmp1, dst, pto::RoundMode::CAST_FLOOR);
+    SyncV();
+    pto::TCVT(dst, tmp1, pto::RoundMode::CAST_NONE);
+    SyncV();
+    // kover2floorm4
+    pto::TMULS(dst, dst, M4_SCA);
+    SyncV();
+    //k2
+    pto::TMULS(tmp0, tmp0, K2_SCA);
+    SyncV();
+    //sign
+    pto::TADD(dst, dst, tmp0);
+    SyncV();
+    pto::TADDS(dst, dst, TRIG_ONE);
+    SyncV();
+}
+
+template <UnaryOp op, typename T0, typename T1, typename T2, typename T3, typename T4>
+TILEOP void SinCosCompute(T0 dst, T1 tmp0, T2 tmp1, T3 tmp2, T4 src0)
+{
+    constexpr float RES_MULTI_SCA = 2.604926501e-6;
+    constexpr float RES_ADDICT_UP = -0.0001980894471;
+    constexpr float ADD2S = 0.008333049340;
+    constexpr float ADD3S = -0.1666665792;
+    constexpr float TRIG_ONE = 1.0;
+
+    // x^2
+    pto::TMUL(tmp0, tmp2, tmp2);
+    SyncV();
+    // sin(x) = x * P(x)
+    // P(x) = (((x^2 * R0 + R1) * x^2 + R2) * x^2 + R3) * x^2 + 1.0
+    // roundTensor = mul(x^2, 2.604926501e-6)
+    pto::TMULS(tmp1, tmp0, RES_MULTI_SCA);
+    SyncV();
+    pto::TADDS(tmp1, tmp1, RES_ADDICT_UP);
+    SyncV();
+    // roundTensor = mul(roundTensor, x^2)
+    pto::TMUL(tmp1, tmp0, tmp1);
+    SyncV();
+    pto::TADDS(tmp1, tmp1, ADD2S);
+    SyncV();
+    // roundTensor = mul(roundTensor, x^2)
+    pto::TMUL(tmp1, tmp0, tmp1);
+    SyncV();
+    pto::TADDS(tmp1, tmp1, ADD3S);
+    SyncV();
+    // roundTensor = mul(roundTensor, x^2)
+    pto::TMUL(tmp1, tmp0, tmp1);
+    SyncV();
+    pto::TADDS(tmp1, tmp1, TRIG_ONE);
+    SyncV();
+    // sin(x) = x * P(x)
+    pto::TMUL(tmp1, tmp2, tmp1);
+    SyncV();
+    pto::TMUL(dst, dst, tmp1);
+    SyncV();
+    return;
+}
+
+template <UnaryOp op, typename T0, typename T1, typename T2>
+TILEOP void TrigCompute(T0 dst, T1 tmp, T2 src)
+{
+    const auto dstLayout = dst.GetLayout();
+    auto shape0 = dstLayout.template GetShapeDim<DIM_1ST, MAX_DIMS>();
+    auto shape1 = dstLayout.template GetShapeDim<DIM_2ND, MAX_DIMS>();
+    auto shape2 = dstLayout.template GetShapeDim<DIM_3RD, MAX_DIMS>();
+    auto shape3 = dstLayout.template GetShapeDim<DIM_4TH, MAX_DIMS>();
+    auto shape4 = dstLayout.template GetShapeDim<DIM_5TH, MAX_DIMS>();
+    constexpr auto tileH = TileOp::GetTensorTileShapeDim<T2, 3, 5>();
+    constexpr auto tileW = TileOp::GetTensorTileShapeDim<T2, 4, 5>();
+
+    using TmpFP32Tile = pto::Tile<pto::TileType::Vec, typename T2::Type, tileH, tileW, pto::BLayout::RowMajor, -1, -1>;
+    using TmpINT32Tile = pto::Tile<pto::TileType::Vec, int32_t, tileH, tileW, pto::BLayout::RowMajor, -1, -1>;
+
+    TmpFP32Tile dstTile(shape3, shape4);
+    TmpFP32Tile tmp0Tile(shape3, shape4);
+    TmpINT32Tile tmp1Tile(shape3, shape4);
+    TmpFP32Tile tmp2Tile(shape3, shape4);
+    TmpFP32Tile src0Tile(shape3, shape4);
+    for (LoopVar n0Index = 0; n0Index < shape0; ++n0Index) {
+        for (LoopVar n1Index = 0; n1Index < shape1; ++n1Index) {
+            for (LoopVar n2Index = 0; n2Index < shape2; ++n2Index) {
+                auto tileOffsets = TileOffset(n0Index, n1Index, n2Index);
+                pto::TASSIGN(dstTile, (uint64_t)(dst.GetAddr() + GenTileOffset(dst, tileOffsets) * sizeof(typename T2::Type)));
+                pto::TASSIGN(src0Tile, (uint64_t)(src.GetAddr() + GenTileOffset(src, tileOffsets) * sizeof(typename T2::Type)));
+                pto::TASSIGN(tmp0Tile, (uint64_t)(tmp.GetAddr()));
+                pto::TASSIGN(tmp1Tile, (uint64_t)(tmp.GetAddr() + tileW * tileH * sizeof(int32_t)));
+                pto::TASSIGN(tmp2Tile, (uint64_t)(tmp.GetAddr() + 2 * tileW * tileH * sizeof(float)));
+
+                reduceKCompute<op>(dstTile, tmp0Tile, tmp1Tile, tmp2Tile, src0Tile);
+                SyncV();
+                TmpFP32Tile tmp3Tile(shape3, shape4);
+                pto::TASSIGN(tmp3Tile, (uint64_t)(tmp.GetAddr() + tileW * tileH * sizeof(float)));
+                SinCosCompute<op>(dstTile, tmp0Tile, tmp3Tile, tmp2Tile, src0Tile);
+            }
+        }
+    }
+}
+
+#define OP_TILE_OP_SIN TSin
+template <typename T0, typename T1, typename T2>
+TILEOP void TSin(T0 dst, T1 tmp, T2 src)
+{
+    TrigCompute<UnaryOp::SIN>(dst, tmp, src);
+}
+
+#define OP_TILE_OP_COS TCos
+template <typename T0, typename T1, typename T2>
+TILEOP void TCos(T0 dst, T1 tmp, T2 src)
+{
+    TrigCompute<UnaryOp::COS>(dst, tmp, src);
 }
 #endif

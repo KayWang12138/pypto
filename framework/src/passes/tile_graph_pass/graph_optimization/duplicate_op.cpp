@@ -14,7 +14,9 @@
  */
 
 #include "duplicate_op.h"
+#include "passes/pass_check/duplicate_op_checker.h"
 #include "passes/pass_utils/dead_operation_eliminate.h"
+#include "passes/pass_utils/infer_shape_utils.h"
 #include "interface/function/function.h"
 #include "interface/tensor/logical_tensor.h"
 #include "passes/pass_log/pass_log.h"
@@ -22,39 +24,66 @@
 #define MODULE_NAME "DuplicateOp"
 
 namespace npu::tile_fwk {
-Status DuplicateOp::RunOnFunction(Function &function) {
-    APASS_LOG_INFO_F(Elements::Function,
-    "===> Start %s for function [%s].", MODULE_NAME, function.GetRawName().c_str());
-    if (Process(function) != SUCCESS) {
+Status DuplicateOp::PreCheck(Function& function)
+{
+    DuplicateOpChecker checker;
+    return checker.DoPreCheck(function);
+}
+
+Status DuplicateOp::RunOnFunction(Function& function)
+{
+    APASS_LOG_INFO_F(
+        Elements::Function, "===> Start %s for function [%s].", MODULE_NAME, function.GetRawName().c_str());
+    std::vector<Operation*> newOps;
+    if (Process(function, newOps) != SUCCESS) {
         APASS_LOG_ERROR_F(Elements::Function, "Process failed.");
         return FAILED;
     }
-    APASS_LOG_INFO_F(Elements::Function,
-    "===> End %s for function [%s].", MODULE_NAME, function.GetRawName().c_str());
+    if (!newOps.empty()) {
+        if (InferShapeUtils::InferShape(function, newOps) != SUCCESS) {
+            APASS_LOG_ERROR_F(Elements::Function, "InferShape for new operations failed.");
+            return FAILED;
+        }
+    }
+    APASS_LOG_INFO_F(Elements::Function, "===> End %s for function [%s].", MODULE_NAME, function.GetRawName().c_str());
     return SUCCESS;
 }
 
-Status DuplicateOp::ProcessGatherIn(Function &function, Operation &operation) const {
-    for (const auto &oOperand : operation.GetOOperands()) {
+Status DuplicateOp::PostCheck(Function& function)
+{
+    DuplicateOpChecker checker;
+    return checker.DoPostCheck(function);
+}
+
+Status DuplicateOp::ProcessGatherIn(Function& function, Operation& operation, std::vector<Operation*>& newOps) const
+{
+    for (const auto& oOperand : operation.GetOOperands()) {
         if (oOperand == nullptr) {
-            APASS_LOG_ERROR_F(Elements::Operation,
-            "%s[%d]'s oOperand cannot be nullptr; Please check if the oOperand of %s[%d] is nullptr.%s",
-            operation.GetOpcodeStr().c_str(), operation.GetOpMagic(), operation.GetOpcodeStr().c_str(), operation.GetOpMagic(), GetFormatBacktrace(operation).c_str());
+            APASS_LOG_ERROR_F(
+                Elements::Operation,
+                "%s[%d]'s oOperand cannot be nullptr; Please check if the oOperand of %s[%d] is nullptr.%s",
+                operation.GetOpcodeStr().c_str(), operation.GetOpMagic(), operation.GetOpcodeStr().c_str(),
+                operation.GetOpMagic(), GetFormatBacktrace(operation).c_str());
             return FAILED;
         }
         bool isFirst = true;
         auto iOperand = operation.iOperand[0];
         auto consumers = oOperand->GetConsumers(); // copy consumers to avoid erase while iteration
-        for (auto &consumer : consumers) {
+        for (auto& consumer : consumers) {
             if (consumer == nullptr) {
-                APASS_LOG_ERROR_F(Elements::Tensor,
-                "OP_GATHER_IN_L1's consumer cannot be nullptr; Please check if the output of OP_GATHER_IN_L1[%d]'s consumer is nullptr.", oOperand->GetMagic());
+                APASS_LOG_ERROR_F(
+                    Elements::Tensor,
+                    "OP_GATHER_IN_L1's consumer cannot be nullptr; Please check if the output of OP_GATHER_IN_L1[%d]'s "
+                    "consumer is nullptr.",
+                    oOperand->GetMagic());
                 return FAILED;
             }
             if (consumer->GetOpcode() == Opcode::OP_GATHER_IN_L1) {
-                APASS_LOG_ERROR_F(Elements::Tensor,
-                "OP_GATHER_IN_L1's consumer cannot be OP_GATHER_IN_L1; Please check if the type output of OP_GATHER_IN_L1[%d]'s consumer is OP_GATHER_IN_L1.",
-                oOperand->GetMagic());
+                APASS_LOG_ERROR_F(
+                    Elements::Tensor,
+                    "OP_GATHER_IN_L1's consumer cannot be OP_GATHER_IN_L1; Please check if the type output of "
+                    "OP_GATHER_IN_L1[%d]'s consumer is OP_GATHER_IN_L1.",
+                    oOperand->GetMagic());
                 return FAILED;
             }
             if (isFirst) {
@@ -63,38 +92,45 @@ Status DuplicateOp::ProcessGatherIn(Function &function, Operation &operation) co
             }
             auto dst = oOperand->Clone(function, true);
             if (dst == nullptr) {
-                APASS_LOG_ERROR_F(Elements::Tensor,
-                "Clone OP_GATHER_IN_L1's oOperand[%d] failed; Please check if dst is nullptr.", oOperand->GetMagic());
+                APASS_LOG_ERROR_F(
+                    Elements::Tensor, "Clone OP_GATHER_IN_L1's oOperand[%d] failed; Please check if dst is nullptr.",
+                    oOperand->GetMagic());
                 return FAILED;
             }
             consumer->ReplaceInput(dst, oOperand);
-            auto &newOp = function.AddRawOperation(Opcode::OP_GATHER_IN_L1, operation.GetIOperands(), {dst});
+            auto& newOp = function.AddRawOperation(Opcode::OP_GATHER_IN_L1, operation.GetIOperands(), {dst}, true, operation.GetLocation());
+            newOp.SetScopeInfo(operation.GetScopeInfo());
             newOp.SetAttribute(OpAttributeKey::startOffset, operation.GetIntAttribute(OpAttributeKey::startOffset));
+            newOps.push_back(&newOp);
         }
     }
     return SUCCESS;
 }
 
-Status DuplicateOp::ProcessView(Function &function, Operation &operation) const {
-    auto viewAttr = dynamic_cast<ViewOpAttribute *>(operation.GetOpAttribute().get());
+Status DuplicateOp::ProcessView(Function& function, Operation& operation, std::vector<Operation*>& newOps) const
+{
+    auto viewAttr = dynamic_cast<ViewOpAttribute*>(operation.GetOpAttribute().get());
     if (viewAttr != nullptr &&
         (viewAttr->GetTo() == MEM_L1 || viewAttr->GetTo() == MEM_BT || viewAttr->GetTo() == MEM_FIX_QUANT_PRE)) {
         return SUCCESS;
     }
     auto iOperand = operation.iOperand[0];
-    for (const auto &oOperand : operation.oOperand) {
+    for (const auto& oOperand : operation.oOperand) {
         if (oOperand == nullptr) {
-            APASS_LOG_ERROR_F(Elements::Operation, "Null output operand detected while iterating over the output operands of the operation [%d].%s",
-            operation.opmagic, GetFormatBacktrace(operation).c_str());
+            APASS_LOG_ERROR_F(
+                Elements::Operation, "Null output operand detected while iterating over the output operands of the operation [%d].%s",
+                operation.opmagic, GetFormatBacktrace(operation).c_str());
             return FAILED;
         }
         if (oOperand->GetConsumers().size() == 1) {
             continue;
         }
         auto consumers = oOperand->GetConsumers();
-        for (auto &consumer : consumers) {
+        for (auto& consumer : consumers) {
             if (consumer == nullptr) {
-                APASS_LOG_ERROR_F(Elements::Tensor, "Null consumer detected while iterating over the consumers of the output operand [%d].", oOperand->magic);
+                APASS_LOG_ERROR_F(
+                    Elements::Tensor, "Null consumer detected while iterating over the consumers of the output operand [%d].",
+                    oOperand->magic);
                 return FAILED;
             }
             if (consumer->GetOpcode() == Opcode::OP_VIEW) {
@@ -106,8 +142,9 @@ Status DuplicateOp::ProcessView(Function &function, Operation &operation) const 
                 return FAILED;
             }
             consumer->ReplaceInput(dst, oOperand);
-            auto &newOp = function.AddRawOperation(Opcode::OP_VIEW, {iOperand}, {dst});
-            auto oriViewAttr = dynamic_cast<ViewOpAttribute *>(operation.GetOpAttribute().get());
+            auto& newOp = function.AddRawOperation(Opcode::OP_VIEW, {iOperand}, {dst}, true, operation.GetLocation());
+            newOp.SetScopeInfo(operation.GetScopeInfo());
+            auto oriViewAttr = dynamic_cast<ViewOpAttribute*>(operation.GetOpAttribute().get());
             if (oriViewAttr != nullptr) {
                 auto newOffset = oriViewAttr->GetFromOffset();
                 auto newDynOffset = oriViewAttr->GetFromDynOffset();
@@ -115,24 +152,26 @@ Status DuplicateOp::ProcessView(Function &function, Operation &operation) const 
                 auto newViewAttr = std::make_shared<ViewOpAttribute>(newOffset, newDynOffset, newDynValidShape);
                 newOp.SetOpAttribute(newViewAttr);
             }
+            newOps.push_back(&newOp);
         }
     }
     return SUCCESS;
 }
 
-Status DuplicateOp::ProcessOp(Function &function, Operation &operation) const {
+Status DuplicateOp::ProcessOp(Function& function, Operation& operation, std::vector<Operation*>& newOps) const
+{
     auto opcode = operation.GetOpcode();
     if (opcode != Opcode::OP_GATHER_IN_L1 && opcode != Opcode::OP_VIEW) {
         return SUCCESS;
     }
     if (opcode == Opcode::OP_GATHER_IN_L1) {
-        if (ProcessGatherIn(function, operation) != SUCCESS) {
+        if (ProcessGatherIn(function, operation, newOps) != SUCCESS) {
             APASS_LOG_ERROR_F(Elements::Operation, "ProcessGatherIn failed.%s", GetFormatBacktrace(operation).c_str());
             return FAILED;
         }
     }
     if (opcode == Opcode::OP_VIEW) {
-        if (ProcessView(function, operation) != SUCCESS) {
+        if (ProcessView(function, operation, newOps) != SUCCESS) {
             APASS_LOG_ERROR_F(Elements::Operation, "ProcessView failed.%s", GetFormatBacktrace(operation).c_str());
             return FAILED;
         }
@@ -140,26 +179,27 @@ Status DuplicateOp::ProcessOp(Function &function, Operation &operation) const {
     return SUCCESS;
 }
 
-Status DuplicateOp::Process(Function &function) const {
-    std::stack<Operation *> stack;
-    std::unordered_set<Operation *> visited;
-    for (const auto &outcast : function.GetOutcast()) {
+Status DuplicateOp::Process(Function& function, std::vector<Operation*>& newOps) const
+{
+    std::stack<Operation*> stack;
+    std::unordered_set<Operation*> visited;
+    for (const auto& outcast : function.GetOutcast()) {
         for (auto op : outcast->GetProducers()) {
             stack.push(op);
         }
         while (!stack.empty()) {
-            Operation *CurrentOp = stack.top();
+            Operation* CurrentOp = stack.top();
             stack.pop();
             if (visited.find(CurrentOp) != visited.end()) {
                 continue;
             }
             visited.insert(CurrentOp);
-            if (ProcessOp(function, *CurrentOp) != SUCCESS) {
+            if (ProcessOp(function, *CurrentOp, newOps) != SUCCESS) {
                 APASS_LOG_ERROR_F(Elements::Operation, "ProcessOp failed.");
                 return FAILED;
             }
-            for (auto &iOperand : CurrentOp->iOperand) {
-                for (auto &producer : iOperand->GetProducers()) {
+            for (auto& iOperand : CurrentOp->iOperand) {
+                for (auto& producer : iOperand->GetProducers()) {
                     stack.push(producer);
                 }
             }

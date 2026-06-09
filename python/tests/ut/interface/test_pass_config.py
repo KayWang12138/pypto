@@ -35,27 +35,19 @@ def test_pass_config():
     # reset
     pypto.set_pass_config("PVC2_OOO", "ExpandFunction", pypto.PassConfigKey.KEY_DUMP_GRAPH, False)
 
-    with pytest.raises(TypeError, match=r"Expected boolean type, but received int"):
+    with pytest.raises(pypto.error.PassError, match=r"Expected boolean type, but received int"):
         pypto.get_pass_default_config(pypto.PassConfigKey.KEY_DUMP_GRAPH, -2)
 
 
 def test_pass_option():
     test_params = {
-        "pg_skip_partition": True,
-        "pg_upper_bound": 2,
-        "pg_lower_bound": 3,
-        "pg_parallel_lower_bound": 4,
-        "sg_set_scope": 5,
-        "mg_vec_parallel_lb": 6,
-        "vec_nbuffer_mode": 2,
+        "sg_set_scope": (5, False, False),
         "vec_nbuffer_setting": {1: 2},
-        "cube_l1_reuse_mode": 6,
-        "cube_l1_reuse_setting": {2: 3},
-        "cube_nbuffer_mode": 2,
-        "cube_nbuffer_setting": {-1: 2},
-        "mg_copyin_upper_bound": 7
+        "cube_l1_reuse_setting": {-1: 6, 2: 3},
+        "cube_nbuffer_setting": {-1: 2}
     }
     pypto.set_pass_options(**test_params)
     option = pypto.get_pass_options()
+    assert len(option) == len(test_params)
     for key, expect_valuie in test_params.items():
         assert option[key] == expect_valuie

@@ -11,8 +11,7 @@
 
 ## 代码结构
 
-- **`ffn_module_impl.py`**: FFN 模块的核心实现。
-- **`ffn_module.py`**: 测试脚本，包含多个测试用例和示例用法。
+- **`ffn_module.py`**: FFN 模块的核心实现与测试脚本，包含多个测试用例和示例用法。
 
 ## 运行方法
 
@@ -20,7 +19,11 @@
 
 ```bash
 # 配置 CANN 环境变量
-source /usr/local/Ascend/ascend-toolkit/latest/bin/setenv.bash
+# 安装完成后请配置环境变量，请用户根据set_env.sh的实际路径执行如下命令。
+# 上述环境变量配置只在当前窗口生效，用户可以按需将以上命令写入环境变量配置文件（如.bashrc文件）。
+
+# 默认路径安装，以root用户为例（非root用户，将/usr/local替换为${HOME}）
+source /usr/local/Ascend/ascend-toolkit/set_env.sh
 
 # 设置设备 ID
 export TILE_FWK_DEVICE_ID=0
@@ -42,7 +45,7 @@ FFN 模块实现了标准的 Transformer 前馈网络逻辑：
 
 ### 标准 FFN (GELU/ReLU)
 ```
-Input [B, H] 
+Input [B, H]
   → Gate Projection [B, H] @ [H, I] → [B, I]
   → Activation (GELU/ReLU)
   → Down Projection [B, I] @ [I, H] → [B, H]

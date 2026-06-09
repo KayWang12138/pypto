@@ -14,6 +14,7 @@ from typing import Union
 from .. import pypto_impl
 from .._element import Element
 from .._op_wrapper import op_wrapper
+from ..error import PyptoError
 from ..tensor import Tensor
 
 
@@ -117,7 +118,7 @@ def maximum(
     if not isinstance(input, pypto_impl.Tensor) and not isinstance(
         other, pypto_impl.Tensor
     ):
-        raise TypeError("one of `input` and `other` should be `Tensor`")
+        raise PyptoError(0xF00001, TypeError("one of `input` and `other` should be `Tensor`"))
 
     if not isinstance(input, pypto_impl.Tensor) and isinstance(other, pypto_impl.Tensor):
         input, other = other, input
@@ -158,7 +159,7 @@ def minimum(
     if not isinstance(input, pypto_impl.Tensor) and not isinstance(
         other, pypto_impl.Tensor
     ):
-        raise TypeError("one of `input` and `other` should be `Tensor`")
+        raise PyptoError(0xF00001, TypeError("one of `input` and `other` should be `Tensor`"))
 
     if not isinstance(input, pypto_impl.Tensor) and isinstance(other, pypto_impl.Tensor):
         input, other = other, input
@@ -199,3 +200,99 @@ def sum(input: Tensor, dim: int, keepdim: bool = False) -> Tensor:
 
     """
     return pypto_impl.Sum(input, dim, keepdim)
+
+
+@op_wrapper
+def prod(self: Tensor, dim: int, keepdim: bool = False) -> Tensor:
+    """Returns the prod value of each slice of the input tensor in the given dimension dim.
+
+    Parameters
+    ----------
+    self : Tensor
+        The input tensor.
+    dim : int
+        The dimension to reduce.
+    keepdim : bool, optional
+        whether the output tensor has dim retained or not. Default: False.
+
+    Returns
+    -------
+    Tensor
+        If keepdim is True, the return tensor is of the same size as input except in the dimension dim where it
+        is of size 1.
+        Otherwise, dim is squeezed, resulting in the return tensor having 1 fewer dimension.
+
+    Examples
+    --------
+    x = pypto.tensor([2, 3], pypto.DT_FP32)
+    y = pypto.prod(x, -1, True)
+
+    Input x:[[1.0 2.0 3.0],
+             [1.0 2.0 3.0]]
+    Output y:[[6.0],
+              [6.0]]
+
+    """
+    return pypto_impl.Prod(self, dim, keepdim)
+
+
+@op_wrapper
+def argmax(input: Tensor, dim: int = -1, keepdim: bool = False) -> Tensor:
+    """
+    Returns the index of the maximum value in a tensor along a given dimension.
+
+    Parameters
+    ----------
+    input : Tensor
+        The input tensor.
+    dim : int, optional
+        The dimension along which to find the maximum value. Default is -1 (last dimension).
+    keepdim : bool, optional
+        Whether the output tensor has dim retained. Default is False.
+
+    Returns
+    -------
+    Tensor
+        A new tensor containing the indices of the maximum values.
+
+    Examples
+    --------
+    x = pypto.tensor([[1, 3, 2], [4, 1, 5]], pypto.DT_FP32)
+    y = pypto.argmax(x, dim=1)
+
+    Input x:  [[1.0, 3.0, 2.0],
+              [4.0, 1.0, 5.0]]
+    Output y: [1, 2]
+    """
+    return pypto_impl.ArgMax(input, dim, keepdim)
+
+
+@op_wrapper
+def argmin(input: Tensor, dim: int = -1, keepdim: bool = False) -> Tensor:
+    """
+    Returns the index of the minimum value in a tensor along a given dimension.
+
+    Parameters
+    ----------
+    input : Tensor
+        The input tensor.
+    dim : int, optional
+        The dimension along which to find the minimum value. Default is -1 (last dimension).
+    keepdim : bool, optional
+        Whether the output tensor has dim retained. Default is False.
+
+    Returns
+    -------
+    Tensor
+        A new tensor containing the indices of the minimum values.
+
+    Examples
+    --------
+    x = pypto.tensor([[1, 3, 2], [4, 1, 5]], pypto.DT_FP32)
+    y = pypto.argmin(x, dim=1)
+
+    Input x:  [[1.0, 3.0, 2.0],
+              [4.0, 1.0, 5.0]]
+    Output y: [0, 1]
+    """
+    return pypto_impl.ArgMin(input, dim, keepdim)

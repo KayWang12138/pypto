@@ -18,46 +18,24 @@
 #include "infer_dyn_shape.h"
 #include "passes/pass_check/infer_dyn_shape_checker.h"
 #include "passes/pass_log/pass_log.h"
+#include "passes/pass_utils/infer_shape_utils.h"
 
 #define MODULE_NAME "InferDynShape"
 
 namespace npu {
 namespace tile_fwk {
-Status InferDynShape::PostCheck(Function &function) {
+Status InferDynShape::PostCheck(Function& function)
+{
     InferDynShapeChecker checker;
     return checker.DoPostCheck(function);
 }
 
-Status InferDynShape::InferShape(Function& function){
-    size_t i = 0U;
-    std::map<int, size_t> opMagic2Idx;
-    std::vector<Operation*> opList = function.Operations().DuplicatedOpList();
-    for (const auto op : opList) {
-        opMagic2Idx[op->GetOpMagic()] = i;
-        i++;
-    }
-    std::vector<std::vector<size_t>> opInGraph(opList.size());
-    std::vector<std::vector<size_t>> opOutGraph(opList.size());
-    for (size_t opIdx = 0; opIdx < opList.size(); opIdx++) {
-        const auto& op = opList[opIdx];
-        for (const auto producer : op->ProducerOpsOrdered()) {
-            opInGraph[opMagic2Idx[op->GetOpMagic()]].push_back(opMagic2Idx[producer->GetOpMagic()]);
-        }
-        for (const auto consumer : op->ConsumerOpsOrdered()) {
-            opOutGraph[opMagic2Idx[op->GetOpMagic()]].push_back(opMagic2Idx[consumer->GetOpMagic()]);
-        }
-    }
-    bool isInferIndex = false;
-    TopoProgramUtils::TopoProgram(opList, opInGraph, opOutGraph, isInferIndex);
-    return SUCCESS;
-}
-
-Status InferDynShape::RunOnFunction(Function &function)
+Status InferDynShape::RunOnFunction(Function& function)
 {
     // 遍历每一个op，调用对应的infershape函数
     // 遍历顺序，按照入度解依赖
     APASS_LOG_INFO_F(Elements::Function, "===> Start InferDynShape.");
-    if (InferShape(function) != SUCCESS) {
+    if (InferShapeUtils::InferShape(function) != SUCCESS) {
         APASS_LOG_ERROR_F(Elements::Function, "InferShape failed; Please check the InferShape method.");
         return FAILED;
     }
@@ -65,5 +43,5 @@ Status InferDynShape::RunOnFunction(Function &function)
     APASS_LOG_INFO_F(Elements::Function, "===> End InferDynShape.");
     return SUCCESS;
 }
-} 
-} // namespace npu::tile_fwk
+} // namespace tile_fwk
+} // namespace npu

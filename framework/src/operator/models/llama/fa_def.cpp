@@ -21,7 +21,8 @@ static constexpr int NUM_64 = 64;
 static constexpr int NUM_128 = 128;
 
 Tensor FlashAttentionNew(
-    const Tensor &q, const Tensor &k, const Tensor &v, const Tensor &m, const Tensor &l, const AttentionDims &atDims) {
+    const Tensor& q, const Tensor& k, const Tensor& v, const Tensor& m, const Tensor& l, const AttentionDims& atDims)
+{
     (void)m;
     (void)l;
     int dim0 = q.GetShape()[0];
@@ -60,7 +61,7 @@ Tensor FlashAttentionNew(
                     std::vector<int64_t> liOffset = {(bIdx * n + nIdx) * s + s1Idx * singleM, 0};
                     std::vector<int64_t> miOffset = {(bIdx * n + nIdx) * s + s1Idx * singleM, 0};
                     // [128, 128], [128, 1024] => [128, 1024]
-                    auto sij = Matrix::Matmul<false, true>(DataType::DT_FP32, qi, kj);
+                    auto sij = Matrix::Matmul(DataType::DT_FP32, qi, kj, false, true);
 
                     auto tildaMij = Amax(sij, -1, true);
                     auto tsub = Sub(sij, tildaMij);
@@ -69,7 +70,7 @@ Tensor FlashAttentionNew(
                     auto tildaLij = Sum(tildaPij, -1, true);
 
                     if (!s2Idx) {
-                        auto oiTmp = Matrix::Matmul<false, false>(DataType::DT_FP32, tildaPijF16, vj);
+                        auto oiTmp = Matrix::Matmul(DataType::DT_FP32, tildaPijF16, vj, false, false);
                         if (s2Loop == 1) {
                             auto liExpand = Reciprocal(tildaLij);
                             lastOi[oiOffset] = Mul(oiTmp, liExpand);
@@ -98,7 +99,7 @@ Tensor FlashAttentionNew(
                     auto liNew = Add(t6, t5);           // [128, 1], [128, 1] => [128, 1]
 
                     auto q3 = Mul(oi, t2);
-                    auto q1 = Matrix::Matmul<false, false>(DataType::DT_FP32, tildaPijF16, vj);
+                    auto q1 = Matrix::Matmul(DataType::DT_FP32, tildaPijF16, vj, false, false);
                     auto q2 = Mul(q1, t4);
                     auto oiTmp = Add(q3, q2); // [128, 128]
                     if (s2Idx == s2Loop - 1) {
@@ -114,7 +115,7 @@ Tensor FlashAttentionNew(
     }
 
     std::vector<std::pair<Tensor, std::vector<int64_t>>> aggregation;
-    for (auto &[offset, tensor] : lastOi) {
+    for (auto& [offset, tensor] : lastOi) {
         aggregation.emplace_back(tensor, offset);
     }
 

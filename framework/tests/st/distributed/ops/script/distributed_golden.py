@@ -11,14 +11,22 @@
 
 import dataclasses
 import logging
-import pathlib
+import os
+import sys
+import json
+from pathlib import Path
 from typing import List, Tuple
 
 import math
 import numpy as np
 import torch
 
+root_path: Path = Path(Path(__file__).parent, "../../../../../../").resolve()
+scripts_path: Path = Path(root_path, 'cmake/scripts')
+if str(scripts_path) not in sys.path:
+    sys.path.append(str(scripts_path))
 from golden_register import GoldenRegister
+
 
 np.random.seed(0)
 torch.manual_seed(0)
@@ -49,10 +57,27 @@ TORCH_DTYPE_TO_NUM = {
 
 
 @dataclasses.dataclass(frozen=True)
+class ValueRange:
+    min_val: int
+    max_val: int
+
+
+@dataclasses.dataclass(frozen=True)
 class BaseCase:
     dtype: torch.dtype
     shape: Tuple[int, ...]
-    rank_size: int
+    world_size: int
+    valid_shape: Tuple[int, ...]
+    tile_shape: Tuple[int, ...]
+    value_range: ValueRange
+
+
+@dataclasses.dataclass(frozen=True)
+class GenTensorCase:
+    dtype: torch.dtype
+    shape: Tuple[int, ...]
+    world_size: int
+    value_range: ValueRange
 
 
 @dataclasses.dataclass
@@ -63,7 +88,8 @@ class MoeCase:
     shared_expert_num: int
     routed_expert_num: int
     top_k: int
-    rank_size: int
+    world_size: int
+    value_range: ValueRange
 
     def __post_init__(self):
         if self.top_k > self.routed_expert_num:
@@ -79,7 +105,37 @@ class AllGatherAttnPostReducescatterCase:
     kv_lora_rank: int
     value_head_dim: int
     output_hidden_size: int
-    rank_size: int
+    world_size: int
+    value_range: ValueRange
+
+
+@dataclasses.dataclass
+class SendToRoutedExpertsArgs:
+    case: MoeCase
+    x_list: List[torch.Tensor]
+    routed_expert_ids_list: List[torch.Tensor]
+    y_list: List[List[List[torch.Tensor]]]
+    combine_info_list: List[List[List[torch.Tensor]]]
+
+
+@dataclasses.dataclass
+class GetRoutedOutAndSaveArgs:
+    case: MoeCase
+    expand_x_list: List[torch.Tensor]
+    assist_info_for_combine: List[torch.Tensor]
+    expert_scales_list: List[torch.Tensor]
+    recv_counts_list: List[torch.Tensor]
+    save_dir: Path
+
+
+@dataclasses.dataclass
+class DistributedOpAndSaveArgs:
+    inputs: List[torch.Tensor]
+    world_size: int
+    shape: Tuple[int, ...]
+    valid_shape: Tuple[int, ...]
+    save_dir: Path
+    filename_prefix: str
 
 
 def get_dtype(dtype_str: str) -> torch.dtype:
@@ -94,171 +150,169 @@ def get_dtype_num(dtype: torch.dtype) -> int:
     return TORCH_DTYPE_TO_NUM[dtype]
 
 
-def parse_base_case(case_name: str, dim: int) -> BaseCase:
-    parts = case_name.split('_')
-    if len(parts) < dim + 2:
-        raise ValueError(f'case_name {case_name} format is error.')
-    rank_size = int(parts[-1])
-    shape = tuple(map(int, parts[-(dim + 1):-1]))
-    dtype = get_dtype(parts[-(dim + 2)])
-
-    case = BaseCase(dtype=dtype, shape=shape, rank_size=rank_size)
-    logging.info(f'Case {case_name}, case info: {case}')
+def parse_base_case(config: dict) -> BaseCase:
+    params = config['params']
+    world_size = params['world_size']
+    input_tensor = config['input_tensors'][0]
+    shape = tuple(input_tensor['shape'])
+    valid_shape = tuple(config['view_shape'])
+    dtype = get_dtype(input_tensor['dtype'])
+    min_val, max_val = input_tensor['data_range']['min'], input_tensor['data_range']['max']
+    tile_shape = tuple(config['tile_shape'])
+    value_range = ValueRange(min_val=min_val, max_val=max_val)
+    case = BaseCase(dtype=dtype, shape=shape, valid_shape=valid_shape, world_size=world_size, tile_shape=tile_shape, 
+        value_range=value_range)
     return case
 
 
-def validate_rank_size(rank_size: int) -> None:
-    if rank_size <= 1:
-        raise ValueError(f'rank_size must be greater than 1, got {rank_size}')
+def validate_world_size(world_size: int) -> None:
+    if world_size <= 1:
+        raise ValueError(f'world_size must be greater than 1, got {world_size}')
 
 
-def save_params(params: Tuple[int, ...], save_dir: pathlib.Path) -> None:
+def save_params(params: Tuple[int, ...], save_dir: Path) -> None:
     params_tensor = torch.tensor(params, dtype=torch.int64)
     params_ndarray = params_tensor.numpy()
     params_ndarray.tofile(save_dir / 'params.bin')
 
 
-def save_tensor(tensor: torch.Tensor, save_path: pathlib.Path) -> None:
+def save_tensor(tensor: torch.Tensor, save_path: Path) -> None:
     save_path.parent.mkdir(parents=True, exist_ok=True)
     if tensor.dtype == torch.bfloat16:
         tensor = tensor.view(torch.int16)  # 仅改变 tensor 的 dtype 解释方式，内存布局不变
     tensor.numpy().tofile(save_path)
 
 
-def save_tensor_list(tensors: List[torch.Tensor], save_dir: pathlib.Path, filename_prefix: str) -> None:
+def save_tensor_list(tensors: List[torch.Tensor], save_dir: Path, filename_prefix: str) -> None:
     save_dir.mkdir(parents=True, exist_ok=True)
     for rank, tensor in enumerate(tensors):
         save_tensor(tensor, save_dir / f'{filename_prefix}_rank_{rank}.bin')
 
 
-def generate_random_tensor(shape: Tuple[int, ...], dtype: torch.dtype) -> torch.Tensor:
-    if dtype == torch.int32 or dtype == torch.int16 or dtype == torch.int8:
-        return torch.randint(-10, 10, shape, dtype=dtype)
+def generate_random_tensor(
+    shape: Tuple[int, ...], dtype: torch.dtype, value_range: ValueRange
+) -> torch.Tensor:
+    spec_value_map = {
+        'nan': np.nan,
+        'inf': np.inf,
+        '-inf': -np.inf
+    }
+    if value_range.min_val in spec_value_map:
+        return torch.full(
+            shape,
+            spec_value_map[value_range.min_val],
+            dtype=dtype)
+    if dtype in (torch.int32, torch.int16, torch.int8):
+        return torch.randint(
+            low=int(value_range.min_val),
+            high=int(value_range.max_val),
+            size=shape,
+            dtype=dtype
+        )
     else:
         return torch.randn(shape, dtype=dtype)
 
 
-def generate_random_tensor_list(shape: Tuple[int, ...], dtype: torch.dtype, rank_size: int) -> List[torch.Tensor]:
-    return [generate_random_tensor(shape, dtype) for rank in range(rank_size)]
+def generate_random_tensor_list(gen_tensor_case: GenTensorCase) -> List[torch.Tensor]:
+    return [generate_random_tensor(
+        gen_tensor_case.shape, gen_tensor_case.dtype, gen_tensor_case.value_range
+    ) for _ in range(gen_tensor_case.world_size)]
 
 
 def generate_random_tensor_list_and_save(
-    shape: Tuple[int, ...], dtype: torch.dtype, rank_size: int, save_dir: pathlib.Path, filename_prefix: str,
+    gen_tensor_case: GenTensorCase, save_dir: Path, filename_prefix: str,
 ) -> List[torch.Tensor]:
-    tensor_list = generate_random_tensor_list(shape, dtype, rank_size)
+    tensor_list = generate_random_tensor_list(gen_tensor_case)
     save_tensor_list(tensor_list, save_dir, filename_prefix)
     return tensor_list
 
 
-def all_gather_and_save(
-    inputs: List[torch.Tensor], rank_size: int, save_dir: pathlib.Path, filename_prefix: str,
-) -> torch.Tensor:
-    gathered_output = torch.cat(inputs, dim=0)
-    outputs = [gathered_output] * rank_size
-    save_tensor_list(outputs, save_dir, filename_prefix)
+def load_test_cases_from_json(json_file: str) -> list:
+    with open(json_file, 'r') as data_file:
+        json_data = json.load(data_file)
+    if json_data is None:
+        raise ValueError(f'Json file {json_file} is invalid.')
+    file_name = json_file.stem
+    if 'test_cases' in json_data:
+        test_cases = json_data['test_cases']
+    else:
+        test_cases = [json_data]
+    for tc in test_cases:
+        tc['file_name'] = file_name
+    test_cases.sort(key=lambda x: x['case_index'])
+    return test_cases
+
+
+def all_gather_and_save(args: DistributedOpAndSaveArgs) -> torch.Tensor:
+    row, col = args.shape
+    valid_row, valid_col = args.valid_shape
+    dtype = args.inputs[0].dtype
+    valid_inputs = [inp[:valid_row, :valid_col] for inp in args.inputs]
+    gathered_valid = torch.cat(valid_inputs, dim=0)
+    output = torch.full((row * args.world_size, col), 0, dtype=dtype)
+    output[:valid_row * args.world_size, :valid_col] = gathered_valid
+    outputs = [output] * args.world_size
+    save_tensor_list(outputs, args.save_dir, args.filename_prefix)
     return outputs
 
 
 def reduce_scatter_and_save(
-    inputs: List[torch.Tensor], row: int, rank_size: int, save_dir: pathlib.Path, filename_prefix: str,
+    inputs: List[torch.Tensor], row: int, world_size: int, save_dir: Path, filename_prefix: str,
 ) -> torch.Tensor:
     stacked_output = torch.stack(inputs, dim=0)
     reduced_output = torch.sum(stacked_output, dim=0).to(inputs[0].dtype)
-    row_per_rank = row // rank_size
-    outputs = [reduced_output[rank * row_per_rank: (rank + 1) * row_per_rank] for rank in range(rank_size)]
+    row_per_rank = row // world_size
+    outputs = [reduced_output[rank * row_per_rank: (rank + 1) * row_per_rank] for rank in range(world_size)]
     save_tensor_list(outputs, save_dir, filename_prefix)
     return outputs
 
 
-def all_reduce_and_save(
-    inputs: List[torch.Tensor], rank_size: int, save_dir: pathlib.Path, filename_prefix: str,
-) -> torch.Tensor:
-    stacked_output = torch.stack(inputs, dim=0)
-    reduced_output = torch.sum(stacked_output, dim=0).to(inputs[0].dtype)
-    outputs = [reduced_output for _ in range(rank_size)]
-    save_tensor_list(outputs, save_dir, filename_prefix)
+def all_reduce_and_save(args: DistributedOpAndSaveArgs) -> torch.Tensor:
+    row, col = args.shape
+    valid_row, valid_col = args.valid_shape
+    dtype = args.inputs[0].dtype
+    valid_parts = [inp[:valid_row, :valid_col] for inp in args.inputs]
+    reduced_valid = torch.sum(torch.stack(valid_parts, dim=0), dim=0).to(dtype)
+    reduced_output = torch.zeros((row, col), dtype=dtype, device=args.inputs[0].device)
+    reduced_output[:valid_row, :valid_col] = reduced_valid
+    outputs = [reduced_output for _ in range(args.world_size)]
+    save_tensor_list(outputs, args.save_dir, args.filename_prefix)
     return outputs
 
 
-def generate_all_gather_golden(case_name: str, save_dir: pathlib.Path):
-    dim = 2
-    case = parse_base_case(case_name, dim)
-    row, col = case.shape
-    rank_size, dtype = case.rank_size, case.dtype
-
-    validate_rank_size(rank_size)
-
-    params = (row, col, get_dtype_num(dtype))
-    save_params(params, save_dir)
-
-    inputs = generate_random_tensor_list_and_save((row, col), dtype, rank_size, save_dir, 'input')
-
-    all_gather_and_save(inputs, rank_size, save_dir, 'output')
-
-
-def generate_reduce_scatter_golden(case_name: str, save_dir: pathlib.Path):
-    dim = 2
-    case = parse_base_case(case_name, dim)
-    row, col = case.shape
-    rank_size, dtype = case.rank_size, case.dtype
-
-    validate_rank_size(rank_size)
-    if row % rank_size != 0:
-        raise ValueError(
-            'The first dimension of the input tensor must be an integer multiple of the rank size, '
-            f'got row={row}, rank_size={rank_size}'
-        )
-    params = (row, col, get_dtype_num(dtype))
-    save_params(params, save_dir)
-    inputs = generate_random_tensor_list_and_save((row, col), dtype, rank_size, save_dir, 'input')
-    reduce_scatter_and_save(inputs, row, rank_size, save_dir, 'output')
+def parse_moe_case(config: dict) -> MoeCase:
+    params = config['params']
+    input_tensor = config['input_tensors'][0]
+    dtype = get_dtype(input_tensor['dtype'])
+    batch_size = params['batch_size']
+    hidden_size = params['hidden_size']
+    shared_expert_num = params['shared_expert_num']
+    routed_expert_num = params['routed_expert_num']
+    top_k = params['top_k']
+    world_size = params['world_size']
+    min_val, max_val = input_tensor['data_range']['min'], input_tensor['data_range']['max']
+    value_range = ValueRange(min_val=min_val, max_val=max_val)
+    case = MoeCase(dtype=dtype, batch_size=batch_size, hidden_size=hidden_size, shared_expert_num=shared_expert_num,
+        routed_expert_num=routed_expert_num, top_k=top_k, world_size=world_size, value_range=value_range)
+    return case
 
 
-def generate_all_reduce_golden(case_name: str, save_dir: pathlib.Path):
-    dim = 2
-    case = parse_base_case(case_name, dim)
-    row, col = case.shape
-    rank_size, dtype = case.rank_size, case.dtype
-
-    validate_rank_size(rank_size)
-    if row == 0:
-        raise ValueError(
-            'The first dimension of the input tensor must not be zero, '
-            f'got row={row}, rank_size={rank_size}'
-        )
-
-    params = (row, col, get_dtype_num(dtype))
-    save_params(params, save_dir)
-    inputs = generate_random_tensor_list_and_save((row, col), dtype, rank_size, save_dir, 'input')
-    all_reduce_and_save(inputs, rank_size, save_dir, 'output')
-
-
-def parse_moe_case(case_name: str) -> MoeCase:
-    parts = case_name.split('_')
-    return MoeCase(
-        dtype=get_dtype(parts[-7]),
-        batch_size=int(parts[-6]),
-        hidden_size=int(parts[-5]),
-        shared_expert_num=int(parts[-4]),
-        routed_expert_num=int(parts[-3]),
-        top_k=int(parts[-2]),
-        rank_size=int(parts[-1]),
-    )
-
-
-def generate_moe_dispatch_input_data(case: MoeCase, save_dir: pathlib.Path) \
+def generate_moe_dispatch_input_data(case: MoeCase, save_dir: Path) \
     -> Tuple[List[torch.Tensor], List[torch.Tensor]]:
-    x_list = generate_random_tensor_list_and_save(
-        (case.batch_size, case.hidden_size), case.dtype, case.rank_size, save_dir, 'x',
+    gen_tensor_case = GenTensorCase(
+        dtype=case.dtype, shape=(case.batch_size, case.hidden_size),
+        world_size=case.world_size, value_range=case.value_range
     )
-
-    scores_list = generate_random_tensor_list(
-        (case.batch_size, case.routed_expert_num), torch.float32, case.rank_size,
+    x_list = generate_random_tensor_list_and_save(gen_tensor_case, save_dir, 'x',)
+    gen_tensor_case = GenTensorCase(
+        dtype=torch.float32, shape=(case.batch_size, case.routed_expert_num),
+        world_size=case.world_size, value_range=case.value_range
     )
+    scores_list = generate_random_tensor_list(gen_tensor_case)
     scores_list = [scores.sigmoid() for scores in scores_list]
 
     routed_expert_ids_list = []
-    for rank in range(case.rank_size):
+    for rank in range(case.world_size):
         scores = scores_list[rank]
         _, routed_expert_ids = torch.topk(scores, k=case.top_k)
 
@@ -291,7 +345,7 @@ def send_to_shared_experts(
     combine_info_list: List[List[List[torch.Tensor]]],
 ) -> None:
     expert_offset = 0
-    for rank_id in range(case.rank_size):
+    for rank_id in range(case.world_size):
         x = x_list[rank_id]
         target_shared_expert_rank_id = get_shared_expert_rank_id(case, rank_id)
         for token_id in range(case.batch_size):
@@ -305,7 +359,7 @@ def send_to_shared_experts(
 def get_routed_expert_capacity(case: MoeCase) -> int:
     if case.shared_expert_num > 0:
         return 1
-    return math.ceil(case.routed_expert_num / case.rank_size)
+    return math.ceil(case.routed_expert_num / case.world_size)
 
 
 def get_routed_expert_rank_id_and_expert_offset(case: MoeCase, expert_id: int) -> Tuple[int, int]:
@@ -315,14 +369,13 @@ def get_routed_expert_rank_id_and_expert_offset(case: MoeCase, expert_id: int) -
     return divmod(expert_id, routed_expert_capacity)
 
 
-def send_to_routed_experts(
-    case: MoeCase,
-    x_list: List[torch.Tensor],
-    routed_expert_ids_list: List[torch.Tensor],
-    y_list: List[List[List[torch.Tensor]]],
-    combine_info_list: List[List[List[torch.Tensor]]],
-) -> None:
-    for source_rank_id in range(case.rank_size):
+def send_to_routed_experts(args: SendToRoutedExpertsArgs) -> None:
+    case = args.case
+    x_list = args.x_list
+    routed_expert_ids_list = args.routed_expert_ids_list
+    y_list = args.y_list
+    combine_info_list = args.combine_info_list
+    for source_rank_id in range(case.world_size):
         x = x_list[source_rank_id]
         routed_expert_ids = routed_expert_ids_list[source_rank_id]
         for token_id in range(case.batch_size):
@@ -339,9 +392,9 @@ def send_to_routed_experts(
 
 def get_dispatch_output_row(case: MoeCase) -> int:
     if case.shared_expert_num > 0:
-        return case.batch_size * case.rank_size
+        return case.batch_size * case.world_size
     else:
-        max_send_token_num = case.batch_size * case.top_k * case.rank_size
+        max_send_token_num = case.batch_size * case.top_k * case.world_size
         max_receive_token_num = case.batch_size * case.routed_expert_num
         return min(max_send_token_num, max_receive_token_num)
 
@@ -350,13 +403,13 @@ def collect_and_save(
     case: MoeCase,
     y_list: List[List[List[torch.Tensor]]],
     combine_info_list: List[List[List[torch.Tensor]]],
-    save_dir: pathlib.Path,
+    save_dir: Path,
 ) -> None:
     row = get_dispatch_output_row(case)
     routed_expert_capacity = get_routed_expert_capacity(case)
-    for rank_id in range(case.rank_size):
+    for rank_id in range(case.world_size):
         fixed_shape_y = torch.zeros((row, case.hidden_size), dtype=case.dtype)
-        fixed_shape_combine_info = torch.full((row, 3), -1, dtype=torch.int32)
+        fixed_shape_combine_info = torch.zeros((row, 3), dtype=torch.int32)
         valid_count = torch.zeros([routed_expert_capacity], dtype=torch.int32)
         y_offset, combine_info_offset = 0, 0
         for expert_offset in range(routed_expert_capacity):
@@ -372,280 +425,398 @@ def collect_and_save(
         save_tensor(fixed_shape_y, save_dir / f'y_rank_{rank_id}.bin')
         save_tensor(fixed_shape_combine_info, save_dir / f'combine_info_rank_{rank_id}.bin')
         save_tensor(valid_count, save_dir / f'valid_count_rank_{rank_id}.bin')
+        recv_counts = torch.sum(valid_count).item()
+        recv_counts_tensor = torch.tensor(recv_counts, dtype=torch.int32)
+        save_tensor(recv_counts_tensor, save_dir / f'recv_counts_rank_{rank_id}.bin')
 
 
-def generate_moe_dispatch_case(case: MoeCase, save_dir: pathlib.Path) -> None:
+def generate_moe_dispatch_case(case: MoeCase, save_dir: Path) -> None:
     params = (case.batch_size, case.hidden_size, case.routed_expert_num, case.top_k, get_dtype_num(case.dtype))
     save_params(params, save_dir)
 
     x_list, routed_expert_ids_list = generate_moe_dispatch_input_data(case, save_dir)
 
     routed_expert_capacity = get_routed_expert_capacity(case)
-    y_list = [[[] for _ in range(routed_expert_capacity)] for _ in range(case.rank_size)]
-    combine_info_list = [[[] for _ in range(routed_expert_capacity)] for _ in range(case.rank_size)]
+    y_list = [[[] for _ in range(routed_expert_capacity)] for _ in range(case.world_size)]
+    combine_info_list = [[[] for _ in range(routed_expert_capacity)] for _ in range(case.world_size)]
     if case.shared_expert_num > 0:
         send_to_shared_experts(case, x_list, y_list, combine_info_list)
-    send_to_routed_experts(case, x_list, routed_expert_ids_list, y_list, combine_info_list)
+    args = SendToRoutedExpertsArgs(case=case, x_list=x_list, routed_expert_ids_list=routed_expert_ids_list,
+    y_list=y_list, combine_info_list=combine_info_list)
+    send_to_routed_experts(args)
     collect_and_save(case, y_list, combine_info_list, save_dir)
 
 
-def generate_moe_dispatch_golden(case_name: str, save_dir: pathlib.Path):
-    case = parse_moe_case(case_name)
-    generate_moe_dispatch_case(case, save_dir)
-
-
-def get_moe_combine_input_data(dispatch_save_dir: pathlib.Path, case: MoeCase) \
+def get_moe_distributed_combine_input_data(dispatch_save_dir: Path, case: MoeCase) \
     -> Tuple[List[torch.Tensor], List[torch.Tensor], List[torch.Tensor]]:
-    x_list = []
-    combine_info_list = []
-    scale_list = []
+    expand_x_list = []
+    assist_info_for_combine_list = []
+    expert_scales_list = []
+    recv_counts_list = []
     row = get_dispatch_output_row(case)
-    for rank in range(case.rank_size):
-        x = torch.from_numpy(np.fromfile(dispatch_save_dir / f'y_rank_{rank}.bin'))
-        x = x.view(dtype=case.dtype).view([row, case.hidden_size])
-        x_list.append(x)
+    for rank in range(case.world_size):
+        expand_x = torch.from_numpy(np.fromfile(dispatch_save_dir / f'y_rank_{rank}.bin'))
+        expand_x = expand_x.view(dtype=case.dtype).view([row, case.hidden_size])
+        expand_x_list.append(expand_x)
 
-        combine_info = torch.from_numpy(
+        assist_info_for_combine = torch.from_numpy(
             np.fromfile(dispatch_save_dir / f'combine_info_rank_{rank}.bin', dtype=np.int32),
         )
-        combine_info = combine_info.view([row, 3])
-        combine_info_list.append(combine_info)
+        assist_info_for_combine = assist_info_for_combine.view([row, 3])
+        assist_info_for_combine_list.append(assist_info_for_combine)
 
-        scale = torch.from_numpy(np.fromfile(dispatch_save_dir / f'scale_rank_{rank}.bin', dtype=np.float32))
-        scale = scale.view([case.batch_size, case.top_k, 1])
-        scale_list.append(scale)
+        expert_scales = torch.from_numpy(np.fromfile(dispatch_save_dir / f'scale_rank_{rank}.bin', dtype=np.float32))
+        expert_scales = expert_scales.view([case.batch_size, case.top_k, 1])
+        expert_scales_list.append(expert_scales)
 
-    return x_list, combine_info_list, scale_list
+        recvcounts = torch.from_numpy(np.fromfile(dispatch_save_dir / f'recv_counts_rank_{rank}.bin', dtype=np.int32))
+        recv_counts_list.append(recvcounts)
+    return expand_x_list, assist_info_for_combine_list, expert_scales_list, recv_counts_list
 
 
-def get_shared_y_and_save(
+def get_shared_out_and_save(
     case: MoeCase,
-    x_list: List[torch.Tensor],
-    combine_info_list: List[torch.Tensor],
-    save_dir: pathlib.Path,
+    expand_x_list: List[torch.Tensor],
+    assist_info_for_combine_list: List[torch.Tensor],
+    save_dir: Path,
 ) -> List[torch.Tensor]:
-    shared_y_list = []
-    for rank_id in range(case.rank_size):
+    shared_out_list = []
+    for rank_id in range(case.world_size):
         source_shared_expert_rank_id = get_shared_expert_rank_id(case, rank_id)
-        x = x_list[source_shared_expert_rank_id]
-        combine_info = combine_info_list[source_shared_expert_rank_id]
-        mask = combine_info[:, 0] == rank_id
-        shared_y = x[mask]
-        shared_y_list.append(shared_y)
-        save_tensor(shared_y, save_dir / f'share_y_rank_{rank_id}.bin')
-    return shared_y_list
+        expand_x = expand_x_list[source_shared_expert_rank_id]
+        assist_info_for_combine = assist_info_for_combine_list[source_shared_expert_rank_id]
+        mask = assist_info_for_combine[:, 0] == rank_id
+        shared_out = expand_x[mask]
+        shared_out_list.append(shared_out)
+        save_tensor(shared_out, save_dir / f'share_y_rank_{rank_id}.bin')
+    return shared_out_list
 
 
-def get_routed_y_and_save(
-    case: MoeCase,
-    x_list: List[torch.Tensor],
-    combine_info_list: List[torch.Tensor],
-    scale_list: List[torch.Tensor],
-    save_dir: pathlib.Path,
-) -> List[torch.Tensor]:
-    routed_y_list = [
+def get_routed_out_and_save(args: GetRoutedOutAndSaveArgs) -> List[torch.Tensor]:
+    case = args.case
+    expand_x_list = args.expand_x_list
+    assist_info_for_combine_list = args.assist_info_for_combine
+    expert_scales_list = args.expert_scales_list
+    recv_counts_list = args.recv_counts_list
+    save_dir = args.save_dir
+    routed_out_list = [
         torch.zeros([case.batch_size, case.top_k, case.hidden_size], dtype=case.dtype)
-        for _ in range(case.rank_size)
+        for _ in range(case.world_size)
     ]
-    for source_rank_id in range(case.shared_expert_num, case.rank_size):
-        x = x_list[source_rank_id]
-        combine_info = combine_info_list[source_rank_id]
-        for token, (target_rank_id, token_id, k_offset) in zip(x, combine_info):
-            if target_rank_id != -1:
-                routed_y_list[target_rank_id][token_id, k_offset] = token
-    for source_rank_id in range(case.rank_size):
-        routed_y = routed_y_list[source_rank_id]
-        save_tensor(routed_y, save_dir / f'moe_y_rank_{source_rank_id}.bin')
-        scale = scale_list[source_rank_id]
-        routed_y = routed_y.to(dtype=torch.float32)
-        routed_y = routed_y * scale
-        save_tensor(routed_y, save_dir / f'scaled_moe_y_rank_{source_rank_id}.bin')
-        routed_y_list[source_rank_id] = torch.sum(routed_y, dim=1)
-    return routed_y_list
+    for source_rank_id in range(case.shared_expert_num, case.world_size):
+        expand_x = expand_x_list[source_rank_id]
+        assist_info_for_combine = assist_info_for_combine_list[source_rank_id]
+        valid_row_shape = recv_counts_list[source_rank_id]
+        for i, (token, (target_rank_id, token_id, k_offset)) in enumerate(zip(expand_x, assist_info_for_combine)):
+            if i < valid_row_shape:
+                routed_out_list[target_rank_id][token_id, k_offset] = token
+    for source_rank_id in range(case.world_size):
+        routed_out = routed_out_list[source_rank_id]
+        save_tensor(routed_out, save_dir / f'moe_y_rank_{source_rank_id}.bin')
+        expert_scales = expert_scales_list[source_rank_id]
+        routed_out = routed_out.to(dtype=torch.float32)
+        routed_out = routed_out * expert_scales
+        save_tensor(routed_out, save_dir / f'scaled_moe_y_rank_{source_rank_id}.bin')
+        routed_out_list[source_rank_id] = torch.sum(routed_out, dim=1)
+    return routed_out_list
 
 
-def generate_combine_case(case: MoeCase, save_dir: pathlib.Path, dispatch_save_dir: pathlib.Path) -> None:
-    x_list, combine_info_list, scale_list = get_moe_combine_input_data(dispatch_save_dir, case)
+def generate_moe_distributed_combine_case(case: MoeCase, save_dir: Path, dispatch_save_dir: Path) \
+    -> None:
+    expand_x_list, assist_info_for_combine_list, expert_scales_list, recv_counts_list \
+        = get_moe_distributed_combine_input_data(dispatch_save_dir, case)
 
     if case.shared_expert_num > 0:
-        shared_y_list = get_shared_y_and_save(case, x_list, combine_info_list, save_dir)
-    routed_y_list = get_routed_y_and_save(case, x_list, combine_info_list, scale_list, save_dir)
+        shared_out_list = get_shared_out_and_save(case, expand_x_list, assist_info_for_combine_list, save_dir)
+    args = GetRoutedOutAndSaveArgs(case=case, expand_x_list=expand_x_list,
+        assist_info_for_combine=assist_info_for_combine_list,
+        expert_scales_list=expert_scales_list, recv_counts_list=recv_counts_list, save_dir=save_dir)
+    routed_out_list = get_routed_out_and_save(args)
 
-    for rank_id in range(case.rank_size):
-        routed_y = routed_y_list[rank_id]
-        y = routed_y.to(dtype=torch.float32)
+    for rank_id in range(case.world_size):
+        routed_out = routed_out_list[rank_id]
+        out = routed_out.to(dtype=torch.float32)
         if case.shared_expert_num > 0:
-            y += shared_y_list[rank_id]
-        save_tensor(y.to(dtype=case.dtype), save_dir / f'y_rank_{rank_id}.bin')
+            out += shared_out_list[rank_id]
+        save_tensor(out.to(dtype=case.dtype), save_dir / f'out_rank_{rank_id}.bin')
 
 
-def generate_moe_combine_golden(case_name: str, save_dir: pathlib.Path):
-    case = parse_moe_case(case_name)
+def generate_allgather_attn_post_reducescatter_case(config: dict) -> AllGatherAttnPostReducescatterCase:
+    params = config['params']
+    input_tensor = config['input_tensors'][0]
+    dtype = get_dtype(input_tensor['dtype'])
+    batch_size = params['batch_size']
+    seq_len = params['seq_len']
+    num_heads = params['num_heads']
+    kv_lora_rank = params['kv_lora_rank']
+    value_head_dim = params['value_head_dim']
+    output_hidden_size = params['output_hidden_size']
+    world_size = params['world_size']
+    min_val, max_val = input_tensor['data_range']['min'], input_tensor['data_range']['max']
+    value_range = ValueRange(min_val=min_val, max_val=max_val)
+    case = AllGatherAttnPostReducescatterCase(dtype=dtype, batch_size=batch_size, seq_len=seq_len,
+        num_heads=num_heads, kv_lora_rank=kv_lora_rank, value_head_dim=value_head_dim,
+        output_hidden_size=output_hidden_size, world_size=world_size, value_range=value_range)
+    return case
 
-    params = (case.batch_size, case.hidden_size, case.routed_expert_num, case.top_k, get_dtype_num(case.dtype))
-    save_params(params, save_dir)
 
-    dispatch_save_dir = save_dir / 'dispatch'
+def generate_all_gather_golden(config: dict, output: Path) -> bool:
+    case = parse_base_case(config)
+    validate_world_size(case.world_size)
+    params = (*case.shape, *case.valid_shape, get_dtype_num(case.dtype), *case.tile_shape)
+    save_params(params, output)
+    gen_tensor_case = GenTensorCase(
+        dtype=case.dtype, shape=case.shape, world_size=case.world_size, value_range=case.value_range
+    )
+    inputs = generate_random_tensor_list_and_save(gen_tensor_case, output, 'input')
+    all_gather_and_save(
+        DistributedOpAndSaveArgs(
+            inputs=inputs,
+            world_size=case.world_size,
+            shape=case.shape,
+            valid_shape=case.valid_shape,
+            save_dir=output,
+            filename_prefix='output'
+        )
+    )
+
+
+def generate_reduce_scatter_golden(config: dict, output: Path) -> bool:
+    case = parse_base_case(config)
+    validate_world_size(case.world_size)
+    row = case.shape[0]
+    if row % case.world_size != 0:
+        raise ValueError(
+            'The first dimension of the input tensor must be an integer multiple of the world size, '
+            f'got row={row}, world_size={case.world_size}'
+        )
+    params = (*case.shape, get_dtype_num(case.dtype), *case.tile_shape)
+    save_params(params, output)
+    gen_tensor_case = GenTensorCase(
+        dtype=case.dtype, shape=case.shape, world_size=case.world_size, value_range=case.value_range
+    )
+    inputs = generate_random_tensor_list_and_save(gen_tensor_case, output, 'input')
+    reduce_scatter_and_save(inputs, row, case.world_size, output, 'output')
+
+
+def generate_all_reduce_golden(config: dict, output: Path) -> bool:
+    case = parse_base_case(config)
+    validate_world_size(case.world_size)
+    row = case.shape[0]
+    if row == 0:
+        raise ValueError(
+            'The first dimension of the input tensor must not be zero, '
+            f'got row={row}, world_size={case.world_size}'
+        )
+    params = config['params']
+    use_two_shot = params['use_two_shot']
+    params = (*case.shape, *case.valid_shape, get_dtype_num(case.dtype), *case.tile_shape, use_two_shot)
+    save_params(params, output)
+    gen_tensor_case = GenTensorCase(
+        dtype=case.dtype, shape=case.shape, world_size=case.world_size, value_range=case.value_range
+    )
+    inputs = generate_random_tensor_list_and_save(gen_tensor_case, output, 'input')
+    all_reduce_and_save(
+        DistributedOpAndSaveArgs(
+            inputs=inputs,
+            world_size=case.world_size,
+            shape=case.shape,
+            valid_shape=case.valid_shape,
+            save_dir=output,
+            filename_prefix='output'
+        )
+    )
+
+
+def generate_allreduce_add_allreduce_golden(config: dict, output: Path) -> bool:
+    case = parse_base_case(config)
+    validate_world_size(case.world_size)
+    params = (*case.shape, *case.valid_shape, get_dtype_num(case.dtype))
+    save_params(params, output)
+    gen_tensor_case = GenTensorCase(
+        dtype=case.dtype, shape=case.shape, world_size=case.world_size, value_range=case.value_range
+    )
+    inputs = generate_random_tensor_list_and_save(gen_tensor_case, output, 'input')
+    all_reduce_outs = all_reduce_and_save(
+        DistributedOpAndSaveArgs(
+            inputs=inputs,
+            world_size=case.world_size,
+            shape=case.shape,
+            valid_shape=case.valid_shape,
+            save_dir=output,
+            filename_prefix='all_reduce_out'
+        )
+    )
+    add_outs = [all_reduce_outs[0] + all_reduce_outs[0] for _ in range(case.world_size)]
+    save_tensor_list(add_outs, output, 'add_out')
+    all_reduce_and_save(
+        DistributedOpAndSaveArgs(
+            inputs=add_outs,
+            world_size=case.world_size,
+            shape=case.shape,
+            valid_shape=case.valid_shape,
+            save_dir=output,
+            filename_prefix='out'
+        )
+    )
+
+
+def generate_moe_dispatch_golden(config: dict, output: Path) -> bool:
+    case = parse_moe_case(config)
+    generate_moe_dispatch_case(case, output)
+
+
+def generate_moe_distributed_combine_golden(config: dict, output: Path) -> bool:
+    case = parse_moe_case(config)
+    params = config['params']   # 整理一下
+    use_v2 = params['use_v2']
+    params = (case.batch_size, case.hidden_size, case.routed_expert_num, case.top_k, get_dtype_num(case.dtype),
+        use_v2)
+    save_params(params, output)
+    dispatch_save_dir = output / 'dispatch'
     dispatch_save_dir.mkdir(parents=True, exist_ok=True)
     generate_moe_dispatch_case(case, dispatch_save_dir)
-
-    generate_combine_case(case, save_dir, dispatch_save_dir)
-
-
-def generate_allgather_matmul_reducescatter_golden(case_name: str, save_dir: pathlib.Path):
-    dim = 2
-    case = parse_base_case(case_name, dim)
-    row, col = case.shape
-    rank_size, dtype = case.rank_size, case.dtype
-
-    validate_rank_size(rank_size)
-
-    params = (row, col, get_dtype_num(dtype))
-    save_params(params, save_dir)
-    
-    all_gather_inputs = generate_random_tensor_list_and_save((row, col), dtype, rank_size, save_dir, 'input')
-
-    all_gather_outputs = all_gather_and_save(all_gather_inputs, rank_size, save_dir, 'allgather')
-
-    generate_random_tensor_list_and_save((col, col), dtype, rank_size, save_dir, 'matmul')  # 暂时没用到
-
-    add_output = all_gather_outputs[0] + all_gather_outputs[0]
-    add_outputs = []
-    for rank in range(rank_size):
-        save_tensor(add_output, save_dir / f'ag_add_rank_{rank}.bin')
-        add_outputs.append(add_output)
-
-    reduce_scatter_outputs = reduce_scatter_and_save(add_outputs, row * rank_size, rank_size, save_dir, 'rs')
-
-    all_gather_and_save(reduce_scatter_outputs, rank_size, save_dir, 'double_allgather')
+    generate_moe_distributed_combine_case(case, output, dispatch_save_dir)
 
 
-def gen_allgather_attnpost_reducescatter_case(case: AllGatherAttnPostReducescatterCase, save_dir: pathlib.Path) -> None:
-    batch_size = case.batch_size
-    seq_len = case.seq_len
-    num_heads = case.num_heads
-    kv_lora_rank = case.kv_lora_rank
-    value_head_dim = case.value_head_dim
-    output_hidden_size = case.output_hidden_size
-    rank_size = case.rank_size
-    dtype = case.dtype
-    params = (
-        batch_size,
-        seq_len,
-        num_heads,
-        kv_lora_rank,
-        value_head_dim,
-        output_hidden_size,
-        get_dtype_num(dtype),
+def prepare_attention_input(case, output: Path):
+    all_gather_input_shape = (
+        case.batch_size * case.seq_len * case.num_heads // case.world_size,
+        case.kv_lora_rank,
     )
-    save_params(params, save_dir)
-
-    all_gather_input_shape = (batch_size * seq_len * num_heads // rank_size, kv_lora_rank)
-    all_gather_inputs = generate_random_tensor_list_and_save(
-        all_gather_input_shape, dtype, rank_size, save_dir, 'ag_in',
+    gen_tensor_case = GenTensorCase(
+        dtype=case.dtype, shape=all_gather_input_shape, world_size=case.world_size, value_range=case.value_range
     )
-
+    all_gather_inputs = generate_random_tensor_list_and_save(gen_tensor_case, output, 'ag_in')
     attention_input = torch.cat(all_gather_inputs, dim=0)
-    attention_input = attention_input.reshape([batch_size, num_heads, seq_len, kv_lora_rank])
+    attention_input = attention_input.reshape([case.batch_size, case.num_heads, case.seq_len, case.kv_lora_rank])
     attention_input = torch.transpose(attention_input, 1, 2)
-    attention_input = torch.reshape(attention_input, [batch_size * seq_len, num_heads, kv_lora_rank])
+    attention_input = attention_input.reshape([case.batch_size * case.seq_len, case.num_heads, case.kv_lora_rank])
     attention_input = torch.transpose(attention_input, 0, 1)
+    return attention_input
 
+
+def compute_attention_outputs(attention_input, case, output: Path):
     reduce_scatter_inputs = []
-    for rank in range(rank_size):
-        lora_weight = generate_random_tensor((num_heads, kv_lora_rank, value_head_dim), dtype)
-        save_tensor(lora_weight, save_dir / f'w_lora_rank_{rank}.bin')
-
-        attention_output = torch.bmm(attention_input.to(torch.float32), lora_weight.to(torch.float32)).to(dtype=dtype)
+    for rank in range(case.world_size):
+        lora_weight = generate_random_tensor(
+            (case.num_heads, case.kv_lora_rank, case.value_head_dim), case.dtype, case.value_range
+        )
+        save_tensor(lora_weight, output / f'w_lora_rank_{rank}.bin')
+        attention_output = torch.bmm(
+            attention_input.to(torch.float32), lora_weight.to(torch.float32)).to(dtype=case.dtype
+        )
         attention_output = torch.transpose(attention_output, 0, 1)
-        attention_output = torch.reshape(attention_output, [batch_size * seq_len, num_heads * value_head_dim])
-
-        output_weight = generate_random_tensor((num_heads * value_head_dim, output_hidden_size), dtype)
-        save_tensor(output_weight, save_dir / f'w_out_rank_{rank}.bin')
-
+        attention_output = torch.reshape(
+            attention_output, [case.batch_size * case.seq_len, case.num_heads * case.value_head_dim]
+        )
+        output_weight = generate_random_tensor(
+            (case.num_heads * case.value_head_dim, case.output_hidden_size), case.dtype, case.value_range
+        )
+        save_tensor(output_weight, output / f'w_out_rank_{rank}.bin')
         attention_output = torch.matmul(
             attention_output.to(dtype=torch.float32), output_weight.to(dtype=torch.float32)
-        ).to(dtype=dtype)
+        ).to(dtype=case.dtype)
         reduce_scatter_inputs.append(attention_output)
+    return reduce_scatter_inputs
 
-    reduce_scatter_and_save(reduce_scatter_inputs, batch_size * seq_len, rank_size, save_dir, 'rs_out')
 
-
-def generate_allgather_attn_post_reducescatter_golden(case_name: str, save_dir: pathlib.Path) -> None:
-    parts = case_name.split('_')
-    if len(parts) < 8:
-        raise ValueError(f'case_name {case_name} format is error.')
-    case = AllGatherAttnPostReducescatterCase(
-        dtype=get_dtype(parts[-8]),
-        batch_size=int(parts[-7]),
-        seq_len=int(parts[-6]),
-        num_heads=int(parts[-5]),
-        kv_lora_rank=int(parts[-4]),
-        value_head_dim=int(parts[-3]),
-        output_hidden_size=int(parts[-2]),
-        rank_size=int(parts[-1]),
+def gen_allgather_attnpost_reducescatter_case(config: dict, output: Path) -> bool:
+    case = generate_allgather_attn_post_reducescatter_case(config)
+    params = (
+        case.batch_size,
+        case.seq_len,
+        case.num_heads,
+        case.kv_lora_rank,
+        case.value_head_dim,
+        case.output_hidden_size,
+        get_dtype_num(case.dtype),
     )
-    gen_allgather_attnpost_reducescatter_case(case, save_dir)
+    save_params(params, output)
+    attention_input = prepare_attention_input(case, output)
+    reduce_scatter_inputs = compute_attention_outputs(attention_input, case, output)
+    reduce_scatter_and_save(reduce_scatter_inputs, case.batch_size * case.seq_len, case.world_size, output, 'rs_out')
 
 
-def generate_allreduce_add_allreduce_golden(case_name: str, save_dir: pathlib.Path) -> None:
-    dim = 2
-    case = parse_base_case(case_name, dim)
-    row, col = case.shape
-    rank_size, dtype = case.rank_size, case.dtype
-
-    validate_rank_size(rank_size)
-
-    params = (row, col, get_dtype_num(dtype))
-    save_params(params, save_dir)
-    
-    inputs = generate_random_tensor_list_and_save((row, col), dtype, rank_size, save_dir, 'input')
-    all_reduce_outs = all_reduce_and_save(inputs, rank_size, save_dir, 'all_reduce_out')
-    add_outs = [all_reduce_outs[0] + all_reduce_outs[0] for _ in range(rank_size)]
-    save_tensor_list(add_outs, save_dir, 'add_out')
-    all_reduce_and_save(add_outs, rank_size, save_dir, 'out')
+def get_case_files() -> list[Path]:
+    case_file = os.environ.get('JSON_PATH')
+    case_path = Path(case_file) if case_file else Path(Path(__file__).parent.parent, 'test_case').resolve()
+    if case_path.is_file():
+        logging.info('loading single JSON file: %s', case_path)
+        return [case_path]
+    if case_path.is_dir():
+        logging.info('loading all JSON files form directory: %s', case_path)
+        files = list(case_path.glob("*.json"))
+        files.sort(key=lambda x: x.name.lower())
+        if not files:
+            raise ValueError(f'JSON files found in the directory: %s', case_path)
+        return files
+    raise ValueError(f'Invalid path: %s. It must be either a valid file or a directory.', case_path)
 
 
-OPERATOR_DISPATCHERS = [
-    ('all_gather', generate_all_gather_golden),
-    ('reduce_scatter', generate_reduce_scatter_golden),
-    ('moe_dispatch', generate_moe_dispatch_golden),
-    ('moe_combine', generate_moe_combine_golden),
-    ('allgather_matmul_reducescatter', generate_allgather_matmul_reducescatter_golden),
-    ('allgather_attn_post_reducescatter', generate_allgather_attn_post_reducescatter_golden),
-    ('all_reduce', generate_all_reduce_golden),
-    ('allreduce_add_allreduce', generate_allreduce_add_allreduce_golden),
-]
+def load_all_test_configs(case_files: list[Path]) -> list[dict]:
+    all_test_configs = []
+    for json_file in case_files:
+        test_configs = load_test_cases_from_json(json_file)
+        if test_configs:
+            all_test_configs.extend(test_configs)
+    if not all_test_configs:
+        raise ValueError('No test cases loaded.')
+    return all_test_configs
+
+
+def generate_output_path(output: Path, test_config: dict, index: int = None) -> Path:
+    case_str = f"{test_config['case_index']}_{test_config['case_name']}"
+    operation = test_config['operation']
+    file_name = test_config['file_name']
+    if index is None:
+        output_path = output.parent / operation / file_name / case_str
+    else:
+        output_path = Path(*output.parts[:-2]) / operation / file_name / case_str
+    return output_path
+
+
+OPERATOR_DISPATCHERS = {
+    'AllGather': generate_all_gather_golden,
+    'ReduceScatter': generate_reduce_scatter_golden,
+    'AllReduce': generate_all_reduce_golden,
+    'MoeDispatch': generate_moe_dispatch_golden,
+    'MoeDistributedCombine': generate_moe_distributed_combine_golden,
+    'AllReduceAddAllReduce': generate_allreduce_add_allreduce_golden,
+    'AllGatherAttnPostReduceScatter': gen_allgather_attnpost_reducescatter_case,
+}
+
+
+def generate_single_golden(config: dict, output: Path):
+    op_name = config['operation']
+    if not op_name:
+        raise ValueError(f'No operation field: {config}')
+    handler = OPERATOR_DISPATCHERS[op_name]
+    if handler is None:
+        raise ValueError(f"Unsupported operation: {op_name}")
+    handler(config, output)
+    logging.info('Generate golden for success op: %s (case_name: %s)', op_name, config['case_name'])
 
 
 @GoldenRegister.reg_golden_func(
     case_names=[
-        'DistributedTest.shmem_all_gather_int32_128_256_4',
-        'DistributedTest.shmem_reduce_scatter_int32_128_256_4',
-        'DistributedTest.shmem_allgather_attn_post_reducescatter_bfloat16_64_1_32_256_128_128_4',
-        'DistributedTest.shmem_reduce_scatter_float16_128_256_4',
-        'DistributedTest.shmem_reduce_scatter_bfloat16_32_32_4',
-        'DistributedTest.shmem_all_reduce_int32_64_256_4',
-        'DistributedTest.shmem_all_reduce_bfloat16_50_256_4',
-        'DistributedTest.shmem_moe_combine_bfloat16_8_5120_0_160_8_4',
-        'DistributedTest.shmem_moe_combine_bfloat16_256_5120_0_160_8_4',
-        'DistributedTest.shmem_moe_combine_bfloat16_8_5120_0_160_8_8',
-        'DistributedTest.shmem_moe_combine_bfloat16_256_5120_0_160_8_8',
-        'DistributedTest.shmem_moe_dispatch_bfloat16_8_5120_0_160_8_4',
-        'DistributedTest.shmem_moe_dispatch_bfloat16_8_5120_0_160_8_8',
-        'DistributedTest.shmem_allreduce_add_allreduce_bfloat16_256_102400_4',
-    ]
+        'TestDistributedOps/DistributedTest.TestOps',
+    ],
+    version=3,
 )
-def generate_golden_case(case_name: str, output: pathlib.Path) -> bool:
-    handler = None
-    for keyword, func in OPERATOR_DISPATCHERS:
-        if keyword in case_name:
-            handler = func
-            break
-
-    if handler is None:
-        raise ValueError(f"Can't find handler for case {case_name}")
-
-    handler(case_name, output)
-    logging.info('Generate golden success for %s', case_name)
+def generate_golden_case(case_name: str, output: Path, case_index: int = None) -> bool:
+    case_files = get_case_files()
+    all_test_configs = load_all_test_configs(case_files)
+    if case_index is None:
+        for test_config in all_test_configs:
+            output_path1 = generate_output_path(output, test_config)
+            output_path1.mkdir(parents=True, exist_ok=True)
+            generate_single_golden(test_config, output_path1)
+    else:
+        if case_index >= len(all_test_configs):
+            raise IndexError(f'case_index {case_index} out of range')
+        test_config = all_test_configs[case_index]
+        output = generate_output_path(output, test_config, case_index)
+        output.mkdir(parents=True, exist_ok=True)
+        generate_single_golden(test_config, output)
     return True

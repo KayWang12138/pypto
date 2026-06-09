@@ -12,6 +12,8 @@
  * \file id_gen.h
  * \brief
  */
+#include <atomic>
+#include <mutex>
 
 #pragma once
 
@@ -21,29 +23,37 @@ enum class IdType {
     FUNCTION,
     LOGICAL_TENSOR,
     TENSOR_INDEX,
-    CG_USING_NAME, // gen using name for codegen
-    CG_VAR_NAME, // gen variable for codegen
 };
 
 template <IdType T>
 class IdGen {
 public:
-    static auto &Inst() {
+    static auto& Inst()
+    {
         static IdGen<T> inst;
         return inst;
     }
 
-    auto NewId() { return id_++; }
+    auto NewId() { return id_.fetch_add(1, std::memory_order_relaxed); }
 
-    auto CurId() const { return id_; }
+    auto CurId() const { return id_.load(std::memory_order_acquire); }
 
-    void Reset() { id_ = 0; }
+    void Reset()
+    {
+        std::lock_guard<std::mutex> lock(mutex_);
+        id_.store(0, std::memory_order_release);
+    }
 
-    void SetId(int id) { id_ = id;}
+    void SetId(int id)
+    {
+        std::lock_guard<std::mutex> lock(mutex_);
+        id_.store(id, std::memory_order_release);
+    }
 
 private:
     IdGen() = default;
-
-    int id_{0};
+    std::atomic<int> id_{0};
+    std::mutex mutex_;
 };
+
 } // namespace npu::tile_fwk

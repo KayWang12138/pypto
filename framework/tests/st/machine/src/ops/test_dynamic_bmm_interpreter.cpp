@@ -29,9 +29,8 @@ namespace {
 class DynamicBatchMatmulInterpreterTest : public npu::tile_fwk::stest::TestSuite_STest_Ops_Aihac {};
 
 template <typename InputT, typename OutputT, bool IsBtrans = false, bool IsBNZ = false>
-void TestDynBatchMatmul(int b, int m, int k, int n, string dataPath) {
-    config::SetHostOption(ONLY_CODEGEN, true);
-
+void TestDynBatchMatmul(int b, int m, int k, int n, string dataPath)
+{
     SetInterpreterConfig();
 
     int ka = k;
@@ -60,7 +59,7 @@ void TestDynBatchMatmul(int b, int m, int k, int n, string dataPath) {
     readInput<InputT>(dataPath + "/mat_b.bin", bData);
     readInput<OutputT>(dataPath + "/mat_c.bin", golden);
 
-     ProgramData::GetInstance().AppendInputs({
+    ProgramData::GetInstance().AppendInputs({
         RawTensorData::CreateTensor<InputT>(tensor_a, aData),
         RawTensorData::CreateTensor<InputT>(tensor_b, bData),
     });
@@ -73,22 +72,23 @@ void TestDynBatchMatmul(int b, int m, int k, int n, string dataPath) {
         RawTensorData::CreateTensor<OutputT>(tensor_c, golden),
     });
 
-    FUNCTION("test_dyn_bmm", {tensor_a, tensor_b}, {tensor_c}) {
-        LOOP("L0", FunctionType::DYNAMIC_LOOP, mIdx, LoopRange(1)) {
+    FUNCTION("test_dyn_bmm", {tensor_a, tensor_b}, {tensor_c})
+    {
+        LOOP("L0", FunctionType::DYNAMIC_LOOP, mIdx, LoopRange(1))
+        {
             Tensor dyn_a = View(tensor_a, {b, m, ka}, {b, m, ka}, {0, mIdx, 0});
             Tensor dyn_b = View(tensor_b, {b, kb, nb}, {b, kb, nb}, {0, 0, 0});
             if constexpr (IsBNZ) {
                 TileShape::Current().SetMatrixSize({m, k, n});
             }
-            tensor_c = Matrix::BatchMatmul<false, IsBtrans>(OutputAstDtype, dyn_a, dyn_b);
+            tensor_c = Matrix::BatchMatmul(OutputAstDtype, dyn_a, dyn_b, false, IsBtrans);
         }
     }
 }
 
 template <typename InputT, typename OutputT, bool IsBtrans = false, bool IsBNZ = false>
-void TestDynBatchMatmul4D(vector<int> b1, vector<int> b2, int m, int k, int n, string dataPath) {
-    config::SetHostOption(ONLY_CODEGEN, true);
-
+void TestDynBatchMatmul4D(vector<int> b1, vector<int> b2, int m, int k, int n, string dataPath)
+{
     config::SetVerifyOption(KEY_ENABLE_PASS_VERIFY, true);
 
     int ka = k;
@@ -129,80 +129,86 @@ void TestDynBatchMatmul4D(vector<int> b1, vector<int> b2, int m, int k, int n, s
         RawTensorData::CreateTensor<OutputT>(tensor_c, golden),
     });
 
-    FUNCTION("main", {tensor_a, tensor_b}, {tensor_c}) {
-        LOOP("L0", FunctionType::DYNAMIC_LOOP, mIdx, LoopRange(1)) {
+    FUNCTION("main", {tensor_a, tensor_b}, {tensor_c})
+    {
+        LOOP("L0", FunctionType::DYNAMIC_LOOP, mIdx, LoopRange(1))
+        {
             Tensor dyn_a = View(tensor_a, {b1[0], b1[1], m, ka}, {b1[0], b1[1], m, ka}, {0, 0, mIdx, 0});
             Tensor dyn_b = View(tensor_b, {b2[0], b2[1], kb, nb}, {b2[0], b2[1], kb, nb}, {0, 0, 0, 0});
             if constexpr (IsBNZ) {
                 TileShape::Current().SetMatrixSize({m, k, n});
             }
-            tensor_c = Matrix::BatchMatmul<false, IsBtrans>(OutputAstDtype, dyn_a, dyn_b);
+            tensor_c = Matrix::BatchMatmul(OutputAstDtype, dyn_a, dyn_b, false, IsBtrans);
         }
     }
 }
 
-TEST_F(DynamicBatchMatmulInterpreterTest, test_bmm_A_B_ND_bf16) {
+TEST_F(DynamicBatchMatmulInterpreterTest, test_bmm_A_B_ND_bf16)
+{
     TileShape::Current().SetCubeTile({128, 128}, {128, 128}, {128, 128});
     int b = 2;
     int m = 64;
     int k = 128;
     int n = 384;
-    TestDynBatchMatmul<npu::tile_fwk::bfloat16, float, false, false> (b, m, k, n, GetGoldenDir());
+    TestDynBatchMatmul<npu::tile_fwk::bfloat16, float, false, false>(b, m, k, n, GetGoldenDir());
 }
 
-TEST_F(DynamicBatchMatmulInterpreterTest, test_bmm_A_Bt_ND_fp16) {
+TEST_F(DynamicBatchMatmulInterpreterTest, test_bmm_A_Bt_ND_fp16)
+{
     TileShape::Current().SetCubeTile({128, 128}, {128, 128}, {128, 128});
     int b = 2;
     int m = 2;
     int k = 320;
     int n = 512;
-    TestDynBatchMatmul<npu::tile_fwk::float16, float, true, false> (b, m, k, n, GetGoldenDir());
+    TestDynBatchMatmul<npu::tile_fwk::float16, float, true, false>(b, m, k, n, GetGoldenDir());
 }
 
-TEST_F(DynamicBatchMatmulInterpreterTest, test_bmm_A_B_NZ_bf16) {
+TEST_F(DynamicBatchMatmulInterpreterTest, test_bmm_A_B_NZ_bf16)
+{
     TileShape::Current().SetCubeTile({128, 128}, {128, 128}, {128, 128});
     int b = 2;
     int m = 16;
     int k = 512;
     int n = 128;
-    TestDynBatchMatmul<npu::tile_fwk::bfloat16, float, false, true> (b, m, k, n, GetGoldenDir());
+    TestDynBatchMatmul<npu::tile_fwk::bfloat16, float, false, true>(b, m, k, n, GetGoldenDir());
 }
 
-TEST_F(DynamicBatchMatmulInterpreterTest, test_bmm_A_Bt_NZ_fp16) {
+TEST_F(DynamicBatchMatmulInterpreterTest, test_bmm_A_Bt_NZ_fp16)
+{
     TileShape::Current().SetCubeTile({128, 128}, {128, 128}, {128, 128});
     int b = 2;
     int m = 96;
     int k = 128;
     int n = 256;
-    TestDynBatchMatmul<npu::tile_fwk::float16, float, true, true> (b, m, k, n, GetGoldenDir());
+    TestDynBatchMatmul<npu::tile_fwk::float16, float, true, true>(b, m, k, n, GetGoldenDir());
 }
 
-TEST_F(DynamicBatchMatmulInterpreterTest, test_bmm_A_B_ND_bf16_tile1) {
+TEST_F(DynamicBatchMatmulInterpreterTest, test_bmm_A_B_ND_bf16_tile1)
+{
     TileShape::Current().SetCubeTile({128, 128}, {256, 256}, {128, 128});
     int b = 3;
     int m = 1;
     int k = 576;
     int n = 512;
-    TestDynBatchMatmul<npu::tile_fwk::bfloat16, float, false, false> (b, m, k, n, GetGoldenDir());
+    TestDynBatchMatmul<npu::tile_fwk::bfloat16, float, false, false>(b, m, k, n, GetGoldenDir());
 }
 
-TEST_F(DynamicBatchMatmulInterpreterTest, bmm4D_A_B_NZ) {
+TEST_F(DynamicBatchMatmulInterpreterTest, bmm4D_A_B_NZ)
+{
     TileShape::Current().SetCubeTile({128, 128}, {128, 128}, {128, 128});
     int m = 16, k = 64, n = 32;
     vector<int> b1 = {4, 5};
     vector<int> b2 = {4, 5};
     string indtype = "fp16";
     string outdtype = "fp16";
-    //ReadCSV(b, m, n, k, indtype, outdtype);
+    // ReadCSV(b, m, n, k, indtype, outdtype);
 
     if (indtype == "fp16") {
         TestDynBatchMatmul4D<npu::tile_fwk::float16, float, false, true>(b1, b2, m, k, n, GetGoldenDir());
-    }
-    else if (indtype == "bf16") {
+    } else if (indtype == "bf16") {
         TestDynBatchMatmul4D<npu::tile_fwk::bfloat16, float, false, true>(b1, b2, m, k, n, GetGoldenDir());
-    }
-    else if (indtype == "int8") {
+    } else if (indtype == "int8") {
         TestDynBatchMatmul4D<int8_t, int32_t, false, true>(b1, b2, m, k, n, GetGoldenDir());
     }
 }
-}// namespace
+} // namespace

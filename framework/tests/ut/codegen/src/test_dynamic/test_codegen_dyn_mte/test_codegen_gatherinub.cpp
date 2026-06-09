@@ -20,32 +20,22 @@
 #include "interface/inner/tilefwk.h"
 #include "interface/configs/config_manager.h"
 #include "interface/operation/operation.h"
+#include "interface/utils/id_gen.h"
 #include "tilefwk/data_type.h"
 #include "codegen/symbol_mgr/codegen_symbol.h"
-#include "codegen/cloudnpu/codegen_op_cloudnpu.h"
-#include "codegen/cloudnpu/codegen_cloudnpu.h"
+#include "codegen/npu/cloudnpu/codegen_op_cloudnpu.h"
+#include "codegen/npu/cloudnpu/codegen_cloudnpu.h"
+#include "test_codegen_common.h"
 
 namespace npu::tile_fwk {
 
-class TestCodegenGatherInUB : public ::testing::Test {
+class TestCodegenGatherInUB : public CodegenTestBase {
 public:
-    static void SetUpTestCase() {}
+    TestCodegenGatherInUB()
+        : CodegenTestBase({.compileStage = CS_EXECUTE_GRAPH, .setTileTensor = true, .setIdGen = true})
+    {}
 
     static void TearDownTestCase() { config::SetCodeGenConfig(KEY_CODEGEN_SUPPORT_TILE_TENSOR, true); }
-
-    void SetUp() override {
-        const constexpr int DummyFuncMagic = 1;
-        Program::GetInstance().Reset();
-        config::Reset();
-        config::SetPlatformConfig(KEY_ONLY_HOST_COMPILE, true);
-        config::SetPlatformConfig("ENABLE_COST_MODEL", false);
-        config::SetCodeGenConfig(KEY_CODEGEN_SUPPORT_TILE_TENSOR, false);
-        IdGen<IdType::FUNCTION>::Inst().SetId(DummyFuncMagic);
-        IdGen<IdType::CG_USING_NAME>::Inst().SetId(DummyFuncMagic);
-        IdGen<IdType::CG_VAR_NAME>::Inst().SetId(DummyFuncMagic);
-    }
-
-    void TearDown() override {}
 };
 // ----------------- 配置结构体（含类型） -----------------
 // IndexT  : topk_indices / page_table 的整数类型
@@ -62,7 +52,8 @@ struct PageAttentionTestConfig {
     int block_size;         // 每个块里有多少个 token
 };
 template <typename Config>
-void GatherInUBUT(Config &cfg) {
+void GatherInUBUT(Config& cfg)
+{
     Shape srcShapes{cfg.num_buffer_tokens, cfg.hidden_dim}; // 网络中，kvcache对应的内存
     Shape offsetsShapes{1, cfg.topk_count};                 // topk的结果
     Shape pageTableShapes{1, cfg.num_logical_blocks};       // page attention 对应的页表
@@ -73,7 +64,8 @@ void GatherInUBUT(Config &cfg) {
     Tensor pageTable(DT_INT32, pageTableShapes, "pageTable");
     Tensor dst(DT_FP16, dstShapes, "dst");
     const std::string funName = "GatherInUB";
-    FUNCTION(funName, {src, offsets, pageTable}, {dst}) {
+    FUNCTION(funName, {src, offsets, pageTable}, {dst})
+    {
         TileShape::Current().SetVecTile({32, 64});
         std::vector<SymbolicScalar> srcValidShape = {src.GetShape()[0], src.GetShape()[1]};
         Tensor dynSrc = View(src, src.GetShape(), srcValidShape, {0, 0});
@@ -85,17 +77,30 @@ void GatherInUBUT(Config &cfg) {
     }
 
 #if ENABLE_HIDDENLOOP
-    auto function = Program::GetInstance().GetFunctionByRawName("TENSOR_TENSOR_" + funName + "_loop_Unroll1_PATH0_hiddenfunc0");
+    auto function =
+        Program::GetInstance().GetFunctionByRawName("TENSOR_TENSOR_" + funName + "_loop_Unroll1_PATH0_hiddenfunc0");
 #else
     auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + funName);
 #endif
-    function->SetFunctionType(FunctionType::DYNAMIC_LOOP_PATH);
     function->SetUnderDynamicFunction(true);
     npu::tile_fwk::CodeGenCtx ctx;
     npu::tile_fwk::CodeGenCloudNPU codeGen(ctx);
     codeGen.GenCode(*function, {});
 }
-TEST_F(TestCodegenGatherInUB, gather_in_a_) {
+TEST_F(TestCodegenGatherInUB, gather_in_a_)
+{
+    using Config = PageAttentionTestConfig<int32_t, float16>;
+    Config cfg;
+    cfg.topk_count = 8;         // topk结果
+    cfg.num_logical_blocks = 3; // 逻辑块个数
+    cfg.num_buffer_tokens = 32; // buffer token 维度（物理 token 容量）
+    cfg.hidden_dim = 4;         // 隐藏维度大小
+    cfg.block_size = 4;         // 每个块的 token 数
+    GatherInUBUT(cfg);
+}
+TEST_F(TestCodegenGatherInUB, gather_in_a_tile_tensor)
+{
+    config::SetCodeGenConfig(KEY_CODEGEN_SUPPORT_TILE_TENSOR, true);
     using Config = PageAttentionTestConfig<int32_t, float16>;
     Config cfg;
     cfg.topk_count = 8;         // topk结果

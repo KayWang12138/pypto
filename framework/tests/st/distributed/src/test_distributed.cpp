@@ -12,26 +12,27 @@
  * \file test_distributed.cpp
  * \brief
  */
-
 #include <gtest/gtest.h>
 #include "tilefwk/tilefwk.h"
 #include "interface/inner/tilefwk.h"
-#include "interface/configs/config_manager.h"
-#include "test_common.h"
-#include "distributed_op_test_suite.h"
 #include "distributed_test_framework.h"
+#include "test_distributed.h"
+#include "adapter/api/hcomm_api.h"
 
 namespace npu::tile_fwk::Distributed {
-class DistributedTest : public testing::Test {
+class DistributedTest : public testing::TestWithParam<OpMetaData> {
 public:
     static void TearDownTestCase() {}
 
-    static void SetUpTestCase() {}
+    static void SetUpTestCase() { GegisterOps(); }
 
     void SetUp() override
     {
         Distributed::TestFrameworkInit(testParam, hcomTestParam, physicalDeviceId);
-        std::string folderPath = "output/output_" + getTimeStamp() + "_" + std::to_string(physicalDeviceId);
+        std::string outputDir = "output";
+        bool res = CreateDir(outputDir);
+        CHECK(res) << "Failed to create directory: " << outputDir;
+        std::string folderPath = outputDir + "/output_" + getTimeStamp() + "_" + std::to_string(physicalDeviceId);
         setenv("TILE_FWK_OUTPUT_DIR", folderPath.c_str(), 0);
         config::SetPlatformConfig(KEY_ENABLE_AIHAC_BACKEND, true);
         Program::GetInstance().Reset();
@@ -44,20 +45,33 @@ public:
     }
 
     // 暴露超时设置接口
-    void SetDestroyTimeout(int32_t destroyTimeout)
+    void SetDestroyTimeout(int32_t destroyTimeout) { timeout = destroyTimeout; }
+
+    // 通用测试入口
+    void RunDistributedTestGeneric(const nlohmann::json& testData, const std::string& fileName)
     {
-        timeout = destroyTimeout;
+        if (!testData.contains("input_tensors") || testData["input_tensors"].empty()) {
+            FAIL() << "No input tensors in testData: " << testData.dump();
+        }
+        std::string opName = testData["operation"].get<std::string>();
+        std::string dtype = testData["input_tensors"][0]["dtype"].get<std::string>();
+        std::string caseName = testData["case_name"].get<std::string>();
+        std::string goldenDir = GetGoldenDirPath(testData, fileName);
+        DisOpRegister::GetRegister().Run(opName, testParam, dtype, goldenDir);
+        DISTRIBUTED_LOGI(
+            "test case finished successfully: op=%s, case=%s, json file=%s.", opName.c_str(), caseName.c_str(),
+            fileName.c_str());
     }
 
 protected:
     void DistributedTestDestroy()
     {
         // 销毁集合通信域
-        ASSERT(HcclCommDestroy(hcomTestParam.hcclComm) == 0);
+        CHECK(HcommCommDestroy(hcomTestParam.hcclComm) == 0) << "HcommCommDestroy failed";
         // 重置设备
-        ASSERT(aclrtResetDevice(physicalDeviceId) == 0);
+        CHECK(AclRtResetDevice(physicalDeviceId) == 0) << "aclResetDevice failed";
         // 设备去初始化
-        ASSERT(aclFinalize() == 0);
+        CHECK(AclFinalize() == 0) << "AclFinalize failed";
     }
 
     Distributed::OpTestParam testParam;
@@ -66,87 +80,36 @@ protected:
     int physicalDeviceId = 0;
 };
 
-TEST_F(DistributedTest, shmem_allgather_attn_post_reducescatter_bfloat16_64_1_32_256_128_128_4)
+// 注册所有算子
+void GegisterOps()
 {
-    config::SetHostOption(ONLY_CODEGEN, true);
-    Distributed::TestAllGatherAttentionPostReducescatter(testParam);
+    auto& reg = DisOpRegister::GetRegister();
+    // 模板算子
+    reg.RegisterOp("AllGather", []<typename T>(OpTestParam& testParam, std::string& goldenDir) {
+        Distributed::TestAllGather<T>(testParam, goldenDir);
+    });
+    reg.RegisterOp("ReduceScatter", []<typename T>(OpTestParam& testParam, std::string& goldenDir) {
+        Distributed::TestReduceScatter<T>(testParam, goldenDir);
+    });
+    reg.RegisterOp("AllReduce", []<typename T>(OpTestParam& testParam, std::string& goldenDir) {
+        Distributed::TestAllReduce<T>(testParam, goldenDir);
+    });
+    reg.RegisterOp("AllReduceAddAllReduce", []<typename T>(OpTestParam& testParam, std::string& goldenDir) {
+        Distributed::TestAllReduceAddAllReduce<T>(testParam, goldenDir);
+    });
+    reg.RegisterOp("MoeDistributedCombine", []<typename T>(OpTestParam& testParam, std::string& goldenDir) {
+        Distributed::TestMoeDistributedCombine<T>(testParam, goldenDir);
+    });
+    reg.RegisterOp("MoeDispatch", []<typename T>(OpTestParam& testParam, std::string& goldenDir) {
+        Distributed::TestShmemMoeDispatch<T>(testParam, goldenDir);
+    });
+    reg.disRegisterMap["AllGatherAttnPostReduceScatter"] = [](OpTestParam& testParam, const std::string&,
+                                                              std::string& goldenDir) {
+        Distributed::TestAllGatherAttentionPostReducescatter(testParam, goldenDir);
+    };
+    // 后续按照上面格式增加算子
 }
 
-TEST_F(DistributedTest, shmem_all_gather_int32_128_256_4)
-{
-    config::SetHostOption(ONLY_CODEGEN, true);
-    Distributed::TestDynAllGather<int32_t>(testParam);
-}
-
-TEST_F(DistributedTest, shmem_moe_dispatch_bfloat16_8_5120_0_160_8_4)
-{
-    config::SetHostOption(ONLY_CODEGEN, true);
-    Distributed::TestShmemMoeDispatch(testParam);
-}
-
-TEST_F(DistributedTest, shmem_moe_dispatch_bfloat16_8_5120_0_160_8_8)
-{
-    config::SetHostOption(ONLY_CODEGEN, true);
-    Distributed::TestShmemMoeDispatch(testParam);
-}
-
-TEST_F(DistributedTest, shmem_reduce_scatter_int32_128_256_4)
-{
-    config::SetHostOption(ONLY_CODEGEN, true);
-    Distributed::TestShmemReduceScatter<int32_t>(testParam);
-}
-
-TEST_F(DistributedTest, shmem_reduce_scatter_float16_128_256_4)
-{
-    config::SetHostOption(ONLY_CODEGEN, true);
-    Distributed::TestShmemReduceScatter<npu::tile_fwk::float16>(testParam);
-}
-
-TEST_F(DistributedTest, shmem_reduce_scatter_bfloat16_32_32_4)
-{
-    config::SetHostOption(ONLY_CODEGEN, true);
-    Distributed::TestShmemReduceScatter<npu::tile_fwk::bfloat16>(testParam);
-}
-
-TEST_F(DistributedTest, shmem_all_reduce_int32_64_256_4)
-{
-    config::SetHostOption(ONLY_CODEGEN, true);
-    Distributed::TestShmemAllReduce<int32_t, true>(testParam);
-}
-
-TEST_F(DistributedTest, shmem_all_reduce_bfloat16_50_256_4)
-{
-    config::SetHostOption(ONLY_CODEGEN, true);
-    Distributed::TestShmemAllReduce<bfloat16, false>(testParam);
-}
-
-TEST_F(DistributedTest, shmem_moe_combine_bfloat16_8_5120_0_160_8_4)
-{
-    config::SetHostOption(ONLY_CODEGEN, true);
-    Distributed::TestShmemMoeCombine(testParam);
-}
-
-TEST_F(DistributedTest, shmem_moe_combine_bfloat16_256_5120_0_160_8_4)
-{
-    config::SetHostOption(ONLY_CODEGEN, true);
-    Distributed::TestShmemMoeCombine(testParam);
-}
-
-TEST_F(DistributedTest, shmem_moe_combine_bfloat16_8_5120_0_160_8_8)
-{
-    config::SetHostOption(ONLY_CODEGEN, true);
-    Distributed::TestShmemMoeCombine(testParam);
-}
-
-TEST_F(DistributedTest, shmem_moe_combine_bfloat16_256_5120_0_160_8_8)
-{
-    config::SetHostOption(ONLY_CODEGEN, true);
-    Distributed::TestShmemMoeCombine(testParam);
-}
-
-TEST_F(DistributedTest, shmem_allreduce_add_allreduce_bfloat16_256_102400_4)
-{
-    config::SetHostOption(ONLY_CODEGEN, true);
-    Distributed::TestShmemAllReduceAddAllReduce<bfloat16>(testParam);
-}
+INSTANTIATE_TEST_SUITE_P(TestDistributedOps, DistributedTest, ::testing::ValuesIn(GetOpMetaData<OpMetaData>()));
+TEST_P(DistributedTest, TestOps) { RunDistributedTestGeneric(GetParam().testData_, GetParam().fileName_); }
 } // namespace npu::tile_fwk::Distributed

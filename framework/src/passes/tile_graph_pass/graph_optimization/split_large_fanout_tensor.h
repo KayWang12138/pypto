@@ -25,8 +25,23 @@
 #include "tilefwk/tilefwk.h"
 #include "interface/inner/tilefwk.h"
 #include "passes/pass_utils/pass_utils.h"
+#include "passes/pass_utils/infer_shape_utils.h"
 
 namespace npu::tile_fwk {
+struct ShapeDimComparator {
+    bool operator()(const Shape& a, const Shape& b) const
+    {
+        if (a.size() != b.size()) {
+            return a.size() < b.size();
+        }
+        for (size_t i = 0; i < a.size(); ++i) {
+            if (a[i] != b[i]) {
+                return a[i] < b[i];
+            }
+        }
+        return false;
+    }
+};
 /*
  * SplitLargeFanoutTensor:
  本pass主要用于处理assemble被多个消费者消费时，如果每人都消费的是部分数据，因为assemble导致需要等待全部数据产生，影响并行度的问题
@@ -43,47 +58,74 @@ public:
     ~SplitLargeFanoutTensor() override = default;
 
 private:
-    Status RunOnFunction(Function &function) override;
-    void EraseRedundantAssembleOp(Function &function);
-    void EraseRedundantViewOp(Function &function);
-    void RemoveOps(Function &function, std::vector<Operation *> &opList) const;
-    void UpdateForRedundantAssemble(Operation &op);
-    void UpdateForRedundantView(Operation &op, Operation &consumer);
+    Status RunOnFunction(Function& function) override;
+    void Init();
+    void EraseRedundantAssembleOp(Function& function);
+    void EraseRedundantViewOp(Function& function);
+    void RemoveOps(Function& function, std::vector<Operation*>& opList) const;
+    void UpdateForRedundantAssemble(Operation& op);
+    void UpdateForRedundantView(Operation& op, Operation& consumer);
     int64_t GCD(int64_t x, int64_t y);
-    Status LCM(int64_t x, int64_t y, int64_t &lcm);
-    Status CalLcmShape(const Shape &toShape, const Shape &fromShape, Shape &lcmShape);
-    Status CalGcdShape(const Shape &toShape, const Shape &fromShape, Shape &lcmShape);
-    void GenerateOffset(const Shape &maxs, const Shape &steps, 
-        Shape &current, std::vector<Shape> &result, size_t dim);
-    void CollectLargeTensorToInfo(const LogicalTensorPtr &largeTensor);
-    void CollectLargeTensorFromInfo(const LogicalTensorPtr &largeTensor);
-    void CollectOverlaps(Function &function, LogicalTensorPtr largeTensor, Shape lcmTileShape, Offset lcmTileOffset,
-        std::vector<std::pair<LogicalTensorPtr, Offset>> toTensorInfos,
-        std::vector<std::pair<LogicalTensorPtr, Offset>> fromTensorInfos,
-        LogicalTensors &overlaps, LogicalTensors &dualOverlaps);
-    void CreateOpFor1toM(Function &function, LogicalTensorPtr largeTensor, Shape lcmTileShape, Offset lcmTileOffset,
+    Status LCM(int64_t x, int64_t y, int64_t& lcm);
+    Status CalLcmShape(const Shape& toShape, const Shape& fromShape, Shape& lcmShape);
+    Status CalGcdShape(const Shape& toShape, const Shape& fromShape, Shape& lcmShape);
+    void GenerateOffset(const Shape& maxs, const Shape& steps, Shape& current, std::vector<Shape>& result, size_t dim);
+    void CollectLargeTensorToInfo(const LogicalTensorPtr& largeTensor);
+    void CollectLargeTensorFromInfo(const LogicalTensorPtr& largeTensor);
+    void CollectOverlaps(
+        const Shape& lcmTileShape, const Offset& lcmTileOffset,
+        const std::vector<std::pair<LogicalTensorPtr, Offset>>& toTensorInfos,
+        const std::vector<std::pair<LogicalTensorPtr, Offset>>& fromTensorInfos, LogicalTensors& overlaps,
+        LogicalTensors& dualOverlaps);
+    void CreateOpFor1toM(
+        Function& function, LogicalTensorPtr largeTensor, Shape lcmTileShape, Offset lcmTileOffset,
         LogicalTensors overlaps, LogicalTensors dualOverlaps);
-    void CreateOpForMtoM(Function &function, LogicalTensorPtr largeTensor, Shape lcmTileShape, Offset lcmTileOffset,
+    void ExtractDualOverlapTiles(Function &function, LogicalTensorPtr largeTensor,
+        const LogicalTensors &dualOverlaps, LogicalTensors &dualOverlapTiles, LogicalTensors &filteredDualOverlaps);
+    bool HasIntersectionWithAnyDualOverlap(
+        LogicalTensorPtr overlapTile, const LogicalTensors &dualOverlapTiles);
+    void FilterOverlaps(Function &function, LogicalTensorPtr largeTensor,
+        LogicalTensors &overlaps, const LogicalTensors &dualOverlaps);
+    void CreateOpForMtoM(
+        Function& function, LogicalTensorPtr largeTensor, Shape lcmTileShape, Offset lcmTileOffset,
         LogicalTensors overlaps, LogicalTensors dualOverlaps);
-    void MoreSplit(Function &function, LogicalTensorPtr largeTensor, LogicalTensors overlaps, LogicalTensors dualOverlaps);
-    void CreateOpForMoreSplit(Function &function, LogicalTensorPtr largeTensor, LogicalTensors overlaps,
-        Shape gcdShape, LogicalTensorPtr dualOverlap, std::vector<Shape> gcdTileOffsets, Offset viewOpOffset);
-    void CollectLargeTensor(Function &function);
-    void SplitLargeTensor(Function &function);
-    bool IsBeCovered(Function &function, LogicalTensorPtr largeTensor,
+    void MoreSplit(
+        Function& function, LogicalTensorPtr largeTensor, LogicalTensors overlaps, LogicalTensors dualOverlaps);
+    void CreateOpForMoreSplit(
+        Function& function, LogicalTensorPtr largeTensor, LogicalTensors overlaps, Shape gcdShape,
+        LogicalTensorPtr dualOverlap, std::vector<Shape> gcdTileOffsets, Offset viewOpOffset);
+    void FindOverlapAndCreateViewOp(
+        Function& function, LogicalTensorPtr largeTensor, const LogicalTensors& overlaps,
+        LogicalTensorPtr newGcdTensor, const Shape& gcdTileOffsetForLarge, Shape& newViewOffset);
+    void CollectLargeTensor(Function& function);
+    void SplitLargeTensor(Function& function);
+    bool IsBeCovered(
+        Function& function, LogicalTensorPtr largeTensor,
         std::vector<std::pair<LogicalTensorPtr, Offset>> toTensorInfos);
     bool HasDuplicateToTile(std::vector<std::pair<LogicalTensorPtr, Offset>> toTensorInfos);
-    void TryToSplitLargeTensor(Function &function, const Shape &lcmShape, const LogicalTensorPtr &largeTensor);
-    std::unordered_map<int, std::vector<std::pair<LogicalTensorPtr, Offset>>> toInfoMap;
-    std::unordered_map<int, std::vector<std::pair<LogicalTensorPtr, Offset>>> fromInfoMap;
-    std::unordered_set<LogicalTensorPtr> largeTensors;
-    std::map<LogicalTensorPtr, std::set<Shape>> toShapes;
-    std::map<LogicalTensorPtr, std::set<Shape>> fromShapes;
-    bool enableMoreSplit = false;
+    Shape AdjustLcmTileShapeForTailBlock(
+        const Shape& lcmShape, const Shape& tileOffset, const LogicalTensorPtr& largeTensor);
+    bool CheckOverlapCoverage(const LogicalTensors& overlaps, const Shape& lcmTileShape);
+    void ProcessTileSplit(
+        Function& function, LogicalTensorPtr largeTensor, const Shape& lcmTileShape,
+        const Shape& tileOffset, LogicalTensors& overlaps, LogicalTensors& dualOverlaps);
+    void TryToSplitLargeTensor(Function& function, const Shape& lcmShape, const LogicalTensorPtr& largeTensor);
+    void GetOffsets(
+        std::set<Shape, ShapeDimComparator>& tileOffsets, const Shape& lcmShape, const LogicalTensorPtr& largeTensor);
+    void SetEnableMoreSplit(bool enableMoreSplit);
+    std::unordered_map<int, std::vector<std::pair<LogicalTensorPtr, Offset>>> toInfoMap_;
+    std::unordered_map<int, std::vector<std::pair<LogicalTensorPtr, Offset>>> fromInfoMap_;
+    std::vector<LogicalTensorPtr> largeTensors_;
+    std::map<LogicalTensorPtr, std::set<Shape>> toShapes_;
+    std::map<LogicalTensorPtr, std::set<Shape>> fromShapes_;
+    bool enableMoreSplit_ = false;
+    std::vector<Operation*> addedOps_;
+
+    std::string idx;
 };
 
 struct ShapeComparator {
-    bool operator()(const Shape &a, const Shape &b) const { return CommonUtils::Numel(a) < CommonUtils::Numel(b); }
+    bool operator()(const Shape& a, const Shape& b) const { return CommonUtils::Numel(a) < CommonUtils::Numel(b); }
 };
 } // namespace npu::tile_fwk
 #endif // PASS_SPLIT_LARGE_FANOUT_TENSOR_H_

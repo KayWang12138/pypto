@@ -17,6 +17,7 @@
 
 - **`function/`**:
   - `function.py`: 展示了顺序串联、残差连接和函数复用等多种设计模式。
+  - `multi_jit.py`: 展示了多 JIT 函数的创建调用模式。
 
 ## 运行方法
 
@@ -24,7 +25,11 @@
 
 ```bash
 # 配置 CANN 环境变量
-source /usr/local/Ascend/ascend-toolkit/latest/bin/setenv.bash
+# 安装完成后请配置环境变量，请用户根据set_env.sh的实际路径执行如下命令。
+# 上述环境变量配置只在当前窗口生效，用户可以按需将以上命令写入环境变量配置文件（如.bashrc文件）。
+
+# 默认路径安装，以root用户为例（非root用户，将/usr/local替换为${HOME}）
+source /usr/local/Ascend/ascend-toolkit/set_env.sh
 
 # 设置设备 ID
 export TILE_FWK_DEVICE_ID=0
@@ -41,4 +46,3 @@ python3 function.py
 
 - 在进行多函数组合时，注意输出张量的预分配，这在大模型推理中对减少内存碎片至关重要。
 - PyPTO 后端会自动优化这些函数的组合执行，以尽可能减少不必要的内存读写。
-

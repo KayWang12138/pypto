@@ -17,135 +17,103 @@
 
 namespace npu::tile_fwk::dynamic {
 
-void DeviceSlotContext::InitAllocator(DeviceWorkspaceAllocator &workspace, uint64_t slotSize) {
+void DeviceSlotContext::InitAllocator(DeviceWorkspaceAllocator& workspace, uint64_t slotSize)
+{
     workspace.SetupVector(slotList_);
-    workspace.SetupItemPool(slotRefCntPool_, slotSize);
     workspace_ = &workspace;
     slotList_.resize(slotSize);
 }
 
-void DeviceSlotContext::FillInputOutputSlot(DevAscendProgram *devProg, DevStartArgs *args) {
+void DeviceSlotContext::FillInputOutputSlot(DevAscendProgram* devProg, DevStartArgs* args)
+{
     FillInputOutputSlot(slotList_.data(), slotList_.size(), devProg, args);
 }
 
-static void UpdateSlotsForStitch(int slotIdx, DeviceExecuteSlot &slot, DevAscendFunction *devRootSrc,
-                                 DevAscendFunctionOutcast &outcast, uint32_t devTaskId, uint32_t devNextIdx,
-                                 uint32_t outcastIndex, uint64_t *expressionList) {
+static void UpdateSlotsForStitch(
+    int slotIdx, DeviceExecuteSlot& slot, DevAscendFunction* devRootSrc, DevAscendFunctionOutcast& outcast,
+    uint32_t devTaskId, uint32_t devNextIdx, uint32_t outcastIndex, uint64_t* expressionList)
+{
     slot.stitchDupIdx = devNextIdx;
     slot.stitchOutcastIdx = outcastIndex;
     UNUSED(slotIdx);
 
     auto producerList = &devRootSrc->At(outcast.producerList, 0);
     if (slot.isPartialUpdateStitch) {
-        auto &cellMatchTableDesc = slot.partialUpdate->cellMatchTableDesc;
+        auto& cellMatchTableDesc = slot.partialUpdate->cellMatchTableDesc;
         auto tableData = &slot.partialUpdate->cellMatchRuntimePartialUpdateTable[0];
         auto producerSize = outcast.producerList.size();
         if (producerSize != 0) {
             CellMatchFillIncastOutcast<false>(
-                    devRootSrc, producerList, producerSize, expressionList, false, cellMatchTableDesc, tableData, devTaskId, devNextIdx);
+                devRootSrc, producerList, producerSize, expressionList, false, cellMatchTableDesc, tableData, devTaskId,
+                devNextIdx);
         } else {
             // maybe is fullcover producer, dassemble full shape
             CellMatchFillIncastOutcast<false>(
-                    devRootSrc, &devRootSrc->At(outcast.stitchPolicyFullCoverProducerList, 0), outcast.stitchPolicyFullCoverProducerList.size(),
-                    expressionList, false, cellMatchTableDesc, tableData, devTaskId, devNextIdx);
+                devRootSrc, &devRootSrc->At(outcast.stitchPolicyFullCoverProducerList, 0),
+                outcast.stitchPolicyFullCoverProducerList.size(), expressionList, false, cellMatchTableDesc, tableData,
+                devTaskId, devNextIdx);
         }
 
-        DEV_VERBOSE_DEBUG("[UpdateSlots]  slot %d CellMatchPartial=%s\n", slotIdx,
-            DevAscendFunctionDuppedStitchList::DumpTask<uint64_t>(tableData, slot.partialUpdate->cellMatchRuntimePartialUpdateTable.size()).c_str());
+        DEV_VERBOSE_DEBUG(
+            "[UpdateSlots]  slot %d CellMatchPartial=%s\n", slotIdx,
+            DevAscendFunctionDuppedStitchList::DumpTask<uint64_t>(
+                tableData, slot.partialUpdate->cellMatchRuntimePartialUpdateTable.size())
+                .c_str());
         slot.isPartialUpdateDirty = true;
     } else {
-        auto &cellMatchTableDesc = outcast.cellMatchTableDesc;
+        auto& cellMatchTableDesc = outcast.cellMatchTableDesc;
         auto tableData = &devRootSrc->At(outcast.cellMatchRuntimeFullUpdateTable, 0);
         CellMatchFillIncastOutcast<false>(
-                devRootSrc, producerList, outcast.producerList.size(), expressionList, false, cellMatchTableDesc, tableData);
-        DEV_VERBOSE_DEBUG("[UpdateSlots] slot %d  CellMatchFull=%s\n", slotIdx,
-            DevAscendFunctionDuppedStitchList::DumpTask(tableData, outcast.cellMatchRuntimeFullUpdateTable.size()).c_str());
+            devRootSrc, producerList, outcast.producerList.size(), expressionList, false, cellMatchTableDesc,
+            tableData);
+        DEV_VERBOSE_DEBUG(
+            "[UpdateSlots] slot %d  CellMatchFull=%s\n", slotIdx,
+            DevAscendFunctionDuppedStitchList::DumpTask(tableData, outcast.cellMatchRuntimeFullUpdateTable.size())
+                .c_str());
     }
 }
 
-template <WsMemCategory category>
-static int UpdateSlotsImpl(DeviceWorkspaceAllocator *workspace, DeviceExecuteSlot *slotList,
-    const StitchedList &stitchedList, ItemPool<uint32_t, category> &slotRefCntPool,
-    DevAscendFunctionDupped &devRootDup, uint32_t devTaskId, uint32_t devNextIdx) {
+static void UpdateSlotsImpl(
+    DeviceWorkspaceAllocator* workspace, DeviceExecuteSlot* slotList, DevAscendFunctionDupped& devRootDup,
+    uint32_t devTaskId, uint32_t devNextIdx)
+{
     AutoScopedPerf asp(PERF_EVT_UPDATE_SLOT);
-    DevAscendFunction *devRootSrc = devRootDup.GetSource();
+    DevAscendFunction* devRootSrc = devRootDup.GetSource();
     size_t outcastSize = devRootSrc->GetOutcastSize();
 
-    std::vector<int64_t> newRefCntIndex;
-    newRefCntIndex.resize(outcastSize, itemPoolInvalidIndex);
-
-    // Increase refCnt for linked incasts
-    for (size_t index = 0; index < outcastSize; ++index) {
-        auto &outcast = devRootSrc->GetOutcast(index);
-        auto *rawTensor = devRootSrc->GetOutcastRawTensor(index);
-        if (rawTensor->linkedIncastId != -1) {
-            auto &incast = devRootSrc->GetIncast(rawTensor->linkedIncastId);
-            if (incast.fromSlotList.size() == 0) {
-                DEV_ERROR("Incast fromSlotList is empty");
-                return DEVICE_MACHINE_ERROR;
-            }
-            DEV_DEBUG_ASSERT(incast.fromSlotList.size() > 0);
-            int slotIndex = devRootSrc->At(incast.fromSlotList, 0);
-            auto &slot = slotList[slotIndex];
-            int64_t refCntIndex = slot.refCntIndex;
-            if (refCntIndex != itemPoolInvalidIndex) {
-                slot.RefCntInc(slotRefCntPool, outcast.toSlotList.size());
-            }
-            newRefCntIndex[index] = refCntIndex;
-        }
-    }
-
     // Update slot address
-    uint64_t *expressionList = &devRootDup.GetExpression(0);
-    for (size_t index = 0; index < outcastSize; ++index) {
-        auto &srcDesc = devRootDup.GetOutcastAddress(index);
-        auto &outcast = devRootSrc->GetOutcast(index);
-        for (size_t i = 0; i < outcast.toSlotList.size(); ++i) {
-            int slotIdx = devRootSrc->At(outcast.toSlotList, i);
-            auto &slot = slotList[slotIdx];
-            UpdateSlotsForStitch(slotIdx, slot, devRootSrc, outcast, devTaskId, devNextIdx, index, expressionList);
-            if (!slot.RefCntIsNull() && slot.RefCntDec(slotRefCntPool)) {
-                // At this moment only old addresses have available refCnt
-                if (slot.desc.IsNullAddress()) {
-                    DEV_ERROR("Slot descriptor is null");
-                    return DEVICE_MACHINE_ERROR;
-                }
-                DEV_DEBUG_ASSERT(!slot.desc.IsNullAddress());
-                uintdevptr_t freeAddr = slot.desc.IsAddress() ? slot.desc.addr :
-                    stitchedList[slot.desc.dupIdx].GetOutcastAddress(slot.desc.outcastIdx).GetAddress();
-                workspace->DelayedRecycleSlotMem(freeAddr);
-            }
-
-            if (!srcDesc.IsAddress() /* Unroll secondary placeholder */) {
-                slot.desc = srcDesc;
-            } else {
-                slot.desc = AddressDescriptor(devNextIdx, index);
-            }
-            slot.refCntIndex = newRefCntIndex[index];
-            DEV_VERBOSE_DEBUG("[UpdateSlots]  Outcast [%3zu] to slot [%3d], address %s.", index, slotIdx, slot.desc.Dump().c_str());
+    uint64_t* expressionList = &devRootDup.GetExpression(0);
+    for (size_t i = 0; i < outcastSize; ++i) {
+        const auto& outcastDesc = devRootDup.GetOutcastAddress(i);
+        auto& outcast = devRootSrc->GetOutcast(i);
+        for (size_t j = 0; j < outcast.toSlotList.size(); ++j) {
+            int slotIdx = devRootSrc->At(outcast.toSlotList, j);
+            auto& slot = slotList[slotIdx];
+            UpdateSlotsForStitch(slotIdx, slot, devRootSrc, outcast, devTaskId, devNextIdx, i, expressionList);
+            workspace->RuntimeOutcastTensorAssign(slot.rtOutcastIter, outcastDesc.GetRtOutcastIter());
+            DEV_VERBOSE_DEBUG(
+                "[UpdateSlots]   Outcast [%3zu] to slot [%3d], address %s.", i, slotIdx, outcastDesc.Dump().c_str());
         }
     }
-    return DEVICE_MACHINE_OK;
 }
 
-int DeviceSlotContext::UpdateSlots(DevAscendFunctionDupped &devRootDup, const StitchedList &stitchedList,
-                                    uint32_t devTaskId, uint32_t devNextIdx) {
-    int ret = DEVICE_MACHINE_OK;
-    ret = UpdateSlotsImpl(workspace_, slotList_.data(), stitchedList, slotRefCntPool_,
-        devRootDup, devTaskId, devNextIdx);
-    if (unlikely(ret != DEVICE_MACHINE_OK)) {
-        return DEVICE_MACHINE_ERROR;
-    }
-    return ret;
+void DeviceSlotContext::UpdateSlots(DevAscendFunctionDupped& devRootDup, uint32_t devTaskId, uint32_t devNextIdx)
+{
+    UpdateSlotsImpl(workspace_, slotList_.data(), devRootDup, devTaskId, devNextIdx);
 }
 
-void DeviceSlotContext::FillInputOutputSlot(DeviceExecuteSlot *slotList, size_t slotSize, DevAscendProgram *devProg,
-    DevStartArgs *args) {
+void DeviceSlotContext::FillInputOutputSlot(
+    DeviceExecuteSlot* slotList, [[maybe_unused]] size_t slotSize, DevAscendProgram* devProg, DevStartArgs* args)
+{
     DEV_TRACE_DEBUG(CtrlEvent(none(), InputTensorCount(args->GetInputTensorSize())));
     for (int index = 0; index < args->GetInputTensorSize(); ++index) {
-        DevTensorData &param = args->GetInputTensor(index);
+        DevTensorData& param = args->GetInputTensor(index);
         int slotIndex = devProg->startArgsInputTensorSlotIndexList[index];
-        slotList[slotIndex].desc = AddressDescriptor(param.address);
+        DEV_ASSERT_MSG(
+            ProgEncodeErr::STITCH_HANDLE_INDEX_OUT_OF_RANGE, slotIndex >= 0 && slotIndex < static_cast<int>(slotSize),
+            "Invalid slot index %d", slotIndex);
+        slotList[slotIndex].rtOutcastIter =
+            workspace_->MakeRuntimeOutcastTensor(WsAllocation(param.address, 0), RuntimeTensorMemProperty::EXTERNAL);
         // input/output flatten
         slotList[slotIndex].isOutputSlot = true;
         DEV_INFO("Param %d Input Slot %d = %lx.", index, slotIndex, param.address);
@@ -153,37 +121,53 @@ void DeviceSlotContext::FillInputOutputSlot(DeviceExecuteSlot *slotList, size_t 
     }
     DEV_TRACE_DEBUG(CtrlEvent(none(), OutputTensorCount(args->GetOutputTensorSize())));
     for (int index = 0; index < args->GetOutputTensorSize(); ++index) {
-        DevTensorData &param = args->GetOutputTensor(index);
+        DevTensorData& param = args->GetOutputTensor(index);
         int slotIndex = devProg->startArgsOutputTensorSlotIndexList[index];
-        slotList[slotIndex].desc = AddressDescriptor(param.address);
+        DEV_ASSERT_MSG(
+            ProgEncodeErr::STITCH_HANDLE_INDEX_OUT_OF_RANGE, slotIndex >= 0 && slotIndex < static_cast<int>(slotSize),
+            "Invalid slot index %d", slotIndex);
+        slotList[slotIndex].rtOutcastIter =
+            workspace_->MakeRuntimeOutcastTensor(WsAllocation(param.address, 0), RuntimeTensorMemProperty::EXTERNAL);
         slotList[slotIndex].isOutputSlot = true;
         DEV_INFO("Param %d Output Slot %d = %lx.", index, slotIndex, param.address);
         DEV_TRACE_DEBUG(CtrlEvent(none(), OutputTensorElement(index, param.address, param.shape.GetSize())));
     }
-    for (size_t index = static_cast<size_t>(args->GetOutputTensorSize()); index < devProg->startArgsOutputTensorSlotIndexList.size(); ++index) {
+    for (size_t index = static_cast<size_t>(args->GetOutputTensorSize());
+         index < devProg->startArgsOutputTensorSlotIndexList.size(); ++index) {
         int outSlot = devProg->startArgsOutputTensorSlotIndexList[index];
         int inSlot = devProg->outputInplaceSlotList[index];
         if (inSlot != -1) {
-            slotList[outSlot].desc = slotList[inSlot].desc;
+            DEV_ASSERT_MSG(
+                ProgEncodeErr::STITCH_HANDLE_INDEX_OUT_OF_RANGE, outSlot >= 0 && outSlot < static_cast<int>(slotSize),
+                "Invalid slot index %d", outSlot);
+            DEV_ASSERT_MSG(
+                ProgEncodeErr::STITCH_HANDLE_INDEX_OUT_OF_RANGE, inSlot >= 0 && inSlot < static_cast<int>(slotSize),
+                "Invalid slot index %d", inSlot);
+            workspace_->RuntimeOutcastTensorAssign(slotList[outSlot].rtOutcastIter, slotList[inSlot].rtOutcastIter);
             slotList[outSlot].isOutputSlot = true;
             DEV_VERBOSE_DEBUG("Param %zu Output Slot %d = inSlot %d.", index, outSlot, inSlot);
         }
     }
     for (size_t index = 0; index < devProg->assembleSlotIndexList.size(); ++index) {
         int slotIndex = devProg->assembleSlotIndexList[index];
+        DEV_ASSERT_MSG(
+            ProgEncodeErr::STITCH_HANDLE_INDEX_OUT_OF_RANGE, slotIndex >= 0 && slotIndex < static_cast<int>(slotSize),
+            "Invalid slot index %d", slotIndex);
         slotList[slotIndex].isAssembleSlot = true;
         DEV_VERBOSE_DEBUG("Assemble Slot %d .", slotIndex);
     }
     for (size_t index = 0, ie = devProg->partialUpdateList.size(); index < ie; index++) {
-        auto &partialUpdate = devProg->At(devProg->partialUpdateList, index);
+        auto& partialUpdate = devProg->At(devProg->partialUpdateList, index);
         int slotIndex = index;
+        DEV_ASSERT_MSG(
+            ProgEncodeErr::STITCH_HANDLE_INDEX_OUT_OF_RANGE, slotIndex >= 0 && slotIndex < static_cast<int>(slotSize),
+            "Invalid slot index %d", slotIndex);
         if (!partialUpdate.Empty()) {
             slotList[slotIndex].isPartialUpdateStitch = true;
             slotList[slotIndex].partialUpdate = &partialUpdate;
             DEV_VERBOSE_DEBUG("Partial Update Slot %d.\n", slotIndex);
         }
     }
-    (void)slotSize;
 }
 
-}
+} // namespace npu::tile_fwk::dynamic

@@ -14,35 +14,30 @@
  */
 
 #include "gtest/gtest.h"
-
+#include "test_codegen_common.h"
 #include "codegen/codegen.h"
 #include "tilefwk/tilefwk.h"
 #include "interface/inner/tilefwk.h"
 #include "interface/configs/config_manager.h"
-#include "codegen/cloudnpu/codegen_cloudnpu.h"
+#include "codegen/npu/cloudnpu/codegen_cloudnpu.h"
 
 namespace npu::tile_fwk {
 
-class TestCodegenStaticUnderDyn : public ::testing::Test {
+class TestCodegenStaticUnderDyn : public CodegenTestBase {
 public:
-    static void SetUpTestCase() {}
-
-    static void TearDownTestCase() {}
-
-    void SetUp() override { Program::GetInstance().Reset(); }
-
-    void TearDown() override {}
+    TestCodegenStaticUnderDyn() : CodegenTestBase() {}
 };
 
-void TestStaticLoop(const Tensor &t0, const Tensor &t1, const Tensor &t2, Tensor &out, int s) {
+void TestStaticLoop(const Tensor& t0, const Tensor& t1, const Tensor& t2, Tensor& out, int s)
+{
     constexpr int LOOP_ITERATIONS = 8;
-    FUNCTION("main", {t0, t1, t2}, {out}) {
+    FUNCTION("main", {t0, t1, t2}, {out})
+    {
         Tensor s0Out;
         config::SetBuildStatic(true);
-        FUNCTION("S0") {
-            s0Out = Sub(t1, t0);
-        }
-        LOOP("L0", FunctionType::DYNAMIC_LOOP, i, LoopRange(LOOP_ITERATIONS)) {
+        FUNCTION("S0") { s0Out = Sub(t1, t0); }
+        LOOP("L0", FunctionType::DYNAMIC_LOOP, i, LoopRange(LOOP_ITERATIONS))
+        {
             Tensor t0s = View(s0Out, {s, s}, {i * s, 0});
             Tensor t3 = Add(t0s, t2);
             Assemble(t3, {i * s, 0}, out);
@@ -50,8 +45,8 @@ void TestStaticLoop(const Tensor &t0, const Tensor &t1, const Tensor &t2, Tensor
     }
 }
 
-TEST_F(TestCodegenStaticUnderDyn, TestStaticFuncUnderDyn) {
-    config::SetHostOption(ONLY_CODEGEN, true);
+TEST_F(TestCodegenStaticUnderDyn, TestStaticFuncUnderDyn)
+{
     TileShape::Current().SetVecTile(32, 32);
     TileShape::Current().SetCubeTile({32, 32}, {32, 32}, {32, 32});
     std::vector<uint8_t> devProgBinary;
@@ -64,7 +59,7 @@ TEST_F(TestCodegenStaticUnderDyn, TestStaticFuncUnderDyn) {
     Tensor out(DT_FP32, {n * s, s}, "out");
     TestStaticLoop(t0, t1, t2, out, s);
 
-    for (auto &ele : Program::GetInstance().GetFunctionMap()) {
+    for (auto& ele : Program::GetInstance().GetFunctionMap()) {
         bool isRootExist = ele.second.get()->rootFunc_ != nullptr;
         if (isRootExist) {
             npu::tile_fwk::CodeGenCtx ctx;
@@ -73,4 +68,5 @@ TEST_F(TestCodegenStaticUnderDyn, TestStaticFuncUnderDyn) {
         }
     }
 }
+
 } // namespace npu::tile_fwk

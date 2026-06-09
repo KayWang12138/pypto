@@ -9,7 +9,7 @@
 
 ## 功能说明
 
-获取数据
+获取数据。
 
 ## 函数原型
 
@@ -35,4 +35,3 @@ NA
 t = pypto.element(pypto.DT_FP32, 3)
 t.value
 ```
-

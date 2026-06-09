@@ -4,7 +4,7 @@
 
 ## 概览
 
-PTO 前端负责解析使用 `@pypto.jit` 或 `@pypto.frontend.function` 装饰的 Python 函数，并将其转换为 PTO 中间表示（IR）。前端为编写高性能张量计算内核提供了一个高级、Python 原生的接口，同时允许用户对底层执行细节保持完全控制。
+PTO 前端负责解析使用 `@pypto.frontend.jit` 或 `@pypto.frontend.function` 装饰的 Python 函数，并将其转换为 PTO 中间表示（IR）。前端为编写高性能张量计算内核提供了一个高级、Python 原生的接口，同时允许用户对底层执行细节保持完全控制。
 
 本文档为参与 PTO 前端解析器开发、维护或扩展的开发者提供一份全面指南。
 
@@ -262,19 +262,13 @@ M = 1024
 def basic_addsub(
     a: pypto.Tensor((N, M), pypto.DT_FP32),
     b: pypto.Tensor((N, M), pypto.DT_FP32),
-) -> (
-    pypto.Tensor((N, M), pypto.DT_FP32),
-    pypto.Tensor((N, M), pypto.DT_FP32),
+    c: pypto.Tensor((N, M), pypto.DT_FP32),
+    d: pypto.Tensor((N, M), pypto.DT_FP32),
 ):
-    c = pypto.tensor((N, M), pypto.DT_FP32)
-    d = pypto.tensor((N, M), pypto.DT_FP32)
-
     pypto.set_vec_tile_shapes(32, 32)
 
     c[:] = pypto.add(a, b)
     d[:] = pypto.sub(a, b)
-
-    return c, d
 ```
 
 **解析器会做什么：**
@@ -283,35 +277,34 @@ def basic_addsub(
 3. 为 `c` 与 `d` 创建 PTO 张量 IR 节点
 4. 将 `pypto.add(a, b)` 与 `pypto.sub(a, b)` 转换为 PTO 操作 IR
 5. 将切片赋值 `c[:] = ...` 处理为张量填充（fill）操作
-6. 生成带正确张量输出的 return 语句
 
 ### 动态维度
 
 ```python
 import pypto
 
-N = pypto.frontend.dynamic("N")  # 符号维度
+N = pypto.DYNAMIC  # 符号维度
 M = 1024
 
 @pypto.frontend.jit()
 def basic_dynamic(
     a: pypto.Tensor((N, M), pypto.DT_FP32),
     b: pypto.Tensor((N, M), pypto.DT_FP32),
-) -> pypto.Tensor((N, M), pypto.DT_FP32):
+    out: pypto.Tensor((N, M), pypto.DT_FP32)
+):
     pypto.set_vec_tile_shapes(32, 32)
-    result = pypto.tensor((N, M), pypto.DT_FP32)
 
     # 此处 N 为符号量，在运行时解析
     for bs_idx in pypto.loop(32):
         tile_a = pypto.view(a, (32, 1024), [bs_idx * 32, 0])
         tile_b = pypto.view(b, (32, 1024), [bs_idx * 32, 0])
-        result[bs_idx * 32: (bs_idx + 1) * 32, :] = pypto.add(tile_a, tile_b)
+        out[bs_idx * 32: (bs_idx + 1) * 32, :] = pypto.add(tile_a, tile_b)
 
-    return result
+
 ```
 
 **解析器会做什么：**
-1. 将 `N` 识别为 SymbolicScalar（由 `dynamic()` 创建）
+1. 将 `N` 识别为 SymbolicScalar（由 `pypto.DYNAMIC` 标记）
 2. 解析期间保持 `N` 为符号量
 3. 第一次执行时，将 `N` 绑定为实际输入形状
 4. 校验 `N` 的所有使用保持一致
@@ -324,15 +317,13 @@ def basic_dynamic(
 def basic_loop(
     a: pypto.Tensor((N, M), pypto.DT_FP32),
     b: pypto.Tensor((N, M), pypto.DT_FP32),
-) -> pypto.Tensor((N, M), pypto.DT_FP32):
-    c = pypto.tensor((N, M), pypto.DT_FP32)
+    out: pypto.Tensor((N, M), pypto.DT_FP32),
+):
     pypto.set_vec_tile_shapes(32, 32)
 
     for _ in pypto.loop(10):
         a[:] = pypto.add(a, b)
-        c = a
-
-    return c
+        out[:] = a
 ```
 
 **解析器会做什么：**
@@ -349,18 +340,19 @@ def basic_loop(
 def inner_add(
     x: pypto.Tensor((8,), pypto.DT_FP32),
     bias: pypto.Tensor((8,), pypto.DT_FP32),
-) -> pypto.Tensor((8,), pypto.DT_FP32):
-    tmp = pypto.add(x, bias)
-    return tmp
+    out: pypto.Tensor((8,), pypto.DT_FP32),
+):
+    out[:] = pypto.add(x, bias)
+
 
 @pypto.frontend.jit
 def outer_kernel(
     a: pypto.Tensor((8,), pypto.DT_FP32),
     b: pypto.Tensor((8,), pypto.DT_FP32),
-) -> pypto.Tensor((8,), pypto.DT_FP32):
+    out: pypto.Tensor((8,), pypto.DT_FP32),
+):
     pypto.set_vec_tile_shapes(1, 1, 16, 32)
-    res = inner_add(a, b)  # 解析期间被内联
-    return res
+    inner_add(a, b, out)  # 解析期间被内联
 ```
 
 **解析器会做什么：**
@@ -377,16 +369,14 @@ def outer_kernel(
 def conditional_kernel(
     a: pypto.Tensor((N, M), pypto.DT_FP32),
     b: pypto.Tensor((N, M), pypto.DT_FP32),
+    out: pypto.Tensor((N, M), pypto.DT_FP32),
     flag: bool,
-) -> pypto.Tensor((N, M), pypto.DT_FP32):
-    result = pypto.tensor((N, M), pypto.DT_FP32)
+):
 
     if flag:
-        result[:] = pypto.add(a, b)
+        out[:] = pypto.add(a, b)
     else:
-        result[:] = pypto.sub(a, b)
-
-    return result
+        out[:] = pypto.sub(a, b)
 ```
 
 **解析器会做什么：**
@@ -467,5 +457,3 @@ self.context.add(var_name, value)
 PTO 前端提供了强大且可扩展的系统，用于将 Python 代码解析为高性能张量计算 IR。理解本文档中的架构、关键概念与扩展机制后，开发者将能更高效地维护、调试并扩展前端解析器。
 
 如有问题，请参考源码注释、测试用例，或联系 PTO 开发团队。
-
-

@@ -16,14 +16,12 @@
 #pragma once
 
 #include "tilefwk/aicpu_common.h"
+#include "machine/device/dynamic/aicore_constants.h"
 #include "machine/device/dynamic/aicore_prof.h"
 #include "machine/device/dynamic/costmodel_utils.h"
+#include "machine/device/dynamic/eslmodel_aicore_hal.h"
 
 namespace npu::tile_fwk::dynamic {
-constexpr uint32_t MAX_AICORE_NUM = 108;
-constexpr uint32_t NAX_AIV_TOTAL_NUM = 72;
-const uint32_t CORE_NUM_PER_AI_CORE = 3;
-
 constexpr uint32_t NUM_ONE = 1;
 constexpr uint32_t NUM_TWO = 2;
 constexpr uint32_t NUM_THREE = 3;
@@ -45,27 +43,26 @@ const uint32_t REG_SPR_MAGIC = 0x78;
 constexpr int32_t AICORE_COREID_MASK = 0x0FFF;
 constexpr int32_t AICORE_BLOCKID_MASK = 0x0FFF;
 
-const uint32_t REG_SPR_FAST_PATH_ENABLE = 0x18;
-const uint64_t REG_SPR_FAST_PATH_OPEN = 0xE;
-const uint64_t REG_SPR_FAST_PATH_CLOSE = 0xF;
-
 namespace DAV_2201 {
-    const uint32_t REG_SPR_DATA_MAIN_BASE = 0xA0;
-    const uint32_t REG_SPR_COND = 0x4C8;
-}
+const uint32_t REG_SPR_DATA_MAIN_BASE = 0xA0;
+const uint32_t REG_SPR_COND = 0x4C8;
+} // namespace DAV_2201
 
 namespace DAV_3510 {
-    const uint32_t REG_SPR_DATA_MAIN_BASE = 0xD0;
-    const uint32_t REG_SPR_COND = 0x5108;
-}
+const uint32_t REG_SPR_DATA_MAIN_BASE = 0xD0;
+const uint32_t REG_SPR_COND = 0x5108;
+} // namespace DAV_3510
 
 class AicoreHAL {
 public:
-    inline void Init(DeviceArgs *deviceArgs, AiCoreProf *aicoreProf) {
+    inline void Init(DeviceArgs* deviceArgs, AiCoreProf* aicoreProf)
+    {
         aicoreProf_ = aicoreProf;
         sharedBuffer_ = deviceArgs->sharedBuffer;
-        regAddrs_ = reinterpret_cast<int64_t *>(deviceArgs->coreRegAddr);
+        regAddrs_ = reinterpret_cast<int64_t*>(deviceArgs->coreRegAddr);
         regNum_ = deviceArgs->nrAic + deviceArgs->nrAiv;
+        freq_ = GetFreq() / (NSEC_PER_SEC / NSEC_PER_USEC);
+        archInfo_ = deviceArgs->archInfo;
         readyRegQueues_.fill(nullptr);
         finishRegQueues_.fill(nullptr);
         blockIdToPhyCoreId_.fill(-1);
@@ -74,36 +71,41 @@ public:
             regSprDataMainBase_ = DAV_3510::REG_SPR_DATA_MAIN_BASE;
             regSprCond_ = DAV_3510::REG_SPR_COND;
             isNeedWriteRegForFastPath_ = false;
-        } 
+        }
+        enableEslModel_ = deviceArgs->enableEslModel;
+        DEV_IF_NONDEVICE {
+            if (enableEslModel_) {
+                eslModel_.Init();
+            }
+        }
     }
 
-    inline uint32_t GetRegSprDataMainBase() {
-        return regSprDataMainBase_;
-    }
+    inline uint32_t GetRegSprDataMainBase() { return regSprDataMainBase_; }
 
-    inline void SetMngCoreBlockId(int aicStart, int aicEnd, int aivStart, int aivEnd) {
+    inline void SetMngCoreBlockId(int aicStart, int aicEnd, int aivStart, int aivEnd)
+    {
         aicStart_ = aicStart;
         aicEnd_ = aicEnd;
         aivStart_ = aivStart;
         aivEnd_ = aivEnd;
     }
 
-    inline void SetModel(uint64_t costModel) {
-        costModel_ = reinterpret_cast<CostModel::AiCoreModel*>(costModel);
-    }
+    inline void SetModel(uint64_t costModel) { costModel_ = reinterpret_cast<CostModel::AiCoreModel*>(costModel); }
 
-    int64_t *GetRegAddrs() const { return regAddrs_; }
+    int64_t* GetRegAddrs() const { return regAddrs_; }
     uint32_t GetregNum() const { return regNum_; }
 
-    inline uint32_t ReadReg32(int coreIdx, int offset) {
+    inline uint32_t ReadReg32(int coreIdx, int offset)
+    {
         auto idx = GetPhyIdByBlockId(coreIdx);
         if (idx != -1) {
-          return *(reinterpret_cast<volatile uint32_t*>(regAddrs_[idx] + offset));
+            return *(reinterpret_cast<volatile uint32_t*>(regAddrs_[idx] + offset));
         }
         return 0;
     }
 
-    inline uint32_t ReadPathReg(int coreIdx) {
+    inline uint32_t ReadPathReg(int coreIdx)
+    {
         if (!isNeedWriteRegForFastPath_) {
             return 0;
         }
@@ -111,42 +113,48 @@ public:
         return ReadReg32(coreIdx, REG_SPR_FAST_PATH_ENABLE);
     }
 
-    inline void WriteReg32(int coreIdx, int offset, uint32_t val) {
+    inline void WriteReg32(int coreIdx, int offset, uint32_t val)
+    {
         auto idx = GetPhyIdByBlockId(coreIdx);
         if (idx != -1) {
-          *(reinterpret_cast<volatile uint32_t*>(regAddrs_[idx] + offset)) = val;
+            *(reinterpret_cast<volatile uint32_t*>(regAddrs_[idx] + offset)) = val;
         }
         return;
     }
 
-    inline void WriteReg32All(int aicNum, int aivNum, int offset, uint32_t val) {
+    inline void WriteReg32All(int aicNum, int aivNum, int offset, uint32_t val)
+    {
         for (int i = 0; i < aicNum + aivNum; ++i) {
             if (regAddrs_[i] != 0) {
-                *(reinterpret_cast<volatile uint32_t *>(regAddrs_[i] + offset)) = val;
+                *(reinterpret_cast<volatile uint32_t*>(regAddrs_[i] + offset)) = val;
             }
         }
     }
-    
-    inline void SetValidCore(std::array<bool, MAX_AICORE_NUM> *validCore) {
-        validCore_ = validCore;
-    }
 
-    inline bool IsSpecialTask(uint32_t taskId) {
+    inline bool IsSpecialTask(uint32_t taskId)
+    {
         return taskId == AICORE_TASK_INIT || taskId == AICORE_TASK_STOP || (taskId & 0xFFFFFFFF) == AICORE_FUNC_STOP;
     }
 
-    inline void SetReadyQueue(int coreIdx, uint64_t value) {
+    inline void SetReadyQueue(int coreIdx, uint64_t value)
+    {
         if constexpr (IsDeviceMode()) {
             *readyRegQueues_[GetPhyIdByBlockId(coreIdx)] = value;
         } else {
-            DEV_VERBOSE_DEBUG("set coreidx %d value %lx.", coreIdx, value);
-            auto taskId = value - 1;
-            if (value == 0 || taskId == AICORE_TASK_STOP || (taskId & 0xFFFFFFFF) == AICORE_FUNC_STOP) return;
-            CostModelSendTask(coreIdx, taskId);
+            if (enableEslModel_) {
+                eslModel_.WriteEslReg(coreIdx, &value);
+            }else {
+                DEV_VERBOSE_DEBUG("set coreidx %d value %lx.", coreIdx, value);
+                auto taskId = (value & 0xFFFFFFFF) - 1;
+                if (value == 0 || taskId == AICORE_TASK_STOP || (taskId & 0xFFFFFFFF) == AICORE_FUNC_STOP)
+                    return;
+                CostModelSendTask(coreIdx, taskId & 0xFFFFFFFF);
+            }
         }
     }
 
-    inline void SetReadyQueue(int coreStart, int coreEnd, uint32_t val) {
+    inline void SetReadyQueue(int coreStart, int coreEnd, uint32_t val)
+    {
         if constexpr (IsDeviceMode()) {
             int i, idx = coreStart;
             int n = coreEnd - coreStart;
@@ -188,54 +196,8 @@ public:
         }
     }
 
-    inline void SetReadyQueue(const uint32_t *coreIdx, const uint32_t *vals, int n) {
-        if constexpr (IsDeviceMode()) {
-            for (int i = 0; i < (n & (~CORE_QUEUE_MODE_NUM_7)); i += CORE_QUEUE_MODE_NUM_8) {
-                *readyRegQueues_[GetPhyIdByBlockId(*coreIdx++)] = *vals++;
-                *readyRegQueues_[GetPhyIdByBlockId(*coreIdx++)] = *vals++;
-                *readyRegQueues_[GetPhyIdByBlockId(*coreIdx++)] = *vals++;
-                *readyRegQueues_[GetPhyIdByBlockId(*coreIdx++)] = *vals++;
-                *readyRegQueues_[GetPhyIdByBlockId(*coreIdx++)] = *vals++;
-                *readyRegQueues_[GetPhyIdByBlockId(*coreIdx++)] = *vals++;
-                *readyRegQueues_[GetPhyIdByBlockId(*coreIdx++)] = *vals++;
-                *readyRegQueues_[GetPhyIdByBlockId(*coreIdx++)] = *vals++;
-            }
-            switch (n & CORE_QUEUE_MODE_NUM_7) {
-                case CORE_QUEUE_MODE_NUM_7:
-                    *readyRegQueues_[GetPhyIdByBlockId(*coreIdx++)] = *vals++;
-                    [[fallthrough]];
-                case CORE_QUEUE_MODE_NUM_6:
-                    *readyRegQueues_[GetPhyIdByBlockId(*coreIdx++)] = *vals++;
-                    [[fallthrough]];
-                case CORE_QUEUE_MODE_NUM_5:
-                    *readyRegQueues_[GetPhyIdByBlockId(*coreIdx++)] = *vals++;
-                    [[fallthrough]];
-                case CORE_QUEUE_MODE_NUM_4:
-                    *readyRegQueues_[GetPhyIdByBlockId(*coreIdx++)] = *vals++;
-                    [[fallthrough]];
-                case CORE_QUEUE_MODE_NUM_3:
-                    *readyRegQueues_[GetPhyIdByBlockId(*coreIdx++)] = *vals++;
-                    [[fallthrough]];
-                case CORE_QUEUE_MODE_NUM_2:
-                    *readyRegQueues_[GetPhyIdByBlockId(*coreIdx++)] = *vals++;
-                    [[fallthrough]];
-                case CORE_QUEUE_MODE_NUM_1:
-                    *readyRegQueues_[GetPhyIdByBlockId(*coreIdx++)] = *vals++;
-                    [[fallthrough]];
-                default:
-                    break;
-            }
-        } else {
-            for (int i = 0; i < n; i++) {
-                auto taskId = vals[i] - 1;
-                if (IsSpecialTask(taskId))
-                    continue;
-                CostModelSendTask(coreIdx[i], taskId);
-            }
-        }
-    }
-
-    inline void GetFinishQueue(const uint32_t *coreIdx, uint32_t *vals, int n) {
+    inline void GetFinishQueue(const uint32_t* coreIdx, uint32_t* vals, int n)
+    {
         if constexpr (IsDeviceMode()) {
             for (int i = 0; i < (n & (~CORE_QUEUE_MODE_NUM_7)); i += CORE_QUEUE_MODE_NUM_8) {
                 *vals++ = *finishRegQueues_[GetPhyIdByBlockId(*coreIdx++)];
@@ -279,32 +241,27 @@ public:
         }
     }
 
-    inline void WaitFinQueue(int coreStart, int coreEnd, uint64_t val) {
-        for (int idx = coreStart; idx < coreEnd; idx++) {
-            uint64_t startCycle = GetCycles();
-            while (*finishRegQueues_[GetPhyIdByBlockId(idx)] != val) {
-                if (GetCycles() - startCycle > TIMEOUT_CYCLES) {
-                    DEV_ERROR("CoreId: %d cannot get finish Flag", idx);
-                    return;
-                }
-            }
-        }
-    }
-
-    inline uint64_t GetFinishedTask(int coreIdx) {
+    inline uint64_t GetFinishedTask(int coreIdx)
+    {
         if constexpr (IsDeviceMode()) {
             return *(finishRegQueues_[GetPhyIdByBlockId(coreIdx)]);
         } else {
-            return CostModelGetTask(coreIdx);
+            if (enableEslModel_) {
+                return eslModel_.ReadEslReg(coreIdx);
+            }else {
+                return CostModelGetTask(coreIdx);
+            }
         }
     }
 
     void SetTaskTimeCost(std::function<uint64_t(uint64_t, uint64_t, uint64_t)> func) { getTaskTimeCost = func; }
 
-    uint64_t CostModelGetTask(int coreIdx) {
+    uint64_t CostModelGetTask(int coreIdx)
+    {
         auto currentTime = GetCycles();
-        DEV_DEBUG("CostModel AICore polling aicore %d, time %lu.", coreIdx, currentTime);
-        if (taskIds[coreIdx].empty()) return AICORE_FUNC_STOP | AICORE_FIN_MASK;
+        DEV_DEBUG("CostModel AICore polling: aicoreIdx=%d, time=%lu.", coreIdx, currentTime);
+        if (taskIds[coreIdx].empty())
+            return AICORE_FUNC_STOP | AICORE_FIN_MASK;
         uint64_t taskId = 0;
         while (!taskIds[coreIdx].empty() && currentTime >= taskTimes[coreIdx].front()) {
             taskId = taskIds[coreIdx].front();
@@ -312,15 +269,19 @@ public:
             taskIds[coreIdx].pop_front();
         }
         if (taskIds[coreIdx].empty()) {
-            DEV_DEBUG("CostModel AICore %d finish task 0x%lx, current time %lu.", coreIdx, taskId, currentTime);
+            DEV_DEBUG(
+                "CostModel AICore finish task: aicoreIdx=%d, taskId=%#lx, currentTime=%lu.", coreIdx, taskId,
+                currentTime);
             return taskId | AICORE_FIN_MASK;
         }
-        DEV_DEBUG("CostModel AICore %d running task 0x%lx, current time %lu, finish time %lu.",
-                  coreIdx, taskIds[coreIdx].front(), currentTime, taskTimes[coreIdx].front());
+        DEV_DEBUG(
+            "CostModel AICore running task: aicoreIdx=%d, taskId=%#lx, currentTime=%lu, finishTime=%lu.", coreIdx,
+            taskIds[coreIdx].front(), currentTime, taskTimes[coreIdx].front());
         return taskIds[coreIdx].front();
     }
 
-    void CostModelSendTask(int coreIdx, uint64_t taskId) {
+    void CostModelSendTask(int coreIdx, uint64_t taskId)
+    {
         uint64_t time = taskIds[coreIdx].empty() ? GetCycles() : taskTimes[coreIdx].back();
         uint64_t timeCost = getTaskTimeCost == nullptr ? 0 : getTaskTimeCost(coreIdx, taskId, time);
         taskTimes[coreIdx].push_back(time + timeCost);
@@ -328,165 +289,141 @@ public:
         if (costModel_) {
             costModel_->SendTask(coreIdx, taskId);
         }
-        DEV_DEBUG("CostModel AICore %d add task 0x%lx, new queue size %lu, finish time %lu.",
-                  coreIdx, taskId, taskIds[coreIdx].size(), time + timeCost);
+        DEV_DEBUG(
+            "CostModel AICore add task: aicoreIdx=%d, taskId=%#lx, newQueueSize=%lu, finishTime=%lu.", coreIdx, taskId,
+            taskIds[coreIdx].size(), time + timeCost);
     }
 
     int64_t GetSharedBuffer() { return sharedBuffer_; }
 
-    inline void MapRegistersForAllCores(int aicNum) {
+    inline void MapRegistersForAllCores(int aicNum)
+    {
         for (uint32_t idx = 0; idx < static_cast<u_int32_t>(aicNum * CORE_NUM_PER_AI_CORE); idx++) {
-            void *addr = reinterpret_cast<void *>(regAddrs_[idx]);
+            void* addr = reinterpret_cast<void*>(regAddrs_[idx]);
             if (addr == nullptr) {
                 continue;
             }
             DEV_VERBOSE_DEBUG("phy core %u Addr is %p.", idx, addr);
-            volatile uint64_t *reqQueueReg =
-                reinterpret_cast<volatile uint64_t *>(static_cast<uint8_t *>(addr) + regSprDataMainBase_);
+            volatile uint64_t* reqQueueReg =
+                reinterpret_cast<volatile uint64_t*>(static_cast<uint8_t*>(addr) + regSprDataMainBase_);
             readyRegQueues_[idx] = reqQueueReg;
-            volatile uint64_t *finishQueueReg =
-                reinterpret_cast<volatile uint64_t *>(static_cast<uint8_t *>(addr) + regSprCond_);
+            volatile uint64_t* finishQueueReg =
+                reinterpret_cast<volatile uint64_t*>(static_cast<uint8_t*>(addr) + regSprCond_);
             finishRegQueues_[idx] = finishQueueReg;
         }
     }
 
-    inline int &GetPhyIdByBlockId(int coreIdx) {
-        return blockIdToPhyCoreId_[coreIdx];
-    }
+    inline int& GetPhyIdByBlockId(int coreIdx) { return blockIdToPhyCoreId_[coreIdx]; }
 
-    Metrics* GetMetrics(int coreIdx) {
-        volatile KernelArgs *arg = reinterpret_cast<KernelArgs *>(sharedBuffer_ + coreIdx * SHARED_BUFFER_SIZE);
-        volatile Metrics*  metric = reinterpret_cast<Metrics *>(arg->shakeBuffer[SHAK_BUF_DFX_DATA_INDEX]);
-        DEV_INFO("aicore %d host alloc metric memory :%p.", coreIdx, metric);
+    Metrics* GetMetrics(int coreIdx)
+    {
+        volatile KernelArgs* arg = reinterpret_cast<KernelArgs*>(sharedBuffer_ + coreIdx * SHARED_BUFFER_SIZE);
+        volatile Metrics* metric = reinterpret_cast<Metrics*>(arg->shakeBuffer[SHAK_BUF_DFX_DATA_INDEX]);
+        DEV_INFO("aicoreIdx=%d host alloc metric memory: %p.", coreIdx, metric);
         if (metric == nullptr) {
-            DEV_ERROR("aicore %d Null metric.", coreIdx);
-           return nullptr;
+            DEV_ERROR(DevCommonErr::NULLPTR, "#sche.prof.aicore.getaddr: aicoreIdx=%d null metric.", coreIdx);
+            return nullptr;
         }
 
-        uint64_t cycles_start = GetCycles();
-        while (metric->isMetricStop != 1) {
-            if (GetCycles() - cycles_start > PROF_DUMP_TIMEOUT_CYCLES) {
-                DEV_ERROR("wait metrics done timeout !!!.");
-                return nullptr;
-            }
-        }; // wait aicore dcci metric data finish
+        TIMEOUT_CHECK_INIT(archInfo_, TIMEOUT_10SEC);
+        volatile int stopFlag = metric->isMetricStop;
+        while (stopFlag != 1) {
+            __PYPTO_TIMEOUT_CHECK_EXIT_ONLY(DevCommonErr::NULLPTR,
+                return nullptr,
+                "#sche.prof.aicore.wait_finish: wait metrics done.");
+            stopFlag = metric->isMetricStop;
+        }
 
-        return reinterpret_cast<Metrics *>(arg->shakeBuffer[SHAK_BUF_DFX_DATA_INDEX]);
+        return reinterpret_cast<Metrics*>(arg->shakeBuffer[SHAK_BUF_DFX_DATA_INDEX]);
     }
 
-    int DumpTaskProf(int coreIdx) {
-        Metrics* metric =  GetMetrics(coreIdx);
+    int DumpTaskProf(int coreIdx)
+    {
+        Metrics* metric = GetMetrics(coreIdx);
         if (metric == nullptr) {
             return DEVICE_MACHINE_ERROR;
         }
 
         DEV_VERBOSE_DEBUG("Dump core %d prof data , task cnt %ld, metric:%p.", coreIdx, metric->taskCount, metric);
         for (int i = 0; i < metric->taskCount; i++) {
-            volatile TaskStat *stat = &metric->tasks[i];
-            aicoreProf_->ProfGet(coreIdx, stat->subGraphId, stat->taskId, &(metric)->tasks[i]);
-            DEV_VERBOSE_DEBUG("  Dump prof for task %d, execstart: %ld execend :%ld.",
-                     stat->taskId, stat->execStart, stat->execEnd);
+            volatile TaskStat* stat = &metric->tasks[i];
+            aicoreProf_->ProfGetLog(coreIdx, &(metric)->tasks[i]);
+            DEV_VERBOSE_DEBUG(
+                "  Dump prof for task %d, execstart: %ld execend :%ld.", stat->taskId, stat->execStart, stat->execEnd);
         }
         return 0;
     }
 
-    int DumpAicorePerfTrace(int aicpuIdx, int coreIdx, CoreType coretype, std::ostringstream& oss) {
+    int DumpAicorePerfTrace(int aicpuIdx, int coreIdx, CoreType coretype, std::ostringstream& oss)
+    {
         (void)coreIdx;
         (void)coretype;
         (void)oss;
         (void)aicpuIdx;
 #if ENABLE_PERF_TRACE
-        Metrics* metric =  GetMetrics(coreIdx);
+        Metrics* metric = GetMetrics(coreIdx);
         if (metric == nullptr) {
             return DEVICE_MACHINE_ERROR;
         }
-
         oss << "{\"blockIdx\":" << coreIdx << ",\"coreType\":\"SCHED" << aicpuIdx << "-"
-            << (coretype == CoreType::AIC ? "AIC" : "AIV") << "\",\"freq\":50,\"tasks\":[";
+            << (coretype == CoreType::AIC ? "AIC" : "AIV") << "\",\"freq\":" << freq_ << ",\"tasks\":[";
 
+        auto turnNumIdx = metric->turnNum - 1;
         uint64_t curCycle = 0;
         for (uint32_t type = 0; type < PERF_TRACE_CORE_MAX; type++) {
-            for (uint32_t cnt = 0; cnt < metric->perfTraceCnt[type]; cnt++) {
-                curCycle = metric->perfTrace[type][cnt];
+            for (uint32_t cnt = 0; cnt < metric->perfTraceCnt[turnNumIdx][type]; cnt++) {
+                curCycle = metric->perfTrace[turnNumIdx][type][cnt];
                 if (curCycle == 0) {
                     break;
                 }
-
                 oss << "{\"name\":\"" << AicorePerfTraceName[type];
-                if (metric->perfTraceDevTaskId[type][cnt] != INVALID_DEV_TASK_ID) {
-                    oss << "(" << metric->perfTraceDevTaskId[type][cnt] << ")";
+                if (metric->perfTraceDevTaskId[turnNumIdx][type][cnt] != INVALID_DEV_TASK_ID) {
+                    oss << "(" << metric->perfTraceDevTaskId[turnNumIdx][type][cnt] << ")";
                 }
-    
                 oss << "\",\"end\":" << curCycle << "}"
-                    << (((type == PERF_TRACE_CORE_MAX - 1) && (cnt ==  metric->perfTraceCnt[type] - 1)) ? "" : ",");
+                    << (((type == PERF_TRACE_CORE_MAX - 1) && (cnt == metric->perfTraceCnt[turnNumIdx][type] - 1)) ?
+                            "" :
+                            ",");
             }
-            metric->perfTraceCnt[type] = 0;
         }
         oss << "]}";
-        memset_s(metric, sizeof(Metrics), 0, sizeof(Metrics));
 #endif
         return DEVICE_MACHINE_OK;
     }
 
-    void DumpAicoreStatus(int coreIdx) const {
+    void DumpAicoreStatus(int coreIdx) const
+    {
         volatile KernelArgs *arg = reinterpret_cast<KernelArgs *>(sharedBuffer_ + coreIdx * SHARED_BUFFER_SIZE);
-        DEV_VERBOSE_DEBUG("!!***********************aicore %d last status **************************!!", coreIdx);
-        DEV_VERBOSE_DEBUG("hello status %ld.", arg->shakeBuffer[0]);
-        DEV_VERBOSE_DEBUG("last_taskId %ld task status [%ld, %ld, %ld, %ld].", arg->shakeBuffer[NUM_ONE],
-            arg->shakeBuffer[NUM_TWO], arg->shakeBuffer[NUM_THREE], arg->shakeBuffer[NUM_FOUR], arg->shakeBuffer[NUM_FIVE]);
-
-        for (size_t i = 0; i < sizeof(arg->taskStat) / sizeof(TaskStat); i++) {
-            DEV_VERBOSE_DEBUG("task rsp index %lu: taskId %d, subGraphID %d execStart %ld execEnd %ld.", i,
-                arg->taskStat[i].taskId, arg->taskStat[i].subGraphId,
-                arg->taskStat[i].execStart, arg->taskStat[i].execEnd);
-        }
+        DEV_ERROR(
+            SchedErr::ABNOMAL_LAST_WORD,
+            "!!***********************aicore %d last status **************************!!", coreIdx);
+        DEV_ERROR(
+            SchedErr::ABNOMAL_LAST_WORD, "hello status %ld.", arg->shakeBuffer[0]);
+        DEV_ERROR(
+            SchedErr::ABNOMAL_LAST_WORD, "last_taskId %ld task status [%ld, %ld, %ld, %ld].",
+            arg->shakeBuffer[NUM_ONE], arg->shakeBuffer[NUM_TWO], arg->shakeBuffer[NUM_THREE],
+            arg->shakeBuffer[NUM_FOUR], arg->shakeBuffer[NUM_FIVE]);
     }
 
-    uint64_t GetAicoreStatus(int coreIdx) const {
+    uint64_t GetAicoreStatus(int coreIdx) const
+    {
         int aicoreStatusIndex = 2;
+        volatile KernelArgs* arg = reinterpret_cast<KernelArgs*>(sharedBuffer_ + coreIdx * SHARED_BUFFER_SIZE);
+        return arg->shakeBuffer[aicoreStatusIndex];
+    }
+
+    uint64_t GetAicoreStatusBackup(int coreIdx) const
+    {
+        int aicoreStatusIndex = 3;
         volatile KernelArgs *arg = reinterpret_cast<KernelArgs *>(sharedBuffer_ + coreIdx * SHARED_BUFFER_SIZE);
         return arg->shakeBuffer[aicoreStatusIndex];
     }
 
-    inline void InitTaskData(int coreIdx, int64_t funcdata, int64_t buffer) {
-        (void)buffer;
-        if constexpr (IsDeviceMode()) {
-            if (args_[coreIdx] == nullptr) {
-                args_[coreIdx] = reinterpret_cast<KernelArgs*>((static_cast<uint64_t>(sharedBuffer_)) + SHARED_BUFFER_SIZE * coreIdx);
-            }
-            volatile KernelArgs *arg = args_[coreIdx];
-            arg->shakeBufferCpuToCore[CPU_TO_CORE_SHAK_BUF_COREFUNC_DATA_INDEX] = funcdata;
-#if ENABLE_AICORE_PRINT
-            arg->shakeBuffer[SHAK_BUF_PRINT_BUFFER_INDEX] = buffer;
-#endif
-        } else {
-            if (costModel_) {
-                costModel_->InitData(coreIdx, funcdata);
-            }
-        }
-    }
-
-    int HandShakeByGm(int coreIdx, int64_t dotStatus) {
+    bool TryHandShakeByGm(int coreIdx, int64_t dotStatus)
+    {
         auto args =
             reinterpret_cast<KernelArgs*>((static_cast<uint64_t>(sharedBuffer_)) + SHARED_BUFFER_SIZE * coreIdx);
-        args->taskEntry.reserved[0] = static_cast<uint32_t>(dotStatus);
-        volatile int64_t *shakeBuffer = args->shakeBuffer;
-        uint64_t cycles_start = GetCycles();
-        while ((*shakeBuffer & 0xFFFFFFFF) != AICORE_SAY_HELLO) {
-            if (GetCycles() - cycles_start > HAND_SHAKE_TIMEOUT) {
-                DEV_ERROR("hand shake %d timeout.\n", coreIdx);
-                return -1;
-            }
-        }
-        args_[coreIdx] = args;
-        GetPhyIdByBlockId(coreIdx) = (*shakeBuffer >> NUM_THIRTY_TWO) & AICORE_COREID_MASK;
-        return DEVICE_MACHINE_OK;
-    }
-
-    bool TryHandShakeByGm(int coreIdx, int64_t dotStatus) {
-        auto args =
-            reinterpret_cast<KernelArgs*>((static_cast<uint64_t>(sharedBuffer_)) + SHARED_BUFFER_SIZE * coreIdx);
-        volatile int64_t *shakeBuffer = args->shakeBuffer;
+        volatile int64_t* shakeBuffer = args->shakeBuffer;
         if ((*shakeBuffer & 0xFFFFFFFF) != AICORE_SAY_HELLO) {
             return false;
         }
@@ -497,137 +434,159 @@ public:
         if (isNeedWriteRegForFastPath_) {
             WriteReg32(coreIdx, REG_SPR_FAST_PATH_ENABLE, REG_SPR_FAST_PATH_OPEN);
         }
-        SetReadyQueue(coreIdx, 0);
+        SetReadyQueue(coreIdx, (uint64_t)0);
+        // make sure reset wave goodbye flag after hand shake ,orelse impact last aicore exit through wavegoodbye flag
+        args_[coreIdx]->waveBufferCpuToCore[CPU_TO_CORE_SHAK_BUF_GOODBYE_INDEX] = 0;
         DEV_VERBOSE_DEBUG("hand shake success coreidex:%d", coreIdx);
         return true;
     }
 
-    inline int ParseHandValue(int regIdx, bool *handFlag,  bool *ignoreFlag, int64_t dotStatus) {
-        if (ignoreFlag[regIdx]) {
-            return 0;
-        }
-
-        if (validCore_ && (!(*validCore_)[regIdx])) {
-            DEV_DEBUG("core %d is invalid.", regIdx);
-            ignoreFlag[regIdx] = true;
-            return 0;
-        }
-
-        uint64_t value = *finishRegQueues_[regIdx];
-        if ((value & 0xF0000000FFFFFFFF) != AICORE_REG_SAY_HELLO) {
-            /* make sure high and low reg 32 bit value synced from aicore
-               can not set ignoreFlag, maybe bad aicore reg */ 
-            return 0;
-        }
-        ignoreFlag[regIdx] = true; // ignore proc for next iter
-
-        int blockIdx = (value >> SHIFT_NUM_FORTYEIGHT) & AICORE_BLOCKID_MASK;
-        if (((blockIdx >= aicStart_) &&  (blockIdx < aicEnd_)) ||
-            ((blockIdx >= aivStart_) &&  (blockIdx < aivEnd_))) {
-            KernelArgs* args =
-                reinterpret_cast<KernelArgs*>((static_cast<uint64_t>(sharedBuffer_)) + SHARED_BUFFER_SIZE * blockIdx);
-            args->taskEntry.reserved[0] = static_cast<uint32_t>(dotStatus);
-            args_[blockIdx] = args;
-            GetPhyIdByBlockId(blockIdx) = (value >> NUM_THIRTY_TWO) & AICORE_COREID_MASK;
-            handFlag[blockIdx] = true;
-            DEV_VERBOSE_DEBUG("hand shake sucess, regidx:%d -> blockidx %d -> phyCoreid:%d.",
-                regIdx, blockIdx, GetPhyIdByBlockId(blockIdx));
-            return 1;
-        }
-
-        // not managed by this sched aicpu
-        return 0;
-    }
-
-    inline int CheckHandShakeFlag(bool *handFlag, bool *ignoreFlag, int64_t dotStatus) {
-        // unroll iterator
-        int regIdx = 0;
-        int handSuccessNum = 0;
-        for (uint32_t i = 0; i < (MAX_AICORE_NUM & (~CORE_QUEUE_MODE_NUM_7)); i += CORE_QUEUE_MODE_NUM_8) {
-            handSuccessNum += ParseHandValue(regIdx++, handFlag, ignoreFlag, dotStatus);
-            handSuccessNum += ParseHandValue(regIdx++, handFlag, ignoreFlag, dotStatus);
-            handSuccessNum += ParseHandValue(regIdx++, handFlag, ignoreFlag, dotStatus);
-            handSuccessNum += ParseHandValue(regIdx++, handFlag, ignoreFlag, dotStatus);
-            handSuccessNum += ParseHandValue(regIdx++, handFlag, ignoreFlag, dotStatus);
-            handSuccessNum += ParseHandValue(regIdx++, handFlag, ignoreFlag, dotStatus);
-            handSuccessNum += ParseHandValue(regIdx++, handFlag, ignoreFlag, dotStatus);
-            handSuccessNum += ParseHandValue(regIdx++, handFlag, ignoreFlag, dotStatus);
-        }
-        switch (MAX_AICORE_NUM & CORE_QUEUE_MODE_NUM_7) {
-            case CORE_QUEUE_MODE_NUM_7:
-                handSuccessNum += ParseHandValue(regIdx++, handFlag, ignoreFlag, dotStatus);
-                [[fallthrough]];
-            case CORE_QUEUE_MODE_NUM_6:
-                handSuccessNum += ParseHandValue(regIdx++, handFlag, ignoreFlag, dotStatus);
-                [[fallthrough]];
-            case CORE_QUEUE_MODE_NUM_5:
-                handSuccessNum += ParseHandValue(regIdx++, handFlag, ignoreFlag, dotStatus);
-                [[fallthrough]];
-            case CORE_QUEUE_MODE_NUM_4:
-                handSuccessNum += ParseHandValue(regIdx++, handFlag, ignoreFlag, dotStatus);
-                [[fallthrough]];
-            case CORE_QUEUE_MODE_NUM_3:
-                handSuccessNum += ParseHandValue(regIdx++, handFlag, ignoreFlag, dotStatus);
-                [[fallthrough]];
-            case CORE_QUEUE_MODE_NUM_2:
-                handSuccessNum += ParseHandValue(regIdx++, handFlag, ignoreFlag, dotStatus);
-                [[fallthrough]];
-            case CORE_QUEUE_MODE_NUM_1:
-                handSuccessNum += ParseHandValue(regIdx++, handFlag, ignoreFlag, dotStatus);
-                [[fallthrough]];
-            default:
-                break;
-        }
-        if (handSuccessNum > 0) {
-            DEV_VERBOSE_DEBUG("Hand success num : %d.", handSuccessNum);
-        }
-        return handSuccessNum;
-    }
-
-    inline int HandShakeByReg(int64_t dotStatus) {
-        int handShakeNum = 0;
-        int mngAicoreNum = aicEnd_ - aicStart_ + aivEnd_ - aivStart_;
-        bool handFlag[MAX_AICORE_NUM] = {false};
-        bool ignoreFlag[MAX_AICORE_NUM] = {false};
-        uint64_t start_cycles = GetCycles();
-        while (handShakeNum < mngAicoreNum) {
-            handShakeNum += CheckHandShakeFlag(handFlag, ignoreFlag, dotStatus);
-            if (GetCycles() - start_cycles > HAND_SHAKE_TIMEOUT) {
-                DEV_ERROR("Hand shake by reg timeout.\n");
-                DEV_IF_DEBUG {
-                    for (int i = aicStart_; i < aicEnd_; i++) {
-                        if (handFlag[i]) {
-                            DEV_DEBUG("Aic core %d hand shake success.", i);
-                        } else {
-                            DEV_DEBUG("Aic core %d hand shake timeout.", i);    
-                        }
-                    }
-                    for (int i = aivStart_; i < aivEnd_; i++) {
-                        if (handFlag[i]) {
-                            DEV_DEBUG("Aiv core %d hand shake success.", i);
-                        } else {
-                            DEV_DEBUG("Aiv core %d hand shake timeout.", i);    
-                        }
-                    }
-                }
-                return -1;
-            }
-        }
-        return DEVICE_MACHINE_OK;
-    }
-
+    // We must makesure close 0x18 before aicore exit.
     void ResetShakeBuf(int coreIdx) {
-        if (isNeedWriteRegForFastPath_) {
-            WriteReg32(coreIdx, REG_SPR_FAST_PATH_ENABLE, REG_SPR_FAST_PATH_CLOSE);
+        if constexpr (IsDeviceMode()) {
+            if (isNeedWriteRegForFastPath_) {
+                WriteReg32(coreIdx, REG_SPR_FAST_PATH_ENABLE, REG_SPR_FAST_PATH_CLOSE);
+                __sync_synchronize();
+            }
+            args_[coreIdx]->shakeBuffer[0] = 0;
+            args_[coreIdx]->shakeBufferCpuToCore[CPU_TO_CORE_SHAK_BUF_COREFUNC_DATA_INDEX] = 0;
+            args_[coreIdx]->waveBufferCpuToCore[CPU_TO_CORE_SHAK_BUF_GOODBYE_INDEX] = AICORE_SAY_GOODBYE;
+        }else {
+            if (enableEslModel_) {
+                uint64_t valToSend = 0;
+                eslModel_.WriteEslMem(reinterpret_cast<uint64_t>(&args_[coreIdx]->shakeBuffer[0]), sizeof(uint64_t), &valToSend);
+                valToSend = AICORE_SAY_GOODBYE;
+                eslModel_.WriteEslMem(reinterpret_cast<uint64_t>(&args_[coreIdx]->waveBufferCpuToCore[CPU_TO_CORE_SHAK_BUF_GOODBYE_INDEX]), sizeof(uint64_t), &valToSend);
+            }
+            
         }
-        args_[coreIdx]->shakeBuffer[0] = 0;
-        args_[coreIdx]->shakeBufferCpuToCore[CPU_TO_CORE_SHAK_BUF_COREFUNC_DATA_INDEX] = 0;
+        ResetParallelDevTask(coreIdx);
         return;
     }
 
-    volatile TaskStat *GetTaskStat(int coreIdx, int pos) {
-        volatile TaskStat *stat = &args_[coreIdx]->taskStat[pos];
-        return stat;
+    inline void InitKernelArgs(int coreIdx, int64_t buffer) {
+        (void)buffer;
+        if constexpr (IsDeviceMode()) {
+            if (args_[coreIdx] == nullptr) {
+                args_[coreIdx] = reinterpret_cast<KernelArgs*>((static_cast<uint64_t>(sharedBuffer_)) + SHARED_BUFFER_SIZE * coreIdx);
+            }
+#if ENABLE_AICORE_PRINT
+            volatile KernelArgs *arg = args_[coreIdx];
+            arg->shakeBuffer[SHAK_BUF_PRINT_BUFFER_INDEX] = buffer;
+            __sync_synchronize();
+#endif
+        } else {
+            if (enableEslModel_) {
+                if (args_[coreIdx] == nullptr) {
+                    args_[coreIdx] = reinterpret_cast<KernelArgs*>((static_cast<uint64_t>(sharedBuffer_)) +
+                        SHARED_BUFFER_SIZE * coreIdx);
+                }
+            }
+        }
+    }
+
+    volatile ParallelDevTask* GetParallelDevTask(int coreIdx)
+    {
+        volatile KernelArgs *arg = args_[coreIdx];
+        return &arg->parallelDevTask;
+    }
+
+    void SetParallelDevTask(
+        volatile ParallelDevTask* kernelParallDevTask, int parallelIdx, int64_t funcData, uint32_t devTaskId)
+    {
+        DEV_IF_DEVICE
+        {
+            kernelParallDevTask->ptrElements[parallelIdx % npu::tile_fwk::SCH_DEVTASK_MAX_PARALLELISM] = funcData;
+            kernelParallDevTask->idElements[parallelIdx % npu::tile_fwk::SCH_DEVTASK_MAX_PARALLELISM] = devTaskId;
+        } else {
+            if (enableEslModel_) {
+                eslModel_.WriteEslMem(
+                    reinterpret_cast<uint64_t>(
+                        &kernelParallDevTask->ptrElements[parallelIdx % npu::tile_fwk::SCH_DEVTASK_MAX_PARALLELISM]),
+                        sizeof(funcData), &funcData);
+                eslModel_.WriteEslMem(
+                    reinterpret_cast<uint64_t>(
+                        &kernelParallDevTask->idElements[parallelIdx % npu::tile_fwk::SCH_DEVTASK_MAX_PARALLELISM]),
+                        sizeof(devTaskId), &devTaskId);
+            }
+        }
+    }
+
+    void SetParallelDevTaskSize(volatile ParallelDevTask* kernelParallDevTask, uint32_t front, uint32_t rear)
+    {
+        DEV_IF_DEVICE
+        {
+            kernelParallDevTask->front = front;
+            kernelParallDevTask->rear = rear;
+        } else {
+            if (enableEslModel_) {
+                eslModel_.WriteEslMem(reinterpret_cast<uint64_t>(&kernelParallDevTask->front), sizeof(front), &front);
+                eslModel_.WriteEslMem(reinterpret_cast<uint64_t>(&kernelParallDevTask->rear), sizeof(rear), &rear);
+            }
+        }
+    }
+
+    inline uint32_t ParallelDevTaskCtxVersion(int coreIdx)
+    {
+        return parallelDevTaskCtxVersion[coreIdx];
+    }
+
+    inline void SetParallelDevTaskCtxVersion(int coreIdx, uint32_t version)
+    {
+        parallelDevTaskCtxVersion[coreIdx] = version;
+        DEV_IF_DEVICE {
+            volatile KernelArgs *arg = args_[coreIdx];
+            arg->parallelDevTask.version = version;
+        } else {
+            if (enableEslModel_) {
+                volatile KernelArgs *arg = args_[coreIdx];
+                eslModel_.WriteEslMem(reinterpret_cast<uint64_t>(&arg->parallelDevTask.version), sizeof(version),
+                    &version);
+            }
+        }
+
+        DEV_VERBOSE_DEBUG("Refresh core %d parall version %u", coreIdx, version);
+    }
+
+    void ResetParallelDevTask(int coreIdx)
+    {
+        DEV_IF_DEVICE
+        {
+            args_[coreIdx]->parallelDevTask.version = 0;
+            args_[coreIdx]->parallelDevTask.front = 0;
+            args_[coreIdx]->parallelDevTask.rear = 0;
+            for (uint32_t i = 0; i < npu::tile_fwk::SCH_DEVTASK_MAX_PARALLELISM; i++) {
+                args_[coreIdx]->parallelDevTask.ptrElements[i] = 0;
+                args_[coreIdx]->parallelDevTask.idElements[i] = 0;
+            }
+        } else {
+            if (enableEslModel_) {
+                uint32_t u32Zero = 0;
+                eslModel_.WriteEslMem(
+                    reinterpret_cast<uint64_t>(&args_[coreIdx]->parallelDevTask.version), sizeof(u32Zero), &u32Zero);
+                eslModel_.WriteEslMem(
+                    reinterpret_cast<uint64_t>(&args_[coreIdx]->parallelDevTask.front), sizeof(u32Zero), &u32Zero);
+                eslModel_.WriteEslMem(
+                    reinterpret_cast<uint64_t>(&args_[coreIdx]->parallelDevTask.front), sizeof(u32Zero), &u32Zero);
+                
+                int64_t i64Zereo = 0;
+                for (uint32_t i = 0; i < npu::tile_fwk::SCH_DEVTASK_MAX_PARALLELISM; i++) {
+                    eslModel_.WriteEslMem(
+                    reinterpret_cast<uint64_t>(&args_[coreIdx]->parallelDevTask.ptrElements[i]), sizeof(i64Zereo), &i64Zereo);
+                    eslModel_.WriteEslMem(
+                    reinterpret_cast<uint64_t>(&args_[coreIdx]->parallelDevTask.idElements[i]), sizeof(u32Zero), &u32Zero);
+                }
+            }
+        }
+    }
+
+    inline void InitCostModelDevTaskData(int coreIdx, int64_t funcData)
+    {
+        if constexpr (!IsDeviceMode()) {
+            if (costModel_) {
+                costModel_->InitData(coreIdx, funcData);
+            }
+        }
     }
 
 private:
@@ -638,7 +597,8 @@ private:
     int aivStart_{0};
     int aivEnd_{0};
     uint32_t regNum_{0};
-    
+    uint64_t freq_{50};
+
     std::array<volatile KernelArgs*, MAX_AICORE_NUM> args_;
 
     std::array<volatile uint64_t*, MAX_AICORE_NUM> readyRegQueues_;
@@ -650,13 +610,17 @@ private:
     std::array<std::deque<uint64_t>, MAX_AICORE_NUM> taskTimes;
 
     std::array<int, MAX_AICORE_NUM> blockIdToPhyCoreId_;
-    std::array<bool, MAX_AICORE_NUM> *validCore_{nullptr};
+    std::array<uint32_t, MAX_AICORE_NUM> parallelDevTaskCtxVersion;
 
     uint32_t regSprDataMainBase_{DAV_2201::REG_SPR_DATA_MAIN_BASE};
     uint32_t regSprCond_{DAV_2201::REG_SPR_COND};
 
     bool isNeedWriteRegForFastPath_{true};
-    AiCoreProf *aicoreProf_{nullptr};
-    CostModel::AiCoreModel *costModel_{nullptr};
+    AiCoreProf* aicoreProf_{nullptr};
+    CostModel::AiCoreModel* costModel_{nullptr};
+
+    bool enableEslModel_;
+    ArchInfo archInfo_{ArchInfo::DAV_2201};
+    EslAicoreHal eslModel_;
 };
-}
+} // namespace npu::tile_fwk::dynamic

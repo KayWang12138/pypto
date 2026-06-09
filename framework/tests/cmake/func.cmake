@@ -25,7 +25,7 @@ function(PTO_Fwk_GTest_GenerateCoverage)
             ""
             ${ARGN}
     )
-    if (ENABLE_TESTS_EXECUTE AND ENABLE_GCOV AND BUILD_OPEN_PROJECT)
+    if (ENABLE_TESTS_EXECUTE AND ENABLE_GCOV)
         # 获取 gcc 默认头文件搜索路径
         execute_process(
                 COMMAND ${CMAKE_C_COMPILER} --print-sysroot
@@ -41,22 +41,27 @@ function(PTO_Fwk_GTest_GenerateCoverage)
 
         # 参数组织
         find_program(LCOV lcov REQUIRED)
-        get_filename_component(GenCoveragePy ${PTO_FWK_SRC_ROOT}/framework/tests/cmake/scripts/python/gen_coverage.py REALPATH)
+        get_filename_component(GenCoveragePy ${PTO_FWK_SRC_ROOT}/cmake/scripts/gen_coverage.py REALPATH)
         get_filename_component(GenCoverageDataDir "${PTO_FWK_BIN_ROOT}" REALPATH)
-        set(_Args "-s=${PTO_FWK_SRC_ROOT}" "-c=${GenCoverageDataDir}")
+        set(_Args "-s=${PTO_FWK_SRC_ROOT}" "-d=${GenCoverageDataDir}")
 
         get_target_property(GTest_GTest_Inc     GTest::gtest           INTERFACE_INCLUDE_DIRECTORIES)
         get_target_property(GTest_GTestMain_Inc GTest::gtest_main      INTERFACE_INCLUDE_DIRECTORIES)
         get_target_property(Json_Inc            json                   INTERFACE_INCLUDE_DIRECTORIES)
         set(Filter_Dirs
                 ${PTO_FWK_SRC_ROOT}/framework/tests
-                ${PTO_FWK_SRC_ROOT}/third_party
                 ${GTest_GTest_Inc}
                 ${GTest_GTestMain_Inc}
                 ${Json_Inc}
                 ${SYS_ROOT}
                 ${ARG_FILTER_DIRECTORIES}
         )
+        if (ENABLE_TORCH_VERIFIER)
+            list(APPEND Filter_Dirs ${PY3_MOD_TORCH_ROOT_PATH}/include)
+        endif ()
+        if (BUILD_WITH_CANN)
+            list(APPEND Filter_Dirs ${ASCEND_CANN_PACKAGE_PATH}/include)
+        endif ()
         foreach (_dir ${Filter_Dirs})
             list(APPEND _Args "-f=${_dir}")
         endforeach ()
@@ -110,8 +115,10 @@ function(PTO_Fwk_GTest_RunExe_GetPreExecSetup PY_CMD_SETUP PY_ENV_LINES BASH_CMD
 
     # 环境变量
     set(EnvLines)
-    # 处理变量 LD_LIBRARIES_EXT 及环境变量 LD_LIBRARY_PATH
-    set(LD_LIBRARY_PATH_EXT)
+    # 处理变量 LD_LIBRARIES_EXT 及环境变量 LD_LIBRARY_PATH 及 CMAKE_LIBRARY_OUTPUT_DIRECTORY
+    # 1. 当前 UTest/STest 已把动态库生成路径设置到 CMAKE_LIBRARY_OUTPUT_DIRECTORY 路径下, 此处需增加该路径配置;
+    # 2. 保留 LD_LIBRARY_PATH_EXT 处理逻辑, 已供后续其他场景使用;
+    set(LD_LIBRARY_PATH_EXT ${CMAKE_LIBRARY_OUTPUT_DIRECTORY})
     foreach (LIBRARY ${ARG_LD_LIBRARIES_EXT})
         add_dependencies(${ARG_TARGET} ${LIBRARY})
         list(APPEND LD_LIBRARY_PATH_EXT "$<TARGET_FILE_DIR:${LIBRARY}>")
@@ -123,9 +130,6 @@ function(PTO_Fwk_GTest_RunExe_GetPreExecSetup PY_CMD_SETUP PY_ENV_LINES BASH_CMD
     endif ()
     list(APPEND EnvLines ${LD_LIBRARY_PATH})
     # 处理环境变量 PATH
-    if ((NOT BUILD_OPEN_PROJECT) AND ENABLE_UTEST)
-        list(APPEND EnvLines "PATH=$ENV{PATH}:${CCEC_PATH}")
-    endif()
     # 处理变量 ENV_SETUP_EXT
     list(REMOVE_ITEM ARG_ENV_LINES_EXT export)
     list(REMOVE_ITEM ARG_ENV_LINES_EXT &)
@@ -212,6 +216,12 @@ function(PTO_Fwk_GTest_AddExe)
             PRIVATE
                 ${ARG_PRIVATE_INCLUDE_DIRECTORIES}
     )
+    target_compile_definitions(${ARG_TARGET}
+            PRIVATE
+                $<$<BOOL:${BUILD_WITH_CANN}>:BUILD_WITH_CANN>
+                $<$<BOOL:${ENABLE_UTEST}>:ENABLE_UTEST>
+                $<$<BOOL:${ENABLE_STEST}>:ENABLE_STEST>
+    )
     target_link_libraries(${ARG_TARGET}
             PRIVATE
                 GTest::gtest
@@ -230,7 +240,8 @@ function(PTO_Fwk_GTest_AddExe)
             COMMAND ${CMAKE_COMMAND} -E make_directory ${InstallConfigsDir}
             COMMAND ln -sf "${PTO_FWK_SRC_ROOT}/framework/src/interface/configs/*.json"                         "${InstallConfigsDir}/"
             COMMAND ln -sf "${PTO_FWK_SRC_ROOT}/framework/src/passes/pass_config/tile_fwk_platform_info.json"   "${InstallConfigsDir}/"
-            COMMAND ln -sf "${PTO_FWK_SRC_ROOT}/framework/src/cost_model/simulation_platform/platform_config/A2A3.ini"   "${InstallConfigsDir}/"
+            COMMAND ln -sf "${PTO_FWK_SRC_ROOT}/framework/src/platform/parser/platforminfo.ini"   "${InstallConfigsDir}/"
+            COMMAND ln -sf "${PTO_FWK_SRC_ROOT}/framework/src/platform/parser/simulation_platform/platform_config/*.ini"   "${InstallConfigsDir}/"
             COMMENT "Soft link of configs(*.json) has been created at ${InstallConfigsDir}"
     )
     # 模拟脚本文件 Install 流程, 为便于调试, 使用创建软连接方式模拟安装
@@ -239,12 +250,14 @@ function(PTO_Fwk_GTest_AddExe)
             TARGET ${ARG_TARGET} PRE_BUILD
             COMMAND ${CMAKE_COMMAND} -E remove_directory ${InstallScriptsDir}
             COMMAND ${CMAKE_COMMAND} -E make_directory ${InstallScriptsDir}
-            COMMAND ln -sf "${PTO_FWK_SRC_ROOT}/tools/draw_swim_lane.py" "${InstallScriptsDir}/"
+            COMMAND ln -sf "${PTO_FWK_SRC_ROOT}/tools/profiling/draw_swim_lane.py" "${InstallScriptsDir}/"
             COMMAND ln -sf "${PTO_FWK_SRC_ROOT}/framework/src/cost_model/simulation/scripts/draw_pipe_swim_lane.py" "${InstallScriptsDir}/"
             COMMAND ln -sf "${PTO_FWK_SRC_ROOT}/framework/src/cost_model/simulation/scripts/draw_comm_swim_lane_png.py" "${InstallScriptsDir}/"
             COMMAND ln -sf "${PTO_FWK_SRC_ROOT}/framework/src/cost_model/simulation/scripts/print_swim_lane.py" "${InstallScriptsDir}/"
-            COMMAND ln -sf "${PTO_FWK_SRC_ROOT}/tools/function_json_convert.py" "${InstallScriptsDir}/"
-            COMMAND ln -sf "${PTO_FWK_SRC_ROOT}/tools/parse_pipe_time_trace.py" "${InstallScriptsDir}/"
+            COMMAND ln -sf "${PTO_FWK_SRC_ROOT}/tools/profiling/function_json_convert.py" "${InstallScriptsDir}/"
+            COMMAND ln -sf "${PTO_FWK_SRC_ROOT}/tools/profiling/parse_pipe_time_trace.py" "${InstallScriptsDir}/"
+            COMMAND ln -sf "${PTO_FWK_SRC_ROOT}/tools/scripts/machine_perf_trace.py" "${InstallScriptsDir}/"
+            COMMAND ln -sf "${PTO_FWK_SRC_ROOT}/tools/scripts/extract_pass_log.py" "${InstallScriptsDir}/"
             COMMENT "Soft link of scripts has been created at ${InstallScriptsDir}"
     )
     # 模拟头文件 Install 流程, 为便于调试, 使用创建软连接方式模拟安装
@@ -263,7 +276,6 @@ function(PTO_Fwk_GTest_AddExe)
             COMMAND ${CMAKE_COMMAND} -E make_directory ${InstallLibIncludeDir}/
             COMMAND ln -sf ${PTO_FWK_SRC_ROOT}/framework/src/interface/tileop ${InstallLibIncludeDir}
             COMMAND ln -sf ${PTO_FWK_SRC_ROOT}/framework/src/interface/machine/device/tilefwk ${InstallLibIncludeDir}
-            COMMAND ln -sf ${PTO_FWK_SRC_ROOT}/framework/src/cost_model/simulation_ca/mock ${InstallLibIncludeDir}
             COMMENT "Soft link of library include directory has been created at ${InstallLibIncludeDir}"
     )
 endfunction()
@@ -301,4 +313,34 @@ function(PTO_Fwk_GTest_GetGTestFilterStr GTEST_FILTER_STR)
     )
     string(REPLACE "," ":" OutputVariable "${OutputVariable}")
     set(${GTEST_FILTER_STR} ${OutputVariable} PARENT_SCOPE)
+endfunction()
+
+# GTest 按模块添加路径
+#[[
+Parameters:
+  one_value_keywords:
+      MARK                          : [Required] 标识测试类型
+      DIR                           : [Required] 待添加的模块名(与子路径同名)
+  multi_value_keywords:
+      MODULE_LIST                   : [Optional] 配置的模块名列表
+]]
+function(PTO_Fwk_GTest_AddModuleDir)
+    cmake_parse_arguments(
+            ARG
+            ""
+            "MARK;DIR"
+            "MODULE_LIST"
+            ""
+            ${ARGN}
+    )
+    if ((NOT ARG_MODULE_LIST) OR "${ARG_MODULE_LIST}x" STREQUAL "ONx")
+        set(_TestModuleList "ALL")
+    else ()
+        string(REPLACE "," ";" _TestModuleList "${ARG_MODULE_LIST}")
+        string(REPLACE ":" ";" _TestModuleList "${_TestModuleList}")
+    endif ()
+    if (("${_TestModuleList}" STREQUAL "ALL") OR ("${ARG_DIR}" IN_LIST _TestModuleList))
+        add_subdirectory(${ARG_DIR})
+        message(STATUS "${ARG_MARK} Add module(${ARG_DIR})")
+    endif()
 endfunction()

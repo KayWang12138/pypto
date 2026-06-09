@@ -17,6 +17,7 @@
 #define EXPAND_FUNCTION_CHECKER_H
 
 #include "checker.h"
+#include "inplace_conflict_checker.h"
 #include "interface/operation/opcode.h"
 #include "interface/function/function.h"
 #include "interface/operation/operation.h"
@@ -26,9 +27,9 @@ namespace npu {
 namespace tile_fwk {
 class ExpandFunctionChecker : Checker {
 public:
-    Status DoPreCheck(Function &function) override;
-    Status DoPostCheck(Function &function) override;
+    Status DoDefaultEnabledPreCheck(Function& function) override;
+    Status DoPostCheck(Function& function) override;
 };
 } // namespace tile_fwk
 } // namespace npu
-#endif  // EXPAND_FUNCTION_CHECKER_H
+#endif // EXPAND_FUNCTION_CHECKER_H

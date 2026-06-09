@@ -19,14 +19,18 @@ recursive-include cmake *.txt
 include framework/CMakeLists.txt
 include framework/src/CMakeLists.txt
 recursive-include framework/include *.h
+recursive-include framework/include *.def
+recursive-include framework/src/utils *
+recursive-include framework/src/adapter *
 recursive-include framework/src/codegen *
 recursive-include framework/src/cost_model/simulation *
-recursive-include framework/src/cost_model/simulation_ca *
-recursive-include framework/src/cost_model/simulation_platform *
+recursive-include framework/src/cost_model/simulation_pv *
 include framework/src/cost_model/CMakeLists.txt
 recursive-include framework/src/interface *
 recursive-include framework/src/machine *
 recursive-include framework/src/passes *
+recursive-include framework/src/cann_host_runtime *
+recursive-include framework/src/platform *
 
 # python
 include python/CMakeLists.txt
@@ -41,9 +45,11 @@ include MANIFEST.in
 include pyproject.toml
 include README.md
 include setup.py
-include tools/draw_swim_lane.py
+include tools/profiling/draw_swim_lane.py
 include framework/src/cost_model/simulation/scripts/print_swim_lane.py
 include framework/src/cost_model/simulation/scripts/draw_comm_swim_lane_png.py
 include framework/src/cost_model/simulation/scripts/draw_pipe_swim_lane.py
-include tools/function_json_convert.py
-include tools/parse_pipe_time_trace.py
+include tools/profiling/function_json_convert.py
+include tools/profiling/parse_pipe_time_trace.py
+include tools/scripts/machine_perf_trace.py
+include tools/scripts/extract_pass_log.py

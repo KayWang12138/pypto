@@ -26,58 +26,131 @@ namespace npu::tile_fwk {
 enum class UnaryOpType {
     EXP,
     RSQRT,
+    RELU,
     SQRT,
+    CEIL,
+    FLOOR,
+    TRUNC,
     RECIPROCAL,
     DUPLICATE,
     ABS,
     LN,
     HUB,
+    BITWISENOT,
+    SIGN,
+    SIGNBIT,
+    ISFINITE,
+    SINH,
+    COSH,
+    SIN,
+    COS,
 };
 
 template <UnaryOpType T>
-std::string GetUnaryOpName() {
+std::string GetUnaryOpName()
+{
     switch (T) {
-        case UnaryOpType::EXP: return "EXP";
-        case UnaryOpType::RSQRT: return "RSQRT";
-        case UnaryOpType::SQRT: return "SQRT";
-        case UnaryOpType::RECIPROCAL: return "RECIPROCAL";
-        case UnaryOpType::DUPLICATE: return "DUPLICATE";
-        case UnaryOpType::ABS: return "ABS";
-        case UnaryOpType::LN: return "LN";
-        case UnaryOpType::HUB: return "HUB";
-        default: ASSERT(false && "unknown unary op type"); return "";
+        case UnaryOpType::EXP:
+            return "EXP";
+        case UnaryOpType::RSQRT:
+            return "RSQRT";
+        case UnaryOpType::RELU:
+            return "RELU";
+        case UnaryOpType::SQRT:
+            return "SQRT";
+        case UnaryOpType::CEIL:
+            return "CEIL";
+        case UnaryOpType::FLOOR:
+            return "FLOOR";
+        case UnaryOpType::TRUNC:
+            return "TRUNC";
+        case UnaryOpType::RECIPROCAL:
+            return "RECIPROCAL";
+        case UnaryOpType::DUPLICATE:
+            return "DUPLICATE";
+        case UnaryOpType::ABS:
+            return "ABS";
+        case UnaryOpType::LN:
+            return "LN";
+        case UnaryOpType::ISFINITE:
+            return "ISFINITE";
+        case UnaryOpType::HUB:
+            return "HUB";
+        case UnaryOpType::BITWISENOT:
+            return "BITWISENOT";
+        case UnaryOpType::SIGN:
+            return "SIGN";
+        case UnaryOpType::SIGNBIT:
+            return "SIGNBIT";
+        case UnaryOpType::SINH:
+            return "SINH";
+        case UnaryOpType::COSH:
+            return "COSH";
+        case UnaryOpType::SIN:
+            return "SIN";
+        case UnaryOpType::COS:
+            return "COS";
+        default:
+            ASSERT(VectorErrorCode::ERR_PARAM_INVALID, false) << "unknown unary op type";
+            return "";
     }
 }
 
 template <UnaryOpType T>
-Opcode GetUnaryOpNameCode() {
-#define CASE(X) \
-    case UnaryOpType::X: return Opcode::OP_##X
+Opcode GetUnaryOpNameCode()
+{
+#define CASE(X)          \
+    case UnaryOpType::X: \
+        return Opcode::OP_##X
     switch (T) {
         CASE(EXP);
         CASE(RSQRT);
+        CASE(RELU);
         CASE(SQRT);
+        CASE(CEIL);
+        CASE(FLOOR);
+        CASE(TRUNC);
         CASE(RECIPROCAL);
         CASE(DUPLICATE);
         CASE(ABS);
         CASE(LN);
+        CASE(ISFINITE);
         CASE(HUB);
-        default: ASSERT(false && "unknown unary op type");
+        CASE(BITWISENOT);
+        CASE(SIGN);
+        CASE(SIGNBIT);
+        CASE(SINH);
+        CASE(COSH);
+        CASE(SIN);
+        CASE(COS);
+        default:
+            ASSERT(VectorErrorCode::ERR_PARAM_INVALID, false) << "unknown unary op type";
     }
 #undef CASE
 }
 
 void UnaryOperationOperandCheck(
-    const std::vector<LogicalTensorPtr> &iOperand, const std::vector<LogicalTensorPtr> &oOperand);
+    const std::vector<LogicalTensorPtr>& iOperand, const std::vector<LogicalTensorPtr>& oOperand);
 
 template <UnaryOpType T>
-LogicalTensorPtr TensorUnaryOperation(Function &function, LogicalTensorPtr operand) {
+std::pair<LogicalTensorPtr, Operation*> TensorUnaryOperationWithOp(
+    Function& function, LogicalTensorPtr operand, std::optional<DataType> datatype = std::nullopt)
+{
     auto opName = GetUnaryOpName<T>();
-    CheckTensorShape(operand, opName);
+    CheckTensorDimRange(operand, MIN_TENSOR_DIM, MAX_TENSOR_DIM, opName);
+    CheckTensorShapeSize(operand, opName);
+    datatype = datatype.value_or(operand->tensor->datatype);
     auto result = std::make_shared<LogicalTensor>(
-        function, operand->tensor->datatype, operand->shape, operand->GetDynValidShape(), operand->Format());
-    function.AddOperation(GetUnaryOpNameCode<T>(), {operand}, {result});
-    return result;
+        function, *datatype, operand->shape, operand->GetDynValidShape(), operand->Format());
+    Operation* op = &function.AddOperation(GetUnaryOpNameCode<T>(), {operand}, {result});
+    return {result, op};
+}
+
+template <UnaryOpType T>
+LogicalTensorPtr TensorUnaryOperation(
+    Function& function, LogicalTensorPtr operand, std::optional<DataType> datatype = std::nullopt)
+{
+    return TensorUnaryOperationWithOp<T>(function, operand, datatype).first;
 }
 
 } // namespace npu::tile_fwk

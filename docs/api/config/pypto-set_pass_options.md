@@ -15,40 +15,23 @@
 
 ```python
 set_pass_options(*,
-                     pg_skip_partition: Optional[bool] = None,
-                     pg_upper_bound: Optional[int] = None,
-                     pg_lower_bound: Optional[int] = None,
-                     pg_parallel_lower_bound: Optional[int] = None,
-                     mg_vec_parallel_lb: Optional[int] = None,
-                     vec_nbuffer_mode: Optional[int] = None,
-                     vec_nbuffer_setting: Optional[Dict[int, int]] = None,
-                     cube_l1_reuse_mode: Optional[int] = None,
-                     cube_l1_reuse_setting: Optional[Dict[int, int]] = None,
-                     cube_nbuffer_mode: Optional[int] = None,
-                     cube_nbuffer_setting: Optional[Dict[int, int]] = None,
-                     mg_copyin_upper_bound: Optional[int] = None,
-                     sg_set_scope: Optional[int] = None,
+                     vec_nbuffer_setting: Optional[Dict[Union[int, str], int]] = None,
+                     cube_l1_reuse_setting: Optional[Dict[Union[int, str], int]] = None,
+                     cube_nbuffer_setting: Optional[Dict[Union[int, str], int]] = None,
+                     sg_set_scope: Optional[Union[int, Tuple[int, bool, bool]]] = None,
+                     pg_partition_algorithm: Optional[str] = None,
                      )
 ```
 
 ## 参数说明
 
-
 | 参数名                  | 输入/输出 | 说明                                                                 |
 |-------------------------|-----------|----------------------------------------------------------------------|
-| pg_skip_partition       | 输入      | 含义：是否跳过子图切分过程。 <br> 说明：当值为True时，将完整的计算图作为单一子图，不进行切分。当值为False时，进行子图切分。 <br> 类型：bool <br> 取值范围：{True, False} <br> 默认值：False <br> 影响Pass范围： GraphPartition |
-| pg_upper_bound          | 输入      | 含义：合图参数，用于配置子图大小上界。 <br> 说明：当子图大小达到上界不允许与其他子图合并。 <br> 类型：int <br> 取值范围：0~2147483647 <br> 默认值：10000 <br> 影响Pass范围： GraphPartition |
-| pg_lower_bound          | 输入      | 含义：合图参数，用于配置子图大小下界。 <br> 说明：当子图大小小于下界时尝试与其他子图合并。 <br> 类型：int <br> 取值范围：0~2147483647 <br> 默认值：512 <br> 影响Pass范围： GraphPartition |
-| pg_parallel_lower_bound | 输入      | 含义：合图参数，用于配置相同结构子图的最小并行度。 <br> 说明：当某个相同结构的子图数小于该值时不做合并。 <br> 类型：int <br> 取值范围：0~2147483647 <br> 默认值：20 <br> 影响Pass范围： GraphPartition |
-| sg_set_scope            | 输入      | 含义：手动控制合图参数。 <br> 说明：将operation赋予特定的scopeId，若相邻的operation具有相同的非-1的scopeId，则会被强制合并在一个子图之中，并且这个子图不会与其他子图合并。 <br> 类型：int <br> 取值范围：-1~2147483647 <br> 默认值：-1 <br> 影响Pass范围：GraphPartition |
-| mg_vec_parallel_lb      | 输入      | 含义：合图参数，用于配置相同结构AIV子图的最小并行度。 <br> 说明：当某个相同结构的子图数小于该值时不做合并。 <br> 类型：int <br> 取值范围：1~48 <br> 默认值：48 <br> 影响Pass范围：NBufferMerge |
-| vec_nbuffer_mode        | 输入      | 含义：合图参数，用于配置相同结构AIV子图合并策略。 <br> 说明：该参数适用于结构相同的AIV子图合并，避免同一结构子图数过大并增大核内流水调度可能性。 <br> 类型：int <br> 取值：<br> 0：不使能相同结构子图间合并逻辑。<br> 1：使能相同结构子图间合并，合并逻辑为依据sgVecParallelNum自适应计算每个结构的合并数。<br> 2：所有结构相同子图都按用户设置VecNBufferMap来做子图间的合并。 <br> 默认值：1 <br> 影响Pass范围： NBufferMerge |
-| vec_nbuffer_setting     | 输入      | 含义：合图参数，用于配置相同结构AIV子图的合并数量。 <br> 说明：该参数适用于结构相同的AIV子图合并。 <br> 类型： dict[int, int] <br> 使用条件：<br> CubenBufferMode = 0/1, VecNBufferSetting 设置为nullMap。<br> CubenBufferMode = 2，用户手动设置VecNBufferSetting 。<br> 默认值：nullMap <br> 影响Pass范围： NBufferMerge |
-| cube_l1_reuse_mode      | 输入      | 含义：合图参数，用于配置结构相同且重复搬运同一GM数据的子图合并策略。 <br> 说明：该参数适用于含有CUBE计算的子图，避免同一数据被重复搬运次数过多。 <br> 类型：int 0：不使能结构相同且存在重复搬运子图间合并逻辑。>0：所有结构都按用户设置的值来做子图间的合并。 <br> 取值：0~2147483647 <br> 默认值：0 <br> 影响Pass范围： L1ReuseMerge |
-| cube_l1_reuse_setting   | 输入      | 含义：合图参数，用于配置结构相同且重复搬运同一GM数据的子图合并数量。 <br> 说明：该参数适用于含有CUBE计算的子图合并 <br> 类型： dict[int, int] <br> 默认值：nullMap <br> 影响Pass范围：L1ReuseMerge |
-| cube_nbuffer_mode       | 输入      | 含义：合图参数，用于配置相同结构AIC子图合并策略 <br> 说明：该参数适用于结构相同的AIC子图合并，避免同一结构子图数过大并增大核内流水调度可能性。 <br> 类型：int <br> 取值：<br> 0：不使能相同结构子图间合并逻辑。但用户设置cube_nbuffer_setting时仍然按用户设置的cube_nbuffer_setting来做子图间的合并。<br> 1：使能相同结构子图间合并，合并逻辑为依据cube核数自适应计算每个结构的合并数。<br> 2：所有结构相同子图都按用户设置cube_nbuffer_setting来做子图间的合并。 <br> 默认值：0 <br> 影响Pass范围：<span> L1ReuseMerge</span> |
-| cube_nbuffer_setting    | 输入      | 含义：合图参数，用于配置相同结构AIC子图的合并数量。 <br> 说明：该参数适用于结构相同的AIC子图合并。 <br> 类型： dict[int, int] <br> 取值：<br> {-1, N}：key为-1时，value值N表示结构相同的AIC子图的合并数量默认值为N <br> 默认值：nullMap <br> 影响Pass范围： L1ReuseMerge |
-| mg_copyin_upper_bound   | 输入      | 含义：合图参数，用于配置合图大小。 <br> 说明：该参数控制子图内搬运数据总量上界。当子图内数据搬运量大于该值则不再合并。 <br> 类型：int <br> 取值：0~2147483647 <br> 默认值：1048576 <br> 影响pass范围：L1ReuseMerge|
+| vec_nbuffer_setting     | 输入      | 含义：合图参数，用于配置相同结构AIV子图的合并数量。 <br> 说明：该参数适用于结构相同的AIV子图合并。 <br> 类型：dict[Union[int, str], int]，支持整数 key（hashorder）和字符串 key（semantic_label）混合使用。 <br> 取值：<br> {-1: 1}：跳过AIV子图合并 <br> {} （空字典）：自动合并，根据AIV核心数自动计算合并粒度<br> {-1: N, 0: N2, ...}：手动合并，默认粒度为N <br> {"label": N}：按语义标签设置合并粒度，字符串 key 的值会直接替换对应同构子图组的合并粒度（详见下方语义标签配置说明） <br> 默认值：{} 空字典 <br> 影响Pass范围： NBufferMerge |
+| cube_l1_reuse_setting | 输入 | 含义：合图参数，用于配置重复搬运同一GM数据的子图合并数量。<br> 说明：该参数适用于含有CUBE计算的子图合并。 <br> 类型：dict[Union[int, str], int]，支持整数 key（hashorder）和字符串 key（semantic_label）混合使用。 <br> 取值：<br>{-1: 1}：跳过L1Reuse合并 <br> {} （空字典）：自动合并，根据AIC核心数自动计算合并粒度<br> {-1: N, 0: N1, ...}：手动合并，默认合并粒度为N。 <br> {"label": N}：按语义标签设置合并粒度，字符串 key 的值会直接替换对应子图的合并粒度（详见下方语义标签配置说明） <br> 默认值：{} 空字典 <br> 影响Pass范围：L1ReuseMerge |
+| cube_nbuffer_setting    | 输入      | 含义：合图参数，用于配置相同结构AIC子图的合并数量。 <br> 说明：该参数适用于结构相同的AIC子图合并。 <br> 类型：dict[Union[int, str], int]，支持整数 key（hashorder）和字符串 key（semantic_label）混合使用。 <br> 取值：<br>{-1: 1}：跳过AIC子图合并 <br> {} （空字典）：自动合并，根据AIC核心数自动计算合并粒度<br> {-1: N, 0: N1, ...}：手动合并，默认合并粒度为N <br> {"label": N}：按语义标签设置合并粒度，字符串 key 的值会直接替换对应同构子图组的合并粒度（详见下方语义标签配置说明） <br>默认值：{-1: 1} <br> 影响Pass范围： L1ReuseMerge |
+| sg_set_scope            | 输入      | 含义：手动控制子图切分参数。<br> 说明：通过为 Operation 分配 scope，使得相同 scope_id（非-1） 的相邻 Operation 强制合并归入同一子图，从而覆盖切分算法的自动划分结果。 <br> 类型：`Tuple[int, bool, bool]` 或 `int` <br> **tuple 格式**：`(scope_id, allow_parallel_merge, allow_cross_scope_merge)`，各字段含义如下： <br> - `scope_id`（int）：scope 标识，取值范围 -1~2147483647。相同 scope_id 的相邻 Operation 归入同一子图；-1 表示不参与 scope 合并，由切分算法决定子图划分。 <br> - `allow_parallel_merge`（bool）：控制同一 scope_id 下 Operation 的合并方式。取值 True/False。<br>&emsp;&emsp;False（默认）：仅允许存在上下游连接通路的 Operation 合并，即 Operation A 的输出作为 Operation B 的输入时才可合并到同一子图。<br>&emsp;&emsp;True：允许位于并行分支（无数据依赖）的相同 scope_id 的 Operation 也合并到同一子图。 <br> - `allow_cross_scope_merge`（bool）：控制带有 scope 的子图是否可与无 scope（scope_id=-1）的子图合并，扩大scope子图。取值 True/False。<br>&emsp;&emsp;False（默认）：带有 scope 的子图保持独立，不与其他子图合并。<br>&emsp;&emsp;True：允许带有 scope 的子图与 scope_id=-1 的子图合并。不同 scope_id 的子图之间不可合并。 <br> **int 格式**：传入单个 int 时等价于 `(scope_id, False, False)`，即仅设置 scope_id，不允许并行分支合并和跨 scope 合并。 <br> 默认值：(-1, False, False) <br> 影响Pass范围：GraphPartition <br> 配置建议：1）视图类Operation与其对应的计算类Operation应配置相同的 scope_id。2）Reshape Operation较为特殊，部分场景会单独成子图，手动控制合图行为可能失效。|
+| pg_partition_algorithm  | 输入      | 含义：指定切分算法。<br> 说明：配置GraphPartition环节进行子图切分所采用的算法。当同时配置了 `sg_set_scope` 时，无论选择哪种切分算法，都会优先尊重 `sg_set_scope` 的强制合图约束。<br> 类型：str <br> 取值范围："Iso", "OspSarkar", "OspBsp" <br> 影响Pass范围：GraphPartition <br> 算法选择指导：请参考下文。|
 
 ## 返回值说明
 
@@ -56,24 +39,162 @@ set_pass_options(*,
 
 ## 约束说明
 
--   设置时机：必须在图编译开始前调用。
--   类型安全：必须确保传入的value的类型与参数定义的类型完全一致，否则可能导致未定义行为或运行时错误。
--   作用范围：参数设置是全局性的，会影响后续所有的编译过程。
+- 设置时机：不要求在图编译开始前调用，可以在任何时候进行设置。
+- 类型安全：必须确保传入的value的类型与参数定义的类型完全一致，否则可能导致未定义行为或运行时错误。
+- 作用范围：参数设置是局部的，只会影响当前jit或者loop内的编译过程，若未设置，则继承上层作用域。
+- 语义标签key：setting 的字符串 key 必须与至少一个 operation 通过 `pypto.set_semantic_label` 设置的 semantic_label 完全匹配，否则编译时报错。
+- sg_set_scope 一致性约束：同一 scope_id 的所有 Operation 必须设置相同的 `allow_parallel_merge` 和 `allow_cross_scope_merge`，否则编译报错。
+- scope_id 为 -1 时，`allow_parallel_merge` 和 `allow_cross_scope_merge` 必须为 False。
+- 不同 scope_id 的子图之间不可合并，`allow_cross_scope_merge` 仅控制带 scope 的子图与无 scope（scope_id=-1）的子图合并。
 
 ## 调用示例
 
 ```python
-   pypto.set_pass_options(pg_skip_partition=False,
-                       pg_upper_bound=10000,
-                       pg_lower_bound=512,
-                       pg_parallel_lower_bound=24,
-                       mg_vec_parallel_lb=48,
-                       vec_nbuffer_mode=1,
-                       vec_nbuffer_setting={},
-                       cube_l1_reuse_mode=0,
+   pypto.set_pass_options(
+                       vec_nbuffer_setting={-1: 2},
                        cube_l1_reuse_setting={},
-                       cube_nbuffer_mode=0,
-                       cube_nbuffer_setting={},
-                       mg_copyin_upper_bound=1024 * 1024)
+                       cube_nbuffer_setting={-1: 1, 1: 2})
 ```
 
+## 配置说明
+### dict类型配置说明
+
+#### 整数键值对含义
+
+Key (hashorder): 同构子图组id。<br>
+- 值 M: 匹配 hashorder 为 M 的特定子图组。<br>
+- 值 -1: 匹配所有未显式指定的子图组。<br>
+
+Value (N): 表示合并粒度。即：同构子图组内每N个子图合并为一个新子图执行。<br>
+
+#### 配置行为
+
+Pass 在处理子图合并时，遵循 "精确匹配 > 默认配置 > 自动处理" 的逻辑：<br>
+- 精确匹配: 若 hashorder 命中字典中的特定 Key，则按其对应的 Value N 进行合并。<br>
+- 默认配置: 若未精确命中，但字典中存在 -1，则按 -1 对应的 Value 执行合并。<br>
+- 自动处理: 若既未精确命中也无 -1 配置，则自动计算合并粒度进行合并优化。<br>
+
+#### 配置示例
+
+| 配置                  | 说明                                                                 |
+|---------------------- |----------------------------------------------------------------------|
+|{-1: 1}|跳过子图合并。合并粒度为1，即所有同构子图组内的子图不进行合并。|
+|{0: 5}|对于hashorder为0的同构子图组，每5个子图合并为一个子图；<br>其他同构子图组，根据硬件核心数自动计算合并粒度并进行合并。|
+|{0: 5, 2: 8, -1: 2}    |hashorder为0的同构子图组，每5个子图合并为一个子图；<br>hashorder为2的同构子图组，每8张子图合并为一个子图；<br>其他的同构子图组使用-1对应的默认合并粒度，即每2张子图合并为一个子图。<br> |
+|{0: 5, -1: 1}    |hashorder为0的同构子图组，每5个子图合并为一个子图；<br>其他同构子图组不做处理。 |
+
+### 语义标签 key 配置说明
+
+#### 功能概述
+
+除整数 key（hashorder）外，`vec_nbuffer_setting`、`cube_l1_reuse_setting` 和 `cube_nbuffer_setting` 还支持使用字符串 key，即通过 `pypto.set_semantic_label` 设置的语义标签名称。字符串 key 允许用户精确控制特定 operation 所在子图（允许多个）的合并粒度，无需关心其 hashorder 编号。
+
+#### 字符串键值对含义
+
+Key (label): 语义标签名称，必须与至少一个 operation 的 `semantic_label` 完全匹配。<br>
+Value (N): 表示合并粒度。<br>
+
+#### 优先级机制
+
+字符串 key 的优先级**高于**整数 key。处理流程为：<br>
+1. 首先根据整数 key（hashorder）确定各同构子图组的合并粒度。<br>
+2. 然后字符串 key 的值**直接替换**（而非取 max）对应子图组的合并粒度。<br>
+3. 当多个不同的字符串 label 指向同一个同构子图组时，取这些 label 值中的最大值。<br>
+
+#### vec_nbuffer_setting / cube_nbuffer_setting 的语义标签行为
+
+字符串 key 覆盖其所在 operation 对应的**整个同构子图组**的合并粒度。
+
+#### cube_l1_reuse_setting 的语义标签行为
+
+与 `vec_nbuffer_setting` 和 `cube_nbuffer_setting` 不同，`cube_l1_reuse_setting` 的字符串 key **仅作用于包含对应标签 operation 的子图**，不展开到整个同构组。即同构组内可能只有部分子图被字符串 key 覆盖，其他子图保持整数 key 的值。
+
+#### 语义标签配置示例
+
+| 配置                                | 说明                                                                 |
+|-------------------------------------|----------------------------------------------------------------------|
+|{-1: 2, "V1": 1}|所有同构子图组默认合并粒度为2；但 V1 标签所在的同构子图组合并粒度被替换为1。|
+|{"V1": 3}|V1 标签所在的同构子图组合并粒度为3；其他同构子图组自动计算合并粒度。|
+|{-1: 2, "V1": 1, "V2": 3}|默认合并粒度为2；V1 所在组替换为1；V2 所在组替换为3。若某一组同时有 V1 和 V2 两种OP，则取 max(1, 3) = 3。|
+
+#### 配置示例
+```python
+   # 混合整数 key 和语义标签 key 配置
+   pypto.set_semantic_label("V1")
+   sij_scale = pypto.mul(sij, softmax_scale)
+   pypto.set_semantic_label("") # 通过更改语义标签，来精确控制只有该mul OP的语义标签是"V1"
+   ...
+   pypto.set_pass_options(vec_nbuffer_setting={-1: 2, "V1": 1})
+
+   # 纯语义标签 key 配置
+   pypto.set_pass_options(cube_l1_reuse_setting={"MM1": 4})
+```
+
+
+### sg_set_scope 配置说明
+
+#### 配置示例
+
+```python
+# int 格式：等效于 (10, False, False)，仅设置 scope_id
+pypto.set_pass_options(sg_set_scope=10)
+
+# tuple 格式：scope_id=1，允许并行分支合并，不允许跨 scope 合并
+pypto.set_pass_options(sg_set_scope=(1, True, False))
+
+# tuple 格式：scope_id=2，允许与无 scope 的子图合并
+pypto.set_pass_options(sg_set_scope=(2, False, True))
+
+# 恢复默认（不参与 scope 合并，由合图算法自动决定）
+pypto.set_pass_options(sg_set_scope=-1)
+```
+
+#### 典型场景
+
+##### 场景一：整张计算图不切分
+
+当需要将整个计算图保持不切分时，因数据切块会产生多条并行分支，这些分支之间无直接数据依赖，默认会被切分算法拆为独立子图。推荐设置 `sg_set_scope=(scope_id, True, False)`，通过 `allow_parallel_merge=True` 使相同 scope_id 的并行分支 Operation 合并到同一子图。
+
+##### 场景二：A5 CV 混合场景，构造 Mix 子图以减少 GM 搬运
+
+当 Cube 操作的前后均有 Vec 操作时，目标是构造一个包含 Cube 和 Vec 的 Mix 子图，避免中间结果在 GM 上反复搬运。根据是否明确 scope 边界，分为以下两种情况：
+
+**场景 2.1：明确 scope 边界**
+
+当可以明确划分 Cube 操作及其紧邻 Vec 操作的边界时，使用 `(scope_id, False, False)` 标记边界，使 Cube 和紧邻的 Vec 强制归入同一子图，形成 Mix 子图。
+
+```python
+# 明确标记 Cube 及紧邻 Vec 为同一 scope，形成 Mix 子图
+pypto.set_pass_options(sg_set_scope=(1, False, False))
+# ... Cube 操作 ...
+# ... 紧邻的 Vec 操作 ...
+pypto.set_pass_options(sg_set_scope=-1)
+```
+
+**场景 2.2：不明确 scope 边界，仅标记 CV 合并边界**
+
+当无法明确划分边界，但需要 Cube 前后的 Vec 子图与 Cube 子图合并形成 Mix 子图时，使用 `(scope_id, False, True)` 标记 Cube 及其紧邻的 Vec 作为合并锚点。通过 `allow_cross_scope_merge=True`，该 scope 子图中的 Vec 可与前后无 scope（scope_id=-1）的 Vec 子图合并，形成更大的子图以减少 GM 数据搬运，并与 Cube 子图一起形成 Mix 子图。
+
+```python
+# 前置 Vec 操作（scope_id=-1，由切分算法自动决定）
+vec_out = some_vec_op(x)
+
+# 标记 CV 合并锚点，允许与无 scope 的相邻子图合并
+pypto.set_pass_options(sg_set_scope=(1, False, True))
+# ... Cube 操作 ...
+matmul_result = pypto.matmul(vec_out, w)
+# ... 紧邻的 Vec 操作 ...
+pypto.set_pass_options(sg_set_scope=-1)
+
+# 后续 Vec 操作（scope_id=-1），可与上方 scope 子图合并为更大子图
+result = other_vec_op(add_result)
+```
+
+
+### pg_partition_algorithm 算法选择指导 (Algorithm Selection Guidance)
+
+| 参数值 (Value) | 适用场景 (Applicable Scenario) |
+| :--- | :--- |
+| **"Iso"** | 基于同构的切分算法 (Isomorphism-based partitioning)；适用于常规通用场景 (suitable for general-purpose use)。 |
+| **"OspSarkar"** | 基于关键路径缩减的瓦片内核融合。 (Fuses tile kernels based on critical path reduction.) |
+| **"OspBsp"** | 基于 BSP 模型融合瓦片内核，用于并行计算和同构检测。 (Fuses tile kernels based on the BSP model for parallel computation and isomorphism detection.) |

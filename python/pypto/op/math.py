@@ -9,12 +9,18 @@
 # See LICENSE in the root of the software repository for the full text of the License.
 # -----------------------------------------------------------------------------------------------------------
 """PyPTO"""
-from typing import Optional, Union
+from typing import Optional, Union, List, Tuple, overload
 
 from .. import pypto_impl
 from .._element import Element
 from .._op_wrapper import op_wrapper
+from ..error import PyptoError
 from ..tensor import Tensor
+from ..enum import (
+    DataType, DivAlgorithm, PowAlgorithm, ExpAlgorithm, SqrtAlgorithm,
+    RsqrtAlgorithm, LogAlgorithm, RecipAlgorithm, FmodAlgorithm
+)
+from ..symbolic_scalar import SymbolicScalar, SymInt
 
 
 @op_wrapper
@@ -72,8 +78,64 @@ def add(
             return pypto_impl.Add(input, pypto_impl.Element(input.dtype, other))
         else:
             if not isinstance(other, (int, float)):
-                raise TypeError(f"alpha must be int or float, but got {type(other)}.")
+                raise PyptoError(0xF00001, TypeError(
+                    f"alpha must be int or float, but got {type(other)}."
+                    ))
             return pypto_impl.Add(input, pypto_impl.Element(input.dtype, other * alpha))
+
+
+@op_wrapper
+def axpy_(y: Tensor, x: Tensor, alpha: Union[int, float] = 1.0) -> Tensor:
+    """Computes the element-wise AXPY operation: y = alpha * x + y.
+
+    This function performs an in-place update on tensor y.
+    The formula is: `y = alpha * x + y`.
+    It supports broadcasting for tensor x (but y cannot broadcast).
+
+    Parameters
+    ----------
+    y : Tensor
+        The destination tensor that will be updated in-place.
+    x : Tensor
+        The source tensor. Can be broadcast to match y's shape.
+    alpha : float, optional
+        A scaling factor for the `x` tensor. Default is 1.0.
+
+    Returns
+    -------
+    Tensor
+        The updated y tensor (same as input y, modified in-place).
+
+    Raises
+    ------
+    RuntimeError
+        If y's shape cannot accommodate x's broadcast.
+        If dtype combination is not supported (only fp32+fp32, fp16+fp16, bf16+bf16, fp32+fp16).
+
+    Notes
+    -----
+    - This is an in-place operation. The y tensor is modified directly.
+    - Supported dtype combinations:
+      - fp32 + fp32
+      - fp16 + fp16  
+      - bf16 + bf16 (converted to fp32 internally)
+      - fp32 + fp16 (mixed precision)
+
+    Examples
+    --------
+    y = pypto.tensor([1, 3], pypto.DT_FP32)
+    x = pypto.tensor([1, 3], pypto.DT_FP32)
+    y.axpy_(x, alpha=2.0)
+
+    Input y:    [[1.0 2.0 3.0]]
+    Input x:    [[2.0 3.0 4.0]]
+    alpha:      2.0
+    Output:     [[5.0 8.0 11.0]]  (y = 2.0 * x + y)
+    """
+    y.Move(pypto_impl.Axpy(y, x, float(alpha)))
+    return y
+
+
 
 
 @op_wrapper
@@ -135,7 +197,9 @@ def sub(
             return pypto_impl.Sub(input, pypto_impl.Element(input.dtype, other))
         else:
             if not isinstance(other, (int, float)):
-                raise TypeError(f"alpha must be int or float, but got {type(other)}.")
+                raise PyptoError(0xF00001, TypeError(
+                    f"alpha must be int or float, but got {type(other)}."
+                    ))
             return pypto_impl.Sub(input, pypto_impl.Element(input.dtype, other * alpha))
 
 
@@ -183,7 +247,8 @@ def mul(input: Tensor, other: Union[Tensor, float]) -> Tensor:
 
 
 @op_wrapper
-def div(input: Tensor, other: Union[Tensor, float]) -> Tensor:
+def div(
+    input: Tensor, other: Union[Tensor, float], precision_type: DivAlgorithm = DivAlgorithm.HIGH_PRECISION) -> Tensor:
     """Computes the element-wise division of `input` and `other`.
 
     This function calculates the formula: `out = input / other`.
@@ -195,6 +260,10 @@ def div(input: Tensor, other: Union[Tensor, float]) -> Tensor:
         The first input tensor.
     other : Tensor or Number
         The second input tensor or a scalar to divide.
+    precision_type : DivAlgorithm, optional
+        The precision algorithm for division. Default is DivAlgorithm.HIGH_PRECISION.
+        HIGH_PRECISION uses higher precision calculation to reduce precision loss.
+        Use DivAlgorithm.INTRINSIC to directly use chip instructions.
 
     Returns
     -------
@@ -220,25 +289,355 @@ def div(input: Tensor, other: Union[Tensor, float]) -> Tensor:
     Input a:    [[2.0 4.0 6.0]]
     Input b:    [[2.0 2.0 2.0]]
     Output out: [[1.0 2.0 3.0]]
+
+    # Using high precision mode for FP16
+    a = pypto.tensor([1, 3], pypto.DT_FP16)
+    b = pypto.tensor([1, 3], pypto.DT_FP16)
+    out = pypto.div(a, b, pypto.DivAlgorithm.HIGH_PRECISION)
     """
     if isinstance(other, pypto_impl.Tensor):
-        return pypto_impl.Div(input, other)
+        return pypto_impl.Div(input, other, precision_type)
     else:
-        return pypto_impl.Div(input, pypto_impl.Element(input.dtype, other))
+        return pypto_impl.Div(input, pypto_impl.Element(input.dtype, other), precision_type)
 
 
 @op_wrapper
-def pow(input: Tensor, other: Union[int, float]) -> Tensor:
-    """Computes the element-wise power of `input` raised to `other`.
+def hypot(self: Tensor, other: Tensor) -> Tensor:
+    """Computes the hypotenuse of a right-angled triangle given its legs.
 
-    This function calculates the formula: `out = input ** other`.
+    This function calculates the element-wise operation: `out = sqrt(self^2 + other^2)`.
+    It supports broadcasting between the input tensors.
+
+    Parameters
+    ----------
+    self : Tensor
+        The first input tensor.
+    other : Tensor or Number
+        The second input tensor.
+
+    Returns
+    -------
+    Tensor
+        A new tensor containing the hypotenuse values.
+
+    Raises
+    ------
+    RuntimeError
+        If the two tensors are not broadcastable to a common shape.
+
+    See Also
+    --------
+    sqrt : Element-wise square root.
+    pow : Element-wise power.
+
+    Examples
+    --------
+    a = pypto.tensor([3.0, 4.0], pypto.DT_FP32)
+    b = pypto.tensor([4.0, 3.0], pypto.DT_FP32)
+    out = pypto.hypot(a, b)
+
+    Input a:    [3.0 4.0]
+    Input b:    [4.0 3.0]
+    Output out: [5.0 5.0]
+    """
+    return pypto_impl.Hypot(self, other)
+
+
+@op_wrapper
+def fmod(
+    input: Tensor,
+    other: Union[Tensor, float],
+    precision_type: FmodAlgorithm = FmodAlgorithm.HIGH_PRECISION,
+) -> Tensor:
+    """Computes the element-wise modulus of `input` and `other`.
+
+    This function calculates the formula: `out = input % other`.
+    It supports broadcasting between the input tensors.
 
     Parameters
     ----------
     input : Tensor
+        The first input tensor.
+    other : Tensor or Number
+        The second input tensor or a scalar to modulo operation.
+    precision_type : FmodAlgorithm, optional
+        The precision algorithm for modulo. Default is FmodAlgorithm.HIGH_PRECISION.
+        HIGH_PRECISION uses higher precision calculation to reduce precision loss.
+        Use FmodAlgorithm.INTRINSIC to directly use chip instructions.
+
+    Returns
+    -------
+    Tensor
+        A new tensor containing the element-wise modulus.
+
+    Raises
+    ------
+    RuntimeError
+        If the two tensors are not broadcastable to a common shape.
+
+    See Also
+    --------
+    sub : The inverse operation, element-wise subtraction.
+    mul : Element-wise multiplication.
+
+    Examples
+    --------
+    a = pypto.tensor([1, 3], pypto.DT_FP32)
+    b = pypto.tensor([1, 3], pypto.DT_FP32)
+    out = pypto.fmod(a, b)
+
+    Input a:    [[2.0 5.0 9.0]]
+    Input b:    [[2.0 2.0 2.0]]
+    Output out: [[0.0 1.0 1.0]]
+    """
+    if isinstance(other, pypto_impl.Tensor):
+        return pypto_impl.Fmod(input, other, precision_type)
+    else:
+        return pypto_impl.Fmod(input, pypto_impl.Element(input.dtype, other), precision_type)
+
+
+@op_wrapper
+def lrelu(other: Tensor, negative_slope: Union[float, Element] = 0.01) -> Tensor:
+    """
+    Returns a new tensor with the Leaky Rectified Linear Unit (LReLU) function applied element-wise.
+
+    The function is defined as:
+    y = x if x >= 0
+    y = negative_slope * x if x < 0
+
+    Parameters
+    ----------
+    a : Tensor
+        The input tensor.
+    negative_slope : float, optional
+        Controls the angle of the negative slope (default is 0.0 impending small positive value, typically 0.01).
+        Must be non-negative.
+
+    Returns
+    -------
+    Tensor
+        A new tensor containing the element-wise LReLU result.
+
+    Examples
+    --------
+    x = pypto.tensor([-1.0, 2.0, 0.0, -0.5], pypto.DT_FP32)
+    y = pypto.lrelu(x)
+
+    Input x:  [-1.0, 2.0, 0.0, -0.5]
+    Output y: [-0.01, 2.0, 0.0, -0.005]
+
+    # With custom slope
+    y2 = pypto.lrelu(x, negative_slope=0.1)
+    Output y2: [-0.1, 2.0, 0.0, -0.05]
+    """
+    if isinstance(negative_slope, pypto_impl.Element):
+        negative_slope_base = negative_slope
+    else:
+        negative_slope_base = pypto_impl.Element(pypto_impl.DT_FP32, negative_slope)
+    return pypto_impl.LReLU(other, negative_slope_base)
+
+
+@op_wrapper
+def remainder(input: Union[Tensor, int, float], other: Union[Tensor, int, float]) -> Tensor:
+    """Computes the element-wise remainder of `input` divided by `other`.
+
+    This function calculates the formula: `out = input - floor(input.div(other)) * other`.
+    It supports broadcasting between the input tensors.
+
+    Parameters
+    ----------
+    input : Tensor or Number
+        The first input tensor or a scalar.
+    other : Tensor or Number
+        The second input tensor or a scalar to remainder operation.
+
+    Returns
+    -------
+    Tensor
+        A new tensor containing the element-wise remainder.
+
+    Raises
+    ------
+    RuntimeError
+        If the two tensors are not broadcastable to a common shape.
+        If `other` has a scalar value of zero, a RuntimeError is raised.
+
+    See Also
+    --------
+    fmod : The modulus operation.
+
+    Examples
+    --------
+    a = pypto.tensor([1, 3], pypto.DT_FP32)
+    b = pypto.tensor([1, 3], pypto.DT_FP32)
+    out = pypto.remainder(a, b)
+
+    Input a:    [[7.0 8.0 9.0]]
+    Input b:    [[-3.0 -3.0 -3.0]]
+    Output out: [[-2.0 -1.0 0.0]]
+    """
+    if isinstance(input, pypto_impl.Tensor):
+        if isinstance(other, pypto_impl.Tensor):
+            return pypto_impl.Remainder(input, other)
+        if isinstance(other, float) or isinstance(other, int):
+            return pypto_impl.Remainder(input, pypto_impl.Element(input.dtype, other))
+    if isinstance(other, pypto_impl.Tensor):
+        if isinstance(input, float) or isinstance(input, int):
+            return pypto_impl.Remainder(pypto_impl.Element(other.dtype, input), other)
+    raise PyptoError(0xF00001, TypeError(
+        f"Unsupported operand types for remainder: {type(input)} and {type(other)}"
+        ))
+
+
+@op_wrapper
+def bitwise_and(self: Tensor, other: Union[Tensor, int]) -> Tensor:
+    """Computes the element-wise bitwise AND of `self` and `other`.
+
+    This function calculates the formula: `out = self & other`.
+    It supports broadcasting between the input tensors.
+
+    Parameters
+    ----------
+    self : Tensor
+        The first input tensor.
+    other : Tensor or int
+        The second input tensor or an integer scalar.
+
+    Returns
+    -------
+    Tensor
+        A new tensor containing the element-wise bitwise AND result.
+
+    Raises
+    ------
+    RuntimeError
+        If the two tensors are not broadcastable to a common shape.
+
+    Examples
+    --------
+    a = pypto.tensor([0x1234, 0x5678], pypto.DT_INT16)
+    b = pypto.tensor([0x0F0F, 0xF0F0], pypto.DT_INT16)
+    out = pypto.bitwise_and(a, b)
+
+    Input a:    [5, 3]
+    Input b:    [3, 1]
+    Output out: [1, 1]
+    """
+    if isinstance(other, pypto_impl.Tensor):
+        return pypto_impl.BitwiseAnd(self, other)
+    else:
+        if not isinstance(other, int):
+            raise PyptoError(0xF00001, TypeError(
+                f"Scalar operand for bitwise_and must be an integer, but got {type(other)}."
+                ))
+        return pypto_impl.BitwiseAnd(self, pypto_impl.Element(self.dtype, other))
+
+
+@op_wrapper
+def bitwise_or(input1: Tensor, input2: Union[Tensor, int]) -> Tensor:
+    """Computes the element-wise bitwise OR of `input1` and `input2`.
+
+    This function calculates the formula: `out = input1 | input2`.
+    It supports broadcasting between the input tensors.
+
+    Parameters
+    ----------
+    input1 : Tensor
+        The first input tensor.
+    input2 : Tensor or int
+        The second input tensor or an integer scalar.
+
+    Returns
+    -------
+    Tensor
+        A new tensor containing the element-wise bitwise OR result.
+
+    Raises
+    ------
+    RuntimeError
+        If the two tensors are not broadcastable to a common shape.
+
+    Examples
+    --------
+    a = pypto.tensor([5, 3], pypto.DT_INT16)
+    b = pypto.tensor([3, 1], pypto.DT_INT16)
+    out = pypto.bitwise_or(a, b)
+
+    Input a:    [5, 3]
+    Input b:    [3, 1]
+    Output out: [7, 3]
+    """
+    if isinstance(input2, pypto_impl.Tensor):
+        return pypto_impl.BitwiseOr(input1, input2)
+    else:
+        if not isinstance(input2, int):
+            raise PyptoError(0xF00001, TypeError(
+                f"Scalar operand for bitwise_or must be an integer, but got {type(input2)}."
+                ))
+        return pypto_impl.BitwiseOr(input1, pypto_impl.Element(input1.dtype, input2))
+
+
+@op_wrapper
+def bitwise_xor(first: Tensor, second: Union[Tensor, int]) -> Tensor:
+    """Computes the element-wise bitwise XOR of `first` and `second`.
+
+    This function calculates the formula: `out = first ^ second`.
+    It supports broadcasting between the input tensors.
+
+    Parameters
+    ----------
+    first : Tensor
+        The first input tensor.
+    second : Tensor or int
+        The second input tensor or an integer scalar.
+
+    Returns
+    -------
+    Tensor
+        A new tensor containing the element-wise bitwise XOR result.
+
+    Raises
+    ------
+    RuntimeError
+        If the two tensors are not broadcastable to a common shape.
+
+    Examples
+    --------
+    a = pypto.tensor([5, 3], pypto.DT_INT16)
+    b = pypto.tensor([3, 1], pypto.DT_INT16)
+    out = pypto.bitwise_xor(a, b)
+
+    Input a:    [5, 3]   # binary: [101, 011]
+    Input b:    [3, 1]   # binary: [011, 001]
+    Output out: [6, 2]   # binary: [110, 010]
+    """
+    if isinstance(second, pypto_impl.Tensor):
+        return pypto_impl.BitwiseXor(first, second)
+    else:
+        if not isinstance(second, int):
+            raise PyptoError(0xF00001, TypeError(
+                f"Scalar operand for bitwise_xor must be an integer, but got {type(second)}."
+                ))
+        return pypto_impl.BitwiseXor(first, pypto_impl.Element(first.dtype, second))
+
+
+@op_wrapper
+def pow(base: Tensor, other: Union[Tensor, int, float],
+    precision_type: PowAlgorithm = PowAlgorithm.HIGH_PRECISION) -> Tensor:
+    """Computes the element-wise power of `base` raised to `other`.
+
+    This function calculates the formula: `out = base ** other`.
+
+    Parameters
+    ----------
+    base : Tensor
         The base input tensor.
-    other : Number
-        The exponent to which each element in `input` will be raised.
+    other : Tensor or Number
+        The exponent to which each element in `base` will be raised.
+    precision_type : PowAlgorithm, optional
+        The precision algorithm for pow. Default is PowAlgorithm.HIGH_PRECISION.
+        HIGH_PRECISION uses higher precision calculation to reduce precision loss.
+        Use PowAlgorithm.INTRINSIC to directly use chip instructions.
 
     Returns
     -------
@@ -249,20 +648,71 @@ def pow(input: Tensor, other: Union[int, float]) -> Tensor:
     --------
     x = pypto.tensor([2, 2], pypto.DT_FP32)
     a = 2
-    y = pypto.pow(x, a)
+    b = pypto.tensor([2, 2], pypto.DT_FP32)
+    y = pypto.pow(x, a, PowAlgorithm.HIGH_PRECISION)
+    z = pypto.pow(x, b, PowAlgorithm.HIGH_PRECISION)
 
-    Input x:[[1.0 2.0],
-             [3.0 4.0]]
+    Input x:[[ 1.0 2.0],
+             [-3.0 4.0]]
+          b:[[2.0 2.0],
+             [1.0 1.0]]
     Output y:[[1.0  4.0],
               [9.0 16.0]]
+           z:[[ 1.0 4.0],
+              [-3.0 4.0]]
     """
-    if not isinstance(other, (int, float)):
-        raise TypeError(f"other must be int or float, but got {type(other)}.")
-    return pypto_impl.Pow(input, pypto_impl.Element(input.dtype, other))
+    if not isinstance(other, (pypto_impl.Tensor, int, float)):
+        raise PyptoError(0xF00001, TypeError(
+            f"other must be Tensor, int or float but got {type(other)}."
+            ))
+    if isinstance(other, pypto_impl.Tensor):
+        return pypto_impl.Pow(base, other, precision_type)
+    if isinstance(other, int):
+        return pypto_impl.Pow(base, pypto_impl.Element(DataType.DT_INT32, other), precision_type)
+    return pypto_impl.Pow(base, pypto_impl.Element(DataType.DT_DOUBLE, other), precision_type)
 
 
 @op_wrapper
-def exp(input: Tensor) -> Tensor:
+def exp(input: Tensor, precision_type: ExpAlgorithm = ExpAlgorithm.INTRINSIC) -> Tensor:
+    """Computes the element-wise exponential of `input`.
+
+    This function calculates the formula: `out = e ** input`.
+
+    Parameters
+    ----------
+    input : Tensor
+        The input tensor.
+    precision_type : ExpAlgorithm, optional
+        The precision algorithm for exponential. Default is ExpAlgorithm.INTRINSIC.
+        INTRINSIC directly uses chip instructions for faster computation.
+        Use ExpAlgorithm.HIGH_PRECISION to use higher precision calculation to reduce precision loss.
+
+    Returns
+    -------
+    Tensor
+        A new tensor containing the element-wise exponential.
+
+    See Also
+    -------
+    sqrt : Element-wise square-root
+
+    Examples
+    --------
+    x = pypto.tensor([3], pypto.DT_FP32)
+    y = pypto.exp(x)
+
+    Input x: [0.0    1.0    2.0]
+    Output y:[1.0000 2.7183 7.3891]
+    
+    # Using high precision mode for FP16
+    x = pypto.tensor([3], pypto.DT_FP16)
+    y = pypto.exp(x, pypto.ExpAlgorithm.HIGH_PRECISION)
+    """
+    return pypto_impl.Exp(input, precision_type)
+
+
+@op_wrapper
+def exp2(input: Tensor) -> Tensor:
     """Computes the element-wise exponential of `input`.
 
     This function calculates the formula: `out = e ** input`.
@@ -284,12 +734,226 @@ def exp(input: Tensor) -> Tensor:
     Examples
     --------
     x = pypto.tensor([3], pypto.DT_FP32)
-    y = pypto.exp(x)
+    y = pypto.exp2(x)
 
     Input x: [0.0    1.0    2.0]
-    Output y:[1.0000 2.7183 7.3891]
+    Output y:[1.0000 2.0000 4.0000]
     """
-    return pypto_impl.Exp(input)
+    return pypto_impl.Exp2(input)
+
+
+@op_wrapper
+def expm1(input: Tensor) -> Tensor:
+    """Computes the element-wise exponential of `input` minus 1.
+
+    This function calculates the formula: `out = e ** input - 1`.
+
+    Parameters
+    ----------
+    input : Tensor
+        The input tensor.
+
+    Returns
+    -------
+    Tensor
+        A new tensor containing the element-wise expm1 results.
+
+    See Also
+    -------
+    exp : Element-wise exponential function
+
+    Examples
+    --------
+    x = pypto.tensor([3], pypto.DT_FP32)
+    y = pypto.expm1(x)
+
+    Input x: [0.0     1.0    2.0]
+    Output y:[0.0000 1.7183 6.3891]
+    """
+
+    return pypto_impl.Expm1(input)
+
+
+@op_wrapper
+def sin(self: Tensor) -> Tensor:
+    """Computes the element-wise sine of `self`.
+
+    This function calculates the trigonometric sine for each element in the input tensor.
+    Mathematically, it computes: `out = sin(self)`.
+
+    Parameters
+    ----------
+    self : Tensor
+        The input tensor.
+
+    Returns
+    -------
+    Tensor
+        A new tensor containing the element-wise exponential.
+
+    See Also
+    -------
+    sqrt : Element-wise square-root
+
+    Examples
+    --------
+    x = pypto.tensor([3], pypto.DT_FP32)
+    y = pypto.sin(x)
+
+    Input x: [0.0    1.5708 3.1416]
+    Output y:[0.0000 1.0000 0.0000]
+    """
+    return pypto_impl.Sin(self)
+
+
+@op_wrapper
+def cos(self: Tensor) -> Tensor:
+    """Computes the element-wise cosine of `self`.
+
+    This function calculates the trigonometric cosine for each element in the input tensor.
+    Mathematically, it computes: `out = cos(self)`.
+
+    Parameters
+    ----------
+    self : Tensor
+        The input tensor.
+
+    Returns
+    -------
+    Tensor
+        A new tensor containing the element-wise exponential.
+
+    See Also
+    -------
+    sqrt : Element-wise square-root
+
+    Examples
+    --------
+    x = pypto.tensor([3], pypto.DT_FP32)
+    y = pypto.cos(x)
+
+    Input x: [0.0    1.5708 3.1416]
+    Output y:[1.0000 0.0000 -1.0000]
+    """
+    return pypto_impl.Cos(self)
+
+
+@op_wrapper
+def sinh(input: Tensor) -> Tensor:
+    """Computes the element-wise hyperbolic sine of `input`.
+
+    This function calculates the formula: `out = (e ** input - e ** (-input)) / 2`.
+
+    Parameters
+    ----------
+    input : Tensor
+        The input tensor.
+
+    Returns
+    -------
+    Tensor
+        A new tensor containing the element-wise hyperbolic sine results.
+
+    See Also
+    -------
+    cosh : Element-wise hyperbolic cosine function
+
+    Examples
+    --------
+    x = pypto.tensor([3], pypto.DT_FP32)
+    y = pypto.sinh(x)
+
+    Input x: [0.0     1.0     2.0]
+    Output y:[0.0000  1.1752  3.6269]
+    """
+
+    return pypto_impl.Sinh(input)
+
+
+@op_wrapper
+def cosh(input: Tensor) -> Tensor:
+    """Computes the element-wise hyperbolic cosine of `input`.
+
+    This function calculates the formula: `out = (e ** input + e ** (-input)) / 2`.
+
+    Parameters
+    ----------
+    input : Tensor
+        The input tensor.
+
+    Returns
+    -------
+    Tensor
+        A new tensor containing the element-wise hyperbolic cosine results.
+
+    See Also
+    -------
+    sinh : Element-wise hyperbolic sine function
+
+    Examples
+    --------
+    x = pypto.tensor([3], pypto.DT_FP32)
+    y = pypto.cosh(x)
+
+    Input x: [0.0     1.0     2.0]
+    Output y:[1.0000  1.5431  3.7622]
+    """
+
+    return pypto_impl.Cosh(input)
+
+
+@op_wrapper
+def sign(a: Tensor) -> Tensor:
+    """Computes the element-wise exponential of `input`.
+
+    This function return a tensor with the signs of the elements of input.
+
+    Parameters
+    ----------
+    input : Tensor
+        The input tensor.
+
+    Returns
+    -------
+    Tensor
+        A new tensor containing the element-wise exponential.
+
+    Examples
+    --------
+    x = pypto.tensor([3], pypto.DT_FP32)
+    y = pypto.sign(x)
+
+    Input x: [-5.0    0.0    5.0    10.0]
+    Output y:[-1.    0.    1.    1.]
+    """
+    return pypto_impl.Sign(a)
+
+
+@op_wrapper
+def signbit(a: Tensor) -> Tensor:
+    """Checks if the sign bit of each element of input is set (i.e., is negative).
+
+    This function returns a tensor with the sign bits of the elements of input.
+
+    Parameters
+    ----------
+    input : Tensor
+        The input tensor.
+
+    Returns
+    -------
+    Tensor
+        A new bool tensor containing True where the sign bit is set, False otherwise.
+
+    Examples
+    --------
+    x = pypto.tensor([-5.0, 0.0, 5.0, -2.0], pypto.DT_FP32)
+    y = pypto.signbit(x)
+
+    Input x: [-5.0, 0.0, 5.0, -2.0]
+    Output y:[True, False, False, True]
+    """
+    return pypto_impl.Signbit(a)
 
 
 @op_wrapper
@@ -319,14 +983,18 @@ def abs(a: Tensor) -> Tensor:
 
 
 @op_wrapper
-def reciprocal(a: Tensor) -> Tensor:
+def reciprocal(a: Tensor, precision_type: RecipAlgorithm = RecipAlgorithm.INTRINSIC) -> Tensor:
     """
     Returns a new tensor with the reciprocal of the elements of input
-    
+
     Parameters
     ----------
     input : Tensor
         The input tensor.
+    precision_type : RecipAlgorithm, optional
+        The precision algorithm for reciprocal. Default is RecipAlgorithm.INTRINSIC.
+        INTRINSIC directly uses chip instructions for faster computation.
+        Use RecipAlgorithm.HIGH_PRECISION to use higher precision calculation to reduce precision loss.
 
     Returns
     -------
@@ -340,8 +1008,41 @@ def reciprocal(a: Tensor) -> Tensor:
 
     Input x:  [-0.4595, -2.1219, -1.4314,  0.7298]
     Output y: [-2.1763, -0.4713, -0.6986,  1.3702]
+    
+    # Using high precision mode
+    x = pypto.tensor([4], pypto.DT_FP16)
+    y = pypto.reciprocal(x, pypto.RecipAlgorithm.HIGH_PRECISION)
     """
-    return pypto_impl.Reciprocal(a)
+    return pypto_impl.Reciprocal(a, precision_type)
+
+
+@op_wrapper
+def relu(a: Tensor) -> Tensor:
+    """
+    Returns a new tensor with the rectified linear unit function applied element-wise.
+
+    The function is defined as:
+    y = max(0, x)
+
+    Parameters
+    ----------
+    input : Tensor
+        The input tensor.
+
+    Returns
+    -------
+    Tensor
+        A new tensor containing the element-wise relu result.
+
+    Examples
+    --------
+    x = pypto.tensor([-1.0, 2.0, 0.0, -0.5], pypto.DT_FP32)
+    y = pypto.relu(x)
+
+    Input x:  [-1.0, 2.0, 0.0, -0.5]
+    Output y: [ 0.0, 2.0, 0.0,  0.0]
+    """
+    return pypto_impl.Relu(a)
 
 
 @op_wrapper
@@ -414,7 +1115,35 @@ def logical_and(input: Tensor, other: Tensor) -> Tensor:
 
 
 @op_wrapper
-def rsqrt(input: Tensor) -> Tensor:
+def round(input: Tensor, decimals: int = 0) -> Tensor:
+    """Rounds elements of `input` to the nearest number of decimal places.
+
+    Parameters
+    ----------
+    input : Tensor
+        The input tensor.
+    decimals : int
+        Number of decimal places to round to (default: 0).
+        If decimals is negative, it specifies the number of positions to the left of the decimal point.
+
+    Returns
+    -------
+    Tensor
+        A new tensor containing the element-wise round.
+
+    Examples
+    --------
+    x = pypto.tensor([2, 2], pypto.DT_FP32)
+    y = pypto.round(x, decimals=1)
+
+    Input x: [[1.21, 2.35], [3.65, 4.76]]
+    Output y: [[1.2, 2.4], [3.6, 4.8]]
+    """
+    return pypto_impl.Round(input, decimals)
+
+
+@op_wrapper
+def rsqrt(input: Tensor, precision_type: RsqrtAlgorithm = RsqrtAlgorithm.INTRINSIC) -> Tensor:
     """Computes the element-wise reciprocal of the square-root of `input`
 
     This function calculates the formula: `out = 1 / sqrt(input)`.
@@ -423,6 +1152,10 @@ def rsqrt(input: Tensor) -> Tensor:
     ----------
     input : Tensor
         The input tensor.
+    precision_type : RsqrtAlgorithm, optional
+        The precision algorithm for reciprocal square-root. Default is RsqrtAlgorithm.INTRINSIC.
+        INTRINSIC directly uses chip instructions for faster computation.
+        Use RsqrtAlgorithm.HIGH_PRECISION to use higher precision calculation to reduce precision loss.
 
     Returns
     -------
@@ -446,12 +1179,54 @@ def rsqrt(input: Tensor) -> Tensor:
               [16.0 9.0]]
     Output y:[[1.0  0.5],
               [0.25 0.33333]]
+
+    # Using high precision mode
+    x = pypto.tensor([2, 2], pypto.DT_FP16)
+    y = pypto.rsqrt(x, pypto.RsqrtAlgorithm.HIGH_PRECISION)
     """
-    return pypto_impl.Rsqrt(input)
+    return pypto_impl.Rsqrt(input, precision_type)
 
 
 @op_wrapper
-def sqrt(input: Tensor) -> Tensor:
+def ceil(input: Tensor) -> Tensor:
+    """Computes the element-wise ceiling of `input` (upward rounding to the nearest integer)
+
+    This function calculates the formula: `out = ceil(input)`.
+    The ceiling of a number is the smallest integer greater than or equal to the number.
+
+    Parameters
+    ----------
+    input : Tensor
+        The input tensor containing numerical values to be ceiling-rounded.
+
+    Returns
+    -------
+    Tensor
+        A new tensor with the ceiling value of each element of the input tensor.
+
+    Raises
+    ------
+    TODO
+
+    See Also
+    --------
+    ceil : ceil rounding (upward to the nearest integer)
+
+    Examples
+    --------
+    x = pypto.tensor([2.1, -2.1, 5.0, 3.9], pypto.DT_FP32)
+    y = pypto.ceil(x)
+
+    Input x: [[1.2  4.7],
+              [-1.1  9.0]]
+    Output y:[[2.0  5.0],
+              [-1.0  9.0]]
+    """
+    return pypto_impl.Ceil(input)
+
+
+@op_wrapper
+def floor(input: Tensor) -> Tensor:
     """Computes the element-wise squareroot of `input`.
 
     This function calculates the formula: `out = √input`.
@@ -460,6 +1235,72 @@ def sqrt(input: Tensor) -> Tensor:
     ----------
     input : Tensor
         The input tensor.
+
+    Returns
+    -------
+    Tensor
+        A new tensor containing the element-wise squareroot.
+
+    See Also
+    --------
+    floor : floor rounding (downward to the nearest integer)
+
+    Examples
+    --------
+    x = pypto.tensor([5], pypto.DT_FP32)
+    y = pypto.floor(x)
+
+    Input x:  [1.2 4.2 9.8 6.9 25.5]
+    Output y: [1.0 4.0 9.0 6.0  25.0]
+    """
+    return pypto_impl.Floor(input)
+
+
+@op_wrapper
+def trunc(input: Tensor) -> Tensor:
+    """Computes the element-wise squareroot of `input`.
+
+    This function calculates the formula: `out = √input`.
+
+    Parameters
+    ----------
+    input : Tensor
+        The input tensor.
+
+    Returns
+    -------
+    Tensor
+        A new tensor containing the element-wise squareroot.
+
+    See Also
+    --------
+    trunc : trunc rounding (towards zero to the nearest integer)
+
+    Examples
+    --------
+    x = pypto.tensor([5], pypto.DT_FP32)
+    y = pypto.trunc(x)
+
+    Input x:  [1.3 4.2 9.8 16.4 25.8]
+    Output y: [1.0 4.0 10.0 16.0 26.0]
+    """
+    return pypto_impl.Trunc(input)
+
+
+@op_wrapper
+def sqrt(input: Tensor, precision_type: SqrtAlgorithm = SqrtAlgorithm.INTRINSIC) -> Tensor:
+    """Computes the element-wise squareroot of `input`.
+
+    This function calculates the formula: `out = √input`.
+
+    Parameters
+    ----------
+    input : Tensor
+        The input tensor.
+    precision_type : SqrtAlgorithm, optional
+        The precision algorithm for square root. Default is SqrtAlgorithm.INTRINSIC.
+        INTRINSIC directly uses chip instructions for faster computation.
+        Use SqrtAlgorithm.HIGH_PRECISION to use higher precision calculation to reduce precision loss.
 
     Returns
     -------
@@ -477,15 +1318,19 @@ def sqrt(input: Tensor) -> Tensor:
 
     Input x:  [1.0 4.0 9.0 16.0 25.0]
     Output y: [1.0 2.0 3.0 4.0  5.0]
+    
+    # Using high precision mode for FP16
+    x = pypto.tensor([5], pypto.DT_FP16)
+    y = pypto.sqrt(x, pypto.SqrtAlgorithm.HIGH_PRECISION)
     """
-    return pypto_impl.Sqrt(input)
+    return pypto_impl.Sqrt(input, precision_type)
 
 
 @op_wrapper
 def neg(a: Tensor) -> Tensor:
     """
     Returns a new tensor with the negative of the elements of input.
-    
+
     Parameters
     ----------
     input : Tensor
@@ -508,7 +1353,7 @@ def neg(a: Tensor) -> Tensor:
 
 
 @op_wrapper
-def log(input: Tensor) -> Tensor:
+def log(input: Tensor, precision_type: LogAlgorithm = LogAlgorithm.INTRINSIC) -> Tensor:
     """Computes the element-wise log of `input`.
 
     This function calculates the formula: `out = log(input)`.
@@ -517,6 +1362,10 @@ def log(input: Tensor) -> Tensor:
     ----------
     input : Tensor
         The input tensor.
+    precision_type : LogAlgorithm, optional
+        The precision algorithm for logarithm. Default is LogAlgorithm.INTRINSIC.
+        INTRINSIC directly uses chip instructions for faster computation.
+        Use LogAlgorithm.HIGH_PRECISION to use higher precision calculation to reduce precision loss.
 
     Returns
     -------
@@ -534,9 +1383,113 @@ def log(input: Tensor) -> Tensor:
 
     Input x: [1.0     2.0    3.0]
     Output y:[0.0000 0.6931 1.0986]
+    
+    # Using high precision mode for FP16
+    x = pypto.tensor([3], pypto.DT_FP16)
+    y = pypto.log(x, pypto.LogAlgorithm.HIGH_PRECISION)
     """
 
-    return pypto_impl.Log(input, pypto_impl.LogBaseType.LOG_E)
+    return pypto_impl.Log(input, pypto_impl.LogBaseType.LOG_E, precision_type)
+
+
+@op_wrapper
+def log2(input: Tensor, precision_type: LogAlgorithm = LogAlgorithm.INTRINSIC) -> Tensor:
+    """Computes the element-wise base-2 logarithm of `input`.
+
+    This function calculates the formula: `out = log_2(input)`.
+
+    Parameters
+    ----------
+    input : Tensor
+        The input tensor. Must be positive (input > 0).
+    precision_type : LogAlgorithm, optional
+        The precision algorithm for logarithm. Default is LogAlgorithm.INTRINSIC.
+        INTRINSIC directly uses chip instructions for faster computation.
+        Use LogAlgorithm.HIGH_PRECISION to use higher precision calculation to reduce precision loss.
+
+    Returns
+    -------
+    Tensor
+        A new tensor containing the element-wise base-2 logarithm.
+
+    See Also
+    --------
+    sqrt : Element-wise square-root.
+
+    Examples
+    --------
+    >>> x = pypto.tensor([1.0, 2.0, 4.0], pypto.DT_FP32)
+    >>> y = pypto.log2(x)
+    # Input x: [1.0     2.0     4.0]
+    # Output y: [0.0000 1.0000 2.0000]
+    """
+    return pypto_impl.Log(input, pypto_impl.LogBaseType.LOG_2, precision_type)
+
+
+@op_wrapper
+def log10(input: Tensor, precision_type: LogAlgorithm = LogAlgorithm.INTRINSIC) -> Tensor:
+    """Computes the element-wise base-10 logarithm of `input`.
+
+    This function calculates the formula: `out = log_10(input)`.
+
+    Parameters
+    ----------
+    input : Tensor
+        The input tensor. Must be positive (input > 0).
+    precision_type : LogAlgorithm, optional
+        The precision algorithm for logarithm. Default is LogAlgorithm.INTRINSIC.
+        INTRINSIC directly uses chip instructions for faster computation.
+        Use LogAlgorithm.HIGH_PRECISION to use higher precision calculation to reduce precision loss.
+
+    Returns
+    -------
+    Tensor
+        A new tensor containing the element-wise base-10 logarithm.
+
+    See Also
+    --------
+    sqrt : Element-wise square-root.
+
+    Examples
+    --------
+    >>> x = pypto.tensor([1.0, 10.0, 100.0], pypto.DT_FP32)
+    >>> y = pypto.log10(x)
+    # Input x: [1.0      10.0     100.0]
+    # Output y: [0.0000   1.0000   2.0000]
+    """
+    return pypto_impl.Log(input, pypto_impl.LogBaseType.LOG_10, precision_type)
+
+
+@op_wrapper
+def log1p(input: Tensor) -> Tensor:
+    """Computes the element-wise natural logarithm of (1 + input).
+
+    This function calculates the formula: `out = log(1 + input)`, where `log`
+    denotes the natural logarithm (base e).
+
+    Parameters
+    ----------
+    input : Tensor
+        The input tensor. Must satisfy `input > -1`.
+
+    Returns
+    -------
+    Tensor
+        A new tensor containing the element-wise natural logarithm of (1 + input).
+
+    See Also
+    --------
+    log : Element-wise natural logarithm.
+    add : Element-wise addition.
+
+    Examples
+    --------
+    >>> x = pypto.tensor([0.0, 1.0, 2.0], pypto.DT_FP32)
+    >>> y = pypto.log1p(x)
+    # Input x: [0.0     1.0     2.0]
+    # Output y: [0.0000 0.6931 1.0986]
+    """
+    return pypto_impl.Log1p(input)
 
 
 @op_wrapper
@@ -582,8 +1535,10 @@ def clip(
         if not is_element_mode
         else pypto_impl.Element(pypto_impl.DataType.DT_BOTTOM, 0)
     )
-    min = min or default
-    max = max or default
+    if min is None:
+        min = default
+    if max is None:
+        max = default
 
     if not isinstance(min, pypto_impl.Element) and isinstance(min, element_types):
         min = pypto_impl.Element(input.GetDataType(), min)
@@ -611,8 +1566,7 @@ def cumsum(
         The tensor after calculating the cumulative sum.
     Examples
     ---------
-    x = pypto.tensor([2, 3], pypto.data_type.DT_INT32) 
-    y = pypto.tensor([2, 3], pypto.data_type.DT_INT32) 
+    x = pypto.tensor([2, 3], pypto.data_type.DT_INT32)
     dim = 0
     out = pypto.cumsum(x, dim)
     Input  x : [[0 1 2],
@@ -621,3 +1575,573 @@ def cumsum(
                 [3 5 7]]
     """
     return pypto_impl.cumsum(input, dim)
+
+
+@op_wrapper
+def cumprod(
+    input: Tensor,
+    dim: int
+) -> Tensor:
+    """
+    This function returns the cumulative prod over a given axis.
+    Parameters
+    ---------
+    input: Tensor
+        tensor to be calculated.
+    dim : int
+        specified dimension.
+    out: Tensor
+        The tensor after calculating the cumulative prod.
+    Examples
+    ---------
+    x = pypto.tensor([2, 3], pypto.data_type.DT_FP32)
+    dim = 0
+    out = pypto.cumprod(x, dim)
+    Input  x : [[0 1 2],
+                [3 4 5]]
+    Output out:[[0 1 2],
+                [0 4 10]]
+    """
+    return pypto_impl.cumprod(input, dim)
+
+
+@op_wrapper
+def bitwise_right_shift(
+    input: Union[Tensor, int], other: Union[Tensor, int]) -> Tensor:
+    """Computes the element-wise bitwise right shift of `input` and `other`.
+
+    This function calculates the formula: `out = input >> other`.
+    It supports broadcasting between the input tensors.
+
+    Parameters
+    ----------
+    input : Tensor
+        The first input tensor.
+    other : Tensor or Number
+        The second input tensor or a scalar to bitwise right shift.
+
+    Returns
+    -------
+    Tensor
+        A new tensor containing the element-wise right shift.
+
+    Raises
+    ------
+    RuntimeError
+        If the two tensors are not broadcastable to a common shape.
+
+    See Also
+    --------
+    sub : The inverse operation, element-wise subtraction.
+    mul : Element-wise multiplication.
+
+    Examples
+    --------
+    a = pypto.tensor([1, 3], pypto.DT_INT16)
+    b = pypto.tensor([1, 3], pypto.DT_INT16)
+    out = pypto.bitwise_right_shift(a, b)
+
+    Input a:    [[1 2 3]]
+    Input b:    [[1 1 1]]
+    Output out: [[0 1 1]]
+    """
+    if isinstance(input, pypto_impl.Tensor) and isinstance(other, pypto_impl.Tensor):
+        return pypto_impl.BitwiseRightShift(input, other)
+    elif isinstance(input, pypto_impl.Tensor):
+        return pypto_impl.BitwiseRightShift(input, pypto_impl.Element(input.dtype, other))
+    else:
+        return pypto_impl.BitwiseRightShift(pypto_impl.Element(other.dtype, input), other)
+
+
+@op_wrapper
+def bitwise_left_shift(
+    input: Union[Tensor, int], other: Union[Tensor, int]) -> Tensor:
+    """Computes the element-wise bitwise left shift of `input` and `other`.
+
+    This function calculates the formula: `out = input << other`.
+    It supports broadcasting between the input tensors.
+
+    Parameters
+    ----------
+    input : Tensor
+        The first input tensor.
+    other : Tensor or Number
+        The second input tensor or a scalar to bitwise left shift.
+
+    Returns
+    -------
+    Tensor
+        A new tensor containing the element-wise left shift.
+
+    Raises
+    ------
+    RuntimeError
+        If the two tensors are not broadcastable to a common shape.
+
+    See Also
+    --------
+    sub : The inverse operation, element-wise subtraction.
+    mul : Element-wise multiplication.
+
+    Examples
+    --------
+    a = pypto.tensor([1, 3], pypto.DT_INT16)
+    b = pypto.tensor([1, 3], pypto.DT_INT16)
+    out = pypto.bitwise_left_shift(a, b)
+
+    Input a:    [[1 2 3]]
+    Input b:    [[1 1 1]]
+    Output out: [[2 4 6]]
+    """
+    if isinstance(input, pypto_impl.Tensor) and isinstance(other, pypto_impl.Tensor):
+        return pypto_impl.BitwiseLeftShift(input, other)
+    elif isinstance(input, pypto_impl.Tensor):
+        return pypto_impl.BitwiseLeftShift(input, pypto_impl.Element(input.dtype, other))
+    else:
+        return pypto_impl.BitwiseLeftShift(pypto_impl.Element(other.dtype, input), other)
+
+
+@op_wrapper
+def bitwise_not(self: Tensor) -> Tensor:
+    """
+    Computes the element-wise bitwise NOT of 'self'
+
+    This function calculates the formula: 'out = ~self'.
+    For each element in the self tensor, performs a bitwise NOT operation.
+
+    Parameters
+    ----------
+    self : Tensor
+        The input tensor (should be of integer type)
+
+    Returns
+    -------
+    Tensor
+        A tensor with the same shape and dtype as input
+
+    Examples
+    --------
+    a = pypto.tensor([0, 1, 2, 3, 4], pypto.DT_INT32)
+    out = pypto.bitwise_not(a)
+
+    Self a:    [0 1 2 3 4]  (in binary: [000, 001, 010, 011, 100])
+    Output out: [-1 -2 -3 -4 -5]  (in binary: [111, 110, 101, 100, 011])
+
+    """
+    return pypto_impl.BitwiseNot(self)
+
+
+@op_wrapper
+def triu(
+    input: Tensor,
+    diagonal: SymInt = 0
+) -> Tensor:
+    """
+    Return the upper traingular part of a matrix or a banch of matrices `input`, the other elements of
+    the result are set to 0.
+    Parameters
+    ---------
+    input: Tensor
+        The tensor to be calculated.
+    diagonal : SymInt
+        The diagonal to consider.
+    out: Tensor
+        The tensor after calculation.
+    Examples
+    ---------
+    x = pypto.tensor([3, 3], pypto.data_type.DT_INT32)
+    diagonal = 0
+    out = pypto.triu(x, diagonal)
+    Input  x : [[1 2 3],
+                [4 5 6],
+                [7 8 9]]
+    Output out:[[1 2 3],
+                [0 5 6],
+                [0 0 9]]
+    """
+    if isinstance(diagonal, int):
+        diagonal = SymbolicScalar(diagonal).base()
+    return pypto_impl.TriU(input, diagonal)
+
+
+@op_wrapper
+def tril(
+    input: Tensor,
+    diagonal: SymInt = 0
+) -> Tensor:
+    """
+    Return the lower traingular part of a matrix or a banch of matrices `input`, the other elements of
+    the result are set to 0.
+    Parameters
+    ---------
+    input: Tensor
+        The tensor to be calculated.
+    diagonal : SymInt
+        The diagonal to consider.
+    out: Tensor
+        The tensor after calculation.
+    Examples
+    ---------
+    x = pypto.tensor([3, 3], pypto.data_type.DT_INT32)
+    diagonal = 0
+    out = pypto.tril(x, diagonal)
+    Input  x : [[1 2 3],
+                [4 5 6],
+                [7 8 9]]
+    Output out:[[1 0 0],
+                [4 5 0],
+                [7 8 9]]
+    """
+    if isinstance(diagonal, int):
+        diagonal = SymbolicScalar(diagonal).base()
+    return pypto_impl.TriL(input, diagonal)
+
+
+@op_wrapper
+def copysign(input: Tensor, other: Tensor) -> Tensor:
+    """
+    Create a new floating-point tensor with the magnitude of input and the sign of other, elementwise.
+    Parameters
+    ---------
+    input: Tensor
+        The tensor of magnitudes.
+    other : Tensor
+         The tensor that contains value(s) whose signbit(s) are applied to the magnitudes in input.
+    out: Tensor
+        The output tensor.
+    Examples
+    ---------
+    x = pypto.tensor([3, 3], pypto.data_type.DT_FP32)
+    y = pypto.tensor([3, 3], pypto.data_type.DT_FP32)
+    out = pypto.copysign(x, y)
+    Input  x : [[1 -2  3],
+                [4  5 -6],
+                [-7 8  9]]
+    Input  y : [[-1 6 -8],
+                [1 -1  0],
+                [7 -8  9]]
+    Output out:[[-1 2 -3],
+                [4 -5  6],
+                [7 -8  9]]
+    """
+    return pypto_impl.CopySign(input, other)
+
+
+@op_wrapper
+def isfinite(self: Tensor) -> Tensor:
+    """
+    Judge whether the value in Tensor `self` is inf/nan/-inf, if it is, the
+        return value will be false, otherwise it will be true.
+
+    Parameters
+    --------
+    self: Tensor
+        The input tensor
+
+    Examples
+    --------
+    self = pypto.tensor([3, 3], pypto.data_type.DT_FP32)
+    out = pypto.isfinite(self)
+    Input  self: [[1 nan 3],
+                  [inf 1 1],
+                  [1, 1, -inf]]
+    Output out:  [[True False True],
+                  [False True True],
+                  [True True False]]
+    """
+    return pypto_impl.isfinite(self)
+
+
+@op_wrapper
+def cbrt(self: Tensor) -> Tensor:
+    """
+    Computes the element-wise cube root of 'self'
+
+    This function calculates the formula: 'out = self^(1/3)'.
+    For each element in the self tensor, performs a cube root operation.
+
+    Parameters
+    ----------
+    self : Tensor
+        The input tensor
+
+    Returns
+    -------
+    Tensor
+        A tensor with the same shape and dtype as input
+
+    Examples
+    --------
+    x = pypto.tensor([1, 2], pypto.DT_FP32)
+    out = pypto.cbrt(x)
+
+    Input  x:[[8, -8]]
+    Output y:[[2, -2]]
+    """
+    return copysign(pow(abs(self), 1.0 / 3.0), self)
+
+
+@op_wrapper
+def gcd(
+    input: Tensor,
+    other: Union[Tensor, int]
+) -> Tensor:
+    """
+    This function returns the greatest common divisor of the corresponding elements of input and other.
+    Parameters
+    ---------
+    input: Tensor
+        tensor to be calculated.
+    other: Tensor or int
+        tensor to be calculated.
+    out: Tensor
+        The tensor after calculating the greatest common divisor of the corresponding elements of input and other.
+    Examples
+    ---------
+    x = pypto.tensor([2, 3], pypto.data_type.DT_INT32)
+    y = pypto.tensor([2, 3], pypto.data_type.DT_INT32)
+    out = pypto.gcd(x, y)
+    Input  x : [[1 1 2],
+                [3 4 5]]
+           y : [[6 6 6],
+                [6 6 6]]
+    Output out:[[1 1 2],
+                [3 2 1]]
+    """
+    if isinstance(other, pypto_impl.Tensor):
+        return pypto_impl.Gcd(input, other)
+    else:
+        return pypto_impl.Gcd(input, pypto_impl.Element(input.dtype, other))
+
+
+@overload
+def var(
+    input: Tensor,
+    dim: List[int],
+    correction: float
+) -> Tensor:
+    """
+    Computes the variance  of 'input' over the dimensions.
+
+    This function calculates the formula: 'out = 1 / max(0, N - correction) * sum((x_i - (sum(x_i) / N))^2)'.
+
+    Parameters
+    ----------
+    input : Tensor
+        The input Tensor to be calculated.
+    dim : List
+        Dimensions involved in calculating variance.
+    correction : float
+        The difference between sample size and sample degree if freedom. Usually take 0 or 1.
+
+    Returns
+    -------
+    Tensor
+        A tensor with the input shape of the dimensions after reduce
+
+    Examples
+    --------
+    x = pypto.tensor([[2, 3], pypto.DT_FP32)
+    y = pypto.var(x, [1], 0)
+
+    Input  x:[[1., 2., 3.],
+              [4., 5., 6.]]
+    Output y:[0.6667, 0.6667]
+    """
+    ...
+
+
+@overload
+def var(
+    input: Tensor,
+    dim: Union[int, List[int], Tuple[int]] = None,
+    *,
+    correction: float = 1,
+    keepdim: bool = False
+) -> Tensor:
+    """
+    Computes the variance  of 'input' over the dimensions.
+
+    This function calculates the formula: 'out = 1 / max(0, N - correction) * sum((x_i - (sum(x_i) / N))^2)'.
+
+    Parameters
+    ----------
+    input : Tensor
+        The input Tensor to be calculated.
+    dim : Union[int, List[int], Tuple[int]]
+        Dimensions involved in calculating variance. Default is None, means all demensions.
+    correction : float, optional
+        The difference between sample size and sample degree if freedom. Default take 1.
+    keepdim : bool, optional
+        whether the output tensor has dim retained or not. Default: False.
+
+    Returns
+    -------
+    Tensor
+        A tensor with the input shape of the dimensions after reduce
+
+    Examples
+    --------
+    x = pypto.tensor([[2, 3], pypto.DT_FP32)
+    y = pypto.var(x, 1, correction=1, keepdim=True)
+
+    Input  x:[[1., 2., 3.],
+              [4., 5., 6.]]
+    Output y:[[1.],
+              [1.]]
+    """
+    ...
+
+
+@op_wrapper
+def var(
+    input: Tensor,
+    dim: Union[int, List[int], Tuple[int]] = None,
+    correction: float = 1,
+    keepdim: bool = False
+) -> Tensor:
+    """
+    Computes the variance  of 'input' over the dimensions.
+
+    This function calculates the formula: 'out = 1 / max(0, N - correction) * sum((x_i - (sum(x_i) / N))^2)'.
+
+    Parameters
+    ----------
+    input : Tensor
+        The input Tensor to be calculated.
+    dim : Union[int, List[int], Tuple[int]]
+        Dimensions involved in calculating variance. Default is None, means all demensions.
+    correction : float, optional
+        The difference between sample size and sample degree if freedom. Default take 1.
+    keepdim : bool, optional
+        whether the output tensor has dim retained or not. Default: False.
+
+    Returns
+    -------
+    Tensor
+        A tensor with the input shape of the dimensions after reduce
+
+    Examples
+    --------
+    x = pypto.tensor([[2, 3], pypto.DT_FP32)
+    y = pypto.var(x, 1, correction=1, keepdim=True)
+
+    Input  x:[[1., 2., 3.],
+              [4., 5., 6.]]
+    Output y:[[1.],
+              [1.]]
+    """
+    inner_dim = None
+    if isinstance(dim, int):
+        inner_dim = [dim]
+    elif dim is None or len(dim) == 0:
+        inner_dim = []
+    elif isinstance(dim, (list, tuple)):
+        inner_dim = list(dim)
+    else:
+        raise PyptoError(0xF00001, TypeError(
+            f"the type of dim is not supported. 'int' or 'Lise[int]' or 'Tuple[int]' is needed."
+            ))
+
+    return pypto_impl.Var(input, inner_dim, correction, keepdim)
+
+
+
+@op_wrapper
+def ceil_div(
+    self: Tensor,
+    other: Union[Tensor, int],
+) -> Tensor:
+    """
+    Calculate the ceiling division of two tensors.
+    Parameters
+    ---------
+    self: Tensor
+        The dividend tensor.
+    other: Tensor or int
+        The divisor tensor or scalar.
+    out: Tensor
+        The tensor after calculating the ceiling division of the corresponding elements of self and other.
+    Examples
+    ---------
+    x = pypto.tensor([2, 3], pypto.data_type.DT_INT32)
+    y = pypto.tensor([2, 3], pypto.data_type.DT_INT32)
+    out = pypto.ceildiv(x, y)
+    Input  x : [[1 6 6],
+                [4 6 6]]
+           y : [[1 1 2],
+                [3 4 5]]
+    Output out:[[1 6 3],
+                [2 2 2]]
+    """
+    if isinstance(other, pypto_impl.Tensor):
+        return pypto_impl.CeilDiv(self, other)
+    else:
+        return pypto_impl.CeilDiv(self, pypto_impl.Element(self.dtype, other))
+
+
+@op_wrapper
+def floor_div(
+    input: Tensor,
+    other: Union[Tensor, int],
+) -> Tensor:
+    """
+    Calculate the floor division of two tensors.
+    Parameters
+    ---------
+    input: Tensor
+        The dividend tensor.
+    other: Tensor or int
+        The divisor tensor or scalar.
+    out: Tensor
+        The tensor containing the floor division results of the corresponding elements in `input` and `other`.
+    Examples
+    ---------
+    x = pypto.tensor([2, 3], pypto.DT_INT32)
+    y = pypto.tensor([2, 3], pypto.DT_INT32)
+    out = pypto.floor_div(x, y)
+    Input  x : [[1 6 6],
+                [4 6 6]]
+           y : [[1 1 2],
+                [3 4 5]]
+    Output out:[[1 6 3],
+                [1 1 1]]
+    """
+    if isinstance(other, pypto_impl.Tensor):
+        return pypto_impl.FloorDiv(input, other)
+    else:
+        return pypto_impl.FloorDiv(input, pypto_impl.Element(input.dtype, other))
+
+
+@op_wrapper
+def prelu(self: Tensor, weight: Tensor) -> Tensor:
+    """
+    Applies the element-wise parametric rectified linear unit (PReLU) function.
+
+    The function is defined as:
+    f(x) = max(0, x) + weight * min(0, x)
+
+    Parameters
+    ----------
+    input : Tensor
+        The input tensor.
+    weight : Tensor
+        The learnable parameter tensor. For a 4D input tensor, weight should be a 1D tensor
+        with size equal to the number of channels (second dimension).
+
+    Returns
+    -------
+    Tensor
+        A new tensor containing the element-wise PReLU activation results.
+
+    Examples
+    --------
+    x = pypto.tensor([-1.0, 2.0, -0.5, 3.0], dtype="float32")
+    weight = pypto.tensor([0.25], dtype="float32")
+    y = pypto.prelu(x, weight)
+
+    Input x:  [-1.0, 2.0, -0.5, 3.0]
+    Weight:   [0.25]
+    Output y: [-0.25, 2.0, -0.125, 3.0]
+    """
+    return pypto_impl.PReLU(self, weight)

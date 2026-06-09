@@ -34,12 +34,15 @@ constexpr float F_1 = 1.0;
 constexpr float F_NEGA_1 = -1.0;
 namespace npu::tile_fwk {
 
-void SetDefaultL0CubeConfig() {
+void SetDefaultL0CubeConfig()
+{
     TileShape::Current().SetCubeTile({T_SHAPE, T_SHAPE}, {T_SHAPE, T_SHAPE}, {T_SHAPE, T_SHAPE});
 }
 
-Tensor FlashAttention(const Tensor &q, const Tensor &k, const Tensor &v, const Tensor &m, const Tensor &l,
-    const AttentionDims &atDims, const AttentionVecTileConfig &vecCfg, const AttentionCubeTileConfig &cubeCfg) {
+Tensor FlashAttention(
+    const Tensor& q, const Tensor& k, const Tensor& v, const Tensor& m, const Tensor& l, const AttentionDims& atDims,
+    const AttentionVecTileConfig& vecCfg, const AttentionCubeTileConfig& cubeCfg)
+{
     (void)m;
     (void)l;
     // q, k, v, result shape: [b*s, n*d]
@@ -79,14 +82,14 @@ Tensor FlashAttention(const Tensor &q, const Tensor &k, const Tensor &v, const T
                 auto vj = View(v, {singleN, d}, {bIdx * s + s2Idx * singleN, nIdx * d});
 
                 for (int s1Idx = 0; s1Idx < s1Loop; s1Idx++) {
-                    ASLOGI("inner fa %d %d %d %d", s2Idx, s1Idx, s2Loop, s1Loop);
                     // LLAMA_FUNCTION(FlashAttention_L0) {
                     auto qi = View(q, {singleM, d}, {bIdx * s + s1Idx * singleM, nIdx * d});
                     std::vector<int64_t> oiOffset = {bIdx * s + s1Idx * singleM, nIdx * d};
                     std::vector<int64_t> liOffset = {(bIdx * n + nIdx) * s + s1Idx * singleM, 0};
                     std::vector<int64_t> miOffset = {(bIdx * n + nIdx) * s + s1Idx * singleM, 0};
                     SetC1CubeConfig(cubeCfg);
-                    auto sij = Matrix::Matmul<false, true>(DataType::DT_FP32, qi, kj); // [128, 128], [128, 1024] => [128, 1024]
+                    auto sij = Matrix::Matmul(
+                        DataType::DT_FP32, qi, kj, false, true); // [128, 128], [128, 1024] => [128, 1024]
 
                     TileShape::Current().SetVecTile(vecCfg.softmaxTileX, vecCfg.softmaxTileY);
 
@@ -99,7 +102,7 @@ Tensor FlashAttention(const Tensor &q, const Tensor &k, const Tensor &v, const T
                     SetC2CubeConfig(cubeCfg);
 
                     if (!s2Idx) {
-                        auto oiTmp = Matrix::Matmul<false, false>(DataType::DT_FP32, tildaPijF16, vj);
+                        auto oiTmp = Matrix::Matmul(DataType::DT_FP32, tildaPijF16, vj, false, false);
                         if (s2Loop == 1) {
                             auto liExpand = Reciprocal(tildaLij);
                             lastOi[oiOffset] = Mul(oiTmp, liExpand);
@@ -128,7 +131,7 @@ Tensor FlashAttention(const Tensor &q, const Tensor &k, const Tensor &v, const T
                     auto liNew = Add(t6, t5);           // [128, 1], [128, 1] => [128, 1]
 
                     auto q3 = Mul(oi, t2);
-                    auto q1 = Matrix::Matmul<false, false>(DataType::DT_FP32, tildaPijF16, vj);
+                    auto q1 = Matrix::Matmul(DataType::DT_FP32, tildaPijF16, vj, false, false);
                     auto q2 = Mul(q1, t4);
                     auto oiTmp = Add(q3, q2); // [128, 128]
                     if (s2Idx == s2Loop - 1) {
@@ -143,7 +146,7 @@ Tensor FlashAttention(const Tensor &q, const Tensor &k, const Tensor &v, const T
         }
 
         std::vector<std::pair<Tensor, std::vector<int64_t>>> aggregation;
-        for (auto &[offset, tensor] : lastOi) {
+        for (auto& [offset, tensor] : lastOi) {
             aggregation.emplace_back(tensor, offset);
         }
         result = Assemble(aggregation);
@@ -153,13 +156,16 @@ Tensor FlashAttention(const Tensor &q, const Tensor &k, const Tensor &v, const T
     return result;
 }
 
-Tensor MultiAttention(const Tensor &hiddenStates, const Tensor &weight, const Tensor &m, const Tensor &l,
-    const AttentionDims &atDims, const AttentionVecTileConfig &vecCfg, const AttentionCubeTileConfig &cubeCfg) {
+Tensor MultiAttention(
+    const Tensor& hiddenStates, const Tensor& weight, const Tensor& m, const Tensor& l, const AttentionDims& atDims,
+    const AttentionVecTileConfig& vecCfg, const AttentionCubeTileConfig& cubeCfg)
+{
     Tensor result;
-    LLAMA_FUNCTION(MultiAttention) {
+    LLAMA_FUNCTION(MultiAttention)
+    {
         auto x = Cast(hiddenStates, DataType::DT_FP16);
 
-        auto qkv = Matrix::Matmul<false, false>(DataType::DT_FP16, x, weight);
+        auto qkv = Matrix::Matmul(DataType::DT_FP16, x, weight, false, false);
         auto q = View(qkv, hiddenStates.GetShape(), {0, 0});
         auto k = View(qkv, hiddenStates.GetShape(), {0, hiddenStates.GetShape()[1]});
         auto v = View(qkv, hiddenStates.GetShape(), {0, hiddenStates.GetShape()[1] * 2});
@@ -169,8 +175,10 @@ Tensor MultiAttention(const Tensor &hiddenStates, const Tensor &weight, const Te
     return result;
 }
 
-Tensor LlamaLayer(Tensor hiddenStates, const Tensor &attnWight, const Tensor &denseWeight, const Tensor &ffnWeight,
-    const AttentionDims &atDims, const AttentionVecTileConfig &vecCfg, const AttentionCubeTileConfig &cubeCfg) {
+Tensor LlamaLayer(
+    Tensor hiddenStates, const Tensor& attnWight, const Tensor& denseWeight, const Tensor& ffnWeight,
+    const AttentionDims& atDims, const AttentionVecTileConfig& vecCfg, const AttentionCubeTileConfig& cubeCfg)
+{
     TileShape::Current().SetVecTile(vecCfg.defaultVecTileX, vecCfg.defaultVecTileY);
     SetDefaultL0CubeConfig();
     auto shape = hiddenStates.GetShape();
@@ -189,7 +197,7 @@ Tensor LlamaLayer(Tensor hiddenStates, const Tensor &attnWight, const Tensor &de
     auto attentionOutFp16 = Cast(attentionOut, DataType::DT_FP16);
     // Dense
     SetDefaultL0CubeConfig();
-    auto denseOut = Matrix::Matmul<false, false>(DataType::DT_FP32, attentionOutFp16, denseWeight);
+    auto denseOut = Matrix::Matmul(DataType::DT_FP32, attentionOutFp16, denseWeight, false, false);
     TileShape::Current().SetVecTile(vecCfg.defaultVecTileX, vecCfg.defaultVecTileY);
     hiddenStates = Add(residual, denseOut);
 
@@ -200,7 +208,8 @@ Tensor LlamaLayer(Tensor hiddenStates, const Tensor &attnWight, const Tensor &de
     Tensor mlpRes(DataType::DT_FP32, shape);
 
     auto a = Cast(hiddenStates, DataType::DT_FP16);
-    auto gate = Matrix::Matmul<false, false>(DataType::DT_FP32, a, ffnWeight); // [b*s, n*d] [n*d, n*d*3] => [b*s, n*d*3]
+    auto gate =
+        Matrix::Matmul(DataType::DT_FP32, a, ffnWeight, false, false); // [b*s, n*d] [n*d, n*d*3] => [b*s, n*d*3]
 
     // swish: x / (1 + e^(-x))
     auto swish = Mul(gate, Element(DataType::DT_FP32, F_NEGA_1));
@@ -210,13 +219,13 @@ Tensor LlamaLayer(Tensor hiddenStates, const Tensor &attnWight, const Tensor &de
 
     // up_proj
     // [b*s, n*d] [n*d, n*d*3] => [b*s, n*d*3]
-    auto up = Matrix::Matmul<false, false>(DataType::DT_FP32, a, ffnWeight);
+    auto up = Matrix::Matmul(DataType::DT_FP32, a, ffnWeight, false, false);
     swish = Mul(swish, up);
     auto swishFp16 = Cast(swish, DataType::DT_FP16);
 
     // down_proj
     // [b*s, n*d*3] [n*d, n*d*3]^T => [b*s, n*d]
-    mlpRes = Matrix::Matmul<false, true>(DataType::DT_FP32, swishFp16, ffnWeight);
+    mlpRes = Matrix::Matmul(DataType::DT_FP32, swishFp16, ffnWeight, false, true);
     return Add(residual, mlpRes);
 }
 } // namespace npu::tile_fwk

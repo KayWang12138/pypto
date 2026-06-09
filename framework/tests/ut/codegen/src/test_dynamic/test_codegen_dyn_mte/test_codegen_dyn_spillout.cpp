@@ -22,130 +22,96 @@
 #include "interface/operation/operation.h"
 #include "tilefwk/data_type.h"
 #include "codegen/symbol_mgr/codegen_symbol.h"
-#include "codegen/cloudnpu/codegen_op_cloudnpu.h"
-#include "codegen/cloudnpu/codegen_cloudnpu.h"
+#include "codegen/npu/cloudnpu/codegen_op_cloudnpu.h"
+#include "codegen/npu/cloudnpu/codegen_cloudnpu.h"
+#include "test_codegen_common.h"
+#include "test_codegen_utils.h"
 
 namespace npu::tile_fwk {
 
-class TestCodegenDynSpillOut : public ::testing::Test {
+class TestCodegenDynSpillOut : public CodegenTestBase {
 public:
-    static void SetUpTestCase() {
-        config::SetCodeGenConfig(KEY_CODEGEN_SUPPORT_TILE_TENSOR, false);
-    }
-
-    static void TearDownTestCase() {
-        config::SetCodeGenConfig(KEY_CODEGEN_SUPPORT_TILE_TENSOR, true);
-    }
-
-    void SetUp() override {
-        Program::GetInstance().Reset();
-        config::Reset();
-        config::SetPlatformConfig(KEY_ONLY_HOST_COMPILE, true);
-        config::SetPlatformConfig("ENABLE_COST_MODEL", false);
-    }
-
-    void TearDown() override {}
+    TestCodegenDynSpillOut()
+        : CodegenTestBase({.compileStage = CS_CODEGEN_INSTRUCTION, .resetTileTensorOnTearDown = true})
+    {}
 };
 
-TEST_F(TestCodegenDynSpillOut, UBSpillOut) {
+TEST_F(TestCodegenDynSpillOut, UBSpillOut)
+{
+    config::SetCodeGenConfig(KEY_CODEGEN_SUPPORT_TILE_TENSOR, false);
 
     const std::vector<int64_t> shape = {64, 64};
+    const std::vector<SymbolicScalar> dynValidShape = {64, 64};
+    auto function = GenMockFuncDyn("UBSpillOut");
+    auto ddrTensor = CreateLogicalTensor(
+        {*function, DataType::DT_FP32, MemoryType::MEM_DEVICE_DDR, shape, "UBSpillOut", SYMBOL_STACK_BASE,
+         dynValidShape});
+    int64_t baseOffset{0};
+    ddrTensor->SetAttr(OpAttributeKey::workspaceBaseOffset, baseOffset);
+    auto ubTensor = CreateLogicalTensor({*function, DataType::DT_FP32, MemoryType::MEM_UB, shape, dynValidShape});
+
+    auto& op = function->AddOperation(Opcode::OP_COPY_OUT, {ubTensor}, {ddrTensor});
     auto shapeImme = OpImmediate::Specified(shape);
-    TileShape::Current().SetVecTile(shape);
-
-    Tensor inputA(DT_FP32, shape, "A");
-    Tensor inputB(DT_FP32, shape, "B");
-    Tensor output(DT_FP32, shape, "C");
-
-    std::string funcName = "ADD";
-    FUNCTION(funcName, {inputA, inputB, output}) {
-        output = Add(inputA, inputB);
-    }
-
-    auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + funcName);
-    function->SetUnderDynamicFunction(true);
-    std::shared_ptr<RawTensor> ddrRawTensor =
-        std::make_shared<RawTensor>(DataType::DT_FP32, shape, TileOpFormat::TILEOP_ND, "UBSpillOut", SYMBOL_STACK_BASE);
-    const std::vector<int64_t> offset = {0, 0};
-
-    auto ddrTensor = std::make_shared<LogicalTensor>(*function, ddrRawTensor, offset, shape);
-    ddrTensor->SetMemoryTypeOriginal(MemoryType::MEM_DEVICE_DDR);
-    ddrTensor->SetMemoryTypeToBe(MemoryType::MEM_DEVICE_DDR);
-
-    auto ubTensor = std::make_shared<LogicalTensor>(*function, DT_FP32, shape);
-    ubTensor->UpdateSubgraphID(0);
-    ubTensor->SetMemoryTypeOriginal(MemoryType::MEM_UB);
-    ubTensor->SetMemoryTypeToBe(MemoryType::MEM_UB);
-    ubTensor->SetMagic(3);
-    ubTensor->SetAttr(OpAttributeKey::needAlloc, true);
-    ubTensor->UpdateDynValidShape({SymbolicScalar("S0"), SymbolicScalar("S1")});
-    ubTensor->memoryrange = TileRange{0, 0, 0};
-
-    auto &op = function->AddOperation(Opcode::OP_COPY_OUT, {ubTensor}, {ddrTensor});
     op.SetOpAttribute(std::make_shared<CopyOpAttribute>(MEM_UB, OpImmediate::Specified({0, 0}), shapeImme, shapeImme));
+    op.SetAttribute(OpAttributeKey::gmTensorParamIdxInCall, 0);
 
-    std::shared_ptr<SymbolManager> symbolManager = std::make_shared<SymbolManager>();
-    CodeGenCtx ctx;
-    CodeGenCloudNPU cga(ctx);
-    cga.GenAllocForLocalBuffer(op, symbolManager);
-    CodeGenOpCloudNPU cop(symbolManager, FunctionType::DYNAMIC_LOOP_PATH, {}, true);
-    function->GetTensorMap().inverseMap_[ubTensor->GetMagic()] = ubTensor;
-
-    cop.Init(op);
-    cop.originShape[0] = shape;
-    cop.originShape[1] = shape;
-
-    cop.GenOpCode();
+    GenOpCodeFromOp(*function, op);
 }
 
-TEST_F(TestCodegenDynSpillOut, L1SpillOut) {
+TEST_F(TestCodegenDynSpillOut, L1SpillOut)
+{
+    config::SetCodeGenConfig(KEY_CODEGEN_SUPPORT_TILE_TENSOR, false);
 
-    const std::vector<int64_t> shape = {64, 64};
+    std::vector<int64_t> shape = {64, 64};
+    const std::vector<SymbolicScalar> dynValidShape = {64, 64};
+    auto function = GenMockFuncDyn("L1SpillOut");
+    auto ddrTensor = CreateLogicalTensor(
+        {*function, DataType::DT_FP32, MemoryType::MEM_DEVICE_DDR, shape, "L1SpillOut", SYMBOL_STACK_BASE,
+         dynValidShape});
+    int64_t baseOffset{0};
+    ddrTensor->SetAttr(OpAttributeKey::workspaceBaseOffset, baseOffset);
+    auto l1Tensor = CreateLogicalTensor({*function, DataType::DT_FP32, MemoryType::MEM_L1, shape, dynValidShape});
+
+    auto& op = function->AddOperation(Opcode::OP_COPY_OUT, {l1Tensor}, {ddrTensor});
     auto shapeImme = OpImmediate::Specified(shape);
-    TileShape::Current().SetVecTile(shape);
-
-    Tensor inputA(DT_FP32, shape, "A");
-    Tensor inputB(DT_FP32, shape, "B");
-    Tensor output(DT_FP32, shape, "C");
-
-    std::string funcName = "ADD";
-    
-    FUNCTION(funcName, {inputA, inputB, output}) {
-        output = Add(inputA, inputB);
-    }
-    auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + funcName);
-    function->SetUnderDynamicFunction(true);
-    std::shared_ptr<RawTensor> ddrRawTensor =
-        std::make_shared<RawTensor>(DataType::DT_FP32, shape, TileOpFormat::TILEOP_ND, "L1SpillOut", SYMBOL_STACK_BASE);
-    const std::vector<int64_t> offset = {0, 0};
-
-    auto ddrTensor = std::make_shared<LogicalTensor>(*function, ddrRawTensor, offset, shape);
-    ddrTensor->SetMemoryTypeOriginal(MemoryType::MEM_DEVICE_DDR);
-    ddrTensor->SetMemoryTypeToBe(MemoryType::MEM_DEVICE_DDR);
-
-    auto l1Tensor = std::make_shared<LogicalTensor>(*function, DT_FP32, shape);
-    l1Tensor->UpdateSubgraphID(0);
-    l1Tensor->SetMemoryTypeOriginal(MemoryType::MEM_L1);
-    l1Tensor->SetMemoryTypeToBe(MemoryType::MEM_L1);
-    l1Tensor->SetMagic(3);
-    l1Tensor->SetAttr(OpAttributeKey::needAlloc, true);
-    l1Tensor->UpdateDynValidShape({SymbolicScalar("S0"), SymbolicScalar("S1")});
-    l1Tensor->memoryrange = TileRange{0, 0, 0};
-
-    auto &op = function->AddOperation(Opcode::OP_COPY_OUT, {l1Tensor}, {ddrTensor});
     op.SetOpAttribute(std::make_shared<CopyOpAttribute>(MEM_L1, OpImmediate::Specified({0, 0}), shapeImme, shapeImme));
+    op.SetAttribute(OpAttributeKey::gmTensorParamIdxInCall, 0);
 
-    std::shared_ptr<SymbolManager> symbolManager = std::make_shared<SymbolManager>();
+    GenOpCodeFromOp(*function, op);
+}
+
+TEST_F(TestCodegenDynSpillOut, L1SpillTileTensor)
+{
+    std::vector<int64_t> shape = {64, 64};
+    const std::vector<SymbolicScalar> dynValidShape = {64, 64};
+    auto function = GenMockFuncDyn("L1SpillTileTensor");
+    auto ddrTensor = CreateLogicalTensor(
+        {*function, DataType::DT_FP32, MemoryType::MEM_DEVICE_DDR, shape, "L1SpillOut", SYMBOL_STACK_BASE,
+         dynValidShape});
+    int64_t baseOffset{0};
+    ddrTensor->SetAttr(OpAttributeKey::workspaceBaseOffset, baseOffset);
+    auto l1Tensor = CreateLogicalTensor({*function, DataType::DT_FP32, MemoryType::MEM_L1, shape, dynValidShape});
+
+    auto& op = function->rootFunc_->programs_[0]->AddOperation(Opcode::OP_COPY_OUT, {l1Tensor}, {ddrTensor});
+    auto shapeImme = OpImmediate::Specified(shape);
+    op.SetOpAttribute(std::make_shared<CopyOpAttribute>(MEM_L1, OpImmediate::Specified({0, 0}), shapeImme, shapeImme));
+    op.SetAttribute(OpAttributeKey::gmTensorParamIdxInCall, 0);
+
+    auto& op2 = function->rootFunc_->programs_[0]->AddOperation(Opcode::OP_COPY_IN, {ddrTensor}, {l1Tensor});
+    op2.SetOpAttribute(std::make_shared<CopyOpAttribute>(OpImmediate::Specified({0, 0}), MEM_L1, shapeImme, shapeImme));
+    op2.SetAttribute(OpAttributeKey::gmTensorParamIdxInCall, 0);
+    op2.SetAttribute(OP_ATTR_PREFIX + "copy_in_mode", 0);
+
     CodeGenCtx ctx;
-    CodeGenCloudNPU cga(ctx);
-    cga.GenAllocForLocalBuffer(op, symbolManager);
-    CodeGenOpCloudNPU cop(symbolManager, FunctionType::DYNAMIC_LOOP_PATH, {}, true);
-    function->GetTensorMap().inverseMap_[l1Tensor->GetMagic()] = l1Tensor;
+    CodeGenCloudNPU codegen(ctx);
+    codegen.GenCode(*function, {});
+    const std::string res = GetResultFromCpp(*function);
+    std::string expect =
+        R"!!!(TStore<TStoreConfig<CopyOutMode::NZ2ND, 0, 0>>(gmTensor_9, l1Tensor_10, Coord2Dim(0, 0));)!!!";
+    CheckStringExist(expect, res);
 
-    cop.Init(op);
-    cop.originShape[0] = shape;
-    cop.originShape[1] = shape;
-
-    cop.GenOpCode();
+    expect =
+        R"!!!(TLoad<CopyInMode::ND2ND, PaddingMode::NO_PADDING>(l1Tensor_10, gmTensor_9, Coord2Dim(0, 0), Coord2Dim(0, 0), 64, 64);)!!!";
+    CheckStringExist(expect, res);
 }
 } // namespace npu::tile_fwk

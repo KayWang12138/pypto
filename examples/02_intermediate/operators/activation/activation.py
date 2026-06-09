@@ -33,6 +33,25 @@ from dataclasses import dataclass
 from typing import Literal
 
 
+def _peek_run_mode_from_argv(default: str = "npu") -> str:
+    """Read run_mode early so module-level decorators can use it."""
+    for idx, arg in enumerate(sys.argv):
+        if arg == "--run_mode" and idx + 1 < len(sys.argv):
+            value = sys.argv[idx + 1]
+            if value in ("npu", "sim"):
+                return value
+        if arg.startswith("--run_mode="):
+            value = arg.split("=", 1)[1]
+            if value in ("npu", "sim"):
+                return value
+    return default
+
+
+global_run_mode = pypto.RunMode.NPU
+if _peek_run_mode_from_argv("npu") == "sim":
+    global_run_mode = pypto.RunMode.SIM
+
+
 def get_device_id():
     """
     Get and validate TILE_FWK_DEVICE_ID from environment variable.
@@ -41,9 +60,7 @@ def get_device_id():
         int: The device ID if valid, None otherwise.
     """
     if 'TILE_FWK_DEVICE_ID' not in os.environ:
-        print("If no NPU environment is available, set --run_mode sim to run in simulation mode;")
-        print("otherwise, set the environment variable TILE_FWK_DEVICE_ID.")
-        print("Please set it before running this example:")
+        print("Please set the environment variable TILE_FWK_DEVICE_ID before running:")
         print("  export TILE_FWK_DEVICE_ID=0")
         return None
 
@@ -66,8 +83,8 @@ def configure_tiling(x):
         pypto.set_vec_tile_shapes(*tile_list)
     else:
         pypto.set_vec_tile_shapes(32, 128)
-        
-        
+
+
 # Reference implementations for verification
 def silu_golden(x: torch.Tensor) -> torch.Tensor:
     """PyTorch reference implementation of SiLU."""
@@ -89,118 +106,80 @@ def geglu_golden(gate: torch.Tensor, up: torch.Tensor) -> torch.Tensor:
     return torch.nn.functional.gelu(gate) * up
 
 
-def silu_activation(shape: tuple, run_mode: str = "npu", dynamic: bool = False) -> torch.Tensor:
-    if dynamic:
-        _, n = shape
-        m = pypto.frontend.dynamic("M")
-    else:
-        m, n = shape
-    
-    if run_mode == "npu":
-        mode = pypto.RunMode.NPU
-    elif run_mode == "sim":
-        mode = pypto.RunMode.SIM
-    else:
-        raise ValueError(f"Invalid run_mode: {run_mode}. Must be 'npu' or 'sim'")
-         
-    # launch the kernel
-    @pypto.frontend.jit(runtime_options={"run_mode": mode})
-    def silu_activation_kernel(
-        x: pypto.Tensor((m, n), pypto.DT_BF16),
-    ) -> pypto.Tensor((m, n), pypto.DT_BF16):
-        """
-        SiLU (Swish) activation function: x * sigmoid(x)
+@pypto.frontend.jit(runtime_options={"run_mode": global_run_mode})
+def silu_activation_kernel(
+    x: pypto.Tensor(),
+    out: pypto.Tensor()):
+    """
+    SiLU (Swish) activation function: x * sigmoid(x)
 
-        SiLU is a smooth, non-monotonic activation function that has been shown
-        to work well in deep networks.
+    SiLU is a smooth, non-monotonic activation function that has been shown
+    to work well in deep networks.
 
-        Formula: SiLU(x) = x * sigmoid(x) = x / (1 + exp(-x))
-        """
-        out = pypto.tensor((m, n), pypto.DT_BF16)
-        configure_tiling(x)
+    Formula: SiLU(x) = x * sigmoid(x) = x / (1 + exp(-x))
+    """
+    configure_tiling(x)
 
-        out[:] = x * pypto.sigmoid(x)
-        return out
-
-    return silu_activation_kernel
+    out[:] = x * pypto.sigmoid(x)
 
 
-def test_silu(device_id: int = None, run_mode: str = "npu", dynamic: bool = False) -> None:
+def test_silu(device_id: int = None, dynamic: bool = False) -> None:
     """Test SiLU activation."""
     print("=" * 60)
     print("Test: SiLU Activation")
     print("=" * 60)
 
-    device = f'npu:{device_id}' if (run_mode == "npu" and device_id is not None) else 'cpu'
+    device = f'npu:{device_id}' if global_run_mode == pypto.RunMode.NPU and device_id is not None else 'cpu'
 
     shape = (32, 128)
     x_torch = torch.randn(shape, dtype=torch.bfloat16, device=device)
-
+    out_torch = torch.empty(shape, dtype=torch.bfloat16, device=device)
     # Execute
-    out_torch = silu_activation(x_torch.shape, run_mode, dynamic)(x_torch)
+    silu_activation_kernel(x_torch, out_torch)
 
     # Verify
     expected = silu_golden(x_torch)
     max_diff = (out_torch - expected).abs().max().item()
     print(f"Input shape: {x_torch.shape}")
     print(f"Output shape: {out_torch.shape}")
-    if run_mode == "npu":
+    if global_run_mode == pypto.RunMode.NPU:
         print(f"Max difference: {max_diff:.6f}")
         assert max_diff < 1e-1, "Result mismatch!"
     print("✓ SiLU passed")
     print()
 
 
-def gelu_activation(shape: tuple, run_mode: str = "npu", dynamic: bool = False) -> torch.Tensor:
-    if dynamic:
-        _, n = shape
-        m = pypto.frontend.dynamic("m")
-    else:
-        m, n = shape
-        
-    if run_mode == "npu":
-        mode = pypto.RunMode.NPU
-    elif run_mode == "sim":
-        mode = pypto.RunMode.SIM
-    else:
-        raise ValueError(f"Invalid run_mode: {run_mode}. Must be 'npu' or 'sim'")
-         
-    # launch the kernel
-    @pypto.frontend.jit(runtime_options={"run_mode": mode})
-    def gelu_activation_kernel(
-        x: pypto.Tensor((m, n), pypto.DT_BF16),
-    ) -> pypto.Tensor((m, n), pypto.DT_BF16):
-        """
-        GELU (Gaussian Error Linear Unit) activation function.
+@pypto.frontend.jit(runtime_options={"run_mode": global_run_mode})
+def gelu_activation_kernel(
+    x: pypto.Tensor(),
+    out: pypto.Tensor()):
+    """
+    GELU (Gaussian Error Linear Unit) activation function.
 
-        Uses approximation: x * sigmoid(1.702 * x)
-        This is a fast approximation of the full GELU formula.
-        """
-        out = pypto.tensor((m, n), pypto.DT_BF16)
-        configure_tiling(x)
+    Uses approximation: x * sigmoid(1.702 * x)
+    This is a fast approximation of the full GELU formula.
+    """
+    configure_tiling(x)
 
-        # GELU approximation: x * sigmoid(1.702 * x)
-        x_scaled = x * 1.702
-        # NOTE: `1.702 * x` leads to `TypeError: unsupported operand type(s) for *: 'float' and 'Tensor'`
-        out[:] = x * pypto.sigmoid(x_scaled)
-        return out
-
-    return gelu_activation_kernel
+    # GELU approximation: x * sigmoid(1.702 * x)
+    x_scaled = x * 1.702
+    # NOTE: `1.702 * x` leads to `TypeError: unsupported operand type(s) for *: 'float' and 'Tensor'`
+    out[:] = x * pypto.sigmoid(x_scaled)
 
 
-def test_gelu(device_id: int = None, run_mode: str = "npu", dynamic: bool = False) -> None:
+def test_gelu(device_id: int = None, dynamic: bool = False) -> None:
     """Test GELU activation."""
     print("=" * 60)
     print("Test: GELU Activation")
     print("=" * 60)
 
-    device = f'npu:{device_id}' if (run_mode == "npu" and device_id is not None) else 'cpu'
+    device = f'npu:{device_id}' if global_run_mode == pypto.RunMode.NPU and device_id is not None else 'cpu'
 
     shape = (32, 128)
     x_torch = torch.randn(shape, dtype=torch.bfloat16, device=device)
-
+    out_torch = torch.empty(shape, dtype=torch.bfloat16, device=device)
     # Execute
-    out_torch = gelu_activation(x_torch.shape, run_mode, dynamic)(x_torch)
+    gelu_activation_kernel(x_torch, out_torch)
 
     # Verify
     expected = gelu_golden(x_torch)
@@ -208,66 +187,48 @@ def test_gelu(device_id: int = None, run_mode: str = "npu", dynamic: bool = Fals
 
     print(f"Input shape: {x_torch.shape}")
     print(f"Output shape: {out_torch.shape}")
-    if run_mode == "npu":
+    if global_run_mode == pypto.RunMode.NPU:
         print(f"Max difference: {max_diff:.6f}")
         assert max_diff < 1e-1, "Result mismatch!"
     print("✓ GELU passed")
     print()
 
 
-def swiglu_activation(shape: tuple, run_mode: str = "npu", dynamic: bool = False) -> torch.Tensor:
-    if dynamic:
-        _, n = shape
-        m = pypto.frontend.dynamic("m")
-    else:
-        m, n = shape
+@pypto.frontend.jit(runtime_options={"run_mode": global_run_mode})
+def swiglu_activation_kernel(
+    gate: pypto.Tensor(),
+    up: pypto.Tensor(),
+    out: pypto.Tensor()):
+    """
+    SwiGLU activation function: Swish(gate) * up
 
-    if run_mode == "npu":
-        mode = pypto.RunMode.NPU
-    elif run_mode == "sim":
-        mode = pypto.RunMode.SIM
-    else:
-        raise ValueError(f"Invalid run_mode: {run_mode}. Must be 'npu' or 'sim'")
-         
-    # launch the kernel
-    @pypto.frontend.jit(runtime_options={"run_mode": mode})
-    def swiglu_activation_kernel(
-        gate: pypto.Tensor((m, n), pypto.DT_BF16),
-        up: pypto.Tensor((m, n), pypto.DT_BF16),
-    ) -> pypto.Tensor((m, n), pypto.DT_BF16):
-        """
-        SwiGLU activation function: Swish(gate) * up
+    SwiGLU is a gated linear unit that uses Swish (SiLU) as the gating function.
+    It's commonly used in modern LLMs like PaLM and LLaMA.
 
-        SwiGLU is a gated linear unit that uses Swish (SiLU) as the gating function.
-        It's commonly used in modern LLMs like PaLM and LLaMA.
+    Formula: SwiGLU(gate, up) = Swish(gate) * up = (gate * sigmoid(gate)) * up
+    """
+    configure_tiling(gate)
 
-        Formula: SwiGLU(gate, up) = Swish(gate) * up = (gate * sigmoid(gate)) * up
-        """
-        out = pypto.tensor((m, n), pypto.DT_BF16)
-        configure_tiling(gate)
-
-        sigmoid = pypto.sigmoid(gate)
-        swish = gate * sigmoid
-        out[:] = swish * up
-        return out
-    
-    return swiglu_activation_kernel
+    sigmoid = pypto.sigmoid(gate)
+    swish = gate * sigmoid
+    out[:] = swish * up
 
 
-def test_swiglu(device_id: int = None, run_mode: str = "npu", dynamic: bool = False) -> None:
+
+def test_swiglu(device_id: int = None, dynamic: bool = False) -> None:
     """Test SwiGLU activation."""
     print("=" * 60)
     print("Test: SwiGLU Activation")
     print("=" * 60)
 
-    device = f'npu:{device_id}' if (run_mode == "npu" and device_id is not None) else 'cpu'
+    device = f'npu:{device_id}' if global_run_mode == pypto.RunMode.NPU and device_id is not None else 'cpu'
 
     shape = (32, 128)
     gate_torch = torch.randn(shape, dtype=torch.bfloat16, device=device)
     up_torch = torch.randn(shape, dtype=torch.bfloat16, device=device)
-
+    out_torch = torch.empty(shape, dtype=torch.bfloat16, device=device)
     # Execute
-    out_torch = swiglu_activation(gate_torch.shape, run_mode, dynamic)(gate_torch, up_torch)
+    swiglu_activation_kernel(gate_torch, up_torch, out_torch)
 
     # Verify
     expected = swiglu_golden(gate_torch, up_torch)
@@ -276,66 +237,47 @@ def test_swiglu(device_id: int = None, run_mode: str = "npu", dynamic: bool = Fa
     print(f"Gate shape: {gate_torch.shape}")
     print(f"Up shape: {up_torch.shape}")
     print(f"Output shape: {out_torch.shape}")
-    if run_mode == "npu":
+    if global_run_mode == pypto.RunMode.NPU:
         print(f"Max difference: {max_diff:.6f}")
         assert max_diff < 1e-1, "Result mismatch!"
     print("✓ SwiGLU passed")
     print()
 
 
-def geglu_activation(shape: tuple, run_mode: str = "npu", dynamic: bool = False) -> torch.Tensor:
-    if dynamic:
-        _, n = shape
-        m = pypto.frontend.dynamic("m")
-    else:
-        m, n = shape
+@pypto.frontend.jit(runtime_options={"run_mode": global_run_mode})
+def geglu_activation_kernel(
+    gate: pypto.Tensor(),
+    up: pypto.Tensor(),
+    out: pypto.Tensor()):
+    """
+    GELU (Gaussian Error Linear Unit) activation function.
 
-    if run_mode == "npu":
-        mode = pypto.RunMode.NPU
-    elif run_mode == "sim":
-        mode = pypto.RunMode.SIM
-    else:
-        raise ValueError(f"Invalid run_mode: {run_mode}. Must be 'npu' or 'sim'")
-    
-    # launch the kernel
-    @pypto.frontend.jit(runtime_options={"run_mode": mode})
-    def geglu_activation_kernel(
-        gate: pypto.Tensor((m, n), pypto.DT_BF16),
-        up: pypto.Tensor((m, n), pypto.DT_BF16),
-    ) -> pypto.Tensor((m, n), pypto.DT_BF16):
-        """
-        GELU (Gaussian Error Linear Unit) activation function.
+    Uses approximation: x * sigmoid(1.702 * x)
+    This is a fast approximation of the full GELU formula.
+    """
+    configure_tiling(gate)
 
-        Uses approximation: x * sigmoid(1.702 * x)
-        This is a fast approximation of the full GELU formula.
-        """
-        out = pypto.tensor((m, n), pypto.DT_BF16)
-        configure_tiling(gate)
-
-        # GELU approximation: x * sigmoid(1.702 * x)
-        # Need to design a function to reuse GeLU function in a nested function call
-        gate_scaled = gate * 1.702
-        gelu_gate = gate * pypto.sigmoid(gate_scaled)
-        out[:] = gelu_gate * up
-        return out
-
-    return geglu_activation_kernel
+    # GELU approximation: x * sigmoid(1.702 * x)
+    # Need to design a function to reuse GeLU function in a nested function call
+    gate_scaled = gate * 1.702
+    gelu_gate = gate * pypto.sigmoid(gate_scaled)
+    out[:] = gelu_gate * up
 
 
-def test_geglu(device_id: int = None, run_mode: str = "npu", dynamic: bool = False) -> None:
+def test_geglu(device_id: int = None, dynamic: bool = False) -> None:
     """Test GeGLU activation."""
     print("=" * 60)
     print("Test: GeGLU Activation")
     print("=" * 60)
 
-    device = f'npu:{device_id}' if (run_mode == "npu" and device_id is not None) else 'cpu'
+    device = f'npu:{device_id}' if global_run_mode == pypto.RunMode.NPU and device_id is not None else 'cpu'
 
     shape = (32, 128)
     gate_torch = torch.randn(shape, dtype=torch.bfloat16, device=device)
     up_torch = torch.randn(shape, dtype=torch.bfloat16, device=device)
-
+    out_torch = torch.empty(shape, dtype=torch.bfloat16, device=device)
     # Execute
-    out_torch = geglu_activation(gate_torch.shape, run_mode, dynamic)(gate_torch, up_torch)
+    geglu_activation_kernel(gate_torch, up_torch, out_torch)
 
     # Verify
     expected = geglu_golden(gate_torch, up_torch)
@@ -344,7 +286,7 @@ def test_geglu(device_id: int = None, run_mode: str = "npu", dynamic: bool = Fal
     print(f"Gate shape: {gate_torch.shape}")
     print(f"Up shape: {up_torch.shape}")
     print(f"Output shape: {out_torch.shape}")
-    if run_mode == "npu":
+    if global_run_mode == pypto.RunMode.NPU:
         print(f"Max difference: {max_diff:.6f}")
         assert max_diff < 1e-1, "Result mismatch!"
     print("✓ GeGLU passed")
@@ -385,9 +327,9 @@ Examples:
         '--run_mode',
         type=str,
         nargs='?',
-        default="npu",
+        default='npu',
         choices=["npu", "sim"],
-        help='Run mode, such as npu/sim etc.'
+        help='Run mode, supports npu and sim.'
     )
 
     args = parser.parse_args()
@@ -462,7 +404,7 @@ Examples:
     try:
         for ex_id, ex_info in examples_to_run:
             print(f"Running Example {ex_id}: {ex_info['name']}")
-            ex_info['function'](device_id, args.run_mode)
+            ex_info['function'](device_id)
 
         if len(examples_to_run) > 1:
             print("=" * 60)

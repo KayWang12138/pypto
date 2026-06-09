@@ -20,8 +20,8 @@
 #include "operator/models/llama/llama_def.h"
 #include "cost_model/simulation/common/CommonType.h"
 #include "test_common.h"
-#include "test_cost_model.h"
 #include "test_dev_func_runner.h"
+#include "cost_model/simulation/cost_model_launcher.h"
 
 using namespace npu::tile_fwk;
 namespace CostModel {
@@ -31,7 +31,8 @@ public:
 
     static void TearDownTestCase() {}
 
-    void SetUp() override {
+    void SetUp() override
+    {
         oriEnableCostModel = config::GetPlatformConfig(KEY_ENABLE_COST_MODEL, oriEnableCostModel);
         config::SetPlatformConfig(KEY_ENABLE_COST_MODEL, true);
 
@@ -41,10 +42,11 @@ public:
         oriEnableBinaryCache = config::GetPlatformConfig(KEY_ENABLE_BINARY_CACHE, oriEnableBinaryCache);
         config::SetPlatformConfig(KEY_ENABLE_BINARY_CACHE, false);
         Program::GetInstance().Reset();
-        rtSetDevice(GetDeviceIdByEnvVar());
+        RuntimeSetDevice(GetDeviceIdByEnvVar());
     }
 
-    void TearDown() override {
+    void TearDown() override
+    {
         config::SetPlatformConfig(KEY_ENABLE_COST_MODEL, oriEnableCostModel);
         config::SetPlatformConfig(KEY_ENABLE_AIHAC_BACKEND, oriEnableAihacBackend);
         config::SetPlatformConfig(KEY_ENABLE_BINARY_CACHE, oriEnableBinaryCache);
@@ -54,14 +56,11 @@ public:
     {
         CostModel::PvData::Instance().Enable();
         CostModel::SoftMemory::Instance().Enable();
-        oriPvLevel = config::GetSimConfig("PV_LEVEL", 0);
-        config::SetSimConfig("PV_LEVEL", level);
+        oriPvLevel = config::GetSimConfig(KEY_PV_LEVEL, 0);
+        config::SetSimConfig(KEY_PV_LEVEL, level);
     }
 
-    void ResetPVModelConfig()
-    {
-        config::SetSimConfig("PV_LEVEL", oriPvLevel);
-    }
+    void ResetPVModelConfig() { config::SetSimConfig(KEY_PV_LEVEL, oriPvLevel); }
 
 protected:
     bool oriEnableAihacBackend = false;
@@ -70,8 +69,9 @@ protected:
     int oriPvLevel = 0;
 };
 
-template<typename InputT, typename OnputT>
-void TestMatmulTrans(int m, int k, int n, string dataPath) {
+template <typename InputT, typename OnputT>
+void TestMatmulTrans(int m, int k, int n, string dataPath)
+{
     std::vector<int64_t> shape_a = {m, k};
     std::vector<int64_t> shape_b = {n, k};
     std::vector<int64_t> shape_c = {m, n};
@@ -79,39 +79,41 @@ void TestMatmulTrans(int m, int k, int n, string dataPath) {
     const int capacity_b = k * n;
     const int capacity_c = m * n;
 
-    aclInit(nullptr);
-    rtSetDevice(GetDeviceIdByEnvVar());
+    AclInit(nullptr);
+    RuntimeSetDevice(GetDeviceIdByEnvVar());
     uint64_t outputSize = capacity_c * sizeof(OnputT);
     uint8_t* c_ptr = allocDevAddr(outputSize);
     auto InputDtype = GetAstDtype<InputT>();
     auto OutputDtype = GetAstDtype<OnputT>();
 
-
     std::cout << "####:" << dataPath << "/a.bin" << std::endl;
 
-    PROGRAM("Matmul") {
-        void *a_ptr = readToDev<InputT>(dataPath + "/a.bin", capacity_a);
-        void *b_ptr = readToDev<InputT>(dataPath + "/b.bin", capacity_b);
+    PROGRAM("Matmul")
+    {
+        void* a_ptr = readToDev<InputT>(dataPath + "/a.bin", capacity_a);
+        void* b_ptr = readToDev<InputT>(dataPath + "/b.bin", capacity_b);
 
-        Tensor mat_a(InputDtype, shape_a, (uint8_t *)a_ptr, "mat_a");
-        Tensor mat_b(InputDtype, shape_b, (uint8_t *)b_ptr, "mat_b");
+        Tensor mat_a(InputDtype, shape_a, (uint8_t*)a_ptr, "mat_a");
+        Tensor mat_b(InputDtype, shape_b, (uint8_t*)b_ptr, "mat_b");
         Tensor mat_c(OutputDtype, shape_c, c_ptr, "mat_c");
 
         npu::tile_fwk::config::SetBuildStatic(true);
-        FUNCTION("Matmul_T", {mat_a, mat_b, mat_c}) {
-            mat_c = npu::tile_fwk::Matrix::Matmul<false, true>(OutputDtype, mat_a, mat_b);  // result dtype
+        FUNCTION("Matmul_T", {mat_a, mat_b, mat_c})
+        {
+            mat_c = npu::tile_fwk::Matrix::Matmul(OutputDtype, mat_a, mat_b, false, true); // result dtype
         }
     }
     DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
     std::vector<OnputT> dev_res(capacity_c);
     std::vector<OnputT> golden(capacity_c);
-    machine::GetRA()->CopyFromTensor((uint8_t *)dev_res.data(), c_ptr, outputSize);
+    machine::GetRA()->CopyFromTensor((uint8_t*)dev_res.data(), c_ptr, outputSize);
     readInput(dataPath + "/c_golden.bin", golden);
     int ret = resultCmp(golden, dev_res, 0.001f);
     EXPECT_EQ(ret, true);
 }
 
-TEST_F(CostModelTest, test_mm_float32_64_64_64_bt) {
+TEST_F(CostModelTest, test_mm_float32_64_64_64_bt)
+{
     int level = static_cast<int>(CostModel::PVModelLevel::PV_EXECUTE);
     EnablePVModel(level);
     TileShape::Current().SetCubeTile({32, 32}, {32, 32}, {32, 32});
@@ -119,40 +121,35 @@ TEST_F(CostModelTest, test_mm_float32_64_64_64_bt) {
     ResetPVModelConfig();
 }
 
-
 class CostModelDynTest : public testing::Test {
 public:
     static void SetUpTestCase() {}
 
     static void TearDownTestCase() {}
 
-    void SetUp() override {
-        cacheEnable = config::GetHostConfig(KEY_ENABLE_BINARY_CACHE, false);
-        config::SetHostConfig(KEY_ENABLE_BINARY_CACHE, false);
+    void SetUp() override
+    {
+        cacheEnable = config::GetPassGlobalConfig(KEY_ENABLE_BINARY_CACHE, false);
+        config::SetPassGlobalConfig(KEY_ENABLE_BINARY_CACHE, false);
         oriEnableAihacBackend = config::GetPlatformConfig(KEY_ENABLE_AIHAC_BACKEND, oriEnableAihacBackend);
         config::SetPlatformConfig(KEY_ENABLE_AIHAC_BACKEND, true);
         Program::GetInstance().Reset();
-        constexpr int level = 2;
-        EnablePVModel(level);
-        rtSetDevice(GetDeviceIdByEnvVar());
     }
 
-    void TearDown() override {
-        config::SetHostConfig(KEY_ENABLE_BINARY_CACHE, cacheEnable);
+    void TearDown() override
+    {
+        config::SetPassGlobalConfig(KEY_ENABLE_BINARY_CACHE, cacheEnable);
         config::SetPlatformConfig(KEY_ENABLE_AIHAC_BACKEND, oriEnableAihacBackend);
         ResetPVModelConfig();
     }
 
     void EnablePVModel(int level)
     {
-        oriPvLevel = config::GetSimConfig("PV_LEVEL", 0);
-        config::SetSimConfig("PV_LEVEL", level);
+        oriPvLevel = config::GetSimConfig(KEY_PV_LEVEL, 0);
+        config::SetSimConfig(KEY_PV_LEVEL, level);
     }
 
-    void ResetPVModelConfig()
-    {
-        config::SetSimConfig("PV_LEVEL", oriPvLevel);
-    }
+    void ResetPVModelConfig() { config::SetSimConfig(KEY_PV_LEVEL, oriPvLevel); }
 
 protected:
     bool oriEnableAihacBackend = false;
@@ -160,29 +157,33 @@ protected:
     bool cacheEnable = false;
 };
 
-void CostModelTestLoopViewAssemble(const Tensor &t0, const Tensor &t1, const Tensor &blockTable, Tensor &out, int s) {
-    FUNCTION("main", {t0, t1, blockTable}, {out}) {
-        LOOP("L0", FunctionType::DYNAMIC_LOOP, i, LoopRange(GetInputShape(t0, 0) / s)) {
+void CostModelTestLoopViewAssemble(const Tensor& t0, const Tensor& t1, const Tensor& blockTable, Tensor& out, int s)
+{
+    FUNCTION("main", {t0, t1, blockTable}, {out})
+    {
+        LOOP("L0", FunctionType::DYNAMIC_LOOP, i, LoopRange(GetInputShape(t0, 0) / s))
+        {
             SymbolicScalar idx = GetTensorData(blockTable, {i, 0});
             Tensor t0s = View(t0, {s, s}, {idx * s, 0});
 
-            Tensor qi(DT_FP32, {s, 2*s}, "qi");
+            Tensor qi(DT_FP32, {s, 2 * s}, "qi");
             Assemble(t1, {0, 0}, qi);
             Assemble(t0s, {0, s}, qi);
 
-            Tensor ki(DT_FP32, {s, 2*s}, "ki");
+            Tensor ki(DT_FP32, {s, 2 * s}, "ki");
             Assemble(t0s, {0, 0}, ki);
             Assemble(t1, {0, s}, ki);
 
-            Tensor t2 = Matrix::Matmul<false, true>(DataType::DT_FP32, qi, ki);
+            Tensor t2 = Matrix::Matmul(DataType::DT_FP32, qi, ki, false, true);
             // conat((t0s + t1, t1)) @ concat (t0s, t1)^T
             Assemble(t2, {idx * s, 0}, out);
         }
     }
 }
 
-TEST_F(CostModelDynTest, TestDD) {
-    config::SetHostOption(ONLY_CODEGEN, true);
+TEST_F(CostModelDynTest, TestDD)
+{
+    config::SetRuntimeOption(CFG_RUN_MODE, CFG_RUN_MODE_SIM);
     constexpr int tilingX = 32;
     constexpr int tilingY = 32;
     TileShape::Current().SetVecTile(tilingX, tilingY);
@@ -194,12 +195,9 @@ TEST_F(CostModelDynTest, TestDD) {
 
     int s = 32;
     int n = 8;
-    Tensor t0(DT_FP32, {n * s, s}, "t0");  // [32*8, 32]
-    Tensor t1(DT_FP32, {s, s}, "t1");  // [32, 32]
-    Tensor blockTable{
-        DT_INT32, {n, 1},
-         "blockTable"
-    };
+    Tensor t0(DT_FP32, {n * s, s}, "t0"); // [32*8, 32]
+    Tensor t1(DT_FP32, {s, s}, "t1");     // [32, 32]
+    Tensor blockTable{DT_INT32, {n, 1}, "blockTable"};
     Tensor out(DT_FP32, {n * s, s}, "out");
     CostModelTestLoopViewAssemble(t0, t1, blockTable, out, s);
 
@@ -208,9 +206,8 @@ TEST_F(CostModelDynTest, TestDD) {
         tblData.push_back(i);
 
     ProgramData::GetInstance().AppendInputs({
-        RawTensorData::CreateConstantTensor<float>(t0, 1.0),
-        RawTensorData::CreateConstantTensor<float>(t1, 2.0),
-        RawTensorData::CreateTensor<int>(blockTable, tblData),  // value: [0,1,2,...,7]
+        RawTensorData::CreateConstantTensor<float>(t0, 1.0), RawTensorData::CreateConstantTensor<float>(t1, 2.0),
+        RawTensorData::CreateTensor<int>(blockTable, tblData), // value: [0,1,2,...,7]
     });
     ProgramData::GetInstance().AppendOutputs({
         RawTensorData::CreateConstantTensor<float>(out, 0.0f),
@@ -218,11 +215,54 @@ TEST_F(CostModelDynTest, TestDD) {
 
     auto func = Program::GetInstance().GetLastFunction();
 #ifdef BUILD_WITH_CANN
-    CostModelDynFuncRunner::Run(func);
-    std::vector<float> golden(n * s * s, 0.0f);
+    CostModelLauncher::CostModelRunOnce(func);
+    std::vector<float> golden(n * s * s, 128.0f);
     auto outs = npu::tile_fwk::ProgramData::GetInstance().GetOutputData(0);
-    EXPECT_TRUE(resultCmp(golden, (float *)outs->data(), 0.001f));
+    EXPECT_TRUE(resultCmp(golden, (float*)outs->data(), 0.001f));
 #endif
 }
 
+TEST_F(CostModelDynTest, TestGG)
+{
+    config::SetRuntimeOption(CFG_RUN_MODE, CFG_RUN_MODE_SIM);
+    config::SetCodeGenConfig(KEY_CODEGEN_SUPPORT_TILE_TENSOR, false);
+    constexpr int tilingX = 32;
+    constexpr int tilingY = 32;
+    TileShape::Current().SetVecTile(tilingX, tilingY);
+    constexpr int tilingM = 32;
+    constexpr int tilingN = 32;
+    constexpr int tilingK = 32;
+    TileShape::Current().SetCubeTile({tilingM, tilingM}, {tilingN, tilingN}, {tilingK, tilingK});
+
+    Tensor t0(DT_FP32, {32, 32}, "t0");
+    Tensor t1(DT_FP32, {32, 32}, "t1");
+    Tensor t2(DT_FP32, {32, 32}, "t2");
+    Tensor t3(DT_FP32, {32, 32}, "t3");
+
+    FUNCTION("main", {t0, t1}, {t3}, {{t2, t0}})
+    {
+        LOOP("l0", FunctionType::DYNAMIC_LOOP, i, LoopRange(1))
+        {
+            UNUSED(i);
+            t3 = Add(t0, t1);
+            Assemble(t3, {0, 0}, t2);
+        }
+    }
+
+    ProgramData::GetInstance().AppendInputs({
+        RawTensorData::CreateConstantTensor<float>(t0, 1.0),
+        RawTensorData::CreateConstantTensor<float>(t1, 2.0),
+    });
+    ProgramData::GetInstance().AppendOutputs({
+        RawTensorData::CreateConstantTensor<float>(t3, 0.0f),
+    });
+    auto func = Program::GetInstance().GetLastFunction();
+
+#ifdef BUILD_WITH_CANN
+    CostModelLauncher::CostModelRunOnce(func);
+    std::vector<float> golden(tilingX * tilingY, 3.0f);
+    auto outs = npu::tile_fwk::ProgramData::GetInstance().GetOutputData(0);
+    EXPECT_TRUE(resultCmp(golden, (float*)outs->data(), 0.001f));
+#endif
 }
+} // namespace CostModel

@@ -17,15 +17,21 @@
 #include <iostream>
 
 #include "tilefwk/error.h"
+#include "tilefwk/error_code.h"
+#include "tilefwk/pypto_fwk_log.h"
+#include "tilefwk/error_manager.h"
 
 namespace npu::tile_fwk {
 struct TerminateHandler {
-    TerminateHandler() {
+    TerminateHandler()
+    {
         struct sigaction sa;
         sa.sa_handler = TerminateHandler::SigAction;
         sigemptyset(&sa.sa_mask);
         sa.sa_flags = SA_RESTART;
-        sigaction(SIGSEGV, &sa, &ori);
+
+        sigaction(SIGSEGV, &sa, &ori[0]);
+        sigaction(SIGFPE, &sa, &ori[1]);
 
         std::set_terminate([] {
             try {
@@ -33,22 +39,40 @@ struct TerminateHandler {
                 if (eptr) {
                     std::rethrow_exception(eptr);
                 }
-            } catch (const std::exception &e) {
-                std::cout << "Caught exception: '" << e.what() << "'\n";
+            } catch (const std::exception& e) {
+                PYPTO_LOGE("Caught exception: %s", e.what());
+                ErrorManager::Instance().OutputErrorMessage();
+                std::cerr << "Caught exception: '" << e.what() << "'\n";
             }
+            fflush(nullptr);
             _Exit(1);
         });
     }
 
-    static void SigAction(int signo) {
+    static void SigAction(int signo)
+    {
         (void)signo;
-        std::cerr << "segment fault!!!\n" << GetBacktrace(0x2, 0x10)->Get() << std::endl;
+        auto backtrace = GetBacktrace(0x2, 0x10)->Get();
+        auto msg = "ops !!!";
+        if (signo == SIGSEGV) {
+            msg = "segment fault !!!";
+        } else if (signo == SIGFPE) {
+            msg = "floating point exception !!!";
+        }
+        PYPTO_LOGE("%s\n%s", msg, backtrace.c_str());
+        ErrorManager::Instance().OutputErrorMessage();
+        std::cerr << msg << "\n" << backtrace << std::endl;
+        fflush(nullptr);
         _Exit(1);
     }
 
-    ~TerminateHandler() { sigaction(SIGSEGV, &ori, nullptr); }
+    ~TerminateHandler()
+    {
+        sigaction(SIGSEGV, &ori[0], nullptr);
+        sigaction(SIGFPE, &ori[1], nullptr);
+    }
 
-    struct sigaction ori;
+    struct sigaction ori[2];
 };
 } // namespace npu::tile_fwk
 #endif

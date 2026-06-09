@@ -19,7 +19,8 @@
 #include "utils/tile_tensor.h"
 
 template <typename T0, typename T1, size_t index = 0, size_t shapeSize = 0>
-TILEOP int GetReduceAxisIndex(T0 src0, T1 src1) {
+TILEOP int GetReduceAxisIndex(T0 src0, T1 src1)
+{
     // 使用validshape进行比较，如果index大于等于shapesize，仍然没有找到reduce轴，则默认R轴为首轴，合并成RA进行处理
     if constexpr (index < shapeSize) {
         const auto src0Layout = src0.GetLayout();
@@ -37,7 +38,8 @@ TILEOP int GetReduceAxisIndex(T0 src0, T1 src1) {
 
 // 左闭右开
 template <int startIndex, int endIndex, typename TileShape>
-TILEOP constexpr int GetTileShapeMergeResult() {
+TILEOP constexpr int GetTileShapeMergeResult()
+{
     if constexpr (startIndex >= endIndex) {
         return 1;
     } else {
@@ -47,7 +49,8 @@ TILEOP constexpr int GetTileShapeMergeResult() {
 }
 
 template <int reduceAxisIndex, size_t shapeSize, bool isHeight, typename T0>
-TILEOP constexpr int GetOneDimensionTileSize() {
+TILEOP constexpr int GetOneDimensionTileSize()
+{
     // R轴非尾轴
     if constexpr (reduceAxisIndex < shapeSize - 1) {
         if constexpr (isHeight) {
@@ -65,7 +68,8 @@ TILEOP constexpr int GetOneDimensionTileSize() {
 }
 
 template <int reduceAxisIndex, size_t shapeSize, typename T0>
-TILEOP int GetHeightValidSize(T0 tensor) {
+TILEOP int GetHeightValidSize(T0 tensor)
+{
     const auto tensorLayout = tensor.GetLayout();
     if constexpr (reduceAxisIndex == shapeSize - 1) {
         return tensorLayout.template GetShapeDim<reduceAxisIndex - 1, shapeSize>();
@@ -75,7 +79,8 @@ TILEOP int GetHeightValidSize(T0 tensor) {
 }
 
 template <int reduceAxisIndex, size_t shapeSize, typename T0>
-TILEOP int GetWidthValidSize(T0 tensor) {
+TILEOP int GetWidthValidSize(T0 tensor)
+{
     const auto tensorLayout = tensor.GetLayout();
     if constexpr (reduceAxisIndex == shapeSize - 1) {
         return tensorLayout.template GetShapeDim<reduceAxisIndex, shapeSize>();
@@ -85,7 +90,8 @@ TILEOP int GetWidthValidSize(T0 tensor) {
 }
 
 template <PairBinaryOp op, typename T0, typename T1, typename T2>
-TILEOP void PairBinaryComputeImpl(T0 dst, T1 src0, T2 src1) {
+TILEOP void PairBinaryComputeImpl(T0 dst, T1 src0, T2 src1)
+{
     if constexpr (op == PairBinaryOp::ADD) {
         pto::TPARTADD(dst, src0, src1);
         return;
@@ -98,10 +104,15 @@ TILEOP void PairBinaryComputeImpl(T0 dst, T1 src0, T2 src1) {
         pto::TPARTMIN(dst, src0, src1);
         return;
     }
+    if constexpr (op == PairBinaryOp::MUL) {
+        pto::TPARTMUL(dst, src0, src1);
+        return;
+    }
 }
 
 template <PairBinaryOp op, int reduceAxisIndex, typename T0, typename T1, typename T2>
-TILEOP void InnerPairBinaryCompute(T0 dst, T1 src0, T2 src1) {
+TILEOP void InnerPairBinaryCompute(T0 dst, T1 src0, T2 src1)
+{
     constexpr auto shapeSize = Std::tuple_size<typename T0::Shape>::value;
     if constexpr (reduceAxisIndex < shapeSize) {
         const auto dstLayout = dst.GetLayout();
@@ -124,22 +135,25 @@ TILEOP void InnerPairBinaryCompute(T0 dst, T1 src0, T2 src1) {
         size_t src1Stride1 = 0;
         size_t src1Stride2 = 0;
 
-        if constexpr ((reduceAxisIndex == shapeSize - 1 && reduceAxisIndex >= 2) ||
-                      (reduceAxisIndex < shapeSize - 1 && reduceAxisIndex >= 1)) {
+        if constexpr (
+            (reduceAxisIndex == shapeSize - 1 && reduceAxisIndex >= 2) ||
+            (reduceAxisIndex < shapeSize - 1 && reduceAxisIndex >= 1)) {
             dstShape0 = dstLayout.template GetShapeDim<0, shapeSize>();
             dstStride0 = dstLayout.template GetStrideDim<0, shapeSize>();
             src0Stride0 = src0Layout.template GetStrideDim<0, shapeSize>();
             src1Stride0 = src1Layout.template GetStrideDim<0, shapeSize>();
         }
-        if constexpr ((reduceAxisIndex == shapeSize - 1 && reduceAxisIndex >= 3) ||
-                      (reduceAxisIndex < shapeSize - 1 && reduceAxisIndex >= 2)) {
+        if constexpr (
+            (reduceAxisIndex == shapeSize - 1 && reduceAxisIndex >= 3) ||
+            (reduceAxisIndex < shapeSize - 1 && reduceAxisIndex >= 2)) {
             dstShape1 = dstLayout.template GetShapeDim<1, shapeSize>();
             dstStride1 = dstLayout.template GetStrideDim<1, shapeSize>();
             src0Stride1 = src0Layout.template GetStrideDim<1, shapeSize>();
             src1Stride1 = src1Layout.template GetStrideDim<1, shapeSize>();
         }
-        if constexpr ((reduceAxisIndex == shapeSize - 1 && reduceAxisIndex >= 4) ||
-                      (reduceAxisIndex < shapeSize - 1 && reduceAxisIndex >= 3)) {
+        if constexpr (
+            (reduceAxisIndex == shapeSize - 1 && reduceAxisIndex >= 4) ||
+            (reduceAxisIndex < shapeSize - 1 && reduceAxisIndex >= 3)) {
             dstShape2 = dstLayout.template GetShapeDim<2, shapeSize>();
             dstStride2 = dstLayout.template GetStrideDim<2, shapeSize>();
             src0Stride2 = src0Layout.template GetStrideDim<2, shapeSize>();
@@ -155,11 +169,11 @@ TILEOP void InnerPairBinaryCompute(T0 dst, T1 src0, T2 src1) {
         int dstShape3;
         int src0Shape3;
         int src1Shape3;
-        if constexpr (shapeSize !=1 ) {
+        if constexpr (shapeSize != 1) {
             dstShape3 = GetHeightValidSize<reduceAxisIndex, shapeSize, T0>(dst);
             src0Shape3 = GetHeightValidSize<reduceAxisIndex, shapeSize, T1>(src0);
             src1Shape3 = GetHeightValidSize<reduceAxisIndex, shapeSize, T2>(src1);
-        }else {
+        } else {
             dstShape3 = 1;
             src0Shape3 = 1;
             src1Shape3 = 1;
@@ -176,9 +190,9 @@ TILEOP void InnerPairBinaryCompute(T0 dst, T1 src0, T2 src1) {
         using Src1TileDefine =
             pto::Tile<pto::TileType::Vec, typename T0::Type, src1TileH, src1TileW, pto::BLayout::RowMajor, -1, -1>;
 
-        for (size_t n0Index = 0; n0Index < dstShape0; ++n0Index) {
-            for (size_t n1Index = 0; n1Index < dstShape1; ++n1Index) {
-                for (size_t n2Index = 0; n2Index < dstShape2; ++n2Index) {
+        for (LoopVar n0Index = 0; n0Index < dstShape0; ++n0Index) {
+            for (LoopVar n1Index = 0; n1Index < dstShape1; ++n1Index) {
+                for (LoopVar n2Index = 0; n2Index < dstShape2; ++n2Index) {
                     DstTileDefine dstTile(dstShape3, dstShape4);
                     Src0TileDefine src0Tile(src0Shape3, src0Shape4);
                     Src1TileDefine src1Tile(src1Shape3, src1Shape4);
@@ -196,7 +210,8 @@ TILEOP void InnerPairBinaryCompute(T0 dst, T1 src0, T2 src1) {
 }
 
 template <PairBinaryOp op, typename T0, typename T1, typename T2>
-TILEOP void PairBinaryCompute(T0 dst, T1 src0, T2 src1) {
+TILEOP void PairBinaryCompute(T0 dst, T1 src0, T2 src1)
+{
     constexpr auto shapeSize = Std::tuple_size<typename T0::Shape>::value;
     size_t reduceAxisIndex = GetReduceAxisIndex<T1, T2, 0, shapeSize>(src0, src1);
     if (reduceAxisIndex == 0) {
@@ -212,19 +227,32 @@ TILEOP void PairBinaryCompute(T0 dst, T1 src0, T2 src1) {
     }
 }
 
+#define OP_TILE_OP_PAIRSUM TPairSum
 template <typename T0, typename T1, typename T2>
-TILEOP void TPairSum(T0 dst, T1 src0, T2 src1) {
+TILEOP void TPairSum(T0 dst, T1 src0, T2 src1)
+{
     PairBinaryCompute<PairBinaryOp::ADD>(dst, src0, src1);
 }
 
+#define OP_TILE_OP_PAIRMAX TPairMax
 template <typename T0, typename T1, typename T2>
-TILEOP void TPairMax(T0 dst, T1 src0, T2 src1) {
+TILEOP void TPairMax(T0 dst, T1 src0, T2 src1)
+{
     PairBinaryCompute<PairBinaryOp::MAX>(dst, src0, src1);
 }
 
+#define OP_TILE_OP_PAIRMIN TPairMin
 template <typename T0, typename T1, typename T2>
-TILEOP void TPairMin(T0 dst, T1 src0, T2 src1) {
+TILEOP void TPairMin(T0 dst, T1 src0, T2 src1)
+{
     PairBinaryCompute<PairBinaryOp::MIN>(dst, src0, src1);
+}
+
+#define OP_TILE_OP_PAIRPROD TPairProd
+template <typename T0, typename T1, typename T2>
+TILEOP void TPairProd(T0 dst, T1 src0, T2 src1)
+{
+    PairBinaryCompute<PairBinaryOp::MUL>(dst, src0, src1);
 }
 
 #endif

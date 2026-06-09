@@ -31,19 +31,22 @@ public:
 
     static void TearDownTestCase() {}
 
-    void SetUp() override {
+    void SetUp() override
+    {
         Program::GetInstance().Reset();
         config::Reset();
-        config::SetPlatformConfig(KEY_ONLY_HOST_COMPILE, true);
+        config::SetHostOption(COMPILE_STAGE, CS_EXECUTE_GRAPH);
     }
 
     void TearDown() override {}
 };
 
-TEST_F(IntraSubgraphAdapterTest, TestBoundaryConvert) {
+TEST_F(IntraSubgraphAdapterTest, TestBoundaryConvert)
+{
     ComputationalGraphBuilder subGraph;
     std::vector<std::string> tensorNames{"t1", "t2", "t3", "t4"};
-    std::vector<MemoryType> tensorMemTypes{MemoryType::MEM_UB, MemoryType::MEM_UB, MemoryType::MEM_L1, MemoryType::MEM_L0A};
+    std::vector<MemoryType> tensorMemTypes{
+        MemoryType::MEM_UB, MemoryType::MEM_UB, MemoryType::MEM_L1, MemoryType::MEM_L0A};
     std::vector<Opcode> opCodes{Opcode::OP_ADDS, Opcode::OP_CONVERT, Opcode::OP_L1_TO_L0A};
     std::vector<std::vector<std::string>> ioperands{{"t1"}, {"t2"}, {"t3"}};
     std::vector<std::vector<std::string>> ooperands{{"t2"}, {"t3"}, {"t4"}};
@@ -52,12 +55,16 @@ TEST_F(IntraSubgraphAdapterTest, TestBoundaryConvert) {
     EXPECT_EQ(subGraph.AddOps(opCodes, ioperands, ooperands, opNames, true), true);
     subGraph.GetOp("adds")->UpdateSubgraphID(0);
     subGraph.GetOp("convert")->UpdateSubgraphID(0);
-    subGraph.GetOp("convert")->SetOpAttribute(std::make_shared<ConvertOpAttribute>(MemoryType::MEM_UB, MemoryType::MEM_L1));
+    subGraph.GetOp("convert")->SetOpAttribute(
+        std::make_shared<ConvertOpAttribute>(MemoryType::MEM_UB, MemoryType::MEM_L1));
     subGraph.GetOp("L1ToL0A")->UpdateSubgraphID(1);
-    Function *function = subGraph.GetFunction();
+    Function* function = subGraph.GetFunction();
     EXPECT_NE(function, nullptr);
     IntraSubgraphAdapter adapter;
+    EXPECT_EQ(adapter.PostCheck(*function), FAILED);
+    function->SetTotalSubGraphCount(2);
     adapter.RunOnFunction(*function);
+    EXPECT_EQ(adapter.PostCheck(*function), SUCCESS);
     const int opNum = 4;
     EXPECT_EQ(function->Operations().DuplicatedOpList().size(), opNum);
     const int copyOutIdx = 1;
@@ -68,10 +75,12 @@ TEST_F(IntraSubgraphAdapterTest, TestBoundaryConvert) {
     EXPECT_NE(copyOpAttr, nullptr);
 }
 
-TEST_F(IntraSubgraphAdapterTest, TestBoundaryConvertFailed) {
+TEST_F(IntraSubgraphAdapterTest, TestBoundaryConvertFailed)
+{
     ComputationalGraphBuilder subGraph;
     std::vector<std::string> tensorNames{"t1", "t2", "t3", "t4"};
-    std::vector<MemoryType> tensorMemTypes{MemoryType::MEM_UB, MemoryType::MEM_UB, MemoryType::MEM_L1, MemoryType::MEM_L0B};
+    std::vector<MemoryType> tensorMemTypes{
+        MemoryType::MEM_UB, MemoryType::MEM_UB, MemoryType::MEM_L1, MemoryType::MEM_L0B};
     std::vector<Opcode> opCodes{Opcode::OP_ADDS, Opcode::OP_CONVERT, Opcode::OP_L1_TO_L0B};
     std::vector<std::vector<std::string>> ioperands{{"t1"}, {"t2"}, {"t3"}};
     std::vector<std::vector<std::string>> ooperands{{"t2"}, {"t3"}, {"t4"}};
@@ -80,18 +89,23 @@ TEST_F(IntraSubgraphAdapterTest, TestBoundaryConvertFailed) {
     EXPECT_EQ(subGraph.AddOps(opCodes, ioperands, ooperands, opNames, true), true);
     subGraph.GetOp("adds")->UpdateSubgraphID(0);
     subGraph.GetOp("convert")->UpdateSubgraphID(1);
-    subGraph.GetOp("convert")->SetOpAttribute(std::make_shared<ConvertOpAttribute>(MemoryType::MEM_UB, MemoryType::MEM_L1));
+    subGraph.GetOp("convert")->SetOpAttribute(
+        std::make_shared<ConvertOpAttribute>(MemoryType::MEM_UB, MemoryType::MEM_L1));
     subGraph.GetOp("L1ToL0B")->UpdateSubgraphID(1);
-    Function *function = subGraph.GetFunction();
+    Function* function = subGraph.GetFunction();
     EXPECT_NE(function, nullptr);
     IntraSubgraphAdapter adapter;
+    function->SetTotalSubGraphCount(2);
     EXPECT_EQ(adapter.RunOnFunction(*function), FAILED);
+    EXPECT_EQ(adapter.PostCheck(*function), FAILED);
 }
 
-TEST_F(IntraSubgraphAdapterTest, TestInnerConvert) {
+TEST_F(IntraSubgraphAdapterTest, TestInnerConvert)
+{
     ComputationalGraphBuilder subGraph;
     std::vector<std::string> tensorNames{"t0", "t1", "t2", "t3"};
-    std::vector<MemoryType> tensorMemTypes{MemoryType::MEM_UB, MemoryType::MEM_UB, MemoryType::MEM_L1, MemoryType::MEM_L0A};
+    std::vector<MemoryType> tensorMemTypes{
+        MemoryType::MEM_UB, MemoryType::MEM_UB, MemoryType::MEM_L1, MemoryType::MEM_L0A};
     std::vector<Opcode> opCodes{Opcode::OP_ADDS, Opcode::OP_CONVERT, Opcode::OP_L1_TO_L0A};
     std::vector<std::vector<std::string>> ioperands{{"t0"}, {"t1"}, {"t2"}};
     std::vector<std::vector<std::string>> ooperands{{"t1"}, {"t2"}, {"t3"}};
@@ -100,9 +114,10 @@ TEST_F(IntraSubgraphAdapterTest, TestInnerConvert) {
     EXPECT_EQ(subGraph.AddOps(opCodes, ioperands, ooperands, opNames, true), true);
     subGraph.GetOp("adds")->UpdateSubgraphID(0);
     subGraph.GetOp("convert")->UpdateSubgraphID(0);
-    subGraph.GetOp("convert")->SetOpAttribute(std::make_shared<ConvertOpAttribute>(MemoryType::MEM_UB, MemoryType::MEM_L1));
+    subGraph.GetOp("convert")->SetOpAttribute(
+        std::make_shared<ConvertOpAttribute>(MemoryType::MEM_UB, MemoryType::MEM_L1));
     subGraph.GetOp("L1ToL0A")->UpdateSubgraphID(0);
-    Function *function = subGraph.GetFunction();
+    Function* function = subGraph.GetFunction();
     EXPECT_NE(function, nullptr);
     IntraSubgraphAdapter adapter;
     adapter.RunOnFunction(*function);
@@ -112,4 +127,45 @@ TEST_F(IntraSubgraphAdapterTest, TestInnerConvert) {
     EXPECT_EQ(function->Operations().DuplicatedOpList()[convertIdx]->GetOpcode(), Opcode::OP_CONVERT);
 }
 
+TEST_F(IntraSubgraphAdapterTest, TestValidShapeInfer)
+{
+    ComputationalGraphBuilder subGraph;
+    std::vector<std::string> tensorNames{"t1", "t2", "t3", "t4"};
+    std::vector<MemoryType> tensorMemTypes{ MemoryType::MEM_UB, MemoryType::MEM_UB, MemoryType::MEM_L1, MemoryType::MEM_L0A};
+    std::vector<Opcode> opCodes{Opcode::OP_ADDS, Opcode::OP_CONVERT, Opcode::OP_L1_TO_L0A};
+    std::vector<std::vector<std::string>> ioperands{{"t1"}, {"t2"}, {"t3"}};
+    std::vector<std::vector<std::string>> ooperands{{"t2"}, {"t3"}, {"t4"}};
+    std::vector<std::string> opNames{"adds", "convert", "L1ToL0A"};
+    EXPECT_EQ(subGraph.AddTensors(DataType::DT_FP32, {32, 32}, tensorMemTypes, tensorNames, 0), true);
+    EXPECT_EQ(subGraph.AddOps(opCodes, ioperands, ooperands, opNames, true), true);
+
+    auto t2 = subGraph.GetTensor("t2");
+    t2->UpdateDynValidShape({SymbolicScalar(32), SymbolicScalar(32)});
+
+    subGraph.GetOp("adds")->UpdateSubgraphID(0);
+    subGraph.GetOp("convert")->UpdateSubgraphID(0);
+    subGraph.GetOp("convert")->SetOpAttribute(
+        std::make_shared<ConvertOpAttribute>(MemoryType::MEM_UB, MemoryType::MEM_L1));
+    subGraph.GetOp("L1ToL0A")->UpdateSubgraphID(1);
+    Function* function = subGraph.GetFunction();
+    EXPECT_NE(function, nullptr);
+    function->SetTotalSubGraphCount(2);
+
+    IntraSubgraphAdapter adapter;
+    EXPECT_EQ(adapter.RunOnFunction(*function), SUCCESS);
+    EXPECT_EQ(adapter.PostCheck(*function), SUCCESS);
+
+    bool foundAssembleOrView = false;
+    for (const auto& op : function->Operations().DuplicatedOpList()) {
+        if (op->GetOpcode() == Opcode::OP_ASSEMBLE || op->GetOpcode() == Opcode::OP_VIEW) {
+            foundAssembleOrView = true;
+            auto oOperand = op->GetOOperands().front();
+            auto dynValidShape = oOperand->GetDynValidShape();
+            EXPECT_FALSE(dynValidShape.empty());
+            EXPECT_EQ(dynValidShape.size(), 2);
+        }
+    }
+    EXPECT_TRUE(foundAssembleOrView);
 }
+
+} // namespace npu::tile_fwk

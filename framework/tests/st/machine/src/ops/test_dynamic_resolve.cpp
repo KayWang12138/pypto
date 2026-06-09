@@ -30,25 +30,23 @@ public:
 
     static void TearDownTestCase() {}
 
-    void SetUp() override {
+    void SetUp() override
+    {
         DeviceLauncherContext::Get().DeviceInit();
-        rtSetDevice(GetDeviceIdByEnvVar());
-     }
-
-    void TearDown() override {
-        DeviceLauncherContext::Get().DeviceFini();
+        RuntimeSetDevice(GetDeviceIdByEnvVar());
     }
+
+    void TearDown() override { DeviceLauncherContext::Get().DeviceFini(); }
 };
 
 namespace {
 
-TEST_F(DynamicResolveTest, TestResolve) {
+TEST_F(DynamicResolveTest, TestResolve)
+{
     config::SetPassOption(MG_COPYIN_UPPER_BOUND, 100 * 1024 * 1024);
     config::SetPassOption(SG_PG_LOWER_BOUND, 1024);
-    config::SetPassOption(SG_PG_UPPER_BOUND, 1024);
-    config::SetPassOption(CUBE_L1_REUSE_MODE, 32);
+    config::SetPassOption(CUBE_L1_REUSE_SETTING, std::map<int64_t, int64_t>{{-1, 32}});
     config::SetPassOption(SG_PARALLEL_NUM, 2);
-    config::SetPassOption(VEC_NBUFFER_MODE, 2);
     config::SetPassOption<std::map<int64_t, int64_t>>(VEC_NBUFFER_SETTING, {{-1, 16}});
     config::SetPassOption<int>(COPYOUT_RESOLVE_COALESCING, 10);
 
@@ -81,13 +79,15 @@ TEST_F(DynamicResolveTest, TestResolve) {
         RawTensorData::CreateConstantTensor<float>(output, 0),
     });
 
-    FUNCTION("main", {inputA, inputB, inputC}, {output}) {
-        LOOP("Step0", FunctionType::DYNAMIC_LOOP, i, LoopRange(1)) {
+    FUNCTION("main", {inputA, inputB, inputC}, {output})
+    {
+        LOOP("Step0", FunctionType::DYNAMIC_LOOP, i, LoopRange(1))
+        {
             (void)i;
             std::vector<Tensor> tensorList;
             for (int j = 0; j < v64; j++) {
-                auto t = View(inputB, {v128, v128}, {0, v128 * j}); // <128 x 128 x FP32>
-                auto mm = Matrix::Matmul<false, true>(DataType::DT_FP32, inputA, t); // <64 x 128 x FP32>
+                auto t = View(inputB, {v128, v128}, {0, v128 * j});                  // <128 x 128 x FP32>
+                auto mm = Matrix::Matmul(DataType::DT_FP32, inputA, t, false, true); // <64 x 128 x FP32>
                 tensorList.emplace_back(mm);
             }
             auto mmConcat = Cat(tensorList, -1); // <64 x (128 * 64) x FP32>
@@ -95,13 +95,13 @@ TEST_F(DynamicResolveTest, TestResolve) {
         }
     }
 
-    EXPECT_EQ(0, EmulationLauncher::EmulationRunOnce(Program::GetInstance().GetLastFunction()));
+    EXPECT_EQ(0, EmulationLauncher::EmulationRunOnce(Program::GetInstance().GetLastFunction(), nullptr));
 
 #ifdef BUILD_WITH_CANN
     EXPECT_EQ(0, DeviceLauncher::DeviceRunOnce(Program::GetInstance().GetLastFunction()));
-    auto outputResult = (float *)npu::tile_fwk::ProgramData::GetInstance().GetOutputData(0)->data();
+    auto outputResult = (float*)npu::tile_fwk::ProgramData::GetInstance().GetOutputData(0)->data();
     EXPECT_TRUE(resultCmp(outputGolden, outputResult, 0.001f));
 #endif
 }
 
-}
+} // namespace

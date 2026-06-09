@@ -21,13 +21,16 @@
 #include "ut_json/ut_json_tool.h"
 #include "passes/pass_mgr/pass_manager.h"
 #include "interface/configs/config_manager.h"
+#include "passes/pass_utils/graph_utils.h"
 
 #define private public
 #include "interface/operation/operation.h"
 #include "passes/tensor_graph_pass/expand_function.h"
+#include "computational_graph_builder.h"
+#include "passes/pass_check/inplace_conflict_checker.h"
 
 namespace npu {
-namespace tile_fwk{
+namespace tile_fwk {
 static const size_t kSizeZero = 0UL;
 static const size_t kSizeThree = 3UL;
 static const size_t kSizeEight = 8UL;
@@ -45,7 +48,8 @@ static const uint16_t kNumExpFive = 32u;
 static const uint16_t kNumExpSix = 64u;
 static const uint16_t kNumExpSeven = 128u;
 
-void MakeExpandGrpah(std::shared_ptr<Function> &currFunctionPtr, LogicalTensorPtr& outCast) {
+void MakeExpandGrpah(std::shared_ptr<Function>& currFunctionPtr, LogicalTensorPtr& outCast)
+{
     std::vector<int64_t> shape = {kNumExpSix, kNumExpSix};
     std::vector<int64_t> tile_shape = {kNumExpFive, kNumExpFive};
     auto inCast1 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape);
@@ -68,20 +72,54 @@ void MakeExpandGrpah(std::shared_ptr<Function> &currFunctionPtr, LogicalTensorPt
     currFunctionPtr->SetGraphType(GraphType::TENSOR_GRAPH);
 }
 
+struct ScopeCfg {
+    std::string op;
+    int id;
+    bool parMerge;
+    bool crossMerge;
+};
+
+void RunScopeInfoTest(
+    const std::vector<std::string>& tensors, size_t numInputs, const std::vector<Opcode>& opcodes,
+    const std::vector<std::vector<std::string>>& inputs, const std::vector<std::vector<std::string>>& outputs,
+    const std::vector<std::string>& opNames, const Status status, const std::vector<ScopeCfg>& scopes = {})
+{
+    ComputationalGraphBuilder G;
+    std::vector<int64_t> shape{kNumExpSix, kNumExpSix};
+    EXPECT_EQ(G.AddTensors(DataType::DT_FP32, shape, tensors), true);
+    EXPECT_EQ(G.AddOps(opcodes, inputs, outputs, opNames, true), true);
+    for (const auto& s : scopes) {
+        Operation::ScopeInfo info(s.id);
+        info.allowParallelMerge = s.parMerge;
+        info.allowCrossScopeMerge = s.crossMerge;
+        auto op = G.GetOp(s.op);
+        op->SetScopeInfo(info);
+        if (op->GetCoreType() == CoreType::AIV)
+            op->tileShape_.SetVecTile(kNumExpSix, kNumExpSix);
+    }
+    EXPECT_EQ(G.SetInCast({tensors.begin(), tensors.begin() + numInputs}), true);
+    EXPECT_EQ(G.SetOutCast({tensors.begin() + numInputs, tensors.end()}), true);
+    G.GetFunction()->SetGraphType(GraphType::TENSOR_GRAPH);
+    TileShape::Current().SetVecTile(kNumExpFive, kNumExpFive);
+    ExpandFunction expandfunctionpass;
+    EXPECT_EQ(expandfunctionpass.RunOnFunction(*G.GetFunction()), status);
+}
+
 class TestExpandFunctionPass : public ::testing::Test {
 public:
     static void SetUpTestCase() {}
 
     static void TearDownTestCase() {}
 
-    void SetUp() override {
+    void SetUp() override
+    {
         Program::GetInstance().Reset();
         config::Reset();
-        config::SetPlatformConfig(KEY_ONLY_HOST_COMPILE, true);
+        config::SetHostOption(COMPILE_STAGE, CS_EXECUTE_GRAPH);
         config::SetHostConfig(KEY_STRATEGY, "ExpandFunctionTestStrategy");
-        config::SetPlatformConfig("ENABLE_COST_MODEL", false);
+        config::SetPlatformConfig(KEY_ENABLE_COST_MODEL, false);
     }
-    void TearDown() override {}
+    void TearDown() override { Platform::Instance().GetSoc().SetNPUArch(NPUArch::DAV_UNKNOWN); }
 };
 
 /*
@@ -90,8 +128,10 @@ inCast{8,16}->nop->outCast{8,16}
 
 inCast{8,16}->nop->outCast{8,16}
 */
-TEST_F(TestExpandFunctionPass, ExpandFunctionUTest1) {
-    auto currFunctionPtr = std::make_shared<Function>(Program::GetInstance(), "TestExpandFunction", "TestExpandFunction", nullptr);
+TEST_F(TestExpandFunctionPass, ExpandFunctionUTest1)
+{
+    auto currFunctionPtr =
+        std::make_shared<Function>(Program::GetInstance(), "TestExpandFunction", "TestExpandFunction", nullptr);
     EXPECT_TRUE(currFunctionPtr != nullptr);
 
     // Prepare the graph
@@ -111,7 +151,7 @@ TEST_F(TestExpandFunctionPass, ExpandFunctionUTest1) {
     EXPECT_EQ(currFunctionPtr->GetGraphType(), GraphType::TILE_GRAPH);
 
     uint32_t nop_num = kNumZero;
-    for (auto &op : currFunctionPtr->Operations()) {
+    for (auto& op : currFunctionPtr->Operations()) {
         if (op.GetOpcode() == Opcode::OP_NOP) {
             EXPECT_EQ(nop_op.GetOpMagic(), op.GetOpMagic());
             ++nop_num;
@@ -120,13 +160,64 @@ TEST_F(TestExpandFunctionPass, ExpandFunctionUTest1) {
     EXPECT_EQ(nop_num, kNumOne);
 }
 
+TEST_F(TestExpandFunctionPass, TestCVSeperate1)
+{
+    auto currFunctionPtr =
+        std::make_shared<Function>(Program::GetInstance(), "TestExpandFunction", "TestExpandFunction", nullptr);
+    EXPECT_TRUE(currFunctionPtr != nullptr);
+
+    Platform::Instance().GetSoc().SetNPUArch(NPUArch::DAV_3510);
+    EXPECT_TRUE(GraphUtils::IsCVMixPlatform());
+    Platform::Instance().GetSoc().SetNPUArch(NPUArch::DAV_2201);
+    EXPECT_FALSE(GraphUtils::IsCVMixPlatform());
+}
+
+TEST_F(TestExpandFunctionPass, TestCVSeperate2)
+{
+    auto currFunctionPtr =
+        std::make_shared<Function>(Program::GetInstance(), "TestExpandFunction", "TestExpandFunction", nullptr);
+    EXPECT_TRUE(currFunctionPtr != nullptr);
+
+    std::vector<int64_t> tile_shape = {kNumExpFive, kNumExpFive};
+    std::vector<int64_t> shape = {kNumExpSix, kNumExpSix};
+    TileShape::Current().SetVecTile(kNumExpFive, kNumExpFive);
+    TileShape::Current().SetCubeTile(
+        {kNumExpFive, kNumExpFive}, {kNumExpFive, kNumExpFive}, {kNumExpFive, kNumExpFive}, false);
+
+    currFunctionPtr->SetGraphType(GraphType::TENSOR_GRAPH);
+
+    auto ubTensor1 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape);
+    auto ubTensor2 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape);
+    auto L1Tensor1 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape);
+    auto L1Tensor2 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape);
+    auto out1 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape);
+    auto out2 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape);
+
+    auto& opAdd = currFunctionPtr->AddOperation(Opcode::OP_ADD, {ubTensor1, ubTensor2}, {out1});
+    auto& opMatmul = currFunctionPtr->AddOperation(Opcode::OP_A_MUL_B, {L1Tensor1, L1Tensor2}, {out2});
+
+    currFunctionPtr->inCasts_.push_back(ubTensor1);
+    currFunctionPtr->inCasts_.push_back(ubTensor2);
+    currFunctionPtr->inCasts_.push_back(L1Tensor1);
+    currFunctionPtr->inCasts_.push_back(L1Tensor2);
+    currFunctionPtr->outCasts_.push_back(out1);
+    currFunctionPtr->outCasts_.push_back(out2);
+
+    opAdd.tileShape_.SetVecTile(tile_shape);
+    opAdd.SetScopeId(1);
+    opMatmul.SetScopeId(1);
+    ExpandFunction expandfunctionpass;
+    auto status = expandfunctionpass.RunOnFunction(*currFunctionPtr);
+    EXPECT_EQ(status, FAILED);
+}
 /*
 TESTExpandFunctionNOP
-inCast{8,16}->pad->ubTensor1{8,16}->nop->ubTensor2{8,16}->view->outCast{8,16}
-pad is removed
+inCast{8,16}->nop->ubTensor2{8,16}->view->outCast{8,16}
 */
-TEST_F(TestExpandFunctionPass, ExpandFunctionUTest2) {
-    auto currFunctionPtr = std::make_shared<Function>(Program::GetInstance(), "TestExpandFunction", "TestExpandFunction", nullptr);
+TEST_F(TestExpandFunctionPass, ExpandFunctionUTest2)
+{
+    auto currFunctionPtr =
+        std::make_shared<Function>(Program::GetInstance(), "TestExpandFunction", "TestExpandFunction", nullptr);
     EXPECT_TRUE(currFunctionPtr != nullptr);
 
     std::vector<int64_t> shape = {kNumEight, kNumExpFour};
@@ -136,20 +227,20 @@ TEST_F(TestExpandFunctionPass, ExpandFunctionUTest2) {
     auto outCast = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape);
 
     auto op_attr = std::make_shared<ViewOpAttribute>(std::vector<int64_t>{kNumZero, kNumZero});
-    currFunctionPtr->AddOperation(Opcode::OP_PAD, {inCast}, {ubTensor1});
-    currFunctionPtr->AddOperation(Opcode::OP_NOP, {ubTensor1}, {ubTensor2});
-    currFunctionPtr->AddOperation(Opcode::OP_VIEW, {ubTensor2}, {outCast});
-    
-    std::shared_ptr<Operation> pad_op, nop_op, view_op;
-    for (uint32_t uIndex = 0; uIndex < currFunctionPtr->Operations().size(); ++uIndex){
+    currFunctionPtr->AddOperation(Opcode::OP_NOP, {inCast}, {ubTensor1});
+    currFunctionPtr->AddOperation(Opcode::OP_VIEW, {ubTensor1}, {outCast});
+
+    std::shared_ptr<Operation> nop_op, view_op;
+    for (uint32_t uIndex = 0; uIndex < currFunctionPtr->Operations().size(); ++uIndex) {
         auto op = currFunctionPtr->Operations().operations_[uIndex];
-        if (op->GetOpcode() == Opcode::OP_PAD) pad_op = op;
-        else if (op->GetOpcode() == Opcode::OP_NOP) nop_op = op;
-        else if (op->GetOpcode() == Opcode::OP_VIEW) view_op = op;
+        if (op->GetOpcode() == Opcode::OP_NOP)
+            nop_op = op;
+        else if (op->GetOpcode() == Opcode::OP_VIEW)
+            view_op = op;
     }
 
     view_op->SetOpAttribute(op_attr);
-    
+
     currFunctionPtr->inCasts_.push_back(inCast);
     currFunctionPtr->outCasts_.push_back(outCast);
     currFunctionPtr->SetGraphType(GraphType::TENSOR_GRAPH);
@@ -159,20 +250,18 @@ TEST_F(TestExpandFunctionPass, ExpandFunctionUTest2) {
     EXPECT_EQ(status, SUCCESS);
     EXPECT_EQ(currFunctionPtr->GetGraphType(), GraphType::TILE_GRAPH);
 
-    uint32_t view_num = kNumZero, pad_num = kNumZero, nop_num = kNumZero;
-    for (auto &op : currFunctionPtr->Operations()) {
+    uint32_t view_num = kNumZero, nop_num = kNumZero;
+    for (auto& op : currFunctionPtr->Operations()) {
         if (op.GetOpcode() == Opcode::OP_VIEW) {
             EXPECT_EQ(op_attr, view_op->GetOpAttribute());
-            EXPECT_NE(view_op->GetOpMagic(), op.GetOpMagic()); ++view_num;
-        } else if (op.GetOpcode() == Opcode::OP_PAD) {
-            EXPECT_TRUE(pad_op->GetOpAttribute() == nullptr);
-            EXPECT_NE(pad_op->GetOpMagic(), op.GetOpMagic()); ++pad_num;
+            EXPECT_NE(view_op->GetOpMagic(), op.GetOpMagic());
+            ++view_num;
         } else if (op.GetOpcode() == Opcode::OP_NOP) {
-            EXPECT_NE(nop_op->GetOpMagic(), op.GetOpMagic()); ++nop_num;
+            EXPECT_NE(nop_op->GetOpMagic(), op.GetOpMagic());
+            ++nop_num;
         }
     }
     EXPECT_EQ(view_num, kNumOne);
-    EXPECT_EQ(pad_num, kNumOne);
     EXPECT_EQ(nop_num, kNumOne);
 }
 
@@ -181,8 +270,10 @@ TESTExpandFunctionAssemble
 inCast{64,64}->assemble->view->outCast{64,64}
 assemble is kept
 */
-TEST_F(TestExpandFunctionPass, ExpandFunctionUTest3) {
-    auto currFunctionPtr = std::make_shared<Function>(Program::GetInstance(), "TestExpandFunction", "TestExpandFunction", nullptr);
+TEST_F(TestExpandFunctionPass, ExpandFunctionUTest3)
+{
+    auto currFunctionPtr =
+        std::make_shared<Function>(Program::GetInstance(), "TestExpandFunction", "TestExpandFunction", nullptr);
     EXPECT_TRUE(currFunctionPtr != nullptr);
 
     // Prepare the graph
@@ -194,9 +285,9 @@ TEST_F(TestExpandFunctionPass, ExpandFunctionUTest3) {
     std::vector<SymbolicScalar> symbol = {SymbolicScalar("sym")};
     auto op_attr = std::make_shared<AssembleOpAttribute>(toOffset, symbol);
     currFunctionPtr->AddOperation(Opcode::OP_ASSEMBLE, {inCast}, {outCast});
-    
+
     std::shared_ptr<Operation> assemble_op;
-    for (uint32_t uIndex = 0; uIndex < currFunctionPtr->Operations().size(); ++uIndex){
+    for (uint32_t uIndex = 0; uIndex < currFunctionPtr->Operations().size(); ++uIndex) {
         if (currFunctionPtr->Operations().operations_[uIndex]->GetOpcode() == Opcode::OP_ASSEMBLE) {
             assemble_op = currFunctionPtr->Operations().operations_[uIndex];
         }
@@ -214,7 +305,7 @@ TEST_F(TestExpandFunctionPass, ExpandFunctionUTest3) {
     EXPECT_EQ(currFunctionPtr->GetGraphType(), GraphType::TILE_GRAPH);
 
     uint32_t assemble_num = kNumZero;
-    for (auto &op : currFunctionPtr->Operations()) {
+    for (auto& op : currFunctionPtr->Operations()) {
         if (op.GetOpcode() == Opcode::OP_ASSEMBLE) {
             EXPECT_EQ(op_attr, op.GetOpAttribute());
             EXPECT_NE(op.GetOpMagic(), assemble_op->GetOpMagic());
@@ -231,8 +322,10 @@ inCast2{64,64}->
 inCast1{64,64}->view*4->div->ubTensor{64,64}->assemble(*4)->outCast{64,64}
 inCast2{64,64}->view*4->
 */
-TEST_F(TestExpandFunctionPass, ExpandFunctionUTest4) {
-    auto currFunctionPtr = std::make_shared<Function>(Program::GetInstance(), "TestExpandFunction", "TestExpandFunction", nullptr);
+TEST_F(TestExpandFunctionPass, ExpandFunctionUTest4)
+{
+    auto currFunctionPtr =
+        std::make_shared<Function>(Program::GetInstance(), "TestExpandFunction", "TestExpandFunction", nullptr);
     EXPECT_TRUE(currFunctionPtr != nullptr);
     std::vector<int64_t> shape = {kNumExpSix, kNumExpSix};
     std::vector<int64_t> tile_shape = {kNumExpFive, kNumExpFive};
@@ -248,7 +341,7 @@ TEST_F(TestExpandFunctionPass, ExpandFunctionUTest4) {
     uint32_t view_num = kNumZero;
     LogicalTensorPtr assemble_input;
     std::vector<LogicalTensorPtr> additional_assemble;
-    for (auto &op : currFunctionPtr->Operations()) {
+    for (auto& op : currFunctionPtr->Operations()) {
         if (op.GetOpcode() == Opcode::OP_DIV) {
             EXPECT_EQ(op.GetInputOperand(kSizeZero)->shape, tile_shape);
             EXPECT_EQ(op.GetOutputOperand(kSizeZero)->shape, tile_shape);
@@ -278,15 +371,19 @@ TEST_F(TestExpandFunctionPass, ExpandFunctionUTest4) {
 }
 
 /*
-TESTExpandFunctionAssembleV2
-inCast1{32,128}->reshape->ubTensor{64,64}->assemble->outCast{32,128}
-inCast1{32,128}->reshape->ubTensor{64,64}->assemble(*4)->outCast{32,128}
+TESTExpandFunctionAssembleNotExpand
+Bug #605: Assemble operation should NOT be expanded.
+inCast{32,128}->reshape->ubTensor{64,64}->assemble->outCast{32,128}
+Expected: assemble remains as a single instance (not expanded to 4 instances)
+No UB node operations should be generated.
 */
-TEST_F(TestExpandFunctionPass, ExpandFunctionUTest5) {
-    auto currFunctionPtr = std::make_shared<Function>(Program::GetInstance(), "TestExpandFunction", "TestExpandFunction", nullptr);
+TEST_F(TestExpandFunctionPass, ExpandFunctionUTest5)
+{
+    auto currFunctionPtr =
+        std::make_shared<Function>(Program::GetInstance(), "TestExpandFunction", "TestExpandFunction", nullptr);
     EXPECT_TRUE(currFunctionPtr != nullptr);
 
-    // Prepare the graph
+    // Prepare the graph: reshape -> assemble
     std::vector<int64_t> shape1 = {kNumExpFive, kNumExpSeven};
     std::vector<int64_t> shape2 = {kNumExpSix, kNumExpSix};
     std::vector<int64_t> shape3 = {kNumExpFive, kNumExpSeven};
@@ -302,7 +399,7 @@ TEST_F(TestExpandFunctionPass, ExpandFunctionUTest5) {
 
     std::shared_ptr<Operation> reshape_op;
     std::shared_ptr<Operation> assemble_op;
-    for (uint32_t uIndex = 0; uIndex < currFunctionPtr->Operations().size(); ++uIndex){
+    for (uint32_t uIndex = 0; uIndex < currFunctionPtr->Operations().size(); ++uIndex) {
         if (currFunctionPtr->Operations().operations_[uIndex]->GetOpcode() == Opcode::OP_RESHAPE) {
             reshape_op = currFunctionPtr->Operations().operations_[uIndex];
         }
@@ -324,14 +421,27 @@ TEST_F(TestExpandFunctionPass, ExpandFunctionUTest5) {
     EXPECT_EQ(status, SUCCESS);
     EXPECT_EQ(currFunctionPtr->GetGraphType(), GraphType::TILE_GRAPH);
 
+    // Verify assemble is NOT expanded (Bug #605 fix)
+    // Before fix: assemble_num was 4 (expanded)
+    // After fix: assemble_num should be 1 (not expanded)
     uint32_t assemble_num = kNumZero;
-    for (auto &op : currFunctionPtr->Operations()) {
+    uint32_t reshape_num = kNumZero;
+    for (auto& op : currFunctionPtr->Operations()) {
         if (op.GetOpcode() == Opcode::OP_ASSEMBLE) {
             EXPECT_NE(op.GetOpMagic(), assemble_op->GetOpMagic());
+            // Verify assemble has correct attribute
+            auto attr = op.GetOpAttribute();
+            EXPECT_NE(attr, nullptr);
             ++assemble_num;
         }
+        if (op.GetOpcode() == Opcode::OP_RESHAPE) {
+            ++reshape_num;
+        }
     }
-    EXPECT_EQ(assemble_num, kNumFour);
+    // Key assertion: assemble should remain as a single instance (not expanded)
+    EXPECT_EQ(assemble_num, kNumOne);
+    // Verify reshape is also not expanded (it's not in kNotNeedExpandOps, but should still work)
+    EXPECT_EQ(reshape_num, kNumOne);
 }
 
 /*
@@ -340,22 +450,22 @@ TEST_F(TestExpandFunctionPass, ExpandFunctionUTest5) {
 {64, 64} -> (view) -> (view {32, 64}) - > exp -> (assemble {32, 64}) -> (assemble) - > {64, 64}
                    -> (view {32, 64}) - > exp -> (assemble {32, 64})
 */
-TEST_F(TestExpandFunctionPass, ExpandFunctionSTest1) {
+TEST_F(TestExpandFunctionPass, ExpandFunctionSTest1)
+{
     std::vector<int64_t> shape = {kNumExpSix, kNumExpSix};
     std::vector<int64_t> tile_shape = {kNumExpFive, kNumExpSix};
-    PassManager &passManager = PassManager::Instance();
+    PassManager& passManager = PassManager::Instance();
     Tensor input(DT_FP32, shape, "input");
     Tensor output(DT_FP32, shape, "output");
     TileShape::Current().SetVecTile(tile_shape);
-    FUNCTION("STCase1") {
-        output = Exp(input);
-    }
+    FUNCTION("STCase1") { output = Exp(input); }
 
     Function* func = Program::GetInstance().GetFunctionByRawName("TENSOR_STCase1");
     EXPECT_EQ(func->Operations().size(), kSizeThree);
-    passManager.RegisterStrategy("ExpandFunctionTestStrategy", {
-        {   "ExpandFunction",   "ExpandFunction"},
-    });
+    passManager.RegisterStrategy(
+        "ExpandFunctionTestStrategy", {
+                                          {"ExpandFunction", PassName::EXPAND_FUNCTION},
+                                      });
     auto ret = passManager.RunPass(Program::GetInstance(), *func, "ExpandFunctionTestStrategy");
     EXPECT_EQ(ret, SUCCESS);
 
@@ -365,7 +475,7 @@ TEST_F(TestExpandFunctionPass, ExpandFunctionSTest1) {
     int view_num = kNumZero;
     int assemble_num = kNumZero;
     EXPECT_EQ(updated_operations.size(), kSizeEight);
-    for (const auto &op : updated_operations) {
+    for (const auto& op : updated_operations) {
         if (op.GetOpcode() == Opcode::OP_EXP) {
             exp_num++;
             EXPECT_EQ(op.GetInputOperand(0)->shape, tile_shape);
@@ -396,11 +506,15 @@ TEST_F(TestExpandFunctionPass, ExpandFunctionSTest1) {
                                          -> reciprocal   -> assemble(end)
                                          -> assemble(end)
                         -> assemble(end)
-view -> view(*4) -> exp(*4) -> assemble(*4) ->view  -> view(*4+4)   -> sqrt(*4)         -> assemble(*4)     -> reshape      -> assemble(end)
-                                                                                        -> assemble(*4)     -> assemble(*4) -> assemble(end)
-                                            ->assemble(end)         -> reciprocal(*4)   -> assemble(*4)     -> assemble(end)
+view -> view(*4) -> exp(*4) -> assemble(*4) ->view  -> view(*4+4)   -> sqrt(*4)         -> assemble(*4)     -> reshape
+-> assemble(end)
+                                                                                        -> assemble(*4)     ->
+assemble(*4) -> assemble(end)
+                                            ->assemble(end)         -> reciprocal(*4)   -> assemble(*4)     ->
+assemble(end)
 */
-void ConstructGraphST2() {
+void ConstructGraphST2()
+{
     std::vector<int64_t> shape = {kNumExpSix, kNumExpSix};
     std::vector<int64_t> view_shape = {kNumExpSeven, kNumExpFive};
     std::vector<int64_t> reshape_shape = {kNumExpFive, kNumExpSeven};
@@ -413,7 +527,8 @@ void ConstructGraphST2() {
     Tensor sqrt(DT_FP32, view_shape, "sqrt");
     Tensor output2(DT_FP32, reshape_shape, "sqrt");
 
-    FUNCTION("STCase2") {
+    FUNCTION("STCase2")
+    {
         TileShape::Current().SetVecTile(tile_shape);
         exp = Exp(input);
         view = View(exp, view_shape, {kNumZero, kNumZero});
@@ -423,13 +538,15 @@ void ConstructGraphST2() {
     }
 }
 
-TEST_F(TestExpandFunctionPass, ExpandFunctionSTest2) {
-    PassManager &passManager = PassManager::Instance();
+TEST_F(TestExpandFunctionPass, ExpandFunctionSTest2)
+{
+    PassManager& passManager = PassManager::Instance();
     ConstructGraphST2();
     Function* func = Program::GetInstance().GetFunctionByRawName("TENSOR_STCase2");
-    passManager.RegisterStrategy("ExpandFunctionTestStrategy", {
-        {   "ExpandFunction",   "ExpandFunction"},
-    });
+    passManager.RegisterStrategy(
+        "ExpandFunctionTestStrategy", {
+                                          {"ExpandFunction", PassName::EXPAND_FUNCTION},
+                                      });
     auto ret = passManager.RunPass(Program::GetInstance(), *func, "ExpandFunctionTestStrategy");
     EXPECT_EQ(ret, SUCCESS);
 
@@ -442,7 +559,7 @@ TEST_F(TestExpandFunctionPass, ExpandFunctionSTest2) {
     int reciprocal_num = kNumZero;
     int view_num = kNumZero;
     int assemble_num = kNumZero;
-    for (const auto &op : updated_operations) {
+    for (const auto& op : updated_operations) {
         if (op.GetOpcode() == Opcode::OP_EXP) {
             exp_num++;
         } else if (op.GetOpcode() == Opcode::OP_VIEW) {
@@ -474,8 +591,10 @@ inCast{64,64}->assemble->view->outCast{64,64}
              <-assemble<-
 loop will be detected
 */
-TEST_F(TestExpandFunctionPass, ExpandFunctionUTest6) {
-    auto currFunctionPtr = std::make_shared<Function>(Program::GetInstance(), "TestExpandFunction", "TestExpandFunction", nullptr);
+TEST_F(TestExpandFunctionPass, ExpandFunctionUTest6)
+{
+    auto currFunctionPtr =
+        std::make_shared<Function>(Program::GetInstance(), "TestExpandFunction", "TestExpandFunction", nullptr);
     EXPECT_TRUE(currFunctionPtr != nullptr);
 
     // Prepare the graph
@@ -497,10 +616,186 @@ TEST_F(TestExpandFunctionPass, ExpandFunctionUTest6) {
     currFunctionPtr->SetGraphType(GraphType::TENSOR_GRAPH);
 
     ExpandFunction expandfunctionpass;
-    EXPECT_EQ(expandfunctionpass.PreCheck(*currFunctionPtr), FAILED);
+    EXPECT_EQ(expandfunctionpass.DefaultEnabledPreCheck(*currFunctionPtr), FAILED);
 
     currFunctionPtr->SetGraphType(GraphType::TILE_GRAPH);
     EXPECT_EQ(expandfunctionpass.PostCheck(*currFunctionPtr), FAILED);
 }
+
+TEST_F(TestExpandFunctionPass, DisableCombineAxisOnA5)
+{
+    auto currFunctionPtr =
+        std::make_shared<Function>(Program::GetInstance(), "TestExpandFunction", "TestExpandFunction", nullptr);
+    EXPECT_TRUE(currFunctionPtr != nullptr);
+    Platform::Instance().GetSoc().SetNPUArch(NPUArch::DAV_3510);
+    currFunctionPtr->paramConfigs_.combineAxis = true;
+    ExpandFunction expandfunctionpass;
+    auto status = expandfunctionpass.RunOnFunction(*currFunctionPtr);
+    EXPECT_EQ(status, SUCCESS);
+    EXPECT_EQ(currFunctionPtr->paramConfigs_.combineAxis, true);
 }
+
+TEST_F(TestExpandFunctionPass, TestScopeIdMinusOneWithMergeFlag)
+{
+    RunScopeInfoTest(
+        {"in1", "in2", "out1"}, 2, {Opcode::OP_ADD}, {{"in1", "in2"}}, {{"out1"}}, {"add1"}, FAILED,
+        {{"add1", -1, true, false}});
 }
+
+TEST_F(TestExpandFunctionPass, TestConflictingScopeInfoSettings)
+{
+    RunScopeInfoTest(
+        {"in1", "in2", "in3", "out1", "out2"}, 3, {Opcode::OP_ADD, Opcode::OP_ADD}, {{"in1", "in2"}, {"in2", "in3"}},
+        {{"out1"}, {"out2"}}, {"add1", "add2"}, FAILED, {{"add1", 1, true, false}, {"add2", 1, false, true}});
+}
+
+TEST_F(TestExpandFunctionPass, TestPassScopeInfoSettingsVerify)
+{
+    RunScopeInfoTest(
+        {"in1", "in2", "in3", "out1", "out2"}, 3, {Opcode::OP_ADD, Opcode::OP_ADD}, {{"in1", "in2"}, {"in2", "in3"}},
+        {{"out1"}, {"out2"}}, {"add1", "add2"}, SUCCESS, {{"add1", 1, true, false}, {"add2", 1, true, false}});
+}
+
+TEST_F(TestExpandFunctionPass, PreCheckForDisorderIndexOutcast)
+{
+    ComputationalGraphBuilder G;
+    std::vector<int64_t> tileShape{16, 16};
+    EXPECT_EQ(
+        G.AddTensors(
+            DataType::DT_FP32, tileShape,
+            {"src", "index1", "dst", "index2", "result1", "result2", "tensor1", "outcast1", "outcast2"}),
+        true);
+    std::vector<Opcode> opLists{
+        Opcode::OP_INDEX_OUTCAST, Opcode::OP_INDEX_OUTCAST, Opcode::OP_ASSEMBLE, Opcode::OP_ADDS, Opcode::OP_ASSEMBLE};
+    std::vector<std::vector<std::string>> iOperands{
+        {"src", "index1", "dst"}, {"src", "index2", "dst"}, {"result1"}, {"result2"}, {"tensor1"}};
+    std::vector<std::vector<std::string>> oOperands{{"result1"}, {"result2"}, {"outcast1"}, {"tensor1"}, {"outcast2"}};
+    std::vector<std::string> opNames{
+        "OP_INDEX_OUTCAST_1", "OP_INDEX_OUTCAST_2", "OP_ASSEMBLE_1", "OP_ADDS_1", "OP_ASSEMBLE_2"};
+    EXPECT_EQ(G.AddOps(opLists, iOperands, oOperands, opNames, true), true);
+
+    EXPECT_EQ(G.SetInCast({"src", "index1", "dst", "index2"}), true);
+    EXPECT_EQ(G.SetOutCast({"outcast1", "outcast2"}), true);
+
+    Function* function = G.GetFunction();
+    function->GetTensorMap().Insert(G.GetTensor("dst"));
+
+    ExpandFunction expandfunctionpass;
+    EXPECT_EQ(expandfunctionpass.PreRun(*function), SUCCESS);
+}
+
+/*
+    Tensor is used by both OP_VIEW and another operation (conflict scenario)
+    tensor -> view -> ...
+    tensor -> add -> ...
+    This should fail CheckInplaceOperationConflict because tensor serves both view and other operations
+*/
+TEST_F(TestExpandFunctionPass, PreCheckForViewConflict)
+{
+    ComputationalGraphBuilder G;
+    std::vector<int64_t> tileShape{32, 32};
+    EXPECT_EQ(
+        G.AddTensors(DataType::DT_FP32, tileShape, {"tensor", "view_output", "add_output1", "add_output2", "other_input"}),
+        true);
+    
+    std::vector<Opcode> opLists{Opcode::OP_VIEW, Opcode::OP_ADD};
+    std::vector<std::vector<std::string>> iOperands{{"tensor"}, {"tensor", "other_input"}};
+    std::vector<std::vector<std::string>> oOperands{{"view_output"}, {"add_output1"}};
+    std::vector<std::string> opNames{"OP_VIEW_1", "OP_ADD_1"};
+    EXPECT_EQ(G.AddOps(opLists, iOperands, oOperands, opNames, true), true);
+
+    EXPECT_EQ(G.SetInCast({"tensor", "other_input"}), true);
+    EXPECT_EQ(G.SetOutCast({"view_output", "add_output1"}), true);
+
+    Function* function = G.GetFunction();
+    function->GetTensorMap().Insert(G.GetTensor("tensor"));
+
+    InplaceConflictChecker inplaceConflictChecker;
+    EXPECT_EQ(inplaceConflictChecker.CheckInplaceOperationConflict(*function), FAILED);
+}
+
+/*
+    Tensor is used by both OP_RESHAPE and another operation (conflict scenario)
+    tensor -> reshape -> ...
+    tensor -> mul -> ...
+    This should fail CheckInplaceOperationConflict because tensor serves both reshape and other operations
+*/
+TEST_F(TestExpandFunctionPass, PreCheckForReshapeConflict)
+{
+    ComputationalGraphBuilder G;
+    std::vector<int64_t> tileShape{32, 32};
+    EXPECT_EQ(
+        G.AddTensors(DataType::DT_FP32, tileShape, {"tensor", "reshape_output", "mul_output", "other_input"}),
+        true);
+    
+    std::vector<Opcode> opLists{Opcode::OP_RESHAPE, Opcode::OP_MUL};
+    std::vector<std::vector<std::string>> iOperands{{"tensor"}, {"tensor", "other_input"}};
+    std::vector<std::vector<std::string>> oOperands{{"reshape_output"}, {"mul_output"}};
+    std::vector<std::string> opNames{"OP_RESHAPE_1", "OP_MUL_1"};
+    EXPECT_EQ(G.AddOps(opLists, iOperands, oOperands, opNames, true), true);
+
+    EXPECT_EQ(G.SetInCast({"tensor", "other_input"}), true);
+    EXPECT_EQ(G.SetOutCast({"reshape_output", "mul_output"}), true);
+
+    Function* function = G.GetFunction();
+    function->GetTensorMap().Insert(G.GetTensor("tensor"));
+
+    InplaceConflictChecker inplaceConflictChecker;
+    EXPECT_EQ(inplaceConflictChecker.CheckInplaceOperationConflict(*function), FAILED);
+}
+
+/*
+    Tensor is used only by OP_VIEW (no conflict scenario)
+    tensor -> view -> adds
+    This should succeed because tensor only serves view operation (tensor has only one consumer)
+*/
+TEST_F(TestExpandFunctionPass, PreCheckForViewNoConflict)
+{
+    ComputationalGraphBuilder G;
+    std::vector<int64_t> tileShape{32, 32};
+    EXPECT_EQ(G.AddTensors(DataType::DT_FP32, tileShape, {"tensor", "view_output", "final_output"}), true);
+    
+    std::vector<Opcode> opLists{Opcode::OP_VIEW, Opcode::OP_ADDS};
+    std::vector<std::vector<std::string>> iOperands{{"tensor"}, {"view_output"}};
+    std::vector<std::vector<std::string>> oOperands{{"view_output"}, {"final_output"}};
+    std::vector<std::string> opNames{"OP_VIEW_1", "OP_ADDS_1"};
+    EXPECT_EQ(G.AddOps(opLists, iOperands, oOperands, opNames, true), true);
+
+    EXPECT_EQ(G.SetInCast({"tensor"}), true);
+    EXPECT_EQ(G.SetOutCast({"final_output"}), true);
+
+    Function* function = G.GetFunction();
+    function->GetTensorMap().Insert(G.GetTensor("tensor"));
+
+    InplaceConflictChecker inplaceConflictChecker;
+    EXPECT_EQ(inplaceConflictChecker.CheckInplaceOperationConflict(*function), SUCCESS);
+}
+
+/*
+    Tensor is used only by OP_RESHAPE (no conflict scenario)
+    tensor -> reshape -> exp
+    This should succeed because tensor only serves reshape operation (tensor has only one consumer)
+*/
+TEST_F(TestExpandFunctionPass, PreCheckForReshapeNoConflict)
+{
+    ComputationalGraphBuilder G;
+    std::vector<int64_t> tileShape{32, 32};
+    EXPECT_EQ(G.AddTensors(DataType::DT_FP32, tileShape, {"tensor", "reshape_output", "final_output"}), true);
+    
+    std::vector<Opcode> opLists{Opcode::OP_RESHAPE, Opcode::OP_EXP};
+    std::vector<std::vector<std::string>> iOperands{{"tensor"}, {"reshape_output"}};
+    std::vector<std::vector<std::string>> oOperands{{"reshape_output"}, {"final_output"}};
+    std::vector<std::string> opNames{"OP_RESHAPE_1", "OP_EXP_1"};
+    EXPECT_EQ(G.AddOps(opLists, iOperands, oOperands, opNames, true), true);
+
+    EXPECT_EQ(G.SetInCast({"tensor"}), true);
+    EXPECT_EQ(G.SetOutCast({"final_output"}), true);
+
+    Function* function = G.GetFunction();
+    function->GetTensorMap().Insert(G.GetTensor("tensor"));
+
+    InplaceConflictChecker inplaceConflictChecker;
+    EXPECT_EQ(inplaceConflictChecker.CheckInplaceOperationConflict(*function), SUCCESS);
+}
+} // namespace tile_fwk
+} // namespace npu

@@ -24,145 +24,104 @@
 
 namespace npu::tile_fwk::Distributed {
 
-Tensor Nop(const std::vector<Tensor>& inTensors)
+void LoopAllReduce1(const Tensor& in, ShmemTensor& shmemTensor, Tensor& allReduceOut, int32_t row, int32_t col)
 {
-    auto& function = *Program::GetInstance().GetCurrentFunction();
-    auto out = std::make_shared<LogicalTensor>(function, DT_INT32, Shape{1, 1});
-    LogicalTensors iOperands;
-    for (const Tensor& inTensor : inTensors) {
-        iOperands.emplace_back(inTensor.GetStorage());
-    }
-    function.AddOperation(Opcode::OP_NOP, iOperands, {out});
-    return out;
-}
-
-void LoopAllReduce1(const Tensor& in, Tensor& allReduceOut, const OpTestParam& testParam, int32_t row, int32_t col)
-{
-    LOOP("AllReduce1", FunctionType::DYNAMIC_LOOP, allReduce1Index, LoopRange(0, 1, 1)) {
+    LOOP("AllReduce1", FunctionType::DYNAMIC_LOOP, allReduce1Index, LoopRange(0, 1, 1))
+    {
         (void)allReduce1Index;
-        TileShape::Current().SetDistTile({row, 1, 0}, {col, 1, 0}, {1, testParam.rankSize, 0});
-        OneShotShmemAllReduce(in, in, testParam.group, allReduceOut);
+        LOOP("AllReduce", FunctionType::DYNAMIC_LOOP, index, LoopRange(1))
+        {
+            (void)index;
+            TileShape::Current().SetVecTile(row, col);
+            OneShotAllReduce(in, in, shmemTensor, allReduceOut);
+        }
     }
 }
 
 void LoopAdd(const Tensor& allReduceOut, Tensor& addOut)
 {
-    LOOP("Add", FunctionType::DYNAMIC_LOOP, index, LoopRange(0, 1, 1)) {
+    LOOP("Add", FunctionType::DYNAMIC_LOOP, index, LoopRange(0, 1, 1))
+    {
         (void)index;
         TileShape::Current().SetVecTile({128, 256});
         addOut = npu::tile_fwk::Add(allReduceOut, allReduceOut);
     }
 }
 
-void LoopCreateShmemTensor(const Tensor& addOut, Tensor& shmemBarrier1ShmemSignal, Tensor& shmemBarrier2ShmemSignal,
-    Tensor& allReduce2ShmemData, Tensor& allReduce2ShmemSignal, const OpTestParam& testParam, int32_t row, int32_t col,
-    int32_t hcclGroupIndex)
+void LoopAllReduce2(const Tensor& addOut, ShmemTensor& shmemTensor, Tensor& out, int32_t row, int32_t col)
 {
-    LOOP("CreateShmemTensor", FunctionType::DYNAMIC_LOOP, index, LoopRange(1)) {
-        (void)index;
-        CreateShmemTensor(shmemBarrier1ShmemSignal, testParam.rankSize, hcclGroupIndex, DT_INT32, Shape{1, 1, 8},
-            1);
-        CreateShmemTensor(shmemBarrier2ShmemSignal, testParam.rankSize, hcclGroupIndex, DT_INT32, Shape{1, 1, 8},
-            1);
-        TileShape::Current().SetDistTile({row, 1, 0}, {col, 1, 0}, {1, testParam.rankSize, 0});
-        int32_t tileCount = 1;
-        Shape allReduce2ShmemDataShape = {1, addOut.GetShape(0), addOut.GetShape(1)};
-        Shape allReduce2ShmemSignalShape = {1, tileCount, 8};
-        DataType allReduce2ShmemDataType = addOut.GetDataType();
-        if ((allReduce2ShmemDataType == DT_BF16) || (allReduce2ShmemDataType == DT_FP16)) {
-            allReduce2ShmemDataType = DT_FP32;
-        }
-        CreateShmemTensor(allReduce2ShmemData, testParam.rankSize, hcclGroupIndex, allReduce2ShmemDataType,
-            allReduce2ShmemDataShape);
-        CreateShmemTensor(allReduce2ShmemSignal, testParam.rankSize, hcclGroupIndex, DT_INT32,
-            allReduce2ShmemSignalShape);
-    }
-}
-
-void LoopAllReduce2(const Tensor& addOut, Tensor& shmemBarrier1ShmemSignal, Tensor& shmemBarrier2ShmemSignal,
-    Tensor& allReduce2ShmemData, Tensor& allReduce2ShmemSignal, Tensor& out, const OpTestParam& testParam, int32_t row,
-    int32_t col, int32_t hcclGroupIndex)
-{
-    LOOP("AllReduce2", FunctionType::DYNAMIC_LOOP, allReduce2Index, LoopRange(0, 1, 1)) {
+    auto shmemBarrier1ShmemSignal = CreateShmemSignal(shmemTensor.group.c_str(), shmemTensor.worldSize);
+    auto shmemBarrier2ShmemSignal = CreateShmemSignal(shmemTensor.group.c_str(), shmemTensor.worldSize);
+    LOOP("AllReduce2", FunctionType::DYNAMIC_LOOP, allReduce2Index, LoopRange(0, 1, 1))
+    {
         (void)allReduce2Index;
 
-        Tensor barrier1Out(DT_INT32, {1, 1}, "barrier1Out");
-        Tensor memSetOut(DT_INT32, {1, 1}, "memSetOut");
-        Tensor barrier2Out(DT_INT32, {1, 1}, "barrier2Out");
-
-        TileShape::Current().SetDistTile({row, 1, 0}, {col, 1, 0}, {1, testParam.rankSize, 0});
-        int32_t tileCount = 1;
-        SymbolicScalar thisRank = GetHcclRankId(hcclGroupIndex);
-
-        ShmemBarrier(addOut, shmemBarrier1ShmemSignal, testParam.group, barrier1Out);
-        LOOP("ShmemSet", FunctionType::DYNAMIC_LOOP, index, LoopRange(1)) {
-            (void)index;
-            auto allReduce2ShmemDataTile = View(allReduce2ShmemData, {1, 1, addOut.GetShape(0), addOut.GetShape(1)},
-                std::vector<SymbolicScalar>{thisRank, 0, 0, 0});
-            auto memSetDataOut = ShmemSet(barrier1Out, allReduce2ShmemDataTile);
-            auto allReduce2ShmemSignalTile = View(allReduce2ShmemSignal, {1, 1, tileCount, 8},
-                std::vector<SymbolicScalar>{thisRank, 0, 0, 0});
-            auto memSetSignalOut = ShmemSet(barrier1Out, allReduce2ShmemSignalTile);
-            memSetOut = Nop({memSetDataOut, memSetSignalOut});
-        }
-        ShmemBarrier(memSetOut, shmemBarrier2ShmemSignal, testParam.group, barrier2Out);
-        OneShotShmemAllReduce(barrier2Out, addOut, allReduce2ShmemData, allReduce2ShmemSignal, testParam.group,
-            out);
+        TileShape::Current().SetVecTile({1, 8});
+        auto barrier1Out = ShmemBarrier(shmemBarrier1ShmemSignal, addOut);
+        TileShape::Current().SetVecTile(row, col);
+        auto memSetDataOut = ShmemClearData(shmemTensor, barrier1Out);
+        auto memSetSignalOut = ShmemClearSignal(shmemTensor, barrier1Out);
+        auto memSetOut = Nop({memSetDataOut, memSetSignalOut});
+        TileShape::Current().SetVecTile({1, 8});
+        auto barrier2Out = ShmemBarrier(shmemBarrier2ShmemSignal, memSetOut);
+        TileShape::Current().SetVecTile(row, col);
+        OneShotAllReduce(barrier2Out, addOut, shmemTensor, out);
     }
 }
 
 void FuncAllReduceAddAllReduce(const Tensor& in, Tensor& out, const OpTestParam& testParam, int32_t row, int32_t col)
 {
-    FUNCTION("AllReduceAddAllReduce", {in}, {out}) {
+    FUNCTION("AllReduceAddAllReduce", {in}, {out})
+    {
         Tensor allReduceOut(in.GetDataType(), in.GetShape(), "allReduceOut");
         Tensor addOut(in.GetDataType(), in.GetShape(), "addOut");
-        LoopAllReduce1(in, allReduceOut, testParam, row, col);
+        DataType shmemDataType = in.GetDataType();
+        Shape shmemDataShape{row, col};
+        if ((shmemDataType == DT_BF16) || (shmemDataType == DT_FP16)) {
+            shmemDataType = DT_FP32;
+        }
+        ShmemTensor shmemTensor;
+        LOOP("CreateShmemTensor", FunctionType::DYNAMIC_LOOP, index, LoopRange(1))
+        {
+            (void)index;
+            CreateShmemTensor(testParam.group, testParam.rankSize, shmemDataType, shmemDataShape, shmemTensor);
+        }
+        LoopAllReduce1(in, shmemTensor, allReduceOut, row, col);
+        allReduceOut.GetStorage()->UpdateDynValidShape(in.GetValidShape());
         LoopAdd(allReduceOut, addOut);
-        Tensor shmemBarrier1ShmemSignal;
-        Tensor shmemBarrier2ShmemSignal;
-        Tensor allReduce2ShmemData;
-        Tensor allReduce2ShmemSignal;
-        int32_t hcclGroupIndex = static_cast<int>(CommGroupRecorder::GetInstance().Input(std::string(testParam.group)));
-        LoopCreateShmemTensor(addOut, shmemBarrier1ShmemSignal, shmemBarrier2ShmemSignal, allReduce2ShmemData,
-            allReduce2ShmemSignal, testParam, row, col, hcclGroupIndex);
-        LoopAllReduce2(addOut, shmemBarrier1ShmemSignal, shmemBarrier2ShmemSignal, allReduce2ShmemData,
-            allReduce2ShmemSignal, out, testParam, row, col, hcclGroupIndex);
+        addOut.GetStorage()->UpdateDynValidShape(in.GetValidShape());
+        LoopAllReduce2(addOut, shmemTensor, out, row, col);
     };
 }
 
-template<typename T>
-void TestShmemAllReduceAddAllReduce(OpTestParam &testParam)
+template <typename T>
+void TestAllReduceAddAllReduce(OpTestParam& testParam, std::string& goldenDir)
 {
-    constexpr size_t paramsSize = 3;
-    auto [row, col, typeNum] = GetParams<paramsSize>(GetGoldenDir() + "/params.bin");
+    constexpr size_t paramsSize = 5;
+    auto [row, col, validRow, validCol, typeNum] = GetParams<paramsSize>(goldenDir + "/params.bin");
 
     Shape shape{row, col};
     DataType dType = GetDataTypeNum(typeNum);
     Tensor in(dType, shape, "in");
     Tensor out(dType, shape, "out");
-
-    std::vector<T> inPtr = ReadToVector<T>(GetGoldenDir() + "/input_rank_" + std::to_string(testParam.rankId) + ".bin",
-        shape);
-
+    in.GetStorage()->UpdateDynValidShape(std::vector<SymbolicScalar>{validRow, validCol});
+    std::vector<T> inPtr =
+        ReadToVector<T>(goldenDir + "/input_rank_" + std::to_string(testParam.rankId) + ".bin", shape);
+    config::SetRuntimeOption(STITCH_FUNCTION_MAX_NUM, 10);
     ProgramData::GetInstance().AppendInputs({RawTensorData::CreateTensor<T>(in, inPtr)});
     ProgramData::GetInstance().AppendOutputs({RawTensorData::CreateTensorZero(out)});
 
     FuncAllReduceAddAllReduce(in, out, testParam, row, col);
 
-    auto hcclContext = GetHcclContext({std::string(testParam.group)});
-    DeviceLauncherConfig config;
-    config.runModel = false;
-    config.hcclContext = hcclContext;
-    DevFuncRunner::Run(Program::GetInstance().GetLastFunction(), config);
-
+    RunTest();
     auto output = ProgramData::GetInstance().GetOutputData(0);
     int32_t outSize = row * col;
-    EXPECT_TRUE(CompareWithGolden<uint8_t*>(dType, "/out_rank_", outSize, output->GetDevPtr(), testParam));
+    EXPECT_TRUE(CompareWithGolden<uint8_t*>(dType, goldenDir + "/out_rank_", outSize, output->GetDevPtr(), testParam));
 }
 
-template void TestShmemAllReduceAddAllReduce<int32_t>(OpTestParam& testParam);
-template void TestShmemAllReduceAddAllReduce<float>(OpTestParam& testParam);
-template void TestShmemAllReduceAddAllReduce<float16>(OpTestParam& testParam);
-template void TestShmemAllReduceAddAllReduce<bfloat16>(OpTestParam& testParam);
+template void TestAllReduceAddAllReduce<int32_t>(OpTestParam& testParam, std::string& goldenDir);
+template void TestAllReduceAddAllReduce<float>(OpTestParam& testParam, std::string& goldenDir);
+template void TestAllReduceAddAllReduce<float16>(OpTestParam& testParam, std::string& goldenDir);
+template void TestAllReduceAddAllReduce<bfloat16>(OpTestParam& testParam, std::string& goldenDir);
 
 } // namespace npu::tile_fwk::Distributed

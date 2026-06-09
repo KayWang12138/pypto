@@ -7,7 +7,7 @@
 # INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
 # See LICENSE in the root of the software repository for the full text of the License.
 # -----------------------------------------------------------------------------------------------------------
-pypto:
+pypto@pypto:
   commiter:
     "DCGDDD"
   team: "pypto"
@@ -17,6 +17,8 @@ pypto:
       - framework/src
     unrelease:
       - framework/src/machine/runtime
+      - framework/src/cost_model/simulation_pv
+      - framework/src/cann_host_runtime
   llt:
     ut_check: true
     st_check: false

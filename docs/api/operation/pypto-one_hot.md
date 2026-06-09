@@ -1,9 +1,10 @@
-# pypto.one\_hot
+﻿# pypto.one\_hot
 
 ## 产品支持情况
 
 | 产品             | 是否支持 |
 |:-----------------|:--------:|
+| Ascend 950PR/Ascend 950DT |    √     |
 | Atlas A3 训练系列产品/Atlas A3 推理系列产品 |    √     |
 | Atlas A2 训练系列产品/Atlas A2 推理系列产品 |    √     |
 
@@ -35,6 +36,20 @@ TileShape 对输出切分，TileShape 的维度与输出一致，TileShape 的�
 
 ## 调用示例
 
+### TileShape设置示例
+
+说明：调用该operation接口前，应通过set_vec_tile_shapes设置TileShape。
+
+TileShape维度应和输出一致。
+
+示例1：输入input shape为[m, n]，输出为[m, n, t], 其中t=num_classes，TileShape设置为[m1, n1, t1], 则m1, n1分别用于切分m, n轴。t1必须等于 num_classes, t轴不可切，必须保证t轴全载。
+
+```python
+pypto.set_vec_tile_shapes(4, 16, 32)
+```
+
+### 接口调用示例
+
 ```python
 x = pypto.tensor([3], pypto.DT_INT32)
 y = pypto.one_hot(x, 5)
@@ -46,4 +61,3 @@ y = pypto.one_hot(x, 5)
 输入数据x: [0, 2, 4]
 输出数据y: [[1, 0, 0, 0, 0], [0, 0, 1, 0, 0], [0, 0, 0, 0, 1]]
 ```
-

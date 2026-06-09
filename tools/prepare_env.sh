@@ -19,6 +19,8 @@ DOWNLOAD_HDK=false
 DEVICE_TYPE=""
 INSTALL_PATH="/usr/local/Ascend"
 DOWNLOAD_DIR=$(dirname "$(dirname "$(dirname "$(readlink -f "$0")")")")/pypto_download
+QUIET=false
+ONLY_DOWNLOAD=false
 
 DOWNLOADED_CANN_FILES=()
 INSTALL_CANN_FILES=()
@@ -29,7 +31,7 @@ SCRIPT_PATH=$(readlink -f "$0")
 
 CANN_DOWNLOAD_PATH="$DOWNLOAD_DIR/cann_packages"
 THIRD_PARTY_DOWNLOAD_PATH="$DOWNLOAD_DIR/third_party_packages"
-CANN_VERSION_LATEST="8.5.0" 
+CANN_VERSION_LATEST="8.5.0"
 OS=""
 ARCH=""
 
@@ -58,30 +60,33 @@ THIRD_PARTY_DEPENDENCIES=(
 
 readonly CANN_VERSION="8.5.0"
 
-JSON_URL="https://ascend-cann.obs.cn-north-4.myhuaweicloud.com/third_party_deps/json-3.11.3.tar.gz"
-SECUREC_URL="https://ascend-cann.obs.cn-north-4.myhuaweicloud.com/third_party_deps/libboundscheck-v1.1.16.tar.gz"
+JSON_URL="https://gitcode.com/cann-src-third-party/json/releases/download/v3.11.3/json-3.11.3.tar.gz"
+SECUREC_URL="https://gitcode.com/cann-src-third-party/libboundscheck/releases/download/v1.1.16/libboundscheck-v1.1.16.tar.gz"
 
-CANN_TOOLKIT_URL_X86="https://ascend-cann.obs.cn-north-4.myhuaweicloud.com/pypto/cann/8.5.0/x86/Ascend-cann-toolkit_8.5.0_linux-x86_64.run"
-CANN_TOOLKIT_URL_ARM="https://ascend-cann.obs.cn-north-4.myhuaweicloud.com/pypto/cann/8.5.0/aarch64/Ascend-cann-toolkit_8.5.0_linux-aarch64.run"
+CANN_TOOLKIT_URL_X86="https://ascend-cann.obs.cn-north-4.myhuaweicloud.com/pypto/cann/8.5.0_release/x86_64/Ascend-cann-toolkit_8.5.0_linux-x86_64.run"
+CANN_TOOLKIT_URL_ARM="https://ascend-cann.obs.cn-north-4.myhuaweicloud.com/pypto/cann/8.5.0_release/aarch64/Ascend-cann-toolkit_8.5.0_linux-aarch64.run"
+
+CANN_PTO_ISA_URL_X86="https://ascend-ci.obs.cn-north-4.myhuaweicloud.com/pto-isa/daily/cann-pto-isa_linux-x86_64.run"
+CANN_PTO_ISA_URL_ARM="https://ascend-ci.obs.cn-north-4.myhuaweicloud.com/pto-isa/daily/cann-pto-isa_linux-aarch64.run"
 
 CANN_DRIVER_URL_X86_910b="https://ascend-repo.obs.cn-east-2.myhuaweicloud.com/Ascend%20HDK/Ascend%20HDK%2025.3.RC1/Ascend-hdk-910b-npu-driver_25.3.rc1_linux-x86-64.run?response-content-type=application/octet-stream"
 CANN_DRIVER_URL_ARM_910b="https://ascend-repo.obs.cn-east-2.myhuaweicloud.com/Ascend%20HDK/Ascend%20HDK%2025.3.RC1/Ascend-hdk-910b-npu-driver_25.3.rc1_linux-aarch64.run?response-content-type=application/octet-stream"
 CANN_DRIVER_URL_X86_910c="https://ascend-repo.obs.cn-east-2.myhuaweicloud.com/Ascend%20HDK/Ascend%20HDK%2025.3.RC1/Atlas-A3-hdk-npu-driver_25.3.rc1_linux-x86-64.run?response-content-type=application/octet-stream"
 CANN_DRIVER_URL_ARM_910c="https://ascend-repo.obs.cn-east-2.myhuaweicloud.com/Ascend%20HDK/Ascend%20HDK%2025.3.RC1/Atlas-A3-hdk-npu-driver_25.3.rc1_linux-aarch64.run?response-content-type=application/octet-stream"
 
-CANN_OPS_URL_X86_910b="https://ascend-cann.obs.cn-north-4.myhuaweicloud.com/pypto/cann/8.5.0/x86/Ascend-cann-910b-ops_8.5.0_linux-x86_64.run"
-CANN_OPS_URL_ARM_910b="https://ascend-cann.obs.cn-north-4.myhuaweicloud.com/pypto/cann/8.5.0/aarch64/Ascend-cann-910b-ops_8.5.0_linux-aarch64.run"
-CANN_OPS_URL_X86_910c="https://ascend-cann.obs.cn-north-4.myhuaweicloud.com/pypto/cann/8.5.0/x86/Ascend-cann-A3-ops_8.5.0_linux-x86_64.run"
-CANN_OPS_URL_ARM_910c="https://ascend-cann.obs.cn-north-4.myhuaweicloud.com/pypto/cann/8.5.0/aarch64/Ascend-cann-A3-ops_8.5.0_linux-aarch64.run"
+CANN_OPS_URL_X86_910b="https://ascend-cann.obs.cn-north-4.myhuaweicloud.com/pypto/cann/8.5.0_release/x86_64/Ascend-cann-910b-ops_8.5.0_linux-x86_64.run"
+CANN_OPS_URL_ARM_910b="https://ascend-cann.obs.cn-north-4.myhuaweicloud.com/pypto/cann/8.5.0_release/aarch64/Ascend-cann-910b-ops_8.5.0_linux-aarch64.run"
+CANN_OPS_URL_X86_910c="https://ascend-cann.obs.cn-north-4.myhuaweicloud.com/pypto/cann/8.5.0_release/x86_64/Ascend-cann-A3-ops_8.5.0_linux-x86_64.run"
+CANN_OPS_URL_ARM_910c="https://ascend-cann.obs.cn-north-4.myhuaweicloud.com/pypto/cann/8.5.0_release/aarch64/Ascend-cann-A3-ops_8.5.0_linux-aarch64.run"
 
 CANN_FIRMWARE_URL_910b="https://ascend-repo.obs.cn-east-2.myhuaweicloud.com/Ascend%20HDK/Ascend%20HDK%2025.3.RC1/Ascend-hdk-910b-npu-firmware_7.8.0.2.212.run?response-content-type=application/octet-stream"
 CANN_FIRMWARE_URL_910c="https://ascend-repo.obs.cn-east-2.myhuaweicloud.com/Ascend%20HDK/Ascend%20HDK%2025.3.RC1/Atlas-A3-hdk-npu-firmware_7.8.0.2.212.run?response-content-type=application/octet-stream"
 
 print_header() {
-    local title="$1"  
-    local separator="══════════════════════════════════════════════════════" 
-    local separator_length=${#separator}  
-    local title_length=${#title}         
+    local title="$1"
+    local separator="══════════════════════════════════════════════════════"
+    local separator_length=${#separator}
+    local title_length=${#title}
     local padding=$(( (separator_length - title_length) / 2 ))
     local spaces=$(printf "%${padding:-0}s" "")
 
@@ -140,6 +145,15 @@ parse_arguments() {
                 fi
                 shift
                 ;;
+            --only-download)
+                ONLY_DOWNLOAD=true
+                shift
+                ;;
+            --quiet)
+                QUIET=true
+                shift
+                ;;
+
             -h|--help)
                 help_flag=true
                 shift
@@ -151,22 +165,22 @@ parse_arguments() {
                 ;;
         esac
     done
-    
+
     if [ "$help_flag" = true ]; then
         show_usage
         return 1
     fi
-    
+
     # Validate required parameters
     local missing_params=()
-    
+
     if [ -z "$TYPE" ]; then
         missing_params+=("--type")
     elif [[ ! "$TYPE" =~ ^("deps"|"cann"|"third_party"|"all")$ ]]; then
         log_print "error" "Invalid value for --type: $TYPE (must be 'deps' or 'cann' or third_party or 'all')"
         return 1
     fi
-    
+
     if [[ ( "$TYPE" == "all" || "$TYPE" == "cann" ) && -z "$DEVICE_TYPE" ]]; then
         log_print "error" "The --device-type parameter must be specified when --type is $TYPE!"
         exit 1
@@ -199,6 +213,8 @@ Optional Options:
     --with-install-driver=<bool>    Download driver and firmware packages (true or false, default: false)
     --download-path=<path>          Download cann packages to specific dir path
     --install-path=<path>           Install cann packages to specific dir path
+    --quiet                         Run in quiet mode, automatically answer yes to all prompts
+    --only-download                 Download cann packages and third_party packages
     -h | --help                     Show this help message
 EOF
 }
@@ -289,7 +305,7 @@ get_version_by_cmd() {
 get_installed_version() {
     local package="$1"
     local version=""
-    version=$(get_version_by_cmd "$package")  
+    version=$(get_version_by_cmd "$package")
     version=$(clean_version "$version")
     echo "$version"
 }
@@ -297,7 +313,7 @@ get_installed_version() {
 check_basic_dependency() {
     local package="$1"
     local required_version="$2"
-    
+
     if ! command_exists "$package"; then
         if [ -z "$required_version" ]; then
             echo -e "${RED}$package [NOT INSTALLED]${NC}"
@@ -313,12 +329,12 @@ check_basic_dependency() {
         echo -e "Requirement already satisfied: $package ${NC}"
         return 0
     fi
-    
+
     if [ -z "$installed_version" ]; then
         echo -e "${YELLOW}$package (requires: $required_version) [VERSION DETECTION FAILED]${NC}"
         return 2
     fi
-    
+
     if version_ge "$installed_version" "$required_version"; then
         echo -e "Requirement already satisfied: $package (==$installed_version)"
         return 0
@@ -341,18 +357,18 @@ check_all_basic_dependencies() {
         check_basic_dependency "$package" "$required_version"
         local result=$?
         case $result in
-            1) 
+            1)
                 missing_pkgs+=("$package:$required_version")
                 all_satisfied=false
                 ;;
-            3) 
+            3)
                 outdated_pkgs+=("$package:$required_version")
                 all_satisfied=false
                 ;;
         esac
     done
     echo "=================================================="
-    
+
     if [ "$all_satisfied" = true ]; then
         echo
         return 0
@@ -365,6 +381,19 @@ check_all_basic_dependencies() {
 prompt_yes_no() {
     local prompt="$1"
     local default="${2:-y}"
+
+    # quiet mode:
+    if [ "$QUIET" = true ]; then
+        if [ "$default" = "y" ]; then
+            log_print "info" "$prompt [Y/n]: Y (auto-selected in quiet mode)"
+            return 0
+        else
+            log_print "info" "$prompt [y/N]: N (auto-selected in quiet mode)"
+            return 1
+        fi
+    fi
+
+    # non-quiet mode：
     while true; do
         if [ "$default" = "y" ]; then
             read -p "$prompt [Y/n]: " -n 1 -r
@@ -393,26 +422,26 @@ install_basic_dependencies() {
     local os_version=$(get_os_version)
     local installed_count=0
     local failed_count=0
-    
+
     log_print "info" "Using package manager: $os_type $os_version"
     echo
-    
+
     for pkg_info in "${BASIC_MISSING_PKGS[@]}" "${BASIC_OUTDATED_PKGS[@]}"; do
         local package="${pkg_info%%:*}"
         local required_version="${pkg_info##*:}"
 
         package=${package/pip3/python3-pip}
         package=${package/ninja/ninja-build}
-        
+
         if [ -z "$required_version" ]; then
             log_print "installing_version" "$package"
         else
             log_print "installing_version" "$package==$required_version"
         fi
-        
+
         local install_success=false
         local actual_version=""
-        
+
         case "$os_type" in
             ubuntu|debian)
                 sudo apt-get update >/dev/null 2>&1
@@ -434,13 +463,13 @@ install_basic_dependencies() {
                         actual_version=$(get_installed_version "$package")
                     fi
                 fi
-                ;;               
+                ;;
             *)
                 log_print "error" "Unsupported operating system: $os_type"
                 return 1
                 ;;
         esac
-        
+
         if [ "$install_success" = true ]; then
             if [ -z "$required_version" ]; then
                 log_print "success" "Successfully installed $package $actual_version"
@@ -460,11 +489,11 @@ install_basic_dependencies() {
             ((failed_count++))
         fi
     done
-    
+
     echo
     echo "=================================================="
     log_print "info" "Basic dependencies: $installed_count successful, $failed_count failed"
-    
+
     return $failed_count
 }
 
@@ -474,7 +503,7 @@ show_summary() {
     for dep in "${BASIC_DEPENDENCIES[@]}"; do
         local package="${dep%%:*}"
         local required_version="${dep##*:}"
-        
+
         if command_exists "$package"; then
             local installed_version=$(get_installed_version "$package")
 
@@ -490,7 +519,7 @@ show_summary() {
                 echo -e "  ${RED} $package [NOT INSTALLED] ${NC}"
             else
                 echo -e "  ${RED} $package [NOT INSTALLED] (requires: $required_version)${NC}"
-            fi   
+            fi
         fi
     done
 }
@@ -535,6 +564,13 @@ get_package_url() {
                 *) echo "" ;;
             esac
             ;;
+        pto-isa)
+            case "$ARCH" in
+                x86) echo "$CANN_PTO_ISA_URL_X86" ;;
+                arm) echo "$CANN_PTO_ISA_URL_ARM" ;;
+                *) echo "" ;;
+            esac
+            ;;
         *)
             echo ""
             ;;
@@ -556,27 +592,27 @@ get_package_name_from_url() {
 download_single_cann_package() {
     local resource_type="$1"
     local resource_url="$2"
-    
+
     cd "$CANN_DOWNLOAD_PATH" || {
         log_print "error" "Failed to enter download directory: $CANN_DOWNLOAD_PATH"
         return 1
     }
     local package_file=$(get_package_name_from_url "$resource_url" "$resource_type")
     local target_file="$CANN_DOWNLOAD_PATH/$package_file"
-    local resource_name=$(echo "$resource_type" | awk '{print toupper(substr($0,1,1)) substr($0,2)}')  
+    local resource_name=$(echo "$resource_type" | awk '{print toupper(substr($0,1,1)) substr($0,2)}')
     local download_log_msg="Downloading Huawei Ascend CANN $resource_name $CANN_VERSION_LATEST"
-    
+
     if [ -f "$target_file" ]; then
         log_print "info" "$resource_name file already exists: $target_file"
         log_print "info" "Using existing $resource_name file"
         DOWNLOADED_CANN_FILES+=("$target_file")
         [[ "$resource_type" != "driver" && "$resource_type" != "firmware" ]] && INSTALL_CANN_FILES+=("$target_file")
-        cd - >/dev/null  
+        cd - >/dev/null
         return 0
     fi
-    
+
     log_print "info" "$download_log_msg"
-    
+
     local download_success=false
     if command_exists wget; then
         if wget --no-check-certificate --progress=bar:force -O "$target_file" "$resource_url"; then
@@ -591,13 +627,13 @@ download_single_cann_package() {
     else
         log_print "error" "Neither wget nor curl is available for download"
     fi
-    
+
     if [ "$download_success" = false ]; then
         log_print "error" "Failed to download CANN $resource_name from $resource_url"
         cd - >/dev/null
         return 1
     fi
-    
+
     DOWNLOADED_CANN_FILES+=("$target_file")
     [[ "$resource_type" != "driver" && "$resource_type" != "firmware" ]] && INSTALL_CANN_FILES+=("$target_file")
     if chmod +x "$target_file"; then
@@ -605,12 +641,12 @@ download_single_cann_package() {
     else
         log_print "warning" "CANN $resource_name downloaded but could not make it executable: $target_file"
     fi
-    
+
     cd - >/dev/null
     return 0
 }
 
-install_downloaded_packages() {    
+install_downloaded_packages() {
     if [ "${#INSTALL_CANN_FILES[@]}" -le 0 ]; then
         log_print "warning" "No downloaded files to install"
         return 0
@@ -632,13 +668,13 @@ install_downloaded_packages() {
 }
 
 install_single_package() {
-    local filename="$1"    
+    local filename="$1"
 
     if [ ! -f "$filename" ]; then
         log_print "error" "File not found: $filename"
         return 1
     fi
-    
+
     if [ ! -x "$filename" ]; then
         log_print "info" "Making file executable: $filename"
         chmod +x "$filename" || {
@@ -646,13 +682,15 @@ install_single_package() {
             return 1
         }
     fi
-    
+
     local install_cmd=""
 
     if [[ "$filename" =~ "ops" ]]; then
-        install_cmd="$filename --install --force --install-path=$INSTALL_PATH "
+        install_cmd="$filename --quiet --install --force --install-path=$INSTALL_PATH "
     elif [[ "$filename" =~ "toolkit" ]]; then
-        install_cmd="$filename --full --force --install-path=$INSTALL_PATH "
+        install_cmd="$filename --quiet --install --force --install-path=$INSTALL_PATH "
+    elif [[ "$filename" =~ "pto-isa" ]]; then
+        install_cmd="$filename --quiet --full --install-path=$INSTALL_PATH "
     else
         install_cmd="$filename --full --install-path=$INSTALL_PATH "
     fi
@@ -684,10 +722,10 @@ download_third_party_packages() {
 
     cd "$THIRD_PARTY_DOWNLOAD_PATH" || {
         log_print "error" "Failed to enter download directory: $THIRD_PARTY_DOWNLOAD_PATH"
-        exit 1 
+        exit 1
     }
 
-    local download_success=false 
+    local download_success=false
     for dep in "${THIRD_PARTY_DEPENDENCIES[@]}"; do
         local dep_upper=${dep^^}
         local dep_url="${dep_upper}_URL"
@@ -757,7 +795,7 @@ check_and_install_dependencies() {
             install_basic_dependencies
             local basic_install_result=$?
             set -e
-            
+
             if [ $basic_install_result -gt 0 ]; then
                 log_print "warning" "Some basic dependencies failed to install properly"
             fi
@@ -774,7 +812,7 @@ check_and_install_dependencies() {
     for dep in "${BASIC_DEPENDENCIES[@]}"; do
         local package="${dep%%:*}"
         local required_version="${dep##*:}"
-        
+
         if ! command_exists "$package"; then
             basic_ok=false
         else
@@ -788,7 +826,7 @@ check_and_install_dependencies() {
             fi
         fi
     done
-    
+
     if [ "$basic_ok" = true ]; then
         log_print "success" "All required dependencies are satisfied!"
     else
@@ -803,12 +841,12 @@ download_cann_packages() {
     log_print "info" "Detected architecture: $ARCH"
 
     if [ "$DOWNLOAD_HDK" = true ]; then
-        log_print "info" "Download: CANN-Toolkit + CANN-ops + CANN-deiver + CANN-firmware"
+        log_print "info" "Download: CANN-Toolkit + CANN-ops + CANN-pto-isa + CANN-deiver + CANN-firmware"
     else
-        log_print "info" "Download: CANN-Toolkit + CANN-ops"
+        log_print "info" "Download: CANN-Toolkit + CANN-ops + CANN-pto-isa"
     fi
     echo
-    
+
     mkdir -p "$CANN_DOWNLOAD_PATH" || {
         log_print "error" "Failed to create download directory: $CANN_DOWNLOAD_PATH"
         return 1
@@ -816,9 +854,9 @@ download_cann_packages() {
 
     log_print "info" "Starting downloads for version $CANN_VERSION_LATEST..."
     log_print "info" "=============================================="
-    
+
     local download_success=true
-    local download_target=("toolkit" "ops")
+    local download_target=("toolkit" "ops" "pto-isa")
     local pkg_count=1
     if [ "$DOWNLOAD_HDK" = true ]; then
         download_target+=("driver" "firmware")
@@ -833,12 +871,12 @@ download_cann_packages() {
         download_single_cann_package "$pkg_name" "$pkg_url"
         ((pkg_count++))
     done
-    
+
     # Show summary
     log_print "info" ""
     log_print "info" "Download Summary"
     log_print "info" "================"
-    
+
     if [ "${#DOWNLOADED_CANN_FILES[@]}" -gt 0 ]; then
         log_print "success" "Successfully downloaded ${#DOWNLOADED_CANN_FILES[@]} package(s):"
         for file_info in "${DOWNLOADED_CANN_FILES[@]}"; do
@@ -848,7 +886,7 @@ download_cann_packages() {
     else
         log_print "warning" "No packages were downloaded"
     fi
-    
+
     if [ "$download_success" = true ]; then
         log_print "success" "Download process completed successfully!"
         return 0
@@ -880,14 +918,16 @@ main() {
     if [[ "$TYPE" == "deps" || "$TYPE" == "all" ]]; then
         check_and_install_dependencies
     fi
-    
+
     if [[ "$TYPE" == "third_party" || "$TYPE" == "all" ]]; then
         download_third_party_packages
     fi
-    
+
     if [[ "$TYPE" == "cann" || "$TYPE" == "all" ]]; then
         download_cann_packages
-        install_cann_packages
+        if [[ "$ONLY_DOWNLOAD" != true ]]; then
+            install_cann_packages
+        fi
     fi
 }
 

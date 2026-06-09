@@ -31,6 +31,12 @@ SCHEMA_DEF_ATTR(memOut, memType);
 SCHEMA_DEF_TYPE_ARRAY(coaType, TextType);
 SCHEMA_DEF_ATTR(coa, coaType);
 
+SCHEMA_DEF_TYPE_ARRAY(shapeList, Int64Type);
+SCHEMA_DEF_ATTR(shape, shapeList);
+
+SCHEMA_DEF_TYPE_ARRAY(offsetList, Int64Type);
+SCHEMA_DEF_ATTR(offset, offsetList);
+
 SCHEMA_DEF_ATTR(pred, Int64Type);
 SCHEMA_DEF_TYPE_ARRAY(OperationList, operation);
 SCHEMA_DEF_ATTR(succ, OperationList);

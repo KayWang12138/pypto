@@ -1,9 +1,10 @@
-# pypto.transpose
+﻿# pypto.transpose
 
 ## 产品支持情况
 
 | 产品             | 是否支持 |
 |:-----------------|:--------:|
+| Ascend 950PR/Ascend 950DT |    √     |
 | Atlas A3 训练系列产品/Atlas A3 推理系列产品 |    √     |
 | Atlas A2 训练系列产品/Atlas A2 推理系列产品 |    √     |
 
@@ -22,7 +23,7 @@ transpose(input: Tensor, dim0: int, dim1: int) -> Tensor
 
 | 参数名  | 输入/输出 | 说明                                                                 |
 |---------|-----------|----------------------------------------------------------------------|
-| input   | 输入      | 源操作数。<br> 支持的类型为：Tensor。<br> Tensor支持的数据类型为：DT_FP32\DT_FP16\DT_BF16。<br> 不支持空Tensor；Shape仅支持2-5维；Shape Size不大于2147483647（即INT32_MAX）。<br> 算子对不同 Shape 支持不同，详见约束说明。 |
+| input   | 输入      | 源操作数。<br> 支持的类型为：Tensor。<br> Tensor支持的数据类型为：DT_FP16，DT_BF16，DT_INT16，DT_UINT16，DT_FP32，DT_INT32，DT_UINT32。<br> 不支持空Tensor；Shape仅支持1-5维；Shape Size不大于2147483647（即INT32_MAX）。<br> 算子对不同 Shape 支持不同，详见约束说明。 |
 | dim0    | 输入      | 源操作数，要交换的第一个维度的索引，从0开始计数。 |
 | dim1    | 输入      | 源操作数，要交换的第二个维度的索引，从0开始计数。 |
 
@@ -34,14 +35,14 @@ transpose(input: Tensor, dim0: int, dim1: int) -> Tensor
 
 1. TileShape和输入input维度一致，用于切分input。
 
-2.输入维度dim0，dim1 必须大于0，小于input维度。
+2. 输入维度dim0，dim1 的取值范围为：-D ≤ dim ≤ D-1，其中D为input的维度数。
 
-3.当前Transpose实现存在约束，只能支持以下场景转置：
+3. 当前Transpose实现存在约束，只能支持以下场景转置：
 
 -   2维：任意轴
 -   3维：任意轴
 -   4维：支持：0轴和2轴，1轴和 3轴，2轴和3轴, 1轴和 2轴,  不支持：0轴和3轴,  0轴和1轴
--   5维：支持：3轴和 4轴， 其他不支持
+-   5维：支持：3轴和 4轴，其他不支持
 
 4.涉及尾轴转置的场景，需要预留一块临时空间，用来搬运。
 
@@ -57,6 +58,20 @@ dim1: 3
 
 ## 调用示例
 
+### TileShape设置示例
+
+说明：调用该operation接口前，应通过set_vec_tile_shapes设置TileShape。
+
+TileShape维度应和输入input一致。
+
+示例1：输入input shape为[m, n, p]，dim0为1，dim1为2，输出为[m, p, n], TileShape设置为[m1, n1, p1], 则m1, n1, p1分别用于切分m, n, p轴。
+
+```python
+pypto.set_vec_tile_shapes(4, 16, 32)
+```
+
+### 接口调用示例
+
 ```python
 x = pypto.tensor([2, 3], pypto.DT_FP32)
 y = pypto.transpose(x, 0, 1)
@@ -71,4 +86,3 @@ y = pypto.transpose(x, 0, 1)
             [-0.9893,  0.7299],
             [0.5809,  0.4942]]
 ```
-

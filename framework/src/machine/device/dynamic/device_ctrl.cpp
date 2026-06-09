@@ -10,7 +10,9 @@
 
 /*!
  * \file device_ctrl.cpp
- * \brief
+ * \brief DO NOT MODIFY THIS FILE!!!
+ *      This file is an entry file which is only used to export symbol.
+ *      Please modify the implementation of *DeviceKernelArgs* when needed.
  */
 
 #include "device_ctrl.h"
@@ -19,41 +21,24 @@ using namespace npu::tile_fwk;
 using namespace npu::tile_fwk::dynamic;
 
 namespace {
-    DeviceCtrlMachine g_ctrl_machine;
+DeviceCtrlMachine g_ctrl_machine;
 }
 
 extern "C" __attribute__((visibility("default"))) int PyptoKernelCtrlServerRegisterTaskInspector(
-        DeviceTaskInspectorEntry inspectorEntry,
-        void *inspector) {
+    DeviceTaskInspectorEntry inspectorEntry, void* inspector)
+{
     g_ctrl_machine.RegisterTaskInspector(inspectorEntry, inspector);
     return 0;
 }
 
-extern "C" __attribute__((visibility("default"))) int PyptoKernelCtrlServerInit(void *targ) {
-    PerfBegin(PERF_EVT_DEVICE_MACHINE_INIT_DYN);
-#if DEBUG_PLOG && defined(__DEVICE__)
-    InitLogSwitch();
-#endif
-    auto kargs = (AstKernelArgs *)targ;
-    if (kargs == nullptr) {
-        return -1;
-    }
-    if (kargs->inputs == nullptr || kargs->outputs == nullptr || kargs->cfgdata == nullptr) {
-        DEV_ERROR("Args has null in inputs[%p] outputs[%p] work[%p] or cfg[%p].\n", kargs->inputs,
-                 kargs->outputs, kargs->workspace, kargs->cfgdata);
-        return -1;
-    }
-    g_ctrl_machine.InitDyn(kargs);
-    PerfEnd(PERF_EVT_DEVICE_MACHINE_INIT_DYN);
-    return 0;
+extern "C" __attribute__((visibility("default"))) int PyptoKernelCtrlServerInit(void* targ)
+{
+    DeviceKernelArgs* kargs = (DeviceKernelArgs*)targ;
+    return g_ctrl_machine.EntryInit(kargs);
 }
 
-extern "C" __attribute__((visibility("default"))) int PyptoKernelCtrlServer(void *targ) {
-    auto kargs = (AstKernelArgs *)targ;
-    int rc = g_ctrl_machine.ExecDyn(kargs);
-    if (rc == npu::tile_fwk::dynamic::DEVICE_MACHINE_OK) {
-        DEV_INFO("All schedule exited, destroy the machine.\n");
-        return 0;
-    }
-    return -1;
+extern "C" __attribute__((visibility("default"))) int PyptoKernelCtrlServer(void* targ)
+{
+    DeviceKernelArgs* kargs = (DeviceKernelArgs*)targ;
+    return g_ctrl_machine.EntryMain(kargs);
 }

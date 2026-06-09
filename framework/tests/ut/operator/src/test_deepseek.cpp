@@ -13,9 +13,8 @@
  * \brief
  */
 
-#include "gtest/gtest.h"
 #include "tilefwk/tilefwk_op.h"
-
+#include "test_cost_macro.h"
 #include "tilefwk/tilefwk.h"
 #include "interface/inner/tilefwk.h"
 #include "operator/models/deepseek/deepseek_mla.h"
@@ -32,65 +31,48 @@ constexpr float F_127 = 127.0;
 
 class FunctionTest : public testing::Test {
 public:
-    static void SetUpTestCase() {
-        config::SetCodeGenConfig(KEY_CODEGEN_SUPPORT_TILE_TENSOR, false);
-    }
+    static void SetUpTestCase() { config::SetCodeGenConfig(KEY_CODEGEN_SUPPORT_TILE_TENSOR, false); }
 
-    static void TearDownTestCase() {
-        config::SetCodeGenConfig(KEY_CODEGEN_SUPPORT_TILE_TENSOR, true);
-    }
+    static void TearDownTestCase() { config::SetCodeGenConfig(KEY_CODEGEN_SUPPORT_TILE_TENSOR, true); }
 
     void SetUp() override { Program::GetInstance().Reset(); }
 
     void TearDown() override {}
 };
 
-void pre() {
-    config::SetHostOption(ONLY_CODEGEN, true);
-}
-
-TEST_F(FunctionTest, TestAddTensorFunctionDim4) {
-    std::vector<int64_t> shape{2,2,32,32};
+TEST_F(FunctionTest, TestAddTensorFunctionDim4)
+{
+    std::vector<int64_t> shape{2, 2, 32, 32};
 
     Tensor a(DT_FP32, shape, "a");
     Tensor b(DT_FP32, shape, "b");
     Tensor c;
-    config::SetPlatformConfig(KEY_ONLY_HOST_COMPILE, true);
+    config::SetHostOption(COMPILE_STAGE, CS_EXECUTE_GRAPH);
 
     TileShape::Current().SetVecTile(1, 1, 16, 16);
 
-    FUNCTION("A") {
-        c = Add(a, b);
-    }
-
-    // Program::GetInstance().GraphCheck();
-
-    ALOG_INFO(Program::GetInstance().Dump());
+    FUNCTION("A") { c = Add(a, b); }
 }
 
-TEST_F(FunctionTest, TestAddTensorFunctionDim2) {
-    std::vector<int64_t> shape{16,16};
+TEST_F(FunctionTest, TestAddTensorFunctionDim2)
+{
+    std::vector<int64_t> shape{16, 16};
 
     Tensor a(DT_FP32, shape, "a");
     Tensor b(DT_FP32, shape, "b");
     Tensor c;
-    config::SetPlatformConfig(KEY_ONLY_HOST_COMPILE, true);
+    config::SetHostOption(COMPILE_STAGE, CS_EXECUTE_GRAPH);
 
     TileShape::Current().SetVecTile(8, 16);
 
-    FUNCTION("A") {
-        c = Add(a, b);
-    }
-
-    // Program::GetInstance().GraphCheck();
-
-    ALOG_INFO(Program::GetInstance().Dump());
+    FUNCTION("A") { c = Add(a, b); }
 }
 
-TEST_F(FunctionTest, TestOperationRopeV2Deepseekv3B32) {
+TEST_F(FunctionTest, TestOperationRopeV2Deepseekv3B32)
+{
     int B = 32;
-    int N = 128;                // N=128
-    int S = 1;                 // IFA S=1 S=1024
+    int N = 128;            // N=128
+    int S = 1;              // IFA S=1 S=1024
     int qkRopeHeadDim = 64; // qkRopeHeadDim = 64
 
     std::vector<int64_t> qPeShape{B, S, N, qkRopeHeadDim};
@@ -106,22 +88,18 @@ TEST_F(FunctionTest, TestOperationRopeV2Deepseekv3B32) {
     Tensor qEmbed(DT_FP32, qEmbedShape, "qEmbed");
     Tensor kEmbed(DT_FP32, kEmbedShape, "kEmbed");
 
-    config::SetPlatformConfig(KEY_ONLY_HOST_COMPILE, true);
+    config::SetHostOption(COMPILE_STAGE, CS_EXECUTE_GRAPH);
     RoPETileShapeConfigNew ropeTileConfig{
-        {32, 1, 64}, // (b,s,d)
-        {1, 1, 32, 64}, // Q (b,s,n,d)
-        {32, 1, 1, 64}, // K (b,s,1,d)
+        {32, 1, 64},      // (b,s,d)
+        {1, 1, 32, 64},   // Q (b,s,n,d)
+        {32, 1, 1, 64},   // K (b,s,1,d)
         {32, 1, 1, 32, 2} // (b,s,n,d//2,2)
     };
-    FUNCTION("A") {
-        ApplyRotaryPosEmbV2(q, k, cos, sin, qEmbed, kEmbed, 2, ropeTileConfig);
-    }
-
-    ALOG_INFO(Program::GetInstance().Dump());
+    FUNCTION("A") { ApplyRotaryPosEmbV2(q, k, cos, sin, qEmbed, kEmbed, 2, ropeTileConfig); }
 }
 
-TEST_F(FunctionTest, test_fa_new) {
-
+TEST_F(FunctionTest, test_fa_new)
+{
     AttentionDims atDims = {1, 1, 128, 128, DFT_SINGLE_M, DFT_SINGLE_N};
     int b = atDims.b;
     int n = atDims.n;
@@ -140,7 +118,7 @@ TEST_F(FunctionTest, test_fa_new) {
     std::vector<float> max_golden_data(capacity_reduce);
     std::vector<float> sum_golden_data(capacity_reduce);
 
-    config::SetPlatformConfig(KEY_ONLY_HOST_COMPILE, true);
+    config::SetHostOption(COMPILE_STAGE, CS_EXECUTE_GRAPH);
     Tensor Q(DataType::DT_FP16, shape, "Q");
     Tensor K(DataType::DT_FP16, shape, "K");
     Tensor V(DataType::DT_FP16, shape, "V");
@@ -148,223 +126,174 @@ TEST_F(FunctionTest, test_fa_new) {
     Tensor L(DataType::DT_FP32, shape_reduce, "L");
     Tensor Res(DT_FP32, shape, "Res");
     config::SetBuildStatic(true);
-    FUNCTION("FA", {Q, K, V, M, L, Res}) {
+    FUNCTION("FA", {Q, K, V, M, L, Res})
+    {
         TileShape::Current().SetVecTile({16, 128});
         TileShape::Current().SetCubeTile({128, 128}, {128, 128}, {128, 128});
         Res = FlashAttentionNew(Q, K, V, M, L, atDims);
     }
 }
 
-TEST_F(FunctionTest, TestSubTensorFunctionDim2) {
-    std::vector<int64_t> shape{64,64};
+TEST_F(FunctionTest, TestSubTensorFunctionDim2)
+{
+    std::vector<int64_t> shape{64, 64};
 
     Tensor a(DT_FP32, shape, "a");
     Tensor b(DT_FP32, shape, "b");
     Tensor c;
-    config::SetPlatformConfig(KEY_ONLY_HOST_COMPILE, true);
+    config::SetHostOption(COMPILE_STAGE, CS_EXECUTE_GRAPH);
 
     TileShape::Current().SetVecTile(32, 32);
 
-    FUNCTION("A") {
-        c = Sub(a, b);
-    }
-
-    // Program::GetInstance().GraphCheck();
-
-    ALOG_INFO(Program::GetInstance().Dump());
+    FUNCTION("A") { c = Sub(a, b); }
 }
 
-TEST_F(FunctionTest, TestMulTensorFunctionDim2) {
-    std::vector<int64_t> shape{64,64};
+TEST_F(FunctionTest, TestMulTensorFunctionDim2)
+{
+    std::vector<int64_t> shape{64, 64};
 
     Tensor a(DT_FP32, shape, "a");
     Tensor b(DT_FP32, shape, "b");
     Tensor c;
-    config::SetPlatformConfig(KEY_ONLY_HOST_COMPILE, true);
+    config::SetHostOption(COMPILE_STAGE, CS_EXECUTE_GRAPH);
 
     TileShape::Current().SetVecTile(32, 32);
 
-    FUNCTION("A") {
-        c = Mul(a, b);
-    }
-
-    // Program::GetInstance().GraphCheck();
-
-    ALOG_INFO(Program::GetInstance().Dump());
+    FUNCTION("A") { c = Mul(a, b); }
 }
 
-TEST_F(FunctionTest, TestDivTensorFunctionDim2) {
-    std::vector<int64_t> shape{64,64};
+TEST_F(FunctionTest, TestDivTensorFunctionDim2)
+{
+    std::vector<int64_t> shape{64, 64};
 
     Tensor a(DT_FP32, shape, "a");
     Tensor b(DT_FP32, shape, "b");
     Tensor c;
-    config::SetPlatformConfig(KEY_ONLY_HOST_COMPILE, true);
+    config::SetHostOption(COMPILE_STAGE, CS_EXECUTE_GRAPH);
 
     TileShape::Current().SetVecTile(32, 32);
 
-    FUNCTION("A") {
-        c = Div(a, b);
-    }
-
-    // Program::GetInstance().GraphCheck();
-
-    ALOG_INFO(Program::GetInstance().Dump());
+    FUNCTION("A") { c = Div(a, b); }
 }
 
-TEST_F(FunctionTest, TestAddScalarFunctionDim2) {
-    std::vector<int64_t> shape{64,64};
+TEST_F(FunctionTest, TestAddScalarFunctionDim2)
+{
+    std::vector<int64_t> shape{64, 64};
 
     Tensor a(DT_FP32, shape, "a");
     Element value(DataType::DT_FP32, 1.5);
     Tensor d;
 
-    config::SetPlatformConfig(KEY_ONLY_HOST_COMPILE, true);
+    config::SetHostOption(COMPILE_STAGE, CS_EXECUTE_GRAPH);
 
     TileShape::Current().SetVecTile(32, 32);
 
-    FUNCTION("A") {
-        d = Add(a, value);
-    }
-
-    // Program::GetInstance().GraphCheck();
-
-    ALOG_INFO(Program::GetInstance().Dump());
+    FUNCTION("A") { d = Add(a, value); }
 }
 
-TEST_F(FunctionTest, TestAddScalarFunctionDim3) {
-    std::vector<int64_t> shape{64,64,64};
+TEST_F(FunctionTest, TestAddScalarFunctionDim3)
+{
+    std::vector<int64_t> shape{64, 64, 64};
 
     Tensor a(DT_FP32, shape, "a");
     Element value(DataType::DT_FP32, 1.5);
     Tensor d;
 
-    config::SetPlatformConfig(KEY_ONLY_HOST_COMPILE, true);
+    config::SetHostOption(COMPILE_STAGE, CS_EXECUTE_GRAPH);
 
     TileShape::Current().SetVecTile(32, 32, 32);
 
-    FUNCTION("A") {
-        d = Add(a, value);
-    }
-
-    // Program::GetInstance().GraphCheck();
-
-    ALOG_INFO(Program::GetInstance().Dump());
+    FUNCTION("A") { d = Add(a, value); }
 }
 
-TEST_F(FunctionTest, TestSubScalarFunctionDim2) {
-    std::vector<int64_t> shape{64,64};
+TEST_F(FunctionTest, TestSubScalarFunctionDim2)
+{
+    std::vector<int64_t> shape{64, 64};
 
     Tensor a(DT_FP32, shape, "a");
     Element value(DataType::DT_FP32, 1.5);
     Tensor d;
 
-    config::SetPlatformConfig(KEY_ONLY_HOST_COMPILE, true);
+    config::SetHostOption(COMPILE_STAGE, CS_EXECUTE_GRAPH);
 
     TileShape::Current().SetVecTile(32, 32);
 
-    FUNCTION("A") {
-        d = Sub(a, value);
-    }
-
-    // Program::GetInstance().GraphCheck();
-
-    ALOG_INFO(Program::GetInstance().Dump());
+    FUNCTION("A") { d = Sub(a, value); }
 }
 
-TEST_F(FunctionTest, TestMulScalarFunctionDim2) {
-    std::vector<int64_t> shape{64,64};
+TEST_F(FunctionTest, TestMulScalarFunctionDim2)
+{
+    std::vector<int64_t> shape{64, 64};
 
     Tensor a(DT_FP32, shape, "a");
     Element value(DataType::DT_FP32, 1.5);
     Tensor d;
 
-    config::SetPlatformConfig(KEY_ONLY_HOST_COMPILE, true);
+    config::SetHostOption(COMPILE_STAGE, CS_EXECUTE_GRAPH);
 
     TileShape::Current().SetVecTile(32, 32);
 
-    FUNCTION("A") {
-        d = Mul(a, value);
-    }
-
-    // Program::GetInstance().GraphCheck();
-
-    ALOG_INFO(Program::GetInstance().Dump());
+    FUNCTION("A") { d = Mul(a, value); }
 }
 
-TEST_F(FunctionTest, TestDivScalarFunctionDim2) {
-    std::vector<int64_t> shape{64,64};
+TEST_F(FunctionTest, TestDivScalarFunctionDim2)
+{
+    std::vector<int64_t> shape{64, 64};
 
     Tensor a(DT_FP32, shape, "a");
     Element value(DataType::DT_FP32, 1.5);
     Tensor d;
 
-    config::SetPlatformConfig(KEY_ONLY_HOST_COMPILE, true);
+    config::SetHostOption(COMPILE_STAGE, CS_EXECUTE_GRAPH);
 
     TileShape::Current().SetVecTile(32, 32);
 
-    FUNCTION("A") {
-        d = Div(a, value);
-    }
-
-    // Program::GetInstance().GraphCheck();
-
-    ALOG_INFO(Program::GetInstance().Dump());
+    FUNCTION("A") { d = Div(a, value); }
 }
 
-TEST_F(FunctionTest, TestExpTensorFunctionDim2) {
-    std::vector<int64_t> shape{64,64};
+TEST_F(FunctionTest, TestExpTensorFunctionDim2)
+{
+    std::vector<int64_t> shape{64, 64};
 
     Tensor a(DT_FP32, shape, "a");
     Tensor c;
-    config::SetPlatformConfig(KEY_ONLY_HOST_COMPILE, true);
+    config::SetHostOption(COMPILE_STAGE, CS_EXECUTE_GRAPH);
 
     TileShape::Current().SetVecTile(32, 32);
 
-    FUNCTION("A") {
-        c = Exp(a);
-    }
-
-    ALOG_INFO(Program::GetInstance().Dump());
+    FUNCTION("A") { c = Exp(a); }
 }
 
-TEST_F(FunctionTest, TestSin) {
+TEST_F(FunctionTest, TestSin)
+{
     TileShape::Current().SetVecTile({1, 1, 4, 4});
-    config::SetPlatformConfig(KEY_ONLY_HOST_COMPILE, true);
+    config::SetHostOption(COMPILE_STAGE, CS_EXECUTE_GRAPH);
 
     std::vector<int64_t> shape1 = {1, 2, 8, 8};
     Tensor input(DT_FP16, shape1, "input");
     Tensor res;
 
-    FUNCTION("Sin") {
-        res = Sin(input);
-    }
-    // Program::GetInstance().GraphCheck();
-
-    ALOG_INFO(Program::GetInstance().Dump());
+    FUNCTION("Sin") { res = Sin(input); }
 }
 
-TEST_F(FunctionTest, TestCos) {
+TEST_F(FunctionTest, TestCos)
+{
     TileShape::Current().SetVecTile({1, 1, 4, 4});
-    config::SetPlatformConfig(KEY_ONLY_HOST_COMPILE, true);
+    config::SetHostOption(COMPILE_STAGE, CS_EXECUTE_GRAPH);
 
     std::vector<int64_t> shape1 = {1, 2, 8, 8};
     Tensor input(DT_FP32, shape1, "input");
     Tensor res;
 
-    FUNCTION("Cos") {
-        res = Cos(input);
-    }
-    // Program::GetInstance().GraphCheck();
-
-    ALOG_INFO(Program::GetInstance().Dump());
+    FUNCTION("Cos") { res = Cos(input); }
 }
 
-TEST_F(FunctionTest, TestGatherAxis0Indices2_1) {
+TEST_F(FunctionTest, TestGatherAxis0Indices2_1)
+{
     TileShape::Current().SetVecTile(32, 128);
     // TileShape::Current().SetVecTile(1, 32, 64);
     // tile graph
-    config::SetPlatformConfig(KEY_ONLY_HOST_COMPILE, true);
+    config::SetHostOption(COMPILE_STAGE, CS_EXECUTE_GRAPH);
 
     std::vector<int64_t> shape1 = {16, 1024};
     // std::vector<int64_t> shape1 = {16, 256};
@@ -376,18 +305,15 @@ TEST_F(FunctionTest, TestGatherAxis0Indices2_1) {
     Tensor indices(DT_INT32, shape2, "indices");
     Tensor res;
 
-    FUNCTION("A") {
-        res = Gather(params, indices, axis);
-    }
-
-    ALOG_INFO(Program::GetInstance().Dump());
+    FUNCTION("A") { res = Gather(params, indices, axis); }
 }
 
-TEST_F(FunctionTest, TestGatherAxis1Indices2_1) {
+TEST_F(FunctionTest, TestGatherAxis1Indices2_1)
+{
     TileShape::Current().SetVecTile(32, 128);
     // TileShape::Current().SetVecTile(1, 32, 64);
     // tile graph
-    config::SetPlatformConfig(KEY_ONLY_HOST_COMPILE, true);
+    config::SetHostOption(COMPILE_STAGE, CS_EXECUTE_GRAPH);
 
     std::vector<int64_t> shape1 = {1024, 16};
     // std::vector<int64_t> shape1 = {16, 256};
@@ -399,16 +325,13 @@ TEST_F(FunctionTest, TestGatherAxis1Indices2_1) {
     Tensor indices(DT_INT32, shape2, "indices");
     Tensor res;
 
-    FUNCTION("A") {
-        res = Gather(params, indices, axis);
-    }
-
-    ALOG_INFO(Program::GetInstance().Dump());
+    FUNCTION("A") { res = Gather(params, indices, axis); }
 }
 
-TEST_F(FunctionTest, TestGatherAxis3Indices4_2) {
+TEST_F(FunctionTest, TestGatherAxis3Indices4_2)
+{
     TileShape::Current().SetVecTile(4, 3, 8, 8, 8);
-    config::SetPlatformConfig(KEY_ONLY_HOST_COMPILE, true);
+    config::SetHostOption(COMPILE_STAGE, CS_EXECUTE_GRAPH);
 
     std::vector<int64_t> shape1 = {8, 8, 17, 20};
     std::vector<int64_t> shape2 = {32, 15};
@@ -418,56 +341,43 @@ TEST_F(FunctionTest, TestGatherAxis3Indices4_2) {
     Tensor indices(DT_INT32, shape2, "indices");
     Tensor res;
 
-    FUNCTION("A") {
-        res = Gather(params, indices, axis);
-    }
-
-    ALOG_INFO(Program::GetInstance().Dump());
+    FUNCTION("A") { res = Gather(params, indices, axis); }
 }
 
-TEST_F(FunctionTest, TestGatherElementAxis1Indices2) {
+TEST_F(FunctionTest, TestGatherElementAxis1Indices2)
+{
     TileShape::Current().SetVecTile(8, 64);
-    config::SetPlatformConfig(KEY_ONLY_HOST_COMPILE, true);
+    config::SetHostOption(COMPILE_STAGE, CS_EXECUTE_GRAPH);
 
     std::vector<int64_t> shape1 = {32, 512};
-    std::vector<int64_t> shape2 = {16,64};
+    std::vector<int64_t> shape2 = {16, 64};
     // std::vector<int64_t> resShape = {16,64};
     int axis = 1;
     Tensor params(DT_FP32, shape1, "params");
     Tensor indices(DT_INT32, shape2, "indices");
     Tensor res;
 
-    FUNCTION("A") {
-        res = GatherElements(params, indices, axis);
-    }
-    // Program::GetInstance().GraphCheck();
-    //
-
-    ALOG_INFO(Program::GetInstance().Dump());
+    FUNCTION("A") { res = GatherElements(params, indices, axis); }
 }
 
-TEST_F(FunctionTest, TestGatherElementAxis0Indices2) {
+TEST_F(FunctionTest, TestGatherElementAxis0Indices2)
+{
     TileShape::Current().SetVecTile(16, 32);
-    config::SetPlatformConfig(KEY_ONLY_HOST_COMPILE, true);
+    config::SetHostOption(COMPILE_STAGE, CS_EXECUTE_GRAPH);
 
     std::vector<int64_t> shape1 = {32, 512};
-    std::vector<int64_t> shape2 = {16,64};
+    std::vector<int64_t> shape2 = {16, 64};
     // std::vector<int64_t> resShape = {16,64};
     int axis = 0;
     Tensor params(DT_FP32, shape1, "params");
     Tensor indices(DT_INT32, shape2, "indices");
     Tensor res;
 
-    FUNCTION("A") {
-        res = GatherElements(params, indices, axis);
-    }
-    // Program::GetInstance().GraphCheck();
-    //
-
-    ALOG_INFO(Program::GetInstance().Dump());
+    FUNCTION("A") { res = GatherElements(params, indices, axis); }
 }
 
-TEST_F(FunctionTest, TestScatter_) {
+TEST_F(FunctionTest, TestScatter)
+{
     int b = 2, s = 512, nRoutedExperts = 256, numExpertsPerTok = 8;
     TileShape::Current().SetVecTile(128, nRoutedExperts);
 
@@ -476,33 +386,36 @@ TEST_F(FunctionTest, TestScatter_) {
 
     Tensor res;
 
-    config::SetPlatformConfig(KEY_ONLY_HOST_COMPILE, true);
+    config::SetHostOption(COMPILE_STAGE, CS_EXECUTE_GRAPH);
 
-    FUNCTION("A") {
-        res = Scatter_(cnts, topk_ids, Element(DataType::DT_FP32, 1.0), 1); // (b*s, nRoutedExperts)
+    FUNCTION("A")
+    {
+        res = Scatter(cnts, topk_ids, Element(DataType::DT_FP32, 1.0), 1); // (b*s, nRoutedExperts)
     }
-    ALOG_INFO(Program::GetInstance().Dump());
 }
 
-TEST_F(FunctionTest, TestScatterUpdate2) {
+TEST_F(FunctionTest, TestScatterUpdate2)
+{
     int b = 2, s = 1, s2 = 512, kvLoraRank = 512, qkRopeHeadDim = 64;
     Tensor kv_len(DT_INT32, {1, 1}, "kv_len");
     Tensor past_key_states(DT_FP32, {b, 1, s2, kvLoraRank + qkRopeHeadDim}, "past_key_states");
     Tensor compressed_kv(DT_FP32, {b, s, kvLoraRank}, "past_key_states");
     Tensor k_pe_rope(DT_FP32, {b, 1, s, qkRopeHeadDim}, "k_pe_rope"); // (b,1,s,qkRopeHeadDim)
     Tensor res;
-    Tensor key_states(DT_FP32, {b,1,s, kvLoraRank + qkRopeHeadDim}, "past_key_states");
-    Tensor past_key_states_new(DT_FP32, {b,1,s2, kvLoraRank + qkRopeHeadDim}, "past_key_states_new");
-    config::SetPlatformConfig(KEY_ONLY_HOST_COMPILE, true);
+    Tensor key_states(DT_FP32, {b, 1, s, kvLoraRank + qkRopeHeadDim}, "past_key_states");
+    Tensor past_key_states_new(DT_FP32, {b, 1, s2, kvLoraRank + qkRopeHeadDim}, "past_key_states_new");
+    config::SetHostOption(COMPILE_STAGE, CS_EXECUTE_GRAPH);
 
-    FUNCTION("A") {
+    FUNCTION("A")
+    {
         TileShape::Current().SetVecTile(1, 1, 256, 128);
         past_key_states_new = ScatterUpdate(past_key_states, kv_len, key_states, -2);
     }
 }
 
-TEST_F(FunctionTest, testRowSumSingle) {
-    config::SetPlatformConfig(KEY_ONLY_HOST_COMPILE, true);
+TEST_F(FunctionTest, testRowSumSingle)
+{
+    config::SetHostOption(COMPILE_STAGE, CS_EXECUTE_GRAPH);
 
     TileShape::Current().SetVecTile(1, 1, 32, 32);
     std::vector<int64_t> tshape = {2, 2, 64, 64};
@@ -513,17 +426,16 @@ TEST_F(FunctionTest, testRowSumSingle) {
     Tensor T(DT_FP32, tshape, "T");
     Tensor c, d;
 
-    FUNCTION("A") {
+    FUNCTION("A")
+    {
         d = npu::tile_fwk::Sum(T, -1, true);
         c = npu::tile_fwk::Sum(T, -2, true);
     }
-    // Program::GetInstance().GraphCheck();
-
-    ALOG_INFO(Program::GetInstance().Dump());
 }
 
-TEST_F(FunctionTest, testRowMaxSingle) {
-    config::SetPlatformConfig(KEY_ONLY_HOST_COMPILE, true);
+TEST_F(FunctionTest, testRowMaxSingle)
+{
+    config::SetHostOption(COMPILE_STAGE, CS_EXECUTE_GRAPH);
 
     TileShape::Current().SetVecTile(1, 1, 32, 32);
     std::vector<int64_t> tshape = {1, 4, 64, 64};
@@ -531,16 +443,12 @@ TEST_F(FunctionTest, testRowMaxSingle) {
     Tensor T(DT_FP32, tshape, "T");
     Tensor d;
 
-    FUNCTION("A") {
-        d = npu::tile_fwk::Amax(T);
-    }
-    // Program::GetInstance().GraphCheck();
-
-    ALOG_INFO(Program::GetInstance().Dump());
+    FUNCTION("A") { d = npu::tile_fwk::Amax(T); }
 }
 
-TEST_F(FunctionTest, testSoftmax) {
-    config::SetPlatformConfig(KEY_ONLY_HOST_COMPILE, true);
+TEST_F(FunctionTest, testSoftmax)
+{
+    config::SetHostOption(COMPILE_STAGE, CS_EXECUTE_GRAPH);
 
     TileShape::Current().SetVecTile(1, 1, 32, 32);
     std::vector<int64_t> tshape = {2, 2, 64, 64};
@@ -548,20 +456,16 @@ TEST_F(FunctionTest, testSoftmax) {
     Tensor T(DT_FP32, tshape, "T");
     Tensor d;
 
-    FUNCTION("A") {
-        d = SoftmaxNew(T);
-    }
-    // Program::GetInstance().GraphCheck();
-
-    ALOG_INFO(Program::GetInstance().Dump());
+    FUNCTION("A") { d = SoftmaxNew(T); }
 }
 
-TEST_F(FunctionTest, TestRoPE) {
-    config::SetPlatformConfig(KEY_ONLY_HOST_COMPILE, true);
+TEST_F(FunctionTest, TestRoPE)
+{
+    config::SetHostOption(COMPILE_STAGE, CS_EXECUTE_GRAPH);
 
     RoPETileShapeConfig ropeTileConfig{
-        {64, 64}, // for cos/sin->cast
-        {1, 64, 64}, // for gather,unsqueeze
+        {64, 64},         // for cos/sin->cast
+        {1, 64, 64},      // for gather,unsqueeze
         {1, 64, 1, 64},
         {1, 64, 1, 32, 2} // for transpose
     };
@@ -585,26 +489,23 @@ TEST_F(FunctionTest, TestRoPE) {
     Tensor kEmbed(DT_BF16, kShape, "kEmbed");
 
     ConfigManager::Instance();
-    FUNCTION("A") {
-        ApplyRotaryPosEmb(q, k, cos, sin, positionIds, qEmbed, kEmbed, 1, ropeTileConfig);
-    }
-
-    ALOG_INFO(Program::GetInstance().Dump());
+    FUNCTION("A") { ApplyRotaryPosEmb(q, k, cos, sin, positionIds, qEmbed, kEmbed, 1, ropeTileConfig); }
 }
 
-TEST_F(FunctionTest, TestRoPEDeepseekV3) {
-    config::SetPlatformConfig(KEY_ONLY_HOST_COMPILE, true);
+TEST_F(FunctionTest, TestRoPEDeepseekV3)
+{
+    config::SetHostOption(COMPILE_STAGE, CS_EXECUTE_GRAPH);
 
     RoPETileShapeConfig ropeTileConfig{
-        {64, 64}, // for cos/sin->cast
-        {1, 64, 64}, // for gather,unsqueeze
+        {64, 64},         // for cos/sin->cast
+        {1, 64, 64},      // for gather,unsqueeze
         {1, 64, 1, 64},
         {1, 64, 1, 32, 2} // for transpose
     };
 
     int B = 2;
-    int N = 32;                // N=32
-    int S = 1;                 // IFA S=1 S=1024
+    int N = 32;             // N=32
+    int S = 1;              // IFA S=1 S=1024
     int qkRopeHeadDim = 64; // qkRopeHeadDim = 64
 
     std::vector<int64_t> qPeShape{B, S, N, qkRopeHeadDim};
@@ -624,7 +525,8 @@ TEST_F(FunctionTest, TestRoPEDeepseekV3) {
     Tensor kEmbed(DT_BF16, kEmbedShape, "kEmbed");
 
     ConfigManager::Instance();
-    FUNCTION("RoPE") {
+    FUNCTION("RoPE")
+    {
         TileShape::Current().SetVecTile({1, 1, 64, 64});
         auto qPeTrans = Transpose(qPe, {1, 2}); // [b,s,n,d]->[b,n,s,d]
 
@@ -637,28 +539,24 @@ TEST_F(FunctionTest, TestRoPEDeepseekV3) {
         // auto kPeTrans = Transpose(Reshape(kPe, {b, s, 1, d}), {1, 2}); // [b,s,d]->[b,s,1,d]->[b,1,s,d]
         ApplyRotaryPosEmb(qPeTrans, kPeReshape, cos, sin, positionIds, qEmbed, kEmbed, 1, ropeTileConfig);
     }
-
-    ALOG_INFO(Program::GetInstance().Dump());
 }
 
-TEST_F(FunctionTest, testRmsNormNewMultiDims) {
-    config::SetPlatformConfig(KEY_ONLY_HOST_COMPILE, true);
+TEST_F(FunctionTest, testRmsNormNewMultiDims)
+{
+    config::SetHostOption(COMPILE_STAGE, CS_EXECUTE_GRAPH);
     TileShape::Current().SetVecTile(1, 1, 8, 8);
     // Create some tensors (these would be created from elsewhere in your code)
     std::vector<int64_t> tshape = {2, 2, 24, 24};
 
     Tensor T(DT_FP32, tshape, "T");
 
-    FUNCTION("Function_BLOCK1") {
-        T = RmsNorm(T);
-    }
-    // Program::GetInstance().GraphCheck();
-    ALOG_INFO(Program::GetInstance().Dump());
+    FUNCTION("Function_BLOCK1") { T = RmsNorm(T); }
 }
 
-TEST_F(FunctionTest, TestConcat) {
+TEST_F(FunctionTest, TestConcat)
+{
     TileShape::Current().SetVecTile(16, 6, 6, 8);
-    config::SetPlatformConfig(KEY_ONLY_HOST_COMPILE, true);
+    config::SetHostOption(COMPILE_STAGE, CS_EXECUTE_GRAPH);
 
     std::vector<int64_t> shape1 = {10, 10, 10, 10};
     std::vector<int64_t> shape2 = {20, 10, 10, 10};
@@ -667,28 +565,20 @@ TEST_F(FunctionTest, TestConcat) {
     Tensor params2(DT_FP32, shape2, "params2");
     Tensor res;
 
-    FUNCTION("A") {
-        res = Cat(std::vector<Tensor>{params1, params2}, axis);
-    }
-    //Program::GetInstance().GraphCheck();
-
-    ALOG_INFO(Program::GetInstance().Dump());
+    FUNCTION("A") { res = Cat(std::vector<Tensor>{params1, params2}, axis); }
 }
 
 static std::map<std::string, std::variant<bool, int, float, std::string>> attnPostConfig = {
-    {        "hiddenSize", 512},
-    {       "kvLoraRank",  512},
-    {"numAttentionHeads",    32},
-    {         "vHeadDim",  128}
-};
+    {"hiddenSize", 512}, {"kvLoraRank", 512}, {"numAttentionHeads", 32}, {"vHeadDim", 128}};
 
-TEST_F(FunctionTest, TestAttentionPost) {
-    config::SetPlatformConfig(KEY_ONLY_HOST_COMPILE, true);
+TEST_F(FunctionTest, TestAttentionPost)
+{
+    config::SetHostOption(COMPILE_STAGE, CS_EXECUTE_GRAPH);
     int b = 1;
     int n = 2;
     int s = 128;
     int d = 512;
-    int v_head =128;
+    int v_head = 128;
     int h = 256;
     std::vector<int64_t> inShape = {b, n, s, d}; // (b, n, s, d)
     Tensor attnPostIn(DT_FP32, inShape, "attnPostIn");
@@ -696,7 +586,8 @@ TEST_F(FunctionTest, TestAttentionPost) {
     Tensor oProjW(DT_FP32, {n * v_head, h}, "oProjW");
     Tensor atten_output;
     ConfigManager::Instance();
-    FUNCTION("AttentionPost") {
+    FUNCTION("AttentionPost")
+    {
         int f_b = attnPostIn.GetShape()[0];
         int f_n = attnPostIn.GetShape()[1];
         int f_s = attnPostIn.GetShape()[2];
@@ -718,11 +609,11 @@ TEST_F(FunctionTest, TestAttentionPost) {
         Tensor attn_out_w = Unsqueeze(oProjW, 0);
         atten_output = Matrix::BatchMatmul(dType, mm7_res2, attn_out_w);
     }
-    ALOG_INFO(Program::GetInstance().Dump());
 }
 
-TEST_F(FunctionTest, Test_qkvPre) {
-    config::SetPlatformConfig(KEY_ONLY_HOST_COMPILE, true);
+TEST_F(FunctionTest, Test_qkvPre)
+{
+    config::SetHostOption(COMPILE_STAGE, CS_EXECUTE_GRAPH);
     int b = 2;
     int s = 128;
     int h = std::get<int>(deepseekConfig1["hiddenSize"]);
@@ -748,15 +639,12 @@ TEST_F(FunctionTest, Test_qkvPre) {
     std::tuple<Tensor, Tensor> res;
     DeepseekAttention Attention(deepseekConfig1, aw, 1);
     ConfigManager::Instance();
-    FUNCTION("A") {
-        res = Attention.QkvPre(hidden_states);
-    }
-
-    ALOG_INFO(Program::GetInstance().Dump());
+    FUNCTION("A") { res = Attention.QkvPre(hidden_states); }
 }
 
-TEST_F(FunctionTest, Test_qkvPre2) {
-    config::SetPlatformConfig(KEY_ONLY_HOST_COMPILE, true);
+TEST_F(FunctionTest, Test_qkvPre2)
+{
+    config::SetHostOption(COMPILE_STAGE, CS_EXECUTE_GRAPH);
 
     int& h = std::get<int>(g_deepseekConfig["hiddenSize"]);
     int& num_heads = std::get<int>(g_deepseekConfig["numAttentionHeads"]);
@@ -777,11 +665,11 @@ TEST_F(FunctionTest, Test_qkvPre2) {
     vHeadDim = 128;
     int q_head_dim = qkNopeHeadDim + qkRopeHeadDim;
 
-    Tensor hidden_states = Tensor(DT_BF16, {b, s, h}, "hidden_states");  // [2,1,256]
+    Tensor hidden_states = Tensor(DT_BF16, {b, s, h}, "hidden_states"); // [2,1,256]
 
     AttentionW aw;
-    aw.qAProjW = Tensor(DT_BF16, {h, qLoraRank}, "qAProjW");  // [256,512]
-    aw.qBProjW = Tensor(DT_BF16, {qLoraRank, num_heads * q_head_dim}, "qBProjW");  // [512,2*192]
+    aw.qAProjW = Tensor(DT_BF16, {h, qLoraRank}, "qAProjW");                      // [256,512]
+    aw.qBProjW = Tensor(DT_BF16, {qLoraRank, num_heads * q_head_dim}, "qBProjW"); // [512,2*192]
     // [256,576]
     aw.kvAProjWithMqaW = Tensor(DT_BF16, {h, kvLoraRank + qkRopeHeadDim}, "kvAProjWithMqaW");
     aw.kvBProjWK = Tensor(DT_BF16, {num_heads, qkNopeHeadDim, kvLoraRank}, "kvBProjWK");
@@ -791,15 +679,12 @@ TEST_F(FunctionTest, Test_qkvPre2) {
     std::vector<Tensor> res;
     DeepseekAttention Attention(deepseekConfig1, aw, 1);
 
-    FUNCTION("Test_qkvPre2") {
-        res = Attention.QkvPre2(hidden_states);
-    }
-
-    ALOG_INFO(Program::GetInstance().Dump());
+    FUNCTION("Test_qkvPre2") { res = Attention.QkvPre2(hidden_states); }
 }
 
-TEST_F(FunctionTest, Test_deepseekAttention_pre) {
-    config::SetPlatformConfig(KEY_ONLY_HOST_COMPILE, true);
+TEST_F(FunctionTest, Test_deepseekAttention_pre)
+{
+    config::SetHostOption(COMPILE_STAGE, CS_EXECUTE_GRAPH);
 
     int b = 2; //  32
     int s = 1;
@@ -808,7 +693,7 @@ TEST_F(FunctionTest, Test_deepseekAttention_pre) {
     int num_heads = std::get<int>(deepseekConfig1["numAttentionHeads"]);
     int qLoraRank = std::get<int>(deepseekConfig1["qLoraRank"]);
     int qkRopeHeadDim = std::get<int>(deepseekConfig1["qkRopeHeadDim"]); // 64
-    int kvLoraRank = std::get<int>(deepseekConfig1["kvLoraRank"]);         // 512
+    int kvLoraRank = std::get<int>(deepseekConfig1["kvLoraRank"]);       // 512
     int vHeadDim = std::get<int>(deepseekConfig1["vHeadDim"]);
     int qkNopeHeadDim = std::get<int>(deepseekConfig1["qkNopeHeadDim"]);
     int q_head_dim = qkNopeHeadDim + qkRopeHeadDim;
@@ -829,61 +714,51 @@ TEST_F(FunctionTest, Test_deepseekAttention_pre) {
     aw.kvBProjWV = Tensor(DT_BF16, {num_heads, kvLoraRank, vHeadDim}, "kvBProjWV");
     aw.oProjW = Tensor(DT_BF16, {num_heads * vHeadDim, h}, "oProjW");
 
-    RoPETileShapeConfig ropeTileConfig{
-        {32, 32},
-        {1, 32, 32},
-        {1, 1, 32, 32},
-        {1, 1, 32, 32, 2}
-    };
+    RoPETileShapeConfig ropeTileConfig{{32, 32}, {1, 32, 32}, {1, 1, 32, 32}, {1, 1, 32, 32, 2}};
 
     std::tuple<Tensor, Tensor> res;
     DeepseekAttention deepseekAttention(deepseekConfig1, aw, 1);
     ConfigManager::Instance();
-    FUNCTION("A") {
+    FUNCTION("A")
+    {
         res = deepseekAttention.AtentionPreForward(
             hidden_states, atten_mask, position_ids, cos, sin, kv_len, past_key_states, ropeTileConfig);
     }
-    ALOG_INFO(Program::GetInstance().Dump());
 }
 
-TEST_F(FunctionTest, TestBMMtest) {
-    config::SetPlatformConfig(KEY_ONLY_HOST_COMPILE, true);
+TEST_F(FunctionTest, TestBMMtest)
+{
+    config::SetHostOption(COMPILE_STAGE, CS_EXECUTE_GRAPH);
     std::vector<int64_t> shape_a{2, 1, 256};
     std::vector<int64_t> shape_b{1, 256, 512};
     Tensor a(DT_FP16, shape_a, "a");
     Tensor b(DT_FP16, shape_b, "b");
     Tensor c;
     TileShape::Current().SetCubeTile({std::min(128, 1), std::min(128, 1)}, {128, 128}, {64, 64});
-    FUNCTION("BMM") {
-        c = npu::tile_fwk::Matrix::BatchMatmul<false, false>(DT_FP16, a, b);
-    }
-
-    ALOG_INFO(Program::GetInstance().Dump());
+    FUNCTION("BMM") { c = npu::tile_fwk::Matrix::BatchMatmul(DT_FP16, a, b, false, false); }
 }
 
-TEST_F(FunctionTest, TestBMMtest2) {
-    config::SetPlatformConfig(KEY_ONLY_HOST_COMPILE, true);
+TEST_F(FunctionTest, TestBMMtest2)
+{
+    config::SetHostOption(COMPILE_STAGE, CS_EXECUTE_GRAPH);
     std::vector<int64_t> shape_a{2, 1, 256};
     std::vector<int64_t> shape_b{1, 512, 256};
     Tensor a(DT_FP16, shape_a, "a");
     Tensor b(DT_FP16, shape_b, "b");
     Tensor c;
     TileShape::Current().SetCubeTile({std::min(128, 1), std::min(128, 1)}, {128, 128}, {64, 64});
-    FUNCTION("BMM") {
-        c = npu::tile_fwk::Matrix::BatchMatmul<false, true>(DT_FP16, a, b);
-    }
-
-    ALOG_INFO(Program::GetInstance().Dump());
+    FUNCTION("BMM") { c = npu::tile_fwk::Matrix::BatchMatmul(DT_FP16, a, b, false, true); }
 }
 
-TEST_F(FunctionTest, Test_deepseekMoEGate) {
-    config::SetPlatformConfig(KEY_ONLY_HOST_COMPILE, true);
+TEST_F(FunctionTest, Test_deepseekMoEGate)
+{
+    config::SetHostOption(COMPILE_STAGE, CS_EXECUTE_GRAPH);
 
     int b = 2; //  32
     int s = 1; //  1, optimize set_tile
     int h = std::get<int>(deepseekConfig1["hiddenSize"]);
     std::cout << "Test_deepseekAttention  b,s,h: " << b << ", " << s << ", " << h << std::endl;
-    Tensor hidden_states = Tensor(DT_FP32, {b*s, h}, "hidden_states");
+    Tensor hidden_states = Tensor(DT_FP32, {b * s, h}, "hidden_states");
 
     Tensor topk_idx, topk_weight;
     MoEGate deepseekMoEGate(deepseekConfig1);
@@ -891,27 +766,26 @@ TEST_F(FunctionTest, Test_deepseekMoEGate) {
     TileShape::Current().SetCubeTile({std::min(128, s), std::min(128, s)}, {256, 256}, {64, 64});
     TileShape::Current().SetVecTile(128, 64); // for Assemble
 
-    FUNCTION("A") {
+    FUNCTION("A")
+    {
         auto res = deepseekMoEGate.Forward(hidden_states);
         topk_idx = std::get<0>(res);
         topk_weight = std::get<1>(res);
     }
-    // Program::GetInstance().GraphCheck();
-
-    ALOG_INFO(Program::GetInstance().Dump());
 }
 
-TEST_F(FunctionTest, Test_deepseekMoEInfer) {
-    config::SetPlatformConfig(KEY_ONLY_HOST_COMPILE, true);
+TEST_F(FunctionTest, Test_deepseekMoEInfer)
+{
+    config::SetHostOption(COMPILE_STAGE, CS_EXECUTE_GRAPH);
 
-    int b = 2;   //  32
+    int b = 2; //  32
     int s = 1; //  1, optimize set_tile
     int h = std::get<int>(deepseekConfig1["hiddenSize"]);
     int numExpertsPerTok = std::get<int>(deepseekConfig1["numExpertsPerTok"]);
     std::cout << "Test_deepseekAttention  b,s,h: " << b << ", " << s << ", " << h << std::endl;
-    Tensor hidden_states = Tensor(DT_FP32, {b*s, h}, "hidden_states");
-    Tensor topk_idx = Tensor(DT_INT32, {b*s, numExpertsPerTok}, "topk_idx");
-    Tensor topk_weight =Tensor(DT_FP32, {b*s, numExpertsPerTok}, "topk_weight");
+    Tensor hidden_states = Tensor(DT_FP32, {b * s, h}, "hidden_states");
+    Tensor topk_idx = Tensor(DT_INT32, {b * s, numExpertsPerTok}, "topk_idx");
+    Tensor topk_weight = Tensor(DT_FP32, {b * s, numExpertsPerTok}, "topk_weight");
     DeepseekV2MoE deepseekMoEInfer(deepseekConfig1);
 
     Tensor res;
@@ -919,33 +793,29 @@ TEST_F(FunctionTest, Test_deepseekMoEInfer) {
     TileShape::Current().SetCubeTile({std::min(128, s), std::min(128, s)}, {256, 256}, {64, 64});
     TileShape::Current().SetVecTile(128, 256); // for Assemble
 
-    FUNCTION("A") {
-        res = deepseekMoEInfer.MoeInfer(hidden_states, topk_idx, topk_weight);
-    }
-    // Program::GetInstance().GraphCheck();
-
-    ALOG_INFO(Program::GetInstance().Dump());
+    FUNCTION("A") { res = deepseekMoEInfer.MoeInfer(hidden_states, topk_idx, topk_weight); }
 }
 
-TEST_F(FunctionTest, Test_deepseekMoEInfer_singleout) {
-    config::SetPlatformConfig(KEY_ONLY_HOST_COMPILE, true);
+TEST_F(FunctionTest, Test_deepseekMoEInfer_singleout)
+{
+    config::SetHostOption(COMPILE_STAGE, CS_EXECUTE_GRAPH);
 
     int32_t nRoutedExperts = 256;
-    int b = 4;   // 32
-    int s = 1; // 1, optimize set_tile
+    int b = 4;                                                                 // 32
+    int s = 1;                                                                 // 1, optimize set_tile
     int h = 256;
     int numExpertsPerTok = std::get<int>(deepseekConfig1["numExpertsPerTok"]); // 8
 
     DeepseekV2MoE deepseekMoEInfer(deepseekConfig1);
 
-    std::vector<int64_t> hiddenStatesShape = { b* s, h };
-    std::vector<int64_t> topKShape = { b* s, numExpertsPerTok };
+    std::vector<int64_t> hiddenStatesShape = {b * s, h};
+    std::vector<int64_t> topKShape = {b * s, numExpertsPerTok};
 
     Tensor ffnWeight1(DT_FP16, {h, h * 3}, "ffnWeight1");
     Tensor ffnWeight2(DT_FP16, {h, h * 3}, "ffnWeight2");
     Tensor ffnWeight3(DT_FP16, {h, h * 3}, "ffnWeight3");
 
-    Tensor finalout(DT_FP32, { b*s, h }, "finalout");
+    Tensor finalout(DT_FP32, {b * s, h}, "finalout");
 
     TileShape::Current().SetCubeTile({64, 64}, {64, 64}, {64, 64});
     TileShape::Current().SetVecTile(64, nRoutedExperts); // for Assemble
@@ -954,17 +824,20 @@ TEST_F(FunctionTest, Test_deepseekMoEInfer_singleout) {
     Tensor topkIdx = Tensor(DT_INT32, topKShape, "topkIdx");
     Tensor topkWeight = Tensor(DT_FP32, topKShape, "topkWeight");
 
-    FUNCTION("MOE_INFER_F") {
-            finalout = deepseekMoEInfer.MoeInfer(hiddenStates, topkIdx, topkWeight, ffnWeight1, ffnWeight2, ffnWeight3, nRoutedExperts);
+    FUNCTION("MOE_INFER_F")
+    {
+        finalout = deepseekMoEInfer.MoeInfer(
+            hiddenStates, topkIdx, topkWeight, ffnWeight1, ffnWeight2, ffnWeight3, nRoutedExperts);
     }
 }
 
-TEST_F(FunctionTest, test_deepseekMoEInfer_singleout_2) {
-    config::SetPlatformConfig(KEY_ONLY_HOST_COMPILE, true);
+TEST_F(FunctionTest, test_deepseekMoEInfer_singleout_2)
+{
+    config::SetHostOption(COMPILE_STAGE, CS_EXECUTE_GRAPH);
 
     int32_t nRoutedExperts = 256;
-    int b = 4; // 32
-    int s = 1;  // 1, optimize set_tile
+    int b = 4;                                                                 // 32
+    int s = 1;                                                                 // 1, optimize set_tile
     int h = std::get<int>(deepseekConfig1["hiddenSize"]);
     int numExpertsPerTok = std::get<int>(deepseekConfig1["numExpertsPerTok"]); // 8
 
@@ -982,7 +855,7 @@ TEST_F(FunctionTest, test_deepseekMoEInfer_singleout_2) {
     Tensor sortedTokens(DataType::DT_FP32, {b * s * numExpertsPerTok, h}, "sortedTokens");
     Tensor idxs(DataType::DT_INT32, {b * s * numExpertsPerTok}, "idxs");
 
-    Tensor finalout(DataType::DT_FP32, { b*s, h }, "finalout");
+    Tensor finalout(DataType::DT_FP32, {b * s, h}, "finalout");
 
     TileShape::Current().SetCubeTile({std::min(128, b * s), std::min(128, b * s)}, {64, 64}, {64, 64});
     TileShape::Current().SetVecTile(64, nRoutedExperts); // for Assemble
@@ -991,14 +864,17 @@ TEST_F(FunctionTest, test_deepseekMoEInfer_singleout_2) {
     Tensor topkIdx = Tensor(DataType::DT_INT32, topKShape, "topkIdx");
     Tensor topkWeight = Tensor(DataType::DT_FP32, topKShape, "topkWeight");
 
-    FUNCTION("MOE_INFER_F") {
-        finalout = deepseekMoEInfer.MoeInfer(hiddenStates, topkIdx, topkWeight, ffnWeight1, ffnWeight2,
-            ffnWeight3, idxs, sortedTokens, outs, nRoutedExperts);
+    FUNCTION("MOE_INFER_F")
+    {
+        finalout = deepseekMoEInfer.MoeInfer(
+            hiddenStates, topkIdx, topkWeight, ffnWeight1, ffnWeight2, ffnWeight3, idxs, sortedTokens, outs,
+            nRoutedExperts);
     }
 }
 
-TEST_F(FunctionTest, test_deepseekMoEInfer_singleout_singlemlp) {
-    config::SetPlatformConfig(KEY_ONLY_HOST_COMPILE, true);
+TEST_F(FunctionTest, test_deepseekMoEInfer_singleout_singlemlp)
+{
+    config::SetHostOption(COMPILE_STAGE, CS_EXECUTE_GRAPH);
 
     int32_t nRoutedExperts = 256;
     int b = 4;
@@ -1009,15 +885,15 @@ TEST_F(FunctionTest, test_deepseekMoEInfer_singleout_singlemlp) {
 
     DeepseekV2MoE deepseekMoEInfer(deepseekConfig1);
 
-    std::vector<int64_t> hiddenStatesShape = { b* s, h };
-    std::vector<int64_t> topKShape = { b* s, numExpertsPerTok };
-    std::vector<int64_t> resShape = { b* s, numExpertsPerTok };
+    std::vector<int64_t> hiddenStatesShape = {b * s, h};
+    std::vector<int64_t> topKShape = {b * s, numExpertsPerTok};
+    std::vector<int64_t> resShape = {b * s, numExpertsPerTok};
 
     Tensor ffnWeight1(DT_FP16, {h, weightN}, "ffnWeight1");
     Tensor ffnWeight2(DT_FP16, {h, weightN}, "ffnWeight2");
-    Tensor ffnWeight3(DT_FP16, {h, weightN},"ffnWeight3");
+    Tensor ffnWeight3(DT_FP16, {h, weightN}, "ffnWeight3");
 
-    Tensor finalout(DT_FP32, { b*s, h }, "finalout");
+    Tensor finalout(DT_FP32, {b * s, h}, "finalout");
 
     TileShape::Current().SetCubeTile({64, 64}, {64, 64}, {64, 64});
     TileShape::Current().SetVecTile(64, nRoutedExperts); // for Assemble
@@ -1026,13 +902,16 @@ TEST_F(FunctionTest, test_deepseekMoEInfer_singleout_singlemlp) {
     Tensor topkIdx = Tensor(DT_INT32, topKShape, "topkIdx");
     Tensor topkWeight = Tensor(DT_FP32, topKShape, "topkWeight");
 
-    FUNCTION("MOE_INFER_F") {
-            finalout = deepseekMoEInfer.MoeInferSingleMlp(hiddenStates, topkIdx, topkWeight, ffnWeight1, ffnWeight2, ffnWeight3, nRoutedExperts);
+    FUNCTION("MOE_INFER_F")
+    {
+        finalout = deepseekMoEInfer.MoeInferSingleMlp(
+            hiddenStates, topkIdx, topkWeight, ffnWeight1, ffnWeight2, ffnWeight3, nRoutedExperts);
     }
 }
 
-TEST_F(FunctionTest, test_deepseekMoEInfer_singleout_singlemlp_withquant) {
-    config::SetPlatformConfig(KEY_ONLY_HOST_COMPILE, true);
+TEST_F(FunctionTest, test_deepseekMoEInfer_singleout_singlemlp_withquant)
+{
+    config::SetHostOption(COMPILE_STAGE, CS_EXECUTE_GRAPH);
 
     int32_t nRoutedExperts = 256;
     int b = 4;
@@ -1043,9 +922,9 @@ TEST_F(FunctionTest, test_deepseekMoEInfer_singleout_singlemlp_withquant) {
 
     DeepseekV2MoE deepseekMoEInfer(deepseekConfig1);
 
-    std::vector<int64_t> hiddenStatesShape = { b* s, h };
-    std::vector<int64_t> topKShape = { b* s, numExpertsPerTok };
-    std::vector<int64_t> resShape = { b* s, numExpertsPerTok };
+    std::vector<int64_t> hiddenStatesShape = {b * s, h};
+    std::vector<int64_t> topKShape = {b * s, numExpertsPerTok};
+    std::vector<int64_t> resShape = {b * s, numExpertsPerTok};
 
     Tensor ffnWeight1(DT_INT8, {h, weightN}, "ffnWeight1", TileOpFormat::TILEOP_NZ);
     Tensor ffnWeight2(DT_INT8, {h, weightN}, "ffnWeight2", TileOpFormat::TILEOP_NZ);
@@ -1054,7 +933,7 @@ TEST_F(FunctionTest, test_deepseekMoEInfer_singleout_singlemlp_withquant) {
     Tensor ffnwight2Scale(DT_FP32, {1, weightN}, "ffnwight2Scale");
     Tensor ffnwight3Scale(DT_FP32, {h, 1}, "ffnwight3Scale");
 
-    Tensor finalout(DT_FP32, { b*s, h }, "finalout");
+    Tensor finalout(DT_FP32, {b * s, h}, "finalout");
 
     TileShape::Current().SetCubeTile({64, 64}, {64, 64}, {64, 64});
     TileShape::Current().SetVecTile(64, nRoutedExperts); // for Assemble
@@ -1063,16 +942,20 @@ TEST_F(FunctionTest, test_deepseekMoEInfer_singleout_singlemlp_withquant) {
     Tensor topkIdx = Tensor(DT_INT32, topKShape, "topkIdx");
     Tensor topkWeight = Tensor(DT_FP32, topKShape, "topkWeight");
 
-    FUNCTION("MOE_INFER_F") {
-            finalout = deepseekMoEInfer.MoeInferSingleMlpQuant(hiddenStates, topkIdx, topkWeight, ffnWeight1, ffnWeight2, ffnWeight3,  ffnwight1Scale, ffnwight2Scale, ffnwight3Scale, nRoutedExperts);
+    FUNCTION("MOE_INFER_F")
+    {
+        finalout = deepseekMoEInfer.MoeInferSingleMlpQuant(
+            hiddenStates, topkIdx, topkWeight, ffnWeight1, ffnWeight2, ffnWeight3, ffnwight1Scale, ffnwight2Scale,
+            ffnwight3Scale, nRoutedExperts);
     }
 }
 
-TEST_F(FunctionTest, Test_quant) {
-    config::SetPlatformConfig(KEY_ONLY_HOST_COMPILE, true);
+TEST_F(FunctionTest, Test_quant)
+{
+    config::SetHostOption(COMPILE_STAGE, CS_EXECUTE_GRAPH);
 
-    std::vector<int64_t> vecTileShape  = {128, 128};
-    int b = 32;  // 32
+    std::vector<int64_t> vecTileShape = {128, 128};
+    int b = 32; // 32
     int s = 1;  // 1, optimize set_tile
     int h = 7168;
     std::cout << "Test_deepseekAttention  b,s,h: " << b << ", " << s << ", " << h << std::endl;
@@ -1083,84 +966,55 @@ TEST_F(FunctionTest, Test_quant) {
     TileShape::Current().SetCubeTile({std::min(128, s), std::min(128, s)}, {256, 256}, {64, 64});
     TileShape::Current().SetVecTile(1, vecTileShape[0], vecTileShape[1]); // for Assemble
 
-    FUNCTION("A") {
-        res = std::get<0>(Quant(input));
-    }
-
-    ALOG_INFO(Program::GetInstance().Dump());
+    FUNCTION("A") { res = std::get<0>(Quant(input)); }
 }
 
-TEST_F(FunctionTest, Test_ScalarOp) {
-    config::SetPlatformConfig(KEY_ONLY_HOST_COMPILE, true);
+TEST_F(FunctionTest, Test_ScalarOp)
+{
+    config::SetHostOption(COMPILE_STAGE, CS_EXECUTE_GRAPH);
 
     std::vector<int64_t> shape = {128, 32};
     TileShape::Current().SetVecTile({128, 32});
     Tensor input_a(DT_FP32, shape, "A");
-    auto output = Tensor(DT_FP32, shape, "res"); // std::make_tuple(Tensor(DT_FP32, shape, "res"), Tensor(DT_FP32, shape, "resDics"));
+    auto output = Tensor(
+        DT_FP32, shape, "res"); // std::make_tuple(Tensor(DT_FP32, shape, "res"), Tensor(DT_FP32, shape, "resDics"));
     config::SetBuildStatic(true);
-    FUNCTION("ScalarAddS") {
+    FUNCTION("ScalarAddS")
+    {
         auto a = ScalarAddS(input_a, Element(DataType::DT_FP32, F_127), true);
         auto b = ScalarSubS(a, Element(DataType::DT_FP32, F_127), true);
         auto c = ScalarMulS(b, Element(DataType::DT_FP32, F_127), true);
         auto d = ScalarDivS(c, Element(DataType::DT_FP32, F_127), true);
         output = ScalarMaxS(d, Element(DataType::DT_FP32, F_127), true);
     }
-
-    ALOG_INFO(Program::GetInstance().Dump());
 }
 
-TEST_F(FunctionTest, TestPad) {
-    config::SetPlatformConfig(KEY_ONLY_HOST_COMPILE, true);
+TEST_F(FunctionTest, TestPad)
+{
+    config::SetHostOption(COMPILE_STAGE, CS_EXECUTE_GRAPH);
     std::vector<int64_t> shape{8, 16};
-    std::vector<int64_t> newShape{8, 24};
     Tensor a(DT_FP32, shape, "a");
     Tensor b;
     TileShape::Current().SetVecTile(8, 8);
 
     config::SetBuildStatic(true);
-    FUNCTION("Pad") {
-        b = Pad(a, newShape);
-    }
-    ALOG_INFO(Program::GetInstance().Dump());
+    FUNCTION("Pad") { b = Pad(a, {0, 0, 0, 8}, "constant"); }
 }
 
-TEST_F(FunctionTest, Test_quantMM) {
-    config::SetPlatformConfig(KEY_ONLY_HOST_COMPILE, true);
-
-    std::vector<int64_t> vecTileShape  = {32, 512};
-    int m = 128;
-    int k = 16384;
-    int n = 7168;
-
-    Tensor inputA = Tensor(DT_BF16, {m, k}, "inputA");
-    Tensor inputW = Tensor(DT_INT8, {k, n}, "inputW");
-    Tensor inputScaleW = Tensor(DT_FP32, {1, n}, "inputScaleW");
-    Tensor res;
-
-    TileShape::Current().SetCubeTile({32, 32}, {128, 128}, {128, 128});
-    TileShape::Current().SetVecTile(32, 64); // for Assemble
-
-    FUNCTION("A") {
-        res = npu::tile_fwk::Matrix::QuantMM(inputA, inputW, inputScaleW);
-    }
-}
-
-TEST_F(FunctionTest, TestRmsNorm) {
-
+TEST_F(FunctionTest, TestRmsNorm)
+{
     std::vector<int64_t> shapea{8, 16};
     std::vector<int64_t> shapeb{16};
     Tensor a(DT_FP32, shapea, "a");
     Tensor b(DT_FP32, shapeb, "b");
     Tensor c;
     TileShape::Current().SetVecTile(8, 8);
-    FUNCTION("RmsNorm") {
-        c = RmsNorm(a, b, 1e-5f);
-    }
-    ALOG_INFO(Program::GetInstance().Dump());
+    FUNCTION("RmsNorm") { c = RmsNorm(a, b, 1e-5f); }
 }
 
-TEST_F(FunctionTest, dynamic_pa_low_lantency) {
-    config::SetPlatformConfig(KEY_ONLY_HOST_COMPILE, true);
+TEST_F(FunctionTest, dynamic_pa_low_lantency)
+{
+    config::SetHostOption(COMPILE_STAGE, CS_EXECUTE_GRAPH);
     std::vector<int64_t> input_param = {4, 1, 32, 1, 512, 64, 128, 32};
     int b = input_param[0];
     int sq = input_param[1];
@@ -1199,7 +1053,8 @@ TEST_F(FunctionTest, dynamic_pa_low_lantency) {
     Tensor actSeqs(DT_INT32, {b}, "actSeqs");
     Tensor paOut(DT_FP32, {b * nq * sq, dn}, "paOut");
 
-    PageAttention(qNope, kNopeCache, vNopeCache, qRope, kRopeCache, blockTable, actSeqs, blockSize, softmaxScale, paOut,
+    PageAttention(
+        qNope, kNopeCache, vNopeCache, qRope, kRopeCache, blockTable, actSeqs, blockSize, softmaxScale, paOut,
         tileConfig);
 
     auto mainFunc = Program::GetInstance().GetFunctionByMagicName("TENSOR_main_2");
@@ -1254,11 +1109,15 @@ TEST_F(FunctionTest, dynamic_pa_low_lantency) {
 #endif
 }
 
-
-template <typename T = npu::tile_fwk::float16, typename wDtype = int8_t, bool splitK = false, bool nz = true,
-    bool isSmooth = true, bool usePrefetch = true>
-void TestMlaPrologV2(const SimpleParams &params) {
-    pre();
+template <
+    typename T = npu::tile_fwk::float16, bool codegen = true, typename wDtype = int8_t, bool splitK = false,
+    bool nz = true, bool isSmooth = true, bool usePrefetch = true>
+void TestMlaPrologV2(const SimpleParams& params)
+{
+    if constexpr (codegen) {
+    } else {
+        config::SetHostOption(COMPILE_STAGE, CS_EXECUTE_GRAPH);
+    }
 
     int b = params.b;
     int s = params.s;
@@ -1326,10 +1185,10 @@ void TestMlaPrologV2(const SimpleParams &params) {
     Tensor output_q_rope(dType, q_rope_out_shape, "output_q_rope");
 
     RoPETileShapeConfigNew ropeConfig{
-        {b, 1, 64}, // (b,s,d)
-        {b, 1, 1, 64}, // Q (b,s,n,d)
-        {b, 1, 1, 64}, // K (b,s,1,d)
-        {b, 1, 1, 32, 2}  // (b,s,n,d//2,2)
+        {b, 1, 64},      // (b,s,d)
+        {b, 1, 1, 64},   // Q (b,s,n,d)
+        {b, 1, 1, 64},   // K (b,s,1,d)
+        {b, 1, 1, 32, 2} // (b,s,n,d//2,2)
     };
 
     MlaQuantInputs quantInputs;
@@ -1339,25 +1198,22 @@ void TestMlaPrologV2(const SimpleParams &params) {
             quantInputs.smoothScalesCq = smooth_cq;
         }
     }
-    config::SetPassConfig("PVC2_OOO", "InferMemoryConflict", "DISABLE_PASS", true);
-    MlaProlog(x, wDq, wUqQr, wUk, wDkvKr, gamma_cq, gamma_ckv, sin, cos, kv_len, kv_cache, kr_cache, quantInputs,
-        ropeConfig, output_q, output_q_rope, output_kv_cache, output_kr_cache, 1e-5f, 1e-5f, params.cacheMode, splitK,
-        isSmooth);
+    config::SetPassConfig("PVC2_OOO", "InferMemoryConflict", KEY_DISABLE_PASS, true);
+    MlaProlog(
+        x, wDq, wUqQr, wUk, wDkvKr, gamma_cq, gamma_ckv, sin, cos, kv_len, kv_cache, kr_cache, quantInputs, ropeConfig,
+        output_q, output_q_rope, output_kv_cache, output_kr_cache, 1e-5f, 1e-5f, params.cacheMode, splitK, isSmooth);
 }
 
-TEST_F(FunctionTest, low) {
-    TestMlaPrologV2<npu::tile_fwk::float16>(SimpleParams::getLowParams());
-}
-TEST_F(FunctionTest, low_PAND) {
-    config::SetPlatformConfig(KEY_ONLY_HOST_COMPILE, true);
+TEST_F(FunctionTest, low) { TestMlaPrologV2<npu::tile_fwk::float16>(SimpleParams::getLowParams()); }
+TEST_F(FunctionTest, low_PAND)
+{
     npu::tile_fwk::SimpleParams params = SimpleParams::getLowParams();
     params.cacheMode = "PA_BSND";
-    TestMlaPrologV2<npu::tile_fwk::float16, int8_t, true>(params);
+    TestMlaPrologV2<npu::tile_fwk::float16, false, int8_t, true>(params);
 }
 
-TEST_F(FunctionTest, dynamic_page_attention_adds) {
-    config::SetHostOption(ONLY_CODEGEN, true);
-
+TEST_F(FunctionTest, dynamic_page_attention_adds)
+{
     config::SetPlatformConfig(KEY_ENABLE_AIHAC_BACKEND, true);
     std::vector<uint8_t> devProgBinary;
 
@@ -1399,13 +1255,13 @@ TEST_F(FunctionTest, dynamic_page_attention_adds) {
     Tensor postOut(DT_FP32, {b * nq * sq, dn}, "postOut");
 
     int maxUnrollTimes = 1;
-    PageAttentionAddS(qNope, kNopeCache, vNopeCache, qRope, kRopeCache, blockTable, actSeqs, blockSize, softmaxScale, paOut, postOut,
+    PageAttentionAddS(
+        qNope, kNopeCache, vNopeCache, qRope, kRopeCache, blockTable, actSeqs, blockSize, softmaxScale, paOut, postOut,
         tileConfig, maxUnrollTimes);
 }
 
-TEST_F(FunctionTest, dynamic_page_attention_adds_single_single_out) {
-    config::SetHostOption(ONLY_CODEGEN, true);
-
+TEST_F(FunctionTest, dynamic_page_attention_adds_single_single_out)
+{
     config::SetPlatformConfig(KEY_ENABLE_AIHAC_BACKEND, true);
     std::vector<uint8_t> devProgBinary;
 
@@ -1447,6 +1303,7 @@ TEST_F(FunctionTest, dynamic_page_attention_adds_single_single_out) {
     Tensor postOut(DT_FP32, {b * nq * sq, dn}, "postOut");
 
     int maxUnrollTimes = 1;
-    PageAttentionAddSSingleOutput(qNope, kNopeCache, vNopeCache, qRope, kRopeCache, blockTable, actSeqs, blockSize, softmaxScale, paOut, postOut,
+    PageAttentionAddSSingleOutput(
+        qNope, kNopeCache, vNopeCache, qRope, kRopeCache, blockTable, actSeqs, blockSize, softmaxScale, paOut, postOut,
         tileConfig, maxUnrollTimes);
 }

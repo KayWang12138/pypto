@@ -21,9 +21,10 @@
 #include "interface/utils/file_utils.h"
 
 namespace npu::tile_fwk {
-std::string CodeGenCCE::GetEmitPath(const std::string &name) {
+std::string CodeGenCCE::GetEmitPath(const std::string& name)
+{
     std::string dirPath;
-    if (npu::tile_fwk::ConfigManager::Instance().GetCodeGenConfig(KEY_FIXED_OUTPUT_PATH, false)) {
+    if (ConfigManager::Instance().GetCodeGenConfig(KEY_FIXED_OUTPUT_PATH, false)) {
         dirPath = name;
     } else {
         dirPath = config::LogTopFolder() + "/" + name;
@@ -31,42 +32,45 @@ std::string CodeGenCCE::GetEmitPath(const std::string &name) {
     return dirPath;
 }
 
-void CodeGenCCE::PrepareOutputPath() {
+void CodeGenCCE::PrepareOutputPath()
+{
     if (ctx.IsCCEPathEmpty() || !IsPathExist(ctx.cceDir)) {
         PrepareDefaultOutputPath();
     }
 }
 
-void CodeGenCCE::PrepareDefaultOutputPath() {
+void CodeGenCCE::PrepareDefaultOutputPath()
+{
     if (ctx.IsCCEPathEmpty()) {
         ctx.cceDir = GetEmitPath("kernel_aicore");
     };
     CreateMultiLevelDir(ctx.cceDir);
 }
 
-std::map<int, int> GenRealizeIdMap(const SubfuncParam &subFuncParam) {
-    auto &tensorInvokeArgs = subFuncParam.tensorsArgs_;
-    auto &incastInvokeArgs = subFuncParam.inCastArgs_;
-    auto &outcastInvokeArgs = subFuncParam.outCastArgs_;
+std::map<int, int> GenRealizeIdMap(const SubfuncParam& subFuncParam)
+{
+    auto& tensorInvokeArgs = subFuncParam.tensorsArgs_;
+    auto& incastInvokeArgs = subFuncParam.inCastArgs_;
+    auto& outcastInvokeArgs = subFuncParam.outCastArgs_;
 
     std::map<int, int> idMap;
-    auto f = [&idMap](size_t offset, auto &invokeArgs) {
-        ALOG_INFO_F("start offset is %d, arg size is %d", offset, invokeArgs.size());
+    auto f = [&idMap](size_t offset, auto& invokeArgs) {
+        CODEGEN_LOGI("start offset is %zu, arg size is %zu", offset, invokeArgs.size());
         for (size_t i = 0; i < invokeArgs.size(); i++) {
             size_t paramOff = (offset + i);
             uint32_t paramLoc = invokeArgs[i].paramLoc;
-            ALOG_DEBUG("paramLoc ", paramLoc, " --> offset ", paramOff);
-            ALOG_INFO_F(" paramLoc is %d, paramOff is %d, SymDDRId is %d, SymName is %s", paramLoc, paramOff,
+            CODEGEN_LOGI(
+                " paramLoc is %u, paramOff is %zu, SymDDRId is %d, SymName is %s", paramLoc, paramOff,
                 invokeArgs[i].symDDRId, invokeArgs[i].symName.c_str());
             idMap.insert({paramLoc, paramOff});
         }
     };
 
-    ALOG_INFO_F("---  start tensorInvokeArgs paramLoc map ---- ");
+    CODEGEN_LOGI("---  start tensorInvokeArgs paramLoc map ---- ");
     f(0, tensorInvokeArgs);
-    ALOG_INFO_F("---  start incastInvokeArgs paramLoc map ---- ");
+    CODEGEN_LOGI("---  start incastInvokeArgs paramLoc map ---- ");
     f(tensorInvokeArgs.size(), incastInvokeArgs);
-    ALOG_INFO_F("---  start outcastInvokeArgs paramLoc map ---- ");
+    CODEGEN_LOGI("---  start outcastInvokeArgs paramLoc map ---- ");
     f(tensorInvokeArgs.size() + incastInvokeArgs.size(), outcastInvokeArgs);
     return idMap;
 }
